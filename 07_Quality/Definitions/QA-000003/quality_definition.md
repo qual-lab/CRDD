@@ -1,5 +1,13 @@
 # QA-000003 Project実行と回復の検証定義
 
+## 要求前終了とHost回収の分離
+
+PRL-UT-006の実モデル試験は、資源記録なしの終了準備について、Lease保持／解放の両方と元失敗の有無・Command観測の欠測／nullを対照する。元失敗と回復参照を保持し、失敗消去・開始済み／不明・送信／共有書込み・Owner活動／不明・Command取得／応答／Receiptの各反証を拒否する。資源判定の成功をHome解放・Host回収・結果確定へ換算しない。
+
+## 受動診断のHost作成撤去
+
+既存PRL-UT-014の実宣言試験で、省略・明示受動・観測例外ではHost作成・清掃を呼ばず、元例外を保持することを確認する。明示隔離だけ元Operationと同じSignalをProbeへ渡して完了を待ち、初期化失敗の元回復参照と表示境界を維持する。診断改訂17の`filesystem.policy: null`、未要求Directoryの`not_implemented`と既存順位置のblockerを固定し、readinessを緩和しない。実Namespace未作成の検証はERB-IT-003を正本とし、有限代役だけから実Filesystem・実Dockerの成立を主張しない。
+
 ## Coverage集計と残る循環依存の是正 — 2026-11-18
 
 ERB-IT-001は同名でも別定義位置のFNを区別し、FNDAの同名出現数、FNF／FNHと実件数を照合する。同じ位置の重複、未知名、欠測、余剰、総数・covered不整合の拒否を保持し、FNDAを定義位置へ推測対応させない。退役したProvider Authority専用Coverage集計を継続義務にせず、現役の共有LCOV解析と各Ownerの回帰を区別する。集計成功を未到達分岐のPassへ置き換えない。
@@ -62,7 +70,7 @@ PRL-IT-012の追加一例は、既存の合成技術Operationと確認済み履�
 
 ## 再計画・再試行のモデルOwner接続 — 2026-11-18
 
-PRL-UT-006の生存依存Taskがある場合の部分再計画拒否は、assertを保持してEMのsnapshot-typesへ移す。再試行回数と置換済みTask数の別上限、元世代、初期化対象、部分再計画だけのEvidence消去、Path拒否・定義順・直後再送をモデル側で確認する。PRL-IT-005の既存三結合試験は分類・人間判断・保存とQueueの順序、兄弟定義・Definition Hash・履歴保持を維持し、再送時の保存bytes／世代不変を追加する。PRL-UT-014は成功情報の欠測・別Task・別Project／世代・ProxyでもQueueを進めず、保存後不明・清掃未確認・手動確認必要を返すことを有限Portで確認する。既存試験の退役や実AI／Docker成功への換算は行わない。
+PRL-UT-006の生存依存Taskによる部分再計画拒否、再試行回数と置換済みTask数の別上限、元世代、初期化対象、部分再計画のEvidence消去、Path・定義順・直後再送はEMの既存snapshot-types試験で維持する。本番未接続だったCoordinator Classifierと専用の候補形・偽成功metadata試験は退役し、撤去をPassに数えない。PRL-IT-005の既存結合試験は明示task_retry／task_replanをEM完成保存へ直接渡し、保存後のQueue、兄弟定義、Definition Hash、履歴、再送bytes／世代不変を確認する。人間判断は現役Decisionのrequest／answerで確認し、自動分類・自動再開を追加しない。Workspaceの保存Portと浅いState投影Helperの撤去では、既存EMの同Identity再送・異内容拒否、世代・Lease・保存不明の検証を維持する。限定試験を実AI・Docker・全体回帰の成立へ換算しない。
 
 ## Objective結果の完成受付
 
@@ -168,7 +176,7 @@ Source診断・表示の独自容量／取得件数／切詰めを撤去した�
 
 ## Coordinator借用Treeの独自容量・件数制限撤去
 
-既存RFD-IT-013へ、実File64MiB超・70段／全Path1,024byte超、整合したFilesystem代役による20,002 File・合計256MiB超の全量観測とdescriptor終了を接続する。変更1,001件・許可Path65件を候補生成／終了観測へ搬送し、Reviewerの256File／1MiB超本文も全量取得する。PRL-UT-014では実準備宣言・要求捕捉の後段検査へ同じPath集合とReviewer内容を渡し、Hash・総byte数・文法・Accessor不正を拒否する。Domain保存値の既存CPR-UT-009では終了観測と候補lastResultの1,001 Path・長Pathの保持を反証する。Link・実体変更・未知Capability・内容差・Secret・清掃不明の既存負例は維持する。別Git固定候補selection、受信制限、署名予算、子Process出力／Timeoutは対象外。Runtime／OSの限界と致命的OOM等の結果返却非保証を明記し、局所成功を全体回帰・実AI／Docker E2E・正式項目全体のPassへ拡張しない。
+既存RFD-IT-013へ、実File64MiB超・70段／全Path1,024byte超、整合したFilesystem代役による20,002 File・合計256MiB超の全量観測とdescriptor終了を接続する。大量条件は本番のGit選択本文と有限なVC応答で全件を選択し、実File読取り本文と実descriptorの代役で全byte読取り・終了を確認する。File数倍の実Git起動や旧Inventoryの復元は行わず、大量条件の局所成立を実Commit成立とは表示しない。変更1,001件・許可Path65件の実Git候補生成／終了観測とReviewerの256File／1MiB超本文取得は別の実境界として維持する。開始固定Commitは元HEADとOIDを同一視せず、内容同一と候補のexact基準を別々に確認する。Git一覧に残るtracked削除はFile読取りの明示削除Selectionへ接続し、基準にも現在にも存在しないPathと区別する。PRL-UT-014では実準備宣言・要求捕捉の後段検査へ同じPath集合とReviewer内容を渡し、Hash・総byte数・文法・Accessor不正を拒否する。Domain保存値の既存CPR-UT-009では終了観測と候補lastResultの1,001 Path・長Pathの保持を反証する。Link・実体変更・未知Capability・内容差・Secret・清掃不明の既存負例は維持する。試験Rootの清掃は自己生成Hostを全件逆順に処置し、失敗を集約・保全して全確認後だけRootを削除する。受信制限、署名予算、子Process出力／Timeoutは対象外。Runtime／OSの限界と致命的OOM等の結果返却非保証を明記し、局所成功を全体回帰・実AI／Docker E2E・正式項目全体のPassへ拡張しない。
 
 ## 判断・阻害条件・履歴の統合候補 — 実装中
 

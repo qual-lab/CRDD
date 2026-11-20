@@ -284,9 +284,9 @@ process.exitCode=0;`,
  * @responsibility 実CLIのprivate関数本文へ読取り故障だけを注入して停止条件を反証する。
  * @trace ERB-IT-003
  * @precondition 実入口の正常搬送は現在状態Filesystem試験で別確認する。
- * @stimulus Reader欠測・解放不明・複数一致・ID差・Host／Probe用途差を与える。Root拒否はCLI分岐試験で確認する。
+ * @stimulus Reader欠測・解放不明・複数一致・ID差・Host／Probe用途差とRoot拒否を与える。
  * @observation Root返却値と読取り回数。
- * @oracle 正常だけexact Rootを返し、故障はいずれもnull。Reader成功だけを処置Authorityにしない。
+ * @oracle exact HostだけRootを返し、欠測はnull、Reader例外は外側の拒否境界へ伝播する。Reader成功だけを処置Authorityにしない。
  * @cleanup N/A: VM内の局所値とSource読取りだけで資源を生成しない。
  * @boundary ERB-IT-003=Direct Boundary: 実関数本文のReader故障注入。実Kernel／CLI起動の証明には使用しない。
  */
@@ -302,8 +302,15 @@ test("CLI回復先は読取り欠測と排他解放不明を拒否する", () =>
   const end = source.indexOf("\n/**", start);
   assert.ok(end > start);
   const body = stripTypeScriptTypes(source.slice(start, end));
-  const id = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
-  const expectedRoot = path.resolve("crdd-coordinator-doctor-fixture");
+  const operationId = "OP-123";
+  const id = `host-operation.${operationId}`;
+  const repositoryRoot = path.resolve("fixture-repository");
+  const expectedRoot = path.join(
+    repositoryRoot,
+    ".crdd",
+    "operations",
+    operationId,
+  );
   const valid = {
     status: "completed",
     lockReleased: true,
@@ -311,12 +318,10 @@ test("CLI回復先は読取り欠測と排他解放不明を拒否する", () =>
       snapshot: {
         operations: [
           {
-            kind: "docker_task",
-            identityJson: JSON.stringify({
-              hostPaths: { root: expectedRoot },
-              operationMode: "isolated_task",
-            }),
-            host: { currentToken: id },
+            kind: "host_operation",
+            operationId,
+            recoveryId: id,
+            purpose: "task",
           },
         ],
       },
@@ -329,9 +334,10 @@ test("CLI回復先は読取り欠測と排他解放不明を拒否する", () =>
     "missing",
     "throw",
     "multiple",
-    "wrong_token",
+    "wrong_id",
     "probe",
-    "probe_wrong_mode",
+    "wrong_kind",
+    "root_invalid",
     "bad_id",
   ]) {
     let reads = 0;
@@ -340,6 +346,12 @@ test("CLI回復先は読取り欠測と排他解放不明を拒否する", () =>
       `${body}\nresolveRuntimeOwnedCurrentRecoveryOperationRoot`,
       {
         path,
+        borrowRuntimeOwnedCoordinatorRecoveryRepository: (
+          received: unknown,
+        ) => {
+          assert.equal(received, capability);
+          return fault === "root_invalid" ? null : { repositoryRoot };
+        },
         readState: (received: unknown) => {
           assert.equal(received, capability);
           reads += 1;
@@ -359,7 +371,7 @@ test("CLI回復先は読取り欠測と排他解放不明を拒否する", () =>
                 },
               },
             };
-          if (fault === "wrong_token")
+          if (fault === "wrong_id" || fault === "wrong_kind")
             return {
               ...valid,
               value: {
@@ -367,7 +379,11 @@ test("CLI回復先は読取り欠測と排他解放不明を拒否する", () =>
                   operations: [
                     {
                       ...valid.value.snapshot.operations[0],
-                      host: { currentToken: `${id}-other` },
+                      recoveryId: fault === "wrong_id" ? `${id}-other` : id,
+                      kind:
+                        fault === "wrong_kind"
+                          ? "docker_task"
+                          : "host_operation",
                     },
                   ],
                 },
@@ -381,10 +397,7 @@ test("CLI回復先は読取り欠測と排他解放不明を拒否する", () =>
                   operations: [
                     {
                       ...valid.value.snapshot.operations[0],
-                      identityJson: JSON.stringify({
-                        hostPaths: { root: expectedRoot },
-                        operationMode: "boolean_probe",
-                      }),
+                      purpose: "isolation_probe",
                     },
                   ],
                 },
@@ -394,18 +407,17 @@ test("CLI回復先は読取り欠測と排他解放不明を拒否する", () =>
         },
       },
     );
-    assert.equal(
-      resolve(
-        fault === "bad_id"
-          ? "host.invalid"
-          : fault.startsWith("probe")
-            ? id.replace(/^host\./u, "docker.")
-            : id,
-        capability,
-      ),
-      fault === "none" || fault === "probe" ? expectedRoot : null,
-    );
-    assert.equal(reads, fault === "bad_id" ? 0 : 1);
+    if (fault === "throw")
+      assert.throws(
+        () => resolve(id, capability),
+        /reader observation failed/u,
+      );
+    else
+      assert.equal(
+        resolve(fault === "bad_id" ? "host.invalid" : id, capability),
+        fault === "none" || fault === "probe" ? expectedRoot : null,
+      );
+    assert.equal(reads, fault === "root_invalid" ? 0 : 1);
   }
 });
 

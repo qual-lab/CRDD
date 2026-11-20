@@ -24,7 +24,7 @@ import {
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createRuntimeProcessRecoveryIdentity } from "../../src/execution/process-safety-state.ts";
-import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
 import {
   createCoordinatorExecutionHostPorts,
   describeCoordinatorExecutionContract,
@@ -67,11 +67,9 @@ for (const mode of [
 ] as const) {
   test(`Task終端保存は確認済みOperationだけを原子的に整理する ${mode}`, async (t) => {
     const { root, input } = fixture(t, [task("task-a")], 1);
-    const persistence = createCurrentCoordinatorPersistencePorts(
-      root,
-      "binding-a",
-    );
+    const persistence = createTestPersistence(root, "binding-a");
     let starts = 0;
+    let fixtureFailure: unknown = null;
     const outcome = await runCoordinatorOperationWithPorts(
       {
         ...createCoordinatorExecutionHostPorts({}),
@@ -104,12 +102,18 @@ for (const mode of [
         runSingleTaskAttempt: async (attempt) => {
           starts += 1;
           const result = await completed(attempt);
-          if (mode !== "none")
-            settleSyntheticOperations(
-              root,
-              attempt.operationId,
-              mode === "many_operations" ? 129 : 2,
-            );
+          if (mode !== "none") {
+            try {
+              settleSyntheticOperations(
+                root,
+                attempt.operationId,
+                mode === "many_operations" ? 129 : 2,
+              );
+            } catch (error) {
+              fixtureFailure = error;
+              throw error;
+            }
+          }
           const area = path.join(root, ".crdd", "domain-model");
           const history = path.join(area, "history.jsonl");
           if (mode === "history_missing") fs.unlinkSync(history);
@@ -135,7 +139,8 @@ for (const mode of [
             const file = path.join(area, "state.json");
             const state = JSON.parse(fs.readFileSync(file, "utf8"));
             for (const operation of state.operations)
-              operation.history.confirmed = false;
+              if (operation.kind === "docker_task")
+                operation.history.confirmed = false;
             fs.writeFileSync(file, `${canonicalJson(state)}\n`);
           }
           return mode === "cancelled"
@@ -146,6 +151,13 @@ for (const mode of [
       input,
     );
     assert.equal(starts, 1);
+    assert.equal(
+      fixtureFailure,
+      null,
+      fixtureFailure instanceof Error
+        ? fixtureFailure.stack
+        : String(fixtureFailure),
+    );
     const confirmed = [
       "normal",
       "many_operations",
@@ -164,7 +176,25 @@ for (const mode of [
       ),
     );
     const committed = confirmed || mode === "save_after_effect";
-    assert.equal(snapshot.operations.length, committed ? 0 : 2);
+    assert.equal(
+      snapshot.operations.filter(
+        (item: { kind: string }) => item.kind === "docker_task",
+      ).length,
+      committed ? 0 : 2,
+    );
+    const hosts = snapshot.operations.filter(
+      (item: { kind: string }) => item.kind === "host_operation",
+    );
+    assert.equal(
+      hosts.length,
+      mode === "none" ? 0 : mode === "many_operations" ? 129 : 2,
+    );
+    assert.ok(
+      hosts.every(
+        (item: { phase: string; cleanup: string }) =>
+          item.phase === "terminal" && item.cleanup === "confirmed",
+      ),
+    );
     for (const key of ["pendingDeliveries", "resultReceipts"])
       assert.equal(Object.hasOwn(snapshot, key), false);
     const stored = persistence.state.readState("project-a");
@@ -229,10 +259,7 @@ function runCoordinatorOperation(
       }),
       persistence:
         persistence ??
-        createCurrentCoordinatorPersistencePorts(
-          workingDirectory,
-          repositoryBindingId,
-        ),
+        createTestPersistence(workingDirectory, repositoryBindingId),
     },
     applicationInput,
   );
@@ -1246,7 +1273,7 @@ test("PR-A-04 releases the physical lease when a post-acquire Queue write become
     before.status === "completed" && before.value.ownerGeneration,
     null,
   );
-  const reconciled = createCurrentCoordinatorPersistencePorts(
+  const reconciled = createTestPersistence(
     root,
     "binding-a",
   ).lease.reconcileOperationOwnerLoss("project-a", "queue-a", () => {
@@ -1457,10 +1484,7 @@ test("開始準備保存後の取消はTaskを委譲せず終了する", async (
   const controller = new AbortController();
   let effects = 0;
   let preparedObserved = false;
-  const persistence = createCurrentCoordinatorPersistencePorts(
-    root,
-    "binding-a",
-  );
+  const persistence = createTestPersistence(root, "binding-a");
   const outcome = await runCoordinatorOperation(
     {
       persistence: {
@@ -1537,10 +1561,7 @@ test("開始候補の輸送不正は各保存境界で後続処理を停止す�
   ] as const) {
     const startedCase = stage.startsWith("started");
     const { root, input } = fixture(t, [task("task-a")], 1);
-    const persistence = createCurrentCoordinatorPersistencePorts(
-      root,
-      "binding-a",
-    );
+    const persistence = createTestPersistence(root, "binding-a");
     let leases = 0,
       queueWrites = 0,
       effects = 0;
@@ -1692,10 +1713,7 @@ test("開始前終端の保存不明は元回復IDを保持する", async (t) =>
   for (const mode of ["save_failed", "metadata_invalid"] as const)
     await t.test(mode, async (subtest) => {
       const { root, input } = fixture(subtest, [task("task-a")], 1);
-      const persistence = createCurrentCoordinatorPersistencePorts(
-        root,
-        "binding-a",
-      );
+      const persistence = createTestPersistence(root, "binding-a");
       let calls = 0;
       let recoveryId: string | null = null;
       const outcome = await runCoordinatorOperationWithPorts(
@@ -1771,10 +1789,7 @@ test("開始前終端の保存不明は元回復IDを保持する", async (t) =>
  */
 test("開始前終端は実在する関連OperationをTaskと同一改訂で整理する", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
-  const persistence = createCurrentCoordinatorPersistencePorts(
-    root,
-    "binding-a",
-  );
+  const persistence = createTestPersistence(root, "binding-a");
   const file = path.join(root, ".crdd/domain-model/state.json");
   let exactRecoveryId: string | null = null;
   let settlements = 0;
@@ -1790,8 +1805,14 @@ test("開始前終端は実在する関連OperationをTaskと同一改訂で整�
               return persistence.state.updateTask(request, generation);
             settlements++;
             const before = JSON.parse(fs.readFileSync(file, "utf8"));
-            assert.equal(before.operations.length, 1);
-            assert.equal(before.operations[0].recoveryId, exactRecoveryId);
+            const beforeHosts = before.operations.filter(
+              (item: { kind: string }) => item.kind === "host_operation",
+            );
+            const beforeOperations = before.operations.filter(
+              (item: { kind: string }) => item.kind === "docker_task",
+            );
+            assert.equal(beforeOperations.length, 1);
+            assert.equal(beforeOperations[0].recoveryId, exactRecoveryId);
             const beforeTask = before.managedExecutions[0].tasks[0];
             assert.equal(beforeTask.state, "starting");
             assert.equal(beforeTask.startPhase, "handoff_prepared");
@@ -1803,7 +1824,7 @@ test("開始前終端は実在する関連OperationをTaskと同一改訂で整�
             assert.equal(saved.status, "completed", saved.reason);
             const after = JSON.parse(fs.readFileSync(file, "utf8"));
             assert.equal(after.revision, before.revision + 1);
-            assert.deepEqual(after.operations, []);
+            assert.deepEqual(after.operations, beforeHosts);
             const afterTask = after.managedExecutions[0].tasks[0];
             assert.equal(afterTask.state, "failed");
             assert.equal(afterTask.startPhase, "settled");

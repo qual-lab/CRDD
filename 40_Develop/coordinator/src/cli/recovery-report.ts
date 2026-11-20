@@ -587,7 +587,7 @@ export function renderDockerRecoveryDoctorReport(
     lines.push(`- 理由: ${reportValue.reason}`);
   if (
     typeof reportValue.recoveryId === "string" &&
-    /^(?:host\.[A-Za-z0-9._-]+|docker\.crdd-coordinator-doctor-[A-Za-z0-9_-]+\.[0-9a-f-]{36}\.[0-9a-f-]{36}\.[0-9a-f]{64}|docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64})$/u.test(
+    /^(?:host-operation\.OP-[0-9]{6,}|docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64})$/u.test(
       reportValue.recoveryId,
     )
   ) {

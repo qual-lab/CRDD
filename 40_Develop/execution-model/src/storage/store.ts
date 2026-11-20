@@ -14,9 +14,9 @@ import {
   registerRepositoryLocalIgnore,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import type { ExecutionOperationRecord } from "../attempt/types.ts";
 import {
   areTaskResourcesSettled,
+  readOperationHost,
   isDockerRestartCheckpointSettled,
   isRepairDisposalSettled,
   parseDockerTaskRecoveryId,
@@ -38,7 +38,6 @@ import type { Snapshot } from "../state/types.ts";
 import {
   classifyResourcePublication,
   decodeStateSnapshot,
-  isInitialOperationHost,
   prepareHistoryRetention,
   prepareRecoveredHistoryPublication,
   prepareRepairHistoryLine,
@@ -48,7 +47,6 @@ import {
   prepareStateCompletionSnapshot,
   prepareStateHistoryLine,
   prepareStateHistorySnapshot,
-  prepareStateHostSnapshot,
   prepareStateRepairCompletionSnapshot,
   projectTaskSnapshot,
 } from "../state/validation.ts";
@@ -1612,7 +1610,6 @@ export function readStateSnapshot(
       > & { operationId?: string })
     | null,
   recoveryId: string | null,
-  hostCleanupRecoveryId: string | null = null,
   currentHistoryRecoveryId: string | null = null,
   currentCompletionRecoveryId: string | null = null,
   currentHistoryKind: "docker_task" | "runtime_repair" = "docker_task",
@@ -1625,7 +1622,6 @@ export function readStateSnapshot(
   }> | null = null,
   storageOwner: StorageOwner | null = null,
   taskPublicationRead: boolean | "history" = false,
-  initialHostRecoveryId: string | null = null,
   includeHistory = false,
 ) {
   /**
@@ -1650,14 +1646,12 @@ export function readStateSnapshot(
       lockReleased,
       value: null,
       operationCompletionConfirmed: false,
-      hostCleanupPublication: null,
       currentHistoryPublication: null,
       repairHistoryState: null,
       currentCompletionPublication: null,
       repairCompletionAbsent: false,
       repairRetentionReviewAfter: null,
       resourcePublication: null,
-      unsubmittedHostRecoveryIds: Object.freeze([] as string[]),
       historyRows: null,
     });
   if (!repository) return blocked("coordinator_state_owner_invalid", true);
@@ -1689,15 +1683,9 @@ export function readStateSnapshot(
       })
     | null = null;
   let historyRows: ReturnType<typeof decodeHistoryRows> = null;
-  let unsubmittedHostRecoveryIds: readonly string[] = Object.freeze([]);
   let resourcePublication: Readonly<{
     before: Buffer;
     candidate: Buffer;
-  }> | null = null;
-  let hostCleanupPublication: Readonly<{
-    before: Buffer;
-    candidate: Buffer;
-    mode: "A" | "B" | "C";
   }> | null = null;
   let reason = "coordinator_state_read_unconfirmed";
   let currentCompletionPublication: Readonly<{
@@ -1775,7 +1763,6 @@ export function readStateSnapshot(
             ]
           : taskPublicationRead ||
               resourcePublicationRecoveryId !== null ||
-              hostCleanupRecoveryId !== null ||
               currentCompletionRecoveryId !== null
             ? ["state.json", "history.jsonl", "state.pending.json"]
             : ["state.json", "history.jsonl"];
@@ -1844,7 +1831,7 @@ export function readStateSnapshot(
       const summary = row ? JSON.parse(row.line).summary : null;
       if (
         !row ||
-        summary.schema !== "crdd-execution-model/operation-summary/v5" ||
+        summary.schema !== "crdd-execution-model/operation-summary/v6" ||
         summary.recoveryCorrelationId !== completedOperation.correlationId
       )
         throw new Error("completion_history_unconfirmed");
@@ -1877,56 +1864,6 @@ export function readStateSnapshot(
         candidate: Buffer.from(pending.bytes),
       });
     }
-    if (hostCleanupRecoveryId !== null) {
-      const operation = decoded.snapshot.operations.find(
-        (item): item is ExecutionOperationRecord =>
-          item.kind === "docker_task" &&
-          item.recoveryId === hostCleanupRecoveryId,
-      );
-      if (
-        !operation ||
-        operation.lease === "released" ||
-        operation.outcome?.cleanupConfirmed === true ||
-        operation.history !== null ||
-        !["pending", "unknown", "confirmed"].includes(operation.host.cleanup) ||
-        operation.host.pendingTransitionJson !== null ||
-        operation.execution.ownerEffect !== "disabled" ||
-        !areTaskResourcesSettled(operation)
-      )
-        throw new Error("host_cleanup_reentry_target_invalid");
-      const current = Buffer.from(`${encodeStateValue(decoded.snapshot)}\n`);
-      const candidate =
-        operation.host.cleanup === "confirmed"
-          ? current
-          : prepareStateHostSnapshot(
-              current,
-              hostCleanupRecoveryId,
-              { ...operation.host, cleanup: "confirmed" },
-              repository.repositoryBinding,
-            );
-      if (!candidate) throw new Error("host_cleanup_reentry_candidate_invalid");
-      if (names.includes("state.pending.json")) {
-        const metadata = fs.lstatSync(pendingFile);
-        if (
-          !metadata.isFile() ||
-          metadata.isSymbolicLink() ||
-          metadata.nlink !== 1
-        )
-          throw new Error("pending_file");
-        pending = readStableFileSnapshot(pendingFile);
-        if (
-          operation.host.cleanup === "confirmed" ||
-          !pending.bytes.equals(candidate)
-        )
-          throw new Error("host_cleanup_reentry_candidate_mismatch");
-      }
-      hostCleanupPublication = Object.freeze({
-        before: current,
-        candidate: Buffer.from(candidate),
-        mode:
-          operation.host.cleanup === "confirmed" ? "C" : pending ? "B" : "A",
-      });
-    }
     const currentPublicationRecoveryId =
       currentHistoryRecoveryId ?? currentCompletionRecoveryId;
     if (
@@ -1937,7 +1874,6 @@ export function readStateSnapshot(
       )
     ) {
       if (
-        hostCleanupRecoveryId !== null ||
         currentHistoryRecoveryId !== null ||
         names.includes("state.pending.json")
       )
@@ -1951,9 +1887,11 @@ export function readStateSnapshot(
           entries.some(
             (item) =>
               item.recoveryId === currentCompletionRecoveryId ||
-              ("identityJson" in item
-                ? JSON.parse(item.identityJson).operationNonce
-                : item.operationNonce) === nonce,
+              ("kind" in item && item.kind === "host_operation"
+                ? item.operationId
+                : "identityJson" in item
+                  ? JSON.parse(item.identityJson).operationNonce
+                  : item.operationNonce) === nonce,
           ),
         )
       )
@@ -2007,7 +1945,6 @@ export function readStateSnapshot(
     }
     if (currentPublicationRecoveryId !== null && !repairCompletionAbsent) {
       if (
-        hostCleanupRecoveryId !== null ||
         [currentHistoryRecoveryId, currentCompletionRecoveryId].filter(
           (value) => value !== null,
         ).length !== 1
@@ -2042,6 +1979,7 @@ export function readStateSnapshot(
         operation.history === null;
       if (
         !operation ||
+        operation.kind === "host_operation" ||
         (operation.kind === "runtime_repair"
           ? (!technicalState &&
               !prepareRepairHistorySummary(
@@ -2056,8 +1994,8 @@ export function readStateSnapshot(
             operation.lease !== "released" ||
             operation.execution.ownerEffect !== "disabled" ||
             !operation.outcome?.cleanupConfirmed ||
-            operation.host.cleanup !== "confirmed" ||
-            operation.host.pendingTransitionJson !== null ||
+            readOperationHost(decoded.snapshot.operations, operation)
+              ?.cleanup !== "confirmed" ||
             !areTaskResourcesSettled(operation) ||
             !isDockerRestartCheckpointSettled(operation.dockerRestart))
       )
@@ -2161,7 +2099,7 @@ export function readStateSnapshot(
           ? decodeStateSnapshot(pending.bytes, repository.repositoryBinding)
           : null;
         const target = pendingState?.snapshot.operations.find(
-          (item) =>
+          (item): item is Exclude<typeof item, { kind: "host_operation" }> =>
             item.kind === expectedKind &&
             item.recoveryId === currentHistoryRecoveryId,
         );
@@ -2280,6 +2218,7 @@ export function readStateSnapshot(
       );
       if (
         !operation ||
+        operation.kind === "host_operation" ||
         typeof repository.operationId !== "string" ||
         JSON.parse(operation.identityJson).operationId !==
           repository.operationId
@@ -2349,18 +2288,6 @@ export function readStateSnapshot(
         .some((name) => !allowedNames.includes(name))
     )
       throw new Error("changed");
-    const initialHostOperation =
-      initialHostRecoveryId === null
-        ? null
-        : decoded.snapshot.operations.find(
-            (operation) => operation.recoveryId === initialHostRecoveryId,
-          );
-    unsubmittedHostRecoveryIds = Object.freeze(
-      initialHostOperation?.kind === "docker_task" &&
-        isInitialOperationHost(initialHostOperation, decoded.snapshot)
-        ? [initialHostOperation.recoveryId]
-        : [],
-    );
     value = Object.freeze({
       ...decoded,
       sourceText: observed.bytes.toString("utf8"),
@@ -2394,14 +2321,12 @@ export function readStateSnapshot(
     ...(borrowedOwner ? { ownerHeld: true as const } : {}),
     value,
     operationCompletionConfirmed,
-    hostCleanupPublication,
     currentHistoryPublication,
     repairHistoryState,
     currentCompletionPublication,
     repairCompletionAbsent,
     repairRetentionReviewAfter,
     resourcePublication,
-    unsubmittedHostRecoveryIds,
     historyRows,
   });
 }
@@ -2430,7 +2355,6 @@ export function readStorageSnapshotOwned(
   if (!binding) return readStateSnapshot(null, null);
   return readStateSnapshot(
     binding.repository,
-    null,
     null,
     null,
     null,

@@ -8,7 +8,6 @@
 import type {
   ObjectivePlan,
   ProjectExecutionState,
-  ProjectTaskDefinition,
 } from "../../../execution-model/src/index.ts";
 import type {
   cancelRuntimeOwnedCoordinatorTask,
@@ -146,67 +145,6 @@ export type CoordinatorObjectiveIntakeDependencies = Readonly<{
   >;
 }> &
   CoordinatorTaskRecoveryHostDependencies;
-
-/**
- * replanningで使用するCoordinator Replan Decisionの値契約を定義する。
- *
- * @responsibility Coordinator Replan DecisionのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorReplanDecisionが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorReplanDecisionで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorReplanDecisionの宣言は外部境界を開かない。
- * @security N/A: CoordinatorReplanDecisionはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorReplanDecisionの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorReplanDecision =
-  | Readonly<{
-      disposition: "partial_replan";
-      failedTaskId: string;
-      replacements: readonly ProjectTaskDefinition[];
-    }>
-  | Readonly<{
-      disposition: "human_decision";
-      objectiveId: string;
-      reason: string;
-    }>
-  | Readonly<{ disposition: "maintain_plan"; reason: string }>;
-
-/**
- * replanningで使用するCoordinator Replan 入力の値契約を定義する。
- *
- * @responsibility Coordinator Replan 入力のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorReplanInputが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorReplanInputで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorReplanInputの宣言は外部境界を開かない。
- * @security N/A: CoordinatorReplanInputはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorReplanInputの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorReplanInput = Readonly<{
-  projectId: string;
-  milestoneId: string;
-  queueId: string;
-  maximumReplans: number;
-}>;
-
-/**
- * replanningで使用するCoordinator Replan Classifierの値契約を定義する。
- *
- * @responsibility Coordinator Replan ClassifierのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorReplanClassifierが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorReplanClassifierで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorReplanClassifierの宣言は外部境界を開かない。
- * @security N/A: CoordinatorReplanClassifierはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorReplanClassifierの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorReplanClassifier = (
-  context: Readonly<{
-    failedTaskIds: readonly string[];
-    generation: number;
-    repositoryRevision: string;
-  }>,
-) => unknown;
 
 /**
  * 呼出し元が各Taskへ明示する非永続の実行内容。

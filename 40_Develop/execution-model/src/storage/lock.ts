@@ -838,17 +838,24 @@ export function observeExecutionTerminalForStorage(
  */
 export function observeExecutionContentRepository(
   access: unknown,
-  operation: Parameters<
-    import("../state/types.ts").ExecutionModelAccess["revalidate"]
-  >[0],
-  target: Readonly<{ projectId: string; milestoneId: string }>,
+  operation:
+    | Parameters<
+        import("../state/types.ts").ExecutionModelAccess["revalidate"]
+      >[0]
+    | "operation.record",
+  target:
+    | Parameters<
+        import("../state/types.ts").ExecutionModelAccess["revalidate"]
+      >[1]
+    | Readonly<{ operationId: string }>,
 ) {
   const root = data(access, "root") as Repository;
-  const principal = data(access, "principalId");
+  const principal =
+    operation === "operation.record" ? undefined : data(access, "principalId");
   const revalidate = data(access, "revalidate");
   if (
-    typeof principal !== "string" ||
-    !principal ||
+    (operation !== "operation.record" &&
+      (typeof principal !== "string" || !principal)) ||
     synchronous(revalidate, operation, target) !== true
   )
     return null;

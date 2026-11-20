@@ -21,6 +21,8 @@ import {
   type IsolationExecution,
   type IsolationExecutionResult,
   type PreparedIsolation,
+  type IsolationRequest,
+  type ResourceTarget,
   prepareIsolation,
 } from "../../../docker-isolation/src/index.ts";
 import { types } from "node:util";
@@ -246,7 +248,7 @@ export function classifyIsolationProbeExecution(
  * 上位の同期保存通知を呼び、誤った非同期返却を許可にしない。
  * @responsibility ACKや新しい通知基盤を追加せず、必要保存の完了境界を維持する。
  * @trace ARCH-000008
- * @input callback: 保存を完了してreturnする通知。value: 作成実ID。
+ * @input callback: 同期保存通知。value: 用途又は実ID。recovery: DI実Snapshotと元回収条件。
  * @returns 正常完了だけ。
  * @precondition 未登録は独立実行で保存不要な場合だけ利用する。
  * @postcondition 誤PromiseのRejectを捕捉し、次Effectを止める。
@@ -254,17 +256,20 @@ export function classifyIsolationProbeExecution(
  * @failure throw・async・値返却を拒否する。
  * @invariant 正常returnを実資源観測の代用にしない。
  * @boundary Executor通知と上位保存。
- * @security Command・所在・Credentialを通知しない。
+ * @security 非秘密の回収情報だけを信頼した上位へ渡し、Credential・Command本文を追加しない。
  * @concurrency 同期通知だけを受け付ける。
  */
 function notify(
-  callback: ((value: string) => void) | undefined,
+  callback:
+    | ((value: string, recovery: ResourceTarget<"snapshot", "cleanup">) => void)
+    | undefined,
   value: string,
+  recovery: ResourceTarget<"snapshot", "cleanup">,
 ): void {
   if (!callback) return;
   if (types.isAsyncFunction(callback))
     throw new Error("docker_probe_notification_invalid");
-  const result: unknown = callback(value);
+  const result: unknown = callback(value, recovery);
   if (result !== undefined) {
     if (types.isPromise(result))
       void Promise.prototype.then.call(result, undefined, () => undefined);
@@ -317,78 +322,85 @@ export function createIsolationProbe(
   )
     return null;
   let prepared: PreparedIsolation | null;
+  let recovery: Omit<ResourceTarget<"snapshot", "cleanup">, "resources">;
   try {
     const mounts = captureMounts(
       Object.getOwnPropertyDescriptor(options, "mounts")?.value,
     );
     const specification = describeIsolationProbeProfile(profile);
-    prepared = prepareIsolation(
-      {
-        managementDirectory: mounts.management,
-        resources: [
-          {
-            kind: "container",
-            key: "probe",
-            name: `crdd-coordinator-probe-${probeId}`,
-            ownershipLabel: `crdd.coordinator.probe=${probeId}`,
-            image: describeIsolationConfiguration().image,
-            argv: ["-c", specification.source],
-            environment: {
-              HOME: "/operation/provider-home",
-              TMPDIR: "/operation/tmp",
+    const plan: IsolationRequest = {
+      managementDirectory: mounts.management,
+      resources: [
+        {
+          kind: "container",
+          key: "probe",
+          name: `crdd-coordinator-probe-${probeId}`,
+          ownershipLabel: `crdd.coordinator.probe=${probeId}`,
+          image: describeIsolationConfiguration().image,
+          argv: ["-c", specification.source],
+          environment: {
+            HOME: "/operation/provider-home",
+            TMPDIR: "/operation/tmp",
+          },
+          mounts: [
+            {
+              source: mounts.workspace,
+              target: "/operation/workspace",
+              readOnly: false,
             },
-            mounts: [
-              {
-                source: mounts.workspace,
-                target: "/operation/workspace",
-                readOnly: false,
-              },
-              {
-                source: mounts.providerHome,
-                target: "/operation/provider-home",
-                readOnly: false,
-              },
-              { source: mounts.tmp, target: "/operation/tmp", readOnly: false },
-            ],
-            network: null,
-            networkAlias: null,
-            user: "65532:65532",
-            workingDirectory: "/operation/workspace",
-            entrypoint: "python",
-            tmpfsBytes: null,
-            interactive: false,
-            tty: false,
-            init: false,
-            seccomp: null,
-          },
-        ],
-        steps: [
-          {
-            key: "create_isolation_probe",
-            action: "create",
-            resource: "probe",
-            timeoutMs: 30_000,
-          },
-          {
-            key: "execute_isolation_probe",
-            action: "run",
-            resource: "probe",
-            mode: "captured",
-            stdin: null,
-            timeoutMs: specification.timeoutMs,
-            stdoutLimitBytes: 64 * 1024,
-            stderrLimitBytes: 64 * 1024,
-            acceptedExitCodes: [0, 7],
-            deadlineOrigin: "request",
-          },
-        ],
-        cleanupOrder: ["probe"],
-        setupTimeoutMs: 10_000,
-        unreceiptedAbsence: "retain",
-        verifyLabelAbsence: true,
-      },
-      settings.value,
-    );
+            {
+              source: mounts.providerHome,
+              target: "/operation/provider-home",
+              readOnly: false,
+            },
+            { source: mounts.tmp, target: "/operation/tmp", readOnly: false },
+          ],
+          network: null,
+          networkAlias: null,
+          user: "65532:65532",
+          workingDirectory: "/operation/workspace",
+          entrypoint: "python",
+          tmpfsBytes: null,
+          interactive: false,
+          tty: false,
+          init: false,
+          seccomp: null,
+        },
+      ],
+      steps: [
+        {
+          key: "create_isolation_probe",
+          action: "create",
+          resource: "probe",
+          timeoutMs: 30_000,
+        },
+        {
+          key: "execute_isolation_probe",
+          action: "run",
+          resource: "probe",
+          mode: "captured",
+          stdin: null,
+          timeoutMs: specification.timeoutMs,
+          stdoutLimitBytes: 64 * 1024,
+          stderrLimitBytes: 64 * 1024,
+          acceptedExitCodes: [0, 7],
+          deadlineOrigin: "request",
+        },
+      ],
+      cleanupOrder: ["probe"],
+      setupTimeoutMs: 10_000,
+      unreceiptedAbsence: "retain",
+      verifyLabelAbsence: true,
+    };
+    prepared = prepareIsolation(plan, settings.value);
+    recovery = Object.freeze({
+      managementDirectory: plan.managementDirectory,
+      cleanupOrder: Object.freeze([...plan.cleanupOrder]),
+      setupTimeoutMs: plan.setupTimeoutMs,
+      unreceiptedAbsence: plan.unreceiptedAbsence,
+      verifyLabelAbsence: plan.verifyLabelAbsence,
+      previouslyAbsent: Object.freeze([]),
+    });
   } catch {
     return null;
   }
@@ -437,7 +449,11 @@ export function createIsolationProbe(
           onSubmitting(step) {
             if (step.action === "create") {
               try {
-                notify(callbacks.onCommandSubmitting, "create_isolation_probe");
+                notify(
+                  callbacks.onCommandSubmitting,
+                  "create_isolation_probe",
+                  Object.freeze({ ...recovery, resources: original.resources }),
+                );
               } catch (error) {
                 notificationFailure =
                   error instanceof Error &&
@@ -453,7 +469,11 @@ export function createIsolationProbe(
               ?.identity.dockerId;
             if (!id) throw Error("docker_container_identity_unknown");
             try {
-              notify(callbacks.onResourceCreated, id);
+              notify(
+                callbacks.onResourceCreated,
+                id,
+                Object.freeze({ ...recovery, resources: snapshot }),
+              );
             } catch (error) {
               notificationFailure =
                 error instanceof Error &&

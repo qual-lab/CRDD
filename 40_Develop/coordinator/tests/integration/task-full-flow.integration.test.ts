@@ -10,6 +10,8 @@
  * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
  */
 
+import { updateTestTaskAndQueue } from "../fixtures/task-persistence-fixture.ts";
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
@@ -20,40 +22,10 @@ import { executeCoordinatorPublicDecision } from "../../src/decision/lifecycle.t
 import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { runCoordinatorObjective } from "../../src/objective/execute.ts";
-import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
-import type {
-  CoordinatorReplanClassifier,
-  CoordinatorReplanInput,
-} from "../../src/objective/types.ts";
 import { readCurrentCoordinatorState } from "../../src/state/query.ts";
-import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import { createRepository } from "../fixtures/decision-state.ts";
-
-/**
- * resolveCoordinatorReplanのTest準備責務を実行する。
- *
- * @responsibility resolveCoordinatorReplanがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PPR-IT-001
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus resolveCoordinatorReplanを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-function resolveCoordinatorReplan(
-  input: CoordinatorReplanInput &
-    Readonly<{ workingDirectory: string; repositoryBindingId: string }>,
-  classify: CoordinatorReplanClassifier,
-) {
-  const ports = createCurrentCoordinatorPersistencePorts(
-    input.workingDirectory,
-    input.repositoryBindingId,
-  );
-  return resolveCoordinatorReplanWithPort(ports.state, input, classify);
-}
 
 /**
  * 統合済み結果をObjective、Milestoneの順で明示受入する。
@@ -268,7 +240,7 @@ test("public intake, bounded retry, progress and integration form one accepted f
   assert.equal(first.reason, "orchestrator_replan_required");
   assert.ok("queueId" in first);
   assert.equal(first.projection?.qualityState, "blocked");
-  const replanned = resolveCoordinatorReplan(
+  const replanned = updateTestTaskAndQueue(
     {
       workingDirectory: context.root,
       repositoryBindingId: deriveCoordinatorRepositoryBindingId(context.root),
@@ -277,7 +249,7 @@ test("public intake, bounded retry, progress and integration form one accepted f
       queueId: first.queueId ?? "invalid",
       maximumReplans: context.request.maximumReplans,
     },
-    () => ({ disposition: "maintain_plan", reason: "transient failure" }),
+    { kind: "task_retry", taskId: "task-full", previousRetryCount: 0 },
   );
   assert.equal(replanned.status, "completed");
   const second = await runCoordinatorObjective(
@@ -492,12 +464,6 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
     queueId: "queueId" in first ? (first.queueId ?? "invalid") : "invalid",
     maximumReplans: context.request.maximumReplans,
   };
-  const escalated = resolveCoordinatorReplan(input, () => ({
-    disposition: "human_decision",
-    objectiveId: "objective-full",
-    reason: "human choice required",
-  }));
-  assert.equal(escalated.reason, "orchestrator_human_decision_required");
   const state = readCurrentCoordinatorState(
     context.root,
     deriveCoordinatorRepositoryBindingId(context.root),
@@ -532,10 +498,11 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
     { principalId: "principal-full" },
   );
   assert.equal(applied.status, "completed", applied.reason);
-  const resumed = resolveCoordinatorReplan(input, () => ({
-    disposition: "maintain_plan",
-    reason: "human authorized retry",
-  }));
+  const resumed = updateTestTaskAndQueue(input, {
+    kind: "task_retry",
+    taskId: "task-full",
+    previousRetryCount: 0,
+  });
   assert.equal(resumed.status, "completed");
   const completed = await runCoordinatorObjective(
     context.dependencies,

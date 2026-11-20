@@ -584,28 +584,4 @@ export type CoordinatorTaskAttemptResult = Readonly<{
   workspaceResult?: WorkspaceResult;
 }>;
 
-/**
- * Host 回復 Tokenを表示形式へ整形する。
- *
- * @responsibility Host 回復 Tokenの入力値、表示規則、機密を含めない出力境界を所有する。
- * @trace ARCH-000008
- * @input rootName: string、nonce: string、recordHash: string
- * @returns formatHostRecoveryTokenの計算結果を返す。
- * @precondition 「rootName: string、nonce: string、recordHash: string」がformatHostRecoveryTokenの入力契約を満たす。
- * @postcondition formatHostRecoveryTokenの責務を完了した結果だけを返す。
- * @effect N/A: formatHostRecoveryTokenは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: formatHostRecoveryTokenは独自の失敗分岐を所有しない。
- * @invariant formatHostRecoveryTokenは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: formatHostRecoveryTokenはProcess内の同一Subsystemで完結する。
- * @security formatHostRecoveryTokenはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: formatHostRecoveryTokenは共有非同期状態を持たない同期処理である。
- */
-export function formatHostRecoveryToken(
-  rootName: string,
-  nonce: string,
-  recordHash: string,
-) {
-  return `host.${rootName}.${nonce}.${recordHash}`;
-}
-
 import type { WorkspaceResult } from "../workspace/record.ts";

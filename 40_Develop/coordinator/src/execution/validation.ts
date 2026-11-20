@@ -86,7 +86,6 @@ export function coordinatorReleasedTaskCanObserveHostAbsence(
     operation.lease === "released" &&
     operation.execution.ownerEffect === "disabled" &&
     operation.execution.workspaceReusable === false &&
-    operation.host.pendingTransitionJson === null &&
     state.restartSettled &&
     operation.resources !== null &&
     operation.resources.checkpoints.length > 0 &&

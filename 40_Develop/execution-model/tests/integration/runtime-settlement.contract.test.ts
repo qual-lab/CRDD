@@ -44,7 +44,10 @@ import { writeOwnedStateSnapshot } from "../../src/storage/publication.ts";
 import * as areaRequirement from "../../src/storage/store.ts";
 import * as areaInitialization from "../../src/storage/store.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
-import { createResourceBookFixture } from "../support/resource-operation.ts";
+import {
+  createResourceBookFixture,
+  createResourceOperationFixture,
+} from "../support/resource-operation.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
 
 /**
@@ -256,69 +259,22 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
   const observed = observeExecutionStorageRepository(verifiedRoot.capability);
   assert.ok(observed);
   const binding = observed.repositoryBinding;
-  const nonce = "b".repeat(64);
-  const hostRecord = {
-    schema: "crdd-coordinator-host-recovery/v1",
-    state: "host_only",
-    rootName: "crdd-coordinator-doctor-fixture",
-    rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-    childIdentities: {
-      management: {
-        pathName: "management",
-        dev: "1",
-        ino: "3",
-        birthtimeNs: "4",
-      },
-    },
-    createdAt: "2026-08-25T00:00:00.000Z",
-  };
-  const hostHash = createHash("sha256")
-    .update(`${JSON.stringify(hostRecord)}\n`)
-    .digest("hex");
-  const token =
-    "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
-    hostHash;
-  const identity = {
-    schema: "crdd-coordinator/operation-identity/v5",
-    operationNonce: nonce,
-    provider: "claude",
-    consumer: "orchestrator",
-    operationId: "OP-123456",
-    recoveryCorrelationId: "task-operation-a",
-    executionSelection: {
-      provider: "claude",
-      modelIdentifier: "opus",
-      identifierKind: "alias",
-      reasoningEffort: "low",
-      purpose: "task",
-      catalogIdentity:
-        "5e1d3387ad7fcfe61a6f2521291c2ed118fe0091f9db2aea63e1cd7aa067ed2c",
-      configIdentity:
-        "e70d12e5f16639d9774b9f1f2803deaa37528b28bdf3e938d8badd4f4c5cfb1f",
-      role: "executor",
-      workType: null,
-      source: "explicit",
-    },
-    taskAttempt: 0,
-    stableLogicalHomeBindingHash: "c".repeat(64),
-    providerHomeIdentityHash: "8".repeat(64),
-    repositoryBinding: binding,
-    ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    operationMode: "isolated_task",
-    workspaceMountMode: "read_write",
-    initialHostRecoveryId: token,
-    initialHostRecovery: {
-      token,
-      recordHash: hostHash,
-      directoryIdentity: "1:2:3",
-      markerIdentity: "1:2:4",
-      record: hostRecord,
-    },
-    hostPaths: { root: "host-root", marker: "host-marker" },
-  };
+  const fixture = createResourceOperationFixture();
+  const identity = { ...fixture.identity, repositoryBinding: binding };
   const identityJson = `${JSON.stringify(identity)}\n`;
 
-  const initial = prepareStateOperationSnapshot(null, identityJson, binding);
+  const hostSnapshot = {
+    ...JSON.parse(fixture.bytes.toString("utf8")),
+    repositoryBinding: binding,
+  };
+  hostSnapshot.operations = hostSnapshot.operations.filter(
+    (item: { kind: string }) => item.kind === "host_operation",
+  );
+  const initial = prepareStateOperationSnapshot(
+    Buffer.from(`${encodeStateValue(hostSnapshot)}\n`),
+    identityJson,
+    binding,
+  );
   assert.ok(initial);
   const initialDecoded = decodeStateSnapshot(initial, binding);
   assert.ok(initialDecoded);
@@ -385,6 +341,9 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
   const current = {
     ...initialDecoded.snapshot,
     operations: [
+      ...initialDecoded.snapshot.operations.filter(
+        (item) => item.kind === "host_operation",
+      ),
       {
         ...operation,
         ...lifecycle,
@@ -694,7 +653,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
     path.join(area.directory, "state.json"),
   );
   const beforeTerminal = JSON.parse(beforeTerminalBytes.toString("utf8"));
-  const terminal = {
+  let terminal = {
     ...beforeTerminal,
     revision: beforeTerminal.revision + 1,
     previous: {
@@ -703,18 +662,37 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
         .update(beforeTerminalBytes)
         .digest("hex"),
     },
-    operations: beforeTerminal.operations.map((value: typeof operation) => ({
-      ...value,
-      host: { ...value.host, cleanup: "confirmed" },
-      execution: { ...value.execution, ownerEffect: "disabled" },
-    })),
+    operations: beforeTerminal.operations.map(
+      (value: domain.OperationRecord) =>
+        value.kind === "docker_task"
+          ? {
+              ...value,
+              execution: { ...value.execution, ownerEffect: "disabled" },
+            }
+          : value.kind === "host_operation"
+            ? { ...value, phase: "terminal", cleanup: "confirmed" }
+            : value,
+    ),
   };
-  const terminalBytes = Buffer.from(`${encodeStateValue(terminal)}\n`);
+  let terminalBytes = Buffer.from(`${encodeStateValue(terminal)}\n`);
   const unconfirmed = writeOwnedSettlement(settlement, terminalBytes, {});
   assert.equal(unconfirmed.status, "blocked");
   assert.equal(unconfirmed.filesystemEffectIssued, false);
   cleanupOutcome = Object.freeze({ fixture: "host-cleanup" });
   isCleaned = true;
+  // Docker終端WriterはHostを変更しない。Hostの終端保存は技術資源終結後に別途行う。
+  terminal = {
+    ...terminal,
+    operations: terminal.operations.map((item: domain.OperationRecord) =>
+      item.kind === "host_operation"
+        ? beforeTerminal.operations.find(
+            (before: domain.OperationRecord) =>
+              before.recoveryId === item.recoveryId,
+          )
+        : item,
+    ),
+  };
+  terminalBytes = Buffer.from(`${encodeStateValue(terminal)}\n`);
   const terminalRead = readOwnedSettlementSnapshot(settlement);
   assert.equal(terminalRead.status, "completed");
   assert.equal(terminalRead.lockReleased, true);
@@ -904,24 +882,36 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
       revision: terminal.revision,
       payloadSha256: createHash("sha256").update(terminalBytes).digest("hex"),
     },
-    operations: terminal.operations.map((value: typeof operation) => ({
-      ...value,
-      phase: "executing",
-    })),
+    operations: terminal.operations.map((value: domain.OperationRecord) =>
+      value.kind === "docker_task"
+        ? {
+            ...value,
+            phase: "executing",
+          }
+        : value,
+    ),
   };
   const unprovenCleanup = {
     ...unsafe,
-    operations: terminal.operations.map((value: typeof operation) => ({
-      ...value,
-      outcome: { ...value.outcome, cleanupConfirmed: true },
-    })),
+    operations: terminal.operations.map((value: domain.OperationRecord) =>
+      value.kind === "docker_task"
+        ? {
+            ...value,
+            outcome: { ...value.outcome, cleanupConfirmed: true },
+          }
+        : value,
+    ),
   };
   const unprovenLease = {
     ...unsafe,
-    operations: terminal.operations.map((value: typeof operation) => ({
-      ...value,
-      lease: "released",
-    })),
+    operations: terminal.operations.map((value: domain.OperationRecord) =>
+      value.kind === "docker_task"
+        ? {
+            ...value,
+            lease: "released",
+          }
+        : value,
+    ),
   };
   for (const invalid of [unsafe, unprovenCleanup, unprovenLease]) {
     const unsafeSaved = writeOwnedSettlement(
@@ -992,15 +982,19 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
         revision: terminal.revision,
         payloadSha256: createHash("sha256").update(terminalBytes).digest("hex"),
       },
-      operations: terminal.operations.map((value: typeof operation) => ({
-        ...value,
-        summarySha256: summary.summarySha256,
-        history: {
-          occurredAt,
-          lineSha256: createHash("sha256").update(line).digest("hex"),
-          confirmed,
-        },
-      })),
+      operations: terminal.operations.map((value: domain.OperationRecord) =>
+        value.kind === "docker_task"
+          ? {
+              ...value,
+              summarySha256: summary.summarySha256,
+              history: {
+                occurredAt,
+                lineSha256: createHash("sha256").update(line).digest("hex"),
+                confirmed,
+              },
+            }
+          : value,
+      ),
     };
     const rejected = writeOwnedSettlement(
       settlement,
@@ -1015,21 +1009,40 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
   // 保存の正例用に未要求五資源の終端fixtureを置く。実Provider完了を主張しない。
   const historyFixture = {
     ...terminal,
-    operations: terminal.operations.map((value: typeof operation) => ({
-      ...value,
-      resources: frame,
-      lease: "released",
-      execution: {
-        ...value.execution,
-        providerStart: "not_started",
-        externalSend: "not_issued",
-        sharedWrite: "not_issued",
-      },
-      outcome: { ...value.outcome, cleanupConfirmed: true },
-    })),
+    operations: terminal.operations.map((value: domain.OperationRecord) =>
+      value.kind === "docker_task"
+        ? {
+            ...value,
+            resources: frame,
+            lease: "released",
+            execution: {
+              ...value.execution,
+              providerStart: "not_started",
+              externalSend: "not_issued",
+              sharedWrite: "not_issued",
+            },
+            outcome: { ...value.outcome, cleanupConfirmed: true },
+          }
+        : value,
+    ),
   };
   terminalBook = frame;
   fs.writeFileSync(stateFile, `${encodeStateValue(historyFixture)}\n`);
+  const hostBefore = historyFixture.operations.find(
+    (item: domain.OperationRecord) => item.kind === "host_operation",
+  );
+  assert.ok(hostBefore?.kind === "host_operation");
+  const hostCheckpoint = prepareStateHostOperationSnapshot(
+    fs.readFileSync(stateFile),
+    {
+      ...hostBefore,
+      phase: "terminal",
+      cleanup: "confirmed",
+    },
+    binding,
+  );
+  assert.ok(hostCheckpoint);
+  fs.writeFileSync(stateFile, hostCheckpoint);
   const beforeHistoryCheckpoint = fs.readFileSync(stateFile);
   for (const [hostResult, completion] of [
     [{ ...cleanupOutcome }, simulatedCompletion],
@@ -1358,7 +1371,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
     ),
     false,
   );
-  assert.match(initialHistoryBytes.toString("utf8"), /operation-summary\/v5/);
+  assert.match(initialHistoryBytes.toString("utf8"), /operation-summary\/v6/);
   assert.equal(Object.hasOwn(initialDelivered, "pendingDeliveries"), false);
   const repeatedInitialDriver = historyRuntime.completeOperation(
     initialDriverSettlement,
@@ -1404,7 +1417,18 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
     assert.equal(Object.hasOwn(transientDriver, "deliveryPending"), false);
     assert.equal(Object.hasOwn(transientDriver, "result"), false);
     const transientDriverState = JSON.parse(fs.readFileSync(stateFile, "utf8"));
-    assert.equal(transientDriverState.operations.length, 0);
+    assert.equal(
+      transientDriverState.operations.filter(
+        (item: domain.OperationRecord) => item.kind === "docker_task",
+      ).length,
+      0,
+    );
+    assert.equal(
+      transientDriverState.operations.filter(
+        (item: domain.OperationRecord) => item.kind === "host_operation",
+      ).length,
+      1,
+    );
     assert.equal(
       Object.hasOwn(transientDriverState, "pendingDeliveries"),
       false,
@@ -1605,66 +1629,8 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     const observed = observeExecutionStorageRepository(verified.capability);
     assert.ok(observed);
     const binding = observed.repositoryBinding;
-    const nonce = "b".repeat(64);
-    const hostRecord = {
-      schema: "crdd-coordinator-host-recovery/v1",
-      state: "host_only",
-      rootName: "crdd-coordinator-doctor-fixture",
-      rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-      childIdentities: {
-        management: {
-          pathName: "management",
-          dev: "1",
-          ino: "3",
-          birthtimeNs: "4",
-        },
-      },
-      createdAt: "2026-08-25T00:00:00.000Z",
-    };
-    const hostHash = createHash("sha256")
-      .update(`${JSON.stringify(hostRecord)}\n`)
-      .digest("hex");
-    const token =
-      "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
-      hostHash;
-    const identity = {
-      schema: "crdd-coordinator/operation-identity/v5",
-      operationNonce: nonce,
-      provider: "claude",
-      consumer: "orchestrator",
-      operationId: "OP-123456",
-      recoveryCorrelationId: "task-operation-a",
-      executionSelection: {
-        provider: "claude",
-        modelIdentifier: "opus",
-        identifierKind: "alias",
-        reasoningEffort: "low",
-        purpose: "task",
-        catalogIdentity:
-          "5e1d3387ad7fcfe61a6f2521291c2ed118fe0091f9db2aea63e1cd7aa067ed2c",
-        configIdentity:
-          "e70d12e5f16639d9774b9f1f2803deaa37528b28bdf3e938d8badd4f4c5cfb1f",
-        role: "executor",
-        workType: null,
-        source: "explicit",
-      },
-      taskAttempt: 0,
-      stableLogicalHomeBindingHash: "c".repeat(64),
-      providerHomeIdentityHash: "8".repeat(64),
-      repositoryBinding: binding,
-      ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-      operationMode: "isolated_task",
-      workspaceMountMode: "read_write",
-      initialHostRecoveryId: token,
-      initialHostRecovery: {
-        token,
-        recordHash: hostHash,
-        directoryIdentity: "1:2:3",
-        markerIdentity: "1:2:4",
-        record: hostRecord,
-      },
-      hostPaths: { root: "host-root", marker: "host-marker" },
-    };
+    const fixture = createResourceOperationFixture();
+    const identity = { ...fixture.identity, repositoryBinding: binding };
 
     const authIdentity = {
       ...identity,
@@ -1673,7 +1639,18 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       workspaceMountMode: null,
     };
     const identityJson = `${JSON.stringify(authIdentity)}\n`;
-    const initial = prepareStateOperationSnapshot(null, identityJson, binding);
+    const hostSnapshot = {
+      ...JSON.parse(fixture.bytes.toString("utf8")),
+      repositoryBinding: binding,
+    };
+    hostSnapshot.operations = hostSnapshot.operations.filter(
+      (item: { kind: string }) => item.kind === "host_operation",
+    );
+    const initial = prepareStateOperationSnapshot(
+      Buffer.from(`${encodeStateValue(hostSnapshot)}\n`),
+      identityJson,
+      binding,
+    );
     assert.ok(initial);
     const decoded = decodeStateSnapshot(initial, binding);
     assert.ok(decoded);
@@ -1692,6 +1669,9 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       `${encodeStateValue({
         ...decoded.snapshot,
         operations: [
+          ...decoded.snapshot.operations.filter(
+            (item) => item.kind === "host_operation",
+          ),
           {
             ...operation,
             phase: "settling",
@@ -1830,14 +1810,16 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.equal(saved.lockReleased, true);
     const after = decodeStateSnapshot(fs.readFileSync(file), binding);
     assert.ok(after);
-    assert.equal(after.snapshot.operations[0]?.kind, "docker_task");
-    if (after.snapshot.operations[0]?.kind === "docker_task")
-      assert.equal(
-        after.snapshot.operations[0].resources?.snapshot.resources.find(
-          (item) => item.key === "create_subscription_auth_probe",
-        )?.request,
-        "unknown",
-      );
+    const recorded = after.snapshot.operations.find(
+      (item) => item.kind === "docker_task",
+    );
+    assert.ok(recorded?.kind === "docker_task");
+    assert.equal(
+      recorded.resources?.snapshot.resources.find(
+        (item) => item.key === "create_subscription_auth_probe",
+      )?.request,
+      "unknown",
+    );
   });
 }
 
@@ -1846,6 +1828,7 @@ import {
   prepareStateHistorySnapshot,
   prepareStateLifecycleSnapshot,
   prepareStateOperationSnapshot,
+  prepareStateHostOperationSnapshot,
   prepareStateReferencesSnapshot,
   prepareStateResourceSnapshot,
 } from "../../src/state/validation.ts";

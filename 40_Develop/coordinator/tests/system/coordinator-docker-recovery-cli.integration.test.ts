@@ -20,18 +20,14 @@ import { sourceDeclaration } from "../../../execution-model/tests/support/source
 import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
 import { parseDoctorArguments } from "../../src/cli/options.ts";
-import {
-  parseDockerTaskRecoveryId,
-  parseHostRecoveryToken,
-} from "../../../execution-model/src/index.ts";
-import { parseDockerProbeRecoveryToken } from "../../src/state/probe-record.ts";
+import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
 import { fixture } from "../fixtures/workspace-surface.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { readRecovery } from "../../src/index.ts";
 import { renderRecoveryObservation } from "../../src/cli/recovery-report.ts";
 
 const recoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
-const hostRecoveryId = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+const hostRecoveryId = "host-operation.OP-123456";
 
 /**
  * 正式照会を実保存Readerへ接続し、照会前後の版を比較する。
@@ -59,6 +55,15 @@ test("正式回復照会は実Readerで記録なしを確認し保存を変更�
   assert.equal(result.lockReleased, true);
   assert.equal(result.dockerResourcesObserved, false);
   assert.equal(result.record, null);
+  const host = readRecovery(
+    { recoveryId: "host-operation.OP-123456" },
+    { rootCapability: verified.capability },
+    new AbortController().signal,
+  );
+  assert.equal(host.observationState, "not_recorded");
+  assert.equal(host.lockReleased, true);
+  assert.equal(host.dockerResourcesObserved, false);
+  assert.equal(host.record, null);
   assert.deepEqual(
     JSON.parse(renderRecoveryObservation(result, true).stdout),
     result,
@@ -199,7 +204,7 @@ test("回復照会CLIは読取りだけを一回呼び三状態を表示する",
  * @cleanup VM内だけ。実AI・Docker・保持物・保存Fileを操作しない。
  * @boundary 回復照会Ownerと保存Reader。
  */
-test("回復照会は四種の参照と保存観測を分離し処置を発行しない", () => {
+test("回復照会はTask・Repair・HostとProbe用途の保存観測を分離し処置を発行しない", () => {
   const source = fs.readFileSync(
     new URL("../../src/execution/recovery.ts", import.meta.url),
     "utf8",
@@ -210,16 +215,15 @@ test("回復照会は四種の参照と保存観測を分離し処置を発行�
       sourceDeclaration(source, "readRuntimeOwnedRecovery"),
   );
   const repairId = `docker-runtime-repair.${"a".repeat(64)}.${"b".repeat(64)}`;
-  const probeId = `docker.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.22345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+  const probeId = "host-operation.OP-654321";
   const task = {
     kind: "docker_task",
     recoveryId,
     phase: "terminal",
     identityJson: JSON.stringify({
       operationMode: "boolean_probe",
-      hostPaths: { root: path.resolve("crdd-coordinator-doctor-fixture") },
+      operationId: "OP-123456",
     }),
-    host: { currentToken: hostRecoveryId, cleanup: "unknown" },
     lease: "unknown",
     outcome: null,
     history: null,
@@ -244,9 +248,24 @@ test("回復照会は四種の参照と保存観測を分離し処置を発行�
     history: null,
     identityJson: "PRIVATE",
   };
-  let operations: unknown[] = [task, repair],
-    reads = 0,
-    loads = 0;
+  const host = {
+    kind: "host_operation",
+    operationId: "OP-123456",
+    resources: null,
+    recoveryId: "host-operation.OP-123456",
+    phase: "preparing",
+    cleanup: "not_requested",
+    rootIdentity: { dev: "PRIVATE", ino: "PRIVATE", birthtimeNs: "PRIVATE" },
+    childIdentities: {},
+  };
+  const probeRecord = {
+    ...host,
+    operationId: "OP-654321",
+    recoveryId: probeId,
+    purpose: "isolation_probe",
+  };
+  let operations: unknown[] = [task, repair, host, probeRecord],
+    reads = 0;
   let unavailable = false,
     release = true,
     throws = false,
@@ -257,28 +276,20 @@ test("回復照会は四種の参照と保存観測を分離し処置を発行�
     JSON,
     path,
     parseDockerTaskRecoveryId,
-    parseHostRecoveryToken,
-    parseDockerProbeRecoveryToken,
     readExecutionCancellation: (signal: AbortSignal) => signal.aborted,
     readState: () => {
       reads++;
       abortDuringRead?.abort();
-      if (throws) throw Error("PRIVATE");
+      if (throws || probeFailure) throw Error("PRIVATE");
       return {
         status: unavailable ? "blocked" : "completed",
         lockReleased: release,
         value: { snapshot: { operations } },
       };
     },
-    loadDockerProbeRecoveryRecord: (id: string, root: string) => {
-      loads++;
-      assert.equal(id, probeId);
-      assert.equal(root, path.resolve("crdd-coordinator-doctor-fixture"));
-      if (probeFailure) throw Error("PRIVATE");
-    },
   };
   const read = runInNewContext(`${body};readRuntimeOwnedRecovery`, context);
-  for (const id of [recoveryId, repairId, hostRecoveryId, probeId]) {
+  for (const id of [recoveryId, repairId, probeId, host.recoveryId]) {
     const result = read(id, {}, new AbortController().signal);
     assert.equal(result.observationState, "recorded");
     assert.equal(result.recoveryId, id);
@@ -289,9 +300,44 @@ test("回復照会は四種の参照と保存観測を分離し処置を発行�
       /PRIVATE|hostPaths|identityJson|root/,
     );
   }
-  assert.equal(loads, 1);
+  assert.equal(reads, 4);
+  const hostResult = read(host.recoveryId, {}, new AbortController().signal);
+  assert.equal(hostResult.record.kind, "host_operation");
+  assert.equal(hostResult.record.hostCleanup, "not_requested");
+  assert.equal(hostResult.record.resources, null);
+  assert.equal(reads, 5);
+  operations = [
+    {
+      ...host,
+      resources: {
+        checkpoints: [
+          {
+            key: "probe",
+            submission: "intent_saved",
+            observation: "unknown",
+            privateValue: "PRIVATE",
+          },
+        ],
+        snapshot: { privateValue: "PRIVATE" },
+      },
+    },
+  ];
+  const probeHost = read(host.recoveryId, {}, new AbortController().signal);
+  assert.equal(probeHost.observationState, "recorded");
+  assert.equal(probeHost.record.resources[0].key, "probe");
+  assert.equal(probeHost.record.resources[0].observation, "unknown");
+  assert.doesNotMatch(
+    JSON.stringify(probeHost),
+    /PRIVATE|snapshot|identity|root/,
+  );
+  assert.equal(reads, 6);
+  operations = [task, repair, host, probeRecord];
   const saved = JSON.stringify(operations);
   operations = [];
+  assert.equal(
+    read(host.recoveryId, {}, new AbortController().signal).observationState,
+    "not_recorded",
+  );
   assert.equal(
     read(recoveryId, {}, new AbortController().signal).observationState,
     "not_recorded",
@@ -299,6 +345,11 @@ test("回復照会は四種の参照と保存観測を分離し処置を発行�
   operations = [task, task];
   assert.equal(
     read(recoveryId, {}, new AbortController().signal).observationState,
+    "unknown",
+  );
+  operations = [host, host];
+  assert.equal(
+    read(host.recoveryId, {}, new AbortController().signal).observationState,
     "unknown",
   );
   operations = [task];
@@ -324,9 +375,10 @@ test("回復照会は四種の参照と保存観測を分離し処置を発行�
     read(probeId, {}, new AbortController().signal).observationState,
     "unknown",
   );
-  operations = [{ ...task, identityJson: "{" }];
+  probeFailure = false;
+  operations = [{ ...task, identityJson: "{" }, host];
   assert.equal(
-    read(probeId, {}, new AbortController().signal).observationState,
+    read(recoveryId, {}, new AbortController().signal).observationState,
     "unknown",
   );
   const before = reads;
@@ -335,6 +387,11 @@ test("回復照会は四種の参照と保存観測を分離し処置を発行�
     "docker-task.invalid",
     "docker-runtime-repair.invalid",
     "host.invalid",
+    "host-operation.invalid",
+    "host-operation.OP-12345",
+    "host-operation.OP-123456.extra",
+    `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`,
+    `docker.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.22345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`,
   ])
     assert.equal(
       read(id, {}, new AbortController().signal).reason,
@@ -354,7 +411,7 @@ test("回復照会は四種の参照と保存観測を分離し処置を発行�
     read(recoveryId, {}, abortDuringRead.signal).reason,
     "coordinator_recovery_observation_cancelled",
   );
-  assert.equal(JSON.stringify([task, repair]), saved);
+  assert.equal(JSON.stringify([task, repair, host, probeRecord]), saved);
 });
 
 /**

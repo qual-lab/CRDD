@@ -669,10 +669,24 @@ async function executeApprovedAuthCreateClosure() {
     assert.throws(() => fs.lstatSync(path.join(root, "unexpected-finally")), {
       code: "ENOENT",
     });
-    const otherOperations = saved.value.snapshot.operations.filter(
-      (item) => item.recoveryId !== recoveryId,
-    );
     const identity = JSON.parse(target.identityJson);
+    const hosts = saved.value.snapshot.operations.filter(
+      (item) =>
+        item.kind === "host_operation" &&
+        item.operationId === identity.operationId,
+    );
+    assert.equal(hosts.length, 1);
+    const selectedHost = hosts[0];
+    assert.ok(selectedHost && selectedHost.kind === "host_operation");
+    const host = selectedHost;
+    assert.equal(host.recoveryId, `host-operation.${identity.operationId}`);
+    assert.equal(host.purpose, "authentication");
+    assert.ok(host.rootIdentity);
+    const hostRoot = path.join(root, ".crdd", "operations", host.operationId);
+    const otherOperations = saved.value.snapshot.operations.filter(
+      (item) =>
+        item.recoveryId !== recoveryId && item.recoveryId !== host.recoveryId,
+    );
     let discovered = false;
     let discoveries = 0;
     const restartEvents: string[] = [];
@@ -694,10 +708,31 @@ async function executeApprovedAuthCreateClosure() {
       assert.ok(current.value);
       assert.deepEqual(
         current.value.snapshot.operations.filter(
-          (item) => item.recoveryId !== recoveryId,
+          (item) =>
+            item.recoveryId !== recoveryId &&
+            item.recoveryId !== host.recoveryId,
         ),
         otherOperations,
       );
+      const currentHosts = current.value.snapshot.operations.filter(
+        (item) =>
+          item.kind === "host_operation" &&
+          item.operationId === host.operationId,
+      );
+      assert.equal(currentHosts.length, 1);
+      const currentHost = currentHosts[0];
+      assert.ok(currentHost && currentHost.kind === "host_operation");
+      for (const key of [
+        "kind",
+        "operationId",
+        "recoveryId",
+        "purpose",
+        "createdAt",
+        "rootIdentity",
+        "childIdentities",
+        "git",
+      ] as const)
+        assert.deepEqual(currentHost[key], host[key]);
       const item = current.value.snapshot.operations.find(
         (item): item is ExecutionOperationRecord =>
           item.kind === "docker_task" && item.recoveryId === recoveryId,
@@ -1138,9 +1173,22 @@ async function executeApprovedAuthCreateClosure() {
     assert.equal(final.status, "completed");
     assert.equal(final.lockReleased, true);
     assert.ok(final.value);
-    assert.deepEqual(final.value.snapshot.operations, otherOperations);
-    for (const location of [identity.hostPaths.root, identity.hostPaths.marker])
-      assert.throws(() => fs.lstatSync(location), { code: "ENOENT" });
+    assert.deepEqual(
+      final.value.snapshot.operations.filter(
+        (item) => item.recoveryId !== host.recoveryId,
+      ),
+      otherOperations,
+    );
+    const finalHosts = final.value.snapshot.operations.filter(
+      (item) => item.recoveryId === host.recoveryId,
+    );
+    assert.equal(finalHosts.length, 1);
+    assert.deepEqual(finalHosts[0], {
+      ...host,
+      phase: "terminal",
+      cleanup: "confirmed",
+    });
+    assert.throws(() => fs.lstatSync(hostRoot), { code: "ENOENT" });
     verificationCompleted = true;
     stage = "root_cleanup";
     const cleanupTree = captureAuthCreateCleanupTree(root);

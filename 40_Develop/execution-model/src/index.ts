@@ -29,10 +29,7 @@ export type {
   RestartCheckpoint,
 } from "./attempt/types.ts";
 export { dockerProcessControllerPublicCompletionReasons } from "./attempt/types.ts";
-export {
-  parseDockerTaskRecoveryId,
-  parseHostRecoveryToken,
-} from "./attempt/validation.ts";
+export { parseDockerTaskRecoveryId } from "./attempt/validation.ts";
 export {
   answerDecision,
   applyDecision,

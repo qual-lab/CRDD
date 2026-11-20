@@ -4,7 +4,6 @@
  * @trace ARCH-000015
  * @boundary 残存は自動回復しない。全利用者停止下の処置は別手順。
  */
-import { createHash } from "node:crypto";
 import path from "node:path";
 import { acquireLock, type LockResult } from "../../../lock/src/index.ts";
 
@@ -61,55 +60,30 @@ export function acquireExecutionStateLock(directory: unknown): LockResult {
   return result;
 }
 
-/** 元Host世代のIdentityを導出する。Hash自体は生存・削除許可ではない。 */
-export function hostOperationGenerationBindingHash(
-  rootName: unknown,
-  nonce: unknown,
-): string | null {
-  if (
-    typeof rootName !== "string" ||
-    !/^crdd-coordinator-doctor-[A-Za-z0-9_-]{6,64}$/u.test(rootName) ||
-    typeof nonce !== "string" ||
-    !/^[a-f0-9-]{32,48}$/u.test(nonce)
-  )
-    return null;
-  return createHash("sha256")
-    .update("crdd-host-operation-generation-v1\0")
-    .update(rootName)
-    .update("\0")
-    .update(nonce)
-    .digest("hex");
-}
-
-/** 回収対象Rootの外で元世代を保持し、通常清掃がLockを消さないようにする。 */
+/** 作成・回復は同じRepositoryと元操作IDで排他する。 @trace ARCH-000008 */
 export function acquireHostOperationLock(
   root: unknown,
-  nonce: unknown,
+  operationId: unknown,
 ): LockResult {
-  const refused: LockResult = Object.freeze({
-    status: "blocked",
-    reason: "lock_input_invalid",
-    reference: null,
-    cleanupConfirmed: true,
-    descriptorClosed: true,
-  });
   if (
     typeof root !== "string" ||
     !path.isAbsolute(root) ||
-    path.resolve(root) !== root
+    path.resolve(root) !== root ||
+    typeof operationId !== "string" ||
+    !/^OP-[0-9]{6,}$/u.test(operationId)
   )
-    return refused;
-  const binding = hostOperationGenerationBindingHash(
-    path.basename(root),
-    nonce,
-  );
-  return binding
-    ? acquireLock({
-        directory: path.dirname(root),
-        name: `coordinator.host-operation.${binding}.lock`,
-        identity: `host-operation:${binding}`,
-      })
-    : refused;
+    return Object.freeze({
+      status: "blocked",
+      reason: "lock_input_invalid",
+      reference: null,
+      cleanupConfirmed: true,
+      descriptorClosed: true,
+    });
+  return acquireLock({
+    directory: path.join(root, ".crdd", "lock"),
+    name: `coordinator.host-operation.${operationId}.lock`,
+    identity: `host-operation:${operationId}`,
+  });
 }
 
 /**

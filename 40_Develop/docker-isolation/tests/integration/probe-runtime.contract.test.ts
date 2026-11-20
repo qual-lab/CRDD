@@ -25,6 +25,142 @@ import {
   runDockerProbeToCompletion,
 } from "../support/probe.ts";
 import { describeDockerProbeResource } from "../support/probe-plan.ts";
+import { sourceDeclaration } from "../support/source-declaration.ts";
+import { plannedResourceSnapshot } from "../../src/execution/preparation.ts";
+
+/**
+ * 作成前とReceiptの通知は同じDI計画へ結合し、非同期通知を拒否する。
+ * @responsibility 上位保存拒否から作成・後続実行へ進まない境界を確認する。
+ * @trace ERB-IT-004
+ * @precondition 実宣言と実Snapshot投影、不変の有限計画を一回準備する。
+ * @stimulus 正常、準備拒否、作成前／Receipt通知の拒否・Promise、実ID欠測。
+ * @observation 計画・Snapshot・実IDの参照相関、要求と通知の順序。
+ * @oracle 作成前通知拒否はcreate 0。Receipt通知拒否は呼出し失敗で、次のstartを許可しない。
+ * @cleanup N/A: メモリ代役のみ。Filesystem・Dockerを操作しない。
+ * @boundary 共通DI計画から技術通知への局所接続。実CLIの保証は別途。
+ */
+test("Probe通知は同じ計画の保存確認をcreateとReceiptの前提にする", async () => {
+  const source = fs.readFileSync(
+    new URL("../support/probe.ts", import.meta.url),
+    "utf8",
+  );
+  const body = sourceDeclaration(source, "createDockerProbeContainer");
+  for (const scenario of [
+    "normal",
+    "prepare_refused",
+    "submit_rejected",
+    "submit_async",
+    "receipt_rejected",
+    "receipt_async",
+    "id_unknown",
+  ]) {
+    const calls: string[] = [];
+    let plan: Record<string, unknown> | null = null;
+    let snapshot: ReturnType<typeof plannedResourceSnapshot> | null = null;
+    const execute = runInNewContext(`(${body})`, {
+      types,
+      Object,
+      ISOLATION_SETTINGS: {},
+      profileSpecification: () => ({ source: "fixed-payload" }),
+      describeDockerProbeConfiguration: () => ({
+        name: "crdd-coordinator-probe-fixture",
+        ownershipLabel: "crdd.coordinator.probe=fixture",
+        image: "fixed-image",
+        mounts: {
+          "/operation/workspace": { source: "workspace" },
+          "/operation/provider-home": { source: "home" },
+          "/operation/tmp": { source: "tmp" },
+        },
+      }),
+      prepareIsolation: (
+        input: Parameters<typeof plannedResourceSnapshot>[0],
+      ) => {
+        calls.push("prepare");
+        plan = input as unknown as Record<string, unknown>;
+        snapshot = plannedResourceSnapshot(input);
+        return scenario === "prepare_refused" ? null : { resources: snapshot };
+      },
+      normalizeContainerCreation: (value: unknown) => value,
+      executeDockerProbeCommand: (
+        _binding: unknown,
+        command: { purpose: string; container: unknown },
+      ) => {
+        calls.push("create");
+        assert.equal(command.purpose, "create_prepared");
+        assert.ok(plan);
+        assert.equal(
+          command.container,
+          (plan.resources as readonly unknown[])[0],
+        );
+        return scenario === "id_unknown"
+          ? { status: "blocked" }
+          : { status: "confirmed", id: "a".repeat(64) };
+      },
+    }) as typeof createDockerProbeContainer;
+    const notifications = {
+      managementDirectory: "management",
+      onSubmitting: (
+        target: import("../../src/cleanup/types.ts").ResourceTarget<"snapshot">,
+      ) => {
+        calls.push("submission");
+        assert.equal(target.resources, snapshot);
+        assert.equal(target.unreceiptedAbsence, "retain");
+        if (scenario === "submit_rejected") throw Error("save_rejected");
+        if (scenario === "submit_async") return Promise.resolve();
+      },
+      onCreated: (
+        id: string,
+        target: import("../../src/cleanup/types.ts").ResourceTarget<"snapshot">,
+      ) => {
+        calls.push("receipt");
+        assert.equal(id, "a".repeat(64));
+        assert.equal(target.resources.resources[0]?.identity.dockerId, id);
+        assert.equal(
+          target.resources.resources[0]?.configuration,
+          snapshot?.resources[0]?.configuration,
+        );
+        if (scenario === "receipt_rejected") throw Error("receipt_rejected");
+        if (scenario === "receipt_async") return Promise.resolve();
+      },
+    };
+    const run = () =>
+      execute(
+        { verifyCli: () => "fixed", environment: () => ({}) },
+        "cancellation",
+        "fixture",
+        { workspace: "workspace", providerHome: "home", tmp: "tmp" },
+        notifications,
+      );
+    if (
+      [
+        "prepare_refused",
+        "submit_rejected",
+        "submit_async",
+        "receipt_rejected",
+        "receipt_async",
+      ].includes(scenario)
+    )
+      assert.throws(run);
+    else
+      assert.equal(
+        run().status,
+        scenario === "id_unknown" ? "blocked" : "confirmed",
+      );
+    assert.equal(
+      calls.includes("create"),
+      !["prepare_refused", "submit_rejected", "submit_async"].includes(
+        scenario,
+      ),
+    );
+    assert.equal(
+      calls.includes("receipt"),
+      ["normal", "receipt_rejected", "receipt_async"].includes(scenario),
+    );
+    if (calls.includes("create"))
+      assert.ok(calls.indexOf("submission") < calls.indexOf("create"));
+    await Promise.resolve();
+  }
+});
 
 /**
  * 旧所在Queryを入力しても呼ばれないことを実子で観測する。

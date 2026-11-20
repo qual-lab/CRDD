@@ -31,6 +31,9 @@ import {
   getRepository,
   getWorktree,
   mergeCommit,
+  readCommitDiff,
+  readCommitFile,
+  readFile,
   readRepositoryRevision,
   removeReference,
   removeWorktree,
@@ -1183,19 +1186,237 @@ test("getWorktreeはMain外の正規Linkedと未Commitを原本から観測す�
 });
 
 /**
- * 完成操作がMain／LinkedのIndex・HEAD・Refを変更せず選択Commitだけを生成する。
- * @responsibility 上位の保持Ref確保とCommit Object生成を分離する。
+ * 選択Treeの区切り・全応答をexactに確認する。
+ * @responsibility 一括化で不正応答を正規化せず、元の拒否条件を維持する。
  * @trace RFD-IT-029
- * @precondition 新品Mainと任意の技術名のLinked。
- * @stimulus createCommit単独、明示Ref観測、Ref確保。
- * @observation raw Index、HEAD、全Ref、選択Blobと返却OID。
- * @oracle Commit単独ではIndex・HEAD・Ref不変、Ref読取り不明は不存在へ畳まない。
- * @cleanup fixture afterで今回Rootのみ回収する。
+ * @precondition 実私有宣言と有限のGit応答を使用する。
+ * @stimulus 正規複数行、空応答、NUL欠測・重複・要求外・失敗を渡す。
+ * @observation exactなレコードと拒否例外。
+ * @oracle 不明応答を空値や正規NULへ補完しない。
+ * @cleanup N/A: メモリ内の評価だけ。
+ * @boundary Gitの物理実行は行わない値契約。
+ */
+test("選択Treeの一括読取りは不正NUL・重複・要求外・失敗を補完しない", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/repository/commit.ts", import.meta.url),
+    "utf8",
+  );
+  const read = runInNewContext(
+    `${sourceDeclaration(source, "readSelectedTreeEntries")};readSelectedTreeEntries`,
+  ) as (
+    ctx: { owner: string; run: () => { status: number; stdout: string } },
+    commit: string,
+    paths: readonly string[],
+  ) => Map<string, string>;
+  const a = `100644 blob ${"a".repeat(40)}\ta.txt`;
+  const b = `100755 blob ${"b".repeat(40)}\tb.txt`;
+  const ctx = (stdout: string, status = 0) => ({
+    owner: "owner",
+    run: () => ({ status, stdout }),
+  });
+  const positive = read(ctx(`${a}\0${b}\0`), "c".repeat(40), [
+    "a.txt",
+    "b.txt",
+  ]);
+  assert.equal(positive.get("a.txt"), `${a}\0`);
+  assert.equal(positive.get("b.txt"), `${b}\0`);
+  assert.equal(read(ctx(""), "c".repeat(40), ["a.txt"]).size, 0);
+  for (const response of [`${a}`, `${a}\0\0`, `${a}\0${a}\0`, `${b}\0`])
+    assert.throws(
+      () => read(ctx(response), "c".repeat(40), ["a.txt"]),
+      /commit_create_content_mismatch/u,
+    );
+  assert.throws(
+    () => read(ctx("", 1), "c".repeat(40), ["a.txt"]),
+    /commit_create_content_mismatch/u,
+  );
+});
+
+/**
+ * 削除元Treeの観測失敗を確認する。
+ * @responsibility 既存のGit失敗理由と一時物回収を維持する。
+ * @trace RFD-IT-029
+ * @precondition 新品Repositoryと専用一時Index領域だけ。
+ * @stimulus 削除対象の基準Tree観測へ非0終了を注入する。
+ * @observation 拒否理由、元IndexとRef、一時物回収。
+ * @oracle Git失敗として拒否し、通常Index・HEAD・Refを変更しない。
+ * @cleanup fixtureが今回Rootだけ回収する。
  * @boundary ローカル実Git。AI・Docker・送信なし。
+ */
+test("削除元Tree観測の非0は元のGit失敗理由と一時物回収を保持する", (t) => {
+  const f = fixture(t);
+  const temporaryDirectory = ".crdd/delete-failure";
+  fs.mkdirSync(path.join(f.root, temporaryDirectory), { recursive: true });
+  const index = fs.readFileSync(path.join(f.root, ".git", "index"));
+  const refs = git(f.root, [
+    "for-each-ref",
+    "--format=%(refname) %(objectname)",
+  ]);
+  fs.unlinkSync(path.join(f.root, "source.txt"));
+  const original = childProcess.spawnSync;
+  let injected = 0;
+  childProcess.spawnSync = new Proxy(original, {
+    apply(fn, receiver, args) {
+      const result = Reflect.apply(fn, receiver, args);
+      const argv = args[1] as string[];
+      if (
+        argv.includes("ls-tree") &&
+        argv.includes(f.base) &&
+        argv.includes("source.txt")
+      ) {
+        injected++;
+        return { ...result, status: 1 };
+      }
+      return result;
+    },
+  });
+  syncBuiltinESMExports();
+  try {
+    const result = createCommit(f.capability, {
+      baseCommit: f.base,
+      expectedHead: f.base,
+      selection: [{ path: "source.txt", mode: null, blobId: null }],
+      temporaryDirectory,
+      message: "delete observation failure",
+    });
+    assert.equal(injected, 1);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "commit_create_git_failed");
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.temporary, null);
+    assert.deepEqual(
+      fs.readFileSync(path.join(f.root, ".git", "index")),
+      index,
+    );
+    assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
+    assert.equal(
+      git(f.root, ["for-each-ref", "--format=%(refname) %(objectname)"]),
+      refs,
+    );
+  } finally {
+    childProcess.spawnSync = original;
+    syncBuiltinESMExports();
+  }
+});
+
+/**
+ * 大集合と同OID再利用の実Gitを確認する。
+ * @responsibility 各File検査を省略せず、Index・HEAD・Refの非変更を維持する。
+ * @trace RFD-IT-029
+ * @precondition 新品Repositoryと専用一時Index領域だけ。
+ * @stimulus 1001同Blob・特殊表記Pathと、二件目だけ内容差を与える。
+ * @observation 固定Tree、Object書込み・Index更新回数、元IndexとRef、一時物回収。
+ * @oracle 全件固定は成立し、同OIDでも後続の改変はEffect保持で拒否する。
+ * @cleanup fixtureが今回Rootだけ回収する。
+ * @boundary ローカル実Git。AI・Docker・送信なし。
+ */
+test("createCommitは1001選択を一括Index更新し捕捉byteと通常Indexを保持する", (t) => {
+  const f = fixture(t);
+  const temporaryDirectory = ".crdd/large-selection";
+  fs.mkdirSync(path.join(f.root, temporaryDirectory), { recursive: true });
+  const index = path.join(f.root, ".git", "index");
+  const before = fs.readFileSync(index);
+  const refs = git(f.root, [
+    "for-each-ref",
+    "--format=%(refname) %(objectname)",
+  ]);
+  const bytes = Buffer.from("a");
+  const blobId = createHash("sha1")
+    .update("blob 1\0")
+    .update(bytes)
+    .digest("hex");
+  fs.mkdirSync(path.join(f.root, "selected"));
+  const selection = Array.from({ length: 1001 }, (_, at) => {
+    const relative = `selected/path ${at} '日本語'.txt`;
+    fs.writeFileSync(path.join(f.root, relative), bytes);
+    return { path: relative, mode: "100644" as const, blobId };
+  });
+  const original = childProcess.spawnSync;
+  let blobWrites = 0,
+    indexUpdates = 0;
+  childProcess.spawnSync = new Proxy(original, {
+    apply(fn, receiver, args) {
+      const argv = args[1] as string[];
+      if (argv.includes("hash-object") && argv.includes("-w")) blobWrites++;
+      if (argv.includes("--index-info")) indexUpdates++;
+      return Reflect.apply(fn, receiver, args);
+    },
+  });
+  syncBuiltinESMExports();
+  try {
+    const result = createCommit(f.capability, {
+      baseCommit: f.base,
+      expectedHead: f.base,
+      selection,
+      temporaryDirectory,
+      message: "batched captured bytes",
+    });
+    assert.equal(result.status, "completed", result.reason);
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.temporary, null);
+    assert.ok(result.commitId);
+    assert.equal(blobWrites, 1);
+    assert.equal(indexUpdates, 1);
+    assert.deepEqual(
+      [...result.changedPaths].sort(),
+      selection.map((item) => item.path).sort(),
+    );
+    assert.deepEqual(fs.readFileSync(index), before);
+    assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
+    assert.equal(
+      git(f.root, ["for-each-ref", "--format=%(refname) %(objectname)"]),
+      refs,
+    );
+    const first = selection[0],
+      second = selection[1];
+    assert.ok(first && second);
+    fs.writeFileSync(path.join(f.root, second.path), "changed");
+    const rejected = createCommit(f.capability, {
+      baseCommit: f.base,
+      expectedHead: f.base,
+      selection: [first, second],
+      temporaryDirectory,
+      message: "reused oid must not skip bytes",
+    });
+    assert.equal(rejected.status, "blocked");
+    assert.equal(rejected.reason, "commit_create_content_changed");
+    assert.equal(rejected.effectIssued, true);
+    assert.equal(rejected.cleanupConfirmed, true);
+    assert.equal(rejected.temporary, null);
+    assert.deepEqual(fs.readFileSync(index), before);
+    assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
+    assert.equal(
+      git(f.root, ["for-each-ref", "--format=%(refname) %(objectname)"]),
+      refs,
+    );
+  } finally {
+    childProcess.spawnSync = original;
+    syncBuiltinESMExports();
+  }
+});
+
+/**
+ * Main／Linkedの完成Commit・Ref・削除操作を照合する。
+ * @responsibility 技術対象と上位保持Refを分離する。
+ * @trace RFD-IT-029
+ * @precondition 新品MainとLinked及び専用一時領域。
+ * @stimulus 空Tree固定・選択・削除・祖先観測失敗を与える。
+ * @observation 元Index・HEAD・Refと固定Blob・Cleanup。
+ * @oracle 対象照合と選択だけを確定し、通常作業内容は変更しない。
+ * @cleanup fixtureが今回Rootだけ回収する。
+ * @boundary ローカル実Git。外部Providerなし。
  */
 test("createCommitはMain／Linkedで通常IndexとHEADとRefを更新しない", (t) => {
   for (const mode of ["main", "linked"]) {
     const f = fixture(t);
+    fs.mkdirSync(path.join(f.root, "nested", "child"), { recursive: true });
+    fs.writeFileSync(
+      path.join(f.root, "nested", "child", "tracked.txt"),
+      "base\n",
+    );
+    git(f.root, ["add", "--", "nested/child/tracked.txt"]);
+    git(f.root, ["commit", "-m", "nested baseline"]);
+    const base = git(f.root, ["rev-parse", "HEAD"]);
     const id = randomUUID();
     const target = {
       relativePath: `.crdd/technical/${id}/tree`,
@@ -1206,7 +1427,7 @@ test("createCommitはMain／Linkedで通常IndexとHEADとRefを更新しない"
     if (mode === "linked") {
       const created = createWorktree(f.capability, {
         ...target,
-        baseCommit: f.base,
+        baseCommit: base,
       });
       assert.equal(created.status, "completed", created.reason);
       directory = path.join(f.root, target.relativePath);
@@ -1224,11 +1445,49 @@ test("createCommitはMain／Linkedで通常IndexとHEADとRefを更新しない"
       "for-each-ref",
       "--format=%(refname) %(objectname)",
     ]);
+    const cleanRequest = {
+      baseCommit: base,
+      expectedHead: base,
+      selection: [],
+      message: "fixed unchanged baseline",
+      temporaryDirectory,
+    };
+    const emptyRejected = createCommit(repository, cleanRequest);
+    assert.equal(emptyRejected.status, "blocked");
+    assert.equal(emptyRejected.effectIssued, false);
+    const clean = createCommit(repository, {
+      ...cleanRequest,
+      allowEmpty: true,
+    });
+    assert.equal(clean.status, "completed", clean.reason);
+    assert.equal(clean.cleanupConfirmed, true);
+    assert.ok(clean.commitId);
+    assert.notEqual(clean.commitId, base);
+    assert.equal(
+      git(directory, ["rev-parse", `${clean.commitId}^{tree}`]),
+      git(directory, ["rev-parse", `${base}^{tree}`]),
+    );
+    const fixedFile = readCommitFile(repository, {
+      commit: clean.commitId,
+      path: "source.txt",
+    });
+    assert.ok(fixedFile);
+    assert.equal(
+      fixedFile.blobId,
+      git(directory, ["rev-parse", `${base}:source.txt`]),
+    );
+    assert.equal(fixedFile.bytes.toString("utf8"), "base\n");
+    assert.deepEqual(fs.readFileSync(index), before);
+    assert.equal(git(directory, ["rev-parse", "HEAD"]), base);
+    assert.equal(
+      git(f.root, ["for-each-ref", "--format=%(refname) %(objectname)"]),
+      refs,
+    );
     fs.writeFileSync(path.join(directory, "source.txt"), "selected\n");
     const blob = git(directory, ["hash-object", "--no-filters", "source.txt"]);
     const result = createCommit(repository, {
-      baseCommit: f.base,
-      expectedHead: f.base,
+      baseCommit: base,
+      expectedHead: base,
       selection: [{ path: "source.txt", mode: "100644", blobId: blob }],
       message: "synthetic selected commit",
       temporaryDirectory,
@@ -1236,7 +1495,7 @@ test("createCommitはMain／Linkedで通常IndexとHEADとRefを更新しない"
     assert.equal(result.status, "completed", result.reason);
     assert.equal(result.cleanupConfirmed, true);
     assert.ok(result.commitId);
-    assert.equal(git(directory, ["rev-parse", "HEAD"]), f.base);
+    assert.equal(git(directory, ["rev-parse", "HEAD"]), base);
     assert.deepEqual(fs.readFileSync(index), before);
     assert.equal(
       git(f.root, ["for-each-ref", "--format=%(refname) %(objectname)"]),
@@ -1277,6 +1536,91 @@ test("createCommitはMain／Linkedで通常IndexとHEADとRefを更新しない"
       "completed",
     );
     assert.equal(git(f.root, ["rev-parse", reference]), result.commitId);
+    const tracked = "nested/child/tracked.txt";
+    const ancestor = path.join(directory, "nested");
+    for (const mutation of ["error", "link"] as const) {
+      const original = fs.lstatSync;
+      let observations = 0;
+      const observe = ((...args: Parameters<typeof fs.lstatSync>) => {
+        if (args[0] === ancestor && ++observations === 2) {
+          if (mutation === "error")
+            throw Object.assign(Error("injected"), { code: "EACCES" });
+          return { isDirectory: () => true, isSymbolicLink: () => true };
+        }
+        return Reflect.apply(original, fs, args);
+      }) as typeof fs.lstatSync;
+      assert.equal(Reflect.set(fs, "lstatSync", observe), true);
+      syncBuiltinESMExports();
+      try {
+        assert.throws(
+          () => readFile(repository, { path: tracked }),
+          /repository_file_content_changed/u,
+        );
+        assert.equal(observations, 2);
+      } finally {
+        assert.equal(Reflect.set(fs, "lstatSync", original), true);
+        syncBuiltinESMExports();
+      }
+    }
+    fs.rmSync(path.join(directory, "nested"), { recursive: true });
+    const deletion = readFile(repository, { path: tracked });
+    assert.equal(deletion.selection.blobId, null);
+    assert.equal(deletion.content, null);
+    const removed = createCommit(repository, {
+      baseCommit: base,
+      expectedHead: base,
+      selection: [deletion.selection],
+      message: "directory deletion",
+      temporaryDirectory,
+    });
+    assert.equal(removed.status, "completed", removed.reason);
+    assert.equal(removed.cleanupConfirmed, true);
+    assert.ok(removed.commitId);
+    const whole = readCommitDiff(repository, {
+      baseCommit: base,
+      commitId: removed.commitId,
+    });
+    assert.equal(whole.path, null);
+    assert.deepEqual(whole.changedPaths, [tracked]);
+    assert.match(whole.patch, /deleted file mode/u);
+    const one = readCommitDiff(repository, {
+      baseCommit: base,
+      commitId: removed.commitId,
+      path: tracked,
+    });
+    assert.deepEqual(one.changedPaths, [tracked]);
+    assert.equal(one.patch, whole.patch);
+    const unchanged = readCommitDiff(repository, {
+      baseCommit: base,
+      commitId: base,
+    });
+    assert.deepEqual(unchanged.changedPaths, []);
+    assert.equal(unchanged.patch, "");
+    assert.throws(
+      () =>
+        readCommitDiff(repository, {
+          baseCommit: base,
+          commitId: base,
+          path: "../outside",
+        }),
+      /commit_diff_input_invalid/u,
+    );
+    assert.throws(
+      () => readFile(repository, { path: "missing/never.txt" }),
+      /repository_file_not_found/u,
+    );
+    const unrelated = createCommit(repository, {
+      baseCommit: base,
+      expectedHead: base,
+      selection: [{ path: "missing/never.txt", blobId: null, mode: null }],
+      message: "not a tracked deletion",
+      temporaryDirectory,
+    });
+    assert.equal(unrelated.status, "blocked");
+    assert.equal(unrelated.reason, "commit_create_deletion_mismatch");
+    assert.equal(unrelated.cleanupConfirmed, true);
+    assert.equal(git(directory, ["rev-parse", "HEAD"]), base);
+    assert.deepEqual(fs.readFileSync(index), before);
   }
 });
 

@@ -44,23 +44,19 @@ import { resolveRecoveryReference } from "./validation.ts";
 /** 解釈済み助言の一項目を内容型の正本から再利用する。 */
 type AdviceResultItem = AdviceResult["facts"][number];
 
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import {
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
   preflightRuntimeOwnedDelegationSelections,
 } from "./authority.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
-  activateOwnedHostOperationGenerationLock,
-  assertOwnedHostOperationLock,
+  acquireHostOperationRecoveryGeneration,
+  releaseHostOperationRecoveryGeneration,
   bindRuntimeOwnedRepositoryOperation,
   classifyOwnedCoordinatorOperationCreationFailure,
   classifyOwnedOperationDirectoryCreationFailure,
-  cleanupOwnedOperationDirectoriesAsync,
+  cleanupOwnedOperationDirectories,
   createRuntimeOwnedCoordinatorOperation,
-  observeHostRecoveryCleanup,
   recoverOwnedOperationDirectories,
   verifyOwnedOperationCleanupOutcome,
 } from "./operation.ts";
@@ -151,9 +147,14 @@ export async function runRepositoryAdvice(
     ProviderAdviceRuntimeDependencies,
     "recoveryCorrelationId" | "observeOperation" | "observeStarted"
   >,
+  recordingCurrent?: () => boolean,
 ) {
   let runtimeResult: ProviderAdviceRuntimeResult | null = null;
-  const runtime = createRuntimeOwnedProviderAdviceRuntime(root, observation);
+  const runtime = createRuntimeOwnedProviderAdviceRuntime(
+    root,
+    observation,
+    recordingCurrent,
+  );
   const execute: ProviderAdviceRuntime = async (plan, cancellation) => {
     runtimeResult = await runtime(plan, cancellation);
     return runtimeResult;
@@ -973,48 +974,34 @@ const hostFailures = new WeakMap<object, HostFailure>();
 
 const initializationFailures = new WeakMap<Error, HostFailure>();
 
-/**
- * 保存済みの助言Host参照を既存の正式回収へ戻す。
- * @responsibility 現在のOS一時親とexact参照だけを照合し、回収後の不存在を確認する。
- * @trace ARCH-000008
- * @input 作成時に所有者へ通知した非AuthorityのHost参照。
- * @returns 回収確認と固定理由。Pathは返さない。
- * @precondition 呼出側で旧Ownerの喪失とDocker側終了を照合済み。
- * @postcondition 不明を回収済みにしない。
- * @effect 同じHost領域への既存回収のみ。
- * @failure 参照、親、状態又は不存在が不明なら停止。
- * @invariant 別親探索、Provider要求、Docker再起動を行わない。
- * @boundary 単発Ownerと既存Host回収。
- * @security 参照だけで新Authorityを発行しない。
- * @concurrency 既存Host回復世代で非使用を再確認する。
- */
-export function recoverProviderAdviceHostOperation(hostId: string) {
-  try {
-    const match = /^host\.(crdd-coordinator-doctor-[A-Za-z0-9_-]+)\./u.exec(
-      hostId,
-    );
-    if (!match?.[1])
-      return {
-        cleanupConfirmed: false,
-        reason: "workbench_ai_advice_host_reference_invalid",
-      };
-    const hostRoot = path.join(fs.realpathSync.native(os.tmpdir()), match[1]);
-    const before = observeHostRecoveryCleanup(hostId, hostRoot);
-    if (before.root !== "absent" || before.marker !== "absent") {
-      const recovered = recoverOwnedOperationDirectories(
-        hostId,
-        null,
-        hostRoot,
-      );
-      if (recovered.status !== "recovered")
-        return { cleanupConfirmed: false, reason: recovered.reason };
-    }
-    const after = observeHostRecoveryCleanup(hostId, hostRoot);
+/** 元Repositoryと現在認可の下で同じHostを回収する。 @trace ARCH-000008 */
+export function recoverProviderAdviceHostOperation(
+  root: Repository,
+  hostId: string,
+  recordingCurrent: () => boolean,
+) {
+  const capability = acquireHostOperationRecoveryGeneration(
+    root,
+    hostId,
+    recordingCurrent,
+  );
+  if (!capability)
     return {
-      cleanupConfirmed: after.root === "absent" && after.marker === "absent",
-      reason: "workbench_ai_advice_host_cleanup_observed",
+      cleanupConfirmed: false,
+      reason: "workbench_ai_advice_host_cleanup_unconfirmed",
+    };
+  try {
+    const recovered = recoverOwnedOperationDirectories(hostId, capability);
+    const released = releaseHostOperationRecoveryGeneration(capability);
+    return {
+      cleanupConfirmed: recovered.status === "recovered" && released,
+      reason:
+        recovered.status === "recovered" && released
+          ? "workbench_ai_advice_host_cleanup_observed"
+          : recovered.reason,
     };
   } catch {
+    releaseHostOperationRecoveryGeneration(capability);
     return {
       cleanupConfirmed: false,
       reason: "workbench_ai_advice_host_cleanup_unconfirmed",
@@ -1122,7 +1109,7 @@ export type ProviderAdviceRuntimeDependencies = Readonly<{
   startProcess: typeof startRuntimeOwnedDockerProcessController;
   cancelProcess: typeof cancelRuntimeOwnedDockerProcessController;
   prepareDockerHostCleanup: typeof prepareRuntimeOwnedDockerHostCleanup;
-  cleanupOperation: typeof cleanupOwnedOperationDirectoriesAsync;
+  cleanupOperation: typeof cleanupOwnedOperationDirectories;
   classifyOperationCleanup: typeof verifyOwnedOperationCleanupOutcome;
   recordDockerHostCleanupReceipt: (
     capability: unknown,
@@ -1164,6 +1151,7 @@ export function createRuntimeOwnedProviderAdviceRuntime(
     ProviderAdviceRuntimeDependencies,
     "recoveryCorrelationId" | "observeOperation" | "observeStarted"
   >,
+  recordingCurrent?: () => boolean,
 ): ProviderAdviceRuntime {
   const repositoryRoot = resolveVerifiedRepositoryRoot(
     repositoryRootCapability,
@@ -1178,7 +1166,7 @@ export function createRuntimeOwnedProviderAdviceRuntime(
         true,
       );
   const runtime = createProviderAdviceRuntime({
-    ...createProductionDependencies(repositoryRoot),
+    ...createProductionDependencies(repositoryRootCapability, recordingCurrent),
     ...observation,
   });
   return runtime;
@@ -1650,142 +1638,6 @@ class AdviceRuntimeError extends Error {
 }
 
 /**
- * Operation作成と世代Lock準備を同じ初期化失敗境界へ閉じる。
- *
- * @responsibility 読取り助言Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
- * @trace ARCH-000008
- * @input dependencies: 固定本番依存、または非Authorityの局所試験依存。
- * @returns 準備済みOperationと同じ世代の喪失観測。
- * @precondition 作成境界は取得済み参照と失敗分類を所有する。
- * @postcondition 初期化失敗は清掃分類と未解決のexact参照を同じErrorへ保持する。
- * @effect 宣言または注入された依存以外へEffectを発行しない。
- * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
- * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
- * @boundary 呼出し元と本Moduleの局所責務境界。
- * @security 秘密値と未許可情報を出力またはlogへ追加しない。
- * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
- */
-
-async function createProductionOperation(
-  dependencies: OperationInitializationDependencies = productionOperationInitialization,
-): Promise<Operation> {
-  let operation: Operation;
-  try {
-    operation = dependencies.create();
-  } catch (error) {
-    const creation =
-      classifyOwnedOperationDirectoryCreationFailure(error) ??
-      classifyOwnedCoordinatorOperationCreationFailure(error);
-    if (!creation?.cleanupConfirmed) dependencies.poison();
-    throw new AdviceRuntimeError(
-      creation?.cleanupConfirmed
-        ? "workbench_ai_advice_operation_initialization_failed_cleanup_confirmed"
-        : "workbench_ai_advice_operation_initialization_cleanup_unknown_process_restart_required",
-      creation,
-    );
-  }
-  try {
-    const activation = await dependencies.activate(
-      operation.managementCapability,
-    );
-    if (activation !== "activated") throw new Error("activation_failed");
-    dependencies.assertLock(operation.managementCapability);
-    return operation;
-  } catch {
-    let cleanupConfirmed = false;
-    try {
-      cleanupConfirmed =
-        dependencies.classifyCleanup(
-          await dependencies.cleanup(operation.owned),
-        ) !== null;
-    } catch {}
-    if (!cleanupConfirmed) dependencies.poison();
-    throw new AdviceRuntimeError(
-      cleanupConfirmed
-        ? "workbench_ai_advice_host_generation_lock_unavailable_cleanup_confirmed"
-        : "workbench_ai_advice_host_generation_lock_cleanup_unknown_process_restart_required",
-      Object.freeze({
-        cleanupConfirmed,
-        manualRecoveryRequired: !cleanupConfirmed,
-        hostRecoveryId: cleanupConfirmed ? null : operation.hostRecoveryId,
-      }),
-    );
-  }
-}
-
-/**
- * Operation作成と世代Lock準備の固定依存を表す。
- *
- * @responsibility 本番と局所反証を同じ初期化処理へ接続する。
- * @trace ARCH-000008
- * @shape 作成、activation、readiness、喪失観測、清掃、清掃分類および停止の七依存。
- * @invariant 清掃分類に成功を捏造する既定値を持たない。
- * @boundary 助言RuntimeのOperation初期化境界。
- * @security 試験依存から本番Authorityを発行しない。
- * @compatibility 本番依存は既存のCoordinator所有Operationへ固定する。
- */
-type OperationInitializationDependencies = Readonly<{
-  create: () => Operation;
-  activate: typeof activateOwnedHostOperationGenerationLock;
-  assertLock: typeof assertOwnedHostOperationLock;
-  cleanup: typeof cleanupOwnedOperationDirectoriesAsync;
-  classifyCleanup: typeof verifyOwnedOperationCleanupOutcome;
-  poison: () => void;
-}>;
-
-const productionOperationInitialization: OperationInitializationDependencies =
-  Object.freeze({
-    create: createRuntimeOwnedCoordinatorOperation,
-    activate: activateOwnedHostOperationGenerationLock,
-    assertLock: assertOwnedHostOperationLock,
-    cleanup: cleanupOwnedOperationDirectoriesAsync,
-    classifyCleanup: verifyOwnedOperationCleanupOutcome,
-    poison: poisonRuntimeProcessAfterCleanupUnknown,
-  });
-
-/**
- * 権限を持たないOperation初期化の局所反証候補を構成する。
- *
- * @responsibility 本番と同じ作成・世代Lock失敗分類を偽依存で実行する。
- * @trace ARCH-000008
- * @input dependencies: 局所試験用の閉じた依存。
- * @returns productionAuthority=falseと初期化関数。
- * @precondition 依存は本番のAuthorityまたは実資源を取得しない。
- * @postcondition 候補から署名Runtimeの権限を発行しない。
- * @effect 返されたcreate実行時だけ注入依存を呼ぶ。
- * @failure 本番と同じ私有失敗分類を保持してthrowする。
- * @invariant 本番の固定依存を変更しない。
- * @boundary Coordinator内部の局所反証境界。
- * @security 公開index、CLIまたはHTTPへ入口を追加しない。
- * @concurrency 候補生成時に依存集合を固定する。
- */
-export function createIsolatedProviderOperationCandidate(
-  dependencies: OperationInitializationDependencies,
-) {
-  const fixed = Object.freeze({ ...dependencies });
-  return Object.freeze({
-    productionAuthority: false as const,
-    /**
-     * 固定した偽依存で本番と同じ初期化処理を開始する。
-     *
-     * @responsibility 局所反証を別実装で代替せず同じ失敗境界へ接続する。
-     * @trace ARCH-000008
-     * @input N/A: 候補生成時の固定依存だけを用いる。
-     * @returns 準備済み偽Operation、または私有分類付きの失敗。
-     * @precondition 注入依存は本番権限を取得しない。
-     * @postcondition 元の失敗分類と未解決参照を保持する。
-     * @effect 注入された依存だけを呼ぶ。
-     * @failure 本番と同じ初期化失敗をthrowする。
-     * @invariant 本番依存を変更しない。
-     * @boundary Coordinator内部の局所反証境界。
-     * @security 公開入口や本番Authorityを提供しない。
-     * @concurrency 実行ごとにOperationを局所保持する。
-     */
-    create: () => createProductionOperation(fixed),
-  });
-}
-
-/**
  * 検証済みRepositoryへ閉じた読取り助言Production依存を構築する。
  *
  * @responsibility 読取り助言OperationのRepository結合とCoordinator実境界を同じ依存集合へ固定する。
@@ -1803,10 +1655,16 @@ export function createIsolatedProviderOperationCandidate(
  * @concurrency 返却依存はOperationごとに独立したCapabilityへ結合される。
  */
 function createProductionDependencies(
-  repositoryRoot: string,
+  repository: Repository,
+  recordingCurrent?: () => boolean,
 ): ProviderAdviceRuntimeDependencies {
+  const repositoryRoot = resolveVerifiedRepositoryRoot(repository);
   return Object.freeze<ProviderAdviceRuntimeDependencies>({
     createOperation: async (signal, current) => {
+      if (!repositoryRoot || !recordingCurrent?.())
+        throw new AdviceRuntimeError(
+          "workbench_ai_advice_repository_binding_unavailable",
+        );
       const verifyBoundary = () => {
         try {
           return (
@@ -1835,7 +1693,27 @@ function createProductionDependencies(
               startup.requestState !== "not_issued",
           },
         );
-      return createProductionOperation();
+      try {
+        return createRuntimeOwnedCoordinatorOperation({
+          root: repository,
+          purpose: "advice",
+          recordingCurrent,
+          signal,
+          executionCurrent: current,
+        });
+      } catch (error) {
+        const failure =
+          classifyOwnedOperationDirectoryCreationFailure(error) ??
+          classifyOwnedCoordinatorOperationCreationFailure(error);
+        if (!failure?.cleanupConfirmed)
+          poisonRuntimeProcessAfterCleanupUnknown();
+        throw new AdviceRuntimeError(
+          failure?.cleanupConfirmed
+            ? "workbench_ai_advice_operation_initialization_failed_cleanup_confirmed"
+            : "workbench_ai_advice_operation_initialization_cleanup_unknown_process_restart_required",
+          failure,
+        );
+      }
     },
     bindRepository: (managementCapability) =>
       bindRuntimeOwnedRepositoryOperation(managementCapability, repositoryRoot),
@@ -1846,7 +1724,7 @@ function createProductionDependencies(
     startProcess: startRuntimeOwnedDockerProcessController,
     cancelProcess: cancelRuntimeOwnedDockerProcessController,
     prepareDockerHostCleanup: prepareRuntimeOwnedDockerHostCleanup,
-    cleanupOperation: cleanupOwnedOperationDirectoriesAsync,
+    cleanupOperation: cleanupOwnedOperationDirectories,
     classifyOperationCleanup: verifyOwnedOperationCleanupOutcome,
     recordDockerHostCleanupReceipt: recordRuntimeOwnedDockerHostCleanupReceipt,
     finalizeDockerRecovery: finalizeRuntimeOwnedDockerRecovery,

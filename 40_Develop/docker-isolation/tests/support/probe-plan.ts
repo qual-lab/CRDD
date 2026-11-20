@@ -8,6 +8,11 @@ import path from "node:path";
 import { types } from "node:util";
 import { describeIsolationConfiguration } from "../../src/image/assets.ts";
 import { captureDockerProcessEnvironment } from "../../src/process/environment.ts";
+import {
+  captureIsolationRequest,
+  containerCreation,
+} from "../../src/execution/preparation.ts";
+import type { IsolationContainer } from "../../src/execution/types.ts";
 
 const ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
 
@@ -23,6 +28,7 @@ const ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
  */
 export type DockerProbeCommand =
   | Readonly<{ purpose: "version" }>
+  | Readonly<{ purpose: "create_prepared"; container: IsolationContainer }>
   | Readonly<{
       purpose:
         | "inspect"
@@ -80,11 +86,13 @@ export function planDockerProbeCommand(
   const allowed =
     command.purpose === "version"
       ? ["purpose"]
-      : command.purpose === "create"
-        ? ["purpose", "probeId", "source", "mounts"]
-        : command.purpose === "list_name" || command.purpose === "list_label"
-          ? ["purpose", "probeId"]
-          : ["purpose", "containerId"];
+      : command.purpose === "create_prepared"
+        ? ["purpose", "container"]
+        : command.purpose === "create"
+          ? ["purpose", "probeId", "source", "mounts"]
+          : command.purpose === "list_name" || command.purpose === "list_label"
+            ? ["purpose", "probeId"]
+            : ["purpose", "containerId"];
   if (
     Object.keys(command).some((key) => !allowed.includes(key)) ||
     allowed.some((key) => !Object.hasOwn(command, key))
@@ -93,7 +101,34 @@ export function planDockerProbeCommand(
   let args: string[];
   if (command.purpose === "version")
     args = ["version", "--format", "{{.Server.Os}}"];
-  else if (
+  else if (command.purpose === "create_prepared") {
+    const input = captureIsolationRequest({
+      managementDirectory: command.container.mounts[0]?.source ?? "",
+      resources: [command.container],
+      steps: [
+        {
+          key: "create_probe",
+          action: "create",
+          resource: "probe",
+          timeoutMs: 30_000,
+        },
+      ],
+      cleanupOrder: ["probe"],
+      setupTimeoutMs: 10_000,
+      unreceiptedAbsence: "retain",
+      verifyLabelAbsence: true,
+    });
+    const resource = input.resources[0];
+    if (
+      resource?.kind !== "container" ||
+      resource.key !== "probe" ||
+      !resource.name.startsWith("crdd-coordinator-probe-") ||
+      resource.ownershipLabel !==
+        `crdd.coordinator.probe=${resource.name.slice("crdd-coordinator-probe-".length)}`
+    )
+      throw Error("docker_probe_identity_invalid");
+    args = [...containerCreation(resource, null)];
+  } else if (
     command.purpose === "create" ||
     command.purpose === "list_name" ||
     command.purpose === "list_label"

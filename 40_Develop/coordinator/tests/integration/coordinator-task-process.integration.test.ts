@@ -16,15 +16,16 @@ import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
+import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 import {
-  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
-  requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
+  getRepository,
+  resolveVerifiedRepositoryRoot,
+} from "../../../version-control/src/index.ts";
+import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
 import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/execution/controller.ts";
 import {
   captureOwnedOperationCleanupVerification,
-  cleanupOwnedOperationDirectoriesAsync,
+  cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
@@ -66,6 +67,40 @@ type Dependencies = Parameters<
 >[0];
 
 /**
+ * 各Process試験のHost保存先を自己生成Repositoryへ閉じる。
+ * @responsibility 現行Host受付へ検証済みRootと現在性を渡す。
+ * @trace ERB-IT-003
+ * @boundary Git配置は有限fixture。実Git実行・AI・Dockerなし。
+ */
+function hostFixture() {
+  const directory = createRepositoryTestDirectory("task-process-");
+  const root = directory.path;
+  fs.mkdirSync(path.join(root, ".git", "refs", "heads"), { recursive: true });
+  fs.mkdirSync(path.join(root, ".git", "info"));
+  fs.writeFileSync(path.join(root, ".git", "HEAD"), "ref: refs/heads/main\n");
+  fs.writeFileSync(
+    path.join(root, ".git", "refs", "heads", "main"),
+    `${"1".repeat(40)}\n`,
+  );
+  fs.writeFileSync(
+    path.join(root, ".git", "config"),
+    "[core]\nrepositoryformatversion = 0\nbare = false\n",
+  );
+  fs.writeFileSync(path.join(root, ".git", "info", "exclude"), ".crdd/\n");
+  const repository = getRepository(root);
+  assert.equal(repository.status, "completed");
+  return {
+    directory,
+    input: {
+      root: repository.capability,
+      purpose: "task" as const,
+      recordingCurrent: () =>
+        resolveVerifiedRepositoryRoot(repository.capability) === root,
+    },
+  };
+}
+
+/**
  * createDeferredのTest準備責務を実行する。
  *
  * @responsibility createDeferredがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
@@ -103,14 +138,10 @@ function createProcessHarness(
   scenario: Scenario,
   controllerCleanupConfirmed?: boolean,
 ) {
-  const tests = requireReadyRepositoryExecutionDataArea(
-    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
-      import.meta.dirname,
-      "tests",
-    ),
-    "task_process_test",
-  );
-  const owned = createOwnedOperationDirectories(tests.directory);
+  const host = hostFixture();
+  const owned = createOwnedOperationDirectories(host.input);
+  assert.ok(owned.directories);
+  const directories = owned.directories;
   const contextCapability = createOwnedOperationContextCapability(owned);
   const mountCapability = createOwnedMountCapability(owned);
   const managementCapability = createOwnedOperationManagementCapability(
@@ -120,11 +151,8 @@ function createProcessHarness(
   const operationId =
     verifyOwnedOperationManagementCapability(managementCapability).operationId;
   const hostRecoveryId = getOwnedHostRecoveryId(owned);
-  const file = path.join(owned.directories.workspace, "fixture.txt");
-  const marker = path.join(
-    owned.directories.management,
-    "active-docker-task-v1.json",
-  );
+  const file = path.join(directories.workspace, "fixture.txt");
+  const marker = path.join(directories.management, "unsettled-fixture.txt");
   const states: string[] = [];
   const childProcesses: ChildProcess[] = [];
   const closedPids = new Set<number>();
@@ -241,7 +269,9 @@ function createProcessHarness(
         "Host cleanup must follow actual child close",
       );
       cleanupCount += 1;
-      const outcome = await cleanupOwnedOperationDirectoriesAsync(target);
+      if (scenario === "cleanup_refused")
+        throw Error("fixture_host_cleanup_unconfirmed");
+      const outcome = await cleanupOwnedOperationDirectories(target);
       assert.equal(
         verifyOwnedOperationCleanupOutcome(outcome, target),
         "completed",
@@ -328,7 +358,7 @@ function createProcessHarness(
         process.execPath,
         ["-e", CHILD_SOURCE, role, file, scenario],
         {
-          cwd: owned.directories.workspace,
+          cwd: directories.workspace,
           env: { PATH: "", SystemRoot: process.env.SystemRoot ?? "" },
           shell: false,
           windowsHide: true,
@@ -435,6 +465,7 @@ function createProcessHarness(
     runtime: createIsolatedCoordinatorTaskRuntimeCandidate(dependencies),
     owned,
     marker,
+    directories,
     hostRecoveryId,
     states,
     childProcesses,
@@ -456,8 +487,9 @@ function createProcessHarness(
         }
       if (fs.existsSync(marker)) fs.unlinkSync(marker);
       if (fs.existsSync(owned.root))
-        await cleanupOwnedOperationDirectoriesAsync(owned);
+        await cleanupOwnedOperationDirectories(owned);
       assert.equal(fs.existsSync(owned.root), false);
+      host.directory.cleanup();
     },
   };
 }
@@ -474,19 +506,14 @@ function createProcessHarness(
  * @boundary ERB-IT-003=Direct Boundary: Host清掃Owner→真正結果と実Filesystem。
  */
 test("Host清掃結果はOwner失効後も元操作だけへ結合する", async (t) => {
-  const tests = requireReadyRepositoryExecutionDataArea(
-    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
-      import.meta.dirname,
-      "tests",
-    ),
-    "task_process_test",
-  );
-  const first = createOwnedOperationDirectories(tests.directory);
-  const second = createOwnedOperationDirectories(tests.directory);
+  const host = hostFixture();
+  const first = createOwnedOperationDirectories(host.input);
+  const second = createOwnedOperationDirectories(host.input);
   t.after(async () => {
     for (const owned of [first, second])
       if (fs.existsSync(owned.root))
-        await cleanupOwnedOperationDirectoriesAsync(owned);
+        await cleanupOwnedOperationDirectories(owned);
+    host.directory.cleanup();
   });
   const management = createOwnedOperationManagementCapability(
     createOwnedOperationContextCapability(first),
@@ -495,9 +522,19 @@ test("Host清掃結果はOwner失効後も元操作だけへ結合する", async
   const verifyCleanup = captureOwnedOperationCleanupVerification(management);
   assert.ok(verifyCleanup);
   assert.equal(verifyCleanup({}), null);
-  const firstOutcome = await cleanupOwnedOperationDirectoriesAsync(first);
-  const secondOutcome = await cleanupOwnedOperationDirectoriesAsync(second);
+  const recoveryId = getOwnedHostRecoveryId(first);
+  assert.match(recoveryId, /^host-operation\.OP-[0-9]{6,}$/u);
+  const lockFile = path.join(
+    host.directory.path,
+    ".crdd",
+    "lock",
+    `coordinator.host-operation.${recoveryId.slice("host-operation.".length)}.lock`,
+  );
+  assert.equal(fs.existsSync(lockFile), true);
+  const firstOutcome = await cleanupOwnedOperationDirectories(first);
+  const secondOutcome = await cleanupOwnedOperationDirectories(second);
   assert.equal(fs.existsSync(first.root), false);
+  assert.equal(fs.existsSync(lockFile), false);
   assert.equal(fs.existsSync(second.root), false);
   assert.throws(() => verifyOwnedOperationManagementCapability(management));
   assert.equal(captureOwnedOperationCleanupVerification(management), null);
@@ -563,7 +600,7 @@ for (const cleanupConfirmed of [true, false]) {
         hasUnresolvedDirection: false,
         requiresCrossContextAlignment: false,
       },
-      harness.owned.directories.workspace,
+      harness.directories.workspace,
     );
     const binding = bindTaskCliCancellationSignals(() =>
       harness.runtime.cancel(started.controlCapability),
@@ -680,7 +717,7 @@ for (const scenario of [
         hasUnresolvedDirection: false,
         requiresCrossContextAlignment: false,
       },
-      harness.owned.directories.workspace,
+      harness.directories.workspace,
     );
     const binding = bindTaskCliCancellationSignals(() =>
       harness.runtime.cancel(started.controlCapability),

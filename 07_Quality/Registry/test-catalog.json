@@ -636,7 +636,7 @@
       "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#10-provider実行と候補",
       "responsibilities": [
         "borrowed_workspace_execution",
-        "candidate_revision_review",
+        "fixed_commit_candidate_review",
         "upper_owned_git_lifecycle"
       ],
       "externalBoundaries": [
@@ -650,9 +650,10 @@
       ],
       "postconditions": [
         "borrowed_tree_not_deleted",
-        "protected_git_and_runtime_state_not_written",
+        "borrowed_head_and_index_unchanged",
+        "owned_git_references_recorded_and_settled",
         "unexpected_changes_reported",
-        "no_implicit_candidate_commit_or_merge"
+        "no_implicit_candidate_acceptance_or_merge"
       ]
     },
     {
@@ -1721,24 +1722,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:host-resource-identity",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/host-resource-identity.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "recovery",
-        "identity"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "exact_resource_identity_preserved"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "docker-isolation:integration:cleanup-common",
       "owner": "docker-isolation",
       "path": "40_Develop/docker-isolation/tests/integration/cleanup-common.contract.test.ts",
@@ -1855,6 +1838,7 @@
       "kind": "contract",
       "semanticTags": [
         "snapshot",
+        "before-effect-settlement",
         "receipt"
       ],
       "environment": "node_process",
@@ -2097,6 +2081,7 @@
       "kind": "contract",
       "semanticTags": [
         "probe",
+        "recovery-snapshot-notification",
         "cleanup",
         "cancellation"
       ],
@@ -2407,9 +2392,9 @@
       "semanticTags": [
         "ai",
         "verification",
-          "diagnostics",
-          "source-scope-v4",
-          "entry-module-resolution"
+        "diagnostics",
+        "source-scope-v4",
+        "entry-module-resolution"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
@@ -2626,7 +2611,9 @@
         "docker",
         "isolation",
         "probe-submission",
-        "projection"
+        "current-executor-notification",
+        "resource-book-update",
+        "completion-joined-cancellation"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -2689,7 +2676,9 @@
         "docker",
         "isolation",
         "probe-completion",
-        "projection"
+        "current-executor-notification",
+        "resource-book-update",
+        "host-cleanup-gate"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -3645,7 +3634,10 @@
         "root-binding",
         "filesystem",
         "owner-invalidation",
-        "host-initialization-failure"
+        "host-initialization-failure",
+        "git-fixed-snapshot",
+        "reviewer-fixed-copy",
+        "reference-cleanup"
       ],
       "environment": "local_component_boundary",
       "executionProfiles": [
@@ -3657,7 +3649,10 @@
       "postconditions": [
         "exact_root_read_observed",
         "live_owner_recovery_rejected",
-        "host_cleanup_absence_confirmed"
+        "host_cleanup_absence_confirmed",
+        "normal_index_head_unchanged",
+        "reference_mismatch_retained",
+        "receipt_failure_retained"
       ],
       "mandatoryByDefault": true
     },
@@ -3710,7 +3705,8 @@
         "hostile_values_rejected",
         "identity_resource_correlation_preserved",
         "finite_recovery_candidate_retires_operations",
-        "unconfirmed_history_retains_operations"
+        "unconfirmed_history_retains_operations",
+        "unstarted_failure_preserved_before_host_cleanup"
       ],
       "mandatoryByDefault": true
     },
@@ -3862,6 +3858,7 @@
         "coordinator-state",
         "restart",
         "correlation",
+        "host-receipt-lineage",
         "hostile-input"
       ],
       "environment": "node_process",
@@ -4680,7 +4677,10 @@
         "selected_base_only",
         "candidate_ref_lifecycle",
         "two_parent_merge",
-        "no_duplicate_commit_merge"
+        "no_duplicate_commit_merge",
+        "commit_diff_all_paths",
+        "tracked_ancestor_deletion",
+        "ancestor_recheck_failure_rejected"
       ],
       "mandatoryByDefault": true
     },
@@ -4857,8 +4857,8 @@
     },
     {
       "id": "runtime-data:integration:consumer-closure",
-      "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/integration/storage-consumer-closure.integration.test.ts",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/storage-consumer-closure.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5212,7 +5212,8 @@
         "namespace",
         "node",
         "filesystem",
-        "partial-result"
+        "partial-result",
+        "passive-no-host-creation"
       ],
       "environment": "local_component_boundary",
       "executionProfiles": [
@@ -5741,6 +5742,8 @@
       "semanticTags": [
         "repository",
         "workspace",
+        "git-selected-observation",
+        "git-fixed-snapshot",
         "runtime"
       ],
       "environment": "local_component_boundary",
@@ -5847,6 +5850,7 @@
         "docker",
         "recovery",
         "observation",
+        "host-record-observation",
         "cli"
       ],
       "environment": "fixed_system_runtime",
@@ -6134,9 +6138,9 @@
         "verification",
         "script",
         "exact_operation",
-          "unresolved_result_preservation",
-          "source-scope-v4",
-          "entry-module-resolution"
+        "unresolved_result_preservation",
+        "source-scope-v4",
+        "entry-module-resolution"
       ],
       "environment": "fixed_system_runtime",
       "externalProviderEffect": false,
@@ -6274,8 +6278,6 @@
       ],
       "mandatoryByDefault": true
     },
-
-
     {
       "id": "coordinator:unit:authority-root-path-lexical",
       "owner": "coordinator",
@@ -6296,7 +6298,6 @@
       ],
       "mandatoryByDefault": true
     },
-
     {
       "id": "coordinator:unit:claude-docker-runtime-adapter",
       "owner": "coordinator",
@@ -6448,7 +6449,9 @@
         "coordinator",
         "operation",
         "creation",
-        "internal"
+        "internal",
+        "cleanup",
+        "lock"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -6794,7 +6797,10 @@
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "doctor"
+        "doctor",
+        "passive-no-host-creation",
+        "host-probe-resource-recording",
+        "host-probe-recovery-reentry"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -8095,7 +8101,9 @@
         "task_profile_and_projection_identity_preserved",
         "provider_execution_at_most_once",
         "host_and_docker_cleanup_before_advice_publication",
-        "cleanup_failure_preserves_recovery_and_hides_advice"
+        "cleanup_failure_preserves_recovery_and_hides_advice",
+        "unstarted_rejection_record_request_preserves_exact_reason",
+        "started_control_or_effect_rejects_unstarted_record"
       ],
       "mandatoryByDefault": true
     },
@@ -10010,13 +10018,20 @@
       "id": "domain-model:integration:runtime-core-crud",
       "owner": "execution-model",
       "path": "40_Develop/execution-model/tests/integration/runtime-core-crud.contract.test.ts",
+      "executionProfiles": [
+        "restricted_process",
+        "windows_process_control"
+      ],
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
         "runtime-state",
         "storage",
         "authorization",
-        "cas"
+        "cas",
+        "host-intent-publication",
+        "host-initial-publication-reentry",
+        "probe-resource-publication"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
@@ -10222,6 +10237,8 @@
       "semanticTags": [
         "storage",
         "codec",
+        "host-and-operation-correlation",
+        "legacy-summary-rejected",
         "snapshot"
       ],
       "environment": "local_component_boundary",
@@ -10229,7 +10246,8 @@
       "humanInput": false,
       "postconditions": [
         "result_observed",
-        "unknown_not_absent"
+        "unknown_not_absent",
+        "start_failure_shape_and_outcome_correlated"
       ],
       "mandatoryByDefault": true
     },
@@ -10959,7 +10977,9 @@
       "semanticTags": [
         "checkpoint",
         "owner-boundary",
-        "source-contract"
+        "source-contract",
+        "start-completion-context-failure",
+        "host-intent-candidate"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,

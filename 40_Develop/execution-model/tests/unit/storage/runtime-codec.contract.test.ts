@@ -16,6 +16,7 @@ import test from "node:test";
 import {
   validateOperationIdentity,
   validPrimaryFailure,
+  validOutcome,
 } from "../../../src/attempt/validation.ts";
 import { decodeHistoryRows } from "../../../src/history/validation.ts";
 import type { ProjectExecutionState } from "../../../src/index.ts";
@@ -46,11 +47,11 @@ const binding = "a".repeat(64);
  * @precondition 非秘密の有限履歴値だけを構築する。
  * @stimulus 旧Schema、現行Schema、整合した別IDと不整合な別nonceを渡す。
  * @observation 内部decoderの行・IDと拒否結果。
- * @oracle 旧行と整合した別操作行は有効、不整合な回復IDは拒否する。
+ * @oracle 旧行は拒否し、整合した現行別操作行は受理、不整合な回復IDは拒否する。
  * @cleanup N/A: メモリ内だけ。
  * @boundary 形式検査であり実保存・同じ操作の終了許可の証明ではない。
  */
-test("履歴の旧行と別操作行は形式成立と操作対応を分ける", () => {
+test("履歴は旧行を拒否し、現行の別操作行は形式成立と操作対応を分ける", () => {
   const nonce = "f".repeat(64);
   const identitySha256 = "e".repeat(64);
   const legacy = {
@@ -75,11 +76,32 @@ test("履歴の旧行と別操作行は形式成立と操作対応を分ける",
     hostCleanup: "confirmed",
     lease: "released",
   };
+  const { hostCleanup, ...legacyFields } = legacy;
+  assert.equal(hostCleanup, "confirmed");
+  assert.equal(
+    decodeHistoryRows(
+      Buffer.from(
+        `${encodeStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt: "2026-09-01T00:00:00.000Z", summary: legacy })}\n`,
+      ),
+    ),
+    null,
+  );
   const current = {
-    ...legacy,
-    schema: "crdd-execution-model/operation-summary/v5",
+    ...legacyFields,
+    schema: "crdd-execution-model/operation-summary/v6",
     recoveryCorrelationId: "upper-current-host",
   };
+  for (const summary of [
+    { ...current, schema: "crdd-execution-model/operation-summary/v5" },
+    {
+      ...current,
+      schema: "crdd-execution-model/operation-summary/v5",
+      hostCleanup: "confirmed",
+    },
+  ]) {
+    const line = `${encodeStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt: "2026-09-01T00:00:00.000Z", summary })}\n`;
+    assert.equal(decodeHistoryRows(Buffer.from(line)), null);
+  }
   const otherNonce = "d".repeat(64);
   const other = {
     ...current,
@@ -180,6 +202,15 @@ test("内部技術記録は旧64件を超えても正規相関を維持する", 
   const fixture = createResourceOperationFixture();
   const initial = decodeStateSnapshot(fixture.bytes, fixture.binding);
   assert.ok(initial);
+  const baseHost = initial.snapshot.operations.find(
+    (item) => item.kind === "host_operation",
+  );
+  assert.ok(baseHost);
+  const hosts = Array.from({ length: 129 }, (_, index) => ({
+    ...baseHost,
+    operationId: `OP-${String(index + 1).padStart(6, "0")}`,
+    recoveryId: `host-operation.OP-${String(index + 1).padStart(6, "0")}`,
+  }));
   const operations = Array.from({ length: 129 }, (_, index) => {
     const identity = {
       ...fixture.identity,
@@ -187,25 +218,54 @@ test("内部技術記録は旧64件を超えても正規相関を維持する", 
       operationId: `OP-${String(index + 1).padStart(6, "0")}`,
       recoveryCorrelationId: `task-operation-${index}`,
     };
+    const hostBytes = Buffer.from(
+      `${encodeStateValue({ ...initial.snapshot, operations: [hosts[index]] })}\n`,
+    );
+    assert.ok(decodeStateSnapshot(hostBytes, fixture.binding));
     const bytes = prepareStateOperationSnapshot(
-      null,
+      hostBytes,
       `${JSON.stringify(identity)}\n`,
       fixture.binding,
     );
     assert.ok(bytes);
     const observed = decodeStateSnapshot(bytes, fixture.binding);
     assert.ok(observed);
-    const operation = observed.snapshot.operations[0];
+    const operation = observed.snapshot.operations.find(
+      (item) => item.kind === "docker_task",
+    );
     assert.ok(operation);
     return operation;
   });
-  const state = { ...initial.snapshot, operations };
+  const state = {
+    ...initial.snapshot,
+    operations: [...operations, ...hosts].sort((a, b) => {
+      const left =
+        a.kind === "host_operation"
+          ? a.operationId
+          : JSON.parse(a.identityJson).operationNonce;
+      const right =
+        b.kind === "host_operation"
+          ? b.operationId
+          : JSON.parse(b.identityJson).operationNonce;
+      return left < right ? -1 : left > right ? 1 : 0;
+    }),
+  };
   const observed = decodeStateSnapshot(
     Buffer.from(`${encodeStateValue(state)}\n`),
     fixture.binding,
   );
   assert.ok(observed);
-  assert.equal(observed.snapshot.operations.length, 129);
+  assert.equal(
+    observed.snapshot.operations.filter((item) => item.kind === "docker_task")
+      .length,
+    129,
+  );
+  assert.equal(
+    observed.snapshot.operations.filter(
+      (item) => item.kind === "host_operation",
+    ).length,
+    129,
+  );
   const fact = {
     kind: "operations",
     recoveryIds: operations.map((operation) => operation.recoveryId),
@@ -229,8 +289,9 @@ test("内部技術記録は旧64件を超えても正規相関を維持する", 
     ),
     null,
   );
-  const tampered = operations.map((operation, index) =>
-    index === 128
+  const tampered = state.operations.map((operation) =>
+    operation.kind === "docker_task" &&
+    operation.recoveryId === operations[128]?.recoveryId
       ? { ...operation, identitySha256: "f".repeat(64) }
       : operation,
   );
@@ -287,7 +348,7 @@ const taskExecutionSelections = () => ({
  */
 function emptyExecutionStateSnapshot(): ExecutionStateSnapshot {
   return {
-    schema: "crdd-execution-model/state/v6",
+    schema: "crdd-execution-model/state/v7",
     revision: 1,
     previous: null,
     repositoryBinding: binding,
@@ -329,7 +390,7 @@ const empty = {
 test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", () => {
   const empty = {
     ...emptyExecutionStateSnapshot(),
-    schema: "crdd-execution-model/state/v6",
+    schema: "crdd-execution-model/state/v7",
     repositoryBindingId: "binding-a",
     managedExecutions: [],
   };
@@ -1285,6 +1346,63 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
  */
 test("一次失敗のCommand観測は閉じた数値契約と応答相関を検査する", () => {
   const validate = validPrimaryFailure;
+  for (const [reason, stage] of [
+    ["docker_process_controller_plan_invalid", "plan_validation"],
+    ["docker_process_controller_recovery_unavailable", "home_lock"],
+    ["docker_process_controller_home_lock_initialization_failed", "home_lock"],
+    [
+      "docker_process_controller_home_lock_descriptor_close_unconfirmed",
+      "home_lock",
+    ],
+  ] as const) {
+    const refusedStart = {
+      purpose: null,
+      stage,
+      reason,
+      exceptionCode: null,
+      commandHandleObtained: false,
+      responseObserved: false,
+      receiptRecorded: false,
+    };
+    assert.equal(validate(refusedStart), true);
+    assert.equal(validate({ ...refusedStart, commandObservation: null }), true);
+    for (const changed of [
+      { ...refusedStart, stage: "command_start" },
+      {
+        ...refusedStart,
+        stage: stage === "home_lock" ? "plan_validation" : "home_lock",
+      },
+      { ...refusedStart, purpose: "start_provider_attached" },
+      { ...refusedStart, exceptionCode: "EACCES" },
+      { ...refusedStart, commandHandleObtained: true },
+      { ...refusedStart, responseObserved: true },
+      { ...refusedStart, responseObserved: true, receiptRecorded: true },
+      { ...refusedStart, authenticationStatus: "unknown" },
+      {
+        ...refusedStart,
+        turnCountDiagnostic: { valueType: "missing", numberText: null },
+      },
+      {
+        ...refusedStart,
+        commandObservation: { exitCode: null, stdoutBytes: 0, stderrBytes: 0 },
+      },
+      { ...refusedStart, extra: true },
+      { ...refusedStart, reason: "unknown" },
+    ])
+      assert.equal(validate(changed), false);
+    assert.equal(
+      validOutcome({ status: "blocked", reason, cleanupConfirmed: false }),
+      true,
+    );
+    assert.equal(
+      validOutcome({ status: "completed", reason, cleanupConfirmed: true }),
+      false,
+    );
+    assert.equal(
+      validOutcome({ status: "cancelled", reason, cleanupConfirmed: true }),
+      false,
+    );
+  }
   const base = {
     purpose: "start_provider_attached",
     stage: "execution_classification",
@@ -1330,7 +1448,7 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
   ];
   for (const primaryFailure of primaryFailures) {
     const summary = {
-      schema: "crdd-execution-model/operation-summary/v5",
+      schema: "crdd-execution-model/operation-summary/v6",
       recoveryCorrelationId: "request-synthetic",
       operationId: "OP-123456",
       operationNonce: nonce,
@@ -1349,7 +1467,6 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
         reason: "docker_setup_start_subscription_auth_probe_attached_failed",
         cleanupConfirmed: true,
       },
-      hostCleanup: "confirmed",
       lease: "released",
     };
     const line = `${encodeStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt: "2026-10-25T00:00:00.000Z", summary })}\n`;

@@ -15,6 +15,11 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { deflateSync } from "node:zlib";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
+import { readState } from "../../../execution-model/src/index.ts";
+import {
+  getRepository,
+  resolveVerifiedRepositoryRoot,
+} from "../../../version-control/src/index.ts";
 
 import { parseUnambiguousJsonDocument } from "../../src/input/json.ts";
 import {
@@ -190,30 +195,58 @@ function repository(
  */
 function resolve(t: TestContext, root: string) {
   const hostDirectory = createRepositoryTestDirectory("crdd-policy-host-");
+  const hostRoot = hostDirectory.path;
+  fs.mkdirSync(path.join(hostRoot, ".git", "refs", "heads"), {
+    recursive: true,
+  });
+  fs.mkdirSync(path.join(hostRoot, ".git", "info"));
+  fs.writeFileSync(
+    path.join(hostRoot, ".git", "HEAD"),
+    "ref: refs/heads/main\n",
+  );
+  fs.writeFileSync(
+    path.join(hostRoot, ".git", "refs", "heads", "main"),
+    `${"1".repeat(40)}\n`,
+  );
+  fs.writeFileSync(
+    path.join(hostRoot, ".git", "config"),
+    "[core]\nrepositoryformatversion = 0\nbare = false\n",
+  );
+  fs.writeFileSync(path.join(hostRoot, ".git", "info", "exclude"), ".crdd/\n");
+  const hostRepository = getRepository(hostRoot);
+  assert.equal(hostRepository.status, "completed");
   let owned: ReturnType<typeof createOwnedOperationDirectories> | null = null;
   t.after(() => {
     assert.ok(owned, "Host生成未確定時は親Rootを保持する");
     const currentOwned = owned;
+    assert.ok(currentOwned.directories);
+    const operationRoot = currentOwned.directories.root;
     cleanupOwnedOperationDirectories(currentOwned);
-    assert.throws(() => fs.lstatSync(currentOwned.directories.root), {
+    assert.throws(() => fs.lstatSync(operationRoot), {
       code: "ENOENT",
     });
-    const entries = fs.readdirSync(hostDirectory.path);
-    assert.ok(entries.length <= 1);
-    for (const name of entries) {
-      assert.equal(name, "crdd-coordinator-recovery-v1");
-      const target = path.join(hostDirectory.path, name);
-      const metadata = fs.lstatSync(target);
-      assert.equal(metadata.isDirectory(), true);
-      assert.equal(metadata.isSymbolicLink(), false);
-      assert.equal(fs.realpathSync.native(target), target);
-      assert.deepEqual(fs.readdirSync(target), []);
-    }
+    const state = readState(hostRepository.capability, { scope: "recovery" });
+    assert.equal(state.status, "completed");
+    assert.equal(state.lockReleased, true);
+    const host = state.value?.snapshot.operations.find(
+      (item) => item.kind === "host_operation",
+    );
+    assert.equal(host?.phase, "terminal");
+    assert.equal(host?.cleanup, "confirmed");
     hostDirectory.cleanup();
   });
   assert.equal(path.dirname(hostDirectory.path), path.dirname(root));
-  owned = createOwnedOperationDirectories(hostDirectory.path);
-  assert.equal(path.dirname(owned.directories.root), hostDirectory.path);
+  owned = createOwnedOperationDirectories({
+    root: hostRepository.capability,
+    purpose: "task",
+    recordingCurrent: () =>
+      resolveVerifiedRepositoryRoot(hostRepository.capability) === hostRoot,
+  });
+  assert.ok(owned.directories);
+  assert.equal(
+    path.dirname(owned.directories.root),
+    path.join(hostRoot, ".crdd", "operations"),
+  );
   const management = createOwnedOperationManagementCapability(
     createOwnedOperationContextCapability(owned),
     createOwnedMountCapability(owned),

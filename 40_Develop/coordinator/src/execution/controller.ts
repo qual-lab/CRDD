@@ -7,7 +7,6 @@
 
 import { setImmediate } from "node:timers/promises";
 import { isDeepStrictEqual, types } from "node:util";
-import { inspectExecutionSelection } from "../../../execution-model/src/index.ts";
 import type {
   CompletionResult,
   ProcessStartedNotice,
@@ -40,13 +39,12 @@ import {
 } from "./observation.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
-  activateOwnedHostOperationGenerationLock,
-  assertOwnedHostOperationLock,
+  type HostOperationInput,
   type BorrowedExecutionTarget,
   bindRuntimeOwnedExecutionSnapshot,
   bindRuntimeOwnedRepositoryOperation,
   captureExecutionChangeSnapshot,
-  cleanupOwnedOperationDirectoriesAsync,
+  cleanupOwnedOperationDirectories,
   createProductionOperationRoot,
   createRuntimeOwnedCoordinatorOperation,
   inspectBorrowedExecutionTarget,
@@ -860,8 +858,7 @@ const REVIEWER_FINDING_DIAGNOSTIC_KEYS = new Set([
 
 const REVIEWER_PROJECTION_KEYS = new Set([
   "status",
-  "candidatePatchHash",
-  "candidateContentManifestHash",
+  "candidateCommitId",
   "projectionHash",
   "totalBytes",
   "files",
@@ -1081,6 +1078,7 @@ type TaskRuntimeDependencies = Readonly<{
   createOperation: (
     signal: AbortSignal,
     verifyBoundary: () => boolean,
+    hostInput?: HostOperationInput,
   ) => Operation | Promise<Operation>;
   classifyOperationCreationFailure: (
     error: unknown,
@@ -1200,6 +1198,7 @@ type TaskRuntimeDependencies = Readonly<{
  * @compatibility ControlRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type ControlRecord = {
+  hostInput?: HostOperationInput;
   workspaceTarget?: BorrowedExecutionTarget;
   borrowedWorkspaceCapability?: object;
   lifecycleState: RuntimeLifecycleState;
@@ -1656,8 +1655,8 @@ function projectReviewerProjectionEvidence(value: unknown) {
     : null;
   if (
     record?.status !== "projected" ||
-    !sha256Value(record.candidatePatchHash) ||
-    !sha256Value(record.candidateContentManifestHash) ||
+    typeof record.candidateCommitId !== "string" ||
+    !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(record.candidateCommitId) ||
     !sha256Value(record.projectionHash) ||
     !Number.isSafeInteger(record.totalBytes) ||
     (record.totalBytes as number) < 0 ||
@@ -1687,8 +1686,7 @@ function projectReviewerProjectionEvidence(value: unknown) {
   });
   if (projectedFiles.some((item) => item === null)) return null;
   return Object.freeze({
-    candidatePatchHash: record.candidatePatchHash,
-    candidateContentManifestHash: record.candidateContentManifestHash,
+    candidateCommitId: record.candidateCommitId,
     projectionHash: record.projectionHash,
     totalBytes: record.totalBytes,
     files: Object.freeze(projectedFiles),
@@ -2379,10 +2377,8 @@ async function executeStage(
     role === "executor" ? "executor" : "independent_reviewer",
     taskAttempt,
   );
-  const executionSelection = inspectExecutionSelection(
-    selectionInput.executionSelection,
-  );
-  if (!executionSelection) return blocked("coordinator_task_selection_failed");
+  // 受付で独立捕捉・凍結した選定を使う。外部preflight／準備結果との照合は各境界に残す。
+  const executionSelection = selectionInput.executionSelection;
   const provider = executionSelection.provider;
   let startedProcessControl: object | null = null;
   let startedDockerRecoveryId: string | null = null;
@@ -2421,10 +2417,7 @@ async function executeStage(
     );
   };
   try {
-    if (
-      provider !== expectedProvider ||
-      !isDeepStrictEqual(executionSelection, selectionInput.executionSelection)
-    ) {
+    if (provider !== expectedProvider) {
       return revokeUnconsumed("coordinator_task_selection_slate_mismatch");
     }
     const preflight = state.dependencies.preflightSelections(
@@ -2839,6 +2832,7 @@ async function runCoordinatorTaskCore(
           current?.status === "candidate" && current.runtimeSupported === true
         );
       },
+      control.hostInput,
     );
     control.ownedOperation = operation.owned;
     control.managementCapability = operation.managementCapability;
@@ -3261,11 +3255,8 @@ async function runCoordinatorTaskCore(
         reviewerIndependence,
         remediationPerformed,
         candidateRevision: Object.freeze({
-          baseCommit: verified.baseCommit,
-          baseTree: verified.baseTree,
-          patchHash: verified.patchHash,
-          contentManifestHash: verified.contentManifestHash,
-          allowedPathsHash: verified.allowedPathsHash,
+          baseCommitId: verified.baseCommitId,
+          candidateCommitId: verified.candidateCommitId,
           changedPaths: verified.changedPaths,
         }),
         executorResult: executorDiagnostics,
@@ -3429,93 +3420,14 @@ async function runCoordinatorTask(
   });
 }
 
-/**
- * Production Operationを構築する。
- *
- * @responsibility Production Operationの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000004
- * @input N/A: 実行時引数を受け取らない。
- * @returns createProductionOperationの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がcreateProductionOperationの入力契約を満たす。
- * @postcondition createProductionOperationの責務を完了した結果だけを返す。
- * @effect N/A: createProductionOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure createProductionOperationは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant createProductionOperationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createProductionOperationはProcess内の同一Subsystemで完結する。
- * @security createProductionOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency createProductionOperationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
- */
-async function createProductionOperation() {
-  const operation = createProductionOperationRoot(
-    createRuntimeOwnedCoordinatorOperation,
-    poisonRuntimeProcessAfterCleanupUnknown,
-  );
-  const {
-    owned,
-    mountCapability,
-    managementCapability,
-    operationId,
-    hostRecoveryId,
-  } = operation;
-  let failureReason = "coordinator_task_operation_creation_failed";
-  try {
-    const activation =
-      await activateOwnedHostOperationGenerationLock(managementCapability);
-    if (activation !== "activated") {
-      failureReason =
-        activation === "cleanup_unknown"
-          ? "coordinator_task_host_generation_lock_cleanup_unknown_process_restart_required"
-          : activation === "cleanup_confirmed_failure"
-            ? "coordinator_task_host_generation_lock_start_failed_cleanup_confirmed"
-            : "coordinator_task_host_generation_lock_unavailable";
-      throw new Error(
-        "coordinator_task_host_generation_lock_activation_failed",
-      );
-    }
-    assertOwnedHostOperationLock(managementCapability);
-    return Object.freeze({
-      owned,
-      mountCapability,
-      managementCapability,
-      operationId,
-      hostRecoveryId,
-    });
-  } catch {
-    let cleanupConfirmed = false;
-    let manualRecoveryRequired = false;
-    try {
-      const cleanup = verifyOwnedOperationCleanupOutcome(
-        await cleanupOwnedOperationDirectoriesAsync(owned),
-      );
-      if (!cleanup)
-        throw new Error("owned_operation_cleanup_outcome_unverified");
-      cleanupConfirmed = true;
-      if (cleanup === "protocol_failure_cleanup_confirmed")
-        failureReason =
-          "coordinator_task_host_generation_lock_protocol_failed_cleanup_confirmed";
-    } catch {
-      manualRecoveryRequired = true;
-      poisonRuntimeProcessAfterCleanupUnknown();
-      failureReason =
-        "coordinator_task_host_generation_lock_cleanup_unknown_process_restart_required";
-    }
-    throwProductionOperationFailure(
-      Object.freeze({
-        reason: failureReason,
-        hostRecoveryId,
-        cleanupConfirmed,
-        manualRecoveryRequired,
-      }),
-    );
-  }
-}
-
 const productionDependencies = Object.freeze<TaskRuntimeDependencies>({
   reportProviderBoundaryDiagnostic: createRuntimeOwnedLifecycleNoticeReporter(
     process.stderr,
   ),
   inspectRepository: inspectRepositoryObjectFormatCandidate,
-  createOperation: async (signal, current) => {
+  createOperation: async (signal, current, hostInput) => {
+    if (!hostInput?.recordingCurrent())
+      throw new Error("coordinator_task_operation_owner_required");
     const verifyBoundary = () => {
       try {
         return !signal.aborted && current() === true;
@@ -3538,10 +3450,18 @@ const productionDependencies = Object.freeze<TaskRuntimeDependencies>({
         manualRecoveryRequired:
           !startup.cleanupConfirmed || startup.requestState !== "not_issued",
       });
-    return createProductionOperation();
+    return createProductionOperationRoot(
+      () =>
+        createRuntimeOwnedCoordinatorOperation({
+          ...hostInput,
+          signal,
+          executionCurrent: current,
+        }),
+      poisonRuntimeProcessAfterCleanupUnknown,
+    );
   },
   classifyOperationCreationFailure: productionOperationFailure,
-  cleanupOperation: cleanupOwnedOperationDirectoriesAsync,
+  cleanupOperation: cleanupOwnedOperationDirectories,
   classifyOperationCleanup: verifyOwnedOperationCleanupOutcome,
   abandonOperation: abandonOwnedHostOperationGenerationLock,
   poisonProcessAfterCleanupUnknown: poisonRuntimeProcessAfterCleanupUnknown,
@@ -3643,6 +3563,7 @@ function createRuntime(dependencies: TaskRuntimeDependencies) {
         | "orchestrator" = "coordinator_cli",
       workspaceTarget?: BorrowedExecutionTarget,
       executionMetadata: Readonly<Record<string, string>> = {},
+      hostInput?: HostOperationInput,
     ) => {
       if (
         consumer !== "coordinator_cli" &&
@@ -3682,6 +3603,7 @@ function createRuntime(dependencies: TaskRuntimeDependencies) {
         consumer,
         observeProviderStarted,
         executionMetadata,
+        ...(hostInput ? { hostInput } : {}),
         executionRecordings: [],
         ...(workspaceTarget ? { workspaceTarget } : {}),
       };
@@ -4069,6 +3991,7 @@ export function startRuntimeOwnedCoordinatorTask(
     | "orchestrator" = "coordinator_cli",
   rawWorkspaceTarget?: BorrowedExecutionTarget,
   executionMetadata: Readonly<Record<string, string>> = {},
+  hostInput?: HostOperationInput,
 ) {
   if (isRuntimeProcessPoisoned()) {
     throw new Error("coordinator_task_process_restart_required");
@@ -4103,6 +4026,7 @@ export function startRuntimeOwnedCoordinatorTask(
     consumer,
     workspaceTarget,
     executionMetadata,
+    hostInput,
   );
 }
 

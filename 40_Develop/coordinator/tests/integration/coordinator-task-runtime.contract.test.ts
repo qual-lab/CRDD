@@ -28,7 +28,10 @@ import {
   readState,
   saveOperationStart,
 } from "../../../execution-model/src/index.ts";
-import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
+import {
+  createResourceBookFixture,
+  createResourceOperationFixture,
+} from "../../../execution-model/tests/support/resource-operation.ts";
 import type { CompletionResult } from "../../../executor/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
@@ -37,6 +40,8 @@ import {
   startRuntimeOwnedCoordinatorTask,
 } from "../../src/execution/controller.ts";
 import {
+  abandonOwnedHostOperationGenerationLock,
+  bindRuntimeOwnedRepositoryOperation,
   cleanupOwnedOperationDirectories,
   createIsolatedCoordinatorTaskOperationCreationCandidate,
   createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
@@ -48,6 +53,7 @@ import {
   inspectRepositoryObjectFormatCandidate,
   verifyOwnedOperationManagementCapability,
 } from "../../src/execution/operation.ts";
+import * as persistence from "../../src/execution/persistence.ts";
 import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/execution/process-safety-state.ts";
 import {
   classifyCoordinatorTaskTerminalLifecycleState,
@@ -1199,8 +1205,7 @@ function fixture(
           })
         : Object.freeze({
             status: "projected",
-            candidatePatchHash: "1".repeat(64),
-            candidateContentManifestHash: "2".repeat(64),
+            candidateCommitId: "1".repeat(40),
             projectionHash: "3".repeat(64),
             totalBytes: 2,
             files: Object.freeze([
@@ -1600,11 +1605,8 @@ function fixture(
             (options.candidateVerificationFailureAt ?? 1)
             ? "blocked"
             : "verified",
-        baseCommit: "1".repeat(40),
-        baseTree: "2".repeat(40),
-        patchHash: "3".repeat(64),
-        contentManifestHash: "4".repeat(64),
-        allowedPathsHash: "5".repeat(64),
+        baseCommitId: "1".repeat(40),
+        candidateCommitId: "2".repeat(40),
         changedPaths: Object.freeze(["fixture.txt"]),
       });
     },
@@ -1815,26 +1817,22 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
     assert.ok(initial.value && initial.lockReleased);
     const binding = initial.value.snapshot.repositoryBinding;
     const file = path.join(root, ".crdd", "domain-model", "state.json");
-    const hostRecord = {
-      schema: "crdd-coordinator-host-recovery/v1",
-      state: "host_only",
-      rootName: "crdd-coordinator-doctor-continuation",
-      rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-      childIdentities: {
-        management: {
-          pathName: "management",
-          dev: "1",
-          ino: "3",
-          birthtimeNs: "4",
-        },
+    const canonical = createResourceOperationFixture();
+    const canonicalHost = JSON.parse(
+      canonical.bytes.toString("utf8"),
+    ).operations.find(
+      (item: { kind: string }) => item.kind === "host_operation",
+    );
+    const snapshot = JSON.parse(fs.readFileSync(file, "utf8"));
+    snapshot.operations = [
+      canonicalHost,
+      {
+        ...canonicalHost,
+        operationId: "OP-999999",
+        recoveryId: "host-operation.OP-999999",
       },
-      createdAt: "2026-10-26T00:00:00.000Z",
-    };
-    const hostHash = createHash("sha256")
-      .update(`${JSON.stringify(hostRecord)}\n`)
-      .digest("hex");
-    const token = `host.${hostRecord.rootName}.12345678-1234-4234-8234-123456789abc.${hostHash}`;
-    let bytes: Buffer = fs.readFileSync(file);
+    ];
+    let bytes: Buffer = Buffer.from(`${canonicalJson(snapshot)}\n`);
     const stages: string[] = [];
     const harness = fixture({
       borrowedWorkspace: true,
@@ -1845,7 +1843,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
         stages.push(`${provider}:${role}:${attempt}`);
         const suffix = index.toString(16).padStart(16, "0");
         const identity = {
-          schema: "crdd-coordinator/operation-identity/v5",
+          schema: "crdd-coordinator/operation-identity/v6",
           operationNonce: suffix.repeat(4),
           provider,
           consumer: "orchestrator",
@@ -1873,19 +1871,6 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
           ownershipLabel: `crdd.coordinator.runtime=${suffix}`,
           operationMode: "isolated_task",
           workspaceMountMode: "read_write",
-          initialHostRecoveryId: token,
-          initialHostRecovery: {
-            token,
-            recordHash: hostHash,
-            directoryIdentity: "1:2:3",
-            markerIdentity: `1:2:${index + 3}`,
-            record: hostRecord,
-          },
-          hostPaths: {
-            root:
-              fault === "host" && index === 3 ? "foreign-root" : "host-root",
-            marker: "host-marker",
-          },
         };
         const before = bytes
           ? {
@@ -1905,9 +1890,16 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
         if (index === 3 && fault !== "none" && bytes) {
           const mutated = JSON.parse(bytes.toString("utf8"));
           const old = mutated.operations.find(
-            (item: { identityJson: string }) =>
+            (item: { kind: string; identityJson: string }) =>
+              item.kind === "docker_task" &&
               JSON.parse(item.identityJson).provider === "codex",
           );
+          if (fault === "host")
+            mutated.operations.find(
+              (item: { kind: string; operationId: string }) =>
+                item.kind === "host_operation" &&
+                item.operationId === "OP-123456",
+            ).cleanup = "pending";
           if (fault === "lease") old.lease = "held";
           if (fault === "owner") old.execution.ownerEffect = "active";
           if (fault === "resource") {
@@ -1992,8 +1984,9 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
             );
         const operation = snapshot.operations.find(
           (item) =>
+            item.kind === "docker_task" &&
             JSON.parse(item.identityJson).operationNonce ===
-            identity.operationNonce,
+              identity.operationNonce,
         );
         assert.ok(operation?.kind === "docker_task");
         assert.equal(operation.recoveryId, started.recoveryId);
@@ -2018,6 +2011,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
         );
         const settled = {
           ...operation,
+          phase: "settling",
           execution,
           lease: "released",
           resources,
@@ -3088,7 +3082,7 @@ test("固定した両Providerの選定をEffect前確認と独立Reviewerへ接�
       const stageSelection =
         harness.selectionRequests[index]?.executionSelection;
       assert.deepEqual(stageSelection, selected);
-      assert.notEqual(stageSelection, selected);
+      assert.equal(stageSelection, selected);
       assert.equal(Object.isFrozen(stageSelection), true);
     }
   }
@@ -3975,8 +3969,7 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
     ],
   });
   assert.deepEqual(result.reviewerProjectionEvidence, {
-    candidatePatchHash: "1".repeat(64),
-    candidateContentManifestHash: "2".repeat(64),
+    candidateCommitId: "1".repeat(40),
     projectionHash: "3".repeat(64),
     totalBytes: 2,
     files: [
@@ -5967,7 +5960,26 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
  */
 test("Task Runtime契約は実Host active binding残存時にcleanupを拒否してexact Recoveryを返す", async (t) => {
   const parent = createTaskRuntimeTestDirectory(t, "crdd-task-active-binding-");
-  const owned = createOwnedOperationDirectories(parent);
+  fs.mkdirSync(path.join(parent, ".git", "refs", "heads"), { recursive: true });
+  fs.mkdirSync(path.join(parent, ".git", "info"));
+  fs.writeFileSync(path.join(parent, ".git", "HEAD"), "ref: refs/heads/main\n");
+  fs.writeFileSync(
+    path.join(parent, ".git", "refs", "heads", "main"),
+    `${"1".repeat(40)}\n`,
+  );
+  fs.writeFileSync(
+    path.join(parent, ".git", "config"),
+    "[core]\nrepositoryformatversion = 0\nbare = false\n",
+  );
+  fs.writeFileSync(path.join(parent, ".git", "info", "exclude"), "/.crdd/\n");
+  const repository = getRepository(parent);
+  assert.equal(repository.status, "completed");
+  assert.ok(repository.capability);
+  const owned = createOwnedOperationDirectories({
+    root: repository.capability,
+    purpose: "task",
+    recordingCurrent: () => true,
+  });
   const contextCapability = createOwnedOperationContextCapability(owned);
   const mountCapability = createOwnedMountCapability(owned);
   const managementCapability = createOwnedOperationManagementCapability(
@@ -5977,11 +5989,20 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
   const operation =
     verifyOwnedOperationManagementCapability(managementCapability);
   const hostRecoveryId = getOwnedHostRecoveryId(owned);
-  const activeBinding = path.join(
-    owned.directories.management,
-    "active-docker-task-v1.json",
+  assert.ok(bindRuntimeOwnedRepositoryOperation(managementCapability, parent));
+  const state = readState(repository.capability, { scope: "recovery" });
+  assert.ok(state.value);
+  const identity = {
+    ...createResourceOperationFixture().identity,
+    operationId: operation.operationId,
+    repositoryBinding: state.value.snapshot.repositoryBinding,
+  };
+  const started = persistence.saveOperationStart(
+    managementCapability,
+    `${JSON.stringify(identity)}\n`,
+    () => null,
   );
-  fs.writeFileSync(activeBinding, "fixture", "utf8");
+  assert.equal(started.startSaved, true, JSON.stringify(started));
   const harness = fixture({
     hostCleanupWal: true,
     dockerHostCleanupId: hostRecoveryId,
@@ -6017,7 +6038,13 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
     assert.equal(harness.dockerReceiptCount(), 0);
     assert.equal(harness.dockerFinalizeCount(), 0);
     assert.equal(fs.existsSync(owned.root), true);
-    assert.equal(fs.existsSync(activeBinding), true);
+    const retained = readState(repository.capability, { scope: "recovery" });
+    assert.ok(retained.value);
+    const task = retained.value.snapshot.operations.find(
+      (item) => item.kind === "docker_task",
+    );
+    assert.equal(task?.lease, "held");
+    assert.equal(task?.execution.ownerEffect, "active");
 
     assert.deepEqual(await harness.observeLastControlInvalid(), {
       status: "blocked",
@@ -6051,8 +6078,10 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
     );
     executedTaskTraceCases.add("CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED");
   } finally {
-    fs.rmSync(activeBinding, { force: true });
-    cleanupOwnedOperationDirectories(owned);
+    assert.equal(
+      await abandonOwnedHostOperationGenerationLock(managementCapability),
+      true,
+    );
   }
 });
 

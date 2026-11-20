@@ -7,7 +7,7 @@
 
 ## Operation Identityと終了保存の現在契約
 
-実行のOperation Identityは`crdd-coordinator/operation-identity/v5`とし、完全選定・試行番号・Operation／Home／Host相関を保存する。旧v4と`grantRef`を含む旧構造は受理せず、互換Reader・暗黙補完・自動変換を置かない。終了観測の旧`mountLeaseReleased`は受付契約から除き、元の実行Ownerへ照合した資源終端・実Home解放・Recovery確定を、既存Writer・CAS・現在版照合で保存する。Schema更新は過去保持物の移行・削除を実行する許可ではなく、本変更では操作しない。
+実行のOperation Identityは`crdd-coordinator/operation-identity/v6`とし、完全選定・試行番号・Operation／Home相関を保存する。Hostは同じOperation IDの独立記録へ結合し、IdentityへHost Pathを複製しない。旧v5・v4及び`grantRef`を含む旧構造は受理せず、互換Reader・暗黙補完・自動変換を置かない。終了観測の旧`mountLeaseReleased`は受付契約から除き、元の実行Ownerへ照合した資源終端・実Home解放・Recovery確定を、既存Writer・CAS・現在版照合で保存する。Schema更新は過去保持物の移行・削除を実行する許可ではなく、本変更では操作しない。
 
 ## 共通状態保存の配置切替 — 2026-10-28
 

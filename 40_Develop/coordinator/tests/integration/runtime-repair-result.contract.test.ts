@@ -1844,7 +1844,10 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
           assert.equal(f.state.historyWrites, stage - 1);
           assert.equal(f.state.entries, 1);
           assert.equal(
-            f.snapshot()?.operations[0]?.outcome?.status,
+            f
+              .snapshot()
+              ?.operations.find((item) => item.kind === "runtime_repair")
+              ?.outcome?.status,
             "recovered",
           );
         },
@@ -1893,7 +1896,7 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
               ?.operations.find(
                 (item) => item.recoveryId === repaired.recoveryId,
               );
-            assert.ok(target);
+            assert.ok(target?.kind === "runtime_repair");
             const owner = {
               ...f.repository,
               historyRetentionDays: 30,
@@ -1938,7 +1941,11 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
             assert.equal(read.currentHistoryPublication?.stage, "publish");
             assert.equal(
               read.value?.snapshot.operations.find(
-                (item) => item.recoveryId === repaired.recoveryId,
+                (
+                  item,
+                ): item is Extract<typeof item, { kind: "runtime_repair" }> =>
+                  item.kind === "runtime_repair" &&
+                  item.recoveryId === repaired.recoveryId,
               )?.history?.confirmed,
               false,
             );

@@ -18,6 +18,7 @@ import {
   prepareStateOperationSnapshot,
 } from "../../../src/state/validation.ts";
 import { encodeStateValue } from "../../../src/state/operations.ts";
+import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 
 const binding = "a".repeat(64);
 
@@ -36,29 +37,8 @@ function summaryFixture(
   consumer: "orchestrator" | "coordinator_cli" | "workbench" = "orchestrator",
 ) {
   const nonce = "b".repeat(64);
-  const hostRecord = {
-    schema: "crdd-coordinator-host-recovery/v1",
-    state: "host_only",
-    rootName: "crdd-coordinator-doctor-fixture",
-    rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-    childIdentities: {
-      management: {
-        pathName: "management",
-        dev: "1",
-        ino: "3",
-        birthtimeNs: "4",
-      },
-    },
-    createdAt: "2026-08-25T00:00:00.000Z",
-  };
-  const hostHash = createHash("sha256")
-    .update(`${JSON.stringify(hostRecord)}\n`)
-    .digest("hex");
-  const token =
-    "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
-    hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v5",
+    schema: "crdd-coordinator/operation-identity/v6",
     operationNonce: nonce,
     provider: "claude",
     consumer,
@@ -83,19 +63,20 @@ function summaryFixture(
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
     operationMode: "isolated_task",
     workspaceMountMode: "read_write",
-    initialHostRecoveryId: token,
-    initialHostRecovery: {
-      token,
-      recordHash: hostHash,
-      directoryIdentity: "1:2:3",
-      markerIdentity: "1:2:4",
-      record: hostRecord,
-    },
-    hostPaths: { root: "host-root", marker: "host-marker" },
   };
   const identityJson = `${JSON.stringify(identity)}\n`;
 
-  const bytes = prepareStateOperationSnapshot(null, identityJson, binding);
+  const fixture = createResourceOperationFixture();
+  const original = decodeStateSnapshot(fixture.bytes, binding);
+  assert.ok(original);
+  const host = original.snapshot.operations.find(
+    (item) => item.kind === "host_operation",
+  );
+  assert.ok(host);
+  const hostBytes = Buffer.from(
+    `${encodeStateValue({ ...original.snapshot, operations: [host] })}\n`,
+  );
+  const bytes = prepareStateOperationSnapshot(hostBytes, identityJson, binding);
   assert.ok(bytes);
   const decoded = decodeStateSnapshot(bytes, binding);
   assert.ok(decoded);
@@ -113,10 +94,9 @@ function summaryFixture(
       ownerEffect: "unknown" as const,
       workspaceReusable: false,
     },
-    host: { ...initial.host, cleanup: "unknown" as const },
     lease: "unknown" as const,
   };
-  const snapshot = { ...decoded.snapshot, operations: [operation] };
+  const snapshot = { ...decoded.snapshot, operations: [host, operation] };
   const identitySha256 = createHash("sha256")
     .update(identityJson)
     .digest("hex");
@@ -124,6 +104,7 @@ function summaryFixture(
   const historyState = {
     ...snapshot,
     operations: [
+      host,
       {
         ...operation,
         outcome: {
@@ -169,7 +150,7 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
   } = summaryFixture();
   const history = prepareStateHistorySummary(historyBytes, recoveryId, binding);
   assert.ok(history);
-  const goldenTaskSummary = `{"execution":{"externalSend":"unknown","ownerEffect":"unknown","providerStart":"unknown","sharedWrite":"unknown","workspaceReusable":false},"hostCleanup":"unknown","identitySha256":"${identitySha256}","lease":"unknown","operationId":"OP-123456","operationNonce":"${nonce}","outcome":{"cleanupConfirmed":false,"reason":"provider_operation_completed","status":"completed"},"primaryFailure":null,"recoveryCorrelationId":"task-operation-a","recoveryId":"${recoveryId}","schema":"crdd-execution-model/operation-summary/v5"}\n`;
+  const goldenTaskSummary = `{"execution":{"externalSend":"unknown","ownerEffect":"unknown","providerStart":"unknown","sharedWrite":"unknown","workspaceReusable":false},"identitySha256":"${identitySha256}","lease":"unknown","operationId":"OP-123456","operationNonce":"${nonce}","outcome":{"cleanupConfirmed":false,"reason":"provider_operation_completed","status":"completed"},"primaryFailure":null,"recoveryCorrelationId":"task-operation-a","recoveryId":"${recoveryId}","schema":"crdd-execution-model/operation-summary/v6"}\n`;
   assert.equal(history.summaryBytes.toString("utf8"), goldenTaskSummary);
   assert.equal(
     history.summarySha256,
@@ -177,7 +158,7 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
   );
   const summary = JSON.parse(history.summaryBytes.toString("utf8"));
   assert.equal(summary.operationId, identity.operationId);
-  assert.equal(summary.hostCleanup, "unknown");
+  assert.equal(Object.hasOwn(summary, "hostCleanup"), false);
   assert.equal(summary.lease, "unknown");
   assert.equal(summary.outcome.cleanupConfirmed, false);
   assert.equal(summary.primaryFailure, null);
@@ -220,7 +201,7 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
     assert.equal(
       prepareStateHistorySummary(
         Buffer.from(
-          `${encodeStateValue({ ...historyState, operations: [changed] })}\n`,
+          `${encodeStateValue({ ...historyState, operations: historyState.operations.map((item) => (item.kind === "docker_task" ? changed : item)) })}\n`,
         ),
         recoveryId,
         binding,
@@ -229,7 +210,7 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
     );
   const fixedSummary = prepareStateHistorySummary(
     Buffer.from(
-      `${encodeStateValue({ ...historyState, operations: [{ ...historyState.operations.find((item) => item.kind === "docker_task"), summarySha256: history.summarySha256 }] })}\n`,
+      `${encodeStateValue({ ...historyState, operations: historyState.operations.map((item) => (item.kind === "docker_task" ? { ...item, summarySha256: history.summarySha256 } : item)) })}\n`,
     ),
     recoveryId,
     binding,
@@ -249,14 +230,9 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
     Buffer.from(
       `${encodeStateValue({
         ...historyState,
-        operations: [
-          {
-            ...historyState.operations.find(
-              (item) => item.kind === "docker_task",
-            ),
-            primaryFailure,
-          },
-        ],
+        operations: historyState.operations.map((item) =>
+          item.kind === "docker_task" ? { ...item, primaryFailure } : item,
+        ),
       })}\n`,
     ),
     recoveryId,
@@ -279,7 +255,7 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
     assert.ok(summary);
     const value = JSON.parse(summary.summaryBytes.toString("utf8"));
     assert.equal(Object.hasOwn(value, "consumer"), false);
-    assert.equal(value.schema, "crdd-execution-model/operation-summary/v5");
+    assert.equal(value.schema, "crdd-execution-model/operation-summary/v6");
     assert.equal(
       value.recoveryCorrelationId,
       fixture.identity.recoveryCorrelationId,

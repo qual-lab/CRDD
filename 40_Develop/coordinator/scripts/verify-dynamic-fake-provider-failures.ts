@@ -15,6 +15,10 @@ import {
   runDynamicFakeProviderFailureScenario,
 } from "../src/execution/diagnostics.ts";
 import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
+import {
+  getRepositoryFromWorkingDirectory,
+  resolveVerifiedRepositoryRoot,
+} from "../../version-control/src/index.ts";
 
 /**
  * Dynamic Fake Provider Failuresを検証する。
@@ -33,9 +37,20 @@ import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
  * @concurrency N/A: verifyDynamicFakeProviderFailuresは共有非同期状態を持たない同期処理である。
  */
 export async function verifyDynamicFakeProviderFailures() {
+  const location = getRepositoryFromWorkingDirectory(process.cwd());
+  if (location.status !== "completed")
+    throw Error("repository_identity_unavailable");
+  const repository = location.capability,
+    root = resolveVerifiedRepositoryRoot(repository);
+  if (!root) throw Error("repository_identity_unavailable");
   const results = [];
   for (const scenario of DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS) {
-    const owned = createOwnedOperationDirectories();
+    const owned = createOwnedOperationDirectories({
+      root: repository,
+      purpose: "isolation_probe",
+      recordingCurrent: () =>
+        resolveVerifiedRepositoryRoot(repository) === root,
+    });
     const result = await runDynamicFakeProviderFailureScenario(
       owned,
       scenario,

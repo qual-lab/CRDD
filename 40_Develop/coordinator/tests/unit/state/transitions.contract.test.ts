@@ -26,7 +26,6 @@ import {
   inspectCoordinatorProjection,
   isCoordinatorProjectionSemanticallyValid,
   projectCoordinatorState,
-  projectState,
 } from "../../../src/state/projection.ts";
 import { describeCoordinatorStateContract } from "../../../src/state/validation.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
@@ -94,11 +93,10 @@ function stateFor(
   });
   assert.equal(result.status, "completed");
   assert.ok(result.state);
-  const projectedState = projectState(result.state);
-  assert.equal(
-    projectedState.taskExecutionSelections,
+  assert.deepEqual(
     result.state.taskExecutionSelections,
-    "同じ状態遷移では受付済み選定を再検査・再構成しない",
+    taskExecutionSelections(),
+    "EMの状態生成は完全選定を保持する",
   );
   return result.state;
 }

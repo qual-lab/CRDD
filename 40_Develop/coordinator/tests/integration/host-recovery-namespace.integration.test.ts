@@ -24,7 +24,7 @@ import { runInNewContext } from "node:vm";
  * @observation 子Process終了、用途別assertion、試験領域の不存在。
  * @cleanup 子Process終了後、今回作成したRootのIdentityを照合して回収する。
  */
-function runNodeNamespaceCase(source: string): void {
+function runNodeNamespaceCase(source: string, expectsNamespace = true): void {
   const repository = fileURLToPath(new URL("../../../../", import.meta.url));
   const parent = path.join(repository, ".crdd", "tests");
   for (const directory of [path.join(repository, ".crdd"), parent]) {
@@ -55,12 +55,17 @@ function runNodeNamespaceCase(source: string): void {
   assert.equal(current.ino, identity.ino);
   assert.equal(path.dirname(root), parent);
   // 正常終了後も未知物・回復記録があれば保全する。既知の空Directoryだけを除去する。
-  assert.deepEqual(fs.readdirSync(root), ["crdd-coordinator-recovery-v1"]);
-  const namespace = path.join(root, "crdd-coordinator-recovery-v1");
-  const metadata = fs.lstatSync(namespace);
-  assert.equal(metadata.isDirectory() && !metadata.isSymbolicLink(), true);
-  assert.deepEqual(fs.readdirSync(namespace), []);
-  fs.rmdirSync(namespace);
+  assert.deepEqual(
+    fs.readdirSync(root),
+    expectsNamespace ? ["crdd-coordinator-recovery-v1"] : [],
+  );
+  if (expectsNamespace) {
+    const namespace = path.join(root, "crdd-coordinator-recovery-v1");
+    const metadata = fs.lstatSync(namespace);
+    assert.equal(metadata.isDirectory() && !metadata.isSymbolicLink(), true);
+    assert.deepEqual(fs.readdirSync(namespace), []);
+    fs.rmdirSync(namespace);
+  }
   fs.rmdirSync(root);
   assert.equal(fs.existsSync(root), false);
 }
@@ -139,10 +144,11 @@ test("Namespace試験は子失敗・終了不明・未知残存を削除せず�
  * @cleanup runNodeNamespaceCaseが自己生成領域だけを回収する。
  * @boundary Coordinator→既存Node Owner→Node Filesystem。
  */
-test("production doctorは通常Taskに不要な永続準備状態を公開しない", {
+test("production doctorは受動診断でHost領域・Namespaceを作成しない", {
   timeout: 120_000,
 }, () => {
-  runNodeNamespaceCase(`
+  runNodeNamespaceCase(
+    `
 import assert from "node:assert/strict";
 import { runDoctor, REQUIRED_CHECK_IDS } from ${JSON.stringify(new URL("../../src/execution/diagnostics.ts", import.meta.url).href)};
 
@@ -163,7 +169,13 @@ import { runDoctor, REQUIRED_CHECK_IDS } from ${JSON.stringify(new URL("../../sr
   assert.equal(Object.hasOwn(report.egress, "activation"), false);
   assert.equal(REQUIRED_CHECK_IDS.includes("runtime.root"), false);
   assert.equal(report.diagnosticMode, "passive_preflight");
-  assert.equal(report.reportVersion, 16);
+  assert.equal(report.reportVersion, 17);
+  assert.equal(report.filesystem.policy, null);
+  assert.equal(report.recovery.required, false);
+  const directories = report.checks.find(item => item.id === "operation.directories");
+  assert.equal(directories.status, "not_implemented");
+  assert.equal(directories.reason, "owned_operation_directories_not_requested");
+  assert.equal(report.blockers.some(item => item.id === "operation.directories" && item.reason === directories.reason), true);
   assert.equal(Object.hasOwn(report.credentials, "forwardedNames"), false);
   assert.equal(Object.hasOwn(report.credentials, "environmentFiltered"), false);
   assert.equal(report.credentials.valuesRecorded, false);
@@ -174,7 +186,9 @@ import { runDoctor, REQUIRED_CHECK_IDS } from ${JSON.stringify(new URL("../../sr
   assert.equal(Object.hasOwn(report, "repositoryGitLayout"), false);
   assert.equal(report.repositoryLocation.pathReported, false);
   assert.equal(report.fakeProviderLifecycle.fakeProviderExecuted, false);
-`);
+`,
+    false,
+  );
 });
 
 /**

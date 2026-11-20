@@ -134,7 +134,7 @@ const SOURCE_ROLES = {
     "decision/lifecycle.ts",
     "decision/acceptance.ts",
     "objective/execute.ts",
-    "objective/replan.ts",
+
     "state/query.ts",
     "task/dispatch.ts",
   ],
@@ -180,7 +180,6 @@ const SOURCE_ROLES = {
     "cli/recovery-report.ts",
     "cli/cancellation.ts",
   ],
-  technicalStorage: ["state/probe-record.ts"],
   externalSendDecision: ["decision/external-send-policy.ts"],
   entry: ["index.ts", "api.ts"],
 } as const;

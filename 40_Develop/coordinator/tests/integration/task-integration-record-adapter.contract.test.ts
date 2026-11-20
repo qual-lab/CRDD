@@ -32,8 +32,8 @@ import {
 } from "../../src/configuration/runtime-data.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
-import { createCoordinatorSnapshotIntegrationRecordPort } from "../../src/workspace/operations.ts";
+import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
+import { saveIntegrationRecord } from "../../../execution-model/src/index.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
@@ -86,7 +86,7 @@ test("選択観測例外は実Storeの固定拒否と解放へ閉じる", (t) =>
   );
   assert.deepEqual(fs.readFileSync(stateFile), before);
   assert.equal(
-    adapter(root).write({
+    saveIntegrationRecord(...integrationRecordInput(root), {
       kind: "integration",
       identity: "after-clock-failure",
       value: { synthetic: true },
@@ -214,7 +214,7 @@ test("Workspace時計例外は実Storeの固定拒否と解放へ閉じる", (t)
     );
     assert.deepEqual(fs.readFileSync(stateFile), before);
     assert.equal(
-      adapter(root).write({
+      saveIntegrationRecord(...integrationRecordInput(root), {
         kind: "integration",
         identity: "after-workspace-clock-failure",
         value: { synthetic: true },
@@ -291,7 +291,7 @@ function fixture(t: test.TestContext) {
     ).status,
     "completed",
   );
-  const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
+  const ports = createTestPersistence(root, "binding-a");
   assert.equal(
     ports.state.enqueueOperation(
       {
@@ -322,14 +322,17 @@ function fixture(t: test.TestContext) {
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-function adapter(root: string, projectId = "project-a") {
-  return createCoordinatorSnapshotIntegrationRecordPort({
-    workingDirectory: root,
-    repositoryBindingId: "binding-a",
-    projectId,
-    milestoneId: "milestone-a",
-    queueId: "queue-a",
-  });
+function integrationRecordInput(root: string, projectId = "project-a") {
+  return [
+    verifyRuntimePersistenceRepository(root),
+    "binding-a",
+    {
+      repositoryBindingId: "binding-a",
+      projectId,
+      milestoneId: "milestone-a",
+      queueId: "queue-a",
+    },
+  ] as const;
 }
 
 /**
@@ -346,16 +349,16 @@ function adapter(root: string, projectId = "project-a") {
  */
 test("integration records are immutable and an identical retry is idempotent", (t) => {
   const { root } = fixture(t);
-  const records = adapter(root);
+  const records = integrationRecordInput(root);
   const record = {
     kind: "integration" as const,
     identity: "candidate-a",
     value: { status: "candidate", changedPaths: ["result.txt"] },
   };
-  assert.equal(records.write(record).status, "completed");
+  assert.equal(saveIntegrationRecord(...records, record).status, "completed");
   const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(file);
-  assert.equal(records.write(record).status, "completed");
+  assert.equal(saveIntegrationRecord(...records, record).status, "completed");
   assert.deepEqual(fs.readFileSync(file), before);
   const observed = readState(
     verifyRuntimePersistenceRepository(root),
@@ -385,9 +388,9 @@ test("integration records are immutable and an identical retry is idempotent", (
  */
 test("canonical candidate identity is preserved by the integration record", (t) => {
   const { root } = fixture(t);
-  const records = adapter(root);
+  const records = integrationRecordInput(root);
   const candidateId = `candidate.${"a".repeat(64)}.${"b".repeat(64)}`;
-  const result = records.write({
+  const result = saveIntegrationRecord(...records, {
     kind: "integration",
     identity: candidateId,
     value: { status: "candidate", changedPaths: ["result.txt"] },
@@ -417,16 +420,16 @@ test("canonical candidate identity is preserved by the integration record", (t) 
  */
 test("an identity collision is blocked without replacing the first record", (t) => {
   const { root } = fixture(t);
-  const records = adapter(root);
+  const records = integrationRecordInput(root);
   const first = {
     kind: "adoption" as const,
     identity: "receipt-a",
     value: { afterRevision: "a".repeat(40) },
   };
-  assert.equal(records.write(first).status, "completed");
+  assert.equal(saveIntegrationRecord(...records, first).status, "completed");
   const target = path.join(root, ".crdd", "domain-model", "state.json");
   const original = fs.readFileSync(target);
-  const collision = records.write({
+  const collision = saveIntegrationRecord(...records, {
     ...first,
     value: { afterRevision: "b".repeat(40) },
   });
@@ -461,11 +464,14 @@ test("invalid path identities fail before creating a record directory", (t) => {
   const outside = path.join(root, "..", escaped);
   const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(file);
-  const result = adapter(root, `../${escaped}`).write({
-    kind: "integration",
-    identity: "candidate-a",
-    value: {},
-  });
+  const result = saveIntegrationRecord(
+    ...integrationRecordInput(root, `../${escaped}`),
+    {
+      kind: "integration",
+      identity: "candidate-a",
+      value: {},
+    },
+  );
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "orchestrator_result_invalid");
   assert.deepEqual(fs.readFileSync(file), before);
@@ -486,7 +492,7 @@ test("invalid path identities fail before creating a record directory", (t) => {
 test("現行結果保存は未知欄・Hash・Queue結合破損を拒否して保全する", (t) => {
   const { root } = fixture(t);
   assert.equal(
-    adapter(root).write({
+    saveIntegrationRecord(...integrationRecordInput(root), {
       kind: "integration",
       identity: "candidate-a",
       value: { status: "candidate" },

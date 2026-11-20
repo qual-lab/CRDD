@@ -3,6 +3,7 @@
  * @packageDocumentation
  * @responsibility Coordinator・AI・Dockerなしで初期化・定義変更・CAS・認可を確認する。
  * @trace PRL-IT-012
+ * @trace ERB-IT-003
  * @trace ERB-IT-014
  * @level IT
  * @scope 自己生成Repositoryの新Schemaと、保存Source試験補助の独立性。
@@ -10,6 +11,21 @@
  */
 
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import * as domain from "../../src/index.ts";
+import {
+  encodeStateValue,
+  hashExecutionStateContent,
+} from "../../src/state/operations.ts";
+import { EXECUTION_STATE_SCHEMA } from "../../src/state/validation.ts";
+import { observeExecutionStorageRepository } from "../../src/storage/lock.ts";
+import * as privatePublication from "../../src/storage/publication.ts";
+import * as areaRequirement from "../../src/storage/store.ts";
+import * as areaInitialization from "../../src/storage/store.ts";
+import {
+  requireReadyRepositoryExecutionDataArea,
+  ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+} from "../../src/storage/store.ts";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -27,12 +43,904 @@ import {
   queryTasks,
   savePlan,
   updateTask,
+  saveOperationStart,
+  saveOperationCheckpoint,
+  applyResourceEvent,
 } from "../../src/index.ts";
 import { decodeStateSnapshot } from "../../src/state/validation.ts";
+import {
+  decodeHostOperation,
+  validHostOperationTransition,
+} from "../../src/attempt/validation.ts";
 import { acquireExecutionStateLock } from "../../src/storage/lock.ts";
 import { readStableFileSnapshot } from "../../src/storage/store.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
+import type {
+  HostOperationAccess,
+  HostOperationRecord,
+} from "../../src/attempt/types.ts";
+
+/**
+ * Hostの初回出版と物理置換を保存Owner内で確認する。
+ * @responsibility 同値再送、初回領域の再作成拒否、fresh Reader、別Root、同bytes置換とpendingを区別する。
+ * @trace ERB-IT-003
+ * @trace ERB-IT-014
+ * @precondition 自己生成Git Rootと有限の合成Host観測を使用する。
+ * @stimulus 実Writerと実Filesystemへ正負の初期化・更新を発行する。
+ * @observation 本文、Hash、pending、排他解放と再入場。
+ * @oracle 偽Owner・異なる実体・競合は無出版で停止する。
+ * @cleanup 今回Rootだけを既存helperで清掃する。
+ * @boundary 保存の試験。合成Host観測を実Host終了の証拠にしない。
+ */
+test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結合する", {
+  skip: process.platform !== "win32",
+}, async (t) => {
+  const directory = createRepositoryTestDirectory("host-publication-reentry-");
+  t.after(directory.cleanup);
+  const root = directory.path;
+  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
+  execFileSync(
+    "git",
+    [
+      "-C",
+      root,
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "--allow-empty",
+      "--quiet",
+      "-m",
+      "fixture",
+    ],
+    { windowsHide: true },
+  );
+  const verifiedRoot = getRepository(root);
+  assert.equal(verifiedRoot.status, "completed");
+  if (verifiedRoot.status !== "completed") throw Error("fixture_root_invalid");
+  const observed = observeExecutionStorageRepository(verifiedRoot.capability);
+  assert.ok(observed);
+  areaRequirement.requireReadyRepositoryExecutionDataArea(
+    areaInitialization.ensureRepositoryExecutionDataAreaFromWorkingDirectory(
+      root,
+      "tmp",
+    ),
+    "initialization_fixture",
+  );
+  const repository = { ...observed, operationId: "OP-123456" };
+  const management = Object.freeze({
+    identity: Object.freeze({}),
+    observeRepository: () => ({
+      purpose: "execution" as const,
+      root: verifiedRoot.capability,
+      operationId: repository.operationId,
+      revalidate: repository.revalidate,
+    }),
+    verifyNotIssued: () => false,
+  });
+  const hostIntent = {
+    kind: "host_operation",
+    operationId: repository.operationId,
+    recoveryId: `host-operation.${repository.operationId}`,
+    purpose: "task",
+    resources: null,
+    createdAt: "2026-11-19T00:00:00.000Z",
+    phase: "preparing",
+    rootIdentity: null,
+    childIdentities: {},
+    cleanup: "not_requested",
+  } as const;
+  const hostAccess = {
+    root: verifiedRoot.capability,
+    revalidate: () => observed.revalidate(),
+  };
+  const hostStart = { kind: "host_operation", value: hostIntent } as const;
+  const first = {
+    ...{
+      repositoryBindingId: null,
+      projects: [],
+      managedExecutions: [],
+      queueEntries: [],
+      workspaces: [],
+      leaseEvidence: [],
+      leaseIntents: [],
+      results: [],
+      historyPending: [],
+      decisions: [],
+      blockers: [],
+    },
+    schema: EXECUTION_STATE_SCHEMA,
+    revision: 1,
+    previous: null,
+    repositoryBinding: repository.repositoryBinding,
+    operations: [hostIntent],
+    unresolvedRecoveries: [],
+  };
+  const firstBytes = Buffer.from(`${encodeStateValue(first)}\n`);
+  assert.equal(
+    domain.readState(management, { scope: "operation" }).status,
+    "blocked",
+  );
+  assert.equal(
+    privatePublication.writeOwnedStateSnapshot({}, firstBytes)
+      .filesystemEffectIssued,
+    false,
+  );
+  const result = domain.saveOperationStart(hostAccess, hostStart);
+  assert.equal(result.status, "completed", result.reason);
+  assert.equal(result.startSaved, true);
+  assert.equal(result.snapshotConfirmed, true);
+  assert.equal(result.lockReleased, true);
+  const area = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(root, "domain-model"),
+    "state_root",
+  );
+  assert.equal(
+    domain.saveOperationStart(hostAccess, hostStart).status,
+    "completed",
+  );
+  assert.equal(
+    privatePublication.writeOwnedStateSnapshot({}, firstBytes)
+      .filesystemEffectIssued,
+    false,
+  );
+  assert.deepEqual(
+    fs.readFileSync(path.join(area.directory, "state.json")),
+    firstBytes,
+  );
+  assert.deepEqual(fs.readdirSync(area.directory), ["state.json"]);
+  const readFirst = domain.readState(management, { scope: "operation" });
+  assert.equal(readFirst.status, "completed");
+  assert.equal(readFirst.lockReleased, true);
+  assert.equal(readFirst.value?.snapshot.revision, 1);
+  assert.equal(
+    readFirst.value?.payloadSha256,
+    hashExecutionStateContent(first),
+  );
+  assert.equal(domain.readState({}, { scope: "operation" }).status, "blocked");
+  const recoveryRead = domain.readState(verifiedRoot.capability, {
+    scope: "recovery",
+  });
+  assert.equal(recoveryRead.status, "completed");
+  assert.equal(recoveryRead.lockReleased, true);
+  assert.deepEqual(recoveryRead.value, readFirst.value);
+  for (const invalidRoot of [null, {}, { ...verifiedRoot.capability }, root]) {
+    const rejectedRoot = domain.readState(invalidRoot, { scope: "recovery" });
+    assert.equal(rejectedRoot.status, "blocked");
+    assert.equal(rejectedRoot.value, null);
+  }
+  const freshProcessRead = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        "-e",
+        `(async () => {
+     const { getRepository } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
+     const domain = await import(${JSON.stringify(new URL("../../src/index.ts", import.meta.url).href)});
+     const root = getRepository(process.argv[1]);
+     const result = domain.readState(root.capability, { scope: "recovery" });
+     process.stdout.write(JSON.stringify({status: result.status, lockReleased: result.lockReleased, hash: result.value?.payloadSha256 ?? null}));
+     })().catch(error => { console.error(error); process.exitCode = 1; });`,
+        root,
+      ],
+      { windowsHide: true, encoding: "utf8", timeout: 30_000 },
+    ),
+  );
+  assert.deepEqual(freshProcessRead, {
+    status: "completed",
+    lockReleased: true,
+    hash: readFirst.value?.payloadSha256,
+  });
+  const otherRoot = path.join(root, "other-repository");
+  fs.mkdirSync(otherRoot);
+  execFileSync("git", ["init", "--quiet", otherRoot], { windowsHide: true });
+  execFileSync(
+    "git",
+    [
+      "-C",
+      otherRoot,
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "--allow-empty",
+      "--quiet",
+      "-m",
+      "other fixture",
+    ],
+    { windowsHide: true },
+  );
+  const verifiedOtherRoot = getRepository(otherRoot);
+  assert.ok(verifiedOtherRoot.capability);
+  const otherArea = path.join(otherRoot, ".crdd", "domain-model");
+  fs.mkdirSync(otherArea, { recursive: true });
+  fs.writeFileSync(path.join(otherArea, "state.json"), firstBytes, {
+    flag: "wx",
+  });
+  const foreignSnapshot = domain.readState(verifiedOtherRoot.capability, {
+    scope: "recovery",
+  });
+  assert.equal(foreignSnapshot.status, "blocked");
+  assert.equal(foreignSnapshot.value, null);
+  assert.deepEqual(
+    fs.readFileSync(path.join(otherArea, "state.json")),
+    firstBytes,
+  );
+  const borrowedOtherRoot = observeExecutionStorageRepository(
+    verifiedOtherRoot.capability,
+  );
+  assert.ok(borrowedOtherRoot);
+  assert.equal(borrowedOtherRoot.revalidate(), true);
+  fs.renameSync(otherRoot, `${otherRoot}-previous`);
+  fs.mkdirSync(otherRoot);
+  execFileSync("git", ["init", "--quiet", otherRoot], { windowsHide: true });
+  execFileSync(
+    "git",
+    [
+      "-C",
+      otherRoot,
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "--allow-empty",
+      "--quiet",
+      "-m",
+      "replacement fixture",
+    ],
+    { windowsHide: true },
+  );
+  assert.equal(borrowedOtherRoot.revalidate(), false);
+  assert.deepEqual(
+    fs.readFileSync(path.join(area.directory, "state.json")),
+    firstBytes,
+  );
+  // 公開後に消えた現在状態を初回の空領域として再作成しない。
+  fs.unlinkSync(path.join(area.directory, "state.json"));
+  assert.equal(
+    domain.readState(verifiedRoot.capability, { scope: "recovery" }).status,
+    "blocked",
+  );
+  assert.equal(fs.existsSync(path.join(area.directory, "state.json")), false);
+  assert.equal(
+    domain.readState(management, { scope: "operation" }).status,
+    "blocked",
+  );
+  assert.equal(
+    privatePublication.writeOwnedStateSnapshot(management, firstBytes)
+      .filesystemEffectIssued,
+    false,
+  );
+  assert.equal(
+    domain.saveOperationStart(hostAccess, hostStart).status,
+    "blocked",
+  );
+  fs.writeFileSync(path.join(area.directory, "state.json"), firstBytes, {
+    flag: "wx",
+  });
+  const second = {
+    ...first,
+    revision: 2,
+    previous: {
+      revision: 1,
+      payloadSha256: hashExecutionStateContent(first),
+    },
+  };
+  const secondBytes = Buffer.from(`${encodeStateValue(second)}\n`);
+  // 同じ本文への実体差し替えを、公開前の再観測で拒否する。
+  const originalFsync = fs.fsyncSync;
+  let isReplaced = false;
+  fs.fsyncSync = (fd) => {
+    originalFsync(fd);
+    // wx取得自身のfsyncではなく、pending作成後の出版区間に注入する。
+    if (
+      !isReplaced &&
+      fs.existsSync(path.join(area.directory, "state.pending.json"))
+    ) {
+      isReplaced = true;
+      const state = path.join(area.directory, "state.json");
+      fs.renameSync(state, path.join(root, "replaced-state"));
+      fs.writeFileSync(state, firstBytes, { flag: "wx" });
+    }
+  };
+  try {
+    const replacement = privatePublication.writeOwnedStateSnapshot(
+      management,
+      secondBytes,
+    );
+    assert.equal(replacement.status, "blocked");
+    assert.equal(replacement.snapshotConfirmed, false);
+    assert.deepEqual(
+      fs.readFileSync(path.join(area.directory, "state.json")),
+      firstBytes,
+    );
+  } finally {
+    fs.fsyncSync = originalFsync;
+  }
+  assert.deepEqual(
+    fs.readFileSync(path.join(area.directory, "state.pending.json")),
+    secondBytes,
+  );
+  fs.unlinkSync(path.join(area.directory, "state.pending.json"));
+  fs.writeFileSync(
+    path.join(area.directory, "state.pending.json"),
+    secondBytes,
+    { flag: "wx" },
+  );
+  assert.equal(
+    privatePublication.writeOwnedStateSnapshot(management, secondBytes).status,
+    "completed",
+  );
+  assert.deepEqual(fs.readdirSync(area.directory), ["state.json"]);
+  assert.deepEqual(
+    fs.readFileSync(path.join(area.directory, "state.json")),
+    secondBytes,
+  );
+  // 正規保存済みと同じpending残存は再適用せず短命物だけを回収する。
+  fs.writeFileSync(
+    path.join(area.directory, "state.pending.json"),
+    secondBytes,
+    { flag: "wx" },
+  );
+  assert.equal(
+    privatePublication.writeOwnedStateSnapshot(management, secondBytes).status,
+    "completed",
+  );
+  fs.writeFileSync(path.join(area.directory, "state.pending.json"), "invalid", {
+    flag: "wx",
+  });
+  assert.equal(
+    domain.readState(management, { scope: "operation" }).reason,
+    "coordinator_state_reentry_required",
+  );
+  assert.equal(
+    domain.readState(verifiedRoot.capability, { scope: "recovery" }).reason,
+    "coordinator_state_reentry_required",
+  );
+  const rejected = privatePublication.writeOwnedStateSnapshot(
+    management,
+    secondBytes,
+  );
+  assert.equal(rejected.status, "blocked");
+  assert.equal(rejected.filesystemEffectIssued, false);
+  assert.equal(
+    fs.readFileSync(path.join(area.directory, "state.pending.json"), "utf8"),
+    "invalid",
+  );
+  assert.deepEqual(
+    fs.readFileSync(path.join(area.directory, "state.json")),
+    secondBytes,
+  );
+  fs.unlinkSync(path.join(area.directory, "state.pending.json"));
+  const hardlink = path.join(root, "state-hardlink");
+  fs.linkSync(path.join(area.directory, "state.json"), hardlink);
+  assert.equal(
+    domain.readState(management, { scope: "operation" }).status,
+    "blocked",
+  );
+  assert.equal(
+    privatePublication.writeOwnedStateSnapshot(management, secondBytes)
+      .filesystemEffectIssued,
+    false,
+  );
+  fs.unlinkSync(hardlink);
+});
+
+/**
+ * Host作成前Intentを空State経由にせず既存Writerへ一出版する。
+ * @responsibility 現在認可、初回本文、Receipt更新、CASと保存不明時の参照を反証する。
+ * @trace ERB-IT-014
+ * @precondition 自己生成Repositoryと合成実体値だけを使用する。
+ * @stimulus 初回・同値再送・stale・認可拒否とrename故障を与える。
+ * @observation 実state/pending本文・改訂・元回復参照とHost Directory非作成。
+ * @oracle 最初の本文からHost Intentを含み、不明時に開始成立へ昇格しない。
+ * @cleanup 同期I/Oとmockを終え、既存helperで自己生成Rootだけを回収する。
+ * @boundary 公開Operation受付→既存Lock/CAS/物理Writer。Host実作成・Dockerは対象外。
+ */
+test("Host Intentは既存Writerの最初の一出版から記録し保存不明を開始成功にしない", async (t) => {
+  for (const fault of ["none", "rename", "unlock"] as const)
+    await t.test(fault, (sub) => {
+      const directory = createRepositoryTestDirectory(
+        "host-intent-publication-",
+      );
+      sub.after(directory.cleanup);
+      const root = directory.path;
+      fs.mkdirSync(path.join(root, ".git", "refs", "heads"), {
+        recursive: true,
+      });
+      fs.mkdirSync(path.join(root, ".git", "info"));
+      fs.writeFileSync(path.join(root, ".git", "info", "exclude"), ".crdd/\n");
+      fs.writeFileSync(
+        path.join(root, ".git", "config"),
+        "[core]\nrepositoryformatversion = 0\nbare = false\n",
+      );
+      fs.writeFileSync(
+        path.join(root, ".git", "HEAD"),
+        "ref: refs/heads/main\n",
+      );
+      fs.writeFileSync(
+        path.join(root, ".git", "refs", "heads", "main"),
+        `${"1".repeat(40)}\n`,
+      );
+      const verified = getRepository(root);
+      assert.equal(verified.status, "completed");
+      if (verified.status !== "completed") throw Error("invalid_fixture");
+      let allowed = false;
+      const access: HostOperationAccess = {
+        root: verified.capability,
+        revalidate: (operation, target) => {
+          assert.equal(operation, "operation.record");
+          assert.deepEqual(target, { operationId: "OP-123456" });
+          return allowed;
+        },
+      };
+      const operation = {
+        kind: "host_operation",
+        operationId: "OP-123456",
+        recoveryId: "host-operation.OP-123456",
+        purpose: "advice",
+        resources: null,
+        createdAt: "2026-11-19T00:00:00.000Z",
+        phase: "preparing",
+        rootIdentity: null,
+        childIdentities: {},
+        cleanup: "not_requested",
+      } as const;
+      const stateFile = path.join(root, ".crdd", "domain-model", "state.json");
+      const pendingFile = path.join(
+        path.dirname(stateFile),
+        "state.pending.json",
+      );
+      const request = { kind: "host_operation", value: operation } as const;
+      Object.defineProperty(access, "principalId", {
+        get() {
+          throw Error("host_record_must_not_resolve_principal");
+        },
+      });
+      const denied = saveOperationStart(access, request);
+      assert.equal(denied.startSaved, false);
+      assert.equal(fs.existsSync(stateFile), false);
+      allowed = true;
+      let publications = 0;
+      const rename = fs.renameSync;
+      const observer = sub.mock.method(fs, "renameSync", ((
+        ...args: Parameters<typeof fs.renameSync>
+      ) => {
+        if (String(args[1]) === stateFile) {
+          publications++;
+          const candidate = JSON.parse(
+            fs.readFileSync(String(args[0]), "utf8"),
+          );
+          assert.deepEqual(candidate.operations, [operation]);
+          assert.equal(candidate.revision, 1);
+          if (fault === "rename")
+            throw Object.assign(new Error("synthetic"), { code: "EIO" });
+        }
+        return rename(...args);
+      }) as typeof fs.renameSync);
+      const remove = fs.rmSync;
+      const unlockObserver =
+        fault === "unlock"
+          ? sub.mock.method(
+              fs,
+              "rmSync",
+              (file: fs.PathLike, options?: fs.RmOptions) => {
+                if (
+                  String(file) ===
+                  path.join(root, ".crdd", "lock", "execution-model.state.lock")
+                )
+                  throw Object.assign(new Error("synthetic release failure"), {
+                    code: "EIO",
+                  });
+                return remove(file, options);
+              },
+            )
+          : null;
+      const started = saveOperationStart(access, request);
+      observer.mock.restore();
+      unlockObserver?.mock.restore();
+      assert.equal(started.recoveryId, operation.recoveryId);
+      assert.equal(started.lockReleased, fault !== "unlock");
+      assert.equal(publications, 1);
+      assert.equal(
+        fs.existsSync(path.join(root, ".crdd", "operations")),
+        false,
+      );
+      if (fault === "unlock") {
+        assert.equal(started.startSaved, false);
+        assert.equal(started.snapshotConfirmed, true);
+        assert.equal(started.filesystemEffectIssued, true);
+        assert.equal(
+          started.reason,
+          "coordinator_state_lock_release_unconfirmed",
+        );
+        assert.deepEqual(
+          JSON.parse(fs.readFileSync(stateFile, "utf8")).operations,
+          [operation],
+        );
+        const before = fs.readFileSync(stateFile);
+        const retry = saveOperationStart(access, request);
+        assert.equal(retry.startSaved, false);
+        assert.equal(retry.recoveryId, operation.recoveryId);
+        assert.deepEqual(fs.readFileSync(stateFile), before);
+        return;
+      }
+      if (fault === "rename") {
+        assert.equal(started.startSaved, false);
+        assert.equal(started.filesystemEffectIssued, true);
+        assert.equal(fs.existsSync(stateFile), false);
+        const pending = fs.readFileSync(pendingFile);
+        assert.deepEqual(JSON.parse(pending.toString()).operations, [
+          operation,
+        ]);
+        const retry = saveOperationStart(access, request);
+        assert.equal(retry.startSaved, false);
+        assert.equal(retry.recoveryId, operation.recoveryId);
+        assert.deepEqual(fs.readFileSync(pendingFile), pending);
+        return;
+      }
+      assert.equal(started.startSaved, true, JSON.stringify(started));
+      const initial = fs.readFileSync(stateFile);
+      assert.equal(saveOperationStart(access, request).startSaved, true);
+      assert.deepEqual(fs.readFileSync(stateFile), initial);
+      const next = {
+        ...operation,
+        rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
+      };
+      const checkpoint = {
+        kind: "host_operation",
+        value: {
+          operation: next,
+          expectedVersion: {
+            revision: started.revision,
+            payloadSha256: started.payloadSha256,
+          },
+        },
+      } as const;
+      const saved = saveOperationCheckpoint(
+        access,
+        operation.recoveryId,
+        checkpoint,
+      );
+      assert.equal(
+        saved.snapshotConfirmed && saved.lockReleased,
+        true,
+        JSON.stringify(saved),
+      );
+      const current = fs.readFileSync(stateFile);
+      assert.deepEqual(JSON.parse(current.toString()).operations, [next]);
+      const noVersion = saveOperationCheckpoint(access, operation.recoveryId, {
+        kind: "host_operation",
+        value: { operation, expectedVersion: null },
+      });
+      assert.equal(noVersion.snapshotConfirmed, false);
+      const missing = {
+        ...operation,
+        operationId: "OP-654321",
+        recoveryId: "host-operation.OP-654321",
+      };
+      const noStart = saveOperationCheckpoint(
+        { ...access, revalidate: () => true },
+        missing.recoveryId,
+        {
+          kind: "host_operation",
+          value: {
+            operation: missing,
+            expectedVersion: {
+              revision: saved.revision,
+              payloadSha256: saved.payloadSha256,
+            },
+          },
+        },
+      );
+      assert.equal(noStart.snapshotConfirmed, false);
+      assert.deepEqual(fs.readFileSync(stateFile), current);
+      const stale = saveOperationCheckpoint(
+        access,
+        operation.recoveryId,
+        checkpoint,
+      );
+      assert.equal(stale.snapshotConfirmed, false);
+      assert.deepEqual(fs.readFileSync(stateFile), current);
+      allowed = false;
+      const rejected = saveOperationCheckpoint(access, operation.recoveryId, {
+        kind: "host_operation",
+        value: {
+          operation: { ...next, cleanup: "pending" },
+          expectedVersion: {
+            revision: saved.revision,
+            payloadSha256: saved.payloadSha256,
+          },
+        },
+      });
+      assert.equal(rejected.snapshotConfirmed, false);
+      assert.deepEqual(fs.readFileSync(stateFile), current);
+      allowed = true;
+      const openedState = new Set<number>();
+      let completedReads = 0;
+      const originalOpen = fs.openSync;
+      const originalClose = fs.closeSync;
+      const openObserver = sub.mock.method(fs, "openSync", ((
+        ...args: Parameters<typeof fs.openSync>
+      ) => {
+        const descriptor = Reflect.apply(originalOpen, fs, args);
+        if (String(args[0]) === stateFile) openedState.add(descriptor);
+        return descriptor;
+      }) as typeof fs.openSync);
+      const closeObserver = sub.mock.method(
+        fs,
+        "closeSync",
+        (descriptor: number) => {
+          originalClose(descriptor);
+          if (openedState.delete(descriptor)) {
+            completedReads++;
+            allowed = false;
+          }
+        },
+      );
+      let lostAfterRead: ReturnType<typeof saveOperationCheckpoint>;
+      try {
+        lostAfterRead = saveOperationCheckpoint(access, operation.recoveryId, {
+          kind: "host_operation",
+          value: {
+            operation: { ...next, cleanup: "pending" },
+            expectedVersion: {
+              revision: saved.revision,
+              payloadSha256: saved.payloadSha256,
+            },
+          },
+        });
+      } finally {
+        openObserver.mock.restore();
+        closeObserver.mock.restore();
+        allowed = true;
+      }
+      assert.ok(completedReads > 0);
+      assert.equal(lostAfterRead.snapshotConfirmed, false);
+      assert.equal(lostAfterRead.filesystemEffectIssued, false);
+      assert.deepEqual(fs.readFileSync(stateFile), current);
+      const probe = {
+        ...operation,
+        operationId: "OP-234567",
+        recoveryId: "host-operation.OP-234567",
+        purpose: "isolation_probe",
+      } as const;
+      const probeAccess: HostOperationAccess = {
+        root: verified.capability,
+        revalidate: (kind, target) =>
+          allowed &&
+          kind === "operation.record" &&
+          target.operationId === probe.operationId,
+      };
+      const probeStarted = saveOperationStart(probeAccess, {
+        kind: "host_operation",
+        value: probe,
+      });
+      assert.equal(probeStarted.startSaved, true, JSON.stringify(probeStarted));
+      const snapshot = {
+        resources: [
+          {
+            key: "probe",
+            identity: {
+              kind: "container",
+              dockerId: null,
+              name: "probe",
+              ownershipLabel: "probe=fixture",
+            },
+            request: "not_issued",
+            configuration: {
+              image: "fixture",
+              command: null,
+              environmentNames: null,
+              mounts: null,
+              networks: null,
+              internal: null,
+            },
+          },
+        ],
+      };
+      const cleanup = {
+        cleanupOrder: ["probe"],
+        setupTimeoutMs: 10000,
+        unreceiptedAbsence: "retain",
+        verifyLabelAbsence: true,
+      };
+      const resources = applyResourceEvent(null, {
+        event: "submission",
+        key: "probe",
+        snapshot,
+        cleanup,
+      });
+      assert.ok(resources);
+      const active = {
+        ...probe,
+        phase: "active",
+        rootIdentity: next.rootIdentity,
+        childIdentities: Object.fromEntries(
+          [
+            "workspace",
+            "providerHome",
+            "tmp",
+            "events",
+            "projection",
+            "management",
+          ].map((key) => [key, next.rootIdentity]),
+        ),
+        resources,
+      } as const;
+      const captured = decodeHostOperation(active);
+      assert.ok(captured?.resources);
+      assert.notEqual(captured.resources, resources);
+      assert.equal(
+        Object.isFrozen(captured.resources.snapshot.resources),
+        true,
+      );
+      assert.equal(
+        Object.isFrozen(captured.resources.snapshot.resources[0]?.identity),
+        true,
+      );
+      assert.equal(decodeHostOperation({ ...active, purpose: "advice" }), null);
+      assert.equal(
+        decodeHostOperation({ ...active, phase: "preparing" }),
+        null,
+      );
+      assert.equal(
+        decodeHostOperation({
+          ...active,
+          resources: {
+            ...resources,
+            cleanup: { ...resources.cleanup, unreceiptedAbsence: "observe" },
+          },
+        }),
+        null,
+      );
+      let getters = 0;
+      const getterBook = Object.defineProperty({ ...resources }, "snapshot", {
+        enumerable: true,
+        get() {
+          getters++;
+          return resources.snapshot;
+        },
+      });
+      assert.equal(
+        decodeHostOperation({ ...active, resources: getterBook }),
+        null,
+      );
+      assert.equal(getters, 0);
+      const uncertain: HostOperationRecord = {
+        ...active,
+        resources: {
+          ...resources,
+          snapshot: {
+            resources: resources.snapshot.resources.map((item) => ({
+              ...item,
+              request: "unknown",
+            })),
+          },
+        },
+      };
+      const notIssued = {
+        ...uncertain,
+        resources: {
+          ...resources,
+          snapshot: resources.snapshot,
+          checkpoints: resources.checkpoints.map((item) => ({
+            ...item,
+            submission: "not_issued",
+          })),
+        },
+      };
+      assert.equal(validHostOperationTransition(active, notIssued), true);
+      assert.equal(
+        validHostOperationTransition(notIssued, {
+          ...notIssued,
+          phase: "terminal",
+          cleanup: "confirmed",
+        }),
+        true,
+      );
+      const receipt = {
+        ...active,
+        resources: applyResourceEvent(uncertain.resources, {
+          event: "receipt",
+          key: "probe",
+          cleanup,
+          snapshot: {
+            resources: [
+              {
+                ...snapshot.resources[0],
+                request: "issued",
+                identity: {
+                  ...snapshot.resources[0]?.identity,
+                  dockerId: "a".repeat(64),
+                },
+              },
+            ],
+          },
+        }),
+      };
+      assert.ok(receipt.resources);
+      const rediscovered = {
+        ...receipt,
+        resources: {
+          ...receipt.resources,
+          checkpoints: receipt.resources.checkpoints.map((item) => ({
+            ...item,
+            receiptSource: "runtime_reconciliation",
+          })),
+        },
+      };
+      assert.equal(decodeHostOperation(rediscovered), null);
+      const terminal = {
+        ...receipt,
+        phase: "terminal",
+        cleanup: "confirmed",
+        resources: {
+          ...receipt.resources,
+          checkpoints: receipt.resources.checkpoints.map((item) => ({
+            ...item,
+            observation: "absent",
+            absenceEvidenceSha256: "b".repeat(64),
+          })),
+        },
+      };
+      let version = {
+        revision: probeStarted.revision,
+        payloadSha256: probeStarted.payloadSha256,
+      };
+      for (const [value, confirmed] of [
+        [active, true],
+        [uncertain, true],
+        [notIssued, false],
+        [{ ...active, phase: "terminal", cleanup: "confirmed" }, false],
+        [receipt, true],
+        [rediscovered, false],
+        [active, false],
+        [{ ...receipt, resources: null }, false],
+        [terminal, true],
+      ] as const) {
+        const before = fs.readFileSync(stateFile);
+        const result = saveOperationCheckpoint(probeAccess, probe.recoveryId, {
+          kind: "host_operation",
+          value: { operation: value, expectedVersion: version },
+        });
+        assert.equal(
+          result.snapshotConfirmed,
+          confirmed,
+          JSON.stringify(result),
+        );
+        if (confirmed)
+          version = {
+            revision: result.revision,
+            payloadSha256: result.payloadSha256,
+          };
+        else assert.deepEqual(fs.readFileSync(stateFile), before);
+      }
+      const finalState = JSON.parse(fs.readFileSync(stateFile, "utf8")) as {
+        operations: HostOperationRecord[];
+      };
+      const originals = finalState.operations.filter(
+        (item) => item.recoveryId === operation.recoveryId,
+      );
+      assert.equal(originals.length, 1);
+      assert.deepEqual(originals[0], next);
+      assert.equal(
+        fs.existsSync(path.join(root, ".crdd", "operations")),
+        false,
+      );
+    });
+});
 
 /**
  * 旧領域の残置から新しい空状態を作らない。
@@ -371,7 +1279,7 @@ test("Coreだけで初期化・一般CRUD・現在認可とCASを同じ実Store�
   const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(file);
   const state = JSON.parse(before.toString("utf8"));
-  assert.equal(state.schema, "crdd-execution-model/state/v6");
+  assert.equal(state.schema, "crdd-execution-model/state/v7");
   for (const key of ["managedExecutions", "operations", "unresolvedRecoveries"])
     assert.deepEqual(state[key], []);
   for (const key of ["pendingDeliveries", "resultReceipts"])

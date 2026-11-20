@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { types } from "node:util";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
+  resolveVerifiedRepositoryRoot,
   readRepositorySnapshot,
   getRepository,
 } from "../../version-control/src/index.ts";
@@ -435,15 +436,29 @@ const productionDependencies: VerificationDependencies = Object.freeze({
     });
   },
   prepareWorkspace: prepareVerificationWorkspace,
-  startTask: (request, root, target) =>
-    startRuntimeOwnedCoordinatorTask(
+  startTask: (request, root, target) => {
+    const location = getRepository(root);
+    if (location.status !== "completed")
+      throw Error("repository_identity_unavailable");
+    const repository = location.capability;
+    if (resolveVerifiedRepositoryRoot(repository) !== root)
+      throw Error("repository_identity_unavailable");
+    return startRuntimeOwnedCoordinatorTask(
       request,
       root,
       null,
       undefined,
       "coordinator_cli",
       target,
-    ),
+      {},
+      {
+        root: repository,
+        purpose: "task",
+        recordingCurrent: () =>
+          resolveVerifiedRepositoryRoot(repository) === root,
+      },
+    );
+  },
   cancelTask: cancelRuntimeOwnedCoordinatorTask,
   readWorkspaceOutput: (target, result) =>
     readVerificationWorkspaceOutput(target, TARGET_PATH, result),

@@ -23,7 +23,6 @@ import {
 import { isSupportedNodeRuntime } from "../src/execution/diagnostics.ts";
 import { coordinatorTaskPublicReasons } from "../src/execution/result.ts";
 import { snapshotPlainArray } from "../src/input/snapshot.ts";
-import { isDockerIsolationRecoveryIdCandidate } from "../src/state/probe-record.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   SIGNED_ROUTE_MATRIX_REASONS,
@@ -288,8 +287,7 @@ export function projectVerificationResult(
   const recoveryId = ownValue(value, "recoveryId");
   summary.recoveryId =
     isCanonicalVerificationRecoveryId(recoveryId, "docker") ||
-    isCanonicalVerificationRecoveryId(recoveryId, "host") ||
-    isDockerIsolationRecoveryIdCandidate(recoveryId)
+    isCanonicalVerificationRecoveryId(recoveryId, "host")
       ? recoveryId
       : null;
   if (

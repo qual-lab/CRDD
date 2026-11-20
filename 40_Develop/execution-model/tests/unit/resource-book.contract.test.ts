@@ -2,6 +2,7 @@
  * 元Snapshotと記録checkpointの相関を有限値で確認する。
  * @responsibility Intent・Receipt・不存在を混同せず旧保存形式を拒否する。
  * @trace ERB-UT-023
+ * @trace PRL-UT-006
  * @level UT
  * @boundary 純粋な値更新のみ。Docker・外部AI・Filesystem操作を行わない。
  * @packageDocumentation
@@ -26,14 +27,331 @@ import {
   validateResourceBook,
   validateResourceBookTransition,
 } from "../../src/attempt/operations.ts";
-import type { OperationResources } from "../../src/attempt/types.ts";
+import type {
+  ExecutionOperationRecord,
+  OperationResources,
+} from "../../src/attempt/types.ts";
 import {
   areTaskResourcesSettled,
+  projectOperationState,
   validateOperationIdentity,
 } from "../../src/attempt/validation.ts";
-import { decodeStateSnapshot } from "../../src/state/validation.ts";
+import {
+  decodeStateSnapshot,
+  prepareStateLifecycleSnapshot,
+  validateUnifiedTransition,
+} from "../../src/state/validation.ts";
 
-import { createResourceOperationFixture } from "../support/resource-operation.ts";
+import {
+  createResourceOperationFixture,
+  createResourceBookFixture,
+} from "../support/resource-operation.ts";
+
+/**
+ * 技術要求前の終了とHome・Hostの回収を別条件として扱う。
+ * @responsibility 元失敗を保ったまま資源終結を判定し、実解放やHost不存在を推定しない。
+ * @trace PRL-UT-006
+ * @precondition 現行形式の自己生成Docker操作を使う。実Process・保存は呼ばない。
+ * @stimulus 未開始失敗、Lease保持／解放、開始・送信・Command観測の反証を与える。
+ * @observation 資源判定、同版投影、Lifecycle候補と元失敗・回復参照。
+ * @oracle 未発行の終了だけtrue、未知・観測済みEffectはfalse。結果や清掃済みは先書きしない。
+ * @cleanup メモリ値のみ。
+ * @boundary 値契約のUT。実Home解放・Host削除・保存成立は確認しない。
+ */
+test("未開始失敗は元失敗を保持して技術資源だけを終結できる", () => {
+  const fixture = createResourceOperationFixture();
+  const before = Buffer.from(fixture.bytes);
+  const failure: NonNullable<ExecutionOperationRecord["primaryFailure"]> = {
+    purpose: null,
+    stage: "command_restriction",
+    reason: "docker_process_controller_execution_restricted",
+    exceptionCode: null,
+    commandHandleObtained: false,
+    responseObserved: false,
+    receiptRecorded: false,
+  };
+  const startFailures = (
+    [
+      ["docker_process_controller_plan_invalid", "plan_validation"],
+      ["docker_process_controller_recovery_unavailable", "home_lock"],
+      [
+        "docker_process_controller_home_lock_initialization_failed",
+        "home_lock",
+      ],
+      [
+        "docker_process_controller_home_lock_descriptor_close_unconfirmed",
+        "home_lock",
+      ],
+    ] as const
+  ).flatMap(([reason, stage]) => [
+    { ...failure, reason, stage },
+    { ...failure, reason, stage, commandObservation: null },
+  ]);
+  const cases = [
+    null,
+    failure,
+    { ...failure, commandObservation: null },
+    ...startFailures,
+  ].map((primaryFailure) => {
+    const beforeBytes =
+      primaryFailure === null
+        ? fixture.bytes
+        : prepareStateLifecycleSnapshot(
+            fixture.bytes,
+            fixture.recoveryId,
+            {
+              phase: "executing",
+              lease: "held",
+              execution: {
+                ...fixture.operation.execution,
+                ownerEffect: "disabled",
+              },
+              primaryFailure,
+              outcome: null,
+              summarySha256: null,
+            },
+            fixture.binding,
+          );
+    assert.ok(beforeBytes);
+    const intermediate = decodeStateSnapshot(beforeBytes, fixture.binding);
+    assert.ok(intermediate);
+    const recorded = intermediate.snapshot.operations.find(
+      (item) => item.kind === "docker_task",
+    );
+    assert.ok(recorded?.kind === "docker_task");
+    assert.equal(recorded.phase, "executing");
+    assert.equal(recorded.lease, "held");
+    assert.deepEqual(recorded.primaryFailure, primaryFailure);
+    assert.equal(
+      intermediate.snapshot.operations.find(
+        (item) => item.kind === "host_operation",
+      )?.cleanup,
+      "not_requested",
+    );
+    assert.equal(recorded.outcome, null);
+    assert.equal(areTaskResourcesSettled(recorded), false);
+    return { primaryFailure, beforeBytes };
+  });
+  for (const lease of ["held", "released"] as const) {
+    for (const { primaryFailure, beforeBytes } of cases) {
+      const operation: ExecutionOperationRecord = {
+        ...fixture.operation,
+        phase: "settling",
+        lease,
+        execution: { ...fixture.operation.execution, ownerEffect: "disabled" },
+        primaryFailure,
+      };
+      assert.equal(areTaskResourcesSettled(operation), true);
+      const projected = projectOperationState(operation);
+      assert.equal(projected.kind, "docker_task");
+      if (projected.kind !== "docker_task") throw Error("wrong_projection");
+      assert.equal(projected.resourcesSettled, true);
+      assert.equal(projected.operation.outcome, null);
+      assert.equal(Object.hasOwn(projected.operation, "host"), false);
+      const candidate = prepareStateLifecycleSnapshot(
+        beforeBytes,
+        fixture.recoveryId,
+        {
+          phase: operation.phase,
+          lease,
+          execution: operation.execution,
+          primaryFailure,
+          outcome: null,
+          summarySha256: null,
+        },
+        fixture.binding,
+      );
+      assert.ok(
+        candidate,
+        `${lease}:${primaryFailure === null ? "no_failure" : "failure"}`,
+      );
+      const decoded = decodeStateSnapshot(candidate, fixture.binding);
+      assert.ok(decoded);
+      const saved = decoded.snapshot.operations.find(
+        (item) => item.kind === "docker_task",
+      );
+      assert.ok(saved?.kind === "docker_task");
+      assert.deepEqual(saved.primaryFailure, primaryFailure);
+      assert.equal(saved.recoveryId, fixture.recoveryId);
+      assert.equal(saved.resources, null);
+      assert.deepEqual(
+        decoded.snapshot.operations.filter(
+          (item) => item.kind === "host_operation",
+        ),
+        decodeStateSnapshot(
+          beforeBytes,
+          fixture.binding,
+        )?.snapshot.operations.filter((item) => item.kind === "host_operation"),
+      );
+      assert.equal(saved.outcome, null);
+      assert.equal(saved.summarySha256, null);
+      assert.equal(saved.history, null);
+      if (primaryFailure && primaryFailure.stage !== "command_restriction") {
+        /**
+         * 同じモデル断面へ一件の変異を置き、実Decoderで共同条件を確認する。
+         * @responsibility 不変準備を共有し、変異値や元候補を変更しない。
+         * @trace PRL-UT-006
+         */
+        const decodeOperation = (value: unknown) =>
+          decodeStateSnapshot(
+            Buffer.from(
+              `${encodeStateValue({ ...decoded.snapshot, operations: decoded.snapshot.operations.map((item) => (item.kind === "docker_task" ? value : item)) })}\n`,
+            ),
+            fixture.binding,
+          );
+        for (const execution of [
+          { ...saved.execution, providerStart: "started" },
+          { ...saved.execution, providerStart: "unknown" },
+          { ...saved.execution, externalSend: "issued" },
+          { ...saved.execution, externalSend: "unknown" },
+          { ...saved.execution, sharedWrite: "possible" },
+          { ...saved.execution, sharedWrite: "unknown" },
+          { ...saved.execution, ownerEffect: "active" },
+          { ...saved.execution, ownerEffect: "unknown" },
+        ]) {
+          assert.equal(decodeOperation({ ...saved, execution }), null);
+          assert.ok(
+            decodeOperation({ ...saved, execution, primaryFailure: null }),
+          );
+        }
+        const issued = createResourceBookFixture(
+          fixture.ownershipLabel,
+          "unknown",
+        );
+        assert.equal(decodeOperation({ ...saved, resources: issued }), null);
+        assert.ok(
+          decodeOperation({
+            ...saved,
+            resources: issued,
+            primaryFailure: null,
+          }),
+        );
+        const outcome = {
+          status: "blocked",
+          reason: primaryFailure.reason,
+          cleanupConfirmed: false,
+        };
+        assert.ok(decodeOperation({ ...saved, outcome }));
+        assert.equal(
+          decodeOperation({ ...saved, outcome, primaryFailure: null }),
+          null,
+        );
+        for (const changed of [
+          {
+            status: "completed",
+            reason: "provider_operation_completed",
+            cleanupConfirmed: true,
+          },
+          {
+            status: "cancelled",
+            reason: "provider_operation_cancelled",
+            cleanupConfirmed: false,
+          },
+          {
+            status: "blocked",
+            reason: "provider_network_unavailable",
+            cleanupConfirmed: false,
+          },
+          {
+            status: "blocked",
+            reason:
+              primaryFailure.reason === "docker_process_controller_plan_invalid"
+                ? "docker_process_controller_recovery_unavailable"
+                : "docker_process_controller_plan_invalid",
+            cleanupConfirmed: false,
+          },
+        ])
+          assert.equal(decodeOperation({ ...saved, outcome: changed }), null);
+      }
+      assert.equal(
+        validateUnifiedTransition(beforeBytes, candidate, fixture.binding),
+        true,
+      );
+      if (primaryFailure) {
+        assert.equal(
+          prepareStateLifecycleSnapshot(
+            candidate,
+            fixture.recoveryId,
+            {
+              phase: "settling",
+              lease,
+              execution: operation.execution,
+              primaryFailure: null,
+              outcome: null,
+              summarySha256: null,
+            },
+            fixture.binding,
+          ),
+          null,
+        );
+      }
+      const denied: readonly ExecutionOperationRecord[] = [
+        { ...operation, phase: "executing" },
+        { ...operation, lease: "unknown" },
+        {
+          ...operation,
+          execution: { ...operation.execution, ownerEffect: "active" },
+        },
+        {
+          ...operation,
+          execution: { ...operation.execution, ownerEffect: "unknown" },
+        },
+        {
+          ...operation,
+          execution: { ...operation.execution, providerStart: "started" },
+        },
+        {
+          ...operation,
+          execution: { ...operation.execution, providerStart: "unknown" },
+        },
+        {
+          ...operation,
+          execution: { ...operation.execution, externalSend: "issued" },
+        },
+        {
+          ...operation,
+          execution: { ...operation.execution, externalSend: "unknown" },
+        },
+        {
+          ...operation,
+          execution: { ...operation.execution, sharedWrite: "possible" },
+        },
+        {
+          ...operation,
+          execution: { ...operation.execution, sharedWrite: "unknown" },
+        },
+        {
+          ...operation,
+          primaryFailure: { ...failure, commandHandleObtained: true },
+        },
+        {
+          ...operation,
+          primaryFailure: { ...failure, responseObserved: true },
+        },
+        {
+          ...operation,
+          primaryFailure: {
+            ...failure,
+            responseObserved: true,
+            receiptRecorded: true,
+          },
+        },
+        {
+          ...operation,
+          primaryFailure: {
+            ...failure,
+            responseObserved: true,
+            commandObservation: { exitCode: 0, stdoutBytes: 0, stderrBytes: 0 },
+          },
+        },
+      ];
+      for (const refused of denied)
+        assert.equal(areTaskResourcesSettled(refused), false);
+    }
+  }
+  assert.deepEqual(fixture.bytes, before);
+  assert.equal(areTaskResourcesSettled(fixture.operation), false);
+});
 
 const ID = "a".repeat(64);
 const EVIDENCE = {
@@ -129,7 +447,9 @@ test("要求前の切断は資源終端だけを満たし、単独条件の欠�
   const fixture = createResourceOperationFixture();
   const decoded = decodeStateSnapshot(fixture.bytes, fixture.binding);
   assert.ok(decoded);
-  const original = decoded.snapshot.operations[0];
+  const original = decoded.snapshot.operations.find(
+    (item) => item.kind === "docker_task",
+  );
   assert.ok(original?.kind === "docker_task");
   const stopped = {
     ...original,
@@ -137,12 +457,19 @@ test("要求前の切断は資源終端だけを満たし、単独条件の欠�
     execution: { ...original.execution, ownerEffect: "disabled" as const },
   };
   assert.equal(areTaskResourcesSettled(stopped), true);
-  assert.equal(stopped.host.cleanup, "not_requested");
+  const host = decoded.snapshot.operations.find(
+    (item) => item.kind === "host_operation",
+  );
+  assert.equal(host?.cleanup, "not_requested");
+  assert.equal(
+    areTaskResourcesSettled({ ...stopped, lease: "released" }),
+    true,
+  );
   assert.equal(stopped.lease, "held");
   assert.equal(stopped.outcome, null);
   for (const [label, change] of [
     ["phase", { phase: "executing" }],
-    ["lease", { lease: "released" }],
+    ["lease", { lease: "unknown" }],
     ["resources_missing", { resources: undefined }],
     [
       "outcome",
@@ -228,26 +555,32 @@ function initial(): OperationResources {
 
 /**
  * 既存Host契約を満たす自己生成Operationを、製品codecで初期化する。
- * @responsibility Operation Identityはv3だけを受理し旧資源名・Imageコピーを保存しない
+ * @responsibility Operation Identityはv6だけを受理し旧資源・Hostコピーを保存しない。
  * @trace ERB-UT-023
  * @precondition 純粋な値更新のみ。Docker・外部AI・Filesystem操作を行わない。
- * @stimulus Operation Identityはv3だけを受理し旧資源名・Imageコピーを保存しないの対照入力・故障条件を与える。
+ * @stimulus 現行Identityと旧Schema、資源・Image・Hostコピーを与える。
  * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
- * @oracle Operation Identityはv3だけを受理し旧資源名・Imageコピーを保存しないという条件をassertionで判定する。
+ * @oracle 現行Identityだけを受理し、別記録のコピーを拒否する。
  * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
  * @boundary 純粋な値更新のみ。Docker・外部AI・Filesystem操作を行わない。
  */
 
-test("Operation Identityはv3だけを受理し旧資源名・Imageコピーを保存しない", () => {
+test("Operation Identityはv6だけを受理し旧資源・Hostコピーを保存しない", () => {
   const { identity, binding } = createResourceOperationFixture();
+  assert.equal(identity.schema, "crdd-coordinator/operation-identity/v6");
   assert.equal(
     validateOperationIdentity(identity, identity.operationNonce, binding),
     true,
   );
   for (const invalid of [
     { ...identity, schema: "crdd-coordinator/operation-identity/v2" },
+    { ...identity, schema: "crdd-coordinator/operation-identity/v3" },
+    { ...identity, schema: "crdd-coordinator/operation-identity/v5" },
     { ...identity, resources: {} },
     { ...identity, images: {} },
+    { ...identity, hostPaths: {} },
+    { ...identity, initialHostRecovery: {} },
+    { ...identity, initialHostRecoveryId: "host.old" },
   ])
     assert.equal(
       validateOperationIdentity(invalid, identity.operationNonce, binding),
@@ -301,7 +634,9 @@ test("保存codecは初回Snapshot＋Intentを同じ改訂へ結合し別Operati
     const read = decodeStateSnapshot(next, f.binding);
     assert.ok(read);
     assert.equal(read.snapshot.revision, 2);
-    const operation = read.snapshot.operations[0];
+    const operation = read.snapshot.operations.find(
+      (item) => item.kind === "docker_task",
+    );
     assert.ok(operation?.kind === "docker_task" && operation.resources);
     assert.deepEqual(operation.resources.snapshot, resources);
     assert.equal(

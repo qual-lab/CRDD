@@ -9,6 +9,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { types } from "node:util";
+import { prepareIsolation } from "../../src/execution/operations.ts";
+import type { IsolationRequest } from "../../src/execution/types.ts";
+import type { ResourceTarget } from "../../src/cleanup/types.ts";
 import { inspectDockerContainer } from "../../src/cleanup/container.ts";
 import { observeDockerDirectoryIdentity } from "../../src/docker-cli/config.ts";
 import { createDockerCliEnvironment } from "../../src/docker-cli/environment.ts";
@@ -472,8 +475,104 @@ export function createDockerProbeContainer(
   profile: DockerProbeProfile,
   probeId: string,
   mounts: Readonly<{ workspace: string; providerHome: string; tmp: string }>,
+  notifications?: Readonly<{
+    managementDirectory: string;
+    onSubmitting(target: ResourceTarget<"snapshot">): unknown;
+    onCreated(id: string, target: ResourceTarget<"snapshot">): unknown;
+  }>,
 ) {
   const specification = profileSpecification(profile);
+  if (notifications) {
+    const configuration = describeDockerProbeConfiguration(
+      profile,
+      { id: "0".repeat(64), probeId },
+      mounts,
+    );
+    const resource = {
+      kind: "container" as const,
+      key: "probe",
+      name: configuration.name,
+      ownershipLabel: configuration.ownershipLabel,
+      image: configuration.image,
+      argv: ["-c", specification.source],
+      environment: {
+        HOME: "/operation/provider-home",
+        TMPDIR: "/operation/tmp",
+      },
+      mounts: Object.entries(configuration.mounts).map(([target, mount]) => ({
+        source: mount.source,
+        target,
+        readOnly: false,
+      })),
+      network: null,
+      networkAlias: null,
+      user: "65532:65532",
+      workingDirectory: "/operation/workspace",
+      entrypoint: "python",
+      tmpfsBytes: null,
+      interactive: false,
+      tty: false,
+      init: false,
+      seccomp: null,
+    } as const;
+    const plan: IsolationRequest = {
+      managementDirectory: notifications.managementDirectory,
+      resources: [resource],
+      steps: [
+        {
+          key: "create_probe",
+          action: "create",
+          resource: "probe",
+          timeoutMs: 30_000,
+        },
+      ],
+      cleanupOrder: ["probe"],
+      setupTimeoutMs: 10_000,
+      unreceiptedAbsence: "retain",
+      verifyLabelAbsence: true,
+    };
+    const prepared = prepareIsolation(plan, ISOLATION_SETTINGS);
+    if (!prepared) throw Error("docker_probe_plan_invalid");
+    const target: ResourceTarget<"snapshot"> = {
+      managementDirectory: plan.managementDirectory,
+      resources: prepared.resources,
+      cleanupOrder: plan.cleanupOrder,
+      setupTimeoutMs: plan.setupTimeoutMs,
+      unreceiptedAbsence: plan.unreceiptedAbsence,
+      verifyLabelAbsence: plan.verifyLabelAbsence,
+      previouslyAbsent: [],
+    };
+    const submitted = notifications.onSubmitting(target);
+    if (types.isPromise(submitted)) {
+      void submitted.catch(() => {});
+      throw Error("docker_probe_notification_invalid");
+    }
+    const result = normalizeContainerCreation(
+      executeDockerProbeCommand(
+        binding,
+        { purpose: "create_prepared", container: resource },
+        30_000,
+      ),
+    );
+    if (result.status === "confirmed") {
+      const receipt = {
+        ...target,
+        resources: {
+          resources: prepared.resources.resources.map((item) => ({
+            ...item,
+            identity: { ...item.identity, dockerId: result.id },
+            request: "issued" as const,
+          })),
+        },
+      };
+      const created = notifications.onCreated(result.id, receipt);
+      if (types.isPromise(created)) {
+        void created.catch(() => {});
+        throw Error("docker_probe_notification_invalid");
+      }
+    }
+    return Object.freeze(result);
+  }
   return Object.freeze(
     normalizeContainerCreation(
       executeDockerProbeCommand(

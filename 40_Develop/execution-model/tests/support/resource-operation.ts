@@ -67,27 +67,8 @@ export function createResourceBookFixture(
 export function createResourceOperationFixture() {
   const binding = "a".repeat(64);
   const ownershipLabel = "crdd.coordinator.runtime=0123456789abcdef";
-  const hostRecord = {
-    schema: "crdd-coordinator-host-recovery/v1",
-    state: "host_only",
-    rootName: "crdd-coordinator-doctor-fixture",
-    rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-    childIdentities: {
-      management: {
-        pathName: "management",
-        dev: "1",
-        ino: "3",
-        birthtimeNs: "4",
-      },
-    },
-    createdAt: "2026-08-25T00:00:00.000Z",
-  };
-  const hostHash = createHash("sha256")
-    .update(`${JSON.stringify(hostRecord)}\n`)
-    .digest("hex");
-  const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v5",
+    schema: "crdd-coordinator/operation-identity/v6",
     operationNonce: "b".repeat(64),
     provider: "claude",
     consumer: "orchestrator",
@@ -114,20 +95,11 @@ export function createResourceOperationFixture() {
     ownershipLabel,
     operationMode: "isolated_task",
     workspaceMountMode: "read_write",
-    initialHostRecoveryId: token,
-    initialHostRecovery: {
-      token,
-      recordHash: hostHash,
-      directoryIdentity: "1:2:3",
-      markerIdentity: "1:2:4",
-      record: hostRecord,
-    },
-    hostPaths: { root: "host-root", marker: "host-marker" },
   };
   // 一つの既知入力だけを宣言する。任意Identityから保存候補を作るHelperではない。
   const identityJson = `${JSON.stringify(identity)}\n`;
   const identitySha256 =
-    "88e09f4fbc2730783b29881afac4dba4b088aef7320dbe2731e46b7e6565126a";
+    "d10d59499787df40a3a3cffe645b06c1e75fd3e4b00cf1c38a955cdb9768b9ae";
   assert.equal(
     createHash("sha256").update(identityJson).digest("hex"),
     identitySha256,
@@ -142,6 +114,30 @@ export function createResourceOperationFixture() {
     managedExecutions: [],
     operations: [
       {
+        childIdentities: Object.fromEntries(
+          [
+            "events",
+            "management",
+            "projection",
+            "providerHome",
+            "tmp",
+            "workspace",
+          ].map((key, index) => [
+            key,
+            { birthtimeNs: "4", dev: "1", ino: String(index + 3) },
+          ]),
+        ),
+        cleanup: "not_requested",
+        createdAt: "2026-08-25T00:00:00.000Z",
+        kind: "host_operation",
+        operationId: "OP-123456",
+        phase: "active",
+        purpose: "task",
+        recoveryId: "host-operation.OP-123456",
+        resources: null,
+        rootIdentity: { birthtimeNs: "3", dev: "1", ino: "2" },
+      },
+      {
         dockerRestart: null,
         execution: {
           externalSend: "not_issued",
@@ -151,11 +147,6 @@ export function createResourceOperationFixture() {
           workspaceReusable: false,
         },
         history: null,
-        host: {
-          cleanup: "not_requested",
-          currentToken: token,
-          pendingTransitionJson: null,
-        },
         identityJson: identityJson,
         identitySha256: identitySha256,
         kind: "docker_task",
@@ -175,12 +166,14 @@ export function createResourceOperationFixture() {
     repositoryBindingId: null,
     results: [],
     revision: 1,
-    schema: "crdd-execution-model/state/v6",
+    schema: "crdd-execution-model/state/v7",
     unresolvedRecoveries: [],
     workspaces: [],
   };
   const bytes = Buffer.from(JSON.stringify(snapshot) + "\n");
-  const operation = snapshot.operations[0];
+  const operation = snapshot.operations.find(
+    (item) => item.kind === "docker_task",
+  );
   assert.ok(operation?.kind === "docker_task");
   assert.equal(operation.resources, null);
   return {

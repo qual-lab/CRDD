@@ -179,7 +179,6 @@ export function saveRecoveryHistory(
       const observed = readStateSnapshot(
         repository,
         recoveryId,
-        null,
         recoveryId,
         null,
         operationKind,
@@ -195,6 +194,7 @@ export function saveRecoveryHistory(
         !observed.lockReleased ||
         !publication ||
         !operation ||
+        operation.kind === "host_operation" ||
         assertOwner() !== true
       )
         return Object.freeze({

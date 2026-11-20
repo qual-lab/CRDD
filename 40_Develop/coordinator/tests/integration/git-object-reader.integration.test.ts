@@ -21,6 +21,7 @@ import {
 import {
   copyCommitFiles,
   readRepositorySnapshot,
+  resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { resolveRepositoryGitLayout } from "../../../version-control/src/repository/layout.ts";
 import { getRepository } from "../../../version-control/src/repository/location.ts";
@@ -250,37 +251,39 @@ test("現行CRDDのpacked objectから明示Read Projectionだけを隔離worksp
   );
   const parent = fs.mkdtempSync(path.join(tests.directory, "object-current-"));
   const parentIdentity = fs.lstatSync(parent, { bigint: true });
-  let owned: unknown = null;
-  let recoveryIdentity: fs.BigIntStats | null = null;
+  fs.mkdirSync(path.join(parent, ".git", "refs", "heads"), { recursive: true });
+  fs.mkdirSync(path.join(parent, ".git", "info"));
+  fs.writeFileSync(path.join(parent, ".git", "HEAD"), "ref: refs/heads/main\n");
+  fs.writeFileSync(
+    path.join(parent, ".git", "refs", "heads", "main"),
+    `${"1".repeat(40)}\n`,
+  );
+  fs.writeFileSync(
+    path.join(parent, ".git", "config"),
+    "[core]\nrepositoryformatversion = 0\nbare = false\n",
+  );
+  fs.writeFileSync(path.join(parent, ".git", "info", "exclude"), ".crdd/\n");
+  const hostRepository = getRepository(parent);
+  assert.equal(hostRepository.status, "completed");
+  const owned = createOwnedOperationDirectories({
+    root: hostRepository.capability,
+    purpose: "task",
+    recordingCurrent: () =>
+      resolveVerifiedRepositoryRoot(hostRepository.capability) === parent,
+  });
   t.after(() => {
-    if (owned !== null) cleanupOwnedOperationDirectories(owned);
+    cleanupOwnedOperationDirectories(owned);
     const current = fs.lstatSync(parent, { bigint: true });
     assert.equal(current.isSymbolicLink(), false);
     assert.equal(fs.realpathSync.native(parent), parent);
     assert.equal(current.dev, parentIdentity.dev);
     assert.equal(current.ino, parentIdentity.ino);
     assert.equal(current.birthtimeNs, parentIdentity.birthtimeNs);
-    for (const entry of fs.readdirSync(parent)) {
-      assert.equal(entry, "crdd-coordinator-recovery-v1");
-      const recovery = path.join(parent, entry);
-      const metadata = fs.lstatSync(recovery, { bigint: true });
-      assert.ok(recoveryIdentity);
-      assert.equal(metadata.isSymbolicLink(), false);
-      assert.equal(metadata.dev, recoveryIdentity.dev);
-      assert.equal(metadata.ino, recoveryIdentity.ino);
-      assert.equal(metadata.birthtimeNs, recoveryIdentity.birthtimeNs);
-      assert.equal(fs.realpathSync.native(recovery), recovery);
-      assert.deepEqual(fs.readdirSync(recovery), []);
-      fs.rmdirSync(recovery);
-    }
-    fs.rmdirSync(parent);
+    assert.ok(owned.directories);
+    assert.equal(fs.existsSync(owned.directories.root), false);
+    fs.rmSync(parent, { recursive: true });
     assert.equal(fs.existsSync(parent), false);
   });
-  owned = createOwnedOperationDirectories(parent);
-  recoveryIdentity = fs.lstatSync(
-    path.join(parent, "crdd-coordinator-recovery-v1"),
-    { bigint: true },
-  );
   const contextCapability = createOwnedOperationContextCapability(owned);
   const mountCapability = createOwnedMountCapability(owned);
   const managementCapability = createOwnedOperationManagementCapability(
@@ -306,9 +309,9 @@ test("現行CRDDのpacked objectから明示Read Projectionだけを隔離worksp
   if (verified.status !== "completed") return;
   const materialized = copyCommitFiles(verified.capability, {
     commit: source.revision,
-    outputRepository: verified.capability,
+    outputRepository: hostRepository.capability,
     relativeDirectory: path
-      .relative(repositoryRoot, binding.mounts.workspace)
+      .relative(parent, binding.mounts.workspace)
       .split(path.sep)
       .join("/"),
     paths: ["README.md"],

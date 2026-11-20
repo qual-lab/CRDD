@@ -1,201 +1,180 @@
 /**
- * Probe移管後の上位Source試験へ実Executor本文と共通DI契約の有限代役を接続する。
- * @responsibility 保存・完了Oracleを維持する。DI技術保証はDIの共通入口試験が検証する。
+ * Probe上位の実本文を現Executor通知と実資源更新へ接続する。
+ * @packageDocumentation
+ * @responsibility 各Case独立のBookと通知列を持ち、旧Token・私有Mapを再構成しない。
  * @trace ERB-IT-004
  * @level IT
- * @scope VMのSourceとメモリだけ。実Docker・Process・保存を使わない。
- * @boundary Coordinator実本文→Executor実本文→単一Containerの有限DI代役。
+ * @scope メモリ内の上位本文とEM資源規則。実保存・Docker・AIは実行しない。
+ * @boundary Coordinator通知受付→EM値更新。技術終了は有限Executor代役。
  */
+import assert from "node:assert/strict";
 import fs from "node:fs";
-import { types } from "node:util";
-import { runInNewContext as runVm } from "node:vm";
+import { runInThisContext } from "node:vm";
 import type {
-  IsolationCallbacks,
-  IsolationRequest,
-} from "../../../docker-isolation/src/execution/types.ts";
-import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
+  Executor,
+  ExecutorRequest,
+  IsolationProbeOptions,
+} from "../../../executor/src/index.ts";
+import {
+  applyResourceCleanup,
+  applyResourceEvent,
+  type OperationResources,
+} from "../../../execution-model/src/index.ts";
+import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { createLifecycleControl } from "../../../executor/src/lifecycle/execute.ts";
-import { describeIsolationProbeProfile } from "../../../executor/src/lifecycle/probe.ts";
+
+const source = fs.readFileSync(
+  new URL("../../src/execution/diagnostics.ts", import.meta.url),
+  "utf8",
+);
+const body = [
+  "isolationProbeIsObject",
+  "isolationProbeOwnValue",
+  "ownString",
+  "isolationProbeErrorMessage",
+  "dynamicFakeLifecycleBlocked",
+  "projectProbeExecutionFacts",
+  "normalizeFailure",
+  "isolationProbeBlocked",
+  "finishPreSubmissionCleanup",
+  "runDockerIsolationScenario",
+]
+  .map((name) => sourceDeclaration(source, name))
+  .join("\n");
+
+type ProbeFactory = (
+  request: ExecutorRequest<"isolation_probe">,
+  options: IsolationProbeOptions,
+) => Executor<"isolation_probe"> | null;
+type ProbeResult = {
+  status: string;
+  reason: string;
+  recoveryId: string | null;
+  hostCleanupCompleted: boolean;
+  retainOperationDirectories: boolean;
+  fakeProviderLifecycle: Record<string, unknown>;
+};
 
 /**
- * 実上位本文を、移管先の実技術本文へ配線する。
- * @responsibility 旧試験のDI観測点を新Ownerへ接続する。
+ * 不変Sourceのみ再利用し、Book・Owner・故障・要求列はCaseごとに生成する。
+ * @responsibility 現通知による順序と停止を捕捉し、合成結果を実資源不存在の証拠にしない。
  * @trace ERB-IT-004
- * @precondition Sourceは現行宣言、依存は各Caseの有限代役だけ。
- * @stimulus 上位本体又は純粋補助のVMコードを評価する。
- * @observation 元の下位要求・通知・結果・私有Mapを観測する。
- * @oracle 上位とExecutorの実宣言を実行し、DIの物理観測成立はこの試験から主張しない。
- * @cleanup 有限Promiseを呼出し試験が待機する。実資源なし。
- * @boundary 二Packageの実本文とDI代役。
+ * @precondition 外部Effectを発行しない有限Factoryを渡す。
+ * @stimulus 必須保存・Host清掃の失敗と技術完了を注入する。
+ * @observation 同期通知、実資源Book、Host処置回数と返却値。
+ * @oracle 通知保存に失敗したら後続Effectを発行しない。
+ * @cleanup メモリのみ。未完了Promiseは呼出し側が必ず完了させる。
+ * @boundary 実上位本文と有限Executor。保存の耐久性は別の実保存試験で確認する。
  */
-export function runInNewContext(
-  code: string,
-  context: Record<string, unknown> = {},
-): unknown {
-  if (!code.includes("return runDockerIsolationScenario"))
-    return runVm(code, context);
-  const source = fs.readFileSync(
-    new URL("../../../executor/src/lifecycle/probe.ts", import.meta.url),
-    "utf8",
-  );
-  let profile = "normal";
-  let configuration: IsolationRequest | null = null;
-  let binding: unknown;
-  let observedFacts: unknown = null;
-  const invoke = (name: string, ...args: unknown[]) =>
-    (context[name] as (...args: unknown[]) => unknown)(...args);
-  const lower = runVm(
-    `${sourceDeclaration(source, "captureMounts")}\n${sourceDeclaration(source, "notify")}\n${sourceDeclaration(source, "createIsolationProbe")};createIsolationProbe`,
-    {
-      ...context,
-      types,
-      AbortController,
-      createLifecycleControl,
-      describeIsolationConfiguration,
-      describeIsolationProbeProfile,
-      classifyIsolationProbeExecution: () => observedFacts,
-      prepareIsolation: (request: IsolationRequest) => {
-        configuration = request;
-        binding = invoke(
-          "createDockerProbeRuntimeBinding",
-          request.managementDirectory,
-        );
-        return { resources: { resources: [] } };
-      },
-      executeIsolation: (_prepared: object, callbacks: IsolationCallbacks) => ({
-        cancel: async () => ({
-          cancellationRequested: true,
-          processTerminationObserved: false,
-        }),
-        completion: (async () => {
-          const request = configuration;
-          if (request?.resources.length !== 1 || request.steps.length !== 2)
-            throw Error("finite_probe_fixture_invalid");
-          const definition = request.resources[0];
-          const create = request.steps[0],
-            run = request.steps[1];
-          if (definition?.kind !== "container" || !create || !run)
-            throw Error("finite_probe_fixture_invalid");
-          let id: string | null = null;
-          let issued = false,
-            clean = true;
-          let failure: { stage: string; reason: string } | null = null;
-          const snapshot = () => ({
-            resources: [
-              {
-                key: "probe",
-                identity: {
-                  kind: "container" as const,
-                  dockerId: id,
-                  name: definition.name,
-                  ownershipLabel: definition.ownershipLabel,
-                },
-                request: issued ? ("issued" as const) : ("not_issued" as const),
-                configuration: {
-                  image: definition.image,
-                  command: null,
-                  environmentNames: null,
-                  mounts: null,
-                  networks: null,
-                  internal: null,
-                },
-              },
-            ],
-          });
-          try {
-            if (!invoke("observeDockerProbeEngine", binding))
-              throw Error("docker_isolation_engine_unconfirmed");
-            await callbacks.onSubmitting?.(create);
-            issued = true;
-            const mounts = Object.fromEntries(
-              definition.mounts.map((mount) => [
-                mount.target === "/operation/workspace"
-                  ? "workspace"
-                  : mount.target === "/operation/provider-home"
-                    ? "providerHome"
-                    : "tmp",
-                mount.source,
-              ]),
-            );
-            const created = invoke(
-              "createDockerProbeContainer",
-              binding,
-              profile,
-              definition.ownershipLabel.split("=")[1],
-              mounts,
-            ) as { status: string; id?: string };
-            id = created.id ?? null;
-            if (created.status !== "confirmed" || !id)
-              throw Error("docker_container_identity_unknown");
-            invoke("inspectOwnedContainer", binding, definition);
-            await callbacks.onCreated?.(create, snapshot());
-            await callbacks.onSubmitting?.(run);
-            observedFacts = invoke(
-              "runDockerProbeToCompletion",
-              binding,
-              profile,
-              id,
-            );
-            callbacks.onObserved?.(run, {
-              observation: {
-                status: 0,
-                signal: null,
-                stdout: "",
-                stderr: "",
-                outputExceeded: false,
-              },
-              elapsedMs: 0,
-              errorCode: null,
-              classification: {
-                category: "completed",
-                stdoutBytes: 0,
-                stderrBytes: 0,
-              },
-              exitClass: "zero",
-            });
-          } catch (error) {
-            failure = {
-              stage: id ? "notification" : "observation",
-              reason:
-                error instanceof Error
-                  ? error.message
-                  : "docker_isolation_probe_failed",
-            };
-          }
-          if (id)
-            clean = (
-              invoke("cleanupOwnedContainer", binding, definition) as {
-                confirmed: boolean;
-              }
-            ).confirmed;
-          else if (issued) clean = false;
-          return {
-            failure,
-            resources: snapshot(),
-            cancellationRequested: false,
-            processTerminationConfirmed: true,
-            notificationDeliveryConfirmed:
-              failure?.stage === "notification" ? false : null,
-            callbackRegistrationReleased: true,
-            cleanup: {
-              confirmed: clean,
-              configCleanupConfirmed: true,
-              observations: [],
-            },
-          };
-        })(),
-      }),
-    },
-  );
-  const run = runVm(code, {
-    ...context,
-    absenceCapabilities: new WeakMap(),
-    createExecutor: (request: object, options: object) =>
-      lower(request, options, profile),
+export function createProbeExecutionFixture(
+  failAt: "submission" | "receipt" | "cleanup" | "host" | null = null,
+) {
+  let book: OperationResources | null = null;
+  const events: string[] = [];
+  const owned = {},
+    mount = {},
+    context = {},
+    management = {};
+  const mounts = Object.freeze({
+    management: "management",
+    workspace: "workspace",
+    providerHome: "home",
+    tmp: "tmp",
   });
-  return (owned: unknown, selected: string | null) => {
-    profile = selected ?? "normal";
-    return run(owned);
+  const planned = createResourceBookFixture(
+    "crdd.coordinator.runtime=0123456789abcdef",
+    "planned",
+    ["probe"],
+  );
+  const cleanup = { ...planned.cleanup, unreceiptedAbsence: "retain" as const };
+  const settings = Object.freeze({});
+  const record = (next: OperationResources) => {
+    const checkpoint = next.checkpoints[0];
+    assert.ok(checkpoint);
+    const stage =
+      checkpoint.observation === "absent"
+        ? "cleanup"
+        : checkpoint.receiptSource
+          ? "receipt"
+          : checkpoint.submission === "not_issued"
+            ? "not_issued"
+            : "submission";
+    events.push(stage);
+    if (failAt === stage) throw Error("fixture_save_refused");
+    book = next;
+  };
+  const bind = runInThisContext(
+    "(dependencies)=>{const {randomUUID,getOwnedHostRecoveryId,createOwnedMountCapability,createOwnedOperationContextCapability,createOwnedOperationManagementCapability,verifyOwnedMountCapability,getIsolationSettings,readOwnedHostOperation,applyResourceEvent,applyResourceCleanup,recordOwnedHostResources,cleanupOwnedOperationDirectories}=dependencies;\n" +
+      body +
+      "\nreturn runDockerIsolationScenario;}",
+  );
+  const run = bind({
+    Object,
+    Error,
+    Number,
+    Promise,
+    randomUUID: () => "12345678-1234-4234-8234-123456789abc",
+    getOwnedHostRecoveryId: (value: unknown) => {
+      assert.equal(value, owned);
+      return "host-operation.OP-123456";
+    },
+    createOwnedMountCapability: (value: unknown) => {
+      assert.equal(value, owned);
+      return mount;
+    },
+    createOwnedOperationContextCapability: (value: unknown) => {
+      assert.equal(value, owned);
+      return context;
+    },
+    createOwnedOperationManagementCapability: (
+      value: unknown,
+      target: unknown,
+    ) => {
+      assert.equal(value, context);
+      assert.equal(target, mount);
+      return management;
+    },
+    verifyOwnedMountCapability: (value: unknown) => {
+      assert.equal(value, mount);
+      return mounts;
+    },
+    getIsolationSettings: () => settings,
+    readOwnedHostOperation: (value: unknown) => {
+      assert.equal(value, management);
+      return { record: { resources: book }, payloadSha256: "a".repeat(64) };
+    },
+    applyResourceEvent,
+    applyResourceCleanup,
+    recordOwnedHostResources: (value: unknown, next: OperationResources) => {
+      assert.equal(value, management);
+      record(next);
+    },
+    cleanupOwnedOperationDirectories: (value: unknown) => {
+      assert.equal(value, owned);
+      events.push("host");
+      if (failAt === "host") throw Error("fixture_host_failed");
+    },
+  }) as (
+    owned: object,
+    factory: ProbeFactory,
+    signal?: AbortSignal,
+  ) => Promise<ProbeResult>;
+  return {
+    events,
+    mounts,
+    settings,
+    planned,
+    cleanup,
+    target(snapshot = planned.snapshot) {
+      return {
+        managementDirectory: mounts.management,
+        resources: snapshot,
+        previouslyAbsent: [],
+        ...cleanup,
+      };
+    },
+    book: () => book,
+    run: (factory: ProbeFactory, signal?: AbortSignal) =>
+      run(owned, factory, signal),
   };
 }

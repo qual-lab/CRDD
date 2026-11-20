@@ -109,8 +109,6 @@ import {
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
   prepareAuthenticationUnknownClosureSnapshot,
-  prepareStateHostSnapshot,
-  prepareStateOperationSnapshot,
   prepareUnifiedTaskSections,
   projectCurrentState,
   projectTaskSnapshot,
@@ -641,13 +639,15 @@ export function saveAuthenticationClosure(
       fixedBefore,
       repository.repositoryBinding,
     )?.snapshot.operations.filter(
-      (item) => item.kind === "docker_task" && item.recoveryId === recoveryId,
+      (item): item is import("../attempt/types.ts").ExecutionOperationRecord =>
+        item.kind === "docker_task" && item.recoveryId === recoveryId,
     );
     const candidateTasks = decodeStateSnapshot(
       candidate,
       repository.repositoryBinding,
     )?.snapshot.operations.filter(
-      (item) => item.kind === "docker_task" && item.recoveryId === recoveryId,
+      (item): item is import("../attempt/types.ts").ExecutionOperationRecord =>
+        item.kind === "docker_task" && item.recoveryId === recoveryId,
     );
     if (
       beforeTasks?.length !== 1 ||
@@ -942,7 +942,6 @@ export function readState(
   authority: unknown,
   request: Readonly<{
     scope: "operation";
-    input?: Parameters<typeof readOperationStateStage>[1];
   }>,
 ): ReturnType<typeof readOperationStateStage>;
 export function readState(
@@ -967,10 +966,9 @@ export function readState<K extends keyof StateReadViews>(
     if (!request || !Object.hasOwn(request, "scope"))
       return blocked<never>("orchestrator_state_read_scope_invalid");
     if (request.scope === "operation")
-      return readOperationStateStage(
-        workingDirectory,
-        request.input as Parameters<typeof readOperationStateStage>[1],
-      );
+      return Object.hasOwn(request, "input")
+        ? blocked<never>("orchestrator_state_read_scope_invalid")
+        : readOperationStateStage(workingDirectory);
     if (request.scope === "recovery")
       return request.input === undefined
         ? readRecoveryState(workingDirectory)
@@ -1639,137 +1637,18 @@ export function saveProjectExecutionState(
 }
 
 /**
- * 保存確定済みの最新Snapshotを現在の操作Ownerへ返す。
- * @responsibility 保存途中・不存在・観測不能を成功へ畳まず、版と本文Hashを取得する。
+ * 同じ操作Ownerから現在Stateを読み取る。
+ * @responsibility 元Repository・現在認可・短期排他を既存Readerへ接続する。
  * @trace ARCH-000008
- * @input managementCapability: 現在操作Owner。request: 初回Identity又は同じ操作のHost清掃前検査。
- * @returns operation_startは検査済みIdentityの非Authority相関だけ。stateは確認済みSnapshotと必要なHost清掃準備。
- * @precondition Repository操作Ownerが有効である。
- * @postcondition 排他解放と読取り確認の両方が成立した場合だけ値を返す。
- * @effect operation_startはState読取り・Lock取得・保存0。stateだけ固定File読取りと短期排他を行う。
- * @failure Root不一致、保存途中、本文不正、解放不明は停止する。
- * @invariant 初回検査のcompletedを保存・開始許可へ昇格しない。初回検査のlockReleased:trueはLock未取得を表す。
- * @boundary Repository-local現在状態と操作Owner。
- * @security 呼出し元Pathや旧形式から保存先を選ばない。
- * @concurrency Writerと同じ短期排他下で取得し、上位待機へLockを搬送しない。
+ * @boundary 読取りは作成・Host回収・入力Identityの代替受付を行わない。
  */
-export function readOperationStateStage(
-  managementCapability: unknown,
-  request?:
-    | Readonly<{ kind: "host_cleanup"; recoveryId: unknown }>
-    | Readonly<{ kind: "operation_start"; identityJson: unknown }>,
-) {
-  const captured =
-    request === undefined
-      ? null
-      : (snapshotStateRecord(request, new Set(["kind", "recoveryId"])) ??
-        snapshotStateRecord(request, new Set(["kind", "identityJson"])));
-  if (captured?.kind === "operation_start") {
-    let operationIdentity: Readonly<{
-      recoveryId: string;
-      identitySha256: string;
-      operationId: string;
-    }> | null = null;
-    if (Object.hasOwn(captured, "identityJson")) {
-      try {
-        const repository = observeOperationRepository(managementCapability);
-        const bytes = repository
-          ? prepareStateOperationSnapshot(
-              null,
-              captured.identityJson,
-              repository.repositoryBinding,
-            )
-          : null;
-        const operation =
-          bytes && repository
-            ? decodeStateSnapshot(bytes, repository.repositoryBinding)?.snapshot
-                .operations[0]
-            : null;
-        if (
-          operation?.kind === "docker_task" &&
-          repository &&
-          JSON.parse(operation.identityJson).operationId ===
-            repository.operationId &&
-          repository.revalidate() === true
-        )
-          operationIdentity = Object.freeze({
-            recoveryId: operation.recoveryId,
-            identitySha256: operation.identitySha256,
-            operationId: repository.operationId,
-          });
-      } catch {
-        operationIdentity = null;
-      }
-    }
-    return Object.freeze({
-      kind: "operation_start" as const,
-      status: operationIdentity ? ("completed" as const) : ("blocked" as const),
-      reason: operationIdentity
-        ? "coordinator_state_read_confirmed"
-        : "coordinator_state_input_invalid",
-      value: null,
-      lockReleased: true,
-      hostCleanupPreparation: null,
-      operationIdentity,
-    });
-  }
-  if (
-    request !== undefined &&
-    (captured?.kind !== "host_cleanup" ||
-      !Object.hasOwn(captured, "recoveryId"))
-  )
-    return Object.freeze({
-      kind: "state" as const,
-      status: "blocked" as const,
-      reason: "coordinator_state_owner_invalid",
-      lockReleased: true,
-      value: null,
-      operationIdentity: null,
-      hostCleanupPreparation: null,
-    });
-  const repository = observeOperationRepository(managementCapability);
-  const current = readStateSnapshot(repository, null);
-  let hostCleanupPreparation: Readonly<{
-    recoveryId: string;
-    hostToken: string;
-    before: Buffer;
-  }> | null = null;
-  if (
-    captured &&
-    repository &&
-    current.status === "completed" &&
-    current.lockReleased &&
-    current.value
-  ) {
-    const operation = current.value.snapshot.operations.find(
-      (item): item is ExecutionOperationRecord =>
-        item.kind === "docker_task" && item.recoveryId === captured.recoveryId,
-    );
-    const before = Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`);
-    if (
-      operation &&
-      operation.host.cleanup === "not_requested" &&
-      operation.lease === "released" &&
-      JSON.parse(operation.identityJson).operationId ===
-        repository.operationId &&
-      prepareStateHostSnapshot(
-        before,
-        operation.recoveryId,
-        { ...operation.host, cleanup: "pending" },
-        repository.repositoryBinding,
-      )
-    )
-      hostCleanupPreparation = Object.freeze({
-        recoveryId: operation.recoveryId,
-        hostToken: operation.host.currentToken,
-        before,
-      });
-  }
+export function readOperationStateStage(managementCapability: unknown) {
   return Object.freeze({
-    ...current,
+    ...readStateSnapshot(
+      observeOperationRepository(managementCapability),
+      null,
+    ),
     kind: "state" as const,
-    operationIdentity: null,
-    hostCleanupPreparation,
   });
 }
 
@@ -1852,7 +1731,6 @@ export function readRecoveryState(
         null,
         null,
         null,
-        null,
         "docker_task",
         "docker_task",
         false,
@@ -1924,7 +1802,6 @@ export function readRecoveryState(
         null,
         null,
         null,
-        null,
         "docker_task",
         "docker_task",
         false,
@@ -1932,7 +1809,6 @@ export function readRecoveryState(
         null,
         null,
         false,
-        null,
         true,
       );
     case "resource_publication": {
@@ -1943,49 +1819,10 @@ export function readRecoveryState(
         null,
         null,
         null,
-        null,
         "docker_task",
         "docker_task",
         false,
         recoveryId,
-      );
-    }
-    case "host_cleanup": {
-      return readStateSnapshot(
-        typeof recoveryId === "string" && parseDockerTaskRecoveryId(recoveryId)
-          ? observeExecutionRecoveryRepository(rootCapability)
-          : null,
-        null,
-        typeof recoveryId === "string" ? recoveryId : null,
-        null,
-        null,
-        "docker_task",
-        "docker_task",
-        false,
-        null,
-        null,
-        null,
-        false,
-        typeof recoveryId === "string" ? recoveryId : null,
-      );
-    }
-    case "initial_host": {
-      return readStateSnapshot(
-        typeof recoveryId === "string" && parseDockerTaskRecoveryId(recoveryId)
-          ? observeExecutionRecoveryRepository(rootCapability)
-          : null,
-        null,
-        null,
-        null,
-        null,
-        "docker_task",
-        "docker_task",
-        false,
-        null,
-        null,
-        null,
-        false,
-        typeof recoveryId === "string" ? recoveryId : null,
       );
     }
     case "execution_history": {
@@ -1993,7 +1830,6 @@ export function readRecoveryState(
         typeof recoveryId === "string" && parseDockerTaskRecoveryId(recoveryId)
           ? observeExecutionRecoveryRepository(rootCapability)
           : null,
-        null,
         null,
         typeof recoveryId === "string" ? recoveryId : null,
       );
@@ -2005,7 +1841,6 @@ export function readRecoveryState(
       return readStateSnapshot(
         validId ? observeExecutionRecoveryRepository(rootCapability) : null,
         null,
-        null,
         validId ? recoveryId : null,
         null,
         "runtime_repair",
@@ -2016,7 +1851,6 @@ export function readRecoveryState(
         typeof recoveryId === "string" && parseDockerTaskRecoveryId(recoveryId)
           ? observeExecutionRecoveryRepository(rootCapability)
           : null,
-        null,
         null,
         null,
         typeof recoveryId === "string" ? recoveryId : null,
@@ -2032,7 +1866,6 @@ export function readRecoveryState(
           : null,
         null,
         null,
-        null,
         typeof recoveryId === "string" ? recoveryId : null,
         "docker_task",
         "runtime_repair",
@@ -2041,7 +1874,6 @@ export function readRecoveryState(
     case "admission": {
       return readStateSnapshot(
         observeExecutionRecoveryRepository(rootCapability),
-        null,
         null,
         null,
         null,

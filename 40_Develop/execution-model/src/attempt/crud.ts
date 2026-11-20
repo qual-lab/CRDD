@@ -5,6 +5,7 @@
  */
 
 import { types } from "node:util";
+import { createHash } from "node:crypto";
 import type {
   RepairOperationRecord,
   RepairSaveRequest,
@@ -13,6 +14,7 @@ import type {
 import {
   isRepairCheckpointSettled,
   isRepairDisposalSettled,
+  validateOperationIdentity,
 } from "../attempt/validation.ts";
 import {
   readOperationStateStage,
@@ -24,10 +26,10 @@ import {
   classifyResourcePublication,
   decodeStateSnapshot,
   prepareStateCleanupSnapshot,
+  prepareStateHostOperationSnapshot,
   prepareStateCompletionSnapshot,
   prepareStateHistoryLine,
   prepareStateHistorySnapshot,
-  prepareStateHostSnapshot,
   prepareStateLifecycleSnapshot,
   prepareStateOperationSnapshot,
   prepareStateReferencesSnapshot,
@@ -54,16 +56,26 @@ import {
   observeExecutionSettlementStorageAccess,
   observeExecutionTerminalForStorage,
   observeOperationRepository,
+  observeExecutionContentRepository,
+  acquireStorageOwnerForRepository,
 } from "../storage/lock.ts";
 import {
-  prepareOwnedStateInitialization,
+  publishStateOwned,
   publishRecoveryState,
   readHistoryResumeCandidate,
   writeOwnedStateSnapshot,
   writeStateSnapshot,
 } from "../storage/publication.ts";
 import type { StorageRepository } from "../storage/store.ts";
-import { readStateSnapshot } from "../storage/store.ts";
+import {
+  readStateSnapshot,
+  readStorageSnapshotOwned,
+  assertExecutionStateInitializationBoundary,
+  ensureRepositoryExecutionDataArea,
+  requireReadyRepositoryExecutionDataArea,
+  createExecutionDataArea,
+} from "../storage/store.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import type {
   ExecutionOperationRecord,
   OperationCheckpointRequest,
@@ -71,8 +83,173 @@ import type {
 } from "./types.ts";
 import {
   areTaskResourcesSettled,
+  readOperationHost,
   isDockerRestartCheckpointSettled,
+  decodeHostOperation,
+  validHostOperationTransition,
 } from "./validation.ts";
+
+/**
+ * 作成前Host Intent又は同じ元版のCheckpointを既存OwnerとWriterで保存する。
+ * @responsibility 現在認可・初回境界・CAS・一回解放を同じ同期区間へ閉じる。
+ * @trace ARCH-000008
+ * @boundary 保存確認前にHost DirectoryやDockerを作成せず、保存不明時も元参照を保持する。
+ */
+function saveHostOperation(
+  access: unknown,
+  value: unknown,
+  expectedVersion: unknown,
+) {
+  const operation = decodeHostOperation(value);
+  const refused = writeStateSnapshot(null, null, null, null);
+  const recoveryId = operation?.recoveryId ?? null;
+  const reject = (reason: string) =>
+    Object.freeze({ ...refused, reason, recoveryId });
+  if (!operation) return reject("coordinator_state_input_invalid");
+  const expected =
+    expectedVersion === null
+      ? null
+      : snapshotStateRecord(
+          expectedVersion,
+          new Set(["revision", "payloadSha256"]),
+        );
+  if (
+    expectedVersion !== null &&
+    (!expected ||
+      !Number.isSafeInteger(expected.revision) ||
+      !isSha256Hex(expected.payloadSha256))
+  )
+    return reject("coordinator_state_input_invalid");
+  if (
+    expectedVersion === null &&
+    !validHostOperationTransition(null, operation)
+  )
+    return reject("coordinator_state_input_invalid");
+  const repository = observeExecutionContentRepository(
+    access,
+    "operation.record",
+    { operationId: operation.operationId },
+  );
+  if (!repository) return reject("coordinator_state_not_authorized");
+  const acquired = acquireStorageOwnerForRepository(repository);
+  if (acquired.status !== "completed")
+    return Object.freeze({
+      ...reject(acquired.reason),
+      manualRecoveryRequired: acquired.manualRecoveryRequired,
+      recoveryIds: Object.freeze([
+        ...new Set([
+          operation.recoveryId,
+          ...(acquired.recoveryId ? [acquired.recoveryId] : []),
+        ]),
+      ]),
+    });
+  const owner = acquired.value;
+  let saved = refused;
+  let effect = false;
+  let released = false;
+  let reason = "coordinator_state_storage_unconfirmed";
+  try {
+    const current = readStorageSnapshotOwned(owner, true);
+    const uninitialized =
+      current.status === "blocked" &&
+      current.reason === "coordinator_state_uninitialized";
+    if (
+      (current.status !== "completed" && !uninitialized) ||
+      !repository.revalidate()
+    ) {
+      reason = current.reason;
+    } else {
+      const before = current.value
+        ? Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`)
+        : null;
+      if (
+        expected &&
+        (!current.value ||
+          expected.revision !== current.value.snapshot.revision ||
+          expected.payloadSha256 !== current.value.payloadSha256)
+      ) {
+        reason = "coordinator_state_revision_conflict";
+      } else if (
+        expected &&
+        !current.value?.snapshot.operations.some(
+          (item) =>
+            item.kind === "host_operation" &&
+            item.recoveryId === operation.recoveryId,
+        )
+      ) {
+        reason = "coordinator_state_input_invalid";
+      } else {
+        const bytes = prepareStateHostOperationSnapshot(
+          before,
+          operation,
+          repository.repositoryBinding,
+        );
+        if (!bytes) reason = "coordinator_state_input_invalid";
+        else {
+          let initialBoundary: string | null = null;
+          if (before === null) {
+            const verified = getRepository(repository.repositoryRoot);
+            if (verified.status !== "completed")
+              throw new Error("repository_unavailable");
+            assertExecutionStateInitializationBoundary(verified.capability);
+            effect = true;
+            const temporary = requireReadyRepositoryExecutionDataArea(
+              ensureRepositoryExecutionDataArea(verified.capability, "tmp"),
+              "coordinator_state_initialization_unconfirmed",
+            );
+            if (temporary.status !== "ready" || !owner.assertLive())
+              throw new Error("initialization_unconfirmed");
+            const created = createExecutionDataArea(verified.capability);
+            effect ||= created.effectIssued;
+            if (created.status !== "created")
+              throw new Error("initialization_unconfirmed");
+            initialBoundary = created.observation.boundaryIdentity;
+          }
+          const published = publishStateOwned(owner, bytes, {
+            kind: "host",
+            before,
+            value: operation,
+            initialBoundary,
+          });
+          effect ||= published.filesystemEffectIssued;
+          saved = {
+            ...refused,
+            ...published,
+            revision:
+              decodeStateSnapshot(bytes, repository.repositoryBinding)?.snapshot
+                .revision ?? null,
+            payloadSha256:
+              decodeStateSnapshot(bytes, repository.repositoryBinding)
+                ?.payloadSha256 ?? null,
+            recoveryIds: Object.freeze([operation.recoveryId]),
+          };
+          reason = published.reason;
+        }
+      }
+    }
+  } catch {
+    reason = "coordinator_state_storage_unconfirmed";
+  } finally {
+    try {
+      released = owner.release();
+    } catch {
+      released = false;
+    }
+  }
+  if (!released) reason = "coordinator_state_lock_release_unconfirmed";
+  const authorized = repository.revalidate();
+  if (!authorized && released) reason = "coordinator_state_not_authorized";
+  const confirmed = saved.snapshotConfirmed && released && authorized;
+  return Object.freeze({
+    ...saved,
+    status: confirmed ? "completed" : "blocked",
+    reason,
+    filesystemEffectIssued: effect,
+    snapshotConfirmed: saved.snapshotConfirmed,
+    lockReleased: released,
+    recoveryId,
+  });
+}
 
 const liveSettlements = new WeakMap<
   object,
@@ -390,7 +567,6 @@ export function completeOperation(
             : {
                 ...item,
                 phase: item.phase === "executing" ? "settling" : item.phase,
-                host: { ...item.host, cleanup: "confirmed" },
                 lease: terminal.homeLeaseReleased ? "released" : item.lease,
                 execution: { ...item.execution, ownerEffect: "disabled" },
                 primaryFailure: terminal.primaryFailure,
@@ -439,7 +615,8 @@ export function completeOperation(
         encodeStateValue(operation.primaryFailure) !==
           encodeStateValue(terminal.primaryFailure) ||
         encodeStateValue(operation.outcome) !== encodeStateValue(outcome) ||
-        operation.host.cleanup !== "confirmed" ||
+        readOperationHost(current.value.snapshot.operations, operation)
+          ?.cleanup !== "confirmed" ||
         operation.lease !== "released" ||
         !terminal.homeLeaseReleased ||
         !terminal.recoveryCompleted ||
@@ -781,9 +958,9 @@ export function readOwnedSettlementSnapshot(context: unknown) {
  * 同じ操作Ownerの開始Identityを最新現在状態へ保存する。
  * @responsibility 初回領域の作成と既存版への追加を同じWriterへ接続する。
  * @trace ARCH-000008
- * @input managementCapability: 現在操作Owner、identityJson: Runtimeが生成した固定開始Identity。
+ * @input managementCapability: Dockerの現在Owner又は信頼したHostOperationAccess。identityJson: Docker固定Identity又はhost_operation用途とIntent。
  * @returns 保存・読戻し・排他解放の結果と対象の非Authority回復参照。
- * @precondition 呼出し元が同じProvider Home Leaseと初期Hostを確認している。
+ * @precondition Host用途はDirectory作成前。Docker用途は同じProvider Home Leaseと既存Host／操作Ownerを確認済み。
  * @postcondition 成功結果の前に開始Identityをstate.jsonへ確定する。
  * @effect Repository-local初回領域、state.jsonと既存の短命保存物だけ。
  * @failure 不正Identity、重複、読取り不明、競合、既存領域の新品扱いを拒否する。
@@ -796,6 +973,18 @@ export function saveOperationStart(
   managementCapability: unknown,
   identityJson: unknown,
 ) {
+  const host = snapshotStateRecord(identityJson, new Set(["kind", "value"]));
+  if (host?.kind === "host_operation") {
+    const saved = saveHostOperation(managementCapability, host.value, null);
+    return Object.freeze({
+      ...saved,
+      startSaved:
+        saved.status === "completed" &&
+        saved.snapshotConfirmed &&
+        saved.lockReleased,
+      completionContext: null as object | null,
+    });
+  }
   const repository = observeOperationRepository(managementCapability);
   let recoveryId: string | null = null;
   if (!repository)
@@ -805,45 +994,49 @@ export function saveOperationStart(
       ...writeStateSnapshot(null, null, null, null),
       recoveryId,
     });
-  const initialBytes = prepareStateOperationSnapshot(
-    null,
-    identityJson,
-    repository.repositoryBinding,
-  );
-  const initialCandidate = initialBytes
-    ? decodeStateSnapshot(initialBytes, repository.repositoryBinding)
-    : null;
-  const initialOperation = initialCandidate?.snapshot.operations[0];
-  if (
-    !initialBytes ||
-    !initialOperation ||
-    JSON.parse(initialOperation.identityJson).operationId !==
-      repository.operationId
-  )
+  let accepted = false;
+  try {
+    if (typeof identityJson === "string") {
+      const identity = JSON.parse(identityJson);
+      accepted =
+        identity !== null &&
+        typeof identity === "object" &&
+        `${JSON.stringify(identity)}\n` === identityJson &&
+        isSha256Hex(identity.operationNonce) &&
+        identity.operationId === repository.operationId &&
+        validateOperationIdentity(
+          identity,
+          identity.operationNonce,
+          repository.repositoryBinding,
+        );
+      if (accepted)
+        recoveryId = `docker-task.${identity.stableLogicalHomeBindingHash}.${identity.operationNonce}.${createHash("sha256").update(identityJson, "utf8").digest("hex")}`;
+    }
+  } catch {
+    /* 不正入力から回復参照や初期Stateを作らない。 */
+  }
+  if (!accepted)
     return Object.freeze({
       startSaved: false,
       completionContext: null as object | null,
       ...writeStateSnapshot(null, null, null, null),
       recoveryId,
     });
-  recoveryId = initialOperation.recoveryId;
   const current = readStateSnapshot(repository, null);
-  if (!current.lockReleased)
+  if (current.status !== "completed" || !current.value || !current.lockReleased)
     return Object.freeze({
       startSaved: false,
       completionContext: null as object | null,
       ...writeStateSnapshot(null, null, null, null),
       reason: current.reason,
-      lockReleased: false,
+      lockReleased: current.lockReleased,
       recoveryId,
     });
-  const candidateBytes = current.value
-    ? prepareStateOperationSnapshot(
-        Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`),
-        identityJson,
-        repository.repositoryBinding,
-      )
-    : initialBytes;
+  const candidateBytes = prepareStateOperationSnapshot(
+    Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`),
+    identityJson,
+    repository.repositoryBinding,
+  );
   const candidate = candidateBytes
     ? decodeStateSnapshot(candidateBytes, repository.repositoryBinding)
     : null;
@@ -863,25 +1056,6 @@ export function saveOperationStart(
       recoveryId,
     });
   recoveryId = added.recoveryId;
-  let initializationEffectIssued = false;
-  if (!current.value) {
-    // 新品の証明は既存の排他的領域作成だけが所有する。Readerのblockedは証明ではない。
-    const initial = prepareOwnedStateInitialization(
-      managementCapability,
-      candidateBytes,
-    );
-    initializationEffectIssued = initial.effectIssued;
-    if (initial.status !== "prepared")
-      return Object.freeze({
-        startSaved: false,
-        completionContext: null as object | null,
-        ...writeStateSnapshot(null, null, null, null),
-        reason: "coordinator_state_initialization_unconfirmed",
-        recoveryId,
-        filesystemEffectIssued: initial.effectIssued,
-        lockReleased: initial.lockReleased,
-      });
-  }
   const saved = writeOwnedStateSnapshot(managementCapability, candidateBytes);
   const startSaved = saved.snapshotConfirmed;
   let completionContext: object | null = null;
@@ -919,8 +1093,6 @@ export function saveOperationStart(
     lockReleased: saved.lockReleased && completionLockReleased,
     startSaved,
     completionContext,
-    filesystemEffectIssued:
-      initializationEffectIssued || saved.filesystemEffectIssued,
     recoveryId,
   });
 }
@@ -953,25 +1125,13 @@ export function saveRecoveryCheckpoint(
   request: Extract<RecoveryCheckpointRequest, { kind: "resource_not_issued" }>,
 ): ReturnType<typeof writeStateSnapshot>;
 export function saveRecoveryCheckpoint(
-  authority: unknown,
-  recoveryId: string,
-  before: unknown,
-  request: Extract<
-    RecoveryCheckpointRequest,
-    { kind: "host_cleanup_preparation" }
-  >,
-): ReturnType<typeof writeStateSnapshot>;
-export function saveRecoveryCheckpoint(
   repository: StorageRepository & { operationId: string },
   recoveryId: string,
   before: Buffer,
   request: Exclude<
     RecoveryCheckpointRequest,
     {
-      kind:
-        | "resource_not_issued"
-        | "host_cleanup_preparation"
-        | "resource_publication";
+      kind: "resource_not_issued" | "resource_publication";
     }
   >,
 ): ReturnType<typeof writeStateSnapshot>;
@@ -996,25 +1156,13 @@ export function saveRecoveryCheckpoint(
         >,
       ]
     | [
-        authority: unknown,
-        recoveryId: string,
-        before: unknown,
-        request: Extract<
-          RecoveryCheckpointRequest,
-          { kind: "host_cleanup_preparation" }
-        >,
-      ]
-    | [
         repository: StorageRepository & { operationId: string },
         recoveryId: string,
         before: Buffer,
         request: Exclude<
           RecoveryCheckpointRequest,
           {
-            kind:
-              | "resource_not_issued"
-              | "host_cleanup_preparation"
-              | "resource_publication";
+            kind: "resource_not_issued" | "resource_publication";
           }
         >,
       ]
@@ -1093,7 +1241,6 @@ export function saveRecoveryCheckpoint(
           null,
           null,
           null,
-          null,
           "docker_task",
           "docker_task",
           false,
@@ -1169,101 +1316,6 @@ export function saveRecoveryCheckpoint(
         purpose,
       });
     }
-    case "host_cleanup_preparation": {
-      if (Reflect.ownKeys(captured).length !== 1)
-        return writeStateSnapshot(null, null, null, null);
-      const managementCapability = authority,
-        beforeBytes = rawBefore;
-
-      const repository = observeOperationRepository(managementCapability);
-      const before = repository
-        ? decodeStateSnapshot(beforeBytes, repository.repositoryBinding)
-        : null;
-      const operation = before?.snapshot.operations.find(
-        (item): item is ExecutionOperationRecord =>
-          item.kind === "docker_task" && item.recoveryId === recoveryId,
-      );
-      const candidate =
-        repository &&
-        before &&
-        operation &&
-        operation.host.cleanup === "not_requested" &&
-        operation.lease === "released" &&
-        JSON.parse(operation.identityJson).operationId ===
-          repository.operationId
-          ? prepareStateHostSnapshot(
-              beforeBytes,
-              recoveryId,
-              { ...operation.host, cleanup: "pending" },
-              repository.repositoryBinding,
-            )
-          : null;
-      if (!candidate || !repository || !before)
-        return Object.freeze({
-          status: "blocked",
-          reason: "coordinator_state_input_invalid",
-          revision: null,
-          payloadSha256: null,
-          recoveryIds: Object.freeze([] as string[]),
-          filesystemEffectIssued: false,
-          snapshotConfirmed: false,
-          lockReleased: true,
-        });
-      const current = readStateSnapshot(repository, null);
-      if (!current.lockReleased)
-        return Object.freeze({
-          status: "blocked",
-          reason: current.reason,
-          revision: null,
-          payloadSha256: null,
-          recoveryIds: Object.freeze([recoveryId]),
-          filesystemEffectIssued: false,
-          snapshotConfirmed: false,
-          lockReleased: false,
-        });
-      if (
-        current.status === "completed" &&
-        current.value &&
-        Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`).equals(
-          candidate,
-        )
-      )
-        return Object.freeze({
-          status: "completed",
-          reason: "coordinator_state_snapshot_confirmed",
-          revision: current.value.snapshot.revision,
-          payloadSha256: current.value.payloadSha256,
-          recoveryIds: Object.freeze(
-            current.value.snapshot.operations.map((item) => item.recoveryId),
-          ),
-          filesystemEffectIssued: false,
-          snapshotConfirmed: true,
-          lockReleased: true,
-        });
-      if (
-        current.status === "completed" &&
-        current.value &&
-        !Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`).equals(
-          Buffer.from(`${encodeStateValue(before.snapshot)}\n`),
-        )
-      )
-        return Object.freeze({
-          status: "blocked",
-          reason: "coordinator_state_input_invalid",
-          revision: null,
-          payloadSha256: null,
-          recoveryIds: Object.freeze([recoveryId]),
-          filesystemEffectIssued: false,
-          snapshotConfirmed: false,
-          lockReleased: true,
-        });
-      return writeStateSnapshot(
-        managementCapability,
-        repository,
-        candidate,
-        null,
-      );
-    }
     case "authentication_unknown_closure": {
       if (
         !Object.hasOwn(captured, "observations") ||
@@ -1280,7 +1332,6 @@ export function saveRecoveryCheckpoint(
     }
     case "resource":
     case "cleanup":
-    case "host":
     case "lifecycle": {
       if (
         !Object.hasOwn(captured, "value") ||
@@ -1323,31 +1374,20 @@ export function saveRecoveryCheckpoint(
         )
           return blocked();
         const update = JSON.parse(encodeStateValue(value));
-        if (kind === "host" && update.cleanup === "confirmed") return blocked();
-        if (
-          kind === "host" &&
-          update.currentToken !== operation.host.currentToken
-        ) {
-          const pending =
-            operation.host.pendingTransitionJson === null
-              ? null
-              : JSON.parse(operation.host.pendingTransitionJson);
-          if (
-            !pending ||
-            pending.currentToken !== operation.host.currentToken ||
-            pending.currentState !== "docker_submission_started" ||
-            pending.nextState !== "docker_absent_confirmed" ||
-            update.currentToken !== pending.expectedToken ||
-            update.pendingTransitionJson !== null ||
-            update.cleanup !== operation.host.cleanup ||
-            operation.execution.ownerEffect !== "disabled" ||
-            !areTaskResourcesSettled(operation)
-          )
-            return blocked();
-        }
         if (
           kind === "lifecycle" &&
-          (update.lease !== operation.lease ||
+          ((update.lease !== operation.lease &&
+            !(
+              update.lease === "released" &&
+              update.phase === "settling" &&
+              update.execution?.ownerEffect === "disabled" &&
+              current.value.operationStates.some(
+                (state) =>
+                  state.kind === "docker_task" &&
+                  state.operation.recoveryId === recoveryId &&
+                  state.resourcesSettled,
+              )
+            )) ||
             encodeStateValue(update.outcome) !==
               encodeStateValue(operation.outcome) ||
             update.summarySha256 !== operation.summarySha256)
@@ -1358,11 +1398,9 @@ export function saveRecoveryCheckpoint(
             ? prepareStateResourceSnapshot
             : kind === "cleanup"
               ? prepareStateCleanupSnapshot
-              : kind === "host"
-                ? prepareStateHostSnapshot
-                : kind === "lifecycle"
-                  ? prepareStateLifecycleSnapshot
-                  : null;
+              : kind === "lifecycle"
+                ? prepareStateLifecycleSnapshot
+                : null;
         const candidate = prepare?.(
           bytes,
           recoveryId,
@@ -1464,9 +1502,9 @@ export function saveRecoveryCheckpoint(
           return blocked();
         let current = readStateSnapshot(repository, recoveryId);
         if (current.status !== "completed" && current.lockReleased)
-          current = readStateSnapshot(repository, recoveryId, null, recoveryId);
+          current = readStateSnapshot(repository, recoveryId, recoveryId);
         if (current.status !== "completed" && current.lockReleased)
-          current = readStateSnapshot(repository, recoveryId, null, null);
+          current = readStateSnapshot(repository, recoveryId, null);
         if (
           current.status !== "completed" ||
           !current.value ||
@@ -1490,8 +1528,8 @@ export function saveRecoveryCheckpoint(
           !operation ||
           JSON.parse(operation.identityJson).operationId !==
             repository.operationId ||
-          operation.host.cleanup !== "confirmed" ||
-          operation.host.pendingTransitionJson !== null ||
+          readOperationHost(current.value.snapshot.operations, operation)
+            ?.cleanup !== "confirmed" ||
           operation.execution.ownerEffect !== "disabled" ||
           operation.phase === "terminal" ||
           !areTaskResourcesSettled(operation) ||
@@ -1549,104 +1587,6 @@ export function saveRecoveryCheckpoint(
         return blocked();
       }
     }
-    case "host_cleanup": {
-      if (
-        !Object.hasOwn(captured, "assertAbsentOwner") ||
-        !Object.hasOwn(captured, "publication")
-      )
-        return writeStateSnapshot(null, null, null, null);
-      const assertAbsentOwner = captured.assertAbsentOwner as () => boolean;
-      const publication = captured.publication as ReturnType<
-        typeof readRecoveryState
-      >["hostCleanupPublication"];
-
-      const blocked = () => writeStateSnapshot(null, null, null, null);
-      try {
-        if (
-          typeof assertAbsentOwner !== "function" ||
-          assertAbsentOwner() !== true
-        )
-          return blocked();
-        const current = readStateSnapshot(
-          repository,
-          recoveryId,
-          publication ? recoveryId : null,
-        );
-        if (
-          current.status !== "completed" ||
-          !current.value ||
-          !current.lockReleased
-        )
-          return Object.freeze({
-            ...blocked(),
-            reason: current.reason,
-            lockReleased: current.lockReleased,
-          });
-        const bytes = Buffer.from(
-          `${encodeStateValue(current.value.snapshot)}\n`,
-        );
-        const operation = current.value.snapshot.operations.find(
-          (item): item is ExecutionOperationRecord =>
-            item.kind === "docker_task" && item.recoveryId === recoveryId,
-        );
-        if (
-          publication &&
-          (!current.hostCleanupPublication ||
-            current.hostCleanupPublication.mode !== publication.mode ||
-            !current.hostCleanupPublication.before.equals(publication.before) ||
-            !current.hostCleanupPublication.candidate.equals(
-              publication.candidate,
-            ))
-        )
-          return blocked();
-        if (
-          !Buffer.isBuffer(before) ||
-          !bytes.equals(before) ||
-          !operation ||
-          JSON.parse(operation.identityJson).operationId !==
-            repository.operationId ||
-          !(operation.host.cleanup === "confirmed"
-            ? publication?.mode === "C"
-            : ["pending", "unknown"].includes(operation.host.cleanup)) ||
-          operation.host.pendingTransitionJson !== null ||
-          operation.execution.ownerEffect !== "disabled" ||
-          !areTaskResourcesSettled(operation) ||
-          assertAbsentOwner() !== true
-        )
-          return blocked();
-        const candidate =
-          operation.host.cleanup === "confirmed"
-            ? bytes
-            : prepareStateHostSnapshot(
-                bytes,
-                recoveryId,
-                { ...operation.host, cleanup: "confirmed" },
-                repository.repositoryBinding,
-              );
-        if (
-          !candidate ||
-          (publication &&
-            (!publication.before.equals(bytes) ||
-              !publication.candidate.equals(candidate)))
-        )
-          return blocked();
-        return writeStateSnapshot(
-          null,
-          {
-            ...repository,
-            revalidate: (expectedHistoryRetentionDays?: number) =>
-              assertAbsentOwner() === true &&
-              repository.revalidate(expectedHistoryRetentionDays),
-          },
-          candidate,
-          null,
-          undefined,
-          publication ?? undefined,
-        );
-      } catch {
-        return blocked();
-      }
-    }
     default:
       return writeStateSnapshot(null, null, null, null);
   }
@@ -1657,7 +1597,7 @@ export function saveRecoveryCheckpoint(
  *
  * @responsibility 短期読取り、exact操作照合、次版構築と元版照合保存を一つの呼出しへ接続する。
  * @trace ARCH-000008
- * @input managementCapability: 現在操作Owner。recoveryId: exact回復参照。resourceValue: 現在評価。kind: 資源・全回収・Host・実行終端・参照集合の固定種別。
+ * @input managementCapability: 現在操作Owner又はHostOperationAccess。recoveryId: exact回復参照。request: 用途固定値。host_operationは既存操作とexpectedVersionを必須とする。
  * @returns 保存結果。snapshotConfirmedとlockReleasedを独立して保持する。
  * @precondition 呼出し側が観測と要求発行事実を取得し、初回Snapshotを確定済みである。
  * @postcondition 同じ操作の資源更新だけを保存し、失敗時は既発行Effectを未発行に戻さない。
@@ -1666,13 +1606,32 @@ export function saveRecoveryCheckpoint(
  * @invariant 古い候補の盲目的な再試行、二重書込み、旧Directory記録へのfallbackを行わない。
  * @boundary 操作OwnerとRepository-local現在状態。
  * @security 他操作の回復参照やPathを新しい操作Authorityにしない。
- * @concurrency 読取りLockを解放してからWriterを呼び、保存Lock内で元版を再照合する。
+ * @concurrency Docker用途は読取りLockを解放してからWriterで元版を再照合する。Host用途は同じ短期Ownerでfresh本文・expectedVersion・候補を再照合し、出版後に一度だけ解放する。
  */
 export function saveOperationCheckpoint(
   managementCapability: unknown,
   recoveryId: unknown,
   request: OperationCheckpointRequest,
 ) {
+  const host = snapshotStateRecord(request, new Set(["kind", "value"]));
+  if (host?.kind === "host_operation") {
+    const checkpoint = snapshotStateRecord(
+      host.value,
+      new Set(["operation", "expectedVersion"]),
+    );
+    const operation = checkpoint && decodeHostOperation(checkpoint.operation);
+    if (
+      checkpoint &&
+      checkpoint.expectedVersion !== null &&
+      operation?.recoveryId === recoveryId
+    )
+      return saveHostOperation(
+        managementCapability,
+        operation,
+        checkpoint.expectedVersion,
+      );
+    return writeStateSnapshot(null, null, null, null);
+  }
   const repository = observeOperationRepository(managementCapability);
   const current = readOperationStateStage(managementCapability);
   const blocked = Object.freeze({
@@ -1701,7 +1660,10 @@ export function saveOperationCheckpoint(
     ].includes(captured.kind as string)
   )
     return blocked;
-  const { kind, value: resourceValue } = captured as OperationCheckpointRequest;
+  const { kind, value: resourceValue } = captured as Exclude<
+    OperationCheckpointRequest,
+    { kind: "host_operation" }
+  >;
   if (
     !repository ||
     current.status !== "completed" ||
@@ -1724,7 +1686,6 @@ export function saveOperationCheckpoint(
   const prepare = {
     resource: prepareStateResourceSnapshot,
     cleanup: prepareStateCleanupSnapshot,
-    host: prepareStateHostSnapshot,
     lifecycle: prepareStateLifecycleSnapshot,
     references: prepareStateReferencesSnapshot,
     restart: prepareStateRestartSnapshot,
@@ -1777,7 +1738,6 @@ export function completeRecovery(
         null,
         null,
         null,
-        null,
         "docker_task",
         "docker_task",
         false,
@@ -1785,7 +1745,6 @@ export function completeRecovery(
         null,
         null,
         false,
-        null,
         true,
       );
       if (
@@ -1829,6 +1788,7 @@ export function completeRecovery(
           );
           if (
             !terminal?.cleanupConfirmed ||
+            operation?.kind !== "docker_task" ||
             !operation?.history?.confirmed ||
             !line ||
             current.value.snapshot.unresolvedRecoveries.some(
@@ -1875,6 +1835,7 @@ export function completeRecovery(
       !repository ||
       !publication ||
       !target ||
+      target.kind === "host_operation" ||
       typeof recoveryId !== "string" ||
       assertOwner() !== true
     )
@@ -2128,7 +2089,9 @@ export function saveRepairRecord(
         operation.recoveryId === recoveryId,
     );
     const previousTarget = previous?.snapshot.operations.find(
-      (operation) => operation.recoveryId === recoveryId,
+      (operation): operation is RepairOperationRecord =>
+        operation.kind === "runtime_repair" &&
+        operation.recoveryId === recoveryId,
     );
     if (
       !candidate ||

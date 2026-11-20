@@ -34,6 +34,8 @@ Task／Adviceで確定済みの`providerInput`を128KiBという量だけで再�
 
 三用途のOptionsは、上位が`initializeIsolation({ windowsDirectory, userHomeDirectory })`で取得したDI正本の`IsolationSettings`を`settings`に受け取る。認証・通常AttemptはFactoryで値を捕捉し、Probeは準備で固定する。ExecutorはHostの環境変数やユーザー所在を再取得せず、Provider Home・管理領域・一時領域をこの設定から推測しない。`inspectResources(target, settings, options?)`／`cleanupResources(target, settings, callbacks?)`と環境操作にも同じ明示設定を渡す。設定をResourceSnapshot・保存投影へ追加しない。
 
+隔離Probeの既存`onCommandSubmitting`／`onResourceCreated`は、用途名／実IDに加え、第2引数で`ResourceTarget<"snapshot", "cleanup">`を同期通知する。作成前はDIが準備した元Snapshot、Receipt時はDIが実IDを反映したSnapshotをそのまま渡す。管理所在・回収順・期限・Label不存在確認は実Planから一度捕捉し、`previouslyAbsent`は初回の空集合とする。`unreceiptedAbsence: "retain"`を維持し、ID欠測から自動再発見や削除へ進めない。非秘密の所在を含むため、信頼した上位の保存接続向けとし、診断表示へ無条件転記しない。通知拒否・非同期return後の後続Effect停止は従来どおりである。
+
 作成Receipt通知は、DIが成功応答の完全実IDを保持した後、実行前の実体・構成検査より前に上位へ搬送する。上位は既存のreceiptイベントで同じOperationへ保存し、存在観測・構成検査成功・AI実行開始へ昇格しない。構成拒否でも元IDは回収と最終Snapshotへ残す。通知拒否では後続実行を停止する。Receipt通知完了後にreceiptRecordedを更新し、通知拒否を保存済みと表示しない。応答後取消でも既知IDの通知は省略しない。
 
 PrimaryFailureDiagnosticの任意isolationFailureはDIの元failure型を再利用し、reason・stage・notification・kind・例外分類・要求／応答観測を保持する。既存の上位reasonとstageは利用側の分岐のため維持し、技術診断の集約で元停止点を消さない。後着のCleanup／通知失敗で一次技術診断を上書きしない。生例外・inspect本文・認証値は返さない。検証ToolのJSON受入れも同じ項目へ追従し、公開関数・Root Export・Domain保存Schemaは増減しない。

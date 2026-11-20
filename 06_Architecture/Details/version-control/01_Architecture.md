@@ -1,5 +1,15 @@
 # Version Control境界
 
+## 実行断面の固定に使う既存Commit契約
+
+`createCommit`は通常の空選択拒否を維持し、明示した`allowEmpty:true`の場合だけ基準と同一Treeでも独立Commitを生成する。新しいRef・HEAD・通常Indexは更新しない。`previousCommit`の再確認でも元Base・選択内容・現在HEADの照合を維持する。`readCommitFile`は内容とmodeに加え、RepositoryのObject Formatによる実Blob OIDを返す。OIDを独自Manifestや固定長SHA-256へ変換しない。
+
+上位のRef予定・OIDの耐久記録と保持期間はVCが所有しない。作成結果がblockedでも生成済みOID・一時Index・回収未確認を捨てず、呼出し元が同じ操作へ記録する。
+
+選択Commitは各Fileの祖先・実体・捕捉bytes・期待Hashを照合する。同じ操作内で書込み済みのBlob OIDだけを再利用し、後続Fileの検査は省かない。Gitへは捕捉bytesをstdinで渡し、検査後のPath再openで別内容をObject化する経路を作らない。一時Indexへの変更は削除を先に、追加を後にNUL区切りの一括入力で適用する。完成Treeは選択Pathだけを引数長に応じた複数要求で全数照合し、非対象Treeの全読取りによる新たな容量拒否を作らない。内部の引数分割は8KiB目安であり、入力を切り捨てる件数・容量制限ではない。既存の操作全体30秒とGit出力条件、通常Index／HEAD／Ref非更新、失敗・一時物回収の結果契約を維持する。
+
+この処置は同内容を多数選択する場合の重複起動を削減する。異なるBlobが大量にある場合や、上位がFileごとの完成読取りを繰り返す場合まで、一定時間内の完了を保証しない。
+
 ## Consumer集合の試験Owner — 2026-11-14
 
 VCのconsumer-closure ITは、完成契約型・Git語彙を出さないRoot投影・自己Architectureとの公開集合一致・Git配置とignoreの責務分離・旧内部Candidate分類拒否の五試験を所有する。Repository全体のConsumer集合と単一Owner、Checker接続とimport解析の九試験はCheckerの回帰試験へ移す。VCが上位PackageのSourceを走査する構造を残さず、試験のためのRoot公開を追加しない。公開名抽出の小さなHelperはVC自身だけが利用するため同Suite内に閉じる。
@@ -16,7 +26,7 @@ Git管理Fileの独自容量制限（制御File 4KiB、設定1MiB、除外設定
 
 固定選択のFile数1,000・全Path長1,000文字、Commit本文4,096文字、Stage時の単一File64MiBによる独自拒否を撤去する。Domain側の同じ選択・関連Change集合の入力と保存値も追従し、生成されたRelated-CHG本文を長さだけで再拒否しない。Pathの非空・Traversal・管理領域・制御文字、Root／Ref／OID／mode／一意性、Filter拒否、Git Commandの固定argvと子Process出力・Timeout、部分Effectと回収不明の扱いは維持する。Commit本文の非空・NUL／DEL拒否も維持する。
 
-旧境界超の入力検査と、既存Main／Linked実Git、実64MiB超File、4,097文字Commitを限定確認する。1,001件の選択は実Sourceの入力検査で確認し、その件数分のGit発行全量実測とは区別する。任意量の実行成功やOS／Runtime資源不足時の結果返却は保証しない。
+旧境界超の入力検査と、既存Main／Linked実Git、実64MiB超File、4,097文字Commitを限定確認する。1,001件の選択は入力検査に加え、同一Blob・特殊表記Pathを全件固定するVC実Git試験でも確認する。これを異なるBlobの任意量処理やCoordinator全量搬送の成功へ拡大せず、OS／Runtime資源不足時の結果返却も保証しない。
 
 ## 現在File・差分表示の固定容量制限撤去 — 2026-11-12
 
@@ -315,6 +325,10 @@ VCの成功・失敗理由は技術操作Ownerへ揃える。Commit生成はcomm
 resolveVerifiedRepositoryRootは、Domain等のRepository-local保存や所在照合のために維持する。Root取得はGit操作を利用側へ移す入口ではない。内容・Index・Commit・Reference・Merge・Remote操作はVCの完成操作で完結する。本番srcのRoot利用を点検した範囲では、RootからGit操作を自作する確定事例はない。検証Scriptの実GitによるRoot対照と自己生成fixtureの準備・観測は、本番のGit操作再実装とは区別する。
 
 `readFile(repository,{path,baseCommit?})`は現在の作業Fileを読む。比較基準の省略または明示undefinedでは同じ呼出しの開始時HEADを使い、結果のbaseCommitへ返す。明示Baseは従来どおり比較に使う。Repositoryの実Object形式に一致する完全長OIDのみ受け付け、HEADなし、不正Path、link、観測中のHEAD／内容変更は拒否する。この操作の失敗名はrepository_file系とし、候補固定の失敗と区別する。CoordinatorのWorkspace内容確認は保存済みBaseを引き続き明示する。
+
+親Directoryごと削除されたFileも、比較Commitに通常Blobがある場合は削除として読む。`createCommit`も同じ祖先検査を使い、基準CommitにないPathの削除要求は拒否する。Link・非Directory・別Repositoryは不存在として扱わない。読取り後の祖先変更・観測不能は`repository_file_content_changed`で拒否し、実体確認の例外をCommit操作の理由名として漏らさない。
+
+`readCommitDiff(repository,{baseCommit,commitId,path?})`は固定Commit同士だけを比較する。Path省略時は全体、指定時はそのFileに限定し、同じ二つのCommitからGitのNUL区切り出力で取得した`changedPaths`とPatchを返す。全体比較の結果`path`はnullであり、現在のWorktreeや通常Indexを変更集合へ混ぜない。
 
 内容・Index操作の対象は渡された検証済みRepositoryである。Main固定ではなく、LinkedのRootを取得すれば同じ操作を利用できる。実Git対照試験では異なるHEAD・Index・作業内容を設定し、読取りとStage／Unstage／Commitの対象一致、反対側のHEAD・Index・作業File不変を両方向で確認する。共有Object Databaseや対象Branchの更新はこの不変条件に含めない。
 

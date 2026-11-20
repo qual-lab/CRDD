@@ -162,10 +162,6 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
     },
     {
       ...releasedOperation,
-      host: { ...releasedOperation.host, pendingTransitionJson: "pending" },
-    },
-    {
-      ...releasedOperation,
       resources: { ...book, checkpoints: book.checkpoints.slice(1) },
     },
     {

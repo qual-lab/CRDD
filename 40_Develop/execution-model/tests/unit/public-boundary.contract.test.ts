@@ -393,7 +393,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "inspectTaskExecutionSelections",
     "isPrincipalId",
     "parseDockerTaskRecoveryId",
-    "parseHostRecoveryToken",
     "queryObjectives",
     "queryPlan",
     "queryQueue",
@@ -489,7 +488,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "inspectTaskExecutionSelections",
     "isPrincipalId",
     "parseDockerTaskRecoveryId",
-    "parseHostRecoveryToken",
     "queryObjectives",
     "queryPlan",
     "queryQueue",
@@ -795,17 +793,17 @@ test("統合Reader・Checkpointは未知範囲と実行Propertyを受付で拒�
 });
 
 /**
- * Host清掃準備の要求形を他Checkpointから分離する。
- * @responsibility 既知kindでも別用途fieldをAuthority観測前に拒否する。
+ * 廃止したHost清掃準備をCheckpointへ暗黙配送しない。
+ * @responsibility 旧kindと混合要求をAuthority観測前に拒否する。
  * @trace RCM-UT-014
  * @precondition 無効な元Authorityに観測回数だけを付ける。
- * @stimulus kindだけの正規形と五つの混合要求を渡す。
+ * @stimulus 旧kindだけの要求と五つの混合要求を渡す。
  * @observation Owner観測回数、保存結果とFilesystem Effect。
- * @oracle 混合要求は全件blocked・Effectなし・観測0。正規形は元Authority観測へ進む。
+ * @oracle 全件blocked・Effectなし・観測0。旧kindから保存Ownerを復元しない。
  * @cleanup N/A: 資源を生成しない。
  * @boundary 公開Checkpoint受付と保存Owner観測。
  */
-test("Host清掃準備は他用途fieldをAuthority観測前に拒否する", () => {
+test("廃止Host清掃準備はkindだけでもAuthority観測前に拒否する", () => {
   let observations = 0;
   const authority = {
     identity: {},
@@ -835,10 +833,15 @@ test("Host清掃準備は他用途fieldをAuthority観測前に拒否する", ()
     assert.equal(observations, 0);
   }
   assert.equal(
-    domainLibrary.saveRecoveryCheckpoint(authority, "unknown", null, {
-      kind: "host_cleanup_preparation",
-    }).status,
+    Reflect.apply(domainLibrary.saveRecoveryCheckpoint, undefined, [
+      authority,
+      "unknown",
+      null,
+      {
+        kind: "host_cleanup_preparation",
+      },
+    ]).status,
     "blocked",
   );
-  assert.equal(observations, 1);
+  assert.equal(observations, 0);
 });

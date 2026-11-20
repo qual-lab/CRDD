@@ -18,7 +18,7 @@ import {
 import { executeCoordinatorPublicDecision } from "../../src/decision/lifecycle.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { readCurrentCoordinatorState } from "../../src/state/query.ts";
-import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import {
   createRepository,
@@ -392,7 +392,7 @@ test("Lease競合で保持した回答を解放後に明示適用し履歴だけ
     auth,
   );
   assert.equal(requested.status, "completed", requested.reason);
-  const ports = createCurrentCoordinatorPersistencePorts(root, binding);
+  const ports = createTestPersistence(root, binding);
   const acquired = ports.lease.acquire(
     "later",
     "queue-later",

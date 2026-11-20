@@ -15,7 +15,7 @@ import path from "node:path";
 import test, { mock } from "node:test";
 import type { DockerExecutionCallbacks } from "../../../docker-isolation/tests/support/session.ts";
 import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
-import { parseHostRecoveryToken } from "../../../execution-model/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   bindIsolationRuntime,
   describeIsolationContract,
@@ -30,16 +30,14 @@ import {
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import {
-  acquireHostOperationRecoveryGenerationByIdentity,
-  activateOwnedHostOperationGenerationLock,
+  acquireHostOperationRecoveryGeneration,
   borrowOwnedDockerExecutionPaths,
-  borrowOwnedHostRecoverySnapshot,
-  cleanupOwnedOperationDirectoriesAsync,
+  cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-  loadHostRecoveryRecordByToken,
+  getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
   releaseHostOperationRecoveryGeneration,
   verifyOwnedOperationCleanupOutcome,
@@ -47,6 +45,31 @@ import {
 } from "../../src/execution/operation.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import { createAttemptPreparation } from "../fixtures/attempt-preparation.ts";
+
+/**
+ * 現行Host記録を自己生成Repositoryへ保存する準備を行う。
+ * @responsibility 合成Git識別だけを準備し、実Dockerや既存保存物へ接続しない。
+ * @trace ERB-IT-003
+ */
+function fixtureRepository(root: string) {
+  const git = path.join(root, ".git");
+  fs.mkdirSync(path.join(git, "refs", "heads"), { recursive: true });
+  fs.mkdirSync(path.join(git, "info"));
+  fs.writeFileSync(path.join(git, "HEAD"), "ref: refs/heads/main\n");
+  fs.writeFileSync(
+    path.join(git, "refs", "heads", "main"),
+    `${"a".repeat(40)}\n`,
+  );
+  fs.writeFileSync(
+    path.join(git, "config"),
+    "[core]\nrepositoryformatversion = 0\nbare = false\n",
+  );
+  fs.writeFileSync(path.join(git, "info", "exclude"), "/.crdd/\n");
+  const result = getRepository(root);
+  assert.equal(result.status, "completed");
+  assert.ok(result.capability);
+  return result.capability;
+}
 
 /**
  * createPlanFixtureのTest準備責務を実行する。
@@ -517,7 +540,12 @@ test("Host Windows: 清掃後の上位所在取得拒否と固定値の技術搬
     "retired_owner_test",
   );
   const parent = fs.mkdtempSync(path.join(area.directory, "retired-owner-"));
-  const owned = createOwnedOperationDirectories(parent);
+  const repository = fixtureRepository(parent);
+  const owned = createOwnedOperationDirectories({
+    root: repository,
+    purpose: "advice",
+    recordingCurrent: () => true,
+  });
   const mount = createOwnedMountCapability(owned);
   const management = createOwnedOperationManagementCapability(
     createOwnedOperationContextCapability(owned),
@@ -526,10 +554,6 @@ test("Host Windows: 清掃後の上位所在取得拒否と固定値の技術搬
   let cleaned = false;
   let generation: object | null = null;
   try {
-    assert.equal(
-      await activateOwnedHostOperationGenerationLock(management),
-      "activated",
-    );
     const mountBinding = verifyOwnedOperationManagementMountBinding(
       management,
       mount,
@@ -546,9 +570,7 @@ test("Host Windows: 清掃後の上位所在取得拒否と固定値の技術搬
       assert.ok(command, purpose);
       return command;
     });
-    const nonce = parseHostRecoveryToken(
-      borrowOwnedHostRecoverySnapshot(management).snapshot.token,
-    ).nonce;
+    const recoveryId = getOwnedHostRecoveryId(owned);
     // 下位代役の到達印であり、実構成・実Handle生成の観測ではない。
     const calls = { starts: 0, configurations: 0, handles: 0 };
     const arrivals: Array<{ purpose: string; owner: unknown }> = [];
@@ -604,7 +626,7 @@ test("Host Windows: 清掃後の上位所在取得拒否と固定値の技術搬
       assert.equal(arrivals[count]?.owner, management);
     }
     assert.deepEqual(calls, { starts: 2, configurations: 2, handles: 2 });
-    const cleanup = await cleanupOwnedOperationDirectoriesAsync(owned);
+    const cleanup = await cleanupOwnedOperationDirectories(owned);
     assert.equal(
       verifyOwnedOperationCleanupOutcome(cleanup, owned),
       "completed",
@@ -612,9 +634,10 @@ test("Host Windows: 清掃後の上位所在取得拒否と固定値の技術搬
     cleaned = true;
     assert.equal(fs.existsSync(owned.root), false);
     assert.throws(() => borrowOwnedDockerExecutionPaths(management));
-    generation = acquireHostOperationRecoveryGenerationByIdentity(
-      owned.root,
-      nonce,
+    generation = acquireHostOperationRecoveryGeneration(
+      repository,
+      recoveryId,
+      () => true,
     );
     assert.ok(generation);
     const baseline = { ...calls };
@@ -632,7 +655,7 @@ test("Host Windows: 清掃後の上位所在取得拒否と固定値の技術搬
     if (generation)
       assert.equal(releaseHostOperationRecoveryGeneration(generation), true);
     if (!cleaned) {
-      const cleanup = await cleanupOwnedOperationDirectoriesAsync(owned);
+      const cleanup = await cleanupOwnedOperationDirectories(owned);
       assert.equal(
         verifyOwnedOperationCleanupOutcome(cleanup, owned),
         "completed",
@@ -654,7 +677,7 @@ test("Host Windows: 清掃後の上位所在取得拒否と固定値の技術搬
  * @trace ERB-IT-004
  * @precondition Kernel取得だけ代役とし、実Filesystemとfreshな本番moduleを使う。
  * @stimulus 元auth create／startの肯定到達後、assertLiveをfalse・trueの順にする。
- * @observation 上位false観測、固定技術値の配送、実体・marker本文不変と解放一回。
+ * @observation 上位false観測、固定技術値の配送、Root・子実体・EM本文不変と解放一回。
  * @oracle 元Owner拒否は上位の責務とし、固定値を使う下位が上位Queryを再評価しない。
  * @cleanup 元Ownerの失効を保ったまま既存Recoveryで今回のRoot・記録を回収しmockを復元する。
  * @boundary 論理Kernel故障・実Filesystem・本番private世代。実Kernel故障やDaemon終端は証明しない。
@@ -711,19 +734,19 @@ test("Host Windows: 世代失効は上位で拒否し固定値から上位を再
     const parent = fs.mkdtempSync(
       path.join(area.directory, "generation-loss-"),
     );
-    const owned = host.createOwnedOperationDirectories(parent);
+    const repository = fixtureRepository(parent);
+    const owned = host.createOwnedOperationDirectories({
+      root: repository,
+      purpose: "advice",
+      recordingCurrent: () => true,
+    });
     const recoveryId = host.getOwnedHostRecoveryId(owned);
-    const marker = loadHostRecoveryRecordByToken(recoveryId, owned.root).marker;
     const mount = host.createOwnedMountCapability(owned);
     const management = host.createOwnedOperationManagementCapability(
       host.createOwnedOperationContextCapability(owned),
       mount,
     );
     try {
-      assert.equal(
-        await host.activateOwnedHostOperationGenerationLock(management),
-        "activated",
-      );
       const mountBinding = host.verifyOwnedOperationManagementMountBinding(
         management,
         mount,
@@ -742,8 +765,19 @@ test("Host Windows: 世代失効は上位で拒否し固定値から上位を再
         return command;
       });
       const beforeRoot = fs.lstatSync(owned.root, { bigint: true });
-      const beforeMarker = fs.lstatSync(marker, { bigint: true });
-      const markerBytes = fs.readFileSync(marker);
+      const statePath = path.join(
+        parent,
+        ".crdd",
+        "domain-model",
+        "state.json",
+      );
+      const stateBytes = fs.readFileSync(statePath);
+      const childrenBefore = fs.readdirSync(owned.root).map((name) => {
+        const entry = fs.lstatSync(path.join(owned.root, name), {
+          bigint: true,
+        });
+        return [name, entry.dev, entry.ino, entry.birthtimeNs].map(String);
+      });
       const arrivals: Array<{ purpose: string; owner: unknown }> = [];
       const lower = {
         startExecution: () => {
@@ -795,32 +829,45 @@ test("Host Windows: 世代失効は上位で拒否し固定値から上位を再
         assert.equal(falseObservations, 1);
       }
       const afterRoot = fs.lstatSync(owned.root, { bigint: true });
-      const afterMarker = fs.lstatSync(marker, { bigint: true });
       for (const key of ["dev", "ino", "birthtimeNs"] as const) {
         assert.equal(afterRoot[key], beforeRoot[key]);
-        assert.equal(afterMarker[key], beforeMarker[key]);
       }
-      assert.deepEqual(fs.readFileSync(marker), markerBytes);
-      await assert.rejects(
-        () => host.cleanupOwnedOperationDirectoriesAsync(owned),
-        /owned_operation_directory_replaced/u,
+      assert.deepEqual(fs.readFileSync(statePath), stateBytes);
+      assert.deepEqual(
+        fs.readdirSync(owned.root).map((name) => {
+          const entry = fs.lstatSync(path.join(owned.root, name), {
+            bigint: true,
+          });
+          return [name, entry.dev, entry.ino, entry.birthtimeNs].map(String);
+        }),
+        childrenBefore,
+      );
+      assert.throws(
+        () => host.cleanupOwnedOperationDirectories(owned),
+        /owned_operation_generation_liveness_lost/u,
       );
       assert.equal(fs.existsSync(owned.root), true);
-      assert.deepEqual(fs.readFileSync(marker), markerBytes);
+      assert.deepEqual(fs.readFileSync(statePath), stateBytes);
     } finally {
       assert.ok(releaseGenerationLock);
       assert.equal(releaseGenerationLock(), true);
       assert.equal(releases, 1);
+      kernelMock.restore();
+      const generation = acquireHostOperationRecoveryGeneration(
+        repository,
+        recoveryId,
+        () => true,
+      );
+      assert.ok(generation);
       const recovered = recoverOwnedOperationDirectories(
         recoveryId,
-        null,
-        owned.root,
+        generation,
       );
       assert.equal(recovered.status, "recovered", JSON.stringify(recovered));
       assert.equal(recovered.reason, "host_cleanup_recovered");
       assert.equal(recovered.recoveryId, null);
+      assert.equal(releaseHostOperationRecoveryGeneration(generation), true);
       assert.equal(releases, 1);
-      assert.equal(fs.existsSync(marker), false);
       assert.equal(fs.existsSync(owned.root), false);
       assert.equal(fs.realpathSync(parent), parent);
       fs.rmSync(parent, { recursive: true });

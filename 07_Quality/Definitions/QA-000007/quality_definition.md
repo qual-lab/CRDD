@@ -1,5 +1,11 @@
 # QA-000007 リポジトリ境界とFederationの検証定義
 
+## 選択Commitの多重起動削減 — 2026-11-20
+
+RFD-IT-029の既存Worktree試験で、1,001個の同一Blob選択と空白・日本語・引用記号を含むPathを実Gitへ渡す。Blob書込み一回・Index更新一回、全変更Path、通常Index／HEAD／Refの不変を確認する。同OIDを期待する二件目だけ内容を変えた負例は、先行Effectを保持して拒否し、一時領域の回収を確認する。実私有Tree読取りの有限応答では正規複数行・空応答を肯定対照とし、終端NUL欠測、空レコード、重複、要求外、非0を拒否する。Gitの30秒期限・出力条件は変更しない。VC単体の成立とCoordinator全量搬送の成立は分けて記録する。
+
+削除元Tree観測の非0終了は、既存の`commit_create_git_failed`を維持し、一時物回収と通常Index／HEAD／Refの不変を反証する。一括Tree照合によって削除前の失敗理由や拒否順序を変更しない。
+
 ## 未接続Root保護候補の退役 — 2026-11-19
 
 専用のRoot保護Policy評価・合成Root観測候補は現役のRoot／Path／認可判断に使われていないため、その二試験と登録を退役する。RFD-UT-006のRepository・Project・Binding・Grant・Exposureの既存規則は維持し、未接続候補の削除を当該項目全体の免除や成功へ数えない。Node／VC／各保存Ownerの実体・Link・Root差、現在認可、Lock／Revision、観測不能時停止の検証は従来の実Ownerで継続する。
@@ -44,6 +50,10 @@ B4の借用Tree読取りはVCの`workspace/observation.ts`へ移管する。`RFD
 公開Workspace操作は人間承認済みの`development`現在許可を三Role共通で適用する。`RFD-IT-009`／013とSTの非開示断面で、単体資格不要の固定Root、CROSのmanagementのみ／失効／Exposure除外／別Repository／Root差替えの処置前拒否、待機後とEffect直前の再認可、内部Root・一時物・資格を含めない公開結果を確認する。旧workspaceIdsは内容範囲でありGit Workspace IDへ転用しない。
 
 `RFD-IT-029`の実Git断面に、[Version Controlの追加契約](../../../06_Architecture/Details/version-control/01_Architecture.md#固定candidate二親mergeの追加契約2026-10-18実装未完了)を追加する。
+
+同じ項目のMain／Linked対照で、親Directoryごとの削除、固定Commit全体／File指定の差分と変更Path、基準Blobのない削除要求の拒否を確認する。読取り後の祖先Link化・観測例外は内容変更として拒否し、通常Index・HEADの非更新と今回の一時Indexの回収を確認する。CoordinatorのGit固定接続全体や実AIの成立とは分ける。
+
+RFD-IT-029では空選択の既定拒否と明示`allowEmpty:true`を対照し、同じTreeの独立Commit・実Blob OID・一時Index回収と通常Index／HEAD／Refの不変をMain／Linkedで確認する。RFD-IT-013のCoordinator結合は同じHostの基準・候補・Reviewer固定コピーとRefの保存／回収条件を扱い、VC単体の成功だけから上位全体の成立を主張しない。
 
 - 明示Base＋選択内容だけの固定Commitを確認し、利用者indexの前後同一性、未選択dirty／未追跡の保全、未選択過去Commit非混入を観測する。
 - Fast-forward可能時も新Mergeが二親を持つことと、分岐時の通常Mergeの両方を実Gitで確認する。親一覧は順序を含め取込前HEAD・固定Candidateと完全一致させる。

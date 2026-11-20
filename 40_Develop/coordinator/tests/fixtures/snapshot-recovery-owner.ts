@@ -71,7 +71,7 @@ const observed = borrowRuntimeOwnedCoordinatorRecoveryRepository(
   verified.capability,
 );
 assert.ok(observed);
-const repository = { ...observed, operationId };
+const repository = { ...observed, root: verified.capability, operationId };
 const stateFile = path.join(
   repositoryRoot,
   ".crdd",
@@ -152,8 +152,6 @@ const owner = {},
     persistenceFailed: false,
     cleanupUnknown: false,
     hostCleanup: "present",
-    hostCleanupPublication: null,
-    hostToken: "fixture-host",
     hostGeneration: "fixture-generation",
   };
 let live = true,
@@ -169,6 +167,7 @@ const source = fs.readFileSync(
   "utf8",
 );
 const names = [
+  "isRecoveryCapability",
   "projectResourceTarget",
   "persistRuntimeOwnedDockerTaskRecoveryCheckpoint",
   "recoverRuntimeOwnedDockerTaskResources",
@@ -192,7 +191,7 @@ assert.ok(
   "fixture_snapshot_must_match_driver_input",
 );
 const driver =
-  runInThisContext(`(dependencies)=>{const {Buffer,isDeepStrictEqual,snapshotJsonValue,dockerRecoveryPreparations,borrowHostRecoveryManagementDirectory,coordinatorReleasedTaskCanObserveHostAbsence,assertCurrentRecoveryOwner,readState,saveRecoveryCheckpoint}=dependencies;
+  runInThisContext(`(dependencies)=>{const {Buffer,isDeepStrictEqual,snapshotJsonValue,dockerRecoveryPreparations,borrowHostRecoveryManagementDirectory,assertCurrentRecoveryOwner,readState,saveRecoveryCheckpoint}=dependencies;
 ${scenario === "known_id_mutant" ? mutant : body}
 return recoverRuntimeOwnedDockerTaskResources;}`)({
     Buffer,
@@ -203,7 +202,6 @@ return recoverRuntimeOwnedDockerTaskResources;}`)({
       directory: management,
       assertCurrent: () => live,
     }),
-    coordinatorReleasedTaskCanObserveHostAbsence: () => false,
     assertCurrentRecoveryOwner: () => {
       events.push("owner");
       return live;

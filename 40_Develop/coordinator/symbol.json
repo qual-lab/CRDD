@@ -76,6 +76,7 @@
       "path": "src/execution/files.ts",
       "archIds": [
         "ARCH-000008",
+        "ARCH-000009",
         "ARCH-000013"
       ]
     },
@@ -1071,7 +1072,6 @@
         "coordinator.source.src.security.orchestrator.durable.foundation",
         "coordinator.source.src.security.orchestrator.objective.intake",
         "orchestrator.human-decision-application",
-        "orchestrator.replanning-application",
         "domain-model.decision.operations",
         "orchestrator.decision.acceptance-decision-record",
         "domain-model.decision.types"
@@ -1146,7 +1146,6 @@
         "coordinator.source.src.security.orchestrator.execution.host.adapter",
         "orchestrator.execution",
         "orchestrator.human-decision-application",
-        "orchestrator.replanning-application",
         "domain-model.decision.operations",
         "domain-model.task.crud"
       ]
@@ -2273,15 +2272,16 @@
       "path": "tests/integration/host-recovery-record.contract.test.ts",
       "qaIds": [
         "QA-000003",
-        "QA-000006"
+        "QA-000006",
+        "QA-000007"
       ],
       "localTestIds": [
         "ERB-IT-003",
-        "PRL-IT-013"
+        "PRL-IT-013",
+        "RFD-IT-013"
       ],
       "verifies": [
         "coordinator.source.src.security.host.recovery.record",
-        "docker-isolation.cleanup.probe-record",
         "coordinator.source.src.security.execution.environment"
       ]
     },
@@ -3046,17 +3046,6 @@
       "implements": []
     },
     {
-      "symbolId": "orchestrator.replanning-application",
-      "kind": "file",
-      "path": "src/objective/replan.ts",
-      "archIds": [
-        "ARCH-000004"
-      ],
-      "implements": [
-        "orchestrator.objective-task-lifecycle"
-      ]
-    },
-    {
       "symbolId": "orchestrator.state-query-application",
       "kind": "file",
       "path": "src/state/query.ts",
@@ -3546,14 +3535,6 @@
       ]
     },
     {
-      "symbolId": "docker-isolation.cleanup.probe-record",
-      "kind": "file",
-      "path": "src/state/probe-record.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.unit.authentication-management",
       "kind": "test-suite",
       "path": "tests/unit/authentication-management.contract.test.ts",
@@ -3580,20 +3561,6 @@
       "verifies": [
         "coordinator.provider-authority-runtime",
         "domain-model.src.attempt.crud"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.host-resource-identity",
-      "kind": "test-suite",
-      "path": "tests/unit/host-resource-identity.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-UT-023"
-      ],
-      "verifies": [
-        "coordinator.task-runtime"
       ]
     },
     {
@@ -3821,6 +3788,22 @@
       "path": "tests/fixtures/docker-owned-process-test-support.ts",
       "archIds": [
         "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "runtime-data.test.integration.consumer-closure",
+      "kind": "test-suite",
+      "path": "tests/integration/storage-consumer-closure.integration.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-IT-001"
+      ],
+      "verifies": [
+        "access-management.public-api",
+        "crdd-domain-library.repository-entry",
+        "domain-model.configuration-entry"
       ]
     }
   ]

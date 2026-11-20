@@ -29,6 +29,10 @@ import * as areaRequirement from "../../src/storage/store.ts";
 import * as areaInitialization from "../../src/storage/store.ts";
 import * as fileObservation from "../../src/storage/store.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
+import {
+  createResourceOperationFixture,
+  createResourceBookFixture,
+} from "../support/resource-operation.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
 
 /**
@@ -314,20 +318,6 @@ function stateStoreSource(
     completeRecovery: store.completeRecovery,
   };
 }
-const executionSelection = (_role?: unknown, _input?: unknown) => ({
-  provider: "claude",
-  modelIdentifier: "opus",
-  identifierKind: "alias",
-  reasoningEffort: "low",
-  purpose: "task",
-  catalogIdentity:
-    "5e1d3387ad7fcfe61a6f2521291c2ed118fe0091f9db2aea63e1cd7aa067ed2c",
-  configIdentity:
-    "e70d12e5f16639d9774b9f1f2803deaa37528b28bdf3e938d8badd4f4c5cfb1f",
-  role: "executor",
-  workType: null,
-  source: "explicit",
-});
 /**
  * 終了済み修復の有限値だけを使い履歴保存の全相関を確認する。
  * @responsibility 技術処置を呼ばず、履歴出版とTask fallback不使用を反証する。
@@ -1196,7 +1186,11 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   const fixedOperation = checkpoint?.snapshot.operations.find(
     (item) => item.recoveryId === id,
   );
-  assert.ok(fixedOperation?.history && !fixedOperation.history.confirmed);
+  assert.ok(
+    fixedOperation?.kind === "runtime_repair" &&
+      fixedOperation.history &&
+      !fixedOperation.history.confirmed,
+  );
   const second = stateStoreSource((source) => source);
   assert.equal(
     second.readHistory(historyInput, id).currentHistoryPublication?.stage,
@@ -1219,7 +1213,10 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   const finalOperation = current?.snapshot.operations.find(
     (item) => item.recoveryId === id,
   );
-  assert.ok(finalOperation?.history?.confirmed);
+  assert.ok(
+    finalOperation?.kind === "runtime_repair" &&
+      finalOperation.history?.confirmed,
+  );
   assert.equal(
     finalOperation.history.occurredAt,
     fixedOperation.history.occurredAt,
@@ -1540,7 +1537,8 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
               (item) => item.recoveryId === id,
             );
             assert.ok(
-              capturedOperation?.history &&
+              capturedOperation?.kind === "runtime_repair" &&
+                capturedOperation.history &&
                 !capturedOperation.history.confirmed,
             );
             const rebuilt = prepareRepairHistorySnapshot(
@@ -1679,61 +1677,39 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
     if (fs.existsSync(file)) fs.unlinkSync(file);
   }
   await t.test("nonempty_other_operations", () => {
-    const hostRecord = {
-      schema: "crdd-coordinator-host-recovery/v1",
-      state: "host_only",
-      rootName: "crdd-coordinator-doctor-fixture",
-      rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-      childIdentities: {
-        management: {
-          pathName: "management",
-          dev: "1",
-          ino: "3",
-          birthtimeNs: "4",
-        },
-      },
-      createdAt: "2026-08-25T00:00:00.000Z",
-    };
-    const hostHash = createHash("sha256")
-      .update(`${JSON.stringify(hostRecord)}\n`)
-      .digest("hex");
-    const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
+    const resourceFixture = createResourceOperationFixture();
+    const source = decodeStateSnapshot(
+      resourceFixture.bytes,
+      resourceFixture.binding,
+    );
+    assert.ok(source);
+    const initialHost = source.snapshot.operations.find(
+      (item) => item.kind === "host_operation",
+    );
+    assert.ok(initialHost);
     const taskIdentity = {
-      schema: "crdd-coordinator/operation-identity/v5",
-      operationNonce: "b".repeat(64),
-      provider: "claude",
-      consumer: "orchestrator",
+      ...resourceFixture.identity,
       operationId: "OP-234567",
-      executionSelection: executionSelection("executor", {
-        provider: "claude",
-        model: "opus",
-        effort: "low",
-      }),
-      taskAttempt: 0,
-      stableLogicalHomeBindingHash: "c".repeat(64),
-      providerHomeIdentityHash: "8".repeat(64),
       repositoryBinding: repository.repositoryBinding,
-      ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-      operationMode: "isolated_task",
-      workspaceMountMode: "read_write",
-      initialHostRecoveryId: token,
-      initialHostRecovery: {
-        token,
-        recordHash: hostHash,
-        directoryIdentity: "1:2:3",
-        markerIdentity: "1:2:4",
-        record: hostRecord,
-      },
-      hostPaths: { root: "host-root", marker: "host-marker" },
     };
+    const taskHost = {
+      ...initialHost,
+      operationId: taskIdentity.operationId,
+      recoveryId: `host-operation.${taskIdentity.operationId}`,
+    };
+    const taskBase = Buffer.from(
+      `${encodeStateValue({ ...source.snapshot, repositoryBinding: repository.repositoryBinding, operations: [taskHost] })}\n`,
+    );
     const taskBytes = prepareStateOperationSnapshot(
-      null,
+      taskBase,
       `${JSON.stringify(taskIdentity)}\n`,
       repository.repositoryBinding,
     );
     assert.ok(taskBytes);
-    const task = decodeStateSnapshot(taskBytes, repository.repositoryBinding)
-      ?.snapshot.operations[0];
+    const task = decodeStateSnapshot(
+      taskBytes,
+      repository.repositoryBinding,
+    )?.snapshot.operations.find((item) => item.kind === "docker_task");
     assert.ok(task?.kind === "docker_task");
     const otherBytes = prepareStateRepairSnapshot(
       null,
@@ -1748,6 +1724,11 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
     const mixed = {
       ...decoded.snapshot,
       operations: [
+        {
+          ...taskHost,
+          phase: "terminal" as const,
+          cleanup: "confirmed" as const,
+        },
         operation,
         {
           ...other,
@@ -1762,7 +1743,10 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
           ...task,
           phase: "settling",
           lease: "released",
-          host: { ...task.host, cleanup: "confirmed" },
+          resources: createResourceBookFixture(
+            taskIdentity.ownershipLabel,
+            "absent",
+          ),
           execution: { ...task.execution, ownerEffect: "disabled" },
           outcome: {
             status: "cancelled",
@@ -1770,11 +1754,17 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
             cleanupConfirmed: true,
           },
         },
-      ].sort((a, b) =>
-        JSON.parse(a.identityJson).operationNonce.localeCompare(
-          JSON.parse(b.identityJson).operationNonce,
-        ),
-      ),
+      ].sort((a, b) => {
+        const left =
+          a.kind === "host_operation"
+            ? a.operationId
+            : JSON.parse(a.identityJson).operationNonce;
+        const right =
+          b.kind === "host_operation"
+            ? b.operationId
+            : JSON.parse(b.identityJson).operationNonce;
+        return left < right ? -1 : left > right ? 1 : 0;
+      }),
       unresolvedRecoveries: [
         {
           operationNonce: taskIdentity.operationNonce,

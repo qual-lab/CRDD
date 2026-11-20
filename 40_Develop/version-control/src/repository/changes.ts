@@ -126,7 +126,7 @@ export function readFileDiff(
   });
 }
 
-/** 現在FileやIndexを混ぜず、二つの固定Commit間のFile差分を読む。 */
+/** 現在FileやIndexを混ぜず、二つの固定Commit間の差分と変更Pathを読む。 */
 export function readCommitDiff(
   repository: Repository,
   request: CommitDiffRequest,
@@ -134,11 +134,30 @@ export function readCommitDiff(
   if (
     !isCommitId(request.baseCommit) ||
     !isCommitId(request.commitId) ||
-    !isCommitPath(request.path)
+    (request.path !== undefined && !isCommitPath(request.path))
   )
     throw Error("commit_diff_input_invalid");
   const root = resolveVerifiedRepositoryRoot(repository);
   if (root === null) throw Error("verified_repository_root_required");
+  const paths = request.path === undefined ? [] : [request.path];
+  const changedBytes = readPatchBytes(root, [
+    "diff",
+    "--name-only",
+    "-z",
+    "--no-ext-diff",
+    "--no-textconv",
+    "--no-renames",
+    request.baseCommit,
+    request.commitId,
+    "--",
+    ...paths,
+  ]);
+  const changedPaths = new TextDecoder("utf-8", { fatal: true })
+    .decode(changedBytes)
+    .split("\0")
+    .filter(Boolean);
+  if (changedPaths.some((value) => !isCommitPath(value)))
+    throw Error("commit_diff_path_invalid");
   const bytes = readPatchBytes(root, [
     "diff",
     "--no-ext-diff",
@@ -147,13 +166,14 @@ export function readCommitDiff(
     request.baseCommit,
     request.commitId,
     "--",
-    request.path,
+    ...paths,
   ]);
   const patch = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   return {
     baseCommit: request.baseCommit,
     commitId: request.commitId,
-    path: request.path,
+    path: request.path ?? null,
+    changedPaths: Object.freeze(changedPaths),
     binary: patch.includes("Binary files "),
     patch,
   };

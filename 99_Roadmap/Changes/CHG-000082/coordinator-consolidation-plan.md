@@ -1,13 +1,53 @@
 # Orchestrator／Coordinator統合とDomain Model最終整理
 
 成果物種別: 変更計画・着手前対応表
-状態: A・B1〜B5とC前の整理は限定完了。基準664820ba1からCの物理移管候補（150 Source・公開120実行値）を実装し、静的検査は成功。最終portable回帰は1,838成功・失敗0・5 skip、限定独立レビュー残指摘0。現在の結果は§32を正本とし、過去の単位別結果と区別する。C全体・保存統合・D・実境界・全体QAは未完了。既存の計測OPEN・横断検査・Workbench lintを維持
+状態: 変更計画と段階別の履歴。現在の根本削減の実装・限定確認は本書先頭の接続方針と[変更記録](change.md#git固定と旧試験の現owner接続)を正本とする。後続のA〜D・§32等の結果、公開数、未完了表示は各実施時点の記録であり、現在の全体回帰・実AI／Docker・全体QA成立を表さない。
 対象変更: [CHG-000082](change.md)
 責任者・採用決定権限: Qual-Lab
-最終更新日: 2026-10-22
+最終更新日: 2026-11-20
 統合計画の初期基準（A着手前）: `1afbc6df4a76cd6800e20a5fa98a0c994577a42f`
 B調査のSource基準（A完了）: `f8f7a9986d47220a160fc141af09c6c51561e1e7`
 設計正本: [Orchestrator](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)、[Coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[文書モデル](../../../06_Architecture/Details/document-model/01_Architecture.md)、[実行モデル](../../../06_Architecture/Details/execution-model/01_Architecture.md)、[構成モデル](../../../06_Architecture/Details/configuration-model/01_Architecture.md)
+
+## 根本削減の採用済み接続方針 — 2026-11-19
+
+### 残る四系統の一括実装
+
+人間の一括対応指示を受け、作成・回復・Git内容固定・残る重複削減を同じ変更意図で閉じる。初回編集前に親と読取り確認者がHost／Probe、Gitの実IF、表示・受付境界を照合した。
+
+| 編集の一次キー | 完成処置と保持条件 |
+|---|---|
+| Host作成・回復 | 元操作IDと現在認可を明示搬送し、既存EMへIntent保存、同じHost Lockの取得とfresh記録確認後に専用Rootを作る。Root／子Receipt、取消後の回収記録と同じ回復参照を維持する |
+| 旧記録・同期 | 全本番経路を切り替え、旧Host marker、Probe専用記録、Hash token、Docker記録へのHost複製と二重遷移を撤去する。State不可読時の独立回復は追加しない |
+| Git固定内容 | 既存Host記録へRef予定・OID・一時Indexの進捗を結合し、基準／候補を独立したCommitとして固定。Reviewerは候補からのコピーだけを読む。通常Index／HEAD／利用者Fileを更新しない |
+| 残る重複 | Controllerの受付済み選定再解析を撤去し、State投影の進行・品質・次操作の計算を既存File内で一正本化。未知返却値や待機後の相関・Effect前検査は維持する |
+
+Git操作は既存VCの完成操作へ接続する。既存`readCommitDiff`へ全体比較と変更Path集合を加え、明示削除の祖先不存在を既存File読取り／Commit作成で扱う最小修正を含む。Path逸脱・Link・別Repository・観測不能の拒否は維持する。新しいFacade・Manager・Registry・Store・互換Readerを追加せず、旧保持物を移行・清掃しない。
+
+技術・品質・文書と利用側への影響を独立確認し、対象を固定した限定回帰を行う。全体回帰・実AI・Docker・過去保持物は対象外。標準準拠基準・決定権限・Releaseは変更しないため、準拠監査とリリース操作は追加しない。
+
+残る重複二系統は実装・限定回帰・独立レビューまで成立した。Host本番SourceはEM正本へ接続し、旧Probe専用保存・Token整形・Docker内のHost複製は撤去した。Git固定Commit・Reviewer実コピーへの接続と独自Inventory／Manifest・候補WeakMap撤去も実装し、六つのGit結合観点と独立レビューが成立した。旧現在状態試験・Task共用fixture・Source文字列内のHost／Probe代役も現Ownerへ追従し、Source／全試験の型検査と今回の限定回帰・独立レビューは成立した。これは全既存条件の再実行完了ではなく、残る未実施条件を成功へ含めない。Host回収では`resources:null`だけで許可せず、技術要求前の終了証拠と実Home解放を分ける。保存失敗を消したり、Host回収前に清掃成功を先書きしたりしない。現在結果は[変更記録](change.md#git固定と旧試験の現owner接続)を参照する。
+
+続行対象のHost中断点13件、129件の実保存、1,001変更・65許可Path・1MiB超のReviewer全量搬送も、個別再確認を含めて成立した。コミット前の旧契約横断照合で検出した肯定fixture・認証試験器・CLI／Workbench終端期待・現行文書の追従漏れは是正し、追加限定31試験とEM修復終了1試験、静的検査・独立再レビューが成立した。実AI／Docker、全体回帰、過去保持物は対象外のままとする。
+
+以下は767f56eb9を基準に採用した着手方針と段階別の記録である。「未完了」「次の着手単位」等は当時の到達点を示し、現在のSource接続・確認結果は直前の到達点と[変更記録](change.md#git固定と旧試験の現owner接続)で確認する。先行単位の退役・単件化を、Host／Git一本化全体の完成証拠にしない。
+
+| 対象 | 採用した接続 | 撤去する体系・境界 |
+|---|---|---|
+| Host作業領域 | 検証済みOwner Repository直下の専用Operation領域。既存EM OperationRecordに閉じたhost_operationを加え、同じ操作IDで作成前Intent・実体観測・回収・終端を扱う | Host marker・専用Hash token・EMとの二重遷移同期。Repository State不可読時のHost参照だけによる独立回復は廃止し手動対応 |
+| Docker実行との関係 | 一つのHost操作からExecutor・Reviewer・是正等の複数Docker記録を参照する。実Home排他・DI Snapshotと作成Intent／Receipt・不存在観測は保持 | 各Docker記録へのHost状態・初期Snapshot・Path・遷移予定のコピー |
+| 初期化失敗 | 最初のmkdir前に同じ操作IDを耐久化。Intent後の真正不存在は終結可能、Root存在かつ実体receiptなしは未知として保全・停止 | 初期化途中の実体を名前や存在だけで自動採用・削除する代替回復は作らない |
+| Doctor | 通常診断はHost領域作成自体を撤去。明示隔離試験だけ上位の検証済みRepositoryからHost記録へ接続 | 通常診断のためだけの一時領域と独立Host回復記録 |
+| Provider認証 | Repository横断Homeの既存記録と排他を維持。Host markerとはScopeを分ける | この方針を全Auth記録のRepository内移管へ拡張しない |
+| 変更内容 | 借用したMain／Linked Worktreeの開始時Git可視内容を基準Commit、実行後を候補Commitへ固定。dirty開始をHEADとの差へ畳まない | 全物理File Inventory・Manifest・独自前後Hash。Git無視対象・管理外領域の一律物理監査は廃止 |
+| Reviewer | 既存VC copyCommitFilesで固定候補Commitを自己所有領域へ展開し、その内容だけを読む | 候補固定後も可変Worktreeを読ませる経路。Commit IDを旧Manifest Hashへ詰める互換表現は作らない |
+| Git資源 | 基準・候補の保持Refと既知OID、一時Indexの情報を既存Operation記録へ結合し、既存VC操作で処置する | 別のRef Registry・清掃Storeは作らない。既存保持物の自動移行・削除は行わない |
+
+通常DoctorのHost作成撤去は実装した。診断改訂17で受動時のFilesystem Policyをnull、Directory checkを未要求と表示し、明示隔離試験の作成・回収は維持する。限定結果は[変更記録](change.md#受動doctorのhost作成撤去)へ記録する。Git基準化はVCの追跡済み／無視外未追跡Fileを基準・候補Commitへ固定し、Reviewerはその許可範囲コピーを使用する。独自Filesystem全再帰・Inventory・Manifest・候補WeakMapは撤去した。Host本番Sourceの切替と有限代役・実保存の限定確認は進んでいるが、旧試験追従・実AI／Dockerを含む完成検証とは区別する。
+
+続くEM保存基盤では、Hostを既存OperationRecord／Readerへ追加し、既存開始／Checkpointから同じWriterへ保存できるよう接続した。一般AccessとAMの内容権限は維持し、信頼したHost用途だけを分ける。初回Intentを含む一出版、元改訂と現在認可、保存不明の元参照を限定確認する段階であり、CoordinatorのRun／Advice・明示隔離試験の切替と旧marker／token撤去は未完了である。[保存基盤の限定結果](change.md#host作成前intentの既存writer接続)を参照する。
+
+次の着手単位では、通常Run／Advice、明示隔離試験、回復、Git内容固定の本番接続を閉じる。作成前IntentはHostOperationAccessの元操作単位の現在確認を通じて既存Writerへ接続する。Host技術記録のAccessはPrincipalを持たず、現在認可は維持する。保存済みHost参照は既存回復照会へ接続済みだが、実体の観測・回復切替ではない。一般ExecutionModelAccess／AMのProject内容用途をHost許可へ広げず、偽ProjectやRoot作成後の管理Capabilityを作成前保存へ流用しない。下位にCoordinatorのPrincipal・Task順序・採否判断を移さず、製品Sourceと利用側の実接続が完了してから旧Reader・marker・Inventoryを撤去する。新旧の恒久並存や、部分実装を完成として固定する処置は採らない。
 
 ## Local許可体系の退役 — 2026-11-19
 

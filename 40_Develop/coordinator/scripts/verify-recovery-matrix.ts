@@ -16,6 +16,10 @@ import {
   recoverDockerIsolationProbe,
 } from "../src/execution/diagnostics.ts";
 import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
+import {
+  getRepositoryFromWorkingDirectory,
+  resolveVerifiedRepositoryRoot,
+} from "../../version-control/src/index.ts";
 import { createDynamicFakeProviderRecoverableResidue } from "./probe-verification.ts";
 import {
   displayVerificationRecording,
@@ -406,10 +410,24 @@ async function verifyParentLossThenRecover() {
         "signed_recovery_matrix_parent_child_exit_unconfirmed",
         recoveryId,
       );
-    const recovered = recoverDockerIsolationProbe(
+    const location = getRepositoryFromWorkingDirectory(process.cwd());
+    if (location.status !== "completed")
+      throw new RecoveryMatrixFailure(
+        "repository_identity_unavailable",
+        recoveryId,
+      );
+    const repository = location.capability,
+      root = resolveVerifiedRepositoryRoot(repository);
+    if (!root)
+      throw new RecoveryMatrixFailure(
+        "repository_identity_unavailable",
+        recoveryId,
+      );
+    const recovered = await recoverDockerIsolationProbe(
       recoveryId,
-      ready.operationRoot,
-    ) as RuntimeRecord | null;
+      repository,
+      () => resolveVerifiedRepositoryRoot(repository) === root,
+    );
     if (!recoveryCompleted(recovered))
       throw new RecoveryMatrixFailure(
         "signed_recovery_matrix_parent_loss_recovery_failed",
@@ -501,10 +519,24 @@ async function verifyCleanupUnknownThenRecover() {
         "signed_recovery_matrix_cleanup_child_exit_unconfirmed",
         recoveryId,
       );
-    const recovered = recoverDockerIsolationProbe(
+    const location = getRepositoryFromWorkingDirectory(process.cwd());
+    if (location.status !== "completed")
+      throw new RecoveryMatrixFailure(
+        "repository_identity_unavailable",
+        recoveryId,
+      );
+    const repository = location.capability,
+      root = resolveVerifiedRepositoryRoot(repository);
+    if (!root)
+      throw new RecoveryMatrixFailure(
+        "repository_identity_unavailable",
+        recoveryId,
+      );
+    const recovered = await recoverDockerIsolationProbe(
       recoveryId,
-      ready.operationRoot,
-    ) as RuntimeRecord | null;
+      repository,
+      () => resolveVerifiedRepositoryRoot(repository) === root,
+    );
     if (!recoveryCompleted(recovered))
       throw new RecoveryMatrixFailure(
         "signed_recovery_matrix_cleanup_unknown_recovery_failed",
@@ -559,7 +591,17 @@ async function runInternalResidueChild(shouldWaitForTermination: boolean) {
     process.exitCode = 2;
     return;
   }
-  const owned = createOwnedOperationDirectories();
+  const location = getRepositoryFromWorkingDirectory(process.cwd());
+  if (location.status !== "completed")
+    throw Error("repository_identity_unavailable");
+  const repository = location.capability,
+    root = resolveVerifiedRepositoryRoot(repository);
+  if (!root) throw Error("repository_identity_unavailable");
+  const owned = createOwnedOperationDirectories({
+    root: repository,
+    purpose: "isolation_probe",
+    recordingCurrent: () => resolveVerifiedRepositoryRoot(repository) === root,
+  });
   const residue = createDynamicFakeProviderRecoverableResidue(owned);
   process.stdout.write(
     `${JSON.stringify({

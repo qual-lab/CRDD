@@ -1,10 +1,11 @@
 /**
- * Coordinatorが借用する実行領域のFileとinventoryを安定読取りする。
+ * Gitが列挙した実行対象Fileを安定読取りする。
  * @packageDocumentation
  * @responsibility File実体・Path・linkと読取り前後差を検査する。
  * @trace ARCH-000008
+ * @trace ARCH-000009
  * @trace ARCH-000013
- * @boundary Git非管理の実行領域を含む、上位で所在を確定したFilesystemの読取り。
+ * @boundary 上位が確定したGit Worktree。無視された未追跡領域は走査しない。
  * @effect Fileを読取り、Commit・採用・巻戻し・削除を発行しない。
  */
 import fs from "node:fs";
@@ -13,22 +14,6 @@ import { createHash } from "node:crypto";
 const RESERVED_WINDOWS_SEGMENT =
   /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
 const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
-/**
- * repository-workspace-runtimeで使用するInventory Entryの値契約を定義する。
- *
- * @responsibility Inventory EntryのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000013
- * @shape InventoryEntryが表すProperty、識別子およびRelationを型として固定する。
- * @invariant InventoryEntryで宣言した値と責務の対応を維持する。
- * @boundary N/A: InventoryEntryの宣言は外部境界を開かない。
- * @security InventoryEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility InventoryEntryの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type ExecutionFileEntry = Readonly<{
-  relativePath: string;
-  byteLength: number;
-  sha256: string;
-}>;
 /**
  * Segmentが有効か判定する。
  *
@@ -82,79 +67,6 @@ export function isExecutionRelativePath(relativePath: string) {
     !relativePath.includes("\\") &&
     relativePath.split("/").every(validSegment)
   );
-}
-
-/**
- * Fileを安定Identityへ変換する。
- *
- * @responsibility Fileの正規化条件、一意性、変換不能時の拒否境界を所有する。
- * @trace ARCH-000013
- * @input target: string
- * @returns stableFileの計算結果を返す。
- * @precondition 「target: string」がstableFileの入力契約を満たす。
- * @postcondition stableFileの責務を完了した結果だけを返す。
- * @effect stableFileはFileを読取り、descriptorとPathの前後Identityを観測する。
- * @failure stableFileは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant stableFileは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security stableFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: stableFileは共有非同期状態を持たない同期処理である。
- */
-function stableFile(target: string) {
-  const handle = fs.openSync(target, "r");
-  try {
-    const before = fs.fstatSync(handle, { bigint: true });
-    if (
-      !before.isFile() ||
-      before.isSymbolicLink() ||
-      before.size < 0n ||
-      !Number.isSafeInteger(Number(before.size))
-    ) {
-      throw new Error("repository_workspace_file_invalid");
-    }
-    const hash = createHash("sha256");
-    const buffer = Buffer.alloc(64 * 1024);
-    let readBytes = 0;
-    while (readBytes < Number(before.size)) {
-      const readLength = fs.readSync(
-        handle,
-        buffer,
-        0,
-        Math.min(buffer.byteLength, Number(before.size) - readBytes),
-        readBytes,
-      );
-      if (readLength <= 0) throw new Error("repository_workspace_file_changed");
-      hash.update(buffer.subarray(0, readLength));
-      readBytes += readLength;
-    }
-    const after = fs.fstatSync(handle, { bigint: true });
-    if (
-      before.dev !== after.dev ||
-      before.ino !== after.ino ||
-      before.birthtimeNs !== after.birthtimeNs ||
-      before.size !== after.size ||
-      before.mtimeNs !== after.mtimeNs ||
-      before.ctimeNs !== after.ctimeNs
-    ) {
-      throw new Error("repository_workspace_file_changed");
-    }
-    const current = fs.lstatSync(target, { bigint: true });
-    if (
-      !current.isFile() ||
-      current.isSymbolicLink() ||
-      current.dev !== before.dev ||
-      current.ino !== before.ino ||
-      current.birthtimeNs !== before.birthtimeNs
-    ) {
-      throw new Error("repository_workspace_file_changed");
-    }
-    return Object.freeze({
-      byteLength: Number(before.size),
-      sha256: hash.digest("hex"),
-    });
-  } finally {
-    fs.closeSync(handle);
-  }
 }
 
 /**
@@ -223,101 +135,4 @@ export function readExecutionFile(target: string) {
   } finally {
     fs.closeSync(handle);
   }
-}
-
-/**
- * inventoryを決定する。
- *
- * @responsibility inventoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000013
- * @input workspace: 対象Tree、borrowed: 既定false。true時はRoot直下.git／.crddを除外し、nested Gitとhardlinkを拒否する。
- * @returns inventoryの計算結果を返す。
- * @precondition 「workspace: string」がinventoryの入力契約を満たす。
- * @postcondition inventoryの責務を完了した結果だけを返す。
- * @effect inventoryはDirectoryとFileを走査し、内容のHashだけを取得する。
- * @failure inventoryは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant inventoryは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security inventoryは上位の許可Path・Secret・Capability判定を代替せず、Authorityを発行しない。
- * @concurrency N/A: inventoryは共有非同期状態を持たない同期処理である。
- */
-export function readExecutionInventory(workspace: string, borrowed = false) {
-  const root = fs.realpathSync.native(workspace);
-  const rootMetadata = fs.lstatSync(root);
-  if (!rootMetadata.isDirectory() || rootMetadata.isSymbolicLink())
-    throw new Error("repository_workspace_root_invalid");
-  const entries: ExecutionFileEntry[] = [];
-  const comparisonPaths = new Set<string>();
-
-  /**
-   * visitを決定する。
-   *
-   * @responsibility visitの導出に必要な入力、判定規則、返却結果の境界を所有する。
-   * @trace ARCH-000013
-   * @input directory: string、parentPath: string
-   * @returns N/A: visitは戻り値を返さない。
-   * @precondition 「directory: string、parentPath: string」がvisitの入力契約を満たす。
-   * @postcondition visitの責務を完了して呼出し元へ制御を戻す。
-   * @effect visitはDirectoryとFileの読取りだけを行う。
-   * @failure visitは入力不正または下位処理の失敗を呼出し側へ返す。
-   * @invariant visitは宣言した境界以外へEffectを拡張しない。
-   * @boundary FilesystemとProcess内Domain処理の境界。
-   * @security visitはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
-   * @concurrency N/A: visitは共有非同期状態を持たない同期処理である。
-   */
-  function visit(directory: string, parentPath: string) {
-    const directoryEntries = fs.readdirSync(directory, { withFileTypes: true });
-    const comparisonNames = new Set<string>();
-    for (const entry of directoryEntries) {
-      if (
-        borrowed &&
-        !parentPath &&
-        [".GIT", ".CRDD"].includes(entry.name.toUpperCase())
-      )
-        continue;
-      if (borrowed && entry.name.toUpperCase() === ".GIT")
-        throw new Error("repository_workspace_nested_git_rejected");
-      if (!validSegment(entry.name))
-        throw new Error("repository_workspace_path_invalid");
-      const comparisonName = entry.name.toUpperCase();
-      if (comparisonNames.has(comparisonName))
-        throw new Error("repository_workspace_case_collision");
-      comparisonNames.add(comparisonName);
-      const relativePath = parentPath
-        ? `${parentPath}/${entry.name}`
-        : entry.name;
-      if (!isExecutionRelativePath(relativePath))
-        throw new Error("repository_workspace_path_invalid");
-      const target = path.join(directory, entry.name);
-      const metadata = fs.lstatSync(target);
-      if (borrowed && metadata.isFile() && metadata.nlink !== 1)
-        throw new Error("repository_workspace_hardlink_rejected");
-      if (metadata.isSymbolicLink())
-        throw new Error("repository_workspace_link_rejected");
-      if (entry.isDirectory() && metadata.isDirectory()) {
-        visit(target, relativePath);
-        continue;
-      }
-      if (!entry.isFile() || !metadata.isFile())
-        throw new Error("repository_workspace_entity_rejected");
-      const comparisonPath = relativePath.toUpperCase();
-      if (comparisonPaths.has(comparisonPath))
-        throw new Error("repository_workspace_case_collision");
-      comparisonPaths.add(comparisonPath);
-      const observed = stableFile(target);
-      entries.push(
-        Object.freeze({
-          relativePath,
-          byteLength: observed.byteLength,
-          sha256: observed.sha256,
-        }),
-      );
-    }
-  }
-
-  visit(root, "");
-  entries.sort((left, right) =>
-    Buffer.from(left.relativePath).compare(Buffer.from(right.relativePath)),
-  );
-  return Object.freeze(entries);
 }

@@ -2697,9 +2697,24 @@ for (const transport of ["tool-child-process"] as const) {
       const file = path.join(root, ".crdd/domain-model/state.json");
       if (fs.existsSync(file)) {
         const state = JSON.parse(fs.readFileSync(file, "utf8"));
-        assert.deepEqual(state.operations, []);
+        for (const operation of state.operations) {
+          assert.equal(operation.kind, "host_operation");
+          assert.equal(operation.phase, "terminal");
+          assert.equal(operation.cleanup, "confirmed");
+          assert.equal(
+            operation.recoveryId,
+            `host-operation.${operation.operationId}`,
+          );
+          assert.throws(
+            () =>
+              fs.lstatSync(
+                path.join(root, ".crdd", "operations", operation.operationId),
+              ),
+            { code: "ENOENT" },
+          );
+        }
         assert.deepEqual(state.unresolvedRecoveries, []);
-        assert.equal(state.schema, "crdd-execution-model/state/v6");
+        assert.equal(state.schema, "crdd-execution-model/state/v7");
         assert.deepEqual(state.historyPending, []);
         assert.deepEqual(state.leaseIntents, []);
         assert.ok(

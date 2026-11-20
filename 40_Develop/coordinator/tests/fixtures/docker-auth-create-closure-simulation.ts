@@ -192,8 +192,8 @@ export async function simulateAuthCreateClosure(
   const area = path.join(distribution, ".crdd", "tests");
   const root = path.join(area, "auth-create-closure");
   const statePath = path.join(root, ".crdd", "domain-model", "state.json");
-  const hostRoot = path.join(root, ".crdd", "tests", "owned-host");
-  const marker = path.join(root, ".crdd", "tests", "owned-marker");
+  const operationId = "OP-123";
+  const hostRoot = path.join(root, ".crdd", "operations", operationId);
   const image =
     "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
   const imageId =
@@ -267,9 +267,21 @@ export async function simulateAuthCreateClosure(
   ])
     put(directory, true);
   const identity = {
+    operationId,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
     workspaceMountMode: null,
-    hostPaths: { root: hostRoot, marker },
+  };
+  const host = {
+    kind: "host_operation",
+    operationId,
+    recoveryId: `host-operation.${operationId}`,
+    purpose: "authentication",
+    phase: "active",
+    cleanup: "not_requested",
+    rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
+    childIdentities: {},
+    git: [],
+    resources: null,
   };
   const target = {
     kind: "docker_task",
@@ -315,7 +327,7 @@ export async function simulateAuthCreateClosure(
     marker: "preserved",
   };
   let snapshot = {
-    operations: [target as Record<string, unknown>, other],
+    operations: [target as Record<string, unknown>, host, other],
     unresolvedRecoveries: [],
   };
   const fakeFs = {
@@ -490,11 +502,10 @@ export async function simulateAuthCreateClosure(
       for (const directory of [
         path.join(root, ".crdd"),
         path.join(root, ".crdd", "domain-model"),
-        path.join(root, ".crdd", "tests"),
+        path.join(root, ".crdd", "operations"),
         hostRoot,
       ])
         put(directory, true);
-      put(marker, false, Buffer.from("marker"));
       const bytes = Buffer.from(JSON.stringify(snapshot));
       put(statePath, false, bytes);
       present = true;
@@ -1097,7 +1108,9 @@ export async function simulateAuthCreateClosure(
           }
           if (
             fault === "final_reader_unknown" &&
-            snapshot.operations.length === 1
+            !snapshot.operations.some(
+              (item) => item.recoveryId === target.recoveryId,
+            )
           ) {
             hits++;
             return { status: "blocked", lockReleased: true };
@@ -1202,11 +1215,17 @@ export async function simulateAuthCreateClosure(
           }
           if (!recovered) return { status: "blocked" };
           if (fault === "state_retained") hits++;
-          else snapshot = { ...snapshot, operations: [other] };
+          else
+            snapshot = {
+              ...snapshot,
+              operations: [
+                { ...host, phase: "terminal", cleanup: "confirmed" },
+                other,
+              ],
+            };
           if (fault === "host_retained") hits++;
           else {
             nodes.delete(hostRoot);
-            nodes.delete(marker);
           }
           nodes.set(statePath, {
             directory: false,

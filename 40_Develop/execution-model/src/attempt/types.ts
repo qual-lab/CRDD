@@ -4,7 +4,7 @@
  * @trace ARCH-000008
  */
 
-import type { StateVersion } from "../state/types.ts";
+import type { ExecutionModelAccess, StateVersion } from "../state/types.ts";
 import type { REPAIR_ACTIONS, REPAIR_DIRECTORIES } from "./validation.ts";
 
 /** Provider応答の失敗理由。公開完了理由と内部要約検査が共有する値契約。 */
@@ -195,9 +195,9 @@ export type RepairRetentionTargets = Readonly<
 /** 同じ操作の技術Snapshotと記録状態。資源Identityをcheckpointへ複製しない。 */
 /** 固定の操作記録だけを更新する。値は各モデルの既存検査で受理する。 */
 export type OperationCheckpointRequest = Readonly<
+  | { kind: "host_operation"; value: unknown }
   | { kind: "resource"; value: unknown }
   | { kind: "cleanup"; value: unknown }
-  | { kind: "host"; value: unknown }
   | { kind: "lifecycle"; value: unknown }
   | { kind: "references"; value: unknown }
   | { kind: "restart"; value: unknown }
@@ -258,11 +258,6 @@ export type ExecutionOperationRecord = Readonly<{
   recoveryId: string;
   phase: "executing" | "settling" | "terminal";
   resources: OperationResources | null;
-  host: Readonly<{
-    currentToken: string;
-    pendingTransitionJson: string | null;
-    cleanup: "not_requested" | "pending" | "confirmed" | "unknown";
-  }>;
   lease: "held" | "released" | "unknown";
   execution: Readonly<{
     providerStart: "not_started" | "started" | "unknown";
@@ -347,16 +342,80 @@ export type RepairOperationRecord = Readonly<{
 }>;
 
 /**
- * 同じ閉集合に保存するTaskまたは実行環境修復。
+ * 同じ閉集合に保存するDocker実行・Host作業領域・実行環境修復。
  * @responsibility 各操作固有のfieldをkindで区別する。
  * @trace ARCH-000008
- * @shape docker_taskまたはruntime_repair。
+ * @shape docker_task、host_operation又はruntime_repair。
  * @invariant kindを狭めずTask固有状態へアクセスしない。
  * @boundary 一つの現在状態内の異なる操作。
  * @security 一方のIdentityを他方のAuthorityへ変換しない。
  * @compatibility 判別不能な旧形状を受理しない。
  */
-export type OperationRecord = ExecutionOperationRecord | RepairOperationRecord;
+export type OperationRecord =
+  | ExecutionOperationRecord
+  | RepairOperationRecord
+  | HostOperationRecord;
+
+/**
+ * Repository内の一つのHost作業領域の作成意図・実体・回収を保持する。
+ * @responsibility Dockerごとの複製や別markerを使わず、同じ操作のReceiptを保存する。
+ * @trace ARCH-000008
+ * @boundary 保存値はFilesystemの実観測又は削除許可そのものではない。
+ * @security 任意のRoot指定・認証値・回復Authorityを持たず、資源内の非秘密Mount値を削除許可にしない。
+ * @compatibility Hostの回復参照は元操作IDから導き、旧tokenへ変換しない。
+ */
+export type HostOperationRecord = Readonly<{
+  kind: "host_operation";
+  operationId: string;
+  recoveryId: string;
+  purpose: "task" | "advice" | "isolation_probe";
+  /** Probeだけが技術資源を保持する。Task／Adviceは既存docker_taskを正本とする。 */
+  resources: OperationResources | null;
+  /** Taskの固定内容を保持するGit資源。未要求時は項目自体を持たない。 */
+  git?: readonly Readonly<{
+    name: string;
+    commitId: string | null;
+    temporary: Readonly<{
+      relativePath: string;
+      identity: string | null;
+    }> | null;
+    request: "not_issued" | "unknown" | "confirmed";
+    cleanup: "pending" | "confirmed";
+  }>[];
+  createdAt: string;
+  phase: "preparing" | "active" | "terminal";
+  rootIdentity: DirectoryIdentity | null;
+  childIdentities: Readonly<
+    Partial<
+      Record<
+        | "workspace"
+        | "providerHome"
+        | "tmp"
+        | "events"
+        | "projection"
+        | "management",
+        DirectoryIdentity
+      >
+    >
+  >;
+  cleanup: "not_requested" | "pending" | "confirmed" | "unknown";
+}>;
+
+/**
+ * 作成前Host記録を既存Repositoryへ保存する信頼した入口の接続。
+ * @responsibility 一般定義・Queueの権限と分け、現在の元操作だけを再照合する。
+ * @trace ARCH-000008
+ * @boundary 入力JSONから復元せず、認証・許可を確定する上位Ownerが構成する。
+ * @security この型や記録の存在だけで操作権限を発行しない。
+ */
+export type HostOperationAccess = Readonly<
+  Pick<ExecutionModelAccess, "root"> & {
+    revalidate: (
+      operation: "operation.record",
+      target: Readonly<{ operationId: string }>,
+    ) => boolean;
+  }
+>;
 
 /**
  * 取得済みの操作と同じ保存版に結び付いた値上の判定。
@@ -366,14 +425,16 @@ export type OperationRecord = ExecutionOperationRecord | RepairOperationRecord;
  */
 export type OperationState =
   | Readonly<{
+      kind: "host_operation";
+      operation: HostOperationRecord;
+      cleanupSettled: boolean;
+    }>
+  | Readonly<{
       kind: "docker_task";
       operation: ExecutionOperationRecord;
       resourcesSettled: boolean;
       restartSettled: boolean;
       authenticationClosureAllowed: boolean;
-      hostTransition: ReturnType<
-        typeof import("./validation.ts").validateHostRecoveryTransitionLineage
-      > | null;
     }>
   | Readonly<{
       kind: "runtime_repair";
@@ -512,8 +573,6 @@ export type RecoveryReadRequest =
   | Readonly<{
       kind:
         | "resource_publication"
-        | "host_cleanup"
-        | "initial_host"
         | "execution_history"
         | "repair_history"
         | "execution_completion"
@@ -539,20 +598,12 @@ export type RecoveryCheckpointRequest =
       assertOwner: () => boolean;
     }>
   | Readonly<{
-      kind: "resource" | "cleanup" | "host" | "lifecycle" | "restart";
+      kind: "resource" | "cleanup" | "lifecycle" | "restart";
       value: unknown;
       assertOwner: () => boolean;
     }>
   | Readonly<{ kind: "terminal"; assertOwner: () => boolean }>
-  | Readonly<{
-      kind: "host_cleanup";
-      assertAbsentOwner: () => boolean;
-      publication: ReturnType<
-        typeof import("../state/crud.ts").readRecoveryState
-      >["hostCleanupPublication"];
-    }>
   | Readonly<{ kind: "resource_not_issued"; purpose: unknown }>
-  | Readonly<{ kind: "host_cleanup_preparation" }>
   | Readonly<{
       kind: "authentication_unknown_closure";
       observations: unknown;

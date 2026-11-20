@@ -484,22 +484,6 @@
       ]
     },
     {
-      "symbolId": "runtime-data.test.integration.consumer-closure",
-      "kind": "test-suite",
-      "path": "tests/integration/storage-consumer-closure.integration.test.ts",
-      "qaIds": [
-        "QA-000008"
-      ],
-      "localTestIds": [
-        "RDL-IT-001"
-      ],
-      "verifies": [
-        "access-management.public-api",
-        "crdd-domain-library.repository-entry",
-        "domain-model.configuration-entry"
-      ]
-    },
-    {
       "symbolId": "domain-model.runtime-data-path-reader",
       "kind": "file",
       "path": "src/storage/store.ts",
@@ -658,9 +642,11 @@
       ],
       "localTestIds": [
         "PRL-IT-012",
+        "ERB-IT-003",
         "ERB-IT-014"
       ],
       "verifies": [
+        "domain-model.src.attempt.crud",
         "domain-model.attempt.lease",
         "domain-model.storage.runtime-repository",
         "coordinator.state-storage.coordinator-state-runtime",
@@ -964,9 +950,11 @@
       "kind": "test-suite",
       "path": "tests/unit/resource-book.contract.test.ts",
       "qaIds": [
+        "QA-000003",
         "QA-000006"
       ],
       "localTestIds": [
+        "PRL-UT-006",
         "ERB-UT-023"
       ],
       "verifies": [
@@ -1176,13 +1164,17 @@
       "kind": "test-suite",
       "path": "tests/unit/attempt/checkpoint.contract.test.ts",
       "qaIds": [
+        "QA-000003",
         "QA-000006"
       ],
       "localTestIds": [
+        "PRL-UT-006",
         "ERB-UT-023"
       ],
       "verifies": [
-        "domain-model.src.attempt.crud"
+        "domain-model.src.attempt.crud",
+        "domain-model.attempt.repair-types",
+        "domain-model.attempt.repair-validation"
       ]
     },
     {
@@ -1198,8 +1190,8 @@
       "verifies": [
         "domain-model.state.types",
         "domain-model.state.codec",
-          "domain-model.task.crud",
-          "domain-model.task.queue"
+        "domain-model.task.crud",
+        "domain-model.task.queue"
       ]
     },
     {

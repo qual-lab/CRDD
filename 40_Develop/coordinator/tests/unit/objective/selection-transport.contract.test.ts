@@ -29,9 +29,7 @@ import {
   createCoordinatorObjectiveResult,
 } from "../../../src/objective/execute.ts";
 import { inspectCoordinatorObjectivePlan } from "../../../src/objective/plan.ts";
-import { resolveCoordinatorReplan } from "../../../src/objective/replan.ts";
 import { resolveTaskExecutionSelections } from "../../../src/selection/resolve.ts";
-import type { CoordinatorStatePort } from "../../../src/state/persistence.ts";
 import {
   inspectCoordinatorObjectiveResult,
   inspectTaskStartCandidates,
@@ -370,114 +368,6 @@ test("最終読取りと回復保存後の候補不正はexact回復情報を保
   }
 });
 
-/**
- * 再計画保存の成功metadataを現在の結果と同じ断面で捕捉する。
- * @trace PRL-UT-014
- * @precondition 不変の初期Stateを一度だけ準備し、各差分は独立した値とPortを使う。
- * @stimulus 成功Task IDの欠測・別対象・Proxyと、Project・世代の不一致を与える。
- * @observation 後続Queue更新数、停止区分とhook実行回数。
- * @oracle 不明な成功応答を完了や未実施へ補完せず、後続更新を停止する。
- * @cleanup メモリのみ。
- */
-test("再計画保存の成功metadata不正はQueueを進めず保存後不明にする", () => {
-  const base = projectExecutionFixture({
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    repositoryRevision: "a".repeat(40),
-    ownerGeneration: "owner-a",
-    maximumConcurrency: 1,
-    milestoneAcceptanceCriteria: ["done"],
-    objectives: [{ id: "objective-a", acceptanceCriteria: ["done"] }],
-    tasks: [
-      {
-        id: "task-a",
-        objectiveId: "objective-a",
-        dependencies: [],
-        allowedPaths: ["file.txt"],
-        conflictKeys: [],
-      },
-    ],
-    taskExecutionSelections: fixtureTaskExecutionSelections(),
-  }).state;
-  let hooks = 0;
-  for (const mode of [
-    "ok",
-    "missing",
-    "wrong",
-    "proxy",
-    "project",
-    "generation",
-  ]) {
-    const before = {
-      ...structuredClone(base),
-      tasks: base.tasks.map((item) => ({
-        ...structuredClone(item),
-        state: "failed" as const,
-      })),
-    };
-    let queueWrites = 0;
-    const after = {
-      ...structuredClone(before),
-      generation: before.generation + 1,
-      ...(mode === "project" ? { projectId: "other" } : {}),
-      ...(mode === "generation" ? { generation: before.generation } : {}),
-    };
-    const port = {
-      readState: () => ({ status: "completed", value: before }),
-      readQueue: () => ({
-        status: "completed",
-        value: {
-          projectId: "project-a",
-          milestoneId: "milestone-a",
-          state: "replan_required",
-          ownerGeneration: null,
-          generation: 1,
-        },
-      }),
-      updateTask: () => ({
-        status: "completed",
-        value: after,
-        ...(mode === "missing"
-          ? {}
-          : {
-              taskUpdateTaskIds:
-                mode === "wrong"
-                  ? ["other"]
-                  : mode === "proxy"
-                    ? new Proxy(["task-a"], {
-                        get() {
-                          hooks++;
-                          throw Error("hook");
-                        },
-                      })
-                    : ["task-a"],
-            }),
-      }),
-      updateQueue: () => {
-        queueWrites++;
-        return { status: "completed" };
-      },
-    } as unknown as CoordinatorStatePort;
-    const result = resolveCoordinatorReplan(
-      port,
-      {
-        projectId: "project-a",
-        milestoneId: "milestone-a",
-        queueId: "queue-a",
-        maximumReplans: 1,
-      },
-      () => ({ disposition: "maintain_plan", reason: "fixture" }),
-    );
-    assert.equal(queueWrites, mode === "ok" ? 1 : 0, mode);
-    assert.equal(result.status, mode === "ok" ? "completed" : "blocked", mode);
-    if (mode !== "ok") {
-      assert.equal(result.effectState, "unknown");
-      assert.equal(result.cleanupConfirmed, false);
-      assert.equal(result.manualRecoveryRequired, true);
-    }
-  }
-  assert.equal(hooks, 0);
-});
 const objective = Object.freeze(
   withCallerPlan({
     operation: "start" as const,

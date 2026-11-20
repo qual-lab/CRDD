@@ -31,7 +31,7 @@ import {
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
 const revision = "a".repeat(40);
@@ -266,7 +266,7 @@ function fixture(
       .status,
     "completed",
   );
-  const ports = createCurrentCoordinatorPersistencePorts(root, binding);
+  const ports = createTestPersistence(root, binding);
   const initializations: Record<string, ProjectExecutionInitialization> =
     Object.create(null);
   for (const projectId of projectIds) {

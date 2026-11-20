@@ -21,7 +21,7 @@ import type {
 import { acceptResult } from "../../src/decision/acceptance.ts";
 import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
 import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";
-import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
 import {
   createRepository,
   persistAcceptancePendingState,
@@ -109,10 +109,7 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
       Object.freeze({ principalId: "operator-a" }),
     );
     assert.equal(accepted.status, "completed", accepted.reason);
-    const statePort = createCurrentCoordinatorPersistencePorts(
-      repository.root,
-      bindingId,
-    ).state;
+    const statePort = createTestPersistence(repository.root, bindingId).state;
     const observed = statePort.readState(projectId);
     assert.equal(observed.status, "completed");
     assert.ok(observed.value);

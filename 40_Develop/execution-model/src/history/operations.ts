@@ -39,7 +39,7 @@ export function operationSummaryBytes(
   const identity = JSON.parse(operation.identityJson);
   return Buffer.from(
     encodeStateValue({
-      schema: "crdd-execution-model/operation-summary/v5",
+      schema: "crdd-execution-model/operation-summary/v6",
       recoveryCorrelationId:
         identity.recoveryCorrelationId ?? identity.operationId,
       ...(operation.dockerRestart === null
@@ -52,7 +52,6 @@ export function operationSummaryBytes(
       primaryFailure: operation.primaryFailure,
       execution: operation.execution,
       outcome: operation.outcome,
-      hostCleanup: operation.host.cleanup,
       lease: operation.lease,
     }) + "\n",
   );

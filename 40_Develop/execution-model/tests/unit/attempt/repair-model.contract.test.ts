@@ -13,6 +13,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
+import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 import { runInThisContext } from "node:vm";
 import {
   repairCanComplete,
@@ -1531,7 +1532,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     assert.ok(source);
     return {
       ...source.snapshot,
-      schema: "crdd-execution-model/state/v6",
+      schema: "crdd-execution-model/state/v7",
       repositoryBindingId: null,
       projects: [],
       queueEntries: [],
@@ -2178,11 +2179,12 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
   assert.ok(publication);
   assert.ok(publication.historyBytes.equals(line));
   assert.equal(publication.historyChanged, true);
-  assert.equal(
-    decodeStateSnapshot(publication.snapshotBytes, binding)?.snapshot
-      .operations[0]?.history?.confirmed,
-    true,
-  );
+  const publishedOperation = decodeStateSnapshot(
+    publication.snapshotBytes,
+    binding,
+  )?.snapshot.operations[0];
+  assert.ok(publishedOperation?.kind === "runtime_repair");
+  assert.equal(publishedOperation.history?.confirmed, true);
   const duplicate = prepareRepairHistoryPublication(
     initialHistory,
     id,
@@ -3360,6 +3362,7 @@ test("修復variant: checkpointの意図前発行とunknown巻戻しを拒否す
   );
   const parsed = decodeStateSnapshot(intent, binding);
   assert.ok(parsed);
+  assert.ok(parsed.snapshot.operations[0]?.kind === "runtime_repair");
   assert.equal(
     parsed.snapshot.previous?.payloadSha256,
     createHash("sha256").update(begun).digest("hex"),
@@ -3607,76 +3610,45 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
  * @boundary N/A: unionの純粋検査。
  */
 test("修復variant: Taskと同居し双方向の更新で対象外全文を保持する", () => {
-  const hostRecord = {
-    schema: "crdd-coordinator-host-recovery/v1",
-    state: "host_only",
-    rootName: "crdd-coordinator-doctor-fixture",
-    rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-    childIdentities: {
-      management: {
-        pathName: "management",
-        dev: "1",
-        ino: "3",
-        birthtimeNs: "4",
-      },
-    },
-    createdAt: "2026-08-25T00:00:00.000Z",
-  };
-  const hostHash = createHash("sha256")
-    .update(`${JSON.stringify(hostRecord)}\n`)
-    .digest("hex");
-  const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
+  const resourceFixture = createResourceOperationFixture();
+  const initialState = decodeStateSnapshot(
+    resourceFixture.bytes,
+    resourceFixture.binding,
+  );
+  assert.ok(initialState);
+  const initialHost = initialState.snapshot.operations.find(
+    (item) => item.kind === "host_operation",
+  );
+  assert.ok(initialHost);
   const taskIdentity = {
-    schema: "crdd-coordinator/operation-identity/v5",
-    operationNonce: "b".repeat(64),
-    provider: "claude",
-    consumer: "orchestrator",
+    ...resourceFixture.identity,
     operationId: "OP-234567",
-    // 保存codec用の閉じた合成値。Catalog解決やAI実行の成立を表さない。
-    executionSelection: {
-      provider: "claude",
-      modelIdentifier: "opus",
-      identifierKind: "alias",
-      reasoningEffort: "low",
-      purpose: "task",
-      catalogIdentity:
-        "5e1d3387ad7fcfe61a6f2521291c2ed118fe0091f9db2aea63e1cd7aa067ed2c",
-      configIdentity:
-        "e70d12e5f16639d9774b9f1f2803deaa37528b28bdf3e938d8badd4f4c5cfb1f",
-      role: "executor",
-      workType: null,
-      source: "explicit",
-    },
-    taskAttempt: 0,
-    stableLogicalHomeBindingHash: "c".repeat(64),
-    providerHomeIdentityHash: "8".repeat(64),
     repositoryBinding: binding,
-    ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    operationMode: "isolated_task",
-    workspaceMountMode: "read_write",
-    initialHostRecoveryId: token,
-    initialHostRecovery: {
-      token,
-      recordHash: hostHash,
-      directoryIdentity: "1:2:3",
-      markerIdentity: "1:2:4",
-      record: hostRecord,
-    },
-    hostPaths: { root: "host-root", marker: "host-marker" },
   };
+  const taskHost = {
+    ...initialHost,
+    operationId: taskIdentity.operationId,
+    recoveryId: `host-operation.${taskIdentity.operationId}`,
+  };
+  const taskBase = Buffer.from(
+    `${encodeStateValue({ ...initialState.snapshot, repositoryBinding: binding, operations: [taskHost] })}\n`,
+  );
   const taskBytes = prepareStateOperationSnapshot(
-    null,
+    taskBase,
     `${JSON.stringify(taskIdentity)}\n`,
     binding,
   );
   assert.ok(taskBytes);
-  const task = decodeStateSnapshot(taskBytes, binding)?.snapshot.operations[0];
+  const task = decodeStateSnapshot(
+    taskBytes,
+    binding,
+  )?.snapshot.operations.find((item) => item.kind === "docker_task");
   assert.ok(task?.kind === "docker_task");
   const both = prepareStateRepairSnapshot(taskBytes, text, binding);
   assert.ok(both);
   const parsed = decodeStateSnapshot(both, binding);
   assert.ok(parsed);
-  assert.equal(parsed.snapshot.operations.length, 2);
+  assert.equal(parsed.snapshot.operations.length, 3);
   const repair = parsed.snapshot.operations.find(
     (item) => item.kind === "runtime_repair",
   );
@@ -3809,7 +3781,6 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     },
     phase: "settling",
     lease: "released",
-    host: { ...task.host, cleanup: "confirmed" },
     execution: { ...task.execution, ownerEffect: "disabled" },
     outcome: {
       status: "cancelled",
@@ -3819,7 +3790,26 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   };
   const nonempty = {
     ...ready.current.snapshot,
-    operations: [finishedTask, ready.operation, other],
+    operations: [
+      {
+        ...taskHost,
+        phase: "terminal" as const,
+        cleanup: "confirmed" as const,
+      },
+      finishedTask,
+      ready.operation,
+      other,
+    ].sort((a, b) => {
+      const left =
+        a.kind === "host_operation"
+          ? a.operationId
+          : JSON.parse(a.identityJson).operationNonce;
+      const right =
+        b.kind === "host_operation"
+          ? b.operationId
+          : JSON.parse(b.identityJson).operationNonce;
+      return left < right ? -1 : left > right ? 1 : 0;
+    }),
     unresolvedRecoveries: [
       {
         operationNonce: taskIdentity.operationNonce,
@@ -3928,15 +3918,15 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   const absentMixed = Buffer.from(
     `${encodeStateValue({
       ...nonempty,
-      operations: [
-        finishedTask,
-        {
-          ...ready.operation,
-          checkpoint: absentTechnical,
-          disposition: "not_applicable",
-        },
-        other,
-      ],
+      operations: nonempty.operations.map((operation) =>
+        operation.recoveryId === ready.operation.recoveryId
+          ? {
+              ...ready.operation,
+              checkpoint: absentTechnical,
+              disposition: "not_applicable",
+            }
+          : operation,
+      ),
     })}\n`,
   );
   assert.ok(decodeStateSnapshot(absentMixed, binding));
@@ -4189,7 +4179,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
           oldTaskLine
             .toString("utf8")
             .replace(
-              "crdd-execution-model/operation-summary/v5",
+              "crdd-execution-model/operation-summary/v6",
               "crdd-coordinator/repair-summary/v1",
             ),
         ),

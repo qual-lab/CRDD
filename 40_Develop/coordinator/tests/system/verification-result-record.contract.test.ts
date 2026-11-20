@@ -26,14 +26,8 @@ import {
   runRecordedVerification,
 } from "../../scripts/verification-result-record.ts";
 import { createSignedRouteMatrixCliFailureResult } from "../../scripts/verify-route-matrix.ts";
-import {
-  coordinatorTaskPublicReasons,
-  formatHostRecoveryToken,
-} from "../../src/execution/result.ts";
-import {
-  formatDockerIsolationRecoveryToken,
-  isDockerIsolationRecoveryIdCandidate,
-} from "../../src/state/probe-record.ts";
+import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
+import { isCanonicalVerificationRecoveryId } from "../../scripts/verification-safety.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const packageRoot = path.resolve(import.meta.dirname, "../..");
@@ -522,7 +516,7 @@ test("subdirectoryからも最寄りRepositoryへ開始・終了を別記録し�
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERP-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
-test("実formatter由来のprobe／hostとTaskの回復IDを値を変えずに記録する", () => {
+test("固定Host参照とTaskの回復IDを値を変えずに記録し旧Tokenを拒否する", () => {
   const nonce = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
   const digest = "a".repeat(64);
   const manyIds = Array.from(
@@ -533,16 +527,11 @@ test("実formatter由来のprobe／hostとTaskの回復IDを値を変えずに�
   const many = projectVerificationResult({ dockerRecoveryIds: manyIds });
   assert.deepEqual(many.dockerRecoveryIds, manyIds);
   assert.equal(many.recoveryFieldsComplete, true);
-  const probe = formatDockerIsolationRecoveryToken(
-    "crdd-coordinator-doctor-test",
-    nonce,
-    nonce,
-    digest,
-  );
-  assert.equal(isDockerIsolationRecoveryIdCandidate(probe), true);
+  const probe = "host-operation.OP-123456";
+  assert.equal(isCanonicalVerificationRecoveryId(probe, "host"), true);
   for (const id of [
     probe,
-    formatHostRecoveryToken("crdd-coordinator-doctor-test", nonce, digest),
+    "host-operation.OP-654321",
     `docker-task.${digest}.${digest}.${digest}`,
   ]) {
     const result = projectVerificationResult({ recoveryId: id });
@@ -552,12 +541,14 @@ test("実formatter由来のprobe／hostとTaskの回復IDを値を変えずに�
   for (const id of [
     "PRIVATE_RECOVERY_SECRET",
     `docker.${"a".repeat(2048)}`,
-    probe.replace(digest, "not-a-hash"),
+    probe.replace("OP-", "UNKNOWN-"),
+    `host.crdd-coordinator-doctor-test.${nonce}.${digest}`,
+    `docker.crdd-coordinator-doctor-test.${nonce}.${nonce}.${digest}`,
   ]) {
     const result = projectVerificationResult({ recoveryId: id });
     assert.equal(result.recoveryId, null);
     assert.equal(result.recoveryFieldsComplete, false);
-    assert.equal(isDockerIsolationRecoveryIdCandidate(id), false);
+    assert.equal(isCanonicalVerificationRecoveryId(id, "host"), false);
   }
 });
 

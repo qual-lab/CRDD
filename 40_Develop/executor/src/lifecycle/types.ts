@@ -10,6 +10,7 @@ import type {
   IsolationSettings,
   IsolationExecutionResult,
   ResourceSnapshot,
+  ResourceTarget,
   PreparedIsolation,
   executeIsolation,
 } from "../../../docker-isolation/src/index.ts";
@@ -1137,7 +1138,7 @@ export type IsolationProbeFacts = Readonly<{
  * 固定Probeの同期必須通知と受動完了通知を定義する。
  * @responsibility 用途に実在する通知引数と完了条件だけを所有する。
  * @trace ARCH-000008
- * @shape 共通完了通知と用途固有のイベントハンドラー。
+ * @shape 共通完了通知と用途固有の同期通知。第2引数はDIの元Snapshotと回収条件。
  * @invariant 必須通知の失敗後は後続Effectを停止する。
  * @boundary 技術実行と上位の記録・観測。
  * @security Credential・生出力を通知へ追加しない。
@@ -1145,8 +1146,14 @@ export type IsolationProbeFacts = Readonly<{
  */
 export interface IsolationProbeCallbacks
   extends CompletionCallbacks<IsolationProbeResult> {
-  onCommandSubmitting?(purpose: string): void;
-  onResourceCreated?(dockerId: string): void;
+  onCommandSubmitting?(
+    purpose: string,
+    recovery: ResourceTarget<"snapshot", "cleanup">,
+  ): void;
+  onResourceCreated?(
+    dockerId: string,
+    recovery: ResourceTarget<"snapshot", "cleanup">,
+  ): void;
 }
 
 /** 固定Probe要求。任意ScriptやProvider指定を受け取らない。 */

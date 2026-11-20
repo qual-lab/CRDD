@@ -13,10 +13,12 @@ import type {
   ExecutionOperationRecord,
   RepairWritePurpose,
 } from "../attempt/types.ts";
-import { areTaskResourcesSettled } from "../attempt/validation.ts";
+import {
+  areTaskResourcesSettled,
+  readOperationHost,
+} from "../attempt/validation.ts";
 import { decodeHistoryRows } from "../history/validation.ts";
 import { prepareExecutionDefinitionChange } from "../objective/operations.ts";
-import type { readRecoveryState } from "../state/crud.ts";
 import type { ExecutionStateSnapshot } from "../state/types.ts";
 import {
   classifyRepairPublication,
@@ -28,6 +30,7 @@ import {
   prepareRepairHistoryPublication,
   prepareRepairHistorySnapshot,
   prepareStateCleanupSnapshot,
+  prepareStateHostOperationSnapshot,
   prepareStateCompletionSnapshot,
   prepareStateHistoryLine,
   prepareStateHistorySnapshot,
@@ -169,33 +172,6 @@ const historyAttempts = new WeakMap<
 >();
 
 /**
- * 新規Coordinator領域の初回保存を一つの本文へ結合する。
- * @responsibility 領域の排他的作成と同じOwner・本文の初期化証拠を所有する。
- * @trace ARCH-000008
- * @input managementCapability: 現在Owner、candidateBytes: 初回Snapshot本文。
- * @returns 準備結果、Effect情報と排他終了結果。
- * @precondition .crdd親は既存Ownerが正常作成済み。
- * @postcondition 既存の空領域を再利用しない。
- * @effect Runtime Data Ownerを通して新品coordinator領域だけを作成する。
- * @failure 既存領域、不一致、観測不能、解放失敗では停止する。
- * @invariant 失敗後の証拠を別本文へ転用せず、公開後は初回作成に使わない。
- * @boundary 操作Owner、Runtime Dataの領域作成と現在状態Writer。
- * @security 証拠は内部WeakMapだけに保持し、AuthorityやPathを公開しない。
- * @concurrency 同じCoordinator保存用の短期排他を用いる。
- */
-export function prepareOwnedStateInitialization(
-  managementCapability: unknown,
-  candidateBytes: unknown,
-) {
-  const repository = observeOperationRepository(managementCapability);
-  return prepareStateInitialization(
-    managementCapability,
-    repository,
-    candidateBytes,
-  );
-}
-
-/**
  * 現在呼出しの種別へ結合した初期本文を準備する。
  * @responsibility Taskと修復の資格を混同せず同じ領域作成・排他を再利用する。
  * @trace ARCH-000008
@@ -243,7 +219,9 @@ function prepareStateInitialization(
     initializations.has(initializationOwner) ||
     candidate.snapshot.operations.some(
       (operation) =>
-        JSON.parse(operation.identityJson).operationId !==
+        (operation.kind === "host_operation"
+          ? operation.operationId
+          : JSON.parse(operation.identityJson).operationId) !==
         repository.operationId,
     ) ||
     [...candidate.snapshot.unresolvedRecoveries].some((item) => {
@@ -588,9 +566,6 @@ function prepareStateWrite(
     recoveryId: string;
     purpose: string;
   }>,
-  hostCleanupPublication?: NonNullable<
-    ReturnType<typeof readRecoveryState>["hostCleanupPublication"]
-  >,
   repairContext?: object,
 ) {
   const repairBinding = repairContext ? settlements.get(repairContext) : null;
@@ -669,7 +644,6 @@ function prepareStateWrite(
       currentCompletion,
       currentRepair,
       settlement?.completion,
-      hostCleanupPublication,
     ].filter((pair) => pair !== null && pair !== undefined);
     let previousSnapshot: ExecutionStateSnapshot | null = null;
     let previousLockReleased = true;
@@ -723,7 +697,6 @@ function prepareStateWrite(
     bytes,
     settlement,
     unissued,
-    hostCleanupPublication,
     currentRepair,
     currentAuthenticationClosure,
     initializationOwner,
@@ -753,6 +726,11 @@ function prepareStateWrite(
  */
 function commitStateSnapshotOwned(
   prepared: Extract<ReturnType<typeof prepareStateWrite>, { lock: unknown }> & {
+    hostPublication?: Readonly<{
+      before: Buffer | null;
+      value: unknown;
+      initialBoundary: string | null;
+    }>;
     corePublication?: Readonly<{
       before: Buffer;
       kind: Parameters<typeof prepareExecutionDefinitionChange>[1];
@@ -774,7 +752,6 @@ function commitStateSnapshotOwned(
     bytes,
     settlement,
     unissued,
-    hostCleanupPublication,
     currentRepair,
     currentAuthenticationClosure,
     initializationOwner,
@@ -782,6 +759,7 @@ function commitStateSnapshotOwned(
     currentCompletion,
     taskPublication,
     corePublication,
+    hostPublication,
     lock,
   } = prepared;
   if (currentHistory) currentHistory.used = true;
@@ -937,11 +915,11 @@ function commitStateSnapshotOwned(
     if (currentAuthenticationClosure) {
       const bound = currentAuthenticationClosure;
       const beforeTasks = current?.snapshot.operations.filter(
-        (item) =>
+        (item): item is ExecutionOperationRecord =>
           item.kind === "docker_task" && item.recoveryId === bound.recoveryId,
       );
       const candidateTasks = candidate.snapshot.operations.filter(
-        (item) =>
+        (item): item is ExecutionOperationRecord =>
           item.kind === "docker_task" && item.recoveryId === bound.recoveryId,
       );
       const expected = prepareAuthenticationUnknownClosureSnapshot(
@@ -1065,6 +1043,7 @@ function commitStateSnapshotOwned(
       );
       if (
         taskPublication ||
+        hostPublication ||
         settlement ||
         currentRepair ||
         currentHistory ||
@@ -1079,6 +1058,27 @@ function commitStateSnapshotOwned(
         )
       )
         throw new Error("core_publication_scope_invalid");
+    }
+    if (hostPublication) {
+      const expected = prepareStateHostOperationSnapshot(
+        hostPublication.before,
+        hostPublication.value,
+        repository.repositoryBinding,
+      );
+      if (
+        taskPublication ||
+        corePublication ||
+        settlement ||
+        currentRepair ||
+        currentHistory ||
+        currentCompletion ||
+        !expected?.equals(bytes) ||
+        (hostPublication.before === null
+          ? currentBytes !== null ||
+            hostPublication.initialBoundary !== initial.boundaryIdentity
+          : !currentBytes?.equals(hostPublication.before))
+      )
+        throw new Error("host_publication_scope_invalid");
     }
     let completionConfirmed = false;
     let savedTerminalConfirmed = false;
@@ -1212,7 +1212,10 @@ function commitStateSnapshotOwned(
           item.kind === currentCompletion.operationKind &&
           item.recoveryId === settlement.recoveryId,
       );
-      const identity = operation ? JSON.parse(operation.identityJson) : null;
+      const identity =
+        operation && operation.kind !== "host_operation"
+          ? JSON.parse(operation.identityJson)
+          : null;
       const expected = (
         currentCompletion.operationKind === "runtime_repair"
           ? prepareStateRepairCompletionSnapshot
@@ -1228,6 +1231,7 @@ function commitStateSnapshotOwned(
         (item) => item.recoveryId === settlement.recoveryId,
       );
       if (
+        operation?.kind === "host_operation" ||
         !operation?.history?.confirmed ||
         identity?.operationId !== repository.operationId ||
         !expected?.equals(bytes) ||
@@ -1292,6 +1296,8 @@ function commitStateSnapshotOwned(
       if (
         !operation ||
         !target ||
+        operation.kind === "host_operation" ||
+        target.kind === "host_operation" ||
         JSON.parse(operation.identityJson).operationId !==
           repository.operationId ||
         JSON.parse(target.identityJson).operationId !== repository.operationId
@@ -1453,24 +1459,17 @@ function commitStateSnapshotOwned(
       ) &&
       current?.snapshot.operations.some(
         (operation) =>
+          operation.kind !== "host_operation" &&
           operation.recoveryId === settlement.recoveryId &&
           operation.history?.confirmed === true,
       ) === true;
     const pendingBytes = read("state.pending.json");
-    if (
-      hostCleanupPublication &&
-      (!currentBytes?.equals(hostCleanupPublication.before) ||
-        !bytes.equals(hostCleanupPublication.candidate) ||
-        (hostCleanupPublication.mode === "B"
-          ? !pendingBytes?.equals(bytes)
-          : pendingBytes !== null))
-    )
-      throw new Error("host_cleanup_publication_changed");
     if (pendingBytes !== null && !pendingBytes.equals(bytes))
       throw new Error("other_pending");
     const isInitialRoot =
       currentBytes === null &&
-      (taskPublication?.initialBoundary === initial.boundaryIdentity ||
+      (hostPublication?.initialBoundary === initial.boundaryIdentity ||
+        taskPublication?.initialBoundary === initial.boundaryIdentity ||
         (initializationOwner !== null &&
           typeof initializationOwner === "object" &&
           initializations.get(initializationOwner)?.repositoryBinding ===
@@ -1624,11 +1623,7 @@ function commitStateSnapshotOwned(
           throw new Error("settlement_primary_failure_unconfirmed");
         if (
           next.phase === "executing" ||
-          next.execution.ownerEffect === "active" ||
-          previous.host.currentToken !== next.host.currentToken ||
-          previous.host.pendingTransitionJson !==
-            next.host.pendingTransitionJson ||
-          (next.host.cleanup === "confirmed" && !settlement.cleanupStatus)
+          next.execution.ownerEffect === "active"
         )
           throw new Error("settlement_effect");
         if (
@@ -1639,7 +1634,9 @@ function commitStateSnapshotOwned(
           throw new Error("settlement_lease_observation_invalid");
         if (
           next.outcome?.cleanupConfirmed &&
-          (next.host.cleanup !== "confirmed" ||
+          (readOperationHost(candidate.snapshot.operations, next)?.cleanup !==
+            "confirmed" ||
+            !settlement.cleanupStatus ||
             next.lease !== "released" ||
             settlement.dockerTerminal?.homeLeaseReleased !== true ||
             settlement.dockerTerminal?.recoveryCompleted !== true ||
@@ -1657,6 +1654,15 @@ function commitStateSnapshotOwned(
     );
     for (const operation of candidate.snapshot.operations) {
       const previous = previousOperations.get(operation.recoveryId);
+      if (operation.kind === "host_operation") {
+        if (
+          (!previous ||
+            encodeStateValue(previous) !== encodeStateValue(operation)) &&
+          !hostPublication
+        )
+          throw new Error("host_writer_unconnected");
+        continue;
+      }
       if (operation.kind !== "docker_task") {
         if (
           (!previous ||
@@ -1798,7 +1804,8 @@ function commitStateSnapshotOwned(
           value.kind === (currentHistory?.operationKind ?? "docker_task") &&
           value.recoveryId === settlement.recoveryId,
       );
-      if (!line || !target?.history) throw new Error("history_unfixed");
+      if (!line || target?.kind === "host_operation" || !target?.history)
+        throw new Error("history_unfixed");
       const priorHistory = read("history.jsonl");
       const before = priorHistory ?? Buffer.alloc(0);
       const rows = decodeHistoryRows(before);
@@ -2302,7 +2309,6 @@ export function publishRecoveryState(request: RecoveryPublication) {
           }
         : null,
       undefined,
-      undefined,
       binding.kind === "runtime_repair" ||
         binding.kind === "authentication_unknown_closure"
         ? context
@@ -2326,6 +2332,12 @@ export function publishRecoveryState(request: RecoveryPublication) {
 }
 
 type OwnedPublication =
+  | Readonly<{
+      kind: "host";
+      before: Buffer | null;
+      value: unknown;
+      initialBoundary: string | null;
+    }>
   | Readonly<
       { kind: "task" } & NonNullable<
         Parameters<typeof commitStateSnapshotOwned>[0]["taskPublication"]
@@ -2367,7 +2379,9 @@ export function publishStateOwned(
     !binding ||
     !candidate ||
     !isLiveStorageOwner(owner) ||
-    (publication.kind !== "task" && publication.kind !== "definition")
+    (publication.kind !== "task" &&
+      publication.kind !== "definition" &&
+      publication.kind !== "host")
   )
     return {
       filesystemEffectIssued: false,
@@ -2381,7 +2395,6 @@ export function publishStateOwned(
     bytes: Buffer.from(bytes),
     settlement: null,
     unissued: undefined,
-    hostCleanupPublication: undefined,
     managementCapability: null,
     currentRepair: null,
     currentAuthenticationClosure: null,
@@ -2407,13 +2420,21 @@ export function publishStateOwned(
             initialBoundary: publication.initialBoundary,
           },
         }
-      : {
-          corePublication: {
-            before: publication.before,
-            kind: publication.operation,
-            request: publication.request,
-            revision: publication.revision,
-          },
-        }),
+      : publication.kind === "host"
+        ? {
+            hostPublication: {
+              before: publication.before,
+              value: publication.value,
+              initialBoundary: publication.initialBoundary,
+            },
+          }
+        : {
+            corePublication: {
+              before: publication.before,
+              kind: publication.operation,
+              request: publication.request,
+              revision: publication.revision,
+            },
+          }),
   });
 }

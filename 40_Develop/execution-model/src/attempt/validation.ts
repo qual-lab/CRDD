@@ -28,6 +28,7 @@ import type {
   DirectoryIdentity,
   DirectoryObservation,
   ExecutionOperationRecord,
+  HostOperationRecord,
   OperationRecord,
   OperationResources,
   OperationState,
@@ -40,6 +41,19 @@ import type {
   RestartCheckpoint,
 } from "./types.ts";
 import { dockerProcessControllerPublicCompletionReasons } from "./types.ts";
+
+/** 元操作IDに属する唯一のHost保存記録を同じStateから取得する。 @trace ARCH-000008 */
+export function readOperationHost(
+  operations: readonly OperationRecord[],
+  operation: ExecutionOperationRecord,
+): HostOperationRecord | null {
+  const operationId = JSON.parse(operation.identityJson).operationId;
+  const hosts = operations.filter(
+    (item): item is HostOperationRecord =>
+      item.kind === "host_operation" && item.operationId === operationId,
+  );
+  return hosts.length === 1 ? (hosts[0] ?? null) : null;
+}
 
 /**
  * 有限な修復checkpointを独立した凍結DTOへ復号する。
@@ -747,6 +761,27 @@ export function validExecutionState(
   let unresolvedRepairs = 0;
   let previousNonce = "";
   for (const operation of snapshot.operations) {
+    if (operation.kind === "host_operation") {
+      if (!decodeHostOperation(operation)) return false;
+      if (
+        operation.cleanup === "confirmed" &&
+        snapshot.operations.some(
+          (other) =>
+            other.kind === "docker_task" &&
+            JSON.parse(other.identityJson).operationId ===
+              operation.operationId &&
+            (other.lease !== "released" ||
+              other.execution.ownerEffect !== "disabled" ||
+              !areTaskResourcesSettled(other)),
+        )
+      )
+        return false;
+      const nonce = operationNonce(operation);
+      if (nonce <= previousNonce) return false;
+      previousNonce = nonce;
+      operations.set(nonce, operation);
+      continue;
+    }
     if (operation.kind === "runtime_repair") {
       if (!validRepairOperation(operation, repositoryBinding as string))
         return false;
@@ -768,7 +803,6 @@ export function validExecutionState(
         "recoveryId",
         "phase",
         "resources",
-        "host",
         "lease",
         "execution",
         "primaryFailure",
@@ -836,60 +870,8 @@ export function validExecutionState(
       )
     )
       return false;
-    if (
-      !hasExecutionStateRecordKeys(operation.host, [
-        "currentToken",
-        "pendingTransitionJson",
-        "cleanup",
-      ]) ||
-      !["not_requested", "pending", "confirmed", "unknown"].includes(
-        operation.host.cleanup,
-      )
-    )
-      return false;
-    const initialHost = parseHostRecoveryToken(identity.initialHostRecoveryId);
-    const currentHost = parseHostRecoveryToken(operation.host.currentToken);
-    if (
-      initialHost.rootName !== currentHost.rootName ||
-      initialHost.nonce !== currentHost.nonce
-    )
-      return false;
-    if (operation.host.pendingTransitionJson !== null) {
-      if (typeof operation.host.pendingTransitionJson !== "string")
-        return false;
-      const transition = JSON.parse(operation.host.pendingTransitionJson);
-      if (
-        `${JSON.stringify(transition)}\n` !==
-          operation.host.pendingTransitionJson ||
-        !hasExecutionStateRecordKeys(transition, [
-          "currentToken",
-          "expectedToken",
-          "rootName",
-          "nonce",
-          "currentState",
-          "nextState",
-          "recordBefore",
-        ])
-      )
-        return false;
-      const lineage = validateHostRecoveryTransitionLineage(transition);
-      if (
-        ![
-          "host_only:docker_submission_started",
-          "docker_submission_started:host_only",
-          "docker_submission_started:docker_absent_confirmed",
-        ].includes(`${transition.currentState}:${transition.nextState}`)
-      )
-        return false;
-      if (
-        lineage.current.rootName !== initialHost.rootName ||
-        lineage.current.nonce !== initialHost.nonce ||
-        ![lineage.currentToken, lineage.expectedToken].includes(
-          operation.host.currentToken,
-        )
-      )
-        return false;
-    }
+    const host = readOperationHost(snapshot.operations, operation);
+    if (!host || host.purpose === "isolation_probe") return false;
     const execution = operation.execution;
     if (
       !hasExecutionStateRecordKeys(execution, [
@@ -911,6 +893,33 @@ export function validExecutionState(
     if (
       !validPrimaryFailure(operation.primaryFailure) ||
       !validOutcome(operation.outcome)
+    )
+      return false;
+    if (
+      Object.hasOwn(
+        ATTEMPT_START_FAILURE_STAGES,
+        operation.primaryFailure?.reason ?? "",
+      ) &&
+      (execution.providerStart !== "not_started" ||
+        execution.externalSend !== "not_issued" ||
+        execution.sharedWrite !== "not_issued" ||
+        execution.ownerEffect !== "disabled" ||
+        (operation.resources?.checkpoints.some(
+          (resource: OperationResources["checkpoints"][number]) =>
+            resource.submission !== "none",
+        ) ??
+          false))
+    )
+      return false;
+    if (
+      operation.outcome !== null &&
+      (Object.hasOwn(ATTEMPT_START_FAILURE_STAGES, operation.outcome.reason) ||
+        Object.hasOwn(
+          ATTEMPT_START_FAILURE_STAGES,
+          operation.primaryFailure?.reason ?? "",
+        )) &&
+      (operation.outcome.status !== "blocked" ||
+        operation.outcome.reason !== operation.primaryFailure?.reason)
     )
       return false;
     if ((operation.summarySha256 === null) !== (operation.history === null))
@@ -1206,7 +1215,333 @@ export function validRepairOperation(
  * @concurrency N/A: 同期値読取り。
  */
 export function operationNonce(operation: OperationRecord): string {
+  if (operation.kind === "host_operation") return operation.operationId;
   return JSON.parse(operation.identityJson).operationNonce;
+}
+
+/**
+ * Host作成IntentとReceiptを閉じた保存形として検査する。
+ * @responsibility Pathや独立markerを受けず、未観測・実体・終端の相関を判定する。
+ * @trace ARCH-000008
+ * @boundary 値の成立は実Filesystemの現在性又は削除許可を証明しない。
+ */
+export function decodeHostOperation(
+  value: unknown,
+): HostOperationRecord | null {
+  try {
+    const operation = capture(value, [
+      "kind",
+      "operationId",
+      "recoveryId",
+      "purpose",
+      "resources",
+      ...(value !== null &&
+      typeof value === "object" &&
+      !types.isProxy(value) &&
+      Object.hasOwn(value, "git")
+        ? ["git"]
+        : []),
+      "createdAt",
+      "phase",
+      "rootIdentity",
+      "childIdentities",
+      "cleanup",
+    ]);
+    if (
+      operation?.kind !== "host_operation" ||
+      typeof operation.operationId !== "string" ||
+      !/^OP-[0-9]{6,}$/u.test(operation.operationId) ||
+      operation.recoveryId !== `host-operation.${operation.operationId}` ||
+      typeof operation.purpose !== "string" ||
+      !["task", "advice", "isolation_probe"].includes(operation.purpose) ||
+      typeof operation.createdAt !== "string" ||
+      !Number.isFinite(Date.parse(operation.createdAt)) ||
+      new Date(operation.createdAt).toISOString() !== operation.createdAt ||
+      typeof operation.phase !== "string" ||
+      !["preparing", "active", "terminal"].includes(operation.phase) ||
+      typeof operation.cleanup !== "string" ||
+      !["not_requested", "pending", "confirmed", "unknown"].includes(
+        operation.cleanup,
+      )
+    )
+      return null;
+    const readIdentity = (value: unknown): DirectoryIdentity | null => {
+      const record = capture(value, ["dev", "ino", "birthtimeNs"]);
+      if (
+        !record ||
+        ![record.dev, record.ino, record.birthtimeNs].every(
+          (part) => typeof part === "string" && /^(0|[1-9][0-9]*)$/u.test(part),
+        )
+      )
+        return null;
+      return Object.freeze({
+        dev: record.dev as string,
+        ino: record.ino as string,
+        birthtimeNs: record.birthtimeNs as string,
+      });
+    };
+    const names = [
+      "workspace",
+      "providerHome",
+      "tmp",
+      "events",
+      "projection",
+      "management",
+    ];
+    const rawChildren = operation.childIdentities;
+    if (
+      !rawChildren ||
+      typeof rawChildren !== "object" ||
+      types.isProxy(rawChildren)
+    )
+      return null;
+    const children = capture(rawChildren, Object.keys(rawChildren));
+    if (
+      !children ||
+      Object.keys(children).some((name) => !names.includes(name))
+    )
+      return null;
+    const receipts: Partial<
+      Record<keyof HostOperationRecord["childIdentities"], DirectoryIdentity>
+    > = {};
+    for (const [name, value] of Object.entries(children)) {
+      const receipt = readIdentity(value);
+      if (!receipt) return null;
+      receipts[name as keyof typeof receipts] = receipt;
+    }
+    const git: NonNullable<HostOperationRecord["git"]>[number][] = [];
+    const hasGit = Object.hasOwn(operation, "git");
+    if (hasGit) {
+      if (
+        operation.purpose !== "task" ||
+        !Array.isArray(operation.git) ||
+        types.isProxy(operation.git)
+      )
+        return null;
+      const descriptors = Object.getOwnPropertyDescriptors(operation.git);
+      const count = operation.git.length;
+      if (
+        Reflect.ownKeys(descriptors).some(
+          (key) =>
+            typeof key !== "string" ||
+            (key !== "length" &&
+              (!/^(0|[1-9][0-9]*)$/u.test(key) || Number(key) >= count)),
+        )
+      )
+        return null;
+      for (let index = 0; index < operation.git.length; index++) {
+        const descriptor = descriptors[String(index)];
+        const item =
+          descriptor && "value" in descriptor
+            ? capture(descriptor.value, [
+                "name",
+                "commitId",
+                "temporary",
+                "request",
+                "cleanup",
+              ])
+            : null;
+        const expected = `refs/heads/crdd/operation/${operation.operationId}/${index === 0 ? "baseline" : `candidate-${index}`}`;
+        if (
+          !item ||
+          item.name !== expected ||
+          !(
+            item.commitId === null ||
+            (typeof item.commitId === "string" &&
+              /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(item.commitId))
+          ) ||
+          !["not_issued", "unknown", "confirmed"].includes(
+            item.request as string,
+          ) ||
+          !["pending", "confirmed"].includes(item.cleanup as string) ||
+          (item.request !== "not_issued" && item.commitId === null)
+        )
+          return null;
+        const temporary =
+          item.temporary === null
+            ? null
+            : capture(item.temporary, ["relativePath", "identity"]);
+        if (
+          item.temporary !== null &&
+          (!temporary ||
+            typeof temporary.relativePath !== "string" ||
+            !new RegExp(
+              `^\\.crdd/operations/${operation.operationId}/management/candidate-index-[A-Za-z0-9]+$`,
+              "u",
+            ).test(temporary.relativePath) ||
+            !(temporary.identity === null || isSha256Hex(temporary.identity)))
+        )
+          return null;
+        if (operation.cleanup === "confirmed" && item.cleanup !== "confirmed")
+          return null;
+        git.push(
+          Object.freeze({
+            name: item.name as string,
+            commitId: item.commitId as string | null,
+            temporary: temporary
+              ? Object.freeze({
+                  relativePath: temporary.relativePath as string,
+                  identity: temporary.identity as string | null,
+                })
+              : null,
+            request: item.request as "not_issued" | "unknown" | "confirmed",
+            cleanup: item.cleanup as "pending" | "confirmed",
+          }),
+        );
+      }
+    }
+    const root =
+      operation.rootIdentity === null
+        ? null
+        : readIdentity(operation.rootIdentity);
+    if (
+      (operation.rootIdentity !== null && root === null) ||
+      (root === null && Object.keys(receipts).length !== 0) ||
+      (hasGit &&
+        (operation.phase === "preparing" ||
+          root === null ||
+          Object.keys(receipts).length !== names.length))
+    )
+      return null;
+    const resources: unknown = JSON.parse(
+      encodeStateValue(operation.resources),
+      (_key, value: unknown) =>
+        value !== null && typeof value === "object"
+          ? Object.freeze(value)
+          : value,
+    );
+    if (
+      !validateResourceBook(resources) ||
+      (resources !== null &&
+        (operation.purpose !== "isolation_probe" ||
+          operation.phase === "preparing" ||
+          root === null ||
+          Object.keys(receipts).length !== names.length ||
+          resources.snapshot.resources.length !== 1 ||
+          resources.snapshot.resources[0]?.key !== "probe" ||
+          resources.snapshot.resources[0]?.identity.kind !== "container" ||
+          resources.checkpoints.some(
+            (item) => item.receiptSource === "runtime_reconciliation",
+          ) ||
+          resources.cleanup.unreceiptedAbsence !== "retain" ||
+          (operation.cleanup === "confirmed" &&
+            !resources.checkpoints.every(resourceIsSettled))))
+    )
+      return null;
+    if (
+      operation.phase === "active" &&
+      (root === null ||
+        Object.keys(receipts).length !== names.length ||
+        operation.cleanup === "confirmed")
+    )
+      return null;
+    if (
+      (operation.phase === "terminal") !==
+      (operation.cleanup === "confirmed")
+    )
+      return null;
+    return Object.freeze({
+      kind: "host_operation",
+      operationId: operation.operationId,
+      recoveryId: operation.recoveryId as string,
+      purpose: operation.purpose as HostOperationRecord["purpose"],
+      resources,
+      ...(hasGit ? { git: Object.freeze(git) } : {}),
+      createdAt: operation.createdAt,
+      phase: operation.phase as HostOperationRecord["phase"],
+      rootIdentity: root,
+      childIdentities: Object.freeze(receipts),
+      cleanup: operation.cleanup as HostOperationRecord["cleanup"],
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 一操作のHost IntentからReceipt・回収候補への単調な更新を検査する。
+ * @responsibility IDと用途の差替え、Receipt喪失、終端の再開を拒否する。
+ * @trace ARCH-000008
+ * @boundary 値の遷移だけで物理削除・再実行を許可しない。
+ */
+export function validHostOperationTransition(
+  before: unknown,
+  after: unknown,
+): boolean {
+  const next = decodeHostOperation(after);
+  if (!next) return false;
+  if (before === null)
+    return (
+      next.phase === "preparing" &&
+      next.rootIdentity === null &&
+      Object.keys(next.childIdentities).length === 0 &&
+      next.resources === null &&
+      next.cleanup === "not_requested"
+    );
+  const prior = decodeHostOperation(before);
+  if (!prior) return false;
+  if (prior.git && (!next.git || next.git.length < prior.git.length))
+    return false;
+  if (
+    (next.git?.length ?? 0) > (prior.git?.length ?? 0) &&
+    (prior.phase !== "active" ||
+      prior.cleanup !== "not_requested" ||
+      next.git?.length !== (prior.git?.length ?? 0) + 1 ||
+      next.git.at(-1)?.commitId !== null ||
+      next.git.at(-1)?.temporary !== null ||
+      next.git.at(-1)?.request !== "not_issued" ||
+      next.git.at(-1)?.cleanup !== "pending")
+  )
+    return false;
+  for (let index = 0; index < (prior.git?.length ?? 0); index++) {
+    const old = prior.git?.[index],
+      current = next.git?.[index];
+    if (
+      !old ||
+      !current ||
+      old.name !== current.name ||
+      (old.commitId !== null && old.commitId !== current.commitId) ||
+      (old.temporary !== null &&
+        encodeStateValue(old.temporary) !==
+          encodeStateValue(current.temporary)) ||
+      (old.request !== "not_issued" && current.request === "not_issued") ||
+      (old.request === "confirmed" && current.request !== "confirmed") ||
+      (old.cleanup === "confirmed" &&
+        encodeStateValue(old) !== encodeStateValue(current))
+    )
+      return false;
+  }
+  const priorResource = prior.resources?.snapshot.resources[0];
+  const nextResource = next.resources?.snapshot.resources[0];
+  if (
+    priorResource &&
+    priorResource.request !== "not_issued" &&
+    nextResource?.request === "not_issued"
+  )
+    return false;
+  return (
+    prior.operationId === next.operationId &&
+    prior.purpose === next.purpose &&
+    prior.createdAt === next.createdAt &&
+    validateResourceBookTransition(prior.resources, next.resources) &&
+    !(
+      prior.phase === "terminal" &&
+      encodeStateValue(prior) !== encodeStateValue(next)
+    ) &&
+    !(prior.phase === "active" && next.phase === "preparing") &&
+    (prior.rootIdentity === null ||
+      encodeStateValue(prior.rootIdentity) ===
+        encodeStateValue(next.rootIdentity)) &&
+    Object.entries(prior.childIdentities).every(
+      ([name, identity]) =>
+        Object.hasOwn(next.childIdentities, name) &&
+        encodeStateValue(identity) ===
+          encodeStateValue(
+            next.childIdentities[name as keyof typeof next.childIdentities],
+          ),
+    ) &&
+    !(prior.cleanup !== "not_requested" && next.cleanup === "not_requested")
+  );
 }
 
 /**
@@ -1279,9 +1614,6 @@ export function validateOperationIdentity(
     ...(Object.hasOwn(identity, "workspaceProtection")
       ? ["workspaceProtection"]
       : []),
-    "initialHostRecoveryId",
-    "initialHostRecovery",
-    "hostPaths",
   ];
   const hasCorrelation = Object.hasOwn(identity ?? {}, "recoveryCorrelationId");
   if (
@@ -1291,13 +1623,6 @@ export function validateOperationIdentity(
     )
   )
     return false;
-  const token = identity.initialHostRecoveryId;
-  if (typeof token !== "string") return false;
-  try {
-    parseHostRecoveryToken(token);
-  } catch {
-    return false;
-  }
   return (
     identity.schema === OPERATION_IDENTITY_SCHEMA &&
     typeof identity.consumer === "string" &&
@@ -1342,11 +1667,7 @@ export function validateOperationIdentity(
       (typeof identity.recoveryCorrelationId === "string" &&
         /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(
           identity.recoveryCorrelationId,
-        ))) &&
-    validateHostSnapshot(identity.initialHostRecovery, token) &&
-    hasExecutionStateRecordKeys(identity.hostPaths, ["root", "marker"]) &&
-    typeof (identity.hostPaths as Record<string, unknown>).root === "string" &&
-    typeof (identity.hostPaths as Record<string, unknown>).marker === "string"
+        )))
   );
 }
 
@@ -1525,104 +1846,6 @@ export const purposeResource = Object.freeze({
 } as const);
 
 /**
- * Host 回復 Tokenを構造化値へ解析する。
- *
- * @responsibility Host 回復 Tokenの入力文法、解析結果、不正文法の拒否境界を所有する。
- * @trace ARCH-000008
- * @input token: unknown
- * @returns parseHostRecoveryTokenの計算結果を返す。
- * @precondition 「token: unknown」がparseHostRecoveryTokenの入力契約を満たす。
- * @postcondition parseHostRecoveryTokenの責務を完了した結果だけを返す。
- * @effect N/A: parseHostRecoveryTokenは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure parseHostRecoveryTokenは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant parseHostRecoveryTokenは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: parseHostRecoveryTokenはProcess内の同一Subsystemで完結する。
- * @security parseHostRecoveryTokenはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: parseHostRecoveryTokenは共有非同期状態を持たない同期処理である。
- */
-export function parseHostRecoveryToken(token: unknown) {
-  if (typeof token !== "string") throw new Error("host_recovery_token_invalid");
-  const match =
-    /^host\.(crdd-coordinator-doctor-[A-Za-z0-9_-]+)\.([0-9a-f-]{36})\.([0-9a-f]{64})$/u.exec(
-      token ?? "",
-    );
-  if (!match) throw new Error("host_recovery_token_invalid");
-  const rootName = match[1];
-  const nonce = match[2];
-  const recordHash = match[3];
-  if (!rootName || !nonce || !recordHash)
-    throw new Error("host_recovery_token_invalid");
-  return { rootName, nonce, recordHash };
-}
-
-/**
- * Host記録の状態遷移相関の契約を検証する。
- *
- * @responsibility Host記録の状態遷移相関の必須Property、拒否条件、検証結果の境界を所有する。
- * @trace ARCH-000008
- * @input value: unknown、requiredNextState: string
- * @returns validateHostRecoveryTransitionLineageの計算結果を返す。
- * @precondition 「value: unknown、requiredNextState: string」がvalidateHostRecoveryTransitionLineageの入力契約を満たす。
- * @postcondition validateHostRecoveryTransitionLineageの責務を完了した結果だけを返す。
- * @effect N/A: validateHostRecoveryTransitionLineageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure validateHostRecoveryTransitionLineageは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant validateHostRecoveryTransitionLineageは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validateHostRecoveryTransitionLineageはProcess内の同一Subsystemで完結する。
- * @security validateHostRecoveryTransitionLineageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validateHostRecoveryTransitionLineageは共有非同期状態を持たない同期処理である。
- */
-export function validateHostRecoveryTransitionLineage(
-  value: unknown,
-  requiredNextState?: string,
-) {
-  if (
-    value === null ||
-    typeof value !== "object" ||
-    Array.isArray(value) ||
-    Object.getPrototypeOf(value) !== Object.prototype
-  )
-    throw new Error("docker_task_recovery_host_transition_mismatch");
-  const intent = value as Record<string, unknown>;
-  const currentToken = String(intent.currentToken ?? "");
-  const expectedToken = String(intent.expectedToken ?? "");
-  const current = parseHostRecoveryToken(currentToken);
-  const expected = parseHostRecoveryToken(expectedToken);
-  const recordBefore = intent.recordBefore;
-  if (
-    !recordBefore ||
-    typeof recordBefore !== "object" ||
-    Array.isArray(recordBefore) ||
-    Object.getPrototypeOf(recordBefore) !== Object.prototype ||
-    current.rootName !== intent.rootName ||
-    expected.rootName !== intent.rootName ||
-    current.nonce !== intent.nonce ||
-    expected.nonce !== intent.nonce ||
-    (requiredNextState !== undefined &&
-      intent.nextState !== requiredNextState) ||
-    typeof intent.currentState !== "string" ||
-    typeof intent.nextState !== "string" ||
-    intent.currentToken === intent.expectedToken
-  )
-    throw new Error("docker_task_recovery_host_transition_mismatch");
-  const before = recordBefore as Record<string, unknown>;
-  const beforeHash = createHash("sha256")
-    .update(canonicalHostRecoveryTransitionRecord(before))
-    .digest("hex");
-  const successor = Object.freeze({ ...before, state: intent.nextState });
-  const successorHash = createHash("sha256")
-    .update(canonicalHostRecoveryTransitionRecord(successor))
-    .digest("hex");
-  if (
-    current.recordHash !== beforeHash ||
-    expected.recordHash !== successorHash ||
-    before.state !== intent.currentState ||
-    successor.state !== intent.nextState
-  )
-    throw new Error("docker_task_recovery_host_transition_mismatch");
-  return Object.freeze({ currentToken, expectedToken, current, expected });
-}
-
-/**
  * 一次失敗の固定分類を現在状態と履歴で共用する。
  * @responsibility 失敗の相関と許可分類を一つの値検査で維持する。
  * @trace ARCH-000008
@@ -1670,6 +1893,21 @@ export function validPrimaryFailure(value: unknown): boolean {
   const failure = value as NonNullable<
     ExecutionOperationRecord["primaryFailure"]
   >;
+  if (Object.hasOwn(ATTEMPT_START_FAILURE_STAGES, failure.reason))
+    return (
+      failure.purpose === null &&
+      failure.stage ===
+        ATTEMPT_START_FAILURE_STAGES[
+          failure.reason as keyof typeof ATTEMPT_START_FAILURE_STAGES
+        ] &&
+      failure.exceptionCode === null &&
+      failure.commandHandleObtained === false &&
+      failure.responseObserved === false &&
+      failure.receiptRecorded === false &&
+      (!hasObservation || failure.commandObservation === null) &&
+      !hasAuthenticationStatus &&
+      !hasTurnCountDiagnostic
+    );
   return (
     (failure.purpose === null || commandPurposes.includes(failure.purpose)) &&
     failureStages.includes(failure.stage) &&
@@ -1798,11 +2036,11 @@ export function validOutcome(value: unknown): boolean {
 }
 
 /**
- * 通常終端または専用認証unknown終了の全五資源を共同評価する。
+ * 要求前終了・通常終端・専用認証unknown終了の資源終結を共同評価する。
  * @responsibility 後続利用側が資源一値だけから限定終了を推定しないようにする。
  * @trace ARCH-000008
  * @input operation: 現在Decoderで構造と相関を確認したTask。
- * @returns 通常終端、または専用相関付きauth不存在を含む全終端ならtrue。
+ * @returns 要求前終了の限定条件、通常終端、または専用相関付きauth不存在を含む全終端ならtrue。
  * @precondition 保存の真正性と物理観測は各Ownerが確認する。
  * @postcondition Task成功・配送・Host清掃を単独で確定しない。
  * @effect N/A: 同期値判定だけ。
@@ -1825,12 +2063,16 @@ export function areTaskResourcesSettled(
       operation.execution.ownerEffect === "disabled" &&
       ((operation.outcome?.status === "blocked" &&
         operation.outcome.cleanupConfirmed) ||
-        // 技術要求前の切断。Host回収・Lease解放・最終結果は別のOwnerが確定する。
+        // 技術要求前の終了。実Home解放とHost回収は別条件であり、元失敗を消す必要はない。
         (operation.resources === null &&
           operation.phase === "settling" &&
-          operation.lease === "held" &&
+          ["held", "released"].includes(operation.lease) &&
           operation.outcome === null &&
-          operation.primaryFailure === null &&
+          (operation.primaryFailure === null ||
+            (operation.primaryFailure.commandHandleObtained === false &&
+              operation.primaryFailure.responseObserved === false &&
+              operation.primaryFailure.receiptRecorded === false &&
+              operation.primaryFailure.commandObservation == null)) &&
           operation.summarySha256 === null &&
           operation.history === null &&
           isDockerRestartCheckpointSettled(operation.dockerRestart)))
@@ -2003,90 +2245,7 @@ export const DOCKER_TASK_RECOVERY_ID =
   /^docker-task\.([a-f0-9]{64})\.([a-f0-9]{64})\.([a-f0-9]{64})$/u;
 
 export const OPERATION_IDENTITY_SCHEMA =
-  "crdd-coordinator/operation-identity/v5";
-
-/**
- * Host Snapshotの契約を検証する。
- *
- * @responsibility Host Snapshotの必須Property、拒否条件、検証結果の境界を所有する。
- * @trace ARCH-000008
- * @input value: unknown、initialToken: string
- * @returns validateHostSnapshotの計算結果を返す。
- * @precondition 「value: unknown、initialToken: string」がvalidateHostSnapshotの入力契約を満たす。
- * @postcondition validateHostSnapshotの責務を完了した結果だけを返す。
- * @effect N/A: validateHostSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validateHostSnapshotは独自の失敗分岐を所有しない。
- * @invariant validateHostSnapshotは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validateHostSnapshotはProcess内の同一Subsystemで完結する。
- * @security validateHostSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validateHostSnapshotは共有非同期状態を持たない同期処理である。
- */
-export function validateHostSnapshot(value: unknown, initialToken: string) {
-  if (
-    !hasExecutionStateRecordKeys(value, [
-      "token",
-      "recordHash",
-      "directoryIdentity",
-      "markerIdentity",
-      "record",
-    ])
-  )
-    return false;
-  const snapshot = value as Record<string, unknown>;
-  const parsed = parseHostRecoveryToken(initialToken);
-  const record = snapshot.record;
-  const hostRecord = record as Record<string, unknown>;
-  const rootIdentity = hostRecord?.rootIdentity;
-  const childIdentities = hostRecord?.childIdentities;
-  const identityValid = (identity: unknown, isChild: boolean) =>
-    hasExecutionStateRecordKeys(
-      identity,
-      isChild
-        ? ["pathName", "dev", "ino", "birthtimeNs"]
-        : ["dev", "ino", "birthtimeNs"],
-    ) &&
-    ["dev", "ino", "birthtimeNs"].every(
-      (key) =>
-        typeof (identity as Record<string, unknown>)[key] === "string" &&
-        /^\d+$/u.test(String((identity as Record<string, unknown>)[key])),
-    ) &&
-    (!isChild ||
-      (typeof (identity as Record<string, unknown>).pathName === "string" &&
-        /^[A-Za-z0-9_-]{1,80}$/u.test(
-          String((identity as Record<string, unknown>).pathName),
-        )));
-  return (
-    snapshot.token === initialToken &&
-    snapshot.recordHash === parsed.recordHash &&
-    typeof snapshot.directoryIdentity === "string" &&
-    /^\d+:\d+:\d+$/u.test(snapshot.directoryIdentity) &&
-    typeof snapshot.markerIdentity === "string" &&
-    /^\d+:\d+:\d+$/u.test(snapshot.markerIdentity) &&
-    hasExecutionStateRecordKeys(record, [
-      "schema",
-      "state",
-      "rootName",
-      "rootIdentity",
-      "childIdentities",
-      "createdAt",
-    ]) &&
-    hostRecord.schema === "crdd-coordinator-host-recovery/v1" &&
-    hostRecord.rootName === parsed.rootName &&
-    ["host_only", "docker_submission_started"].includes(
-      String(hostRecord.state),
-    ) &&
-    typeof hostRecord.createdAt === "string" &&
-    identityValid(rootIdentity, false) &&
-    childIdentities !== null &&
-    typeof childIdentities === "object" &&
-    !Array.isArray(childIdentities) &&
-    Object.keys(childIdentities as Record<string, unknown>).length <= 8 &&
-    Object.values(childIdentities as Record<string, unknown>).every(
-      (identity) => identityValid(identity, true),
-    ) &&
-    Object.hasOwn(childIdentities as Record<string, unknown>, "management")
-  );
-}
+  "crdd-coordinator/operation-identity/v6";
 
 /**
  * この保存モデルが受け取るSHA-256文字列を検査する。
@@ -2105,26 +2264,6 @@ export function validateHostSnapshot(value: unknown, initialToken: string) {
  */
 export function recoveryIsSha256Hex(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
-}
-
-/**
- * canonicalHostRecoveryTransitionRecordを決定する。
- *
- * @responsibility canonicalHostRecoveryTransitionRecordの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input value: unknown
- * @returns canonicalHostRecoveryTransitionRecordの計算結果を返す。
- * @precondition 「value: unknown」がcanonicalHostRecoveryTransitionRecordの入力契約を満たす。
- * @postcondition canonicalHostRecoveryTransitionRecordの責務を完了した結果だけを返す。
- * @effect N/A: canonicalHostRecoveryTransitionRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: canonicalHostRecoveryTransitionRecordは独自の失敗分岐を所有しない。
- * @invariant canonicalHostRecoveryTransitionRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: canonicalHostRecoveryTransitionRecordはProcess内の同一Subsystemで完結する。
- * @security canonicalHostRecoveryTransitionRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: canonicalHostRecoveryTransitionRecordは共有非同期状態を持たない同期処理である。
- */
-export function canonicalHostRecoveryTransitionRecord(value: unknown) {
-  return `${JSON.stringify(value)}\n`;
 }
 
 export const commandPurposes = [
@@ -2147,8 +2286,22 @@ export const failureStages = [
   "provider_result_normalization",
 ];
 
+/**
+ * Executorが技術要求前に返す既存の拒否理由と、保存する失敗段階。
+ * @responsibility 未開始結果を自由な失敗語彙へ拡張せず、元理由を保持する。
+ * @trace ARCH-000008
+ * @invariant この分類だけから未発行、Home解放又はHost回収を推定しない。
+ */
+const ATTEMPT_START_FAILURE_STAGES = Object.freeze({
+  docker_process_controller_plan_invalid: "plan_validation",
+  docker_process_controller_recovery_unavailable: "home_lock",
+  docker_process_controller_home_lock_initialization_failed: "home_lock",
+  docker_process_controller_home_lock_descriptor_close_unconfirmed: "home_lock",
+});
+
 export const finalReasons = new Set<string>([
   ...dockerProcessControllerPublicCompletionReasons,
+  ...Object.keys(ATTEMPT_START_FAILURE_STAGES),
   "provider_operation_completed",
   "provider_operation_cancelled",
 ]);
@@ -2603,6 +2756,12 @@ export function validateOperationTransitions(
     for (const operation of next.snapshot.operations) {
       const nonce = operationNonce(operation);
       const prior = priorOperations.get(nonce);
+      if (operation.kind === "host_operation") {
+        if (!validHostOperationTransition(prior ?? null, operation))
+          return false;
+        priorOperations.delete(nonce);
+        continue;
+      }
       if (operation.kind === "runtime_repair") {
         if (prior === undefined) {
           if (
@@ -2752,6 +2911,7 @@ export function validateOperationTransitions(
         if (
           next.snapshot.operations.some((other) => {
             if (other.recoveryId === operation.recoveryId) return false;
+            if (other.kind === "host_operation") return false;
             if (other.kind === "runtime_repair")
               return other.phase !== "terminal";
             if (
@@ -2772,12 +2932,6 @@ export function validateOperationTransitions(
               previousIdentity.operationId === identity.operationId &&
               previousIdentity.recoveryCorrelationId ===
                 identity.recoveryCorrelationId &&
-              previousIdentity.hostPaths.root === identity.hostPaths.root &&
-              previousIdentity.hostPaths.marker === identity.hostPaths.marker &&
-              previousIdentity.initialHostRecoveryId ===
-                identity.initialHostRecoveryId &&
-              previousIdentity.initialHostRecovery.directoryIdentity ===
-                identity.initialHostRecovery.directoryIdentity &&
               encodeStateValue(before) === encodeStateValue(other);
             // 同じ更新内の終端偽装や、二つの新規開始を受理しない。
             return (
@@ -2785,21 +2939,21 @@ export function validateOperationTransitions(
                 const hostCleanupComplete =
                   value.phase !== "executing" &&
                   value.outcome?.cleanupConfirmed === true &&
-                  value.host.cleanup === "confirmed";
+                  readOperationHost(next.snapshot.operations, value)
+                    ?.cleanup === "confirmed";
                 const hostCleanupDeferred =
                   sameHostContinuation &&
-                  value.phase === "executing" &&
+                  value.phase === "settling" &&
                   value.outcome === null &&
                   value.primaryFailure === null &&
                   value.summarySha256 === null &&
                   value.history === null &&
                   value.dockerRestart === null &&
                   value.execution.workspaceReusable === false &&
-                  value.host.cleanup === "not_requested" &&
-                  value.host.currentToken === identity.initialHostRecoveryId;
+                  readOperationHost(next.snapshot.operations, value)
+                    ?.cleanup === "not_requested";
                 return (
                   !(hostCleanupComplete || hostCleanupDeferred) ||
-                  value.host.pendingTransitionJson !== null ||
                   value.lease !== "released" ||
                   value.execution.ownerEffect !== "disabled" ||
                   // 過去Effectの不確実性は、同Hostの正常技術終端を取り消さない。
@@ -2823,9 +2977,10 @@ export function validateOperationTransitions(
         if (
           operation.phase !== "executing" ||
           operation.resources !== null ||
-          operation.host.currentToken !== identity.initialHostRecoveryId ||
-          operation.host.pendingTransitionJson !== null ||
-          operation.host.cleanup !== "not_requested" ||
+          readOperationHost(next.snapshot.operations, operation)?.phase !==
+            "active" ||
+          readOperationHost(next.snapshot.operations, operation)?.cleanup !==
+            "not_requested" ||
           operation.lease !== "held" ||
           operation.execution.providerStart !== "not_started" ||
           operation.execution.externalSend !== "not_issued" ||
@@ -2925,35 +3080,6 @@ export function validateOperationTransitions(
       }
       if (prior.lease === "released" && operation.lease !== "released")
         return false;
-      if (
-        prior.host.cleanup === "confirmed" &&
-        operation.host.cleanup !== "confirmed"
-      )
-        return false;
-      const pending =
-        prior.host.pendingTransitionJson === null
-          ? null
-          : JSON.parse(prior.host.pendingTransitionJson);
-      if (
-        operation.host.currentToken !== prior.host.currentToken &&
-        (!pending ||
-          pending.currentToken !== prior.host.currentToken ||
-          operation.host.currentToken !== pending.expectedToken)
-      )
-        return false;
-      if (
-        operation.host.pendingTransitionJson !==
-        prior.host.pendingTransitionJson
-      ) {
-        if (pending && operation.host.currentToken !== pending.expectedToken)
-          return false;
-        if (
-          operation.host.pendingTransitionJson !== null &&
-          JSON.parse(operation.host.pendingTransitionJson).currentToken !==
-            operation.host.currentToken
-        )
-          return false;
-      }
     }
     if (priorOperations.size !== 0) return false;
     for (const before of current?.snapshot.unresolvedRecoveries ?? []) {
@@ -3053,6 +3179,13 @@ export function validateDockerRestartCheckpointTransition(
 export function projectOperationState(
   operation: OperationRecord,
 ): OperationState {
+  if (operation.kind === "host_operation")
+    return Object.freeze({
+      kind: operation.kind,
+      operation,
+      cleanupSettled:
+        operation.phase === "terminal" && operation.cleanup === "confirmed",
+    });
   return operation.kind === "docker_task"
     ? Object.freeze({
         kind: operation.kind,
@@ -3062,12 +3195,6 @@ export function projectOperationState(
           operation.dockerRestart,
         ),
         authenticationClosureAllowed: canCloseUnknownAuthentication(operation),
-        hostTransition:
-          operation.host.pendingTransitionJson === null
-            ? null
-            : validateHostRecoveryTransitionLineage(
-                JSON.parse(operation.host.pendingTransitionJson),
-              ),
       })
     : Object.freeze({
         kind: operation.kind,

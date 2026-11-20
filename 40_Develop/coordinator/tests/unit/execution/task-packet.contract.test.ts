@@ -11,7 +11,13 @@
 
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
+import {
+  getRepository,
+  resolveVerifiedRepositoryRoot,
+} from "../../../../version-control/src/index.ts";
 import { planExecution } from "../../../../ai-adapter/src/index.ts";
 import { createRepositoryTestDirectory } from "../../../../execution-model/tests/support/repository-test-directory.ts";
 import { createSignedGeneralTaskVerificationRequest } from "../../../scripts/verify-general-task.ts";
@@ -68,6 +74,35 @@ function createReviewFixture(management: object, raw: string) {
 }
 
 const operationFixture = createRepositoryTestDirectory("task-packet-network-");
+fs.mkdirSync(path.join(operationFixture.path, ".git", "refs", "heads"), {
+  recursive: true,
+});
+fs.mkdirSync(path.join(operationFixture.path, ".git", "info"));
+fs.writeFileSync(
+  path.join(operationFixture.path, ".git", "info", "exclude"),
+  ".crdd/\n",
+);
+fs.writeFileSync(
+  path.join(operationFixture.path, ".git", "config"),
+  "[core]\nrepositoryformatversion = 0\nbare = false\n",
+);
+fs.writeFileSync(
+  path.join(operationFixture.path, ".git", "HEAD"),
+  "ref: refs/heads/main\n",
+);
+fs.writeFileSync(
+  path.join(operationFixture.path, ".git", "refs", "heads", "main"),
+  `${"1".repeat(40)}\n`,
+);
+const repository = getRepository(operationFixture.path);
+assert.equal(repository.status, "completed");
+const hostInput = {
+  root: repository.capability,
+  purpose: "task" as const,
+  recordingCurrent: () =>
+    resolveVerifiedRepositoryRoot(repository.capability) ===
+    operationFixture.path,
+};
 /**
  * 試験終了後に自己生成Rootを回収する。
  * @responsibility Packet試験の一時Filesystemを残さない。
@@ -94,7 +129,7 @@ test.after(() => operationFixture.cleanup());
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 function operation() {
-  const owned = createOwnedOperationDirectories(operationFixture.path);
+  const owned = createOwnedOperationDirectories(hostInput);
   const contextCapability = createOwnedOperationContextCapability(owned);
   const mountCapability = createOwnedMountCapability(owned);
   const managementCapability = createOwnedOperationManagementCapability(
@@ -156,7 +191,7 @@ function reviewerPacket(
   } = packet(),
   provider: "codex" | "claude" = "codex",
 ) {
-  const candidatePatchHash = "1".repeat(64);
+  const candidateCommitId = "1".repeat(40);
   const files = Object.freeze([
     Object.freeze({
       path: source.readPaths[0],
@@ -176,11 +211,10 @@ function reviewerPacket(
     }),
     reviewerReadProjection: {
       status: "projected",
-      candidatePatchHash,
-      candidateContentManifestHash: "2".repeat(64),
+      candidateCommitId,
       projectionHash: createHash("sha256")
-        .update("crdd-candidate-read-projection-v1\0")
-        .update(candidatePatchHash)
+        .update("crdd-candidate-read-projection-v2\0")
+        .update(candidateCommitId)
         .update("\0")
         .update(JSON.stringify(files))
         .digest("hex"),
@@ -391,7 +425,7 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
     );
     assert.match(
       consumed?.prompt ?? "",
-      /runtime compared the candidate inventory with the exact base revision/u,
+      /runtime compared the fixed candidate commit with the exact baseline commit/u,
     );
     assert.match(
       consumed?.prompt ?? "",

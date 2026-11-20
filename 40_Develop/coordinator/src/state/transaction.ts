@@ -9,7 +9,6 @@ import {
   type ProjectQueueEntry,
   readProjectExecutionState,
   readQueueEntry,
-  readState,
   saveProjectExecutionState,
   selectQueueEntry,
   updateQueue,
@@ -32,37 +31,6 @@ import type {
 } from "./persistence.ts";
 import { blocked, completed, type StoreResult } from "./result.ts";
 import { validIdentity } from "./validation.ts";
-
-/**
- * 受付以外の既存操作を現在の保存世代へ接続する。
- * @responsibility 読取り・採用・判断・回復の本番利用側を新版へ結合する。
- * @trace ARCH-000004
- * @input Repository Rootと保存binding。
- * @returns 新版のPersistence Port。
- * @precondition 明示的な初期化が完了している。
- * @postcondition 新版不存在または不正では旧形式を使用しない。
- * @effect Snapshot読取りと短期排他。
- * @failure 不存在、破損、pending、旧版では例外。
- * @invariant Objective受付は発行時世代を指定する専用入口を使用する。
- * @boundary 本番Compositionと保存Port。
- * @security 認証・採用Authorityを生成しない。
- * @concurrency 構築時の世代を固定し、各変更時に再確認する。
- */
-export function createCurrentCoordinatorPersistencePorts(
-  workingDirectory: string,
-  binding: string,
-): CoordinatorPersistencePorts {
-  const observed = readState(
-    verifyRuntimePersistenceRepository(workingDirectory),
-    binding,
-    "execution",
-  );
-  if (observed.reason === "orchestrator_snapshot_lock_release_unconfirmed")
-    throw new Error("orchestrator_snapshot_lock_release_unconfirmed");
-  if (observed.status !== "completed" || observed.value === null)
-    throw new Error("orchestrator_snapshot_not_initialized");
-  return createCoordinatorSnapshotPersistencePorts(workingDirectory, binding);
-}
 
 /**
  * 統合保存の状態操作と排他操作を一組として接続する。

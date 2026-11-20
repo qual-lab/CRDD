@@ -1410,9 +1410,13 @@ export function openTaskSession(context: TaskSessionContext) {
       }
       const hostId =
         record.adviceOperation?.hostRecoveryId ??
-        record.recoveryIds.find((id) => id.startsWith("host."));
+        record.recoveryIds.find((id) => id.startsWith("host-operation."));
       if (hostId) {
-        const host = recoverProviderAdviceHostOperation(hostId);
+        const host = recoverProviderAdviceHostOperation(
+          rootCapability,
+          hostId,
+          authorize,
+        );
         if (!host.cleanupConfirmed) {
           unresolved.add(hostId);
           return {
@@ -1510,6 +1514,7 @@ export function openTaskSession(context: TaskSessionContext) {
             observeOperation: operationCreated,
             observeStarted: started,
           },
+          authorize,
         );
         const { result, cleanupConfirmed } = executed;
         return {
@@ -1552,6 +1557,12 @@ export function openTaskSession(context: TaskSessionContext) {
               observer,
               consumer,
               target,
+              {},
+              {
+                root: rootCapability,
+                purpose: "task",
+                recordingCurrent: authorize,
+              },
             ),
           cancelTask: cancelRuntimeOwnedCoordinatorTask,
         },

@@ -251,6 +251,7 @@ export type TaskPacket = Readonly<{
   operationId: string;
   taskPacketRef: string;
   taskRole: "executor" | "reviewer";
+  reviewerReadProjection?: Readonly<{ candidateCommitId: string }> | null;
   taskAttempt: 0 | 1;
   executionSelection: ExecutionSelection;
   taskWorkload?: unknown;

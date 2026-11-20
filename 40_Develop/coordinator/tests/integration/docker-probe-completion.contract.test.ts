@@ -1,310 +1,171 @@
 /**
- * 保存後Probe実行の搬送と私有lifecycle評価を検証する。
+ * Probe完了を現Executor通知とEM資源Bookへ直接接続する。
  * @packageDocumentation
- * @responsibility 閉factsの保持・消費と公開成功への昇格条件を反証する。
+ * @responsibility 実ID・終了・回収・Host後段と元factsの共同成立を反証する。
  * @trace ERB-IT-004
  * @level IT
- * @scope 実上位本文と実私有Map、DI・Host技術操作の代役。
- * @boundary ERB-IT-004=Related 2 Blocks: DI完了事実→Coordinator私有最終評価。
+ * @scope 現Coordinator本文とEM値更新。Executor技術結果は合成。
+ * @boundary 通知→資源更新→公開結果。実Docker・実保存は対象外。
  */
 import assert from "node:assert/strict";
-import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import fs from "node:fs";
-import path from "node:path";
 import test from "node:test";
-import { runInNewContext } from "../support/probe-executor.ts";
+import type {
+  CompletionResult,
+  IsolationProbeFacts,
+} from "../../../executor/src/index.ts";
+import { createProbeExecutionFixture } from "../support/probe-executor.ts";
 
 /**
- * 完了評価に使う一意な本番関数本文を取得する。
- * @responsibility 私有候補登録・消費を手書き代役へ置換しない。
+ * 正常と各一軸の未確認を、同じ現在通知から評価する。
+ * @responsibility Receipt差・終了不明・回収不明・Host失敗を成功へ変換しない。
  * @trace ERB-IT-004
- * @precondition 関数名はSource中で一意。
- * @stimulus 現Sourceの宣言から次のHeaderまでを抽出する。
- * @observation 型除去済み実本文。
- * @oracle 欠測・重複を準備失敗にする。
- * @cleanup N/A: 読取りとメモリだけ。
- * @boundary 本番Sourceと検証VM。
+ * @precondition 各Case独立のBookとExecutorを使う。
+ * @stimulus 完了事実と必要保存の各条件を一つずつ変更する。
+ * @observation Book、Host要求列、公開結果、時間・出力量・signal。
+ * @oracle 技術完了と回収後だけHostを閉じ、lifecycle blockedはそのまま返す。
+ * @cleanup メモリだけ。全completionを待機する。
+ * @boundary 上位の終了判断。実資源の不存在は主張しない。
  */
-function completionFunctionSource(source: string, name: string) {
-  const aliases: Readonly<Record<string, string>> = {
-    blocked: "isolationProbeBlocked",
-    isObject: "isolationProbeIsObject",
-    ownValue: "isolationProbeOwnValue",
-    errorMessage: "isolationProbeErrorMessage",
-  };
-  return sourceDeclaration(source, aliases[name] ?? name);
-}
-
-/**
- * 全実行profileの相関と候補登録から最終消費までを反証する。
- * @responsibility 隔離肯定だけを公開成功へ転用しない。
- * @trace ERB-IT-004
- * @precondition 実投影・私有登録・最終評価の全関数を同VMへ接続する。
- * @stimulus 通常＋四故障のprofile、合法な別profile／実ID、lifecycleだけblockedのfacts。
- * @observation run入力、候補全文、最終公開結果、私有参照の消費。
- * @oracle 別対象変異を相関Oracleで拒否し、lifecycle blockedは回収後も公開blocked。
- * @cleanup N/A: 私有MapとVMだけ。Process・Filesystemを作らない。
- * @boundary 実上位関数とDI／Host技術代役。実資源回収の成立ではない。
- */
-test("Probe完了の閉factsは全profileで相関され実私有評価だけで公開される", async () => {
-  const source = fs.readFileSync(
-    new URL("../../src/execution/diagnostics.ts", import.meta.url),
-    "utf8",
-  );
-  const helpers = [
-    "isObject",
-    "ownValue",
-    "ownString",
-    "errorMessage",
-    "normalizeFailure",
-    "dynamicFakeLifecycleBlocked",
-    "blocked",
-    "normalizeDockerProbeFailure",
-    "normalizeHostCleanupResult",
-    "projectProbeExecutionFacts",
-    "createDynamicFakeProviderLifecycleCapability",
-    "createDynamicFakeProviderFinalizationCapability",
-    "invalidateDynamicFakeProviderLifecycle",
-    "evaluateDynamicFakeProviderFinalization",
-    "finalizeDynamicFakeProviderLifecycle",
-  ]
-    .map((name) => completionFunctionSource(source, name))
-    .join("\n");
-  const original = completionFunctionSource(
-    source,
-    "runDockerIsolationScenario",
-  );
-  const id = "a".repeat(64);
-  for (const selected of [
-    null,
-    "timeout",
-    "output_limit",
-    "invalid_output",
-    "nonzero_exit",
-  ] as const) {
-    const variants: [string, string, boolean][] = [
-      ["baseline", original, false],
-    ];
-    if (selected === null) {
-      variants.push(["lifecycle-blocked", original, true]);
-    }
-    for (const [variant, body, lifecycleBlocked] of variants) {
-      const cli = {},
-        mountCapability = {};
-      const environment = Object.freeze({ FIXED: "fixture" });
-      const mounts = {
-        workspace: "workspace",
-        providerHome: "home",
-        tmp: "tmp",
-        management: path.join("root", "management"),
-      };
-      const pending = new WeakMap<object, Record<string, unknown>>();
-      const observations: { key: object; value: Record<string, unknown> }[] =
-        [];
-      const pendingSet = pending.set.bind(pending);
-      pending.set = (key, value) => {
-        observations.push({ key, value });
-        return pendingSet(key, value);
-      };
-      const finalizations = new WeakMap<object, unknown>(),
-        absences = new WeakMap<object, unknown>(),
-        cleanups = new WeakMap<object, unknown>();
-      const absenceKeys: object[] = [],
-        cleanupKeys: object[] = [],
-        finalizationKeys: object[] = [];
-      const finalizationSet = finalizations.set.bind(finalizations);
-      finalizations.set = (key, value) => {
-        finalizationKeys.push(key);
-        return finalizationSet(key, value);
-      };
-      const captures: object[] = [],
-        cliInputs: unknown[] = [];
-      const identities = new WeakMap<object, object>();
-      const identityObservations: object[] = [];
-      const registerIdentity = identities.set.bind(identities);
-      identities.set = (key, value) => {
-        identityObservations.push(JSON.parse(JSON.stringify(value)));
-        return registerIdentity(key, value);
-      };
-      const facts = Object.freeze({
-        isolation: Object.freeze({
-          status: "confirmed",
-          reason: "docker_fake_provider_isolation_confirmed",
-        }),
-        lifecycleStatus: lifecycleBlocked ? "blocked" : "candidate",
-        lifecycleReason: lifecycleBlocked
+test("Probe完了の閉factsは現通知と資源Bookで相関され公開される", async () => {
+  for (const scenario of [
+    "normal",
+    "lifecycle",
+    "id",
+    "receipt",
+    "process",
+    "cleanup",
+    "host",
+    "cleanup_save",
+    "facts",
+    "isolation",
+    "cancelled",
+    "elapsed",
+  ]) {
+    const fixture = createProbeExecutionFixture(
+      scenario === "host"
+        ? "host"
+        : scenario === "cleanup_save"
+          ? "cleanup"
+          : null,
+    );
+    const id = "a".repeat(64);
+    const snapshot = {
+      resources: fixture.planned.snapshot.resources.map((resource) => ({
+        ...resource,
+        request: "issued" as const,
+        identity: { ...resource.identity, dockerId: id },
+      })),
+    };
+    const facts: IsolationProbeFacts = {
+      isolation: {
+        status: scenario === "isolation" ? "blocked" : "confirmed",
+        reason: "docker_fake_provider_isolation_confirmed",
+      },
+      lifecycleStatus: scenario === "lifecycle" ? "blocked" : "candidate",
+      lifecycleReason:
+        scenario === "lifecycle"
           ? "dynamic_fake_provider_execution_envelope_invalid"
           : "dynamic_fake_provider_result_observed",
-        elapsedMs: 17,
-        stdoutBytes: 111,
-        stderrBytes: 13,
-        exitCode: 0,
-        signal: lifecycleBlocked ? "SIGTERM" : null,
-        timedOut: false,
-      });
-      const bindings: unknown[] = [];
-      let factoryCalls = 0;
-      const run = runInNewContext(
-        `(()=>{${helpers};${body};return runDockerIsolationScenario;})()`,
-        {
-          Object,
-          path,
-          pendingDynamicLifecycleObservations: pending,
-          dynamicLifecycleFinalizations: finalizations,
-          dynamicLifecycleAbsences: absences,
-          dynamicLifecycleHostCleanups: cleanups,
-          randomUUID: () => "12345678-1234-4234-8234-123456789abc",
-          getOwnedHostRecoveryId: () => "host",
-          createDockerProbeRuntimeBinding: (management: string) => {
-            factoryCalls++;
-            assert.equal(management, mounts.management);
-            return Object.assign(cli, {
-              verifyCli: () => {
-                return "fixed-cli";
-              },
-              environment: () => environment,
-            });
-          },
-          createOwnedMountCapability: () => mountCapability,
-          verifyOwnedMountCapability: () => mounts,
-          observeDockerProbeEngine: (binding: unknown) => {
-            bindings.push(binding);
-            return true;
-          },
-          beginDockerSubmission: () => "host-submitted",
-          writeDockerProbeRecoveryRecord: () => "recovery-id",
-          createDockerProbeContainer: (binding: unknown) => {
-            bindings.push(binding);
-            return { status: "confirmed", id };
-          },
-          containerIdentities: identities,
-          inspectOwnedContainer: (binding: unknown) => {
-            bindings.push(binding);
-            return {};
-          },
-          runDockerProbeToCompletion: (
-            binding: { verifyCli: () => string; environment: () => object },
-            profile: unknown,
-            actualId: unknown,
-          ) => {
-            bindings.push(binding);
-            cliInputs.push(binding);
-            captures.push({
-              profile,
-              id: actualId,
-              cli: binding.verifyCli(),
-              environment: binding.environment(),
-            });
-            return facts;
-          },
-          cleanupOwnedContainer: (binding: unknown) => {
-            bindings.push(binding);
-            return {
-              confirmed: true,
-              absenceCapability: {},
-            };
-          },
-          confirmDockerAbsence: () => {
-            const key = {};
-            absenceKeys.push(key);
-            absences.set(key, {
-              probeId: "12345678-1234-4234-8234-123456789abc",
-              containerId: id,
-              initialHostRecoveryId: "host-submitted",
-              confirmedHostRecoveryId: "host-clean",
-            });
-            return {
-              hostRecoveryId: "host-clean",
-              lifecycleAbsenceCapability: key,
-            };
-          },
-          finishHostRecovery: (
-            _host: unknown,
-            result: object,
-            _probe: unknown,
-            absenceCapability: object,
-          ) => {
-            const key = {};
-            cleanupKeys.push(key);
-            cleanups.set(key, {
-              probeId: "12345678-1234-4234-8234-123456789abc",
-              confirmedHostRecoveryId: "host-clean",
-              absenceCapability,
-            });
-            return {
-              result: { ...result, hostCleanupCompleted: true },
-              lifecycleHostCleanupCapability: key,
-            };
-          },
+      elapsedMs: scenario === "elapsed" ? null : 17,
+      stdoutBytes: 111,
+      stderrBytes: 13,
+      exitCode: 0,
+      signal: scenario === "lifecycle" ? "SIGTERM" : null,
+      timedOut: false,
+    };
+    const completion: CompletionResult<"isolation_probe"> = {
+      kind: "isolation_probe",
+      status: "completed",
+      reason: facts.isolation.reason,
+      creationAttempted: true,
+      containerId: scenario === "id" ? "b".repeat(64) : id,
+      facts: scenario === "facts" ? null : facts,
+      resourceSnapshot: snapshot,
+      cleanupConfirmed: scenario !== "cleanup",
+      processCompletionConfirmed: scenario !== "process",
+      cancelled: scenario === "cancelled",
+    };
+    const result = await fixture.run((request, options) => {
+      assert.equal(request.kind, "isolation_probe");
+      assert.equal(request.probeId, "12345678-1234-4234-8234-123456789abc");
+      assert.equal(options.settings, fixture.settings);
+      assert.deepEqual(options.mounts, fixture.mounts);
+      return {
+        kind: "isolation_probe",
+        cancel: async () => ({
+          status: "requested",
+          reason: "cancellation_requested",
+          cancellationRequested: true,
+          processTerminationObserved: false,
+        }),
+        start: (input) => {
+          input.callbacks?.onCommandSubmitting?.(
+            "create_isolation_probe",
+            fixture.target(),
+          );
+          if (scenario !== "receipt")
+            input.callbacks?.onResourceCreated?.(id, fixture.target(snapshot));
+          return {
+            kind: "isolation_probe",
+            status: "started",
+            completion: Promise.resolve(completion),
+          };
         },
-      ) as (
-        owned: object,
-        selected: string | null,
-      ) => Promise<{
-        status: string;
-        reason: string;
-        fakeProviderLifecycle: Record<string, unknown>;
-      }>;
-      const result = await run({}, selected);
-      assert.equal(factoryCalls, 1);
-      assert.equal(bindings.length, 5);
-      for (const binding of bindings) assert.equal(binding, cli);
-      assert.equal(captures.length, 1);
-      assert.deepEqual(cliInputs, [cli]);
-      const expected = [
-        { profile: selected ?? "normal", id, cli: "fixed-cli", environment },
-      ];
-      if (variant === "profile" || variant === "id")
-        assert.throws(() => assert.deepEqual(captures, expected), {
-          code: "ERR_ASSERTION",
-        });
-      else assert.deepEqual(captures, expected);
-      assert.equal(observations.length, 1);
-      assert.deepEqual(
-        JSON.parse(JSON.stringify(observations[0]?.value.observation)),
-        {
-          status: lifecycleBlocked ? "blocked" : "candidate",
-          reason: facts.lifecycleReason,
-          provenance: "repository_owned_docker_fake_provider",
-          fakeProviderStartAttempted: true,
-          fakeProviderExecuted: false,
-          resultNormalizationVerified: false,
-          containerAbsenceVerified: false,
-          processTreeAbsenceVerified: false,
-          hostCleanupVerified: false,
-          elapsedMs: 17,
-          stdoutBytes: 111,
-          stderrBytes: 13,
-          exitCode: 0,
-          signal: lifecycleBlocked ? "SIGTERM" : null,
-          timedOut: false,
-          cancellationRequested: false,
-          cancellationObservation: "not_implemented",
-          diagnosticDockerContainerEffectIssued: true,
-          diagnosticFilesystemEffectIssued: true,
-          providerNetworkEffectIssued: false,
-          runtimeAuthorityIssued: false,
-          operationCapabilityIssued: false,
-          realProviderReadiness: false,
-        },
-      );
-      assert.equal(result.status, lifecycleBlocked ? "blocked" : "confirmed");
+      };
+    });
+    const canClose = ![
+      "id",
+      "receipt",
+      "process",
+      "cleanup",
+      "cleanup_save",
+      "host",
+    ].includes(scenario);
+    assert.equal(
+      result.status,
+      scenario === "normal" ? "confirmed" : "blocked",
+      scenario,
+    );
+    assert.equal(result.hostCleanupCompleted, canClose, scenario);
+    assert.equal(
+      result.recoveryId,
+      canClose ? null : "host-operation.OP-123456",
+      scenario,
+    );
+    assert.equal(result.retainOperationDirectories, !canClose, scenario);
+    assert.equal(
+      fixture.events.includes("host"),
+      !["id", "receipt", "process", "cleanup", "cleanup_save"].includes(
+        scenario,
+      ),
+      scenario,
+    );
+    assert.equal(
+      result.fakeProviderLifecycle.diagnosticDockerContainerEffectIssued,
+      true,
+    );
+    assert.equal(
+      result.fakeProviderLifecycle.diagnosticFilesystemEffectIssued,
+      true,
+    );
+    assert.equal(
+      result.fakeProviderLifecycle.providerNetworkEffectIssued,
+      false,
+    );
+    assert.equal(result.fakeProviderLifecycle.runtimeAuthorityIssued, false);
+    assert.equal(result.fakeProviderLifecycle.operationCapabilityIssued, false);
+    assert.equal(result.fakeProviderLifecycle.realProviderReadiness, false);
+    if (canClose && scenario !== "facts") {
+      assert.equal(result.fakeProviderLifecycle.stdoutBytes, 111);
+      assert.equal(result.fakeProviderLifecycle.stderrBytes, 13);
+      assert.equal(result.fakeProviderLifecycle.signal, facts.signal);
+      assert.equal(result.fakeProviderLifecycle.elapsedMs, facts.elapsedMs);
       assert.equal(
         result.fakeProviderLifecycle.status,
-        lifecycleBlocked ? "blocked" : "verified",
+        scenario === "normal" ? "verified" : "blocked",
       );
-      if (lifecycleBlocked)
-        assert.equal(
-          result.reason,
-          "dynamic_fake_provider_finalization_incomplete",
-        );
-      assert.equal(result.fakeProviderLifecycle.stdoutBytes, 111);
-      assert.equal(result.fakeProviderLifecycle.signal, facts.signal);
-      assert.equal(pending.has(observations[0]?.key ?? {}), false);
-      for (const key of finalizationKeys)
-        assert.equal(finalizations.has(key), false);
-      for (const key of absenceKeys) assert.equal(absences.has(key), false);
-      for (const key of cleanupKeys) assert.equal(cleanups.has(key), false);
     }
+    if (canClose)
+      assert.equal(fixture.book()?.checkpoints[0]?.observation, "absent");
   }
 });

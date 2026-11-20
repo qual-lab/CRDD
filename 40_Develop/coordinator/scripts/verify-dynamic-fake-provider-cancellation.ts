@@ -10,6 +10,10 @@ import { pathToFileURL } from "node:url";
 
 import { runDynamicFakeProviderCancellationVerification } from "./probe-verification.ts";
 import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
+import {
+  getRepositoryFromWorkingDirectory,
+  resolveVerifiedRepositoryRoot,
+} from "../../version-control/src/index.ts";
 
 /**
  * Dynamic Fake Provider Cancellationを検証する。
@@ -28,7 +32,17 @@ import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
  * @concurrency verifyDynamicFakeProviderCancellationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function verifyDynamicFakeProviderCancellation() {
-  const owned = createOwnedOperationDirectories();
+  const location = getRepositoryFromWorkingDirectory(process.cwd());
+  if (location.status !== "completed")
+    throw Error("repository_identity_unavailable");
+  const repository = location.capability,
+    root = resolveVerifiedRepositoryRoot(repository);
+  if (!root) throw Error("repository_identity_unavailable");
+  const owned = createOwnedOperationDirectories({
+    root: repository,
+    purpose: "isolation_probe",
+    recordingCurrent: () => resolveVerifiedRepositoryRoot(repository) === root,
+  });
   const result = await runDynamicFakeProviderCancellationVerification(owned);
   const isRootRemoved = !fs.existsSync(owned.root);
   if (

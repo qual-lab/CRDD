@@ -8,10 +8,7 @@ import type {
   ProjectTaskState,
   TaskStartCandidates,
 } from "../../../execution-model/src/index.ts";
-import {
-  PROJECT_STATE_CONTRACT,
-  type ProjectExecutionState,
-} from "../../../execution-model/src/index.ts";
+import type { ProjectExecutionState } from "../../../execution-model/src/index.ts";
 import { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "../objective/plan.ts";
 import { inspectCoordinatorWorkspaceResults } from "../workspace/record.ts";
 import { validIdentity, validRevision } from "./validation.ts";
@@ -130,38 +127,21 @@ export function projectCoordinatorState(
       }),
     ),
   );
-  const recoveryRequired = state.milestone.state === "recovery_required";
-  const humanDecisionRequired =
-    state.milestone.state === "human_decision_required" ||
-    state.milestone.state === "returned" ||
-    objectiveCounts.returned > 0 ||
-    objectiveCounts.blocked > 0;
-  const allTasksComplete =
-    taskCounts.completed + taskCounts.superseded === state.tasks.length;
-  const anyTaskStarted =
-    taskCounts.ready + taskCounts.waiting_dependency < state.tasks.length;
-  const qualityState =
-    state.milestone.state === "accepted"
-      ? ("accepted" as const)
-      : humanDecisionRequired || recoveryRequired
-        ? ("blocked" as const)
-        : objectiveCounts.integration_pending > 0 ||
-            state.milestone.state === "integrating"
-          ? ("integration_pending" as const)
-          : ("not_evaluated" as const);
-  const nextAction = recoveryRequired
-    ? ("recover" as const)
-    : humanDecisionRequired
-      ? ("human_decision" as const)
-      : state.milestone.state === "accepted"
-        ? ("complete" as const)
-        : state.milestone.state === "integrating"
-          ? ("verify_milestone_integration" as const)
-          : objectiveCounts.integration_pending > 0
-            ? ("verify_objective_integration" as const)
-            : observed.taskIds.length > 0
-              ? ("schedule_task" as const)
-              : ("wait_for_task" as const);
+  const {
+    recoveryRequired,
+    humanDecisionRequired,
+    qualityState,
+    workProgress,
+    expectedAction,
+  } = projectionProgress(
+    { milestoneState: state.milestone.state, objectiveCounts, taskCounts },
+    state.tasks.length,
+  );
+  const nextAction =
+    expectedAction ??
+    (observed.taskIds.length > 0
+      ? ("schedule_task" as const)
+      : ("wait_for_task" as const));
   const projection = Object.freeze({
     projectId: state.projectId,
     milestoneId: state.milestoneId,
@@ -170,11 +150,7 @@ export function projectCoordinatorState(
     objectiveCounts,
     taskCounts,
     objectiveTaskSummaries,
-    workProgress: allTasksComplete
-      ? "tasks_complete"
-      : anyTaskStarted
-        ? "in_progress"
-        : "not_started",
+    workProgress,
     qualityState,
     humanDecisionRequired,
     recoveryRequired,
@@ -183,34 +159,6 @@ export function projectCoordinatorState(
   if (!isCoordinatorProjectionSemanticallyValid(projection))
     throw new Error("orchestrator_projection_semantics_invalid");
   return projection;
-}
-
-/**
- * 状態を公開結果へ投影する。
- *
- * @responsibility 状態の公開field、秘匿境界、投影不能時の結果境界を所有する。
- * @trace ARCH-000004
- * @input state: Omit<ProjectExecutionState, "contract">
- * @returns ProjectExecutionStateを返す。
- * @precondition 受付又は保存Readerで捕捉した不変の選定組を持つ状態を渡す。
- * @postcondition projectStateの責務を完了した結果だけを返す。
- * @effect N/A: projectStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: 未検証の要求を受理する入口ではない。
- * @invariant projectStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: projectStateはProcess内の同一Subsystemで完結する。
- * @security N/A: projectStateはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: projectStateは共有非同期状態を持たない同期処理である。
- */
-export function projectState(
-  state: Omit<ProjectExecutionState, "contract">,
-): ProjectExecutionState {
-  return Object.freeze({
-    contract: PROJECT_STATE_CONTRACT,
-    ...state,
-    milestone: Object.freeze({ ...state.milestone }),
-    objectives: Object.freeze([...state.objectives]),
-    tasks: Object.freeze([...state.tasks]),
-  });
 }
 
 import {
@@ -223,6 +171,66 @@ import type {
   CoordinatorStateQuery,
   CoordinatorStateQueryResult,
 } from "./types.ts";
+
+/**
+ * 表示用の進行・品質・優先次操作を同じ集計値から決定する。
+ * @responsibility 生成と外部DTO検査で表示規則を二重定義しない。
+ * @trace ARCH-000004
+ * @boundary 値の計算だけ。入力捕捉・到達可能性・実行候補の検査は呼出し元に残す。
+ */
+function projectionProgress(
+  projection: Pick<
+    CoordinatorProjection,
+    "milestoneState" | "objectiveCounts" | "taskCounts"
+  >,
+  taskTotal: number,
+) {
+  const recoveryRequired = projection.milestoneState === "recovery_required";
+  const humanDecisionRequired =
+    projection.milestoneState === "human_decision_required" ||
+    projection.milestoneState === "returned" ||
+    projection.objectiveCounts.returned > 0 ||
+    projection.objectiveCounts.blocked > 0;
+  const allTasksComplete =
+    projection.taskCounts.completed + projection.taskCounts.superseded ===
+    taskTotal;
+  const anyTaskStarted =
+    projection.taskCounts.ready + projection.taskCounts.waiting_dependency <
+    taskTotal;
+  const workProgress = allTasksComplete
+    ? ("tasks_complete" as const)
+    : anyTaskStarted
+      ? ("in_progress" as const)
+      : ("not_started" as const);
+  const qualityState =
+    projection.milestoneState === "accepted"
+      ? ("accepted" as const)
+      : humanDecisionRequired || recoveryRequired
+        ? ("blocked" as const)
+        : projection.objectiveCounts.integration_pending > 0 ||
+            projection.milestoneState === "integrating"
+          ? ("integration_pending" as const)
+          : ("not_evaluated" as const);
+  const expectedAction = recoveryRequired
+    ? ("recover" as const)
+    : humanDecisionRequired
+      ? ("human_decision" as const)
+      : projection.milestoneState === "accepted"
+        ? ("complete" as const)
+        : projection.milestoneState === "integrating"
+          ? ("verify_milestone_integration" as const)
+          : projection.objectiveCounts.integration_pending > 0
+            ? ("verify_objective_integration" as const)
+            : null;
+  return {
+    recoveryRequired,
+    humanDecisionRequired,
+    allTasksComplete,
+    workProgress,
+    qualityState,
+    expectedAction,
+  };
+}
 
 const resultKeys = new Set([
   "contract",
@@ -588,43 +596,14 @@ export function isCoordinatorProjectionSemanticallyValid(
     )
       return false;
   }
-  const recoveryRequired = projection.milestoneState === "recovery_required";
-  const humanDecisionRequired =
-    projection.milestoneState === "human_decision_required" ||
-    projection.milestoneState === "returned" ||
-    projection.objectiveCounts.returned > 0 ||
-    projection.objectiveCounts.blocked > 0;
-  const allTasksComplete =
-    projection.taskCounts.completed + projection.taskCounts.superseded ===
-    taskTotal;
-  const anyTaskStarted =
-    projection.taskCounts.ready + projection.taskCounts.waiting_dependency <
-    taskTotal;
-  const workProgress = allTasksComplete
-    ? "tasks_complete"
-    : anyTaskStarted
-      ? "in_progress"
-      : "not_started";
-  const qualityState =
-    projection.milestoneState === "accepted"
-      ? "accepted"
-      : humanDecisionRequired || recoveryRequired
-        ? "blocked"
-        : projection.objectiveCounts.integration_pending > 0 ||
-            projection.milestoneState === "integrating"
-          ? "integration_pending"
-          : "not_evaluated";
-  const expectedAction = recoveryRequired
-    ? "recover"
-    : humanDecisionRequired
-      ? "human_decision"
-      : projection.milestoneState === "accepted"
-        ? "complete"
-        : projection.milestoneState === "integrating"
-          ? "verify_milestone_integration"
-          : projection.objectiveCounts.integration_pending > 0
-            ? "verify_objective_integration"
-            : null;
+  const {
+    recoveryRequired,
+    humanDecisionRequired,
+    allTasksComplete,
+    workProgress,
+    qualityState,
+    expectedAction,
+  } = projectionProgress(projection, taskTotal);
   const isAllObjectivesPlanned =
     projection.objectiveCounts.planned === objectiveTotal;
   const isAllObjectivesAccepted =

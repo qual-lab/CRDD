@@ -153,6 +153,7 @@ export type CommitFile = Readonly<{
   revisionIdentity: string;
   relativePath: string;
   mode: "100644" | "100755";
+  blobId: string;
   bytes: Buffer;
   sha256: string;
   repositoryPathReported: false;
@@ -210,6 +211,8 @@ export type CommitCreateRequest = Readonly<{
   selection: readonly CommitSelection[];
   message: string;
   temporaryDirectory: string;
+  /** 内容が基準と同じ場合も、その断面を独立Commitとして固定する。 */
+  allowEmpty?: boolean;
   previousCommit?: string | null;
   temporary?: CommitTemporary | null;
 }>;
@@ -259,13 +262,14 @@ export type WorkingFile = Readonly<{
 export type CommitDiffRequest = Readonly<{
   baseCommit: string;
   commitId: string;
-  path: string;
+  path?: string | undefined;
 }>;
 /** Commit間の変更集合と差分取得の結果。 */
 export type CommitDiff = Readonly<{
   baseCommit: string;
   commitId: string;
-  path: string;
+  path: string | null;
+  changedPaths: readonly string[];
   binary: boolean;
   patch: string;
 }>;

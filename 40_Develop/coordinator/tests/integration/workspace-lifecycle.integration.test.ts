@@ -2058,7 +2058,7 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
       "readRepositoryStorageIdentity",
       "readState",
       "acquireCoordinatorSnapshotLease",
-      "writeCoordinatorWorkspaceRecord",
+      "saveWorkspaceRecord",
       `${body}\nreturn manageCoordinatorWorkspace;`,
     )(
       () => ({ status: "completed", capability: {} }),

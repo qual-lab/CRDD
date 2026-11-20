@@ -709,7 +709,7 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
       ),
     ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot
   ).operations.find((item) => item.recoveryId === id);
-  assert.ok(operation);
+  assert.ok(operation?.kind === "runtime_repair");
   const repository = {
     ...borrowed,
     ...withHistoryRetention(borrowed, f.capability),
@@ -1813,7 +1813,7 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
           const operation = read.value.snapshot.operations.find(
             (item) => item.recoveryId === first.recoveryId,
           );
-          assert.ok(operation?.history);
+          assert.ok(operation?.kind === "runtime_repair" && operation.history);
           assert.equal(
             createHash("sha256").update(pendingBytes).digest("hex"),
             operation.history.lineSha256,
@@ -2629,7 +2629,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
             ).toString("utf8"),
           ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot
         ).operations.find((item) => item.recoveryId !== first.recoveryId);
-        assert.ok(added);
+        assert.ok(added?.kind === "runtime_repair");
         assert.equal(added.recoveryId, id);
         assert.equal(added.identityJson, identity);
         assert.equal(added.phase, "repairing");
@@ -2980,7 +2980,11 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   const fixedOperation = checkpoint?.snapshot.operations.find(
     (item) => item.recoveryId === id,
   );
-  assert.ok(fixedOperation?.history && !fixedOperation.history.confirmed);
+  assert.ok(
+    fixedOperation?.kind === "runtime_repair" &&
+      fixedOperation.history &&
+      !fixedOperation.history.confirmed,
+  );
   const second = stateStore;
   assert.equal(
     second.readState(historyRepositoryInput(f.capability), {
@@ -3006,7 +3010,10 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   const finalOperation = current?.snapshot.operations.find(
     (item) => item.recoveryId === id,
   );
-  assert.ok(finalOperation?.history?.confirmed);
+  assert.ok(
+    finalOperation?.kind === "runtime_repair" &&
+      finalOperation.history?.confirmed,
+  );
   assert.equal(
     finalOperation.history.occurredAt,
     fixedOperation.history.occurredAt,

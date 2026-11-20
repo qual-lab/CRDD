@@ -202,10 +202,10 @@ test("現在Port構成はStateのexecution viewだけを一度取得する", () 
   const source = stripTypeScriptTypes(
     sourceDeclaration(
       fs.readFileSync(
-        new URL("../../../src/state/transaction.ts", import.meta.url),
+        new URL("../../fixtures/task-persistence-fixture.ts", import.meta.url),
         "utf8",
       ),
-      "createCurrentCoordinatorPersistencePorts",
+      "createTestPersistence",
     ),
     { mode: "strip" },
   );
@@ -221,7 +221,7 @@ test("現在Port構成はStateのexecution viewだけを一度取得する", () 
     "readState",
     "verifyRuntimePersistenceRepository",
     "createCoordinatorSnapshotPersistencePorts",
-    `${source}; return createCurrentCoordinatorPersistencePorts;`,
+    `${source}; return createTestPersistence;`,
   )(
     (actual: unknown, binding: string, scope: string) => {
       calls++;
@@ -339,8 +339,7 @@ test("公開状態照会は同版のProjectを使い採用確認後だけ再取�
         assert.equal(reads, 1);
         return true;
       },
-      createCurrentCoordinatorPersistencePorts: () =>
-        assert.fail("unexpected_state_reread"),
+      createTestPersistence: () => assert.fail("unexpected_state_reread"),
       queryCoordinatorState: (
         reader: Pick<CoordinatorStatePort, "readState">,
         query: typeof request,

@@ -45,9 +45,11 @@ Lease解放の確定はexecution/lease.tsが所有し、state/transaction.tsのP
 
 ## Host記録と回復調停の依存境界
 
-Host記録の生成・読取り・Root／markerの実体観測・通常遷移はexecution/operation.tsが所有する。execution/recovery.tsは元回復ID・保存状態・現在Ownerを照合し、その観測と実処置を使って再入場を調停する。OperationはRecoveryを実行時importしない。
+Host領域の生成・読取り・Root／Receiptの実体観測はexecution/operation.tsが所有し、記録の正本はEMの同じStateにある独立Host操作とする。execution/recovery.tsは元回復ID・保存状態・現在Ownerを照合し、その観測と実処置を使って再入場を調停する。OperationはRecoveryを実行時importしない。
 
-Host開始・復帰の予定保存、実Ownerの遷移、後継token照合と結果保存はexecution/recovery.tsが所有する。ControllerはAI実行の調停に集中し、RecoveryはControllerを実行時importしない。故障試験は調停関数全体を置き換えず、既存の保存とOperationのHost遷移境界へ接続し、予定保存要求と実Host要求の回数を分ける。新しい転送Wrapperや本番Hookは追加しない。この直接依存の整理を、間接経路を含む全Import Graphの循環解消とは扱わない。
+Host領域の清掃は`cleanupOwnedOperationDirectories`と同じHost清掃本体へ一本化する。wx排他は同期解放であり、別の非同期清掃／失効経路を持たない。子資源・再起動の終結、元Lease解放・Owner無効を確認し、Host清掃pendingを保存してから、Receiptに対応するRoot／子実体を回収し、明示不存在の後にHost terminal／confirmedを保存する。解放false又は例外では世代を退役し、現在記録を保持してProcessを停止する。旧marker・専用Token正本を残さない。本番接続の切替と、全旧試験の追従完了・全体回帰の成立は区別する。
+
+Host開始のEffect前記録・Receipt及び結果保存は、既存EM Writerへ接続する。ControllerはAI実行の調停に集中し、RecoveryはControllerを実行時importしない。履歴・資源・終了保存の再入場では、既存EMの用途固定Reader要求とexact Docker回復IDをHost世代へ渡し、同じHost全文・操作IDと保持排他を確認する。通常Reader成立後は途中保存の受付を捨て、pending中のHost更新・Root削除は禁止する。履歴設定は取得側が既存入力で渡し、OperationからPersistenceを実行時importしない。故障試験は調停全体を置き換えず、既存保存とHost実体境界へ接続する。新しい転送Wrapper、任意Reader callback、旧Host専用Readerは追加しない。
 
 ## 完成した結果受付と明示受入
 
@@ -316,9 +318,9 @@ Home Lock、Recovery在庫の種類、exact参照、再入場可否、保存Sche
 
 ## Probe記録の保存Owner
 
-`state/probe-record.ts`は上位診断が使う既存Probe記録の保存・読戻し・token／Hash・Root／子実体照合を所有する。Docker Isolationから本文同値で移管し、`execution/diagnostics.ts`と検証記録Toolが直接利用する。固定Image・Name・LabelはDIの既存`describeDockerProbeResource`から取得し、この保存ModuleからDocker要求は発行しない。DIへの互換再exportや新しいStore・Registryを作らない。
+Probeの技術資源はEMの同じHost操作記録へ保存する。`execution/diagnostics.ts`がExecutorのDI由来Snapshot・回収条件を受け、`execution/operation.ts`の既存Host記録接続へ渡す。専用のProbe JSON・Hash Token・私有状態遷移は持たない。検証用取消・残存生成も同じ記録接続を使い、DIの試験支援はEMへ依存せず同期の技術通知だけを返す。
 
-作成前と実ID確定後の二保存、既知Path・Schema・UUID・nonce・Hash・失敗理由・保存順序・差替え拒否・元回復参照は変えない。Host／Taskの保存WriterやDomainの保存Schemaへ一般化せず、既存のProbe診断記録として扱う。現在の移管は過去保持物の書換え・回収を許可しない。
+作成前Intentと実IDのReceiptは同じHostへ保存し、保存拒否後は次のEffectへ進まない。資源・Process終了と回収の確認を保存した後だけHostを清掃する。ID欠測・読取り不明・保存不明は固定した元の回復参照を保持する。新形式への切替であり、過去保持物の変換・削除や旧形式の互換Readerは追加しない。
 
 ## Executor共通入口と次試行の責任
 
@@ -396,7 +398,7 @@ src/
 
 CLIは`run task`／`run advice`、`run objective`、`doctor`／`doctor --isolation`、`recovery inspect`／`recovery resume`／`recovery resume --restart-docker`、`maintenance repair`／`maintenance repair --retain`、`auth status`／`auth login`を受け付ける。旧interactive／automationモードと検証ScriptへのCLI配送は廃止し、検証Scriptは開発用途の直接入口として区別する。Task／Projectの実行は機械向けJSON、loginは直接接続した対話端末を要求する。
 
-`doctor`は診断用一時領域を作る場合があるため厳密なEffect 0とは表示しない。runDoctor／正式診断API／CLIは同じ診断の完了・終了整理を非同期で待って結果を返す。Promise自体を結果Objectへ展開せず、拒否時は後続照会へ進まない。合成Probeの技術接続は既存createExecutorの対象別要求を利用する。CLIの既存取消を同じSignalへ伝え、Executorの技術回収まで待機する。保存・Host終了・最終Fake判定はCoordinatorに残し、技術結果だけで全体成功にしない。回復の内部相関・所在解決を新しいinspect APIとして公開しない。Rootは現在Repositoryから検証し、修復の内部checkpoint・所在・保存Writerを公開しない。CLIのListener解除不明で一次理由や既確認結果を上書きしない。
+既定の`doctor`はHost操作領域・回復Namespace・記録・Lockを作らない。Git／所在／Provider候補と認証変数名の既存観測だけを行い、未実施の隔離を成立扱いしない。`doctor --isolation`だけは診断用一時領域と実隔離資源を作るため、診断全体を一律にEffect 0とは表示しない。runDoctor／正式診断API／CLIは同じ診断の完了・終了整理を非同期で待って結果を返す。Promise自体を結果Objectへ展開せず、拒否時は後続照会へ進まない。合成Probeの技術接続は既存createExecutorの対象別要求を利用する。CLIの既存取消を同じSignalへ伝え、Executorの技術回収まで待機する。保存・Host終了・最終Fake判定はCoordinatorに残し、技術結果だけで全体成功にしない。回復の内部相関・所在解決を新しいinspect APIとして公開しない。Rootは現在Repositoryから検証し、修復の内部checkpoint・所在・保存Writerを公開しない。CLIのListener解除不明で一次理由や既確認結果を上書きしない。
 
 この切替のSourceは実装候補であり、現在の固定回帰・独立レビューの結果は[変更計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)へ記録する。実AI・実認証・実Docker・人間操作の成立をこの内部切替から推定しない。
 
@@ -504,9 +506,9 @@ Task回復はExecutorのcleanupResourcesへ、元操作・回復参照、保存�
 
 隔離診断の上位調整は`execution/diagnostics.ts`が所有する。Dockerの技術実行・環境判定はDocker Isolation、Host記録の保存と遷移は既存Host Ownerへ委譲し、診断本体は順序、私有の対象相関と公開結果を扱う。旧`docker-execution/isolation-probe.ts`の互換入口は残さない。この配置変更は実行・回復本体の移管完了を意味しない。
 
-診断ProbeのHost状態遷移は、既存`execution/operation.ts`が所有する。開始・作成前取消は同Ownerの既存遷移へ委譲し、不存在確定は元Host markerの保存・token更新・元Capabilityへの採用を同じ順序で行う。Probeは遷移結果を受け渡すだけでmarkerを直接更新しない。明示Rootを使う再入場と生存OwnerのCapability経路を区別し、新しい状態・Lock・共有管理を追加しない。この配置だけからDocker資源不存在の成立は主張しない。
+Host Lifecycleは`execution/operation.ts`が同じEM記録と実Lockで扱う。再入場は検証済みRepositoryと元操作IDから専用Rootを特定し、保存済みReceipt・現在実体を照合する。資源終結が保存済みでRootが明示不存在の場合は、削除済み管理領域を借り直さず終端保存を完了できる。存在・不明を不存在へ畳まず、Stateが読めなければ独立したHost記録から回復しない。
 
-Host回復token・遷移lineage・再起動checkpointの純粋なcodecは`execution/result.ts`、実記録のFilesystem保存／読取りと回復Lifecycleは`execution/recovery.ts`、診断Probe記録は上位Coordinatorの`state/probe-record.ts`が所有する。保存モデルは純粋なcodecへ直接依存し、値検査のために回復Runtimeを読み込まない。診断本体は各OwnerのWriter／Readerを明示呼出しし、作成前とID確定後の二保存、fresh回復時のRoot・実体照合から技術観測への順序を維持する。Writerは固定資源記述を記録するだけでCLIやEngineを判定しない。Host／ProbeのSchemaとtoken文法は別のまま、現在形式だけを扱い、互換中継は追加しない。
+HostとProbeの保存値・資源遷移の正本はEMである。Coordinatorは元操作の現在性・実Lock・Root Receipt・実Home解放を照合し、技術実行・回収をExecutor／DIへ渡して同じEM記録へ結果を保存する。`execution/result.ts`は公開結果の値契約へ限定し、旧Host Token生成は持たない。再起動Checkpointの値検査と物理回復の実行は区別し、保存モデルから回復Runtimeへ逆依存させない。
 
 <a id="repair-directory-disposition"></a>
 
@@ -566,7 +568,7 @@ B1で、Native Trace解析、Native単体のGit出所確認、検証結果の安
 
 OS判定・PID観測は各実行OwnerがNode.js標準を使用し、観測不能を不存在へ畳まない。OS上の生存は世代同一性の証明ではない。Coordinatorの`execution/configuration.ts`が上位設定をDIの初期化へ明示搬送し、子Process環境の構築はDIが所有する。PAの環境取得・子環境Helperへは接続しない。
 
-Doctorは未使用の子Process環境を組み立ててフィルタ成功を表示しない。診断改訂14では合成環境由来の`credentials.forwardedNames`／`environmentFiltered`と`execution.credential_environment`を撤去し、Hostでの認証変数名検出と実隔離観測を区別する。値は記録せず、実隔離を実施しない場合はその成立を主張しない。通常DIの環境構築・実行・認証情報の隔離保証は変更しない。受動診断の既存Operation取得・終了整理は別の実資源契約として保持する。
+Doctorは未使用の子Process環境を組み立ててフィルタ成功を表示しない。合成環境由来の`credentials.forwardedNames`／`environmentFiltered`と`execution.credential_environment`は提供せず、Hostでの認証変数名検出と実隔離観測を区別する。値は記録せず、実隔離を実施しない場合はその成立を主張しない。通常DIの環境構築・実行・認証情報の隔離保証は変更しない。診断改訂17では受動診断のOperation取得と終了整理を撤去する。`filesystem.policy`は`null`、`operation.directories`は`not_implemented`／`owned_operation_directories_not_requested`とし、未要求の領域を確認済みと表示しない。このcheckは既存の位置でblockerへ入り、readinessの集約規則は緩和しない。作成物がない受動診断から新しいHost回復義務を発生させず、観測例外は元の失敗として搬送する。
 
 旧B2専用の確認コード・固定OS端末契約は、本番ConsumerがないためPAと試験支援から代替なしで撤去した。認証loginが使う既存DIの対話Process・TTYと終了確認は別契約として維持する。
 
@@ -751,9 +753,9 @@ Task側の四unitは[Task詳細のQuality引渡し](03_Task_Architecture.md#qual
 
 `execution/authority.ts`は現在Operation・Home・Mount等の現役相関を所有する。自作Registry・Local許可元と独立Provider Authorityは提供せず、ユーザー／Role認可を新たに所有しない。実体・Root字句検査の存在だけでDocker Isolationへ新しいAPIを追加しない。秘密情報検査の承認済み目標OwnerはDomain Modelの`plain-data/secret-validation.ts`とし、Workspace・送信範囲・実行入力・結果取込は同じ純粋検査の利用側とする。現SourceはDomain Modelへ移管済みで、CoordinatorはDomain Rootの公開Symbolを利用する。既知pattern・Path・文字列の検査を維持し、秘密値の保存・Credential管理・未知Secret不存在証明を追加しない。独立Trust評価器と汎用Trust Policy管理は現在の製品要求・開発残件から外す。導入時は既存Ownerの確認結果・公開根拠・未確認範囲を分けて人間が判断する。既存の内容同一性・認可・隔離・品質確認を維持し、一つの成功を全体信頼や実行許可へ広げない。Docker固有の隔離・起動・終了・資源回収はDocker Isolationが所有する。
 
-Docker Task回復IDの解析とProbe記録の保存・読戻し・Root／子実体の照合はDocker Isolationの公開APIを使う。Host記録の生成・読取り・技術遷移はCoordinatorの`execution/operation.ts`、保存状態と結合した開始・復帰の調停は`execution/recovery.ts`が所有する。Host終端intentとcaller checkpoint、元Repository／操作／Scopeへ結合する再起動要求checkpointも`execution/`へ置く。これらはDIの技術的な再起動状態とは異なり、処置許可・保存・通知の上位相関を所有する。現在状態の保存Schema、保存先、同じ回復参照と確定順序は変えない。判断はDomainの単一State Writerへ統合する。検証報告のsidecar保存だけをExecutorの`scripts/report.ts`が所有し、Domainの汎用JSON保存公開は撤去する。旧Journalの残る17操作は、唯一の本番Consumerが`a04ecb703`で撤去済みであり、旧回復Directoryへfallbackしない既存方針に従って退役する。現在の回復は`execution/recovery.ts`と現在状態checkpoint、Docker Isolationの実資源回収へ対応付け、旧方式の試験を現方式の保証と混同しない。`execution/recovery.ts`は開始前予定保存、Host実遷移への接続、清掃・Mount終了根拠の照合と後続checkpointを所有し、`execution/controller.ts`はAI実行を調停する。保存Schema・失敗分類・確定順序は維持し、StoreはReaderと既存Writer操作だけを提供する。Task入力と結果表示はOrchestratorへ移管し、単体Coordinatorはdoctor等の受付・診断と旧Task入口の固定拒否だけを保持する。
+Host・隔離Probeの資源記録はEMの同じ`host_operation`を正本とする。Coordinatorの`execution/operation.ts`は作成前Intent、Root／六子DirectoryのReceipt、現在の実Lockと実体照合、清掃前pending及び不存在後のterminalを接続する。`execution/recovery.ts`は同じ操作の資源・Home解放・再起動終結とHost回収の順序を調停し、技術資源の観測・回収はExecutor／DIへ委譲する。旧Host Token・marker・独立Probe保存・Docker内Host複製へ戻らず、Stateが読めない場合は手動対応とする。
 
-診断記録はOrchestratorのTask進行状態ではなく単発の技術実行記録である。上位へ移すためだけのWrapperや私有APIの大量公開を作らず、CoordinatorからOrchestratorへ依存しない。Probeの本番回復と故障／取消検証は同じ相関Mapを一実体で維持し、検証用操作のConsumerだけをscripts／試験に限定する。passive doctorにも一時Operation作成があるため読取り専用・Effect 0とは表示しない。処置対応と検証義務は[解体計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#16-workspace診断folderの解体と実責務への分配)を参照する。
+明示隔離試験の診断記録はTask進行状態ではなく単発の技術実行記録である。上位へ移すためだけのWrapperや私有APIの大量公開を作らない。Probeの本番回復と故障／取消検証は同じ相関Mapを一実体で維持し、検証用操作のConsumerだけをscripts／試験に限定する。受動Doctorは一時Operationを作らず、明示隔離試験の作成・取消・回復・清掃と区別する。処置対応と検証義務は[解体計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#16-workspace診断folderの解体と実責務への分配)を参照する。
 
 呼出し元別の`workbench-ai/`は解体する。助言の値型は`execution/result.ts` / `execution/observation.ts` / `execution/recovery.ts` / `execution/advice.ts` / `execution/request.ts`、計画は`provider-plan.ts`、入力投影は`task-packet.ts`、結果検査は`task-structured-result.ts`へ統合する。同形の結果Itemと文字列検査を共通化するが、助言と編集のSchema、Hash領域、一回消費のAuthorityは混合しない。`provider-packet.ts`は一回Packet、`provider-execution.ts`は既存Controllerによる非共有実行と回収を所有する。
 
@@ -1473,17 +1475,17 @@ Task受付・境界検証
 
 #### Host記録の読取り所在と現在操作
 
-初期保存直後・Host submission前のProcess消失では、実markerが`host_only`かつ私有Ownerのtokenと初期tokenが一致し、初期操作から既存退役処理の`phase=settling / ownerEffect=disabled`と清掃進捗だけが変化した場合に限り、Host不存在遷移を不要とする。初期操作は既存modelで再導出し、五資源の全初期field、未開始／未送信／共有書込み未発行、再利用不可、一次失敗・結果・履歴を全文比較する。再起動記録だけは共通の終了判定を満たす場合に、その内容を変更せず比較対象へ保持する。これはTask資源が未要求であることと再起動義務の終了を分けるためであり、未確定の再起動、回収不明、最終結果欠落またはEffect不明は拒否する。同じID／nonceの未解決参照・配送があれば拒否する。`host_only`一般、Task資源のnot_issued、意図保存済み、unknownまたは発行後の不存在をこの例外へ含めない。
+Host Intentは実Directory作成前からEMへ保存し、Docker開始は同じ操作IDの現在Host記録がactiveである場合だけ受理する。技術要求前の終了は未開始・未送信・共有書込み未発行、旧Owner無効、資源の正式未要求及び再起動終結を個別に照合する。保存済みという事実を外部Effectの不在や清掃済みへ読み替えず、元の回復参照を保持する。
 
-この有限切断点はDocker不存在の再観測ではなく、submission未到達の確認である。確認関数と清掃関数は同じ私有判定を使い、確認だけではtoken・marker・不存在事実を保存しない。清掃は既存のpending保存→元版・Owner・世代再確認→Host清掃→Root／marker両不存在→confirmed保存を維持する。清掃予定保存後の再入場のため`not_requested / pending`だけを許容し、confirmedは既存の両不存在再入場経路で扱う。通常の`docker_submission_started → docker_absent_confirmed`は変更しない。局所試験・失敗反証と独立確認が完了するまで、この候補接続をPackage全体完成としない。
+Host清掃は同じEM記録・Root Receipt・実Lockを確認し、子Dockerの資源終結、Home Lease解放、旧Owner無効及び再起動終結を共同条件とする。清掃前pendingを保存してからRootを削除し、明示不存在後だけterminal／confirmedを保存する。Rootが既に不存在でもpending→confirmedの確定順序を維持し、削除要求を新たに発行しない。
 
-初期切断の清掃途中再入場では、pendingの実保存確定後と、Host Root／markerの実回収後・confirmed出版前を別の切断点とする。各fresh処置は既存resource-cleanup checkpointを一度保存するため、資源欄が同値でもSnapshotの改訂・元版Hashは進む。この保存を新しい技術進捗やHost清掃成立へ解釈せず、操作・参照・配送の保全と、modelで再導出したSnapshot全文・改訂・元版Hashを別々に照合する。Host清掃確定・履歴・対象除去は最後のfresh処置で共同成立を確認する。
+清掃前pendingの保存拒否、保存後の結果不明、保存後の現在許可失効、物理削除後のterminal未保存は異なる中断点として扱う。成功へ補完せず、同じHost回復参照・保存本文とRootの現在観測から再入場する。Snapshotの改訂は記録更新であり、新しい技術EffectやHost清掃成立を示さない。
 
-現在操作のfresh回復Ownerは、現在Repositoryのexact操作と元本文へ結合し、既存Host世代、Home、Runtime排他を順序取得する。Host世代の内部検証は真正なMap・Root・nonceと保持Lockの生存を共同確認し、raw Host Lockを二重取得しない。取得直後と保存直前に同じHost markerを読み直し、全現在本文の元版一致を確認する。既存の準備用私有Mapを`restart / recovery`の判別付き集合として使い、各利用側は種別を照合する。新しい共有Registry、永続Owner、Lock Frameworkは作らない。
+現在操作のfresh回復Ownerは、検証済みRepository・exact操作・元本文へ結合し、共通LockのHost世代、Home、Runtime排他を順序取得する。Host世代は実発行した私有参照と同じ操作ID・Root Receipt・保持Lockの生存を共同確認する。取得直後と各Writer直前に現在性と元版を照合し、部分失敗では取得済み排他を逆順で解放する。新しい共有Registryや永続Ownerは設けない。
 
-準備が受理した履歴出版途中の有限形は、直後の旧Owner退役確認でも同じexact IDと元本文で再読取りする。通常Readerが解放確認付きで拒否し、Host両不存在を確認済み・Host清掃出版なし・completion出版なしの場合だけ、既存のCurrent History Readerへ一回接続する。例外・解放不明・Host残存／不明からは接続しない。専用Readerも元本文全文一致とfresh Owner確認を要求し、既退役なら追加Writerなしで残る履歴／終了処理へ進む。履歴pendingを理由にOwnerを再生成したり、未知資源・未退役Ownerを終了済みへ変換したりしない。
+履歴出版途中の再入場は同じexact IDと元本文で再読取りする。通常Readerが解放確認付きで拒否し、Host Rootの明示不存在と残る終了・履歴義務を確認できる場合だけ既存の履歴照会へ接続する。例外・解放不明・Host残存／不明からは接続せず、未知資源や未退役Ownerを終了済みへ変換しない。
 
-Host遷移途中のfresh準備では、保存済みpendingがない場合は現tokenだけを使う。pendingがある場合は`docker_submission_started → docker_absent_confirmed`だけをこの回復分岐の対象とし、元token、系譜Hash、Root・nonce、元OwnerのEffect無効化と五資源の既知終了を要求する。実markerが元本文なら旧token、予定の後続本文と完全一致する場合だけ予定tokenを取得対象へ採用する。採用後も現在stateのtokenを自動更新せず、同じ実markerを世代取得後・保存直前に再確認する。別種類の正式pendingはこの入口で処置済みにせず取得前停止し、対応する回復分岐の未完成義務として残す。予定tokenの保存確定・Host実遷移と物理清掃は後段の別接続である。
+Host清掃途中のfresh準備は、現在EMに残るHostの`cleanup`とRootの実観測を用いる。`pending`・`unknown`を成功へ読み替えず、同じ操作とReceiptを再確認する。旧Tokenの後継Hashやmarker本文を推測・合成せず、別操作のHost記録を回収対象にしない。
 
 Host不存在遷移のDriverは、同じ現在Ownerと全元版、元OwnerのEffect無効化、五資源の既知終了を前提に次を処置する。この関数はmarker存続中の遷移・token確定を所有し、Host物理清掃と清掃後の保存は後述の「現在回収OwnerのHost清掃確定」が所有する。先行した新規遷移とsettled再入場の確認では、別Processの実Host／Kernel排他と現在状態Writerを使い、初回の意図・token確定二版の全文・改訂・元版Hash、および同Owner反復・fresh再入場で追加公開0を照合した。この遷移単体の試験終了時清掃はfixture回収であり、後述する製品Host清掃Driverの検証とは区別する。pending旧／予定tokenの実Storage接続、競合CAS、実Dockerと本番切替は未完了である。
 
@@ -1753,7 +1755,7 @@ DI checkpointのkey・技術順序は下位Root codecで検証し、Coordinator�
 
 旧RuntimeState一覧向けの`recovery-lock-controller.ts`と`state-binding.ts`は本番利用側がなくなったため撤去する。旧controllerの処理中解放・再取得は現行方式へ移植しない。現在の回収OwnerはHost／Home／Runtimeの長期排他を保持し、状態保存だけ短期State排他を用いる。外側観測の後は元版全文・exact回復ID・現在Ownerを再確認し、解放不明では後続処置を拒否する。旧方式の専用試験7件の退役は、正式検証義務や実境界の完了を意味しない。
 
-初回操作の候補構築は`prepareCoordinatorStateOperationSnapshot`が既存の固定Identity本文を一度だけ現在集合へ追加する。全五purposeは未要求・未観測、Hostは初期Token、Leaseは保持中、実行・送信・共有書込みは未発行として評価する。Host遷移意図は初回Identity保存とは別の次版で記録し、候補構築だけでHost処置を発行しない。既存操作・未解決回復・未受理搬送を保持し、元本文Hashと次版を結合する。重複操作や不正元版は候補を返さず、初回nullを新品Rootの証明へ昇格しない。本番Producerはこの候補を既存Writerへ接続し、現在Root・Lease・Hostを保存時に別途再確認する。候補単体から本番実境界全体の成立を主張しない。
+初回Docker操作の候補は、先行して保存した同じOperationの使用中Host記録を維持して、EMの既存開始操作から現在Stateへ追加する。資源は未要求・未観測、Leaseは保持中、実行・送信・共有書込みは未発行とし、Hostを別形式へ変換・複製しない。既存操作と未解決回復を保全し、元本文Hashと次版を結合する。空Stateやnull入力を新品Rootの証明へ昇格せず、現在Root・実Home排他・Host記録・元版を保存時に確認する。
 
 資源要求は既存の五purpose（`create_subscription_auth_probe`、`create_internal_network`、`create_egress_network`、`create_proxy`、`create_provider`）に限定する。要求前、意図保存、要求発行、応答／ID確定、現在資源の存在・不存在・観測不能を区別する。意図保存からDocker受理を、空IDから不存在を、清掃要求から清掃完了を推定しない。動作を広げるための任意purposeや任意Pathは追加しない。
 
@@ -1780,7 +1782,7 @@ Hostの保存接続は`prepareCoordinatorStateHostSnapshot`と`checkpointRuntime
 | 保存項目 | 固定する意味 | 検査の限界 |
 |---|---|---|
 | `identityJson`、`identitySha256` | 操作開始時の閉じた基本情報の確定本文とSHA-256。本文の項目順と末尾LFも保持する。 | 可変SnapshotのHashへ回復IDを付け替えない。固定情報のPathを現在の書込み許可にしない。 |
-| `host.pendingTransitionJson` | Host Ownerが確定した処置前本文と次世代Tokenの相関。元のJSON項目順を保持する。 | 外側のkey整列をNative証明本文へ適用しない。保存内容検査は現在Hostの実体確認を代替しない。 |
+| `host_operation` | 同じ操作の作成Intent、Rootと子DirectoryのReceipt、回収状態をEMの現在Stateに一度だけ保持する。 | 保存値だけで実体の現存・不存在・削除許可を証明しない。Docker操作へ複製しない。 |
 | `resources` | 五purposeを必ず評価し、要求状態と現在観測を別fieldにする。 | ID確定済みで観測がunknownになってもIDと受理根拠を保持する。不存在の根拠Hashだけから実不存在を推定しない。 |
 | `primaryFailure`、`outcome` | 最初の失敗と後続清掃・最終結果を別に保持する。 | 最終結果による一次失敗の上書きを禁止する。 |
 
@@ -1792,7 +1794,7 @@ Hostの保存接続は`prepareCoordinatorStateHostSnapshot`と`checkpointRuntime
 
 通常終了では、過去のProvider開始・外部送信・共有書込みの観測評価と、現在の資源回収義務を分離する。過去評価が`unknown`でも、それを未発行・成功へ変換せず終了要約に保持する。五purposeが明示的な未要求／未発行、または既知IDに対する現在不存在であり、真正なProcess終端・Host清掃・Home／Mount Lease解放・旧OwnerのEffect不能・履歴確定・用途別受領がすべて成立した場合だけ現在操作を整理できる。作成結果不明、ID未確定、資源観測不能、現在も残る未解決の書込み影響は本条件で終了しない。限定unknown Create終了Classと新規開始の競合条件は変更しない。
 
-通常終了要約はcrdd-execution-model/operation-summary/v5とし、元operationIdとrecoveryCorrelationId、Identity、一次失敗、実行評価、結果、Host清掃、Leaseを保持する。存在する非秘密dockerRestartも投影する。固定した行・時刻・Hashを再入場で再生成せず、観測していない再起動を補完しない。旧保存物の自動変換・削除や互換Readerを追加しない。
+通常終了要約は`crdd-execution-model/operation-summary/v6`とし、元operationIdとrecoveryCorrelationId、Identity、一次失敗、実行評価、結果、Lease及び存在する非秘密dockerRestartを保持する。Host清掃の正本は独立したHost記録であり、要約へ複製しない。固定した行・時刻・Hashを再入場で再生成せず、観測していない再起動を補完しない。旧保存物の自動変換・削除や互換Readerは追加しない。
 
 終了履歴は保存済みの現在状態から導出し、呼出し側が任意の要約本文やPathを渡す入口を作らない。Orchestratorの仕事履歴とはOwner・操作Identity・失敗分類が異なるため、Coordinatorから上位の履歴Writerへ依存しない。共通化するのは既存のRoot観測・File Identity・保存primitiveであり、二つの履歴を統合しない。
 
@@ -1826,14 +1828,14 @@ Hostの保存接続は`prepareCoordinatorStateHostSnapshot`と`checkpointRuntime
 
 終端Writerの資源変更は、清掃前Contextに保持した管理Capability・操作ID・回復参照と元の本番Controller結果を照合する。更新排他内で元Snapshotから`prepareCoordinatorStateCleanupSnapshot`を導出し、その五purpose評価と候補の資源集合が一致した場合だけ保存へ進める。要求状態・既知IDの差替え、欠測・別名・観測不能の不存在化はモデルの既存検査で拒否し、根拠なし・コピー結果では資源差分を拒否する。Host清掃結果の照合、他操作変更・参照除去・履歴変更の拒否は維持する。この内部Writer接続を本番Producerの一体切替済みや実Docker清掃済みとは扱わない。
 
-現在状態に保存する固定操作情報は`crdd-coordinator/operation-identity/v5`とする。必須項目はschema、operationNonce、provider、consumer、operationId、executionSelection、taskAttempt、stableLogicalHomeBindingHash、providerHomeIdentityHash、repositoryBinding、ownershipLabel、operationMode、workspaceMountMode、initialHostRecoveryId、initialHostRecovery、hostPathsであり、条件付きでworkspaceProtected／workspaceProtectionとrecoveryCorrelationIdを保持する。選択ユーザー、五資源の名前・Imageと実IDはこのIdentityへ重複保存せず、実資源の記録はResourceSnapshotと資源Book、Homeの実排他はExecutorのHome Leaseが所有する。grantRefは持たず、RepositoryやHomeのHashを認可・保護・解放の証明へ読み替えない。旧v4・旧項目混入・別Repositoryを拒否し、互換Readerや自動移行を作らない。回復IDの三Hash書式を維持し、第三Hashをv5本文から導出する。旧IDを新Identityへ付け替えず、過去保持物は操作しない。
+現在状態に保存する固定操作情報は`crdd-coordinator/operation-identity/v6`とする。必須項目はschema、operationNonce、provider、consumer、operationId、executionSelection、taskAttempt、stableLogicalHomeBindingHash、providerHomeIdentityHash、repositoryBinding、ownershipLabel、operationMode、workspaceMountModeであり、条件付きでworkspaceProtected／workspaceProtectionとrecoveryCorrelationIdを保持する。HostのIntent・Receiptは同じoperationIdの`host_operation`を参照し、IdentityへHost本文・Token・Pathを複製しない。選択ユーザー、五資源の名前・Imageと実IDも重複保存せず、実資源はResourceSnapshotと資源Book、Homeの実排他はExecutorのHome Leaseが所有する。RepositoryやHomeのHashを認可・保護・解放の証明へ読み替えない。旧Schema・旧項目混入・別Repositoryを拒否し、互換Readerや自動移行を作らない。回復IDの三Hash書式を維持し、第三Hashは受付時のv6本文の元bytesから導出する。旧IDを付け替えず、過去保持物は操作しない。
 
 本番切替は次の旧保存責務を同時に置き換える。新Writerの直接試験だけで移行済みとは扱わず、旧保存へ戻るfallbackと恒久的な二重書込みを作らない。
 
 | 処理境界 | 現行本番の保存 | 新現在状態での対応と切替条件 |
 |---|---|---|
 | 開始Identity | pending base、base commit、operation Directory、active lease pointer、Host active binding | `saveRuntimeOwnedCoordinatorOperationStart`で同じ操作を確定する。新品領域の独立作成証明を維持し、保存・読戻し・排他解放が未確認ならDocker要求へ進まない。 |
-| Host開始 | host-begin intent／receipt | `host.pendingTransitionJson`と`host.currentToken`へ同じ遷移を保存する。要求前・後の記録順を保つ。 |
+| Host開始 | EMの`host_operation` | Directory作成前にIntentを保存し、Root・各子Directory作成後に同じ操作へReceiptを保存する。独立marker、Token、Probe専用Fileは使用しない。 |
 | 資源要求 | submission-purpose File | 五用途の`resources.request`へ要求前のintentを保存し、要求発行・結果不明を区別する。 |
 | 作成応答 | receipt-purpose File | 同じ用途のIDと応答取得根拠を保存する。要求記録がない応答・異なるIDは拒否する。 |
 | Docker清掃 | docker-absence Fileの集約true | 元の清掃結果に結合した五用途の観測を保存する。集約trueや未要求を実不存在へ読み替えない。 |
@@ -1845,9 +1847,9 @@ Hostの保存接続は`prepareCoordinatorStateHostSnapshot`と`checkpointRuntime
 
 旧completed／acknowledged Fileの二段GC、AppData Rootの保護結合、Receipt inode、commit companion、tombstone容量管理は新方式へ再実装しない。保持するのは上位耐久受理と読戻し、全搬送受理・履歴・実終端後の対象除去、次Attemptへ進む順序である。除去後に応答が失われた場合も、上位Ownerの保存済みexact結果と同じAttemptをfresh確認できる場合に限り追加Effectなしの再確認を扱う。単なる対象欠落を資源不存在や処理成功へ変換せず、旧IDの再実行や履歴からのAuthority復元を禁止する。再起動後の確認は保存Ownerの既存Readerを使い、WeakMapだけを耐久受理根拠にしない。
 
-開始保存の入口は現在の本番Recovery OwnerからSource上で接続している。全Producerと実資源・Hostの一体実証は未完了である。有効な同じ操作IdentityをReader前に検証して非Authorityの回復参照を固定し、読取り不明・重複・初期化失敗でも同じ参照を保持する。Readerの排他解放が未確認なら初期化・Writerへ進まず、元の本文と回復参照を保持する。初期化の領域作成EffectはWriterのEffectとORして返すが、保存確認・排他解放をORしない。これはHome Lease取得、Docker要求Authority、Host遷移または本番切替の完了証明ではない。
+開始保存の入口は現在の本番Recovery Ownerから接続する。Host Intent保存が新品Stateの初回作成を所有し、Docker開始はそのHostを含む現在Stateへ追加する。Docker開始時に空Stateを仮生成・再初期化しない。有効な同じ操作IdentityをReader前に検証して非Authorityの回復参照を固定し、読取り不明・重複・保存不明でも同じ参照を保持する。Readerがcompleted・値あり・排他解放済みの全条件を満たす場合だけ候補とWriterへ進む。保存確認・排他解放・Effectを互いの代用にしない。Source接続と有限代役試験を実AI・実Dockerを含む一体実証とは区別し、全体回帰は未実施として扱う。
 
-`prepareRuntimeOwnedRepositoryDockerOperationIdentity`は本番の固定計画と同じ操作Ownerから、現在Repository結合および実Host token・固定記録・Pathを取得して新Identityを組み立てる。固定組立てが渡す必須の`consumer`もIdentity本文へ含め、受領方式自体は保存せず固定対応から導出する。Hostは`borrowOwnedHostRecoverySnapshot`で同じ管理Capabilityが保持する実体から読み取り、読取り前後に記録Hash・実体Identity・現在状態を検査する。tokenからOS一時Rootを逆算せず、任意Pathも受け付けない。AppData RuntimeStateの観測を使用せず、別操作・不正世代・観測不能は拒否する。組立て後のRepository再確認と新モデル検査を通した本文だけを開始Writerへ渡す。この関数は保存、Home Lease取得、Docker要求を発行せず、Homeの実観測・Lease照合は一体切替する開始Ownerの責務として保持する。現在の本番開始Ownerはこの関数へ接続しているが、関数の局所確認だけで全Producerの実境界成立とは扱わない。
+`prepareRuntimeOwnedRepositoryDockerOperationIdentity`は、現在Repository結合・元Operation ID・固定選定・Provider／Homeの技術相関からv6の固定Identityを組み立てる。Hostは同じOperation IDのEM正本を参照し、Token・Host本文・PathをIdentityへ複製しない。組立て後のRepository再確認とEM受付を通した元bytesだけを開始Writerへ渡す。この関数は保存・Home Lease取得・Docker要求を発行しない。実Homeの観測と排他はExecutor、作成前Host IntentとReceiptの保存は同じHost Ownerが担当する。局所入力の成立を全Producerの実境界成立へ換算しない。
 
 2026-10-08の受領方式採用に伴い、本番未採用Draftの`operation-identity/v1`へ必須`consumer`を追加する。同じ識別子のDraftを最新形態だけへ更新し、欠落版の自動補完・互換Readerは設けない。過去固定試験の結果を新版の根拠へ流用しない。新しい固定本文からIdentity Hash・exact回復ID・結果要約を導出し、旧記録や旧IDは付け替えない。保存済みIdentityは更新不能であり、Consumer変更後にHashと回復IDを再計算しても同じ操作の更新として拒否する。Settlement Contextの利用側は保存Identityの`consumer`と一致しなければならない。旧形式入りstate／pendingは新品として初期化せず保全停止する。これは本番組立ての切替や配送・完了の成立証明ではない。
 
@@ -1906,7 +1908,7 @@ Host清掃後の最終保存には、通常の操作Ownerを延命して使用�
 
 終端保存は、Host清掃結果の真正性だけでなく操作・Root・nonceとの一致を確認する。一般のSnapshot遷移で操作・回復・搬送参照の削除を許可せず、五purposeの終端、Host清掃、回復義務解決、同じTask終端の保存、終了要約の実履歴確認が共同成立した対象だけを整理する。元の失敗と清掃確認は別に保持する。
 
-操作終端の要約Hashは、現在の固定要約を正規JSON・UTF-8・末尾LFで表したSHA-256である。Identity・回復参照・一次失敗・実行評価・結果・Host／Leaseと存在する再起動checkpointを含み、履歴時刻・Snapshot改訂・File Identityは混ぜない。Hashだけを処置許可にしない。
+操作終端の要約Hashは、現在の固定要約を正規JSON・UTF-8・末尾LFで表したSHA-256である。Identity・回復参照・一次失敗・実行評価・結果・Leaseと存在する再起動checkpointを含み、Host記録・履歴時刻・Snapshot改訂・File Identityは混ぜない。Hashだけを処置許可にしない。
 
 Task終端は同じRepository・Project・Milestone・Task・Attempt・Operationと全exact回復参照へ結合する。独立した受領本文や初回受理世代は保存せず、同じSnapshotのTask結果と関連Operation除去を確定する。詳細は[保存値モデル](04_Task_Detailed_Design.md#unified-storage-lifecycle)を正本とする。
 
@@ -1941,7 +1943,7 @@ Snapshot排他は既存のWindows名前付きPipe primitiveを用い、検証済
 
 資源作成Receiptの保存中断は、同じTaskのexact回復参照に限定して通常doctorから再入場する。通常Readerのpending拒否は維持する。専用Readerはcurrent／pendingの正規全bytes・Repository結合・前版Hash・同じ操作Identityを照合し、`intent_saved → identified`かつ`docker_create_result`の一資源だけを既存Snapshot生成から完全再導出する。他操作、Owner、Authority、結果、履歴、配送が変わる候補は拒否する。既にcurrentとpendingが同本文なら値は再適用せず短命物だけを回収する。fresh回収Ownerが既存Host世代・Home・Runtime排他を取得して元OwnerのEffect不能を確認した後、同じpairを既存Writerへ渡し、保存・読戻し・pending除去と解放を別々に確認する。候補の読取りやID保存を資源の現在存在・清掃完了にしない。別回復IDのpendingを代わりに出版せず、create要求・Task・Providerを再発行しない。この接続の局所・実境界成立は変更計画で追跡し、Source追加だけを全体完成としない。
 
-既に解放済みのTaskは、旧OwnerのEffect不能、Workspace再利用不可、五資源すべてのID確定・現在不存在、Host遷移なし、未解決再起動なしが記録上成立する場合だけ、Host清掃が`not_requested`でも既存のRoot／marker不存在観測へ進める。同じRoot・token結合を確認し、fresh回収Ownerが既存排他を保持した状態でRootとmarkerの両方の明示不存在を再確認する。片側不存在・観測不能・再出現は拒否する。不存在を確認した場合は既存host checkpointの`pending`を保存・読戻しし、その後に既存の清掃確定Writerを使う。このpendingは現在の確認処理の進行を表し、過去の物理削除要求を発行済みへ変更しない。別操作の回収成功だけで対象の終了を推定せず、新しい削除、再起動、共有状態または回復Frameworkを追加しない。
+既に解放済みのTaskからHost回収へ進むには、旧Owner無効、Workspace再利用不可、資源Bookの終結及び再起動終結を記録上確認する。Rootの不存在と観測不能を区別し、既に不存在でも同じEM Host記録のpending→terminal／confirmedを確定する。別操作の回収成功やRoot不存在だけで対象Task全体を完了にせず、保存・解放不明は元参照へ残す。
 
 | 順序 | 処置 | 失敗時の扱い |
 |---|---|---|
@@ -1999,7 +2001,7 @@ Taskは各終了Capabilityに投影前のController元完了結果を保持す�
 
 同じSnapshotへ新操作を追加する場合、同じ認証領域の旧操作が未終端なら拒否する。次段落の同一Host限定経路を除く例外は、元版と保存候補の双方で清掃確認・Host清掃・Lease解放・旧OwnerのEffect不能・五資源終端を保持し、現在の資源義務が全て終端している場合である。Task保存待ちだけから資源を再利用しない。同じ更新で旧操作を終端化した値だけを根拠に新開始を許可せず、旧操作へ資源義務を再追加しながらの新開始も拒否する。検査は新操作追加の遷移へ適用し、既存Snapshot全体の読取りや回収を拒否するdecoder制約にはしない。この値検査は別Repositoryの残存検出、実清掃、または遅延Docker要求の終端を証明しない。
 
-同一Host内の正常直列実行では、Host領域の清掃を最後に一度だけ行える。旧操作が元版と候補で全文不変であり、保存Identityの操作ID・Host root／marker所在・初期Host参照・root directory identityが一致し、旧current tokenが新操作の初期Host参照へ戻っている場合に限る。marker実体は原子的置換で変わるため、その物理identityの一致は要求しない。さらに旧操作は`executing`、Home Lease解放済み・旧Owner disabled・五資源終端・実行評価unknownなし・Workspace再利用不可・Host清掃未要求・遷移予定なし・再起動なし・一次失敗／結果／要約／履歴なしを全て満たす。未解決の資源義務が残る場合はこの例外でも拒否する。旧操作の物理清掃済みや成功を捏造せず、新操作は別nonce・別回復IDで開始する。別Hostには従来の完全清掃条件を維持し、同じ更新内の旧操作改変・取消・abandon・清掃不明をこの例外へ昇格させない。
+同一Host内の正常直列実行では、同じ操作IDのHost領域を最後に一度だけ清掃できる。旧Docker操作が元版と候補で全文不変、同じrecoveryCorrelationId、`phase=settling`、Home Lease解放済み、旧Owner無効、資源終結、Workspace再利用不可、Host清掃未要求、再起動・一次失敗・結果・要約・履歴及び未解決参照なしである場合に限る。過去の実行評価unknownは保持し、新stageの実行許可は開始前の入口で確認する。新Docker操作は別nonce・別回復IDで開始し、別Hostには完全清掃の条件を維持する。
 
 #### 使い捨て実行環境と限定終了
 

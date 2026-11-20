@@ -23,7 +23,7 @@ import {
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/configuration/runtime-data.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { createTestPersistence } from "./task-persistence-fixture.ts";
 import { taskExecutionSelections } from "./ai-selection.ts";
 
 /**
@@ -131,10 +131,7 @@ export function persistAcceptancePendingState(
     ).status,
     "completed",
   );
-  const ports = createCurrentCoordinatorPersistencePorts(
-    root,
-    repositoryBindingId,
-  );
+  const ports = createTestPersistence(root, repositoryBindingId);
   const port = ports.state;
   let current: ProjectExecutionState = state.state;
   const queueId = `queue-${projectId}`;

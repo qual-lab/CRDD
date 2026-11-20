@@ -17,9 +17,12 @@ import type {
 } from "../attempt/types.ts";
 import {
   areTaskResourcesSettled,
+  readOperationHost,
   authenticationClosureEvidence,
   createEnvironmentRepairDisposalCheckpoint,
   decodeEnvironmentRepairDisposalCheckpoint,
+  decodeHostOperation,
+  validHostOperationTransition,
   isDockerRestartCheckpointSettled,
   isRepairCheckpointSettled,
   operationNonce,
@@ -301,11 +304,6 @@ export function prepareStateOperationSnapshot(
       recoveryId,
       phase: "executing",
       resources: null,
-      host: {
-        currentToken: identity.initialHostRecoveryId,
-        pendingTransitionJson: null,
-        cleanup: "not_requested",
-      },
       lease: "held",
       execution: {
         providerStart: "not_started",
@@ -327,8 +325,8 @@ export function prepareStateOperationSnapshot(
       return null;
     const operations = [...(current?.snapshot.operations ?? []), operation];
     operations.sort((left, right) => {
-      const a = JSON.parse(left.identityJson).operationNonce as string;
-      const b = JSON.parse(right.identityJson).operationNonce as string;
+      const a = operationNonce(left);
+      const b = operationNonce(right);
       return a < b ? -1 : a > b ? 1 : 0;
     });
     const next: ExecutionStateSnapshot = {
@@ -351,6 +349,67 @@ export function prepareStateOperationSnapshot(
     };
     const bytes = Buffer.from(`${encodeStateValue(next)}\n`);
     return validateStateTransition(currentBytes, bytes, repositoryBinding)
+      ? bytes
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Hostの一操作だけを既存Stateへ組み込む候補を作る。
+ * @responsibility 初回Intent・同値再送・単調なReceipt更新と対象外保全を接続する。
+ * @trace ARCH-000008
+ * @boundary 候補は保存・実作成・回収許可ではなく、物理Writerが元本文を再照合する。
+ */
+export function prepareStateHostOperationSnapshot(
+  before: Buffer | null,
+  value: unknown,
+  repositoryBinding: string,
+): Buffer | null {
+  try {
+    if (!isSha256Hex(repositoryBinding)) return null;
+    const operation = decodeHostOperation(value);
+    const current =
+      before === null ? null : decodeStateSnapshot(before, repositoryBinding);
+    if (!operation || (before !== null && !current)) return null;
+    const prior = current?.snapshot.operations.find(
+      (item) => item.recoveryId === operation.recoveryId,
+    );
+    if (!validHostOperationTransition(prior ?? null, operation)) return null;
+    if (prior && encodeStateValue(prior) === encodeStateValue(operation))
+      return Buffer.from(before as Buffer);
+    const operations = [
+      ...(current?.snapshot.operations.filter(
+        (item) => item.recoveryId !== operation.recoveryId,
+      ) ?? []),
+      operation,
+    ];
+    operations.sort((a, b) =>
+      operationNonce(a) < operationNonce(b)
+        ? -1
+        : operationNonce(a) > operationNonce(b)
+          ? 1
+          : 0,
+    );
+    const next = {
+      ...(current?.snapshot ?? EMPTY_EXECUTION_TASK_SECTIONS),
+      schema: EXECUTION_STATE_SCHEMA,
+      revision: (current?.snapshot.revision ?? 0) + 1,
+      previous: current
+        ? {
+            revision: current.snapshot.revision,
+            payloadSha256: current.payloadSha256,
+          }
+        : null,
+      repositoryBinding,
+      operations,
+      projects: current?.snapshot.projects ?? [],
+      managedExecutions: current?.snapshot.managedExecutions ?? [],
+      unresolvedRecoveries: current?.snapshot.unresolvedRecoveries ?? [],
+    };
+    const bytes = Buffer.from(`${encodeStateValue(next)}\n`);
+    return validateStateTransition(before, bytes, repositoryBinding)
       ? bytes
       : null;
   } catch {
@@ -1075,7 +1134,7 @@ function prepareStateOperationCheckpoint(
   recoveryId: unknown,
   resourceValue: unknown,
   repositoryBinding: unknown,
-  kind: "resource" | "host" | "lifecycle" | "restart",
+  kind: "resource" | "lifecycle" | "restart",
 ): Buffer | null {
   try {
     const current = decodeStateSnapshot(currentBytes, repositoryBinding);
@@ -1119,7 +1178,6 @@ function prepareStateOperationCheckpoint(
               ...item,
               dockerRestart: kind === "restart" ? resource : item.dockerRestart,
               ...(kind === "lifecycle" ? resource : {}),
-              host: kind === "host" ? resource : item.host,
               resources: kind !== "resource" ? item.resources : resource,
             },
       ),
@@ -1175,37 +1233,6 @@ export function prepareStateResourceSnapshot(
   } catch {
     return null;
   }
-}
-
-/**
- * Hostの処置前記録と観測済み次世代を次版へ搬送する。
- *
- * @responsibility 保存済み遷移意図を経ない世代変更と未確定意図の消去を拒否する。
- * @trace ARCH-000008
- * @input currentBytes: 元本文。recoveryId: exact参照。hostValue: Host現在評価。repositoryBinding: 現在結合。
- * @returns lineageと改訂遷移を検査した次版、またはnull。
- * @precondition Hostの実体、処置と受理結果は既存Host Ownerが確認する。
- * @postcondition 同じ操作のHostだけを更新し、他checkpointを保持する。
- * @effect N/A: 値変換のみ。Host処置や保存は行わない。
- * @failure 別世代、処置前記録欠測、不正本文と不許可遷移はnull。
- * @invariant 処置前意図から完了を推定せず、unknownを成功へ丸めない。
- * @boundary Host Ownerの確定記録とSnapshot候補。
- * @security Host TokenとJSONを処置Authorityとして扱わない。
- * @concurrency 元版相関を保持し、実保存時に再照合を要求する。
- */
-export function prepareStateHostSnapshot(
-  currentBytes: unknown,
-  recoveryId: unknown,
-  hostValue: unknown,
-  repositoryBinding: unknown,
-): Buffer | null {
-  return prepareStateOperationCheckpoint(
-    currentBytes,
-    recoveryId,
-    hostValue,
-    repositoryBinding,
-    "host",
-  );
 }
 
 /**
@@ -1775,8 +1802,8 @@ export function prepareStateCompletionSnapshot(
     ) ||
     operation.phase === "executing" ||
     operation.outcome?.cleanupConfirmed !== true ||
-    operation.host.cleanup !== "confirmed" ||
-    operation.host.pendingTransitionJson !== null ||
+    readOperationHost(current.snapshot.operations, operation)?.cleanup !==
+      "confirmed" ||
     operation.lease !== "released" ||
     operation.execution.ownerEffect !== "disabled" ||
     operation.history?.confirmed !== true ||
@@ -2177,6 +2204,7 @@ export function validateUnifiedTransition(
           );
           if (
             !terminal?.cleanupConfirmed ||
+            operation?.kind !== "docker_task" ||
             !operation?.history?.confirmed ||
             current.snapshot.unresolvedRecoveries.some(
               (r) => r.recoveryId === obligation.recoveryId,
@@ -2309,6 +2337,17 @@ function validateSettlementTransition(
         continue;
       if (operation.kind === "runtime_repair") {
         if (!repairCanComplete(operation, current.snapshot)) return false;
+        continue;
+      }
+      if (operation.kind === "host_operation") {
+        if (
+          operation.phase !== "terminal" ||
+          operation.cleanup !== "confirmed" ||
+          current.snapshot.unresolvedRecoveries.some(
+            (value) => value.recoveryId === operation.recoveryId,
+          )
+        )
+          return false;
         continue;
       }
       if (
@@ -2504,7 +2543,7 @@ export function decodeStateSnapshot(
       return null;
     const snapshot = value as ExecutionStateSnapshot;
     if (
-      snapshot.schema !== "crdd-execution-model/state/v6" ||
+      snapshot.schema !== "crdd-execution-model/state/v7" ||
       snapshot.repositoryBinding !== repositoryBinding ||
       !Number.isSafeInteger(snapshot.revision) ||
       snapshot.revision < 1 ||
@@ -2701,8 +2740,8 @@ export function projectTaskSettlement(
             operation?.kind === "docker_task" &&
             operation.phase !== "executing" &&
             operation.outcome?.cleanupConfirmed === true &&
-            operation.host.cleanup === "confirmed" &&
-            operation.host.pendingTransitionJson === null &&
+            readOperationHost(snapshot.operations, operation)?.cleanup ===
+              "confirmed" &&
             operation.lease === "released" &&
             operation.execution.ownerEffect === "disabled" &&
             (operation.dockerRestart === null ||
@@ -3003,7 +3042,7 @@ function validExecutionTaskReferences(
  * @trace ARCH-000004、ARCH-000008
  */
 
-export const EXECUTION_STATE_SCHEMA = "crdd-execution-model/state/v6";
+export const EXECUTION_STATE_SCHEMA = "crdd-execution-model/state/v7";
 
 // Queue results may carry an exact opaque candidate or recovery reference.
 // These references use the same closed character set as stable IDs, but can
@@ -3293,56 +3332,6 @@ export function validateRepairWriteCandidate(
 }
 
 /**
- * 保存済み操作が未要求の初期形から許された退役差分だけを持つか判定する。
- * @responsibility 初期再導出・未解決参照・全field一致を実Host観測から分離する。
- * @trace ARCH-000008
- * @input operation: 同じ検証済みSnapshot内のTask操作、snapshot: 同じ現在版。
- * @returns Owner退役・清掃進捗・終了済み再起動以外の差がなければtrue。
- * @effect N/A: メモリ内の再導出と比較だけ。
- * @security trueはHost不存在・清掃許可・実資源未作成の証明ではない。
- * @boundary 保存モデルの初期形。実Host状態とtokenはCoordinatorが観測する。
- */
-export function isInitialOperationHost(
-  operation: ExecutionOperationRecord,
-  snapshot: ExecutionStateSnapshot,
-): boolean {
-  if (
-    !isDockerRestartCheckpointSettled(operation.dockerRestart) ||
-    !["not_requested", "pending"].includes(operation.host.cleanup)
-  )
-    return false;
-  const bytes = prepareStateOperationSnapshot(
-    null,
-    operation.identityJson,
-    snapshot.repositoryBinding,
-  );
-  const initial = bytes
-    ? decodeStateSnapshot(bytes, snapshot.repositoryBinding)?.snapshot
-        .operations[0]
-    : null;
-  if (initial?.kind !== "docker_task") return false;
-  const nonce = JSON.parse(operation.identityJson).operationNonce;
-  if (
-    snapshot.unresolvedRecoveries.some(
-      (entry) =>
-        entry.recoveryId === operation.recoveryId ||
-        entry.operationNonce === nonce,
-    )
-  )
-    return false;
-  return (
-    encodeStateValue(operation) ===
-    encodeStateValue({
-      ...initial,
-      phase: "settling",
-      dockerRestart: operation.dockerRestart,
-      host: { ...initial.host, cleanup: operation.host.cleanup },
-      execution: { ...initial.execution, ownerEffect: "disabled" },
-    })
-  );
-}
-
-/**
  * 検査済みStateの保持参照と必須行の相関を一つの元版から投影する。
  * @responsibility 判断・未搬送・未解決・現在操作の参照をHistoryへ渡す。
  * @trace ARCH-000008
@@ -3373,6 +3362,7 @@ function projectHistoryRetentionReferences(
   for (const recovery of snapshot.unresolvedRecoveries)
     protectedRecoveries.add(recovery.recoveryId);
   for (const operation of snapshot.operations) {
+    if (operation.kind === "host_operation") continue;
     if (!operation.history) continue;
     protectedRecoveries.add(operation.recoveryId);
     requiredRows.push({
@@ -3510,8 +3500,8 @@ function stateHistorySnapshot(
     !operation ||
     operation.phase === "executing" ||
     !operation.outcome?.cleanupConfirmed ||
-    operation.host.cleanup !== "confirmed" ||
-    operation.host.pendingTransitionJson !== null ||
+    readOperationHost(current.snapshot.operations, operation)?.cleanup !==
+      "confirmed" ||
     operation.lease !== "released" ||
     operation.execution.ownerEffect !== "disabled" ||
     !areTaskResourcesSettled(operation)

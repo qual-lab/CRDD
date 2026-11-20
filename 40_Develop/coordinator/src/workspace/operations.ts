@@ -29,7 +29,7 @@ import {
 import { acquireCoordinatorSnapshotLease } from "../execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import type { CoordinatorLease } from "../state/persistence.ts";
-import type { StoreResult } from "../state/result.ts";
+
 import {
   assertWorkspaceDirectoryAvailable,
   freezeWorkspaceCandidate,
@@ -38,96 +38,6 @@ import {
   workspaceWorktreeResult,
   workspaceWorktreeTarget,
 } from "./git.ts";
-import type {
-  CoordinatorIntegrationRecordPort,
-  IntegrationRecordBinding,
-} from "./record.ts";
-
-/**
- * 候補公開と採用結果の保存Portを統合保存へ結合する。
- * @responsibility 同Identityの再送を同内容に限定し、後処理の結果を耐久化する。
- * @trace ARCH-000005
- * @input binding: Repository・Project・Milestone・Queueの固定結合。
- * @returns 既存の結果保存Port。
- * @precondition 全入力照合済み保存と対象Queueがある。
- * @postcondition 保存を受領や実適用の許可へ読み替えない。
- * @effect 新しい結果だけを同じ排他内で保存する。
- * @failure 不正値、結合差、異内容再送、保存失敗は停止する。
- * @invariant 採用後の保存失敗から候補を再適用しない。
- * @boundary 結果保存PortとRepository内現在状態。
- * @security 新しいAuthorityや既読状態を作成しない。
- * @concurrency 読取り、同Identity照合、更新を同じOwnerで行う。
- */
-export function createCoordinatorSnapshotIntegrationRecordPort(
-  binding: IntegrationRecordBinding,
-): CoordinatorIntegrationRecordPort {
-  const storageRepository = verifyRuntimePersistenceRepository(
-    binding.workingDirectory,
-  );
-  return Object.freeze({
-    /**
-     * 同Identity・同内容に限定して結果を保存する。
-     * @responsibility 候補公開と採用結果の不変な保存を所有する。
-     * @trace ARCH-000005
-     * @input record: 既存結果Portの値。
-     * @returns 保存確定または停止。
-     * @precondition 対象Queueと結合が一致する。
-     * @postcondition 同内容再送で保存を増やさない。
-     * @effect 新しい結果を統合保存へ追加する。
-     * @failure 異内容再送を拒否する。
-     * @invariant 保存失敗から再適用しない。
-     * @boundary 結果Portと保存。
-     * @security 既読やAuthorityを新設しない。
-     * @concurrency 照合と更新を同じOwnerで行う。
-     */
-    write(record) {
-      return saveIntegrationRecord(
-        storageRepository,
-        binding.repositoryBindingId,
-        binding,
-        record,
-      );
-    },
-  });
-}
-
-/**
- * 既存操作Leaseに結合したWorkspace現在値を保存する。
- * @responsibility 同対象世代比較、Queue対象結合と終了後整理を一つのSnapshotへ閉じる。
- * @trace ARCH-000004
- * @input 所属Root、Repository結合、実在Project／Queue、Lease世代、期待Workspace世代と次値。
- * @returns 確定した現在値又はblocked。
- * @precondition 呼出し元は既存project-operation Leaseを保持する。
- * @postcondition 同じLease・Queue・対象・世代だけを更新する。
- * @effect 既存state.jsonを原子的保存し読戻す。Gitは実行しない。
- * @failure 対象不一致・使用中・未解決・保存不明は停止。
- * @invariant 新台帳・Lockを追加せず、Taskの現在値を重複保存しない。
- * @boundary Workspace操作と既存Snapshot Writer。
- * @security 状態名だけを削除許可としない。
- * @concurrency 既存短期Snapshot排他だけを保持する。
- */
-export function writeCoordinatorWorkspaceRecord(
-  workingDirectory: string,
-  binding: string,
-  projectId: string,
-  queueId: string,
-  ownerGeneration: string,
-  workspaceId: string,
-  expectedGeneration: number,
-  nextRecord: WorkspaceRecord | null,
-): StoreResult<WorkspaceRecord | null> {
-  return saveWorkspaceRecord(
-    verifyRuntimePersistenceRepository(workingDirectory),
-    binding,
-    projectId,
-    queueId,
-    ownerGeneration,
-    workspaceId,
-    expectedGeneration,
-    nextRecord,
-    { processId: process.pid, now: () => Date.now() },
-  );
-}
 
 import { types } from "node:util";
 import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
@@ -690,8 +600,8 @@ export function manageCoordinatorWorkspace(
     if (request.authorize && !request.authorize())
       throw new Error("orchestrator_candidate_not_authorized");
     const save = (next: WorkspaceRecord | null) => {
-      const saved = writeCoordinatorWorkspaceRecord(
-        request.ownerRepositoryRoot,
+      const saved = saveWorkspaceRecord(
+        verifyRuntimePersistenceRepository(request.ownerRepositoryRoot),
         request.repositoryBindingId,
         request.projectId,
         request.queueId,
@@ -699,6 +609,7 @@ export function manageCoordinatorWorkspace(
         request.workspaceId,
         record?.generation ?? 0,
         next,
+        { processId: process.pid, now: () => Date.now() },
       );
       if (saved.status !== "completed") {
         result.manualRecoveryRequired = saved.manualRecoveryRequired;
@@ -744,25 +655,29 @@ export function manageCoordinatorWorkspace(
       const queue = operationQueue;
       if (!queue || candidate.disposition === null)
         throw new Error("orchestrator_candidate_disposition_invalid");
-      const recorded = createCoordinatorSnapshotIntegrationRecordPort({
-        workingDirectory: request.ownerRepositoryRoot,
-        repositoryBindingId: request.repositoryBindingId,
-        projectId: request.projectId,
-        queueId: request.queueId,
-        milestoneId: queue.milestoneId,
-      }).write({
-        kind: "adoption",
-        identity: `workspace-candidate-${candidate.request.operationId}`,
-        value: {
-          recordKind: "workspace-candidate",
-          request: candidate.request,
-          candidateCommit: candidate.candidateCommit,
-          target: candidate.target,
-          mergeCommit: candidate.mergeCommit,
-          disposition: candidate.disposition,
-          primaryFailure: candidate.primaryFailure,
+      const recorded = saveIntegrationRecord(
+        verifyRuntimePersistenceRepository(request.ownerRepositoryRoot),
+        request.repositoryBindingId,
+        {
+          repositoryBindingId: request.repositoryBindingId,
+          projectId: request.projectId,
+          queueId: request.queueId,
+          milestoneId: queue.milestoneId,
         },
-      });
+        {
+          kind: "adoption",
+          identity: `workspace-candidate-${candidate.request.operationId}`,
+          value: {
+            recordKind: "workspace-candidate",
+            request: candidate.request,
+            candidateCommit: candidate.candidateCommit,
+            target: candidate.target,
+            mergeCommit: candidate.mergeCommit,
+            disposition: candidate.disposition,
+            primaryFailure: candidate.primaryFailure,
+          },
+        },
+      );
       if (recorded.status !== "completed")
         throw new Error("orchestrator_candidate_record_unconfirmed");
     };
@@ -827,17 +742,21 @@ export function manageCoordinatorWorkspace(
           throw new Error("orchestrator_candidate_closure_mismatch");
         value = existing.value;
       }
-      const saved = createCoordinatorSnapshotIntegrationRecordPort({
-        workingDirectory: request.ownerRepositoryRoot,
-        repositoryBindingId: request.repositoryBindingId,
-        projectId: request.projectId,
-        queueId: request.queueId,
-        milestoneId: operationQueue.milestoneId,
-      }).write({
-        kind: "adoption",
-        identity,
-        value,
-      });
+      const saved = saveIntegrationRecord(
+        verifyRuntimePersistenceRepository(request.ownerRepositoryRoot),
+        request.repositoryBindingId,
+        {
+          repositoryBindingId: request.repositoryBindingId,
+          projectId: request.projectId,
+          queueId: request.queueId,
+          milestoneId: operationQueue.milestoneId,
+        },
+        {
+          kind: "adoption",
+          identity,
+          value,
+        },
+      );
       if (saved.status !== "completed")
         throw new Error("orchestrator_candidate_closure_unconfirmed");
     };

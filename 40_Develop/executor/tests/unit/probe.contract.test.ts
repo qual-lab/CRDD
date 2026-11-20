@@ -39,6 +39,8 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
     cancel: () => unknown = () => undefined,
     cancelCalls = 0;
   const owners = new WeakMap<object, IsolationRequest>();
+  let intentSnapshot: ResourceSnapshot | null = null;
+  let receiptSnapshot: ResourceSnapshot | null = null;
   const mounts = {
     management: "management",
     workspace: "workspace",
@@ -134,6 +136,8 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
         assert.equal(request.verifyLabelAbsence, true);
         assert.equal(request.unreceiptedAbsence, "retain");
         const prepared = { resources: snapshot(request, false, false) };
+        intentSnapshot = prepared.resources;
+        receiptSnapshot = null;
         owners.set(prepared, request);
         return prepared;
       },
@@ -165,6 +169,7 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
               await callbacks.onSubmitting?.(create);
               events.push("create");
               resources = snapshot(request, true, mode !== "unknown");
+              receiptSnapshot = resources;
               if (mode === "unknown") {
                 cleanup = false;
                 throw Error("unknown");
@@ -326,12 +331,31 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
     if (mode === "pre_cancel") await executor.cancel();
     const start = executor.start({
       callbacks: {
-        onCommandSubmitting: () => {
+        onCommandSubmitting: (purpose, recovery) => {
+          assert.equal(purpose, "create_isolation_probe");
+          assert.equal(recovery.resources, intentSnapshot);
+          assert.equal(recovery.managementDirectory, "management");
+          assert.deepEqual(recovery.cleanupOrder, ["probe"]);
+          assert.equal(recovery.setupTimeoutMs, 10_000);
+          assert.equal(recovery.unreceiptedAbsence, "retain");
+          assert.equal(recovery.verifyLabelAbsence, true);
+          assert.deepEqual(recovery.previouslyAbsent, []);
+          assert.equal(Object.isFrozen(recovery), true);
+          assert.equal(Object.isFrozen(recovery.cleanupOrder), true);
           events.push("intent");
           if (mode === "intent") throw Error("save");
         },
-        onResourceCreated: (actual) => {
+        onResourceCreated: (actual, recovery) => {
           assert.equal(actual, id);
+          assert.equal(recovery.resources, receiptSnapshot);
+          assert.equal(recovery.resources.resources[0]?.identity.dockerId, id);
+          assert.equal(recovery.managementDirectory, "management");
+          assert.deepEqual(recovery.cleanupOrder, ["probe"]);
+          assert.equal(recovery.setupTimeoutMs, 10_000);
+          assert.equal(recovery.unreceiptedAbsence, "retain");
+          assert.equal(recovery.verifyLabelAbsence, true);
+          assert.deepEqual(recovery.previouslyAbsent, []);
+          assert.equal(Object.isFrozen(recovery), true);
           events.push("receipt");
           if (mode === "receipt") throw Error("save");
           if (mode === "promise")

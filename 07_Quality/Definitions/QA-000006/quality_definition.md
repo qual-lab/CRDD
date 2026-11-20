@@ -1,5 +1,51 @@
 # QA-000006 外部実行境界の検証定義
 
+## Hostの値契約と既存Writer接続
+
+ERB-IT-003／014の保存結合は、State v7の独立Host、Identity v6、summary v6を使用する。Labelは構築時の値搬送と保存受付を区別し、不正Labelの保存はEffect 0・元State不変で拒否する。初回Docker保存の出版故障は実renameで注入し、元Host本文と同じ回復参照のpendingを保持する。再起動Scopeに属する全Hostの生存Ownerを正規に退役してから回復し、通常CLI終了の8更新と再起動要求・結果を加えた13更新を、各段階の全文比較と併せて確認する。
+
+終了出版pendingからの再入場では、同じexact回復IDの正規Readerで元本文・解放確認を読み、終結済みのHost全文、Snapshot／Hash、Docker／OP相関、資源・Restart・Owner・LeaseとRoot明示不存在を再照合する。WriterやHost再清掃を発行せず、pendingの確定は既存終了Ownerに残す。局所の各不一致反証で元断面と処置0を確認し、実publication故障後のfresh再入場は別Processの結合試験で確認する。
+
+ERB-IT-004の二保存・完了試験は、現在のExecutor FactoryとIntent／Receipt通知へ直接接続する。共用するのは不変のSource読取りだけで、Book・Owner・故障・要求列は各Caseで独立する。資源更新は実EM規則を使用し、旧Host Token・私有Map・文字列判定による互換支援は持たない。Receipt差、実ID差、終了・回収・保存・Host清掃の不明、lifecycle blockedを反証する。取消時は同じExecutorのcompletionを待ち、完了後の追加AbortでListener解放を確認する。故障Profileの技術分類はExecutor／DIが所有し、この上位試験から実Docker・永続保存を主張しない。
+
+PRL-UT-006の開始診断はProvider Homeの直接観測と同じOPのactive Hostに接続する。Hostの読取り不能・例外・別OP・非activeを保存後の同じ段階で反証し、任意診断先の例外・拒否・遅延・未完了が元結果・exact回復参照・Writer回数を変えないことを確認する。
+
+ERB-UT-023では、同じHostのGit資源について、一件の初回予定からOID・発行不明・確認・回収への単調更新を確認する。予定を飛ばした追加・複数追加・OID差替え・未回収終端・余剰Symbol・非列挙属性・getterを拒否し、getterが実行されないことを観測する。ERB-IT-003／PRL-IT-013／RFD-IT-013の実Git結合では、Main／Linked、開始時dirty・無視外未追跡・削除・Ignore除外、固定Reviewerコピー、コピー差替え、Commit結果保存失敗でRef未発行・領域保持、期待OID不一致の回収拒否を同じHost記録で確認する。祖先case衝突をCommit前に拒否し、正規同表記を肯定対照とする。実AI・Dockerは使わない。
+
+ERB-IT-014の終了保存では、技術資源の終結とLease解放後にHostを独立Checkpointへ保存し、Dockerの終端WriterでHostを変更しない。履歴の新Schemaと同じ回復参照・相関IDを公開Readerで確認し、未保存・欠落・重複・誤相関を終了済みへ補完しない。対象外Hostは正常候補だけでなく各Docker負例でも保持する。
+
+資源Bookの未開始失敗試験では、元失敗11形とLease二種を組み合わせ、元失敗・未発行の保持、実行状態・資源・結果の単独不正、失敗の消去拒否を確認する。Dockerだけを変える全候補・負例で独立Hostを保持し、孤立による別理由の拒否へすり替えず、正常候補では同じHost全文を保全する。
+
+旧Host Tokenの後継Hash検査は退役し、PRL-UT-006では同じHost操作ID・回復参照・Root／子Receiptを保持する回収遷移を確認する。別操作、偽phase、Receipt差、余剰fieldと旧Token混入を拒否する。履歴codecは現行summary v6を受理し、旧v2／v5を補完せず拒否する。129件の数量反証では129 Dockerと対応する129 Hostを構成し、負例でも全Hostを保持したまま末尾DockerのHashだけを破壊する。PRL-UT-006の開始保存後の終端準備六観点は、現行Identityと同じ保存済みHostを使い、保存済みの事実とEffectを拒否・例外・解放不明で消さないことを確認する。
+
+ERB-UT-023ではDocker開始が現在のHostを含むStateへ追加されることを確認する。入力不正はReader前、Host欠測・Reader不明・値なし・解放未確認はWriter前で拒否する。blocked＋値ありとcompleted＋値なしを独立に反証し、元Identity本文から導いた回復参照と既存Host全文を保持する。ERB-IT-003／014の初回出版・pending試験は公開Host開始へ接続し、旧初期化準備入口を使用しない。同値再送、既存領域内でのState消失、別Repository、fresh Process、同bytes実体置換、pending一致／不一致、hardlink拒否を維持する。
+
+ERB-UT-023の回復Lease解放は、正式な`execution.ownerEffect`でOwner無効を確認する。旧`ownerDisabled`の追加を要求せず、正規解放だけが候補生成とWriterへ到達すること、Owner有効／不明・資源未終結・別版／別操作・結果／要約改変は双方0になること、元本文が不変であることを確認する。初回資源Intent前の回復終端では、独立Hostの確定後だけ結果保存の候補を生成し、Host未確定と未知の外部Effectを拒否する。実Host・Lock・Filesystemと別Processの回復成立は対応する結合試験で別に評価する。
+
+PRL-UT-014の診断試験では、Probeの同じReceipt・実ID・元Snapshot、Process終了、DI回収、Host実清掃と終端保存を共同条件として扱う。調停の実宣言を有限代役で評価し、Receipt欠測・保存失敗・ID差・終了不明・回収不明・取消を成功へ変換しないことを確認する。明示未発行は、作成未試行に加えて元Snapshotの未発行・IDなし・Process終了・回収確認を要求する。各条件を単独で崩す反証では、未発行保存とHost清掃がなく、元の回復参照を保持する。
+
+Probe回復は、保存済み資源が終結し、同じ取得世代のRootが明示不存在の場合だけDI管理領域の借用を省略できる。Root存在・観測不明、Receipt不明、保存失敗、Process終了未確認、Lock解放不明を個別に確認する。これらはメモリ代役による局所試験であり、EM Writer・実Lock・実Docker・実Filesystemの回復成立を主張しない。旧試験・検証Scriptの新保存形式への追従は別途必要である。
+
+既存PRL-UT-014は実宣言の同一な清掃・失効処理に、Lock未取得、解放成功、解放false、解放例外、実体削除拒否の五条件を独立Map／Ownerで与える。実体回収→能力失効→解放→記録整理→真正結果の順と、不明時の退役・停止・元登録／記録保全を確認する。既存ERB-IT-003の真正結果試験は、自己生成した一方の操作で実wx Lockを取得し、同じ清掃入口でRootとLockの不存在、Owner失効と別操作結果の拒否を確認する。実AI・DockerやEM一本化の完成は主張しない。
+
+Host内のProbe資源は、既存ERB-IT-014の同じ実保存fixtureで、別Host Intentの追加、実体Receiptと資源Intent、作成Receipt、不存在とHost終端を既存Writerへ保存する。Task／Adviceへの資源混入、Receipt喪失・ID巻戻し、資源未解決の終端、`retain`変更、自動再発見のReceipt、getter実行を拒否する。失敗時のState本文不変、確定版だけの次Checkpoint、対象外操作の保持とHost作業Directory未作成を確認する。資源Identityは合成値であり、実DockerやHost清掃の成立ではない。
+
+既存ERB-UT-023のProbe試験は、作成前通知のSnapshotが元Preparedの値そのもの、Receipt通知がDIの更新Snapshotそのものであることと、実Plan由来の回収条件・初回不存在集合・`retain`の維持を確認する。通知拒否・誤Promise・取消・終了／回収不明の既存条件は削らない。この搬送の成功をCoordinatorのHost記録切替・実回復成立へ換算しない。
+
+Host技術記録の保存はPrincipalなしで成立し、そのPropertyのgetterも実行しない。一方、元操作の現在認可が拒否された場合は保存しない。一般ExecutionModelAccessの主体条件は変更しない。Coordinatorの既存回復照会は`host-operation.OP-*`も受け付け、保存済みphase／cleanupと、Probe資源のkey・通知保存区分・観測区分だけを公開する。実ID・Mount・元Snapshotは公開しない。欠測・重複・不正参照・読取り不明・取消は従来の結果区分を維持し、Probe照合や実資源の観測・回収へ進まない。この照会接続をHost作成・回復の本番切替完了と扱わない。
+
+ERB-UT-023の既存Checkpoint試験は、元の六用途の保存義務を維持し、Hostの初回Intent・部分Receipt・全Receipt・回収不明・終端、元IDとReceiptの置換拒否、未信頼入力の補完拒否・getter／Proxy非実行と独立捕捉を確認する。ERB-IT-014の既存Core保存試験で、最初のState本文からHost Intentを一出版すること、同値開始再送、Receipt更新とstale拒否、null版と未開始IDのCheckpoint拒否、現在認可の拒否、rename失敗時の同じ元参照・pending保全と再呼出し停止を確認する。Host保存後の共通Lock解放失敗では、保存事実・Effectありを保持しながら開始不成立・解放不明・元回復参照を返し、残Lock下の再送成功を拒否する。
+
+ERB-IT-003／PRL-IT-013のHost回収では、子資源終結・Home Lease解放・旧Owner無効であっても再起動未終結なら物理Rootを保持する。Rootが既に不存在の場合はpending→confirmedの保存順とRoot削除要求0を確認し、pending保存前拒否・保存後の結果不明・現在許可喪失では同じ回復参照と非終端を保持する。旧Token・Host専用checkpoint・独立absence helperの試験を現役機構として維持せず、生きた義務をこの実保存／実体観測及びEMのCAS・解放試験へ対応付ける。
+
+一般ExecutionModelAccess・AMの用途集合は維持し、Host用の信頼した入口だけを使う。Host作業Directoryをこれらの保存操作が作らないことと、試験Rootの終了清掃を確認する。保存値・Readerの成立だけを実体の現在性・不存在、削除許可又はCoordinator本番のHost統合成立の証拠にしない。Run／Adviceの実体作成・回復は独立Host記録へ接続し、旧markerを撤去した。終了後状態は現在の保存・実体観測試験で確認し、限定確認と全体回帰・実AI／Dockerの未実施範囲を区別する。
+
+ERB-IT-003／014及びPRL-IT-013の認証create試験器は、同じOperation IDのDocker記録と独立Hostを対象として扱い、対象外の全文を保全する。元Hostの実体・子Receipt・Git情報等の相関を維持し、回復後のterminal／cleanup confirmedと専用Root不存在を確認する。旧Host Path／markerは復元せず、最終Reader故障は対象Docker記録の不存在を起点として注入する。これは有限代役による統括検査であり、実Dockerの成立は別Gateである。
+
+## 受動DoctorのNamespace非作成
+
+既存ERB-IT-003のDoctor一Caseは、専用の自己生成TEMP内で本番の受動診断を実行し、Namespaceを含む項目が一つも作られないこと、改訂17の未実施表示と回復不要を確認する。試験Rootは子Process正常終了・元実体一致・空の確認後だけ回収する。他のOperation／回復Caseには従来のNamespaceとexact実体・未知残存の保全条件を維持し、共通Helper全体を空又は未知物許可へ緩めない。明示隔離の技術回収と実Docker検証は別の義務であり、本Caseの成功へ含めない。
+
 ## 停止しない通常起動の有限確認
 
 手動確認の必要性の保持は内部Runtime結果・失敗分類で確認する。Task公開型にそのfieldがないことをfalseの保証と解釈しない。公開runTaskの有限Session接続は、起動期限の元理由・非成功・cleanup確認・回復ID非捏造・自動再送なしを確認する。Host／Provider生成0の内部試験と、公開搬送の試験を一つの実Docker E2E成立へ合算しない。
@@ -77,6 +123,8 @@ Host開始・完了のfixtureは廃止済みのIdentity内資源表を使わず�
 CoordinatorはDIの実通知からEM Rootの完成保存・読戻しへ接続し、確認済み保存値と通知値の一致、終端判定、元版・対象外本文・Lock／CAS・解放を確認する。三成分の回復ID比較は同Coordinator Suiteへそのまま移す。EMからDI、DIからEMのSource／試験補助依存は持たせず、深いEM importや試験専用公開も追加しない。既存Suite・正式項目IDは維持し、試験台帳・Symbolの確認対象を実Ownerへ追従する。実Host・Docker・Providerなしの限定結果は変更記録へ残し、全体QAの成立へ拡張しない。
 
 ## 要求前切断とwx再入場の確認 — 2026-11-09
+
+ERB-UT-023は、Coordinatorの実未開始記録宣言が既存公開保存操作へ渡す要求について、Executorの既知四拒否理由、計画拒否／Home取得失敗の段階、exact参照と全fieldを確認する。開始済みControl・別Owner／参照・Effectあり・未知理由は保存要求0とする。EM内部の限定形・Operation全体の矛盾・実候補生成は、Owner自身のPRL-UT-006で確認する。元失敗に対する成功・取消・別理由、元失敗なしの開始拒否結果を拒否する。不変準備は共有し、変異入力を独立させる。Coordinator試験からEM内部へ直接・推移的に依存する例外を追加せず、実Home解放・Host削除・物理保存はこの純粋試験の対象外とする。
 
 資源未発行、Host回収、Home／Runtime／Host Lockの終了、最終結果確定を個別に確認する。Domainの未発行枝は必須条件を一つずつ崩す否定試験を持ち、20利用先の履歴・配送・操作除去・品質表示の独立条件を回帰する。未発行だけから全体Cleanup成功を表示しない。
 
@@ -433,7 +481,7 @@ Host初期化の生成失敗・同期I/O不明・初期化前後の実Process喪
 
 論理故障確認では、現在本文と私有beforeの両Bufferを、実行結果ではなく故障段階から実modelで再導出した期待全文・改訂・元版Hash・本文Hashへ照合する。同じcleanup値の追加版とcodec合法な元版Hash差も同じOracleで拒否する。正常二形・故障24形の限定確認は独立レビュー残指摘0であり、下記の実Process拒否とは別に論理故障Gateを閉じる。実Writer内部・Kernel／Filesystemの故障成立や実Dockerを証明したものではない。
 
-Host清掃Ownerの故障反応は、実初期Snapshot・実modelと、本番のOwner確認／checkpoint／初期切断判定／不存在確認／Host清掃の五関数を同一realmで評価する。下位Reader／Writer／世代・排他観測／Host返却だけを代役とし、正常二形と段階別故障を分離する。処置前失効はHost0、pending保存後不明は反映済み候補を保持してHost0、清掃要求後不明はHost要求1・confirmed保存0、confirmed保存後不明は既反映候補を保持して追加要求0とする。故障一回・到達・非対象全文・現在本文と私有beforeの差、sticky flagが実際に立った場合だけの反復停止を観測する。削除直前Readerは成功させ、その後のOwner guardだけを省略した一意なメモリ変異がHost0 Oracleを破ることを要求する。これは上位の論理Source境界の反証であり、実Writer／Kernel／Filesystemの内部故障注入や、実Dockerの成立根拠にしない。
+Host清掃Ownerの故障反応は、現行のOwner照合とHost回復調停の本番本文を同一realmで評価する。各条件のMap・Owner・本文・故障は独立させ、処置前のRoot／Lock／世代失効・fresh本文差・Reader不明／解放不明・Lease保存拒否ではHost処置0を要求する。Host回復のblocked／例外、処置後のRoot不明、読戻し不明・解放不明・terminal記録欠測を成功へ変換しない。確認済みterminal本文だけをprivateへ反映し、停止状態が確定した同Ownerからの追加処置を拒否する。pending保存前後の実Writer故障はHost記録の結合試験へ接続し、旧Token二版・Marker・専用Host checkpointの代役は維持しない。この論理反証を実Writer／Kernel／Filesystemの内部故障や実Docker成立の根拠にしない。
 
 初期Taskの清掃二切断は既存`ERB-IT-003 / PRL-IT-013`で、pending保存の三確認後と、物理Host回収後・confirmed Writer本体呼出前を実子Process強制終了に接続する。各子の終端後に親が元Root／markerの実体または両不存在、同exact ID、Home排他再取得、finally非実行、Writer到達数、非対象本文／Host実体保全を観測する。既存resource-cleanup同値保存による改訂更新を含め、実model候補の全文・改訂・元版Hashを要求し、状態名や固定版数だけで代替しない。pending保存前の要求拒否では実Writer本体とHost処置0、清掃済みからのfresh confirmed保存拒否では実Writer本体0・Host再処置0・元版と両不存在維持を確認する。公開operationRetained=nullから保持を推定せず、親がexact対象の現在本文残存を観測する。最後の正常fresh子だけが履歴一回・対象除去を確定する。同呼出し内の清掃後保存故障、Owner・Root失効、読戻し・排他解放不明と清掃故障は上記の論理反証で別に確認し、実Processの部分拒否から推定しない。
 
@@ -456,15 +504,17 @@ Docker Desktopの停止・起動はDIの公式CLIへ接続し、正常終了・�
 
 ## 現在Host記録の所在解決に対する限定確認
 
-履歴の物理接続では、`ERB-IT-014`にcheckpoint前後、history rename前後、confirmed保存前後の六故障点からの別Process再入場を接続する。正常・結果欠測と従来Host清掃A／B／Cも維持する。通常Readerは短命材料を拒否し、専用Readerだけが元版・固定候補全文・行Hash・File実体・設定を照合する。改変したpending／canonical履歴、余分File、保持設定差は処置0で拒否し、元本文を保持する。Host出版と履歴出版のmarker取り違え、同Owner失敗後再発行、時刻再採番、行重複、他操作変更、残存短命物を反証する。旧live結果を合成せず、履歴確認から配送成立を推定しない。
+途中保存の再入場は、既存EMの`resource_publication`／`execution_history`／`execution_completion`とexact Docker回復IDをHost世代へ一貫して搬送する。取得前後とfresh観測で同じHost全文・操作ID・Lock保持・記録現在性を要求し、別Docker／OP・Host差・Reader不明・解放不明を拒否する。通常Reader成立後は途中保存の受付を捨て、同Ownerで後から現れた別pendingへ流用しない。途中保存の受理はHost更新・物理削除の許可ではなく、両処理は通常Reader成立までEffect 0で拒否する。保持設定の現在性は既存の履歴入力が担当し、旧Host専用Readerや任意読取りcallbackを作らない。
 
-公開Consumerの再入場では、準備が受理した履歴出版途中を退役確認が通常Readerで自己拒否しないことも同項目で確認する。通常Readerの解放確認付き拒否・Host両不存在・Host清掃出版なし・completionなしだけでCurrent History Readerへ一回接続し、元版全文・exact ID・fresh Ownerと既退役を要求する。専用読取りの拒否／値欠測／本文差／解放不明／例外、読取り後Owner喪失、未退役、Host残存、別出版では処置0とする。実保存途中から同IDの正式Consumerで履歴一件・元失敗／実行事実／結果保全・対象だけ除去・短命物不存在を確認し、内部Readerの成功だけで公開再入場成立とはしない。
+履歴の物理接続では、`ERB-IT-014`にcheckpoint前後、history rename前後、confirmed保存前後の六故障点からの別Process再入場を接続する。正常・結果欠測は維持し、旧Host清掃A／B／C専用Readerの自動再出版は退役する。通常Readerは短命材料を拒否し、履歴専用Readerだけが元版・固定候補全文・行Hash・File実体・設定を照合する。HostはEMの同じ操作記録と通常回復で、Lease解放一保存、Host清掃pending／terminalの二保存、全解放後の結果終端一保存を独立した期待本文へ照合する。改変したpending／canonical履歴、余分File、保持設定差は処置0で拒否し、元本文を保持する。同Owner失敗後再発行、時刻再採番、行重複、他操作変更、残存短命物を反証する。旧live結果を合成せず、履歴確認から配送成立を推定しない。
+
+公開Consumerの再入場では、準備が受理した履歴出版途中を退役確認が通常Readerで自己拒否しないことも同項目で確認する。通常Readerの解放確認付き拒否・同じ操作のHost Rootの明示不存在・現在Host記録のterminal／confirmed・既存の終了出版との非競合だけでCurrent History Readerへ一回接続し、元版全文・exact ID・fresh Ownerと既退役を要求する。専用読取りの拒否／値欠測／本文差／解放不明／例外、読取り後Owner喪失、未退役、Host残存、別出版では処置0とする。実保存途中から同IDの正式Consumerで履歴一件・元失敗／実行事実／結果保全・対象だけ除去・短命物不存在を確認し、内部Readerの成功だけで公開再入場成立とはしない。
 
 配送登録の同項目では、保存済み利用側によりOrchestratorだけexact一件を登録し、CLI／Workbenchの登録書込み0と操作保持を確認する。登録pending前後・marker回収前の故障から別Processで再開し、結果ID・元結果・一次失敗・履歴・非対象操作不変と短命物0を観測する。登録前の結果参照拒否、登録後のexact参照、同一登録再入場のWriter0、偽Owner・Host再出現・未解放・保存失敗／例外／排他不明後の同Owner再発行0を反証する。登録だけを耐久ACK・操作整理・利用者への返却成功・全体完成と扱わない。
 
 現在Root専用の技術回収組立ても`ERB-IT-014`で確認する。開始前取消・不正入力、準備拒否、各下位停止／例外、解放false／例外、段階間の六つの取消点、既Host不存在・Host出版途中を反証し、取得後解放一回・失敗後の次段0・元理由と解放理由の独立保持を観測する。実Host領域／共通wx排他・Writerを使う未要求資源の肯定経路で、同じ結果・一次失敗・非対象操作・履歴を保持し再入場の追加保存0を確認する。この模擬／実Host境界は、実Docker要求中の取消や本番CLI／Workbench返却の証明ではない。
 
-組立ての取消入力にはProxy trap 0を含める。準備／各Writerの観測済み解放不明と例外を分離し、保存確認済みの履歴・配送事実を後続失敗で消さないことを全返却fieldとexact呼出し列で照合する。実Host再入場ではstate／history／pending／lockに加えて、初回前にexact操作へ結合したHost root／markerへの書込み・再作成・削除も0とする。同本文の再保存とsynthetic marker再作成・削除の正対照で観測器の検出を確認し、実再入場前に正対照を清掃して観測列を消去する。
+組立ての取消入力にはProxy trap 0を含める。準備／各Writerの観測済み解放不明と例外を分離し、保存確認済みの履歴・配送事実を後続失敗で消さないことを全返却fieldとexact呼出し列で照合する。実Host再入場ではstate／history／pending／lockに加えて、初回前にexact操作へ結合したHost Rootへの書込み・再作成・削除も0とする。同本文の再保存と自己生成Root再作成・削除の正対照で観測器の検出を確認し、実再入場前に正対照を清掃して観測列を消去する。対象Hostはphase／cleanup以外の用途・Receipt・時刻・資源を全文比較し、兄弟Hostは全文とRoot／全直下実体を保持する。解放済みOwnerでの資源回収・Host清掃は拒否し、下位Effect 0を要求する。
 
 保存marker専用清掃の旧義務は入口とmarker自体の撤去に伴い退役した。ERB-IT-014/PRL-IT-011ではcurrent/pending/historyの不正・不一致・未知File・旧marker・link/hardlink・観測不能を拒否して本文を保全すること、fresh読取り、同Owner借用・再取得拒否・解放済みOwner拒否を確認する。marker unlink専用の例外は現役のpending作成・rename後・最終読取りの停止点へ移す。fresh観測は前回Writer成功・Task完了・実資源回収を意味しない。新しい限定結果は変更トレースへ記録し、旧marker清掃の局所Passを流用しない。
 
@@ -986,7 +1036,7 @@ Attempt診断・回収移管では、基準版の現在資源回収・Owner再�
 | 必須通知throw／Reject／非void、Receipt保存拒否 | 同認証試験。Effect前停止、元実ID保持、一次理由保持 |
 | 単独回収・発見IDの保存前削除禁止・通知拒否 | executor/tests/unit/attempt/recovery.contract.test.ts。実DIのSnapshot Cleanupへ直接接続 |
 | 単独回収の取消・config終了不明・終了観測通知失敗 | 同回収試験。物理回収と通知成立を別fieldとして確認 |
-| Identity v3閉集合・元Snapshotの資源名相関 | Domain resource-book.contract.test.tsとCoordinator host-resource-identity.contract.test.ts |
+| 現行Identity閉集合・元Snapshotの資源名相関 | Execution Modelのresource-book.contract.test.tsとCoordinatorのunit/execution/provider-execution.contract.test.ts。資源Book欠測、一件欠測・重複・未知key・名前差は保存前に拒否し、観測Image差だけでは拒否しない。 |
 | Host不存在観測のOwner・Lease・資源集合・再起動条件 | Coordinator storage/host-observation.contract.test.ts。新Bookへ追従 |
 | Taskと修復の同居・双方向更新で非対象全文を保持 | Domain attempt/repair-model.contract.test.ts。新Identity／Snapshotイベントへ追従 |
 

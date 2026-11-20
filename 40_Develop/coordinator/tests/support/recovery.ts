@@ -155,14 +155,12 @@ export async function createRecoveryFixture(
     persistenceFailed: false,
     cleanupUnknown: false,
     hostCleanup: "present",
-    hostCleanupPublication: null,
     rootCapability: root,
     repository,
     recoveryId: base.recoveryId,
     before: bytes,
     snapshot: initialObserved.snapshot,
     operationStates: initialObserved.operationStates,
-    hostToken: "host-token",
     hostGeneration: "host-generation",
   };
   const source = fs.readFileSync(
@@ -170,12 +168,13 @@ export async function createRecoveryFixture(
     "utf8",
   );
   const names = [
+    "isRecoveryCapability",
     "projectResourceTarget",
     "persistRuntimeOwnedDockerTaskRecoveryCheckpoint",
     "recoverRuntimeOwnedDockerTaskResources",
   ];
   const api =
-    runInThisContext(`(deps)=>{const {Buffer,canonicalJson,snapshotJsonValue,isDeepStrictEqual,dockerRecoveryPreparations,assertCurrentRecoveryOwner,readState,saveRecoveryCheckpoint,borrowHostRecoveryManagementDirectory,coordinatorReleasedTaskCanObserveHostAbsence}=deps;
+    runInThisContext(`(deps)=>{const {Buffer,canonicalJson,snapshotJsonValue,isDeepStrictEqual,dockerRecoveryPreparations,assertCurrentRecoveryOwner,readState,saveRecoveryCheckpoint,borrowHostRecoveryManagementDirectory}=deps;
  ${names.map((n) => sourceDeclaration(source, n)).join("\n")}
  return {run:recoverRuntimeOwnedDockerTaskResources,target:projectResourceTarget};}`)(
       {
@@ -313,7 +312,6 @@ export async function createRecoveryFixture(
             assertCurrent: () => borrowLive,
           };
         },
-        coordinatorReleasedTaskCanObserveHostAbsence: () => false,
       },
     ) as {
       run(

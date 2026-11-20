@@ -14,6 +14,7 @@ import fs from "node:fs";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { isSupportedNodeRuntime } from "../../../src/execution/diagnostics.ts";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 
 import type { DiagnosticCheck } from "../../../src/execution/diagnostics.ts";
 import {
@@ -24,6 +25,257 @@ import {
   runDoctor,
 } from "../../../src/execution/diagnostics.ts";
 import { renderDoctorCommandFailure } from "../../../src/cli/recovery-report.ts";
+
+/**
+ * 同じProbeのReceipt・終了・回収・Host終端を共同成立条件として確認する。
+ * @responsibility 実宣言の調停を有限代役で検証し、外部資源不存在の実測とは区別する。
+ * @trace PRL-UT-014
+ * @precondition Source解析は一回。各観点の記録・Owner・故障・呼出し列は独立。
+ * @stimulus 正常、Receipt欠測／保存失敗、実ID差、終了不明、回収不明、取消、明示未発行。
+ * @observation 実行結果・保存順序・Host清掃回数・回復参照。
+ * @oracle 未確認を成功又は未発行に変換せず、保存確認後だけ清掃する。
+ * @cleanup N/A: VM内のメモリ代役だけ。実AI・Docker・Filesystem変更なし。
+ * @boundary 調停と有限代役の局所契約。EM WriterやDIの実境界は別試験。
+ */
+test("Probeは同じReceiptと終了・回収・Host保存が揃うまで成功しない", async () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/execution/diagnostics.ts", import.meta.url),
+    "utf8",
+  );
+  const declarations = [
+    "isolationProbeBlocked",
+    "dynamicFakeLifecycleBlocked",
+    "projectProbeExecutionFacts",
+    "finishPreSubmissionCleanup",
+    "normalizeFailure",
+    "isolationProbeErrorMessage",
+    "ownString",
+    "isolationProbeOwnValue",
+    "isolationProbeIsObject",
+  ]
+    .map((name) => sourceDeclaration(source, name))
+    .join("\n");
+  const build = () =>
+    runInNewContext(
+      `
+    ${declarations}
+    async function exercise(scenario) {
+      const calls = [], recoveryId = "host-operation.OP-123456", id = "a".repeat(64);
+      const unissued = scenario.startsWith("not_issued");
+      let saved = null;
+      const snapshot = { resources: [{ key: "probe", request: "not_issued", identity: { dockerId: null } }] };
+      const receipt = { resources: [{ key: "probe", request: "issued", identity: { dockerId: id } }] };
+      const target = resources => ({ managementDirectory: "management", resources,
+        previouslyAbsent: [], unreceiptedAbsence: "retain" });
+      const randomUUID = () => "probe-id";
+      const getOwnedHostRecoveryId = () => recoveryId;
+      const createOwnedMountCapability = () => ({});
+      const createOwnedOperationContextCapability = () => ({});
+      const createOwnedOperationManagementCapability = () => ({});
+      const verifyOwnedMountCapability = () => ({ management: "management", workspace: "workspace", providerHome: "home", tmp: "tmp" });
+      const readOwnedHostOperation = () => ({ record: { resources: saved }, payloadSha256: "b".repeat(64) });
+      const applyResourceEvent = (previous, event) => {
+        calls.push(event.event);
+        if (scenario === "receipt_save_failure" && event.event === "receipt") return null;
+        return { snapshot: event.snapshot ?? previous.snapshot,
+          checkpoints: [{ submission: event.event === "not_issued" ? "not_issued" : "intent_saved",
+            observation: "unobserved", receiptSource: event.event === "receipt" ? "docker_create_result" : null }] };
+      };
+      const recordOwnedHostResources = (_management, next) => { saved = next; calls.push("save"); };
+      const applyResourceCleanup = (previous, next) => {
+        calls.push("absence");
+        assert.equal(previous.checkpoints[0].receiptSource, "docker_create_result");
+        assert.equal(previous.snapshot.resources[0].identity.dockerId, next.resources[0].identity.dockerId);
+        return { ...previous, snapshot: next, checkpoints: [{ ...previous.checkpoints[0], observation: "absent" }] };
+      };
+      const cleanupOwnedOperationDirectories = () => { calls.push("host_cleanup"); };
+      const getIsolationSettings = () => ({});
+      const create = request => ({
+        cancel: async () => ({ status: "accepted" }),
+        start(input) {
+          const completion = (async () => {
+            let failed = false;
+            input.callbacks.onCommandSubmitting("create_isolation_probe", target(snapshot));
+            if (!unissued) calls.push("effect");
+            if (!unissued && scenario !== "receipt_missing") {
+              try { input.callbacks.onResourceCreated(scenario === "receipt_mismatch" ? "wrong" : id, target(receipt)); }
+              catch { failed = true; }
+            }
+            return {
+              reason: "probe_ok", creationAttempted: !unissued,
+              containerId: unissued ? null : id,
+              resourceSnapshot: scenario === "not_issued_snapshot_missing" ? null :
+                scenario === "not_issued_request_unknown" ? { resources: [{ ...snapshot.resources[0], request: "unknown" }] } :
+                scenario === "not_issued_id_present" ? { resources: [{ ...snapshot.resources[0], identity: { dockerId: id } }] } :
+                unissued ? snapshot : receipt,
+              facts: { isolation: { status: "confirmed", reason: "probe_ok" },
+                lifecycleStatus: "candidate", lifecycleReason: "candidate", elapsedMs: 5,
+                stdoutBytes: 1, stderrBytes: 0, exitCode: 0, signal: null, timedOut: false },
+              cancelled: scenario === "cancelled",
+              processCompletionConfirmed: !["process_unknown", "not_issued_process_unknown"].includes(scenario),
+              cleanupConfirmed: !["cleanup_unknown", "not_issued_cleanup_unknown"].includes(scenario) && !failed,
+            };
+          })();
+          return { status: "started", completion };
+        },
+      });
+      const execute = ${sourceDeclaration(source, "runDockerIsolationScenario")};
+      const result = await execute({}, create, new AbortController().signal);
+      return JSON.stringify({ result, calls, saved });
+    }
+    exercise;
+  `,
+      { assert, AbortController },
+    ) as (scenario: string) => Promise<string>;
+  for (const scenario of [
+    "normal",
+    "receipt_missing",
+    "receipt_mismatch",
+    "receipt_save_failure",
+    "cleanup_unknown",
+    "process_unknown",
+    "cancelled",
+    "not_issued",
+    "not_issued_snapshot_missing",
+    "not_issued_request_unknown",
+    "not_issued_id_present",
+    "not_issued_process_unknown",
+    "not_issued_cleanup_unknown",
+  ]) {
+    const { result, calls, saved } = JSON.parse(await build()(scenario));
+    if (scenario === "normal") {
+      assert.equal(result.status, "confirmed");
+      assert.equal(result.fakeProviderLifecycle.status, "verified");
+      assert.equal(result.hostCleanupCompleted, true);
+      assert.equal(result.recoveryId, null);
+    } else if (scenario === "cancelled" || scenario === "not_issued") {
+      assert.equal(result.status, "blocked");
+      assert.equal(result.hostCleanupCompleted, true);
+      assert.equal(result.recoveryId, null);
+      if (scenario === "not_issued") {
+        assert.equal(calls.includes("effect"), false);
+        assert.equal(saved.checkpoints[0].submission, "not_issued");
+      }
+    } else {
+      assert.equal(result.status, "blocked");
+      assert.equal(result.hostCleanupCompleted, false);
+      assert.equal(result.retainOperationDirectories, true);
+      assert.equal(result.recoveryId, "host-operation.OP-123456");
+      assert.equal(calls.includes("host_cleanup"), false);
+      if (scenario.startsWith("not_issued_")) {
+        assert.equal(calls.includes("not_issued"), false);
+        assert.equal(calls.includes("effect"), false);
+      }
+    }
+    assert.ok(
+      calls.indexOf("save") < calls.indexOf("effect") ||
+        !calls.includes("effect"),
+    );
+    if (calls.includes("host_cleanup"))
+      assert.equal(calls.at(-1), "host_cleanup");
+  }
+});
+
+/**
+ * Probe回復で保存済み不存在と同じRootの現在観測を共同確認する。
+ * @responsibility 削除後の再入場と観測不能、終了不明、解放不明の区別を固定する。
+ * @trace PRL-UT-014
+ * @precondition 実宣言を一回抽出し、各観点の資源記録と故障を独立させる。
+ * @stimulus Rootの存在三値、資源未解決、保存失敗、Process終了不明、Lock解放不明。
+ * @observation DI借用・回収・EM保存・Host清掃・解放の呼出し列と元参照。
+ * @oracle 不存在記録とRoot不存在が揃う場合だけDI借用を省略し、不明では清掃しない。
+ * @cleanup N/A: メモリ代役だけ。
+ * @boundary 回復調停の局所契約。実Dockerと実Lockは使用しない。
+ */
+test("Probe回復は削除後再入場を閉じ、不明と解放失敗を成功にしない", async () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/execution/diagnostics.ts", import.meta.url),
+    "utf8",
+  );
+  const body = sourceDeclaration(source, "recoverDockerIsolationProbe");
+  const exercise = runInNewContext(
+    `
+    async function exercise(scenario) {
+      const calls = [], id = "host-operation.OP-123456", generation = {};
+      let resources = { cleanup: { unreceiptedAbsence: "retain" },
+        snapshot: { resources: [{ key: "probe", identity: { dockerId: "a".repeat(64) } }] },
+        checkpoints: [{ key: "probe", submission: "intent_saved",
+          receiptSource: scenario === "receipt_unknown" ? null : "docker_create_result",
+          observation: scenario.startsWith("settled_") || scenario === "release_unknown" ? "absent" : "unobserved" }] };
+      const acquireHostOperationRecoveryGeneration = () => { calls.push("acquire"); return generation; };
+      const readHostRecoveryOperation = actual => {
+        assert.equal(actual, generation);
+        return { record: { purpose: "isolation_probe", resources }, payloadSha256: "b".repeat(64) };
+      };
+      const observeHostRecoveryRoot = () => scenario === "settled_absent" || scenario === "release_unknown" ? "absent" :
+        scenario === "settled_unknown" ? "unknown" : "present";
+      const borrowHostRecoveryManagementDirectory = () => {
+        calls.push("borrow");
+        return scenario === "settled_unknown" ? null : { directory: "management", assertCurrent: () => true };
+      };
+      const cleanupResources = (target, _settings, callbacks) => {
+        calls.push("di_cleanup");
+        assert.equal(target.unreceiptedAbsence, "retain");
+        return { cancel: async () => ({}), completion: (async () => {
+          callbacks.onCleanupSubmitting();
+          callbacks.onResourcesClosed(resources.snapshot, [{ key: "probe", observation: "absent" }]);
+          return { processTerminationConfirmed: scenario !== "process_unknown", cleanup: { confirmed: true } };
+        })() };
+      };
+      const applyResourceCleanup = previous => ({ ...previous,
+        checkpoints: previous.checkpoints.map(c => ({ ...c, observation: "absent" })) });
+      const recordHostRecoveryResources = (_generation, next) => {
+        calls.push("save");
+        if (scenario === "save_failure") throw Error("save_failure");
+        resources = next;
+      };
+      const getIsolationSettings = () => ({});
+      const recoverOwnedOperationDirectories = (recoveryId, actual) => {
+        assert.equal(recoveryId, id); assert.equal(actual, generation);
+        assert.equal(resources.checkpoints[0].observation, "absent");
+        calls.push("host_cleanup");
+        return { status: "recovered", reason: "host_cleanup_recovered", recoveryId: null };
+      };
+      const releaseHostOperationRecoveryGeneration = () => { calls.push("release"); return scenario !== "release_unknown"; };
+      const normalizeFailure = error => error.message;
+      const run = ${body};
+      const result = await run(id, {}, () => true, new AbortController().signal);
+      return JSON.stringify({ result, calls });
+    }
+    exercise;
+  `,
+    { assert, AbortController },
+  ) as (scenario: string) => Promise<string>;
+  for (const scenario of [
+    "settled_absent",
+    "settled_present",
+    "settled_unknown",
+    "receipt_unknown",
+    "process_unknown",
+    "save_failure",
+    "release_unknown",
+  ]) {
+    const { result, calls } = JSON.parse(await exercise(scenario));
+    const success =
+      scenario === "settled_absent" || scenario === "settled_present";
+    assert.equal(result.hostCleanupCompleted, success);
+    assert.equal(result.status, success ? "recovered" : "blocked");
+    assert.equal(
+      result.recoveryId,
+      success ? null : "host-operation.OP-123456",
+    );
+    assert.equal(calls.at(-1), "release");
+    if (scenario === "settled_absent" || scenario === "release_unknown") {
+      assert.equal(calls.includes("borrow"), false);
+      assert.equal(calls.includes("di_cleanup"), false);
+    } else if (scenario === "settled_present") {
+      assert.equal(calls.includes("di_cleanup"), true);
+      assert.ok(calls.indexOf("save") < calls.indexOf("host_cleanup"));
+    } else {
+      assert.equal(calls.includes("host_cleanup"), false);
+    }
+  }
+});
 
 /**
  * Node基準は24.12.0以上だけを受理するを検証する。
@@ -166,6 +418,157 @@ test("doctor optionsは余分field、accessorおよびProxyを処置前に拒否
 });
 
 /**
+ * 受動診断はHost資源を取得せず、明示隔離だけ既存の実行経路へ渡す。
+ * @responsibility 実runDoctor宣言の分岐と例外搬送を有限代役で反証する。
+ * @trace PRL-UT-014
+ * @precondition 下位観測とHost producerはメモリ上の代役へ固定する。
+ * @stimulus 省略・受動・観測例外・明示隔離・初期化例外を与える。
+ * @observation 作成・Probe・清掃回数、元Signal、結果と元例外。
+ * @oracle 受動は作成・清掃0、隔離だけ一度作成し同じSignalでProbeを待つ。
+ * @cleanup N/A: 実Process・Directoryを生成しない。
+ * @boundary 実宣言から用途固定の下位呼出し。
+ */
+test("Doctorは受動の成功・失敗でHost資源を作らず明示隔離だけ取得する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/execution/diagnostics.ts", import.meta.url),
+    "utf8",
+  );
+  const body = sourceDeclaration(source, "runDoctor");
+  for (const scenario of [
+    "default",
+    "passive",
+    "observation_failure",
+    "active",
+    "active_retained",
+    "active_cancelled",
+    "creation_failure",
+  ] as const) {
+    const calls: string[] = [];
+    const failure = new Error(scenario);
+    const controller = new AbortController();
+    if (scenario === "active_cancelled") controller.abort();
+    const signal = controller.signal;
+    const owned = { root: "private-root", directories: {} };
+    const execute = runInNewContext(`(${body})`, {
+      process,
+      normalizeDoctorOptions: (
+        options: { activeIsolation?: boolean } = {},
+      ) => ({
+        activeIsolation: options.activeIsolation ?? false,
+        cwd: "fixture",
+      }),
+      getRepositoryFromWorkingDirectory: () => ({
+        status: "completed",
+        capability: {},
+      }),
+      resolveVerifiedRepositoryRoot: () => "fixture-root",
+      createRuntimeOwnedCoordinatorOperation: () => {
+        calls.push("create");
+        if (scenario === "creation_failure") throw failure;
+        return { owned };
+      },
+      projectDoctorOperationCreationFailure: (error: unknown) => {
+        throw error;
+      },
+      cleanupOwnedOperationDirectories: () => {
+        calls.push("cleanup");
+      },
+      credentialEnvironmentNamesPresent: () => [],
+      probeGitRepository: () => {
+        if (scenario === "observation_failure") throw failure;
+        return { gitAvailable: true, identityAvailable: true };
+      },
+      discoverCommand: () => ({ located: false }),
+      runDockerIsolationProbe: async (
+        actualOwned: unknown,
+        actualSignal: unknown,
+      ) => {
+        assert.equal(actualOwned, owned);
+        assert.equal(actualSignal, signal);
+        calls.push("probe");
+        const retained = scenario === "active_retained";
+        return {
+          status: retained ? "blocked" : "confirmed",
+          reason: "fixture",
+          hostCleanupCompleted: !retained,
+          recoveryId: retained ? "fixture-exact-recovery" : null,
+          manualRecoveryRequired: retained,
+        };
+      },
+      isSupportedNodeRuntime: () => true,
+      check: (id: string, status: string, reason: string | null) => ({
+        id,
+        status,
+        reason,
+      }),
+      providerChecks: () => [],
+      evaluateReadiness: (checks: readonly DiagnosticCheck[]) =>
+        evaluateReadiness(Array.from(checks)),
+      describeFilesystemPolicy: () => ({}),
+      reportableFilesystemPolicy: () => ({ fixture: true }),
+      describeProviderLifecycleContract: () => ({}),
+      describeIsolationConfiguration: () => ({ proxy: {} }),
+      DOCKER_ISOLATION_PROFILE: "fixture",
+    }) as (
+      options: unknown,
+      signal: AbortSignal,
+    ) => Promise<{
+      reportVersion: number;
+      filesystem: { policy: unknown };
+      recovery: {
+        required: boolean;
+        recoveryId?: string;
+        manualRecoveryRequired?: boolean;
+      };
+      blockers: readonly { id: string | null; reason: string }[];
+    }>;
+    const options =
+      scenario === "default"
+        ? undefined
+        : {
+            activeIsolation:
+              scenario === "active" ||
+              scenario === "active_retained" ||
+              scenario === "active_cancelled" ||
+              scenario === "creation_failure",
+          };
+    if (scenario === "observation_failure" || scenario === "creation_failure") {
+      await assert.rejects(
+        () => execute(options, signal),
+        (error) => error === failure,
+      );
+      assert.deepEqual(
+        calls,
+        scenario === "creation_failure" ? ["create"] : [],
+      );
+    } else {
+      const result = await execute(options, signal);
+      assert.equal(result.reportVersion, 17);
+      assert.equal(result.recovery.required, scenario === "active_retained");
+      if (
+        scenario === "active" ||
+        scenario === "active_retained" ||
+        scenario === "active_cancelled"
+      ) {
+        assert.deepEqual(calls, ["create", "probe"]);
+        assert.notEqual(result.filesystem.policy, null);
+        if (scenario === "active_retained") {
+          assert.equal(result.recovery.recoveryId, "fixture-exact-recovery");
+          assert.equal(result.recovery.manualRecoveryRequired, true);
+        }
+      } else {
+        assert.deepEqual(calls, []);
+        assert.equal(result.filesystem.policy, null);
+        assert.deepEqual(result.blockers[0], {
+          id: "operation.directories",
+          reason: "owned_operation_directories_not_requested",
+        });
+      }
+    }
+  }
+});
+
+/**
  * Doctor診断失敗は理由コードだけを公開するを検証する。
  *
  * @responsibility Doctor診断失敗は理由コードだけを公開するの合否判定を所有する。
@@ -226,7 +629,7 @@ test("診断とCLI表示は元Errorの回復参照を共有しコピーを拒否
 import assert from "node:assert/strict";
 import { mock } from "node:test";
 const original = new Error("private failure detail");
-const recoveryId = "host.synthetic-doctor-original";
+const recoveryId = "host-operation.OP-123456";
 /**
  * 元Errorだけを合成の回復参照へ結合する。
  * @responsibility Error本文のコピーから回復参照を再発行しない有限代役を作る。

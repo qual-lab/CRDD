@@ -15,7 +15,10 @@ import {
   getBillingPolicy,
 } from "../../../ai-adapter/src/index.ts";
 import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
-import { parseHostRecoveryToken } from "../../../execution-model/src/index.ts";
+import {
+  applyResourceEvent,
+  applyResourceCleanup,
+} from "../../../execution-model/src/index.ts";
 import {
   type CompletionResult,
   cleanupResources,
@@ -24,7 +27,6 @@ import {
   type ExecutorRequest,
   type IsolationProbeFacts,
   type IsolationProbeOptions,
-  inspectResources,
   type ResourceTarget,
 } from "../../../executor/src/index.ts";
 import {
@@ -32,15 +34,10 @@ import {
   getRepositoryFromWorkingDirectory,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
+  resolveVerifiedRepositoryRoot,
+  type Repository,
 } from "../../../version-control/src/index.ts";
 import { snapshotPlainArray } from "../input/snapshot.ts";
-import {
-  type DockerMounts,
-  loadDockerProbeRecoveryRecord,
-  parseDockerProbeRecoveryToken,
-  requireDockerProbeRecoveryMounts,
-  writeDockerProbeRecoveryRecord,
-} from "../state/probe-record.ts";
 import type { CoordinatorExecutionPublicationObservation } from "../task/types.ts";
 import {
   describeProviderHomeContract,
@@ -49,18 +46,24 @@ import {
 import { getIsolationSettings } from "./configuration.ts";
 import { observeLeaseOwner } from "./kernel-lock.ts";
 import {
-  acquireHostOperationRecoveryGenerationByIdentity,
+  acquireHostOperationRecoveryGeneration,
+  borrowHostRecoveryManagementDirectory,
   classifyOwnedCoordinatorOperationCreationFailure,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
+  createOwnedOperationContextCapability,
+  createOwnedOperationManagementCapability,
   createRuntimeOwnedCoordinatorOperation,
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
   getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
   releaseHostOperationRecoveryGeneration,
-  transitionHostRecoveryState,
-  verifyHostOperationRecoveryGeneration,
+  readOwnedHostOperation,
+  recordOwnedHostResources,
+  readHostRecoveryOperation,
+  observeHostRecoveryRoot,
+  recordHostRecoveryResources,
   verifyOwnedMountCapability,
 } from "./operation.ts";
 
@@ -885,338 +888,188 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
   const isIsolationActive = normalizedOptions.activeIsolation;
   const cwd = normalizedOptions.cwd;
   const repositoryLocation = getRepositoryFromWorkingDirectory(cwd);
-  let operation: ReturnType<typeof createRuntimeOwnedCoordinatorOperation>;
-  try {
-    operation = createRuntimeOwnedCoordinatorOperation();
-  } catch (error) {
-    projectDoctorOperationCreationFailure(error);
+  let operation: ReturnType<
+    typeof createRuntimeOwnedCoordinatorOperation
+  > | null = null;
+  if (isIsolationActive) {
+    try {
+      if (repositoryLocation.status !== "completed")
+        throw Error("repository_identity_unavailable");
+      const repository = repositoryLocation.capability;
+      const root = resolveVerifiedRepositoryRoot(repository);
+      if (!root) throw Error("repository_identity_unavailable");
+      operation = createRuntimeOwnedCoordinatorOperation({
+        root: repository,
+        purpose: "isolation_probe",
+        recordingCurrent: () =>
+          resolveVerifiedRepositoryRoot(repository) === root,
+        ...(signal ? { signal } : {}),
+      });
+    } catch (error) {
+      projectDoctorOperationCreationFailure(error);
+    }
   }
-  const { owned, hostRecoveryId: initialHostRecoveryId } = operation;
-  if (!owned.directories)
+  const operationDirectories = operation?.owned.directories ?? null;
+  if (operation && !operationDirectories)
     throw new Error("owned_operation_directory_identity_required");
-  const ownedDirectories = owned.directories;
-  let shouldRetainOperationDirectories = false;
-  try {
-    const credentialNames = credentialEnvironmentNamesPresent(process.env);
-    const repository = probeGitRepository(cwd);
-    const providers = Object.freeze({
-      codex: discoverCommand("codex"),
-      claude: discoverCommand("claude"),
-    });
+  const credentialNames = credentialEnvironmentNamesPresent(process.env);
+  const repository = probeGitRepository(cwd);
+  const providers = Object.freeze({
+    codex: discoverCommand("codex"),
+    claude: discoverCommand("claude"),
+  });
 
-    const isolation = isIsolationActive
-      ? await runDockerIsolationProbe(owned, signal)
-      : Object.freeze({
-          status: "not_implemented",
-          reason: "filesystem_boundary_not_enforced",
-          hostCleanupCompleted: false,
-          recoveryId: null,
-          manualRecoveryRequired: false,
-          fakeProviderLifecycle: Object.freeze({
-            status: "not_evaluated",
-            reason: "dynamic_fake_provider_not_requested",
-            provenance: "repository_owned_docker_fake_provider",
-            fakeProviderStartAttempted: false,
-            fakeProviderExecuted: false,
-            resultNormalizationVerified: false,
-            containerAbsenceVerified: false,
-            processTreeAbsenceVerified: false,
-            hostCleanupVerified: false,
-            elapsedMs: null,
-            stdoutBytes: 0,
-            stderrBytes: 0,
-            exitCode: null,
-            signal: null,
-            timedOut: false,
-            cancellationRequested: false,
-            cancellationObservation: "not_implemented",
-            diagnosticDockerContainerEffectIssued: false,
-            diagnosticFilesystemEffectIssued: false,
-            providerNetworkEffectIssued: false,
-            runtimeAuthorityIssued: false,
-            operationCapabilityIssued: false,
-            realProviderReadiness: false,
-          }),
-        });
-    shouldRetainOperationDirectories = isIsolationActive
-      ? isolation.hostCleanupCompleted !== true
-      : false;
-    const isolationCheckStatus: CheckStatus =
-      isolation.status === "confirmed"
+  const isolation = operation
+    ? await runDockerIsolationProbe(operation.owned, signal)
+    : Object.freeze({
+        status: "not_implemented",
+        reason: "filesystem_boundary_not_enforced",
+        hostCleanupCompleted: false,
+        recoveryId: null,
+        manualRecoveryRequired: false,
+        fakeProviderLifecycle: Object.freeze({
+          status: "not_evaluated",
+          reason: "dynamic_fake_provider_not_requested",
+          provenance: "repository_owned_docker_fake_provider",
+          fakeProviderStartAttempted: false,
+          fakeProviderExecuted: false,
+          resultNormalizationVerified: false,
+          containerAbsenceVerified: false,
+          processTreeAbsenceVerified: false,
+          hostCleanupVerified: false,
+          elapsedMs: null,
+          stdoutBytes: 0,
+          stderrBytes: 0,
+          exitCode: null,
+          signal: null,
+          timedOut: false,
+          cancellationRequested: false,
+          cancellationObservation: "not_implemented",
+          diagnosticDockerContainerEffectIssued: false,
+          diagnosticFilesystemEffectIssued: false,
+          providerNetworkEffectIssued: false,
+          runtimeAuthorityIssued: false,
+          operationCapabilityIssued: false,
+          realProviderReadiness: false,
+        }),
+      });
+  const shouldRetainOperationDirectories =
+    operation !== null && isolation.hostCleanupCompleted !== true;
+  const isolationCheckStatus: CheckStatus =
+    isolation.status === "confirmed"
+      ? "confirmed"
+      : isolation.status === "not_implemented"
+        ? "not_implemented"
+        : "blocked";
+  const checks = [
+    check(
+      "runtime.node",
+      isSupportedNodeRuntime(process.versions.node) ? "confirmed" : "blocked",
+      isSupportedNodeRuntime(process.versions.node)
+        ? null
+        : "node_24_12_or_newer_required",
+    ),
+    check(
+      "repository.git",
+      repository.gitAvailable ? "confirmed" : "blocked",
+      repository.gitAvailable ? null : "git_unavailable",
+    ),
+    check(
+      "repository.identity",
+      repository.identityAvailable ? "confirmed" : "blocked",
+      repository.identityAvailable ? null : "repository_identity_unavailable",
+    ),
+    check(
+      "operation.directories",
+      operation ? "confirmed" : "not_implemented",
+      operation
+        ? "owned_operation_directories_created"
+        : "owned_operation_directories_not_requested",
+    ),
+    check("execution.filesystem", isolationCheckStatus, isolation.reason),
+    check(
+      "execution.credential_isolation",
+      isIsolationActive && isolation.status === "confirmed"
         ? "confirmed"
-        : isolation.status === "not_implemented"
-          ? "not_implemented"
-          : "blocked";
-    const checks = [
-      check(
-        "runtime.node",
-        isSupportedNodeRuntime(process.versions.node) ? "confirmed" : "blocked",
-        isSupportedNodeRuntime(process.versions.node)
-          ? null
-          : "node_24_12_or_newer_required",
-      ),
-      check(
-        "repository.git",
-        repository.gitAvailable ? "confirmed" : "blocked",
-        repository.gitAvailable ? null : "git_unavailable",
-      ),
-      check(
-        "repository.identity",
-        repository.identityAvailable ? "confirmed" : "blocked",
-        repository.identityAvailable ? null : "repository_identity_unavailable",
-      ),
-      check(
-        "operation.directories",
-        "confirmed",
-        "owned_operation_directories_created",
-      ),
-      check("execution.filesystem", isolationCheckStatus, isolation.reason),
-      check(
-        "execution.credential_isolation",
+        : "not_implemented",
+      isIsolationActive && isolation.status === "confirmed"
+        ? "credential_paths_not_mounted_in_fake_probe"
+        : "credential_store_isolation_not_enforced",
+    ),
+    check(
+      "execution.egress",
+      isIsolationActive && isolation.status === "confirmed"
+        ? "blocked"
+        : "not_implemented",
+      isIsolationActive && isolation.status === "confirmed"
+        ? "provider_endpoint_allowlist_not_configured"
+        : "provider_egress_allowlist_not_enforced",
+    ),
+    ...providerChecks("codex", providers.codex),
+    ...providerChecks("claude", providers.claude),
+  ];
+  const readiness = evaluateReadiness(checks);
+
+  const report = {
+    reportVersion: 17,
+    diagnosticMode: isIsolationActive
+      ? "docker_fake_provider_probe"
+      : "passive_preflight",
+    status: readiness.status,
+    platform: process.platform,
+    node: {
+      version: process.version,
+      supported: isSupportedNodeRuntime(process.versions.node),
+    },
+    repository,
+    credentials: {
+      detectedNames: credentialNames,
+      valuesRecorded: false,
+      isolationEnforcement:
         isIsolationActive && isolation.status === "confirmed"
-          ? "confirmed"
+          ? "confirmed_for_fake_probe"
           : "not_implemented",
-        isIsolationActive && isolation.status === "confirmed"
-          ? "credential_paths_not_mounted_in_fake_probe"
-          : "credential_store_isolation_not_enforced",
-      ),
-      check(
-        "execution.egress",
+    },
+    filesystem: {
+      policy:
+        operation && operationDirectories
+          ? reportableFilesystemPolicy(
+              describeFilesystemPolicy(operationDirectories),
+              operation.owned.root,
+            )
+          : null,
+      enforcement: isolation.status,
+      profile: isIsolationActive ? DOCKER_ISOLATION_PROFILE : null,
+    },
+    repositoryLocation: {
+      status: repositoryLocation.status,
+      contract: repositoryLocation.capability?.contract ?? null,
+      pathReported: false,
+    },
+    providerLifecycle: describeProviderLifecycleContract(),
+    fakeProviderLifecycle: isolation.fakeProviderLifecycle,
+    egress: {
+      providerAllowlist: "not_implemented",
+      fakeProbeNetwork:
         isIsolationActive && isolation.status === "confirmed"
           ? "blocked"
-          : "not_implemented",
-        isIsolationActive && isolation.status === "confirmed"
-          ? "provider_endpoint_allowlist_not_configured"
-          : "provider_egress_allowlist_not_enforced",
-      ),
-      ...providerChecks("codex", providers.codex),
-      ...providerChecks("claude", providers.claude),
-    ];
-    const readiness = evaluateReadiness(checks);
-
-    const report = {
-      reportVersion: 16,
-      diagnosticMode: isIsolationActive
-        ? "docker_fake_provider_probe"
-        : "passive_preflight",
-      status: readiness.status,
-      platform: process.platform,
-      node: {
-        version: process.version,
-        supported: isSupportedNodeRuntime(process.versions.node),
-      },
-      repository,
-      credentials: {
-        detectedNames: credentialNames,
-        valuesRecorded: false,
-        isolationEnforcement:
-          isIsolationActive && isolation.status === "confirmed"
-            ? "confirmed_for_fake_probe"
-            : "not_implemented",
-      },
-      filesystem: {
-        policy: reportableFilesystemPolicy(
-          describeFilesystemPolicy(ownedDirectories),
-          owned.root,
-        ),
-        enforcement: isolation.status,
-        profile: isIsolationActive ? DOCKER_ISOLATION_PROFILE : null,
-      },
-      repositoryLocation: {
-        status: repositoryLocation.status,
-        contract: repositoryLocation.capability?.contract ?? null,
-        pathReported: false,
-      },
-      providerLifecycle: describeProviderLifecycleContract(),
-      fakeProviderLifecycle: isolation.fakeProviderLifecycle,
-      egress: {
-        providerAllowlist: "not_implemented",
-        fakeProbeNetwork:
-          isIsolationActive && isolation.status === "confirmed"
-            ? "blocked"
-            : "not_evaluated",
-        proxyTopology: describeIsolationConfiguration("claude").proxy,
-      },
-      recovery: shouldRetainOperationDirectories
-        ? {
-            required: true,
-            recoveryId: isolation.recoveryId ?? null,
-            reason: isolation.reason,
-            manualRecoveryRequired: isolation.manualRecoveryRequired === true,
-          }
-        : { required: false },
-      providers,
-      checks,
-      blockers: readiness.blockers,
-    };
-    if (!isIsolationActive) {
-      try {
-        cleanupOwnedOperationDirectories(owned);
-      } catch {
-        const filesystemCheck = report.checks.find(
-          (item) => item.id === "execution.filesystem",
-        );
-        if (!filesystemCheck)
-          throw new Error("doctor_filesystem_check_missing");
-        filesystemCheck.status = "blocked";
-        filesystemCheck.reason = "host_operation_cleanup_failed";
-        const cleanupReadiness = evaluateReadiness(report.checks);
-        report.status = "blocked";
-        report.blockers = cleanupReadiness.blockers;
-        report.recovery = {
+          : "not_evaluated",
+      proxyTopology: describeIsolationConfiguration("claude").proxy,
+    },
+    recovery: shouldRetainOperationDirectories
+      ? {
           required: true,
-          recoveryId: initialHostRecoveryId,
-          reason: "host_operation_cleanup_failed",
-          manualRecoveryRequired: false,
-        };
-      }
-    }
-    return report;
-  } catch (error) {
-    if (!isIsolationActive && !shouldRetainOperationDirectories) {
-      try {
-        cleanupOwnedOperationDirectories(owned);
-      } catch {
-        throwDoctorOperationInitializationFailure(error, initialHostRecoveryId);
-      }
-    }
-    throw error;
-  }
+          recoveryId: isolation.recoveryId ?? null,
+          reason: isolation.reason,
+          manualRecoveryRequired: isolation.manualRecoveryRequired === true,
+        }
+      : { required: false },
+    providers,
+    checks,
+    blockers: readiness.blockers,
+  };
+  return report;
 }
-
-/**
- * docker-isolationで使用するAbsence Observationの値契約を定義する。
- *
- * @responsibility Absence ObservationのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape AbsenceObservationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant AbsenceObservationで宣言した値と責務の対応を維持する。
- * @boundary N/A: AbsenceObservationの宣言は外部境界を開かない。
- * @security AbsenceObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility AbsenceObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type AbsenceObservation = Readonly<{
-  probeId: string;
-  containerId: string;
-  hostRecoveryId: string;
-  rootName: string;
-  cli: object;
-}>;
-
-/**
- * docker-isolationで使用するDocker Probe 失敗 状態の値契約を定義する。
- *
- * @responsibility Docker Probe 失敗 状態のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape DockerProbeFailureStateが表すProperty、識別子およびRelationを型として固定する。
- * @invariant DockerProbeFailureStateで宣言した値と責務の対応を維持する。
- * @boundary N/A: DockerProbeFailureStateの宣言は外部境界を開かない。
- * @security DockerProbeFailureStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility DockerProbeFailureStateの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type DockerProbeFailureState = Readonly<{
-  submissionStarted: boolean;
-  recoveryId: string | null;
-  hostRecoveryId: string;
-  rollbackFailed: boolean;
-}>;
-
-const absenceCapabilities = new WeakMap<object, AbsenceObservation>();
-
-/**
- * docker-isolationで使用するPending Dynamic Fake Provider Lifecycleの値契約を定義する。
- *
- * @responsibility Pending Dynamic Fake Provider LifecycleのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape PendingDynamicFakeProviderLifecycleが表すProperty、識別子およびRelationを型として固定する。
- * @invariant PendingDynamicFakeProviderLifecycleで宣言した値と責務の対応を維持する。
- * @boundary N/A: PendingDynamicFakeProviderLifecycleの宣言は外部境界を開かない。
- * @security PendingDynamicFakeProviderLifecycleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility PendingDynamicFakeProviderLifecycleの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type PendingDynamicFakeProviderLifecycle = Readonly<{
-  observation: DynamicFakeProviderLifecycleObservation;
-  probeId: string;
-  containerId: string;
-  mountCapability: object;
-  hostRecoveryId: string;
-}>;
-
-/**
- * docker-isolationで使用するDynamic Fake Provider Finalizationの値契約を定義する。
- *
- * @responsibility Dynamic Fake Provider FinalizationのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape DynamicFakeProviderFinalizationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant DynamicFakeProviderFinalizationで宣言した値と責務の対応を維持する。
- * @boundary N/A: DynamicFakeProviderFinalizationの宣言は外部境界を開かない。
- * @security DynamicFakeProviderFinalizationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility DynamicFakeProviderFinalizationの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type DynamicFakeProviderFinalization = Readonly<{
-  pendingCapability: object;
-  probeId: string;
-  containerId: string;
-  mountCapability: object;
-  absenceCapability: object;
-  hostCleanupCapability: object;
-}>;
-
-/**
- * docker-isolationで使用するDynamic Fake Provider Absenceの値契約を定義する。
- *
- * @responsibility Dynamic Fake Provider AbsenceのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape DynamicFakeProviderAbsenceが表すProperty、識別子およびRelationを型として固定する。
- * @invariant DynamicFakeProviderAbsenceで宣言した値と責務の対応を維持する。
- * @boundary N/A: DynamicFakeProviderAbsenceの宣言は外部境界を開かない。
- * @security DynamicFakeProviderAbsenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility DynamicFakeProviderAbsenceの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type DynamicFakeProviderAbsence = Readonly<{
-  probeId: string;
-  containerId: string;
-  initialHostRecoveryId: string;
-  confirmedHostRecoveryId: string;
-  root: string;
-}>;
-
-/**
- * docker-isolationで使用するDynamic Fake Provider Host 清掃の値契約を定義する。
- *
- * @responsibility Dynamic Fake Provider Host 清掃のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape DynamicFakeProviderHostCleanupが表すProperty、識別子およびRelationを型として固定する。
- * @invariant DynamicFakeProviderHostCleanupで宣言した値と責務の対応を維持する。
- * @boundary N/A: DynamicFakeProviderHostCleanupの宣言は外部境界を開かない。
- * @security DynamicFakeProviderHostCleanupはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility DynamicFakeProviderHostCleanupの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type DynamicFakeProviderHostCleanup = Readonly<{
-  probeId: string;
-  confirmedHostRecoveryId: string;
-  absenceCapability: object;
-}>;
-
-const pendingDynamicLifecycleObservations = new WeakMap<
-  object,
-  PendingDynamicFakeProviderLifecycle
->();
-
-const dynamicLifecycleFinalizations = new WeakMap<
-  object,
-  DynamicFakeProviderFinalization
->();
-
-const dynamicLifecycleAbsences = new WeakMap<
-  object,
-  DynamicFakeProviderAbsence
->();
-
-const dynamicLifecycleHostCleanups = new WeakMap<
-  object,
-  DynamicFakeProviderHostCleanup
->();
 
 /**
  * docker-isolationで使用するDocker Probe 結果の値契約を定義する。
@@ -1502,369 +1355,6 @@ function projectProbeExecutionFacts(
 }
 
 /**
- * Dynamic Fake Provider Lifecycle Capabilityを構築する。
- *
- * @responsibility Dynamic Fake Provider Lifecycle Capabilityの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000008
- * @input facts: DIの閉じた実行事実、context: 同じProbe・Container・mount・Host相関。
- * @returns Readonly<{ kind: "dynamic_fake_provider_lifecycle" }>を返す。
- * @precondition factsとcontextは同じ保存後実行から得られている。
- * @postcondition 返却した私有参照から同じ候補登録だけを後続が取得できる。
- * @effect 同じ閉factsとcontextの私有pending登録を一回行う。Docker・Filesystem要求は発行しない。
- * @failure N/A: createDynamicFakeProviderLifecycleCapabilityは独自の失敗分岐を所有しない。
- * @invariant 生出力・別Probe・別Hostへ相関を拡張しない。
- * @boundary DIの閉factsとCoordinatorの私有lifecycle参照。
- * @security createDynamicFakeProviderLifecycleCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency 新しい参照ごとに独立登録し、既存の後続消費規則を維持する。
- */
-function createDynamicFakeProviderLifecycleCapability(
-  facts: IsolationProbeFacts,
-  context: Readonly<{
-    probeId: string;
-    containerId: string;
-    mountCapability: object;
-    hostRecoveryId: string;
-  }>,
-): Readonly<{ kind: "dynamic_fake_provider_lifecycle" }> {
-  const normalized = projectProbeExecutionFacts(facts);
-  const capability = Object.freeze({
-    kind: "dynamic_fake_provider_lifecycle" as const,
-  });
-  pendingDynamicLifecycleObservations.set(
-    capability,
-    Object.freeze({
-      observation: Object.freeze({
-        ...normalized,
-        provenance: "repository_owned_docker_fake_provider",
-        fakeProviderExecuted: false,
-        resultNormalizationVerified: false,
-        diagnosticDockerContainerEffectIssued: true,
-        diagnosticFilesystemEffectIssued: true,
-      }),
-      ...context,
-    }),
-  );
-  return capability;
-}
-
-/**
- * docker-isolationで使用するDynamic Fake Provider Finalization Eligibilityの値契約を定義する。
- *
- * @responsibility Dynamic Fake Provider Finalization EligibilityのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape DynamicFakeProviderFinalizationEligibilityが表すProperty、識別子およびRelationを型として固定する。
- * @invariant DynamicFakeProviderFinalizationEligibilityで宣言した値と責務の対応を維持する。
- * @boundary N/A: DynamicFakeProviderFinalizationEligibilityの宣言は外部境界を開かない。
- * @security DynamicFakeProviderFinalizationEligibilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility DynamicFakeProviderFinalizationEligibilityの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type DynamicFakeProviderFinalizationEligibility = Readonly<{
-  hasRepositoryOwnedProvenance: boolean;
-  hasExactResult: boolean;
-  hasValidElapsed: boolean;
-  hasPostRunMountIdentity: boolean;
-  hasContainerAbsence: boolean;
-  hasHostCleanup: boolean;
-  hasMatchingRunIdentity: boolean;
-}>;
-
-/**
- * Dynamic Fake Provider Finalizationを評価する。
- *
- * @responsibility Dynamic Fake Provider Finalizationの評価入力、判定規則、判断不能結果の境界を所有する。
- * @trace ARCH-000008
- * @input input: DynamicFakeProviderFinalizationEligibility
- * @returns evaluateDynamicFakeProviderFinalizationの計算結果を返す。
- * @precondition 「input: DynamicFakeProviderFinalizationEligibility」がevaluateDynamicFakeProviderFinalizationの入力契約を満たす。
- * @postcondition evaluateDynamicFakeProviderFinalizationの責務を完了した結果だけを返す。
- * @effect N/A: evaluateDynamicFakeProviderFinalizationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: evaluateDynamicFakeProviderFinalizationは独自の失敗分岐を所有しない。
- * @invariant evaluateDynamicFakeProviderFinalizationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: evaluateDynamicFakeProviderFinalizationはProcess内の同一Subsystemで完結する。
- * @security evaluateDynamicFakeProviderFinalizationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: evaluateDynamicFakeProviderFinalizationは共有非同期状態を持たない同期処理である。
- */
-function evaluateDynamicFakeProviderFinalization(
-  input: DynamicFakeProviderFinalizationEligibility,
-) {
-  const isEligible =
-    input.hasRepositoryOwnedProvenance &&
-    input.hasExactResult &&
-    input.hasValidElapsed &&
-    input.hasPostRunMountIdentity &&
-    input.hasContainerAbsence &&
-    input.hasHostCleanup &&
-    input.hasMatchingRunIdentity;
-  return Object.freeze({
-    status: isEligible ? ("candidate" as const) : ("blocked" as const),
-    reason: isEligible
-      ? "dynamic_fake_provider_finalization_candidate"
-      : "dynamic_fake_provider_finalization_incomplete",
-    observationAuthority: false,
-  });
-}
-
-/**
- * Dynamic Fake Provider Finalization Capabilityを構築する。
- *
- * @responsibility Dynamic Fake Provider Finalization Capabilityの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000008
- * @input pendingCapability: object、context: Omit<DynamicFakeProviderFinalization, "pendingCapability">
- * @returns Readonly<{ kind: "dynamic_fake_provider_finalization" }>を返す。
- * @precondition 「pendingCapability: object、context: Omit<DynamicFakeProviderFinalization, "pendingCapability">」がcreateDynamicFakeProviderFinalizationCapabilityの入力契約を満たす。
- * @postcondition createDynamicFakeProviderFinalizationCapabilityの責務を完了した結果だけを返す。
- * @effect N/A: createDynamicFakeProviderFinalizationCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createDynamicFakeProviderFinalizationCapabilityは独自の失敗分岐を所有しない。
- * @invariant createDynamicFakeProviderFinalizationCapabilityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createDynamicFakeProviderFinalizationCapabilityはProcess内の同一Subsystemで完結する。
- * @security createDynamicFakeProviderFinalizationCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createDynamicFakeProviderFinalizationCapabilityは共有非同期状態を持たない同期処理である。
- */
-function createDynamicFakeProviderFinalizationCapability(
-  pendingCapability: object,
-  context: Omit<DynamicFakeProviderFinalization, "pendingCapability">,
-): Readonly<{ kind: "dynamic_fake_provider_finalization" }> {
-  const capability = Object.freeze({
-    kind: "dynamic_fake_provider_finalization" as const,
-  });
-  dynamicLifecycleFinalizations.set(
-    capability,
-    Object.freeze({ pendingCapability, ...context }),
-  );
-  return capability;
-}
-
-/**
- * invalidate Dynamic Fake Provider Lifecycleを決定する。
- *
- * @responsibility invalidate Dynamic Fake Provider Lifecycleの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input capability: object | null
- * @returns N/A: invalidateDynamicFakeProviderLifecycleは戻り値を返さない。
- * @precondition 「capability: object | null」がinvalidateDynamicFakeProviderLifecycleの入力契約を満たす。
- * @postcondition invalidateDynamicFakeProviderLifecycleの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: invalidateDynamicFakeProviderLifecycleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: invalidateDynamicFakeProviderLifecycleは独自の失敗分岐を所有しない。
- * @invariant invalidateDynamicFakeProviderLifecycleは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: invalidateDynamicFakeProviderLifecycleはProcess内の同一Subsystemで完結する。
- * @security invalidateDynamicFakeProviderLifecycleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: invalidateDynamicFakeProviderLifecycleは共有非同期状態を持たない同期処理である。
- */
-function invalidateDynamicFakeProviderLifecycle(capability: object | null) {
-  if (capability) pendingDynamicLifecycleObservations.delete(capability);
-}
-
-/**
- * finalize Dynamic Fake Provider Lifecycleを決定する。
- *
- * @responsibility finalize Dynamic Fake Provider Lifecycleの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input pendingCapability: object、finalizationCapability: object
- * @returns DynamicFakeProviderLifecycleObservationを返す。
- * @precondition 「pendingCapability: object、finalizationCapability: object」がfinalizeDynamicFakeProviderLifecycleの入力契約を満たす。
- * @postcondition finalizeDynamicFakeProviderLifecycleの責務を完了した結果だけを返す。
- * @effect N/A: finalizeDynamicFakeProviderLifecycleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: finalizeDynamicFakeProviderLifecycleは独自の失敗分岐を所有しない。
- * @invariant finalizeDynamicFakeProviderLifecycleは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: finalizeDynamicFakeProviderLifecycleはProcess内の同一Subsystemで完結する。
- * @security finalizeDynamicFakeProviderLifecycleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: finalizeDynamicFakeProviderLifecycleは共有非同期状態を持たない同期処理である。
- */
-function finalizeDynamicFakeProviderLifecycle(
-  pendingCapability: object,
-  finalizationCapability: object,
-): DynamicFakeProviderLifecycleObservation {
-  const pending = pendingDynamicLifecycleObservations.get(pendingCapability);
-  const finalization = dynamicLifecycleFinalizations.get(
-    finalizationCapability,
-  );
-  pendingDynamicLifecycleObservations.delete(pendingCapability);
-  dynamicLifecycleFinalizations.delete(finalizationCapability);
-  const absence = finalization
-    ? dynamicLifecycleAbsences.get(finalization.absenceCapability)
-    : null;
-  const hostCleanup = finalization
-    ? dynamicLifecycleHostCleanups.get(finalization.hostCleanupCapability)
-    : null;
-  if (finalization) {
-    dynamicLifecycleAbsences.delete(finalization.absenceCapability);
-    dynamicLifecycleHostCleanups.delete(finalization.hostCleanupCapability);
-  }
-  if (!pending || !finalization || !absence || !hostCleanup)
-    return dynamicFakeLifecycleBlocked(
-      "dynamic_fake_provider_provenance_unverified",
-    );
-  const eligibility = evaluateDynamicFakeProviderFinalization({
-    hasRepositoryOwnedProvenance:
-      pending.observation.provenance ===
-      "repository_owned_docker_fake_provider",
-    hasExactResult: pending.observation.status === "candidate",
-    hasValidElapsed:
-      typeof pending.observation.elapsedMs === "number" &&
-      Number.isSafeInteger(pending.observation.elapsedMs) &&
-      pending.observation.elapsedMs >= 0 &&
-      pending.observation.elapsedMs <= 30_000,
-    hasPostRunMountIdentity:
-      pending.mountCapability === finalization.mountCapability,
-    hasContainerAbsence:
-      absence.probeId === pending.probeId &&
-      absence.containerId === pending.containerId &&
-      absence.initialHostRecoveryId === pending.hostRecoveryId &&
-      absence.confirmedHostRecoveryId !== absence.initialHostRecoveryId,
-    hasHostCleanup:
-      hostCleanup.probeId === pending.probeId &&
-      hostCleanup.confirmedHostRecoveryId === absence.confirmedHostRecoveryId &&
-      hostCleanup.absenceCapability === finalization.absenceCapability,
-    hasMatchingRunIdentity:
-      finalization.pendingCapability === pendingCapability &&
-      pending.probeId === finalization.probeId &&
-      pending.containerId === finalization.containerId,
-  });
-  if (eligibility.status !== "candidate")
-    return Object.freeze({
-      ...pending.observation,
-      status: "blocked",
-      reason: eligibility.reason,
-    });
-  return Object.freeze({
-    ...pending.observation,
-    status: "verified",
-    fakeProviderExecuted: true,
-    resultNormalizationVerified: true,
-    containerAbsenceVerified: true,
-    processTreeAbsenceVerified: true,
-    hostCleanupVerified: true,
-  });
-}
-
-/**
- * Docker Submissionを開始する。
- *
- * @responsibility Docker Submissionの開始条件、初期状態、開始失敗境界を所有する。
- * @trace ARCH-000008
- * @input hostRecoveryId: string、mountCapability: unknown
- * @returns stringを返す。
- * @precondition 「hostRecoveryId: string、mountCapability: unknown」がbeginDockerSubmissionの入力契約を満たす。
- * @postcondition beginDockerSubmissionの責務を完了した結果だけを返す。
- * @effect N/A: beginDockerSubmissionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: beginDockerSubmissionは独自の失敗分岐を所有しない。
- * @invariant beginDockerSubmissionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: beginDockerSubmissionはProcess内の同一Subsystemで完結する。
- * @security beginDockerSubmissionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: beginDockerSubmissionは共有非同期状態を持たない同期処理である。
- */
-function beginDockerSubmission(
-  hostRecoveryId: string,
-  mountCapability: unknown,
-): string {
-  return transitionHostRecoveryState(
-    hostRecoveryId,
-    "host_only",
-    "docker_submission_started",
-    mountCapability,
-  );
-}
-
-/**
- * Docker Submission Before Createを取り消す。
- *
- * @responsibility Docker Submission Before Createの取消条件、終了状態、残存Effectの境界を所有する。
- * @trace ARCH-000008
- * @input hostRecoveryId: string、mountCapability: unknown
- * @returns stringを返す。
- * @precondition 「hostRecoveryId: string、mountCapability: unknown」がcancelDockerSubmissionBeforeCreateの入力契約を満たす。
- * @postcondition cancelDockerSubmissionBeforeCreateの責務を完了した結果だけを返す。
- * @effect N/A: cancelDockerSubmissionBeforeCreateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: cancelDockerSubmissionBeforeCreateは独自の失敗分岐を所有しない。
- * @invariant cancelDockerSubmissionBeforeCreateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: cancelDockerSubmissionBeforeCreateはProcess内の同一Subsystemで完結する。
- * @security cancelDockerSubmissionBeforeCreateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: cancelDockerSubmissionBeforeCreateは共有非同期状態を持たない同期処理である。
- */
-function cancelDockerSubmissionBeforeCreate(
-  hostRecoveryId: string,
-  mountCapability: unknown,
-): string {
-  return transitionHostRecoveryState(
-    hostRecoveryId,
-    "docker_submission_started",
-    "host_only",
-    mountCapability,
-  );
-}
-
-/**
- * Docker Absenceを確認する。
- *
- * @responsibility Docker Absenceの確認根拠、成立条件、観測不能境界を所有する。
- * @trace ARCH-000008
- * @input hostRecoveryId: string、mountCapability: unknown、capability: unknown、expected: Readonly<{ probeId: string; id: string; rootName: string; cli: object; }>
- * @returns Readonly<{ hostRecoveryId: string; lifecycleAbsenceCapability: object; }>を返す。
- * @precondition 「hostRecoveryId: string、mountCapability: unknown、capability: unknown、expected: Readonly<{ probeId: string; id: string; rootName: string; cli: object; }>」がconfirmDockerAbsenceの入力契約を満たす。
- * @postcondition confirmDockerAbsenceの責務を完了した結果だけを返す。
- * @effect N/A: confirmDockerAbsenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure confirmDockerAbsenceは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant confirmDockerAbsenceは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: confirmDockerAbsenceはProcess内の同一Subsystemで完結する。
- * @security confirmDockerAbsenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: confirmDockerAbsenceは共有非同期状態を持たない同期処理である。
- */
-function confirmDockerAbsence(
-  hostRecoveryId: string,
-  mountCapability: unknown,
-  capability: unknown,
-  expected: Readonly<{
-    probeId: string;
-    id: string;
-    rootName: string;
-    cli: object;
-    root: string;
-  }>,
-): Readonly<{
-  hostRecoveryId: string;
-  lifecycleAbsenceCapability: object;
-}> {
-  const observation = isolationProbeIsObject(capability)
-    ? (absenceCapabilities.get(capability) ?? null)
-    : null;
-  if (
-    !observation ||
-    observation.hostRecoveryId !== hostRecoveryId ||
-    observation.probeId !== expected.probeId ||
-    observation.containerId !== expected.id ||
-    observation.rootName !== expected.rootName ||
-    observation.cli !== expected.cli
-  )
-    throw new Error("docker_absence_capability_required");
-  const updated = transitionHostRecoveryState(
-    hostRecoveryId,
-    "docker_submission_started",
-    "docker_absent_confirmed",
-    mountCapability,
-    expected.root,
-  );
-  if (isolationProbeIsObject(capability))
-    absenceCapabilities.delete(capability);
-  const lifecycleAbsenceCapability = Object.freeze({
-    kind: "dynamic_fake_provider_absence",
-  });
-  dynamicLifecycleAbsences.set(
-    lifecycleAbsenceCapability,
-    Object.freeze({
-      probeId: expected.probeId,
-      containerId: expected.id,
-      initialHostRecoveryId: hostRecoveryId,
-      confirmedHostRecoveryId: updated,
-      root: expected.root,
-    }),
-  );
-  return Object.freeze({
-    hostRecoveryId: updated,
-    lifecycleAbsenceCapability,
-  });
-}
-
-/**
  * 失敗を固定Schemaへ正規化する。
  *
  * @responsibility 失敗の入力検証、正規化規則、不正値の拒否境界を所有する。
@@ -1891,6 +1381,12 @@ function normalizeFailure(
     "owned_operation_mount_identity_required",
     "owned_operation_mount_capability_required",
     "owned_operation_mount_replaced",
+    "docker_probe_checkpoint_unconfirmed",
+    "docker_probe_cleanup_failed",
+    "docker_probe_receipt_mismatch",
+    "docker_recovery_container_identity_unknown",
+    "docker_recovery_boundary_failed",
+    "docker_recovery_host_generation_active_or_unknown",
   ]);
   const message = isolationProbeErrorMessage(error);
   return message && known.has(message) ? message : fallback;
@@ -1932,147 +1428,6 @@ function isolationProbeBlocked(
       : "not_required_or_confirmed",
     fakeProviderLifecycle: dynamicFakeLifecycleBlocked(reason),
   };
-}
-
-/**
- * Docker Probe 失敗を固定Schemaへ正規化する。
- *
- * @responsibility Docker Probe 失敗の入力検証、正規化規則、不正値の拒否境界を所有する。
- * @trace ARCH-000008
- * @input error: unknown、probeId: string、state: DockerProbeFailureState
- * @returns DockerProbeResultを返す。
- * @precondition 「error: unknown、probeId: string、state: DockerProbeFailureState」がnormalizeDockerProbeFailureの入力契約を満たす。
- * @postcondition normalizeDockerProbeFailureの責務を完了した結果だけを返す。
- * @effect N/A: normalizeDockerProbeFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: normalizeDockerProbeFailureは独自の失敗分岐を所有しない。
- * @invariant normalizeDockerProbeFailureは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: normalizeDockerProbeFailureはProcess内の同一Subsystemで完結する。
- * @security normalizeDockerProbeFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: normalizeDockerProbeFailureは共有非同期状態を持たない同期処理である。
- */
-export function normalizeDockerProbeFailure(
-  error: unknown,
-  probeId: string,
-  state: DockerProbeFailureState,
-): DockerProbeResult {
-  if (state.rollbackFailed === true) {
-    return isolationProbeBlocked(
-      "docker_submission_rollback_failed",
-      probeId,
-      true,
-      null,
-      true,
-    );
-  }
-  return isolationProbeBlocked(
-    normalizeFailure(error),
-    probeId,
-    state.submissionStarted,
-    state.submissionStarted ? state.recoveryId : state.hostRecoveryId,
-  );
-}
-
-/**
- * Host 回復を終了状態へ収束させる。
- *
- * @responsibility Host 回復の終了条件、最終状態、残存義務の境界を所有する。
- * @trace ARCH-000008
- * @input hostRecoveryId: string、baseResult: DockerProbeResult、probeId: string、lifecycleAbsenceCapability: object
- * @returns Readonly<{ result: DockerProbeResult; lifecycleHostCleanupCapability: object | null; }>を返す。
- * @precondition 「hostRecoveryId: string、baseResult: DockerProbeResult、probeId: string、lifecycleAbsenceCapability: object」がfinishHostRecoveryの入力契約を満たす。
- * @postcondition finishHostRecoveryの責務を完了した結果だけを返す。
- * @effect N/A: finishHostRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: finishHostRecoveryは独自の失敗分岐を所有しない。
- * @invariant finishHostRecoveryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: finishHostRecoveryはProcess内の同一Subsystemで完結する。
- * @security finishHostRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: finishHostRecoveryは共有非同期状態を持たない同期処理である。
- */
-function finishHostRecovery(
-  hostRecoveryId: string,
-  baseResult: DockerProbeResult,
-  probeId: string,
-  lifecycleAbsenceCapability: object,
-): Readonly<{
-  result: DockerProbeResult;
-  lifecycleHostCleanupCapability: object | null;
-}> {
-  const absence = dynamicLifecycleAbsences.get(lifecycleAbsenceCapability);
-  if (
-    !absence ||
-    absence.probeId !== probeId ||
-    absence.confirmedHostRecoveryId !== hostRecoveryId
-  )
-    throw new Error("docker_absence_capability_required");
-  const recovered = recoverOwnedOperationDirectories(
-    hostRecoveryId,
-    null,
-    absence.root,
-  );
-  const result = normalizeHostCleanupResult(
-    recovered,
-    hostRecoveryId,
-    baseResult,
-    probeId,
-  );
-  if (!result.hostCleanupCompleted)
-    return Object.freeze({ result, lifecycleHostCleanupCapability: null });
-  const lifecycleHostCleanupCapability = Object.freeze({
-    kind: "dynamic_fake_provider_host_cleanup",
-  });
-  dynamicLifecycleHostCleanups.set(
-    lifecycleHostCleanupCapability,
-    Object.freeze({
-      probeId,
-      confirmedHostRecoveryId: hostRecoveryId,
-      absenceCapability: lifecycleAbsenceCapability,
-    }),
-  );
-  return Object.freeze({ result, lifecycleHostCleanupCapability });
-}
-
-/**
- * Host 清掃 結果を固定Schemaへ正規化する。
- *
- * @responsibility Host 清掃 結果の入力検証、正規化規則、不正値の拒否境界を所有する。
- * @trace ARCH-000008
- * @input recovered: Readonly<{ status: string; reason: string }>、hostRecoveryId: string、baseResult: Partial<DockerProbeResult>、probeId: string | null
- * @returns DockerProbeResultを返す。
- * @precondition 「recovered: Readonly<{ status: string; reason: string }>、hostRecoveryId: string、baseResult: Partial<DockerProbeResult>、probeId: string | null」がnormalizeHostCleanupResultの入力契約を満たす。
- * @postcondition normalizeHostCleanupResultの責務を完了した結果だけを返す。
- * @effect N/A: normalizeHostCleanupResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: normalizeHostCleanupResultは独自の失敗分岐を所有しない。
- * @invariant normalizeHostCleanupResultは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: normalizeHostCleanupResultはProcess内の同一Subsystemで完結する。
- * @security normalizeHostCleanupResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: normalizeHostCleanupResultは共有非同期状態を持たない同期処理である。
- */
-export function normalizeHostCleanupResult(
-  recovered: Readonly<{ status: string; reason: string }>,
-  hostRecoveryId: string,
-  baseResult: Partial<DockerProbeResult> = {},
-  probeId: string | null = null,
-): DockerProbeResult {
-  return recovered?.status === "recovered"
-    ? {
-        ...isolationProbeBlocked(
-          typeof baseResult.reason === "string"
-            ? baseResult.reason
-            : "host_cleanup_recovered",
-          typeof baseResult.probeId === "string" ? baseResult.probeId : probeId,
-        ),
-        ...baseResult,
-        hostCleanupCompleted: true,
-        retainOperationDirectories: false,
-        recoveryId: null,
-        cleanup: "confirmed",
-      }
-    : isolationProbeBlocked(
-        recovered?.reason ?? "host_recovery_failed",
-        probeId,
-        true,
-        hostRecoveryId,
-      );
 }
 
 /**
@@ -2119,20 +1474,11 @@ function finishPreSubmissionCleanup(
 }
 
 /**
- * Docker Isolation Scenarioを実行する。
- *
- * @responsibility Docker Isolation Scenarioの実行条件、Effect範囲、終了結果の境界を所有する。
+ * DIの同じ実行結果とEMの資源記録を閉じてからHostを回収する。
+ * @responsibility Intent・Receiptの必須保存と、技術終了・実体清掃の共同成立を所有する。
  * @trace ARCH-000008
- * @input owned: 元Host操作。create: 通常は既存Executor入口、有限試験では同じ技術生涯のFactory。signal: 同じ試行の取消。
- * @returns DockerProbeResultを返す。
- * @precondition 上位がHost操作の現在Ownerと保存権限を確認している。
- * @postcondition runDockerIsolationScenarioの責務を完了した結果だけを返す。
- * @effect Host Intent・実ID・不存在と終了を保存し、技術実行・回収をExecutorへ委譲する。
- * @failure runDockerIsolationScenarioは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant runDockerIsolationScenarioは入力から導いた結果以外の共有状態を変更しない。
- * @boundary Coordinatorの保存・Host終了判断とExecutorの固定合成Probe。
- * @security runDockerIsolationScenarioはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency 同じExecutorのcompletionを待ち、取消Listenerを解除してからHost終了を判断する。
+ * @effect DI固定Probeの実行、EM更新、元Hostの清掃。
+ * @failure 保存・ID・終了・回収の不明は同じ回復参照で保持する。
  */
 async function runDockerIsolationScenario(
   owned: unknown,
@@ -2142,259 +1488,212 @@ async function runDockerIsolationScenario(
   ) => Executor<"isolation_probe"> | null = createExecutor,
   signal?: AbortSignal,
 ): Promise<DockerProbeResult> {
-  const probeId = randomUUID(),
-    recoveryNonce = randomUUID();
-  let mountCapability: Readonly<{ kind: "owned_operation_mounts" }> | null =
-    null;
-  let mounts: DockerMounts | null = null;
-  let recoveryId: string | null = null;
-  let hostRecoveryId = getOwnedHostRecoveryId(owned);
-  let hasSubmissionStarted = false,
-    hasContainerCreateAttempted = false,
-    hasRollbackFailed = false;
-  let result = isolationProbeBlocked("docker_isolation_probe_failed");
-  let dynamicLifecycleCapability: Readonly<{
-    kind: "dynamic_fake_provider_lifecycle";
-  }> | null = null;
+  const probeId = randomUUID();
+  const recoveryId = getOwnedHostRecoveryId(owned);
   let executor: Executor<"isolation_probe"> | null = null;
   let outcome: CompletionResult<"isolation_probe"> | null = null;
-  let notificationFailure: unknown;
-  const onAbort = () => executor?.cancel();
+  let submitted = false;
+  let receiptId: string | null = null;
+  let notificationFailed = false;
+  let result = isolationProbeBlocked(
+    "docker_isolation_probe_failed",
+    probeId,
+    true,
+    recoveryId,
+  );
+  const onAbort = () => {
+    void executor?.cancel();
+  };
   try {
-    if (!mountCapability) mountCapability = createOwnedMountCapability(owned);
-    mounts = verifyOwnedMountCapability(mountCapability);
+    const mount = createOwnedMountCapability(owned);
+    const context = createOwnedOperationContextCapability(owned);
+    const management = createOwnedOperationManagementCapability(context, mount);
+    const mounts = verifyOwnedMountCapability(mount);
+    const saveEvent = (
+      event: "submission" | "receipt",
+      target: ResourceTarget<"snapshot", "cleanup">,
+    ) => {
+      try {
+        verifyOwnedMountCapability(mount);
+        if (
+          target.managementDirectory !== mounts.management ||
+          target.unreceiptedAbsence !== "retain"
+        )
+          throw Error("docker_probe_recovery_boundary_failed");
+        const {
+          managementDirectory: _directory,
+          resources: snapshot,
+          previouslyAbsent: _absent,
+          ...cleanup
+        } = target;
+        const current = readOwnedHostOperation(management);
+        const next = applyResourceEvent(current.record.resources, {
+          event,
+          key: "probe",
+          snapshot,
+          cleanup,
+        });
+        if (!next) throw Error("docker_probe_checkpoint_unconfirmed");
+        recordOwnedHostResources(management, next);
+      } catch (error) {
+        notificationFailed = true;
+        throw error;
+      }
+    };
     executor = create(
       { kind: "isolation_probe", probeId },
       {
         settings: getIsolationSettings(),
-        mounts: Object.freeze({
+        mounts: {
           management: mounts.management,
           workspace: mounts.workspace,
           providerHome: mounts.providerHome,
           tmp: mounts.tmp,
-        }),
+        },
       },
     );
-    if (!executor) throw new Error("docker_isolation_probe_failed");
+    if (!executor) throw Error("docker_isolation_probe_failed");
     signal?.addEventListener("abort", onAbort, { once: true });
-    if (signal?.aborted) onAbort();
     const started = executor.start({
+      ...(signal ? { signal } : {}),
       callbacks: {
-        onCommandSubmitting: () => {
-          try {
-            if (!mountCapability || !mounts)
-              throw new Error("owned_operation_mount_capability_required");
-            mounts = verifyOwnedMountCapability(mountCapability);
-            hostRecoveryId = beginDockerSubmission(
-              hostRecoveryId,
-              mountCapability,
-            );
-            hasSubmissionStarted = true;
-            try {
-              recoveryId = writeDockerProbeRecoveryRecord(
-                mounts,
-                probeId,
-                recoveryNonce,
-                hostRecoveryId,
-                null,
-              );
-            } catch (error) {
-              try {
-                hostRecoveryId = cancelDockerSubmissionBeforeCreate(
-                  hostRecoveryId,
-                  mountCapability,
-                );
-                hasSubmissionStarted = false;
-              } catch {
-                hasRollbackFailed = true;
-              }
-              throw error;
-            }
-          } catch (error) {
-            notificationFailure = error;
-            throw error;
-          }
+        onCommandSubmitting: (purpose, target) => {
+          if (purpose !== "create_isolation_probe")
+            throw Error("docker_probe_profile_invalid");
+          saveEvent("submission", target);
+          submitted = true;
         },
-        onResourceCreated: (id) => {
-          try {
-            if (!mountCapability)
-              throw new Error("owned_operation_mount_capability_required");
-            mounts = verifyOwnedMountCapability(mountCapability);
-            recoveryId = writeDockerProbeRecoveryRecord(
-              mounts,
-              probeId,
-              recoveryNonce,
-              hostRecoveryId,
-              id,
-            );
-          } catch (error) {
-            notificationFailure = error;
-            throw error;
-          }
+        onResourceCreated: (id, target) => {
+          if (
+            target.resources.resources.find((r) => r.key === "probe")?.identity
+              .dockerId !== id
+          )
+            throw Error("docker_probe_receipt_mismatch");
+          saveEvent("receipt", target);
+          receiptId = id;
         },
       },
     });
     if (started.status !== "started") throw Error(started.reason);
+    if (signal?.aborted) onAbort();
     outcome = await started.completion;
-    hasContainerCreateAttempted = outcome.creationAttempted;
-    if (notificationFailure) throw notificationFailure;
+    if (notificationFailed) throw Error("docker_probe_checkpoint_unconfirmed");
+    const facts = outcome.facts;
+    result = isolationProbeBlocked(
+      outcome.reason ?? "docker_isolation_probe_failed",
+      probeId,
+      true,
+      recoveryId,
+    );
+    const isolationConfirmed =
+      facts !== null &&
+      outcome.reason === facts.isolation.reason &&
+      facts.isolation.status === "confirmed" &&
+      !outcome.cancelled &&
+      outcome.processCompletionConfirmed;
+
+    // 元Completionが明示した未発行だけを保存する。通知の開始やReceipt欠測からは推測しない。
     if (
-      !outcome.facts ||
-      !outcome.containerId ||
-      !mountCapability ||
-      outcome.reason !== outcome.facts.isolation.reason ||
-      outcome.cancelled ||
-      !outcome.processCompletionConfirmed
+      submitted &&
+      !outcome.creationAttempted &&
+      outcome.processCompletionConfirmed &&
+      outcome.cleanupConfirmed &&
+      outcome.resourceSnapshot?.resources.length === 1 &&
+      outcome.resourceSnapshot.resources[0]?.key === "probe" &&
+      outcome.resourceSnapshot.resources[0].request === "not_issued" &&
+      outcome.resourceSnapshot.resources[0].identity.dockerId === null
     ) {
-      result = isolationProbeBlocked(
-        outcome.reason ?? "docker_isolation_probe_failed",
-        probeId,
-        hasSubmissionStarted,
-        recoveryId,
-      );
-    } else {
-      mounts = verifyOwnedMountCapability(mountCapability);
-      const normalized = outcome.facts.isolation;
+      const current = readOwnedHostOperation(management);
+      const book = applyResourceEvent(current.record.resources, {
+        event: "not_issued",
+        key: "probe",
+      });
+      if (!book) throw Error("docker_probe_checkpoint_unconfirmed");
+      recordOwnedHostResources(management, book);
+      cleanupOwnedOperationDirectories(owned);
       result = {
-        ...isolationProbeBlocked(normalized.reason, probeId),
-        status: normalized.status === "confirmed" ? "confirmed" : "blocked",
-        fakeProviderLifecycle: dynamicFakeLifecycleBlocked(
-          "dynamic_fake_provider_absence_unconfirmed",
-        ),
+        ...result,
+        hostCleanupCompleted: true,
+        retainOperationDirectories: false,
+        recoveryId: null,
+        cleanup: "confirmed",
       };
-      dynamicLifecycleCapability = createDynamicFakeProviderLifecycleCapability(
-        outcome.facts,
-        {
-          probeId,
-          containerId: outcome.containerId,
-          mountCapability,
-          hostRecoveryId,
-        },
+    }
+
+    // Receipt欠測や終了不明を、Cleanupの成功だけで不存在へ変換しない。
+    if (
+      receiptId &&
+      outcome.containerId === receiptId &&
+      outcome.resourceSnapshot &&
+      outcome.processCompletionConfirmed &&
+      outcome.cleanupConfirmed
+    ) {
+      verifyOwnedMountCapability(mount);
+      const current = readOwnedHostOperation(management);
+      if (!current.record.resources)
+        throw Error("docker_probe_checkpoint_unconfirmed");
+      const book = applyResourceCleanup(
+        current.record.resources,
+        outcome.resourceSnapshot,
+        [{ key: "probe", observation: "absent" }],
+        { recoveryId, previousPayloadSha256: current.payloadSha256 },
       );
+      if (!book?.checkpoints.every((c) => c.observation === "absent"))
+        throw Error("docker_probe_cleanup_failed");
+      recordOwnedHostResources(management, book);
+      cleanupOwnedOperationDirectories(owned);
+      result = {
+        ...result,
+        status: isolationConfirmed ? "confirmed" : "blocked",
+        hostCleanupCompleted: true,
+        retainOperationDirectories: false,
+        recoveryId: null,
+        cleanup: "confirmed",
+      };
+      if (facts) {
+        const observed = projectProbeExecutionFacts(facts);
+        const verified =
+          result.status === "confirmed" &&
+          facts.lifecycleStatus === "candidate" &&
+          typeof facts.elapsedMs === "number" &&
+          Number.isSafeInteger(facts.elapsedMs) &&
+          facts.elapsedMs >= 0 &&
+          facts.elapsedMs <= 30_000;
+        result = {
+          ...result,
+          status: verified ? result.status : "blocked",
+          reason: verified ? result.reason : facts.lifecycleReason,
+          fakeProviderLifecycle: Object.freeze({
+            ...observed,
+            provenance: "repository_owned_docker_fake_provider",
+            status: verified ? "verified" : "blocked",
+            fakeProviderExecuted: verified,
+            resultNormalizationVerified: verified,
+            containerAbsenceVerified: true,
+            processTreeAbsenceVerified: true,
+            hostCleanupVerified: true,
+          }),
+        };
+      }
     }
   } catch (error) {
-    result = normalizeDockerProbeFailure(error, probeId, {
-      submissionStarted: hasSubmissionStarted,
+    result = isolationProbeBlocked(
+      normalizeFailure(error, "docker_isolation_probe_failed"),
+      probeId,
+      true,
       recoveryId,
-      hostRecoveryId,
-      rollbackFailed: hasRollbackFailed,
-    });
+    );
   } finally {
     signal?.removeEventListener("abort", onAbort);
-    if (outcome?.containerId && executor && mountCapability && mounts) {
-      try {
-        if (!outcome.cleanupConfirmed) {
-          invalidateDynamicFakeProviderLifecycle(dynamicLifecycleCapability);
-          result = isolationProbeBlocked(
-            outcome.reason ?? "docker_probe_cleanup_failed",
-            probeId,
-            true,
-            recoveryId,
-          );
-        } else {
-          mounts = verifyOwnedMountCapability(mountCapability);
-          const absenceCapability = Object.freeze({ kind: "docker_absence" });
-          const expected = {
-            probeId,
-            id: outcome.containerId,
-            rootName: path.basename(path.dirname(mounts.management)),
-            cli: executor,
-            root: path.dirname(mounts.management),
-          };
-          absenceCapabilities.set(
-            absenceCapability,
-            Object.freeze({
-              probeId,
-              containerId: outcome.containerId,
-              hostRecoveryId,
-              rootName: expected.rootName,
-              cli: executor,
-            }),
-          );
-          const absence = confirmDockerAbsence(
-            hostRecoveryId,
-            mountCapability,
-            absenceCapability,
-            expected,
-          );
-          hostRecoveryId = absence.hostRecoveryId;
-          const hostCleanup = finishHostRecovery(
-            hostRecoveryId,
-            result,
-            probeId,
-            absence.lifecycleAbsenceCapability,
-          );
-          result = hostCleanup.result;
-          if (
-            dynamicLifecycleCapability &&
-            result.status === "confirmed" &&
-            result.hostCleanupCompleted &&
-            hostCleanup.lifecycleHostCleanupCapability
-          ) {
-            const finalizationCapability =
-              createDynamicFakeProviderFinalizationCapability(
-                dynamicLifecycleCapability,
-                {
-                  probeId,
-                  containerId: outcome.containerId,
-                  mountCapability,
-                  absenceCapability: absence.lifecycleAbsenceCapability,
-                  hostCleanupCapability:
-                    hostCleanup.lifecycleHostCleanupCapability,
-                },
-              );
-            const lifecycle = finalizeDynamicFakeProviderLifecycle(
-              dynamicLifecycleCapability,
-              finalizationCapability,
-            );
-            result = {
-              ...result,
-              status:
-                lifecycle.status === "verified" ? result.status : "blocked",
-              reason:
-                lifecycle.status === "verified"
-                  ? result.reason
-                  : lifecycle.reason,
-              fakeProviderLifecycle: lifecycle,
-            };
-          } else {
-            invalidateDynamicFakeProviderLifecycle(dynamicLifecycleCapability);
-            const reason =
-              result.status === "blocked"
-                ? result.reason
-                : "dynamic_fake_provider_finalization_incomplete";
-            result = {
-              ...result,
-              status: "blocked",
-              reason,
-              fakeProviderLifecycle: dynamicFakeLifecycleBlocked(reason),
-            };
-          }
-        }
-      } catch {
-        invalidateDynamicFakeProviderLifecycle(dynamicLifecycleCapability);
-        result = isolationProbeBlocked(
-          "docker_probe_cleanup_failed",
-          probeId,
-          true,
-          recoveryId,
-        );
-      }
-    } else if (!hasSubmissionStarted) {
-      invalidateDynamicFakeProviderLifecycle(dynamicLifecycleCapability);
-      result = finishPreSubmissionCleanup(
-        owned,
-        hostRecoveryId,
-        result,
-        probeId,
-      );
-    }
+    if (!submitted && !outcome?.creationAttempted)
+      result = finishPreSubmissionCleanup(owned, recoveryId, result, probeId);
   }
   return {
     ...result,
     fakeProviderLifecycle: Object.freeze({
       ...result.fakeProviderLifecycle,
-      diagnosticDockerContainerEffectIssued: hasContainerCreateAttempted,
+      diagnosticDockerContainerEffectIssued:
+        outcome?.creationAttempted === true,
       diagnosticFilesystemEffectIssued: true,
     }),
   };
@@ -2474,179 +1773,141 @@ export function expectedDynamicFakeProviderFailureReason(
 }
 
 /**
- * Docker診断の回復を同じHost世代の排他内で処置する。
- *
- * @responsibility 対象を読む前の世代排他、回復記録の現在確認、Docker資源確認、Host清掃と解放を順序付ける。
+ * 元Host記録のSnapshotを同じDI回収契約へ渡す。
+ * @responsibility 同じRepository・操作・実LockとReceiptを照合し、資源の終了保存後だけHostを回収する。
  * @trace ARCH-000008
- * @input 元のexactなDocker診断回復Token。
- * @returns recoveredまたはblocked。未解決時は現在のexact参照を保持する。
- * @precondition 元Tokenを提示し、既存生成入口のUUID由来Rootと同じ世代へ結合する。Schema・Hash・対象実体は取得後に確認する。
- * @postcondition 成功はHost清掃と取得した排他の解放がともに成立した場合だけ返す。
- * @effect 回復記録の読取り、既存Host排他の取得・解放、必要なDocker回収とHost清掃。
- * @failure 不正なRoot世代、未取得、Host結合差、下位失敗、解放未確認では停止し、成功へ畳まない。
- * @invariant Root由来Host nonceをProbe nonceと混同せず、取得後の記録と照合した同じ排他をHost清掃へ渡す。
- * @boundary 公開診断回復から既存Host世代・Docker・Filesystemへの境界。
- * @security Tokenを新設せず、元Task再実行、Provider依頼、Docker再起動を行わない。
- * @concurrency 既存Host／Docker Task回復と同じ対象排他をRoot初回読取り前から清掃終了まで保持する。
+ * @effect 明示要求されたProbe資源の回収とEMの同一記録更新。
+ * @failure ID欠測・観測不能・保存失敗では同じ参照を保持する。
  */
-export function recoverDockerIsolationProbe(
-  token: unknown,
-  expectedRoot: unknown,
+export async function recoverDockerIsolationProbe(
+  recoveryId: string,
+  repository: Repository,
+  recordingCurrent: () => boolean,
+  signal?: AbortSignal,
 ) {
-  let activeRecoveryId = token;
   let generation: object | null = null;
-  const result = (() => {
-    try {
-      const selected = parseDockerProbeRecoveryToken(token);
-      const hostNonce = selected.rootName.slice(
-        "crdd-coordinator-doctor-".length,
-      );
+  let result: Readonly<{
+    status: string;
+    reason: string;
+    recoveryId: string | null;
+    hostCleanupCompleted: boolean;
+  }> = {
+    status: "blocked",
+    reason: "docker_probe_recovery_failed",
+    recoveryId,
+    hostCleanupCompleted: false,
+  };
+  try {
+    signal?.throwIfAborted();
+    generation = acquireHostOperationRecoveryGeneration(
+      repository,
+      recoveryId,
+      recordingCurrent,
+    );
+    if (!generation)
+      throw Error("docker_recovery_host_generation_active_or_unknown");
+    const initial = readHostRecoveryOperation(generation);
+    if (initial?.record.purpose !== "isolation_probe")
+      throw Error("docker_recovery_boundary_failed");
+    const resources = initial.record.resources;
+    const savedResourcesSettled = resources?.checkpoints.every(
+      (c) =>
+        c.submission === "none" ||
+        c.submission === "not_issued" ||
+        (c.receiptSource !== null && c.observation === "absent"),
+    );
+    const closedRootAbsent =
+      savedResourcesSettled && observeHostRecoveryRoot(generation) === "absent";
+    if (resources && !closedRootAbsent) {
+      // Receiptなしで構成や名前から自動的に対象を採用しない。
       if (
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
-          hostNonce,
+        resources.checkpoints.some(
+          (c) => c.submission === "intent_saved" && c.receiptSource === null,
         )
       )
-        throw new Error("docker_recovery_host_generation_mismatch");
-      if (
-        typeof expectedRoot !== "string" ||
-        !path.isAbsolute(expectedRoot) ||
-        path.resolve(expectedRoot) !== expectedRoot ||
-        path.basename(expectedRoot) !== selected.rootName
-      )
-        throw new Error("docker_recovery_boundary_failed");
-      const parent = path.dirname(expectedRoot);
-      if (fs.realpathSync(parent) !== parent)
-        throw new Error("docker_recovery_boundary_failed");
-      generation = acquireHostOperationRecoveryGenerationByIdentity(
-        path.join(parent, selected.rootName),
-        hostNonce,
+        throw Error("docker_recovery_container_identity_unknown");
+      const borrowed = borrowHostRecoveryManagementDirectory(
+        recoveryId,
+        generation,
       );
-      if (!generation)
-        return {
-          status: "blocked",
-          reason: "docker_recovery_host_generation_active_or_unknown",
-          recoveryId: activeRecoveryId,
-          hostCleanupCompleted: false,
-        };
-      const recovery = loadDockerProbeRecoveryRecord(token, expectedRoot);
-      const host = parseHostRecoveryToken(recovery.record.hostRecoveryId);
-      if (
-        host.rootName !== selected.rootName ||
-        host.rootName !== recovery.parsed.rootName ||
-        host.nonce !== hostNonce
-      )
-        throw new Error("docker_recovery_host_generation_mismatch");
-      const containerId = recovery.record.container.id;
-      if (!containerId)
-        return {
-          status: "blocked",
-          reason: "docker_recovery_container_identity_unknown",
-          recoveryId: token,
-        };
-      requireDockerProbeRecoveryMounts(recovery);
-      const target: ResourceTarget<"container"> = Object.freeze({
-        kind: "container",
-        configuration: Object.freeze({
-          id: containerId,
-          name: `crdd-coordinator-probe-${recovery.record.probeId}`,
-          ownershipLabel: `crdd.coordinator.probe=${recovery.record.probeId}`,
-        }),
-        managementDirectory: recovery.children.management,
+      if (!borrowed) throw Error("docker_recovery_boundary_failed");
+      const target: ResourceTarget<"snapshot"> = {
+        ...resources.cleanup,
+        managementDirectory: borrowed.directory,
+        resources: resources.snapshot,
+        previouslyAbsent: resources.checkpoints
+          .filter((c) => c.observation === "absent")
+          .map((c) => c.key),
+      };
+      let closedSaved = false;
+      const execution = cleanupResources(target, getIsolationSettings(), {
+        onCleanupSubmitting: () => {
+          signal?.throwIfAborted();
+          if (!borrowed.assertCurrent() || !recordingCurrent())
+            throw Error("docker_recovery_boundary_failed");
+        },
+        onResourcesClosed: (snapshot, observations) => {
+          if (!borrowed.assertCurrent() || !recordingCurrent())
+            throw Error("docker_recovery_boundary_failed");
+          const current = readHostRecoveryOperation(generation);
+          if (!current?.record.resources)
+            throw Error("docker_probe_checkpoint_unconfirmed");
+          const book = applyResourceCleanup(
+            current.record.resources,
+            snapshot,
+            observations.map((o) => ({
+              key: o.key,
+              observation: o.observation,
+            })),
+            { recoveryId, previousPayloadSha256: current.payloadSha256 },
+          );
+          if (!book) throw Error("docker_probe_checkpoint_unconfirmed");
+          recordHostRecoveryResources(generation, book);
+          closedSaved = book.checkpoints.every(
+            (c) => c.observation === "absent" || c.submission === "not_issued",
+          );
+        },
       });
-      verifyHostOperationRecoveryGeneration(
-        generation,
-        recovery.root,
-        hostNonce,
-      );
-      loadDockerProbeRecoveryRecord(token, expectedRoot);
-      let observed = inspectResources(target, getIsolationSettings());
-      if (observed.observation !== "absent") {
-        if (observed.observation !== "present")
-          return {
-            status: "blocked",
-            reason: "docker_recovery_container_mismatch",
-            recoveryId: token,
-          };
-        const cleanup = cleanupResources(target, getIsolationSettings());
-        if (!cleanup.confirmed)
-          return {
-            status: "blocked",
-            reason: cleanup.reason,
-            recoveryId: token,
-          };
-        observed = inspectResources(target, getIsolationSettings());
-        if (observed.observation !== "absent")
-          return {
-            status: "blocked",
-            reason: "docker_probe_cleanup_failed",
-            recoveryId: token,
-          };
+      const cancel = () => {
+        void execution.cancel();
+      };
+      signal?.addEventListener("abort", cancel, { once: true });
+      let completion: Awaited<typeof execution.completion>;
+      try {
+        if (signal?.aborted) cancel();
+        completion = await execution.completion;
+      } finally {
+        signal?.removeEventListener("abort", cancel);
       }
-      verifyHostOperationRecoveryGeneration(
-        generation,
-        recovery.root,
-        hostNonce,
-      );
-      loadDockerProbeRecoveryRecord(token, expectedRoot);
-      const absenceCapability = Object.freeze({ kind: "docker_absence" });
-      absenceCapabilities.set(
-        absenceCapability,
-        Object.freeze({
-          probeId: recovery.record.probeId,
-          containerId,
-          hostRecoveryId: recovery.record.hostRecoveryId,
-          rootName: recovery.record.rootName,
-          cli: target,
-        }),
-      );
-      const absence = confirmDockerAbsence(
-        recovery.record.hostRecoveryId,
-        null,
-        absenceCapability,
-        {
-          probeId: recovery.record.probeId,
-          id: containerId,
-          rootName: recovery.record.rootName,
-          cli: target,
-          root: recovery.root,
-        },
-      );
-      activeRecoveryId = absence.hostRecoveryId;
-      const recovered = recoverOwnedOperationDirectories(
-        absence.hostRecoveryId,
-        generation,
-      );
-      const normalized = normalizeHostCleanupResult(
-        recovered,
-        absence.hostRecoveryId,
-        {
-          status: "recovered",
-          reason: "docker_probe_recovery_completed",
-        },
-      );
-      return normalized.hostCleanupCompleted
-        ? normalized
-        : { ...normalized, status: "blocked" };
-    } catch (error) {
-      return {
+      if (
+        !closedSaved ||
+        !completion.processTerminationConfirmed ||
+        !completion.cleanup.confirmed
+      )
+        throw Error("docker_probe_cleanup_failed");
+    }
+    const recovered = recoverOwnedOperationDirectories(recoveryId, generation);
+    result = {
+      ...recovered,
+      recoveryId: recovered.status === "recovered" ? null : recoveryId,
+      hostCleanupCompleted: recovered.status === "recovered",
+    };
+  } catch (error) {
+    result = {
+      status: "blocked",
+      reason: normalizeFailure(error, "docker_probe_recovery_failed"),
+      recoveryId,
+      hostCleanupCompleted: false,
+    };
+  } finally {
+    if (generation && !releaseHostOperationRecoveryGeneration(generation))
+      result = {
         status: "blocked",
-        reason: normalizeFailure(error, "docker_probe_recovery_failed"),
-        recoveryId: activeRecoveryId,
+        reason: "docker_recovery_host_generation_release_unconfirmed",
+        recoveryId,
         hostCleanupCompleted: false,
       };
-    }
-  })();
-  if (generation && !releaseHostOperationRecoveryGeneration(generation))
-    return {
-      ...result,
-      status: "blocked",
-      reason: "docker_recovery_host_generation_release_unconfirmed",
-      recoveryId: activeRecoveryId,
-      hostCleanupCompleted: false,
-      cleanup: "unconfirmed",
-      retainOperationDirectories: true,
-      manualRecoveryRequired: true,
-    };
+  }
   return result;
 }
 

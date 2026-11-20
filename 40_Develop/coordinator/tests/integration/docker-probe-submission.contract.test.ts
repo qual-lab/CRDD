@@ -1,476 +1,261 @@
 /**
- * Probeの二保存とDI作成要求の順序を検証する。
+ * Probeの作成前・Receipt後の必須保存を現Executor通知で確認する。
  * @packageDocumentation
- * @responsibility 保存拒否・作成unknownから開始へ進まない上位接続を反証する。
+ * @responsibility 保存失敗・ID欠測を後続Effectへ進めず、取消と終了待機を維持する。
  * @trace ERB-IT-004
  * @level IT
- * @scope 実上位関数本文とDI／Hostの代役。実Docker・耐久保存は実行しない。
- * @boundary ERB-IT-004=Related 2 Blocks: Coordinator保存順序→DI作成。
+ * @scope 実上位本文とEM値更新、有限Executor。実Docker・耐久保存は行わない。
+ * @boundary Coordinator通知受付とExecutorの技術完了。
  */
 import assert from "node:assert/strict";
-import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import fs from "node:fs";
-import path from "node:path";
-import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import { runInNewContext } from "../support/probe-executor.ts";
+import type { CompletionResult } from "../../../executor/src/index.ts";
+import { createProbeExecutionFixture } from "../support/probe-executor.ts";
 
 /**
- * 一意な本番関数の本文を型除去して取得する。
- * @responsibility 上位投影・入口を別の手書き実装へ置換しない。
+ * 必須通知の失敗は有限Executorが捕捉し、それ以後の作成・実行を行わない。
+ * @responsibility 旧Host二重保存を再現せず、同じDI SnapshotのIntentとReceiptを更新する。
  * @trace ERB-IT-004
- * @precondition 対象名はSource内に一回だけ現れる。
- * @stimulus 関数開始から次のHeaderまでを抽出する。
- * @observation 実本文の実行用文字列。
- * @oracle 欠測・重複は試験準備時に失敗する。
- * @cleanup N/A: 読取りとメモリだけ。
- * @boundary 本番Sourceと検証VM。
+ * @precondition CaseごとにBook・通知列・故障点が独立する。
+ * @stimulus 作成前保存、Receipt保存、境界・ID差、未発行、開始拒否とHost失敗。
+ * @observation 要求列、元回復参照、Bookと公開Effect表示。
+ * @oracle 保存失敗に続くEffectは0、不明な作成を未発行へ補完しない。
+ * @cleanup メモリだけ。生成completionを待機する。
+ * @boundary 通知受付と有限技術結果。実作成・実回収を主張しない。
  */
-function probeFunctionSource(source: string, name: string) {
-  const aliases: Readonly<Record<string, string>> = {
-    blocked: "isolationProbeBlocked",
-    isObject: "isolationProbeIsObject",
-    ownValue: "isolationProbeOwnValue",
-    errorMessage: "isolationProbeErrorMessage",
-  };
-  return sourceDeclaration(source, aliases[name] ?? name);
-}
-
-/**
- * 実上位本文の保存拒否とunknownを要求列で確認する。
- * @responsibility 手書きモデルでなく現在の実行関数を検査する。
- * @trace ERB-IT-004
- * @precondition 対象関数名がSource中で一意である。
- * @stimulus Engine拒否、二保存の各失敗、rollback失敗、作成unknown、正常を与える。
- * @observation 保存・作成・開始・回収の順序と既発生事実。
- * @oracle 実ID保存後だけstartし、既知IDの補償回収とunknown保持を混同しない。
- * @cleanup N/A: VMと局所値のみ。
- * @boundary Coordinator実本文と合成依存。実Writer・実Dockerの証明ではない。
- */
-test("Probe二保存はcreate前とstart前をそれぞれ停止できる", async () => {
-  const source = fs.readFileSync(
-    new URL("../../src/execution/diagnostics.ts", import.meta.url),
-    "utf8",
-  );
-  const marker = "async function runDockerIsolationScenario(";
-  assert.equal(source.split(marker).length, 2);
-  const begin = source.indexOf(marker);
-  const body = stripTypeScriptTypes(
-    source.slice(begin, source.indexOf("\n/**", begin)),
-  );
-  const projectionBody = [
-    "isObject",
-    "ownValue",
-    "ownString",
-    "errorMessage",
-    "normalizeFailure",
-    "dynamicFakeLifecycleBlocked",
-    "blocked",
-    "normalizeDockerProbeFailure",
-    "normalizeHostCleanupResult",
-  ]
-    .map((name) => probeFunctionSource(source, name))
-    .join("\n");
-  const projection = runInNewContext(
-    `(()=>{${projectionBody};return {blocked:isolationProbeBlocked,normalizeDockerProbeFailure,normalizeHostCleanupResult,dynamicFakeLifecycleBlocked};})()`,
-  ) as {
-    blocked: (reason: string, ...args: unknown[]) => Record<string, unknown>;
-    normalizeDockerProbeFailure: (
-      ...args: unknown[]
-    ) => Record<string, unknown>;
-    normalizeHostCleanupResult: (...args: unknown[]) => Record<string, unknown>;
-    dynamicFakeLifecycleBlocked: (reason: string) => Record<string, unknown>;
-  };
-  const id = "a".repeat(64);
+test("Probe二保存は現通知のcreate前と実ID取得後をそれぞれ停止できる", async () => {
   for (const scenario of [
-    "engine",
-    "binding-mkdir1",
-    "binding-mkdir2",
-    "binding-environment",
-    "save-null",
-    "rollback",
-    "unknown",
-    "save-id",
     "normal",
-  ] as const) {
-    const calls: string[] = [];
-    const owned = {};
-    const mounts = {
-      workspace: "workspace",
-      providerHome: "home",
-      tmp: "tmp",
-      management: path.join("root", "management"),
+    "submission",
+    "receipt",
+    "purpose",
+    "management",
+    "retention",
+    "receipt_id",
+    "unknown",
+    "not_issued",
+    "start_blocked",
+    "factory",
+    "host",
+  ]) {
+    const fixture = createProbeExecutionFixture(
+      scenario === "submission" || scenario === "receipt" || scenario === "host"
+        ? scenario
+        : null,
+    );
+    const id = "a".repeat(64);
+    const issued = {
+      resources: fixture.planned.snapshot.resources.map((resource) => ({
+        ...resource,
+        request: "issued" as const,
+        identity: { ...resource.identity, dockerId: id },
+      })),
     };
-    const blocked = projection.blocked;
-    const failureSnapshots: Record<string, unknown>[] = [];
-    const run = runInNewContext(
-      `(()=>{${body};return runDockerIsolationScenario;})()`,
-      {
-        Object,
-        path,
-        performance,
-        randomUUID: () => "12345678-1234-4234-8234-123456789abc",
-        isolationProbeBlocked: blocked,
-        getOwnedHostRecoveryId: () => "host",
-        createDockerProbeRuntimeBinding: (management: string) => {
-          assert.equal(management, mounts.management);
-          if (scenario.startsWith("binding-")) {
-            calls.push(scenario);
-            throw Error(scenario);
-          }
-          return {};
-        },
-        createOwnedMountCapability: () => ({}),
-        verifyOwnedMountCapability: () => mounts,
-        observeDockerProbeEngine: () => {
-          calls.push("engine");
-          return scenario !== "engine";
-        },
-        beginDockerSubmission: () => {
-          calls.push("begin");
-          return "host-submitted";
-        },
-        writeDockerProbeRecoveryRecord: (...args: unknown[]) => {
-          const stage = args[4] === null ? "save-null" : "save-id";
-          calls.push(stage);
-          if (
-            scenario === stage ||
-            (scenario === "rollback" && stage === "save-null")
-          )
-            throw new Error(stage);
-          if (stage === "save-id") assert.equal(args[4], id);
-          return stage === "save-null"
-            ? "recovery-before-id"
-            : "recovery-with-id";
-        },
-        cancelDockerSubmissionBeforeCreate: () => {
-          calls.push("rollback");
-          if (scenario === "rollback") throw new Error("rollback");
-          return "host";
-        },
-        createDockerProbeContainer: (_binding: unknown, profile: unknown) => {
-          calls.push("create");
-          assert.equal(profile, "normal");
-          return scenario === "unknown"
-            ? { status: "blocked", reason: "docker_container_identity_unknown" }
-            : { status: "confirmed", id };
-        },
-        containerIdentities: new WeakMap(),
-        inspectOwnedContainer: () => {
-          calls.push("inspect");
-          return {};
-        },
-        runDockerProbeToCompletion: (
-          _binding: unknown,
-          profile: unknown,
-          containerId: unknown,
-        ) => {
-          calls.push("run");
-          assert.equal(profile, "normal");
-          assert.equal(containerId, id);
-          return { isolation: { status: "confirmed", reason: "fixed-result" } };
-        },
-        dynamicFakeLifecycleBlocked: projection.dynamicFakeLifecycleBlocked,
-        createDynamicFakeProviderLifecycleCapability: () => ({}),
-        normalizeDockerProbeFailure: (
-          error: Error,
-          probeId: string,
-          context: { recoveryId: string | null },
-        ) => {
-          const result = projection.normalizeDockerProbeFailure(
-            error,
-            probeId,
-            context,
-          );
-          failureSnapshots.push(JSON.parse(JSON.stringify(result)));
-          return result;
-        },
-        cleanupOwnedContainer: () => {
-          calls.push("cleanup");
-          return { confirmed: true, absenceCapability: {} };
-        },
-        confirmDockerAbsence: () => {
-          calls.push("absence");
-          return {
-            hostRecoveryId: "host-clean",
-            lifecycleAbsenceCapability: {},
-          };
-        },
-        finishHostRecovery: (_host: unknown, result: object) => {
-          calls.push("host-cleanup");
-          return {
-            result: projection.normalizeHostCleanupResult(
-              { status: "recovered", reason: "host-clean" },
-              "host-clean",
-              result,
-            ),
-            lifecycleHostCleanupCapability: {},
-          };
-        },
-        createDynamicFakeProviderFinalizationCapability: () => ({}),
-        finalizeDynamicFakeProviderLifecycle: () => ({ status: "verified" }),
-        invalidateDynamicFakeProviderLifecycle: () => undefined,
-        finishPreSubmissionCleanup: (
-          _owned: unknown,
-          _host: unknown,
-          result: object,
-        ) => {
-          calls.push("pre-cleanup");
-          return result;
-        },
-      },
-    ) as (
-      owned: unknown,
-      scenario: null,
-    ) => Promise<{
-      status: string;
-      reason: string;
-      recoveryId: string | null;
-      fakeProviderLifecycle: { diagnosticDockerContainerEffectIssued: boolean };
-    }>;
-    const result = await run(owned, null);
-    const expected = scenario.startsWith("binding-")
-      ? [scenario, "pre-cleanup"]
-      : scenario === "engine"
-        ? ["engine", "pre-cleanup"]
-        : scenario === "save-null"
-          ? ["engine", "begin", "save-null", "rollback", "pre-cleanup"]
-          : scenario === "rollback"
-            ? ["engine", "begin", "save-null", "rollback"]
-            : scenario === "unknown"
-              ? ["engine", "begin", "save-null", "create"]
-              : scenario === "save-id"
-                ? [
-                    "engine",
-                    "begin",
-                    "save-null",
-                    "create",
-                    "inspect",
-                    "save-id",
-                    "cleanup",
-                    "absence",
-                    "host-cleanup",
-                  ]
-                : [
-                    "engine",
-                    "begin",
-                    "save-null",
-                    "create",
-                    "inspect",
-                    "save-id",
-                    "run",
-                    "cleanup",
-                    "absence",
-                    "host-cleanup",
-                  ];
-    assert.deepEqual(calls, expected, scenario);
+    let created = 0,
+      executed = 0;
+    const outcome = (
+      creationAttempted: boolean,
+      snapshot = fixture.planned.snapshot,
+    ): CompletionResult<"isolation_probe"> => ({
+      kind: "isolation_probe",
+      status: "blocked",
+      reason: "fixture_probe_blocked",
+      creationAttempted,
+      containerId: creationAttempted ? id : null,
+      facts: null,
+      resourceSnapshot: snapshot,
+      processCompletionConfirmed: true,
+      cleanupConfirmed: true,
+      cancelled: false,
+    });
+    const result = await fixture.run(() =>
+      scenario === "factory"
+        ? null
+        : {
+            kind: "isolation_probe",
+            cancel: async () => ({
+              status: "requested",
+              reason: "cancellation_requested",
+              cancellationRequested: true,
+              processTerminationObserved: false,
+            }),
+            start: (input) => {
+              if (scenario === "start_blocked")
+                return {
+                  kind: "isolation_probe",
+                  status: "blocked",
+                  reason: "fixture_start_blocked",
+                  completion: null,
+                };
+              let completion: CompletionResult<"isolation_probe">;
+              try {
+                const target = fixture.target();
+                input.callbacks?.onCommandSubmitting?.(
+                  scenario === "purpose" ? "foreign" : "create_isolation_probe",
+                  scenario === "management"
+                    ? { ...target, managementDirectory: "foreign" }
+                    : scenario === "retention"
+                      ? { ...target, unreceiptedAbsence: "observe" }
+                      : target,
+                );
+                if (scenario === "not_issued") completion = outcome(false);
+                else {
+                  created++;
+                  if (scenario === "unknown")
+                    completion = {
+                      ...outcome(true),
+                      containerId: null,
+                      resourceSnapshot: null,
+                    };
+                  else {
+                    input.callbacks?.onResourceCreated?.(
+                      scenario === "receipt_id" ? "b".repeat(64) : id,
+                      fixture.target(issued),
+                    );
+                    executed++;
+                    completion = outcome(true, issued);
+                  }
+                }
+              } catch {
+                completion = outcome(
+                  created > 0,
+                  created ? issued : fixture.planned.snapshot,
+                );
+              }
+              return {
+                kind: "isolation_probe",
+                status: "started",
+                completion: Promise.resolve(completion),
+              };
+            },
+          },
+    );
     assert.equal(
-      result.status,
-      scenario === "normal" ? "confirmed" : "blocked",
+      created,
+      ["normal", "receipt", "receipt_id", "unknown", "host"].includes(scenario)
+        ? 1
+        : 0,
+      scenario,
+    );
+    assert.equal(
+      executed,
+      ["normal", "host"].includes(scenario) ? 1 : 0,
+      scenario,
+    );
+    assert.equal(result.status, "blocked");
+    const closed = [
+      "normal",
+      "submission",
+      "purpose",
+      "management",
+      "retention",
+      "not_issued",
+      "start_blocked",
+      "factory",
+    ].includes(scenario);
+    assert.equal(result.hostCleanupCompleted, closed, scenario);
+    assert.equal(
+      result.recoveryId,
+      closed ? null : "host-operation.OP-123456",
+      scenario,
     );
     assert.equal(
       result.fakeProviderLifecycle.diagnosticDockerContainerEffectIssued,
-      ["unknown", "save-id", "normal"].includes(scenario),
+      created > 0,
     );
-    if (scenario === "rollback") {
-      assert.equal(result.reason, "docker_submission_rollback_failed");
-      assert.equal(
-        (result as unknown as Record<string, unknown>).manualRecoveryRequired,
-        true,
-      );
-    }
-    if (scenario === "unknown" || scenario === "save-id") {
-      const unknown = scenario === "unknown";
-      const reason = unknown
-        ? "docker_container_identity_unknown"
-        : "docker_isolation_probe_failed";
-      if (!unknown)
-        assert.equal(failureSnapshots[0]?.recoveryId, "recovery-before-id");
-      assert.deepEqual(JSON.parse(JSON.stringify(result)), {
-        status: "blocked",
-        reason,
-        probeId: "12345678-1234-4234-8234-123456789abc",
-        retainOperationDirectories: unknown,
-        hostCleanupCompleted: !unknown,
-        recoveryId: unknown ? "recovery-before-id" : null,
-        manualRecoveryRequired: false,
-        cleanup: unknown ? "unconfirmed" : "confirmed",
-        fakeProviderLifecycle: {
-          status: "blocked",
-          reason,
-          provenance: "repository_owned_docker_fake_provider",
-          fakeProviderStartAttempted: false,
-          fakeProviderExecuted: false,
-          resultNormalizationVerified: false,
-          containerAbsenceVerified: false,
-          processTreeAbsenceVerified: false,
-          hostCleanupVerified: false,
-          elapsedMs: null,
-          stdoutBytes: 0,
-          stderrBytes: 0,
-          exitCode: null,
-          signal: null,
-          timedOut: false,
-          cancellationRequested: false,
-          cancellationObservation: "not_implemented",
-          diagnosticDockerContainerEffectIssued: true,
-          diagnosticFilesystemEffectIssued: true,
-          providerNetworkEffectIssued: false,
-          runtimeAuthorityIssued: false,
-          operationCapabilityIssued: false,
-          realProviderReadiness: false,
-        },
-      });
-    }
+    if (scenario === "submission")
+      assert.deepEqual(fixture.events, ["submission", "host"]);
+    if (scenario === "receipt")
+      assert.deepEqual(fixture.events, ["submission", "receipt"]);
+    if (scenario === "receipt_id" || scenario === "unknown")
+      assert.deepEqual(fixture.events, ["submission"]);
+    if (scenario === "not_issued")
+      assert.deepEqual(fixture.events, ["submission", "not_issued", "host"]);
+    if (scenario === "normal" || scenario === "host")
+      assert.deepEqual(fixture.events, [
+        "submission",
+        "receipt",
+        "cleanup",
+        "host",
+      ]);
   }
 });
 
 /**
- * 全作成Callerのprofileと対象相関を到達点で確認する。
- * @responsibility 作成以降の成功を代役で捏造せず入力搬送だけを反証する。
+ * 取消要求を同じExecutorへ配送し、completion前にHost回収・結果返却しない。
+ * @responsibility Listener解放と終了待機を要求受理とは区別する。
  * @trace ERB-IT-004
- * @precondition 三入口の実本文と固定bindingを使用する。
- * @stimulus 通常・四故障・取消・残存と合法な一軸搬送変異を与える。
- * @observation create到達時のprofile、Probe名、三Path、CLI／環境。
- * @oracle 全Callerが同じ相関を搬送し、変異だけが同じ比較で不一致になる。
- * @cleanup N/A: メモリ内VMだけ。createはunknown代役で停止する。
- * @boundary 上位実本文→DI作成代役。実取消全体は未確認。
+ * @precondition 各実行は独立したAbortControllerと未完了Promiseを持つ。
+ * @stimulus 実行中取消、完了後の追加Abort、開始前取消を与える。
+ * @observation cancel回数、Promise完了、Host清掃順。
+ * @oracle 完了まで待機し、終了後のAbortから取消を追加配送しない。
+ * @cleanup 全Promiseを解決しListener解除を追加Abortで確認する。
+ * @boundary 同一Process内の取消と有限Executorのみ。
  */
-test("全Probe作成Callerはprofile・Probe名・三Path・bindingを一致させる", async () => {
-  const source = fs.readFileSync(
-    new URL("../../src/execution/diagnostics.ts", import.meta.url),
-    "utf8",
-  );
-  const mounts = {
-    workspace: path.resolve("fixture-workspace"),
-    providerHome: path.resolve("fixture-home"),
-    tmp: path.resolve("fixture-tmp"),
-    management: path.resolve("fixture-management"),
-  };
-  const cli = {};
-  const environment = Object.freeze({ FIXED: "fixture" });
-  const expectedMounts = {
-    workspace: mounts.workspace,
-    providerHome: mounts.providerHome,
-    tmp: mounts.tmp,
-  };
-  const verificationSource = fs.readFileSync(
-    new URL("../../scripts/probe-verification.ts", import.meta.url),
-    "utf8",
-  );
-  assert.doesNotMatch(
-    source,
-    /function (runDynamicFakeProviderCancellationVerification|createDynamicFakeProviderRecoverableResidue)/u,
-  );
-  assert.doesNotMatch(source, /from ["'][^"']*probe-verification/u);
-  const routes = [
-    ["runDockerIsolationScenario", null, "normal"],
-    ...["timeout", "output_limit", "invalid_output", "nonzero_exit"].map(
-      (profile) => ["runDockerIsolationScenario", profile, profile] as const,
-    ),
-    ["runDynamicFakeProviderCancellationVerification", null, "cancellation"],
-    ["createDynamicFakeProviderRecoverableResidue", null, "cancellation"],
-  ] as const;
-  for (const [name, selected, profile] of routes) {
-    const originalBody = probeFunctionSource(
-      name === "runDockerIsolationScenario" ? source : verificationSource,
-      name,
+test("Probe取消は元Executorの完了を待ち終了後のListenerを解放する", async () => {
+  for (const preAborted of [false, true]) {
+    const fixture = createProbeExecutionFixture();
+    const controller = new AbortController();
+    if (preAborted) controller.abort();
+    let finish:
+      | ((value: CompletionResult<"isolation_probe">) => void)
+      | undefined;
+    const completion = new Promise<CompletionResult<"isolation_probe">>(
+      (resolve) => {
+        finish = resolve;
+      },
     );
-    const variants: [string, string][] = [["baseline", originalBody]];
-    for (const [variant, body] of variants) {
-      const captured: object[] = [];
-      const bindings: unknown[] = [];
-      let factoryCalls = 0;
-      /**
-       * Probe失敗を固定理由付きの閉じたblocked値へする。
-       * @responsibility Probe失敗を固定理由付きの閉じたblocked値へする。
-       * @trace ERB-IT-004
-       * @precondition 故障点に対応する有限reason。
-       * @stimulus 空のProbe lifecycleを伴うblocked値を返す。
-       * @observation 返却reasonと上位の停止結果。
-       * @oracle 呼出し元がreasonを保持しProbe成功へ変換しない。
-       * @cleanup N/A: メモリ上の結果構築だけ。
-       * @boundary Probe Consumerの故障代役。Providerを起動しない。
-       */
-      const blocked = (reason: string) => ({
-        status: "blocked",
-        reason,
-        fakeProviderLifecycle: {},
+    let cancelled = 0,
+      returned = false;
+    const running = fixture
+      .run(
+        () => ({
+          kind: "isolation_probe",
+          cancel: async () => {
+            cancelled++;
+            return {
+              status: "requested",
+              reason: "cancellation_requested",
+              cancellationRequested: true,
+              processTerminationObserved: false,
+            };
+          },
+          start: (input) => {
+            input.callbacks?.onCommandSubmitting?.(
+              "create_isolation_probe",
+              fixture.target(),
+            );
+            return { kind: "isolation_probe", status: "started", completion };
+          },
+        }),
+        controller.signal,
+      )
+      .then((result) => {
+        returned = true;
+        return result;
       });
-      const run = runInNewContext(`(()=>{${body};return ${name};})()`, {
-        Object,
-        path,
-        performance,
-        randomUUID: () => "12345678-1234-4234-8234-123456789abc",
-        isolationProbeBlocked: blocked,
-        cancellationBlocked: blocked,
-        getOwnedHostRecoveryId: () => "host",
-        createDockerProbeRuntimeBinding: (management: string) => {
-          factoryCalls++;
-          assert.equal(management, mounts.management);
-          return Object.assign(cli, {
-            verifyCli: () => {
-              return "fixed-cli";
-            },
-            environment: () => environment,
-          });
-        },
-        createOwnedMountCapability: () => ({}),
-        verifyOwnedMountCapability: () => mounts,
-        observeDockerProbeEngine: (binding: unknown) => {
-          bindings.push(binding);
-          return true;
-        },
-        beginDockerSubmission: () => "host-submitted",
-        writeDockerProbeRecoveryRecord: () => "recovery-before-id",
-        createDockerProbeContainer: (
-          binding: { verifyCli: () => string; environment: () => object },
-          selectedProfile: unknown,
-          probeId: unknown,
-          actualMounts: unknown,
-        ) => {
-          bindings.push(binding);
-          captured.push({
-            profile: selectedProfile,
-            probeId,
-            mounts: JSON.parse(JSON.stringify(actualMounts)),
-            cli: binding.verifyCli(),
-            environment: binding.environment(),
-          });
-          return {
-            status: "blocked",
-            reason: "docker_container_identity_unknown",
-          };
-        },
-        normalizeDockerProbeFailure: () =>
-          blocked("docker_container_identity_unknown"),
-        normalizeCancellationFailure: () => "docker_container_identity_unknown",
-        normalizeFailure: () => "docker_container_identity_unknown",
-        invalidateDynamicFakeProviderLifecycle: () => undefined,
-      }) as (owned: object, selected: unknown) => unknown;
-      await run({}, selected);
-      assert.equal(factoryCalls, 1);
-      assert.equal(bindings.length, 2);
-      assert.equal(bindings[0], cli);
-      if (variant === "binding")
-        assert.throws(() => assert.equal(bindings[1], cli));
-      else assert.equal(bindings[1], cli);
-      assert.equal(captured.length, 1, `${name}:${variant}`);
-      const expected = [
-        {
-          profile,
-          probeId: "12345678-1234-4234-8234-123456789abc",
-          mounts: expectedMounts,
-          cli: "fixed-cli",
-          environment,
-        },
-      ];
-      if (variant === "baseline" || variant === "binding")
-        assert.deepEqual(captured, expected, name);
-      else
-        assert.throws(() => assert.deepEqual(captured, expected), {
-          code: "ERR_ASSERTION",
-        });
-    }
+    if (!preAborted) controller.abort();
+    await Promise.resolve();
+    assert.equal(cancelled, 1);
+    assert.equal(returned, false);
+    assert.equal(fixture.events.includes("host"), false);
+    assert.ok(finish);
+    finish({
+      kind: "isolation_probe",
+      status: "cancelled",
+      reason: "fixture_cancelled",
+      creationAttempted: false,
+      containerId: null,
+      facts: null,
+      resourceSnapshot: fixture.planned.snapshot,
+      processCompletionConfirmed: true,
+      cleanupConfirmed: true,
+      cancelled: true,
+    });
+    const result = await running;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.hostCleanupCompleted, true);
+    controller.signal.dispatchEvent(new Event("abort"));
+    assert.equal(cancelled, 1);
   }
 });

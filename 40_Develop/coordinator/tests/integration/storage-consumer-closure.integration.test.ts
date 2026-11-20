@@ -5,7 +5,7 @@
  * @responsibility Root非公開、固定所在、失敗情報の搬送と対象外処置の拒否を確認する。
  * @trace RDL-IT-001
  * @level IT
- * @scope execution-model、保存Owner、consumer-closure、repository-root
+ * @scope coordinator、保存Owner、consumer-closure、repository-root
  * @boundary 保存Sourceと利用側の静的閉包。実保存・回復の成立は別の実体試験で確認する。
  */
 import assert from "node:assert/strict";
@@ -57,9 +57,6 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/verification-result-record.ts",
   "40_Develop/coordinator/src/execution/intelligence.ts",
   "40_Develop/coordinator/src/execution/lease.ts",
-  "40_Develop/executor/scripts/verify-provider-attempt.ts",
-  "40_Develop/executor/scripts/verify-provider-home.ts",
-  "40_Develop/coordinator/scripts/verify-provider-real.ts",
 ] as const;
 const PUBLIC_COORDINATOR_BOUNDARIES = [
   "40_Develop/coordinator/src/objective/composition.ts",
@@ -69,9 +66,6 @@ const PUBLIC_COORDINATOR_BOUNDARIES = [
 ] as const;
 const COORDINATOR_BLOCKED_PROJECTION =
   "40_Develop/coordinator/src/state/result.ts";
-const coordinatorStoreFactoryNames = [
-  "createCurrentCoordinatorPersistencePorts",
-] as const;
 const EXECUTION_INTELLIGENCE_CONSUMER =
   "40_Develop/coordinator/src/execution/intelligence.ts";
 const blockedMeaningFields = [
@@ -105,6 +99,7 @@ const ALLOWED_TOP_LEVEL_AREAS = new Set([
   "communication",
   "tests",
   "tmp",
+  "lock",
 ]);
 const retiredTopLevelAreas = [
   "coordinator",
@@ -229,20 +224,28 @@ function violations(sources: SourceSet): string[] {
   for (const [item, source] of sources) {
     if (!CONSUMER_SURFACE_PATTERN.test(item)) continue;
     const hasRawRootOwnership = RUNTIME_STORAGE_OWNERS.has(item);
+    // 文書Record Ownerの固定共有Lock所在だけを除外する。同Fileの任意Root構築は拒否する。
+    const pathSource =
+      item === "40_Develop/document-model/src/storage/topic-meeting-store.ts"
+        ? source.replace(
+            /path\.join\(root,\s*"\.crdd",\s*"lock"\)/gu,
+            "fixedRecordLockDirectory",
+          )
+        : source;
     const hasDirectRootConstruction =
-      /path\.(?:join|resolve)\([^)]{0,240}?["']\.crdd["']/u.test(source) ||
-      /["']\.["']\s*\+\s*["']crdd["']/u.test(source) ||
+      /path\.(?:join|resolve)\([^)]{0,240}?["']\.crdd["']/u.test(pathSource) ||
+      /["']\.["']\s*\+\s*["']crdd["']/u.test(pathSource) ||
       /["']\.["']\s*,\s*["']crdd["']/u.test(source);
     if (!SEMANTIC_ROOT_LITERAL_OWNERS.has(item) && hasDirectRootConstruction)
       findings.push(`raw-root:${item}`);
     // Topic探索の固定除外式はPath構築ではない。同Fileの他のliteralは免除しない。
     const rootLiteralSource =
       item === "40_Develop/document-model/src/storage/topic-meeting-store.ts"
-        ? source.replace(
+        ? pathSource.replace(
             /\[\s*"\.git",\s*"\.crdd",\s*"node_modules"\s*\]\.includes\(entry\.name\)/u,
             "repositoryExplorationExclusion",
           )
-        : source;
+        : pathSource;
     if (
       !SEMANTIC_ROOT_LITERAL_OWNERS.has(item) &&
       /["'](?:\.crdd|crdd)["']/u.test(rootLiteralSource)
@@ -366,16 +369,12 @@ function violations(sources: SourceSet): string[] {
   const boundarySources = PUBLIC_COORDINATOR_BOUNDARIES.map(
     (file) => sources.get(file) ?? "",
   );
-  const coordinatorBoundary = boundarySources.join("\n");
   const blockedProjection = sources.get(COORDINATOR_BLOCKED_PROJECTION) ?? "";
   if (
     !boundarySources.every(
       (source) =>
         source.includes("ExecutionStorageBlockedError") &&
         source.includes("coordinatorDataBoundaryBlocked"),
-    ) ||
-    !coordinatorStoreFactoryNames.every((symbol) =>
-      coordinatorBoundary.includes(symbol),
     ) ||
     !blockedMeaningFields.every((field) =>
       blockedProjection.includes(
@@ -493,6 +492,13 @@ test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒�
   );
   const topicSource =
     "40_Develop/document-model/src/storage/topic-meeting-store.ts";
+  assert.match(sources.get(topicSource) ?? "", /acquireLock/);
+  sources.set(
+    topicSource,
+    (sources.get(topicSource) ?? "") +
+      '\nconst unrelatedRoot = path.join(root, ".crdd", "other");',
+  );
+  assert.ok(violations(sources).includes(`raw-root:${topicSource}`));
   sources.set(
     topicSource,
     `${sources.get(topicSource)}\nconst forbiddenRoot = ".crdd";`,

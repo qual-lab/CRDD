@@ -28,12 +28,639 @@ import { prepareProviderAdvicePlan } from "../../../src/execution/preparation.ts
 import {
   createIsolatedProviderAdviceRuntimeCandidate,
   createRuntimeOwnedProviderAdviceRuntime,
-  createIsolatedProviderOperationCandidate,
   classifyProviderAdviceHostFailure,
   type ProviderAdviceRuntimeDependencies,
 } from "../../../src/execution/advice.ts";
-import { createIsolatedCoordinatorOperationCreationCandidate } from "../../../src/execution/operation.ts";
-import { types } from "node:util";
+import { createIsolatedOwnedOperationDirectoryCreationFailureCandidate } from "../../../src/execution/operation.ts";
+import { types, isDeepStrictEqual } from "node:util";
+import { createResourceOperationFixture } from "../../../../execution-model/tests/support/resource-operation.ts";
+import { snapshotPlainRecord } from "../../../src/input/snapshot.ts";
+
+const recoverySource = fs.readFileSync(
+  new URL("../../../src/execution/recovery.ts", import.meta.url),
+  "utf8",
+);
+
+/**
+ * Provider開始通知の保存結果と既知Effect保持を確認する。
+ * @responsibility 旧Host代役から現行通知の検証義務だけを継承する。
+ * @trace ERB-UT-023
+ * @precondition 条件ごとに独立したOwner・実行値・Writerを使う。
+ * @stimulus 通知前と既知通知後、保存拒否・未確認・解放不明を与える。
+ * @oracle 正式な三確認だけをtrueとし、既知Effectをunknownへ戻さない。
+ * @cleanup N/A: メモリのみ。
+ * @boundary 本番通知本文と有限Reader／Writer。
+ */
+test("Provider開始通知は保存三確認と既知Effectを保持する", () => {
+  const create = new Function(
+    "durableRecord",
+    "readOperationStateStage",
+    "saveOperationCheckpoint",
+    `${sourceDeclaration(recoverySource, "recordRuntimeOwnedDockerProviderSubmission")}; return recordRuntimeOwnedDockerProviderSubmission;`,
+  );
+  for (const known of [false, true])
+    for (const fault of [
+      "none",
+      "status",
+      "snapshot",
+      "unlock",
+      "phase",
+      "summary",
+    ]) {
+      const capability = {},
+        management = {};
+      const execution = {
+        providerStart: known ? "started" : "not_started",
+        externalSend: known ? "issued" : "not_issued",
+        sharedWrite: known ? "possible" : "not_issued",
+        ownerEffect: "active",
+        workspaceReusable: false,
+      };
+      const operation = {
+        kind: "docker_task",
+        recoveryId: "exact",
+        phase: fault === "phase" ? "settling" : "executing",
+        lease: "held",
+        execution,
+        primaryFailure: null,
+        outcome: null,
+        summarySha256: fault === "summary" ? "a".repeat(64) : null,
+      };
+      let writes = 0;
+      const record = create(
+        (value: unknown) =>
+          value === capability
+            ? { managementCapability: management, recoveryId: "exact" }
+            : null,
+        () => ({
+          status: "completed",
+          lockReleased: true,
+          value: { snapshot: { operations: [operation] } },
+        }),
+        (
+          owner: unknown,
+          id: string,
+          request: { kind: string; value: { execution: unknown } },
+        ) => {
+          assert.equal(owner, management);
+          assert.equal(id, "exact");
+          assert.equal(request.kind, "lifecycle");
+          writes++;
+          assert.deepEqual(
+            request.value.execution,
+            known
+              ? execution
+              : {
+                  ...execution,
+                  providerStart: "unknown",
+                  externalSend: "unknown",
+                  sharedWrite: "unknown",
+                },
+          );
+          return {
+            status: fault === "status" ? "blocked" : "completed",
+            snapshotConfirmed: fault !== "snapshot",
+            lockReleased: fault !== "unlock",
+          };
+        },
+      );
+      const before = JSON.stringify(operation);
+      assert.equal(record(capability), fault === "none");
+      const expectedWrites = fault === "phase" || fault === "summary" ? 0 : 1;
+      assert.equal(writes, expectedWrites);
+      assert.equal(record({}), false);
+      assert.equal(writes, expectedWrites);
+      assert.equal(JSON.stringify(operation), before);
+    }
+});
+
+/**
+ * 正常終了準備の元版と元計画への再入場を確認する。
+ * @responsibility 保存不明を計画固定成功へ補完しない。
+ * @trace ERB-UT-023
+ * @precondition 現行の五資源名と独立Owner・現在版を使う。
+ * @stimulus 元版差・別Owner・余剰入力・保存三確認の失敗後に元計画を再送する。
+ * @oracle 拒否時はcompletedPlanを確定せず、成功後は同じ計画参照だけを再受理する。
+ * @cleanup N/A: メモリのみ。
+ * @boundary 本番正常終了準備と有限下位境界。
+ */
+test("正常終了準備は元版・元計画と保存三確認へ再入場する", () => {
+  const create = new Function(
+    "durableRecord",
+    "snapshotPlainRecord",
+    "validProductionPlan",
+    "readOperationStateStage",
+    "readOwnedHostOperation",
+    "isDeepStrictEqual",
+    "saveOperationCheckpoint",
+    `${sourceDeclaration(recoverySource, "completeProductionRecovery")}; return completeProductionRecovery;`,
+  );
+  for (const fault of [
+    "revision",
+    "hash",
+    "management",
+    "extra",
+    "home",
+    "resources",
+    "status",
+    "snapshot",
+    "unlock",
+    "operation",
+    "attempt",
+    "book_missing",
+    "key_missing",
+    "key_duplicate",
+    "key_unknown",
+    "name_changed",
+    ...Object.keys(executionSelection("executor")).map(
+      (key) => `selection:${key}`,
+    ),
+  ]) {
+    const capability = {},
+      management = {};
+    const plan = {
+      operationId: "OP-123456",
+      taskAttempt: 0,
+      executionSelection: executionSelection("executor"),
+      provider: "codex",
+      consumer: "workbench",
+      stableLogicalHomeBindingHash: "a".repeat(64),
+      providerHomeIdentityHash: "b".repeat(64),
+      ownershipLabel: "label",
+      operationMode: "workbench_advice",
+      authContainerName: "auth",
+      providerContainerName: "provider",
+      proxyContainerName: "proxy",
+      internalNetworkName: "internal",
+      egressNetworkName: "egress",
+    };
+    const operation = {
+      kind: "docker_task",
+      recoveryId: "exact",
+      identityJson: JSON.stringify(plan),
+      phase: "executing",
+      lease: "held",
+      execution: { ownerEffect: "active" },
+      primaryFailure: null,
+      outcome: null,
+      summarySha256: null,
+      resources: {
+        snapshot: {
+          resources: [
+            ["create_subscription_auth_probe", "auth"],
+            ["create_provider", "provider"],
+            ["create_proxy", "proxy"],
+            ["create_internal_network", "internal"],
+            ["create_egress_network", "egress"],
+          ].map(([key, name]) => ({
+            key,
+            identity: { name },
+            configuration: { image: "observed-image-changed" },
+          })),
+        },
+      },
+    };
+    const record: {
+      managementCapability: object;
+      recoveryId: string;
+      operationId: string;
+      cleanupCheckpoint: { revision: number; payloadSha256: string };
+      homeLeaseReleased: boolean;
+      completedPlan?: object;
+    } = {
+      managementCapability: management,
+      recoveryId: "exact",
+      operationId: plan.operationId,
+      cleanupCheckpoint: { revision: 1, payloadSha256: "hash" },
+      homeLeaseReleased: true,
+    };
+    let activeFault = fault,
+      writes = 0;
+    const complete = create(
+      (value: unknown) => (value === capability ? record : null),
+      snapshotPlainRecord,
+      (value: unknown) => !!value,
+      () => {
+        const resources = operation.resources.snapshot.resources;
+        const observedOperation = {
+          ...operation,
+          resources:
+            activeFault === "book_missing"
+              ? null
+              : {
+                  ...operation.resources,
+                  snapshot: {
+                    resources:
+                      activeFault === "key_missing"
+                        ? resources.slice(1)
+                        : activeFault === "key_duplicate"
+                          ? [...resources, resources[0]]
+                          : resources.map((item, index) =>
+                              index !== 0
+                                ? item
+                                : activeFault === "key_unknown"
+                                  ? { ...item, key: "foreign" }
+                                  : activeFault === "name_changed"
+                                    ? { ...item, identity: { name: "foreign" } }
+                                    : item,
+                            ),
+                  },
+                },
+        };
+        return {
+          status: "completed",
+          lockReleased: true,
+          value: {
+            snapshot: {
+              revision: activeFault === "revision" ? 2 : 1,
+              operations: [observedOperation],
+            },
+            payloadSha256: activeFault === "hash" ? "changed" : "hash",
+            operationStates: [
+              {
+                kind: "docker_task",
+                operation: observedOperation,
+                resourcesSettled: activeFault !== "resources",
+              },
+            ],
+          },
+        };
+      },
+      () => ({ record: { operationId: plan.operationId, phase: "active" } }),
+      isDeepStrictEqual,
+      () => {
+        writes++;
+        return {
+          status: activeFault === "status" ? "blocked" : "completed",
+          snapshotConfirmed: activeFault !== "snapshot",
+          lockReleased: activeFault !== "unlock",
+        };
+      },
+    );
+    record.homeLeaseReleased = fault !== "home";
+    const requestedPlan =
+      fault === "operation"
+        ? { ...plan, operationId: "OP-999999" }
+        : fault === "attempt"
+          ? { ...plan, taskAttempt: 1 }
+          : fault.startsWith("selection:")
+            ? {
+                ...plan,
+                executionSelection: {
+                  ...plan.executionSelection,
+                  [fault.slice("selection:".length)]: "different",
+                },
+              }
+            : plan;
+    const rejected = complete(
+      capability,
+      fault === "management" ? {} : management,
+      fault === "extra" ? { plan, unexpected: true } : { plan: requestedPlan },
+    );
+    assert.equal(rejected.status, "blocked", fault);
+    assert.equal(record.completedPlan, undefined, fault);
+    assert.equal(
+      writes,
+      ["status", "snapshot", "unlock"].includes(fault) ? 1 : 0,
+      fault,
+    );
+    activeFault = "none";
+    record.homeLeaseReleased = true;
+    assert.equal(
+      complete(capability, management, { plan }).status,
+      "completed",
+      fault,
+    );
+    assert.equal(record.completedPlan, plan);
+    const count = writes;
+    assert.equal(
+      complete(capability, management, { plan: { ...plan } }).status,
+      "blocked",
+    );
+    assert.equal(
+      complete(capability, management, { plan }).status,
+      "completed",
+    );
+    assert.equal(writes, count);
+  }
+});
+
+/**
+ * 正常finalizerの保存失敗後の再試行と確定後の失効を確認する。
+ * @responsibility 失敗Effectを消さず、一回の確定後は元Ownerを再使用させない。
+ * @trace ERB-UT-023
+ * @precondition 現行終端本文と独立した私有Mapを使う。
+ * @stimulus blocked→completed→再送、偽Ownerを渡す。
+ * @oracle 二回だけ保存し、以後の保存0と元結果を保持する。
+ * @cleanup N/A: メモリのみ。
+ * @boundary 正常終了保存の制御と有限Writer。
+ */
+test("正常終了保存は失敗Effectを保持して再試行し確定後に失効する", () => {
+  const capability = {},
+    record = {
+      hostCleanupOutcome: {},
+      dockerCompletion: {},
+      settlementContext: {},
+    };
+  const records = new WeakMap([[capability, record]]);
+  let writes = 0;
+  const failed = { status: "blocked", filesystemEffectIssued: true },
+    saved = { status: "completed", filesystemEffectIssued: true };
+  const finalize = new Function(
+    "durableRecord",
+    "durableRecords",
+    "completeOperation",
+    `${sourceDeclaration(recoverySource, "finalizeRuntimeOwnedDockerRecovery")}; return finalizeRuntimeOwnedDockerRecovery;`,
+  )(
+    (value: object) => records.get(value),
+    records,
+    (context: unknown, cleanup: unknown, result: unknown) => {
+      assert.equal(context, record.settlementContext);
+      assert.equal(cleanup, record.hostCleanupOutcome);
+      assert.equal(result, record.dockerCompletion);
+      return ++writes === 1 ? failed : saved;
+    },
+  );
+  assert.equal(finalize({}).status, "blocked");
+  assert.equal(writes, 0);
+  assert.equal(finalize(capability), failed);
+  assert.equal(failed.filesystemEffectIssued, true);
+  assert.equal(finalize(capability).status, "completed");
+  assert.equal(finalize(capability).status, "blocked");
+  assert.equal(writes, 2);
+});
+
+/**
+ * 初期化失敗の診断結合とHome解放後の放棄を区別する。
+ * @responsibility exact相関の拒否と未解決記録の保持を確認する。
+ * @trace ERB-UT-023
+ * @precondition 条件ごとに独立した失敗OwnerとMapを使う。
+ * @stimulus 別Capability・参照・管理Owner・Home・理由、Home未解放／解放を渡す。
+ * @oracle 診断別名から実行成功を作らず、放棄で未解決の保存状態を消さない。
+ * @cleanup N/A: メモリのみ。
+ * @boundary 初期化失敗の私有相関と放棄結果。
+ */
+test("初期化失敗はexact相関だけを結合しHome解放後も記録を保持する", () => {
+  for (const fault of [
+    "none",
+    "capability",
+    "reference",
+    "management",
+    "home",
+    "reason",
+    "ready",
+  ]) {
+    const capability = {},
+      management = {},
+      alias = {};
+    const record = {
+      capability,
+      managementCapability: management,
+      recoveryId: "exact",
+      stableLogicalHomeBindingHash: "home",
+      initializationFailure: "failure",
+      initializationReady: fault === "ready",
+      homeLeaseReleased: false,
+    };
+    const records = new WeakMap([[capability, record]]);
+    const api = new Function(
+      "durableRecords",
+      `${sourceDeclaration(recoverySource, "durableRecord")}\n${sourceDeclaration(recoverySource, "bindRuntimeOwnedDockerInitializationFailure")}\n${sourceDeclaration(recoverySource, "abandonRuntimeOwnedDockerRecovery")}\n${sourceDeclaration(recoverySource, "verifyRuntimeOwnedDockerRecoveryBinding")};return {bind:bindRuntimeOwnedDockerInitializationFailure,abandon:abandonRuntimeOwnedDockerRecovery,verify:verifyRuntimeOwnedDockerRecoveryBinding};`,
+    )(records);
+    assert.equal(
+      api.bind(
+        fault === "capability" ? {} : capability,
+        fault === "reference" ? "foreign" : "exact",
+        fault === "management" ? {} : management,
+        fault === "home" ? "foreign" : "home",
+        fault === "reason" ? "foreign" : "failure",
+        alias,
+      ),
+      fault === "none",
+    );
+    assert.equal(records.has(alias), fault === "none");
+    assert.equal(api.abandon({}), false);
+    assert.equal(api.abandon(capability), false);
+    const before = JSON.stringify(record);
+    record.homeLeaseReleased = true;
+    assert.equal(
+      api.bind(alias, "exact", management, "home", "failure", {}),
+      false,
+    );
+    assert.equal(api.abandon(alias), false);
+    assert.equal(api.verify(alias, "exact", management, "home"), false);
+    assert.equal(api.abandon(capability), true);
+    assert.equal(records.get(capability), record);
+    assert.equal(record.initializationFailure, "failure");
+    assert.equal(
+      JSON.stringify({ ...record, homeLeaseReleased: false }),
+      before,
+    );
+  }
+});
+
+/**
+ * 不存在観測の保存確認とfresh読戻しを共同確認する。
+ * @responsibility 保存不明を清掃Checkpointへ固定せず、確認済みの再送を拒否する。
+ * @trace ERB-UT-023
+ * @precondition 条件ごとのOwner・Writer結果・Readerを使う。
+ * @stimulus 保存拒否／未確認／解放不明、読戻し不明／別版／別Hashを与える。
+ * @oracle 全確認後だけ元版を固定し、二度目のWriter0とする。
+ * @cleanup N/A: メモリのみ。
+ * @boundary 本番不存在受付と有限保存／読戻し。
+ */
+test("不存在観測は保存とfresh読戻しの共同確認後だけ一度固定する", () => {
+  for (const fault of [
+    "status",
+    "snapshot",
+    "unlock",
+    "read_status",
+    "read_unlock",
+    "revision",
+    "hash",
+  ]) {
+    const capability = {},
+      management = {};
+    const observations: unknown[] = [];
+    const record: {
+      capability: object;
+      initializationReady: boolean;
+      managementCapability: object;
+      recoveryId: string;
+      cleanupCheckpoint?: object;
+    } = {
+      capability,
+      initializationReady: true,
+      managementCapability: management,
+      recoveryId: "exact",
+    };
+    const records = new WeakMap([[capability, record]]);
+    let activeFault = fault,
+      writes = 0;
+    const invoke = new Function(
+      "durableRecords",
+      "saveOperationCheckpoint",
+      "readOperationStateStage",
+      `${sourceDeclaration(recoverySource, "durableRecord")}\n${sourceDeclaration(recoverySource, "recordRuntimeOwnedDockerAbsence")};return recordRuntimeOwnedDockerAbsence;`,
+    )(
+      records,
+      (
+        owner: unknown,
+        id: string,
+        request: { kind: string; value: unknown },
+      ) => {
+        assert.equal(owner, management);
+        assert.equal(id, "exact");
+        assert.equal(request.kind, "cleanup");
+        assert.equal(request.value, observations);
+        writes++;
+        return {
+          status: activeFault === "status" ? "blocked" : "completed",
+          snapshotConfirmed: activeFault !== "snapshot",
+          lockReleased: activeFault !== "unlock",
+          revision: 1,
+          payloadSha256: "hash",
+        };
+      },
+      () => ({
+        status: activeFault === "read_status" ? "blocked" : "completed",
+        lockReleased: activeFault !== "read_unlock",
+        value: {
+          snapshot: { revision: activeFault === "revision" ? 2 : 1 },
+          payloadSha256: activeFault === "hash" ? "foreign" : "hash",
+        },
+      }),
+    );
+    assert.equal(invoke(capability, observations), false, fault);
+    assert.equal(record.cleanupCheckpoint, undefined, fault);
+    activeFault = "none";
+    assert.equal(invoke(capability, observations), true);
+    assert.deepEqual(record.cleanupCheckpoint, {
+      revision: 1,
+      payloadSha256: "hash",
+    });
+    const count = writes;
+    assert.equal(invoke(capability, observations), false);
+    assert.equal(writes, count);
+  }
+});
+
+/**
+ * 実Executorの未開始理由をCoordinatorの既存記録要求へ搬送する。
+ * @responsibility Writerへ渡す元理由・段階・参照と、拒否時の保存非到達を確認する。
+ * @trace ERB-UT-023
+ * @precondition 実Coordinator宣言と自己生成した現行Stateだけを使う。
+ * @stimulus 四つの未開始理由、既開始Control、別Owner／参照、Effectありと未知理由を与える。
+ * @observation 要求の全fieldとWriter到達回数。EM内部の候補生成はEM自身の試験が確認する。
+ * @oracle 既知の未開始結果だけを記録要求へ送り、Home解放・Host回収・最終成功を先書きしない。
+ * @cleanup メモリのみ。
+ * @boundary Coordinatorの記録要求。実保存・Filesystem・Docker・AIは使用しない。
+ */
+test("未開始拒否の四理由は元段階と参照を保って記録要求へ渡る", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/execution/recovery.ts", import.meta.url),
+    "utf8",
+  );
+  const createRecorder = new Function(
+    "durableRecord",
+    "readOperationStateStage",
+    "saveOperationCheckpoint",
+    String(sourceDeclaration(source, "recordRuntimeOwnedUnstartedAttempt")) +
+      "\nreturn recordRuntimeOwnedUnstartedAttempt;",
+  );
+  for (const reason of [
+    "docker_process_controller_plan_invalid",
+    "docker_process_controller_recovery_unavailable",
+    "docker_process_controller_home_lock_initialization_failed",
+    "docker_process_controller_home_lock_descriptor_close_unconfirmed",
+  ]) {
+    const fixture = createResourceOperationFixture();
+    const before = Buffer.from(fixture.bytes);
+    const snapshot = JSON.parse(fixture.bytes.toString("utf8"));
+    const capability = {},
+      management = {},
+      control = {};
+    const owner: {
+      managementCapability: object;
+      recoveryId: string;
+      executorControl?: object;
+    } = {
+      managementCapability: management,
+      recoveryId: fixture.recoveryId,
+    };
+    let writes = 0,
+      reads = 0,
+      captured: unknown = null;
+    const record = createRecorder(
+      (value: unknown) => (value === capability ? owner : null),
+      (value: unknown) => {
+        assert.strictEqual(value, management);
+        reads++;
+        return { status: "completed", lockReleased: true, value: { snapshot } };
+      },
+      (
+        value: unknown,
+        id: unknown,
+        checkpoint: { kind: string; value: unknown },
+      ) => {
+        assert.strictEqual(value, management);
+        assert.equal(id, fixture.recoveryId);
+        assert.equal(checkpoint.kind, "lifecycle");
+        captured = checkpoint.value;
+        writes++;
+        return {
+          status: "completed",
+          snapshotConfirmed: true,
+          lockReleased: true,
+        };
+      },
+    );
+    const result = {
+      status: "blocked",
+      reason,
+      recoveryId: fixture.recoveryId,
+      dockerEffectStarted: false,
+      providerRequestStarted: false,
+    };
+    assert.equal(record(capability, management, result), true);
+    assert.deepEqual(captured, {
+      phase: "executing",
+      lease: "held",
+      execution: { ...fixture.operation.execution, ownerEffect: "disabled" },
+      primaryFailure: {
+        purpose: null,
+        stage:
+          reason === "docker_process_controller_plan_invalid"
+            ? "plan_validation"
+            : "home_lock",
+        reason,
+        exceptionCode: null,
+        commandHandleObtained: false,
+        responseObserved: false,
+        receiptRecorded: false,
+      },
+      outcome: null,
+      summarySha256: null,
+    });
+    assert.equal(writes, 1);
+    for (const mutation of [
+      { ...result, reason: "unknown" },
+      { ...result, status: "started" },
+      { ...result, recoveryId: fixture.recoveryId + "x" },
+      { ...result, dockerEffectStarted: true },
+      { ...result, providerRequestStarted: true },
+    ])
+      assert.equal(record(capability, management, mutation), false);
+    assert.equal(record({}, management, result), false);
+    assert.equal(record(capability, {}, result), false);
+    owner.executorControl = control;
+    assert.equal(record(capability, management, result), false);
+    assert.equal(reads, 1);
+    assert.equal(writes, 1);
+    assert.deepEqual(fixture.bytes, before);
+    assert.deepEqual(snapshot, JSON.parse(before.toString("utf8")));
+  }
+});
 
 const selection = executionSelection("advice");
 const prepared = prepareProviderAdvicePlan(
@@ -325,7 +952,7 @@ function fixture(
       calls.push("prepare-docker-host-cleanup");
       return "HOST-RECOVERY";
     },
-    cleanupOperation: async () => {
+    cleanupOperation: () => {
       calls.push("cleanup-operation");
       return Object.freeze({ status: "completed" as const });
     },
@@ -401,10 +1028,8 @@ test("助言終了は元結果を搬送しProtocol失敗と分類不能を成功
         });
         return Object.freeze({ ...started, completion }) as typeof started;
       },
-      async cleanupOperation(...args) {
-        hostCleanupOutcome = await current.dependencies.cleanupOperation(
-          ...args,
-        );
+      cleanupOperation(...args) {
+        hostCleanupOutcome = current.dependencies.cleanupOperation(...args);
         return hostCleanupOutcome as Awaited<
           ReturnType<ProviderAdviceRuntimeDependencies["cleanupOperation"]>
         >;
@@ -785,82 +1410,25 @@ test("助言は失効例外と回復放棄不明でも元Docker参照とHost保�
  * @responsibility 清掃確認済みと未確認を同じ作成失敗の反例として用意する。
  * @trace ERB-UT-023
  * @precondition メモリ内の偽所有対象と固定参照だけを使う。
- * @stimulus Capability初期化を失敗させ、指定した清掃結果へ分岐する。
+ * @stimulus 現Directory producerの私有失敗分類へ指定した清掃結果を渡す。
  * @observation 作成境界が投げた元のError Objectを保持する。
  * @oracle 下位の私有分類が対象の清掃確認とexact参照を保持する。
  * @cleanup N/A: Filesystem、Dockerまたは子Processを操作しない。
  * @boundary ERB-UT-023=Direct Boundary: Operation作成分類→助言Runtime。
  */
 function initializationFailure(cleanupConfirmed: boolean): unknown {
-  const candidate = createIsolatedCoordinatorOperationCreationCandidate({
-    /**
-     * メモリ内の偽所有対象を生成する。
-     *
-     * @responsibility createDirectoriesの局所反証を所有する。
-     * @trace ERB-UT-023
-     * @precondition 固定した偽依存と対象段だけを使う。
-     * @stimulus 本番と同じ初期化処理から呼び出す。
-     * @observation 返値、例外および局所呼出しを観測する。
-     * @oracle 固定Objectだけを返し、Filesystemを取得しない。
-     * @cleanup N/A: Process外資源を取得しない。
-     * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
-     */
-    createDirectories: () =>
-      Object.freeze({}) as ReturnType<
-        Parameters<
-          typeof createIsolatedCoordinatorOperationCreationCandidate
-        >[0]["createDirectories"]
-      >,
-    /**
-     * 固定の元参照を返す。
-     *
-     * @responsibility getHostRecoveryIdの局所反証を所有する。
-     * @trace ERB-UT-023
-     * @precondition 固定した偽依存と対象段だけを使う。
-     * @stimulus 本番と同じ初期化処理から呼び出す。
-     * @observation 返値、例外および局所呼出しを観測する。
-     * @oracle 実Tokenではない同じfixture文字列を返す。
-     * @cleanup N/A: Process外資源を取得しない。
-     * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
-     */
-    getHostRecoveryId: () => "exact-host-reference-fixture",
-    /**
-     * Capability初期化失敗を注入する。
-     *
-     * @responsibility initializeCapabilitiesの局所反証を所有する。
-     * @trace ERB-UT-023
-     * @precondition 固定した偽依存と対象段だけを使う。
-     * @stimulus 本番と同じ初期化処理から呼び出す。
-     * @observation 返値、例外および局所呼出しを観測する。
-     * @oracle 固定例外を投げ、Authorityを生成しない。
-     * @cleanup N/A: Process外資源を取得しない。
-     * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
-     */
-    initializeCapabilities: () => {
-      throw new Error("fixture_initialization_failure");
-    },
-    /**
-     * 作成失敗後の清掃確認を分岐する。
-     *
-     * @responsibility cleanupDirectoriesの局所反証を所有する。
-     * @trace ERB-UT-023
-     * @precondition 固定した偽依存と対象段だけを使う。
-     * @stimulus 本番と同じ初期化処理から呼び出す。
-     * @observation 返値、例外および局所呼出しを観測する。
-     * @oracle 指定したfalseだけ例外を投げ、実削除しない。
-     * @cleanup N/A: Process外資源を取得しない。
-     * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
-     */
-    cleanupDirectories: () => {
-      if (!cleanupConfirmed) throw new Error("fixture_cleanup_unknown");
-    },
-  });
+  const candidate =
+    createIsolatedOwnedOperationDirectoryCreationFailureCandidate();
   try {
-    candidate.create();
+    candidate.fail({
+      cleanupConfirmed,
+      manualRecoveryRequired: !cleanupConfirmed,
+      hostRecoveryId: cleanupConfirmed ? null : "exact-host-reference-fixture",
+    });
   } catch (error) {
     return error;
   }
-  throw new Error("fixture_failure_required");
+  throw Error("fixture_failure_required");
 }
 
 /**
@@ -938,172 +1506,52 @@ test("未知の初期化失敗は不存在へ畳まない", async () => {
 });
 
 /**
- * 本番と同じ初期化処理の各失敗段で清掃分類と元参照を保持する。
+ * 現作成失敗の清掃分類と元参照を非公開のまま搬送する。
  *
- * @responsibility 作成、activationおよびreadinessの元失敗から初回結果への接続を反証する。
+ * @responsibility 消滅したactivation／readinessを再現せず、元Errorと初回結果の非開示を反証する。
  * @trace ERB-UT-023
- * @precondition 本番と同じ初期化関数を使用し、全OS依存をメモリ内の偽依存へ固定する。
- * @stimulus 三失敗段それぞれで清掃確認済みと未確認へ分岐する。
- * @observation 初回結果、exact参照、清掃呼出し、Provider開始および公開JSONを確認する。
- * @oracle 三段全てで清掃分類を維持し、未確認だけ元参照を保持する。Provider開始0。
+ * @precondition 現Directory producerの私有分類を使用し、全OS依存をメモリ内へ閉じる。
+ * @stimulus 清掃確認済みと記録不明の二分類を与える。
+ * @observation 初回結果、exact参照、元清掃分類、Provider開始および公開JSONを確認する。
+ * @oracle 元分類を維持し、未確認だけ私有の元参照を保持する。Provider開始0。
  * @cleanup N/A: 偽Operationだけを用い、Filesystem、Lock、Dockerまたは子Processを取得しない。
  * @boundary ERB-UT-023=Direct Boundary: 本番初期化状態機械→助言Runtime初回結果。
  */
-test("作成と世代Lock準備の失敗分類を本番と同じ処理で搬送する", async () => {
-  for (const stage of ["creation", "activation", "readiness"] as const) {
-    for (const confirmed of [true, false]) {
-      let cleanupCalls = 0;
-      const operation = createIsolatedProviderOperationCandidate({
-        /**
-         * 指定段に応じて偽Operationまたは作成失敗を返す。
-         *
-         * @responsibility createの局所反証を所有する。
-         * @trace ERB-UT-023
-         * @precondition 固定した偽依存と対象段だけを使う。
-         * @stimulus 本番と同じ初期化処理から呼び出す。
-         * @observation 返値、例外および局所呼出しを観測する。
-         * @oracle 取得済み固定参照を使い、新しい参照を生成しない。
-         * @cleanup N/A: Process外資源を取得しない。
-         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
-         */
-        create: () => {
-          if (stage === "creation") throw initializationFailure(confirmed);
-          return Object.freeze({
-            owned: Object.freeze({}),
-            mountCapability: Object.freeze({}),
-            managementCapability: Object.freeze({}),
-            operationId: "OP-123456",
-            hostRecoveryId: "exact-host-reference-fixture",
-          });
-        },
-        /**
-         * 世代Lockのactivation失敗を注入する。
-         *
-         * @responsibility activateの局所反証を所有する。
-         * @trace ERB-UT-023
-         * @precondition 固定した偽依存と対象段だけを使う。
-         * @stimulus 本番と同じ初期化処理から呼び出す。
-         * @observation 返値、例外および局所呼出しを観測する。
-         * @oracle 指定段だけthrowし、それ以外はactivatedを返す。
-         * @cleanup N/A: Process外資源を取得しない。
-         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
-         */
-        activate: () => {
-          if (stage === "activation") throw new Error("fixture_activation");
-          return "activated" as const;
-        },
-        /**
-         * 世代Lockのreadiness失敗を注入する。
-         *
-         * @responsibility confirmReadinessの局所反証を所有する。
-         * @trace ERB-UT-023
-         * @precondition 固定した偽依存と対象段だけを使う。
-         * @stimulus 本番と同じ初期化処理から呼び出す。
-         * @observation 返値、例外および局所呼出しを観測する。
-         * @oracle 固定例外を投げ、OS Lockを取得しない。
-         * @cleanup N/A: Process外資源を取得しない。
-         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
-         */
-        assertLock: () => {
-          throw new Error("fixture_readiness");
-        },
-        /**
-         * 世代Lock準備失敗後の清掃回数と結果を返す。
-         *
-         * @responsibility cleanupの局所反証を所有する。
-         * @trace ERB-UT-023
-         * @precondition 固定した偽依存と対象段だけを使う。
-         * @stimulus 本番と同じ初期化処理から呼び出す。
-         * @observation 返値、例外および局所呼出しを観測する。
-         * @oracle 一回を計数し、指定falseだけthrowする。
-         * @cleanup N/A: Process外資源を取得しない。
-         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
-         */
-        cleanup: async () => {
-          cleanupCalls += 1;
-          if (!confirmed) throw new Error("fixture_cleanup_unknown");
-          return Object.freeze({
-            kind: "owned_operation_cleanup_outcome" as const,
-          });
-        },
-        /**
-         * 偽清掃Receiptを分類する。
-         *
-         * @responsibility classifyCleanupの局所反証を所有する。
-         * @trace ERB-UT-023
-         * @precondition 固定した偽依存と対象段だけを使う。
-         * @stimulus 本番と同じ初期化処理から呼び出す。
-         * @observation 返値、例外および局所呼出しを観測する。
-         * @oracle cleanupが返った経路だけcompletedを返す。
-         * @cleanup N/A: Process外資源を取得しない。
-         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
-         */
-        classifyCleanup: () => "completed" as const,
-        /**
-         * 本番のProcess停止依存を局所試験で分離する。
-         *
-         * @responsibility poisonの局所反証を所有する。
-         * @trace ERB-UT-023
-         * @precondition 固定した偽依存と対象段だけを使う。
-         * @stimulus 本番と同じ初期化処理から呼び出す。
-         * @observation 返値、例外および局所呼出しを観測する。
-         * @oracle 実Process状態を変更しない。
-         * @cleanup N/A: Process外資源を取得しない。
-         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
-         */
-        poison: () => {},
-      });
-      let failure: unknown;
-      try {
-        await operation.create();
-      } catch (error) {
-        failure = error;
-      }
-      assert.ok(failure instanceof Error);
-      assert.equal(Object.keys(failure).includes("hostFailure"), false);
-      assert.equal(
-        JSON.stringify(failure).includes("exact-host-reference"),
-        false,
-      );
-      assert.equal(
-        JSON.stringify({ ...failure }).includes("exact-host-reference"),
-        false,
-      );
-      const current = fixture({
-        /**
-         * 本番と同じ初期化境界の元ErrorをRuntimeへ渡す。
-         *
-         * @responsibility 列挙反証で保持した同じ失敗Objectの分類を消費させる。
-         * @trace ERB-UT-023
-         * @precondition 初期化境界が元Errorを返却済みである。
-         * @stimulus 助言RuntimeからOperation取得を要求する。
-         * @observation 同じError Objectをthrowする。
-         * @oracle Runtimeの私有分類が清掃結果と元参照を保持する。
-         * @cleanup N/A: 追加資源を生成しない。
-         * @boundary ERB-UT-023=Direct Boundary: 初期化Error→Runtime catch。
-         */
-        createOperation: async () => {
-          throw failure;
-        },
-      });
-      const result = await createIsolatedProviderAdviceRuntimeCandidate(
-        current.dependencies,
-      ).run(plan, new AbortController().signal);
-      assert.equal(result.status, "blocked");
-      assert.equal(result.cleanupConfirmed, confirmed);
-      assert.deepEqual(classifyProviderAdviceHostFailure(result), {
-        cleanupConfirmed: confirmed,
-        manualRecoveryRequired: !confirmed,
-        hostRecoveryId: confirmed ? null : "exact-host-reference-fixture",
-        dockerRecoveryId: null,
-      });
-      assert.equal(cleanupCalls, stage === "creation" ? 0 : 1);
-      assert.equal(current.calls.includes("start-process"), false);
-      assert.equal(
-        JSON.stringify(result).includes("exact-host-reference"),
-        false,
-      );
-    }
+test("作成失敗の元Errorと公開結果へ回復参照を列挙しない", async () => {
+  for (const confirmed of [true, false]) {
+    const failure = initializationFailure(confirmed);
+    assert.ok(failure instanceof Error);
+    assert.equal(Object.keys(failure).includes("hostFailure"), false);
+    assert.equal(
+      JSON.stringify(failure).includes("exact-host-reference"),
+      false,
+    );
+    assert.equal(
+      JSON.stringify({ ...failure }).includes("exact-host-reference"),
+      false,
+    );
+    const current = fixture({
+      createOperation: async () => {
+        throw failure;
+      },
+    });
+    const result = await createIsolatedProviderAdviceRuntimeCandidate(
+      current.dependencies,
+    ).run(plan, new AbortController().signal);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.cleanupConfirmed, confirmed);
+    assert.deepEqual(classifyProviderAdviceHostFailure(result), {
+      cleanupConfirmed: confirmed,
+      manualRecoveryRequired: !confirmed,
+      hostRecoveryId: confirmed ? null : "exact-host-reference-fixture",
+      dockerRecoveryId: null,
+    });
+    assert.equal(current.calls.includes("start-process"), false);
+    assert.equal(
+      JSON.stringify(result).includes("exact-host-reference"),
+      false,
+    );
+    assert.equal(classifyProviderAdviceHostFailure({ ...result }), null);
   }
 });
 

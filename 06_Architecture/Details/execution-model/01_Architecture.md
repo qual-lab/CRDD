@@ -1,5 +1,31 @@
 # 実行モデルの責務と単一保存契約
 
+## Host作業領域の保存基盤
+
+Host記録の`resources`は必須で、Task／Adviceは`null`とする。`isolation_probe`だけが既存`OperationResources`を同じ記録に保持し、Probe専用のStore・疑似Task／Provider／Homeを作らない。初回Host Intentでは資源は未設定で、Rootと全子領域Receiptの確認後に、単一Probe Containerの作成Intentから記録する。元Resource Snapshot・回収順・期限・`retain`を保存し、Receiptを失う更新や自動再発見のReceiptは拒否する。資源が未解決ならHost清掃確認・終端化を受理しない。入力はgetter／Proxyを実行せず独立捕捉し、資源の内側まで凍結する。
+
+これは既存Writerの保存契約であり、実資源不存在・Process終了・削除許可を自動的に証明しない。Coordinatorの回復照会は資源key・通知保存区分・観測区分だけを投影する。Host実作成・Probe実行の本番Sourceは同じEM記録へ接続し、旧Probe専用記録のSourceは撤去した。旧試験の全面追従と実資源を含む一体検証は未完了である。資源なしの明示`null`を省略する旧Host値は新Readerで補完せず、過去保持物の自動変換もしない。
+
+Host資源の要求区分は、発行不明／発行済みから未発行へ巻き戻さない。一方、実DIの正の未発行結果による終結は妨げない。作成前Intentに含まれる`request: "not_issued"`は準備時点のSnapshotであり、それだけを後続のEffect 0の証明として扱わない。上位の保存接続はDIの通知／Completionにある未発行事実からだけ未発行終結を記録する。
+
+Taskの固定Git資源は同じHost記録の`git`へ保持する。未要求なら項目自体を持たず、初回追加は一件の未発行予定（OID・一時Index未取得、回収未確認）だけを認める。基準・候補の管理Ref名は元Operationから固定し、OID・一時Index結果・Ref発行不明・確認・回収を単調に記録する。既知OIDの変更、予定なしの確認済み追加、複数一括追加、別OperationのPath・余剰属性を拒否する。配列のSymbol・accessorも補完せず拒否する。
+
+Git資源が未回収ならHost終端を受理しない。この値契約は実Refの不存在や削除許可を証明せず、上位はVCの期待OID付き回収結果を同じCASへ保存する。Docker終端WriterはHost記録を更新せず、Hostの独立CheckpointとDocker終端・履歴を混ぜない。終了履歴の新Schemaは`operation-summary/v6`だけを受理する。
+
+Hostは同じOperationRecord閉集合の`host_operation`として、元の操作ID・用途・作成日時、Rootと固定子領域の実体Receipt、準備／使用中／終端と回収状態を保持する。非Authorityの回復参照は元操作IDから`host-operation.<操作ID>`へ一意に導く。任意Path、別nonce、専用Hash token、Docker／修復用の架空履歴は追加しない。Rootは検証済みRepositoryと元操作IDから上位が導出する。
+
+既存`saveOperationStart`の`host_operation`用途は、作成前Intentを最初のState本文から一出版する。既存`saveOperationCheckpoint`の同用途は、同じ保存済み操作と物理改訂／本文Hashの`expectedVersion`を必要とし、未開始操作の追加には使えない。HostOperationAccessは既存Rootと`operation.record`／操作IDの現在認可だけを持つ信頼した入口の接続である。Host技術記録ではPrincipalを要求・取得・保存しない。要求主体は上位のTask／Advice記録が所有する。一般ExecutionModelAccessのPrincipal必須条件とAMの内容権限は変更しない。偽ProjectやRoot作成後のCapabilityを作成前保存へ流用しない。
+
+現在の認可確認から既存短期Ownerで読取り、閉じたHost候補を導出し、同じ物理Writerがfresh本文と候補の再導出・CASを確認する。初回領域も既存primitiveを用い、空Stateを先行出版しない。同じOwnerを一度だけ解放し、開始成立には保存確認・解放確認・現在認可がすべて必要となる。出版不明でも元回復参照を保持し、初回pendingを新規の空状態へ読み替えない。Reader・履歴・Task相関は三種を明示し、HostへDocker／修復の終端要約を捏造しない。
+
+この保存基盤へCoordinatorのRun／Advice・明示隔離試験と実体作成／回復を接続し、旧marker・tokenの撤去を完了する作業は残っている。Receiptの値が妥当でも実体の現在性や不存在は証明されず、回収済み値だけから削除・実行許可を発行しない。値・保存の限定成立をHost全体の統合完了へ換算せず、過去保存物の自動変換・削除も行わない。
+
+## 技術要求前の終了とHost回収の分離
+
+Docker操作の資源が未設定の場合も、終了準備中・Provider未開始・送信と共有書込み未発行・Owner無効化・結果と履歴未確定・再起動義務終結を共同確認する。元失敗のCommand取得・応答・Receiptがすべて未観測で、Command観測も欠測又はnullなら、その失敗を消さずに技術資源の終結を判定できる。Home Leaseの保持／解放はこの判定と分け、解放不明は受理しない。これだけからHome解放・Host不存在・最終Cleanup成功を推定しない。
+
+Executorの既知の開始拒否四理由は、計画拒否又はHome取得失敗として元理由を保持する。保存する一次失敗は用途と例外なし・Command取得／応答／Receiptなしの限定形に閉じ、開始・送信・共有書込み・資源要求の観測と矛盾する場合は拒否する。結果確定時はblockedかつ元失敗と同理由だけを受理し、成功・取消・別失敗へ変えない。未終了の結果nullは維持する。これは保存値の整合条件であり、開始拒否の文字列だけをEffect 0や削除許可の証明にしない。
+
 ## 回復済みOperation参照の有限確定
 
 既存の`saveProjectExecutionState`は、`task_recovery_finalize`要求のProject IDとTask ID／回復ID集合を受け付ける。これは要求の分類であり、保存Schemaや新しい台帳ではない。同じ短期Writer内のfreshなProject・元世代・TaskのAttempt／Operation・Cleanup確認・未解決なし・exactなDocker回復義務の終端を照合し、既存の世代更新候補を生成する。空・重複・不正ID・別Task・非終端・古い世代は拒否し、単なる一世代差から同一再送成功を推定しない。
@@ -161,7 +187,7 @@ Rootは94項目（58値・36型）。完成した読取り・更新・終了・�
 
 ### 独立した入力受付
 
-残る八公開は`inspectDecision`、`inspectExecutionPlan`、`inspectExecutionSelection`、`inspectTaskExecutionSelections`、`isPrincipalId`、`parseDockerTaskRecoveryId`、`parseHostRecoveryToken`、`validateResourceBook`である。
+残る独立受付は`inspectDecision`、`inspectExecutionPlan`、`inspectExecutionSelection`、`inspectTaskExecutionSelections`、`isPrincipalId`、`parseDockerTaskRecoveryId`、`validateResourceBook`である。旧Host TokenのParserは撤去し、Host参照は同じStateの`host_operation`と元operationIdへ結合する。
 
 未保存の計画・選定、未知Processからの完全Decision、入口主体、Operation保存前／Host-only相関、別の認証回復記録、保存済みQAイベント列に独立した信頼境界がある。これらを検査目的の先行保存やCoへの規則複製で置き換えない。同じ受付内の検査済み・独立捕捉済み値は再利用するが、別の入力境界・Lock区間・保存直前のfresh検査へ拡張しない。
 
@@ -215,7 +241,7 @@ Lease IntentはRepository・Project・Queue・種別からIdentityと回復IDを
 
 ### 実行の終了記録を保持する保存契約
 
-保存候補は`crdd-execution-model/state/v6`、内部投影は`project-snapshot/v9`を使用する。旧形式の互換Reader・自動移行は追加せず、既存保持物は今回処置しない。Coordinator整理のためのEM変更であり、独立した重複防止Storeや台帳を新設しない。
+保存候補は`crdd-execution-model/state/v7`、内部投影は`project-snapshot/v9`を使用する。旧形式の互換Reader・自動移行は追加せず、既存保持物は今回処置しない。Coordinator整理のためのEM変更であり、独立した重複防止Storeや台帳を新設しない。
 
 Queueは受付と実行状態の正本であり、終了履歴が確定しただけでは削除しない。同じ記録の`historySettled`が履歴の保存確認又は既存の保持期限処置の確定を表す。新規受付はfalse、閉鎖・履歴照合後だけtrueへ進み、trueからの巻戻し、要求Hashの変更、通常の再開と記録削除を拒否する。履歴候補生成はtrueの記録を除き、二回目の保守で同じ履歴を作り直さない。
 

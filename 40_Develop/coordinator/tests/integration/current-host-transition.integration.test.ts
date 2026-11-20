@@ -1,7 +1,7 @@
 /**
  * 現在回収OwnerのHost遷移と実状態保存を別Processで接続する。
  * @packageDocumentation
- * @responsibility 実marker・File排他・遷移／清掃の保存確定と再入場の不変性を確認する。
+ * @responsibility 実Host記録・File排他・遷移／清掃の保存確定と再入場の不変性を確認する。
  * @trace ERB-IT-014
  * @trace PRL-IT-013
  * @level IT
@@ -30,23 +30,21 @@ import {
 } from "../../src/configuration/runtime-data.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
-  activateOwnedHostOperationGenerationLock,
   bindRuntimeOwnedRepositoryOperation,
-  borrowOwnedHostRecoverySnapshot,
   borrowRuntimeOwnedCoordinatorStateRepository,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-  loadHostRecoveryRecordByToken,
+  readOwnedHostOperation,
 } from "../../src/execution/operation.ts";
 import {
   readOperationStateStage,
   saveOperationCheckpoint,
   saveOperationStart,
 } from "../../src/execution/persistence.ts";
-import { beginRuntimeOwnedCoordinatorHostSubmission } from "../../src/execution/recovery.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import {
   currentAuthenticationRecoveryCliSource,
@@ -958,7 +956,7 @@ test("保存済み不存在の代役: 四応答・終了・未知要求拒否を
   const dockerExe =
     "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe";
   const identity = {
-    hostPaths: { root: "C:\\fixture\\host" },
+    operationId: "OP-fixture",
     ownershipLabel: "crdd.coordinator.runtime=fixture",
   };
   const resource = {
@@ -1065,7 +1063,7 @@ test("保存済み不存在の代役: 四応答・終了・未知要求拒否を
       "--host",
       "npipe:////./pipe/dockerDesktopLinuxEngine",
       "--config",
-      "C:\\fixture\\host\\management\\docker-cli-config",
+      "C:\\fixture\\.crdd\\operations\\OP-fixture\\management\\docker-cli-config",
     ];
     const options = {
       shell: false,
@@ -1141,7 +1139,7 @@ test("保存済み不存在の代役: 四応答・終了・未知要求拒否を
 
 /**
  * 実Hostを現在Repositoryへ結合して非秘密の試験Identityを構成する。
- * @responsibility Fixtureでも実Ownerと実Root／markerの相関を使用する。
+ * @responsibility Fixtureでも実Ownerと実Root／Receiptの相関を使用する。
  * @trace ERB-IT-014
  * @precondition ownedは同じ自己生成Repositoryのtests領域にある。
  * @stimulus 実Host、Repository Rootと独立した二操作のnonceを渡す。
@@ -1161,14 +1159,13 @@ function fixtureOperation(
   assert.ok(bindRuntimeOwnedRepositoryOperation(management, root));
   const repository = borrowRuntimeOwnedCoordinatorStateRepository(management);
   assert.ok(repository);
-  const host = borrowOwnedHostRecoverySnapshot(management).snapshot;
   const nonce = randomBytes(32).toString("hex"),
     suffix = nonce.slice(0, 16);
   return {
     management,
     repository,
     identity: {
-      schema: "crdd-coordinator/operation-identity/v5",
+      schema: "crdd-coordinator/operation-identity/v6",
       operationNonce: nonce,
       provider: "claude",
       consumer: "coordinator_cli",
@@ -1185,12 +1182,6 @@ function fixtureOperation(
       ownershipLabel: `crdd.coordinator.runtime=${suffix}`,
       operationMode: "isolated_task",
       workspaceMountMode: "read_only",
-      initialHostRecoveryId: host.token,
-      initialHostRecovery: host,
-      hostPaths: {
-        root: owned.root,
-        marker: loadHostRecoveryRecordByToken(host.token, owned.root).marker,
-      },
     },
   };
 }
@@ -1444,7 +1435,7 @@ test("Docker代役は同期・非同期の未知要求を発行前に拒否し�
         dockerId,
         identity: {
           ownershipLabel,
-          hostPaths: { root: "C:\\fixture\\host" },
+          operationId: "OP-fixture",
           workspaceMountMode: "read_only",
         },
         authResource: { identity: { name: authName } },
@@ -1527,7 +1518,7 @@ test("Docker代役は同期・非同期の未知要求を発行前に拒否し�
           assert.equal(diagnostic.index, 0);
         } else if (scenario === "wrong_channel") {
           run(
-            "const argv=['--host','npipe:////./pipe/dockerDesktopLinuxEngine','--config','C:\\\\fixture\\\\host\\\\management\\\\docker-cli-config','version','--format','{{.Server.Os}}'];assert.throws(()=>cp.spawnSync(dockerExe,argv,{shell:false,windowsHide:true,cwd:'C:\\\\Windows\\\\System32',stdio:['ignore','pipe','pipe'],env:{}}));assert.throws(()=>cp.spawn(dockerExe,argv,{shell:false,windowsHide:true,timeout:10000,maxBuffer:1048576}));",
+            "const argv=['--host','npipe:////./pipe/dockerDesktopLinuxEngine','--config','C:\\\\fixture\\\\.crdd\\\\operations\\\\OP-fixture\\\\management\\\\docker-cli-config','version','--format','{{.Server.Os}}'];assert.throws(()=>cp.spawnSync(dockerExe,argv,{shell:false,windowsHide:true,cwd:'C:\\\\Windows\\\\System32',stdio:['ignore','pipe','pipe'],env:{}}));assert.throws(()=>cp.spawn(dockerExe,argv,{shell:false,windowsHide:true,timeout:10000,maxBuffer:1048576}));",
           );
         } else if (scenario === "throw") {
           assert.throws(() =>
@@ -1538,7 +1529,8 @@ test("Docker代役は同期・非同期の未知要求を発行前に拒否し�
           childProcess.spawnSync = context.cp
             .spawnSync as unknown as typeof childProcess.spawnSync;
           syncBuiltinESMExports();
-          const config = "C:\\fixture\\host\\management\\docker-cli-config";
+          const config =
+            "C:\\fixture\\.crdd\\operations\\OP-fixture\\management\\docker-cli-config";
           const options = { workingDirectory: "C:\\Windows\\System32" };
           const handle = startOwnedWindowsProcess(
             dockerExe,
@@ -1562,7 +1554,7 @@ test("Docker代役は同期・非同期の未知要求を発行前に拒否し�
           assert.equal(handle.closed(), true);
           context.process.env.SystemRoot = "C:\\Windows";
           await run(
-            `(async()=>{const cmds=${authentication ? "asyncCommands" : "expectedCommands"};for(const argv of cmds.slice(1)){const child=cp.spawn(dockerExe,['--host','npipe:////./pipe/dockerDesktopLinuxEngine','--config','C:\\\\fixture\\\\host\\\\management\\\\docker-cli-config',...argv],{shell:false,windowsHide:true,cwd:'C:\\\\Windows\\\\System32',stdio:['ignore','pipe','pipe'],env:{HTTP_PROXY:'',HTTPS_PROXY:'',ALL_PROXY:''}});const events=[];child.once('spawn',()=>events.push('spawn'));child.stdout.on('data',()=>{});child.stderr.on('data',()=>{});child.stdout.once('end',()=>events.push('stdout_end'));child.stderr.once('end',()=>events.push('stderr_end'));child.once('exit',()=>events.push('exit'));await new Promise(resolve=>child.once('close',()=>{events.push('close');resolve();}));assert.deepEqual(events,['spawn','stdout_end','stderr_end','exit','close']);} ${authentication ? "for(const argv of commands)cp.spawnSync(dockerExe,['--host','npipe:////./pipe/dockerDesktopLinuxEngine','--config','C:\\\\fixture\\\\host\\\\management\\\\docker-recovery-config-fixture',...argv],{shell:false,windowsHide:true,timeout:10000,maxBuffer:1048576});" : ""}})();`,
+            `(async()=>{const cmds=${authentication ? "asyncCommands" : "expectedCommands"};for(const argv of cmds.slice(1)){const child=cp.spawn(dockerExe,['--host','npipe:////./pipe/dockerDesktopLinuxEngine','--config','C:\\\\fixture\\\\.crdd\\\\operations\\\\OP-fixture\\\\management\\\\docker-cli-config',...argv],{shell:false,windowsHide:true,cwd:'C:\\\\Windows\\\\System32',stdio:['ignore','pipe','pipe'],env:{HTTP_PROXY:'',HTTPS_PROXY:'',ALL_PROXY:''}});const events=[];child.once('spawn',()=>events.push('spawn'));child.stdout.on('data',()=>{});child.stderr.on('data',()=>{});child.stdout.once('end',()=>events.push('stdout_end'));child.stderr.once('end',()=>events.push('stderr_end'));child.once('exit',()=>events.push('exit'));await new Promise(resolve=>child.once('close',()=>{events.push('close');resolve();}));assert.deepEqual(events,['spawn','stdout_end','stderr_end','exit','close']);} ${authentication ? "for(const argv of commands)cp.spawnSync(dockerExe,['--host','npipe:////./pipe/dockerDesktopLinuxEngine','--config','C:\\\\fixture\\\\.crdd\\\\operations\\\\OP-fixture\\\\management\\\\docker-recovery-config-fixture',...argv],{shell:false,windowsHide:true,timeout:10000,maxBuffer:1048576});" : ""}})();`,
           );
           assert.equal(
             authentication ? context.asyncCalls : context.calls,
@@ -1635,7 +1627,7 @@ test("引渡し前失敗: throw省略を同じ捕捉Oracleで拒否する", () =
  * @responsibility 最終CLI結果だけで中間時点の保全を推定しない。
  * @trace ERB-IT-014
  * @precondition 実Workerの比較関数と二呼出し位置を一意に抽出する。
- * @stimulus marker本文だけを変更し、比較assert省略も与える。
+ * @stimulus 実File本文だけを変更し、比較assert省略も与える。
  * @observation 同じ実比較本文の成功・断言失敗とCLI前の二回到達位置。
  * @oracle 正常だけ成功し、変更本文は比較省略時だけ検出できなくなる。
  * @cleanup N/A: VM内のFile観測代役だけで物理変更なし。
@@ -1694,7 +1686,7 @@ test("再起動後の兄弟Host比較は本文変更と比較省略を区別す�
         readFileSync: () => Buffer.from(changed ? "after" : "before"),
       },
     };
-    const source = `(() => {const restartSiblingPhysical = [{file:'marker',dev:1n,ino:2n,birthtimeNs:3n,bytes:Buffer.from('before'),children:null}];\n${body}\nassertRestartSiblingPhysical();})();`;
+    const source = `(() => {const restartSiblingPhysical = [{file:'receipt',dev:1n,ino:2n,birthtimeNs:3n,bytes:Buffer.from('before'),children:null}];\n${body}\nassertRestartSiblingPhysical();})();`;
     if (changed)
       assert.throws(() => runInNewContext(source, context), {
         code: "ERR_ASSERTION",
@@ -1705,23 +1697,20 @@ test("再起動後の兄弟Host比較は本文変更と比較省略を区別す�
 });
 
 /**
- * 実意図保存・Host遷移・token確定を同じ実Snapshotへ接続する。
- * @responsibility 遷移・Host清掃各二版と解放後終端一版の完全期待値、元結果保持、再処置0と全自己生成物清掃を確認する。
+ * 実意図保存・Host終端・履歴確定を同じ実Snapshotへ接続する。
+ * @responsibility Lease一版・Host清掃二版と解放後終端一版の完全期待値、元結果保持、再処置0と全自己生成物清掃を確認する。
  * @trace ERB-IT-014
  * @precondition Windows実Kernel排他と自己生成Git Repositoryだけを使う。
  * @stimulus 正規開始・disabled Ownerの新回収、同cap再実行とfresh settled再入場、結果引渡し前の失敗を行う。
  * 再起動結果の代役を使う条件では公開組立ての保存後に別Process通常CLIへ接続する。auth形は模擬二回不存在と専用実Writerを通す。実再起動は対象外。
- * @observation 遷移・清掃各二回のstate公開本文、改訂／元版Hash、実marker、他操作と元結果。
- * @oracle 親子の独立予定tokenと全本文が一致し、遷移・清掃は各保存二回、終端は全解放後一回だけ。既存結果・一次失敗は保持し、結果欠測は固定blockedとする。
+ * @observation Lease・Host清掃・終端のstate公開本文、改訂／元版Hash、実Root、他操作と元結果。
+ * @oracle 独立に構成した期待本文と全保存が一致し、Lease一回・Host清掃二回、終端は全解放後一回だけ。既存結果・一次失敗は保持し、結果欠測は固定blockedとする。
  * @cleanup 子が全準備を解放後にexact Hostを回収し、親は不存在確認後だけ試験Repositoryを削除する。
  * @boundary ERB-IT-014=Related 2 Blocks: 別Process現在回収→実Host／状態Writer。実Docker・競合CAS・pending旧／予定再入場は対象外。
  */
 for (const publicationFault of [
   "none",
   "null_outcome",
-  "A",
-  "B",
-  "C",
   "history_checkpoint_pending",
   "history_checkpoint_published",
   "history_pending",
@@ -1743,14 +1732,14 @@ for (const publicationFault of [
   "restart_auth_cli_entry",
 ] as const) {
   /**
-   * 実意図保存・Host遷移・token確定を同じ実Snapshotへ接続する。
-   * @responsibility 遷移・Host清掃各二版と解放後終端一版の完全期待値、元結果保持、再処置0と全自己生成物清掃を確認する。
+   * 実意図保存・Host終端・履歴確定を同じ実Snapshotへ接続する。
+   * @responsibility Lease一版・Host清掃二版と解放後終端一版の完全期待値、元結果保持、再処置0と全自己生成物清掃を確認する。
    * @trace ERB-IT-014
    * @precondition Windows実Kernel排他と自己生成Git Repositoryだけを使う。
    * @stimulus 正規開始・disabled Ownerの新回収、同cap再実行とfresh settled再入場、結果引渡し前の失敗を行う。
    * 再起動結果の代役を使う条件では公開組立ての保存後に別Process通常CLIへ接続する。auth形は模擬二回不存在と専用実Writerを通す。実再起動は対象外。
-   * @observation 遷移・清掃各二回のstate公開本文、改訂／元版Hash、実marker、他操作と元結果。
-   * @oracle 親子の独立予定tokenと全本文が一致し、遷移・清掃は各保存二回、終端は全解放後一回だけ。既存結果・一次失敗は保持し、結果欠測は固定blockedとする。
+   * @observation Lease・Host清掃・終端のstate公開本文、改訂／元版Hash、実Root、他操作と元結果。
+   * @oracle 独立に構成した期待本文と全保存が一致し、Lease一回・Host清掃二回、終端は全解放後一回だけ。既存結果・一次失敗は保持し、結果欠測は固定blockedとする。
    * @cleanup 子が全準備を解放後にexact Hostを回収し、親は不存在確認後だけ試験Repositoryを削除する。
    * @boundary ERB-IT-014=Related 2 Blocks: 別Process現在回収→実Host／状態Writer。実Docker・競合CAS・pending旧／予定再入場は対象外。
    */
@@ -1778,22 +1767,33 @@ for (const publicationFault of [
     let targetOwned: ReturnType<typeof createOwnedOperationDirectories> | null =
       null;
     let targetManagement: object | null = null;
+    let otherManagement: object | null = null;
     let abandoned = false,
+      otherAbandoned = false,
       targetStarted = false,
       cleanupConfirmed = false;
     try {
       prepareHostFixtureRepository(root);
-      const hosts = requireReadyRepositoryExecutionDataArea(
-        ensureRepositoryExecutionDataAreaFromWorkingDirectory(root, "tests"),
-        "host_fixture",
-      );
-      otherOwned = createOwnedOperationDirectories(hosts.directory);
-      targetOwned = createOwnedOperationDirectories(hosts.directory);
+      const verified = getRepository(root);
+      assert.equal(verified.status, "completed");
+      assert.ok(verified.capability);
+      const input = {
+        root: verified.capability,
+        purpose: "task" as const,
+        recordingCurrent: () => true,
+      };
+      otherOwned = createOwnedOperationDirectories(input);
+      targetOwned = createOwnedOperationDirectories(input);
       const other = fixtureOperation(otherOwned, root),
         target = fixtureOperation(targetOwned, root);
+      otherManagement = other.management;
       const otherPhysical = [
-        other.identity.hostPaths.root,
-        other.identity.hostPaths.marker,
+        otherOwned.root,
+        ...fs
+          .readdirSync(otherOwned.root)
+          .map((name) =>
+            path.join(otherOwned?.root ?? assert.fail("missing_other"), name),
+          ),
       ].map((file) => {
         const info = fs.lstatSync(file, { bigint: true });
         return {
@@ -1818,22 +1818,6 @@ for (const publicationFault of [
       )
         target.identity.consumer = "workbench";
       targetManagement = target.management;
-      const initial = Buffer.from(
-        `${canonicalJson({ schema: "crdd-execution-model/state/v6", revision: 1, previous: null, repositoryBinding: target.repository.repositoryBinding, repositoryBindingId: null, projects: [], managedExecutions: [], queueEntries: [], workspaces: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], operations: [], unresolvedRecoveries: [] })}\n`,
-      );
-      // Host故障の前提値だけを配置する。初期Writerの保証はDomainの実保存試験が所有する。
-      const snapshotArea = requireReadyRepositoryExecutionDataArea(
-        ensureRepositoryExecutionDataAreaFromWorkingDirectory(
-          root,
-          "domain-model",
-        ),
-        "fixture_snapshot_area",
-      );
-      fs.writeFileSync(
-        path.join(snapshotArea.directory, "state.json"),
-        initial,
-        { flag: "wx" },
-      );
       const seeded = readOperationStateStage(target.management);
       assert.equal(seeded.status, "completed", seeded.reason);
       assert.equal(
@@ -1851,16 +1835,6 @@ for (const publicationFault of [
       );
       assert.equal(started.status, "completed");
       assert.ok(started.recoveryId);
-      assert.equal(
-        await activateOwnedHostOperationGenerationLock(target.management),
-        "activated",
-      );
-      const submission = beginRuntimeOwnedCoordinatorHostSubmission(
-        target.management,
-        started.recoveryId,
-      );
-      assert.equal(submission.status, "completed");
-      assert.equal(submission.hostTransitionConfirmed, true);
       targetStarted = true;
       const current = readOperationStateStage(target.management);
       const operation = current.value?.snapshot.operations.find(
@@ -2121,17 +2095,22 @@ for (const publicationFault of [
         beforeOperation.outcome?.status,
         publicationFault === "null_outcome" ? undefined : "blocked",
       );
-      const hostBefore = loadHostRecoveryRecordByToken(
-        beforeOperation.host.currentToken,
-        targetOwned.root,
-      );
-      const expectedMarker = `${JSON.stringify({ ...hostBefore.record, state: "docker_absent_confirmed" })}\n`;
-      const expectedToken = `host.${hostBefore.parsed.rootName}.${hostBefore.parsed.nonce}.${createHash("sha256").update(expectedMarker).digest("hex")}`;
+      const hostBefore = readOwnedHostOperation(target.management).record;
+      assert.equal(hostBefore.operationId, target.identity.operationId);
+      assert.equal(hostBefore.cleanup, "not_requested");
       assert.equal(
         await abandonOwnedHostOperationGenerationLock(target.management),
         true,
       );
       abandoned = true;
+      if (publicationFault.startsWith("restart_")) {
+        // RestartはScope内の全Hostを排他する。生存Ownerを迂回せず正規に退役する。
+        assert.equal(
+          await abandonOwnedHostOperationGenerationLock(other.management),
+          true,
+        );
+        otherAbandoned = true;
+      }
       const hostWorkerTimeout = [
         "cli_entry_cli",
         "cli_entry_workbench",
@@ -2182,7 +2161,6 @@ for (const publicationFault of [
       }
       const targetRoot = targetOwned.root;
       assert.throws(() => fs.lstatSync(targetRoot), { code: "ENOENT" });
-      assert.throws(() => fs.lstatSync(hostBefore.marker), { code: "ENOENT" });
       cleanupConfirmed = true;
       for (const expected of otherPhysical) {
         const info = fs.lstatSync(expected.file, { bigint: true });
@@ -2215,17 +2193,39 @@ for (const publicationFault of [
           "utf8",
         ),
       );
+      const finalHost = finalState.operations.find(
+        (item: { kind: string; operationId?: string }) =>
+          item.kind === "host_operation" &&
+          item.operationId === target.identity.operationId,
+      );
+      assert.ok(finalHost);
+      assert.equal(finalHost.phase, "terminal");
+      assert.equal(finalHost.cleanup, "confirmed");
+      assert.deepEqual(finalHost, {
+        ...hostBefore,
+        phase: "terminal",
+        cleanup: "confirmed",
+      });
       const finalOperation = finalState.operations.find(
-        (item: { recoveryId: string }) =>
+        (item: { kind: string; operationId?: string; recoveryId: string }) =>
           item.recoveryId === started.recoveryId,
       );
       assert.deepEqual(
         finalState.operations.filter(
-          (item: { recoveryId: string }) =>
-            item.recoveryId !== started.recoveryId,
+          (item: { kind: string; operationId?: string; recoveryId: string }) =>
+            item.recoveryId !== started.recoveryId &&
+            !(
+              item.kind === "host_operation" &&
+              item.operationId === target.identity.operationId
+            ),
         ),
         before.value.snapshot.operations.filter(
-          (item) => item.recoveryId !== started.recoveryId,
+          (item) =>
+            item.recoveryId !== started.recoveryId &&
+            !(
+              item.kind === "host_operation" &&
+              item.operationId === target.identity.operationId
+            ),
         ),
       );
       if (
@@ -2240,8 +2240,8 @@ for (const publicationFault of [
         assert.equal(
           finalState.revision,
           before.value.snapshot.revision +
-            // 両restart形とも14更新。認証は専用Writerが保存し、一般cleanup保存を重ねない。
-            (publicationFault.startsWith("restart_") ? 14 : 9),
+            // 通常の終端・履歴・除去は8更新。Restartは要求4版と結果1版を加える。
+            (publicationFault.startsWith("restart_") ? 13 : 8),
         );
         const rows = fs
           .readFileSync(
@@ -2268,7 +2268,6 @@ for (const publicationFault of [
         return;
       }
       assert.ok(finalOperation);
-      assert.equal(finalOperation.host.currentToken, expectedToken);
       const terminalSaved =
         publicationFault === "none" ||
         publicationFault === "null_outcome" ||
@@ -2278,10 +2277,9 @@ for (const publicationFault of [
       assert.equal(
         finalState.revision,
         before.value.snapshot.revision +
-          (publicationFault === "driver" ? 7 : terminalSaved ? 7 : 4),
+          // Driverは技術資源の回収結果を一保存してから同じHost／終端／履歴へ進む。
+          (publicationFault === "driver" ? 7 : terminalSaved ? 6 : 4),
       );
-      assert.equal(finalOperation.host.pendingTransitionJson, null);
-      assert.equal(finalOperation.host.cleanup, "confirmed");
       assert.equal(finalOperation.phase, "settling");
       assert.equal(
         finalOperation.lease,
@@ -2309,7 +2307,12 @@ for (const publicationFault of [
           await abandonOwnedHostOperationGenerationLock(targetManagement),
           true,
         );
-      if (otherOwned) cleanupOwnedOperationDirectories(otherOwned);
+      // 非対象の未実行記録は回復済みと偽装しない。子終了後に試験Root全体を破棄する。
+      if (otherManagement && !otherAbandoned)
+        assert.equal(
+          await abandonOwnedHostOperationGenerationLock(otherManagement),
+          true,
+        );
       if (targetOwned && !targetStarted) {
         cleanupOwnedOperationDirectories(targetOwned);
         cleanupConfirmed = true;

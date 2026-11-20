@@ -108,7 +108,7 @@ export type SnapshotObservations = Readonly<{
  * @compatibility 最新形式だけを定義し、旧形式の変換は行わない。
  */
 export type ExecutionStateSnapshot = Readonly<{
-  schema: "crdd-execution-model/state/v6";
+  schema: "crdd-execution-model/state/v7";
   revision: number;
   previous: Readonly<{ revision: number; payloadSha256: string }> | null;
   repositoryBinding: string;
@@ -223,7 +223,7 @@ export type StoredTask = Omit<
  * @invariant 投影を別Fileや旧Schemaの互換Readerとして扱わず、OS handleを含めない。
  * @boundary 単一保存正本とモデル別のメモリ内操作。
  * @security Hashや状態名をAuthorityへ昇格しない。
- * @compatibility project-snapshot/v9は投影の識別であり、物理保存はstate/v6。旧形式を自動変換しない。
+ * @compatibility project-snapshot/v9は投影の識別であり、物理保存はstate/v7。旧形式を自動変換しない。
  */
 export type Snapshot = Pick<
   ExecutionStateSnapshot,

@@ -70,7 +70,7 @@ export type VerificationSafetyObservation = Readonly<{
 const MAXIMUM_RECOVERY_ID_LENGTH = 1024;
 const RECOVERY_ID_PATTERNS: Readonly<Record<VerificationRecoveryKind, RegExp>> =
   Object.freeze({
-    host: /^host\.[A-Za-z0-9_-]{1,128}\.[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.[0-9a-f]{64}$/u,
+    host: /^host-operation\.OP-[0-9]{6,}$/u,
     docker: /^docker-task\.[0-9a-f]{64}\.[0-9a-f]{64}\.[0-9a-f]{64}$/u,
     candidate: /^candidate-recovery\.[0-9a-f]{64}\.[0-9a-f]{64}$/u,
     candidate_store: /^candidate-store-recovery\.[0-9a-f]{64}$/u,

@@ -11,7 +11,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import os from "node:os";
 import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
@@ -45,7 +44,7 @@ const firstRevision = "1".repeat(40);
 const secondRevision = "2".repeat(40);
 
 /**
- * 実体IDの5取得点が同じOS別表現・拒否境界を持つことを確認する。
+ * 現行の実体ID取得点が同じOS別表現・拒否境界を持つことを確認する。
  * @responsibility Windows限定変換の境界と他の識別条件の維持を反証する。
  * @trace PRL-IT-012
  * @precondition 現行の実関数と同じSourceの私有依存関数をFilesystem観測だけの代役へ接続する。
@@ -55,15 +54,12 @@ const secondRevision = "2".repeat(40);
  * @cleanup N/A: メモリだけで外部Effectを発行しない。
  * @boundary 各Ownerの実体識別関数→OS観測値。
  */
-test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件を維持する", () => {
+test("現行の実体ID取得点はWindowsだけ符号を補正し他の拒否条件を維持する", () => {
   const sample = fs.lstatSync(import.meta.dirname, { bigint: true });
   for (const [sourcePath, names] of [
     ["../../../version-control/src/repository/layout.ts", ["identity"]],
     ["../../../configuration-model/src/storage/store.ts", ["identity"]],
-    [
-      "../../src/execution/operation.ts",
-      ["readFilesystemIdentity", "readFileIdentity", "readOpenFileIdentity"],
-    ],
+    ["../../src/execution/operation.ts", ["readFilesystemIdentity"]],
   ] as const) {
     const source = stripTypeScriptTypes(
       fs.readFileSync(new URL(sourcePath, import.meta.url), "utf8"),
@@ -126,10 +122,8 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
         assert.throws(() => observe(...args));
         metadata.isFile = () => true;
         metadata.isDirectory = () => true;
-        if (name !== "readOpenFileIdentity") {
-          metadata.isSymbolicLink = () => true;
-          assert.throws(() => observe(...args));
-        }
+        metadata.isSymbolicLink = () => true;
+        assert.throws(() => observe(...args));
       }
     }
   }
@@ -149,13 +143,6 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
 test("Windowsの上位bit付きIDで操作作成・再検証・回収が成立する", {
   skip: process.platform !== "win32",
 }, (t) => {
-  const area = requireReadyRepositoryExecutionDataArea(
-    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
-      import.meta.dirname,
-      "tests",
-    ),
-    "coordinator_state_test_root_invalid",
-  );
   for (const name of ["lstatSync", "fstatSync"] as const) {
     const original = fs[name];
     t.mock.method(fs, name, (...args: unknown[]) => {
@@ -165,7 +152,7 @@ test("Windowsの上位bit付きIDで操作作成・再検証・回収が成立�
       return metadata;
     });
   }
-  const owned = createOwnedOperationDirectories(area.directory);
+  const owned = createFixtureOperation(t);
   let cleaned = false;
   t.after(() => {
     if (!cleaned) cleanupOwnedOperationDirectories(owned);
@@ -194,14 +181,7 @@ test("Windowsの上位bit付きIDで操作作成・再検証・回収が成立�
  * @boundary PRL-IT-012=Direct Boundary: Repository Operation Owner→Coordinator保存先。
  */
 test("Coordinator保存先借用は現在Repositoryと有効Ownerだけに結合する", (t) => {
-  const area = requireReadyRepositoryExecutionDataArea(
-    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
-      import.meta.dirname,
-      "tests",
-    ),
-    "coordinator_state_test_root_invalid",
-  );
-  const owned = createOwnedOperationDirectories(area.directory);
+  const owned = createFixtureOperation(t);
   let isCleaned = false;
   t.after(() => {
     if (!isCleaned) cleanupOwnedOperationDirectories(owned);
@@ -255,7 +235,16 @@ test("Coordinator保存先借用は現在Repositoryと有効Ownerだけに結合
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-function temporaryRepository(t: TestContext, parent = os.tmpdir()) {
+function temporaryRepository(
+  t: TestContext,
+  parent = requireReadyRepositoryExecutionDataArea(
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
+      import.meta.dirname,
+      "tests",
+    ),
+    "repository_fixture_root",
+  ).directory,
+) {
   const root = fs.mkdtempSync(path.join(parent, "crdd-operation-repository-"));
   const git = path.join(root, ".git");
   fs.mkdirSync(path.join(git, "info"), { recursive: true });
@@ -266,6 +255,7 @@ function temporaryRepository(t: TestContext, parent = os.tmpdir()) {
     "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
     "utf8",
   );
+  fs.writeFileSync(path.join(git, "info", "exclude"), "/.crdd/\n");
   fs.writeFileSync(
     path.join(git, "refs", "heads", "main"),
     `${firstRevision}\n`,
@@ -273,6 +263,29 @@ function temporaryRepository(t: TestContext, parent = os.tmpdir()) {
   );
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
+}
+
+/**
+ * Host保存と実Lockを今回の合成Repositoryだけへ結合する。
+ * @responsibility 現在Repositoryの保存物と過去保持物を変更せず、終了時に自己生成物だけを回収する。
+ * @trace PRL-IT-012
+ */
+function createFixtureOperation(t: TestContext) {
+  let owned: ReturnType<typeof createOwnedOperationDirectories> | null = null;
+  t.after(() => {
+    if (owned && fs.existsSync(owned.root))
+      cleanupOwnedOperationDirectories(owned);
+  });
+  const root = temporaryRepository(t);
+  const repository = getRepository(root);
+  assert.equal(repository.status, "completed");
+  assert.ok(repository.capability);
+  owned = createOwnedOperationDirectories({
+    root: repository.capability,
+    purpose: "task",
+    recordingCurrent: () => true,
+  });
+  return owned;
 }
 
 /**
@@ -295,7 +308,7 @@ test("保存の四用途はRevisionとOwnerの条件を分離しRoot参照を搬
     "coordinator_state_test_root_invalid",
   );
   const root = temporaryRepository(t, area.directory);
-  const owned = createOwnedOperationDirectories(area.directory);
+  const owned = createFixtureOperation(t);
   let cleaned = false;
   t.after(() => {
     if (!cleaned) cleanupOwnedOperationDirectories(owned);
@@ -434,7 +447,16 @@ test("保存借用は呼出しごとの二探索と実体差替え拒否を維�
  */
 function linkedRepository(t: TestContext) {
   const parent = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-operation-linked-repository-"),
+    path.join(
+      requireReadyRepositoryExecutionDataArea(
+        ensureRepositoryExecutionDataAreaFromWorkingDirectory(
+          import.meta.dirname,
+          "tests",
+        ),
+        "linked_fixture",
+      ).directory,
+      "crdd-operation-linked-repository-",
+    ),
   );
   const root = path.join(parent, "linked");
   const commonGitDirectory = path.join(parent, "main.git");
@@ -474,8 +496,7 @@ function linkedRepository(t: TestContext) {
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 function operation(t: TestContext) {
-  const owned = createOwnedOperationDirectories();
-  t.after(() => cleanupOwnedOperationDirectories(owned));
+  const owned = createFixtureOperation(t);
   const context = createOwnedOperationContextCapability(owned);
   const mount = createOwnedMountCapability(owned);
   return createOwnedOperationManagementCapability(context, mount);
@@ -721,7 +742,7 @@ test("loose refの中間junctionと最終symlinkをRepository境界外としてp
   for (const linkedSegment of ["refs", "refs/heads"] as const) {
     const repository = temporaryRepository(t);
     const external = fs.mkdtempSync(
-      path.join(os.tmpdir(), "crdd-operation-external-ref-"),
+      path.join(path.dirname(repository), "crdd-operation-external-ref-"),
     );
     t.after(() => fs.rmSync(external, { recursive: true, force: true }));
     const link = path.join(repository, ".git", ...linkedSegment.split("/"));
@@ -773,7 +794,10 @@ test("loose refの中間junctionと最終symlinkをRepository境界外としてp
 test("linked worktreeのCommon Git Directoryでもloose ref junctionをpreflightで拒否する", (t) => {
   const repository = linkedRepository(t);
   const external = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-operation-linked-external-ref-"),
+    path.join(
+      path.dirname(path.dirname(repository.root)),
+      "crdd-operation-linked-external-ref-",
+    ),
   );
   t.after(() => fs.rmSync(external, { recursive: true, force: true }));
   fs.writeFileSync(path.join(external, "main"), `${firstRevision}\n`, "utf8");

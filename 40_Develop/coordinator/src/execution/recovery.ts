@@ -22,7 +22,6 @@ import {
   inspectExecutionSelection,
   type OperationRecord,
   parseDockerTaskRecoveryId,
-  parseHostRecoveryToken,
   type RepairCheckpoint,
   type RepairOperationRecord,
   type RepairSaveRequest,
@@ -53,16 +52,11 @@ import { getRepository } from "../../../version-control/src/index.ts";
 import { observeRepositoryExecutionDataArea } from "../configuration/runtime-data.ts";
 import {
   readOperationStateStage,
-  saveHostCleanupPreparation,
   saveOperationCheckpoint,
   saveOperationStart,
   saveResourceNotIssuedStage,
 } from "../execution/persistence.ts";
 import { snapshotJsonValue, snapshotPlainRecord } from "../input/snapshot.ts";
-import {
-  loadDockerProbeRecoveryRecord,
-  parseDockerProbeRecoveryToken,
-} from "../state/probe-record.ts";
 import {
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
   providerHomesDirectoryCandidate,
@@ -78,18 +72,13 @@ import {
 } from "./kernel-lock.ts";
 import {
   acquireHostOperationRecoveryGeneration,
-  acquireHostOperationRecoveryGenerationByIdentity,
-  beginOwnedDockerSubmissionRecovery,
   borrowHostRecoveryManagementDirectory,
-  borrowOwnedHostRecoverySnapshot,
+  readOwnedHostOperation,
+  readHostRecoveryOperation,
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
-  completeOwnedDockerSubmissionRecovery,
-  confirmOwnedDockerAbsenceForRecovery,
-  consumeOwnedHostRecoveryIdForCleanup,
-  issueOwnedHostCleanupCapability,
-  loadHostRecoveryRecordByToken,
-  observeHostRecoveryCleanup,
+  observeHostRecoveryRoot,
+  isHostOperationRootAbsent,
   recoverOwnedOperationDirectories,
   releaseHostOperationRecoveryGeneration,
   verifyHostOperationRecoveryGeneration,
@@ -105,337 +94,6 @@ import type {
   RecoveryStartFailureDiagnostic,
   ResourceCleanupResult,
 } from "./types.ts";
-import { coordinatorReleasedTaskCanObserveHostAbsence } from "./validation.ts";
-
-/**
- * Host開始の予定保存・実遷移・結果保存を同じ操作へ接続する。
- *
- * @responsibility Docker要求前にHost開始を現在状態へ確定し、中断後も同じ予定へ再入場する。
- * @trace ARCH-000008
- * @input managementCapability: 同じ実Host Owner、recoveryId: 保存済み操作のexact参照。
- * @returns 保存・排他解放・Host要求と確認を分けた結果と同じ回復参照。
- * @precondition 開始Identityが確定済みで、Home Leaseは開始Ownerが保持している。
- * @postcondition 予定保存後だけHostを遷移させ、実token照合後だけ予定を解消する。
- * @effect 同じRepositoryのstate.jsonと、所有済みHost記録の開始遷移のみ。
- * @failure 別操作、実Host不一致、保存・解放不明、遷移例外は予定と回復参照を保持して停止する。
- * @invariant Host開始確認をDocker受理・Provider開始・回復完了へ昇格しない。
- * @boundary 本番開始Owner、現在状態Writerと同じHost Owner。
- * @security 任意Path・予測token・Caller supplied遷移本文を受け付けない。
- * @concurrency 同期Host遷移の前後を実Ownerで再観測し、各保存は元版照合する。
- */
-export function beginRuntimeOwnedCoordinatorHostSubmission(
-  managementCapability: unknown,
-  recoveryId: unknown,
-) {
-  return transitionRuntimeOwnedCoordinatorHostSubmission(
-    managementCapability,
-    recoveryId,
-    false,
-  );
-}
-
-/**
- * 実Hostの開始または通常復帰を同じ予定保存経路で確定する。
- * @responsibility 処置前保存と実Ownerの前後観測を共通化する。
- * @trace ARCH-000008
- * @input managementCapability、recoveryId: 対象。isCompletingSubmission: 内部で固定した遷移方向。
- * @returns 保存と実遷移の確認を分けた結果。
- * @precondition 通常復帰の呼出し側は元Ownerと実清掃を照合済み。
- * @postcondition 後継tokenを観測できた場合だけ予定を解消する。
- * @effect 同じ操作のHost記録とstate.jsonのみ。
- * @failure 不一致・保存不明・応答喪失は予定とexact参照を保持する。
- * @invariant 保存tokenからAuthorityを作らず、後継観測時に処置を再発行しない。
- * @boundary 同じHost OwnerとRepository内の状態保存。
- * @security 任意PathとCaller supplied予定を受け付けない。
- * @concurrency 既存Writer排他と同期Host前後観測を用いる。
- */
-function transitionRuntimeOwnedCoordinatorHostSubmission(
-  managementCapability: unknown,
-  recoveryId: unknown,
-  isCompletingSubmission: boolean,
-) {
-  const currentState = isCompletingSubmission
-    ? "docker_submission_started"
-    : "host_only";
-  const nextState = isCompletingSubmission
-    ? "host_only"
-    : "docker_submission_started";
-  const current = readOperationStateStage(managementCapability);
-  const repository =
-    borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
-  const blocked = {
-    status: "blocked" as const,
-    reason: "coordinator_host_submission_invalid",
-    revision: null as number | null,
-    payloadSha256: null as string | null,
-    recoveryIds: Object.freeze([] as string[]),
-    recoveryId: typeof recoveryId === "string" ? recoveryId : null,
-    filesystemEffectIssued: false,
-    snapshotConfirmed: false,
-    lockReleased: current.lockReleased,
-    hostTransitionRequested: false,
-    hostTransitionConfirmed: false,
-  };
-  if (!repository || current.status !== "completed" || !current.value)
-    return Object.freeze({
-      ...blocked,
-      reason: current.status === "blocked" ? current.reason : blocked.reason,
-    });
-  const operation = current.value.snapshot.operations.find(
-    (item): item is ExecutionOperationRecord =>
-      item.kind === "docker_task" && item.recoveryId === recoveryId,
-  );
-  if (
-    operation?.phase !== "executing" ||
-    operation.host.cleanup !== "not_requested" ||
-    JSON.parse(operation.identityJson).operationId !== repository.operationId
-  )
-    return Object.freeze(blocked);
-  let saved = blocked;
-  let hostTransitionRequested = false;
-  try {
-    const host = borrowOwnedHostRecoverySnapshot(managementCapability);
-    let transition: {
-      currentToken: string;
-      expectedToken: string;
-      currentState: string;
-      nextState: string;
-    };
-    if (operation.host.pendingTransitionJson === null) {
-      if (
-        host.snapshot.record.state !== currentState ||
-        host.snapshot.token !== operation.host.currentToken
-      )
-        return Object.freeze(blocked);
-      const parsed = parseHostRecoveryToken(host.snapshot.token);
-      const nextHash = createHash("sha256")
-        .update(
-          `${JSON.stringify({ ...host.snapshot.record, state: nextState })}\n`,
-        )
-        .digest("hex");
-      const intent = {
-        currentToken: host.snapshot.token,
-        expectedToken: `host.${parsed.rootName}.${parsed.nonce}.${nextHash}`,
-        rootName: parsed.rootName,
-        nonce: parsed.nonce,
-        currentState,
-        nextState,
-        recordBefore: host.snapshot.record,
-      };
-      transition = intent;
-      const intentSaved = saveOperationCheckpoint(
-        managementCapability,
-        recoveryId,
-        {
-          kind: "host",
-          value: {
-            ...operation.host,
-            pendingTransitionJson: `${JSON.stringify(intent)}\n`,
-          },
-        },
-      );
-      if (intentSaved.status !== "completed")
-        return Object.freeze({ ...blocked, ...intentSaved });
-      saved = { ...blocked, ...intentSaved, status: "blocked" };
-    } else {
-      transition = JSON.parse(operation.host.pendingTransitionJson);
-      if (
-        transition.currentState !== currentState ||
-        transition.nextState !== nextState
-      )
-        return Object.freeze(blocked);
-    }
-    const before = borrowOwnedHostRecoverySnapshot(managementCapability);
-    if (before.snapshot.token === transition.currentToken) {
-      hostTransitionRequested = true;
-      const observed = isCompletingSubmission
-        ? completeOwnedDockerSubmissionRecovery(
-            managementCapability,
-            transition.currentToken,
-          )
-        : beginOwnedDockerSubmissionRecovery(
-            managementCapability,
-            repository.operationId,
-          );
-      if (observed !== transition.expectedToken)
-        throw new Error("coordinator_host_submission_unconfirmed");
-    } else if (before.snapshot.token !== transition.expectedToken) {
-      throw new Error("coordinator_host_submission_unconfirmed");
-    }
-    const after = borrowOwnedHostRecoverySnapshot(managementCapability);
-    if (
-      after.snapshot.token !== transition.expectedToken ||
-      after.snapshot.record.state !== nextState
-    )
-      throw new Error("coordinator_host_submission_unconfirmed");
-    const confirmed = saveOperationCheckpoint(
-      managementCapability,
-      recoveryId,
-      {
-        kind: "host",
-        value: {
-          currentToken: transition.expectedToken,
-          pendingTransitionJson: null,
-          cleanup: operation.host.cleanup,
-        },
-      },
-    );
-    return Object.freeze({
-      ...blocked,
-      ...confirmed,
-      hostTransitionRequested,
-      hostTransitionConfirmed: confirmed.status === "completed",
-    });
-  } catch {
-    return Object.freeze({
-      ...saved,
-      reason: "coordinator_host_submission_unconfirmed",
-      snapshotConfirmed: false,
-      filesystemEffectIssued:
-        saved.filesystemEffectIssued || hostTransitionRequested,
-      hostTransitionRequested,
-    });
-  }
-}
-
-/**
- * 実資源回収と元実行Ownerを照合してHostを通常状態へ戻す。
- * @responsibility 最終Controller結果に依存せず実終了根拠をHost復帰へ接続する。
- * @trace ARCH-000008
- * @input managementCapability、recoveryId、plan、recoveryCapability: 元対象と同じ実行Owner。
- * @returns 現在状態保存とHost実遷移の確認結果。
- * @precondition 元Docker清掃が同じ本番Ownerから返却されている。
- * @postcondition exact五資源の回収を保存し、Host後継観測後だけ復帰予定を解消する。
- * @effect 同じRepositoryのstate.jsonと所有Host記録だけ。
- * @failure コピー・別対象・欠測・ID不明・保存不明はHost復帰前に拒否する。
- * @invariant Home Lease解放・Host領域清掃・結果受理は別条件として維持する。
- * @boundary 本番清掃・Home・Hostの各Ownerと同じ操作の保存。
- * @security 任意の成功booleanや保存値を実終了根拠にしない。
- * @concurrency 各保存を既存排他で確定し、Host再入場では元結果を再照合する。
- */
-export function completeRuntimeOwnedCoordinatorHostSubmission(
-  managementCapability: unknown,
-  recoveryId: unknown,
-  plan: import("./types.ts").RecoveryPlan &
-    Readonly<{ consumer: "coordinator_cli" | "orchestrator" | "workbench" }>,
-  recoveryCapability: unknown,
-) {
-  const current = readOperationStateStage(managementCapability);
-  const blocked = Object.freeze({
-    status: "blocked" as const,
-    reason: "coordinator_host_completion_invalid",
-    recoveryId: typeof recoveryId === "string" ? recoveryId : null,
-    snapshotConfirmed: false,
-    filesystemEffectIssued: false,
-    lockReleased: current.lockReleased,
-    hostTransitionRequested: false,
-    hostTransitionConfirmed: false,
-  });
-  try {
-    const record = durableRecord(recoveryCapability);
-    if (
-      !record ||
-      record.managementCapability !== managementCapability ||
-      record.recoveryId !== recoveryId ||
-      record.operationId !== plan.operationId ||
-      !record.cleanupCheckpoint
-    )
-      return blocked;
-    const operation = current.value?.snapshot.operations.find(
-      (item): item is ExecutionOperationRecord =>
-        item.kind === "docker_task" && item.recoveryId === recoveryId,
-    );
-    const repository =
-      borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
-    if (
-      current.status !== "completed" ||
-      !operation ||
-      !repository ||
-      operation.phase !== "executing"
-    )
-      return blocked;
-    const identity = JSON.parse(operation.identityJson);
-    const expectedNames = new Map([
-      ["create_subscription_auth_probe", plan.authContainerName],
-      ["create_provider", plan.providerContainerName],
-      ["create_proxy", plan.proxyContainerName],
-      ["create_internal_network", plan.internalNetworkName],
-      ["create_egress_network", plan.egressNetworkName],
-    ]);
-    const resources = operation.resources?.snapshot.resources;
-    if (
-      !resources ||
-      resources.length !== expectedNames.size ||
-      new Set(resources.map((resource) => resource.key)).size !==
-        expectedNames.size ||
-      resources.some(
-        (resource) =>
-          expectedNames.get(resource.key) !== resource.identity.name,
-      )
-    )
-      return blocked;
-    if (
-      !plan ||
-      plan.operationId !== repository.operationId ||
-      identity.operationId !== plan.operationId ||
-      identity.taskAttempt !== plan.taskAttempt ||
-      !isDeepStrictEqual(
-        identity.executionSelection,
-        plan.executionSelection,
-      ) ||
-      [
-        "provider",
-        "consumer",
-        "stableLogicalHomeBindingHash",
-        "providerHomeIdentityHash",
-        "ownershipLabel",
-        "operationMode",
-      ].some(
-        (key) =>
-          identity[key] !== (plan as unknown as Record<string, unknown>)[key],
-      )
-    )
-      return blocked;
-    const host = borrowOwnedHostRecoverySnapshot(managementCapability);
-    if (operation.host.pendingTransitionJson === null) {
-      if (
-        host.snapshot.record.state !== "docker_submission_started" ||
-        host.snapshot.token !== operation.host.currentToken
-      )
-        return blocked;
-    } else {
-      const pending = JSON.parse(operation.host.pendingTransitionJson);
-      if (
-        pending.currentState !== "docker_submission_started" ||
-        pending.nextState !== "host_only"
-      )
-        return blocked;
-    }
-    if (
-      !current.value?.operationStates.some(
-        (state) =>
-          state.kind === "docker_task" &&
-          state.operation === operation &&
-          state.resourcesSettled,
-      )
-    )
-      return blocked;
-    const transition = transitionRuntimeOwnedCoordinatorHostSubmission(
-      managementCapability,
-      recoveryId,
-      true,
-    );
-    return Object.freeze({
-      ...transition,
-      filesystemEffectIssued: transition.filesystemEffectIssued,
-    });
-  } catch {
-    return Object.freeze({
-      ...blocked,
-      filesystemEffectIssued: false,
-    });
-  }
-}
 
 /**
  * 現在の回復記録を非秘密の保存観測へ投影する。
@@ -446,7 +104,30 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
  * @effect 外部Effectなし。
  * @security 資源ID、Mount、環境値、内部Hashを公開しない。
  */
-function projectRecoveryRecord(operation: OperationRecord) {
+function projectRecoveryRecord(
+  operation: OperationRecord,
+  operations: readonly OperationRecord[],
+) {
+  if (operation.kind === "host_operation")
+    return Object.freeze({
+      kind: operation.kind,
+      phase: operation.phase,
+      hostCleanup: operation.cleanup,
+      outcome: null,
+      historyConfirmed: null,
+      resources:
+        operation.resources === null
+          ? null
+          : Object.freeze(
+              operation.resources.checkpoints.map((item) =>
+                Object.freeze({
+                  key: item.key,
+                  submission: item.submission,
+                  observation: item.observation,
+                }),
+              ),
+            ),
+    });
   const common = {
     phase: operation.phase,
     outcome:
@@ -469,7 +150,12 @@ function projectRecoveryRecord(operation: OperationRecord) {
     ...common,
     kind: operation.kind,
     lease: operation.lease,
-    hostCleanup: operation.host.cleanup,
+    hostCleanup:
+      operations.find(
+        (r): r is Extract<OperationRecord, { kind: "host_operation" }> =>
+          r.kind === "host_operation" &&
+          r.operationId === JSON.parse(operation.identityJson).operationId,
+      )?.cleanup ?? "unknown",
     resources:
       operation.resources === null
         ? null
@@ -533,7 +219,6 @@ export function readRuntimeOwnedRecovery(
         : "coordinator_recovery_signal_invalid",
       true,
     );
-  let probe: ReturnType<typeof parseDockerProbeRecoveryToken> | null = null;
   try {
     if (recoveryId.startsWith("docker-task.")) {
       if (!parseDockerTaskRecoveryId(recoveryId)) throw Error();
@@ -542,11 +227,9 @@ export function readRuntimeOwnedRecovery(
         !/^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(recoveryId)
       )
         throw Error();
-    } else if (recoveryId.startsWith("host.")) {
-      parseHostRecoveryToken(recoveryId);
-    } else {
-      probe = parseDockerProbeRecoveryToken(recoveryId);
-    }
+    } else if (recoveryId.startsWith("host-operation.")) {
+      if (!/^host-operation\.OP-[0-9]{6,}$/u.test(recoveryId)) throw Error();
+    } else throw Error();
   } catch {
     return result("unknown", "coordinator_recovery_id_invalid", true);
   }
@@ -570,21 +253,9 @@ export function readRuntimeOwnedRecovery(
         "coordinator_recovery_observation_unknown",
         lockReleased,
       );
-    const matches = observed.value.snapshot.operations.filter((operation) => {
-      if (probe !== null) {
-        if (operation.kind !== "docker_task") return false;
-        const identity = JSON.parse(operation.identityJson);
-        return (
-          identity.operationMode === "boolean_probe" &&
-          path.basename(identity.hostPaths.root) === probe.rootName
-        );
-      }
-      return (
-        operation.recoveryId === recoveryId ||
-        (operation.kind === "docker_task" &&
-          operation.host.currentToken === recoveryId)
-      );
-    });
+    const matches = observed.value.snapshot.operations.filter(
+      (operation) => operation.recoveryId === recoveryId,
+    );
     if (matches.length === 0)
       return result("not_recorded", "coordinator_recovery_not_recorded", true);
     if (matches.length !== 1 || !matches[0])
@@ -594,10 +265,6 @@ export function readRuntimeOwnedRecovery(
         true,
       );
     const operation = matches[0];
-    if (probe !== null) {
-      const identity = JSON.parse(operation.identityJson);
-      loadDockerProbeRecoveryRecord(recoveryId, identity.hostPaths.root);
-    }
     if (readExecutionCancellation(signal) !== false)
       return result(
         "unknown",
@@ -608,7 +275,7 @@ export function readRuntimeOwnedRecovery(
       "recorded",
       "coordinator_recovery_recorded",
       true,
-      projectRecoveryRecord(operation),
+      projectRecoveryRecord(operation, observed.value.snapshot.operations),
     );
   } catch {
     return result(
@@ -759,20 +426,58 @@ export async function resumeRuntimeOwnedExecution(
       ),
       recoveryId,
     );
-  const operationRoot = resolveRuntimeOwnedCurrentRecoveryOperationRoot(
-    recoveryId,
-    rootCapability,
-  );
-  if (operationRoot === null)
+  const repository =
+    borrowRuntimeOwnedCoordinatorRecoveryRepository(rootCapability);
+  if (!repository || !/^host-operation\.OP-[0-9]{6,}$/u.test(recoveryId))
     return Object.freeze({
       status: "blocked" as const,
       reason: "coordinator_recovery_current_operation_unconfirmed",
       recoveryId,
       hostCleanupCompleted: false,
     });
-  return recoveryId.startsWith("host.")
-    ? recoverOwnedOperationDirectories(recoveryId, null, operationRoot)
-    : recoverDockerIsolationProbe(recoveryId, operationRoot);
+  const current = readState(repository.root, { scope: "recovery" });
+  const host =
+    current.status === "completed" && current.value && current.lockReleased
+      ? current.value.snapshot.operations.find(
+          (item) =>
+            item.kind === "host_operation" && item.recoveryId === recoveryId,
+        )
+      : null;
+  if (host?.kind !== "host_operation")
+    return {
+      status: "blocked",
+      reason: "coordinator_recovery_current_operation_unconfirmed",
+      recoveryId,
+      hostCleanupCompleted: false,
+    };
+  if (host.purpose === "isolation_probe")
+    return recoverDockerIsolationProbe(
+      recoveryId,
+      repository.root,
+      repository.revalidate,
+      signal,
+    );
+  const generation = acquireHostOperationRecoveryGeneration(
+    repository.root,
+    recoveryId,
+    repository.revalidate,
+  );
+  if (!generation)
+    return {
+      status: "blocked",
+      reason: "host_recovery_generation_active",
+      recoveryId,
+      hostCleanupCompleted: false,
+    };
+  const result = recoverOwnedOperationDirectories(recoveryId, generation);
+  return releaseHostOperationRecoveryGeneration(generation)
+    ? { ...result, hostCleanupCompleted: result.status === "recovered" }
+    : {
+        status: "blocked",
+        reason: "host_recovery_generation_release_unconfirmed",
+        recoveryId,
+        hostCleanupCompleted: false,
+      };
 }
 
 /**
@@ -1088,55 +793,29 @@ export function evaluateManagedDockerCleanupEligibility(input: unknown) {
   }
 }
 
-/**
- * 検証済みRepositoryの現在記録からHost／Probe回復先を解決する。
- * @responsibility exact参照、単一一致、Readerの排他解放を照合する。
- * @trace ARCH-000008
- * @input recoveryId: 明示回復参照、repositoryRoot: 呼出し元が検証したRoot Capability。
- * @returns 対応する操作Root、またはnull。
- * @precondition 現在Repositoryの検証済みCapabilityを渡す。
- * @postcondition 欠測・複数一致・読取り不明ではRootを返さない。
- * @effect 既存の現在状態Readerと短期排他だけを使用する。
- * @failure 不正参照・Reader拒否・例外・解放不明ではnull。
- * @invariant Pathは処置Authorityではなく、下位が元世代と実体を再照合する。
- * @boundary 現在状態とHost／Probe回復対象の解決。
- * @security cwd再解決・広域探索・新しい回復Authorityを行わない。
- * @concurrency fresh Readerの排他解放後に所在を返す。
- */
+/** 現在EM記録に一致する元Hostの専用Rootだけを返す。 @trace ARCH-000008 */
 export function resolveRuntimeOwnedCurrentRecoveryOperationRoot(
   recoveryId: string,
-  repositoryRoot: unknown,
+  root: unknown,
 ): string | null {
-  try {
-    const match =
-      /^(host|docker)\.(crdd-coordinator-doctor-[A-Za-z0-9_-]+)\./u.exec(
-        recoveryId,
-      );
-    if (!match?.[2]) return null;
-    const current = readState(repositoryRoot, { scope: "recovery" });
-    if (
-      current.status !== "completed" ||
-      !current.lockReleased ||
-      !current.value
-    )
-      return null;
-    const matches = current.value.snapshot.operations.filter((operation) => {
-      if (operation.kind !== "docker_task") return false;
-      const identity = JSON.parse(operation.identityJson);
-      return (
-        typeof identity.hostPaths.root === "string" &&
-        path.isAbsolute(identity.hostPaths.root) &&
-        path.basename(identity.hostPaths.root) === match[2] &&
-        (match[1] === "host"
-          ? operation.host.currentToken === recoveryId
-          : identity.operationMode === "boolean_probe")
-      );
-    });
-    if (matches.length !== 1 || !matches[0]) return null;
-    return JSON.parse(matches[0].identityJson).hostPaths.root;
-  } catch {
+  const repository = borrowRuntimeOwnedCoordinatorRecoveryRepository(root);
+  if (!repository) return null;
+  const read = readState(root, { scope: "recovery" });
+  if (read.status !== "completed" || !read.lockReleased || !read.value)
     return null;
-  }
+  const host = read.value.snapshot.operations.filter(
+    (r): r is Extract<OperationRecord, { kind: "host_operation" }> =>
+      r.kind === "host_operation" && r.recoveryId === recoveryId,
+  );
+  const selected = host[0];
+  return host.length === 1 && selected
+    ? path.join(
+        repository.repositoryRoot,
+        ".crdd",
+        "operations",
+        selected.operationId,
+      )
+    : null;
 }
 
 /**
@@ -1190,26 +869,6 @@ export function inspectRuntimeOwnedDockerTaskAdmission(
     reason: "coordinator_current_admission_unconfirmed" as const,
     lockReleased,
   });
-}
-
-/**
- * canonicalを決定する。
- *
- * @responsibility canonicalの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input value: unknown
- * @returns canonicalの計算結果を返す。
- * @precondition 「value: unknown」がcanonicalの入力契約を満たす。
- * @postcondition canonicalの責務を完了した結果だけを返す。
- * @effect N/A: canonicalは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: canonicalは独自の失敗分岐を所有しない。
- * @invariant canonicalは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: canonicalはProcess内の同一Subsystemで完結する。
- * @security canonicalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: canonicalは共有非同期状態を持たない同期処理である。
- */
-function canonical(value: unknown) {
-  return `${JSON.stringify(value)}\n`;
 }
 
 const HEX64 = /^[a-f0-9]{64}$/u;
@@ -1284,9 +943,6 @@ type DurableRecord = {
   initializationIdentityJson: string;
   initializationResult?: ReturnType<typeof saveOperationStart>;
   initializationFailure?: string;
-  initializationHostResult?: ReturnType<
-    typeof beginRuntimeOwnedCoordinatorHostSubmission
-  >;
   initializationLeaseReleaseConfirmed?: boolean;
   consumer: ProductionPlan["consumer"];
   hostCleanupOutcome?: unknown;
@@ -1294,16 +950,7 @@ type DurableRecord = {
   terminalObservation?: RecordedAttemptObservation;
   settlementResult?: ReturnType<typeof completeOperation>;
   cleanupCheckpoint?: Readonly<{ revision: number; payloadSha256: string }>;
-  normalRestoration?: {
-    plan: unknown;
-    identityJson: string;
-    result: ReturnType<typeof completeRuntimeOwnedCoordinatorHostSubmission>;
-  };
-  hostCleanupPreparation?: {
-    token: string;
-    tokenMatches: boolean;
-    before: Buffer;
-  };
+  completedPlan?: ProductionPlan;
 };
 
 const durableRecords = new WeakMap<object, DurableRecord>();
@@ -1406,8 +1053,6 @@ export function abandonRuntimeOwnedExecutorAttempt(
   );
 }
 
-const dockerHostCleanupCapabilities = new WeakMap<object, object>();
-
 /**
  * docker-recovery-runtime-internalで使用するDocker Restart Preparationの値契約を定義する。
  *
@@ -1470,8 +1115,6 @@ type DockerTaskRecoveryPreparation = {
   recoveryId: string;
   hostGeneration: object;
   hostRoot: string;
-  hostToken: string;
-  hostNonce: string;
   locks: DockerRestartPreparation["locks"];
   before: Buffer;
   /** beforeと同じ版。保存・fresh Readerの相関確認後にだけ一緒に更新する。 */
@@ -1488,15 +1131,17 @@ type DockerTaskRecoveryPreparation = {
   completionAttempted: boolean;
   completionPending: boolean;
   hostCleanup: "present" | "absent" | "unknown";
-  hostCleanupPublication: ReturnType<
-    typeof readState
-  >["hostCleanupPublication"];
 };
 
 const dockerRecoveryPreparations = new WeakMap<
   object,
   DockerRestartPreparation | DockerTaskRecoveryPreparation
 >();
+
+/** 私有準備のkeyに使えるObjectだけを受付する。 @trace ARCH-000008 */
+function isRecoveryCapability(value: unknown): value is object {
+  return value !== null && typeof value === "object";
+}
 
 /**
  * 回収Ownerの保持状態と同じHost markerを再確認する。
@@ -1534,79 +1179,19 @@ function assertCurrentRecoveryOwner(
       verifyHostOperationRecoveryGeneration(
         record.hostGeneration,
         record.hostRoot,
-        record.hostNonce,
+        record.repository.operationId,
       );
     } catch {
       record.cleanupUnknown = true;
       return false;
     }
     if (record.hostCleanup === "unknown") return false;
-    if (record.hostCleanup === "absent") {
-      const observed = observeHostRecoveryCleanup(
-        record.hostToken,
-        record.hostRoot,
-      );
-      return observed.root === "absent" && observed.marker === "absent";
-    }
-    const loaded = loadHostRecoveryRecordByToken(
-      record.hostToken,
-      record.hostRoot,
+    return (
+      observeHostRecoveryRoot(record.hostGeneration) === record.hostCleanup
     );
-    return loaded.parsed.nonce === record.hostNonce;
   } catch {
     return false;
   }
-}
-
-/**
- * 保存済みHost遷移の旧tokenまたは予定tokenだけを実markerへ照合する。
- * @responsibility Host処置後の保存不明でも別markerや任意の後続状態を採用しない。
- * @trace ARCH-000008
- * @input operation: 復号済み現在操作、hostRoot: Identityが固定したRoot。
- * @returns 現在実markerと一致する同じ旧tokenまたは保存済み予定token。
- * @precondition Rootと操作Identityの結合は呼出し側が検査する。
- * @postcondition 予定tokenの採用は既存世代排他の取得許可や清掃完了を意味しない。
- * @effect 同じRootのHost marker読取りのみ。遷移・削除は行わない。
- * @failure 不正lineage、未知資源、未失効Owner、別本文、観測不能は例外で停止する。
- * @invariant 作成結果不明を不存在へ変換せず、旧形式や別Rootへfallbackしない。
- * @boundary 現在stateの保存済み意図と実Host記録。
- * @security 保存JSONだけではOwnerを作らず、取得後にも同じ実markerを確認する。
- * @concurrency 操作全元版の取得前後一致と既存三種排他は外側準備が保持する。
- */
-function resolveCurrentRecoveryHostToken(
-  operation: ExecutionOperationRecord,
-  hostRoot: string,
-  resourcesSettled: boolean,
-  lineage: ExecutionOperationState["hostTransition"],
-): string {
-  const currentToken = operation.host.currentToken;
-  if (operation.host.pendingTransitionJson === null) return currentToken;
-  const intent = JSON.parse(operation.host.pendingTransitionJson);
-  if (intent.nextState !== "docker_absent_confirmed")
-    throw new Error("docker_task_recovery_host_transition_mismatch");
-  if (
-    !lineage ||
-    intent.currentState !== "docker_submission_started" ||
-    lineage.currentToken !== currentToken ||
-    operation.execution.ownerEffect !== "disabled" ||
-    !resourcesSettled
-  )
-    throw new Error("docker_task_recovery_host_transition_mismatch");
-  let loaded: ReturnType<typeof loadHostRecoveryRecordByToken>;
-  try {
-    loaded = loadHostRecoveryRecordByToken(currentToken, hostRoot);
-  } catch {
-    loaded = loadHostRecoveryRecordByToken(lineage.expectedToken, hostRoot);
-    if (
-      loaded.serialized !==
-      canonical({ ...intent.recordBefore, state: "docker_absent_confirmed" })
-    )
-      throw new Error("docker_task_recovery_host_transition_mismatch");
-    return lineage.expectedToken;
-  }
-  if (loaded.serialized !== canonical(intent.recordBefore))
-    throw new Error("docker_task_recovery_host_transition_mismatch");
-  return currentToken;
 }
 
 /**
@@ -1666,14 +1251,6 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
           recoveryId: parsed.token,
         },
       });
-    if (initial.status === "blocked" && initial.lockReleased)
-      initial = readState(rootCapability, {
-        scope: "recovery",
-        input: {
-          kind: "host_cleanup",
-          recoveryId: parsed.token,
-        },
-      });
     if (initial.status !== "completed" && initial.lockReleased)
       initial = readState(historyRepositoryInput(rootCapability), {
         scope: "recovery",
@@ -1716,98 +1293,58 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
       throw new Error(reason);
     }
     const identity = JSON.parse(target.identityJson);
-    const host = parseHostRecoveryToken(target.host.currentToken);
-    const initialHost = parseHostRecoveryToken(identity.initialHostRecoveryId);
-    if (
-      host.rootName !== initialHost.rootName ||
-      host.nonce !== initialHost.nonce ||
-      typeof identity.hostPaths.root !== "string" ||
-      path.basename(identity.hostPaths.root) !== host.rootName
-    )
-      throw new Error(reason);
-    let hostCleanup: DockerTaskRecoveryPreparation["hostCleanup"] = "present";
-    if (
-      target.host.cleanup !== "not_requested" ||
-      coordinatorReleasedTaskCanObserveHostAbsence(target, targetState)
-    ) {
-      const observed = observeHostRecoveryCleanup(
-        target.host.currentToken,
-        identity.hostPaths.root,
-      );
-      if (
-        observed.root === "unknown" ||
-        observed.marker === "unknown" ||
-        (identity.hostPaths.marker !== undefined &&
-          identity.hostPaths.marker !== observed.markerPath)
-      )
-        throw new Error(reason);
-      if (observed.root === "absent" && observed.marker === "absent") {
-        if (
-          target.host.pendingTransitionJson !== null ||
-          target.execution.ownerEffect !== "disabled" ||
-          !targetState.resourcesSettled
-        )
-          throw new Error(reason);
-        hostCleanup = "absent";
-      } else if (
-        target.host.cleanup === "confirmed" ||
-        observed.marker !== "present"
-      )
-        throw new Error(reason);
-    }
-    if (initial.hostCleanupPublication && hostCleanup !== "absent")
-      throw new Error(reason);
-    const observedHostToken =
-      hostCleanup === "absent"
-        ? target.host.currentToken
-        : resolveCurrentRecoveryHostToken(
-            target,
-            identity.hostPaths.root,
-            targetState.resourcesSettled,
-            targetState.hostTransition,
-          );
+    const hosts = initial.value.snapshot.operations.filter(
+      (r): r is Extract<OperationRecord, { kind: "host_operation" }> =>
+        r.kind === "host_operation" && r.operationId === identity.operationId,
+    );
+    const host = hosts.length === 1 ? hosts[0] : null;
+    if (!host || host.purpose === "isolation_probe")
+      throw Error("docker_task_recovery_host_binding_invalid");
+    const hostRoot = path.join(
+      repository.repositoryRoot,
+      ".crdd",
+      "operations",
+      host.operationId,
+    );
     acquisitionPending = true;
-    const generation =
-      hostCleanup === "absent"
-        ? acquireHostOperationRecoveryGenerationByIdentity(
-            identity.hostPaths.root,
-            host.nonce,
-          )
-        : acquireHostOperationRecoveryGeneration(
-            observedHostToken,
-            identity.hostPaths.root,
-          );
+    const generation = acquireHostOperationRecoveryGeneration(
+      repository.root,
+      host.recoveryId,
+      repository.revalidate,
+      initial.resourcePublication
+        ? { kind: "resource_publication", recoveryId: parsed.token }
+        : initial.currentHistoryPublication
+          ? {
+              kind: "execution_history",
+              recoveryId: parsed.token,
+              history: historyRepositoryInput(repository.root),
+            }
+          : initial.currentCompletionPublication
+            ? { kind: "execution_completion", recoveryId: parsed.token }
+            : undefined,
+    );
     if (!generation) {
       reason = "docker_task_recovery_host_active_or_unknown";
-      throw new Error(reason);
+      throw Error(reason);
     }
     locks.push({
       assertLive: () => {
         verifyHostOperationRecoveryGeneration(
           generation,
-          identity.hostPaths.root,
-          host.nonce,
+          hostRoot,
+          host.operationId,
         );
         return true;
       },
       release: () => releaseHostOperationRecoveryGeneration(generation),
     });
     acquisitionPending = false;
-    verifyHostOperationRecoveryGeneration(
-      generation,
-      identity.hostPaths.root,
-      host.nonce,
-    );
-    if (hostCleanup === "present")
-      loadHostRecoveryRecordByToken(observedHostToken, identity.hostPaths.root);
-    else {
-      const observed = observeHostRecoveryCleanup(
-        observedHostToken,
-        identity.hostPaths.root,
-      );
-      if (observed.root !== "absent" || observed.marker !== "absent")
-        throw new Error(reason);
-    }
+    const hostCleanup = observeHostRecoveryRoot(generation);
+    if (
+      hostCleanup === "unknown" ||
+      (host.cleanup === "confirmed" && hostCleanup !== "absent")
+    )
+      throw Error("docker_task_recovery_host_observation_unknown");
     acquisitionPending = true;
     const home = acquireProviderHomeLock(
       parsed.stableLogicalHomeBindingHash,
@@ -1835,7 +1372,6 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
     }
     locks.push(runtime.lock);
     acquisitionPending = false;
-    const publication = initial.hostCleanupPublication ?? null;
     let current = initial.resourcePublication
       ? readState(rootCapability, {
           scope: "recovery",
@@ -1844,31 +1380,23 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
             recoveryId: parsed.token,
           },
         })
-      : publication
-        ? readState(rootCapability, {
+      : initial.currentHistoryPublication
+        ? readState(historyRepositoryInput(rootCapability), {
             scope: "recovery",
             input: {
-              kind: "host_cleanup",
+              kind: "execution_history",
               recoveryId: parsed.token,
             },
           })
-        : initial.currentHistoryPublication
-          ? readState(historyRepositoryInput(rootCapability), {
+        : initial.currentCompletionPublication
+          ? readState(rootCapability, {
               scope: "recovery",
               input: {
-                kind: "execution_history",
+                kind: "execution_completion",
                 recoveryId: parsed.token,
               },
             })
-          : initial.currentCompletionPublication
-            ? readState(rootCapability, {
-                scope: "recovery",
-                input: {
-                  kind: "execution_completion",
-                  recoveryId: parsed.token,
-                },
-              })
-            : readState(rootCapability, { scope: "recovery" });
+          : readState(rootCapability, { scope: "recovery" });
     cleanupConfirmed &&= current.lockReleased;
     let before = Buffer.from(initial.value.sourceText, "utf8");
     if (
@@ -1876,13 +1404,6 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
       !current.value ||
       !current.lockReleased ||
       !Buffer.from(current.value.sourceText, "utf8").equals(before) ||
-      (publication &&
-        (!current.hostCleanupPublication ||
-          current.hostCleanupPublication.mode !== publication.mode ||
-          !current.hostCleanupPublication.before.equals(publication.before) ||
-          !current.hostCleanupPublication.candidate.equals(
-            publication.candidate,
-          ))) ||
       (initial.resourcePublication &&
         (!current.resourcePublication?.before.equals(
           initial.resourcePublication.before,
@@ -1910,13 +1431,11 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
               return false;
             verifyHostOperationRecoveryGeneration(
               generation,
-              identity.hostPaths.root,
-              host.nonce,
+              hostRoot,
+              host.operationId,
             );
-            loadHostRecoveryRecordByToken(
-              observedHostToken,
-              identity.hostPaths.root,
-            );
+            if (observeHostRecoveryRoot(generation) !== hostCleanup)
+              return false;
             return true;
           },
         },
@@ -1948,16 +1467,17 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
     const capability = Object.freeze({});
     const record: DockerTaskRecoveryPreparation = {
       kind: "recovery",
-      repository: Object.freeze({
-        ...repository,
-        operationId: identity.operationId,
-      }),
+      repository: Object.freeze(
+        Object.defineProperty(
+          { ...repository, operationId: identity.operationId },
+          "root",
+          { value: repository.root },
+        ),
+      ),
       rootCapability,
       recoveryId: target.recoveryId,
       hostGeneration: generation,
-      hostRoot: identity.hostPaths.root,
-      hostToken: observedHostToken,
-      hostNonce: host.nonce,
+      hostRoot,
       locks: Object.freeze(locks),
       before,
       snapshot: current.value.snapshot,
@@ -1971,13 +1491,6 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
       finalizationAttempted: false,
       completionAttempted: false,
       completionPending: Boolean(initial.currentCompletionPublication),
-      hostCleanupPublication: publication
-        ? Object.freeze({
-            ...publication,
-            before: Buffer.from(publication.before),
-            candidate: Buffer.from(publication.candidate),
-          })
-        : null,
     };
     dockerRecoveryPreparations.set(capability, record);
     if (!assertCurrentRecoveryOwner(capability, record)) {
@@ -2008,83 +1521,33 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
   }
 }
 
-/**
- * 保持中の回収Ownerの固定途中評価を現在状態へ確定する。
- * @responsibility 元本文の競合、保存不明と失効後の追加Writerを拒否する。
- * @trace ARCH-000008
- * @input capability: 私有回収準備、kind・value: 固定途中checkpoint。
- * @returns 保存・全読戻し・短命Writer排他の解放・保持中Ownerの再確認が成立した場合だけtrue。
- * @precondition 同じHost markerと三種排他が生存している。
- * @postcondition 確認済み次版本文だけをOwnerの元版へ更新する。
- * @effect 同じ操作の固定state更新と読戻しだけ。
- * @failure 偽造、コピー、種別差、失効・元版差・保存不明は停止する。
- * @invariant 不明後の追加Writerを停止し、旧要求成功やDocker回収成功を推定しない。
- * @boundary 私有回収Ownerと既存Writer／Reader。
- * @security 任意candidate、外部callback、旧実行Capabilityを受け取らない。
- * @concurrency 保存内の再確認と保存後の全版相関を行う。
- */
+/** 同じ回収Ownerと元版に結び付く技術評価だけを保存する。 @trace ARCH-000008 */
 export function persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
   capability: unknown,
-  kind: "resource" | "cleanup" | "host" | "lifecycle",
+  kind: "resource" | "cleanup" | "lifecycle",
   value: unknown,
 ): boolean {
-  if (!capability || typeof capability !== "object") return false;
+  if (!isRecoveryCapability(capability)) return false;
   const record = dockerRecoveryPreparations.get(capability);
-  const absentHostCheckpoint =
-    record?.kind === "recovery" &&
-    record.hostCleanup === "absent" &&
-    kind === "host";
   if (
     record?.kind !== "recovery" ||
     record.closed ||
     record.persistenceFailed ||
     record.cleanupUnknown ||
-    (record.hostCleanup !== "present" && !absentHostCheckpoint) ||
-    record.hostCleanupPublication !== null
+    record.hostCleanup === "unknown" ||
+    (record.hostCleanup === "absent" && kind !== "lifecycle")
   )
     return false;
   record.persistenceFailed = true;
   try {
     if (!assertCurrentRecoveryOwner(capability, record)) return false;
-    const checkpointValue =
-      kind === "host"
-        ? (snapshotJsonValue(value) as Record<string, unknown>)
-        : value;
-    if (absentHostCheckpoint) {
-      const operation = record.snapshot.operations.find(
-        (item): item is ExecutionOperationRecord =>
-          item.kind === "docker_task" && item.recoveryId === record.recoveryId,
-      );
-      if (
-        !operation ||
-        !coordinatorReleasedTaskCanObserveHostAbsence(
-          operation,
-          record.operationStates.find(
-            (state): state is ExecutionOperationState =>
-              state.kind === "docker_task" && state.operation === operation,
-          ),
-        ) ||
-        operation.host.cleanup !== "not_requested" ||
-        !isDeepStrictEqual(
-          snapshotJsonValue(checkpointValue),
-          snapshotJsonValue({ ...operation.host, cleanup: "pending" }),
-        )
-      )
-        return false;
-    }
-    if (
-      kind === "host" &&
-      (checkpointValue as Record<string, unknown>).currentToken !==
-        record.hostToken
-    )
-      return false;
     const saved = saveRecoveryCheckpoint(
       record.repository,
       record.recoveryId,
       record.before,
       {
-        kind: kind,
-        value: checkpointValue,
+        kind,
+        value,
         assertOwner: () => assertCurrentRecoveryOwner(capability, record),
       },
     );
@@ -2162,8 +1625,7 @@ function retireRuntimeOwnedDockerTaskExecutionOwner(
       current.status === "blocked" &&
       current.lockReleased === true &&
       record.completionPending === false &&
-      record.hostCleanup === "absent" &&
-      record.hostCleanupPublication === null
+      record.hostCleanup === "absent"
     )
       current = readState(historyRepositoryInput(record.rootCapability), {
         scope: "recovery",
@@ -2283,8 +1745,7 @@ export function finalizeRuntimeOwnedDockerTaskRecoveryPreparation(
     record.finalizationAttempted ||
     record.persistenceFailed ||
     record.cleanupUnknown ||
-    record.hostCleanup !== "absent" ||
-    record.hostCleanupPublication !== null
+    record.hostCleanup !== "absent"
   )
     return refused;
   record.finalizationAttempted = true;
@@ -2322,11 +1783,10 @@ export function finalizeRuntimeOwnedDockerTaskRecoveryPreparation(
             !record.repository.revalidate()
           )
             return false;
-          const observed = observeHostRecoveryCleanup(
-            record.hostToken,
-            record.hostRoot,
+          return isHostOperationRootAbsent(
+            record.repository.root,
+            record.repository.operationId,
           );
-          return observed.root === "absent" && observed.marker === "absent";
         },
       },
     );
@@ -2383,8 +1843,7 @@ export function completeRuntimeOwnedDockerTaskRecoveryHistory(
     !record.finalizationAttempted ||
     record.persistenceFailed ||
     record.cleanupUnknown ||
-    record.hostCleanup !== "absent" ||
-    record.hostCleanupPublication !== null
+    record.hostCleanup !== "absent"
   )
     return refused;
   let active = true;
@@ -2409,11 +1868,10 @@ export function completeRuntimeOwnedDockerTaskRecoveryHistory(
           !record.repository.revalidate()
         )
           return false;
-        const observed = observeHostRecoveryCleanup(
-          record.hostToken,
-          record.hostRoot,
+        return isHostOperationRootAbsent(
+          record.repository.root,
+          record.repository.operationId,
         );
-        return observed.root === "absent" && observed.marker === "absent";
       },
       "docker_task",
     );
@@ -2571,6 +2029,7 @@ export function resolveRuntimeOwnedDockerTaskCurrentCorrelations(
     const matches = new Map<string, string>();
     const recoveries = new Set<string>();
     for (const operation of observed.value.snapshot.operations) {
+      if (operation.kind !== "docker_task") continue;
       const identity = JSON.parse(operation.identityJson);
       const correlation = identity.recoveryCorrelationId;
       if (correlation === undefined && identity.consumer !== consumer) continue;
@@ -2793,30 +2252,14 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
       dockerCleanupConfirmed = true;
       await setImmediate();
       if (signal?.aborted) throw new Error("docker_task_recovery_cancelled");
-      reason = "docker_task_recovery_host_absence_unconfirmed";
-      if (!confirmRuntimeOwnedDockerTaskHostAbsence(capability))
-        throw new Error(reason);
     } else if (record.hostCleanup === "absent") {
       // prepareが既知終端の五資源と現在Host両不存在を照合済み。
       dockerCleanupConfirmed = true;
     } else throw new Error(reason);
     await setImmediate();
     if (signal?.aborted) throw new Error("docker_task_recovery_cancelled");
-    const operation = record.snapshot.operations.find(
-      (item): item is ExecutionOperationRecord =>
-        item.kind === "docker_task" && item.recoveryId === record.recoveryId,
-    );
-    if (
-      !(
-        record.hostCleanup === "absent" &&
-        record.hostCleanupPublication === null &&
-        operation?.host.cleanup === "confirmed"
-      )
-    ) {
-      reason = "docker_task_recovery_host_cleanup_unconfirmed";
-      if (!cleanupRuntimeOwnedDockerTaskHost(capability))
-        throw new Error(reason);
-    }
+    reason = "docker_task_recovery_host_cleanup_unconfirmed";
+    if (!cleanupRuntimeOwnedDockerTaskHost(capability)) throw Error(reason);
     hostCleanupConfirmed = true;
     settled = true;
   } catch (error) {
@@ -2958,8 +2401,7 @@ export function completeRuntimeOwnedDockerTaskRecovery(capability: unknown) {
     record.completionAttempted ||
     record.persistenceFailed ||
     record.cleanupUnknown ||
-    record.hostCleanup !== "absent" ||
-    record.hostCleanupPublication !== null
+    record.hostCleanup !== "absent"
   )
     return refused;
   record.completionAttempted = true;
@@ -2977,11 +2419,10 @@ export function completeRuntimeOwnedDockerTaskRecovery(capability: unknown) {
           !record.repository.revalidate()
         )
           return false;
-        const host = observeHostRecoveryCleanup(
-          record.hostToken,
-          record.hostRoot,
+        return isHostOperationRootAbsent(
+          record.repository.root,
+          record.repository.operationId,
         );
-        return host.root === "absent" && host.marker === "absent";
       },
       "docker_task",
     );
@@ -3075,8 +2516,7 @@ export async function recoverRuntimeOwnedDockerTaskResources(
     record?.kind !== "recovery" ||
     record.closed ||
     record.persistenceFailed ||
-    record.cleanupUnknown ||
-    record.hostCleanupPublication !== null
+    record.cleanupUnknown
   )
     return result(false, "docker_task_recovery_owner_unconfirmed");
   const current = () => {
@@ -3116,7 +2556,7 @@ export async function recoverRuntimeOwnedDockerTaskResources(
       ) ?? false;
     const borrowed = requested
       ? borrowHostRecoveryManagementDirectory(
-          record.hostToken,
+          "host-operation." + record.repository.operationId,
           record.hostGeneration,
         )
       : null;
@@ -3331,207 +2771,11 @@ export function executeRuntimeOwnedDockerTaskResourceRecovery(
   );
 }
 
-/**
- * 同じ版のモデル事実と実Hostの初期状態を共同確認する。
- * @responsibility モデルの再導出を行わず、実Host状態・exact tokenだけを照合する。
- * @trace ARCH-000008
- * @input operation: 現在操作、initialHostMatches: 同じ版のReader事実、hostToken／hostState: 実観測。
- * @returns 三条件の共同成立だけtrue。
- * @effect N/A: 局所値の比較だけ。
- * @security Reader成功・元版一致を先に確認し、blockedの空一覧を不存在証拠にしない。
- */
-function isUnsubmittedInitialTaskHost(
-  operation: ExecutionOperationRecord,
-  initialHostMatches: boolean,
-  hostToken: string,
-  hostState: unknown,
-): boolean {
-  return (
-    initialHostMatches === true &&
-    hostState === "host_only" &&
-    hostToken === operation.host.currentToken
-  );
-}
-
-/**
- * 回収済み資源に対応するHost不存在遷移を現在stateと共同確定する。
- * @responsibility 遷移前意図の保存と実marker確認を、同じ回収Ownerへ結合する。
- * @trace ARCH-000008
- * @input capability: 既存準備Mapの真正な回収Owner。
- * @returns 遷移後tokenの保存・読戻しまで確認できた場合だけtrue。
- * @precondition 元OwnerはEffect不能で、五資源は既知の終了条件を満たす。
- * @postcondition Host領域やmarkerの削除、Lease解放、Task成功は確定しない。未submissionの初期切断だけは遷移不要とする。
- * @effect 同RootのHost状態遷移と同じ操作の固定host欄だけを保存する。
- * @failure 失効、元版差、保存・処置返却不明は停止し、同Ownerで再処置しない。
- * @invariant 過去Create unknownを消さず、予定token以外を採用しない。
- * @boundary 現在回収Owner・固定Writerと既存Host遷移。
- * @security 旧managementを復元せず、保存意図だけから処置Ownerを生成しない。
- * @concurrency Host／Home／Runtime排他を保持し、処置・保存直前に再確認する。
- */
-export function confirmRuntimeOwnedDockerTaskHostAbsence(
-  capability: unknown,
-): boolean {
-  if (!capability || typeof capability !== "object") return false;
-  const record = dockerRecoveryPreparations.get(capability);
-  if (
-    record?.kind !== "recovery" ||
-    record.closed ||
-    record.persistenceFailed ||
-    record.cleanupUnknown ||
-    record.hostCleanupPublication !== null
-  )
-    return false;
-  try {
-    if (!assertCurrentRecoveryOwner(capability, record)) return false;
-    const current = readState(record.rootCapability, {
-      scope: "recovery",
-      input: {
-        kind: "initial_host",
-        recoveryId: record.recoveryId,
-      },
-    });
-    if (!current.lockReleased) record.cleanupUnknown = true;
-    if (
-      current.status !== "completed" ||
-      !current.value ||
-      !current.lockReleased ||
-      !Buffer.from(current.value.sourceText, "utf8").equals(record.before)
-    )
-      throw new Error("docker_task_recovery_boundary_changed");
-    const operation = current.value.snapshot.operations.find(
-      (item): item is ExecutionOperationRecord =>
-        item.kind === "docker_task" && item.recoveryId === record.recoveryId,
-    );
-    const operationState = current.value.operationStates.find(
-      (state): state is ExecutionOperationState =>
-        state.kind === "docker_task" && state.operation === operation,
-    );
-    if (
-      operation?.execution.ownerEffect !== "disabled" ||
-      operationState?.resourcesSettled !== true
-    )
-      return false;
-    const loaded = loadHostRecoveryRecordByToken(
-      record.hostToken,
-      record.hostRoot,
-    );
-    if (
-      isUnsubmittedInitialTaskHost(
-        operation,
-        current.unsubmittedHostRecoveryIds.includes(record.recoveryId),
-        record.hostToken,
-        loaded.record.state,
-      )
-    )
-      return true;
-    if (
-      operation.host.pendingTransitionJson === null &&
-      loaded.record.state === "docker_absent_confirmed"
-    )
-      return record.hostToken === operation.host.currentToken;
-    const intent =
-      operation.host.pendingTransitionJson === null
-        ? expectedHostSuccessor(
-            operation.host.currentToken,
-            "docker_absent_confirmed",
-            record.hostRoot,
-          )
-        : JSON.parse(operation.host.pendingTransitionJson);
-    if (
-      intent.currentState !== "docker_submission_started" ||
-      intent.nextState !== "docker_absent_confirmed" ||
-      intent.currentToken !== operation.host.currentToken
-    )
-      throw new Error("docker_task_recovery_host_transition_mismatch");
-    if (operation.host.pendingTransitionJson === null) {
-      if (
-        !persistRuntimeOwnedDockerTaskRecoveryCheckpoint(capability, "host", {
-          ...operation.host,
-          pendingTransitionJson: canonical(intent),
-        })
-      )
-        return false;
-    }
-    const lineage =
-      operation.host.pendingTransitionJson === null
-        ? record.operationStates.find(
-            (state): state is ExecutionOperationState =>
-              state.kind === "docker_task" &&
-              state.operation.recoveryId === record.recoveryId,
-          )?.hostTransition
-        : operationState.hostTransition;
-    if (
-      !lineage ||
-      lineage.currentToken !== intent.currentToken ||
-      lineage.expectedToken !== intent.expectedToken
-    )
-      throw new Error("docker_task_recovery_host_transition_mismatch");
-    // 同じ意図の耐久化後だけ、旧markerから一度遷移する。
-    if (!assertCurrentRecoveryOwner(capability, record))
-      throw new Error("docker_task_recovery_owner_unconfirmed");
-    if (record.hostToken === lineage.currentToken) {
-      const beforeEffect = readState(record.rootCapability, {
-        scope: "recovery",
-      });
-      if (!beforeEffect.lockReleased) record.cleanupUnknown = true;
-      if (
-        beforeEffect.status !== "completed" ||
-        !beforeEffect.value ||
-        !beforeEffect.lockReleased ||
-        !Buffer.from(beforeEffect.value.sourceText, "utf8").equals(
-          record.before,
-        ) ||
-        !assertCurrentRecoveryOwner(capability, record)
-      )
-        throw new Error("docker_task_recovery_boundary_changed");
-      const updated = confirmOwnedDockerAbsenceForRecovery(
-        record.hostToken,
-        record.hostGeneration,
-      );
-      if (updated !== lineage.expectedToken)
-        throw new Error("docker_task_recovery_host_transition_mismatch");
-      const observed = loadHostRecoveryRecordByToken(updated, record.hostRoot);
-      if (
-        observed.serialized !==
-        canonical({ ...intent.recordBefore, state: "docker_absent_confirmed" })
-      )
-        throw new Error("docker_task_recovery_host_transition_mismatch");
-      record.hostToken = updated;
-    } else if (record.hostToken !== lineage.expectedToken) {
-      throw new Error("docker_task_recovery_host_transition_mismatch");
-    }
-    if (!assertCurrentRecoveryOwner(capability, record))
-      throw new Error("docker_task_recovery_owner_unconfirmed");
-    return persistRuntimeOwnedDockerTaskRecoveryCheckpoint(capability, "host", {
-      ...operation.host,
-      currentToken: lineage.expectedToken,
-      pendingTransitionJson: null,
-    });
-  } catch {
-    record.persistenceFailed = true;
-    return false;
-  }
-}
-
-/**
- * 同じ現在OwnerでHost清掃の意図・処置・確定を閉じる。
- * @responsibility 物理清掃後も世代排他と両不存在を保持し、保存だけの再入場を許可する。
- * @trace ARCH-000008
- * @input capability: genuineな現在回収準備。
- * @returns Host清掃確定、または既確定かつ現在不存在の場合だけtrue。
- * @precondition Owner Effect無効・五資源既知終端・Host遷移確定済みである。
- * @postcondition 清掃予定を保存してから削除し、実不存在後だけHost一欄を確定する。
- * @effect 同じHost Root／markerの回収と固定現在状態保存。
- * @failure 保存・元版・排他・処置・観測不明では同じ参照とpendingを保持する。
- * @invariant Host清掃だけからTask成功・Lease解放・全体回復を推定しない。
- * @boundary 現在回収Owner、Host回収と既存状態Writer。
- * @security 任意Path・対象・callbackを受け取らず、一般checkpointのconfirmed拒否を維持する。
- * @concurrency 処置直前と保存排他下で同じ世代・現在版・不存在を再確認する。
- */
+/** 子の技術終結・元Lease解放を保存し、同じHost Ownerで実体を回収する。 @trace ARCH-000008 */
 export function cleanupRuntimeOwnedDockerTaskHost(
   capability: unknown,
 ): boolean {
-  if (!capability || typeof capability !== "object") return false;
+  if (!isRecoveryCapability(capability)) return false;
   const record = dockerRecoveryPreparations.get(capability);
   if (
     record?.kind !== "recovery" ||
@@ -3542,21 +2786,18 @@ export function cleanupRuntimeOwnedDockerTaskHost(
     return false;
   try {
     if (!assertCurrentRecoveryOwner(capability, record)) return false;
-    const current = record.hostCleanupPublication
-      ? readState(record.rootCapability, {
-          scope: "recovery",
-          input: {
-            kind: "host_cleanup",
-            recoveryId: record.recoveryId,
-          },
-        })
-      : readState(record.rootCapability, {
-          scope: "recovery",
-          input: {
-            kind: "initial_host",
-            recoveryId: record.recoveryId,
-          },
-        });
+    const current = readState(
+      record.rootCapability,
+      record.completionPending
+        ? {
+            scope: "recovery",
+            input: {
+              kind: "execution_completion",
+              recoveryId: record.recoveryId,
+            },
+          }
+        : { scope: "recovery" },
+    );
     if (!current.lockReleased) record.cleanupUnknown = true;
     if (
       current.status !== "completed" ||
@@ -3564,145 +2805,100 @@ export function cleanupRuntimeOwnedDockerTaskHost(
       !current.lockReleased ||
       !Buffer.from(current.value.sourceText, "utf8").equals(record.before)
     )
-      throw new Error("docker_task_recovery_boundary_changed");
-    const operation = current.value.snapshot.operations.find(
-      (item): item is ExecutionOperationRecord =>
-        item.kind === "docker_task" && item.recoveryId === record.recoveryId,
+      return false;
+    const state = current.value.operationStates.find(
+      (r) =>
+        r.kind === "docker_task" &&
+        r.operation.recoveryId === record.recoveryId,
     );
     if (
-      !operation ||
-      operation.host.currentToken !== record.hostToken ||
-      operation.host.pendingTransitionJson !== null ||
-      operation.execution.ownerEffect !== "disabled" ||
-      current.value.operationStates.find(
-        (state): state is ExecutionOperationState =>
-          state.kind === "docker_task" && state.operation === operation,
-      )?.resourcesSettled !== true
+      state?.kind !== "docker_task" ||
+      !state.resourcesSettled ||
+      !state.restartSettled ||
+      state.operation.execution.ownerEffect !== "disabled"
     )
       return false;
-    if (
-      operation.host.cleanup === "confirmed" &&
-      !record.hostCleanupPublication
-    )
-      return (
-        record.hostCleanup === "absent" &&
-        assertCurrentRecoveryOwner(capability, record)
-      );
-    if (
-      record.hostCleanup === "absent" &&
-      operation.host.cleanup === "not_requested" &&
-      !persistRuntimeOwnedDockerTaskRecoveryCheckpoint(capability, "host", {
-        ...operation.host,
-        cleanup: "pending",
-      })
-    )
-      return false;
-    if (record.hostCleanup === "present") {
-      const loaded = loadHostRecoveryRecordByToken(
-        record.hostToken,
-        record.hostRoot,
-      );
+    const operation = state.operation;
+    if (record.completionPending) {
+      // Hostは既に終結済み。途中保存の同じ断面を観測するだけで再清掃しない。
       if (
-        loaded.record.state !== "docker_absent_confirmed" &&
-        !isUnsubmittedInitialTaskHost(
-          operation,
-          current.unsubmittedHostRecoveryIds.includes(record.recoveryId),
-          record.hostToken,
-          loaded.record.state,
-        )
+        record.hostCleanup !== "absent" ||
+        operation.lease !== "released" ||
+        JSON.parse(operation.identityJson).operationId !==
+          record.repository.operationId ||
+        current.value.snapshot.operations.filter(
+          (item) =>
+            item.kind === "docker_task" &&
+            item.recoveryId === record.recoveryId,
+        ).length !== 1
       )
         return false;
+      const host = readHostRecoveryOperation(record.hostGeneration);
+      const hosts = current.value.snapshot.operations.filter(
+        (item) =>
+          item.kind === "host_operation" &&
+          item.operationId === record.repository.operationId,
+      );
       if (
-        operation.host.cleanup === "not_requested" &&
-        !persistRuntimeOwnedDockerTaskRecoveryCheckpoint(capability, "host", {
-          ...operation.host,
-          cleanup: "pending",
-        })
+        !host ||
+        hosts.length !== 1 ||
+        host.record.phase !== "terminal" ||
+        host.record.cleanup !== "confirmed" ||
+        !isDeepStrictEqual(host.record, hosts[0]) ||
+        !isDeepStrictEqual(host.snapshot, current.value.snapshot) ||
+        host.payloadSha256 !== current.value.payloadSha256 ||
+        observeHostRecoveryRoot(record.hostGeneration) !== "absent"
       )
         return false;
-      const beforeEffect = readState(record.rootCapability, {
-        scope: "recovery",
-      });
-      if (!beforeEffect.lockReleased) record.cleanupUnknown = true;
-      if (
-        beforeEffect.status !== "completed" ||
-        !beforeEffect.value ||
-        !beforeEffect.lockReleased ||
-        !Buffer.from(beforeEffect.value.sourceText, "utf8").equals(
-          record.before,
-        ) ||
-        !assertCurrentRecoveryOwner(capability, record)
-      )
-        throw new Error("docker_task_recovery_boundary_changed");
-      const result = recoverOwnedOperationDirectories(
-        record.hostToken,
-        record.hostGeneration,
-        record.hostRoot,
-      );
-      const observed = observeHostRecoveryCleanup(
-        record.hostToken,
-        record.hostRoot,
-      );
-      if (
-        result.status !== "recovered" ||
-        observed.root !== "absent" ||
-        observed.marker !== "absent"
-      ) {
-        record.hostCleanup = "unknown";
-        throw new Error("docker_task_recovery_host_cleanup_unconfirmed");
-      }
-      record.hostCleanup = "absent";
+      return assertCurrentRecoveryOwner(capability, record);
     }
     if (
-      record.hostCleanup !== "absent" ||
-      !assertCurrentRecoveryOwner(capability, record)
+      operation.lease !== "released" &&
+      !persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
+        capability,
+        "lifecycle",
+        {
+          phase: "settling",
+          lease: "released",
+          execution: operation.execution,
+          primaryFailure: operation.primaryFailure,
+          outcome: operation.outcome,
+          summarySha256: operation.summarySha256,
+        },
+      )
     )
       return false;
-    record.persistenceFailed = true;
-    const saved = saveRecoveryCheckpoint(
-      record.repository,
-      record.recoveryId,
-      record.before,
-      {
-        kind: "host_cleanup",
-        assertAbsentOwner: () =>
-          record.hostCleanup === "absent" &&
-          assertCurrentRecoveryOwner(capability, record),
-        publication: record.hostCleanupPublication,
-      },
+    const recovered = recoverOwnedOperationDirectories(
+      "host-operation." + record.repository.operationId,
+      record.hostGeneration,
     );
-    if (!saved.lockReleased) record.cleanupUnknown = true;
     if (
-      saved.status !== "completed" ||
-      !saved.snapshotConfirmed ||
-      !saved.lockReleased
-    )
+      recovered.status !== "recovered" ||
+      observeHostRecoveryRoot(record.hostGeneration) !== "absent"
+    ) {
+      record.hostCleanup = "unknown";
       return false;
+    }
+    record.hostCleanup = "absent";
     const after = readState(record.rootCapability, { scope: "recovery" });
     if (!after.lockReleased) record.cleanupUnknown = true;
-    const confirmed = after.value?.snapshot.operations.find(
-      (item): item is ExecutionOperationRecord =>
-        item.kind === "docker_task" && item.recoveryId === record.recoveryId,
-    );
     if (
       after.status !== "completed" ||
       !after.value ||
       !after.lockReleased ||
-      after.value.snapshot.revision !== saved.revision ||
-      after.value.payloadSha256 !== saved.payloadSha256 ||
-      confirmed?.host.cleanup !== "confirmed" ||
-      confirmed.host.currentToken !== record.hostToken ||
-      confirmed.host.pendingTransitionJson !== null ||
-      !assertCurrentRecoveryOwner(capability, record)
+      !after.value.snapshot.operations.some(
+        (r) =>
+          r.kind === "host_operation" &&
+          r.operationId === record.repository.operationId &&
+          r.cleanup === "confirmed" &&
+          r.phase === "terminal",
+      )
     )
       return false;
-    // 正規候補の検査はWriterが所有する。同じ確定版の読戻し本文を次の元版にする。
     record.before = Buffer.from(after.value.sourceText, "utf8");
     record.snapshot = after.value.snapshot;
     record.operationStates = after.value.operationStates;
-    record.hostCleanupPublication = null;
-    record.persistenceFailed = false;
-    return true;
+    return assertCurrentRecoveryOwner(capability, record);
   } catch {
     record.cleanupUnknown = true;
     return false;
@@ -3755,41 +2951,6 @@ function validProductionPlan(plan: ProductionPlan) {
       plan.workspaceMountMode === "read_write" ||
       plan.workspaceMountMode === "read_only")
   );
-}
-
-/**
- * expected Host Successorを決定する。
- *
- * @responsibility expected Host Successorの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input currentToken: string、nextState: string
- * @returns expectedHostSuccessorの計算結果を返す。
- * @precondition 「currentToken: string、nextState: string」がexpectedHostSuccessorの入力契約を満たす。
- * @postcondition expectedHostSuccessorの責務を完了した結果だけを返す。
- * @effect N/A: expectedHostSuccessorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: expectedHostSuccessorは独自の失敗分岐を所有しない。
- * @invariant expectedHostSuccessorは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: expectedHostSuccessorはProcess内の同一Subsystemで完結する。
- * @security expectedHostSuccessorはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: expectedHostSuccessorは共有非同期状態を持たない同期処理である。
- */
-function expectedHostSuccessor(
-  currentToken: string,
-  nextState: string,
-  expectedRoot: string,
-) {
-  const loaded = loadHostRecoveryRecordByToken(currentToken, expectedRoot);
-  const serialized = canonical({ ...loaded.record, state: nextState });
-  const hash = createHash("sha256").update(serialized).digest("hex");
-  return Object.freeze({
-    currentToken,
-    expectedToken: `host.${loaded.parsed.rootName}.${loaded.parsed.nonce}.${hash}`,
-    rootName: loaded.parsed.rootName,
-    nonce: loaded.parsed.nonce,
-    currentState: loaded.record.state,
-    nextState,
-    recordBefore: loaded.record,
-  });
 }
 
 /**
@@ -3855,20 +3016,21 @@ function beginProductionRecovery(
         current.value?.snapshot.operations.some((item) =>
           item.kind === "runtime_repair"
             ? item.phase !== "terminal"
-            : JSON.parse(item.identityJson).stableLogicalHomeBindingHash ===
-                plan.stableLogicalHomeBindingHash && item.lease !== "released",
+            : item.kind === "docker_task" &&
+              JSON.parse(item.identityJson).stableLogicalHomeBindingHash ===
+                plan.stableLogicalHomeBindingHash &&
+              item.lease !== "released",
         )
       )
         throw new Error("docker_recovery_runtime_state_conflict");
       stage = "operation_binding";
-      const initial = readOperationStateStage(managementCapability, {
-        kind: "operation_start",
-        identityJson,
-      });
       recoveryId =
-        initial.kind === "operation_start" && initial.status === "completed"
-          ? (initial.operationIdentity?.recoveryId ?? null)
-          : null;
+        "docker-task." +
+        plan.stableLogicalHomeBindingHash +
+        "." +
+        nonce +
+        "." +
+        createHash("sha256").update(identityJson, "utf8").digest("hex");
       if (!recoveryId)
         throw new Error("docker_recovery_operation_binding_invalid");
       diagnosticRecoveryId = recoveryId;
@@ -3913,22 +3075,9 @@ function beginProductionRecovery(
       if (!context)
         throw new Error("docker_recovery_settlement_binding_invalid");
       record.settlementContext = context;
-      stage = "host_submission";
-      const started = beginRuntimeOwnedCoordinatorHostSubmission(
-        managementCapability,
-        recoveryId,
-      );
-      record.initializationHostResult = started;
-      if (started.status !== "completed" || !started.hostTransitionConfirmed) {
-        record.initializationFailure = started.reason;
-        return Object.freeze({
-          status: "blocked" as const,
-          recoveryId,
-          recoveryCapability: capability,
-          reason: started.reason,
-          manualRecoveryRequired: true,
-        });
-      }
+      const host = readOwnedHostOperation(managementCapability).record;
+      if (host.operationId !== plan.operationId || host.phase !== "active")
+        throw Error("docker_recovery_host_binding_invalid");
       record.initializationReady = true;
       ready = true;
       return Object.freeze({
@@ -4003,11 +3152,15 @@ export function prepareRuntimeOwnedRepositoryDockerOperationIdentity(
     const repository =
       borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
     if (!repository || repository.operationId !== plan.operationId) return null;
-    const ownedHost = borrowOwnedHostRecoverySnapshot(managementCapability);
-    const initialHostRecoveryId = ownedHost.snapshot.token;
-    const initialHostRecovery = ownedHost.snapshot;
+    const host = readOwnedHostOperation(managementCapability).record;
+    if (
+      host.operationId !== plan.operationId ||
+      host.phase !== "active" ||
+      host.purpose === "isolation_probe"
+    )
+      return null;
     const identity = {
-      schema: "crdd-coordinator/operation-identity/v5",
+      schema: "crdd-coordinator/operation-identity/v6",
       operationNonce,
       provider: plan.provider,
       consumer,
@@ -4029,22 +3182,9 @@ export function prepareRuntimeOwnedRepositoryDockerOperationIdentity(
       ...(plan.recoveryCorrelationId
         ? { recoveryCorrelationId: plan.recoveryCorrelationId }
         : {}),
-      initialHostRecoveryId,
-      initialHostRecovery,
-      hostPaths: ownedHost.hostPaths,
     };
     const identityJson = `${JSON.stringify(identity)}\n`;
-    const inspected = readOperationStateStage(managementCapability, {
-      kind: "operation_start",
-      identityJson,
-    });
-    return inspected.kind === "operation_start" &&
-      inspected.status === "completed" &&
-      inspected.operationIdentity &&
-      inspected.operationIdentity.operationId === plan.operationId &&
-      repository.revalidate()
-      ? identityJson
-      : null;
+    return repository.revalidate() ? identityJson : null;
   } catch {
     return null;
   }
@@ -4219,7 +3359,17 @@ export function recordRuntimeOwnedUnstartedAttempt(
   if (
     !record ||
     record.managementCapability !== management ||
-    result.recoveryId !== record.recoveryId
+    result.recoveryId !== record.recoveryId ||
+    record.executorControl !== undefined ||
+    result.status !== "blocked" ||
+    result.dockerEffectStarted !== false ||
+    result.providerRequestStarted !== false ||
+    ![
+      "docker_process_controller_plan_invalid",
+      "docker_process_controller_recovery_unavailable",
+      "docker_process_controller_home_lock_initialization_failed",
+      "docker_process_controller_home_lock_descriptor_close_unconfirmed",
+    ].includes(result.reason)
   )
     return false;
   const current = readOperationStateStage(management);
@@ -4252,9 +3402,9 @@ export function recordRuntimeOwnedUnstartedAttempt(
       primaryFailure: {
         purpose: null,
         stage:
-          result.reason === "docker_process_controller_recovery_unavailable"
-            ? "home_lock"
-            : "plan_validation",
+          result.reason === "docker_process_controller_plan_invalid"
+            ? "plan_validation"
+            : "home_lock",
         reason: result.reason,
         exceptionCode: null,
         commandHandleObtained: false,
@@ -4430,8 +3580,7 @@ export function recordRuntimeOwnedDockerAbsence(
   observations: unknown,
 ) {
   const record = durableRecord(recoveryCapability);
-  if (!record || record.normalRestoration || record.cleanupCheckpoint)
-    return false;
+  if (!record || record.completedPlan || record.cleanupCheckpoint) return false;
   const saved = saveOperationCheckpoint(
     record.managementCapability,
     record.recoveryId,
@@ -4459,118 +3608,95 @@ export function recordRuntimeOwnedDockerAbsence(
   return true;
 }
 
-/**
- * 実清掃とHome解放からHost通常復帰と実Lease解放を確定する。
- * @responsibility 実清掃とHome解放からHost通常復帰と実Lease解放を確定する。
- * @trace ARCH-000008
- * @input recoveryCapability、managementCapability: 元Owner。rawCompletion: 元計画。
- * @returns 元の終了限定Capability、または停止結果。
- * @precondition 同じ本番操作Ownerとexact回復参照を使用する。
- * @postcondition 確認済みの元結果だけを同じ現在状態へ接続する。
- * @effect 現在状態、所有Host遷移と実Lease解放のみ。
- * @failure 元結果不一致・保存・Host・Lease解放不明は停止。
- * @invariant 旧形式へのfallbackと新しい共有管理機構を追加しない。
- * @boundary 本番Docker OwnerとRepository内の現在状態。
- * @security 保存値やCaller supplied成功booleanからAuthorityを発行しない。
- * @concurrency 保存は既存Writerの短期排他と元版照合を用いる。
- */
+/** 実資源回収とHome解放を元Docker操作の終了準備へ保存する。 @trace ARCH-000008 */
 function completeProductionRecovery(
   recoveryCapability: unknown,
   managementCapability: unknown,
   rawCompletion: unknown,
 ) {
-  const record = durableRecord(recoveryCapability);
-  const completion = snapshotPlainRecord(rawCompletion, new Set(["plan"]));
+  const record = durableRecord(recoveryCapability),
+    completion = snapshotPlainRecord(rawCompletion, new Set(["plan"]));
   if (
     !record ||
     record.managementCapability !== managementCapability ||
     !completion ||
-    !record.cleanupCheckpoint
+    !record.cleanupCheckpoint ||
+    !record.homeLeaseReleased ||
+    !validProductionPlan(completion.plan as ProductionPlan) ||
+    (record.completedPlan && record.completedPlan !== completion.plan)
   )
     return Object.freeze({ status: "blocked" as const });
-  if (record.normalRestoration) {
-    if (completion.plan !== record.normalRestoration.plan)
-      return Object.freeze({ status: "blocked" as const });
-  }
-  if (
-    record.normalRestoration?.result.status !== "completed" ||
-    !record.normalRestoration.result.hostTransitionConfirmed
-  ) {
-    const before = readOperationStateStage(managementCapability);
-    const priorHost = record.normalRestoration?.result;
-    const expected =
-      priorHost &&
-      "revision" in priorHost &&
-      typeof priorHost.revision === "number" &&
-      "payloadSha256" in priorHost &&
-      typeof priorHost.payloadSha256 === "string"
-        ? {
-            revision: priorHost.revision,
-            payloadSha256: priorHost.payloadSha256,
-          }
-        : record.cleanupCheckpoint;
-    const previous = before.value?.snapshot.operations.find(
-      (item): item is ExecutionOperationRecord =>
-        item.kind === "docker_task" && item.recoveryId === record.recoveryId,
-    );
-    if (
-      before.status !== "completed" ||
-      !before.lockReleased ||
-      !previous ||
-      (record.normalRestoration &&
-        previous.identityJson !== record.normalRestoration.identityJson) ||
-      before.value?.snapshot.revision !== expected.revision ||
-      before.value.payloadSha256 !== expected.payloadSha256
-    )
-      return Object.freeze({ status: "blocked" as const });
-    const restored = completeRuntimeOwnedCoordinatorHostSubmission(
-      managementCapability,
-      record.recoveryId,
-      completion.plan as Parameters<
-        typeof completeRuntimeOwnedCoordinatorHostSubmission
-      >[2],
-      recoveryCapability,
-    );
-    record.normalRestoration = {
-      plan: completion.plan,
-      identityJson: previous.identityJson,
-      result: restored,
-    };
-    if (restored.status !== "completed" || !restored.hostTransitionConfirmed)
-      return Object.freeze({ ...restored, status: "blocked" as const });
-  }
+  const plan = completion.plan as ProductionPlan;
   const current = readOperationStateStage(managementCapability);
   const operation = current.value?.snapshot.operations.find(
-    (item): item is ExecutionOperationRecord =>
-      item.kind === "docker_task" && item.recoveryId === record.recoveryId,
+    (r): r is ExecutionOperationRecord =>
+      r.kind === "docker_task" && r.recoveryId === record.recoveryId,
   );
+  const host = readOwnedHostOperation(managementCapability).record;
   if (
     current.status !== "completed" ||
+    !current.lockReleased ||
     !operation ||
-    operation.identityJson !== record.normalRestoration.identityJson ||
-    operation.phase !== "executing" ||
-    operation.host.cleanup !== "not_requested" ||
-    operation.host.pendingTransitionJson !== null
+    host.operationId !== plan.operationId ||
+    host.phase !== "active" ||
+    JSON.parse(operation.identityJson).operationId !== plan.operationId ||
+    record.operationId !== plan.operationId
   )
     return Object.freeze({ status: "blocked" as const });
-  const host = borrowOwnedHostRecoverySnapshot(managementCapability);
+  const identity = JSON.parse(operation.identityJson);
   if (
-    host.snapshot.record.state !== "host_only" ||
-    host.snapshot.token !== operation.host.currentToken
+    identity.taskAttempt !== plan.taskAttempt ||
+    !isDeepStrictEqual(identity.executionSelection, plan.executionSelection) ||
+    [
+      "provider",
+      "consumer",
+      "stableLogicalHomeBindingHash",
+      "providerHomeIdentityHash",
+      "ownershipLabel",
+      "operationMode",
+    ].some((k) => identity[k] !== plan[k as keyof typeof plan])
   )
     return Object.freeze({ status: "blocked" as const });
-  if (!record.homeLeaseReleased)
+  const expected = new Map([
+    ["create_subscription_auth_probe", plan.authContainerName],
+    ["create_provider", plan.providerContainerName],
+    ["create_proxy", plan.proxyContainerName],
+    ["create_internal_network", plan.internalNetworkName],
+    ["create_egress_network", plan.egressNetworkName],
+  ]);
+  if (
+    !operation.resources ||
+    operation.resources.snapshot.resources.length !== expected.size ||
+    new Set(operation.resources.snapshot.resources.map((r) => r.key)).size !==
+      expected.size ||
+    operation.resources.snapshot.resources.some(
+      (r) => expected.get(r.key) !== r.identity.name,
+    ) ||
+    !current.value?.operationStates.some(
+      (r) =>
+        r.kind === "docker_task" &&
+        r.operation === operation &&
+        r.resourcesSettled,
+    )
+  )
+    return Object.freeze({ status: "blocked" as const });
+  if (record.completedPlan)
     return Object.freeze({
-      status: "blocked" as const,
-      recoveryId: record.recoveryId,
+      status: "completed" as const,
+      recoveryFinalizationCapability: recoveryCapability as object,
     });
+  if (
+    current.value.snapshot.revision !== record.cleanupCheckpoint.revision ||
+    current.value.payloadSha256 !== record.cleanupCheckpoint.payloadSha256
+  )
+    return Object.freeze({ status: "blocked" as const });
   const saved = saveOperationCheckpoint(
     managementCapability,
     record.recoveryId,
     {
       kind: "lifecycle",
       value: {
-        phase: operation.phase,
+        phase: "settling",
         lease: "released",
         execution: { ...operation.execution, ownerEffect: "disabled" },
         primaryFailure: operation.primaryFailure,
@@ -4585,11 +3711,7 @@ function completeProductionRecovery(
     !saved.lockReleased
   )
     return Object.freeze({ ...saved, status: "blocked" as const });
-  if (!dockerHostCleanupCapabilities.has(recoveryCapability as object))
-    dockerHostCleanupCapabilities.set(
-      recoveryCapability as object,
-      issueOwnedHostCleanupCapability(managementCapability, recoveryCapability),
-    );
+  record.completedPlan = plan;
   return Object.freeze({
     status: "completed" as const,
     recoveryFinalizationCapability: recoveryCapability as object,
@@ -4666,88 +3788,30 @@ export function finalizeRuntimeOwnedDockerRecovery(
   return Object.freeze({ ...settled, status: "completed" as const });
 }
 
-/**
- * 実通常復帰後の終了限定CapabilityをHost清掃へ渡す。
- * @responsibility 実通常復帰後の終了限定CapabilityをHost清掃へ渡す。
- * @trace ARCH-000008
- * @input recoveryFinalizationCapability: 元終了Owner。
- * @returns 元Host回復token、またはnull。
- * @precondition 同じ本番操作Ownerとexact回復参照を使用する。
- * @postcondition 確認済みの元結果だけを同じ現在状態へ接続する。
- * @effect 同じstate.jsonへHost清掃予定を保存する。
- * @failure Capability欠落・Host不一致・保存不明ではnull。
- * @invariant 旧形式へのfallbackと新しい共有管理機構を追加しない。
- * @boundary 本番Docker OwnerとRepository内の現在状態。
- * @security 保存値やCaller supplied成功booleanからAuthorityを発行しない。
- * @concurrency 保存は既存Writerの短期排他と元版照合を用いる。
- */
-export function prepareRuntimeOwnedDockerHostCleanup(
-  recoveryFinalizationCapability: unknown,
-) {
-  const record = durableRecord(recoveryFinalizationCapability);
-  const capability =
-    recoveryFinalizationCapability &&
-    typeof recoveryFinalizationCapability === "object"
-      ? dockerHostCleanupCapabilities.get(recoveryFinalizationCapability)
-      : null;
-  if (!record) return null;
-  if (record.hostCleanupPreparation) {
-    if (!record.hostCleanupPreparation.tokenMatches) return null;
-    const saved = saveHostCleanupPreparation(
-      record.managementCapability,
-      record.recoveryId,
-      record.hostCleanupPreparation.before,
-    );
-    if (
-      saved.status !== "completed" ||
-      !saved.snapshotConfirmed ||
-      !saved.lockReleased
-    )
-      return null;
-    dockerHostCleanupCapabilities.delete(
-      recoveryFinalizationCapability as object,
-    );
-    return record.hostCleanupPreparation.token;
-  }
-  if (!capability) return null;
-  const current = readOperationStateStage(record.managementCapability, {
-    kind: "host_cleanup",
-    recoveryId: record.recoveryId,
-  });
-  const preparation = current.hostCleanupPreparation;
+/** 同じDockerの終結と現在Hostを照合して固定参照を返す。 @trace ARCH-000008 */
+export function prepareRuntimeOwnedDockerHostCleanup(capability: unknown) {
+  const record = durableRecord(capability);
+  if (!record?.completedPlan || !record.homeLeaseReleased) return null;
+  const current = readOperationStateStage(record.managementCapability);
+  const state = current.value?.operationStates.find(
+    (r) =>
+      r.kind === "docker_task" && r.operation.recoveryId === record.recoveryId,
+  );
   if (
     current.status !== "completed" ||
     !current.lockReleased ||
-    !preparation ||
-    preparation.recoveryId !== record.recoveryId
+    state?.kind !== "docker_task" ||
+    !state.resourcesSettled ||
+    !state.restartSettled ||
+    state.operation.phase !== "settling" ||
+    state.operation.lease !== "released" ||
+    state.operation.execution.ownerEffect !== "disabled"
   )
     return null;
-  const before = preparation.before;
-  const token = consumeOwnedHostRecoveryIdForCleanup(
-    capability,
-    recoveryFinalizationCapability,
-  );
-  record.hostCleanupPreparation = {
-    token,
-    tokenMatches: token === preparation.hostToken,
-    before,
-  };
-  if (token !== preparation.hostToken) return null;
-  const saved = saveHostCleanupPreparation(
-    record.managementCapability,
-    record.recoveryId,
-    before,
-  );
-  if (
-    saved.status !== "completed" ||
-    !saved.snapshotConfirmed ||
-    !saved.lockReleased
-  )
-    return null;
-  dockerHostCleanupCapabilities.delete(
-    recoveryFinalizationCapability as object,
-  );
-  return token;
+  const host = readOwnedHostOperation(record.managementCapability).record;
+  return host.operationId === record.operationId && host.phase === "active"
+    ? host.recoveryId
+    : null;
 }
 
 /**
@@ -4770,7 +3834,7 @@ export function registerRuntimeOwnedReviewFindings(
   result: CompletionResult<"attempt">,
 ) {
   const record = durableRecord(capability);
-  const plan = record?.normalRestoration?.plan as RecoveryPlan | undefined;
+  const plan = record?.completedPlan as RecoveryPlan | undefined;
   const terminal = record?.terminalObservation;
   if (
     !record ||
@@ -4910,7 +3974,6 @@ export function recordRuntimeOwnedDockerHostCleanupReceipt(
 export function abandonRuntimeOwnedDockerRecovery(recoveryCapability: unknown) {
   const record = durableRecord(recoveryCapability, false);
   if (!record) return false;
-  dockerHostCleanupCapabilities.delete(recoveryCapability as object);
   return record.homeLeaseReleased;
 }
 
@@ -4977,13 +4040,18 @@ function normalizeDockerRestartScope(values: readonly string[]) {
 function restartScopeIncludes(
   operation: OperationRecord,
   resourcesSettled: boolean,
+  operations: readonly OperationRecord[],
 ): operation is ExecutionOperationRecord {
   if (operation.kind !== "docker_task") return false;
   return (
     operation.phase === "executing" ||
     operation.outcome?.cleanupConfirmed !== true ||
-    operation.host.cleanup !== "confirmed" ||
-    operation.host.pendingTransitionJson !== null ||
+    !operations.some(
+      (r) =>
+        r.kind === "host_operation" &&
+        r.operationId === JSON.parse(operation.identityJson).operationId &&
+        r.cleanup === "confirmed",
+    ) ||
     operation.lease !== "released" ||
     operation.execution.ownerEffect !== "disabled" ||
     operation.execution.providerStart === "unknown" ||
@@ -5030,16 +4098,21 @@ export function prepareRuntimeOwnedDockerRestart(
       !initial.lockReleased
     )
       throw new Error("docker_restart_root_unverified");
-    const scoped = initial.value.snapshot.operations.filter(
+    const initialValue = initial.value;
+    const scoped = initialValue.snapshot.operations.filter(
       (operation): operation is ExecutionOperationRecord => {
-        const state = initial.value?.operationStates.find(
+        const state = initialValue.operationStates.find(
           (value) => value.operation === operation,
         );
         if (!state || state.kind !== operation.kind)
           throw new Error("docker_restart_boundary_changed");
         return (
           state.kind === "docker_task" &&
-          restartScopeIncludes(state.operation, state.resourcesSettled)
+          restartScopeIncludes(
+            state.operation,
+            state.resourcesSettled,
+            initialValue.snapshot.operations,
+          )
         );
       },
     );
@@ -5058,44 +4131,29 @@ export function prepareRuntimeOwnedDockerRestart(
           recoveryId: operation.recoveryId,
           identitySha256: operation.identitySha256,
           home: recovery.stableLogicalHomeBindingHash,
-          host: parseHostRecoveryToken(operation.host.currentToken),
+          host: JSON.parse(operation.identityJson).operationId as string,
         };
       })
       .sort((left, right) => left.recoveryId.localeCompare(right.recoveryId));
     const scopeSha256 = createHash("sha256")
       .update(
         JSON.stringify({
-          schema: "crdd-coordinator/docker-restart-scope/v1",
+          schema: "crdd-coordinator/docker-restart-scope/v2",
           repositoryBinding: repository.repositoryBinding,
           identities,
         }),
       )
       .digest("hex");
-    const hosts = new Map<string, (typeof identities)[number]["host"]>();
-    for (const identity of identities)
-      hosts.set(
-        `${identity.host.rootName}\0${identity.host.nonce}`,
-        identity.host,
+    for (const host of [...new Set(identities.map((i) => i.host))].sort()) {
+      const acquired = acquireHostOperationLock(
+        repository.repositoryRoot,
+        host,
       );
-    for (const [, host] of [...hosts].sort(([left], [right]) =>
-      left.localeCompare(right),
-    )) {
-      const source = scoped.find((operation) => {
-        const token = parseHostRecoveryToken(operation.host.currentToken);
-        return token.rootName === host.rootName && token.nonce === host.nonce;
-      });
-      if (!source) throw Error("docker_restart_host_identity_unknown");
-      const hostRoot = JSON.parse(source.identityJson).hostPaths.root;
-      const acquired = acquireHostOperationLock(hostRoot, host.nonce);
       if (acquired.status !== "acquired") {
         observationCleanupConfirmed &&= acquired.cleanupConfirmed;
         if (!acquired.descriptorClosed)
           poisonRuntimeProcessAfterCleanupUnknown();
-        throw Error(
-          acquired.reason === "lock_initialization_failed"
-            ? "docker_restart_host_lock_initialization_failed"
-            : "docker_restart_host_active_or_unknown",
-        );
+        throw Error("docker_restart_host_active_or_unknown");
       }
       locks.push(acquired.lock);
     }
@@ -5476,178 +4534,6 @@ export function finalizeRuntimeOwnedDockerRestartPreparation(
 }
 
 /**
- * docker-recovery-runtime-internalで使用する回復 記録の値契約を定義する。
- *
- * @responsibility 回復 記録のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape RecoveryRecordが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RecoveryRecordで宣言した値と責務の対応を維持する。
- * @boundary N/A: RecoveryRecordの宣言は外部境界を開かない。
- * @security RecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility RecoveryRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type RecoveryRecord = Readonly<{
-  managementCapability: object;
-  operationId: string;
-  recoveryId: string;
-}>;
-
-/**
- * docker-recovery-runtime-internalで使用するRuntime Dependenciesの値契約を定義する。
- *
- * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape RuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RuntimeDependenciesで宣言した値と責務の対応を維持する。
- * @boundary N/A: RuntimeDependenciesの宣言は外部境界を開かない。
- * @security RuntimeDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility RuntimeDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type RuntimeDependencies = Readonly<{
-  verifyOperation: (
-    managementCapability: unknown,
-  ) => Readonly<{ operationId: string }>;
-  beginDurableRecovery: (
-    managementCapability: unknown,
-    operationId: unknown,
-  ) => string;
-  completeDurableRecovery: (
-    managementCapability: unknown,
-    recoveryId: unknown,
-  ) => string;
-}>;
-
-/**
- * docker-recovery-runtime-internalで使用するRuntime 状態の値契約を定義する。
- *
- * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
- * @boundary N/A: RuntimeStateの宣言は外部境界を開かない。
- * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type RuntimeState = Readonly<{
-  dependencies: RuntimeDependencies;
-  records: WeakMap<object, RecoveryRecord>;
-}>;
-
-/**
- * Runtime 状態を構築する。
- *
- * @responsibility Runtime 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000008
- * @input dependencies: RuntimeDependencies
- * @returns RuntimeStateを返す。
- * @precondition 「dependencies: RuntimeDependencies」がcreateRuntimeStateの入力契約を満たす。
- * @postcondition createRuntimeStateの責務を完了した結果だけを返す。
- * @effect N/A: createRuntimeStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createRuntimeStateは独自の失敗分岐を所有しない。
- * @invariant createRuntimeStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createRuntimeStateはProcess内の同一Subsystemで完結する。
- * @security createRuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createRuntimeStateは共有非同期状態を持たない同期処理である。
- */
-function createRuntimeState(dependencies: RuntimeDependencies): RuntimeState {
-  return Object.freeze({
-    dependencies: Object.freeze(dependencies),
-    records: new WeakMap(),
-  });
-}
-
-/**
- * 回復を開始する。
- *
- * @responsibility 回復の開始条件、初期状態、開始失敗境界を所有する。
- * @trace ARCH-000008
- * @input state: RuntimeState、plan: Readonly<{ operationId: string }>、managementCapability: unknown
- * @returns beginRecoveryの計算結果を返す。
- * @precondition 「state: RuntimeState、plan: Readonly<{ operationId: string }>、managementCapability: unknown」がbeginRecoveryの入力契約を満たす。
- * @postcondition beginRecoveryの責務を完了した結果だけを返す。
- * @effect N/A: beginRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: beginRecoveryは独自の失敗分岐を所有しない。
- * @invariant beginRecoveryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: beginRecoveryはProcess内の同一Subsystemで完結する。
- * @security beginRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: beginRecoveryは共有非同期状態を持たない同期処理である。
- */
-function beginRecovery(
-  state: RuntimeState,
-  plan: Readonly<{ operationId: string }>,
-  managementCapability: unknown,
-) {
-  if (
-    !managementCapability ||
-    typeof managementCapability !== "object" ||
-    !/^OP-[0-9]{6,}$/u.test(plan.operationId)
-  ) {
-    return null;
-  }
-  const operation = state.dependencies.verifyOperation(managementCapability);
-  if (operation.operationId !== plan.operationId) return null;
-  const recoveryId = state.dependencies.beginDurableRecovery(
-    managementCapability,
-    operation.operationId,
-  );
-  parseHostRecoveryToken(recoveryId);
-  const recoveryCapability = Object.freeze({});
-  state.records.set(
-    recoveryCapability,
-    Object.freeze({
-      managementCapability,
-      operationId: operation.operationId,
-      recoveryId,
-    }),
-  );
-  return Object.freeze({ recoveryId, recoveryCapability });
-}
-
-/**
- * 回復を完了状態へ遷移させる。
- *
- * @responsibility 回復の完了条件、終了後状態、未完了境界を所有する。
- * @trace ARCH-000008
- * @input state: RuntimeState、recoveryCapability: unknown、managementCapability: unknown
- * @returns completeRecoveryの計算結果を返す。
- * @precondition 「state: RuntimeState、recoveryCapability: unknown、managementCapability: unknown」がcompleteRecoveryの入力契約を満たす。
- * @postcondition completeRecoveryの責務を完了した結果だけを返す。
- * @effect N/A: completeRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: completeRecoveryは独自の失敗分岐を所有しない。
- * @invariant completeRecoveryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: completeRecoveryはProcess内の同一Subsystemで完結する。
- * @security completeRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: completeRecoveryは共有非同期状態を持たない同期処理である。
- */
-function completeHostRecovery(
-  state: RuntimeState,
-  recoveryCapability: unknown,
-  managementCapability: unknown,
-) {
-  if (!recoveryCapability || typeof recoveryCapability !== "object") {
-    return Object.freeze({ status: "blocked" as const });
-  }
-  const record = state.records.get(recoveryCapability);
-  if (!record || record.managementCapability !== managementCapability) {
-    return Object.freeze({ status: "blocked" as const });
-  }
-  const operation = state.dependencies.verifyOperation(managementCapability);
-  if (operation.operationId !== record.operationId) {
-    return Object.freeze({ status: "blocked" as const });
-  }
-  const completedRecoveryId = state.dependencies.completeDurableRecovery(
-    managementCapability,
-    record.recoveryId,
-  );
-  parseHostRecoveryToken(completedRecoveryId);
-  if (completedRecoveryId === record.recoveryId) {
-    return Object.freeze({ status: "blocked" as const });
-  }
-  state.records.delete(recoveryCapability);
-  return Object.freeze({ status: "completed" as const });
-}
-
-/**
  * Runtime 所有 Docker 回復を開始する。
  *
  * @responsibility Runtime 所有 Docker 回復の開始条件、初期状態、開始失敗境界を所有する。
@@ -5714,52 +4600,6 @@ export function completeRuntimeOwnedDockerRecovery(
   } catch {
     return Object.freeze({ status: "blocked" as const });
   }
-}
-
-/**
- * Isolated Docker 回復 Runtime 候補を構築する。
- *
- * @responsibility Isolated Docker 回復 Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000008
- * @input dependencies: RuntimeDependencies
- * @returns createIsolatedDockerRecoveryRuntimeCandidateの計算結果を返す。
- * @precondition 「dependencies: RuntimeDependencies」がcreateIsolatedDockerRecoveryRuntimeCandidateの入力契約を満たす。
- * @postcondition createIsolatedDockerRecoveryRuntimeCandidateの責務を完了した結果だけを返す。
- * @effect N/A: createIsolatedDockerRecoveryRuntimeCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure createIsolatedDockerRecoveryRuntimeCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant createIsolatedDockerRecoveryRuntimeCandidateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createIsolatedDockerRecoveryRuntimeCandidateはProcess内の同一Subsystemで完結する。
- * @security createIsolatedDockerRecoveryRuntimeCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createIsolatedDockerRecoveryRuntimeCandidateは共有非同期状態を持たない同期処理である。
- */
-export function createIsolatedDockerRecoveryRuntimeCandidate(
-  dependencies: RuntimeDependencies,
-) {
-  const state = createRuntimeState(dependencies);
-  return Object.freeze({
-    productionAuthority: false as const,
-    begin: (
-      plan: Readonly<{ operationId: string }>,
-      managementCapability: unknown,
-    ) => {
-      try {
-        return beginRecovery(state, plan, managementCapability);
-      } catch {
-        return null;
-      }
-    },
-    complete: (recoveryCapability: unknown, managementCapability: unknown) => {
-      try {
-        return completeHostRecovery(
-          state,
-          recoveryCapability,
-          managementCapability,
-        );
-      } catch {
-        return Object.freeze({ status: "blocked" as const });
-      }
-    },
-  });
 }
 
 /**

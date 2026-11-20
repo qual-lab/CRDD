@@ -126,7 +126,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
           if(!asynchronous) assert.equal(options.stdio,undefined);
           assert.deepEqual(argv.slice(4),asynchronous?asyncCommands[asyncCalls]:commands[calls]);
           const directory = argv[3];
-          const relative=path.relative(identity.hostPaths.root,directory);
+          const relative=path.relative(path.join(process.cwd(),'.crdd','operations',identity.operationId),directory);
           assert.ok(relative && !path.isAbsolute(relative) && relative!=='..' && !relative.startsWith('..'+path.sep));
           const info = fs.lstatSync(directory,{bigint:true});
           assert.ok(info.isDirectory() && !info.isSymbolicLink());
@@ -259,10 +259,14 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
     assert.equal(checkpointResults.filter(value=>value.kind==='cleanup').length,0);
     assert.ok(config); assert.throws(() => fs.lstatSync(config),{code:'ENOENT'});
     assert.ok(asyncConfig); assert.throws(() => fs.lstatSync(asyncConfig),{code:'ENOENT'});
-    for(const file of [identity.hostPaths.root,identity.hostPaths.marker,...['state.pending.json','state.lock','history.pending.jsonl'].map(file => path.join(path.dirname(statePath),file))]) assert.throws(() => fs.lstatSync(file),{code:'ENOENT'});
+    for(const file of [path.join(process.cwd(),'.crdd','operations',identity.operationId),...['state.pending.json','state.lock','history.pending.jsonl'].map(file => path.join(path.dirname(statePath),file))]) assert.throws(() => fs.lstatSync(file),{code:'ENOENT'});
     const final = JSON.parse(fs.readFileSync(statePath));
     assert.equal(final.operations.some(item => item.recoveryId === id),false);
-    assert.deepEqual(final.operations,initial.operations.filter(item => item.recoveryId !== id));
+    const unrelated=item=>item.recoveryId!==id && !(item.kind==='host_operation' && item.operationId===identity.operationId);
+    assert.deepEqual(final.operations.filter(unrelated),initial.operations.filter(unrelated));
+      const closedHost=final.operations.find(item=>item.kind==='host_operation' && item.operationId===identity.operationId);
+      const initialHost=initial.operations.find(item=>item.kind==='host_operation' && item.operationId===identity.operationId);assert.ok(initialHost);
+      assert.deepEqual(closedHost,{...initialHost,phase:'terminal',cleanup:'confirmed'});
     const rows = fs.readFileSync(path.join(path.dirname(statePath),'history.jsonl'),'utf8').trim().split('\\n').map(line => JSON.parse(line));
     const history = rows.filter(row => row.summary.recoveryId === id); assert.equal(history.length,1);
     assert.deepEqual(history[0].summary.primaryFailure,target.primaryFailure);
@@ -310,7 +314,7 @@ export const savedAbsenceProcessProfileSource = `(async()=>{
       assert.equal(options.shell,false);assert.equal(options.windowsHide,true);assert.deepEqual(options.stdio,['ignore','pipe','pipe']);assert.equal(options.cwd,path.win32.join(process.env.SystemRoot,'System32'));assert.equal(options.timeout,undefined);assert.equal(options.maxBuffer,undefined);
       for(const key of ['DOCKER_HOST','DOCKER_CONTEXT'])assert.equal(options.env[key],undefined);
       for(const key of ['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY'])assert.equal(options.env[key],'');
-      const directory=argv[3],relative=path.relative(identity.hostPaths.root,directory);assert.ok(relative&&!path.isAbsolute(relative)&&relative!=='..'&&!relative.startsWith('..'+path.sep));assert.equal(path.basename(directory),'docker-cli-config');
+      const directory=argv[3],relative=path.relative(path.join(process.cwd(),'.crdd','operations',identity.operationId),directory);assert.ok(relative&&!path.isAbsolute(relative)&&relative!=='..'&&!relative.startsWith('..'+path.sep));assert.equal(path.basename(directory),'docker-cli-config');
       const info=fs.lstatSync(directory,{bigint:true});assert.ok(info.isDirectory()&&!info.isSymbolicLink());assert.deepEqual(fs.readdirSync(directory),[]);const physical=[info.dev,info.ino,info.birthtimeNs].join(':');
       if(config===null){config=directory;configIdentity=physical;}assert.equal(directory,config);assert.equal(physical,configIdentity);
       const stdout=calls++===0?'linux\\n':'';

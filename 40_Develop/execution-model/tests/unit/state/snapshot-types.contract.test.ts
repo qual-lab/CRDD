@@ -965,7 +965,7 @@ test("親Directoryと子Pathを競合として扱う", () => {
 
 /** @trace PRL-UT-006 基準の展開形を保存移行や互換Readerに使わない型Oracleとして保持する。 */
 type ExpectedOverview = Readonly<{
-  schema: "crdd-execution-model/state/v6";
+  schema: "crdd-execution-model/state/v7";
   revision: number;
   previous: Readonly<{ revision: number; payloadSha256: string }> | null;
   repositoryBinding: string;
@@ -1024,7 +1024,7 @@ type ExpectedStoredState = Omit<ExpectedOverview, "schema"> &
     | "projects"
   > &
   Readonly<{
-    schema: "crdd-execution-model/state/v6";
+    schema: "crdd-execution-model/state/v7";
     repositoryBindingId: string | null;
     projects: readonly ProjectDefinition[];
     managedExecutions: readonly ManagedExecution[];

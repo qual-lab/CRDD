@@ -24,7 +24,6 @@ export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/scripts/probe-verification.ts",
   "40_Develop/coordinator/src/execution/operation.ts",
   "40_Develop/coordinator/src/execution/recovery.ts",
-  "40_Develop/coordinator/src/state/probe-record.ts",
   "40_Develop/coordinator/src/input/snapshot.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts",
@@ -108,14 +107,8 @@ const coverageObligations = Object.freeze({
   "40_Develop/coordinator/src/execution/recovery.ts": obligation(
     "全Filesystem errorとrecord置換競合を同一runで到達していない",
     "回復状態またはrecord Identityの稀な差を誤分類する可能性",
-    "Host／Probe recordのcanonicality、Hash、二保存・旧token拒否、state transition、実体置換・部分欠測と再利用拒否試験",
-    "Host／Probe recovery schema、記録Reader／Writerまたは遷移変更時",
-  ),
-  "40_Develop/coordinator/src/state/probe-record.ts": obligation(
-    "全Filesystem errorとProbe記録の置換競合を同一runで到達していない",
-    "ProbeのRoot／子実体差や部分欠測を誤分類する可能性",
-    "Probe記録のHash、固定ID、Root／子実体、link置換と部分欠測の拒否試験",
-    "Probe記録schemaまたはReader／Writer変更時",
+    "EM Host Intent・Receipt・終端保存、固定参照、現在版照合、実体置換・部分欠測、資源終結と解放不明の拒否試験",
+    "Host／ProbeのEM保存契約、元操作相関又は回復Lifecycle変更時",
   ),
   "40_Develop/coordinator/src/input/snapshot.ts": obligation(
     "未到達分岐がある場合はreflection failureの稀な順序である",

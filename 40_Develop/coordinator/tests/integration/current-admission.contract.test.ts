@@ -12,11 +12,11 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import { mock, test } from "node:test";
 import { runInNewContext } from "node:vm";
 import * as domain from "../../../execution-model/src/index.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
@@ -96,7 +96,7 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     const file = path.join(current, "state.json");
     const bytes = Buffer.from(
       `${canonicalJson({
-        schema: "crdd-execution-model/state/v6",
+        schema: "crdd-execution-model/state/v7",
         revision: 1,
         previous: null,
         repositoryBinding: binding.repositoryBinding,
@@ -166,17 +166,10 @@ test("現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する
     new URL("../../src/execution/recovery.ts", import.meta.url),
     "utf8",
   );
-  const inspectorStart = ownerSource.indexOf(
-    "export function inspectRuntimeOwnedDockerTaskAdmission(",
+  const inspector = sourceDeclaration(
+    ownerSource,
+    "inspectRuntimeOwnedDockerTaskAdmission",
   );
-  const inspectorEnd = ownerSource.indexOf(
-    "function canonical(",
-    inspectorStart,
-  );
-  assert.ok(inspectorStart > 0 && inspectorEnd > inspectorStart);
-  const inspector = stripTypeScriptTypes(
-    ownerSource.slice(inspectorStart, inspectorEnd),
-  ).replace("export function", "function");
   // Domain Readerの二つの固定結果に対するHost DTO投影だけを確認する。
   for (const [reason, mutated] of [
     ["coordinator_state_read_unconfirmed", false],
@@ -249,17 +242,17 @@ test("現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する
 });
 
 /**
- * 本番三入口のRoot搬送式を実行し差替え変異を拒否する。
- * @responsibility 通常Task・開発Task・正式診断APIが同じRootを渡すことを確認する。
+ * 本番二入口のRoot搬送式を実行し差替え変異を拒否する。
+ * @responsibility 通常Task・正式診断APIが同じRootを渡すことを確認する。
  * @trace PRL-IT-013
  * @precondition 対象Sourceの一意な構成式を使い下位観測だけを置き換える。
  * @stimulus 入力Root、別Root、引数差替え変異を構成式へ渡す。
- * @observation Inspectorへ到達した引数と開発側の別Root拒否を確認する。
+ * @observation Inspectorへ到達した引数と診断時のRoot解決回数を確認する。
  * @oracle 元式だけexact Rootが一致し、旧Inspector／投影の再参照はない。
  * @cleanup N/A: VM内の同期式評価だけで外部Effectを発行しない。
  * @boundary 本番構成式の入力搬送。Task全体の成立は別の実行試験が所有する。
  */
-test("現在入場: Task通常・開発・正式診断APIの本番構成式はexact Rootを搬送する", async () => {
+test("現在入場: Task通常・正式診断APIの本番構成式はexact Rootを搬送する", async () => {
   const task = fs.readFileSync(
     new URL("../../src/execution/controller.ts", import.meta.url),
     "utf8",
@@ -282,10 +275,6 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
   const normal =
     "prepareDockerRecoveryState: inspectRuntimeOwnedDockerTaskAdmission,";
   assert.equal(task.split(normal).length, 2);
-  const start = task.indexOf("prepareDockerRecoveryState: guard((root)");
-  const end = task.indexOf("observeProviderHome:", start);
-  assert.ok(start > 0 && end > start);
-  const development = task.slice(start, end);
   const apiStart = api.indexOf("export async function diagnoseEnvironment(");
   const bodyStart = api.indexOf(
     "  const root = executionRoot(context);",
@@ -338,16 +327,8 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
       assert.equal(resolutions, 1);
       assert.deepEqual(doctorRoots, [expected]);
     }
-    if (kind === "development") {
-      assert.equal(
-        configured.prepareDockerRecoveryState("C:\\other-root").status,
-        "blocked",
-      );
-      assert.deepEqual(calls, [expected]);
-    }
   };
   await verify(normal, "normal");
-  await verify(development, "development");
   await verify(doctor, "api");
   await assert.rejects(() =>
     verify(
@@ -356,18 +337,6 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
         ": () => inspectRuntimeOwnedDockerTaskAdmission('wrong')",
       ),
       "normal",
-    ),
-  );
-  await assert.rejects(() =>
-    verify(
-      development.replace("root === boundary.repositoryRoot", "true"),
-      "development",
-    ),
-  );
-  await assert.rejects(() =>
-    verify(
-      development.replace("Admission(root)", "Admission('wrong')"),
-      "development",
     ),
   );
   await assert.rejects(() =>
@@ -429,7 +398,7 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
     ),
     [
       "src/execution/recovery.ts",
-      "src/state/crud.ts",
+      "src/storage/publication.ts",
       "src/execution/result.ts",
     ],
   );

@@ -7,14 +7,16 @@
  * @trace PRL-IT-013
  * @level IT
  * @scope repository、workspace、runtime
- * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ * @boundary RFD-IT-013=Direct Boundary: Host所有→借用Tree→Git固定・Reviewer投影
  */
 
 import assert from "node:assert/strict";
 import childProcess, { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
-import { syncBuiltinESMExports } from "node:module";
+import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import os from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
@@ -29,6 +31,10 @@ import {
   getRepository,
   getWorktree,
   type Repository,
+  readRepositoryEntries,
+  readWorkingChanges,
+  readFile,
+  readCommitDiff,
 } from "../../../version-control/src/index.ts";
 import {
   closeVerificationWorkspace,
@@ -39,7 +45,6 @@ import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.
 import {
   isExecutionRelativePath,
   readExecutionFile,
-  readExecutionInventory,
 } from "../../src/execution/files.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
@@ -67,6 +72,16 @@ import {
   workspaceWorktreeResult,
   workspaceWorktreeTarget,
 } from "../../src/workspace/git.ts";
+
+const gitSelectionBody = stripTypeScriptTypes(
+  sourceDeclaration(
+    fs.readFileSync(
+      new URL("../../src/execution/operation.ts", import.meta.url),
+      "utf8",
+    ),
+    "readGitSelection",
+  ),
+);
 
 const CANDIDATE_TESTS_ROOT = path.resolve(
   import.meta.dirname,
@@ -135,10 +150,17 @@ test("検証ToolのWorktreeは実Byteを読み取消終了不明では保持し�
         },
       },
     ).trim();
+  // 一覧は親Repository内のscopeも読めるが、操作Rootはexact検証を要求する。
+  assert.equal(getRepository(root).status, "blocked");
   git(["init", "--initial-branch=main", "--template="]);
-  fs.writeFileSync(path.join(root, ".gitignore"), ".crdd/\n");
+  fs.writeFileSync(path.join(root, ".gitignore"), ".crdd/\nignored/\n");
+  fs.mkdirSync(path.join(root, "ignored"));
+  fs.writeFileSync(path.join(root, "ignored", "tracked.txt"), "tracked\n");
+  fs.writeFileSync(path.join(root, "ignored", "untracked.txt"), "private\n");
+  fs.writeFileSync(path.join(root, "deleted.txt"), "deleted\n");
   fs.writeFileSync(path.join(root, "source.txt"), "base\n");
-  git(["add", "source.txt", ".gitignore"]);
+  git(["add", "source.txt", ".gitignore", "deleted.txt"]);
+  git(["add", "-f", "ignored/tracked.txt"]);
   git([
     "-c",
     "user.name=Fixture",
@@ -149,13 +171,37 @@ test("検証ToolのWorktreeは実Byteを読み取消終了不明では保持し�
     "base",
   ]);
   const base = git(["rev-parse", "HEAD"]);
-  // 非Git実行領域の読取り保証も現在のOwnerで検証する。
+  // Gitの列挙対象だけを読み、無視された内部状態には触れない。
   const index = fs.readFileSync(path.join(root, ".git", "index"));
   fs.mkdirSync(path.join(root, ".crdd"));
   fs.writeFileSync(path.join(root, ".crdd", "state.json"), "private");
   fs.writeFileSync(path.join(root, "source.txt"), "dirty\n");
   fs.writeFileSync(path.join(root, "untracked.txt"), "new\n");
-  const first = readExecutionInventory(root, true);
+  fs.unlinkSync(path.join(root, "deleted.txt"));
+  const firstObservation = readRepositoryEntries(root);
+  assert.equal(firstObservation.status, "completed");
+  const first = firstObservation.entries;
+  const rootCapability = getRepository(root);
+  assert.equal(rootCapability.status, "completed");
+  assert.ok(rootCapability.capability);
+  const deleted = readFile(rootCapability.capability, { path: "deleted.txt" });
+  assert.equal(deleted.content, null);
+  assert.deepEqual(deleted.selection, {
+    path: "deleted.txt",
+    blobId: null,
+    mode: null,
+  });
+  assert.ok(
+    first.some((entry) => entry.relativePath === "ignored/tracked.txt"),
+  );
+  assert.equal(
+    first.some((entry) => entry.relativePath === "ignored/untracked.txt"),
+    false,
+  );
+  assert.equal(
+    first.some((entry) => entry.relativePath === "deleted.txt"),
+    true,
+  );
   assert.equal(
     first.some((entry) => entry.relativePath.startsWith(".git/")),
     false,
@@ -170,7 +216,7 @@ test("検証ToolのWorktreeは実Byteを読み取消終了不明では保持し�
   assert.equal(read.byteLength, 6);
   fs.rmSync(path.join(root, "untracked.txt"));
   assert.equal(
-    readExecutionInventory(root, true).some(
+    readRepositoryEntries(root).entries.some(
       (entry) => entry.relativePath === "untracked.txt",
     ),
     false,
@@ -454,7 +500,7 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
       : path.join(tree, ".git", "HEAD");
     const beforeGit = fs.readFileSync(gitFile);
     for (let turn = 0; turn < 2; turn++) {
-      const current = operation(t, root, false);
+      const current = operation(root, false);
       try {
         const borrowed = bindRuntimeOwnedExecutionSnapshot(
           current.bound.repositoryBindingCapability,
@@ -698,6 +744,7 @@ function repository(t: TestContext) {
       "../../../../.crdd/tests/crdd-workspace-repository-",
     ),
   );
+  const cleanupOperations: Array<() => void> = [];
   const rootIdentity = fs.lstatSync(root, { bigint: true });
   const commonDirectory = path.join(root, ".git");
   fs.mkdirSync(path.join(commonDirectory, "info"), { recursive: true });
@@ -711,7 +758,7 @@ function repository(t: TestContext) {
   );
   fs.writeFileSync(
     path.join(commonDirectory, "config"),
-    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
+    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n[user]\n\tname = Fixture\n\temail = fixture@example.invalid\n",
   );
   const readmeId = writeObject(commonDirectory, "blob", Buffer.from("base\n"));
   const sourceId = writeObject(
@@ -735,13 +782,25 @@ function repository(t: TestContext) {
   const commitId = writeObject(
     commonDirectory,
     "commit",
-    Buffer.from(`tree ${rootTreeId}\n\nfixture\n`),
+    Buffer.from(
+      `tree ${rootTreeId}\nauthor Fixture <fixture@example.invalid> 0 +0000\ncommitter Fixture <fixture@example.invalid> 0 +0000\n\nfixture\n`,
+    ),
   );
   fs.writeFileSync(
     path.join(commonDirectory, "refs", "heads", "main"),
     `${commitId}\n`,
   );
   t.after(() => {
+    const failures: unknown[] = [];
+    for (const cleanup of [...cleanupOperations].reverse()) {
+      try {
+        cleanup();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (failures.length)
+      throw new AggregateError(failures, "fixture_host_cleanup_unconfirmed");
     const currentIdentity = fs.lstatSync(root, { bigint: true });
     assert.equal(currentIdentity.isDirectory(), true);
     assert.equal(currentIdentity.isSymbolicLink(), false);
@@ -751,7 +810,7 @@ function repository(t: TestContext) {
     assert.equal(fs.realpathSync.native(root), root);
     fs.rmSync(root, { recursive: true, force: true });
   });
-  return Object.freeze({ root, commonDirectory, commitId });
+  return Object.freeze({ root, commonDirectory, commitId, cleanupOperations });
 }
 
 /**
@@ -774,6 +833,14 @@ function snapshotRepositoryFiles(root: string) {
       (relativePath) =>
         relativePath !== ".crdd" &&
         !relativePath.startsWith(`.crdd${path.sep}`) &&
+        !relativePath.startsWith(path.join(".git", "objects") + path.sep) &&
+        !relativePath.startsWith(
+          path.join(".git", "refs", "heads", "crdd", "operation") + path.sep,
+        ) &&
+        !relativePath.startsWith(
+          path.join(".git", "logs", "refs", "heads", "crdd", "operation") +
+            path.sep,
+        ) &&
         fs.lstatSync(path.join(root, relativePath)).isFile(),
     )
     .map((relativePath) => ({
@@ -783,6 +850,176 @@ function snapshotRepositoryFiles(root: string) {
         .digest("hex"),
     }));
 }
+
+/**
+ * Git一覧の不明と選択Fileの不正実体を空一覧へ変換しない。
+ * @responsibility Git基準への切替後も、境界拒否と読取り途中の失敗を維持する。
+ * @trace RFD-IT-013
+ * @precondition 自己生成Git Rootと有限のGit／Filesystem故障だけ。
+ * @stimulus 一覧失敗・Stage欠測・Submodule・衝突・特殊実体・Link・Hardlink・読取り途中欠測。
+ * @observation 元例外、File読取り回数とdescriptor解放。
+ * @oracle 不明を削除又は正常な空一覧へ畳まない。
+ * @cleanup 各故障代役をfinallyで解除し、既存fixtureがRootを回収する。
+ * @boundary Git観測→対象File。AI・Docker・過去保持物なし。
+ */
+test("Git対象一覧の不明と選択Fileの境界違反は空観測にしない", (t) => {
+  const source = repository(t);
+  const file = path.join(source.root, "file.txt");
+  fs.writeFileSync(file, "content\n");
+  const verified = getRepository(source.root);
+  assert.equal(verified.status, "completed");
+  assert.ok(verified.capability);
+  const select = runInNewContext(gitSelectionBody + ";readGitSelection", {
+    readRepositoryEntries,
+    readWorkingChanges,
+    readFile,
+    isExecutionRelativePath,
+    path,
+    Buffer,
+    Error,
+    Object,
+  }) as (record: unknown, comparison: string) => readonly { path: string }[];
+  const record = {
+    sourceTree: source.root,
+    source: verified.capability,
+    baseHead: source.commitId,
+    basePaths: [],
+  };
+  const spawn = childProcess.spawnSync;
+  const lstat = fs.lstatSync;
+  const read = fs.readSync;
+  const open = fs.openSync;
+  const close = fs.closeSync;
+  for (const scenario of [
+    "listing",
+    "stage",
+    "stage-invalid",
+    "submodule",
+    "prefix-case",
+    "special",
+    "link",
+    "hardlink",
+    "permission",
+    "read-missing",
+  ] as const) {
+    const descriptors = new Set<number>();
+    t.mock.method(childProcess, "spawnSync", ((
+      ...args: Parameters<typeof spawn>
+    ) => {
+      const command = args[1];
+      if (
+        args[2]?.cwd !== source.root ||
+        !Array.isArray(command) ||
+        !command.includes("ls-files")
+      )
+        return Reflect.apply(spawn, childProcess, args);
+      const stage = command.includes("--stage");
+      const stdout = Buffer.from(
+        stage
+          ? scenario === "stage-invalid"
+            ? "invalid\0"
+            : scenario === "submodule"
+              ? `160000 ${source.commitId} 0\tmodule\0`
+              : ""
+          : scenario === "prefix-case"
+            ? "A/file\0a/other\0"
+            : "file.txt\0",
+      );
+      return {
+        pid: 0,
+        output: [null, stdout, Buffer.alloc(0)],
+        stdout,
+        stderr: Buffer.alloc(0),
+        status:
+          (scenario === "listing" && !stage) || (scenario === "stage" && stage)
+            ? 1
+            : 0,
+        signal: null,
+      };
+    }) as typeof spawn);
+    syncBuiltinESMExports();
+    t.mock.method(fs, "lstatSync", ((target, options) => {
+      const alias =
+        scenario === "prefix-case"
+          ? target === path.join(source.root, "A") ||
+            target === path.join(source.root, "a")
+            ? source.root
+            : target === path.join(source.root, "A", "file") ||
+                target === path.join(source.root, "a", "other")
+              ? file
+              : target
+          : target;
+      const metadata = lstat(alias, options);
+      if (alias !== file) return metadata;
+      assert.ok(metadata);
+      if (scenario === "special")
+        return Object.assign(Object.create(metadata), {
+          isFile: () => false,
+          isDirectory: () => false,
+          isSymbolicLink: () => false,
+        });
+      if (scenario === "permission")
+        throw Object.assign(Error("synthetic"), { code: "EACCES" });
+      if (scenario === "link")
+        return Object.assign(Object.create(metadata), {
+          isSymbolicLink: () => true,
+        });
+      if (scenario === "hardlink")
+        return Object.assign(Object.create(metadata), { nlink: 2 });
+      return metadata;
+    }) as typeof fs.lstatSync);
+    t.mock.method(fs, "openSync", ((...args: Parameters<typeof open>) => {
+      if (
+        scenario === "prefix-case" &&
+        args[0] === path.join(source.root, "A", "file")
+      )
+        args[0] = file;
+      const descriptor = Reflect.apply(open, fs, args);
+      if (args[0] === file) descriptors.add(descriptor);
+      return descriptor;
+    }) as typeof open);
+    t.mock.method(fs, "closeSync", (descriptor: number) => {
+      descriptors.delete(descriptor);
+      close(descriptor);
+    });
+    t.mock.method(fs, "readSync", ((...args: Parameters<typeof read>) => {
+      if (scenario === "read-missing" && descriptors.has(args[0]))
+        throw Object.assign(Error("synthetic"), { code: "ENOENT" });
+      return Reflect.apply(read, fs, args);
+    }) as typeof read);
+    try {
+      if (scenario === "read-missing") {
+        assert.throws(() => readExecutionFile(file), /synthetic/u);
+      } else {
+        const expected = [
+          "listing",
+          "stage",
+          "stage-invalid",
+          "submodule",
+        ].includes(scenario)
+          ? /execution_git_observation_unavailable/u
+          : scenario === "prefix-case"
+            ? /execution_git_path_case_conflict/u
+            : scenario === "permission"
+              ? /synthetic/u
+              : /repository_file_path_invalid/u;
+        assert.throws(
+          () => select(record, source.commitId),
+          expected,
+          scenario,
+        );
+      }
+      assert.equal(descriptors.size, 0);
+    } finally {
+      t.mock.restoreAll();
+      syncBuiltinESMExports();
+    }
+  }
+  assert.deepEqual(
+    Array.from(select(record, source.commitId), (item) => item.path),
+    ["README.md", "file.txt", "src/index.ts"],
+  );
+});
 
 const fixtureTargets = new WeakMap<
   object,
@@ -832,12 +1069,26 @@ function bindRuntimeOwnedExecutionSnapshot(
  * @boundary RFD-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 function operation(
-  t: TestContext,
-  repositoryRoot: string,
+  fixture: string | ReturnType<typeof repository>,
   automaticCleanup = true,
 ) {
-  const owned = createOwnedOperationDirectories();
-  if (automaticCleanup) t.after(() => cleanupOwnedOperationDirectories(owned));
+  const repositoryRoot = typeof fixture === "string" ? fixture : fixture.root;
+  const verified = getRepository(repositoryRoot);
+  assert.equal(verified.status, "completed");
+  assert.ok(verified.capability);
+  const owned = createOwnedOperationDirectories({
+    root: verified.capability,
+    purpose: "task",
+    recordingCurrent: () => true,
+  });
+  if (automaticCleanup) {
+    assert.notEqual(typeof fixture, "string");
+    if (typeof fixture !== "string")
+      fixture.cleanupOperations.push(() => {
+        cleanupOwnedOperationDirectories(owned);
+        assert.throws(() => fs.lstatSync(owned.root), { code: "ENOENT" });
+      });
+  }
   const contextCapability = createOwnedOperationContextCapability(owned);
   const mountCapability = createOwnedMountCapability(owned);
   const managementCapability = createOwnedOperationManagementCapability(
@@ -889,21 +1140,21 @@ function operation(
   });
 }
 
-// Only inventory observations inside this owned workspace are virtualized.
-// Real descriptors retain bounded ownership; bytes, size and identity agree.
+// 大量条件ではFile実体だけを仮想化し、選択集合は本番Git選択本文へ渡す。
+// 実descriptorの取得・全量読取り・終了を保持し、実Commit成立とは区別する。
 /**
- * virtualInventoryのTest準備責務を実行する。
+ * virtualExecutionFilesのTest準備責務を実行する。
  *
- * @responsibility virtualInventoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @responsibility virtualExecutionFilesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
  * @trace RFD-IT-013
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus virtualInventoryを呼び出す。
+ * @stimulus virtualExecutionFilesを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary RFD-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
-function virtualInventory(
+function virtualExecutionFiles(
   t: TestContext,
   workspace: string,
   fileSizes: readonly number[],
@@ -911,17 +1162,12 @@ function virtualInventory(
   const backingPath = path.join(workspace, "inventory-backing.bin");
   fs.writeFileSync(backingPath, "a");
   const originals = {
-    readdir: fs.readdirSync,
     lstat: fs.lstatSync,
     open: fs.openSync,
     fstat: fs.fstatSync,
     read: fs.readSync,
     close: fs.closeSync,
   };
-  const dirent = originals
-    .readdir(workspace, { withFileTypes: true })
-    .find((entry) => entry.name === "inventory-backing.bin");
-  assert.ok(dirent);
   const metadata = originals.lstat(backingPath, { bigint: true });
   const virtualFiles = new Map(
     fileSizes.map((byteLength, index) => [
@@ -949,17 +1195,6 @@ function virtualInventory(
       size: BigInt(file.byteLength),
       ino: metadata.ino + BigInt(file.index + 1),
     });
-  t.mock.method(fs, "readdirSync", ((target, options) => {
-    if (target === workspace) {
-      assert.deepEqual(options, { withFileTypes: true });
-      return fileSizes.map((_byteLength, index) =>
-        Object.assign(Object.create(Object.getPrototypeOf(dirent)), dirent, {
-          name: `file-${index}.bin`,
-        }),
-      );
-    }
-    return Reflect.apply(originals.readdir, fs, [target, options]);
-  }) as typeof fs.readdirSync);
   t.mock.method(fs, "lstatSync", ((target, options) => {
     const file =
       typeof target === "string" ? virtualFiles.get(target) : undefined;
@@ -1012,6 +1247,7 @@ function virtualInventory(
     originals.close(descriptor);
   });
   return {
+    backingPath,
     openedIndices,
     descriptors,
     readByteCount: () => readByteCount,
@@ -1032,7 +1268,7 @@ function virtualInventory(
  */
 test("1001変更・65許可PathとReviewerの256File・1MiB超を全量搬送する", (t) => {
   const source = repository(t);
-  const runtime = operation(t, source.root);
+  const runtime = operation(source);
   const beforeFiles = snapshotRepositoryFiles(source.root);
   const materialized = bindRuntimeOwnedExecutionSnapshot(
     runtime.bound.repositoryBindingCapability,
@@ -1102,7 +1338,7 @@ for (const scenario of ["file_count", "total_bytes"] as const) {
   /**
    * workspaceの旧件数・合計容量境界を超えて全件観測する。
    *
-   * @responsibility 大きい正常inventoryの全量観測とdescriptor終了を確認する。
+   * @responsibility 大きいGit選択集合の全量読取りとdescriptor終了を確認する。
    * @trace RFD-IT-013
    * @precondition Test Fileが構築するfixtureと入力を使用する。
    * @stimulus 旧境界と超過側の整合したFile実体代役を渡す。
@@ -1111,16 +1347,9 @@ for (const scenario of ["file_count", "total_bytes"] as const) {
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
    * @boundary RFD-IT-013=Direct Boundary: coordinator Test Source→対象契約
    */
-  test(`workspace ${scenario}は旧境界の前後で全量観測と候補生成を完了する`, (t) => {
+  test(`workspace ${scenario}は旧境界の前後で全選択と読取りを完了する`, (t) => {
     const source = repository(t);
-    const runtime = operation(t, source.root);
     const beforeFiles = snapshotRepositoryFiles(source.root);
-    const materialized = bindRuntimeOwnedExecutionSnapshot(
-      runtime.bound.repositoryBindingCapability,
-      runtime.managementCapability,
-      runtime.mountCapability,
-    );
-    assert.equal(materialized?.status, "materialized");
     for (const isOverflow of [false, true]) {
       const fileSizes =
         scenario === "file_count"
@@ -1133,30 +1362,72 @@ for (const scenario of ["file_count", "total_bytes"] as const) {
               isOverflow ? 1 : 0,
               0,
             ];
-      const observed = virtualInventory(t, runtime.workspace, fileSizes);
+      const observed = virtualExecutionFiles(t, source.root, fileSizes);
+      const paths = fileSizes.map((_size, index) => `file-${index}.bin`);
+      const select = runInNewContext(gitSelectionBody + ";readGitSelection", {
+        isExecutionRelativePath,
+        path,
+        Buffer,
+        Error,
+        Object,
+        readRepositoryEntries: () => ({
+          status: "completed",
+          nestedRepositoryObservationComplete: true,
+          entries: paths.map((relativePath) => ({
+            relativePath,
+            kind: "file",
+            conflicted: false,
+          })),
+        }),
+        readWorkingChanges: () => ({ changedPaths: [] }),
+        readFile: (_root: unknown, request: { path: string }) => {
+          const index = paths.indexOf(request.path);
+          assert.ok(index >= 0);
+          const actual = readExecutionFile(
+            path.join(source.root, request.path),
+          );
+          assert.equal(actual.byteLength, fileSizes[index]);
+          return {
+            head: source.commitId,
+            selection: {
+              path: request.path,
+              blobId: "a".repeat(40),
+              mode: "100644",
+            },
+          };
+        },
+      }) as (
+        record: unknown,
+        comparison: string,
+      ) => readonly { path: string }[];
       try {
-        const candidate = captureExecutionChangeSnapshot(
-          materialized?.workspaceCapability,
-          runtime.bound.repositoryBindingCapability,
-          runtime.managementCapability,
-          runtime.mountCapability,
-          ["src/"],
+        const selected = select(
+          {
+            sourceTree: source.root,
+            source: {},
+            baseHead: source.commitId,
+            basePaths: [],
+          },
+          source.commitId,
         );
-        assert.equal(candidate?.status, "candidate");
-        const expectedCount = fileSizes.length;
         assert.deepEqual(
-          observed.openedIndices,
-          Array.from({ length: expectedCount }, (_value, index) => index),
+          Array.from(selected, (item) => item.path).sort(),
+          paths.toSorted(),
+        );
+        assert.deepEqual(
+          [...observed.openedIndices].sort((left, right) => left - right),
+          Array.from({ length: fileSizes.length }, (_value, index) => index),
         );
         assert.equal(observed.descriptors.size, 0);
         assert.equal(
           observed.readByteCount(),
           scenario === "file_count"
-            ? expectedCount
+            ? fileSizes.length
             : 256 * 1024 * 1024 + (isOverflow ? 1 : 0),
         );
       } finally {
         t.mock.restoreAll();
+        fs.unlinkSync(observed.backingPath);
       }
     }
     assert.deepEqual(snapshotRepositoryFiles(source.root), beforeFiles);
@@ -1177,14 +1448,26 @@ for (const scenario of ["file_count", "total_bytes"] as const) {
  */
 test("HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisionへ固定する", (t) => {
   const source = repository(t);
-  const runtime = operation(t, source.root);
+  const runtime = operation(source);
   const materialized = bindRuntimeOwnedExecutionSnapshot(
     runtime.bound.repositoryBindingCapability,
     runtime.managementCapability,
     runtime.mountCapability,
   );
   assert.equal(materialized?.status, "materialized");
-  assert.equal(materialized?.baseCommit, source.commitId);
+  assert.ok(materialized?.baseCommitId);
+  assert.match(materialized.baseCommitId, /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/u);
+  assert.deepEqual(
+    readCommitDiff(
+      getRepository(source.root).capability ??
+        assert.fail("fixture_repository_missing"),
+      {
+        baseCommit: source.commitId,
+        commitId: materialized.baseCommitId,
+      },
+    ).changedPaths,
+    [],
+  );
   assert.equal(materialized?.fileCount, 2);
   assert.equal(
     fs.lstatSync(path.join(runtime.workspace, ".git")).isFile(),
@@ -1204,7 +1487,7 @@ test("HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisi
   );
   assert.equal(candidate?.status, "candidate");
   assert.deepEqual(candidate?.changedPaths, ["src/index.ts"]);
-  assert.equal(candidate?.baseCommit, source.commitId);
+  assert.equal(candidate?.baseCommitId, materialized.baseCommitId);
   assert.equal(candidate?.canonicalRepositoryChanged, false);
   assert.equal(fs.existsSync(path.join(source.root, "src", "index.ts")), false);
   const verified = verifyExecutionChangeSnapshot(
@@ -1214,7 +1497,7 @@ test("HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisi
     runtime.mountCapability,
   );
   assert.equal(verified?.status, "verified");
-  assert.equal(verified?.patchHash, candidate?.patchHash);
+  assert.equal(verified?.candidateCommitId, candidate?.candidateCommitId);
 });
 
 /**
@@ -1231,7 +1514,7 @@ test("HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisi
  */
 test("対象外変更を観測し、重複allowed path・Revision変化・内容差替えを拒否する", (t) => {
   const source = repository(t);
-  const first = operation(t, source.root);
+  const first = operation(source);
   const firstWorkspace = bindRuntimeOwnedExecutionSnapshot(
     first.bound.repositoryBindingCapability,
     first.managementCapability,
@@ -1265,7 +1548,7 @@ test("対象外変更を観測し、重複allowed path・Revision変化・内容
   );
 
   const secondSource = repository(t);
-  const second = operation(t, secondSource.root);
+  const second = operation(secondSource);
   const secondWorkspace = bindRuntimeOwnedExecutionSnapshot(
     second.bound.repositoryBindingCapability,
     second.managementCapability,
@@ -1275,23 +1558,31 @@ test("対象外変更を観測し、重複allowed path・Revision変化・内容
     assert.fail("second workspace must materialize");
   }
   fs.writeFileSync(path.join(second.workspace, "README.md"), "changed\n");
-  fs.writeFileSync(
-    path.join(secondSource.commonDirectory, "refs", "heads", "main"),
-    `${"f".repeat(40)}\n`,
+  const secondRef = path.join(
+    secondSource.commonDirectory,
+    "refs",
+    "heads",
+    "main",
   );
-  assert.equal(
-    captureExecutionChangeSnapshot(
-      secondWorkspace.workspaceCapability,
-      second.bound.repositoryBindingCapability,
-      second.managementCapability,
-      second.mountCapability,
-      ["README.md"],
-    ),
-    null,
-  );
+  const originalRef = fs.readFileSync(secondRef);
+  try {
+    fs.writeFileSync(secondRef, `${"f".repeat(40)}\n`);
+    assert.equal(
+      captureExecutionChangeSnapshot(
+        secondWorkspace.workspaceCapability,
+        second.bound.repositoryBindingCapability,
+        second.managementCapability,
+        second.mountCapability,
+        ["README.md"],
+      ),
+      null,
+    );
+  } finally {
+    fs.writeFileSync(secondRef, originalRef);
+  }
 
   const thirdSource = repository(t);
-  const third = operation(t, thirdSource.root);
+  const third = operation(thirdSource);
   const thirdWorkspace = bindRuntimeOwnedExecutionSnapshot(
     third.bound.repositoryBindingCapability,
     third.managementCapability,
@@ -1346,7 +1637,7 @@ for (const [scenario, label] of [
       return;
     }
     const source = repository(t);
-    const runtime = operation(t, source.root);
+    const runtime = operation(source);
     const beforeFiles = snapshotRepositoryFiles(source.root);
     const materialized = bindRuntimeOwnedExecutionSnapshot(
       runtime.bound.repositoryBindingCapability,
@@ -1434,7 +1725,25 @@ for (const [scenario, label] of [
  */
 test("偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しない", (t) => {
   const source = repository(t);
-  const runtime = operation(t, source.root);
+  const runtime = operation(source);
+  const ownedWorkspace = verifyOwnedOperationManagementMountBinding(
+    runtime.managementCapability,
+    runtime.mountCapability,
+  ).mounts.workspace;
+  const before = fs.readdirSync(ownedWorkspace);
+  for (const target of [undefined, {}]) {
+    assert.equal(
+      materializeReceivedTarget(
+        runtime.bound.repositoryBindingCapability,
+        runtime.managementCapability,
+        runtime.mountCapability,
+        undefined,
+        target,
+      ),
+      null,
+    );
+    assert.deepEqual(fs.readdirSync(ownedWorkspace), before);
+  }
   assert.equal(
     bindRuntimeOwnedExecutionSnapshot(
       {},
@@ -1469,12 +1778,12 @@ test("偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しない",
 });
 
 /**
- * Executorが生成した認識済みSecretをCandidate Capabilityへ昇格しないを検証する。
+ * 借用Treeの候補化とReviewerへの機密情報の投影を区別する。
  *
- * @responsibility Executorが生成した認識済みSecretをCandidate Capabilityへ昇格しないの合否判定を所有する。
+ * @responsibility 候補の存在をReviewerへの情報開示許可にしない。
  * @trace RFD-IT-013
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Executorが生成した認識済みSecretをCandidate Capabilityへ昇格しないの対象操作を実行する。
+ * @stimulus 認識済み機密のPath・入れ子Path・本文を個別に候補化して投影する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
@@ -1483,7 +1792,7 @@ test("偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しない",
 test("開発用情報を借用Treeで許容しReviewerへの認識済みSecret投影は拒否する", (t) => {
   for (const scenario of ["path", "nested-path", "content"] as const) {
     const source = repository(t);
-    const runtime = operation(t, source.root);
+    const runtime = operation(source);
     const materialized = bindRuntimeOwnedExecutionSnapshot(
       runtime.bound.repositoryBindingCapability,
       runtime.managementCapability,
@@ -1540,34 +1849,32 @@ test("開発用情報を借用Treeで許容しReviewerへの認識済みSecret�
     assert.equal(projection?.status, "blocked");
     assert.equal(
       projection?.status === "blocked" ? projection.reason : null,
-      "candidate_read_projection_recognized_secret_rejected",
+      "fixed_snapshot_content_policy_rejected",
     );
   }
 });
 
 /**
- * 公開契約は隔離workspaceと5要素Candidate Revisionを固定するを検証する。
+ * 公開契約は借用workspaceと固定Commitの変更契約を固定するを検証する。
  *
- * @responsibility 公開契約は隔離workspaceと5要素Candidate Revisionを固定するの合否判定を所有する。
+ * @responsibility 公開契約は借用workspaceと固定Commitの変更契約を固定するの合否判定を所有する。
  * @trace RFD-IT-013
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開契約は隔離workspaceと5要素Candidate Revisionを固定するの対象操作を実行する。
+ * @stimulus 公開契約は借用workspaceと固定Commitの変更契約を固定するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RFD-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
-test("公開契約は隔離workspaceと5要素Candidate Revisionを固定する", () => {
+test("公開契約は借用workspaceと固定Commitの変更契約を固定する", () => {
   const contract = describeExecutionChangeSnapshotContract();
-  assert.equal(contract.contractRevision, 8);
+  assert.equal(contract.contractRevision, 9);
   assert.equal(contract.providerGitMetadataVisible, false);
   assert.equal(contract.workspaceWrite, "caller_resolved_execution_tree");
   assert.deepEqual(contract.candidateRevision, [
-    "base_commit",
-    "base_tree",
-    "patch_hash",
-    "content_manifest_hash",
-    "allowed_paths_hash",
+    "base_commit_id",
+    "candidate_commit_id",
+    "changed_paths",
   ]);
   assert.equal(contract.canonicalRepositoryWriteAllowed, true);
   assert.equal(
@@ -1592,7 +1899,7 @@ test("公開契約は隔離workspaceと5要素Candidate Revisionを固定する"
  */
 test("Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒否する", (t) => {
   const source = repository(t);
-  const runtime = operation(t, source.root);
+  const runtime = operation(source);
   const materialized = bindRuntimeOwnedExecutionSnapshot(
     runtime.bound.repositoryBindingCapability,
     runtime.managementCapability,
@@ -1638,8 +1945,8 @@ test("Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒
       runtime.managementCapability,
       runtime.mountCapability,
       ["README.md"],
-    )?.status,
-    "blocked",
+    )?.status ?? null,
+    null,
   );
 });
 

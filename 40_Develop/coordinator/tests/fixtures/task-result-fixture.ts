@@ -16,7 +16,6 @@ import path from "node:path";
 import {
   applyResourceCleanup,
   applyResourceEvent,
-  type ExecutionStateSnapshot,
   type OperationResources,
   readState,
   saveOperationStart,
@@ -37,38 +36,6 @@ function hash(value: string | Buffer) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-/**
- * 試験で指定したHost差分だけを含む期待本文を作る。
- * @responsibility 元版・Hash・対象外全文を独立Oracleとして固定する。製品の遷移検査は再実装しない。
- * @trace ERB-IT-003、PRL-IT-005
- * @input before: 試験の既知元本文、recoveryId: 同じ対象、host: 試験で明示した期待値、binding: 既知結合。
- * @returns 次改訂の期待本文。
- * @effect N/A: メモリ内だけ。保存や回復の許可を返さない。
- * @boundary 有効な既知fixtureの期待値生成。検査の正否はEM自身の試験が所有する。
- */
-export function expectedHostCheckpoint(
-  before: Buffer,
-  recoveryId: unknown,
-  host: unknown,
-  binding: unknown,
-): Buffer {
-  const current = JSON.parse(before.toString("utf8")) as ExecutionStateSnapshot;
-  assert.equal(current.repositoryBinding, binding);
-  assert.equal(
-    current.operations.filter((item) => item.recoveryId === recoveryId).length,
-    1,
-  );
-  return Buffer.from(
-    `${canonicalJson({
-      ...current,
-      revision: current.revision + 1,
-      previous: { revision: current.revision, payloadSha256: hash(before) },
-      operations: current.operations.map((item) =>
-        item.recoveryId === recoveryId ? { ...item, host } : item,
-      ),
-    })}\n`,
-  );
-}
 /**
  * Taskに結合した未清掃の技術Operationを登録する。
  * @responsibility 現在Rootと論理操作に対応するexact参照を公開開始Writerから取得する。
@@ -96,32 +63,68 @@ export function registerSyntheticOperations(
     recoveryId: string;
   }[] = [];
   for (let index = 1; index <= count; index++) {
-    const before = fs.readFileSync(file);
-    const previous = JSON.parse(before.toString("utf8"));
+    const initial = JSON.parse(fs.readFileSync(file, "utf8"));
+    const nonce = hash(operationId + ":" + index + ":" + initial.revision);
+    const hostOperationId = "OP-" + BigInt("0x" + nonce).toString(10);
     const hostRecord = {
-      schema: "crdd-coordinator-host-recovery/v1",
-      state: "host_only",
-      rootName: "crdd-coordinator-doctor-fixture",
-      rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-      childIdentities: {
-        management: {
-          pathName: "management",
-          dev: "1",
-          ino: "3",
-          birthtimeNs: "4",
-        },
-      },
+      kind: "host_operation",
+      operationId: hostOperationId,
+      recoveryId: "host-operation." + hostOperationId,
+      purpose: "task",
+      phase: "active",
+      cleanup: "not_requested",
       createdAt: "2026-08-25T00:00:00.000Z",
+      rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
+      childIdentities: Object.fromEntries(
+        [
+          "events",
+          "management",
+          "projection",
+          "providerHome",
+          "tmp",
+          "workspace",
+        ].map((key, at) => [
+          key,
+          { dev: "1", ino: String(at + 3), birthtimeNs: "4" },
+        ]),
+      ),
+      resources: null,
     };
-    const hostHash = hash(`${JSON.stringify(hostRecord)}\n`);
-    const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
+    // 合成保存の前提値を宣言する。Hostの実作成・不存在の証拠にはしない。
+    const hosts = [
+      ...initial.operations.filter(
+        (item: { kind: string }) => item.kind === "host_operation",
+      ),
+      hostRecord,
+    ];
+    const previous = {
+      ...initial,
+      operations: [
+        ...hosts,
+        ...initial.operations.filter(
+          (item: { kind: string }) => item.kind !== "host_operation",
+        ),
+      ].sort((left, right) => {
+        const leftKey =
+          left.kind === "host_operation"
+            ? left.operationId
+            : JSON.parse(left.identityJson).operationNonce;
+        const rightKey =
+          right.kind === "host_operation"
+            ? right.operationId
+            : JSON.parse(right.identityJson).operationNonce;
+        return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+      }),
+    };
+    const before = Buffer.from(canonicalJson(previous) + "\n");
+    fs.writeFileSync(file, before);
     const suffix = index.toString(16).padStart(16, "0");
     const identity = {
-      schema: "crdd-coordinator/operation-identity/v5",
-      operationNonce: index.toString(16).padStart(64, "0"),
+      schema: "crdd-coordinator/operation-identity/v6",
+      operationNonce: nonce,
       provider: "claude",
       consumer: "orchestrator",
-      operationId: `OP-${123456 + index}`,
+      operationId: hostOperationId,
       recoveryCorrelationId: operationId,
       taskAttempt: 0 as const,
       executionSelection: executionSelection("executor", {
@@ -135,15 +138,6 @@ export function registerSyntheticOperations(
       ownershipLabel: `crdd.coordinator.runtime=${suffix}`,
       operationMode: "isolated_task",
       workspaceMountMode: "read_write",
-      initialHostRecoveryId: token,
-      initialHostRecovery: {
-        token,
-        recordHash: hostHash,
-        directoryIdentity: "1:2:3",
-        markerIdentity: "1:2:4",
-        record: hostRecord,
-      },
-      hostPaths: { root: "host-root", marker: "host-marker" },
     };
     const registered = saveOperationStart(
       {
@@ -212,7 +206,14 @@ export function registerSyntheticOperations(
           recoveryIds: [
             ...results.map((item) => item.recoveryId),
             registered.recoveryId,
-          ],
+          ].sort((left, right) => {
+            // 保存契約は登録順ではなくOperation nonceの昇順。
+            const a =
+              left.split(".")[2] ?? assert.fail("fixture_nonce_missing");
+            const b =
+              right.split(".")[2] ?? assert.fail("fixture_nonce_missing");
+            return a < b ? -1 : a > b ? 1 : 0;
+          }),
           resultUnresolved:
             task.settlement.kind === "operations"
               ? task.settlement.resultUnresolved
@@ -249,7 +250,14 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
   assert.ok(operation && operation.kind === "docker_task");
   const identity = JSON.parse(operation.identityJson);
   operation.phase = "settling";
-  operation.host.cleanup = "confirmed";
+  const host = state.operations.find(
+    (item: { kind: string; operationId?: string }) =>
+      item.kind === "host_operation" &&
+      item.operationId === identity.operationId,
+  );
+  assert.ok(host);
+  host.phase = "terminal";
+  host.cleanup = "confirmed";
   operation.lease = "released";
   operation.execution = {
     providerStart: "started",
@@ -335,6 +343,7 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
   assert.equal(borrowed.repositoryBinding, binding);
   const repository = {
     ...borrowed,
+    root: verified.capability,
     operationId: identity.operationId,
     historyRetentionDays: 30,
   };
@@ -355,6 +364,7 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
     (item) => item.recoveryId === recoveryId,
   );
   assert.ok(terminal);
+  assert.ok(terminal.kind === "docker_task");
   assert.equal(terminal.history?.confirmed, true);
   return {
     repositoryBinding: binding,

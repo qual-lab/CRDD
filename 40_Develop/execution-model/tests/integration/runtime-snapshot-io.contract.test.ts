@@ -20,10 +20,11 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { types } from "node:util";
-import { runInNewContext, runInThisContext } from "node:vm";
+import { runInNewContext } from "node:vm";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   areTaskResourcesSettled,
+  readOperationHost,
   isDockerRestartCheckpointSettled,
 } from "../../src/attempt/validation.ts";
 import * as privateDecisionCrud from "../../src/decision/crud.ts";
@@ -31,12 +32,10 @@ import type { DecisionAnswer } from "../../src/decision/types.ts";
 import * as privateHistoryCrud from "../../src/history/crud.ts";
 import * as domain from "../../src/index.ts";
 import {
-  type ExecutionOperationRecord,
   type OperationResources,
   type ProjectExecutionState,
   readProjectExecutionState,
 } from "../../src/index.ts";
-import type { readOperationStateStage } from "../../src/state/crud.ts";
 import * as privateStateCrud from "../../src/state/crud.ts";
 import {
   initializeExecutionStore as initializeSnapshot,
@@ -54,7 +53,6 @@ import {
 import {
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
-  prepareStateHostSnapshot,
   prepareUnifiedTaskSnapshot,
   projectTaskSnapshot,
   validateUnifiedTransition,
@@ -64,8 +62,6 @@ import {
   acquireSnapshotPilotLock,
   observeExecutionStorageRepository,
 } from "../../src/storage/lock.ts";
-import * as privatePublication from "../../src/storage/publication.ts";
-import * as areaRequirement from "../../src/storage/store.ts";
 import * as areaInitialization from "../../src/storage/store.ts";
 import * as areaObservation from "../../src/storage/store.ts";
 import * as privateStorageStore from "../../src/storage/store.ts";
@@ -78,7 +74,10 @@ import {
 import { prepareQueueRecoverySettlement } from "../../src/task/crud.ts";
 import { initialExecutionInput } from "../fixtures/execution-plan.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
-import { createResourceBookFixture } from "../support/resource-operation.ts";
+import {
+  createResourceBookFixture,
+  createResourceOperationFixture,
+} from "../support/resource-operation.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
 import { sourceDeclaration } from "../support/source-declaration.ts";
 
@@ -1692,20 +1691,6 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
   }
 });
 
-const emptyTaskSections = {
-  repositoryBindingId: null,
-  projects: [],
-  managedExecutions: [],
-  queueEntries: [],
-  workspaces: [],
-  leaseEvidence: [],
-  leaseIntents: [],
-  results: [],
-  historyPending: [],
-  decisions: [],
-  blockers: [],
-};
-
 /**
  * 保存の実行観測依存をDomainの有限Repository観測へ限定する。
  * @responsibility 移管前のController値依存禁止を新しい保存Ownerで維持する。
@@ -1736,168 +1721,6 @@ test("保存観測はControllerに依存せず有限Repository観測へ接続す
   assert.match(publication, /from\s+["']\.\/lock\.ts["']/);
 });
 
-const storeSource = fs.readFileSync(
-  new URL("../../src/attempt/crud.ts", import.meta.url),
-  "utf8",
-);
-const storeBody = stripTypeScriptTypes(
-  sourceDeclaration(storeSource, "saveRecoveryCheckpoint").replaceAll(
-    "export function",
-    "function",
-  ),
-);
-const cleanupStoreBody = storeBody;
-/**
- * 保存guardの入力値だけを組み立てる。
- * @responsibility Host処置やcodecの成立とは区別した有限Writer反例を提供する。
- * @trace ERB-IT-014
- * @returns 同一操作・五用途の未要求値と固定Host遷移。
- * @boundary 値だけ。Host実体・技術実行・公開Capabilityは生成しない。
- */
-function recoveryWriterValues() {
-  const binding = "a".repeat(64);
-  const nonce = "b".repeat(64);
-  const hostRecord = {
-    schema: "crdd-coordinator-host-recovery/v1",
-    state: "host_only",
-    rootName: "crdd-coordinator-doctor-fixture",
-    rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-    childIdentities: {
-      management: {
-        pathName: "management",
-        dev: "1",
-        ino: "3",
-        birthtimeNs: "4",
-      },
-    },
-    createdAt: "2026-08-25T00:00:00.000Z",
-  };
-  const hostHash = createHash("sha256")
-    .update(`${JSON.stringify(hostRecord)}\n`)
-    .digest("hex");
-  const token =
-    "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
-    hostHash;
-  const identity = {
-    schema: "crdd-coordinator/operation-identity/v5",
-    operationNonce: nonce,
-    provider: "claude",
-    consumer: "orchestrator",
-    operationId: "OP-123456",
-    recoveryCorrelationId: "task-operation-a",
-    executionSelection: {
-      provider: "claude",
-      modelIdentifier: "opus",
-      identifierKind: "alias",
-      reasoningEffort: "low",
-      purpose: "task",
-      catalogIdentity:
-        "5e1d3387ad7fcfe61a6f2521291c2ed118fe0091f9db2aea63e1cd7aa067ed2c",
-      configIdentity:
-        "e70d12e5f16639d9774b9f1f2803deaa37528b28bdf3e938d8badd4f4c5cfb1f",
-      role: "executor",
-      workType: null,
-      source: "explicit",
-    },
-    taskAttempt: 0,
-    stableLogicalHomeBindingHash: "c".repeat(64),
-    providerHomeIdentityHash: "8".repeat(64),
-    repositoryBinding: binding,
-    ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    operationMode: "isolated_task",
-    workspaceMountMode: "read_write",
-    initialHostRecoveryId: token,
-    initialHostRecovery: {
-      token,
-      recordHash: hostHash,
-      directoryIdentity: "1:2:3",
-      markerIdentity: "1:2:4",
-      record: hostRecord,
-    },
-    hostPaths: { root: "host-root", marker: "host-marker" },
-  };
-  const identityJson = `${JSON.stringify(identity)}\n`;
-  const identitySha256 = createHash("sha256")
-    .update(identityJson)
-    .digest("hex");
-  const recoveryId =
-    "docker-task." +
-    identity.stableLogicalHomeBindingHash +
-    "." +
-    nonce +
-    "." +
-    identitySha256;
-
-  const prepared = prepareStateOperationSnapshot(null, identityJson, binding);
-  assert.ok(prepared);
-  const preparedState = decodeStateSnapshot(prepared, binding);
-  assert.ok(preparedState);
-  const initialOperation = preparedState.snapshot.operations.find(
-    (item) => item.kind === "docker_task",
-  );
-  assert.ok(initialOperation);
-  assert.equal(initialOperation.kind, "docker_task");
-  const operation = {
-    ...initialOperation,
-    host: { ...initialOperation.host },
-    execution: { ...initialOperation.execution },
-    resources: createResourceBookFixture(identity.ownershipLabel),
-  };
-  const snapshot = { ...preparedState.snapshot, operations: [operation] };
-  return {
-    token: recoveryId,
-    snapshot,
-    repository: {
-      operationId: identity.operationId,
-      repositoryBinding: binding,
-      revalidate: () => true,
-    },
-    installHostTransition() {
-      const rootName = hostRecord.rootName;
-      const nonce = "12345678-1234-4234-8234-123456789abc";
-      const recordBefore = {
-        ...hostRecord,
-        state: "docker_submission_started",
-      };
-      const expectedRecord = {
-        ...recordBefore,
-        state: "docker_absent_confirmed",
-      };
-      const hash = (value: unknown) =>
-        createHash("sha256")
-          .update(`${JSON.stringify(value)}\n`)
-          .digest("hex");
-      const currentToken = ["host", rootName, nonce, hash(recordBefore)].join(
-        ".",
-      );
-      const expectedToken = [
-        "host",
-        rootName,
-        nonce,
-        hash(expectedRecord),
-      ].join(".");
-      operation.host.currentToken = currentToken;
-      operation.host.pendingTransitionJson = `${JSON.stringify({
-        currentToken,
-        expectedToken,
-        rootName,
-        nonce,
-        currentState: recordBefore.state,
-        nextState: expectedRecord.state,
-        recordBefore,
-      })}\n` as unknown as null;
-      operation.execution.ownerEffect = "disabled";
-      assert.ok(
-        decodeStateSnapshot(
-          Buffer.from(`${encodeStateValue(snapshot)}\n`),
-          binding,
-        ),
-      );
-      return { currentToken, expectedToken };
-    },
-  };
-}
-
 /**
  * 同じ保存対象へ二つの用途が同じ資源名を割り当てることを拒否する。
  * @responsibility 保存入力のIdentity整合をDIの公開検査へ依存せず保証する。
@@ -1910,21 +1733,29 @@ function recoveryWriterValues() {
  * @boundary Domainの保存候補生成。保存の実成立を意味しない。
  */
 test("保存Snapshotはkeyと同種資源名の重複を候補生成前に拒否する", () => {
-  const f = recoveryWriterValues();
-  const operation = f.snapshot.operations[0];
-  assert.ok(operation?.kind === "docker_task" && operation.resources);
-  const initial = prepareStateOperationSnapshot(
-    null,
-    operation.identityJson,
-    f.repository.repositoryBinding,
+  const fixture = createResourceOperationFixture();
+  const book = createResourceBookFixture(fixture.ownershipLabel, "planned", [
+    "container_a",
+    "container_b",
+  ]);
+  const first = book.snapshot.resources[0],
+    second = book.snapshot.resources[1];
+  assert.ok(first && second);
+  assert.ok(
+    prepareStateResourceSnapshot(
+      fixture.bytes,
+      fixture.recoveryId,
+      {
+        event: "submission",
+        key: first.key,
+        snapshot: book.snapshot,
+        cleanup: book.cleanup,
+      },
+      fixture.binding,
+    ),
   );
-  assert.ok(initial);
   for (const mode of ["key", "name"] as const) {
-    const book: OperationResources = structuredClone(operation.resources);
-    const first = book.snapshot.resources[0],
-      second = book.snapshot.resources[1];
-    assert.ok(first && second);
-    const invalid = {
+    const invalid: OperationResources["snapshot"] = {
       resources: [
         first,
         {
@@ -1936,230 +1767,19 @@ test("保存Snapshotはkeyと同種資源名の重複を候補生成前に拒否
     };
     assert.equal(
       prepareStateResourceSnapshot(
-        initial,
-        f.token,
+        fixture.bytes,
+        fixture.recoveryId,
         {
           event: "submission",
           key: first.key,
           snapshot: invalid,
           cleanup: book.cleanup,
         },
-        f.repository.repositoryBinding,
+        fixture.binding,
       ),
       null,
+      mode,
     );
-  }
-});
-
-/**
- * 固定Writer本文が保存済みHost意図以外のtoken変更を拒否する。
- * @responsibility 元版・同操作・既知終了とpending解除を保存要求前に照合する。
- * @trace ERB-IT-014
- * @precondition 本番Writer本文と模擬Reader／候補生成／物理Writerを使う。
- * @stimulus exact後続、意図欠落、別遷移、別token、Owner／資源不明、清掃変更と古い元版を与える。
- * @observation 候補生成数、物理保存要求数と返却status。
- * @oracle exactのHost token確定だけ候補・保存各一回、それ以外は両方0。
- * @cleanup 合成境界だけ。実Storage CAS・Docker・Host処置は対象外。
- * @boundary ERB-IT-014=Related 2 Blocks: 固定途中Writer→候補生成／物理保存。
- */
-test("現在回収Writerは保存済みHost後続tokenと不変欄を共同確認する", () => {
-  for (const fault of [
-    "none",
-    "no_intent",
-    "other_token",
-    "other_transition",
-    "owner",
-    "resource",
-    "cleanup",
-    "pending",
-    "before",
-  ] as const) {
-    const f = recoveryWriterValues();
-    const tokens = f.installHostTransition();
-    const operation = f.snapshot.operations[0];
-    assert.ok(operation);
-    const before = Buffer.from(`${encodeStateValue(f.snapshot)}\n`);
-    const update = {
-      ...operation.host,
-      currentToken: tokens.expectedToken,
-      pendingTransitionJson: null as string | null,
-    };
-    if (fault === "no_intent") operation.host.pendingTransitionJson = null;
-    if (fault === "other_token")
-      update.currentToken = tokens.currentToken.replace(/.$/u, "0");
-    if (fault === "other_transition") {
-      const intent = JSON.parse(
-        operation.host.pendingTransitionJson as unknown as string,
-      );
-      intent.nextState = "host_only";
-      operation.host.pendingTransitionJson = JSON.stringify(
-        intent,
-      ) as unknown as null;
-    }
-    if (fault === "owner") operation.execution.ownerEffect = "active";
-    if (fault === "resource") {
-      operation.resources = createResourceBookFixture(
-        "crdd.coordinator.runtime=0123456789abcdef",
-        "unknown",
-      );
-    }
-    if (fault === "cleanup") update.cleanup = "confirmed";
-    if (fault === "pending")
-      update.pendingTransitionJson = operation.host.pendingTransitionJson;
-    let prepares = 0,
-      writes = 0;
-    const invoke = runInNewContext(`${storeBody}\nsaveRecoveryCheckpoint`, {
-      snapshotStateRecord,
-
-      Buffer,
-      areTaskResourcesSettled: (
-        value: Parameters<typeof areTaskResourcesSettled>[0],
-      ) => areTaskResourcesSettled(JSON.parse(JSON.stringify(value))),
-      encodeStateValue,
-      readStateSnapshot: () => ({
-        status: "completed",
-        lockReleased: true,
-        value: { snapshot: f.snapshot },
-      }),
-      prepareStateHostSnapshot: () => {
-        prepares++;
-        return Buffer.from("fixed candidate");
-      },
-      writeStateSnapshot: (
-        _owner: unknown,
-        repository: { revalidate: () => boolean } | null,
-      ) => {
-        if (repository === null) return { status: "blocked" };
-        assert.equal(repository.revalidate(), true);
-        writes++;
-        return { status: "completed" };
-      },
-    });
-    // 故障別の現在本文へ結合し、before故障だけ旧本文を渡す。
-    const currentBefore =
-      fault === "before"
-        ? Buffer.concat([before, Buffer.from(" ")])
-        : Buffer.from(`${encodeStateValue(f.snapshot)}\n`);
-    const result = invoke(f.repository, f.token, currentBefore, {
-      kind: "host",
-      value: update,
-      assertOwner: () => true,
-    });
-    assert.equal(
-      result.status,
-      fault === "none" ? "completed" : "blocked",
-      fault,
-    );
-    assert.equal(prepares, fault === "none" ? 1 : 0, fault);
-    assert.equal(writes, fault === "none" ? 1 : 0, fault);
-  }
-});
-
-/**
- * Host清掃確定Writerの固定一欄とOwnerを確認する。
- * @responsibility 汎用checkpointを緩めず、正当な清掃後Ownerだけを既存Writerへ搬送する。
- * @trace ERB-IT-014
- * @precondition 本番Writer本文と合成Reader／物理Writerを使用する。
- * @stimulus 正常と元版差・Owner差・遷移残存・未終端資源・失効を与える。
- * @observation 純粋candidateと物理Writerの到達数、固定Host欄。
- * @oracle 正常だけpendingからconfirmed、拒否時candidate／Writer0。
- * @cleanup N/A: 合成I/Oだけで実資源なし。
- * @boundary ERB-IT-014=Related 2 Blocks: 清掃終端Writer→Reader／物理保存。
- */
-test("現在Host清掃Writerは固定元版・既知終端と保持中Ownerだけを受理する", () => {
-  for (const fault of [
-    "none",
-    "before",
-    "owner",
-    "cleanup",
-    "pending",
-    "active",
-    "resource",
-    "reader",
-    "live",
-  ] as const) {
-    const f = recoveryWriterValues(),
-      operation = f.snapshot.operations[0];
-    assert.ok(operation);
-    operation.host.cleanup = "pending" as typeof operation.host.cleanup;
-    operation.execution.ownerEffect = "disabled";
-    assert.ok(
-      decodeStateSnapshot(
-        Buffer.from(`${encodeStateValue(f.snapshot)}\n`),
-        f.repository.repositoryBinding,
-      ),
-    );
-    if (fault === "cleanup") operation.host.cleanup = "not_requested";
-    if (fault === "pending")
-      operation.host.pendingTransitionJson = "{}" as unknown as null;
-    if (fault === "active") operation.execution.ownerEffect = "active";
-    if (fault === "resource")
-      operation.resources = createResourceBookFixture(
-        "crdd.coordinator.runtime=0123456789abcdef",
-        "unknown",
-      );
-    const before = Buffer.from(`${encodeStateValue(f.snapshot)}\n`);
-    let candidates = 0,
-      writes = 0;
-    const invoke = runInNewContext(
-      `${cleanupStoreBody}\nsaveRecoveryCheckpoint`,
-      {
-        snapshotStateRecord,
-
-        Buffer,
-        areTaskResourcesSettled: (
-          value: Parameters<typeof areTaskResourcesSettled>[0],
-        ) => areTaskResourcesSettled(JSON.parse(JSON.stringify(value))),
-        encodeStateValue,
-        readStateSnapshot: () => ({
-          status: "completed",
-          lockReleased: fault !== "reader",
-          value: { snapshot: f.snapshot },
-        }),
-        prepareStateHostSnapshot: (
-          _before: Buffer,
-          id: string,
-          host: unknown,
-        ) => {
-          candidates++;
-          assert.equal(id, f.token);
-          assert.deepEqual(JSON.parse(JSON.stringify(host)), {
-            ...operation.host,
-            cleanup: "confirmed",
-          });
-          return Buffer.from("fixed cleanup candidate");
-        },
-        writeStateSnapshot: (
-          _owner: unknown,
-          repository: { revalidate: () => boolean } | null,
-        ) => {
-          if (!repository) return { status: "blocked" };
-          assert.equal(repository.revalidate(), true);
-          writes++;
-          return { status: "completed" };
-        },
-      },
-    );
-    const result = invoke(
-      {
-        ...f.repository,
-        operationId: fault === "owner" ? "other" : f.repository.operationId,
-      },
-      f.token,
-      fault === "before" ? Buffer.concat([before, Buffer.from(" ")]) : before,
-      {
-        kind: "host_cleanup",
-        assertAbsentOwner: () => fault !== "live",
-        publication: null,
-      },
-    );
-    assert.equal(
-      result.status,
-      fault === "none" ? "completed" : "blocked",
-      fault,
-    );
-    assert.equal(candidates, fault === "none" ? 1 : 0, fault);
-    assert.equal(writes, fault === "none" ? 1 : 0, fault);
   }
 });
 
@@ -2572,350 +2192,6 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
   }
 });
 
-/**
- * 通常初期化の一回証拠と物理置換を保存Owner内で確認する。
- * @responsibility 初期化再使用、fresh Reader、別Root、同bytes置換とpendingを区別する。
- * @trace ERB-IT-003
- * @trace ERB-IT-014
- * @precondition 自己生成Git Rootと有限の合成Host観測を使用する。
- * @stimulus 実Writerと実Filesystemへ正負の初期化・更新を発行する。
- * @observation 本文、Hash、pending、marker、排他解放と再入場。
- * @oracle 偽Owner・異なる実体・競合は無出版で停止する。
- * @cleanup 今回Rootだけを既存helperで清掃する。
- * @boundary 保存の試験。合成Host観測を実Host終了の証拠にしない。
- */
-test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結合する", {
-  skip: process.platform !== "win32",
-}, async (t) => {
-  const { root } = fixture(t);
-  execFileSync(
-    "git",
-    [
-      "-C",
-      root,
-      "-c",
-      "user.name=CRDD Test",
-      "-c",
-      "user.email=test@example.invalid",
-      "-c",
-      "commit.gpgsign=false",
-      "commit",
-      "--allow-empty",
-      "--quiet",
-      "-m",
-      "fixture",
-    ],
-    { windowsHide: true },
-  );
-  const verifiedRoot = getRepository(root);
-  assert.equal(verifiedRoot.status, "completed");
-  if (verifiedRoot.status !== "completed") throw Error("fixture_root_invalid");
-  const observed = observeExecutionStorageRepository(verifiedRoot.capability);
-  assert.ok(observed);
-  areaRequirement.requireReadyRepositoryExecutionDataArea(
-    areaInitialization.ensureRepositoryExecutionDataAreaFromWorkingDirectory(
-      root,
-      "tmp",
-    ),
-    "initialization_fixture",
-  );
-  const repository = { ...observed, operationId: "OP-123456" };
-  const management = Object.freeze({
-    identity: Object.freeze({}),
-    observeRepository: () => ({
-      purpose: "execution" as const,
-      root: verifiedRoot.capability,
-      operationId: repository.operationId,
-      revalidate: repository.revalidate,
-    }),
-    verifyNotIssued: () => false,
-  });
-  const first = {
-    ...emptyTaskSections,
-    schema: EXECUTION_STATE_SCHEMA,
-    revision: 1,
-    previous: null,
-    repositoryBinding: repository.repositoryBinding,
-    operations: [],
-    unresolvedRecoveries: [],
-  };
-  const firstBytes = Buffer.from(`${encodeStateValue(first)}\n`);
-  assert.equal(
-    domain.readState(management, { scope: "operation" }).status,
-    "blocked",
-  );
-  assert.equal(
-    privatePublication.prepareOwnedStateInitialization(management, firstBytes)
-      .status,
-    "prepared",
-  );
-  const area = requireReadyRepositoryExecutionDataArea(
-    ensureRepositoryExecutionDataAreaFromWorkingDirectory(root, "domain-model"),
-    "state_root",
-  );
-  assert.equal(
-    privatePublication.prepareOwnedStateInitialization(management, firstBytes)
-      .status,
-    "blocked",
-  );
-  assert.equal(
-    privatePublication.writeOwnedStateSnapshot({}, firstBytes)
-      .filesystemEffectIssued,
-    false,
-  );
-  const result = privatePublication.writeOwnedStateSnapshot(
-    management,
-    firstBytes,
-  );
-  assert.equal(result.status, "completed");
-  assert.equal(result.snapshotConfirmed, true);
-  assert.equal(result.lockReleased, true);
-  assert.deepEqual(fs.readdirSync(area.directory), ["state.json"]);
-  const readFirst = domain.readState(management, { scope: "operation" });
-  assert.equal(readFirst.status, "completed");
-  assert.equal(readFirst.lockReleased, true);
-  assert.equal(readFirst.value?.snapshot.revision, 1);
-  assert.equal(
-    readFirst.value?.payloadSha256,
-    hashExecutionStateContent(first),
-  );
-  assert.equal(domain.readState({}, { scope: "operation" }).status, "blocked");
-  const recoveryRead = domain.readState(verifiedRoot.capability, {
-    scope: "recovery",
-  });
-  assert.equal(recoveryRead.status, "completed");
-  assert.equal(recoveryRead.lockReleased, true);
-  assert.deepEqual(recoveryRead.value, readFirst.value);
-  for (const invalidRoot of [null, {}, { ...verifiedRoot.capability }, root]) {
-    const rejectedRoot = domain.readState(invalidRoot, { scope: "recovery" });
-    assert.equal(rejectedRoot.status, "blocked");
-    assert.equal(rejectedRoot.value, null);
-  }
-  const freshProcessRead = JSON.parse(
-    execFileSync(
-      process.execPath,
-      [
-        "--experimental-strip-types",
-        "-e",
-        `(async () => {
-     const { getRepository } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-     const domain = await import(${JSON.stringify(new URL("../../src/index.ts", import.meta.url).href)});
-     const root = getRepository(process.argv[1]);
-     const result = domain.readState(root.capability, { scope: "recovery" });
-     process.stdout.write(JSON.stringify({status: result.status, lockReleased: result.lockReleased, hash: result.value?.payloadSha256 ?? null}));
-     })().catch(error => { console.error(error); process.exitCode = 1; });`,
-        root,
-      ],
-      { windowsHide: true, encoding: "utf8", timeout: 30_000 },
-    ),
-  );
-  assert.deepEqual(freshProcessRead, {
-    status: "completed",
-    lockReleased: true,
-    hash: readFirst.value?.payloadSha256,
-  });
-  const otherRoot = path.join(root, "other-repository");
-  fs.mkdirSync(otherRoot);
-  execFileSync("git", ["init", "--quiet", otherRoot], { windowsHide: true });
-  execFileSync(
-    "git",
-    [
-      "-C",
-      otherRoot,
-      "-c",
-      "user.name=CRDD Test",
-      "-c",
-      "user.email=test@example.invalid",
-      "-c",
-      "commit.gpgsign=false",
-      "commit",
-      "--allow-empty",
-      "--quiet",
-      "-m",
-      "other fixture",
-    ],
-    { windowsHide: true },
-  );
-  const verifiedOtherRoot = getRepository(otherRoot);
-  assert.ok(verifiedOtherRoot.capability);
-  const otherArea = path.join(otherRoot, ".crdd", "domain-model");
-  fs.mkdirSync(otherArea, { recursive: true });
-  fs.writeFileSync(path.join(otherArea, "state.json"), firstBytes, {
-    flag: "wx",
-  });
-  const foreignSnapshot = domain.readState(verifiedOtherRoot.capability, {
-    scope: "recovery",
-  });
-  assert.equal(foreignSnapshot.status, "blocked");
-  assert.equal(foreignSnapshot.value, null);
-  assert.deepEqual(
-    fs.readFileSync(path.join(otherArea, "state.json")),
-    firstBytes,
-  );
-  const borrowedOtherRoot = observeExecutionStorageRepository(
-    verifiedOtherRoot.capability,
-  );
-  assert.ok(borrowedOtherRoot);
-  assert.equal(borrowedOtherRoot.revalidate(), true);
-  fs.renameSync(otherRoot, `${otherRoot}-previous`);
-  fs.mkdirSync(otherRoot);
-  execFileSync("git", ["init", "--quiet", otherRoot], { windowsHide: true });
-  execFileSync(
-    "git",
-    [
-      "-C",
-      otherRoot,
-      "-c",
-      "user.name=CRDD Test",
-      "-c",
-      "user.email=test@example.invalid",
-      "-c",
-      "commit.gpgsign=false",
-      "commit",
-      "--allow-empty",
-      "--quiet",
-      "-m",
-      "replacement fixture",
-    ],
-    { windowsHide: true },
-  );
-  assert.equal(borrowedOtherRoot.revalidate(), false);
-  assert.deepEqual(
-    fs.readFileSync(path.join(area.directory, "state.json")),
-    firstBytes,
-  );
-  // 公開後に消えた現在状態を初回の空領域として再作成しない。
-  fs.unlinkSync(path.join(area.directory, "state.json"));
-  assert.equal(
-    domain.readState(verifiedRoot.capability, { scope: "recovery" }).status,
-    "blocked",
-  );
-  assert.equal(fs.existsSync(path.join(area.directory, "state.json")), false);
-  assert.equal(
-    domain.readState(management, { scope: "operation" }).status,
-    "blocked",
-  );
-  assert.equal(
-    privatePublication.writeOwnedStateSnapshot(management, firstBytes)
-      .filesystemEffectIssued,
-    false,
-  );
-  assert.equal(
-    privatePublication.prepareOwnedStateInitialization(management, firstBytes)
-      .status,
-    "blocked",
-  );
-  fs.writeFileSync(path.join(area.directory, "state.json"), firstBytes, {
-    flag: "wx",
-  });
-  const second = {
-    ...first,
-    revision: 2,
-    previous: {
-      revision: 1,
-      payloadSha256: hashExecutionStateContent(first),
-    },
-  };
-  const secondBytes = Buffer.from(`${encodeStateValue(second)}\n`);
-  // 同じ本文への実体差し替えを、公開前の再観測で拒否する。
-  const originalFsync = fs.fsyncSync;
-  let isReplaced = false;
-  fs.fsyncSync = (fd) => {
-    originalFsync(fd);
-    // wx取得自身のfsyncではなく、pending作成後の出版区間に注入する。
-    if (
-      !isReplaced &&
-      fs.existsSync(path.join(area.directory, "state.pending.json"))
-    ) {
-      isReplaced = true;
-      const state = path.join(area.directory, "state.json");
-      fs.renameSync(state, path.join(root, "replaced-state"));
-      fs.writeFileSync(state, firstBytes, { flag: "wx" });
-    }
-  };
-  try {
-    const replacement = privatePublication.writeOwnedStateSnapshot(
-      management,
-      secondBytes,
-    );
-    assert.equal(replacement.status, "blocked");
-    assert.equal(replacement.snapshotConfirmed, false);
-    assert.deepEqual(
-      fs.readFileSync(path.join(area.directory, "state.json")),
-      firstBytes,
-    );
-  } finally {
-    fs.fsyncSync = originalFsync;
-  }
-  assert.deepEqual(
-    fs.readFileSync(path.join(area.directory, "state.pending.json")),
-    secondBytes,
-  );
-  fs.unlinkSync(path.join(area.directory, "state.pending.json"));
-  fs.writeFileSync(
-    path.join(area.directory, "state.pending.json"),
-    secondBytes,
-    { flag: "wx" },
-  );
-  assert.equal(
-    privatePublication.writeOwnedStateSnapshot(management, secondBytes).status,
-    "completed",
-  );
-  assert.deepEqual(fs.readdirSync(area.directory), ["state.json"]);
-  assert.deepEqual(
-    fs.readFileSync(path.join(area.directory, "state.json")),
-    secondBytes,
-  );
-  // 正規保存済みと同じpending残存は再適用せず短命物だけを回収する。
-  fs.writeFileSync(
-    path.join(area.directory, "state.pending.json"),
-    secondBytes,
-    { flag: "wx" },
-  );
-  assert.equal(
-    privatePublication.writeOwnedStateSnapshot(management, secondBytes).status,
-    "completed",
-  );
-  fs.writeFileSync(path.join(area.directory, "state.pending.json"), "invalid", {
-    flag: "wx",
-  });
-  assert.equal(
-    domain.readState(management, { scope: "operation" }).reason,
-    "coordinator_state_reentry_required",
-  );
-  assert.equal(
-    domain.readState(verifiedRoot.capability, { scope: "recovery" }).reason,
-    "coordinator_state_reentry_required",
-  );
-  const rejected = privatePublication.writeOwnedStateSnapshot(
-    management,
-    secondBytes,
-  );
-  assert.equal(rejected.status, "blocked");
-  assert.equal(rejected.filesystemEffectIssued, false);
-  assert.equal(
-    fs.readFileSync(path.join(area.directory, "state.pending.json"), "utf8"),
-    "invalid",
-  );
-  assert.deepEqual(
-    fs.readFileSync(path.join(area.directory, "state.json")),
-    secondBytes,
-  );
-  fs.unlinkSync(path.join(area.directory, "state.pending.json"));
-  const hardlink = path.join(root, "state-hardlink");
-  fs.linkSync(path.join(area.directory, "state.json"), hardlink);
-  assert.equal(
-    domain.readState(management, { scope: "operation" }).status,
-    "blocked",
-  );
-  assert.equal(
-    privatePublication.writeOwnedStateSnapshot(management, secondBytes)
-      .filesystemEffectIssued,
-    false,
-  );
-  fs.unlinkSync(hardlink);
-});
-
 const MAX_RECORD_BYTES = 16 * 1024 * 1024;
 /**
  * 新Snapshotは旧形式を補完せず拒否する。
@@ -3045,10 +2321,7 @@ test("配送Readerは確定版と同一のpendingを拒否する", () => {
   }
 });
 
-import {
-  prepareStateOperationSnapshot,
-  prepareStateResourceSnapshot,
-} from "../../src/state/validation.ts";
+import { prepareStateResourceSnapshot } from "../../src/state/validation.ts";
 
 /**
  * 初回計画の拒否をStore作成前に閉じ、ProjectとQueueを同じ保存へ組み込む。
@@ -5361,431 +4634,6 @@ test("PR-D-A-01 accepts valid records across the former byte boundary", (t) => {
 });
 
 /**
- * Host準備保存のReader・Writer間相関を保存Owner内で反証する。
- * @responsibility 現在本文一致、元Owner・読取り解放・fresh検査を維持する。
- * @trace PRL-IT-005
- * @precondition 正常codecで確認した合成値だけを使う。
- * @stimulus 本番の固定保存関数へReaderと物理Writerの境界だけを注入する。
- * @observation 保存回数、固定拒否、同値再入場、解放flag。
- * @oracle 別Owner・元版差・Reader後失効・解放不明では保存しない。
- * @cleanup N/A: メモリ内の固定模擬だけ。
- * @boundary 保存wrapperの論理試験。実HostやDockerを使用しない。
- */
-test("Host準備保存は元OwnerとReader完了を再確認する", () => {
-  const binding = "a".repeat(64);
-  const nonce = "b".repeat(64);
-  const hostRecord = {
-    schema: "crdd-coordinator-host-recovery/v1",
-    state: "host_only",
-    rootName: "crdd-coordinator-doctor-fixture",
-    rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-    childIdentities: {
-      management: {
-        pathName: "management",
-        dev: "1",
-        ino: "3",
-        birthtimeNs: "4",
-      },
-    },
-    createdAt: "2026-08-25T00:00:00.000Z",
-  };
-  const hostHash = createHash("sha256")
-    .update(`${JSON.stringify(hostRecord)}\n`)
-    .digest("hex");
-  const token =
-    "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
-    hostHash;
-  const identity = {
-    schema: "crdd-coordinator/operation-identity/v5",
-    operationNonce: nonce,
-    provider: "claude",
-    consumer: "orchestrator",
-    operationId: "OP-123456",
-    recoveryCorrelationId: "task-operation-a",
-    executionSelection: {
-      provider: "claude",
-      modelIdentifier: "opus",
-      identifierKind: "alias",
-      reasoningEffort: "low",
-      purpose: "task",
-      catalogIdentity:
-        "5e1d3387ad7fcfe61a6f2521291c2ed118fe0091f9db2aea63e1cd7aa067ed2c",
-      configIdentity:
-        "e70d12e5f16639d9774b9f1f2803deaa37528b28bdf3e938d8badd4f4c5cfb1f",
-      role: "executor",
-      workType: null,
-      source: "explicit",
-    },
-    taskAttempt: 0,
-    stableLogicalHomeBindingHash: "c".repeat(64),
-    providerHomeIdentityHash: "8".repeat(64),
-    repositoryBinding: binding,
-    ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    operationMode: "isolated_task",
-    workspaceMountMode: "read_write",
-    initialHostRecoveryId: token,
-    initialHostRecovery: {
-      token,
-      recordHash: hostHash,
-      directoryIdentity: "1:2:3",
-      markerIdentity: "1:2:4",
-      record: hostRecord,
-    },
-    hostPaths: { root: "host-root", marker: "host-marker" },
-  };
-  const identityJson = `${JSON.stringify(identity)}\n`;
-  const identitySha256 = createHash("sha256")
-    .update(identityJson)
-    .digest("hex");
-  const recoveryId =
-    "docker-task." +
-    identity.stableLogicalHomeBindingHash +
-    "." +
-    nonce +
-    "." +
-    identitySha256;
-
-  const prepared = prepareStateOperationSnapshot(null, identityJson, binding);
-  assert.ok(prepared);
-  const preparedState = decodeStateSnapshot(prepared, binding);
-  assert.ok(preparedState);
-  const initialOperation = preparedState.snapshot.operations.find(
-    (item) => item.kind === "docker_task",
-  );
-  assert.ok(initialOperation);
-  const releasedOperation: ExecutionOperationRecord = {
-    ...initialOperation,
-    lease: "released",
-    execution: {
-      ...initialOperation.execution,
-      ownerEffect: "disabled",
-      workspaceReusable: false,
-    },
-    resources: createResourceBookFixture(identity.ownershipLabel, "absent"),
-  };
-  const hostPreparationBefore = Buffer.from(
-    `${encodeStateValue({
-      ...preparedState.snapshot,
-      operations: [
-        {
-          ...releasedOperation,
-          resources: createResourceBookFixture(identity.ownershipLabel),
-          execution: {
-            ...releasedOperation.execution,
-            providerStart: "not_started",
-            externalSend: "not_issued",
-            sharedWrite: "not_issued",
-          },
-        },
-      ],
-    })}\n`,
-  );
-  assert.ok(decodeStateSnapshot(hostPreparationBefore, binding));
-  const hostPreparationCandidate = prepareStateHostSnapshot(
-    hostPreparationBefore,
-    recoveryId,
-    { ...releasedOperation.host, cleanup: "pending" },
-    binding,
-  );
-  assert.ok(hostPreparationCandidate);
-  // 清掃予定の値検査はEM Readerへ閉じ、上位の一回許可消費より前に完了する。
-  let hostReadReleased = true;
-  let hostReadCount = 0;
-  let stateReaderCalls = 0;
-  let identityOwnerMatches = true;
-  let identityOwnerLive = true;
-  let hostReadBefore = hostPreparationBefore;
-  const readHostPreparation = runInThisContext(
-    `(scope) => { const { snapshotStateRecord, observeOperationRepository, readStateSnapshot, encodeStateValue, prepareStateHostSnapshot, prepareStateOperationSnapshot, decodeStateSnapshot } = scope; ${sourceDeclaration(fs.readFileSync(new URL("../../src/state/crud.ts", import.meta.url), "utf8"), "readOperationStateStage")}\nreturn readOperationStateStage; }`,
-  )({
-    snapshotStateRecord,
-    encodeStateValue,
-    prepareStateHostSnapshot,
-    prepareStateOperationSnapshot,
-    decodeStateSnapshot,
-    observeOperationRepository: () => ({
-      repositoryBinding: binding,
-      operationId: identityOwnerMatches ? identity.operationId : "OP-other",
-      revalidate: () => identityOwnerLive,
-    }),
-    readStateSnapshot: (repository: unknown) => {
-      stateReaderCalls++;
-      if (repository) hostReadCount++;
-      return {
-        status: repository ? "completed" : "blocked",
-        lockReleased: hostReadReleased,
-        value: repository ? decodeStateSnapshot(hostReadBefore, binding) : null,
-      };
-    },
-  }) as typeof readOperationStateStage;
-  const ready = readHostPreparation({}, { kind: "host_cleanup", recoveryId });
-  assert.equal(ready.status, "completed");
-  assert.deepEqual(ready.hostCleanupPreparation?.before, hostPreparationBefore);
-  assert.equal(
-    ready.hostCleanupPreparation?.hostToken,
-    releasedOperation.host.currentToken,
-  );
-  assert.equal(
-    readHostPreparation({}, { kind: "host_cleanup", recoveryId: "other" })
-      .hostCleanupPreparation,
-    null,
-  );
-  hostReadReleased = false;
-  assert.equal(
-    readHostPreparation({}, { kind: "host_cleanup", recoveryId })
-      .hostCleanupPreparation,
-    null,
-  );
-  hostReadReleased = true;
-  const held = JSON.parse(hostPreparationBefore.toString("utf8"));
-  held.operations[0].lease = "held";
-  hostReadBefore = Buffer.from(`${encodeStateValue(held)}\n`);
-  assert.equal(
-    readHostPreparation({}, { kind: "host_cleanup", recoveryId })
-      .hostCleanupPreparation,
-    null,
-  );
-  hostReadBefore = hostPreparationBefore;
-  let traps = 0;
-  const reads = hostReadCount;
-  const hostile = Object.defineProperty({ recoveryId }, "kind", {
-    get() {
-      traps++;
-      return "host_cleanup";
-    },
-  });
-  assert.equal(
-    readHostPreparation(
-      {},
-      hostile as { kind: "host_cleanup"; recoveryId: unknown },
-    ).status,
-    "blocked",
-  );
-  assert.equal(traps, 0);
-  assert.equal(hostReadCount, reads);
-  const readsBeforeIdentity = stateReaderCalls;
-  for (let repeat = 0; repeat < 2; repeat++) {
-    const observed = readHostPreparation(
-      {},
-      { kind: "operation_start", identityJson },
-    );
-    assert.equal(observed.kind, "operation_start");
-    assert.equal(observed.status, "completed");
-    assert.equal(observed.value, null);
-    assert.equal(observed.lockReleased, true);
-    assert.deepEqual(observed.operationIdentity, {
-      recoveryId,
-      identitySha256,
-      operationId: identity.operationId,
-    });
-  }
-  identityOwnerMatches = false;
-  assert.equal(
-    readHostPreparation({}, { kind: "operation_start", identityJson })
-      .operationIdentity,
-    null,
-  );
-  identityOwnerMatches = true;
-  identityOwnerLive = false;
-  assert.equal(
-    readHostPreparation({}, { kind: "operation_start", identityJson }).status,
-    "blocked",
-  );
-  identityOwnerLive = true;
-  assert.equal(
-    readHostPreparation(
-      {},
-      { kind: "operation_start", identityJson: "invalid" },
-    ).operationIdentity,
-    null,
-  );
-  const hostileIdentity = Object.defineProperty(
-    { kind: "operation_start" },
-    "identityJson",
-    {
-      get() {
-        traps++;
-        return identityJson;
-      },
-    },
-  );
-  assert.equal(
-    readHostPreparation(
-      {},
-      hostileIdentity as { kind: "operation_start"; identityJson: unknown },
-    ).status,
-    "blocked",
-  );
-  assert.equal(traps, 0);
-  assert.equal(
-    stateReaderCalls,
-    readsBeforeIdentity,
-    "Identityの正常・拒否ともStateReaderを呼ばない",
-  );
-  let hostPreparationCurrent: Buffer = hostPreparationBefore;
-  let hostPreparationWrites = 0;
-  let hostPreparationOwnerLive = true;
-  let hostPreparationReadLockReleased = true;
-  let hostPreparationLoseOwnerAfterRead = false;
-  const hostPreparationOwner = Object.freeze({});
-  const saveHostPreparation = runInThisContext(
-    `(scope) => { const { snapshotStateRecord, encodeStateValue, decodeStateSnapshot, prepareStateHostSnapshot, observeOperationRepository, readStateSnapshot, writeStateSnapshot } = scope; ${sourceDeclaration(fs.readFileSync(new URL("../../src/attempt/crud.ts", import.meta.url), "utf8"), "saveRecoveryCheckpoint")}\nreturn saveRecoveryCheckpoint; }`,
-  )({
-    snapshotStateRecord,
-    Buffer,
-    Object,
-    JSON,
-    encodeStateValue,
-    decodeStateSnapshot: decodeStateSnapshot,
-    prepareStateHostSnapshot,
-    observeOperationRepository: (owner: unknown) =>
-      owner === hostPreparationOwner && hostPreparationOwnerLive
-        ? {
-            repositoryBinding: binding,
-            operationId: identity.operationId,
-            revalidate: () => hostPreparationOwnerLive,
-          }
-        : null,
-    readStateSnapshot: () => {
-      if (hostPreparationLoseOwnerAfterRead) hostPreparationOwnerLive = false;
-      return {
-        status: "completed",
-        reason: "observed",
-        lockReleased: hostPreparationReadLockReleased,
-        value: decodeStateSnapshot(hostPreparationCurrent, binding),
-      };
-    },
-    writeStateSnapshot: (
-      owner: unknown,
-      repository: { revalidate: () => boolean },
-      candidate: Buffer,
-      settlement: unknown,
-    ) => {
-      assert.equal(owner, hostPreparationOwner);
-      assert.equal(settlement, null);
-      assert.ok(candidate.equals(hostPreparationCandidate));
-      if (!repository.revalidate())
-        return {
-          status: "blocked",
-          snapshotConfirmed: false,
-          lockReleased: true,
-        };
-      hostPreparationWrites++;
-      hostPreparationCurrent = Buffer.from(candidate);
-      return {
-        status: "completed",
-        snapshotConfirmed: true,
-        lockReleased: true,
-      };
-    },
-  }) as (
-    owner: unknown,
-    id: string,
-    before: unknown,
-    request: { kind: "host_cleanup_preparation" },
-  ) => {
-    status: string;
-    snapshotConfirmed: boolean;
-    lockReleased: boolean;
-    filesystemEffectIssued?: boolean;
-  };
-  assert.equal(
-    saveHostPreparation(
-      hostPreparationOwner,
-      recoveryId,
-      hostPreparationBefore,
-      { kind: "host_cleanup_preparation" },
-    ).status,
-    "completed",
-  );
-  assert.equal(hostPreparationWrites, 1);
-  const confirmedHostPreparation = decodeStateSnapshot(
-    hostPreparationCandidate,
-    binding,
-  );
-  assert.ok(confirmedHostPreparation);
-  assert.deepEqual(
-    saveHostPreparation(
-      hostPreparationOwner,
-      recoveryId,
-      hostPreparationBefore,
-      { kind: "host_cleanup_preparation" },
-    ),
-    {
-      status: "completed",
-      reason: "coordinator_state_snapshot_confirmed",
-      revision: confirmedHostPreparation.snapshot.revision,
-      payloadSha256: confirmedHostPreparation.payloadSha256,
-      recoveryIds: [recoveryId],
-      filesystemEffectIssued: false,
-      snapshotConfirmed: true,
-      lockReleased: true,
-    },
-  );
-  assert.equal(hostPreparationWrites, 1, "同じ確定版の再入場は保存しない");
-  for (const [owner, id, before] of [
-    [{}, recoveryId, hostPreparationBefore],
-    [hostPreparationOwner, "other-recovery", hostPreparationBefore],
-    [hostPreparationOwner, recoveryId, prepared],
-    [hostPreparationOwner, recoveryId, hostPreparationCandidate],
-  ] as const)
-    assert.equal(
-      saveHostPreparation(owner, id, before, {
-        kind: "host_cleanup_preparation",
-      }).status,
-      "blocked",
-    );
-  hostPreparationCurrent = prepared;
-  assert.equal(
-    saveHostPreparation(
-      hostPreparationOwner,
-      recoveryId,
-      hostPreparationBefore,
-      { kind: "host_cleanup_preparation" },
-    ).status,
-    "blocked",
-  );
-  hostPreparationCurrent = hostPreparationBefore;
-  hostPreparationLoseOwnerAfterRead = true;
-  assert.equal(
-    saveHostPreparation(
-      hostPreparationOwner,
-      recoveryId,
-      hostPreparationBefore,
-      { kind: "host_cleanup_preparation" },
-    ).status,
-    "blocked",
-  );
-  hostPreparationLoseOwnerAfterRead = false;
-  hostPreparationOwnerLive = true;
-  hostPreparationReadLockReleased = false;
-  assert.equal(
-    saveHostPreparation(
-      hostPreparationOwner,
-      recoveryId,
-      hostPreparationBefore,
-      { kind: "host_cleanup_preparation" },
-    ).lockReleased,
-    false,
-  );
-  hostPreparationOwnerLive = false;
-  assert.equal(
-    saveHostPreparation(
-      hostPreparationOwner,
-      recoveryId,
-      hostPreparationBefore,
-      { kind: "host_cleanup_preparation" },
-    ).status,
-    "blocked",
-  );
-  assert.equal(
-    hostPreparationWrites,
-    1,
-    "不正元版・別操作・別Owner・解放不明は保存しない",
-  );
-});
-
-/**
  * 修復wrapperと排他内guardの対象外拒否を本番本文で反証する。
  * @responsibility codecの拒否に依存せず各guardを除去した負対照を確認する。
  * @trace ERB-IT-014
@@ -6542,7 +5390,8 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
     "operation_changed",
     "missing",
     "host_pending",
-    "transition_pending",
+    "host_missing",
+    "host_foreign",
     "owner_active",
     "awaiting",
     "restart_unknown",
@@ -6580,19 +5429,26 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
                 cleanupConfirmed: false,
               }
             : null;
+    const fixture = createResourceOperationFixture();
+    const host = JSON.parse(fixture.bytes.toString("utf8")).operations.find(
+      (item: { kind: string }) => item.kind === "host_operation",
+    );
+    assert.ok(host);
     const operation = {
+      ...fixture.operation,
       kind: "docker_task",
       identityJson: JSON.stringify({
-        operationId: scenario === "operation_changed" ? "other" : "OP-1",
+        ...fixture.identity,
+        operationId:
+          scenario === "operation_changed"
+            ? "OP-654321"
+            : fixture.identity.operationId,
       }),
-      recoveryId: "exact-recovery",
+      recoveryId: fixture.recoveryId,
       phase: scenario === "awaiting" ? "terminal" : "settling",
-      host: {
-        cleanup: scenario === "host_pending" ? "pending" : "confirmed",
-        pendingTransitionJson:
-          scenario === "transition_pending" ? "pending" : null,
-      },
+      lease: "released",
       execution: {
+        ...fixture.operation.execution,
         ownerEffect: scenario === "owner_active" ? "active" : "disabled",
         externalSend: "issued",
       },
@@ -6681,13 +5537,28 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
       true,
       scenario,
     );
-    const snapshot = { operations: scenario === "missing" ? [] : [operation] };
+    const snapshot = {
+      operations: [
+        ...(scenario === "host_missing"
+          ? []
+          : [
+              {
+                ...host,
+                operationId:
+                  scenario === "host_foreign" ? "OP-654321" : host.operationId,
+                phase: scenario === "host_pending" ? "active" : "terminal",
+                cleanup: scenario === "host_pending" ? "pending" : "confirmed",
+              },
+            ]),
+        ...(scenario === "missing" ? [] : [operation]),
+      ],
+    };
     const before = Buffer.from(`${JSON.stringify(snapshot)}\n`);
     let candidates = 0,
       writes = 0,
       ownerChecks = 0;
     const repository = {
-      operationId: "OP-1",
+      operationId: fixture.identity.operationId,
       repositoryBinding: "fixed",
       revalidate: () => true,
     };
@@ -6699,6 +5570,7 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
         Buffer,
         isDockerRestartCheckpointSettled,
         areTaskResourcesSettled,
+        readOperationHost,
         encodeStateValue: JSON.stringify,
         readStateSnapshot: () => ({
           status: "completed",
@@ -6713,7 +5585,7 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
         ) {
           candidates++;
           assert.deepEqual(bytes, before);
-          assert.equal(recoveryId, "exact-recovery");
+          assert.equal(recoveryId, fixture.recoveryId);
           assert.equal(binding, "fixed");
           assert.deepEqual(JSON.parse(JSON.stringify(lifecycle)), {
             phase: "settling",
@@ -6763,7 +5635,7 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
     };
     const result = writer(
       repository,
-      "exact-recovery",
+      fixture.recoveryId,
       scenario === "before_changed" ? Buffer.from("different") : before,
       {
         kind: "terminal",
@@ -6791,7 +5663,7 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
       ].includes(scenario)
     ) {
       assert.equal(
-        writer.mutant(repository, "exact-recovery", before, {
+        writer.mutant(repository, fixture.recoveryId, before, {
           kind: "terminal",
           assertOwner: () => true,
         }).snapshotConfirmed,

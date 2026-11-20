@@ -1,5 +1,17 @@
 # QA-000008 Runtime Dataと資源Lifecycleの検証定義
 
+## Git対象の変更観測
+
+Git対象の変更観測は既存`RFD-IT-013`で、追跡済みIgnore対象・無視外未追跡・追跡済み削除と、無視された未追跡物の非観測を確認する。非Git Root、一覧失敗、Stage区分の欠測・不正、Submodule、選択FileのLink／Hardlink・権限拒否・読取り途中消失は停止させる。既存の借用Tree・開始時dirty・変更候補・Reviewer本文・差替え拒否も回帰する。大量File／大容量の合成試験は、実体の読取り代役を維持しつつ、列挙だけをGit観測代役へ追従し、通常Git／HEAD／Indexを変更しない。
+
+## 借用専用Snapshotの境界
+
+同じ`RFD-IT-013`のSnapshot試験では、借用対象の省略・不正値から自己所有WorkspaceのSnapshotを作らず、その領域の内容を変更しないことを確認する。開始時dirty・対象外変更の観測・候補後差替え拒否を維持し、借用Tree上の開発情報は候補化できても、認識済み機密のPath・入れ子Path・本文をReviewerへ投影しないことを区別して反証する。到達不能な非借用分岐の撤去を、現役の機密検査の撤去へ広げない。
+
+## 保存Consumer閉包試験のOwner
+
+`RDL-IT-001`の`storage-consumer-closure.integration.test.ts`はCoordinatorのIntegration試験に配置する。複数モデル・Executor・Workbench・MCPの本番Sourceを照合するため、下位EMの試験として上位構成へ依存させない。既存の固定所在・raw Root拒否・失敗結果搬送・未登録Consumer検出を維持し、Catalog・Symbolを新Owner／Pathへ、試験の固定期待集合を現役Consumerと共通Lock所在へ追従する。非Ownerの任意Root構築を許容する例外へ広げない。移動を新しい品質合格や実保存・実回復の成立へ換算しない。
+
 ## 未接続Temporary Operationの退役 — 2026-11-12
 
 旧署名準備の本番Callerがa04ecb703で撤去されたため、実行モデルのTemporary Operation実装・専用IT／ST・fixture二個を代替なしで退役する。active Catalogの`runtime-data:integration:temporary-operation-lifecycle`と`runtime-data:system:temporary-operation-cleanup`を退役し、過去の結果は変更Evidenceへ残す。`RDL-IT-003`・`RDL-IT-004`・`RDL-ST-002`の正式ID・元の検証義務は削除せず、この旧一時操作APIに対応した自動化sliceだけを現行適用範囲から外す。これを正式項目全体のPass、未評価範囲の免除又は一般清掃保証の成立としない。

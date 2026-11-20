@@ -16,6 +16,9 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import {
   createDockerRestartRequestId,
+  decodeDockerRestartCheckpoint,
+  decodeHostOperation,
+  validHostOperationTransition,
   isDockerRestartCheckpointSettled,
   parseDockerTaskRecoveryId,
   validateDockerRestartCheckpointTransition,
@@ -43,7 +46,9 @@ test("再起動準備Readerは同版操作・Scopeと要求IDを結合する", (
   const fixture = createResourceOperationFixture();
   const decoded = decodeStateSnapshot(fixture.bytes, fixture.binding);
   assert.ok(decoded);
-  const operation = decoded.snapshot.operations[0];
+  const operation = decoded.snapshot.operations.find(
+    (item) => item.kind === "docker_task",
+  );
   assert.ok(operation?.kind === "docker_task");
   const scopeSha256 = "e".repeat(64);
   let reads = 0,
@@ -568,130 +573,74 @@ test("再起動終了判定はEffect不明条件の省略を検出する", () =>
   assert.throws(() => assert.equal(mutant(value), false));
 });
 
-import {
-  decodeDockerRestartCheckpoint,
-  validateHostRecoveryTransitionLineage,
-} from "../../../src/attempt/validation.ts";
-
-const ROOT_NAME = "crdd-coordinator-doctor-fixture";
-const NONCE = "01234567-89ab-cdef-0123-456789abcdef";
-
 /**
- * canonicalのTest準備責務を実行する。
- *
- * @responsibility canonicalがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * 同じHost操作のReceiptと回収遷移を確認する。
+ * @responsibility 旧Tokenの後継計算を、同じ操作の単調遷移へ置き換える。
  * @trace PRL-UT-006
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus canonicalを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: execution-model Test Source→対象契約
+ * @precondition 不変fixtureの正規Hostを使う。
+ * @stimulus activeからpending、terminal及び同値再送を与える。
+ * @observation 操作ID・回復参照と実体Receiptの保持。
+ * @oracle 値遷移だけで実回収を主張しない。
+ * @cleanup N/A: メモリ値のみ。
+ * @boundary 純粋値契約。実LockとFilesystemは結合試験が所有する。
  */
-function canonical(value: unknown) {
-  return `${JSON.stringify(value)}\n`;
-}
-
-/**
- * tokenのTest準備責務を実行する。
- *
- * @responsibility tokenがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PRL-UT-006
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus tokenを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: execution-model Test Source→対象契約
- */
-function token(record: unknown) {
-  const hash = createHash("sha256").update(canonical(record)).digest("hex");
-  return `host.${ROOT_NAME}.${NONCE}.${hash}`;
-}
-
-/**
- * intentのTest準備責務を実行する。
- *
- * @responsibility intentがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PRL-UT-006
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus intentを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: execution-model Test Source→対象契約
- */
-function intent() {
-  const recordBefore = Object.freeze({
-    schema: "crdd-coordinator-host-recovery/v1",
-    rootName: ROOT_NAME,
-    state: "docker_submission_started",
-    childIdentities: Object.freeze({}),
-  });
-  const successor = Object.freeze({ ...recordBefore, state: "host_only" });
-  return Object.freeze({
-    currentToken: token(recordBefore),
-    expectedToken: token(successor),
-    rootName: ROOT_NAME,
-    nonce: NONCE,
-    currentState: "docker_submission_started",
-    nextState: "host_only",
-    recordBefore,
-  });
-}
-
-/**
- * Host intentはcurrent recordから決定論的successor tokenだけを受理するを検証する。
- *
- * @responsibility Host intentはcurrent recordから決定論的successor tokenだけを受理するの合否判定を所有する。
- * @trace PRL-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Host intentはcurrent recordから決定論的successor tokenだけを受理するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: execution-model Test Source→対象契約
- */
-test("Host intentはcurrent recordから決定論的successor tokenだけを受理する", () => {
-  const accepted = validateHostRecoveryTransitionLineage(intent(), "host_only");
-  assert.equal(accepted.current.nonce, NONCE);
-  assert.equal(
-    accepted.expected.recordHash,
-    token({
-      ...intent().recordBefore,
-      state: "host_only",
-    })
-      .split(".")
-      .at(-1),
+test("Hostの回収遷移は同じ操作とReceiptを保持する", () => {
+  const fixture = createResourceOperationFixture();
+  const current = decodeStateSnapshot(fixture.bytes, fixture.binding);
+  const host = current?.snapshot.operations.find(
+    (item) => item.kind === "host_operation",
   );
+  assert.ok(host);
+  const pending = { ...host, cleanup: "pending" as const };
+  const terminal = {
+    ...pending,
+    phase: "terminal" as const,
+    cleanup: "confirmed" as const,
+  };
+  assert.equal(validHostOperationTransition(host, pending), true);
+  assert.equal(validHostOperationTransition(pending, terminal), true);
+  assert.equal(validHostOperationTransition(terminal, terminal), true);
+  assert.deepEqual(decodeHostOperation(pending), pending);
+  assert.deepEqual(terminal.rootIdentity, host.rootIdentity);
+  assert.deepEqual(terminal.childIdentities, host.childIdentities);
+  assert.equal(terminal.recoveryId, host.recoveryId);
 });
 
 /**
- * 同nonce別state、偽currentState、誤nextStateを第三状態として拒否するを検証する。
- *
- * @responsibility 同nonce別state、偽currentState、誤nextStateを第三状態として拒否するの合否判定を所有する。
+ * 別操作・偽状態・実体差・旧Token混入を拒否する。
+ * @responsibility 操作相関とReceiptの巻戻し禁止を単独反証する。
  * @trace PRL-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 同nonce別state、偽currentState、誤nextStateを第三状態として拒否するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: execution-model Test Source→対象契約
+ * @precondition 各負例は同じ不変Hostから独立生成する。
+ * @stimulus ID、回復参照、phase、Root、子Receipt、余剰fieldを単独変更する。
+ * @observation decode又は遷移の拒否。
+ * @oracle 旧保存形式を補完せず、別実体へすり替えない。
+ * @cleanup N/A: メモリ値のみ。
+ * @boundary 値契約。物理所有・実不存在はここから推定しない。
  */
-test("同nonce別state、偽currentState、誤nextStateを第三状態として拒否する", () => {
-  const valid = intent();
-  const alternate = Object.freeze({
-    ...valid.recordBefore,
-    state: "docker_absent_confirmed",
-  });
-  for (const candidate of [
-    { ...valid, expectedToken: token(alternate) },
-    { ...valid, currentState: "host_only" },
-    { ...valid, nextState: "docker_absent_confirmed" },
-    { ...valid, recordBefore: { ...valid.recordBefore, extra: true } },
-  ])
-    assert.throws(
-      () => validateHostRecoveryTransitionLineage(candidate, "host_only"),
-      /docker_task_recovery_host_transition_mismatch/u,
+test("Hostは別操作・偽状態・Receipt差と旧Tokenを拒否する", () => {
+  const fixture = createResourceOperationFixture();
+  const current = decodeStateSnapshot(fixture.bytes, fixture.binding);
+  const host = current?.snapshot.operations.find(
+    (item) => item.kind === "host_operation",
+  );
+  assert.ok(host?.rootIdentity);
+  for (const changed of [
+    {
+      ...host,
+      operationId: "OP-999999",
+      recoveryId: "host-operation.OP-999999",
+    },
+    { ...host, recoveryId: "host-operation.OP-999999" },
+    { ...host, phase: "preparing" },
+    { ...host, rootIdentity: { ...host.rootIdentity, ino: "999999" } },
+    { ...host, childIdentities: {} },
+    { ...host, extra: true },
+    { ...host, currentToken: "host.old-format" },
+  ]) {
+    const captured = decodeHostOperation(changed);
+    assert.equal(
+      captured !== null && validHostOperationTransition(host, captured),
+      false,
     );
+  }
 });

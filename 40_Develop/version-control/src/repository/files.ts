@@ -12,7 +12,11 @@ import { types } from "node:util";
 import { copyGitCommitTree, readGitCommitFile } from "../git/objects.ts";
 import { runGitReadCommand } from "../git/read.ts";
 import { createWorktreeGitContext } from "../worktree/crud.ts";
-import { isCommitId, isCommitPath } from "./commit.ts";
+import {
+  inspectWorktreeFileAncestors,
+  isCommitId,
+  isCommitPath,
+} from "./commit.ts";
 import { resolveRepositoryGitLayout } from "./layout.ts";
 import {
   getRepositoryFromWorkingDirectory,
@@ -328,12 +332,18 @@ export function readCommitFile(
       revision: input.commit,
       relativePath: input.path,
     });
+    const format = readRepositoryFormat(repository);
+    if (format === null) return null;
     return result?.status === "read"
       ? Object.freeze({
           status: "read",
           revisionIdentity: result.revision,
           relativePath: result.relativePath,
           mode: result.mode,
+          blobId: createHash(format.objectFormat)
+            .update(`blob ${result.bytes.length}\0`)
+            .update(result.bytes)
+            .digest("hex"),
           bytes: result.bytes,
           sha256: result.sha256,
           repositoryPathReported: false,
@@ -632,42 +642,52 @@ export function readFile(
   if (baseCommit.length !== oidLength)
     throw new Error("repository_file_input_invalid");
   const segments = selectedPath.split("/");
-  let directory = ctx.target;
-  for (const segment of segments.slice(0, -1)) {
-    directory = path.join(directory, segment);
-    const info = fs.lstatSync(directory);
-    if (
-      !info.isDirectory() ||
-      info.isSymbolicLink() ||
-      fs.existsSync(path.join(directory, ".git"))
-    )
-      throw new Error("repository_file_path_invalid");
+  let parentsPresent: boolean;
+  try {
+    parentsPresent = inspectWorktreeFileAncestors(ctx.target, selectedPath);
+  } catch {
+    throw Error("repository_file_path_invalid");
   }
   const file = path.join(ctx.target, ...segments);
   let bytes: Buffer | null = null;
   let mode: "100644" | "100755" | null = null;
-  try {
-    const info = fs.lstatSync(file);
-    if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1)
-      throw new Error("repository_file_path_invalid");
-    bytes = fs.readFileSync(file);
+  if (parentsPresent)
+    try {
+      const info = fs.lstatSync(file);
+      if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1)
+        throw new Error("repository_file_path_invalid");
+      bytes = fs.readFileSync(file);
+      const tracked = ctx.run(ctx.owner, [
+        "ls-tree",
+        baseCommit,
+        "--",
+        selectedPath,
+      ]);
+      if (tracked.status !== 0)
+        throw new Error("repository_file_observation_unavailable");
+      mode = (
+        process.platform === "win32"
+          ? tracked.stdout.startsWith("100755 ")
+          : (info.mode & 0o111) !== 0
+      )
+        ? "100755"
+        : "100644";
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  if (bytes === null) {
     const tracked = ctx.run(ctx.owner, [
       "ls-tree",
+      "-z",
       baseCommit,
       "--",
       selectedPath,
     ]);
-    if (tracked.status !== 0)
-      throw new Error("repository_file_observation_unavailable");
-    mode = (
-      process.platform === "win32"
-        ? tracked.stdout.startsWith("100755 ")
-        : (info.mode & 0o111) !== 0
+    if (
+      tracked.status !== 0 ||
+      !/^100(?:644|755) blob [0-9a-f]+\t/u.test(tracked.stdout)
     )
-      ? "100755"
-      : "100644";
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      throw Error("repository_file_not_found");
   }
   const diff = ctx.run(ctx.target, [
     "diff",
@@ -682,6 +702,14 @@ export function readFile(
     throw new Error("repository_file_observation_unavailable");
   if (ctx.inspect().head !== before.head)
     throw new Error("repository_file_worktree_mismatch");
+  try {
+    if (
+      inspectWorktreeFileAncestors(ctx.target, selectedPath) !== parentsPresent
+    )
+      throw Error("repository_file_content_changed");
+  } catch {
+    throw Error("repository_file_content_changed");
+  }
   if (bytes !== null) {
     const fresh = fs.lstatSync(file);
     if (

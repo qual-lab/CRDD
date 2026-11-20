@@ -3,9 +3,299 @@
 変更ID: `CHG-000082`
 状態（Status）: `In Progress`
 担当責任者: Qual-Lab
-最終更新日: 2026-11-19
+最終更新日: 2026-11-20
+
+## Coordinatorの根本削減 — 2026-11-19
+
+### Host本番接続の前進切替 — 2026-11-20（限定確認完了）
+
+#### Git固定と旧試験の現Owner接続
+
+2026-11-20の続行では、最後の旧現在状態試験をState v7／Identity v6／summary v6と独立Hostへ接続し、Co全試験を含む型検査は成功した。その後、型検査を通過するSource文字列内にも残っていた旧Host／Probe代役を現Ownerへ接続した。既知の旧入口は本番・Script・試験検索で残存0。未実施だったHost中断点13件、1,001件のGit固定・Reviewer搬送、129件のTask実保存を追加の限定確認対象とし、全体回帰とは区別する。
+
+| 今回の限定確認 | 結果と範囲 |
+|---|---|
+| 現在状態・pending主試験 | 1成功（172403.9508ms）。Label拒否を現保存受付へ接続し、初回出版故障は実renameで注入。元本文・pending相関を確認。先行したLabel前提・旧故障点・清掃の失敗は成功へ上書きしない |
+| 再起動の既知失敗2形とCLI認証unknown | 3成功（主試験失敗を含む4件実行のうち3件、全枠289752.3171ms）。全段階本文、解放前拒否、二重確定拒否、同要求再入場、14故障条件を含む |
+| 別Process CLI／Restart／認証Restart | 是正後3成功（249408.2078ms）。初回は3失敗。旧改訂数と、生存する兄弟Host排他を保持した試験準備が原因。正規解放と8／13更新へ追従し、各保存全文・兄弟本文／実体を確認 |
+| 正常終了準備と開始診断 | 30成功（788.1266ms）。旧Host専用資源試験の欠測・一件欠測・重複・未知key・名前差を現終了準備へ移し、観測Image差だけでは拒否しない肯定対照を保持 |
+| Probe二保存・完了・取消 | 現Factoryと実EM資源規則へ接続後3成功（417.4985ms）。旧文字列検出の互換支援・Token往復・私有Mapを撤去。初回の旧宣言欠測、VM別Realmによる先行拒否、未発行時Host清掃の期待差をそれぞれ是正 |
+| Task共用fixture | 独立した合成Hostと正規操作順へ追従。正常実行は1成功（33032.6053ms）、開始前終了は別実行で1成功（23790.2431ms）。続行した129件実保存も1成功（1907832.6213ms）。先行失敗と是正内容は下記に保持 |
+
+主試験等の5Fileと、その後のProbe／開始診断・台帳の追加是正は、独立読取レビューでともに残指摘0。追加検出したHost資源単体は現終了準備への義務移管後にFile・Symbol・台帳登録を撤去し、互換関数は作らない。最終の限定5 File（開始／終了、Probe、現在資源回復）は66成功・失敗／取消／skip各0（1050.9023ms）。Source／全試験の厳格型検査は成功し、台帳は402 Fileでvalid、testExecution=not_started、effectIssued=false。全体回帰・実AI・Docker・過去保持物、コミット／プッシュは実施していない。
+
+別Processの初回Restart失敗で保全した今回生成の2 Repositoryは、exact Root・Git Root・State Hash・全Host／子Receipt・全配下のLinkなし・Lock不存在を確認して回収し、両Rootの明示不存在を確認した。対象は`.crdd/tests/current-host-transition-6244-fWMzvn`と`current-host-transition-6244-raMfoo`だけで、他の過去保持物は操作していない。前回子はtimeoutではなく、CLI子起動前の兄弟Host排他拒否による例外終了だった。既定Process拒否と有限技術応答を使った試験の後片付けであり、Task回復・実Docker不存在・製品E2Eの成功を合成していない。
+
+追加の129件試験の初回は失敗した。原因は合成fixtureがTaskの回復ID一覧を登録順で期待し、現行のOperation nonce順と一致しなかったこと。元の検証内容を保ち、期待値を独立にnonce昇順へ構成した。内部fixture例外を上位の安全停止だけで隠さず、元の失敗箇所も試験結果へ残す。製品の並び・保存判定は変更しない。
+
+是正後の129件実保存は1成功（1907832.6213ms）。Host中断点の追加13件は10成功・3件の子Process期限超過（1603702.705ms）で、history_pending／completion_pending／completion_readbackを期限変更なしの直列再確認へ分けた。初回の結果は維持し、成功扱いにはしない。
+
+この初回期限超過で今回生成した`current-host-transition-17712-AnWaI9`／`-1jNO70`／`-HpdNCp`も回収した。OSのProcess一覧を読み取れる権限で照合し、残Lock所有PID 11436／27692／19504及び全exact回復IDに一致するNode子が不在であること、Nodeの引数観測不能が0であることを確認した。経過時間を停止証明の代替にせず、Root・Git Root・存在Host／子Receipt・終端Hostの明示不存在・State Hash・残Lockの本文／世代／実体を直前まで照合した。同じ試験Root全体の廃棄として3件とも不存在を確認し、本番のLock自動回復・State変更やDocker操作はしていない。先の2件と合わせ、報告した今回の保全5領域は回収済みである。
+
+同じ期限の再確認は2成功・1失敗（276948.0696ms）。history_pendingとcompletion_readbackは成功し、completion_pendingは既存Host清掃関数の通常Reader固定による拒否を検出した。終了出版pendingだけを正規のexecution_completion Readerへ接続し、元断面・Host・相関・資源・Lease・Ownerと明示不存在を共同再確認する読取り専用分岐へ是正した。既に終結したHostを再清掃せず、pending確定は既存終了Ownerだけが行う。21形の反証を追加し、静的検査後の現在回復Fileは34成功（790.9897ms）、独立レビュー残指摘0。実publication再入場のcompletion_pendingは1成功（81276.7937ms）で、追加13中断点は個別再確認を含めて成立した。最終の関連5 Fileは67成功（1023.3333ms）、失敗・取消・skip各0。
+
+この例外終了で保全した今回の`current-host-transition-22216-Hu63Vp`も、親PID不在・exact回復IDのNode子不在・引数観測不能0、Lock不存在、終端Host Root不存在、兄弟Receipt・State Hash・実体の不変を直前まで照合して回収し、Rootの不存在を確認した。報告した今回の保全領域は計6件とも回収済みであり、過去保持物には触れていない。
+
+1,001件のCoordinator実Git試験の初回はcandidate固定で失敗した（1252981.1219ms）。VCの一操作30秒の中でFileごとにGitのObject書込み・Index更新・完成Tree照合を繰り返す構造を確認し、期限を延長せず、捕捉済みbytesの同OID書込み再利用、一時IndexのNUL一括更新、選択Pathだけの引数分割Tree照合へ整理した。検査後PathをGitへ再openさせる案は、別内容をObject化する副作用を増やすため採用しない。各Fileの実体・bytes・Hash検査、削除先行、通常Index／HEAD／Ref非変更、出力条件と一時回収は維持する。独立レビューで不正NUL補完と同OID後続File反証の不足を検出し、是正後3試験成功（26222.7301ms）、再レビュー残指摘0。VC実1,001選択＋改変負例は4328.2992msで成立したが、CoordinatorのFileごとの読取りと異なるBlob大量時の性能まで解決済みとはしない。上位1,001件搬送は別に再確認する。
+
+削除元Tree観測の非0終了は既存のGit失敗理由を維持し、注入到達・一時物回収・通常Index／HEAD／Ref不変を追加確認した。VCの最終限定4試験は成功（27376.571ms）、独立再レビュー残指摘0。最後の旧入口検索で未追従のProbe構成搬送試験を検出し、元Snapshotと回収条件の搬送、不明・Receipt欠測・Owner喪失時のHost清掃0／保存0・元参照保持・一回解放を現本文へ接続した。型・書式・Lint後1成功（271.5232ms）、独立再レビュー残指摘0。旧Token等の既知5入口は本番・Script・試験の検索で0である。
+
+コミット前の横断再確認では、肯定fixtureの旧State v6がCo／EM／Workbenchの3件、CLI回復先と認証create親／合成試験に旧Host内包形式、現行設計・QAに旧版と未完了記載が残っていた。新v7と独立Hostへ追従し、同じOPのDocker＋Hostを対象として真の兄弟全文を保全する。終端Hostの残存はterminal／cleanup confirmedと専用Rootの明示不存在で確認し、旧marker・Host Path補完は作らない。退役済開発guard専用期待は除去し、通常Taskと正式診断APIのRoot搬送・差替え反証、Reader欠測・例外・解放不明は維持する。
+
+この追加限定3 Fileの初回は28成功・3失敗（28383.7433ms）。削除済み宣言境界、合成故障点の旧操作件数、旧台帳Owner期待を是正し、最終31成功（28706.2407ms）、失敗・取消・skip各0。EMの修復終了は限定1成功（329.3581ms）。WBの実AI試験は実行せず、後片付け期待だけを新契約へ追従し厳格型・書式・Lintを確認した。追加是正の独立再レビューは指摘0。全40_Develop及び現行Architecture／QAの旧契約語検索では、禁止・非漏洩の反証として必要な旧名と履歴を維持し、旧形式の肯定接続を残さない。
+
+上位の実Git搬送は1成功（4683380.885ms、試験本体4682755.2706ms）。1,000件の対照、1,001変更・65許可Path、1MiB超本文とReviewerへの1,002 File搬送、元Repositoryの非変更まで確認し、試験hookの終了後にexact Root `crdd-workspace-repository-sEOemR`のENOENTを別途確認した。VCのCommit作成期限は変更せず、全体の所要時間はCoordinatorがFileごとに実Gitを繰り返し読む現在の費用を含む。大集合の一般的な性能保証や全体回帰の成立は主張しない。
+
+今回の新方式へのSource・利用側・旧試験・台帳・現行文書の切替と、指定した限定確認を完了した。変更全体の書式・警告をエラーとするLint、Co Source／全試験とEM／Executor／DI／VC／Workbenchの厳格型検査、402 Fileの台帳、二つの実行設計照合、変更文書の限定Checkerは成功。Source・試験・記録の追加独立確認は残指摘0。全体回帰・実AI・実Docker・過去保持物は未実施のままであり、統合・Release可能の判定へ拡大しない。
+
+以下の個別進捗は各実施時点の履歴である。「現在」「未完了」や型診断数は当該記録時点を指し、最新の到達点・未確認範囲は本節先頭を正本とする。先行した失敗や未実施結果を、後続の限定成功で上書きしない。
+
+Coordinatorの基準・候補はVCの既存Commit／Ref操作へ接続した。独自Inventory・Manifest・候補WeakMapと`readExecutionInventory`を削除し、同じEM Host記録にRef予定・OID・未回収Index・確認・回収を保存する。Reviewerは許可範囲だけの固定Commitコピーを実行計画へ渡し、可変Worktreeへ戻らない。配送本文の取り違え確認である`projectionHash`は別責務として保持する。VCの既存要求へ明示`allowEmpty`、固定File結果へ実Blob OIDを加え、公開関数は増やしていない。
+
+独立レビューで祖先case衝突、予定を飛ばすGit資源追加、配列の余剰Symbol受付を検出し、既存処理内で是正した。Git集合のprefixだけを照合し、初回追加は一件の未取得予定へ制限、配列をdescriptorの全own keyで検査する。再レビューは残指摘0。新しいStore・Registry・Wrapper・旧Readerは作らない。
+
+| 限定確認 | 現在確認できた結果 |
+|---|---|
+| Host Git値／開始・Checkpoint | 9成功、失敗・取消・skip 0（277.0002ms） |
+| Co実GitとHost記録 | Main、Linked、Ref不一致、秘密拒否、Receipt保存失敗、祖先case衝突の六観点が個別指定で成功。保存不明時はRef未発行・Root保持・清掃拒否。全Hostケースの一括再実行は未実施 |
+| VC既存Commit | Main／Linkedの一試験内で空選択の既定拒否、明示同Tree固定、Blob OID、通常Index／HEAD／Ref不変が成功（17406.1339ms） |
+| EM終了保存 | 現行Hostを独立保持し、技術資源終結後にHostを別Checkpointへ保存。正常終端・認証二種とHost初回保存の限定再実行は6成功（33893.9424ms）。読後の認可失効・元本文不変を追加確認 |
+| Co作成／助言 | 現実宣言へ追従後27成功（704.4005ms）。旧任意ID取得Factoryだけの二Caseは退役。初期化失敗・清掃不明・exact参照・wx解放五条件は維持 |
+| Probe回復 | 現実宣言へ接続した二試験が成功（421.9903ms）。同世代の順序、Root明示不存在、16故障・取消と一回解放を確認 |
+| EM資源・回復終端 | 資源key／名前重複と、五資源・Restart・Host・元版・結果保持の二試験が成功（411.4948ms）。旧Host準備DTOと後続Token専用三Case・専用fixtureは撤去し、CAS・現在性・解放不明等を現保存Ownerへ対応付けた |
+| 利用側 | Task Packetの旧候補HashをCommit IDへ追従し、失敗したReviewer／取消四試験は是正後4成功（111866.1991ms）。固定Objectの明示コピー一試験が成功（14004.6604ms）。Policy四形の実保存接続一試験が成功（85883.6377ms） |
+
+終了履歴の公開照会に旧summary v5判定が残っていたため、新v6だけへ是正した。旧形式との両受理は行わない。EM終了保存・ReaderとCo作成／助言／Probeの限定読取レビューは残指摘0。旧同期の機構だけを退役し、実保存・資源・再入場・CLI・兄弟操作の検証を失わない対応を記録した。
+
+旧試験追従の続行で、EMの大規模遷移試験を独立Host記録へ切り替えた。削除済みToken系譜・旧Host候補生成・初期Host専用抽出試験は退役し、同Host次round、別Host、五資源、再起動、履歴、Task相関、終端、非対象保持の反証は現行操作へ接続した。独立レビューで、全操作更新によるHost形式不正の先行拒否、未清掃Hostによる偽拒否、別Host欠測による偽拒否の三系統を是正し、再レビューの残指摘は0。対象9試験成功（811.6377ms）、EMの全試験を含む型検査も成功した。
+
+Host専用保存の排他解放失敗は、実共通Lockの削除にEIOを注入して反証した。開始不成立・保存事実あり・Effectあり・解放不明・元回復参照の相関と、残Lock下の再送拒否を維持する。通常／rename／unlockの親を含む4件成功（10009.7063ms）、独立再レビューの残指摘0。
+
+Coの実Host active-binding試験は旧マーカーを撤去し、同じ操作IDの未終結Docker操作を実保存してHost回収拒否と元参照を確認した（1件成功、11869.4206ms）。通常継続・二役選定・Reviewer結果投影は新Identity／Commit IDへ追従し、限定3件成功（34643.2915ms）。削除済みToken往復Factory専用3試験は退役し、現開始の入力・計画・Consumer拒否4試験は成功（475.3354ms）。Repository操作は自己生成Host記録へ接続し、実体取得の旧二関数抽出を撤去。限定13件の初回は10成功・3失敗で、削除済み抽出の追従後1件成功、リンク権限の承認付き再実行2件成功を別結果として記録する。初回を成功へ書き換えない。
+
+Task Runtimeの対象Fileを全件限定再実行し、136成功・失敗／取消／skip各0（24578.4317ms）。このFile内のリンク境界はリンク作成権限を持つ承認済み環境で確認した。Coordinator全体回帰の成功とは区別し、先行した132成功・4失敗及び限定是正3成功を重複加算しない。
+
+旧回復試験との保証照合で、Restart未終結でもHost物理削除へ進める不足を検出した。既存の削除前Gateへ`restartSettled`を戻し、資源終結・Lease解放・Owner無効だがRestart未終結の実保存断面でRoot保持を確認した。Root不存在時のpending保存拒否・保存後不明・Owner失効と合わせて4件成功（64327.3413ms）、正常再入場のpending→confirmed保存順とRoot削除要求0は1件成功（14713.5075ms）。旧Host専用checkpoint二試験はこれらとEM保存試験へ対応付けて撤去し、現在回復の資源・Owner・元版・履歴・取消・再入場30件は成功（668.1123ms）。独立再レビューの残指摘0。
+
+本番Sourceの切替と利用側の限定成立を、全試験追従完了へ換算しない。Coの旧実Driver・回復fixture・旧Workspace試験は引き続き追従中であり、試験を含む型検査は7 File・113診断で未成功（実行した失敗試験件数ではない）。全体回帰・実AI・Docker・過去保持物・コミット／プッシュは行っていない。
+
+完全切替の続行では、別Process回復子とDocker Effect試験の削除済みHost入口・Token・Marker取得を撤去し、検証済みRepository、同じEM Host記録、実Root・全子の実体へ接続した。旧Host清掃の26条件Helperは退役し、現行の`cleanupRuntimeOwnedDockerTaskHost`とOwner照合の実本文へ22条件を移した。処置前の失効・本文差・Reader／解放不明・Lease保存拒否、処置後のRoot不明・terminal欠測・private本文更新・停止後の追加処置0を確認し、現在回復Fileの限定再実行は31成功（674.3766ms）。独立読取レビューの残指摘は0。
+
+Docker Effectの現Host化では、Lockの生存確認が一度falseになっても次のtrueで元Ownerを再利用できる不足を検出した。既存の世代照合で退役と能力失効を確定し、Lock自動解放・記録削除・回復方式の追加は行わない。限定Fileの初回は9成功・1失敗で、是正後の当該一試験は成功（11468.6967ms）。Root・全子実体・State本文を保持し、正式な新Ownerの回復後だけRoot不存在を確認した。独立読取レビューの残指摘は0。初回失敗を成功へ書き換えず、個別再実行と全File成立を区別する。
+
+本番Source／通常Scriptの厳格型検査は成功した。試験を含む型検査は4 File・65診断まで減ったが未成功であり、別Process回復の再接続試験も追従中である。旧試験の独自代役に残る4群（Provider通知、正常終了準備、正常finalizer、初期化失敗のexact相関）は検証義務を現Ownerへ接続してから退役する。完全切替・統合可能・全体回帰成功はまだ主張しない。
+
+別Process回復の実接続で、EMのLease解放受付だけが旧`ownerDisabled`を要求していた不足を検出した。現在の六field契約に合わせて`execution.ownerEffect === "disabled"`を照合し、旧fieldをCoや保存形式へ復活させない。同じ元版・対象・資源終結・結果非改変と後段遷移検査は維持する。正例とOwner有効／不明、資源未終結、別版／別対象、結果／summary改変の八条件を実受付本文へ追加し、対象Checkpoint Fileは10成功（277.0857ms）。EM全試験を含む型検査、対象整形・Lint及びCo本番／通常Script型検査が成功し、独立レビューの残指摘は0。別Process回復の実接続成功はこの単体結果から推定しない。
+
+続く終了保存では、借用Repositoryの非列挙`root`が回復Ownerのspreadで脱落する原因を検出した。同じ参照を非列挙・変更不可のまま私有Ownerへ明示搬送し、公開・JSON・保存形式・認可を拡張しない。修正後、停止下Lock同一性及び別Processのproducer回復が2成功（63170.677ms）。対象Dockerの終了・履歴一回・記録除去、独立Hostのterminal保持とRoot不存在、兄弟記録全文／Root／全子実体保全まで確認した。独立レビューは同種spreadの実Consumerも照合し、残指摘0。
+
+旧巨大正常Owner代役の固有義務は、既存Provider単体Fileへ五つの実宣言試験として移管した。Provider通知の既知Effectとphase／summary拒否、正常終了準備の元版・元plan再入場、正常finalizerのblocked→completed→失効、実`durableRecord`による初期化失敗alias拒否と放棄、不存在観測の保存・fresh読戻し・二重保存拒否を維持する。移管先Fileは27成功（634.828ms）、独立再レビューの指摘0を確認後、旧Token・Marker・Host準備Factoryを含む巨大Caseを撤去した。初回Intent前の終端候補の正負もEMへ追加し、Checkpoint Fileの最終限定再実行は11成功（295.1ms）である。
+
+保存直後にProcessを終了する`state_saved`の実結合は、pending保存拒否・pending保存後切断・Root除去直後切断・confirmed保存拒否の四境界からの再入場まで成功した（1試験、72907.6869ms）。新方式では確定保存拒否後のHost状態を`unknown`として保持するため、旧`pending`固定の期待を残さない。対象外の全文・Root／全子実体、停止下の元Lock処置、最後の履歴一回と対象Docker除去まで確認する。親の終了観測・停止下Lock同一性・レビュー所見相関・回復子の初回Intent前提の四限定試験も成功（527.2147ms）。故障調査にだけ使用したWriter戻り値・Owner再照合の診断代役は撤去した。
+
+再起動準備試験の旧Host専用九Caseは現Ownerへ義務を照合し、不足していた取得途中の拒否／例外・元版差後の解放不明を現在回復試験へ移した。Host／Home／Stateの取得段階ごとに後続取得0・保持済みだけ逆順一回解放・Writer0・元参照を確認する。現在回復Fileは最終32成功（672.31ms）、独立再レビューの指摘0。旧`recoveryBody`、`fixture("recovery")`、Token／Marker代役と旧Readerを撤去し、再起動Scope・Lock・保存・失効の11Caseは全維持した。現行の独立Host記録を使う専用fixtureへ整理後、11成功（475.4739ms）。型宣言のimport後配置を是正し、静的検査と独立再確認も残指摘0。
+
+現在も完全切替は未完了。試験を含むCo型検査は、`coordinator-state-runtime`1 File・40診断でExit 1。`current-host-transition`と`repository-workspace-runtime`の型検査は成功したが、生成子本文・共用fixture内の旧Host前提は型検査だけでは検出できず、実CLI・認証・履歴・再起動の義務を現入口へ接続してから撤去する。全体回帰・実AI・Docker・過去保持物及びコミット／プッシュは未実施である。
+
+Workspace試験の`readExecutionInventory`参照とGit一覧の旧代役を撤去した。VCの対象一覧に残るtracked削除は明示削除Selectionで確認し、10故障は本番Git選択本文と実VCへ接続する。読取り途中欠測・descriptor終了はそれを実行するFile読取り本文で維持する。大量条件は20,000／20,002件と256MiB前後の整合したFile代役を本番選択本文・File読取りへ渡し、全件選択・全byte読取り・descriptor終了を確認した。大量条件から実Commit成立を主張せず、既存1,001件の実Commit・Reviewer搬送試験は削除していないが、今回再実行はしていない。故障・件数・容量・現行9契約の限定4件は成功（15484.4866ms）。
+
+実Gitの初回限定4件は2成功・2失敗で、失敗は開始固定CommitとHEADのOID同一視及びGit一覧Scopeとexact操作Rootの混同だった。前者は合法OID・元HEADとの内容同一・候補のexact基準へ分離し、後者はVCのexact Root拒否で確認した。是正後は検証Toolの実Byte／取消終了不明・開始Commitと候補固定・範囲外／HEAD不正／内容差の3件が成功（142229.6818ms）。初回成功した秘密投影拒否・Reviewer差替え拒否の2件も別結果として保持し、失敗を成功へ上書きしない。試験Rootは局所の清掃一覧を逆順で全件処置し、一件の例外で後続を飛ばさず、全Host清掃とRoot同一性を確認してから削除する。故障注入したRefもfinallyで元bytesへ戻す。独立再レビューは残指摘0。
+
+台帳の限定確認では、前の変更でWindows用保存試験を含むようになったEMのruntime-core-crudに実行profile未登録を検出した。既存のrestricted_process／windows_process_controlだけを同じ試験IDへ登録し、検査は緩めていない。再確認は403 Fileでvalid、testExecution=not_started、effectIssued=false。Workspaceの台帳も固定Commit・非採用／非Merge・借用HEAD／Index保持と自己所有Ref回収へ追従した。
+
+現在Host結合試験をEM Hostの操作ID・実Root／Receiptへ追従し、旧Token／marker・Host専用ReaderのA／B／C自動再出版を撤去した。通常回収はLease一版、Host pending／terminal二版、全解放後の終端一版、履歴二版の全保存本文を独立構成して照合する。対象Hostはphase／cleanup以外を全文保持し、兄弟は本文とRoot／全直下実体を保持する。通常・結果欠測は個別再実行で成功した（各58594.2722ms、58092.6214ms）。失効Ownerでの回収拒否は、現行契約に合わせ解放済みOwnerを負例とし、下位Effect 0を維持した。
+
+履歴checkpointのpendingからfresh再入場する実試験で、履歴Readerの受理後にHost世代の通常Reader固定が自己拒否する接続漏れを検出した。Host世代へ既存EMの三種の読取り要求とexact Docker回復IDだけを引き継ぎ、取得前後・fresh照合でHost全文とOP相関を確認する。通常Readerが成立したら受付を破棄し、途中保存中のHost checkpoint・Root削除は拒否する。任意Reader callback・旧Host専用Reader・実行時循環は追加しない。30条件の局所反証を含む現在回復Fileは33成功（910.9558ms）、実checkpoint-pending再入場は1成功（64186.2722ms）。さらに局所12試験と履歴confirmed-pending／公開Driverの実保存2試験は14成功（132218.5636ms）、失敗・取消・skipは0。Driverだけは技術資源結果の一保存が加わるため、通常経路の6版と区別して7版を要求する。独立読取レビューは残指摘0。初回の限定起動は試験用Module代役flagの指定漏れで15成功・18失敗となり、正しい既存入口で再実行した結果と区別する。他の中断点・CLI／認証／再起動の再照合と旧試験1 Fileの追従は引き続き必要であり、局所成立を完全切替へ換算しない。
+
+追加追従：未開始失敗の既存一試験を資源BookのOwnerへ移した。元失敗11形とLease二種、実行・資源・結果の正負対照、元失敗消去拒否、fixture本文不変を維持する。Dockerだけを変える候補・負例にも同じStateのHostを保持し、Host全文不変を比較する。四単体Fileの更新後限定回帰は36成功、失敗・取消・skip各0（1214.6516ms、Exit 0）。独立読取再レビューは残指摘0件。前の35成功と重複加算しない。EM全試験を含む型検査は旧試験五Fileの44診断、Exit 1であり、Co旧試験・Git接続も未完了である。
+
+旧試験追従の続行では、HostをDocker記録のfieldや配列先頭から読む前提を撤去し、同じStateのkindと操作相関で取得する形へ変更した。旧Host Token生成・後継Hashの試験Helperを削除し、同じ操作ID／回復参照／Root・子Receiptの単調遷移と別操作・偽phase・実体差・余剰・旧Token拒否へ置き換えた。履歴はsummary v6へ追従し、旧v2とv5（schema単独差及び旧field付き）を明示拒否する。129件の反証は対応するHostを全て保持したまま末尾Docker Hashだけを破壊し、別理由の孤立拒否にすり替えない。
+
+開始保存後の終端準備失敗の既存一試験は、通常CheckpointのOwnerへ移し、正規Identity・保存済みHostと既存Source準備を使用する。六シナリオの元参照・保存事実・Context・解放不明・Effect・呼出し順のassertは維持する。この四単体Fileの最終限定回帰は35成功、失敗・取消・skip各0（1149.0396ms、Exit 0）。各再実行を重複加算しない。整形、依存閉包の厳格型検査、Lintが成功し、独立再レビューは残指摘0件。製品Source・安全規則は変更していない。EM全試験を含む型検査は旧試験五Fileの47診断でExit 1のままであり、全体回帰・Git接続の完了は主張しない。
+
+追記：旧`state/probe-record.ts`、Host Tokenの整形入口、未使用の`prepareOwnedStateInitialization`を削除した。通常実行・回復・診断と検証ScriptはEMの同じHost記録へ接続する。Docker開始に残っていた空Stateの仮生成を撤去し、元Identity本文と操作・Repositoryを検証した後、Hostを含む現在Stateを必須として既存Writerへ渡す。失敗時の元回復参照、CAS、認可、保存・解放不明の分類は維持する。
+
+本番／Scriptからの参照がなく旧試験だけが使っていたProbeの旧失敗正規化二関数と専用型も削除した。現役シナリオの結果構築へ統一し、現在使用する作成前清掃と技術結果投影は維持した。対象の診断単体十試験と本番Source／通常Scriptの厳格型検査が成功し、この削除の限定独立Source確認は残指摘0件である。旧integration試験の追従完了とは区別する。
+
+今回の追加限定確認は、開始／Checkpointの六試験、通常Owner二段階の結合一試験、Root作成直後のProcess中断一試験、初回Host出版とpending再入場の一試験が成功した。初回出版試験は既存Core試験Fileへ移し、旧初期化入口を呼ばない。Readerのblocked＋値あり／completed＋値なし、同値再送、State消失後の再初期化拒否、別Repository、fresh Process、同bytes実体置換、pending一致／不一致、hardlink拒否を保持した。通常Owner試験では検証中の別操作全文保全を確認後、試験が作成した未発行操作だけを正式に終結し、当該実行のRoot清掃まで確認した。hardlink作成は今回のRepository-local試験領域だけで通常Windows権限により実行した。Sourceと上記試験差分の限定独立再レビューは残指摘0件。
+
+Coordinatorの本番Source／通常Scriptの厳格型検査は成功した。ただし、他の旧Host形式を直接構築する試験fixtureの追従とGit固定内容方式の本番接続は未完了であり、完全切替・全体回帰成功・統合可能とは表示しない。旧方式の互換入口は追加せず、実AI・実Docker・全体回帰・過去保持物・コミット・プッシュは操作していない。
+
+上記是正後の型検査では、Coordinator試験入口に143診断（19 File）、EMの試験を含む入口に50診断（8 File）が残り、各Exit 1である。いずれも今回の新保存契約へ未追従の試験側に残る診断であり、実行した失敗試験件数とは区別する。削除済みSourceを参照するCoverage対象・Symbol依存・Source閉集合を更新し、Source閉集合の限定六試験は成功した。旧試験の削除や型の緩和では解消しない。
+
+旧実装への巻戻しは行わず、採用済みのEM正本へ接続を進める。Task／AdviceのHost作成、正常終了、回復、隔離Probeは同じHost記録と実Lockを使用する。Docker記録内のHost複製・旧Token遷移・専用保存準備は撤去対象とし、固定した元操作参照を終了まで保持する。ProbeはDIの元Snapshotと回収条件を既存Callbackから保存し、ID欠測をCompletionの値で成功補完しない。
+
+独立Source確認で、清掃前の成功表示、明示未発行の保存欠測、Root削除後の再入場、非Probe回復結果の完了field欠測を検出し是正した。診断の既存単体Fileへ、同一Receiptと終了・回収の共同条件、正の未発行と五単軸負例、削除後再入場・Root観測不明・解放不明の反証を追加する。不変Sourceだけを共有し、可変記録と故障は各観点で独立させる。
+
+この変更単位は未完了である。診断試験の依存閉包に限定した厳格型検査と対象Lintは成立したが、Package全体の型検査には旧検証Scriptと旧試験の追従不整合が残る。旧Probe専用記録の残存Consumer、試験fixture・Coverage登録・文書の一括切替、Git固定Commitを使うCoordinator側の内容観測接続は後続作業とする。実AI・Docker・全体回帰・過去保持物は操作せず、作業中Treeを実行可能・統合可能とは表示しない。
+
+最終候補の診断単体Fileは10試験すべて成功（失敗・取消・skip各0、531.9307ms、Exit 0）。追加した二試験は合計20観点であり、20件の独立試験又は実境界試験とは数えない。診断試験の依存閉包の厳格型検査、対象Lint、差分形式確認に成功し、固定候補の限定独立再確認は残指摘0件。Package型検査はCoordinatorのSource／Script入口で4診断、試験を含む入口で191診断、EMの試験を含む入口で56診断が残り、いずれもExit 1である。本番src内の診断は0だが、これはPackage全体の型検査成功を意味しない。型診断件数を失敗試験件数へ換算しない。
+
+基準Commitは767f56eb9。人間は、Source移動ではなく処理・状態・保存・変換を減らし、Coordinatorを受付・外部操作の順序・観測搬送へ限定する方針を採用した。さらに、Host回復記録をEMへ一本化してRepository State不可読時のHost参照だけによる独立回復を廃止すること、Git基準へ一本化して無視対象・管理外領域を含む物理内容の一律監査を廃止することを明示採用した。既存保持物の自動移行・削除は行わない。
+
+着手前に正常経路をRequest→Objective→Queue→Task→Attemptとして追い、既存のEM／VC／Executor／DIとの対応と過去の検証先を照合した。未接続Classifier、単なる保存転送Port・試験用旧Helperを撤去し、同一Workspaceで一件しか開始しないWave・配列・複数Promise調停を単件化する。EMの複数候補・容量・競合規則と、同じAttemptの遅延・重複開始通知の保存順序は別の保証として保持する。
+
+後続のHost統合は、最初のDirectory作成前にEMのIntentを保存して初期化中断の記録欠落を閉じてから、marker・専用Hash token・二正本の同期を撤去する。Git統合は適用される実行Treeと固定Base／Candidate・Reviewer提示内容を先に確定し、独自Inventory／Manifestを置き換える。新しいStore・汎用Runner・Manager・Policy Package・互換経路を作らない。Receipt保存や実Home排他を無意味な重複として削除せず、保存Stateの判断は既存EM完成操作へ統合する。
+
+変更分類は未接続機能の退役、実行調停の簡素化と採用済みの保証・保存境界変更である。親が各段階の入力・Authority・Effect前後・取消・回復・利用側を照合し、作者と分離した技術レビュー、限定回帰、文書／QA／台帳／参照確認を行う。標準の準拠基準・決定権限・リリースを変更しないため準拠監査は追加しない。全体回帰・実AI・Docker・過去保持物・コミット・プッシュは対象外とし、各段階の限定成立を全体完成へ換算しない。
+
+### 未接続・転送層の撤去と共有Workspace単件化の限定完了
+
+本単位では製品Source・試験の未接続Classifier／保存転送Factory・Port／旧State投影Helperを撤去した。Workspaceの三つの保存呼出しは既存EM完成操作へ同じ入力・時点で直接接続し、Lease・期待世代・現在認可・CAS・同内容再送と異内容衝突拒否を維持する。EMから上位Sourceを照合していた横断Closure試験は、既存の検証内容とLocal Item IDを保持してCoordinatorへ移管した。Classifier専用の候補受付・偽成功metadata条件は退役し、Task再試行・差替え・上限・世代・完全選定保持は実EM保存を使う既存試験へ接続した。代替Classifierや本番の再計画Runtimeは作らない。
+
+dispatchは候補一件を直接処理し、一要素のWave・Attempt／結果配列・Promise.all・中間Attempt DTOを撤去した。実開始・委譲は同じ試行のflagへ縮小し、通知Promise連鎖・元IDの回復相関・予約→引渡し保存→実行→終端保存は維持した。EMの候補容量・競合規則と設定上限は変更しない。Sourceは60 File・55,488行から59 File・54,823行へ縮小した（末尾改行を含むFile別計数、コメント込み）。下位製品Sourceへの本文移動はない。
+
+| 確認面 | 結果 |
+|---|---|
+| 静的確認 | Coordinatorの型・整形・Lint・二追跡検査が成功。994 File、警告0・既存情報179 |
+| 未接続・転送層 | 限定44独立ケース成立。初回39件中のClosure一件は旧Owner一覧の不整合で失敗し、実Consumer・共通Lock所在へ追従後に該当Suite四件が成功。追加五ケースは別名で確認し、再実行を加算しない |
+| 単件化 | task-executionの直接影響する12試験が成功（471,640ms）。正常・実Adapter・七Taskの直列完了・依存と競合・同期throw／非同期Reject・開始前取消・清掃不明・保存候補不正を確認 |
+| 台帳・文書 | Catalog403 Fileはvalid、試験起動・Effectなし。限定文書確認192／1207文書、エラー0・警告0 |
+| 独立レビュー | 転送／Classifier撤去と単件化を別作者が確認。ヘッダー順の二Fileを是正後、両範囲とも残指摘0。Closureの非Owner拒否・任意Root構築拒否等の反証は維持 |
+
+今回の実Git・保存fixtureは既存の終了hookで自己生成領域を回収した。実AI・Docker・過去保持物・全体回帰は操作していない。公開API・保存形式・実行保証は本単位では変更せず、Host記録／Git内容の一本化と回復状態判断のEM統合は未実装の後続単位である。採用済みの具体接続と保証境界は[統合計画](coordinator-consolidation-plan.md#根本削減の採用済み接続方針--2026-11-19)に記録した。Coordinator全体の最小化完了、全利用側・実環境の成立は主張しない。
+
+### 受動DoctorのHost作成撤去
+
+採用済みHost一本化のうち、通常診断は保存先を移さずHost作成そのものを撤去した。無条件のOperation取得、受動時の清掃、清掃失敗からの新規Host回復義務生成を除去し、未作成のFilesystem Policyを架空のPathから構築しない。既存Git／所在／Provider候補・認証変数名の観測と入力拒否は維持する。明示隔離試験だけは元の作成・元SignalでのProbe待機・回収／保持分類へ接続する。
+
+診断結果は改訂17。受動時の`filesystem.policy`は`null`、`operation.directories`は`not_implemented`／`owned_operation_directories_not_requested`となり、同じcheck順の位置にblockerが一つ増える。readiness集約と必須check集合を緩和せず、隔離未実施は引き続き成立扱いしない。受動観測の例外は元例外のままとし、存在しない作成物の清掃失敗へ置換しない。公開関数集合・CLI引数・終了値規則と保存Schemaは不変だが、結果値のこの差を不変と表示しない。
+
+変更分類は採用済みの不要Effect撤去。初回編集前に親と読取り確認者が実分岐、結果利用側、成功／非要求／不正入力／観測失敗／明示隔離／取消・回収不明を照合した。対象Packageの静的検査、既存PRL-UT-014とERB-IT-003の限定回帰、独立技術・文書レビューを行う。準拠基準・決定権限・Releaseを変更しないため準拠監査は追加しない。実AI・Docker・全体回帰・過去保持物は操作しない。
+
+Run／Adviceと明示隔離試験のHost記録EM統合は未実装である。着手前照合で、現行`ExecutionModelAccess`が読取り用途とProject／Milestone対象を前提とし、作成前Host保存へそのまま使えないことを確認した。既存AccessへHost記録の書込み用途とRepository単位対象を閉じて接続し、既存Writer／現在認可へ渡す必要がある。仮の管理Capability・架空Project・別Store・汎用Grantは作らない。今回の受動診断撤去を、その保存基盤の実装完了へ換算しない。
+
+固定版の静的検査は成功（994 File、警告0・既存情報179、型と二追跡検査成立）。既存診断UT八件と、Namespaceの失敗保全・本番受動DoctorのIT二件が成功し、失敗・skip・取消は0件。UTの一Case内では省略・受動・観測失敗・隔離・回収不明・取消済Signal・初期化失敗の七条件を独立したメモリ代役で確認した。これは実Dockerの取消・回収成立の証明ではない。ITの自己生成Rootは子終了・実体一致・空確認後に回収し、過去保持物は操作していない。
+
+Catalog403 Fileはvalid（試験起動・Effectなし）、限定文書確認250／1207文書はエラー0・警告0。作者から分離した固定版のSource・試験・文書レビューは残指摘0件。受動の旧改訂固定と旧作成説明の残存検索、差分形式も成功した。今回の限定完了は受動DoctorのHost作成撤去であり、Host記録の保存統合・Git一本化・Coordinator全体の削減完了は主張しない。コミット・プッシュは未実施である。
+
+### Host記録一本化の内部値契約準備
+
+EMの既存Attempt types／validationへ、元操作ID・用途・作成日時・Root／固定子領域Receipt・phase／cleanupだけのHost候補を追加した。別nonce・Hash token・任意Path・架空のDocker履歴は追加しない。初回を未作成Intentへ限定し、実体Receiptと元IDの差替え・喪失、終端の再開を拒否する。不明からの明示回収再試行と、未開始への巻戻しを区別する。descriptorで入力を捕捉し、Proxy／getter・余剰欄を拒否、Receiptは独立凍結する。
+
+これは採用済み統合へ向けた内部Sliceであり、本番のOperationRecord閉集合・State Reader／Writer・Coordinator作成／回復経路・公開Rootにはまだ接続していない。保存Schemaは未変更、旧marker・tokenの撤去とHost統合自体は未完了である。型を通すためにHostへhistory等の不要fieldを足す処置や、別Store・Facade・互換変換は行わない。作成前にHost Intentを含む最初のStateを一出版するため、既存AccessのRepository単位用途、現在認可、Owner取得と初回領域作成を既存Writerへ閉じて接続するのが次の実装対象となる。
+
+内部準備の固定版はEMの型・整形・Lint成功（72 File、警告0・既存情報34）。Checkpointの既存三Caseと新規二Caseが成功、失敗・skip・取消0で、実保存・実体操作は行っていない。独立Sourceレビューは指摘0。既存Suite・正式IDを維持して台帳とSource対応、ArchitectureとQAへ境界を追従する。値契約の成功を作成前耐久化・Host回収・本番統合完了へ換算しない。全体回帰・実AI・Docker・過去保持物・コミット・プッシュは操作しない。
+
+最終の限定文書確認は179／1207文書、エラー0・警告0。Catalog403 Fileはvalidで試験起動・Effectなし。nested getter／Proxyの反証と、本番Checkpointの未対応Host種別拒否を加えた後も同じ五Caseが成功した。文書・台帳を含む固定版の独立再レビューは指摘0で、再実行を試験数へ重複加算しない。公開Root・保存閉集合・State Reader／Writerはこの内部準備では変更していない。
+
+### Probe資源を既存Host操作へ結合する保存契約
+
+Executorの通知搬送に続き、Host記録へ既存`OperationResources`を結合した。Task／Adviceは明示`null`、隔離Probeだけが単一Containerの記録を保持する。専用Store、疑似Task／Provider／Home、新しい保存関数・Writer・Mapは追加しない。既存開始／Checkpoint／Reader／Writerの閉じたHost値として保存し、取得済みReceipt・資源記録の巻戻しと喪失を拒否する。資源が未解決のままHostを終端化せず、`retain`変更・自動再発見Receiptも拒否する。保存値の捕捉は実行Propertyを呼ばず、資源の内側まで独立凍結する。
+
+Coordinatorの回復照会は、Host内Probeについても資源key・通知保存区分・観測区分だけを返す。Container ID・Mount・元Snapshot・内部Hashは返さない。今回の保存契約はCoordinatorのHost実作成・回収・Probe実行を新保存へ切り替えたものではなく、旧Host markerとProbe専用記録の撤去も未完了である。新Readerは`resources`省略を補完せず、過去保持物は操作しない。
+
+独立レビューを統合し、Probe全遷移後の元Host一意性・全文保持のassertと、QAの公開投影説明を是正した。親の追加反証で発行不明から未発行へ戻せる候補を確認したため、Host資源の同一要求についてunknown／issuedからnot_issuedへの変更を拒否した。汎用資源規則は変更せず、既知未発行の終結は維持する。初期Intent単独を未発行証明へ使わない条件を設計に明記した。
+
+最終の限定確認は、指定三単体Fileの36Case、Co保存照会の3Case、実保存のHost正常／rename故障と既存Core CRUDの三場面が成功した。実保存のNode親結果や同じCaseの再実行は重複加算しない。Host正常場面内ではProbeの複数Checkpoint、拒否時の本文不変、元Host一意性・全文保持を確認する。EM／Coの型検査と追加Sourceの整形・Lint（警告0・既存情報13）、Catalog403 Fileのvalid、限定文書179／1207文書のエラー0・警告0を確認した。独立Source・文書レビューと統合是正後の局所再レビューは残指摘0件。全体回帰・実AI・Docker・過去保持物・コミット・プッシュは操作しない。
+
+### 借用専用Snapshotに残った非借用分岐の撤去
+
+`workspaces.set`の唯一の登録点と全本番呼出しを照合し、実行Snapshotが常に借用Worktreeへ結合していることを確認した。私有`WorkspaceRecord.sourceTree`を必須化し、自己所有Workspaceへのfallback、非借用時だけの対象外変更拒否・機密候補検査、条件付き`unexpectedPaths`投影を撤去した。旧状態や互換Wrapperは追加しない。
+
+借用対象が欠けた場合の拒否、現在のRepository／Operation／Mount／借用先の照合、許可Pathの構造検査、対象外Pathの観測、Reviewerへ渡す前の認識済み機密検査と候補同一性検査は維持する。試験には、対象省略・不正対象からのSnapshot未発行と自己所有Workspaceの内容不変を追加した。この非借用分岐撤去では、保存形式・Root公開集合・CLI・下位PackageのSourceは変更しない。後述のProbe通知変更は別の承認済み差分である。
+
+Host本番切替の着手前照合では、隔離Probeの現通知が用途名／Container IDだけであり、そのままではCoordinatorがDI構成を再生成することを確認した。人間が既存callbackの最小変更を承認したため、Executorの既存二通知へDIの実Snapshotと実Plan由来の回収条件を第2引数で搬送した。Receipt欠測時の`retain`、同期通知拒否と後続Effect停止を維持し、新Store・汎用通知Framework・自動再発見は追加しない。Rootの提供関数・型集合は増やさず、既存通知契約の引数だけを拡張した。Host旧marker／Probe専用記録の撤去とCoordinatorの保存／回復切替は未完了である。
+
+本単位の限定結果は、Coの借用／対象外変更／偽入力／機密投影／候補差替えの五CaseとExecutorのProbe／独立公開境界の五Case、計十Caseが成功した。既存Caseの再実行は重複加算しない。Co・Executorの型検査と追加Sourceの整形／Lint、Catalog403 Fileのvalid、限定文書194／1207文書のエラー0・警告0を確認した。独立Source・文書レビューの説明二点を統合して是正し、局所再レビューの残指摘は0件。自己生成試験物は既存fixture終了処理で清掃した。全体回帰・実AI・Docker・過去保持物、コミット・プッシュは操作しない。
+
+### Git対象のFile列挙へ一本化
+
+承認済みのGit基準化のうち、`execution/files.ts`の独自Filesystem全再帰を撤去した。VC既存`readRepositoryEntries`が返す追跡済み／無視外未追跡Fileだけを安定読取りし、Git非管理領域と`borrowed`の二方式を廃止した。Ignore指定済みでも追跡Fileは対象に残し、無視された未追跡領域とRoot直下Runtime `.crdd`は走査しない。新しいFacade・公開API・Git実装は追加しない。
+
+親と読取り確認者が、既存の借用Tree／候補／ReviewerのCapability、VCの観測完了fieldと失敗例を着手前に照合した。Stage区分の欠測・不正は一覧成功へ畳まず、Submodule・入れ子Repositoryへ踏み込まない。選択Path・祖先のcase衝突、Link／Hardlink、特殊実体、安定読取りは維持する。列挙後の最初の実体確認でのENOENTだけ欠測とし、読取り途中消失・権限拒否は拒否する。全Fileの原子的Snapshotや非協調ProcessとのPath置換排他は主張しない。
+
+Host本番切替はProbeのContainer Intent／Receiptも同時接続する必要があり、作成だけを先に切り替える二重記録は追加しない。本単位は独立して採用済みのGit対象列挙を先行するもの。内容Hash・候補の私有記録とHost旧markerは残るため、Coordinator根本削減全体の完成とは扱わない。保存形式・CLI・Root公開集合とVCのSourceは変更しない。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+限定回帰は既存借用／候補／Reviewer六Case、1001変更・大量File・大容量・Windows Junctionの追加四Case、依存境界六Caseの計16Caseが成功した。同じCaseの再実行を加算しない。故障Case内ではGit一覧失敗・Stage欠測／不正・Submodule・祖先case衝突・特殊実体・Link・Hardlink・権限拒否・読取り途中欠測の十条件を個別に確認する。初回の読取り故障代役が前段Repository読取りへ漏れたため、対象Fileのdescriptorへ限定して是正した。Windows Junctionは通常実行で作成時EPERMとなり、許可された実行条件の単独再確認で成功した。いずれも製品検査を緩めていない。
+
+Coの型検査・追加三Sourceの整形／Lint（警告0）、Catalog403 Fileのvalid、限定文書163／1207文書のエラー0・警告0を確認した。独立Sourceレビューの不足二反証（祖先case衝突と特殊実体）を追加して同じCaseで成功し、独立再レビューの残指摘は0件。独立文書／台帳レビューと結果追記の局所再確認も指摘0件。自己生成物は既存fixtureの終了処理で清掃し、過去保持物は操作しない。全体回帰・実AI・Dockerの成立へ一般化しない。
+
+### Host技術記録の主体分離と保存照会
+
+HostOperationAccessからPrincipalを撤去し、検証済みRepositoryと元操作の現在認可だけへ限定した。技術記録の保存はPrincipalを取得せず、要求主体の記録は既存Task／AdviceのOwnerへ残す。一般ExecutionModelAccess・AMの認可と主体必須条件は変更しない。取消と書込み権限の失効を同一視する処理も追加しない。
+
+既存Coordinator回復照会は`host-operation.OP-*`のexact参照を受け付け、保存済みHostのphase／cleanupだけを返す。実体Receipt、Path、資格情報は公開しない。欠測・重複・不正形式・保存観測不明を区別し、Probe照合・実資源観測・回収・再実行を発行しない。これは読取り接続だけであり、Run／AdviceのHost作成・回復切替、共通排他の作成前取得、旧marker撤去は未完了である。
+
+限定照会三件と実保存のHost正常／rename故障・既存Core CRUD三場面（Node親を含む四件）が成功した。HostのPrincipal getterを呼ばず保存できる反証、認可拒否時の未保存と保存不明時の元参照保持を既存Caseで確認した。EMとCoordinatorの型検査も成功した。追加Source五Fileの整形・Lintは成功（警告0、既存情報13）。Catalog403 Fileはvalid（試験起動・Effectなし）。独立Source・文書レビューの意味上の指摘は0件で、台帳の字下げ一箇所を是正した。全体回帰・実AI・Docker・過去保持物・コミット・プッシュは操作しない。
+
+限定文書確認は183／1207文書、エラー0・警告0。今回の追加差分の形式確認も成功した。これは指定範囲の結果であり、全体回帰の成立とは区別する。
+
+### Host作成前Intentの既存Writer接続
+
+前単位の内部値契約を既存OperationRecord／Readerへ接続した。Hostは元操作IDから導いた非Authority参照を持ち、専用nonce・Hash token・Pathを持たない。既存`saveOperationStart`の明示`host_operation`用途が、作成前Intentを最初のState本文から一出版する。同じOwner・既存初回領域primitive・既存pending／rename／読戻しを使用し、空Stateの先行保存、新Store・Writer・Mapを追加しない。
+
+Checkpointは同じ保存済みHost操作とexpectedVersionを必要とする。null版や、現在版が一致しても未開始のIDを追加する要求を拒否し、Startの代わりに使えない。元ID・Receiptの単調遷移と対象外区画を保ち、物理Writerでも元本文と同じHost候補を再導出する。保存確認・Lock解放・返却前の現在認可が揃った場合だけ開始成立を返す。出版不明・初回pendingは同じ参照を保持して停止し、新しい空状態へ読み替えない。実Host Directoryはこれらの保存操作から作成しない。
+
+一般ExecutionModelAccessへHost用途を混ぜる初期案は、AMの独立した内容Access型からWorkbench／MCPへの代入を壊すため是正した。一般Accessを原形へ戻し、HostOperationAccessへ既存Root・Principalと元操作だけの現在確認を分離した。AMのRole・用途集合・一般Consumerの権限は拡張しない。HostをDocker／修復の履歴や終端へ流さない三種分岐を加え、利用側と試験も種別を明示する。Root関数は増やさず、現行State閉集合へHostを追加する。旧形式の変換・既存保持物操作は行わない。
+
+着手前に既存Owner・初回境界・現在認可・CAS・元参照と、成功／不正入力／未初期化／保存不明／版不一致を照合した。変更分類は採用済みHost統合へ向けた保存契約の拡張。EM／Coordinatorの静的確認、利用側の型検査、保存と値契約の限定回帰、独立技術レビュー、文書・台帳確認を行う。標準準拠・決定権限・Releaseを変更しないため準拠監査は追加しない。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+初回の実保存確認は正常・rename故障の二場面（親を含むNode結果三件）が成功した。最初のrename対象本文にIntentがあること、認可拒否時の未保存、同値開始再送、Receipt更新、stale拒否、失敗時のpending・元参照保持と再呼出し停止を確認した。追加反証でCheckpointのnull版と未開始ID追加を閉じ、同じ実保存Caseへ拒否・bytes不変を追加している。実体値は合成であり、Hostの物理回収成立を主張しない。
+
+EMの型・整形・Lintは成功（72 File、警告0・既存情報34）。Coordinatorの型・整形・Lintと二追跡検査も成功（994 File、警告0・既存情報179）、Workbench／MCPは型検査が成功した。EMの指定四単体Fileは38件成功し、既存Docker／修復の値契約とWriter用途を維持した。独立レビューでAccess型の波及と単体責務文言を是正し、追加したCheckpoint反証も含む局所再レビューの残指摘は0件。後続の限定結果は追記し、同じ試験の再実行を加算しない。
+
+今回接続したのはEMのHost保存基盤である。Coordinatorの通常Run／Advice・明示隔離試験の実作成／回復切替、旧marker・tokenの撤去とGit一本化は未完了で、全体完成・本番E2E成立・過去保存物の移行済みとは扱わない。コミット・プッシュは実施しない。
+
+最終版の指定五単体Fileは48件成功（失敗・skip・取消0）。実保存の再確認はHost正常／rename故障と既存Core CRUDの三場面（Node親を含む四件）が成功し、Checkpointによる未開始追加拒否も同じCase内で確認した。Coordinatorの実Reader／照会CLI／四種投影の指定三件も成功した。同じCaseの再実行や親結果を独立場面へ重複加算しない。自己生成試験Rootは既存終了hookで回収し、過去保持物は操作していない。
+
+Catalog403 Fileはvalid（試験起動・Effectなし）。限定文書確認183／1207文書はエラー0・警告0。文書レビューでCheckpointのLock説明一箇所をDocker／Host経路別に是正し、局所再照合の残指摘は0件。SourceレビューのAccess型是正、Checkpoint受付の追加反証とともに、今回の保存基盤だけを限定確認済みとする。Rootの関数集合、一般ExecutionModelAccess、AM／Workbench／MCPのSourceを変更せず、Host保存型の追加と現在の未接続範囲を区別する。
+
+### 残る重複処理とGit固定に必要な既存操作の整理
+
+四系統の一括指示に対し、受付済み選定の再解析と状態表示の二重計算を先に是正した。各Stageは独立捕捉・凍結済みの元選定を直接使い、同じ参照との恒真比較も撤去する。外部preflight・準備結果・Packetの完全値、役割、試行、現在OperationとHomeの相関確認は維持する。投影生成と外部DTO受付の進行・品質・優先次操作は既存File内の同じ計算を使い、外部入力の構造・件数・到達可能性と結果相関の検査は省略しない。
+
+Git固定用の前提として、VCの既存`readCommitDiff`へPath省略時の全体比較とGit由来の変更Pathを追加した。`readFile`／`createCommit`は基準Commitの通常Blobを確認したうえで親Directoryごとの削除を扱う。Link・別Repository・観測不能を不存在へ畳まず、通常Index・HEADは変更しない。内部の祖先確認だけを同じ技術Ownerで共有し、Root関数・新File・Store・保持Refの自動回収は追加していない。
+
+| 確認面 | 結果と限界 |
+|---|---|
+| Coordinator | 状態照会・遷移の18試験、Stage選定の直接影響6試験に成功。Source型検査・対象整形は成功 |
+| VC | 直接影響する既存二Fileの限定回帰は24試験中20成功・4失敗、Exit 1。4件はWindowsのShell／Link権限制約であり、同じ4件のみ通常権限で再実行して全成功、Exit 0。最初のCommandを全成功へ読み替えない。追加したMain／Linkedの全体差分・Directory削除・根拠なし削除拒否・祖先再確認時のLink／EACCES反証も成功。型・対象整形・Lint成功 |
+| 独立レビュー | Coordinatorの二系統は指摘0。VCの後段祖先確認で内部理由名が漏れる一指摘を是正し、反証追加後の固定版再レビューは指摘0。Source・Architecture・QA・既存Catalog項目を照合 |
+| 文書・登録 | Catalog受付はcomplete、試験起動・Effectなし。指定五文書から展開した限定確認201／1207文書はエラー0・警告0。差分形式確認も成功 |
+| 試験物 | 今回作成したRepository-local fixtureだけを既存終了処理で回収。実AI・Docker・過去保持物・全体回帰は未操作 |
+
+Hostの本番切替、旧marker／Probe専用記録／Hash tokenとDocker側Host複製の撤去、CoordinatorのInventory／Manifest／候補WeakMap撤去はまだ完了していない。Git拡張の局所成立をCoordinatorの固定内容接続完成へ換算しない。
+
+着手前照合で、Host削除条件に子Dockerの`lease:released`と現行`areTaskResourcesSettled`を単純にANDすると、資源記録なしの未開始失敗で回収と結果確定が循環することを確認した。後続切替では「技術要求前の終了」と実Home解放を分け、元の未開始失敗・未発行観測・exact回復参照を保持してから同じHost排他で回収する。`resources:null`だけを未実行証明へ昇格しない。呼出し側と一括切替前の新Host Lock署名や未使用の作成領域は残していない。
+
+### 未開始失敗の保存接続と資源終結条件の是正
+
+Host切替前の実接続照合で、要求前の失敗を残すと資源終結へ進めない条件と、Coordinatorが保存する開始拒否の段階／理由をEMが拒否する不整合を確認した。旧Host記録を先に削除せず、同じ変更意図の前提是正として既存の値契約・記録入口を更新した。
+
+資源なしの終了準備では、Provider未開始・送信／共有書込み未発行・Owner無効化・未確定の結果／要約／履歴・再起動義務終結を維持し、元失敗のCommand取得・応答・Receiptが明示falseで、Command観測が欠測／nullの場合だけ、元失敗を消さずに資源終結を判定する。Lease保持／解放は別条件として区別し、不明は拒否する。この判定からHome解放・Host不存在・全体清掃成功を推定しない。全利用先の共同条件を独立照合した。
+
+Coordinatorの未開始記録は、元Owner／回復参照・開始済みControlなし・blocked・Docker／Provider Effectなしと、Executorの既知四拒否理由を必要とする。EMは計画拒否／Home取得失敗の正しい組と限定した一次失敗形だけを受理し、観測済み資源要求・Provider開始・送信／共有書込み・Owner活動／不明との矛盾を拒否する。結果非nullでは元理由との双方向一致とblockedを要求し、成功・取消・別理由への置換を拒否する。元理由を汎用失敗へ畳まず、新しいStore・公開入口・互換Readerは追加していない。
+
+EMの既存四Fileは47試験、Coordinatorの既存Provider実行Fileは22試験が成功した。EM側でLease二種・元失敗の有無・Command観測欠測／null・開始拒否四理由の肯否対照、失敗消去拒否、四理由の限定形12反証と結果区分を確認する。各失敗は先に実際の`executing`／Lease保持／Owner無効化の候補を一回生成・復号し、その元版から終了準備とLease二種へ進める。元失敗保持と技術資源未終結の中間状態を省略しない。execution八変異・資源発行済み・元失敗欠測・成功／取消／別理由はOperation全体のDecoderでも差分反証し、肯定対照で当該条件への到達を確認する。Coordinatorは実宣言が既存公開保存操作へ渡す要求の元理由・段階・exact参照・全fieldと、拒否時の保存要求0を確認する。新たな実保存・Host・外部Processは使っていない。
+
+公開境界の限定試験で、当初のCo試験がEM内部の候補生成・Decoderを直接参照している不整合を検出した。例外や試験用公開は追加せず、内部の実モデル反証をEM自身へ戻し、Co試験を記録要求の検証へ限定した。修正後の公開境界十試験は全成功し、実保存の結合成立とは区別する。
+
+公開境界を含む最終の既存五Fileは57成功（上記47件と公開境界十件を含む）、Coの既存Fileは22成功。中間形の追加後も同じモデルCaseが成功し、固定版のSource・試験と文書・台帳の独立再レビューは残指摘0となった。別の再実行を件数へ加算しない。
+
+EMの型とCoordinatorのSource／試験型は成功し、対象整形・Lintはエラー／警告0である。独立レビューで欠測／null対照と理由照合の片方向不足を検出し、成功例追加・対称条件・Operation全体の反証を実施した固定版の残指摘は0件。試験再実行を独立件数へ加算しない。文書・正式QA・既存Catalog項目も同じ境界へ追従する。
+
+本番の未開始記録は`executing`／Lease保持／Host未回収／結果nullを維持し、保存できることから実解放・回収済みを捏造しない。Hostの本番切替、旧marker／Probe記録／Hash token／二重遷移撤去とGit固定接続は引き続き未完了。全体回帰・実AI・Docker・過去保持物・コミット／プッシュは行っていない。
+
+最終の限定文書確認211／1207文書はエラー0・警告0。Catalog403 Fileの受付はcomplete、失敗0で試験起動・Effectなし。差分形式確認も成功した。
+
+### Host一括切替の未完了と動作可能な基準への復帰
+
+Host作成・回復をEMへ切り替える実装を試みたが、Run／Advice／隔離Probeの利用側とDocker記録の旧Host fieldを一体更新する前に、旧宣言を先行削除して型不整合を生じさせた。この未完了の編集だけを撤回した。先行して検証したHost保存基盤、未開始失敗の保存是正、選定／投影の重複削減、VCの固定比較拡張と既存の作業差分は保持する。未接続の新Lock署名、未使用の作成領域、転送Wrapperは残さない。
+
+復帰後、CoordinatorのSource／試験型とEMの型は成功した。既存の限定六FileはEM57件・Coordinator22件が成功し、失敗・取消・skipは0。対象の整形・Lintはエラー／警告0で、情報診断は維持する。別途試行した`biome check`はimport整理の要求で失敗しており、所定の整形・Lint成功へ読み替えない。完了済み範囲の独立Source／試験再確認は指摘0である。
+
+一括指示の完成条件は未達。残る実装は、同じ実Lockと元操作IDによるHost作成／回復の本番接続、旧marker・token・Probe専用記録・Docker側Host複製の撤去、Git固定CommitとReviewerコピーへの接続である。前提試験の成功をこれらの完成や実境界の成功へ換算しない。全体回帰・実AI・Docker・過去保持物・コミット／プッシュは実施していない。
 
 ## 選定・準備・Home利用許可の単純化 — 2026-11-19
+
+### Host切替前の二重清掃経路の撤去
+
+共通wx排他の解放は同期である一方、Host領域には同期・非同期の二つの清掃と失効処理が残っていた。通常清掃を同じ本体へ統合し、Lock保持中だけ同期入口を拒否する分岐、非同期専用二宣言を撤去した。実体回収、能力失効、同じ世代の解放、回復記録整理と真正結果の順を維持する。解放false／例外では登録と記録を保持し、世代退役・Process停止へ閉じる。rollback／recoverの結果確認も明示的な`cleanup_unknown`拒否へ追従した。新しいWrapper・公開Root関数・保存形式は追加していない。
+
+利用側と既存試験の全参照を新しい単一入口へ更新した。既存PRL-UT-014に実宣言の五差分反証を追加し、ERB-IT-003の真正結果試験は自己生成操作で実wx Lockを保持して清掃する。限定三Fileの初回は36成功・1失敗で、試験代役が旧async返値を保持して参照照合を壊していた。代役を本番の同期契約へ追従後、同じ37件が成功した。実Filesystem／wxの指定一件も成功し、自己生成RootとLockの不存在を確認した。再実行を独立件数へ加算しない。Source／試験の型と対象整形・Lintは成功、警告0・既存情報8件。
+
+独立Sourceレビューの古いAsync／Effect説明一件を是正し、実生成されない返却型の一値も除去した。既存の世代失効IT指定一件はKernel取得だけを代役にし、実Filesystemで後発拒否・本文不変・解放一回・自己生成物回収を確認して成功した。最終のSource／試験型と同じ37件、二追跡検査は成功。Catalog403 Fileはvalid、試験未起動・Effectなし。限定文書218／1207文書はエラー0・警告0。コメント・Source・試験・文書・台帳の独立再確認は指摘0となった。HostのEM一本化・旧marker／token／Probe記録撤去・Git固定／Reviewer接続は引き続き未完了。全体回帰・実AI・Docker・過去保持物・コミット／プッシュは操作していない。
 
 ### 撤去後の再照合による追従是正
 

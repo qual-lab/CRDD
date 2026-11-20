@@ -7,10 +7,15 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { types } from "node:util";
-import { parseHostRecoveryToken } from "../../../execution-model/src/index.ts";
+import { isDeepStrictEqual, types } from "node:util";
+import {
+  readState,
+  saveOperationStart,
+  saveOperationCheckpoint,
+  type OperationRecord,
+  type StateVersion,
+} from "../../../execution-model/src/index.ts";
 import type { Lock } from "../../../lock/src/index.ts";
 import {
   getRepository,
@@ -20,19 +25,28 @@ import {
   readRepositorySnapshot,
   readRepositoryStorageIdentity,
   resolveVerifiedRepositoryRoot,
+  readRepositoryEntries,
+  readWorkingChanges,
+  readFile,
+  readCommitFile,
+  createCommit,
+  createReference,
+  removeReference,
+  readCommitDiff,
+  copyCommitFiles,
 } from "../../../version-control/src/index.ts";
-import { checkRepositoryRuntimeDataProtectionDirectory } from "../configuration/runtime-data.ts";
+import {
+  checkRepositoryRuntimeDataProtectionDirectory,
+  ensureRepositoryExecutionDataArea,
+  requireReadyRepositoryExecutionDataArea,
+} from "../configuration/runtime-data.ts";
+import { snapshotJsonValue } from "../input/snapshot.ts";
 import { containsRecognizedSecretMaterial } from "../input/secret-validation.ts";
 import type { Operation } from "./controller.ts";
-import {
-  type ExecutionFileEntry,
-  isExecutionRelativePath,
-  readExecutionFile,
-  readExecutionInventory,
-} from "./files.ts";
+import { isExecutionRelativePath, readExecutionFile } from "./files.ts";
 import { acquireHostOperationLock } from "./kernel-lock.ts";
 import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
-import { formatHostRecoveryToken } from "./result.ts";
+import type { historyRepositoryInput } from "./persistence.ts";
 
 /**
  * Coordinatorが管理する操作領域の全Pathを定義する。
@@ -52,7 +66,7 @@ type OperationPaths = Readonly<{
 export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-workspace-runtime";
 
-export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 8;
+export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 9;
 
 /**
  * 借用Treeの最終観測を内容なしで投影する。
@@ -91,134 +105,218 @@ export function projectBorrowedExecutionResult(
 }
 
 /**
- * repository-workspace-runtimeで使用するWorkspace 記録の値契約を定義する。
- *
- * @responsibility Workspace 記録のProperty、Identity、状態制約を型境界として所有する。
+ * 同じ借用Ownerに結合したGit固定内容だけを保持する。
+ * @responsibility 基準CommitとGit可視Pathを保持し、独自Inventory・Manifestを持たない。
  * @trace ARCH-000013
- * @shape WorkspaceRecordが表すProperty、識別子およびRelationを型として固定する。
- * @invariant WorkspaceRecordで宣言した値と責務の対応を維持する。
- * @boundary N/A: WorkspaceRecordの宣言は外部境界を開かない。
- * @security WorkspaceRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility WorkspaceRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @boundary 実行中の借用結合。永続するRef/OIDは同じHost記録が所有する。
  */
 type WorkspaceRecord = Readonly<{
   managementCapability: object;
   mountCapability: object;
   repositoryBindingCapability: object;
   operationId: string;
-  baseCommit: string;
-  baseTree: string;
-  baseManifestHash: string;
-  baseEntries: ReadonlyMap<string, ExecutionFileEntry>;
-  sourceTree?: string;
+  source: Repository;
+  sourceTree: string;
+  baseHead: string;
+  baseCommitId: string;
+  basePaths: readonly string[];
 }>;
 
-/**
- * repository-workspace-runtimeで使用する候補 記録の値契約を定義する。
- *
- * @responsibility 候補 記録のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000013
- * @shape CandidateRecordが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CandidateRecordで宣言した値と責務の対応を維持する。
- * @boundary N/A: CandidateRecordの宣言は外部境界を開かない。
- * @security CandidateRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility CandidateRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type CandidateRecord = Readonly<{
-  workspaceRecord: WorkspaceRecord;
-  allowedPathsHash: string;
-  contentManifestHash: string;
-  patchHash: string;
-  changedPaths: readonly string[];
-}>;
+/** Git可視の現在内容をVCの選択値として捕捉する。 @trace ARCH-000013 */
+function readGitSelection(record: WorkspaceRecord, comparison: string) {
+  const observed = readRepositoryEntries(record.sourceTree);
+  if (
+    observed.status !== "completed" ||
+    !observed.nestedRepositoryObservationComplete ||
+    observed.entries.some((entry) => entry.kind !== "file" || entry.conflicted)
+  )
+    throw Error("execution_git_observation_unavailable");
+  const changes = readWorkingChanges(record.source, record.baseHead);
+  const paths = [
+    ...new Set([
+      ...record.basePaths,
+      ...observed.entries.map((entry) => entry.relativePath),
+      ...changes.changedPaths,
+    ]),
+  ]
+    .filter((value) => value !== ".crdd" && !value.startsWith(".crdd/"))
+    .sort();
+  const spellings = new Map<string, string>();
+  for (const relativePath of paths) {
+    const segments = relativePath.split("/");
+    for (let count = 1; count <= segments.length; count++) {
+      const prefix = segments.slice(0, count).join("/");
+      const key = prefix.toLowerCase();
+      const prior = spellings.get(key);
+      if (prior !== undefined && prior !== prefix)
+        throw Error("execution_git_path_case_conflict");
+      spellings.set(key, prefix);
+    }
+  }
+  return paths.flatMap((relativePath) => {
+    if (!isExecutionRelativePath(relativePath))
+      throw Error("execution_git_path_invalid");
+    try {
+      const file = readFile(record.source, {
+        baseCommit: comparison,
+        path: relativePath,
+      });
+      if (file.head !== record.baseHead)
+        throw Error("execution_git_head_changed");
+      return [Object.freeze(file.selection)];
+    } catch (error) {
+      // VCが同じ固定Commitにも現在Treeにも存在しないと明示したPathだけを除外する。
+      if (
+        error instanceof Error &&
+        error.message === "repository_file_not_found"
+      )
+        return [];
+      throw error;
+    }
+  });
+}
 
-const workspaces = new WeakMap<object, WorkspaceRecord>();
+/** 既存HostのCAS内でRef予定と技術結果を保持する。 @trace ARCH-000013 */
+function writeGitSnapshot(
+  host: HostState,
+  item: NonNullable<HostRecord["git"]>[number],
+) {
+  const previous = host.record.git ?? [];
+  const index = previous.findIndex((value) => value.name === item.name);
+  writeHostCheckpoint(host, {
+    ...host.record,
+    git:
+      index < 0
+        ? [...previous, item]
+        : previous.map((value, at) => (at === index ? item : value)),
+  });
+}
 
-const candidates = new WeakMap<object, CandidateRecord>();
+/** Gitの基準又は候補を、保存済み予定・OID・Refの順に固定する。 @trace ARCH-000013 */
+function createExecutionCommit(record: WorkspaceRecord, baseCommit: string) {
+  const { identity } = ownedOperationFromManagementCapability(
+    record.managementCapability,
+  );
+  const host = identity.host;
+  freshHost(host);
+  requireHostExecutionCurrent(host.input);
+  const sequence = host.record.git?.length ?? 0;
+  const name = `refs/heads/crdd/operation/${record.operationId}/${sequence === 0 ? "baseline" : `candidate-${sequence}`}`;
+  const planned: NonNullable<HostRecord["git"]>[number] = {
+    name,
+    commitId: null,
+    temporary: null,
+    request: "not_issued",
+    cleanup: "pending",
+  };
+  writeGitSnapshot(host, planned);
+  const selection = readGitSelection(record, baseCommit);
+  const temporaryDirectory = `.crdd/operations/${record.operationId}/management`;
+  const result = createCommit(record.source, {
+    baseCommit,
+    expectedHead: record.baseHead,
+    selection,
+    message: `CRDD ${record.operationId} ${sequence === 0 ? "baseline" : "candidate"}`,
+    temporaryDirectory,
+    allowEmpty: true,
+  });
+  // blockedでも生成済みOID・未回収Indexを捨てない。保存失敗後にRefを発行しない。
+  const received = {
+    ...planned,
+    commitId: result.commitId,
+    temporary: result.temporary,
+  };
+  writeGitSnapshot(host, received);
+  if (
+    result.status !== "completed" ||
+    !result.cleanupConfirmed ||
+    !result.commitId
+  )
+    throw Error("execution_git_commit_unconfirmed", { cause: result.reason });
+  if (!isDeepStrictEqual(selection, readGitSelection(record, baseCommit)))
+    throw Error("execution_git_content_changed");
+  requireHostExecutionCurrent(host.input);
+  writeGitSnapshot(host, { ...received, request: "unknown" });
+  const referenced = createReference(host.input.root, {
+    name,
+    commitId: result.commitId,
+  });
+  if (
+    referenced.status !== "completed" ||
+    referenced.present !== true ||
+    !referenced.effectConfirmed
+  )
+    throw Error("execution_git_reference_unconfirmed");
+  writeGitSnapshot(host, { ...received, request: "confirmed" });
+  return Object.freeze({
+    name,
+    commitId: result.commitId,
+    paths: Object.freeze(
+      selection.filter((item) => item.blobId !== null).map((item) => item.path),
+    ),
+  });
+}
 
-/**
- * 借用開始時からの変更を内容の複製なしで観測する。
- * @responsibility 既存dirtyと今回区間の差を分離する。
- * @trace ARCH-000004
- * @input 元workspaceCapability。
- * @returns 変更Path集合又は観測不能のnull。
- * @precondition 借用結合済みである。
- * @postcondition AI由来・採用・Commitを主張しない。
- * @effect 借用Treeを読み取るだけ。
- * @failure 失効・走査失敗はnull。
- * @invariant 変更の巻戻し・Tree削除なし。
- * @boundary Task終了後の観測。
- * @security 内容を返さない。
- * @concurrency 同時編集の帰属は判定しない。
- */
+/** 同じ管理OwnerのGit資源を期待OID付きで回収する。 @trace ARCH-000013 */
+function cleanupHostGit(host: HostState) {
+  for (const item of host.record.git ?? []) {
+    if (item.cleanup === "confirmed") continue;
+    freshHost(host);
+    const removed = removeReference(host.input.root, {
+      name: item.name,
+      expectedCommitId: item.commitId,
+      ...(item.temporary
+        ? {
+            temporaryIndex: {
+              directory: `.crdd/operations/${host.record.operationId}/management`,
+              value: item.temporary,
+            },
+          }
+        : {}),
+    });
+    if (
+      removed.status !== "completed" ||
+      removed.present !== false ||
+      !removed.cleanupConfirmed
+    )
+      throw Error("host_operation_git_cleanup_unconfirmed");
+    writeGitSnapshot(host, { ...item, cleanup: "confirmed" });
+  }
+}
+
+/** 固定基準と現在のGit可視内容を比較する。 @trace ARCH-000013 */
 export function observeBorrowedExecutionChanges(capability: object) {
   try {
-    const record = workspaces.get(capability);
-    if (
-      !record?.sourceTree ||
-      readBorrowedExecutionBinding(record.managementCapability)?.target
-        .executionTree !== record.sourceTree
-    )
-      return null;
+    const management = ownValue(capability, "managementCapability");
+    if (!isObject(management)) return null;
+    const record = readBorrowedExecutionBinding(management)?.snapshot;
+    if (!record || record !== capability) return null;
+    const current = currentWorkspaceRecord(
+      capability,
+      record.repositoryBindingCapability,
+      record.managementCapability,
+      record.mountCapability,
+    );
+    if (!current) return null;
     return Object.freeze(
-      changedPaths(
-        record.baseEntries,
-        entryMap(readExecutionInventory(record.sourceTree, true)),
-      ),
+      readGitSelection(record, record.baseCommitId)
+        .filter((selection) => {
+          const before = readCommitFile(record.source, {
+            commit: record.baseCommitId,
+            path: selection.path,
+          });
+          if (selection.blobId === null) return true;
+          return (
+            before === null ||
+            before.blobId !== selection.blobId ||
+            before.mode !== selection.mode
+          );
+        })
+        .map((selection) => selection.path),
     );
   } catch {
     return null;
   }
-}
-
-/**
- * manifest Hashを決定する。
- *
- * @responsibility manifest Hashの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000013
- * @input entries: readonly InventoryEntry[]
- * @returns manifestHashの計算結果を返す。
- * @precondition 「entries: readonly InventoryEntry[]」がmanifestHashの入力契約を満たす。
- * @postcondition manifestHashの責務を完了した結果だけを返す。
- * @effect N/A: manifestHashは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: manifestHashは独自の失敗分岐を所有しない。
- * @invariant manifestHashは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: manifestHashはProcess内の同一Subsystemで完結する。
- * @security manifestHashはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: manifestHashは共有非同期状態を持たない同期処理である。
- */
-function manifestHash(entries: readonly ExecutionFileEntry[]) {
-  const hash = createHash("sha256").update("crdd-workspace-inventory-v1\0");
-  for (const entry of entries) {
-    hash
-      .update(entry.relativePath)
-      .update("\0")
-      .update(entry.byteLength.toString())
-      .update("\0")
-      .update(entry.sha256)
-      .update("\0");
-  }
-  return hash.digest("hex");
-}
-
-/**
- * entry Mapを決定する。
- *
- * @responsibility entry Mapの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000013
- * @input entries: readonly InventoryEntry[]
- * @returns entryMapの計算結果を返す。
- * @precondition 「entries: readonly InventoryEntry[]」がentryMapの入力契約を満たす。
- * @postcondition entryMapの責務を完了した結果だけを返す。
- * @effect N/A: entryMapは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: entryMapは独自の失敗分岐を所有しない。
- * @invariant entryMapは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: entryMapはProcess内の同一Subsystemで完結する。
- * @security entryMapはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: entryMapは共有非同期状態を持たない同期処理である。
- */
-function entryMap(entries: readonly ExecutionFileEntry[]) {
-  return new Map(entries.map((entry) => [entry.relativePath, entry]));
 }
 
 /**
@@ -296,55 +394,11 @@ function isAllowed(relativePath: string, paths: readonly string[]) {
 }
 
 /**
- * changed Pathsを決定する。
- *
- * @responsibility changed Pathsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * 借用対象の開始dirtyをGit Commitへ固定する。
+ * @responsibility 作成予定保存とVC完成操作を接続し、通常Index・HEADを変更しない。
  * @trace ARCH-000013
- * @input baseEntries: ReadonlyMap<string, InventoryEntry>、currentEntries: ReadonlyMap<string, InventoryEntry>
- * @returns changedPathsの計算結果を返す。
- * @precondition 「baseEntries: ReadonlyMap<string, InventoryEntry>、currentEntries: ReadonlyMap<string, InventoryEntry>」がchangedPathsの入力契約を満たす。
- * @postcondition changedPathsの責務を完了した結果だけを返す。
- * @effect N/A: changedPathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: changedPathsは独自の失敗分岐を所有しない。
- * @invariant changedPathsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: changedPathsはProcess内の同一Subsystemで完結する。
- * @security changedPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: changedPathsは共有非同期状態を持たない同期処理である。
- */
-function changedPaths(
-  baseEntries: ReadonlyMap<string, ExecutionFileEntry>,
-  currentEntries: ReadonlyMap<string, ExecutionFileEntry>,
-) {
-  const paths = new Set([...baseEntries.keys(), ...currentEntries.keys()]);
-  return [...paths]
-    .filter((relativePath) => {
-      const before = baseEntries.get(relativePath);
-      const after = currentEntries.get(relativePath);
-      return (
-        !before ||
-        !after ||
-        before.byteLength !== after.byteLength ||
-        before.sha256 !== after.sha256
-      );
-    })
-    .sort((left, right) => Buffer.from(left).compare(Buffer.from(right)));
-}
-
-/**
- * Runtime 所有 Repository WorkspaceをFilesystem上の候補として具体化する。
- *
- * @responsibility Runtime 所有 Repository Workspaceの入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
- * @trace ARCH-000013
- * @input repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawReadPaths: unknown
- * @returns bindRuntimeOwnedExecutionSnapshotの計算結果を返す。
- * @precondition 「repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawReadPaths: unknown」がbindRuntimeOwnedExecutionSnapshotの入力契約を満たす。
- * @postcondition bindRuntimeOwnedExecutionSnapshotの責務を完了した結果だけを返す。
- * @effect 借用Tree・Git・Inventoryを読取り、既存Operation内の空マスクを準備し、開始時Snapshotを私有WeakMapへ登録する。
- * @failure bindRuntimeOwnedExecutionSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant bindRuntimeOwnedExecutionSnapshotは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: bindRuntimeOwnedExecutionSnapshotはProcess内の同一Subsystemで完結する。
- * @security bindRuntimeOwnedExecutionSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: bindRuntimeOwnedExecutionSnapshotは共有非同期状態を持たない同期処理である。
+ * @effect 元Host記録、Git Objectと専用Refだけを更新する。
+ * @boundary Main／Linkedの対象と現在Ownerを同じ操作へ結合する。
  */
 export function bindRuntimeOwnedExecutionSnapshot(
   repositoryBindingCapability: unknown,
@@ -355,15 +409,13 @@ export function bindRuntimeOwnedExecutionSnapshot(
 ) {
   try {
     if (
-      !repositoryBindingCapability ||
-      typeof repositoryBindingCapability !== "object" ||
-      !managementCapability ||
-      typeof managementCapability !== "object" ||
-      !mountCapability ||
-      typeof mountCapability !== "object"
-    ) {
+      !isObject(repositoryBindingCapability) ||
+      !isObject(managementCapability) ||
+      !isObject(mountCapability) ||
+      !borrowedTarget ||
+      (rawReadPaths !== undefined && !allowedPaths(rawReadPaths))
+    )
       return null;
-    }
     const source = borrowRuntimeOwnedRepositorySource(
       repositoryBindingCapability,
       managementCapability,
@@ -373,97 +425,83 @@ export function bindRuntimeOwnedExecutionSnapshot(
       mountCapability,
     );
     if (!source || source.operationId !== binding.operationId) return null;
-    const readPaths =
-      rawReadPaths === undefined ? null : allowedPaths(rawReadPaths);
-    if (rawReadPaths !== undefined && !readPaths) return null;
-    const verified = getRepository(source.repositoryRoot);
-    if (verified.status !== "completed") return null;
-    if (borrowedTarget !== undefined) {
-      const target = bindBorrowedExecutionTarget(
-        managementCapability,
-        mountCapability,
-        source.repositoryRoot,
-        borrowedTarget,
-      );
-      if (!target) return null;
-      const baseInventory = readExecutionInventory(target.executionTree, true);
-      const baseManifestHash = manifestHash(baseInventory);
-      const workspaceCapability = Object.freeze({});
-      workspaces.set(
-        workspaceCapability,
-        Object.freeze({
-          managementCapability,
-          mountCapability,
-          repositoryBindingCapability,
-          operationId: binding.operationId,
-          baseCommit: source.revision,
-          baseTree: baseManifestHash,
-          baseManifestHash,
-          baseEntries: entryMap(baseInventory),
-          sourceTree: target.executionTree,
-        }),
-      );
-      return Object.freeze({
-        status: "materialized" as const,
-        borrowed: true,
-        workspaceCapability,
-        baseCommit: source.revision,
-        baseTree: baseManifestHash,
-        baseManifestHash,
-        fileCount: baseInventory.length,
-        readProjectionHash: null,
-        pathReported: false,
-      });
-    }
-    return null;
+    const target = bindBorrowedExecutionTarget(
+      managementCapability,
+      mountCapability,
+      source.repositoryRoot,
+      borrowedTarget,
+    );
+    if (!target) return null;
+    const location = getRepository(target.executionTree);
+    if (location.status !== "completed") return null;
+    const observed = readRepositorySnapshot(location.capability);
+    if (
+      !observed ||
+      (target.head !== null && observed.revisionIdentity !== target.head)
+    )
+      return null;
+    const initial: WorkspaceRecord = Object.freeze({
+      managementCapability,
+      mountCapability,
+      repositoryBindingCapability,
+      operationId: binding.operationId,
+      source: location.capability,
+      sourceTree: target.executionTree,
+      baseHead: observed.revisionIdentity,
+      baseCommitId: observed.revisionIdentity,
+      basePaths: Object.freeze([]),
+    });
+    const baseline = createExecutionCommit(initial, observed.revisionIdentity);
+    const record: WorkspaceRecord = Object.freeze({
+      ...initial,
+      baseCommitId: baseline.commitId,
+      basePaths: baseline.paths,
+    });
+    const borrowed = readBorrowedExecutionBinding(managementCapability);
+    if (!borrowed) return null;
+    bindExecutionSnapshotToBorrowed(managementCapability, borrowed, record);
+    return Object.freeze({
+      status: "materialized" as const,
+      borrowed: true,
+      workspaceCapability: record,
+      baseCommitId: baseline.commitId,
+      fileCount: baseline.paths.length,
+      pathReported: false,
+    });
   } catch {
     return null;
   }
 }
 
-/**
- * current Workspace 記録を決定する。
- *
- * @responsibility current Workspace 記録の導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000013
- * @input workspaceCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown
- * @returns currentWorkspaceRecordの計算結果を返す。
- * @precondition 「workspaceCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown」がcurrentWorkspaceRecordの入力契約を満たす。
- * @postcondition currentWorkspaceRecordの責務を完了した結果だけを返す。
- * @effect N/A: currentWorkspaceRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: currentWorkspaceRecordは独自の失敗分岐を所有しない。
- * @invariant currentWorkspaceRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: currentWorkspaceRecordはProcess内の同一Subsystemで完結する。
- * @security currentWorkspaceRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: currentWorkspaceRecordは共有非同期状態を持たない同期処理である。
- */
+/** 借用結合の既存Mapだけに実行中の固定内容を保持する。 @trace ARCH-000013 */
+function bindExecutionSnapshotToBorrowed(
+  management: object,
+  current: BorrowedBinding,
+  snapshot: WorkspaceRecord,
+) {
+  borrowed.set(management, Object.freeze({ ...current, snapshot }));
+}
+
+/** 同じ借用・管理・Mount・基準Refの現在性を照合する。 @trace ARCH-000013 */
 function currentWorkspaceRecord(
   workspaceCapability: unknown,
   repositoryBindingCapability: unknown,
   managementCapability: unknown,
   mountCapability: unknown,
 ) {
-  if (
-    !workspaceCapability ||
-    typeof workspaceCapability !== "object" ||
-    !repositoryBindingCapability ||
-    typeof repositoryBindingCapability !== "object" ||
-    !managementCapability ||
-    typeof managementCapability !== "object" ||
-    !mountCapability ||
-    typeof mountCapability !== "object"
-  ) {
+  if (!isObject(workspaceCapability) || !isObject(managementCapability))
     return null;
-  }
-  const workspaceRecord = workspaces.get(workspaceCapability);
+  const borrowed = readBorrowedExecutionBinding(managementCapability);
+  const record = borrowed?.snapshot;
   if (
-    !workspaceRecord ||
-    workspaceRecord.managementCapability !== managementCapability ||
-    workspaceRecord.mountCapability !== mountCapability ||
-    workspaceRecord.repositoryBindingCapability !== repositoryBindingCapability
-  ) {
+    !record ||
+    workspaceCapability !== record ||
+    record.managementCapability !== managementCapability ||
+    record.mountCapability !== mountCapability ||
+    record.repositoryBindingCapability !== repositoryBindingCapability ||
+    borrowed.target.executionTree !== record.sourceTree
+  )
     return null;
-  }
   const repository = verifyRuntimeOwnedRepositoryBindingCapability(
     repositoryBindingCapability,
     managementCapability,
@@ -472,39 +510,18 @@ function currentWorkspaceRecord(
     managementCapability,
     mountCapability,
   );
-  const borrowed = workspaceRecord.sourceTree
-    ? readBorrowedExecutionBinding(managementCapability)
-    : null;
-  if (
-    workspaceRecord.sourceTree &&
-    borrowed?.target.executionTree !== workspaceRecord.sourceTree
-  )
-    return null;
-  return repository?.revision === workspaceRecord.baseCommit &&
-    binding.operationId === workspaceRecord.operationId
-    ? Object.freeze({
-        workspaceRecord,
-        workspace: workspaceRecord.sourceTree ?? binding.mounts.workspace,
-      })
+  const host = readOwnedHostOperation(managementCapability).record;
+  const baseline = host.git?.[0];
+  return repository &&
+    binding.operationId === record.operationId &&
+    baseline?.commitId === record.baseCommitId &&
+    baseline.request === "confirmed" &&
+    baseline.cleanup === "pending"
+    ? { workspaceRecord: record, workspace: record.sourceTree }
     : null;
 }
 
-/**
- * Runtime 所有 候補 Revisionを固定Snapshotとして取得する。
- *
- * @responsibility Runtime 所有 候補 Revisionの観測範囲、Snapshot Identity、変更検出境界を所有する。
- * @trace ARCH-000013
- * @input workspaceCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawAllowedPaths: unknown
- * @returns captureExecutionChangeSnapshotの計算結果を返す。
- * @precondition 「workspaceCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawAllowedPaths: unknown」がcaptureExecutionChangeSnapshotの入力契約を満たす。
- * @postcondition captureExecutionChangeSnapshotの責務を完了した結果だけを返す。
- * @effect 現在Treeを読取り、変更Hashと範囲を私有WeakMapへ登録する。Commit・採用・Tree書込みは行わない。
- * @failure captureExecutionChangeSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant captureExecutionChangeSnapshotは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: captureExecutionChangeSnapshotはProcess内の同一Subsystemで完結する。
- * @security captureExecutionChangeSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: captureExecutionChangeSnapshotは共有非同期状態を持たない同期処理である。
- */
+/** 固定基準からのGit差分を候補Commitへ一度固定する。 @trace ARCH-000013 */
 export function captureExecutionChangeSnapshot(
   workspaceCapability: unknown,
   repositoryBindingCapability: unknown,
@@ -519,106 +536,29 @@ export function captureExecutionChangeSnapshot(
       managementCapability,
       mountCapability,
     );
-    const normalizedAllowedPaths = allowedPaths(rawAllowedPaths);
-    if (!current || !normalizedAllowedPaths) return null;
-    const currentInventory = readExecutionInventory(
-      current.workspace,
-      Boolean(current.workspaceRecord.sourceTree),
+    const paths = allowedPaths(rawAllowedPaths);
+    if (!current || !paths) return null;
+    const candidate = createExecutionCommit(
+      current.workspaceRecord,
+      current.workspaceRecord.baseCommitId,
     );
-    const currentEntries = entryMap(currentInventory);
-    const changes = changedPaths(
-      current.workspaceRecord.baseEntries,
-      currentEntries,
-    );
-    if (
-      !current.workspaceRecord.sourceTree &&
-      changes.some(
-        (relativePath) => !isAllowed(relativePath, normalizedAllowedPaths),
-      )
-    ) {
-      return null;
-    }
-    for (const relativePath of current.workspaceRecord.sourceTree
-      ? []
-      : changes) {
-      const inventoryEntry = currentEntries.get(relativePath);
-      if (!inventoryEntry) {
-        if (containsRecognizedSecretMaterial(relativePath, "")) {
-          return Object.freeze({
-            status: "blocked" as const,
-            reason: "candidate_recognized_secret_rejected" as const,
-            pathReported: false,
-            canonicalRepositoryChanged: false,
-          });
-        }
-        continue;
-      }
-      const observed = readExecutionFile(
-        path.join(current.workspace, ...relativePath.split("/")),
-      );
-      if (
-        observed.byteLength !== inventoryEntry.byteLength ||
-        observed.sha256 !== inventoryEntry.sha256
-      ) {
-        return null;
-      }
-      if (containsRecognizedSecretMaterial(relativePath, observed.content)) {
-        return Object.freeze({
-          status: "blocked" as const,
-          reason: "candidate_recognized_secret_rejected" as const,
-          pathReported: false,
-          canonicalRepositoryChanged: false,
-        });
-      }
-    }
-    const contentManifestHash = manifestHash(currentInventory);
-    const allowedPathsHash = createHash("sha256")
-      .update("crdd-allowed-paths-v1\0")
-      .update(normalizedAllowedPaths.join("\0"))
-      .digest("hex");
-    const patchHash = createHash("sha256")
-      .update("crdd-candidate-revision-v1\0")
-      .update(current.workspaceRecord.baseCommit)
-      .update("\0")
-      .update(current.workspaceRecord.baseTree)
-      .update("\0")
-      .update(current.workspaceRecord.baseManifestHash)
-      .update("\0")
-      .update(contentManifestHash)
-      .update("\0")
-      .update(allowedPathsHash)
-      .update("\0")
-      .update(changes.join("\0"))
-      .digest("hex");
-    const candidateCapability = Object.freeze({});
-    const record = Object.freeze({
-      workspaceRecord: current.workspaceRecord,
-      allowedPathsHash,
-      contentManifestHash,
-      patchHash,
-      changedPaths: Object.freeze(changes),
+    const diff = readCommitDiff(current.workspaceRecord.source, {
+      baseCommit: current.workspaceRecord.baseCommitId,
+      commitId: candidate.commitId,
     });
-    candidates.set(candidateCapability, record);
     return Object.freeze({
       status: "candidate" as const,
       operationId: current.workspaceRecord.operationId,
-      baseCommit: current.workspaceRecord.baseCommit,
-      baseTree: current.workspaceRecord.baseTree,
-      patchHash,
-      contentManifestHash,
-      allowedPathsHash,
-      changedPaths: record.changedPaths,
-      ...(current.workspaceRecord.sourceTree
-        ? {
-            unexpectedPaths: Object.freeze(
-              changes.filter(
-                (relativePath) =>
-                  !isAllowed(relativePath, normalizedAllowedPaths),
-              ),
-            ),
-          }
-        : {}),
-      candidateCapability,
+      baseCommitId: current.workspaceRecord.baseCommitId,
+      candidateCommitId: candidate.commitId,
+      changedPaths: diff.changedPaths,
+      unexpectedPaths: Object.freeze(
+        diff.changedPaths.filter((value) => !isAllowed(value, paths)),
+      ),
+      candidateCapability: Object.freeze({
+        name: candidate.name,
+        commitId: candidate.commitId,
+      }),
       pathReported: false,
       canonicalRepositoryChanged: false,
     });
@@ -628,20 +568,10 @@ export function captureExecutionChangeSnapshot(
 }
 
 /**
- * Runtime 所有 候補 Read Contentを公開結果へ投影する。
- *
- * @responsibility Runtime 所有 候補 Read Contentの公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * 許可範囲だけを固定Commitから自己所有領域へコピーしReviewerへ渡す。
+ * @responsibility 機密拒否、固定内容と実搬送本文の相関を保持する。
  * @trace ARCH-000013
- * @input workspaceCapability: unknown、candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawReadPaths: unknown
- * @returns projectReviewerReadContentの計算結果を返す。
- * @precondition 「workspaceCapability: unknown、candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawReadPaths: unknown」がprojectReviewerReadContentの入力契約を満たす。
- * @postcondition projectReviewerReadContentの責務を完了した結果だけを返す。
- * @effect N/A: projectReviewerReadContentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure projectReviewerReadContentは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant projectReviewerReadContentは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: projectReviewerReadContentはProcess内の同一Subsystemで完結する。
- * @security projectReviewerReadContentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: projectReviewerReadContentは共有非同期状態を持たない同期処理である。
+ * @effect 元Hostのprojection子内への限定コピー。借用元の現在Fileは読まない。
  */
 export function projectReviewerReadContent(
   workspaceCapability: unknown,
@@ -652,91 +582,128 @@ export function projectReviewerReadContent(
   rawReadPaths: unknown,
 ) {
   try {
-    if (!candidateCapability || typeof candidateCapability !== "object")
-      return null;
     const current = currentWorkspaceRecord(
       workspaceCapability,
       repositoryBindingCapability,
       managementCapability,
       mountCapability,
     );
-    const candidate = candidates.get(candidateCapability);
     const readPaths = allowedPaths(rawReadPaths);
-    if (!current || !candidate || !readPaths) return null;
-    if (candidate.workspaceRecord !== current.workspaceRecord) return null;
-
-    const currentInventory = readExecutionInventory(
-      current.workspace,
-      Boolean(current.workspaceRecord.sourceTree),
+    if (!current || !readPaths || !isObject(managementCapability)) return null;
+    const verified = verifyExecutionChangeSnapshot(
+      candidateCapability,
+      repositoryBindingCapability,
+      managementCapability,
+      mountCapability,
     );
-    if (manifestHash(currentInventory) !== candidate.contentManifestHash)
+    if (verified?.status !== "verified") return null;
+    const { identity } =
+      ownedOperationFromManagementCapability(managementCapability);
+    const host = identity.host;
+    const position = host.record.git?.findIndex(
+      (item) =>
+        item.commitId === verified.candidateCommitId &&
+        !item.name.endsWith("/baseline"),
+    );
+    if (position === undefined || position < 1) return null;
+    const binding = verifyOwnedOperationManagementMountBinding(
+      managementCapability,
+      mountCapability,
+    );
+    const directory = path.join(
+      binding.mounts.projection,
+      `reviewer-${position}`,
+    );
+    fs.mkdirSync(directory);
+    const root = resolveVerifiedRepositoryRoot(host.input.root);
+    if (!root) return null;
+    const files: Readonly<Record<string, unknown>>[] = [];
+    const copied = copyCommitFiles(current.workspaceRecord.source, {
+      commit: verified.candidateCommitId,
+      outputRepository: host.input.root,
+      relativeDirectory: path
+        .relative(root, directory)
+        .split(path.sep)
+        .join("/"),
+      paths: readPaths,
+      inspectContent: (relativePath, bytes) => {
+        if (!isAllowed(relativePath, readPaths)) return true;
+        try {
+          const content = new TextDecoder("utf-8", { fatal: true }).decode(
+            bytes,
+          );
+          if (containsRecognizedSecretMaterial(relativePath, content))
+            return true;
+          files.push(
+            Object.freeze({
+              path: relativePath,
+              state: "present",
+              byteLength: bytes.byteLength,
+              sha256: createHash("sha256").update(bytes).digest("hex"),
+              encoding: "utf-8",
+              content,
+            }),
+          );
+          return false;
+        } catch {
+          return true;
+        }
+      },
+    });
+    if (copied?.status !== "materialized")
       return Object.freeze({
         status: "blocked" as const,
-        reason: "candidate_read_projection_identity_mismatch" as const,
+        reason:
+          copied?.status === "blocked"
+            ? copied.reason
+            : "execution_reviewer_copy_unconfirmed",
       });
-
-    const selectedEntries = currentInventory.filter((entry) =>
-      isAllowed(entry.relativePath, readPaths),
-    );
-    let totalBytes = 0;
-    const files: Readonly<Record<string, unknown>>[] = [];
-    for (const entry of selectedEntries) {
-      totalBytes += entry.byteLength;
+    for (const file of files) {
       const observed = readExecutionFile(
-        path.join(current.workspace, ...entry.relativePath.split("/")),
+        path.join(directory, ...String(file.path).split("/")),
       );
       if (
-        observed.byteLength !== entry.byteLength ||
-        observed.sha256 !== entry.sha256
-      ) {
-        return Object.freeze({
-          status: "blocked" as const,
-          reason: "candidate_read_projection_identity_mismatch" as const,
-        });
-      }
-      const content = new TextDecoder("utf-8", { fatal: true }).decode(
-        observed.content,
-      );
-      if (containsRecognizedSecretMaterial(entry.relativePath, content))
-        return Object.freeze({
-          status: "blocked" as const,
-          reason:
-            "candidate_read_projection_recognized_secret_rejected" as const,
-        });
-      files.push(
-        Object.freeze({
-          path: entry.relativePath,
-          state: "present",
-          byteLength: entry.byteLength,
-          sha256: entry.sha256,
-          encoding: "utf-8",
-          content,
-        }),
-      );
+        observed.sha256 !== file.sha256 ||
+        observed.byteLength !== file.byteLength
+      )
+        throw Error("execution_reviewer_copy_changed");
     }
-    for (const readPath of readPaths) {
+    for (const relativePath of readPaths)
       if (
-        !readPath.endsWith("/") &&
-        !selectedEntries.some((entry) => entry.relativePath === readPath)
-      ) {
-        files.push(Object.freeze({ path: readPath, state: "absent" }));
-      }
-    }
+        !relativePath.endsWith("/") &&
+        !files.some((file) => file.path === relativePath)
+      )
+        files.push(Object.freeze({ path: relativePath, state: "absent" }));
     files.sort((left, right) =>
       Buffer.from(String(left.path)).compare(Buffer.from(String(right.path))),
     );
     const projectionHash = createHash("sha256")
-      .update("crdd-candidate-read-projection-v1\0")
-      .update(candidate.patchHash)
+      .update("crdd-candidate-read-projection-v2\0")
+      .update(verified.candidateCommitId)
       .update("\0")
       .update(JSON.stringify(files))
       .digest("hex");
+    const borrowed = readBorrowedExecutionBinding(managementCapability);
+    if (!borrowed) return null;
+    const fileHashes = files
+      .filter((file) => file.state === "present")
+      .map((file) =>
+        Object.freeze({ path: String(file.path), sha256: String(file.sha256) }),
+      );
+    bindReviewerCopy(managementCapability, borrowed, {
+      commitId: verified.candidateCommitId,
+      directory,
+      fileHashes: Object.freeze(fileHashes),
+    });
     return Object.freeze({
       status: "projected" as const,
-      candidatePatchHash: candidate.patchHash,
-      candidateContentManifestHash: candidate.contentManifestHash,
+      candidateCommitId: verified.candidateCommitId,
       projectionHash,
-      totalBytes,
+      totalBytes: files.reduce(
+        (total, file) =>
+          total + (typeof file.byteLength === "number" ? file.byteLength : 0),
+        0,
+      ),
       files: Object.freeze(files),
     });
   } catch {
@@ -744,22 +711,77 @@ export function projectReviewerReadContent(
   }
 }
 
-/**
- * Runtime 所有 候補 Revisionを検証する。
- *
- * @responsibility Runtime 所有 候補 Revisionの検証根拠、成立条件、観測不能時の拒否境界を所有する。
- * @trace ARCH-000013
- * @input candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown
- * @returns verifyExecutionChangeSnapshotの計算結果を返す。
- * @precondition 「candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown」がverifyExecutionChangeSnapshotの入力契約を満たす。
- * @postcondition verifyExecutionChangeSnapshotの責務を完了した結果だけを返す。
- * @effect Operation・Repository結合と現在Treeを再読取りし、既存Snapshotと照合する。保存・Git変更は行わない。
- * @failure verifyExecutionChangeSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant verifyExecutionChangeSnapshotは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: verifyExecutionChangeSnapshotはProcess内の同一Subsystemで完結する。
- * @security verifyExecutionChangeSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: verifyExecutionChangeSnapshotは共有非同期状態を持たない同期処理である。
- */
+/** 既存の借用結合へ今回の固定コピーだけを結合する。 @trace ARCH-000013 */
+function bindReviewerCopy(
+  management: object,
+  current: BorrowedBinding,
+  reviewer: NonNullable<BorrowedBinding["reviewer"]>,
+) {
+  borrowed.set(
+    management,
+    Object.freeze({ ...current, reviewer: Object.freeze(reviewer) }),
+  );
+}
+
+/** Reviewerには同じ候補の自己所有コピーだけをMountさせる。 @trace ARCH-000013 */
+export function readOwnedReviewerWorkspace(
+  management: unknown,
+  commitId: unknown,
+): string | null {
+  try {
+    if (!isObject(management) || typeof commitId !== "string") return null;
+    const { identity } = ownedOperationFromManagementCapability(management);
+    freshHost(identity.host);
+    const binding = readBorrowedExecutionBinding(management);
+    const copy = binding?.reviewer;
+    if (
+      !copy ||
+      copy.commitId !== commitId ||
+      !identity.host.record.git?.some(
+        (item) =>
+          item.commitId === commitId &&
+          item.request === "confirmed" &&
+          item.cleanup === "pending",
+      )
+    )
+      return null;
+    const found: string[] = [];
+    const read = (directory: string) => {
+      const info = fs.lstatSync(directory);
+      if (
+        !info.isDirectory() ||
+        info.isSymbolicLink() ||
+        fs.realpathSync(directory) !== directory
+      )
+        throw Error("execution_reviewer_copy_changed");
+      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+        const target = path.join(directory, entry.name);
+        if (entry.isSymbolicLink())
+          throw Error("execution_reviewer_copy_changed");
+        if (entry.isDirectory()) read(target);
+        else {
+          const relative = path
+            .relative(copy.directory, target)
+            .split(path.sep)
+            .join("/");
+          const expected = copy.fileHashes.find(
+            (file) => file.path === relative,
+          );
+          if (!expected || readExecutionFile(target).sha256 !== expected.sha256)
+            throw Error("execution_reviewer_copy_changed");
+          found.push(relative);
+        }
+      }
+    };
+    read(copy.directory);
+    if (found.length !== copy.fileHashes.length) return null;
+    return copy.directory;
+  } catch {
+    return null;
+  }
+}
+
+/** 保存済み候補と現在のGit可視内容をVCの既知Commit照合で確認する。 @trace ARCH-000013 */
 export function verifyExecutionChangeSnapshot(
   candidateCapability: unknown,
   repositoryBindingCapability: unknown,
@@ -767,47 +789,57 @@ export function verifyExecutionChangeSnapshot(
   mountCapability: unknown,
 ) {
   try {
-    if (!candidateCapability || typeof candidateCapability !== "object")
-      return null;
-    const record = candidates.get(candidateCapability);
+    if (!isObject(managementCapability)) return null;
+    const borrowed = readBorrowedExecutionBinding(managementCapability);
+    const record = borrowed?.snapshot;
     if (
       !record ||
-      record.workspaceRecord.repositoryBindingCapability !==
-        repositoryBindingCapability ||
-      record.workspaceRecord.managementCapability !== managementCapability ||
-      record.workspaceRecord.mountCapability !== mountCapability ||
-      !verifyRuntimeOwnedRepositoryBindingCapability(
+      !currentWorkspaceRecord(
+        record,
         repositoryBindingCapability,
         managementCapability,
-      )
-    ) {
-      return null;
-    }
-    const binding = verifyOwnedOperationManagementMountBinding(
-      managementCapability,
-      mountCapability,
-    );
-    if (
-      record.workspaceRecord.sourceTree &&
-      readBorrowedExecutionBinding(managementCapability as object)?.target
-        .executionTree !== record.workspaceRecord.sourceTree
+        mountCapability,
+      ) ||
+      !isObject(candidateCapability)
     )
       return null;
-    const currentInventory = readExecutionInventory(
-      record.workspaceRecord.sourceTree ?? binding.mounts.workspace,
-      Boolean(record.workspaceRecord.sourceTree),
+    const name = ownValue(candidateCapability, "name"),
+      commitId = ownValue(candidateCapability, "commitId");
+    const { identity } =
+      ownedOperationFromManagementCapability(managementCapability);
+    const saved = identity.host.record.git?.find(
+      (item) =>
+        item.name === name &&
+        item.commitId === commitId &&
+        item.request === "confirmed" &&
+        item.cleanup === "pending",
     );
-    if (manifestHash(currentInventory) !== record.contentManifestHash)
+    if (!saved?.commitId || saved.name.endsWith("/baseline")) return null;
+    const verified = createCommit(record.source, {
+      baseCommit: record.baseCommitId,
+      expectedHead: record.baseHead,
+      selection: readGitSelection(record, record.baseCommitId),
+      message: "CRDD candidate verification",
+      temporaryDirectory: `.crdd/operations/${record.operationId}/management`,
+      previousCommit: saved.commitId,
+      allowEmpty: true,
+    });
+    if (
+      verified.status !== "completed" ||
+      !verified.cleanupConfirmed ||
+      verified.effectIssued
+    )
       return null;
+    const diff = readCommitDiff(record.source, {
+      baseCommit: record.baseCommitId,
+      commitId: saved.commitId,
+    });
     return Object.freeze({
       status: "verified" as const,
-      operationId: record.workspaceRecord.operationId,
-      baseCommit: record.workspaceRecord.baseCommit,
-      baseTree: record.workspaceRecord.baseTree,
-      patchHash: record.patchHash,
-      contentManifestHash: record.contentManifestHash,
-      allowedPathsHash: record.allowedPathsHash,
-      changedPaths: record.changedPaths,
+      operationId: record.operationId,
+      baseCommitId: record.baseCommitId,
+      candidateCommitId: saved.commitId,
+      changedPaths: diff.changedPaths,
       pathReported: false,
       canonicalRepositoryChanged: false,
     });
@@ -839,8 +871,7 @@ export function describeExecutionChangeSnapshotContract() {
     source: "caller_resolved_execution_tree_including_existing_dirty_changes",
     providerReadProjection:
       "explicit_file_or_directory_prefix_plus_write_scope",
-    reviewerReadProjection:
-      "candidate_identity_bound_explicit_utf8_content_without_provider_filesystem_tool",
+    reviewerReadProjection: "fixed_commit_owned_copy_for_explicit_read_paths",
     reviewerContentProjection:
       "candidate_identity_bound_utf8_content_for_explicit_read_paths_with_secret_detection",
     recognizedSecretMaterial:
@@ -850,14 +881,11 @@ export function describeExecutionChangeSnapshotContract() {
     workspaceWrite: "caller_resolved_execution_tree",
     allowedPathGuard: "post_execution_scope_observation_not_write_acl",
     candidateRevision: Object.freeze([
-      "base_commit",
-      "base_tree",
-      "patch_hash",
-      "content_manifest_hash",
-      "allowed_paths_hash",
+      "base_commit_id",
+      "candidate_commit_id",
+      "changed_paths",
     ]),
-    approvedCandidateTransfer:
-      "caller_owned_execution_tree_without_bundle_store",
+    approvedCandidateTransfer: "immutable_git_commit_without_bundle_store",
     canonicalRepositoryWriteAllowed: true,
     pathReported: false,
   });
@@ -1033,6 +1061,12 @@ export type BorrowedExecutionTarget = Readonly<{
  * @compatibility 新Workspace入口の短命データ。
  */
 type BorrowedBinding = Readonly<{
+  snapshot?: WorkspaceRecord;
+  reviewer?: Readonly<{
+    commitId: string;
+    directory: string;
+    fileHashes: readonly Readonly<{ path: string; sha256: string }>[];
+  }>;
   target: BorrowedExecutionTarget;
   dev: number;
   ino: number;
@@ -1344,266 +1378,52 @@ export function classifyOwnedCoordinatorOperationCreationFailure(
   );
 }
 
-/**
- * coordinator-operation-creation-internalで使用するDependenciesの値契約を定義する。
- *
- * @responsibility DependenciesのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape Dependenciesが表すProperty、識別子およびRelationを型として固定する。
- * @invariant Dependenciesで宣言した値と責務の対応を維持する。
- * @boundary N/A: Dependenciesの宣言は外部境界を開かない。
- * @security DependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility Dependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type Dependencies = Readonly<{
-  createDirectories: typeof createOwnedOperationDirectories;
-  getHostRecoveryId: typeof getOwnedHostRecoveryId;
-  initializeCapabilities: (
-    owned: ReturnType<typeof createOwnedOperationDirectories>,
-  ) => Readonly<{
-    mountCapability: object;
-    managementCapability: object;
-    operationId: string;
-  }>;
-  cleanupDirectories: typeof cleanupOwnedOperationDirectories;
-}>;
+/** 元操作の非Authority参照を返す。Hash tokenや保存物を生成しない。 @trace ARCH-000008 */
+export function getOwnedHostRecoveryId(owned: unknown): string {
+  return requireOwnedIdentity(isObject(owned) ? owned : {}).host.record
+    .recoveryId;
+}
+
+/** 同じ保存Ownerと実Lockで回収を閉じる。 @trace ARCH-000008 */
+export function cleanupOwnedOperationDirectories(owned: unknown) {
+  const identity = removeOwnedOperationRootForCleanup(owned);
+  if (!revokeOwnedOperationGeneration(identity.root, identity.operationId))
+    throw Error("owned_operation_generation_release_unconfirmed");
+  return createOwnedOperationCleanupOutcome("completed", owned, identity);
+}
 
 /**
- * Transactionalを構築する。
- *
- * @responsibility Transactionalの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000004
- * @input dependencies: Dependencies
- * @returns createTransactionalの計算結果を返す。
- * @precondition 「dependencies: Dependencies」がcreateTransactionalの入力契約を満たす。
- * @postcondition createTransactionalの責務を完了した結果だけを返す。
- * @effect 注入された領域作成・Capability初期化を順番に呼ぶ。途中失敗時は作成済み領域の回収を試みる。
- * @failure createTransactionalは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant createTransactionalは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createTransactionalはProcess内の同一Subsystemで完結する。
- * @security createTransactionalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createTransactionalは共有非同期状態を持たない同期処理である。
+ * 作成前の耐久記録・実Lock・実体Receiptを閉じてからCapabilityを発行する。
+ * @trace ARCH-000008
+ * @boundary 現在認可は入力Ownerが保持し、取消後の回収記録と実行継続を分離する。
  */
-function createTransactional(dependencies: Dependencies) {
-  const owned = dependencies.createDirectories();
-  let hostRecoveryId: string | null = null;
+export function createRuntimeOwnedCoordinatorOperation(
+  input: HostOperationInput,
+) {
+  const owned = createOwnedOperationDirectories(input);
+  const hostRecoveryId = getOwnedHostRecoveryId(owned);
   try {
-    hostRecoveryId = dependencies.getHostRecoveryId(owned);
+    const context = createOwnedOperationContextCapability(owned);
+    const mountCapability = createOwnedMountCapability(owned);
+    const managementCapability = createOwnedOperationManagementCapability(
+      context,
+      mountCapability,
+    );
     return Object.freeze({
       owned,
-      ...dependencies.initializeCapabilities(owned),
+      mountCapability,
+      managementCapability,
+      operationId: requireOwnedIdentity(owned).operationId,
       hostRecoveryId,
     });
   } catch (cause) {
     try {
-      dependencies.cleanupDirectories(owned);
+      cleanupOwnedOperationDirectories(owned);
     } catch {
       fail(cause, false, hostRecoveryId);
     }
     fail(cause, true, null);
   }
-}
-
-/**
- * 所有 Host 回復 Idを取得する。
- *
- * @responsibility 所有 Host 回復 Idの参照条件、返却値、未検出結果の境界を所有する。
- * @trace ARCH-000008
- * @input owned: unknown
- * @returns stringを返す。
- * @precondition 「owned: unknown」がgetOwnedHostRecoveryIdの入力契約を満たす。
- * @postcondition getOwnedHostRecoveryIdの責務を完了した結果だけを返す。
- * @effect N/A: getOwnedHostRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure getOwnedHostRecoveryIdは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant getOwnedHostRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: getOwnedHostRecoveryIdはProcess内の同一Subsystemで完結する。
- * @security getOwnedHostRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: getOwnedHostRecoveryIdは共有非同期状態を持たない同期処理である。
- */
-export function getOwnedHostRecoveryId(owned: unknown): string {
-  const identity = ownedIdentity(owned);
-  if (!identity?.hostRecovery?.recordHash)
-    throw new Error("owned_operation_directory_identity_required");
-  validatePrivateHostRecoveryRecord(identity, "host_only");
-  return expectedHostRecoveryToken(identity);
-}
-
-/**
- * 所有 Operation Directoriesを清掃する。
- *
- * @responsibility 所有 Operation Directoriesの清掃対象、完了観測、残存時の失敗境界を所有する。
- * @trace ARCH-000008
- * @input owned: unknown
- * @returns N/A: cleanupOwnedOperationDirectoriesは戻り値を返さない。
- * @precondition 「owned: unknown」がcleanupOwnedOperationDirectoriesの入力契約を満たす。
- * @postcondition cleanupOwnedOperationDirectoriesの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: cleanupOwnedOperationDirectoriesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure cleanupOwnedOperationDirectoriesは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant cleanupOwnedOperationDirectoriesは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: cleanupOwnedOperationDirectoriesはProcess内の同一Subsystemで完結する。
- * @security cleanupOwnedOperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: cleanupOwnedOperationDirectoriesは共有非同期状態を持たない同期処理である。
- */
-export function cleanupOwnedOperationDirectories(owned: unknown): void {
-  const currentIdentity = ownedIdentity(owned);
-  if (!isObject(owned) || !currentIdentity)
-    throw new Error("owned_operation_directory_identity_required");
-  if (
-    ownedOperationGeneration(owned, currentIdentity, true).generationLock !==
-    null
-  )
-    throw new Error("owned_operation_async_cleanup_required");
-  const identity = removeOwnedOperationRootForCleanup(owned);
-  if (
-    !revokeOwnedOperationGeneration(identity.root, identity.hostRecovery.nonce)
-  )
-    throw new Error("owned_operation_generation_release_unconfirmed");
-  removeOwnedOperationRecoveryRecord(identity);
-}
-
-const productionDependencies: Dependencies = Object.freeze({
-  createDirectories: createOwnedOperationDirectories,
-  getHostRecoveryId: getOwnedHostRecoveryId,
-  initializeCapabilities: (owned) => {
-    const contextCapability = createOwnedOperationContextCapability(owned);
-    const mountCapability = createOwnedMountCapability(owned);
-    const managementCapability = createOwnedOperationManagementCapability(
-      contextCapability,
-      mountCapability,
-    );
-    const operation =
-      verifyOwnedOperationManagementCapability(managementCapability);
-    return Object.freeze({
-      mountCapability,
-      managementCapability,
-      operationId: operation.operationId,
-    });
-  },
-  cleanupDirectories: cleanupOwnedOperationDirectories,
-});
-
-/**
- * Runtime 所有 Coordinator Operationを構築する。
- *
- * @responsibility Runtime 所有 Coordinator Operationの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000004
- * @input N/A: 実行時引数を受け取らない。
- * @returns createRuntimeOwnedCoordinatorOperationの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がcreateRuntimeOwnedCoordinatorOperationの入力契約を満たす。
- * @postcondition createRuntimeOwnedCoordinatorOperationの責務を完了した結果だけを返す。
- * @effect 固定本番依存でHost一時領域を作成し管理Capabilityを初期化する。Windowsでは作成前に既存Native保護境界を検査する。
- * @failure 作成失敗を例外で返し、既知cleanupと不明、取得済み元Host回復参照を私有分類へ保持する。
- * @invariant createRuntimeOwnedCoordinatorOperationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createRuntimeOwnedCoordinatorOperationはProcess内の同一Subsystemで完結する。
- * @security createRuntimeOwnedCoordinatorOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createRuntimeOwnedCoordinatorOperationは共有非同期状態を持たない同期処理である。
- */
-export function createRuntimeOwnedCoordinatorOperation() {
-  return createTransactional(productionDependencies);
-}
-
-/**
- * Isolated Coordinator Operation Creation 候補を構築する。
- *
- * @responsibility Isolated Coordinator Operation Creation 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000004
- * @input dependencies: Dependencies
- * @returns createIsolatedCoordinatorOperationCreationCandidateの計算結果を返す。
- * @precondition 「dependencies: Dependencies」がcreateIsolatedCoordinatorOperationCreationCandidateの入力契約を満たす。
- * @postcondition createIsolatedCoordinatorOperationCreationCandidateの責務を完了した結果だけを返す。
- * @effect N/A: createIsolatedCoordinatorOperationCreationCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createIsolatedCoordinatorOperationCreationCandidateは独自の失敗分岐を所有しない。
- * @invariant createIsolatedCoordinatorOperationCreationCandidateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createIsolatedCoordinatorOperationCreationCandidateはProcess内の同一Subsystemで完結する。
- * @security createIsolatedCoordinatorOperationCreationCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createIsolatedCoordinatorOperationCreationCandidateは共有非同期状態を持たない同期処理である。
- */
-export function createIsolatedCoordinatorOperationCreationCandidate(
-  dependencies: Dependencies,
-) {
-  return Object.freeze({
-    productionAuthority: false as const,
-    create: () => createTransactional(Object.freeze(dependencies)),
-  });
-}
-
-/**
- * Host 回復 状態を状態遷移させる。
- *
- * @responsibility Host 回復 状態の遷移前提、次状態、無効遷移の拒否境界を所有する。
- * @trace ARCH-000008
- * @input hostRecoveryId: string、expectedState: string、nextState: string、mountCapability: unknown
- * @returns stringを返す。
- * @precondition 「hostRecoveryId: string、expectedState: string、nextState: string、mountCapability: unknown」がtransitionHostRecoveryStateの入力契約を満たす。
- * @postcondition transitionHostRecoveryStateの責務を完了した結果だけを返す。
- * @effect transitionHostRecoveryStateはFilesystemの読取りまたは書込みを実行する。
- * @failure transitionHostRecoveryStateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant transitionHostRecoveryStateは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security transitionHostRecoveryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: transitionHostRecoveryStateは共有非同期状態を持たない同期処理である。
- */
-export function transitionHostRecoveryState(
-  hostRecoveryId: string,
-  expectedState: string,
-  nextState: string,
-  mountCapability: unknown,
-  expectedRoot: string | null = null,
-): string {
-  if (
-    expectedState === "host_only" &&
-    nextState === "docker_submission_started"
-  )
-    return transitionOwnedDockerSubmissionState(
-      mountCapability,
-      hostRecoveryId,
-      "begin",
-    );
-  if (
-    expectedState === "docker_submission_started" &&
-    nextState === "host_only"
-  )
-    return transitionOwnedDockerSubmissionState(
-      mountCapability,
-      hostRecoveryId,
-      "cancel",
-    );
-  if (
-    expectedState !== "docker_submission_started" ||
-    nextState !== "docker_absent_confirmed"
-  )
-    throw new Error("host_recovery_state_invalid");
-  const root =
-    mountCapability === null
-      ? expectedRoot
-      : path.dirname(verifyOwnedMountCapability(mountCapability).management);
-  if (!root || (expectedRoot !== null && expectedRoot !== root))
-    throw new Error("host_recovery_root_mismatch");
-  const loaded = loadHostRecoveryRecordByToken(hostRecoveryId, root);
-  if (loaded.record.state !== expectedState)
-    throw new Error("host_recovery_state_invalid");
-  const updated = { ...loaded.record, state: nextState };
-  const serialized = `${JSON.stringify(updated)}\n`;
-  const recordHash = createHash("sha256").update(serialized).digest("hex");
-  const temporary = `${loaded.marker}.${randomUUID()}.tmp`;
-  fs.writeFileSync(temporary, serialized, {
-    encoding: "utf8",
-    flag: "wx",
-    mode: 0o600,
-  });
-  fs.renameSync(temporary, loaded.marker);
-  const updatedToken = formatHostRecoveryToken(
-    loaded.parsed.rootName,
-    loaded.parsed.nonce,
-    recordHash,
-  );
-  if (mountCapability !== null)
-    adoptOwnedHostRecoveryRecordTransition(
-      mountCapability,
-      hostRecoveryId,
-      updatedToken,
-    );
-  return updatedToken;
 }
 
 export const CREDENTIAL_ENV_NAMES = Object.freeze([
@@ -1617,172 +1437,6 @@ export const CREDENTIAL_ENV_NAMES = Object.freeze([
   "OPENAI_API_KEY",
   "SSH_AUTH_SOCK",
 ]);
-
-const OWNED_PREFIX = "crdd-coordinator-doctor-";
-
-const HOST_RECOVERY_DIRECTORY = "crdd-coordinator-recovery-v1";
-
-/**
- * 同じHostのRootとmarkerを、削除後も別々に観測する。
- * @responsibility 正規の親・記録領域とtokenへ対象を固定し、観測不能を不存在へ畳まない。
- * @trace ARCH-000008
- * @input token: exact Host参照、expectedRoot: 現在Identityの絶対Root。
- * @returns 二対象のpresent／absent／unknownと固定marker Path。
- * @precondition 処置Ownerと保持排他は呼出し側が別に照合する。
- * @postcondition ENOENTだけを不存在とし、両不存在だけでAuthorityを発行しない。
- * @effect 同じ親・記録領域・Root・markerの読取りだけ。
- * @failure 不正Path・link・親差・観測例外はunknown。
- * @invariant 別親探索、旧形式探索、作成・削除を行わない。
- * @boundary 現在Host IdentityとFilesystemの三値観測。
- * @security Package内部の所在確認であり公開出力へPathを搬送しない。
- * @concurrency 世代取得後と保存直前にも再観測する。
- */
-export function observeHostRecoveryCleanup(
-  token: unknown,
-  expectedRoot: unknown,
-): Readonly<{
-  root: "present" | "absent" | "unknown";
-  marker: "present" | "absent" | "unknown";
-  markerPath: string | null;
-}> {
-  try {
-    const parsed = parseHostRecoveryToken(token);
-    if (
-      typeof expectedRoot !== "string" ||
-      !path.isAbsolute(expectedRoot) ||
-      path.resolve(expectedRoot) !== expectedRoot ||
-      path.basename(expectedRoot) !== parsed.rootName
-    )
-      throw new Error("host_recovery_root_mismatch");
-    const parent = path.dirname(expectedRoot);
-    const directory = path.join(parent, HOST_RECOVERY_DIRECTORY);
-    for (const location of [parent, directory]) {
-      const metadata = fs.lstatSync(location);
-      if (
-        !metadata.isDirectory() ||
-        metadata.isSymbolicLink() ||
-        fs.realpathSync(location) !== location
-      )
-        throw new Error("host_recovery_directory_untrusted");
-    }
-    const markerPath = path.join(
-      directory,
-      `host-${createHash("sha256").update(parsed.nonce).digest("hex")}.json`,
-    );
-    const rootMetadata = fs.lstatSync(expectedRoot, { throwIfNoEntry: false });
-    const markerMetadata = fs.lstatSync(markerPath, { throwIfNoEntry: false });
-    if (
-      rootMetadata &&
-      (!rootMetadata.isDirectory() ||
-        rootMetadata.isSymbolicLink() ||
-        fs.realpathSync(expectedRoot) !== expectedRoot)
-    )
-      throw new Error("host_recovery_root_untrusted");
-    if (
-      markerMetadata &&
-      (!markerMetadata.isFile() || markerMetadata.isSymbolicLink())
-    )
-      throw new Error("host_recovery_record_untrusted");
-    return Object.freeze({
-      root: rootMetadata ? ("present" as const) : ("absent" as const),
-      marker: markerMetadata ? ("present" as const) : ("absent" as const),
-      markerPath,
-    });
-  } catch {
-    return Object.freeze({
-      root: "unknown" as const,
-      marker: "unknown" as const,
-      markerPath: null,
-    });
-  }
-}
-
-/**
- * Host 回復 記録 By Tokenを読み込む。
- *
- * @responsibility Host 回復 記録 By Tokenの読取り元、Schema検証、読取不能時の拒否境界を所有する。
- * @trace ARCH-000008
- * @input token: exact参照、expectedRoot: 元Ownerまたは現在操作に結合した絶対Root。
- * @returns 同じRoot直下の親に保存されたexact markerと記録。
- * @precondition 親scopeの処置許可は呼出し元が別に確認する。
- * @postcondition 操作Root不存在でも同じ親以外を探索しない。
- * @effect 親・記録Directory・markerの読取りだけ。作成・書込みなし。
- * @failure loadHostRecoveryRecordByTokenは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant loadHostRecoveryRecordByTokenは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security loadHostRecoveryRecordByTokenはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: loadHostRecoveryRecordByTokenは共有非同期状態を持たない同期処理である。
- */
-export function loadHostRecoveryRecordByToken(
-  token: unknown,
-  expectedRoot: unknown,
-) {
-  const parsed = parseHostRecoveryToken(token);
-  if (
-    typeof expectedRoot !== "string" ||
-    !path.isAbsolute(expectedRoot) ||
-    path.resolve(expectedRoot) !== expectedRoot ||
-    path.basename(expectedRoot) !== parsed.rootName
-  )
-    throw new Error("host_recovery_root_mismatch");
-  const parent = path.dirname(expectedRoot);
-  const parentMetadata = fs.lstatSync(parent);
-  if (
-    !parentMetadata.isDirectory() ||
-    parentMetadata.isSymbolicLink() ||
-    fs.realpathSync(parent) !== parent
-  )
-    throw new Error("host_recovery_parent_untrusted");
-  const directory = path.join(parent, HOST_RECOVERY_DIRECTORY);
-  const realDirectory = fs.realpathSync(directory);
-  const directoryMetadata = fs.lstatSync(realDirectory);
-  if (
-    realDirectory !== directory ||
-    path.dirname(realDirectory) !== parent ||
-    !directoryMetadata.isDirectory() ||
-    directoryMetadata.isSymbolicLink()
-  )
-    throw new Error("host_recovery_directory_untrusted");
-  const marker = path.join(
-    realDirectory,
-    `host-${createHash("sha256").update(parsed.nonce).digest("hex")}.json`,
-  );
-  const markerMetadata = fs.lstatSync(marker);
-  if (!markerMetadata.isFile() || markerMetadata.isSymbolicLink())
-    throw new Error("host_recovery_record_replaced");
-  const serialized = fs.readFileSync(marker, "utf8");
-  if (
-    createHash("sha256").update(serialized).digest("hex") !== parsed.recordHash
-  )
-    throw new Error("host_recovery_record_mismatch");
-  const record = JSON.parse(serialized);
-  if (
-    record.schema !== "crdd-coordinator-host-recovery/v1" ||
-    record.rootName !== parsed.rootName
-  ) {
-    throw new Error("host_recovery_record_mismatch");
-  }
-  const after = fs.lstatSync(marker);
-  if (
-    !after.isFile() ||
-    after.isSymbolicLink() ||
-    after.dev !== markerMetadata.dev ||
-    after.ino !== markerMetadata.ino ||
-    after.birthtimeMs !== markerMetadata.birthtimeMs ||
-    after.size !== markerMetadata.size ||
-    fs.realpathSync(directory) !== directory ||
-    fs.realpathSync(parent) !== parent
-  )
-    throw new Error("host_recovery_record_replaced");
-  return {
-    parsed,
-    parent,
-    directory: realDirectory,
-    marker,
-    record,
-    serialized,
-  };
-}
 
 /**
  * execution-environmentで使用するFilesystem Identityの値契約を定義する。
@@ -1877,63 +1531,382 @@ type ChildSnapshots = Readonly<{
   management: DirectorySnapshot;
 }>;
 
-/**
- * execution-environmentで使用する回復 状態の値契約を定義する。
- *
- * @responsibility 回復 状態のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape RecoveryStateが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RecoveryStateで宣言した値と責務の対応を維持する。
- * @boundary N/A: RecoveryStateの宣言は外部境界を開かない。
- * @security RecoveryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility RecoveryStateの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type RecoveryState =
-  | "initializing"
-  | "host_only"
-  | "docker_submission_started"
-  | "docker_absent_confirmed";
-
-/**
- * execution-environmentで使用するHost 回復 状態の値契約を定義する。
- *
- * @responsibility Host 回復 状態のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape HostRecoveryStateが表すProperty、識別子およびRelationを型として固定する。
- * @invariant HostRecoveryStateで宣言した値と責務の対応を維持する。
- * @boundary N/A: HostRecoveryStateの宣言は外部境界を開かない。
- * @security HostRecoveryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility HostRecoveryStateの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type HostRecoveryState = Readonly<{
-  directory: string;
-  directoryIdentity: FilesystemIdentity;
-  record: string;
-  recordIdentity: FilesystemIdentity | null;
-  nonce: string;
-  state: RecoveryState;
-  recordHash: string | null;
+/** 同じ保存操作の現在確認・確認済み版と実Lockを保持する。 @trace ARCH-000008 */
+export type HostOperationInput = Readonly<{
+  root: Repository;
+  purpose: HostRecord["purpose"];
+  recordingCurrent: () => boolean;
+  signal?: AbortSignal;
+  executionCurrent?: () => boolean;
 }>;
+type HostRecord = Extract<OperationRecord, { kind: "host_operation" }>;
+type HostState = {
+  input: HostOperationInput;
+  record: HostRecord;
+  version: StateVersion;
+  lock: Lock;
+  publication?: HostRecoveryRead;
+};
+
+/** 既存EMの途中保存読取りだけを同じDocker回復IDへ固定する。 */
+type HostRecoveryRead = Readonly<
+  | {
+      kind: "resource_publication" | "execution_completion";
+      recoveryId: string;
+    }
+  | {
+      kind: "execution_history";
+      recoveryId: string;
+      history: ReturnType<typeof historyRepositoryInput<Repository>>;
+    }
+>;
+
+/** 通常読取りを優先し、受理済みの途中保存だけを同じHostへ相関させる。
+ * @trace ARCH-000008
+ * @effect 既存EM Readerだけ。途中保存の確定・Host変更は行わない。
+ * @failure 別操作・読取り不明・排他解放不明は拒否する。
+ */
+function readHostGenerationSnapshot(
+  root: Repository,
+  operationId: string,
+  publication?: HostRecoveryRead,
+) {
+  const ordinary = readState(root, { scope: "recovery" });
+  if (
+    ordinary.status === "completed" &&
+    ordinary.lockReleased &&
+    ordinary.value
+  )
+    return { observed: ordinary, publication: undefined };
+  if (!ordinary.lockReleased || !publication)
+    throw Error("host_operation_state_unknown");
+  if (
+    publication.kind === "execution_history" &&
+    publication.history.root !== root
+  )
+    throw Error("host_operation_publication_root_changed");
+  const observed = readState(
+    publication.kind === "execution_history" ? publication.history : root,
+    {
+      scope: "recovery",
+      input: { kind: publication.kind, recoveryId: publication.recoveryId },
+    },
+  );
+  if (
+    observed.status !== "completed" ||
+    !observed.lockReleased ||
+    !observed.value
+  )
+    throw Error("host_operation_state_unknown");
+  const operations = observed.value.snapshot.operations.filter(
+    (item) =>
+      item.kind === "docker_task" && item.recoveryId === publication.recoveryId,
+  );
+  const operation = operations[0];
+  if (
+    operations.length !== 1 ||
+    operation?.kind !== "docker_task" ||
+    JSON.parse(operation.identityJson).operationId !== operationId
+  )
+    throw Error("host_operation_publication_binding_changed");
+  return { observed, publication };
+}
 
 /**
- * execution-environmentで使用する所有 Identityの値契約を定義する。
- *
- * @responsibility 所有 IdentityのProperty、Identity、状態制約を型境界として所有する。
+ * 実Lockの保持下で、確認済みHost本文が同じ現在Stateに残ることを確認する。
  * @trace ARCH-000008
- * @shape OwnedIdentityが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OwnedIdentityで宣言した値と責務の対応を維持する。
- * @boundary N/A: OwnedIdentityの宣言は外部境界を開かない。
- * @security OwnedIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility OwnedIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @boundary Writerの再認可callbackからは呼ばず、State Lockの再入を避ける。
  */
+function freshHost(host: HostState) {
+  if (!host.lock.assertLive() || host.input.recordingCurrent() !== true)
+    throw Error("host_operation_owner_unavailable");
+  const reading = readHostGenerationSnapshot(
+    host.input.root,
+    host.record.operationId,
+    host.publication,
+  );
+  const observed = reading.observed;
+  if (reading.publication) host.publication = reading.publication;
+  else delete host.publication;
+  if (
+    observed.status !== "completed" ||
+    !observed.lockReleased ||
+    !observed.value
+  )
+    throw Error("host_operation_state_unknown");
+  const matches = observed.value.snapshot.operations.filter(
+    (record) =>
+      record.kind === "host_operation" &&
+      record.operationId === host.record.operationId,
+  );
+  if (matches.length !== 1 || !isDeepStrictEqual(matches[0], host.record))
+    throw Error("host_operation_record_changed");
+  host.version = {
+    revision: observed.value.snapshot.revision,
+    payloadSha256: observed.value.payloadSha256,
+  };
+  return observed.value;
+}
+function hostRecordingAccess(
+  input: HostOperationInput,
+  operationId: string,
+  lock?: Lock,
+) {
+  return Object.freeze({
+    root: input.root,
+    revalidate: (
+      operation: string,
+      target: Readonly<{ operationId: string }>,
+    ) =>
+      operation === "operation.record" &&
+      target.operationId === operationId &&
+      input.recordingCurrent() === true &&
+      (!lock || lock.assertLive()),
+  });
+}
+function requireHostExecutionCurrent(input: HostOperationInput): void {
+  if (
+    input.recordingCurrent() !== true ||
+    input.signal?.aborted ||
+    (input.executionCurrent && input.executionCurrent() !== true)
+  )
+    throw Error("owned_operation_creation_cancelled_or_unavailable");
+}
+function writeHostCheckpoint(host: HostState, candidate: HostRecord): void {
+  freshHost(host);
+  if (host.publication) throw Error("host_operation_publication_pending");
+  const saved = saveOperationCheckpoint(
+    hostRecordingAccess(host.input, candidate.operationId, host.lock),
+    candidate.recoveryId,
+    {
+      kind: "host_operation",
+      value: { operation: candidate, expectedVersion: host.version },
+    },
+  );
+  if (
+    saved.status !== "completed" ||
+    !saved.snapshotConfirmed ||
+    !saved.lockReleased ||
+    saved.revision === null ||
+    saved.payloadSha256 === null
+  )
+    throw Error("host_operation_checkpoint_unconfirmed");
+  host.record = snapshotJsonValue(candidate) as HostRecord;
+  host.version = {
+    revision: saved.revision,
+    payloadSha256: saved.payloadSha256,
+  };
+}
+const HOST_CHILD_NAMES = Object.freeze({
+  workspace: "workspace",
+  providerHome: "provider-home",
+  tmp: "tmp",
+  events: "events",
+  projection: "projection",
+  management: "management",
+});
+
+/** 専用Rootは検証済みRepositoryと元操作IDだけから導く。 @trace ARCH-000008 */
+function ownedHostRoot(host: HostState): string {
+  const root = resolveVerifiedRepositoryRoot(host.input.root);
+  if (!root) throw Error("host_operation_repository_unavailable");
+  return path.join(root, ".crdd", "operations", host.record.operationId);
+}
+/** DIが観測したProbe資源を同じ元Hostへ保存する。 @trace ARCH-000008 */
+export function recordOwnedHostResources(
+  management: unknown,
+  resources: HostRecord["resources"],
+): void {
+  const { identity } = ownedOperationFromManagementCapability(management);
+  if (identity.host.record.purpose !== "isolation_probe")
+    throw Error("host_operation_probe_required");
+  writeHostCheckpoint(identity.host, { ...identity.host.record, resources });
+}
+/** 同じ実Ownerの保存値を後続記録の元版として取得する。 @trace ARCH-000008 */
+export function readOwnedHostOperation(management: unknown) {
+  const { identity } = ownedOperationFromManagementCapability(management);
+  const current = freshHost(identity.host);
+  return {
+    record: identity.host.record,
+    snapshot: current.snapshot,
+    payloadSha256: current.payloadSha256,
+  };
+}
+
+/** 回復Ownerが保持する同じEM記録とRootを取得する。 @trace ARCH-000008 */
+export function readHostRecoveryOperation(capability: unknown) {
+  const host = isObject(capability)
+    ? hostOperationRecoveryGenerations.get(capability)
+    : null;
+  if (!host) return null;
+  const current = freshHost(host);
+  return {
+    record: host.record,
+    snapshot: current.snapshot,
+    payloadSha256: current.payloadSha256,
+    root: ownedHostRoot(host),
+  };
+}
+
+/** 同じ回復OwnerのProbe観測を元Hostへ保存する。 @trace ARCH-000008 */
+export function recordHostRecoveryResources(
+  capability: unknown,
+  resources: HostRecord["resources"],
+): void {
+  const host = isObject(capability)
+    ? hostOperationRecoveryGenerations.get(capability)
+    : null;
+  if (host?.record.purpose !== "isolation_probe")
+    throw Error("host_operation_probe_required");
+  writeHostCheckpoint(host, { ...host.record, resources });
+}
+
+/** Writer再認可内でも読める実体観測。State Lockへ再入しない。 @trace ARCH-000008 */
+export function observeHostRecoveryRoot(
+  capability: unknown,
+): "present" | "absent" | "unknown" {
+  const host = isObject(capability)
+    ? hostOperationRecoveryGenerations.get(capability)
+    : null;
+  if (!host?.lock.assertLive() || host.input.recordingCurrent() !== true)
+    return "unknown";
+  try {
+    const root = ownedHostRoot(host),
+      observed = observeFilesystemEntry(root);
+    if (observed === "unknown") return "unknown";
+    if (observed === "confirmed_absent") return "absent";
+    const stat = fs.lstatSync(root);
+    return host.record.rootIdentity &&
+      stat.isDirectory() &&
+      !stat.isSymbolicLink() &&
+      fs.realpathSync(root) === root &&
+      identityMatchesRecord(root, host.record.rootIdentity)
+      ? "present"
+      : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+/** 解放後の保存では、検証済みRepository内の専用Rootの明示不存在だけを肯定する。 @trace ARCH-000008 */
+export function isHostOperationRootAbsent(
+  repository: Repository,
+  operationId: string,
+): boolean {
+  try {
+    const root = resolveVerifiedRepositoryRoot(repository);
+    if (!root || !/^OP-[0-9]{6,}$/u.test(operationId)) return false;
+    for (const parent of [
+      path.join(root, ".crdd"),
+      path.join(root, ".crdd", "operations"),
+    ]) {
+      const stat = fs.lstatSync(parent);
+      if (
+        !stat.isDirectory() ||
+        stat.isSymbolicLink() ||
+        fs.realpathSync(parent) !== parent
+      )
+        return false;
+    }
+    return (
+      observeFilesystemEntry(
+        path.join(root, ".crdd", "operations", operationId),
+      ) === "confirmed_absent"
+    );
+  } catch {
+    return false;
+  }
+}
+/** 子資源終結と同じ実体Receiptを照合してからRootを回収する。 @trace ARCH-000008 */
+function cleanupHostRoot(host: HostState): void {
+  const current = freshHost(host);
+  if (host.publication) throw Error("host_operation_publication_pending");
+  for (const state of current.operationStates) {
+    if (
+      state.kind !== "docker_task" ||
+      JSON.parse(state.operation.identityJson).operationId !==
+        host.record.operationId
+    )
+      continue;
+    if (
+      state.operation.lease !== "released" ||
+      state.operation.execution.ownerEffect !== "disabled" ||
+      !state.resourcesSettled ||
+      !state.restartSettled
+    )
+      throw Error("host_operation_child_resources_unsettled");
+  }
+  if (
+    host.record.resources?.checkpoints.some(
+      (c) => c.submission !== "not_issued" && c.observation !== "absent",
+    )
+  )
+    throw Error("host_operation_probe_resources_unsettled");
+  const root = ownedHostRoot(host);
+  const observed = observeFilesystemEntry(root);
+  if (observed === "unknown")
+    throw Error("host_operation_root_observation_unknown");
+  if (host.record.phase === "terminal") {
+    if (host.record.cleanup !== "confirmed" || observed !== "confirmed_absent")
+      throw Error("host_operation_terminal_root_present");
+    return;
+  }
+  if (observed === "present") {
+    const metadata = fs.lstatSync(root);
+    if (
+      !host.record.rootIdentity ||
+      !metadata.isDirectory() ||
+      metadata.isSymbolicLink() ||
+      fs.realpathSync(root) !== root ||
+      !identityMatchesRecord(root, host.record.rootIdentity)
+    )
+      throw Error("host_operation_root_identity_unknown");
+    const known = new Map<string, HostRecord["rootIdentity"]>(
+      Object.entries(host.record.childIdentities).map(([key, identity]) => [
+        HOST_CHILD_NAMES[key as keyof typeof HOST_CHILD_NAMES],
+        identity,
+      ]),
+    );
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+      const identity = known.get(entry.name),
+        child = path.join(root, entry.name);
+      if (
+        !identity ||
+        !entry.isDirectory() ||
+        entry.isSymbolicLink() ||
+        fs.realpathSync(child) !== child ||
+        !identityMatchesRecord(child, identity)
+      )
+        throw Error("host_operation_child_identity_unknown");
+    }
+  }
+  cleanupHostGit(host);
+  writeHostCheckpoint(host, { ...host.record, cleanup: "pending" });
+  try {
+    if (observed === "present")
+      fs.rmSync(root, { recursive: true, force: false });
+    requireConfirmedAbsent(root, "host_operation_cleanup_unconfirmed");
+    writeHostCheckpoint(host, {
+      ...host.record,
+      phase: "terminal",
+      cleanup: "confirmed",
+    });
+  } catch (cause) {
+    try {
+      writeHostCheckpoint(host, { ...host.record, cleanup: "unknown" });
+    } catch {}
+    throw cause;
+  }
+}
+
+/** 一つの操作Rootと実体Receiptを、同じEM記録・実Lockへ結合する。 @trace ARCH-000008 */
 type OwnedIdentity = Readonly<{
   operationId: string;
   parent: string;
   root: string;
-  prefix: string;
   filesystem: FilesystemIdentity;
   createdAt: string;
-  hostRecovery: HostRecoveryState;
+  host: HostState;
   children?: ChildSnapshots;
   mounts?: Readonly<{
     workspace: DirectorySnapshot;
@@ -1960,39 +1933,6 @@ export type OwnedOperationDirectories = {
   hostRecoveryId: string | null;
 };
 
-/**
- * execution-environmentで使用するHost 記録 Childの値契約を定義する。
- *
- * @responsibility Host 記録 ChildのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape HostRecordChildが表すProperty、識別子およびRelationを型として固定する。
- * @invariant HostRecordChildで宣言した値と責務の対応を維持する。
- * @boundary N/A: HostRecordChildの宣言は外部境界を開かない。
- * @security HostRecordChildはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility HostRecordChildの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type HostRecordChild = SerializableIdentity & Readonly<{ pathName: string }>;
-
-/**
- * execution-environmentで使用するHost 回復 記録の値契約を定義する。
- *
- * @responsibility Host 回復 記録のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape HostRecoveryRecordが表すProperty、識別子およびRelationを型として固定する。
- * @invariant HostRecoveryRecordで宣言した値と責務の対応を維持する。
- * @boundary N/A: HostRecoveryRecordの宣言は外部境界を開かない。
- * @security HostRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility HostRecoveryRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type HostRecoveryRecord = Readonly<{
-  schema: "crdd-coordinator-host-recovery/v1";
-  state: RecoveryState;
-  rootName: string;
-  rootIdentity: SerializableIdentity | null;
-  childIdentities: Readonly<Record<string, HostRecordChild>>;
-  createdAt: string;
-}>;
-
 const ownedIdentities = new WeakMap<object, OwnedIdentity>();
 
 /**
@@ -2016,74 +1956,6 @@ const ownedOperationDirectoryCreationFailures = new WeakMap<
   object,
   OwnedOperationDirectoryCreationFailure
 >();
-
-/**
- * execution-environmentで使用するHost 回復 Initialization 失敗の値契約を定義する。
- *
- * @responsibility Host 回復 Initialization 失敗のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape HostRecoveryInitializationFailureが表すProperty、識別子およびRelationを型として固定する。
- * @invariant HostRecoveryInitializationFailureで宣言した値と責務の対応を維持する。
- * @boundary N/A: HostRecoveryInitializationFailureの宣言は外部境界を開かない。
- * @security HostRecoveryInitializationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility HostRecoveryInitializationFailureの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type HostRecoveryInitializationFailure = Readonly<{
-  cleanupConfirmed: boolean;
-  hostRecoveryId: string | null;
-}>;
-
-const hostRecoveryInitializationFailures = new WeakMap<
-  object,
-  HostRecoveryInitializationFailure
->();
-
-/**
- * throw Host 回復 Initialization 失敗を決定する。
- *
- * @responsibility throw Host 回復 Initialization 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input cause: unknown、details: HostRecoveryInitializationFailure
- * @returns neverを返す。
- * @precondition 「cause: unknown、details: HostRecoveryInitializationFailure」がthrowHostRecoveryInitializationFailureの入力契約を満たす。
- * @postcondition throwHostRecoveryInitializationFailureの責務を完了した結果だけを返す。
- * @effect N/A: throwHostRecoveryInitializationFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure throwHostRecoveryInitializationFailureは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant throwHostRecoveryInitializationFailureは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: throwHostRecoveryInitializationFailureはProcess内の同一Subsystemで完結する。
- * @security throwHostRecoveryInitializationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: throwHostRecoveryInitializationFailureは共有非同期状態を持たない同期処理である。
- */
-function throwHostRecoveryInitializationFailure(
-  cause: unknown,
-  details: HostRecoveryInitializationFailure,
-): never {
-  const error = new Error("host_recovery_initialization_failed", { cause });
-  hostRecoveryInitializationFailures.set(error, Object.freeze(details));
-  throw error;
-}
-
-/**
- * host 回復 Initialization 失敗を決定する。
- *
- * @responsibility host 回復 Initialization 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input error: unknown
- * @returns hostRecoveryInitializationFailureの計算結果を返す。
- * @precondition 「error: unknown」がhostRecoveryInitializationFailureの入力契約を満たす。
- * @postcondition hostRecoveryInitializationFailureの責務を完了した結果だけを返す。
- * @effect N/A: hostRecoveryInitializationFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: hostRecoveryInitializationFailureは独自の失敗分岐を所有しない。
- * @invariant hostRecoveryInitializationFailureは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: hostRecoveryInitializationFailureはProcess内の同一Subsystemで完結する。
- * @security hostRecoveryInitializationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: hostRecoveryInitializationFailureは共有非同期状態を持たない同期処理である。
- */
-function hostRecoveryInitializationFailure(error: unknown) {
-  return error && typeof error === "object"
-    ? (hostRecoveryInitializationFailures.get(error) ?? null)
-    : null;
-}
 
 /**
  * throw 所有 Operation Directory Creation 失敗を決定する。
@@ -2242,22 +2114,11 @@ const operationManagementCapabilities = new WeakMap<
   OperationManagementIdentity
 >();
 
-/**
- * execution-environmentで使用するOperation Generation 状態の値契約を定義する。
- *
- * @responsibility Operation Generation 状態のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape OperationGenerationStateが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OperationGenerationStateで宣言した値と責務の対応を維持する。
- * @boundary N/A: OperationGenerationStateの宣言は外部境界を開かない。
- * @security OperationGenerationStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility OperationGenerationStateの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
+/** 同じRootの生存中Ownerだけを保持する短命Control。 @trace ARCH-000008 */
 type OperationGenerationState = {
   owned: object;
   root: string;
-  nonce: string;
-  currentRecordHash: string;
+  operationId: string;
   retired: boolean;
   generationLock: Lock | null;
 };
@@ -2265,32 +2126,6 @@ type OperationGenerationState = {
 const operationGenerationsByKey = new Map<string, OperationGenerationState>();
 
 const operationGenerationByRoot = new Map<string, OperationGenerationState>();
-
-/**
- * execution-environmentで使用するHost 清掃 Capability Identityの値契約を定義する。
- *
- * @responsibility Host 清掃 Capability IdentityのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape HostCleanupCapabilityIdentityが表すProperty、識別子およびRelationを型として固定する。
- * @invariant HostCleanupCapabilityIdentityで宣言した値と責務の対応を維持する。
- * @boundary N/A: HostCleanupCapabilityIdentityの宣言は外部境界を開かない。
- * @security HostCleanupCapabilityIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility HostCleanupCapabilityIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type HostCleanupCapabilityIdentity = Readonly<{
-  owned: object;
-  operationId: string;
-  createdAt: string;
-  root: string;
-  nonce: string;
-  recordHash: string;
-  subject: object;
-}>;
-
-const hostCleanupCapabilities = new WeakMap<
-  object,
-  HostCleanupCapabilityIdentity
->();
 
 /**
  * Objectかを判定する。
@@ -2362,31 +2197,6 @@ function revokeOwnedOperationContextCapabilities(owned: object): void {
 }
 
 /**
- * 所有 Operation Effect Capabilitiesを失効させる。
- *
- * @responsibility 所有 Operation Effect Capabilitiesの失効Authority、対象Identity、再利用防止境界を所有する。
- * @trace ARCH-000008
- * @input owned: object
- * @returns voidを返す。
- * @precondition 「owned: object」がrevokeOwnedOperationEffectCapabilitiesの入力契約を満たす。
- * @postcondition revokeOwnedOperationEffectCapabilitiesの責務を完了した結果だけを返す。
- * @effect N/A: revokeOwnedOperationEffectCapabilitiesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: revokeOwnedOperationEffectCapabilitiesは独自の失敗分岐を所有しない。
- * @invariant revokeOwnedOperationEffectCapabilitiesは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: revokeOwnedOperationEffectCapabilitiesはProcess内の同一Subsystemで完結する。
- * @security revokeOwnedOperationEffectCapabilitiesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: revokeOwnedOperationEffectCapabilitiesは共有非同期状態を持たない同期処理である。
- */
-function revokeOwnedOperationEffectCapabilities(owned: object): void {
-  const aliases = operationContextAliases.get(owned);
-  if (!aliases) return;
-  for (const alias of aliases) {
-    operationContextCapabilities.delete(alias);
-    mountCapabilities.delete(alias);
-  }
-}
-
-/**
  * operation Generation Keyを決定する。
  *
  * @responsibility operation Generation Keyの導出に必要な入力、判定規則、返却結果の境界を所有する。
@@ -2406,71 +2216,45 @@ function operationGenerationKey(root: string, nonce: string): string {
   return `${root}\0${nonce}`;
 }
 
-/**
- * 所有 Operation Generationを登録する。
- *
- * @responsibility 所有 Operation Generationの登録条件、Identity、一意性境界を所有する。
- * @trace ARCH-000008
- * @input owned: object、identity: OwnedIdentity
- * @returns N/A: registerOwnedOperationGenerationは戻り値を返さない。
- * @precondition 「owned: object、identity: OwnedIdentity」がregisterOwnedOperationGenerationの入力契約を満たす。
- * @postcondition registerOwnedOperationGenerationの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: registerOwnedOperationGenerationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure registerOwnedOperationGenerationは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant registerOwnedOperationGenerationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: registerOwnedOperationGenerationはProcess内の同一Subsystemで完結する。
- * @security registerOwnedOperationGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: registerOwnedOperationGenerationは共有非同期状態を持たない同期処理である。
- */
 function registerOwnedOperationGeneration(
   owned: object,
   identity: OwnedIdentity,
 ): void {
-  const recordHash = identity.hostRecovery.recordHash;
-  if (!recordHash) throw new Error("owned_operation_generation_conflict");
-  const key = operationGenerationKey(
-    identity.root,
-    identity.hostRecovery.nonce,
-  );
+  const key = operationGenerationKey(identity.root, identity.operationId);
   if (
     operationGenerationsByKey.has(key) ||
     operationGenerationByRoot.has(identity.root)
   )
-    throw new Error("owned_operation_generation_conflict");
+    throw Error("owned_operation_generation_conflict");
   const state: OperationGenerationState = {
     owned,
     root: identity.root,
-    nonce: identity.hostRecovery.nonce,
-    currentRecordHash: recordHash,
+    operationId: identity.operationId,
     retired: false,
-    generationLock: null,
+    generationLock: identity.host.lock,
   };
   operationGenerationsByKey.set(key, state);
   operationGenerationByRoot.set(identity.root, state);
 }
 
-/**
- * 所有 Operation Generationを失効させる。
- *
- * @responsibility 所有 Operation Generationの失効Authority、対象Identity、再利用防止境界を所有する。
- * @trace ARCH-000008
- * @input root: string、nonce: string
- * @returns revokeOwnedOperationGenerationの計算結果を返す。
- * @precondition 「root: string、nonce: string」がrevokeOwnedOperationGenerationの入力契約を満たす。
- * @postcondition revokeOwnedOperationGenerationの責務を完了した結果だけを返す。
- * @effect N/A: revokeOwnedOperationGenerationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: revokeOwnedOperationGenerationは独自の失敗分岐を所有しない。
- * @invariant revokeOwnedOperationGenerationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: revokeOwnedOperationGenerationはProcess内の同一Subsystemで完結する。
- * @security revokeOwnedOperationGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: revokeOwnedOperationGenerationは共有非同期状態を持たない同期処理である。
- */
-function revokeOwnedOperationGeneration(root: string, nonce: string) {
-  const key = operationGenerationKey(root, nonce);
+function revokeOwnedOperationGeneration(
+  root: string,
+  operationId: string,
+): boolean {
+  const key = operationGenerationKey(root, operationId);
   const state = operationGenerationsByKey.get(key);
   if (!state) return true;
-  if (state.generationLock) return false;
   revokeOwnedOperationContextCapabilities(state.owned);
+  let released = false;
+  try {
+    released = state.generationLock?.release() ?? true;
+  } catch {}
+  if (!released) {
+    state.retired = true;
+    poisonRuntimeProcessAfterCleanupUnknown();
+    return false;
+  }
+  state.generationLock = null;
   ownedIdentities.delete(state.owned);
   operationGenerationsByKey.delete(key);
   if (operationGenerationByRoot.get(root) === state)
@@ -2478,147 +2262,72 @@ function revokeOwnedOperationGeneration(root: string, nonce: string) {
   return true;
 }
 
-/**
- * 所有 Operation Generation Asyncを失効させる。
- *
- * @responsibility 所有 Operation Generation Asyncの失効Authority、対象Identity、再利用防止境界を所有する。
- * @trace ARCH-000008
- * @input root: string、nonce: string
- * @returns revokeOwnedOperationGenerationAsyncの計算結果を返す。
- * @precondition 「root: string、nonce: string」がrevokeOwnedOperationGenerationAsyncの入力契約を満たす。
- * @postcondition revokeOwnedOperationGenerationAsyncの責務を完了した結果だけを返す。
- * @effect N/A: revokeOwnedOperationGenerationAsyncは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure revokeOwnedOperationGenerationAsyncは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant revokeOwnedOperationGenerationAsyncは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: revokeOwnedOperationGenerationAsyncはProcess内の同一Subsystemで完結する。
- * @security revokeOwnedOperationGenerationAsyncはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency revokeOwnedOperationGenerationAsyncは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
- */
-async function revokeOwnedOperationGenerationAsync(
-  root: string,
-  nonce: string,
-) {
-  const key = operationGenerationKey(root, nonce);
-  const state = operationGenerationsByKey.get(key);
-  if (!state) return "released" as const;
-  revokeOwnedOperationContextCapabilities(state.owned);
-  let generationRelease:
-    | "released"
-    | "cleanup_confirmed_failure"
-    | "cleanup_unknown" = "released";
-  if (state.generationLock) {
-    try {
-      generationRelease = state.generationLock.release()
-        ? "released"
-        : "cleanup_unknown";
-    } catch {
-      generationRelease = "cleanup_unknown";
-    }
-    if (generationRelease !== "cleanup_unknown") state.generationLock = null;
-  }
-  if (generationRelease !== "cleanup_unknown") {
-    ownedIdentities.delete(state.owned);
-    operationGenerationsByKey.delete(key);
-    if (operationGenerationByRoot.get(root) === state)
-      operationGenerationByRoot.delete(root);
-  } else {
-    state.retired = true;
-    poisonRuntimeProcessAfterCleanupUnknown();
-  }
-  return generationRelease;
-}
-
-/**
- * execution-environmentで使用するHost Operation 回復 Generationの値契約を定義する。
- *
- * @responsibility Host Operation 回復 GenerationのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape HostOperationRecoveryGenerationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant HostOperationRecoveryGenerationで宣言した値と責務の対応を維持する。
- * @boundary N/A: HostOperationRecoveryGenerationの宣言は外部境界を開かない。
- * @security HostOperationRecoveryGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility HostOperationRecoveryGenerationの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type HostOperationRecoveryGeneration = Readonly<{
-  root: string;
-  nonce: string;
-  lock: Lock;
-}>;
+type HostOperationRecoveryGeneration = HostState;
 
 const hostOperationRecoveryGenerations = new WeakMap<
   object,
   HostOperationRecoveryGeneration
 >();
 
-/**
- * Host Operation 回復 Generationを取得する。
- *
- * @responsibility Host Operation 回復 Generationの取得条件、所有権、失敗時の非取得境界を所有する。
- * @trace ARCH-000008
- * @input token: exact参照、expectedRoot: 元Ownerまたは現在操作が固定したRoot。
- * @returns 同Rootの既存世代排他、または確認不能のnull。
- * @precondition 「token: unknown」がacquireHostOperationRecoveryGenerationの入力契約を満たす。
- * @postcondition acquireHostOperationRecoveryGenerationの責務を完了した結果だけを返す。
- * @effect 同Rootのmarker読取りと既存OS排他Workerの取得だけ。
- * @failure acquireHostOperationRecoveryGenerationは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant acquireHostOperationRecoveryGenerationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: acquireHostOperationRecoveryGenerationはProcess内の同一Subsystemで完結する。
- * @security acquireHostOperationRecoveryGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: acquireHostOperationRecoveryGenerationは共有非同期状態を持たない同期処理である。
- */
+/** 現在EM記録を確定し、作成側と同じ実Lockを保持する。 @trace ARCH-000008 */
 export function acquireHostOperationRecoveryGeneration(
-  token: unknown,
-  expectedRoot: unknown,
-) {
-  try {
-    const loaded = loadHostRecoveryRecordByToken(token, expectedRoot);
-    const root = path.join(loaded.parent, loaded.parsed.rootName);
-    return acquireHostOperationRecoveryGenerationByIdentity(
-      root,
-      loaded.parsed.nonce,
-    );
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Host Operation 回復 Generation By Identityを取得する。
- *
- * @responsibility Host Operation 回復 Generation By Identityの取得条件、所有権、失敗時の非取得境界を所有する。
- * @trace ARCH-000008
- * @input root: unknown、nonce: unknown
- * @returns acquireHostOperationRecoveryGenerationByIdentityの計算結果を返す。
- * @precondition 「root: unknown、nonce: unknown」がacquireHostOperationRecoveryGenerationByIdentityの入力契約を満たす。
- * @postcondition acquireHostOperationRecoveryGenerationByIdentityの責務を完了した結果だけを返す。
- * @effect acquireHostOperationRecoveryGenerationByIdentityはFilesystemの読取りまたは書込みを実行する。
- * @failure acquireHostOperationRecoveryGenerationByIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant acquireHostOperationRecoveryGenerationByIdentityは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security acquireHostOperationRecoveryGenerationByIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: acquireHostOperationRecoveryGenerationByIdentityは共有非同期状態を持たない同期処理である。
- */
-export function acquireHostOperationRecoveryGenerationByIdentity(
-  root: unknown,
-  nonce: unknown,
+  root: Repository,
+  recoveryId: unknown,
+  recordingCurrent: () => boolean,
+  publication?: HostRecoveryRead,
 ) {
   try {
     if (
-      typeof root !== "string" ||
-      !path.isAbsolute(root) ||
-      path.dirname(root) !== fs.realpathSync(path.dirname(root)) ||
-      typeof nonce !== "string"
+      typeof recoveryId !== "string" ||
+      !/^host-operation\.OP-[0-9]{6,}$/u.test(recoveryId) ||
+      recordingCurrent() !== true
     )
       return null;
-    const result = acquireHostOperationLock(root, nonce);
-    if (result.status !== "acquired") return null;
-    const lock = result.lock;
-    const capability = Object.freeze({});
-    hostOperationRecoveryGenerations.set(
-      capability,
-      Object.freeze({ root, nonce, lock }),
+    const repositoryRoot = resolveVerifiedRepositoryRoot(root);
+    if (!repositoryRoot) return null;
+    const reading = readHostGenerationSnapshot(
+      root,
+      recoveryId.slice("host-operation.".length),
+      publication,
     );
-    return capability;
+    const observed = reading.observed;
+    if (
+      observed.status !== "completed" ||
+      !observed.lockReleased ||
+      !observed.value
+    )
+      return null;
+    const matches = observed.value.snapshot.operations.filter(
+      (r): r is HostRecord =>
+        r.kind === "host_operation" && r.recoveryId === recoveryId,
+    );
+    if (matches.length !== 1) return null;
+    const record = matches[0];
+    if (!record) return null;
+    const acquired = acquireHostOperationLock(
+      repositoryRoot,
+      record.operationId,
+    );
+    if (acquired.status !== "acquired") return null;
+    const host: HostState = {
+      input: { root, purpose: record.purpose, recordingCurrent },
+      record,
+      version: {
+        revision: observed.value.snapshot.revision,
+        payloadSha256: observed.value.payloadSha256,
+      },
+      lock: acquired.lock,
+      ...(reading.publication ? { publication: reading.publication } : {}),
+    };
+    try {
+      freshHost(host);
+      const capability = Object.freeze({});
+      hostOperationRecoveryGenerations.set(capability, host);
+      return capability;
+    } catch {
+      if (!host.lock.release()) poisonRuntimeProcessAfterCleanupUnknown();
+      return null;
+    }
   } catch {
     return null;
   }
@@ -2652,105 +2361,56 @@ export function releaseHostOperationRecoveryGeneration(capability: unknown) {
   }
 }
 
-/**
- * Host Operation 回復 Generationを検証する。
- *
- * @responsibility Host Operation 回復 Generationの検証根拠、成立条件、観測不能時の拒否境界を所有する。
- * @trace ARCH-000008
- * @input capability: unknown、root: string、nonce: string
- * @returns N/A: verifyHostOperationRecoveryGenerationは戻り値を返さない。
- * @precondition 「capability: unknown、root: string、nonce: string」がverifyHostOperationRecoveryGenerationの入力契約を満たす。
- * @postcondition verifyHostOperationRecoveryGenerationの責務を完了して呼出し元へ制御を戻す。
- * @effect 私有世代Mapと既存Lockの生存観測だけ。新しい排他や処置を発行しない。
- * @failure Map／Root／nonce差、Lock失効・観測例外は処置前に例外で停止する。
- * @invariant verifyHostOperationRecoveryGenerationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary package内部のHost世代と保持中OS排他の観測。公開Root入口へ出さない。
- * @security verifyHostOperationRecoveryGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency 取得時だけでなく各保存／処置直前に同じ世代の保持を確認する。
- */
+/** 元Host記録と同じ操作・実Lockを要求する。 @trace ARCH-000008 */
 export function verifyHostOperationRecoveryGeneration(
   capability: unknown,
   root: string,
-  nonce: string,
+  operationId: string,
 ) {
-  const generation = isObject(capability)
-    ? (hostOperationRecoveryGenerations.get(capability) ?? null)
-    : null;
-  if (
-    !generation ||
-    generation.root !== root ||
-    generation.nonce !== nonce ||
-    generation.lock.assertLive() !== true
-  )
-    throw new Error("host_recovery_generation_active");
-}
-
-/**
- * genuine回復世代が保持する管理領域だけを短命に借用する。
- * @responsibility marker・Root・記録済み子実体を同世代へ結合し、生managementを復元しない。
- * @trace ARCH-000008
- * @input token: exact Host参照。capability: 取得済みHost回復世代。
- * @returns 管理Directoryと同期再確認、またはnull。
- * @precondition Docker要求を開始した元世代が失効し、回復排他を保持している。
- * @postcondition Rootや子を作成・変更せず、借用値だけで処置Authorityを発行しない。
- * @effect 同じmarker、Rootとmanagement実体の読取りだけ。
- * @failure 別世代、state差、欠測、link、canonical差と実体差はnull／false。
- * @invariant 任意Path・旧management Capability・別親探索を受理しない。
- * @boundary Host世代の保持とDocker用短命設定の借用所在。
- * @security 返却はPackage内部だけ。Root barrelへ公開しない。
- * @concurrency 使用直前ごとに同じtoken・排他・Root／子実体を再確認する。
- */
-export function borrowHostRecoveryManagementDirectory(
-  token: unknown,
-  capability: unknown,
-) {
-  const generation = isObject(capability)
+  const host = isObject(capability)
     ? hostOperationRecoveryGenerations.get(capability)
     : null;
-  if (!generation) return null;
-  const root = generation.root;
-  const nonce = generation.nonce;
-  const directory = path.join(root, "management");
-  /**
-   * 借用中の同じHost管理領域を現在観測で照合する。
-   * @responsibility 保持排他・marker・Root・子Directoryの共同現在性を判定する。
-   * @trace ARCH-000008
-   * @input N/A: 元token、世代と固定子所在をclosureに保持する。
-   * @returns 全条件が現在成立する場合だけtrue。
-   * @precondition genuine世代から作った借用closureである。
-   * @postcondition 不明をPath存在や処置許可へ変換しない。
-   * @effect 固定所在とmarkerの読取りだけ。
-   * @failure 欠測、差替え、例外または失効はfalse。
-   * @invariant 更新済みtokenを黙って採用せず別子を探索しない。
-   * @boundary 同じHost世代から固定management実体の再観測。
-   * @security 記録のpathNameだけから任意所在を借用しない。
-   * @concurrency 各下位要求・設定作成直前に同期実行する。
-   */
-  function assertCurrent() {
+  if (
+    !host ||
+    host.record.operationId !== operationId ||
+    ownedHostRoot(host) !== root ||
+    !host.lock.assertLive() ||
+    host.input.recordingCurrent() !== true
+  )
+    throw Error("host_recovery_generation_active");
+}
+
+/** 元Host Receiptと同じ管理領域だけをDIへ渡す。 @trace ARCH-000008 */
+export function borrowHostRecoveryManagementDirectory(
+  recoveryId: unknown,
+  capability: unknown,
+) {
+  const host = isObject(capability)
+    ? hostOperationRecoveryGenerations.get(capability)
+    : null;
+  if (!host || host.record.recoveryId !== recoveryId) return null;
+  freshHost(host);
+  const root = ownedHostRoot(host),
+    directory = path.join(root, HOST_CHILD_NAMES.management);
+  const assertCurrent = () => {
     try {
-      verifyHostOperationRecoveryGeneration(capability, root, nonce);
-      const loaded = loadHostRecoveryRecord(token, root);
-      const child = loaded.record.childIdentities.management;
-      if (
-        loaded.parsed.nonce !== nonce ||
-        loaded.record.state !== "docker_submission_started" ||
-        !loaded.record.rootIdentity ||
-        child?.pathName !== "management" ||
-        path.dirname(directory) !== root ||
-        fs.realpathSync(root) !== root ||
-        fs.realpathSync(directory) !== directory ||
-        fs.lstatSync(root).isSymbolicLink() ||
-        fs.lstatSync(directory).isSymbolicLink() ||
-        !identityMatchesRecord(root, loaded.record.rootIdentity) ||
-        !identityMatchesRecord(directory, child)
-      )
-        return false;
-      verifyHostOperationRecoveryGeneration(capability, root, nonce);
-      return true;
+      verifyHostOperationRecoveryGeneration(
+        capability,
+        root,
+        host.record.operationId,
+      );
+      return (
+        host.record.rootIdentity !== null &&
+        host.record.childIdentities.management !== undefined &&
+        fs.realpathSync(root) === root &&
+        fs.realpathSync(directory) === directory &&
+        identityMatchesRecord(root, host.record.rootIdentity) &&
+        identityMatchesRecord(directory, host.record.childIdentities.management)
+      );
     } catch {
       return false;
     }
-  }
+  };
   return assertCurrent() ? Object.freeze({ directory, assertCurrent }) : null;
 }
 
@@ -2779,46 +2439,25 @@ function retireOwnedOperationGeneration(root: string, nonce: string): void {
   revokeOwnedOperationContextCapabilities(state.owned);
 }
 
-/**
- * owned Operation Generationを決定する。
- *
- * @responsibility owned Operation Generationの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input owned: object、identity: OwnedIdentity、shouldAllowRetired
- * @returns OperationGenerationStateを返す。
- * @precondition 「owned: object、identity: OwnedIdentity、shouldAllowRetired」がownedOperationGenerationの入力契約を満たす。
- * @postcondition ownedOperationGenerationの責務を完了した結果だけを返す。
- * @effect N/A: ownedOperationGenerationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure ownedOperationGenerationは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant ownedOperationGenerationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: ownedOperationGenerationはProcess内の同一Subsystemで完結する。
- * @security ownedOperationGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: ownedOperationGenerationは共有非同期状態を持たない同期処理である。
- */
 function ownedOperationGeneration(
   owned: object,
   identity: OwnedIdentity,
   shouldAllowRetired = false,
 ): OperationGenerationState {
   const state = operationGenerationsByKey.get(
-    operationGenerationKey(identity.root, identity.hostRecovery.nonce),
+    operationGenerationKey(identity.root, identity.operationId),
   );
   if (
     !state ||
     state.owned !== owned ||
     operationGenerationByRoot.get(identity.root) !== state ||
-    state.currentRecordHash !== identity.hostRecovery.recordHash ||
     (!shouldAllowRetired && state.retired)
   )
-    throw new Error("owned_operation_identity_replaced");
-  if (
-    !shouldAllowRetired &&
-    state.generationLock &&
-    !state.generationLock.assertLive()
-  ) {
+    throw Error("owned_operation_generation_liveness_lost");
+  if (!state.generationLock?.assertLive()) {
     state.retired = true;
-    revokeOwnedOperationEffectCapabilities(state.owned);
-    throw new Error("owned_operation_generation_liveness_lost");
+    revokeOwnedOperationContextCapabilities(state.owned);
+    throw Error("owned_operation_generation_liveness_lost");
   }
   return state;
 }
@@ -2878,7 +2517,7 @@ function validateOwnedOperationIdentity(
       fs.realpathSync(identity.root) !== identity.root ||
       fs.realpathSync(identity.parent) !== identity.parent ||
       path.dirname(identity.root) !== identity.parent ||
-      !path.basename(identity.root).startsWith(identity.prefix) ||
+      path.basename(identity.root) !== identity.operationId ||
       !sameFilesystemIdentity(
         readFilesystemIdentity(identity.root),
         identity.filesystem,
@@ -2891,10 +2530,7 @@ function validateOwnedOperationIdentity(
     return identity.children;
   } catch (error) {
     if (operationIdentityReplacement(error)) {
-      retireOwnedOperationGeneration(
-        identity.root,
-        identity.hostRecovery.nonce,
-      );
+      retireOwnedOperationGeneration(identity.root, identity.operationId);
       throw new Error("owned_operation_identity_replaced");
     }
     throw new Error("owned_operation_identity_observation_blocked");
@@ -3040,145 +2676,6 @@ function requireConfirmedAbsent(target: string, reason: string): void {
 }
 
 /**
- * Plain 記録かを判定する。
- *
- * @responsibility Plain 記録の判定条件とtrue／false境界を所有する。
- * @trace ARCH-000008
- * @input value: unknown
- * @returns value is Record<string, unknown>を返す。
- * @precondition 「value: unknown」がisPlainRecordの入力契約を満たす。
- * @postcondition isPlainRecordの責務を完了した結果だけを返す。
- * @effect N/A: isPlainRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isPlainRecordは独自の失敗分岐を所有しない。
- * @invariant isPlainRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isPlainRecordはProcess内の同一Subsystemで完結する。
- * @security isPlainRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: isPlainRecordは共有非同期状態を持たない同期処理である。
- */
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  if (!isObject(value)) return false;
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
-
-/**
- * Serializable Identityを固定Schemaへ正規化する。
- *
- * @responsibility Serializable Identityの入力検証、正規化規則、不正値の拒否境界を所有する。
- * @trace ARCH-000008
- * @input value: unknown
- * @returns SerializableIdentityを返す。
- * @precondition 「value: unknown」がnormalizeSerializableIdentityの入力契約を満たす。
- * @postcondition normalizeSerializableIdentityの責務を完了した結果だけを返す。
- * @effect N/A: normalizeSerializableIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure normalizeSerializableIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant normalizeSerializableIdentityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: normalizeSerializableIdentityはProcess内の同一Subsystemで完結する。
- * @security normalizeSerializableIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: normalizeSerializableIdentityは共有非同期状態を持たない同期処理である。
- */
-function normalizeSerializableIdentity(value: unknown): SerializableIdentity {
-  if (!isPlainRecord(value)) throw new Error("host_recovery_record_mismatch");
-  const dev = ownString(value, "dev");
-  const ino = ownString(value, "ino");
-  const birthtimeNs = ownString(value, "birthtimeNs");
-  if (!dev || !ino || !birthtimeNs)
-    throw new Error("host_recovery_record_mismatch");
-  return Object.freeze({ dev, ino, birthtimeNs });
-}
-
-/**
- * 回復 状態を固定Schemaへ正規化する。
- *
- * @responsibility 回復 状態の入力検証、正規化規則、不正値の拒否境界を所有する。
- * @trace ARCH-000008
- * @input value: unknown
- * @returns RecoveryStateを返す。
- * @precondition 「value: unknown」がnormalizeRecoveryStateの入力契約を満たす。
- * @postcondition normalizeRecoveryStateの責務を完了した結果だけを返す。
- * @effect N/A: normalizeRecoveryStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure normalizeRecoveryStateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant normalizeRecoveryStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: normalizeRecoveryStateはProcess内の同一Subsystemで完結する。
- * @security normalizeRecoveryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: normalizeRecoveryStateは共有非同期状態を持たない同期処理である。
- */
-function normalizeRecoveryState(value: unknown): RecoveryState {
-  if (
-    value !== "initializing" &&
-    value !== "host_only" &&
-    value !== "docker_submission_started" &&
-    value !== "docker_absent_confirmed"
-  ) {
-    throw new Error("host_recovery_record_mismatch");
-  }
-  return value;
-}
-
-/**
- * Host 回復 記録を固定Schemaへ正規化する。
- *
- * @responsibility Host 回復 記録の入力検証、正規化規則、不正値の拒否境界を所有する。
- * @trace ARCH-000008
- * @input value: unknown
- * @returns HostRecoveryRecordを返す。
- * @precondition 「value: unknown」がnormalizeHostRecoveryRecordの入力契約を満たす。
- * @postcondition normalizeHostRecoveryRecordの責務を完了した結果だけを返す。
- * @effect N/A: normalizeHostRecoveryRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure normalizeHostRecoveryRecordは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant normalizeHostRecoveryRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: normalizeHostRecoveryRecordはProcess内の同一Subsystemで完結する。
- * @security normalizeHostRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: normalizeHostRecoveryRecordは共有非同期状態を持たない同期処理である。
- */
-function normalizeHostRecoveryRecord(value: unknown): HostRecoveryRecord {
-  if (!isPlainRecord(value)) throw new Error("host_recovery_record_mismatch");
-  const schema = ownString(value, "schema");
-  const rootName = ownString(value, "rootName");
-  const createdAt = ownString(value, "createdAt");
-  const childValues = ownValue(value, "childIdentities");
-  if (
-    schema !== "crdd-coordinator-host-recovery/v1" ||
-    !rootName ||
-    !createdAt ||
-    !isPlainRecord(childValues)
-  ) {
-    throw new Error("host_recovery_record_mismatch");
-  }
-  const childIdentities: Record<string, HostRecordChild> = {};
-  for (const [name, childValue] of Object.entries(childValues)) {
-    if (!isPlainRecord(childValue))
-      throw new Error("host_recovery_record_mismatch");
-    const pathName = ownString(childValue, "pathName");
-    if (!pathName) throw new Error("host_recovery_record_mismatch");
-    childIdentities[name] = Object.freeze({
-      pathName,
-      ...normalizeSerializableIdentity(childValue),
-    });
-  }
-  const state = normalizeRecoveryState(ownValue(value, "state"));
-  const rootIdentityValue = ownValue(value, "rootIdentity");
-  const rootIdentity =
-    rootIdentityValue === null
-      ? null
-      : normalizeSerializableIdentity(rootIdentityValue);
-  if (
-    (state === "initializing" && rootIdentity !== null) ||
-    (state !== "initializing" && rootIdentity === null) ||
-    (state === "initializing" && Object.keys(childIdentities).length !== 0)
-  )
-    throw new Error("host_recovery_record_mismatch");
-  return Object.freeze({
-    schema,
-    state,
-    rootName,
-    rootIdentity,
-    childIdentities: Object.freeze(childIdentities),
-    createdAt,
-  });
-}
-
-/**
  * owned Identityを決定する。
  *
  * @responsibility owned Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
@@ -3261,142 +2758,6 @@ function readFilesystemIdentity(root: string): FilesystemIdentity {
     ino,
     birthtimeNs: metadata.birthtimeNs,
   });
-}
-
-/**
- * File Identityを読み取る。
- *
- * @responsibility File Identityの読取り元、上限、読取不能時の結果境界を所有する。
- * @trace ARCH-000008
- * @input target: string
- * @returns FilesystemIdentityを返す。
- * @precondition 「target: string」がreadFileIdentityの入力契約を満たす。
- * @postcondition readFileIdentityの責務を完了した結果だけを返す。
- * @effect readFileIdentityはFilesystemの読取りまたは書込みを実行する。
- * @failure readFileIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant readFileIdentityは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security readFileIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: readFileIdentityは共有非同期状態を持たない同期処理である。
- */
-function readFileIdentity(target: string): FilesystemIdentity {
-  const metadata = fs.lstatSync(target, { bigint: true });
-  const ino =
-    process.platform === "win32" &&
-    typeof metadata.ino === "bigint" &&
-    metadata.ino >= -(1n << 63n) &&
-    metadata.ino < 0n
-      ? BigInt.asUintN(64, metadata.ino)
-      : metadata.ino;
-  if (
-    !metadata.isFile() ||
-    metadata.isSymbolicLink() ||
-    typeof ino !== "bigint" ||
-    metadata.dev <= 0n ||
-    ino <= 0n ||
-    metadata.birthtimeNs <= 0n
-  )
-    throw new Error("owned_operation_file_identity_unavailable");
-  return Object.freeze({
-    dev: metadata.dev,
-    ino,
-    birthtimeNs: metadata.birthtimeNs,
-  });
-}
-
-/**
- * Open File Identityを読み取る。
- *
- * @responsibility Open File Identityの読取り元、上限、読取不能時の結果境界を所有する。
- * @trace ARCH-000008
- * @input handle: number
- * @returns FilesystemIdentityを返す。
- * @precondition 「handle: number」がreadOpenFileIdentityの入力契約を満たす。
- * @postcondition readOpenFileIdentityの責務を完了した結果だけを返す。
- * @effect readOpenFileIdentityはFilesystemの読取りまたは書込みを実行する。
- * @failure readOpenFileIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant readOpenFileIdentityは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security readOpenFileIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: readOpenFileIdentityは共有非同期状態を持たない同期処理である。
- */
-function readOpenFileIdentity(handle: number): FilesystemIdentity {
-  const metadata = fs.fstatSync(handle, { bigint: true });
-  const ino =
-    process.platform === "win32" &&
-    typeof metadata.ino === "bigint" &&
-    metadata.ino >= -(1n << 63n) &&
-    metadata.ino < 0n
-      ? BigInt.asUintN(64, metadata.ino)
-      : metadata.ino;
-  if (
-    !metadata.isFile() ||
-    typeof ino !== "bigint" ||
-    metadata.dev <= 0n ||
-    ino <= 0n ||
-    metadata.birthtimeNs <= 0n
-  )
-    throw new Error("owned_operation_file_identity_unavailable");
-  return Object.freeze({
-    dev: metadata.dev,
-    ino,
-    birthtimeNs: metadata.birthtimeNs,
-  });
-}
-
-/**
- * Host 回復 Token From Markerが完全一致するか判定する。
- *
- * @responsibility Host 回復 Token From Markerの比較対象、完全一致条件、判定結果境界を所有する。
- * @trace ARCH-000008
- * @input target: string、expectedRootName: string、nonce: string、allowedItems: readonly Readonly<{ identity: FilesystemIdentity; serialized: string; }>[]
- * @returns string | nullを返す。
- * @precondition 「target: string、expectedRootName: string、nonce: string、allowedItems: readonly Readonly<{ identity: FilesystemIdentity; serialized: string; }>[]」がexactHostRecoveryTokenFromMarkerの入力契約を満たす。
- * @postcondition exactHostRecoveryTokenFromMarkerの責務を完了した結果だけを返す。
- * @effect exactHostRecoveryTokenFromMarkerはFilesystemの読取りまたは書込みを実行する。
- * @failure exactHostRecoveryTokenFromMarkerは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant exactHostRecoveryTokenFromMarkerは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security exactHostRecoveryTokenFromMarkerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: exactHostRecoveryTokenFromMarkerは共有非同期状態を持たない同期処理である。
- */
-function exactHostRecoveryTokenFromMarker(
-  target: string,
-  expectedRootName: string,
-  nonce: string,
-  allowedItems: readonly Readonly<{
-    identity: FilesystemIdentity;
-    serialized: string;
-  }>[],
-): string | null {
-  try {
-    if (observeFilesystemEntry(target) !== "present") return null;
-    const firstIdentity = readFileIdentity(target);
-    const firstSerialized = fs.readFileSync(target, "utf8");
-    if (
-      !allowedItems.some(
-        (candidate) =>
-          sameFilesystemIdentity(firstIdentity, candidate.identity) &&
-          firstSerialized === candidate.serialized,
-      )
-    )
-      return null;
-    const record = normalizeHostRecoveryRecord(JSON.parse(firstSerialized));
-    if (record.rootName !== expectedRootName) return null;
-    const secondIdentity = readFileIdentity(target);
-    const secondSerialized = fs.readFileSync(target, "utf8");
-    if (
-      !sameFilesystemIdentity(firstIdentity, secondIdentity) ||
-      firstSerialized !== secondSerialized
-    )
-      return null;
-    const recordHash = createHash("sha256")
-      .update(firstSerialized)
-      .digest("hex");
-    return `host.${expectedRootName}.${nonce}.${recordHash}`;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -3553,884 +2914,188 @@ function identityMatchesRecord(
 }
 
 /**
- * 共有回復記録Directoryの初期化依存を定義する。
- *
- * @responsibility 存在観測、mkdir、freshな境界とIdentity検証を分ける。
+ * 操作IDを耐久化し、回復と同じ排他を取ってから専用Rootを作る。
  * @trace ARCH-000008
- * @shape 三つの局所呼出しと検証済みDirectory／Identityを持つ。
- * @invariant 削除、marker読取り、Token発行の依存を含めない。
- * @boundary Coordinator内の共有管理資源初期化。
- * @security 本番は固定PathのFilesystem依存、試験は非Authority依存だけを渡す。
- * @compatibility 既存の存在観測とInitializationFailure分類を使用する。
+ * @failure Receipt欠測・保存不明・取消は同じ参照を保持し、不明物を自動採用しない。
  */
-type SharedHostRecoveryDirectoryDependencies = Readonly<{
-  observe: () => "present" | "confirmed_absent" | "unknown";
-  create: () => void;
-  validate: () => Readonly<{
-    directory: string;
-    identity: FilesystemIdentity;
-  }>;
-}>;
-
-/**
- * 共有回復記録Directoryを削除せず初期化・再利用する。
- *
- * @responsibility mkdirの存在競合をfresh検証へ戻し、不明を停止分類へ接続する。
- * @trace ARCH-000008
- * @input 存在観測、作成と検証の依存。
- * @returns freshに検証した共有DirectoryとIdentity。
- * @precondition 依存は同じ固定Directoryを扱う。
- * @postcondition 成功時は検証結果だけを返し、失敗時は清掃未確認を保持する。
- * @effect 渡された観測・mkdir・検証だけを実行する。
- * @failure 観測不明、mkdir失敗、境界・Identity検証失敗をInitializationFailureへ包む。
- * @invariant 共有Directoryと他Taskの記録を削除せず、回復Tokenを生成しない。
- * @boundary 共有管理資源の初期化settlement。
- * @security EEXISTを由来またはAuthorityの証明にしない。
- * @concurrency 他Taskのmkdirと競合した場合も同じfresh検証を要求する。
- */
-function initializeSharedHostRecoveryDirectory(
-  dependencies: SharedHostRecoveryDirectoryDependencies,
-) {
-  try {
-    const before = dependencies.observe();
-    if (before === "unknown")
-      throw new Error("host_recovery_directory_observation_unknown");
-    if (before === "confirmed_absent") {
-      try {
-        dependencies.create();
-      } catch (error) {
-        if (
-          !error ||
-          typeof error !== "object" ||
-          !("code" in error) ||
-          error.code !== "EEXIST"
-        )
-          throw error;
-      }
-    }
-    return dependencies.validate();
-  } catch (error) {
-    throwHostRecoveryInitializationFailure(error, {
-      cleanupConfirmed: false,
-      hostRecoveryId: null,
-    });
-  }
-}
-
-/**
- * 固定した共有回復記録Directoryを作成または再検証する。
- *
- * @responsibility 本番Filesystem依存を共有初期化settlementへ接続する。
- * @trace ARCH-000008
- * @input 検証済みtemporary parentの実Path。
- * @returns 共有Directoryの実PathとFilesystem Identity。
- * @precondition 呼出し元がparentを実Directoryへ解決済みである。
- * @postcondition 固定child、実Directory、fresh Identityが成立した場合だけ返す。
- * @effect 固定childの存在・実Path・属性・Identityを読み、未存在ならmkdirを要求する。
- * @failure 初期化・観測・検証の失敗は清掃未確認、回復IDなしで停止する。
- * @invariant Operation失敗時も共有Directoryを削除しない。
- * @boundary OS管理temporary parent内の共有管理資源。
- * @security alias、別parent、非Directory、symbolic linkを拒否し、markerを信頼し直さない。
- * @concurrency mkdir競合後もfreshな同じ境界検証を行う。連続OS排他は本関数の保証ではない。
- */
-function ensureHostRecoveryDirectory(
-  parent: string,
-): Readonly<{ directory: string; identity: FilesystemIdentity }> {
-  const directory = path.join(parent, HOST_RECOVERY_DIRECTORY);
-  return initializeSharedHostRecoveryDirectory({
-    observe: () => observeFilesystemEntry(directory),
-    create: () => fs.mkdirSync(directory, { mode: 0o700 }),
-    validate: () => {
-      const real = fs.realpathSync(directory);
-      const metadata = fs.lstatSync(real);
-      const identity = readFilesystemIdentity(real);
-      if (
-        real !== directory ||
-        path.dirname(real) !== parent ||
-        !metadata.isDirectory() ||
-        metadata.isSymbolicLink()
-      )
-        throw new Error("host_recovery_directory_untrusted");
-      return { directory: real, identity };
-    },
-  });
-}
-
-/**
- * 共有回復Directoryの非Authority局所試験入口を構築する。
- *
- * @responsibility 本番と同じ初期化settlementへ試験依存を渡す。
- * @trace ARCH-000008
- * @input Filesystem・Processを持たない試験用の観測、作成、検証依存。
- * @returns 初期化と内部失敗分類を確認する非Authority候補。
- * @precondition 本番Authorityの発行または公開APIとして使用しない。
- * @postcondition productionAuthority=falseで同じsettlementだけを返す。
- * @effect N/A: 構築時は依存呼出しや外部操作を行わない。
- * @failure 初期化呼出しの失敗は本番と同じ分類を保持する。
- * @invariant 公開indexへexportせず、削除Capability・Tokenを発行しない。
- * @boundary 同Subsystem内の内部試験支援。
- * @security 戻り値は本番の所有・非使用・清掃を証明しない。
- * @concurrency N/A: 同期局所候補であり非同期資源を持たない。
- */
-export function createIsolatedSharedHostRecoveryDirectoryCandidate(
-  dependencies: SharedHostRecoveryDirectoryDependencies,
-) {
-  return Object.freeze({
-    productionAuthority: false as const,
-    initialize: () => initializeSharedHostRecoveryDirectory(dependencies),
-    classifyFailure: hostRecoveryInitializationFailure,
-  });
-}
-
-/**
- * host 記録 Contentを決定する。
- *
- * @responsibility host 記録 Contentの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input identity: OwnedIdentity、state: RecoveryState
- * @returns HostRecoveryRecordを返す。
- * @precondition 「identity: OwnedIdentity、state: RecoveryState」がhostRecordContentの入力契約を満たす。
- * @postcondition hostRecordContentの責務を完了した結果だけを返す。
- * @effect N/A: hostRecordContentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: hostRecordContentは独自の失敗分岐を所有しない。
- * @invariant hostRecordContentは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: hostRecordContentはProcess内の同一Subsystemで完結する。
- * @security hostRecordContentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: hostRecordContentは共有非同期状態を持たない同期処理である。
- */
-function hostRecordContent(
-  identity: OwnedIdentity,
-  state: RecoveryState,
-): HostRecoveryRecord {
-  return {
-    schema: "crdd-coordinator-host-recovery/v1",
-    state,
-    rootName: path.basename(identity.root),
-    rootIdentity: serializableIdentity(identity.root),
-    childIdentities: Object.fromEntries(
-      Object.entries(identity.children ?? {}).map(([name, snapshot]) => [
-        name,
-        {
-          pathName: snapshot.name,
-          ...serializableIdentity(snapshot.root),
-        },
-      ]),
-    ),
-    createdAt: identity.createdAt,
-  };
-}
-
-/**
- * Initializing Host 回復 記録を書き込む。
- *
- * @responsibility Initializing Host 回復 記録の書込み先、確定条件、部分書込みの失敗境界を所有する。
- * @trace ARCH-000008
- * @input target: string、rootName: string、nonce: string、createdAt: string
- * @returns Readonly<{ recordHash: string; recordIdentity: FilesystemIdentity; serialized: string; token: string; }>を返す。
- * @precondition 「target: string、rootName: string、nonce: string、createdAt: string」がwriteInitializingHostRecoveryRecordの入力契約を満たす。
- * @postcondition writeInitializingHostRecoveryRecordの責務を完了した結果だけを返す。
- * @effect writeInitializingHostRecoveryRecordはFilesystemの読取りまたは書込みを実行する。
- * @failure writeInitializingHostRecoveryRecordは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant writeInitializingHostRecoveryRecordは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security writeInitializingHostRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: writeInitializingHostRecoveryRecordは共有非同期状態を持たない同期処理である。
- */
-function writeInitializingHostRecoveryRecord(
-  target: string,
-  rootName: string,
-  nonce: string,
-  createdAt: string,
-): Readonly<{
-  recordHash: string;
-  recordIdentity: FilesystemIdentity;
-  serialized: string;
-  token: string;
-}> {
-  const record: HostRecoveryRecord = Object.freeze({
-    schema: "crdd-coordinator-host-recovery/v1",
-    state: "initializing",
-    rootName,
+export function createOwnedOperationDirectories(
+  input: HostOperationInput,
+): OwnedOperationDirectories {
+  const repositoryRoot = resolveVerifiedRepositoryRoot(input?.root);
+  if (
+    !repositoryRoot ||
+    typeof input.recordingCurrent !== "function" ||
+    !["task", "advice", "isolation_probe"].includes(input.purpose)
+  )
+    throw Error("owned_operation_repository_required");
+  const operationId = createOperationId();
+  const record: HostRecord = Object.freeze({
+    kind: "host_operation",
+    operationId,
+    recoveryId: "host-operation." + operationId,
+    purpose: input.purpose,
+    resources: null,
+    createdAt: new Date().toISOString(),
+    phase: "preparing",
     rootIdentity: null,
     childIdentities: Object.freeze({}),
-    createdAt,
+    cleanup: "not_requested",
   });
-  const serialized = `${JSON.stringify(record)}\n`;
-  const recordHash = createHash("sha256").update(serialized).digest("hex");
-  const token = `host.${rootName}.${nonce}.${recordHash}`;
-  let handle: number | null = null;
-  let recordIdentity: FilesystemIdentity | null = null;
-  let entryCreated = false;
-  try {
-    handle = fs.openSync(target, "wx", 0o600);
-    entryCreated = true;
-    recordIdentity = readOpenFileIdentity(handle);
-    fs.writeFileSync(handle, serialized, "utf8");
-    fs.fsyncSync(handle);
-    fs.closeSync(handle);
-    handle = null;
-    if (
-      !sameFilesystemIdentity(readFileIdentity(target), recordIdentity) ||
-      fs.readFileSync(target, "utf8") !== serialized
-    )
-      throw new Error("host_recovery_record_replaced");
-  } catch (error) {
-    let cleanupConfirmed = !entryCreated;
-    let handleSettled = handle === null;
-    if (handle !== null) {
-      try {
-        fs.closeSync(handle);
-        handle = null;
-        handleSettled = true;
-      } catch {
-        handleSettled = false;
-      }
-    }
-    if (recordIdentity && handleSettled) {
-      try {
-        const observation = observeFilesystemEntry(target);
-        if (observation === "present") {
-          if (!sameFilesystemIdentity(readFileIdentity(target), recordIdentity))
-            throw new Error("host_recovery_record_replaced");
-          fs.rmSync(target);
-        } else if (observation === "unknown") {
-          throw new Error("host_recovery_record_observation_unknown");
-        }
-        requireConfirmedAbsent(
-          target,
-          "host_recovery_record_cleanup_unconfirmed",
-        );
-        cleanupConfirmed = true;
-      } catch {
-        cleanupConfirmed = false;
-      }
-    }
-    if (!cleanupConfirmed || !handleSettled)
-      throwHostRecoveryInitializationFailure(error, {
-        cleanupConfirmed: false,
-        hostRecoveryId: exactHostRecoveryTokenFromMarker(
-          target,
-          rootName,
-          nonce,
-          recordIdentity
-            ? [Object.freeze({ identity: recordIdentity, serialized })]
-            : [],
-        ),
-      });
-    throw error;
-  }
-  if (!recordIdentity)
-    throw new Error("host_recovery_record_identity_unavailable");
-  return Object.freeze({
-    recordHash,
-    recordIdentity,
-    serialized,
-    token,
+  const access = hostRecordingAccess(input, operationId);
+  const started = saveOperationStart(access, {
+    kind: "host_operation",
+    value: record,
   });
-}
-
-/**
- * Host 回復 記録を書き込む。
- *
- * @responsibility Host 回復 記録の書込み先、確定条件、部分書込みの失敗境界を所有する。
- * @trace ARCH-000008
- * @input owned: object、identity: OwnedIdentity、state: RecoveryState
- * @returns stringを返す。
- * @precondition 「owned: object、identity: OwnedIdentity、state: RecoveryState」がwriteHostRecoveryRecordの入力契約を満たす。
- * @postcondition writeHostRecoveryRecordの責務を完了した結果だけを返す。
- * @effect writeHostRecoveryRecordはFilesystemの読取りまたは書込みを実行する。
- * @failure writeHostRecoveryRecordは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant writeHostRecoveryRecordは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security writeHostRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: writeHostRecoveryRecordは共有非同期状態を持たない同期処理である。
- */
-function writeHostRecoveryRecord(
-  owned: object,
-  identity: OwnedIdentity,
-  state: RecoveryState,
-): string {
-  const previous = readCurrentOwnedHostRecord(identity);
   if (
-    !identity.hostRecovery.recordIdentity ||
-    createHash("sha256").update(previous.serialized).digest("hex") !==
-      identity.hostRecovery.recordHash ||
-    previous.record.state !== identity.hostRecovery.state
+    !started.startSaved ||
+    !started.lockReleased ||
+    started.revision === null ||
+    started.payloadSha256 === null
   )
-    throw new Error("host_recovery_record_mismatch");
-  const record = hostRecordContent(identity, state);
-  const serialized = `${JSON.stringify(record)}\n`;
-  const recordHash = createHash("sha256").update(serialized).digest("hex");
-  const target = identity.hostRecovery.record;
-  const temporary = `${target}.${randomUUID()}.tmp`;
-  let temporaryHandle: number | null = null;
-  let temporaryIdentity: FilesystemIdentity | null = null;
-  let temporaryCreated = false;
-  let wasRenamed = false;
-  try {
-    temporaryHandle = fs.openSync(temporary, "wx", 0o600);
-    temporaryCreated = true;
-    temporaryIdentity = readOpenFileIdentity(temporaryHandle);
-    fs.writeFileSync(temporaryHandle, serialized, "utf8");
-    fs.fsyncSync(temporaryHandle);
-    fs.closeSync(temporaryHandle);
-    temporaryHandle = null;
-    fs.renameSync(temporary, target);
-    wasRenamed = true;
-    if (
-      !temporaryIdentity ||
-      !sameFilesystemIdentity(readFileIdentity(target), temporaryIdentity)
-    )
-      throw new Error("host_recovery_record_replaced");
-    if (fs.readFileSync(target, "utf8") !== serialized)
-      throw new Error("host_recovery_record_replaced");
-  } catch (error) {
-    let cleanupConfirmed = !temporaryCreated;
-    let handleSettled = temporaryHandle === null;
-    if (temporaryHandle !== null) {
-      try {
-        fs.closeSync(temporaryHandle);
-        temporaryHandle = null;
-        handleSettled = true;
-      } catch {
-        handleSettled = false;
-      }
-    }
-    const cleanupTarget = wasRenamed ? target : temporary;
-    if (temporaryIdentity && handleSettled) {
-      try {
-        const observation = observeFilesystemEntry(cleanupTarget);
-        if (observation === "present") {
-          if (
-            !sameFilesystemIdentity(
-              readFileIdentity(cleanupTarget),
-              temporaryIdentity,
-            )
-          )
-            throw new Error("host_recovery_record_replaced");
-          fs.rmSync(cleanupTarget);
-        } else if (observation === "unknown") {
-          throw new Error("host_recovery_record_observation_unknown");
-        }
-        requireConfirmedAbsent(
-          cleanupTarget,
-          "host_recovery_record_cleanup_unconfirmed",
-        );
-        cleanupConfirmed = true;
-      } catch {
-        cleanupConfirmed = false;
-      }
-    }
-    const retainedRecoveryId = exactHostRecoveryTokenFromMarker(
-      target,
-      path.basename(identity.root),
-      identity.hostRecovery.nonce,
-      [
-        Object.freeze({
-          identity: identity.hostRecovery.recordIdentity,
-          serialized: previous.serialized,
-        }),
-        ...(temporaryIdentity
-          ? [Object.freeze({ identity: temporaryIdentity, serialized })]
-          : []),
-      ],
+    throwOwnedOperationDirectoryCreationFailure(
+      Error("host_operation_intent_unconfirmed"),
+      {
+        cleanupConfirmed:
+          !started.filesystemEffectIssued && started.lockReleased,
+        manualRecoveryRequired:
+          started.filesystemEffectIssued || !started.lockReleased,
+        hostRecoveryId: record.recoveryId,
+      },
     );
-    const originalRecoveryId = expectedHostRecoveryToken(identity);
-    if (
-      !cleanupConfirmed ||
-      !handleSettled ||
-      retainedRecoveryId !== originalRecoveryId
-    )
-      throwHostRecoveryInitializationFailure(error, {
+  const acquired = acquireHostOperationLock(repositoryRoot, operationId);
+  if (acquired.status !== "acquired")
+    throwOwnedOperationDirectoryCreationFailure(
+      Error("host_operation_lock_unavailable"),
+      {
         cleanupConfirmed: false,
-        hostRecoveryId: retainedRecoveryId,
-      });
-    throw error;
-  }
-  const updated = Object.freeze({
-    ...identity,
-    hostRecovery: Object.freeze({
-      ...identity.hostRecovery,
-      state,
-      recordHash,
-      recordIdentity: readFileIdentity(target),
-    }),
-  });
-  ownedIdentities.set(owned, updated);
-  return `host.${path.basename(identity.root)}.${identity.hostRecovery.nonce}.${recordHash}`;
-}
-
-/**
- * Operation Directoriesを構築する。
- *
- * @responsibility Operation Directoriesの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000008
- * @input rootDirectory: string
- * @returns OperationDirectoriesを返す。
- * @precondition 「rootDirectory: string」がcreateOperationDirectoriesの入力契約を満たす。
- * @postcondition createOperationDirectoriesの責務を完了した結果だけを返す。
- * @effect createOperationDirectoriesはFilesystemの読取りまたは書込みを実行する。
- * @failure N/A: createOperationDirectoriesは独自の失敗分岐を所有しない。
- * @invariant createOperationDirectoriesは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security createOperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createOperationDirectoriesは共有非同期状態を持たない同期処理である。
- */
-export function createOperationDirectories(
-  rootDirectory: string,
-): OperationDirectories {
-  const directories = {
-    root: rootDirectory,
-    providerHome: path.join(rootDirectory, "provider-home"),
-    workspace: path.join(rootDirectory, "workspace"),
-    tmp: path.join(rootDirectory, "tmp"),
-    events: path.join(rootDirectory, "events"),
-    projection: path.join(rootDirectory, "projection"),
-    management: path.join(rootDirectory, "management"),
+        manualRecoveryRequired: true,
+        hostRecoveryId: record.recoveryId,
+      },
+    );
+  const host: HostState = {
+    input,
+    record,
+    version: {
+      revision: started.revision,
+      payloadSha256: started.payloadSha256,
+    },
+    lock: acquired.lock,
   };
-  for (const directory of Object.values(directories))
-    fs.mkdirSync(directory, { recursive: true });
-  return directories;
-}
-
-/**
- * 所有 Operation Directoriesを構築する。
- *
- * @responsibility 所有 Operation Directoriesの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000008
- * @input temporaryParent: string
- * @returns OwnedOperationDirectories & { directories: OperationDirectories }を返す。
- * @precondition 「temporaryParent: string」がcreateOwnedOperationDirectoriesの入力契約を満たす。
- * @postcondition createOwnedOperationDirectoriesの責務を完了した結果だけを返す。
- * @effect N/A: createOwnedOperationDirectoriesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createOwnedOperationDirectoriesは独自の失敗分岐を所有しない。
- * @invariant createOwnedOperationDirectoriesは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createOwnedOperationDirectoriesはProcess内の同一Subsystemで完結する。
- * @security createOwnedOperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createOwnedOperationDirectoriesは共有非同期状態を持たない同期処理である。
- */
-export function createOwnedOperationDirectories(
-  temporaryParent?: string,
-): OwnedOperationDirectories & { directories: OperationDirectories };
-
-/**
- * 所有 Operation Directoriesを構築する。
- *
- * @responsibility 所有 Operation Directoriesの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000008
- * @input temporaryParent: string
- * @returns OwnedOperationDirectoriesを返す。
- * @precondition 「temporaryParent: string」がcreateOwnedOperationDirectoriesの入力契約を満たす。
- * @postcondition createOwnedOperationDirectoriesの責務を完了した結果だけを返す。
- * @effect createOwnedOperationDirectoriesはFilesystemの読取りまたは書込みを実行する。
- * @failure createOwnedOperationDirectoriesは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant createOwnedOperationDirectoriesは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security createOwnedOperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createOwnedOperationDirectoriesは共有非同期状態を持たない同期処理である。
- */
-export function createOwnedOperationDirectories(
-  temporaryParent: string = os.tmpdir(),
-): OwnedOperationDirectories {
-  let parent: string | null = null;
-  let createdRoot: string | null = null;
-  let createdRootIdentity: FilesystemIdentity | null = null;
-  let realRoot: string | null = null;
   let owned: OwnedOperationDirectories | null = null;
-  let initializingRecord: Readonly<{
-    path: string;
-    identity: FilesystemIdentity;
-    serialized: string;
-    token: string;
-  }> | null = null;
   try {
-    parent = fs.realpathSync(temporaryParent);
-    const parentMetadata = fs.lstatSync(parent);
-    if (!parentMetadata.isDirectory() || parentMetadata.isSymbolicLink()) {
-      throw new Error("temporary_parent_must_be_real_directory");
-    }
-    const recovery = ensureHostRecoveryDirectory(parent);
-    const nonce = randomUUID();
-    const rootName = `${OWNED_PREFIX}${nonce}`;
-    const createdAt = new Date().toISOString();
-    const recoveryRecord = path.join(
-      recovery.directory,
-      `host-${createHash("sha256").update(nonce).digest("hex")}.json`,
+    freshHost(host);
+    requireHostExecutionCurrent(input);
+    const parent = requireReadyRepositoryExecutionDataArea(
+      ensureRepositoryExecutionDataArea(input.root, "operations"),
+      "host_operation_parent_unconfirmed",
     );
-    const initializing = writeInitializingHostRecoveryRecord(
-      recoveryRecord,
-      rootName,
-      nonce,
-      createdAt,
-    );
-    initializingRecord = Object.freeze({
-      path: recoveryRecord,
-      identity: initializing.recordIdentity,
-      serialized: initializing.serialized,
-      token: initializing.token,
-    });
-    const candidateRoot = path.join(parent, rootName);
-    fs.mkdirSync(candidateRoot);
-    createdRoot = candidateRoot;
-    createdRootIdentity = readFilesystemIdentity(createdRoot);
-    realRoot = fs.realpathSync(createdRoot);
+    if (parent.status !== "ready")
+      throw Error("host_operation_parent_unconfirmed");
+    const root = path.join(parent.directory, operationId);
+    requireConfirmedAbsent(root, "owned_operation_directory_already_present");
+    requireHostExecutionCurrent(input);
+    fs.mkdirSync(root);
     if (
-      path.dirname(realRoot) !== parent ||
-      !path.basename(realRoot).startsWith(OWNED_PREFIX)
-    ) {
-      throw new Error("owned_operation_directory_boundary_failed");
-    }
+      fs.realpathSync(root) !== root ||
+      fs.realpathSync(parent.directory) !== parent.directory ||
+      path.dirname(root) !== parent.directory
+    )
+      throw Error("owned_operation_directory_replaced");
+    const filesystem = readFilesystemIdentity(root);
     owned = {
-      parent,
-      root: realRoot,
+      parent: parent.directory,
+      root,
       directories: null,
-      hostRecoveryId: null,
+      hostRecoveryId: record.recoveryId,
     };
-    ownedIdentities.set(
-      owned,
-      Object.freeze({
-        operationId: createOperationId(),
-        parent,
-        root: realRoot,
-        prefix: OWNED_PREFIX,
-        filesystem: readFilesystemIdentity(realRoot),
-        createdAt,
-        hostRecovery: Object.freeze({
-          directory: recovery.directory,
-          directoryIdentity: recovery.identity,
-          record: recoveryRecord,
-          recordIdentity: initializing.recordIdentity,
-          nonce,
-          state: "initializing",
-          recordHash: initializing.recordHash,
-        }),
-      }),
-    );
-    owned.directories = createOperationDirectories(realRoot);
-    const identity = requireOwnedIdentity(owned);
-    if (!owned.directories)
-      throw new Error("owned_operation_directory_identity_required");
-    const children = Object.freeze({
-      workspace: directorySnapshot(
-        owned.directories.workspace,
-        realRoot,
-        "workspace",
-      ),
-      providerHome: directorySnapshot(
-        owned.directories.providerHome,
-        realRoot,
-        "provider-home",
-      ),
-      tmp: directorySnapshot(owned.directories.tmp, realRoot, "tmp"),
-      events: directorySnapshot(owned.directories.events, realRoot, "events"),
-      projection: directorySnapshot(
-        owned.directories.projection,
-        realRoot,
-        "projection",
-      ),
-      management: directorySnapshot(
-        owned.directories.management,
-        realRoot,
-        "management",
-      ),
+    const identity: OwnedIdentity = {
+      operationId,
+      parent: parent.directory,
+      root,
+      filesystem,
+      createdAt: record.createdAt,
+      host,
+    };
+    ownedIdentities.set(owned, identity);
+    registerOwnedOperationGeneration(owned, identity);
+    writeHostCheckpoint(host, {
+      ...host.record,
+      rootIdentity: serializableIdentity(root),
     });
+    const children: Partial<Record<keyof ChildSnapshots, DirectorySnapshot>> =
+      {};
+    for (const [key, name] of Object.entries(HOST_CHILD_NAMES)) {
+      requireHostExecutionCurrent(input);
+      const child = path.join(root, name);
+      fs.mkdirSync(child);
+      const snapshot = directorySnapshot(child, root, name);
+      children[key as keyof ChildSnapshots] = snapshot;
+      writeHostCheckpoint(host, {
+        ...host.record,
+        childIdentities: {
+          ...host.record.childIdentities,
+          [key]: serializableIdentity(child),
+        },
+      });
+    }
+    const complete = Object.freeze(children) as ChildSnapshots;
+    owned.directories = Object.freeze({
+      root,
+      ...Object.fromEntries(
+        Object.entries(complete).map(([key, value]) => [key, value.root]),
+      ),
+    }) as OperationDirectories;
     ownedIdentities.set(
       owned,
       Object.freeze({
         ...identity,
-        children,
+        children: complete,
         mounts: Object.freeze({
-          workspace: children.workspace,
-          providerHome: children.providerHome,
-          tmp: children.tmp,
+          workspace: complete.workspace,
+          providerHome: complete.providerHome,
+          tmp: complete.tmp,
         }),
       }),
     );
-    owned.hostRecoveryId = writeHostRecoveryRecord(
-      owned,
-      requireOwnedIdentity(owned),
-      "host_only",
-    );
-    registerOwnedOperationGeneration(owned, requireOwnedIdentity(owned));
+    writeHostCheckpoint(host, { ...host.record, phase: "active" });
     return owned;
-  } catch (error) {
-    const nestedFailure = hostRecoveryInitializationFailure(error);
-    let cleanupConfirmed = nestedFailure?.cleanupConfirmed ?? true;
-    let rootCleanupConfirmed = createdRoot === null;
-    let markerCleanupConfirmed = initializingRecord === null;
-    if (cleanupConfirmed) {
-      try {
-        if (realRoot !== null && owned && ownedIdentity(owned)) {
-          rollbackInitializingOperationDirectories(owned);
-          rootCleanupConfirmed = true;
-          markerCleanupConfirmed = true;
-        } else if (
-          createdRoot !== null &&
-          createdRootIdentity !== null &&
-          parent !== null
-        ) {
-          const metadata = fs.lstatSync(createdRoot);
-          if (
-            metadata.isSymbolicLink() ||
-            !metadata.isDirectory() ||
-            fs.realpathSync(createdRoot) !== createdRoot ||
-            path.dirname(createdRoot) !== parent ||
-            !path.basename(createdRoot).startsWith(OWNED_PREFIX) ||
-            !sameFilesystemIdentity(
-              readFilesystemIdentity(createdRoot),
-              createdRootIdentity,
-            )
-          )
-            throw new Error("owned_operation_directory_boundary_failed");
-          fs.rmSync(createdRoot, { recursive: true, force: false });
-          requireConfirmedAbsent(
-            createdRoot,
-            "owned_operation_directory_cleanup_incomplete",
-          );
-          rootCleanupConfirmed = true;
-        }
-      } catch {
-        rootCleanupConfirmed = false;
+  } catch (cause) {
+    let cleanupConfirmed = false;
+    try {
+      if (owned) cleanupOwnedOperationDirectories(owned);
+      else {
+        const root = path.join(
+          repositoryRoot,
+          ".crdd",
+          "operations",
+          operationId,
+        );
+        requireConfirmedAbsent(
+          root,
+          "host_recovery_initialization_root_identity_unknown",
+        );
+        writeHostCheckpoint(host, {
+          ...host.record,
+          phase: "terminal",
+          cleanup: "confirmed",
+        });
+        if (!host.lock.release())
+          throw Error("host_operation_lock_release_unconfirmed");
       }
-      if (rootCleanupConfirmed && !owned && initializingRecord) {
+      cleanupConfirmed = true;
+    } catch {
+      if (!owned) {
         try {
-          const observation = observeFilesystemEntry(initializingRecord.path);
-          if (observation === "present") {
-            if (
-              !sameFilesystemIdentity(
-                readFileIdentity(initializingRecord.path),
-                initializingRecord.identity,
-              )
-            )
-              throw new Error("host_recovery_record_replaced");
-            fs.rmSync(initializingRecord.path);
-          } else if (observation === "unknown") {
-            throw new Error("host_recovery_record_observation_unknown");
-          }
-          requireConfirmedAbsent(
-            initializingRecord.path,
-            "host_recovery_record_cleanup_unconfirmed",
-          );
-          markerCleanupConfirmed = true;
-        } catch {
-          markerCleanupConfirmed = false;
-        }
+          host.lock.release();
+        } catch {}
       }
     }
-    cleanupConfirmed =
-      cleanupConfirmed && rootCleanupConfirmed && markerCleanupConfirmed;
-    let retainedRecoveryId = nestedFailure?.hostRecoveryId ?? null;
-    if (!nestedFailure && initializingRecord) {
-      try {
-        const parsed = parseHostRecoveryToken(initializingRecord.token);
-        retainedRecoveryId = sameFilesystemIdentity(
-          readFileIdentity(initializingRecord.path),
-          initializingRecord.identity,
-        )
-          ? exactHostRecoveryTokenFromMarker(
-              initializingRecord.path,
-              parsed.rootName,
-              parsed.nonce,
-              [
-                Object.freeze({
-                  identity: initializingRecord.identity,
-                  serialized: initializingRecord.serialized,
-                }),
-              ],
-            )
-          : null;
-      } catch {
-        retainedRecoveryId = null;
-      }
-    }
-    throwOwnedOperationDirectoryCreationFailure(error, {
+    throwOwnedOperationDirectoryCreationFailure(cause, {
       cleanupConfirmed,
       manualRecoveryRequired: !cleanupConfirmed,
-      hostRecoveryId: !cleanupConfirmed ? retainedRecoveryId : null,
+      hostRecoveryId: cleanupConfirmed ? null : record.recoveryId,
     });
   }
-}
-
-/**
- * 所有 Transition Inputsが有効な状態か判定する。
- *
- * @responsibility 所有 Transition Inputsの有効状態条件と判定結果境界を所有する。
- * @trace ARCH-000008
- * @input mountCapability: unknown、currentToken: unknown、expectedState: "host_only" | "docker_submission_started"
- * @returns Readonly<{ loaded: ReturnType<typeof loadHostRecoveryRecord>; state: OperationGenerationState; identity: OwnedIdentity; }>を返す。
- * @precondition 「mountCapability: unknown、currentToken: unknown、expectedState: "host_only" | "docker_submission_started"」がactiveOwnedTransitionInputsの入力契約を満たす。
- * @postcondition activeOwnedTransitionInputsの責務を完了した結果だけを返す。
- * @effect N/A: activeOwnedTransitionInputsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure activeOwnedTransitionInputsは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant activeOwnedTransitionInputsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: activeOwnedTransitionInputsはProcess内の同一Subsystemで完結する。
- * @security activeOwnedTransitionInputsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: activeOwnedTransitionInputsは共有非同期状態を持たない同期処理である。
- */
-function activeOwnedTransitionInputs(
-  mountCapability: unknown,
-  currentToken: unknown,
-  expectedState: "host_only" | "docker_submission_started",
-): Readonly<{
-  loaded: ReturnType<typeof loadHostRecoveryRecord>;
-  state: OperationGenerationState;
-  identity: OwnedIdentity;
-}> {
-  const mount = isObject(mountCapability)
-    ? (mountCapabilities.get(mountCapability) ?? null)
-    : null;
-  if (!mount) throw new Error("owned_operation_mount_capability_required");
-  return activeOwnedTransitionInputsForOwned(
-    mount.owned,
-    currentToken,
-    expectedState,
-    "owned_operation_mount_capability_required",
-  );
-}
-
-/**
- * 所有 Transition Inputs For 所有が有効な状態か判定する。
- *
- * @responsibility 所有 Transition Inputs For 所有の有効状態条件と判定結果境界を所有する。
- * @trace ARCH-000008
- * @input owned: object、currentToken: unknown、expectedState: "host_only" | "docker_submission_started"、bindingError
- * @returns Readonly<{ loaded: ReturnType<typeof loadHostRecoveryRecord>; state: OperationGenerationState; identity: OwnedIdentity; }>を返す。
- * @precondition 「owned: object、currentToken: unknown、expectedState: "host_only" | "docker_submission_started"、bindingError」がactiveOwnedTransitionInputsForOwnedの入力契約を満たす。
- * @postcondition activeOwnedTransitionInputsForOwnedの責務を完了した結果だけを返す。
- * @effect N/A: activeOwnedTransitionInputsForOwnedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure activeOwnedTransitionInputsForOwnedは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant activeOwnedTransitionInputsForOwnedは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: activeOwnedTransitionInputsForOwnedはProcess内の同一Subsystemで完結する。
- * @security activeOwnedTransitionInputsForOwnedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: activeOwnedTransitionInputsForOwnedは共有非同期状態を持たない同期処理である。
- */
-function activeOwnedTransitionInputsForOwned(
-  owned: object,
-  currentToken: unknown,
-  expectedState: "host_only" | "docker_submission_started",
-  bindingError = "owned_operation_management_binding_required",
-): Readonly<{
-  loaded: ReturnType<typeof loadHostRecoveryRecord>;
-  state: OperationGenerationState;
-  identity: OwnedIdentity;
-}> {
-  const identity = ownedIdentities.get(owned);
-  if (!identity) throw new Error(bindingError);
-  validateOwnedOperationIdentity(owned, identity);
-  const parsed = parseHostRecoveryToken(currentToken);
-  const state = operationGenerationByRoot.get(identity.root);
-  if (!state || state.owned !== owned || state.retired)
-    throw new Error(bindingError);
-  if (
-    parsed.rootName !== path.basename(identity.root) ||
-    parsed.nonce !== state.nonce ||
-    parsed.recordHash !== state.currentRecordHash ||
-    identity.hostRecovery.state !== expectedState
-  )
-    throw new Error("host_recovery_generation_mismatch");
-  const record = validatePrivateHostRecoveryRecord(identity, expectedState);
-  const loaded = Object.freeze({
-    parsed,
-    parent: identity.parent,
-    recovery: Object.freeze({ directory: identity.root }),
-    marker: identity.hostRecovery.record,
-    record,
-  });
-  return Object.freeze({ loaded, state, identity });
-}
-
-/**
- * replace Host 回復 記録 状態を決定する。
- *
- * @responsibility replace Host 回復 記録 状態の導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input loaded: ReturnType<typeof loadHostRecoveryRecord>、nextState: RecoveryState
- * @returns Readonly<{ recordHash: string; recordIdentity: FilesystemIdentity; token: string; }>を返す。
- * @precondition 「loaded: ReturnType<typeof loadHostRecoveryRecord>、nextState: RecoveryState」がreplaceHostRecoveryRecordStateの入力契約を満たす。
- * @postcondition replaceHostRecoveryRecordStateの責務を完了した結果だけを返す。
- * @effect replaceHostRecoveryRecordStateはFilesystemの読取りまたは書込みを実行する。
- * @failure replaceHostRecoveryRecordStateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant replaceHostRecoveryRecordStateは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security replaceHostRecoveryRecordStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: replaceHostRecoveryRecordStateは共有非同期状態を持たない同期処理である。
- */
-function replaceHostRecoveryRecordState(
-  loaded: ReturnType<typeof loadHostRecoveryRecord>,
-  nextState: RecoveryState,
-): Readonly<{
-  recordHash: string;
-  recordIdentity: FilesystemIdentity;
-  token: string;
-}> {
-  const updatedRecord = { ...loaded.record, state: nextState };
-  const serialized = `${JSON.stringify(updatedRecord)}\n`;
-  const recordHash = createHash("sha256").update(serialized).digest("hex");
-  const temporary = `${loaded.marker}.${randomUUID()}.tmp`;
-  const temporaryHandle = fs.openSync(temporary, "wx", 0o600);
-  try {
-    fs.writeFileSync(temporaryHandle, serialized, "utf8");
-    fs.fsyncSync(temporaryHandle);
-  } finally {
-    fs.closeSync(temporaryHandle);
-  }
-  fs.renameSync(temporary, loaded.marker);
-  if (fs.readFileSync(loaded.marker, "utf8") !== serialized)
-    throw new Error("host_recovery_record_replaced");
-  return Object.freeze({
-    recordHash,
-    recordIdentity: readFileIdentity(loaded.marker),
-    token: `host.${loaded.parsed.rootName}.${loaded.parsed.nonce}.${recordHash}`,
-  });
-}
-
-/**
- * 所有 Docker Submission 状態を状態遷移させる。
- *
- * @responsibility 所有 Docker Submission 状態の遷移前提、次状態、無効遷移の拒否境界を所有する。
- * @trace ARCH-000008
- * @input mountCapability: unknown、currentToken: unknown、action: unknown
- * @returns stringを返す。
- * @precondition 「mountCapability: unknown、currentToken: unknown、action: unknown」がtransitionOwnedDockerSubmissionStateの入力契約を満たす。
- * @postcondition transitionOwnedDockerSubmissionStateの責務を完了した結果だけを返す。
- * @effect N/A: transitionOwnedDockerSubmissionStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure transitionOwnedDockerSubmissionStateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant transitionOwnedDockerSubmissionStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: transitionOwnedDockerSubmissionStateはProcess内の同一Subsystemで完結する。
- * @security transitionOwnedDockerSubmissionStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: transitionOwnedDockerSubmissionStateは共有非同期状態を持たない同期処理である。
- */
-export function transitionOwnedDockerSubmissionState(
-  mountCapability: unknown,
-  currentToken: unknown,
-  action: unknown,
-): string {
-  const expectedState =
-    action === "begin" ? "host_only" : "docker_submission_started";
-  const nextState =
-    action === "begin" ? "docker_submission_started" : "host_only";
-  if (action !== "begin" && action !== "cancel")
-    throw new Error("host_recovery_state_invalid");
-  const { loaded, state, identity } = activeOwnedTransitionInputs(
-    mountCapability,
-    currentToken,
-    expectedState,
-  );
-  const updated = replaceHostRecoveryRecordState(loaded, nextState);
-  ownedIdentities.set(
-    state.owned,
-    Object.freeze({
-      ...identity,
-      hostRecovery: Object.freeze({
-        ...identity.hostRecovery,
-        state: nextState,
-        recordHash: updated.recordHash,
-        recordIdentity: updated.recordIdentity,
-      }),
-    }),
-  );
-  state.currentRecordHash = updated.recordHash;
-  return updated.token;
 }
 
 /**
@@ -4466,64 +3131,18 @@ function ownedOperationFromManagementCapability(managementCapability: unknown) {
   return Object.freeze({ binding, identity });
 }
 
-/**
- * 既存Host世代へ同期wx取得を結合する。失敗時の残存を自動回復しない。
- * @trace ARCH-000008
- * @effect 元Root外のLock File取得。取得後に同じ私有Recordを再確認する。
- */
-export function activateOwnedHostOperationGenerationLock(
-  managementCapability: unknown,
-) {
-  const { binding, identity } =
-    ownedOperationFromManagementCapability(managementCapability);
-  const state = ownedOperationGeneration(binding.owned, identity);
-  if (state.generationLock)
-    throw Error("owned_operation_generation_lock_already_active");
-  const result = acquireHostOperationLock(
-    identity.root,
-    identity.hostRecovery.nonce,
-  );
-  if (result.status !== "acquired") {
-    if (!result.cleanupConfirmed) {
-      state.retired = true;
-      revokeOwnedOperationEffectCapabilities(state.owned);
-      poisonRuntimeProcessAfterCleanupUnknown();
-      return "cleanup_unknown" as const;
-    }
-    return "unavailable" as const;
-  }
-  state.generationLock = result.lock;
-  try {
-    assertOwnedHostOperationLock(managementCapability);
-    return "activated" as const;
-  } catch {
-    state.retired = true;
-    revokeOwnedOperationEffectCapabilities(state.owned);
-    if (!result.lock.release()) {
-      poisonRuntimeProcessAfterCleanupUnknown();
-      return "cleanup_unknown" as const;
-    }
-    state.generationLock = null;
-    return "cleanup_confirmed_failure" as const;
-  }
-}
-
-/**
- * Effect前・待機後に元世代と実File保持を再確認する。監視Promiseは作らない。
- * @trace ARCH-000008
- */
+/** 記録Writerへの再入なしで、元操作の実排他を照合する。 @trace ARCH-000008 */
 export function assertOwnedHostOperationLock(
   managementCapability: unknown,
 ): void {
   const { binding, identity } =
     ownedOperationFromManagementCapability(managementCapability);
   const state = ownedOperationGeneration(binding.owned, identity);
-  if (!state.generationLock?.assertLive()) {
-    state.retired = true;
-    revokeOwnedOperationEffectCapabilities(state.owned);
+  if (
+    !state.generationLock?.assertLive() ||
+    identity.host.input.recordingCurrent() !== true
+  )
     throw Error("owned_operation_generation_liveness_lost");
-  }
-  validatePrivateHostRecoveryRecord(identity, identity.hostRecovery.state);
 }
 
 /**
@@ -4564,567 +3183,12 @@ export async function abandonOwnedHostOperationGenerationLock(
   }
 }
 
-/**
- * 所有 Docker Submission By Managementを状態遷移させる。
- *
- * @responsibility 所有 Docker Submission By Managementの遷移前提、次状態、無効遷移の拒否境界を所有する。
- * @trace ARCH-000008
- * @input managementCapability: unknown、currentToken: unknown、action: "begin" | "cancel"
- * @returns transitionOwnedDockerSubmissionByManagementの計算結果を返す。
- * @precondition 「managementCapability: unknown、currentToken: unknown、action: "begin" | "cancel"」がtransitionOwnedDockerSubmissionByManagementの入力契約を満たす。
- * @postcondition transitionOwnedDockerSubmissionByManagementの責務を完了した結果だけを返す。
- * @effect N/A: transitionOwnedDockerSubmissionByManagementは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: transitionOwnedDockerSubmissionByManagementは独自の失敗分岐を所有しない。
- * @invariant transitionOwnedDockerSubmissionByManagementは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: transitionOwnedDockerSubmissionByManagementはProcess内の同一Subsystemで完結する。
- * @security transitionOwnedDockerSubmissionByManagementはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: transitionOwnedDockerSubmissionByManagementは共有非同期状態を持たない同期処理である。
- */
-function transitionOwnedDockerSubmissionByManagement(
-  managementCapability: unknown,
-  currentToken: unknown,
-  action: "begin" | "cancel",
-) {
-  const { binding } =
-    ownedOperationFromManagementCapability(managementCapability);
-  const expectedState =
-    action === "begin" ? "host_only" : "docker_submission_started";
-  const nextState =
-    action === "begin" ? "docker_submission_started" : "host_only";
-  const { loaded, state, identity } = activeOwnedTransitionInputsForOwned(
-    binding.owned,
-    currentToken,
-    expectedState,
-  );
-  const updated = replaceHostRecoveryRecordState(loaded, nextState);
-  ownedIdentities.set(
-    state.owned,
-    Object.freeze({
-      ...identity,
-      hostRecovery: Object.freeze({
-        ...identity.hostRecovery,
-        state: nextState,
-        recordHash: updated.recordHash,
-        recordIdentity: updated.recordIdentity,
-      }),
-    }),
-  );
-  state.currentRecordHash = updated.recordHash;
-  return updated.token;
-}
-
-/**
- * 所有 Docker Submission 回復を開始する。
- *
- * @responsibility 所有 Docker Submission 回復の開始条件、初期状態、開始失敗境界を所有する。
- * @trace ARCH-000008
- * @input managementCapability: unknown、operationId: unknown
- * @returns beginOwnedDockerSubmissionRecoveryの計算結果を返す。
- * @precondition 「managementCapability: unknown、operationId: unknown」がbeginOwnedDockerSubmissionRecoveryの入力契約を満たす。
- * @postcondition beginOwnedDockerSubmissionRecoveryの責務を完了した結果だけを返す。
- * @effect N/A: beginOwnedDockerSubmissionRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure beginOwnedDockerSubmissionRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant beginOwnedDockerSubmissionRecoveryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: beginOwnedDockerSubmissionRecoveryはProcess内の同一Subsystemで完結する。
- * @security beginOwnedDockerSubmissionRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: beginOwnedDockerSubmissionRecoveryは共有非同期状態を持たない同期処理である。
- */
-export function beginOwnedDockerSubmissionRecovery(
-  managementCapability: unknown,
-  operationId: unknown,
-) {
-  const { binding, identity } =
-    ownedOperationFromManagementCapability(managementCapability);
-  if (operationId !== binding.operationId)
-    throw new Error("owned_operation_management_binding_required");
-  return transitionOwnedDockerSubmissionByManagement(
-    managementCapability,
-    expectedHostRecoveryToken(identity),
-    "begin",
-  );
-}
-
-/**
- * 所有 Host 回復 Id By Management Capabilityを取得する。
- *
- * @responsibility 所有 Host 回復 Id By Management Capabilityの参照条件、返却値、未検出結果の境界を所有する。
- * @trace ARCH-000008
- * @input managementCapability: unknown
- * @returns getOwnedHostRecoveryIdByManagementCapabilityの計算結果を返す。
- * @precondition 「managementCapability: unknown」がgetOwnedHostRecoveryIdByManagementCapabilityの入力契約を満たす。
- * @postcondition getOwnedHostRecoveryIdByManagementCapabilityの責務を完了した結果だけを返す。
- * @effect N/A: getOwnedHostRecoveryIdByManagementCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: getOwnedHostRecoveryIdByManagementCapabilityは独自の失敗分岐を所有しない。
- * @invariant getOwnedHostRecoveryIdByManagementCapabilityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: getOwnedHostRecoveryIdByManagementCapabilityはProcess内の同一Subsystemで完結する。
- * @security getOwnedHostRecoveryIdByManagementCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: getOwnedHostRecoveryIdByManagementCapabilityは共有非同期状態を持たない同期処理である。
- */
+/** 元Hostの固定参照を返す。 @trace ARCH-000008 */
 export function getOwnedHostRecoveryIdByManagementCapability(
-  managementCapability: unknown,
+  management: unknown,
 ) {
-  const { identity } =
-    ownedOperationFromManagementCapability(managementCapability);
-  validatePrivateHostRecoveryRecord(identity, identity.hostRecovery.state);
-  return expectedHostRecoveryToken(identity);
-}
-
-/**
- * 同じ操作Ownerが保持するHost記録の現在投影を読み取る。
- *
- * @responsibility 任意PathやOS一時Rootの逆算を使わず、所有済みHostの相関を搬送する。
- * @trace ARCH-000008
- * @input managementCapability: 同じProcessで発行済みの操作管理Capability。
- * @returns 検証済みHost Snapshotと、そのOwnerが保持するRoot・Marker Path。
- * @precondition 管理Capabilityが現在の所有者に結合している。
- * @postcondition 記録Hash・実体Identity・現在状態を確認した値だけを返す。
- * @effect 所有済みHost記録とFilesystem metadataの読取りのみ。
- * @failure 未発行Capability、記録差替え、Hash・実体不一致は例外として返す。
- * @invariant 保存・回復・削除のAuthorityを新設しない。
- * @boundary Coordinator内部のHost Ownerから現在状態構築への読取り搬送。
- * @security Pathは所有者由来の観測値であり、呼出し側の任意Pathを受け付けない。
- * @concurrency 読取り前後で現在記録を検証し、保存直前の検証は利用側Writerが行う。
- */
-export function borrowOwnedHostRecoverySnapshot(managementCapability: unknown) {
-  const { identity } =
-    ownedOperationFromManagementCapability(managementCapability);
-  const record = validatePrivateHostRecoveryRecord(
-    identity,
-    identity.hostRecovery.state,
-  );
-  const directory = fs.lstatSync(identity.root, { bigint: true });
-  const marker = fs.lstatSync(identity.hostRecovery.record, { bigint: true });
-  if (
-    !directory.isDirectory() ||
-    directory.isSymbolicLink() ||
-    !marker.isFile() ||
-    marker.isSymbolicLink()
-  )
-    throw new Error("host_recovery_record_mismatch");
-  validatePrivateHostRecoveryRecord(identity, identity.hostRecovery.state);
-  return Object.freeze({
-    snapshot: Object.freeze({
-      token: expectedHostRecoveryToken(identity),
-      recordHash: identity.hostRecovery.recordHash,
-      directoryIdentity: `${directory.dev}:${directory.ino}:${directory.birthtimeNs}`,
-      markerIdentity: `${marker.dev}:${marker.ino}:${marker.birthtimeNs}`,
-      record,
-    }),
-    hostPaths: Object.freeze({
-      root: identity.root,
-      marker: identity.hostRecovery.record,
-    }),
-  });
-}
-
-/**
- * 所有 Host 清掃 Capabilityを発行する。
- *
- * @responsibility 所有 Host 清掃 Capabilityの発行条件、Identity、非発行時のEffect 0境界を所有する。
- * @trace ARCH-000008
- * @input managementCapability: unknown、subject: unknown
- * @returns issueOwnedHostCleanupCapabilityの計算結果を返す。
- * @precondition 「managementCapability: unknown、subject: unknown」がissueOwnedHostCleanupCapabilityの入力契約を満たす。
- * @postcondition issueOwnedHostCleanupCapabilityの責務を完了した結果だけを返す。
- * @effect N/A: issueOwnedHostCleanupCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure issueOwnedHostCleanupCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant issueOwnedHostCleanupCapabilityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: issueOwnedHostCleanupCapabilityはProcess内の同一Subsystemで完結する。
- * @security issueOwnedHostCleanupCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: issueOwnedHostCleanupCapabilityは共有非同期状態を持たない同期処理である。
- */
-export function issueOwnedHostCleanupCapability(
-  managementCapability: unknown,
-  subject: unknown,
-) {
-  const { binding, identity } =
-    ownedOperationFromManagementCapability(managementCapability);
-  if (!isObject(subject))
-    throw new Error("owned_host_cleanup_subject_required");
-  const generation = ownedOperationGeneration(binding.owned, identity);
-  validatePrivateHostRecoveryRecord(identity, identity.hostRecovery.state);
-  const capability = Object.freeze({});
-  hostCleanupCapabilities.set(
-    capability,
-    Object.freeze({
-      owned: binding.owned,
-      operationId: binding.operationId,
-      createdAt: binding.createdAt,
-      root: identity.root,
-      nonce: identity.hostRecovery.nonce,
-      recordHash: generation.currentRecordHash,
-      subject,
-    }),
-  );
-  return capability;
-}
-
-/**
- * 所有 Host 回復 Id For 清掃を一回限りで消費する。
- *
- * @responsibility 所有 Host 回復 Id For 清掃の消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
- * @trace ARCH-000008
- * @input cleanupCapability: unknown、subject: unknown
- * @returns consumeOwnedHostRecoveryIdForCleanupの計算結果を返す。
- * @precondition 「cleanupCapability: unknown、subject: unknown」がconsumeOwnedHostRecoveryIdForCleanupの入力契約を満たす。
- * @postcondition consumeOwnedHostRecoveryIdForCleanupの責務を完了した結果だけを返す。
- * @effect N/A: consumeOwnedHostRecoveryIdForCleanupは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure consumeOwnedHostRecoveryIdForCleanupは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant consumeOwnedHostRecoveryIdForCleanupは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: consumeOwnedHostRecoveryIdForCleanupはProcess内の同一Subsystemで完結する。
- * @security consumeOwnedHostRecoveryIdForCleanupはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: consumeOwnedHostRecoveryIdForCleanupは共有非同期状態を持たない同期処理である。
- */
-export function consumeOwnedHostRecoveryIdForCleanup(
-  cleanupCapability: unknown,
-  subject: unknown,
-) {
-  const capability = isObject(cleanupCapability) ? cleanupCapability : null;
-  const binding = capability
-    ? (hostCleanupCapabilities.get(capability) ?? null)
-    : null;
-  if (!capability || !binding || binding.subject !== subject)
-    throw new Error("owned_host_cleanup_capability_required");
-  hostCleanupCapabilities.delete(capability);
-  const identity = ownedIdentities.get(binding.owned);
-  if (
-    !identity ||
-    identity.operationId !== binding.operationId ||
-    identity.createdAt !== binding.createdAt ||
-    identity.root !== binding.root ||
-    identity.hostRecovery.nonce !== binding.nonce
-  )
-    throw new Error("owned_host_cleanup_identity_changed");
-  const generation = ownedOperationGeneration(binding.owned, identity, true);
-  if (
-    generation.currentRecordHash !== binding.recordHash ||
-    generation.retired ||
-    (generation.generationLock !== null &&
-      !generation.generationLock.assertLive())
-  )
-    throw new Error("owned_host_cleanup_generation_unavailable");
-  validateOwnedOperationIdentity(binding.owned, identity, true);
-  validatePrivateHostRecoveryRecord(identity, identity.hostRecovery.state);
-  return expectedHostRecoveryToken(identity);
-}
-
-/**
- * 所有 Docker Submission 回復を完了状態へ遷移させる。
- *
- * @responsibility 所有 Docker Submission 回復の完了条件、終了後状態、未完了境界を所有する。
- * @trace ARCH-000008
- * @input managementCapability: unknown、recoveryToken: unknown
- * @returns completeOwnedDockerSubmissionRecoveryの計算結果を返す。
- * @precondition 「managementCapability: unknown、recoveryToken: unknown」がcompleteOwnedDockerSubmissionRecoveryの入力契約を満たす。
- * @postcondition completeOwnedDockerSubmissionRecoveryの責務を完了した結果だけを返す。
- * @effect N/A: completeOwnedDockerSubmissionRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: completeOwnedDockerSubmissionRecoveryは独自の失敗分岐を所有しない。
- * @invariant completeOwnedDockerSubmissionRecoveryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: completeOwnedDockerSubmissionRecoveryはProcess内の同一Subsystemで完結する。
- * @security completeOwnedDockerSubmissionRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: completeOwnedDockerSubmissionRecoveryは共有非同期状態を持たない同期処理である。
- */
-export function completeOwnedDockerSubmissionRecovery(
-  managementCapability: unknown,
-  recoveryToken: unknown,
-) {
-  return transitionOwnedDockerSubmissionByManagement(
-    managementCapability,
-    recoveryToken,
-    "cancel",
-  );
-}
-
-/**
- * 所有 Docker Absence For 回復を確認する。
- *
- * @responsibility 所有 Docker Absence For 回復の確認根拠、成立条件、観測不能境界を所有する。
- * @trace ARCH-000008
- * @input token: unknown、recoveryGenerationCapability: unknown
- * @returns confirmOwnedDockerAbsenceForRecoveryの計算結果を返す。
- * @precondition 「token: unknown、recoveryGenerationCapability: unknown」がconfirmOwnedDockerAbsenceForRecoveryの入力契約を満たす。
- * @postcondition confirmOwnedDockerAbsenceForRecoveryの責務を完了した結果だけを返す。
- * @effect confirmOwnedDockerAbsenceForRecoveryはFilesystemの読取りまたは書込みを実行する。
- * @failure confirmOwnedDockerAbsenceForRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant confirmOwnedDockerAbsenceForRecoveryは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security confirmOwnedDockerAbsenceForRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: confirmOwnedDockerAbsenceForRecoveryは共有非同期状態を持たない同期処理である。
- */
-export function confirmOwnedDockerAbsenceForRecovery(
-  token: unknown,
-  recoveryGenerationCapability: unknown = null,
-) {
-  const generation = isObject(recoveryGenerationCapability)
-    ? hostOperationRecoveryGenerations.get(recoveryGenerationCapability)
-    : null;
-  if (!generation) throw new Error("host_recovery_generation_invalid");
-  const loaded = loadHostRecoveryRecord(token, generation.root);
-  if (loaded.record.state !== "docker_submission_started")
-    throw new Error("host_recovery_state_invalid");
-  const root = path.join(loaded.parent, loaded.parsed.rootName);
-  verifyHostOperationRecoveryGeneration(
-    recoveryGenerationCapability,
-    root,
-    loaded.parsed.nonce,
-  );
-  if (operationGenerationByRoot.has(root))
-    throw new Error("host_recovery_generation_active");
-  if (
-    observeFilesystemEntry(root) !== "present" ||
-    fs.realpathSync(root) !== root ||
-    path.dirname(root) !== loaded.parent ||
-    !loaded.record.rootIdentity ||
-    !identityMatchesRecord(root, loaded.record.rootIdentity)
-  )
-    throw new Error("host_recovery_root_replaced");
-  const updated = replaceHostRecoveryRecordState(
-    loaded,
-    "docker_absent_confirmed",
-  );
-  return updated.token;
-}
-
-/**
- * 所有 Host 回復 記録 Transitionを引き継ぐ。
- *
- * @responsibility 所有 Host 回復 記録 Transitionの引継ぎ条件、Identity結合、拒否境界を所有する。
- * @trace ARCH-000008
- * @input mountCapability: unknown、previousToken: unknown、nextToken: unknown
- * @returns N/A: adoptOwnedHostRecoveryRecordTransitionは戻り値を返さない。
- * @precondition 「mountCapability: unknown、previousToken: unknown、nextToken: unknown」がadoptOwnedHostRecoveryRecordTransitionの入力契約を満たす。
- * @postcondition adoptOwnedHostRecoveryRecordTransitionの責務を完了して呼出し元へ制御を戻す。
- * @effect adoptOwnedHostRecoveryRecordTransitionはFilesystemの読取りまたは書込みを実行する。
- * @failure adoptOwnedHostRecoveryRecordTransitionは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant adoptOwnedHostRecoveryRecordTransitionは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security adoptOwnedHostRecoveryRecordTransitionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: adoptOwnedHostRecoveryRecordTransitionは共有非同期状態を持たない同期処理である。
- */
-export function adoptOwnedHostRecoveryRecordTransition(
-  mountCapability: unknown,
-  previousToken: unknown,
-  nextToken: unknown,
-): void {
-  const previous = parseHostRecoveryToken(previousToken);
-  const mount = isObject(mountCapability)
-    ? (mountCapabilities.get(mountCapability) ?? null)
-    : null;
-  const identity = mount ? ownedIdentities.get(mount.owned) : null;
-  if (!mount || !identity)
-    throw new Error("owned_operation_mount_capability_required");
-  validateOwnedOperationIdentity(mount.owned, identity);
-  const loaded = loadHostRecoveryRecord(nextToken, identity.root);
-  const root = path.join(loaded.parent, loaded.parsed.rootName);
-  const state = operationGenerationByRoot.get(root);
-  if (!state || !mount || mount.owned !== state.owned || state.retired)
-    throw new Error("owned_operation_mount_capability_required");
-  validateOwnedOperationIdentity(state.owned, identity);
-  const expectedSerialized = `${JSON.stringify(
-    hostRecordContent(identity, "docker_absent_confirmed"),
-  )}\n`;
-  const expectedRecordHash = createHash("sha256")
-    .update(expectedSerialized)
-    .digest("hex");
-  if (
-    previous.rootName !== loaded.parsed.rootName ||
-    previous.nonce !== loaded.parsed.nonce ||
-    previous.nonce !== state.nonce ||
-    previous.recordHash !== state.currentRecordHash ||
-    loaded.parsed.recordHash === previous.recordHash ||
-    loaded.parsed.recordHash !== expectedRecordHash ||
-    loaded.marker !== identity.hostRecovery.record ||
-    identity.hostRecovery.state !== "docker_submission_started" ||
-    loaded.record.state !== "docker_absent_confirmed"
-  )
-    throw new Error("host_recovery_generation_mismatch");
-  ownedIdentities.set(
-    state.owned,
-    Object.freeze({
-      ...identity,
-      hostRecovery: Object.freeze({
-        ...identity.hostRecovery,
-        state: "docker_absent_confirmed",
-        recordHash: loaded.parsed.recordHash,
-        recordIdentity: readFileIdentity(loaded.marker),
-      }),
-    }),
-  );
-  state.currentRecordHash = loaded.parsed.recordHash;
-}
-
-/**
- * Current 所有 Host 記録を読み取る。
- *
- * @responsibility Current 所有 Host 記録の読取り元、上限、読取不能時の結果境界を所有する。
- * @trace ARCH-000008
- * @input identity: OwnedIdentity
- * @returns Readonly<{ record: HostRecoveryRecord; serialized: string }>を返す。
- * @precondition 「identity: OwnedIdentity」がreadCurrentOwnedHostRecordの入力契約を満たす。
- * @postcondition readCurrentOwnedHostRecordの責務を完了した結果だけを返す。
- * @effect readCurrentOwnedHostRecordはFilesystemの読取りまたは書込みを実行する。
- * @failure readCurrentOwnedHostRecordは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant readCurrentOwnedHostRecordは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security readCurrentOwnedHostRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: readCurrentOwnedHostRecordは共有非同期状態を持たない同期処理である。
- */
-function readCurrentOwnedHostRecord(
-  identity: OwnedIdentity,
-): Readonly<{ record: HostRecoveryRecord; serialized: string }> {
-  const metadata = fs.lstatSync(identity.hostRecovery.record);
-  if (
-    !metadata.isFile() ||
-    metadata.isSymbolicLink() ||
-    !identity.hostRecovery.recordIdentity ||
-    !sameFilesystemIdentity(
-      readFileIdentity(identity.hostRecovery.record),
-      identity.hostRecovery.recordIdentity,
-    )
-  )
-    throw new Error("host_recovery_record_replaced");
-  const serialized = fs.readFileSync(identity.hostRecovery.record, "utf8");
-  const record: unknown = JSON.parse(serialized);
-  const normalized = normalizeHostRecoveryRecord(record);
-  if (normalized.rootName !== path.basename(identity.root))
-    throw new Error("host_recovery_record_mismatch");
-  return { record: normalized, serialized };
-}
-
-/**
- * expected Host 回復 Tokenを決定する。
- *
- * @responsibility expected Host 回復 Tokenの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input identity: OwnedIdentity
- * @returns stringを返す。
- * @precondition 「identity: OwnedIdentity」がexpectedHostRecoveryTokenの入力契約を満たす。
- * @postcondition expectedHostRecoveryTokenの責務を完了した結果だけを返す。
- * @effect N/A: expectedHostRecoveryTokenは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: expectedHostRecoveryTokenは独自の失敗分岐を所有しない。
- * @invariant expectedHostRecoveryTokenは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: expectedHostRecoveryTokenはProcess内の同一Subsystemで完結する。
- * @security expectedHostRecoveryTokenはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: expectedHostRecoveryTokenは共有非同期状態を持たない同期処理である。
- */
-function expectedHostRecoveryToken(identity: OwnedIdentity): string {
-  return `host.${path.basename(identity.root)}.${identity.hostRecovery.nonce}.${identity.hostRecovery.recordHash}`;
-}
-
-/**
- * Private Host 回復 記録の契約を検証する。
- *
- * @responsibility Private Host 回復 記録の必須Property、拒否条件、検証結果の境界を所有する。
- * @trace ARCH-000008
- * @input identity: OwnedIdentity、expectedState: RecoveryState
- * @returns HostRecoveryRecordを返す。
- * @precondition 「identity: OwnedIdentity、expectedState: RecoveryState」がvalidatePrivateHostRecoveryRecordの入力契約を満たす。
- * @postcondition validatePrivateHostRecoveryRecordの責務を完了した結果だけを返す。
- * @effect N/A: validatePrivateHostRecoveryRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure validatePrivateHostRecoveryRecordは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant validatePrivateHostRecoveryRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validatePrivateHostRecoveryRecordはProcess内の同一Subsystemで完結する。
- * @security validatePrivateHostRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validatePrivateHostRecoveryRecordは共有非同期状態を持たない同期処理である。
- */
-function validatePrivateHostRecoveryRecord(
-  identity: OwnedIdentity,
-  expectedState: RecoveryState,
-): HostRecoveryRecord {
-  const { record, serialized } = readCurrentOwnedHostRecord(identity);
-  const actualHash = createHash("sha256").update(serialized).digest("hex");
-  if (
-    actualHash !== identity.hostRecovery.recordHash ||
-    record.state !== expectedState ||
-    identity.hostRecovery.state !== expectedState ||
-    record.rootName !== path.basename(identity.root)
-  ) {
-    throw new Error("host_recovery_record_mismatch");
-  }
-  if (
-    !record.rootIdentity ||
-    !identityMatchesRecord(identity.root, record.rootIdentity)
-  )
-    throw new Error("host_recovery_record_mismatch");
-  for (const [name, snapshot] of Object.entries(identity.children ?? {})) {
-    const recorded = record.childIdentities?.[name];
-    if (!recorded || recorded.pathName !== snapshot.name)
-      throw new Error("host_recovery_record_mismatch");
-    if (
-      BigInt(recorded.dev) !== snapshot.filesystem.dev ||
-      BigInt(recorded.ino) !== snapshot.filesystem.ino ||
-      BigInt(recorded.birthtimeNs) !== snapshot.filesystem.birthtimeNs
-    )
-      throw new Error("host_recovery_record_mismatch");
-  }
-  return record;
-}
-
-/**
- * rollback Initializing Operation Directoriesを決定する。
- *
- * @responsibility rollback Initializing Operation Directoriesの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input owned: unknown
- * @returns voidを返す。
- * @precondition 「owned: unknown」がrollbackInitializingOperationDirectoriesの入力契約を満たす。
- * @postcondition rollbackInitializingOperationDirectoriesの責務を完了した結果だけを返す。
- * @effect rollbackInitializingOperationDirectoriesはFilesystemの読取りまたは書込みを実行する。
- * @failure rollbackInitializingOperationDirectoriesは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant rollbackInitializingOperationDirectoriesは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security rollbackInitializingOperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: rollbackInitializingOperationDirectoriesは共有非同期状態を持たない同期処理である。
- */
-function rollbackInitializingOperationDirectories(owned: unknown): void {
-  const identity = ownedIdentity(owned);
-  if (identity?.hostRecovery.state !== "initializing") {
-    cleanupOwnedOperationDirectories(owned);
-    return;
-  }
-  const realRoot = fs.realpathSync(identity.root);
-  if (
-    realRoot !== identity.root ||
-    fs.realpathSync(identity.parent) !== identity.parent ||
-    path.dirname(realRoot) !== identity.parent ||
-    !path.basename(realRoot).startsWith(identity.prefix) ||
-    !sameFilesystemIdentity(
-      readFilesystemIdentity(realRoot),
-      identity.filesystem,
-    )
-  )
-    throw new Error("owned_operation_directory_replaced");
-  const allowed = new Set([
-    "workspace",
-    "provider-home",
-    "tmp",
-    "events",
-    "projection",
-    "management",
-  ]);
-  for (const entry of fs.readdirSync(realRoot, { withFileTypes: true })) {
-    if (
-      !allowed.has(entry.name) ||
-      !entry.isDirectory() ||
-      entry.isSymbolicLink()
-    ) {
-      throw new Error("owned_operation_unknown_child");
-    }
-  }
-  fs.rmSync(realRoot, { recursive: true, force: false });
-  requireConfirmedAbsent(
-    realRoot,
-    "owned_operation_directory_cleanup_incomplete",
-  );
-  if (isObject(owned)) {
-    revokeOwnedOperationContextCapabilities(owned);
-    ownedIdentities.delete(owned);
-  }
-  if (
-    !revokeOwnedOperationGeneration(identity.root, identity.hostRecovery.nonce)
-  )
-    throw new Error("owned_operation_generation_release_unconfirmed");
-  removeOwnedOperationRecoveryRecord(identity);
+  return ownedOperationFromManagementCapability(management).identity.host.record
+    .recoveryId;
 }
 
 /**
@@ -5422,249 +3486,19 @@ export function borrowOwnedDockerExecutionPaths(
   });
 }
 
-/**
- * 所有 Child Setの契約を検証する。
- *
- * @responsibility 所有 Child Setの必須Property、拒否条件、検証結果の境界を所有する。
- * @trace ARCH-000008
- * @input root: string、children: ChildSnapshots
- * @returns N/A: validateOwnedChildSetは戻り値を返さない。
- * @precondition 「root: string、children: ChildSnapshots」がvalidateOwnedChildSetの入力契約を満たす。
- * @postcondition validateOwnedChildSetの責務を完了して呼出し元へ制御を戻す。
- * @effect validateOwnedChildSetはFilesystemの読取りまたは書込みを実行する。
- * @failure validateOwnedChildSetは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant validateOwnedChildSetは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security validateOwnedChildSetはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validateOwnedChildSetは共有非同期状態を持たない同期処理である。
- */
-function validateOwnedChildSet(root: string, children: ChildSnapshots): void {
-  const known = new Set(
-    Object.values(children).map((snapshot) => snapshot.name),
-  );
-  const entries = fs.readdirSync(root, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!known.has(entry.name))
-      throw new Error("owned_operation_unknown_child");
-  }
-  for (const snapshot of Object.values(children)) {
-    try {
-      const metadata = fs.lstatSync(snapshot.root);
-      if (!metadata.isDirectory() || metadata.isSymbolicLink())
-        throw new Error("owned_operation_child_replaced");
-      validateDirectorySnapshot(snapshot);
-    } catch (error) {
-      if (errorCode(error) === "ENOENT") continue;
-      const message = errorMessage(error);
-      if (
-        message &&
-        [
-          "owned_operation_child_replaced",
-          "owned_operation_mount_replaced",
-        ].includes(message)
-      )
-        throw new Error("owned_operation_child_replaced");
-      throw error;
-    }
-  }
-}
-
-/**
- * require No Active Docker Bindingを決定する。
- *
- * @responsibility require No Active Docker Bindingの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input root: string、managementName: string | undefined
- * @returns voidを返す。
- * @precondition 「root: string、managementName: string | undefined」がrequireNoActiveDockerBindingの入力契約を満たす。
- * @postcondition requireNoActiveDockerBindingの責務を完了した結果だけを返す。
- * @effect N/A: requireNoActiveDockerBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure requireNoActiveDockerBindingは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant requireNoActiveDockerBindingは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: requireNoActiveDockerBindingはProcess内の同一Subsystemで完結する。
- * @security requireNoActiveDockerBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: requireNoActiveDockerBindingは共有非同期状態を持たない同期処理である。
- */
-function requireNoActiveDockerBinding(
-  root: string,
-  managementName: string | undefined,
-): void {
-  if (!managementName) return;
-  const activeDockerBinding = path.join(
-    root,
-    managementName,
-    "active-docker-task-v1.json",
-  );
-  for (const candidate of [
-    activeDockerBinding,
-    `${activeDockerBinding}.crdd-commit.json`,
-  ]) {
-    const observation = observeFilesystemEntry(candidate);
-    if (observation === "unknown")
-      throw new Error("host_recovery_root_observation_unknown");
-    if (observation === "present")
-      throw new Error("host_recovery_requires_docker_absence");
-  }
-}
-
-/**
- * 所有 Operation Root For 清掃を除去する。
- *
- * @responsibility 所有 Operation Root For 清掃の対象Identity、除去条件、終了後状態の境界を所有する。
- * @trace ARCH-000008
- * @input owned: unknown
- * @returns removeOwnedOperationRootForCleanupの計算結果を返す。
- * @precondition 「owned: unknown」がremoveOwnedOperationRootForCleanupの入力契約を満たす。
- * @postcondition removeOwnedOperationRootForCleanupの責務を完了した結果だけを返す。
- * @effect removeOwnedOperationRootForCleanupはFilesystemの読取りまたは書込みを実行する。
- * @failure removeOwnedOperationRootForCleanupは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant removeOwnedOperationRootForCleanupは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security removeOwnedOperationRootForCleanupはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: removeOwnedOperationRootForCleanupは共有非同期状態を持たない同期処理である。
- */
-function removeOwnedOperationRootForCleanup(owned: unknown) {
+/** 同じEM記録と実Lockで、全子の終結・実体・不存在・終端保存を閉じる。 @trace ARCH-000008 */
+function removeOwnedOperationRootForCleanup(owned: unknown): OwnedIdentity {
   const identity = ownedIdentity(owned);
-  if (!identity) {
-    throw new Error("owned_operation_directory_identity_required");
-  }
-  try {
-    if (!isObject(owned)) throw new Error("owned_operation_directory_replaced");
-    ownedOperationGeneration(owned, identity);
-    if (
-      ownString(owned, "root") !== identity.root ||
-      ownString(owned, "parent") !== identity.parent
-    ) {
-      throw new Error("owned_operation_directory_replaced");
-    }
-    const realRoot = fs.realpathSync(identity.root);
-    const realParent = fs.realpathSync(identity.parent);
-    const currentFilesystem = readFilesystemIdentity(identity.root);
-    if (
-      realRoot !== identity.root ||
-      realParent !== identity.parent ||
-      path.dirname(realRoot) !== realParent ||
-      !path.basename(realRoot).startsWith(identity.prefix) ||
-      !sameFilesystemIdentity(currentFilesystem, identity.filesystem)
-    ) {
-      throw new Error("owned_operation_directory_replaced");
-    }
-    if (identity.children)
-      validateOwnedChildSet(identity.root, identity.children);
-    requireNoActiveDockerBinding(
-      identity.root,
-      identity.children?.management.name,
-    );
-  } catch (error) {
-    const message = errorMessage(error);
-    if (
-      isObject(owned) &&
-      message &&
-      [
-        "owned_operation_directory_replaced",
-        "owned_operation_child_replaced",
-      ].includes(message)
-    ) {
-      retireOwnedOperationGeneration(
-        identity.root,
-        identity.hostRecovery.nonce,
-      );
-    }
-    if (
-      message &&
-      [
-        "owned_operation_directory_replaced",
-        "owned_operation_child_replaced",
-        "owned_operation_unknown_child",
-        "host_recovery_requires_docker_absence",
-        "host_recovery_root_observation_unknown",
-      ].includes(message)
-    )
-      throw error;
-    throw new Error("owned_operation_directory_replaced");
-  }
-  validatePrivateHostRecoveryRecord(identity, "host_only");
-  fs.rmSync(identity.root, { recursive: true, force: false });
-  requireConfirmedAbsent(
-    identity.root,
-    "owned_operation_directory_cleanup_incomplete",
-  );
+  if (!identity || !isObject(owned))
+    throw Error("owned_operation_directory_identity_required");
+  ownedOperationGeneration(owned, identity);
+  if (
+    ownString(owned, "root") !== identity.root ||
+    ownString(owned, "parent") !== identity.parent
+  )
+    throw Error("owned_operation_directory_replaced");
+  cleanupHostRoot(identity.host);
   return identity;
-}
-
-/**
- * 所有 Operation 回復 記録を除去する。
- *
- * @responsibility 所有 Operation 回復 記録の対象Identity、除去条件、終了後状態の境界を所有する。
- * @trace ARCH-000008
- * @input identity: OwnedIdentity
- * @returns N/A: removeOwnedOperationRecoveryRecordは戻り値を返さない。
- * @precondition 「identity: OwnedIdentity」がremoveOwnedOperationRecoveryRecordの入力契約を満たす。
- * @postcondition removeOwnedOperationRecoveryRecordの責務を完了して呼出し元へ制御を戻す。
- * @effect removeOwnedOperationRecoveryRecordはFilesystemの読取りまたは書込みを実行する。
- * @failure removeOwnedOperationRecoveryRecordは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant removeOwnedOperationRecoveryRecordは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security removeOwnedOperationRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: removeOwnedOperationRecoveryRecordは共有非同期状態を持たない同期処理である。
- */
-function removeOwnedOperationRecoveryRecord(identity: OwnedIdentity) {
-  try {
-    const recoveryDirectory = fs.realpathSync(identity.hostRecovery.directory);
-    if (
-      !sameFilesystemIdentity(
-        readFilesystemIdentity(recoveryDirectory),
-        identity.hostRecovery.directoryIdentity,
-      )
-    )
-      throw new Error("host_recovery_directory_replaced");
-    const marker = fs.lstatSync(identity.hostRecovery.record);
-    if (
-      !marker.isFile() ||
-      marker.isSymbolicLink() ||
-      !identity.hostRecovery.recordIdentity ||
-      !sameFilesystemIdentity(
-        readFileIdentity(identity.hostRecovery.record),
-        identity.hostRecovery.recordIdentity,
-      )
-    )
-      throw new Error("host_recovery_record_replaced");
-    fs.rmSync(identity.hostRecovery.record);
-    requireConfirmedAbsent(
-      identity.hostRecovery.record,
-      "host_recovery_record_observation_unknown",
-    );
-  } catch (error) {
-    if (errorCode(error) !== "ENOENT") throw error;
-  }
-}
-
-/**
- * 所有 Operation Directories Asyncを清掃する。
- *
- * @responsibility 所有 Operation Directories Asyncの清掃対象、完了観測、残存時の失敗境界を所有する。
- * @trace ARCH-000008
- * @input owned: unknown
- * @returns cleanupOwnedOperationDirectoriesAsyncの計算結果を返す。
- * @precondition 「owned: unknown」がcleanupOwnedOperationDirectoriesAsyncの入力契約を満たす。
- * @postcondition cleanupOwnedOperationDirectoriesAsyncの責務を完了した結果だけを返す。
- * @effect N/A: cleanupOwnedOperationDirectoriesAsyncは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure cleanupOwnedOperationDirectoriesAsyncは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant cleanupOwnedOperationDirectoriesAsyncは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: cleanupOwnedOperationDirectoriesAsyncはProcess内の同一Subsystemで完結する。
- * @security cleanupOwnedOperationDirectoriesAsyncはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency cleanupOwnedOperationDirectoriesAsyncは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
- */
-export async function cleanupOwnedOperationDirectoriesAsync(owned: unknown) {
-  const identity = removeOwnedOperationRootForCleanup(owned);
-  const release = await revokeOwnedOperationGenerationAsync(
-    identity.root,
-    identity.hostRecovery.nonce,
-  );
-  if (release === "cleanup_unknown")
-    throw new Error("owned_operation_generation_release_unconfirmed");
-  removeOwnedOperationRecoveryRecord(identity);
-  return createOwnedOperationCleanupOutcome("completed", owned, identity);
 }
 
 /**
@@ -5689,7 +3523,6 @@ const ownedOperationCleanupOutcomes = new WeakMap<
     owned: unknown;
     operationId: string;
     root: string;
-    nonce: string;
   }>
 >();
 
@@ -5722,7 +3555,6 @@ function createOwnedOperationCleanupOutcome(
       owned,
       operationId: identity.operationId,
       root: identity.root,
-      nonce: identity.hostRecovery.nonce,
     }),
   );
   return outcome;
@@ -5805,7 +3637,7 @@ export function captureOwnedOperationCleanupVerification(
         record.owned === binding.owned &&
         record.operationId === identity.operationId &&
         record.root === identity.root &&
-        record.nonce === identity.hostRecovery.nonce
+        record.operationId === identity.operationId
         ? record.status
         : null;
     };
@@ -5814,239 +3646,34 @@ export function captureOwnedOperationCleanupVerification(
   }
 }
 
-/**
- * Host 回復 記録を読み込む。
- *
- * @responsibility Host 回復 記録の読取り元、Schema検証、読取不能時の拒否境界を所有する。
- * @trace ARCH-000008
- * @input token: unknown
- * @returns Readonly<{ parsed: Readonly<{ rootName: string; nonce: string; recordHash: string }>; parent: string; recovery: Readonly<{ directory: string }>; marker: string; record: HostRecoveryRecord; }>を返す。
- * @precondition 「token: unknown」がloadHostRecoveryRecordの入力契約を満たす。
- * @postcondition loadHostRecoveryRecordの責務を完了した結果だけを返す。
- * @effect N/A: loadHostRecoveryRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: loadHostRecoveryRecordは独自の失敗分岐を所有しない。
- * @invariant loadHostRecoveryRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: loadHostRecoveryRecordはProcess内の同一Subsystemで完結する。
- * @security loadHostRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: loadHostRecoveryRecordは共有非同期状態を持たない同期処理である。
- */
-function loadHostRecoveryRecord(
-  token: unknown,
-  expectedRoot: unknown,
-): Readonly<{
-  parsed: Readonly<{ rootName: string; nonce: string; recordHash: string }>;
-  parent: string;
-  recovery: Readonly<{ directory: string }>;
-  marker: string;
-  record: HostRecoveryRecord;
-}> {
-  const loaded = loadHostRecoveryRecordByToken(token, expectedRoot);
-  return {
-    parsed: loaded.parsed,
-    parent: loaded.parent,
-    recovery: { directory: loaded.directory },
-    marker: loaded.marker,
-    record: normalizeHostRecoveryRecord(loaded.record),
-  };
-}
-
-/**
- * recover 所有 Operation Directoriesを決定する。
- *
- * @responsibility recover 所有 Operation Directoriesの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input token: exact参照、suppliedRecoveryGenerationCapability: 既存世代Owner、expectedRoot: 世代Ownerを渡さない場合の固定Root。
- * @returns Readonly<{ status: "recovered" | "blocked"; reason: string; recoveryId: string | null; }>を返す。
- * @precondition 「token: unknown、suppliedRecoveryGenerationCapability: unknown」がrecoverOwnedOperationDirectoriesの入力契約を満たす。
- * @postcondition recoverOwnedOperationDirectoriesの責務を完了した結果だけを返す。
- * @effect recoverOwnedOperationDirectoriesはFilesystemの読取りまたは書込みを実行する。
- * @failure recoverOwnedOperationDirectoriesは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant recoverOwnedOperationDirectoriesは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security recoverOwnedOperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: recoverOwnedOperationDirectoriesは共有非同期状態を持たない同期処理である。
- */
+/** 取得済みの同じHost Lock下で実体回収とEM終端を確定する。 @trace ARCH-000008 */
 export function recoverOwnedOperationDirectories(
-  token: unknown,
-  suppliedRecoveryGenerationCapability: unknown = null,
-  expectedRoot: unknown = null,
-): Readonly<{
-  status: "recovered" | "blocked";
-  reason: string;
-  recoveryId: string | null;
-}> {
-  let recoveryGeneration: Readonly<{ root: string; nonce: string }> | null =
-    null;
-  let verifiedRecoveryId: string | null = null;
-  let markerPendingAfterRelease: string | null = null;
-  const ownedRecoveryGenerationCapability = suppliedRecoveryGenerationCapability
-    ? null
-    : acquireHostOperationRecoveryGeneration(token, expectedRoot);
-  const recoveryGenerationCapability =
-    suppliedRecoveryGenerationCapability ?? ownedRecoveryGenerationCapability;
-  const result = (() => {
-    try {
-      const generation = isObject(recoveryGenerationCapability)
-        ? hostOperationRecoveryGenerations.get(recoveryGenerationCapability)
-        : null;
-      if (!generation) throw new Error("host_recovery_generation_invalid");
-      if (expectedRoot !== null && expectedRoot !== generation.root)
-        throw new Error("host_recovery_root_mismatch");
-      verifyHostOperationRecoveryGeneration(
-        recoveryGenerationCapability,
-        generation.root,
-        parseHostRecoveryToken(token).nonce,
-      );
-      const { parsed, parent, marker, record } = loadHostRecoveryRecord(
-        token,
-        generation.root,
-      );
-      verifiedRecoveryId = typeof token === "string" ? token : null;
-      if (record.state === "docker_submission_started")
-        throw new Error("host_recovery_requires_docker_absence");
-      if (
-        !["initializing", "host_only", "docker_absent_confirmed"].includes(
-          record.state,
-        )
-      )
-        throw new Error("host_recovery_state_invalid");
-      const root = path.join(parent, parsed.rootName);
-      recoveryGeneration = Object.freeze({ root, nonce: parsed.nonce });
-      verifyHostOperationRecoveryGeneration(
-        recoveryGenerationCapability,
-        root,
-        parsed.nonce,
-      );
-      const activeGeneration = operationGenerationByRoot.get(root);
-      if (
-        activeGeneration &&
-        (activeGeneration.nonce !== parsed.nonce ||
-          activeGeneration.currentRecordHash !== parsed.recordHash)
-      )
-        throw new Error("host_recovery_generation_mismatch");
-      let reason = "host_root_already_absent";
-      const rootObservation = observeFilesystemEntry(root);
-      if (rootObservation === "unknown")
-        throw new Error("host_recovery_root_observation_unknown");
-      if (record.state === "initializing" && rootObservation === "present")
-        throw new Error("host_recovery_initialization_root_identity_unknown");
-      if (rootObservation === "present") {
-        if (
-          fs.realpathSync(root) !== root ||
-          path.dirname(root) !== parent ||
-          !record.rootIdentity ||
-          !identityMatchesRecord(root, record.rootIdentity)
-        )
-          throw new Error("host_recovery_root_replaced");
-        const known = new Set(
-          Object.values(record.childIdentities).map((child) => child.pathName),
-        );
-        for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-          if (!known.has(entry.name))
-            throw new Error("host_recovery_unknown_child");
-        }
-        for (const child of Object.values(record.childIdentities)) {
-          const target = path.join(root, child.pathName);
-          try {
-            const metadata = fs.lstatSync(target);
-            if (
-              !metadata.isDirectory() ||
-              metadata.isSymbolicLink() ||
-              fs.realpathSync(target) !== target ||
-              path.dirname(target) !== root ||
-              !identityMatchesRecord(target, child)
-            )
-              throw new Error("host_recovery_child_replaced");
-          } catch (error) {
-            if (errorCode(error) === "ENOENT") continue;
-            throw error;
-          }
-        }
-        requireNoActiveDockerBinding(
-          root,
-          record.childIdentities.management?.pathName,
-        );
-        fs.rmSync(root, { recursive: true, force: false });
-        requireConfirmedAbsent(root, "host_recovery_cleanup_incomplete");
-        reason = "host_cleanup_recovered";
-      }
-      if (!revokeOwnedOperationGeneration(root, parsed.nonce))
-        throw new Error("host_recovery_generation_release_unconfirmed");
-      if (ownedRecoveryGenerationCapability) markerPendingAfterRelease = marker;
-      else fs.rmSync(marker);
-      return { status: "recovered" as const, reason, recoveryId: null };
-    } catch (error) {
-      const allowed = new Set([
-        "host_recovery_token_invalid",
-        "host_recovery_record_replaced",
-        "host_recovery_record_mismatch",
-        "host_recovery_requires_docker_absence",
-        "host_recovery_state_invalid",
-        "host_recovery_root_replaced",
-        "host_recovery_child_replaced",
-        "host_recovery_unknown_child",
-        "host_recovery_cleanup_incomplete",
-        "host_recovery_root_observation_unknown",
-        "host_recovery_initialization_root_identity_unknown",
-        "host_recovery_generation_mismatch",
-        "host_recovery_generation_active",
-        "host_recovery_generation_release_unconfirmed",
-      ]);
-      const message = errorMessage(error);
-      if (
-        recoveryGeneration &&
-        message &&
-        [
-          "host_recovery_root_replaced",
-          "host_recovery_child_replaced",
-        ].includes(message)
-      ) {
-        const { root, nonce } = recoveryGeneration;
-        retireOwnedOperationGeneration(root, nonce);
-      }
-      return {
-        status: "blocked" as const,
-        reason:
-          message && allowed.has(message) ? message : "host_recovery_failed",
-        recoveryId: verifiedRecoveryId,
-      };
-    }
-  })();
-  if (
-    ownedRecoveryGenerationCapability &&
-    !releaseHostOperationRecoveryGeneration(ownedRecoveryGenerationCapability)
-  )
-    return {
-      status: "blocked",
-      reason: "host_recovery_generation_release_unconfirmed",
-      recoveryId: verifiedRecoveryId,
-    };
-  if (result.status === "recovered" && markerPendingAfterRelease) {
-    try {
-      const markerObservation = observeFilesystemEntry(
-        markerPendingAfterRelease,
-      );
-      if (markerObservation === "unknown")
-        throw new Error("host_recovery_record_observation_unknown");
-      if (markerObservation === "present") {
-        const loaded = loadHostRecoveryRecord(token, recoveryGeneration?.root);
-        if (loaded.marker !== markerPendingAfterRelease)
-          throw new Error("host_recovery_record_replaced");
-        fs.rmSync(markerPendingAfterRelease);
-        requireConfirmedAbsent(
-          markerPendingAfterRelease,
-          "host_recovery_record_observation_unknown",
-        );
-      }
-    } catch {
-      return {
-        status: "blocked",
-        reason: "host_recovery_record_replaced",
-        recoveryId: verifiedRecoveryId,
-      };
-    }
+  recoveryId: unknown,
+  capability: unknown,
+) {
+  const host = isObject(capability)
+    ? hostOperationRecoveryGenerations.get(capability)
+    : null;
+  if (!host || host.record.recoveryId !== recoveryId)
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "host_recovery_generation_active",
+      recoveryId: typeof recoveryId === "string" ? recoveryId : null,
+    });
+  try {
+    cleanupHostRoot(host);
+    return Object.freeze({
+      status: "recovered" as const,
+      reason: "host_cleanup_recovered",
+      recoveryId: null,
+    });
+  } catch {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "host_recovery_failed",
+      recoveryId: host.record.recoveryId,
+    });
   }
-  return result;
 }
 
 /**

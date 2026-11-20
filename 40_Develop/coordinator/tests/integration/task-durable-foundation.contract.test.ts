@@ -57,12 +57,8 @@ import {
   historyRepositoryInput,
   verifyRuntimePersistenceRepository,
 } from "../../src/execution/persistence.ts";
-import { projectState } from "../../src/state/projection.ts";
-import {
-  createCoordinatorSnapshotPersistencePorts,
-  createCurrentCoordinatorPersistencePorts,
-} from "../../src/state/transaction.ts";
-import { createCoordinatorSnapshotIntegrationRecordPort } from "../../src/workspace/operations.ts";
+import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
+import { createCoordinatorSnapshotPersistencePorts } from "../../src/state/transaction.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
@@ -111,10 +107,8 @@ function seedSnapshot(
     });
     assert.equal(saved.status, "completed");
     assert.deepEqual(
-      createCurrentCoordinatorPersistencePorts(
-        root,
-        "binding-a",
-      ).state.readState(state.projectId).value,
+      createTestPersistence(root, "binding-a").state.readState(state.projectId)
+        .value,
       state,
     );
   }
@@ -635,10 +629,7 @@ test("snapshot production: fresh bootstrap and independent adoption", (t) => {
     readFixtureSnapshot(root, "binding-a").value?.snapshotRevision,
     beforeRevision,
   );
-  const persistence = createCurrentCoordinatorPersistencePorts(
-    root,
-    "binding-a",
-  );
+  const persistence = createTestPersistence(root, "binding-a");
   const lease = persistence.lease.acquire(
     "project-a",
     "canonical",
@@ -647,13 +638,12 @@ test("snapshot production: fresh bootstrap and independent adoption", (t) => {
   assert.equal(lease.status, "completed", JSON.stringify(lease));
   if (lease.status !== "completed") throw new Error("adoption_lease_failed");
   assert.equal(lease.value.release().status, "completed");
-  const records = createCoordinatorSnapshotIntegrationRecordPort({
-    workingDirectory: root,
+  const recordsBinding = {
     repositoryBindingId: "binding-a",
     projectId: "project-a",
     milestoneId: "workbench-candidate",
     queueId: "adoption-a",
-  });
+  };
   const record = {
     kind: "adoption" as const,
     identity: "receipt-a",
@@ -666,14 +656,40 @@ test("snapshot production: fresh bootstrap and independent adoption", (t) => {
       cleanupConfirmed: true,
     },
   };
-  assert.equal(records.write(record).status, "completed");
-  assert.equal(records.write(record).status, "completed");
   assert.equal(
-    records.write({ ...record, value: { status: "blocked" } }).status,
+    saveIntegrationRecord(
+      verifyRuntimePersistenceRepository(root),
+      "binding-a",
+      recordsBinding,
+      record,
+    ).status,
+    "completed",
+  );
+  assert.equal(
+    saveIntegrationRecord(
+      verifyRuntimePersistenceRepository(root),
+      "binding-a",
+      recordsBinding,
+      record,
+    ).status,
+    "completed",
+  );
+  assert.equal(
+    saveIntegrationRecord(
+      verifyRuntimePersistenceRepository(root),
+      "binding-a",
+      recordsBinding,
+      { ...record, value: { status: "blocked" } },
+    ).status,
     "blocked",
   );
   assert.equal(
-    records.write({ ...record, kind: "integration" }).status,
+    saveIntegrationRecord(
+      verifyRuntimePersistenceRepository(root),
+      "binding-a",
+      recordsBinding,
+      { ...record, kind: "integration" },
+    ).status,
     "blocked",
   );
   const snapshot = readFixtureSnapshot(root, "binding-a");
@@ -1358,37 +1374,60 @@ test("Host Windows: 統合結果記録とLease終了を同じStateへ保存す�
   };
   assert.equal(seedSnapshot(root, payload).status, "completed");
   const file = path.join(root, ".crdd", "domain-model", "state.json");
-  const results = createCoordinatorSnapshotIntegrationRecordPort({
-    workingDirectory: root,
+  const resultsBinding = {
     repositoryBindingId: "binding-a",
     projectId: "project-a",
     milestoneId: "milestone-a",
     queueId: "queue-a",
-  });
+  };
   for (const kind of ["integration", "adoption"] as const) {
     const result = {
       kind,
       identity: `result-${kind}`,
       value: { status: "confirmed" },
     };
-    assert.equal(results.write(result).status, "completed");
-    const exact = fs.readFileSync(file, "utf8");
-    assert.equal(results.write(result).status, "completed");
     assert.equal(
-      results.write({ ...result, value: { status: "different" } }).status,
+      saveIntegrationRecord(
+        verifyRuntimePersistenceRepository(root),
+        "binding-a",
+        resultsBinding,
+        result,
+      ).status,
+      "completed",
+    );
+    const exact = fs.readFileSync(file, "utf8");
+    assert.equal(
+      saveIntegrationRecord(
+        verifyRuntimePersistenceRepository(root),
+        "binding-a",
+        resultsBinding,
+        result,
+      ).status,
+      "completed",
+    );
+    assert.equal(
+      saveIntegrationRecord(
+        verifyRuntimePersistenceRepository(root),
+        "binding-a",
+        resultsBinding,
+        { ...result, value: { status: "different" } },
+      ).status,
       "blocked",
     );
     assert.equal(fs.readFileSync(file, "utf8"), exact);
   }
   assert.equal(
-    createCoordinatorSnapshotIntegrationRecordPort({
-      workingDirectory: root,
-      repositoryBindingId: "binding-a",
-      projectId: "project-a",
-      milestoneId: "other",
-      queueId: "queue-a",
-    }).write({ kind: "integration", identity: "result-other", value: {} })
-      .status,
+    saveIntegrationRecord(
+      verifyRuntimePersistenceRepository(root),
+      "binding-a",
+      {
+        repositoryBindingId: "binding-a",
+        projectId: "project-a",
+        milestoneId: "other",
+        queueId: "queue-a",
+      },
+      { kind: "integration", identity: "result-other", value: {} },
+    ).status,
     "blocked",
   );
   assert.equal(
@@ -1874,7 +1913,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
     "binding-a",
   );
   assert.equal(initial.status, "completed");
-  const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
+  const ports = createTestPersistence(root, "binding-a");
   const queue = ports.state.enqueueOperation(
     {
       queueId: "queue-a",
@@ -2197,7 +2236,7 @@ function currentQueueFixture(t: test.TestContext, binding = "binding-a") {
       .status,
     "completed",
   );
-  const ports = createCurrentCoordinatorPersistencePorts(root, binding);
+  const ports = createTestPersistence(root, binding);
   assert.equal(
     ports.state.enqueueOperation(
       {
@@ -2345,7 +2384,7 @@ test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) =
   assert.equal(Object.isFrozen(selections), true);
   assert.equal(Object.isFrozen(selections.executor), true);
   assert.equal(Object.isFrozen(selections.reviewer), true);
-  assert.equal(projectState(write.value).taskExecutionSelections, selections);
+  assert.equal(write.value.taskExecutionSelections, selections);
   const read = ports.state.readState("project-a");
   assert.equal(read.status, "completed");
   assert.deepEqual(read.value, write.value);
@@ -2423,7 +2462,7 @@ test("PR-D-A-01 rejects an unknown queue record kind on exact retry", (t) => {
     ).status,
     "completed",
   );
-  const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
+  const ports = createTestPersistence(root, "binding-a");
   const input = {
     queueId: "queue-a",
     projectId: "project-a",
@@ -2477,7 +2516,7 @@ test("PR-D-Q-00 selects only queues owned by the requested Project binding", (t)
     ).status,
     "completed",
   );
-  const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
+  const ports = createTestPersistence(root, "binding-a");
   const commonFields = {
     milestoneId: "milestone-a",
     requestHash: "b".repeat(64),
@@ -2506,7 +2545,7 @@ test("PR-D-Q-00 selects only queues owned by the requested Project binding", (t)
   assert.equal(selectedB.reason, "orchestrator_snapshot_binding_invalid");
   assert.deepEqual(fs.readFileSync(location), before);
   assert.throws(
-    () => createCurrentCoordinatorPersistencePorts(root, "binding-b"),
+    () => createTestPersistence(root, "binding-b"),
     /orchestrator_snapshot_not_initialized/u,
   );
 });
@@ -2532,7 +2571,7 @@ test("PR-D-Q-01 binds queue ownership to a live opaque lease", (t) => {
     ).status,
     "completed",
   );
-  const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
+  const ports = createTestPersistence(root, "binding-a");
   const input = {
     queueId: "queue-a",
     projectId: "project-a",
@@ -2645,7 +2684,7 @@ test("PR-D-A-01 現行QueueのIdentity変更を再送・更新で拒否する", 
         ).status,
         "completed",
       );
-      const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
+      const ports = createTestPersistence(root, "binding-a");
       const input = {
         queueId: "queue-a",
         projectId: "project-a",
@@ -2729,7 +2768,7 @@ test("PR-D-Q-01 serializes operation and project-scoped adoption leases", (t) =>
     ).status,
     "completed",
   );
-  const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
+  const ports = createTestPersistence(root, "binding-a");
   assert.equal(
     ports.state.enqueueOperation(
       {
@@ -2817,7 +2856,7 @@ test("PR-D-A-01 Lease終了保存失敗は回復参照を保全して再取得�
     ).status,
     "completed",
   );
-  const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
+  const ports = createTestPersistence(root, "binding-a");
   assert.equal(
     ports.state.enqueueOperation(
       {
@@ -2926,10 +2965,10 @@ test("PR-A-04 reconciles an exited lease owner without starting new work", (t) =
     [
       "--eval",
       `import { acquireCoordinatorSnapshotLease } from ${JSON.stringify(moduleUrl)};
-import { createCurrentCoordinatorPersistencePorts } from ${JSON.stringify(new URL("../../src/state/transaction.ts", import.meta.url).href)};
+import { createTestPersistence } from ${JSON.stringify(new URL("../fixtures/task-persistence-fixture.ts", import.meta.url).href)};
 const lease = acquireCoordinatorSnapshotLease(${JSON.stringify(root)}, "binding-a", "project-a", "queue-a", "project-operation");
 if (lease.status !== "completed") { process.stdout.write(JSON.stringify({ status: lease.status, reason: lease.reason, manualRecoveryRequired: lease.manualRecoveryRequired })); process.exit(20); }
-const queued = createCurrentCoordinatorPersistencePorts(${JSON.stringify(root)}, "binding-a").state.updateQueue("queue-a", 1, { state: "leased", lease: lease.value, resumeCondition: null, resultReference: null });
+const queued = createTestPersistence(${JSON.stringify(root)}, "binding-a").state.updateQueue("queue-a", 1, { state: "leased", lease: lease.value, resumeCondition: null, resultReference: null });
 if (queued.status !== "completed") process.exit(21);`,
     ],
     { windowsHide: true, encoding: "utf8" },

@@ -174,30 +174,40 @@ export function createCommit(
           identity: temporaryIdentity(fs.lstatSync(temporary)),
         };
         run(["read-tree", request.baseCommit]);
+        const removals: string[] = [];
+        const additions: string[] = [];
+        const writtenBlobs = new Set<string>();
         for (const item of request.selection) {
-          let cursor = ctx.target;
           const segments = item.path.split("/");
-          for (const segment of segments.slice(0, -1)) {
-            cursor = path.join(cursor, segment);
-            const info = fs.lstatSync(cursor);
-            if (
-              !info.isDirectory() ||
-              info.isSymbolicLink() ||
-              fs.existsSync(path.join(cursor, ".git"))
-            )
-              throw new Error("commit_create_path_invalid");
-          }
+          const parentsPresent = inspectWorktreeFileAncestors(
+            ctx.target,
+            item.path,
+          );
           const absolute = path.join(ctx.target, ...segments);
           if (item.blobId === null) {
-            try {
-              fs.lstatSync(absolute);
+            const tracked = run([
+              "ls-tree",
+              "-z",
+              request.baseCommit,
+              "--",
+              item.path,
+            ]);
+            if (!/^100(?:644|755) blob [0-9a-f]+\t/u.test(tracked))
               throw new Error("commit_create_deletion_mismatch");
-            } catch (error) {
-              if ((error as NodeJS.ErrnoException).code !== "ENOENT")
-                throw error;
+            if (parentsPresent) {
+              try {
+                fs.lstatSync(absolute);
+                throw new Error("commit_create_deletion_mismatch");
+              } catch (error) {
+                if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+                  throw error;
+              }
             }
-            run(["update-index", "--force-remove", "--", item.path]);
+            removals.push(
+              `0 ${"0".repeat(request.baseCommit.length)}\t${item.path}\0`,
+            );
           } else {
+            if (!parentsPresent) throw new Error("commit_create_path_invalid");
             const info = fs.lstatSync(absolute);
             if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1)
               throw new Error("commit_create_path_invalid");
@@ -211,18 +221,20 @@ export function createCommit(
             if (calculated !== item.blobId)
               throw new Error("commit_create_content_changed");
             result.effectIssued = true;
-            if (run(["hash-object", "-w", "--stdin"], bytes) !== item.blobId)
-              throw new Error("commit_create_blob_mismatch");
-            run([
-              "update-index",
-              "--add",
-              "--cacheinfo",
-              item.mode as string,
-              item.blobId,
-              item.path,
-            ]);
+            // 検査済みbytesだけを渡す。GitにPathを再openさせない。
+            if (!writtenBlobs.has(item.blobId)) {
+              if (run(["hash-object", "-w", "--stdin"], bytes) !== item.blobId)
+                throw new Error("commit_create_blob_mismatch");
+              writtenBlobs.add(item.blobId);
+            }
+            additions.push(`${item.mode} ${item.blobId}\t${item.path}\0`);
           }
         }
+        if (removals.length || additions.length)
+          run(
+            ["update-index", "-z", "--index-info"],
+            Buffer.from([...removals, ...additions].join("")),
+          );
         result.effectIssued = true;
         const tree = run(["write-tree"]);
         const commit = run([
@@ -293,6 +305,40 @@ function operateCommit(
   return result;
 }
 
+/**
+ * Worktree内のFile祖先を確認し、明示的な不存在と観測失敗を分ける。
+ * @responsibility 親Directoryごとの削除を扱い、Link・別Repositoryを拒否する。
+ * @trace ARCH-000009
+ * @input root: 検証済みWorktree、relativePath: 検査済み相対File Path。
+ * @returns 全祖先が通常Directoryならtrue、最初のENOENTだけfalse。
+ * @effect Filesystem読取りのみ。
+ * @failure Link、非Directory、別Repository、ENOENT以外の観測失敗は例外。
+ * @boundary 内部の現在File読取りと選択Commit生成。
+ */
+export function inspectWorktreeFileAncestors(
+  root: string,
+  relativePath: string,
+): boolean {
+  let cursor = root;
+  for (const segment of relativePath.split("/").slice(0, -1)) {
+    cursor = path.join(cursor, segment);
+    let info: fs.Stats;
+    try {
+      info = fs.lstatSync(cursor);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+      throw error;
+    }
+    if (
+      !info.isDirectory() ||
+      info.isSymbolicLink() ||
+      fs.existsSync(path.join(cursor, ".git"))
+    )
+      throw Error("commit_create_path_invalid");
+  }
+  return true;
+}
+
 /** 生成Commitの親と変更Pathを要求へ再照合し、不一致では成功にしない。 */
 function verifyCommitSelection(
   ctx: WorktreeGitContext,
@@ -324,26 +370,75 @@ function verifyCommitSelection(
   if (diff.status !== 0) throw new Error("commit_create_diff_unavailable");
   const paths = diff.stdout.split("\0").filter(Boolean);
   if (
-    !paths.length ||
+    (!paths.length && request.allowEmpty !== true) ||
     paths.some((p) => !request.selection.some((s) => s.path === p))
   )
     throw new Error("commit_create_selection_mismatch");
+  const entries = readSelectedTreeEntries(
+    ctx,
+    commit,
+    request.selection.map((item) => item.path),
+  );
   for (const item of request.selection) {
-    const entry = ctx.run(ctx.owner, [
-      "ls-tree",
-      "-z",
-      commit,
-      "--",
-      item.path,
-    ]);
     const expected =
       item.blobId === null
         ? ""
         : `${item.mode} blob ${item.blobId}\t${item.path}\0`;
-    if (entry.status !== 0 || entry.stdout !== expected)
+    if ((entries.get(item.path) ?? "") !== expected)
       throw new Error("commit_create_content_mismatch");
   }
   return paths;
+}
+
+/**
+ * 選択PathだけのTree観測を、OSの引数長を超えない小分けで行う。
+ * @responsibility 全件を処理し、非対象Treeの読取りによる新たな容量拒否を作らない。
+ * @trace ARCH-000009
+ * @effect 既存Contextの同じ30秒期限内でGitを読み取る。
+ * @failure 非0、重複又は要求外の応答は拒否する。
+ * @boundary GitのNUL区切り出力と内部のexact照合。
+ */
+function readSelectedTreeEntries(
+  ctx: WorktreeGitContext,
+  commit: string,
+  paths: readonly string[],
+) {
+  const entries = new Map<string, string>();
+  let batch: string[] = [];
+  let argumentSize = 0;
+  const observe = () => {
+    if (!batch.length) return;
+    const result = ctx.run(ctx.owner, [
+      "ls-tree",
+      "-z",
+      commit,
+      "--",
+      ...batch,
+    ]);
+    if (result.status !== 0) throw Error("commit_create_content_mismatch");
+    if (result.stdout && !result.stdout.endsWith("\0"))
+      throw Error("commit_create_content_mismatch");
+    const rows = result.stdout ? result.stdout.slice(0, -1).split("\0") : [];
+    for (const raw of rows) {
+      if (!raw) throw Error("commit_create_content_mismatch");
+      const tab = raw.indexOf("\t");
+      const name = raw.slice(tab + 1);
+      if (tab < 0 || !batch.includes(name) || entries.has(name))
+        throw Error("commit_create_content_mismatch");
+      entries.set(name, `${raw}\0`);
+    }
+    batch = [];
+    argumentSize = 0;
+  };
+  for (const name of paths) {
+    // Windowsの引用・escape分を含め保守的に分割。件数や内容は切り捨てない。
+    const size = JSON.stringify(name).length * 2 + 1;
+    if (batch.length && argumentSize + size > 8192) observe();
+    batch.push(name);
+    argumentSize += size;
+  }
+  observe();
+  return entries;
 }
 
 /**
@@ -493,6 +588,7 @@ function validCommitCreateRequest(
           "selection",
           "message",
           "temporaryDirectory",
+          "allowEmpty",
           "previousCommit",
           "temporary",
         ].includes(key),
@@ -504,11 +600,12 @@ function validCommitCreateRequest(
     !r.message.trim() ||
     /[\x00\x7f]/u.test(r.message) ||
     typeof r.temporaryDirectory !== "string" ||
+    (r.allowEmpty !== undefined && typeof r.allowEmpty !== "boolean") ||
     (r.previousCommit !== undefined &&
       r.previousCommit !== null &&
       !isCommitId(r.previousCommit)) ||
     !Array.isArray(r.selection) ||
-    r.selection.length < 1
+    (r.selection.length < 1 && r.allowEmpty !== true)
   )
     return false;
   const paths = new Set<string>();

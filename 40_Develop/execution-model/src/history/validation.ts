@@ -167,10 +167,9 @@ export function decodeHistoryRows(bytes: unknown) {
             "primaryFailure",
             "execution",
             "outcome",
-            "hostCleanup",
             "lease",
           ]) ||
-          summary.schema !== "crdd-execution-model/operation-summary/v5" ||
+          summary.schema !== "crdd-execution-model/operation-summary/v6" ||
           typeof summary.recoveryCorrelationId !== "string" ||
           !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(
             summary.recoveryCorrelationId,
@@ -203,7 +202,6 @@ export function decodeHistoryRows(bytes: unknown) {
           summary.execution.workspaceReusable !== false ||
           !validOutcome(summary.outcome) ||
           summary.outcome?.cleanupConfirmed !== true ||
-          summary.hostCleanup !== "confirmed" ||
           summary.lease !== "released"
         )
           throw new Error("history_row_invalid");

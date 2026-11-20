@@ -9,6 +9,8 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 
+import { updateTestTaskAndQueue } from "../fixtures/task-persistence-fixture.ts";
+
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -24,12 +26,7 @@ import {
   projectExecutionFixture,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
-import type {
-  CoordinatorReplanClassifier,
-  CoordinatorReplanInput,
-} from "../../src/objective/types.ts";
-import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
 import {
   createCoordinatorExecutionHostPorts,
   runCoordinatorOperation as runCoordinatorOperationWithPorts,
@@ -89,38 +86,12 @@ function runCoordinatorOperation(
     {
       ...dependencies,
       ...createCoordinatorExecutionHostPorts(),
-      persistence: createCurrentCoordinatorPersistencePorts(
-        workingDirectory,
-        repositoryBindingId,
-      ),
+      persistence: createTestPersistence(workingDirectory, repositoryBindingId),
     },
     applicationInput,
   );
 }
 
-/**
- * resolveCoordinatorReplanのTest準備責務を実行する。
- *
- * @responsibility resolveCoordinatorReplanがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PRL-IT-005
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus resolveCoordinatorReplanを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-function resolveCoordinatorReplan(
-  input: CoordinatorReplanInput &
-    Readonly<{ workingDirectory: string; repositoryBindingId: string }>,
-  classify: CoordinatorReplanClassifier,
-) {
-  const ports = createCurrentCoordinatorPersistencePorts(
-    input.workingDirectory,
-    input.repositoryBindingId,
-  );
-  return resolveCoordinatorReplanWithPort(ports.state, input, classify);
-}
 /**
  * fixtureのTest準備責務を実行する。
  *
@@ -316,8 +287,8 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.equal(mixedRead.lockReleased, true);
   assert.ok(mixedRead.value);
   assert.deepEqual(Buffer.from(mixedRead.value.sourceText, "utf8"), mixedBytes);
-  const result = resolveCoordinatorReplan(input, () => ({
-    disposition: "partial_replan",
+  const result = updateTestTaskAndQueue(input, {
+    kind: "task_replan",
     failedTaskId: "task-a",
     replacements: [
       {
@@ -328,7 +299,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
         conflictKeys: [],
       },
     ],
-  }));
+  });
   assert.equal(result.status, "completed");
   const state = readCoordinatorState(root, "binding-a", "project-a");
   const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
@@ -343,10 +314,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.equal(queue.status === "completed" && queue.value.state, "queued");
   assert.ok(state.status === "completed" && state.value);
   const replayBytes = fs.readFileSync(stateFile);
-  const replay = createCurrentCoordinatorPersistencePorts(
-    root,
-    "binding-a",
-  ).state.updateTask(
+  const replay = createTestPersistence(root, "binding-a").state.updateTask(
     {
       kind: "task_replan",
       projectId: input.projectId,
@@ -453,10 +421,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.equal(state.status, "completed");
   if (state.status !== "completed" || !state.value) throw new Error("state");
   assert.equal(
-    createCurrentCoordinatorPersistencePorts(
-      root,
-      "binding-a",
-    ).state.updateTask(
+    createTestPersistence(root, "binding-a").state.updateTask(
       {
         kind: "task_replan",
         projectId: "project-a",
@@ -484,78 +449,6 @@ test("bounded partial replan supersedes the failed task and returns the queue to
 });
 
 /**
- * 再計画分類は各形の余剰field・Accessor・ProxyをEffect前に拒否するを検証する。
- *
- * @responsibility 再計画分類は各形の余剰field・Accessor・ProxyをEffect前に拒否するの合否判定を所有する。
- * @trace PRL-IT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 再計画分類は各形の余剰field・Accessor・ProxyをEffect前に拒否するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("再計画分類は各形の余剰field・Accessor・ProxyをEffect前に拒否する", async (t) => {
-  const { root, input } = fixture(t);
-  await failTask(root);
-  const beforeState = readCoordinatorState(root, "binding-a", "project-a");
-  const beforeQueue = readProjectOperationQueueState(
-    root,
-    "binding-a",
-    "queue-a",
-  );
-  let getterCalls = 0;
-  const cases: Array<() => unknown> = [
-    () => ({ disposition: "maintain_plan", reason: "retry", extra: true }),
-    () => ({
-      disposition: "human_decision",
-      objectiveId: "objective-a",
-      get reason() {
-        getterCalls += 1;
-        return "choose";
-      },
-    }),
-    () =>
-      new Proxy(
-        { disposition: "maintain_plan", reason: "retry" },
-        {
-          getPrototypeOf: () => {
-            throw new Error("trap");
-          },
-        },
-      ),
-    () => ({
-      disposition: "partial_replan",
-      failedTaskId: "task-a",
-      replacements: [
-        {
-          id: "task-b",
-          objectiveId: "objective-a",
-          dependencies: [],
-          allowedPaths: ["result.txt"],
-          conflictKeys: [],
-          extra: true,
-        },
-      ],
-    }),
-  ];
-  for (const classify of cases) {
-    const result = resolveCoordinatorReplan(input, classify);
-    assert.equal(result.status, "blocked");
-    assert.equal(result.reason, "orchestrator_replan_decision_invalid");
-    assert.deepEqual(
-      readCoordinatorState(root, "binding-a", "project-a"),
-      beforeState,
-    );
-    assert.deepEqual(
-      readProjectOperationQueueState(root, "binding-a", "queue-a"),
-      beforeQueue,
-    );
-  }
-  assert.equal(getterCalls, 0);
-});
-
-/**
  * maintaining the plan creates a fresh attempt and enforces the retry limitを検証する。
  *
  * @responsibility maintaining the plan creates a fresh attempt and enforces the retry limitの合否判定を所有する。
@@ -570,14 +463,11 @@ test("再計画分類は各形の余剰field・Accessor・ProxyをEffect前に�
 test("maintaining the plan creates a fresh attempt and enforces the retry limit", async (t) => {
   const { root, input } = fixture(t);
   assert.equal((await failTask(root)).reason, "orchestrator_replan_required");
-  const maintained = resolveCoordinatorReplan(
+  const maintained = updateTestTaskAndQueue(
     { ...input, maximumReplans: 1 },
-    () => ({
-      disposition: "maintain_plan",
-      reason: "transient provider failure",
-    }),
+    { kind: "task_retry", taskId: "task-a", previousRetryCount: 0 },
   );
-  assert.equal(maintained.reason, "orchestrator_same_plan_retry_ready");
+  assert.equal(maintained.status, "completed");
   const beforeRetry = readCoordinatorState(root, "binding-a", "project-a");
   assert.equal(
     beforeRetry.status === "completed" &&
@@ -594,7 +484,7 @@ test("maintaining the plan creates a fresh attempt and enforces the retry limit"
     maximumReplans: 1,
     previousRetryCount: 0,
   } as const;
-  const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
+  const ports = createTestPersistence(root, "binding-a");
   const replay = ports.state.updateTask(
     request,
     beforeRetry.value.generation - 1,
@@ -612,12 +502,9 @@ test("maintaining the plan creates a fresh attempt and enforces the retry limit"
   );
   assert.deepEqual(fs.readFileSync(stateFile), replayBytes);
   assert.equal((await failTask(root)).reason, "orchestrator_replan_required");
-  const exhausted = resolveCoordinatorReplan(
+  const exhausted = updateTestTaskAndQueue(
     { ...input, maximumReplans: 1 },
-    () => ({
-      disposition: "maintain_plan",
-      reason: "another transient failure",
-    }),
+    { kind: "task_retry", taskId: "task-a", previousRetryCount: 1 },
   );
   assert.equal(
     exhausted.reason,
