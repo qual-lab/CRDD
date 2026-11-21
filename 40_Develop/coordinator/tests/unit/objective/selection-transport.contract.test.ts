@@ -64,9 +64,9 @@ const wasObjectiveStateUninitialized = compileFunction(
  * @responsibility 同じTask・回復IDと期待世代の搬送、保存後metadata拒否と元参照保全を確認する。
  * @trace PRL-UT-014
  * @precondition 実Objectiveの回復確定断面と有限の保存応答を使う。
- * @stimulus 正常・fresh差・保存拒否・候補欠測に加え、再実行待ち保存後の再入場と偽の完了条件を与える。
+ * @stimulus 正常・fresh差・EMの終結拒否・保存不明・候補欠測と、対象なし・再入場を与える。
  * @observation 有限要求、保存回数、後続通知と元回復ID。
- * @oracle 記録と候補の確認後だけ通知し、再実行待ちの確定済み義務には保存を再発行しない。拒否時はexact参照を保持する。
+ * @oracle 同版確認前・対象なし・再試行準備済みには保存を要求せず、EMの拒否は同じ回復参照と理由で返す。
  * @cleanup メモリ値のみ。
  * @boundary Coordinator調停とEMの完成更新。実WriterはEM試験で確認する。
  */
@@ -103,11 +103,12 @@ test("Docker回復確定は有限要求を渡し保存不明で元参照を保�
     let recoveryState=initial; let state=null; let calls=0; const events=[];
     const writeCoordinatorRecoveryDiagnostic=value=>events.push(value);
     const request={projectId:'project-a',milestoneId:'milestone-a'};const queueId='queue-a';
-    const recoveries=[{kind:'docker',taskId:'task-a',recoveryId:${JSON.stringify(id)},phase:initial.tasks[0].recoveryObligations[0].phase}];
+    const recoveries=scenario==='no_target'?[]:[{kind:'docker',taskId:'task-a',recoveryId:${JSON.stringify(id)},phase:initial.tasks[0].recoveryObligations[0].phase}];
     const queue=scenario.startsWith('retry_ready') && scenario!=='retry_ready_wrong_queue'
       ? {state:'queued',resumeCondition:'exact_recovery_settled'}
       : {state:'recovery_required',resumeCondition:'exact_recovery'};
     const readCurrentRecoveryState=()=>{
+      evidence.reads++;
       if(scenario==='retry_ready')assert.fail('確定済み回復を再処置しない');
       return scenario==='fresh_unknown'?null:initial;
     };
@@ -115,9 +116,13 @@ test("Docker回復確定は有限要求を渡し保存不明で元参照を保�
     const persistence={repository,repositoryBindingId:'binding',intake};
     const saveProjectExecutionState=(actualRepository,binding,input,generation,actualIntake)=>{
       assert.equal(actualRepository,repository);assert.equal(binding,'binding');assert.equal(actualIntake,intake);
+      evidence.writes++;
+      assert.equal(evidence.reads,1);
       calls++;assert.deepEqual(input,{kind:'task_recovery_finalize',projectId:'project-a',recoveries:[{taskId:'task-a',recoveryId:${JSON.stringify(id)}}]});
       assert.equal(generation,4);
       if(scenario==='save_blocked')return {status:'blocked',reason:'save_unconfirmed'};
+      if(scenario==='cleanup_unknown' || scenario.startsWith('retry_ready_'))
+        return {status:'blocked',reason:'orchestrator_task_recovery_not_settled'};
       return {status:'completed',reason:'saved',value:{...initial,generation:5},taskStartCandidates:scenario==='metadata_unknown'?null:{projectId:'project-a',generation:5,taskIds:[]}};
     };
 
@@ -127,6 +132,7 @@ test("Docker回復確定は有限要求を渡し保存不明で元参照を保�
     [
       "initial",
       "scenario",
+      "evidence",
       "assert",
       "blocked",
       "captureObjectiveRecoveryWrite",
@@ -134,6 +140,7 @@ test("Docker回復確定は有限要求を渡し保存不明で元参照を保�
   );
   for (const scenario of [
     "normal",
+    "no_target",
     "fresh_unknown",
     "save_blocked",
     "metadata_unknown",
@@ -174,9 +181,11 @@ test("Docker回復確定は有限要求を渡し保存不明で元参照を保�
             })),
           }
         : initial;
+    const evidence = { reads: 0, writes: 0 };
     const result = await evaluate(
       input,
       scenario,
+      evidence,
       assert,
       stop,
       captureObjectiveRecoveryWrite,
@@ -186,7 +195,7 @@ test("Docker回復確定は有限要求を渡し保存不明で元参照を保�
       assert.equal(result.calls, 1);
       assert.equal(result.events.length, 1);
       assert.equal(result.events[0].phase, "verification_resources_finalized");
-    } else if (scenario === "retry_ready") {
+    } else if (scenario === "retry_ready" || scenario === "no_target") {
       assert.equal(result.status, "continued");
       assert.equal(result.calls, 0);
       assert.deepEqual(result.events, []);
@@ -196,6 +205,13 @@ test("Docker回復確定は有限要求を渡し保存不明で元参照を保�
       assert.equal(result.manualRecoveryRequired, true);
       assert.deepEqual(result.recoveryIds, [id]);
     }
+    const isNoTarget = scenario === "no_target" || scenario === "retry_ready";
+    assert.deepEqual(evidence, {
+      reads: isNoTarget ? 0 : 1,
+      writes: isNoTarget || scenario === "fresh_unknown" ? 0 : 1,
+    });
+    if (scenario === "cleanup_unknown" || scenario.startsWith("retry_ready_"))
+      assert.equal(result.reason, "orchestrator_task_recovery_not_settled");
   }
 });
 

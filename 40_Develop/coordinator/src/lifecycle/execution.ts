@@ -4758,24 +4758,8 @@ async function executeCoordinatorObjective(
         kind: "docker" as const,
         recoveryId,
       }));
-      const allSettled = recoveredDocker.every((item) => {
-        const task = recoveryState.tasks.find(
-          (candidate) => candidate.definition.id === item.taskId,
-        );
-        return (
-          task?.attemptId &&
-          task.operationId &&
-          task.cleanupConfirmed &&
-          !task.recoveryUnresolved &&
-          task.recoveryObligations.some(
-            (obligation) =>
-              obligation.kind === "docker" &&
-              obligation.recoveryId === item.recoveryId &&
-              obligation.phase === "settled",
-          )
-        );
-      });
-      if (!allSettled || !readCurrentRecoveryState())
+      // 終結可否は同じ世代のTaskを排他下で検査するEMの確定操作が所有する。
+      if (!readCurrentRecoveryState())
         return blocked(request, "orchestrator_task_recovery_not_settled", {
           cleanupConfirmed: false,
           manualRecoveryRequired: true,

@@ -195,6 +195,8 @@ Doctorは退役した外部TrustとLocal許可元の検証器を現役機能と�
 
 Docker回復後の終了参照の確定は、既存EMの`saveProjectExecutionState`へ`task_recovery_finalize`と対象Task ID・回復IDを直接渡す。State全体の複製や世代加算はCoordinatorで行わない。EMが同じWriterのfreshな元版から候補を作り、履歴・未解決参照・Operation終端の検査と退役を所有する。保存拒否・候補metadata欠測では、保存前から持つexact回復IDを初回停止結果へ保持する。State PortにTask更新の転送、旧`writeState`と外部結果事実の受付を持たせない。初回準備はQueueとProjectの原子的受付へ接続し、任意の保持参照を検証する保存試験はEMが所有する。
 
+Coordinatorは同じ回復Queue・Projectの現在性を先に確認する。対象がない場合と、既に再試行準備済みの回復参照には確定要求を発行しない。対象Taskの試行相関・回収確認・義務の終端条件はEMの確定操作だけが判定し、不成立ならStateを書き換えない。
+
 未信頼な実行選定は各受付境界で独立捕捉し、同じ不変値の検査を不要に繰り返さない。依存先から新しく返る値の受付、起動前の現在Operation・完全選定・Packet・Home実体と送信範囲、保存Lock内のfresh照合とCASは別の保証である。選定Hashによる借戻し、Model／Home Grantの期限・消費を設けない。
 
 起動前の選定照合は、現在Operation・技術Catalog・元の完全選定を `lifecycle/selection.ts` で確認し、一致または拒否だけを返す。選定値や操作IDを呼出し側へ返して再照合させない。Task全体の二役確認、各Stage直前の一役確認、Advice直前の一役確認は、それぞれ元の時点で行う。一致は実行許可やProvider起動の成立を意味しない。
