@@ -31,8 +31,8 @@ import {
   type AuthenticationRecoveryRecord,
   authenticateProvider,
   prepareProviderAuthentication,
-} from "../../src/execution/authority.ts";
-import { getIsolationSettings } from "../../src/execution/configuration.ts";
+} from "../../src/lifecycle/authentication.ts";
+import { getIsolationSettings } from "../../src/lifecycle/environment.ts";
 
 /** 構成だけを準備し、元投影とCoordinatorの短命結合を取得する。Docker要求はない。 */
 export function prepareAuthenticationProjection(

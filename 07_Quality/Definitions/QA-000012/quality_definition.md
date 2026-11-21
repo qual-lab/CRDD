@@ -1,5 +1,11 @@
 # QA-000012 実行記録の公開と再利用の検証定義
 
+## Graph実行とGroup記録の直接接続
+
+ERP-IT-008は、Group開始の具体Ownerで成功・Repository拒否／例外・保存先欠測／例外・保存拒否／例外を対照する。読取り前のattempted、同じID、一回だけの試行、成功時だけの元Store保持を確認し、任意記録の失敗で上位へ例外を返さない。実Sourceの宣言を一度取得し、各条件のContext・観測値は独立させる。
+
+既存public-operationの実EM／EI保存と合成Task接続で、consumer引数、元Group ID・workType・Task相関の搬送、Group終結及び同じ要求の再入場でTask・記録を増やさないことを確認する。Group completedと後続の品質受入待ちを区別し、Taskの合成結果を実Provider成功へ換算しない。Graph専用の結果callbackは本番から撤去し、試験だけの具体Module代役へ移す。保存失敗、取消、未確認終了と元回復参照の既存検証は維持する。
+
 ## EI内部記録・Metadata・Queryの量制約撤去 — 2026-11-12
 
 旧50,000ノード・深度12・文字列8,192・Metadata64field／key128とQueryの同じ量制約を超える正規値を、既存捕捉・保存／再読取り・照会で対照する。既存branch-local ancestors Setによる直接循環拒否を維持し、共有する非循環subtreeは受理する。Proxy／accessor／非plain-data・余分field・不正ID・不正数値を拒否し、ID160・保持日数Policy・ページ取得・共通Lockを変更しない。OS／Nodeの表現可能性やOOM時の結果返却まで保証するものではない。今回自己生成Storeだけを回収し、過去履歴は操作しない。

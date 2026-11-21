@@ -3,28 +3,259 @@
  * @packageDocumentation
  * @responsibility 五役割・分類・技術対応と、保存選定の閉形式・現在Catalog非依存復元を反証する。
  * @trace RCM-UT-001
+ * @trace ERB-UT-023
  * @level UT
- * @scope selection/resolveの新規選定、selection/modelの保存値codec、AI Adapterの技術選定。
+ * @scope Coordinatorの新規選定と実行前照合、実行モデルの保存値検査、AI Adapterの技術選定。
  * @boundary 同一Process内。保存・認証・外部AI・Dockerを使用しない。
  */
 import {
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
+  type ExecutionSelection,
 } from "../../../../execution-model/src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
+import { isDeepStrictEqual } from "node:util";
 import { compileFunction } from "node:vm";
-import { resolveModelSelection } from "../../../../ai-adapter/src/index.ts";
-import { snapshotPlainRecord } from "../../../src/input/snapshot.ts";
-import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import {
-  validateAiSelectionConfig,
-  resolveExecutionSelection,
-  resolveTaskExecutionSelections,
-} from "../../../src/selection/resolve.ts";
+  getModelCatalog,
+  resolveModelSelection,
+} from "../../../../ai-adapter/src/index.ts";
+import { validateAiSelectionConfig } from "../../../../configuration-model/src/index.ts";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../../../src/lifecycle/validation.ts";
+import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
+import { resolveTaskExecutionSelections } from "../../../src/lifecycle/selection.ts";
+import { resolveFixtureExecutionSelection } from "../../fixtures/ai-selection.ts";
+
+const catalog = getModelCatalog().catalog;
+
+/**
+ * 実行前に現在操作と技術適合だけを照合する。
+ * @responsibility 実際の製品宣言で完全一致とEffect非発行を確認する。
+ * @trace ERB-UT-023
+ * @precondition 有限の管理・Repository観測と実Catalogを使用する。
+ * @stimulus 一件・二件、別操作、未信頼入力、技術不一致と照合例外を与える。
+ * @observation 読取り順、拒否理由、捕捉値の独立性と返却field。
+ * @oracle 完全一致時だけ一致を返し、技術照合の拒否後に後続を照合しない。
+ * @cleanup N/A: 局所値のみ。
+ * @boundary 現在操作とAI Adapterの値照合。外部AI・Docker・保存なし。
+ */
+test("実行前の選定照合は現在操作と技術適合だけを確認する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/lifecycle/selection.ts", import.meta.url),
+    "utf8",
+  );
+  const operationSource = fs.readFileSync(
+    new URL("../../../src/lifecycle/host.ts", import.meta.url),
+    "utf8",
+  );
+  const body = [
+    sourceDeclaration(source, "preflightRuntimeOwnedDelegationSelections"),
+    sourceDeclaration(operationSource, "currentBinding"),
+    sourceDeclaration(operationSource, "verifyRuntimeOwnedRepositoryOperation"),
+  ].join("\n");
+  const operationId = "OP-123456";
+  const reference = Object.freeze({});
+  const bound = Object.freeze({
+    operationId,
+    repositoryRoot: "fixture-root",
+    repositoryKind: "ordinary",
+    logicalRepositoryIdentity: "logical",
+    repositoryInstanceIdentity: "physical",
+    revision: "a".repeat(40),
+  });
+  let binding: Readonly<{ operationId: string }> | null = bound;
+  let current = bound;
+  let repositoryThrows = false;
+  let managementRevoked = false;
+  let catalogThrows = false;
+  let hooks = 0;
+  const calls: string[] = [];
+  const captured: ExecutionSelection[] = [];
+  let alterSelection: ((selection: ExecutionSelection) => unknown) | null =
+    null;
+  const { preflight: invoke, verify } = compileFunction(
+    `${body}\nreturn {
+    preflight: preflightRuntimeOwnedDelegationSelections,
+    verify: verifyRuntimeOwnedRepositoryOperation,
+  };`,
+    [
+      "verifyOwnedOperationManagementCapability",
+      "bindings",
+      "observe",
+      "snapshotPlainRecord",
+      "snapshotPlainArray",
+      "inspectExecutionSelection",
+      "resolveModelSelection",
+      "isDeepStrictEqual",
+    ],
+  )(
+    (value: unknown) => {
+      calls.push("management");
+      if (value !== reference || managementRevoked)
+        throw Error("unrecognized owner");
+      return { operationId };
+    },
+    {
+      get: (value: unknown) => {
+        calls.push("binding");
+        return value === reference ? binding : null;
+      },
+    },
+    (root: string) => {
+      calls.push("repository");
+      assert.equal(root, bound.repositoryRoot);
+      if (repositoryThrows) throw Error("repository error");
+      return current;
+    },
+    snapshotPlainRecord,
+    snapshotPlainArray,
+    (value: unknown) => {
+      const selection = inspectExecutionSelection(value);
+      if (!selection) return null;
+      captured.push(selection);
+      return alterSelection ? alterSelection(selection) : selection;
+    },
+    (input: { provider: string }) => {
+      calls.push(input.provider);
+      if (catalogThrows) throw Error("catalog error");
+      return resolveModelSelection(input);
+    },
+    isDeepStrictEqual,
+  ) as {
+    preflight: (
+      owner: unknown,
+      request: unknown,
+    ) => { status: "matched" } | { status: "blocked"; reason: string };
+    verify: typeof import("../../../src/lifecycle/host.ts").verifyRuntimeOwnedRepositoryOperation;
+  };
+  const selected = resolveTaskExecutionSelections(config(), {
+    workType: "coding",
+  });
+  assert.equal(selected.status, "resolved");
+  if (selected.status !== "resolved") return;
+  const { executor, reviewer } = selected.value;
+  const request = (executionSelections: unknown) => ({
+    operationId,
+    executionSelections,
+  });
+  const observations = ["management", "binding", "repository"];
+  for (const selections of [[executor], [executor, reviewer]]) {
+    calls.length = 0;
+    captured.length = 0;
+    const result = invoke(reference, request(selections));
+    assert.deepEqual(result, { status: "matched" });
+    assert.deepEqual(captured, selections);
+    assert.ok(Object.isFrozen(result));
+    for (const [index, original] of selections.entries()) {
+      assert.notEqual(captured[index], original);
+      assert.ok(Object.isFrozen(captured[index]));
+    }
+    assert.deepEqual(calls, [
+      ...observations,
+      ...selections.map((selection) => selection.provider),
+    ]);
+  }
+  const invalid = "delegation_slate_selection_invalid";
+  const failed = "delegation_slate_preflight_failed";
+  const reject = (
+    owner: unknown,
+    input: unknown,
+    reason: string,
+    expectedCalls: string[],
+  ) => {
+    calls.length = 0;
+    assert.deepEqual(invoke(owner, input), { status: "blocked", reason });
+    assert.deepEqual(calls, expectedCalls);
+  };
+  for (const input of [
+    { ...request([executor]), operationId: "OP-654321" },
+    { ...request([executor]), extra: true },
+    request([]),
+    request([executor, reviewer, executor]),
+    request([executor, { ...reviewer, role: "unknown" }]),
+    request([{ ...executor, provider: "unknown" }]),
+    request([
+      {
+        ...executor,
+        get provider() {
+          hooks++;
+          return executor.provider;
+        },
+      },
+    ]),
+    request([
+      new Proxy(executor, {
+        ownKeys() {
+          hooks++;
+          return [];
+        },
+      }),
+    ]),
+  ])
+    reject(reference, input, invalid, observations);
+  assert.equal(hooks, 0);
+  for (const other of [null, { ...bound, operationId: "OP-654321" }]) {
+    binding = other;
+    reject(reference, request([executor]), invalid, ["management", "binding"]);
+  }
+  binding = bound;
+  current = { ...bound, revision: "b".repeat(40) };
+  reject(reference, request([executor]), invalid, observations);
+  current = bound;
+  repositoryThrows = true;
+  reject(reference, request([executor]), invalid, observations);
+  repositoryThrows = false;
+  reject({}, request([executor]), failed, ["management"]);
+  calls.length = 0;
+  assert.ok(verify(reference));
+  assert.deepEqual(calls, ["binding", "management", "repository"]);
+  managementRevoked = true;
+  calls.length = 0;
+  assert.equal(verify(reference), null);
+  assert.deepEqual(calls, ["binding", "management"]);
+  reject(reference, request([executor]), failed, ["management"]);
+  managementRevoked = false;
+  const firstOnly = [...observations, executor.provider];
+  const reordered = Object.fromEntries(Object.entries(executor).reverse());
+  assert.deepEqual(invoke(reference, request([reordered])), {
+    status: "matched",
+  });
+  for (const alter of [
+    (value: ExecutionSelection) => ({
+      ...value,
+      configIdentity: "f".repeat(64),
+    }),
+    (value: ExecutionSelection) => ({ ...value, unknown: true }),
+  ]) {
+    alterSelection = alter;
+    reject(reference, request([executor]), invalid, firstOnly);
+  }
+  alterSelection = () => null;
+  reject(reference, request([executor]), invalid, observations);
+  alterSelection = null;
+  for (const rejected of [
+    { ...executor, modelIdentifier: "retired-model" },
+    {
+      ...executor,
+      identifierKind: executor.identifierKind === "exact" ? "alias" : "exact",
+    },
+  ])
+    reject(
+      reference,
+      request([rejected, reviewer]),
+      "delegation_selection_model_unsupported",
+      firstOnly,
+    );
+  catalogThrows = true;
+  reject(reference, request([executor, reviewer]), failed, firstOnly);
+});
 
 /**
  * 二役選定は検査済み設定を共有し、役割要求と技術適合は省略しない。
@@ -33,18 +264,18 @@ import {
  * @precondition 既存の正常設定と実際の設定・AD検査を使う。
  * @stimulus 二役要求、未知field、不正設定と元設定の途中変更を与える。
  * @observation 設定・技術検査回数、凍結結果と拒否理由。
- * @oracle 設定一回・技術四回、元値変更の影響なし。不正要求は設定検査前に拒否。
+ * @oracle 設定一回・各役割の技術照合一回、元値変更の影響なし。拒否後に次の役割を照合しない。
  * @cleanup メモリ内だけ。外部実行・保存なし。
  * @boundary 未信頼設定受付と内部二役選定。
  */
 test("二役選定は設定検査を一回にし役割別の技術検査を維持する", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/selection/resolve.ts", import.meta.url),
+    new URL("../../../src/lifecycle/selection.ts", import.meta.url),
     "utf8",
   );
   const body = [
-    "inspectChoice",
     "resolveCheckedExecutionSelection",
+    "resolveCheckedTaskExecutionSelections",
     "resolveTaskExecutionSelections",
   ]
     .map((name) => stripTypeScriptTypes(sourceDeclaration(source, name)))
@@ -56,18 +287,21 @@ test("二役選定は設定検査を一回にし役割別の技術検査を維�
     `${body}\nreturn resolveTaskExecutionSelections;`,
     [
       "validateAiSelectionConfig",
+      "getModelCatalog",
       "snapshotPlainRecord",
       "resolveModelSelection",
       "ROLES",
     ],
   )(
-    (value: unknown) => {
+    (value: unknown, suppliedCatalog: typeof catalog) => {
       settings += 1;
-      const checked = validateAiSelectionConfig(value);
+      assert.equal(suppliedCatalog, catalog);
+      const checked = validateAiSelectionConfig(value, suppliedCatalog);
       original.roleDefaults.independent_reviewer.model =
         "mutated-after-capture";
       return checked;
     },
+    getModelCatalog,
     snapshotPlainRecord,
     (input: Parameters<typeof resolveModelSelection>[0]) => {
       technical += 1;
@@ -86,16 +320,29 @@ test("二役選定は設定検査を一回にし役割別の技術検査を維�
   });
   assert.deepEqual(pair(original, { workType: "coding" }), expected);
   assert.equal(settings, 1);
-  assert.equal(technical, 4);
+  assert.equal(technical, 2);
   assert.equal(
     pair(config(), { workType: "coding", unknown: true }).status,
     "blocked",
   );
   assert.equal(settings, 1);
-  assert.equal(technical, 4);
+  assert.equal(technical, 2);
   assert.equal(pair(null, { workType: null }).status, "blocked");
   assert.equal(settings, 2);
-  assert.equal(technical, 4);
+  assert.equal(technical, 2);
+  assert.deepEqual(
+    pair(config(), {
+      workType: null,
+      choice: { provider: "codex", model: "not-in-catalog", effort: "medium" },
+    }),
+    {
+      status: "blocked",
+      value: null,
+      reason: "ai_selection_choice_unsupported",
+    },
+  );
+  assert.equal(settings, 3);
+  assert.equal(technical, 3);
 });
 
 /**
@@ -189,7 +436,7 @@ test("固定選定のHashは移管前のbyteと一致する", () => {
   );
 });
 
-import { hashExecutionSelection } from "../../../src/selection/resolve.ts";
+import { hashExecutionSelection } from "../../../src/lifecycle/selection.ts";
 
 /**
  * 捕捉済み選定のHash生成は受付検査を再実行しない。
@@ -204,7 +451,7 @@ import { hashExecutionSelection } from "../../../src/selection/resolve.ts";
  */
 test("捕捉済み選定のHashは受付を繰り返さず固定byteを保つ", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/selection/resolve.ts", import.meta.url),
+    new URL("../../../src/lifecycle/selection.ts", import.meta.url),
     "utf8",
   );
   const hash = compileFunction(
@@ -213,7 +460,7 @@ test("捕捉済み選定のHashは受付を繰り返さず固定byteを保つ", 
   )(createHash, () =>
     assert.fail("duplicate_selection_inspection"),
   ) as typeof hashExecutionSelection;
-  const resolved = resolveExecutionSelection(config(), {
+  const resolved = resolveFixtureExecutionSelection(config(), {
     role: "executor",
     workType: "coding",
   });
@@ -316,7 +563,7 @@ test("選定Hashは十項目を固定しキー順によらず内容差を区別�
     }),
     "5fa860b97b4251d54285de02ae6b0a4c25ecdf967e1d4958cc3dd91c8b06a70e",
   );
-  const resolved = resolveExecutionSelection(config(), {
+  const resolved = resolveFixtureExecutionSelection(config(), {
     role: "executor",
     workType: "coding",
   });
@@ -370,7 +617,7 @@ test("選定Hashは十項目を固定しキー順によらず内容差を区別�
  * @boundary 保存選定codecと現在CatalogによるResolver。
  */
 test("保存選定は現在Catalogで再解釈せずaliasと当時の値を保持する", () => {
-  const resolved = resolveExecutionSelection(config(), {
+  const resolved = resolveFixtureExecutionSelection(config(), {
     role: "executor",
     workType: "coding",
   });
@@ -396,7 +643,7 @@ test("保存選定は現在Catalogで再解釈せずaliasと当時の値を保�
   assert.equal(snapshot.catalogIdentity, "a".repeat(64));
   historical.modelIdentifier = "changed-later";
   assert.equal(snapshot.modelIdentifier, "retired-model");
-  const fresh = resolveExecutionSelection(config(), {
+  const fresh = resolveFixtureExecutionSelection(config(), {
     role: "executor",
     workType: "coding",
     choice: { provider: "claude", model: "retired-model", effort: "max" },
@@ -418,7 +665,7 @@ test("保存選定は現在Catalogで再解釈せずaliasと当時の値を保�
  * @boundary 未信頼保存値と純粋なcodec。
  */
 test("保存選定の不足・過剰・相関不正はhookを実行せず拒否する", () => {
-  const resolved = resolveExecutionSelection(config(), {
+  const resolved = resolveFixtureExecutionSelection(config(), {
     role: "executor",
     workType: "coding",
   });
@@ -483,7 +730,7 @@ test("保存選定の不足・過剰・相関不正はhookを実行せず拒否�
     assert.equal(inspectExecutionSelection(invalid), null);
   assert.equal(hooks, 0);
   for (const role of ["coordinator", "advice", "result_integration"] as const) {
-    const current = resolveExecutionSelection(config(), {
+    const current = resolveFixtureExecutionSelection(config(), {
       role,
       workType: null,
     });
@@ -547,7 +794,7 @@ function config() {
 test("五役割は明示指定・分類上書き・既定値の順で固定する", () => {
   const source = config();
   for (const role of Object.keys(source.roleDefaults)) {
-    const result = resolveExecutionSelection(source, {
+    const result = resolveFixtureExecutionSelection(source, {
       role,
       workType: "3d_modeling",
     });
@@ -564,14 +811,14 @@ test("五役割は明示指定・分類上書き・既定値の順で固定す�
     assert.ok(Object.isFrozen(result.value));
     assert.equal("authority" in result.value, false);
   }
-  const override = resolveExecutionSelection(source, {
+  const override = resolveFixtureExecutionSelection(source, {
     role: "executor",
     workType: "coding",
   });
   assert.equal(override.value?.source, "work_type_override");
   assert.equal(override.value?.modelIdentifier, "opus");
   assert.equal(override.value?.identifierKind, "alias");
-  const explicit = resolveExecutionSelection(source, {
+  const explicit = resolveFixtureExecutionSelection(source, {
     role: "executor",
     workType: "coding",
     choice: { provider: "codex", model: "gpt-5.5", effort: "low" },
@@ -580,15 +827,15 @@ test("五役割は明示指定・分類上書き・既定値の順で固定す�
   assert.equal(explicit.value?.modelIdentifier, "gpt-5.5");
   assert.equal(explicit.value?.reasoningEffort, "low");
   assert.equal(
-    resolveExecutionSelection(source, {
+    resolveFixtureExecutionSelection(source, {
       role: "executor",
       workType: "constructor",
     }).value?.source,
     "role_default",
   );
   assert.equal(
-    resolveExecutionSelection(source, { role: "advice", workType: null }).value
-      ?.workType,
+    resolveFixtureExecutionSelection(source, { role: "advice", workType: null })
+      .value?.workType,
     null,
   );
   source.roleDefaults.executor.model = "changed";
@@ -628,7 +875,7 @@ test("未知・欠落・技術不対応と分類参照欠落を補完しない",
     },
     { role: "executor", workType: null, extra: true },
   ]) {
-    const result = resolveExecutionSelection(source, request);
+    const result = resolveFixtureExecutionSelection(source, request);
     assert.equal(result.status, "blocked");
     assert.equal(result.value, null);
   }
@@ -653,7 +900,10 @@ test("未知・欠落・技術不対応と分類参照欠落を補完しない",
       },
     },
   ])
-    assert.equal(validateAiSelectionConfig(candidate).status, "blocked");
+    assert.equal(
+      validateAiSelectionConfig(candidate, catalog).status,
+      "blocked",
+    );
 });
 
 /**
@@ -669,13 +919,13 @@ test("未知・欠落・技術不対応と分類参照欠落を補完しない",
  */
 test("設定はキー順を正規化し入力から独立して固定する", () => {
   const source = config();
-  const first = validateAiSelectionConfig(source);
+  const first = validateAiSelectionConfig(source, catalog);
   const reordered = {
     ...source,
     workTypes: Object.fromEntries(Object.entries(source.workTypes).reverse()),
   };
   assert.equal(
-    validateAiSelectionConfig(reordered).value?.identity,
+    validateAiSelectionConfig(reordered, catalog).value?.identity,
     first.value?.identity,
   );
   source.workTypes.coding.label = "変更";
@@ -692,7 +942,7 @@ test("設定はキー順を正規化し入力から独立して固定する", ()
       ),
     },
   };
-  assert.equal(validateAiSelectionConfig(many).status, "valid");
+  assert.equal(validateAiSelectionConfig(many, catalog).status, "valid");
   let hooks = 0;
   const getter = config();
   Object.defineProperty(getter.workTypes, "coding", {
@@ -708,9 +958,10 @@ test("設定はキー順を正規化し入力から独立して固定する", ()
       return ["coding"];
     },
   });
-  assert.equal(validateAiSelectionConfig(getter).status, "blocked");
+  assert.equal(validateAiSelectionConfig(getter, catalog).status, "blocked");
   assert.equal(
-    validateAiSelectionConfig({ ...config(), workTypes: proxy }).status,
+    validateAiSelectionConfig({ ...config(), workTypes: proxy }, catalog)
+      .status,
     "blocked",
   );
   assert.equal(hooks, 0);

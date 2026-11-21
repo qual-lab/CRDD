@@ -8,8 +8,6 @@
  * @scope coordinator、contract、node_process
  * @boundary Provider非依存Adapterと固定Fake Executorの局所境界。
  */
-import type { AdviceProviderOutcome } from "../../../src/execution/advice.ts";
-import type { ProviderAdviceExecutionPlan } from "../../../src/execution/preparation.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import test from "node:test";
@@ -18,9 +16,11 @@ import {
   prepareProviderEnvironment,
 } from "../../../../ai-adapter/src/provider/validation.ts";
 
-import { prepareAdviceTask } from "../../../src/execution/preparation.ts";
-import { createProviderAdviceAdapter } from "../../../src/execution/advice.ts";
+import { prepareAdviceTask } from "../../../src/lifecycle/selection.ts";
+import { loadAdviceDispatchFixture } from "../../support/task-requests.ts";
 
+const { dispatchAdviceRequest, executeAcceptedAdviceInput } =
+  await loadAdviceDispatchFixture();
 const selection = executionSelection("advice");
 const prepared = prepareAdviceTask({
   executionSelection: selection,
@@ -29,8 +29,6 @@ const prepared = prepareAdviceTask({
     {
       reference: "PROJECT_CONTEXT.md",
       content: "# Project Context\n",
-      sha256:
-        "f2e9caaf190981cfb75bb7e6ff59e7609b79b8e79280a721701dc88cfcef607d",
     },
   ],
 });
@@ -52,44 +50,26 @@ if (prepared.status !== "prepared" || prepared.taskPacket === null)
 test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => {
   let codexInput: unknown = null;
   let claudeCalls = 0;
-  const adapter = createProviderAdviceAdapter(async (plan) => {
-    const executors: Record<
-      "codex" | "claude",
-      (plan: ProviderAdviceExecutionPlan) => Promise<AdviceProviderOutcome>
-    > = {
-      codex: async (input) => {
-        codexInput = input;
-        return Object.freeze({
-          status: "blocked" as const,
-          reason: "fixture_completed",
-          advice: null,
-          providerEffectIssued: false,
-          cleanupConfirmed: true,
-        });
-      },
-      claude: async () => {
-        claudeCalls += 1;
+  const adapterDependencies: [
+    Parameters<typeof executeAcceptedAdviceInput>[0],
+  ] = [
+    async (plan) => {
+      if (plan.executionSelection.provider !== "codex") {
+        claudeCalls++;
         throw new Error("unreachable");
-      },
-    };
-    const outcome = await executors[plan.provider](plan);
-    if (outcome.status === "completed" && typeof outcome.advice === "string")
-      return {
-        status: "completed" as const,
-        reason: null,
-        advice: outcome.advice,
-        providerEffectIssued: true as const,
-        cleanupConfirmed: true as const,
-      };
-    return {
-      status: "blocked" as const,
-      reason: outcome.reason ?? "fixture_blocked",
-      advice: null,
-      providerEffectIssued: outcome.providerEffectIssued,
-      cleanupConfirmed: outcome.cleanupConfirmed,
-    };
-  });
-  const result = await adapter(
+      }
+      codexInput = plan;
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "fixture_completed",
+        advice: null,
+        providerEffectIssued: false,
+        cleanupConfirmed: true,
+      });
+    },
+  ];
+  const result = await executeAcceptedAdviceInput(
+    ...adapterDependencies,
     Object.freeze({
       additionalHosts: Object.freeze([]),
       taskPacket: prepared.taskPacket,
@@ -97,7 +77,7 @@ test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => 
     }),
     new AbortController().signal,
   );
-  assert.equal(result.reason, "fixture_completed");
+  assert.equal(result?.reason, "fixture_completed");
   assert.equal(typeof codexInput, "object");
   const { additionalHosts, ...flatInput } = codexInput as Record<
     string,
@@ -105,24 +85,10 @@ test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => 
   >;
   assert.deepEqual(flatInput, {
     allowedReferences: ["PROJECT_CONTEXT.md"],
-    contract: "crdd-coordinator/workbench-ai-advice-execution-plan",
-    contractRevision: 2,
-    mode: "workbench_advice",
-    provider: selection.provider,
     providerPrompt: prepared.taskPacket.providerPrompt,
     taskHash: prepared.taskPacket.taskHash,
     projectionHash: prepared.taskPacket.projectionHash,
     executionSelection: selection,
-    exactModelId: selection.modelIdentifier,
-    reasoningEffort: selection.reasoningEffort,
-    offering: "chatgpt_subscription_oauth",
-    promptTransport: "stdin",
-    repositoryMounted: false,
-    workspaceMounted: false,
-    toolsAllowed: false,
-    sessionPersistenceAllowed: false,
-    apiKeyFallbackAllowed: false,
-    paidApiFallbackAllowed: false,
   });
   assert.deepEqual(additionalHosts, Object.freeze([]));
   assert.equal(Object.hasOwn(codexInput as object, "providerCommand"), false);
@@ -143,38 +109,17 @@ test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => 
  */
 test("選定契約不整合を全Executor Effect前に拒否する", async () => {
   let calls = 0;
-  const adapter = createProviderAdviceAdapter(async (plan) => {
-    const executors: Record<
-      "codex" | "claude",
-      (plan: ProviderAdviceExecutionPlan) => Promise<AdviceProviderOutcome>
-    > = {
-      codex: async () => {
-        calls += 1;
-        throw new Error("unreachable");
-      },
-      claude: async () => {
-        calls += 1;
-        throw new Error("unreachable");
-      },
-    };
-    const outcome = await executors[plan.provider](plan);
-    if (outcome.status === "completed" && typeof outcome.advice === "string")
-      return {
-        status: "completed" as const,
-        reason: null,
-        advice: outcome.advice,
-        providerEffectIssued: true as const,
-        cleanupConfirmed: true as const,
-      };
-    return {
-      status: "blocked" as const,
-      reason: outcome.reason ?? "fixture_blocked",
-      advice: null,
-      providerEffectIssued: outcome.providerEffectIssued,
-      cleanupConfirmed: outcome.cleanupConfirmed,
-    };
-  });
-  const result = await adapter(
+  const adapterDependencies: [
+    Parameters<typeof executeAcceptedAdviceInput>[0],
+  ] = [
+    async () => {
+      calls++;
+      throw new Error("unreachable");
+    },
+  ];
+  const result = await dispatchAdviceRequest(
+    (input, signal) =>
+      executeAcceptedAdviceInput(...adapterDependencies, input, signal),
     Object.freeze({
       additionalHosts: Object.freeze([]),
       taskPacket: prepared.taskPacket,
@@ -186,8 +131,7 @@ test("選定契約不整合を全Executor Effect前に拒否する", async () =>
     new AbortController().signal,
   );
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "workbench_ai_provider_profile_invalid");
-  assert.equal(result.providerEffectIssued, false);
+  assert.equal(result.reason, "workbench_ai_advice_dispatch_input_invalid");
   assert.equal(calls, 0);
 });
 
@@ -205,38 +149,17 @@ test("選定契約不整合を全Executor Effect前に拒否する", async () =>
  */
 test("Task 選定不一致はAI Adapter移管後もExecutor Effect前に拒否する", async () => {
   let calls = 0;
-  const adapter = createProviderAdviceAdapter(async (plan) => {
-    const executors: Record<
-      "codex" | "claude",
-      (plan: ProviderAdviceExecutionPlan) => Promise<AdviceProviderOutcome>
-    > = {
-      codex: async () => {
-        calls += 1;
-        throw new Error("unreachable");
-      },
-      claude: async () => {
-        calls += 1;
-        throw new Error("unreachable");
-      },
-    };
-    const outcome = await executors[plan.provider](plan);
-    if (outcome.status === "completed" && typeof outcome.advice === "string")
-      return {
-        status: "completed" as const,
-        reason: null,
-        advice: outcome.advice,
-        providerEffectIssued: true as const,
-        cleanupConfirmed: true as const,
-      };
-    return {
-      status: "blocked" as const,
-      reason: outcome.reason ?? "fixture_blocked",
-      advice: null,
-      providerEffectIssued: outcome.providerEffectIssued,
-      cleanupConfirmed: outcome.cleanupConfirmed,
-    };
-  });
-  const result = await adapter(
+  const adapterDependencies: [
+    Parameters<typeof executeAcceptedAdviceInput>[0],
+  ] = [
+    async () => {
+      calls++;
+      throw new Error("unreachable");
+    },
+  ];
+  const result = await dispatchAdviceRequest(
+    (input, signal) =>
+      executeAcceptedAdviceInput(...adapterDependencies, input, signal),
     {
       additionalHosts: Object.freeze([]),
       taskPacket: {
@@ -247,8 +170,8 @@ test("Task 選定不一致はAI Adapter移管後もExecutor Effect前に拒否�
     },
     new AbortController().signal,
   );
-  assert.equal(result.reason, "workbench_ai_provider_profile_invalid");
-  assert.equal(result.providerEffectIssued, false);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "workbench_ai_advice_dispatch_input_invalid");
   assert.equal(calls, 0);
 });
 

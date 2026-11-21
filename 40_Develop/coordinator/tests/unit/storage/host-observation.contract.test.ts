@@ -14,200 +14,109 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import type { ExecutionOperationRecord } from "../../../../execution-model/src/index.ts";
 import { createResourceOperationFixture } from "../../../../execution-model/tests/support/resource-operation.ts";
-import { coordinatorReleasedTaskCanObserveHostAbsence } from "../../../src/execution/validation.ts";
+import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 
 /**
- * この試験の固定値に対応するReader判定を供給する。
- * @responsibility Co固有のHost条件だけを反証し、モデルの資源判定そのものはEM試験へ分離する。
+ * 現在の回収入口で同版の操作と試行の終端条件を照合する。
  * @trace PRL-UT-006
- * @boundary nullまたは未解決再起動だけを持つ有限fixture。汎用モデル検査ではない。
- */
-function fixtureHostAbsence(operation: ExecutionOperationRecord) {
-  return coordinatorReleasedTaskCanObserveHostAbsence(operation, {
-    operation,
-    resourcesSettled: true,
-    restartSettled: operation.dockerRestart === null,
-  });
-}
-
-/**
- * 元の解放済み操作と拒否例を同じHost条件へ渡す。
- * @trace PRL-UT-006
- * @precondition Domainの正規codecが認める合成Identityを使用する。
- * @stimulus Owner・Lease・未解決再起動・資源相関を個別に破る。
- * @observation Host不存在観測へ進めるかを取得する。
- * @oracle 正規の解放済み状態だけtrueとなる。
- * @cleanup N/A: 局所値だけ。
- * @boundary Host条件の判定。実回収成立は示さない。
+ * @precondition 同版の操作投影を入力し、実行モデルのReaderと物理Hostは呼ばない。
+ * @stimulus 参照、資源・再起動確定、状態、Ownerを個別に破る。
+ * @observation Host清掃の前提成立と途中保存へ渡す解放記録。
+ * @oracle 不明・別参照は拒否し、確認済みの試行だけを受理する。
+ * @cleanup 局所値だけ。
+ * @boundary 回収入口が使用する同版の操作投影と元試行の照合。
  */
 test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を保つ", () => {
-  const { operation: initialOperation, identity } =
-    createResourceOperationFixture();
+  const { operation: initialOperation } = createResourceOperationFixture();
   const releasedOperation: ExecutionOperationRecord = {
     ...initialOperation,
+    phase: "settling",
     lease: "released",
     execution: {
       ...initialOperation.execution,
       ownerEffect: "disabled",
       workspaceReusable: false,
     },
-    resources: {
-      snapshot: {
-        resources: [
-          {
-            key: "resource",
-            request: "issued",
-            identity: {
-              kind: "container",
-              name: "crdd-fixture",
-              dockerId: "d".repeat(64),
-              ownershipLabel: identity.ownershipLabel,
-            },
-            configuration: {
-              image: null,
-              command: null,
-              environmentNames: null,
-              mounts: null,
-              networks: null,
-              internal: null,
-            },
-          },
-        ],
-      },
-      checkpoints: [
-        {
-          key: "resource",
-          submission: "intent_saved",
-          receiptSource: "docker_create_result",
-          observation: "absent",
-          absenceEvidenceSha256: "e".repeat(64),
-        },
-      ],
-      cleanup: {
-        cleanupOrder: ["resource"],
-        setupTimeoutMs: 10000,
-        unreceiptedAbsence: "retain",
-        verifyLabelAbsence: false,
+  };
+  const production = fs.readFileSync(
+    new URL("../../../src/lifecycle/environment.ts", import.meta.url),
+    "utf8",
+  );
+  const declaration = sourceDeclaration(
+    production,
+    "canPrepareRuntimeOwnedDockerHostCleanup",
+  );
+  const capability = {},
+    management = {};
+  const record = {
+    completedPlan: {},
+    homeLeaseReleased: true,
+    managementCapability: management,
+    recoveryId: releasedOperation.recoveryId,
+    operationId: "op",
+  };
+  const state = {
+    kind: "docker_task",
+    operation: releasedOperation,
+    resourcesSettled: true,
+    restartSettled: true,
+  } as const;
+  const prepare = runInNewContext(
+    `${declaration}; canPrepareRuntimeOwnedDockerHostCleanup`,
+    {
+      durableRecord: (value: unknown) => (value === capability ? record : null),
+    },
+  );
+  assert.equal(prepare({}, state), false);
+  for (const fixture of [
+    { changed: state, result: true },
+    { changed: undefined },
+    {
+      changed: {
+        ...state,
+        operation: { ...releasedOperation, recoveryId: "other" },
       },
     },
-  };
-
-  assert.equal(fixtureHostAbsence(releasedOperation), true);
-  assert.equal(
-    coordinatorReleasedTaskCanObserveHostAbsence(releasedOperation, undefined),
-    false,
-  );
-  assert.equal(
-    coordinatorReleasedTaskCanObserveHostAbsence(releasedOperation, {
-      operation: { ...releasedOperation },
-      resourcesSettled: true,
-      restartSettled: true,
-    }),
-    false,
-  );
-  assert.equal(
-    coordinatorReleasedTaskCanObserveHostAbsence(releasedOperation, {
-      operation: releasedOperation,
-      resourcesSettled: false,
-      restartSettled: true,
-    }),
-    false,
-  );
-  // 型で禁止される入力も、実行時の拒否条件を個別に反証する。
-  assert.equal(
-    fixtureHostAbsence({
-      ...releasedOperation,
-      execution: { ...releasedOperation.execution, workspaceReusable: true },
-    } as unknown as ExecutionOperationRecord),
-    false,
-  );
-  for (const effectOutcomeUnknown of [false, true]) {
-    const dockerRestart = {
-      requestId: "a".repeat(64),
-      scopeSha256: "b".repeat(64),
-      request: "confirmed" as const,
-      cleanup: "pending" as const,
-      result: {
-        status: "blocked" as const,
-        reason: "docker_restart_unsettled",
-        request: "confirmed" as const,
-        effectOutcomeUnknown,
+    { changed: { ...state, resourcesSettled: false } },
+    { changed: { ...state, restartSettled: false } },
+    {
+      changed: {
+        ...state,
+        operation: { ...releasedOperation, phase: "executing" },
       },
-    };
+    },
+    {
+      changed: { ...state, operation: { ...releasedOperation, lease: "held" } },
+    },
+    ...["active", "unknown"].map((ownerEffect) => ({
+      changed: {
+        ...state,
+        operation: {
+          ...releasedOperation,
+          execution: { ...releasedOperation.execution, ownerEffect },
+        },
+      },
+    })),
+  ]) {
     assert.equal(
-      fixtureHostAbsence({
-        ...releasedOperation,
-        dockerRestart,
-      }),
-      false,
+      prepare(capability, fixture.changed),
+      "result" in fixture ? fixture.result : false,
     );
   }
-  const book = releasedOperation.resources;
-  assert.ok(book);
-  for (const invalid of [
-    { ...releasedOperation, lease: "held" as const },
-    {
-      ...releasedOperation,
-      execution: {
-        ...releasedOperation.execution,
-        ownerEffect: "active" as const,
-      },
-    },
-    {
-      ...releasedOperation,
-      execution: {
-        ...releasedOperation.execution,
-        ownerEffect: "unknown" as const,
-      },
-    },
-    {
-      ...releasedOperation,
-      resources: { ...book, checkpoints: book.checkpoints.slice(1) },
-    },
-    {
-      ...releasedOperation,
-      resources: {
-        ...book,
-        checkpoints: book.checkpoints.map((item) => ({
-          ...item,
-          receiptSource: null,
-        })),
-        snapshot: {
-          resources: book.snapshot.resources.map((item) => ({
-            ...item,
-            request: "unknown" as const,
-            identity: { ...item.identity, dockerId: null },
-          })),
-        },
-      },
-    },
-    {
-      ...releasedOperation,
-      resources: {
-        ...book,
-        checkpoints: book.checkpoints.map((item) => ({
-          ...item,
-          observation: "unknown" as const,
-          absenceEvidenceSha256: null,
-        })),
-      },
-    },
-  ])
-    assert.equal(fixtureHostAbsence(invalid), false);
   const normalOld = initialOperation;
   const recoveryId = initialOperation.recoveryId;
   const lifecycleSource = fs.readFileSync(
-    new URL("../../../src/execution/recovery.ts", import.meta.url),
+    new URL("../../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   const completeStart = lifecycleSource.indexOf(
-    "function completeProductionRecovery(",
+    "function completeRuntimeOwnedDockerRecovery(",
   );
   const checkpointStart = lifecycleSource.indexOf(
     "const saved = saveOperationCheckpoint(",
     completeStart,
   );
-  const checkpointEnd = lifecycleSource.indexOf("\n  if (", checkpointStart);
+  const checkpointEnd = lifecycleSource.indexOf("\n    if (", checkpointStart);
   assert.ok(
     completeStart > 0 &&
       checkpointStart > completeStart &&
@@ -219,6 +128,7 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
   assert.equal(checkpoint.split(disabled).length, 2);
   const checkpointContext = {
     managementCapability: {},
+    operationStateInput: (owner: unknown) => owner,
     record: { recoveryId },
     operation: {
       ...normalOld,

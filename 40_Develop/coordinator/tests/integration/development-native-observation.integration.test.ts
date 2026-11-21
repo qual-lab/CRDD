@@ -29,7 +29,7 @@ import { runInNewContext } from "node:vm";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { observeProviderHome } from "../../../executor/scripts/provider-home.ts";
-import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/execution/authority.ts";
+import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/lifecycle/environment.ts";
 
 test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLinkを拒否する", {
   skip: process.platform !== "win32",

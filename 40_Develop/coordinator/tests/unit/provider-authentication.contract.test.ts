@@ -5,7 +5,7 @@
  * @level UT
  * @scope 実Coordinator／Executor／DIと有限外部CLI・メモリ記録。実Docker・AIは使わない。
  */
-import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
+import { isRuntimeProcessPoisoned } from "../../src/lifecycle/host.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
@@ -17,7 +17,7 @@ import { createAuthenticationFixture } from "../support/authentication.ts";
 import {
   authenticateProvider,
   PROVIDER_AUTHENTICATION_INPUT_NOTICE,
-} from "../../src/execution/authority.ts";
+} from "../../src/lifecycle/authentication.ts";
 import {
   authenticateProvider as authenticateFromApi,
   getAuthenticationStatus,
@@ -38,7 +38,7 @@ const STABLE_LOGICAL_HOME_BINDING_HASH = "a".repeat(64);
  */
 test("認証入口はHome観測の実Effectと回復分類を保持する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/authority.ts", import.meta.url),
+    new URL("../../src/lifecycle/authentication.ts", import.meta.url),
     "utf8",
   );
   const build = compileFunction(
@@ -49,8 +49,6 @@ test("認証入口はHome観測の実Effectと回復分類を保持する", asyn
       "types",
       "readExecutionCancellation",
       "inspectRuntimeOwnedWindowsProviderHomeCandidate",
-      "consumeRuntimeOwnedProviderHomeObservationCapability",
-      "consumeRuntimeOwnedProviderHomeMountSourceCapability",
       "authenticateProvider",
     ],
   );
@@ -72,8 +70,6 @@ test("認証入口はHome観測の実Effectと回復分類を保持する", asyn
           types,
           () => false,
           () => observed,
-          unexpected,
-          unexpected,
           unexpected,
         );
         const result = await run(action, { provider });

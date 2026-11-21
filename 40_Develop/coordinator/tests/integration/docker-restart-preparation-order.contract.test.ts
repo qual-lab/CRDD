@@ -27,8 +27,8 @@ import {
   prepareRuntimeOwnedDockerRestart,
   releaseRuntimeOwnedDockerRestartPreparation,
   verifyRuntimeOwnedDockerRestartPreparation,
-} from "../../src/execution/recovery.ts";
-import { snapshotJsonValue } from "../../src/input/snapshot.ts";
+} from "../../src/lifecycle/environment.ts";
+import { snapshotJsonValue } from "../../src/lifecycle/validation.ts";
 import {
   canonicalJson,
   restartRequestIdFixture,
@@ -74,7 +74,7 @@ test("restart preparation rejects arbitrary capability and invalid task before p
 });
 
 const source = fs.readFileSync(
-  new URL("../../src/execution/recovery.ts", import.meta.url),
+  new URL("../../src/lifecycle/environment.ts", import.meta.url),
   "utf8",
 );
 const body = [
@@ -200,8 +200,10 @@ function fixture() {
     runtimeStateDirectoryCandidate: () => path.resolve("RuntimeState"),
     poisonRuntimeProcessAfterCleanupUnknown: () =>
       events.push("process-poisoned"),
-    acquireHostOperationLock: (_root: string, id: string) =>
-      acquire(`host:${id}`),
+    acquireHostOperationLock: (candidate: unknown, id: string) => {
+      assert.equal(candidate, root);
+      return acquire(`host:${id}`);
+    },
     acquireProviderHomeLock: (home: string) => acquire(`home:${home}`),
     acquireExecutionStateLock: () =>
       acquire(`state:${repository.repositoryBinding}`),

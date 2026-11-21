@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inspectCoordinatorDecisionRequest } from "../../../src/decision/request.ts";
+import { inspectCoordinatorDecisionRequest } from "../../../src/lifecycle/decision.ts";
 
 /**
  * 四操作の入力と旧field拒否を確認する。
@@ -29,6 +29,22 @@ test("四操作は閉形式であり旧Bearer・再発行・主体fieldを受け
     generation: 1,
     repositoryRevision: "a".repeat(40),
   };
+  for (const [length, accepted] of [
+    [39, false],
+    [40, true],
+    [41, false],
+    [63, false],
+    [64, true],
+    [65, false],
+  ] as const)
+    assert.equal(
+      inspectCoordinatorDecisionRequest({
+        ...common,
+        operation: "apply",
+        repositoryRevision: "a".repeat(length),
+      }) !== null,
+      accepted,
+    );
   for (const op of [
     {
       operation: "request",

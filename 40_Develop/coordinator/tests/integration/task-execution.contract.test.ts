@@ -9,28 +9,26 @@
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
 
+import { runTestCoordinatorOperation } from "../fixtures/task-persistence-fixture.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import test from "node:test";
+import test, { mock } from "node:test";
+import * as executionModel from "../../../execution-model/src/index.ts";
+import { readProjectExecutionState } from "../../../execution-model/src/index.ts";
 import type { ProjectTaskDefinition } from "../../../execution-model/src/index.ts";
 import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
 import {
   projectExecutionFixture,
   initialExecutionInput,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { createRuntimeProcessRecoveryIdentity } from "../../src/execution/process-safety-state.ts";
+import { runTestSingleTaskAttempt } from "../support/task-requests.ts";
+import * as host from "../../src/lifecycle/host.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
-import {
-  createCoordinatorExecutionHostPorts,
-  describeCoordinatorExecutionContract,
-  runCoordinatorOperation as runCoordinatorOperationWithPorts,
-} from "../../src/task/dispatch.ts";
-import type { CoordinatorSingleTaskResult } from "../../src/task/types.ts";
+import type { CoordinatorSingleTaskResult } from "../../src/lifecycle/types.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import {
   enqueueProjectOperation,
@@ -70,85 +68,88 @@ for (const mode of [
     const persistence = createTestPersistence(root, "binding-a");
     let starts = 0;
     let fixtureFailure: unknown = null;
-    const outcome = await runCoordinatorOperationWithPorts(
-      {
-        ...createCoordinatorExecutionHostPorts({}),
-        persistence: {
-          ...persistence,
-          state: {
-            ...persistence.state,
-            updateTask: (request, generation) => {
-              if (
-                (mode === "save_failure" || mode === "save_after_effect") &&
-                request.kind === "task_settle"
-              ) {
-                if (mode === "save_after_effect")
-                  assert.equal(
-                    persistence.state.updateTask(request, generation).status,
-                    "completed",
+    const outcome = await withExecutionStateSave(
+      (...args) => {
+        const request = args[2];
+
+        if (
+          (mode === "save_failure" || mode === "save_after_effect") &&
+          request.kind === "task_settle"
+        ) {
+          if (mode === "save_after_effect")
+            assert.equal(
+              executionModel.saveProjectExecutionState(...args).status,
+              "completed",
+            );
+          return {
+            status: "blocked",
+            reason: "fixture_terminal_save_failure",
+            value: null,
+            manualRecoveryRequired: true,
+            recoveryId: null,
+          };
+        }
+        return executionModel.saveProjectExecutionState(...args);
+      },
+      (dispatch) =>
+        dispatch(
+          {
+            persistence,
+            runSingleTaskAttempt: async (attempt) => {
+              starts += 1;
+              const result = await completed(attempt);
+              if (mode !== "none") {
+                try {
+                  settleSyntheticOperations(
+                    root,
+                    attempt.operationId,
+                    mode === "many_operations" ? 129 : 2,
                   );
-                return {
-                  status: "blocked",
-                  reason: "fixture_terminal_save_failure",
-                  value: null,
-                  manualRecoveryRequired: true,
-                  recoveryId: null,
-                };
+                } catch (error) {
+                  fixtureFailure = error;
+                  throw error;
+                }
               }
-              return persistence.state.updateTask(request, generation);
+              const area = path.join(root, ".crdd", "domain-model");
+              const history = path.join(area, "history.jsonl");
+              if (mode === "history_missing") fs.unlinkSync(history);
+              if (mode === "history_duplicate") {
+                const bytes = fs.readFileSync(history);
+                fs.writeFileSync(history, Buffer.concat([bytes, bytes]));
+              }
+              if (mode === "history_mismatch") {
+                const rows = fs
+                  .readFileSync(history, "utf8")
+                  .trim()
+                  .split("\n")
+                  .map((line) => ({
+                    ...JSON.parse(line),
+                    occurredAt: "2026-01-01T00:00:00.000Z",
+                  }));
+                fs.writeFileSync(
+                  history,
+                  rows.map((row) => `${canonicalJson(row)}\n`).join(""),
+                );
+              }
+              if (mode === "history_unconfirmed") {
+                const file = path.join(area, "state.json");
+                const state = JSON.parse(fs.readFileSync(file, "utf8"));
+                for (const operation of state.operations)
+                  if (operation.kind === "docker_task")
+                    operation.history.confirmed = false;
+                fs.writeFileSync(file, `${canonicalJson(state)}\n`);
+              }
+              return mode === "cancelled"
+                ? {
+                    ...result,
+                    status: "cancelled",
+                    reason: "fixture_cancelled",
+                  }
+                : result;
             },
           },
-        },
-        runSingleTaskAttempt: async (attempt) => {
-          starts += 1;
-          const result = await completed(attempt);
-          if (mode !== "none") {
-            try {
-              settleSyntheticOperations(
-                root,
-                attempt.operationId,
-                mode === "many_operations" ? 129 : 2,
-              );
-            } catch (error) {
-              fixtureFailure = error;
-              throw error;
-            }
-          }
-          const area = path.join(root, ".crdd", "domain-model");
-          const history = path.join(area, "history.jsonl");
-          if (mode === "history_missing") fs.unlinkSync(history);
-          if (mode === "history_duplicate") {
-            const bytes = fs.readFileSync(history);
-            fs.writeFileSync(history, Buffer.concat([bytes, bytes]));
-          }
-          if (mode === "history_mismatch") {
-            const rows = fs
-              .readFileSync(history, "utf8")
-              .trim()
-              .split("\n")
-              .map((line) => ({
-                ...JSON.parse(line),
-                occurredAt: "2026-01-01T00:00:00.000Z",
-              }));
-            fs.writeFileSync(
-              history,
-              rows.map((row) => `${canonicalJson(row)}\n`).join(""),
-            );
-          }
-          if (mode === "history_unconfirmed") {
-            const file = path.join(area, "state.json");
-            const state = JSON.parse(fs.readFileSync(file, "utf8"));
-            for (const operation of state.operations)
-              if (operation.kind === "docker_task")
-                operation.history.confirmed = false;
-            fs.writeFileSync(file, `${canonicalJson(state)}\n`);
-          }
-          return mode === "cancelled"
-            ? { ...result, status: "cancelled", reason: "fixture_cancelled" }
-            : result;
-        },
-      },
-      input,
+          input,
+        ),
     );
     assert.equal(starts, 1);
     assert.equal(
@@ -197,7 +198,11 @@ for (const mode of [
     );
     for (const key of ["pendingDeliveries", "resultReceipts"])
       assert.equal(Object.hasOwn(snapshot, key), false);
-    const stored = persistence.state.readState("project-a");
+    const stored = readProjectExecutionState(
+      persistence.repository,
+      persistence.repositoryBindingId,
+      "project-a",
+    );
     if (stored.value) {
       assert.equal(
         stored.value.tasks[0]?.startPhase,
@@ -212,20 +217,52 @@ for (const mode of [
 }
 
 type BoundExecutionDependencies = Omit<
-  Parameters<typeof runCoordinatorOperationWithPorts>[0],
-  "persistence" | "clockIdentity" | "processSafety"
+  Parameters<typeof runTestCoordinatorOperation>[0],
+  "persistence"
 > &
   Readonly<{
     persistence?: Parameters<
-      typeof runCoordinatorOperationWithPorts
+      typeof runTestCoordinatorOperation
     >[0]["persistence"];
-    now?: () => Readonly<{ monotonicMs: number; iso: string }>;
     poisonAfterCleanupUnknown?: () => void;
   }>;
-type BoundExecutionInput = Parameters<
-  typeof runCoordinatorOperationWithPorts
->[1] &
+type BoundExecutionInput = Parameters<typeof runTestCoordinatorOperation>[1] &
   Readonly<{ workingDirectory: string; repositoryBindingId: string }>;
+
+/**
+ * EM保存境界だけを差し替えた実Dispatchを一回のCaseへ接続する。
+ * @responsibility 保存済みEffectと応答故障を区別し、終了後にModule代役を解除する。
+ * @trace PRL-IT-012
+ * @precondition 同じProcess内のCaseを並列実行しない。
+ * @stimulus 正式saveだけを差し替えてから独立したDispatch Moduleを読む。
+ * @observation 呼出し元の要求・世代・保存結果と実行結果を得る。
+ * @oracle 実保存を呼ぶ故障でも元EM実装への接続を保持する。
+ * @cleanup completionと解放を含むDispatch完了後、例外時もModule代役を解除する。
+ * @boundary CoordinatorからEMの正式保存入口。AI・Dockerは使わない。
+ */
+async function withExecutionStateSave(
+  save: typeof executionModel.saveProjectExecutionState,
+  execute: (
+    dispatch: typeof runTestCoordinatorOperation,
+  ) => ReturnType<typeof runTestCoordinatorOperation>,
+  read?: typeof executionModel.readState<"execution">,
+) {
+  const storage = mock.module(
+    new URL("../../../execution-model/src/index.ts", import.meta.url).href,
+    {
+      namedExports: {
+        ...executionModel,
+        saveProjectExecutionState: save,
+        ...(read ? { readState: read } : {}),
+      },
+    },
+  );
+  try {
+    return await execute(runTestCoordinatorOperation);
+  } finally {
+    storage.restore();
+  }
+}
 
 /**
  * runCoordinatorOperationのTest準備責務を実行する。
@@ -239,30 +276,37 @@ type BoundExecutionInput = Parameters<
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-function runCoordinatorOperation(
+async function runCoordinatorOperation(
   dependencies: BoundExecutionDependencies,
   input: BoundExecutionInput,
+  dispatch = runTestCoordinatorOperation,
 ) {
   const { workingDirectory, repositoryBindingId, ...applicationInput } = input;
-  const {
-    now,
-    poisonAfterCleanupUnknown,
-    persistence,
-    ...applicationDependencies
-  } = dependencies;
-  return runCoordinatorOperationWithPorts(
+  const { poisonAfterCleanupUnknown, persistence, ...applicationDependencies } =
+    dependencies;
+  const operationDependencies = {
+    ...applicationDependencies,
+
+    persistence:
+      persistence ??
+      createTestPersistence(workingDirectory, repositoryBindingId),
+  };
+  if (!poisonAfterCleanupUnknown)
+    return dispatch(operationDependencies, applicationInput);
+  const replacement = mock.module(
+    new URL("../../src/lifecycle/host.ts", import.meta.url).href,
     {
-      ...applicationDependencies,
-      ...createCoordinatorExecutionHostPorts({
-        ...(now ? { now } : {}),
-        ...(poisonAfterCleanupUnknown ? { poisonAfterCleanupUnknown } : {}),
-      }),
-      persistence:
-        persistence ??
-        createTestPersistence(workingDirectory, repositoryBindingId),
+      namedExports: {
+        ...host,
+        poisonRuntimeProcessAfterCleanupUnknown: poisonAfterCleanupUnknown,
+      },
     },
-    applicationInput,
   );
+  try {
+    return await dispatch(operationDependencies, applicationInput);
+  } finally {
+    replacement.restore();
+  }
 }
 
 /**
@@ -475,24 +519,87 @@ function completedAfterStart(
 test("PR-N-01 connects one durable Project task to the Single Task boundary", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
   let effects = 0;
-  const outcome = await runCoordinatorOperation(
-    {
-      runSingleTaskAttempt: async (attempt) => {
-        effects += 1;
-        return completed(attempt);
-      },
+  const changedPaths = ["src/changed.ts"];
+  const order: Array<string> = [];
+  let lastSavedGeneration: number | undefined;
+  const outcome = await withExecutionStateSave(
+    (...args) => {
+      const { kind } = args[2];
+      order.push(kind);
+      if (lastSavedGeneration !== undefined)
+        assert.equal(args[3], lastSavedGeneration, kind);
+      const written = executionModel.saveProjectExecutionState(...args);
+      assert.equal(written.status, "completed", kind);
+      lastSavedGeneration = written.value.generation;
+      return written;
     },
-    input,
+    () =>
+      runCoordinatorOperation(
+        {
+          runSingleTaskAttempt: async (attempt) => {
+            effects += 1;
+            order.push("delegated");
+            const result = await completed(attempt);
+            const whileDelegated = readCoordinatorState(
+              root,
+              "binding-a",
+              "project-a",
+            );
+            assert.equal(whileDelegated.status, "completed");
+            assert.ok(whileDelegated.value);
+            assert.equal(whileDelegated.value.tasks[0]?.state, "running");
+            assert.throws(
+              () =>
+                fs.lstatSync(
+                  path.join(
+                    root,
+                    ".crdd",
+                    "lock",
+                    "execution-model.state.lock",
+                  ),
+                ),
+              { code: "ENOENT" },
+            );
+            order.push("completion");
+            return {
+              ...result,
+              workspaceResult: {
+                workspaceId: null,
+                changedPaths,
+                canonicalRepositoryChanged: true,
+                changeAttribution: "unattributed",
+                workspaceDeletionIssued: false,
+              },
+            };
+          },
+        },
+        input,
+      ),
   );
   assert.equal(outcome.status, "completed", JSON.stringify(outcome));
   assert.equal(
     outcome.reason,
     "orchestrator_tasks_completed_integration_pending",
   );
+  assert.equal(outcome.contract, "crdd-coordinator/orchestrator-execution/v1");
   assert.equal(effects, 1);
+  changedPaths.push("src/late.ts");
+  assert.equal(outcome.workspaceResults?.length, 1);
+  assert.deepEqual(outcome.workspaceResults?.[0]?.result.changedPaths, [
+    "src/changed.ts",
+  ]);
+  assert.deepEqual(order, [
+    "task_start",
+    "task_handoff",
+    "delegated",
+    "task_started",
+    "completion",
+    "task_settle",
+  ]);
   const state = readCoordinatorState(root, "binding-a", "project-a");
   assert.equal(state.status, "completed");
   assert.ok(state.value);
+  assert.equal(state.value.generation, lastSavedGeneration);
   assert.equal(
     state.status === "completed" && state.value.tasks[0]?.state,
     "completed",
@@ -585,23 +692,26 @@ test("PR-N-01 uses the existing Single Task adapter without widening its authori
   const outcome = await runCoordinatorOperation(
     {
       runSingleTaskAttempt: (attempt) =>
-        runCoordinatorSingleTaskAttempt(
+        runTestSingleTaskAttempt(
           {
             startTask: (
               _request,
               _root,
               _correlation,
               notifyStarted,
+              consumer,
               workspaceTarget,
             ) => {
               starts += 1;
+              assert.equal(consumer, "orchestrator");
               assert.deepEqual(workspaceTarget, {
                 workspaceId: null,
-                ownerRepositoryRoot: attempt.ownerRepositoryRoot,
-                executionTree: attempt.executionTree,
+                ownerRepositoryRoot: attempt.repositoryRoot,
+                executionTree: attempt.repositoryRoot,
                 baseCommit: null,
                 head: null,
               });
+              assert.notEqual(workspaceTarget, attempt.workspaceTarget);
               return {
                 status: "started",
                 controlCapability: {},
@@ -754,32 +864,51 @@ test("PR-N-03 and PR-Q-01 enforce dependency and conflict reservations across wa
  * @responsibility PR-A-03 rejects a result from another attempt without projecting successの合否判定を所有する。
  * @trace PRL-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus PR-A-03 rejects a result from another attempt without projecting successの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
+ * @stimulus 別試行から見かけ上の成功と候補参照を返す。
+ * @observation 回復に渡した保存要求、元試行の回復義務と保存後状態を観測する。
+ * @oracle 別試行の候補を保存へ渡さず、元試行の回復要求だけが保存される。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("PR-A-03 rejects a result from another attempt without projecting success", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
-  const outcome = await runCoordinatorOperation(
-    {
-      runSingleTaskAttempt: async (attempt) => ({
-        ...(await completed(attempt)),
-        attemptId: "another-attempt",
-      }),
+  const settlements: Array<{ outcome: string; candidateId?: string | null }> =
+    [];
+  const outcome = await withExecutionStateSave(
+    (...args) => {
+      const request = args[2];
+      if (request.kind === "task_settle") settlements.push(request);
+      return executionModel.saveProjectExecutionState(...args);
     },
-    input,
+    () =>
+      runCoordinatorOperation(
+        {
+          runSingleTaskAttempt: async (attempt) => ({
+            ...(await completed(attempt)),
+            attemptId: "another-attempt",
+            candidateId: "candidate.foreign-attempt",
+          }),
+        },
+        input,
+      ),
   );
   assert.equal(outcome.status, "blocked");
   assert.equal(outcome.reason, "orchestrator_task_recovery_required");
   assert.equal(outcome.manualRecoveryRequired, true);
+  assert.equal(settlements.length, 1);
+  assert.equal(settlements[0]?.outcome, "recovery_required");
+  assert.equal(settlements[0]?.candidateId, null);
   const state = readCoordinatorState(root, "binding-a", "project-a");
   assert.equal(state.status, "completed");
   assert.ok(state.value);
   assert.equal(
     state.status === "completed" && state.value.tasks[0]?.state,
     "recovery_required",
+  );
+  assert.equal(state.value.tasks[0]?.candidateId, null);
+  assert.equal(
+    state.value.tasks[0]?.recoveryObligations[0]?.kind,
+    "runtime_process",
   );
 });
 
@@ -802,6 +931,18 @@ test("PR-A-03 rejects malformed and differently bound Single Task results", asyn
     ["authority", { authorityBindingId: "other-authority" }],
     ["missing-recovery", { recoveryIds: undefined }],
     ["extra-field", { extra: true }],
+    [
+      "workspace",
+      {
+        workspaceResult: {
+          workspaceId: "11111111-1111-4111-8111-111111111111",
+          changedPaths: ["src/changed.ts"],
+          canonicalRepositoryChanged: false,
+          changeAttribution: "unattributed",
+          workspaceDeletionIssued: false,
+        },
+      },
+    ],
   ] as const;
   for (const [name, override] of cases) {
     await t.test(name, async (subtest) => {
@@ -818,6 +959,7 @@ test("PR-A-03 rejects malformed and differently bound Single Task results", asyn
       );
       assert.equal(outcome.status, "blocked");
       assert.equal(outcome.reason, "orchestrator_task_recovery_required");
+      assert.equal(outcome.workspaceResults, undefined);
       const state = readCoordinatorState(root, "binding-a", "project-a");
       assert.equal(state.status, "completed");
       assert.ok(state.value);
@@ -893,10 +1035,15 @@ test("PR-A-03 rejects recovery identifiers that durable Project State cannot sto
 test("下位Adapterがruntime_process義務を自己発行しても通常再入場へ採用しない", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
   const forged = `runtime-process.11111111-1111-4111-8111-111111111111.restart-${"a".repeat(40)}`;
+  let expectedRecoveryId: string | undefined;
   const outcome = await runCoordinatorOperation(
     {
-      runSingleTaskAttempt: async (attempt) =>
-        ({
+      runSingleTaskAttempt: async (attempt) => {
+        expectedRecoveryId = host.createRuntimeProcessRecoveryIdentity(
+          attempt.attemptId,
+          attempt.operationId,
+        );
+        return {
           ...(await completed(attempt)),
           status: "blocked",
           reason: "forged_process_recovery",
@@ -909,7 +1056,8 @@ test("下位Adapterがruntime_process義務を自己発行しても通常再入�
           recoveryObligations: [
             { kind: "runtime_process" as const, recoveryId: forged },
           ],
-        }) as unknown as CoordinatorSingleTaskResult,
+        } as unknown as CoordinatorSingleTaskResult;
+      },
     },
     input,
   );
@@ -917,10 +1065,12 @@ test("下位Adapterがruntime_process義務を自己発行しても通常再入�
   const state = readCoordinatorState(root, "binding-a", "project-a");
   assert.equal(outcome.processRestartRequired, true);
   assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
-  assert.equal(
-    state.value?.tasks[0]?.recoveryObligations[0]?.kind,
-    "runtime_process",
-  );
+  assert.ok(expectedRecoveryId);
+  const obligations = state.value?.tasks[0]?.recoveryObligations;
+  assert.equal(obligations?.length, 1);
+  assert.equal(obligations?.[0]?.kind, "runtime_process");
+  assert.equal(obligations?.[0]?.recoveryId, expectedRecoveryId);
+  assert.notEqual(obligations?.[0]?.recoveryId, forged);
 });
 
 /**
@@ -1057,6 +1207,67 @@ test("PR-A-03 enforces result correlations and propagates process restart", asyn
 });
 
 /**
+ * 開始未確認の成功を保存・公開の双方で回復待ちにする。
+ * @responsibility 結果だけから開始・正常終了・候補の成立を補わない。
+ * @trace PRL-IT-012
+ * @precondition 自己生成Repositoryの実Writerと二件のTaskを使う。
+ * @stimulus 開始通知を通さず候補付きの技術成功を返す。
+ * @observation 元試行の保存、外部Effect不明、完了一覧・変更観測、後続委譲数。
+ * @oracle 元試行の回復だけを保存し候補・完了一覧・変更観測と次のEffectを出さない。
+ * @cleanup 試験が作成した領域を既存hookで回収する。
+ * @boundary Graphの試行受領から実行モデルの終了Writer。実AI・Dockerなし。
+ */
+test("開始未確認の成功は回復待ちにし候補や完了一覧を公開しない", async (t) => {
+  const { root, input } = fixture(t, [task("task-a"), task("task-b")], 1);
+  const dispatched: string[] = [];
+  let recoveryId: string | null = null;
+  const outcome = await runCoordinatorOperation(
+    {
+      runSingleTaskAttempt: async (attempt) => {
+        dispatched.push((attempt.taskRequest as { taskId: string }).taskId);
+        recoveryId = host.createRuntimeProcessRecoveryIdentity(
+          attempt.attemptId,
+          attempt.operationId,
+        );
+        return {
+          ...completedAfterStart(attempt),
+          candidateId: "candidate.unconfirmed-start",
+          workspaceResult: {
+            workspaceId: null,
+            changedPaths: ["src/unconfirmed.ts"],
+            canonicalRepositoryChanged: true,
+            changeAttribution: "unattributed",
+            workspaceDeletionIssued: false,
+          },
+        };
+      },
+    },
+    input,
+  );
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.reason, "orchestrator_task_recovery_required");
+  assert.equal(outcome.effectState, "unknown");
+  assert.equal(outcome.cleanupConfirmed, false);
+  assert.equal(outcome.processRestartRequired, true);
+  assert.deepEqual(outcome.completedTaskIds, []);
+  assert.equal(outcome.workspaceResults, undefined);
+  assert.deepEqual(dispatched, ["task-a"]);
+  assert.ok(recoveryId);
+  assert.deepEqual(outcome.recoveryIds, [recoveryId]);
+  const state = readCoordinatorState(root, "binding-a", "project-a");
+  assert.equal(state.status, "completed");
+  const saved = state.value?.tasks.find(
+    ({ definition }) => definition.id === "task-a",
+  );
+  assert.equal(saved?.state, "recovery_required");
+  assert.equal(saved?.candidateId, null);
+  assert.equal(saved?.recoveryUnresolved, true);
+  assert.deepEqual(saved?.recoveryObligations, [
+    { kind: "runtime_process", recoveryId, phase: "required" },
+  ]);
+});
+
+/**
  * PR-A-03 stops later waves when a Task requires process restartを検証する。
  *
  * @responsibility PR-A-03 stops later waves when a Task requires process restartの合否判定を所有する。
@@ -1112,7 +1323,7 @@ test("runtime_process義務は同じTask attemptとoperationにだけ結合す�
       runSingleTaskAttempt: async (attempt) => {
         await attempt.observeStarted?.();
         if ((attempt.taskRequest as { taskId: string }).taskId === "task-a") {
-          firstRecoveryId = createRuntimeProcessRecoveryIdentity(
+          firstRecoveryId = host.createRuntimeProcessRecoveryIdentity(
             attempt.attemptId,
             attempt.operationId,
           );
@@ -1273,15 +1484,20 @@ test("PR-A-04 releases the physical lease when a post-acquire Queue write become
     before.status === "completed" && before.value.ownerGeneration,
     null,
   );
-  const reconciled = createTestPersistence(
+  const reconciled = host.reconcileCoordinatorSnapshotLeaseOwnerLoss(
     root,
     "binding-a",
-  ).lease.reconcileOperationOwnerLoss("project-a", "queue-a", () => {
-    throw new Error("released evidence must avoid owner observation");
-  });
+    "project-a",
+    "queue-a",
+    "project-operation",
+    () => {
+      throw new Error("released evidence must avoid owner observation");
+    },
+  );
   assert.equal(reconciled.status, "completed");
   assert.equal(
-    reconciled.status === "completed" && reconciled.value.ownerGeneration,
+    reconciled.status === "completed" &&
+      reconciled.value.queue?.ownerGeneration,
     null,
   );
 });
@@ -1485,31 +1701,27 @@ test("開始準備保存後の取消はTaskを委譲せず終了する", async (
   let effects = 0;
   let preparedObserved = false;
   const persistence = createTestPersistence(root, "binding-a");
-  const outcome = await runCoordinatorOperation(
-    {
-      persistence: {
-        ...persistence,
-        state: {
-          ...persistence.state,
-          updateTask: (...args) => {
-            const result = persistence.state.updateTask(...args);
-            if (
-              result.status === "completed" &&
-              args[0].kind === "task_handoff"
-            ) {
-              preparedObserved = true;
-              controller.abort();
-            }
-            return result;
+  const outcome = await withExecutionStateSave(
+    (...args) => {
+      const result = executionModel.saveProjectExecutionState(...args);
+      if (result.status === "completed" && args[2].kind === "task_handoff") {
+        preparedObserved = true;
+        controller.abort();
+      }
+      return result;
+    },
+    (dispatch) =>
+      runCoordinatorOperation(
+        {
+          persistence,
+          runSingleTaskAttempt: async (attempt) => {
+            effects += 1;
+            return completed(attempt);
           },
         },
-      },
-      runSingleTaskAttempt: async (attempt) => {
-        effects += 1;
-        return completed(attempt);
-      },
-    },
-    { ...input, cancellationSignal: controller.signal },
+        { ...input, cancellationSignal: controller.signal },
+        dispatch,
+      ),
   );
   assert.equal(preparedObserved, true);
   assert.equal(outcome.status, "cancelled", JSON.stringify(outcome));
@@ -1565,100 +1777,140 @@ test("開始候補の輸送不正は各保存境界で後続処理を停止す�
     let leases = 0,
       queueWrites = 0,
       effects = 0;
-    const original = persistence.state;
+    const original = persistence;
     let expectedRecoveryId: string | null = null;
-    const outcome = await runCoordinatorOperationWithPorts(
+    let ownerGeneration: string | null = null;
+    const leaseBoundary = mock.module(
+      new URL("../../src/lifecycle/host.ts", import.meta.url).href,
       {
-        ...createCoordinatorExecutionHostPorts({}),
-        persistence: {
-          ...persistence,
-          lease: {
-            ...persistence.lease,
-            acquire: (...args) => {
-              leases++;
-              return persistence.lease.acquire(...args);
-            },
+        namedExports: {
+          ...host,
+          updateCoordinatorQueue: (
+            ...args: Parameters<typeof host.updateCoordinatorQueue>
+          ) => {
+            queueWrites++;
+            assert.strictEqual(args[0].repository, original.repository);
+            assert.equal(
+              args[0].repositoryBindingId,
+              original.repositoryBindingId,
+            );
+            if (
+              stage === "started_queue_failed" &&
+              args[3].state === "recovery_required"
+            )
+              return {
+                status: "blocked",
+                reason: "fixture_queue_failed",
+                value: null,
+                manualRecoveryRequired: true,
+                recoveryId: null,
+              };
+            return host.updateCoordinatorQueue(...args);
           },
-          state: {
-            ...original,
-            readState: (...args) => {
-              const result = original.readState(...args);
-              return stage === "read" && result.status === "completed"
-                ? {
-                    ...result,
-                    taskStartCandidates: {
-                      projectId: input.projectId,
-                      generation: result.value?.generation ?? 1,
-                      taskIds: {} as never,
-                    },
-                  }
-                : result;
-            },
-            updateQueue: (...args) => {
-              queueWrites++;
-              if (
-                stage === "started_queue_failed" &&
-                args[2].state === "recovery_required"
-              )
-                return {
+          acquireCoordinatorSnapshotLease: (
+            ...args: Parameters<typeof host.acquireCoordinatorSnapshotLease>
+          ) => {
+            leases++;
+            assert.equal(args[0], original.workingDirectory);
+            assert.equal(args[1], original.repositoryBindingId);
+            const acquired = host.acquireCoordinatorSnapshotLease(...args);
+            if (acquired.status === "completed")
+              ownerGeneration = acquired.value.ownerGeneration;
+            return acquired;
+          },
+          settleCoordinatorSnapshotQueueLeaseRelease: (
+            ...args: Parameters<
+              typeof host.settleCoordinatorSnapshotQueueLeaseRelease
+            >
+          ) => {
+            assert.equal(args[0], original.repository);
+            assert.equal(args[1], original.repositoryBindingId);
+            assert.equal(args[2], input.queueId);
+            assert.equal(args[4], ownerGeneration);
+            return stage === "started_settlement_failed"
+              ? {
                   status: "blocked",
-                  reason: "fixture_queue_failed",
+                  reason: "fixture_lease_settlement_failed",
                   value: null,
                   manualRecoveryRequired: true,
                   recoveryId: null,
-                };
-              return original.updateQueue(...args);
-            },
-            settleQueueLeaseRelease: (...args) =>
-              stage === "started_settlement_failed"
-                ? {
-                    status: "blocked",
-                    reason: "fixture_lease_settlement_failed",
-                    value: null,
-                    manualRecoveryRequired: true,
-                    recoveryId: null,
-                  }
-                : original.settleQueueLeaseRelease(...args),
-            updateTask: (...args) => {
-              if (
-                stage === "started_terminal_failed" &&
-                args[0].kind === "task_settle"
-              )
-                return {
-                  status: "blocked",
-                  reason: "fixture_terminal_failed",
-                  value: null,
-                  manualRecoveryRequired: true,
-                  recoveryId: null,
-                };
-              const result = original.updateTask(...args);
-              return ((stage === "reserve" && args[0].kind === "task_start") ||
-                (stage === "handoff" && args[0].kind === "task_handoff") ||
-                (stage === "terminal" && args[0].kind === "task_settle") ||
-                (startedCase && args[0].kind === "task_started")) &&
-                result.status === "completed"
-                ? {
-                    ...result,
-                    taskStartCandidates: {
-                      ...result.taskStartCandidates,
-                      taskIds: ["missing"],
-                    },
-                  }
-                : result;
-            },
+                }
+              : host.settleCoordinatorSnapshotQueueLeaseRelease(...args);
           },
-        },
-        runSingleTaskAttempt: async (attempt) => {
-          effects++;
-          expectedRecoveryId = createRuntimeProcessRecoveryIdentity(
-            attempt.attemptId,
-            attempt.operationId,
-          );
-          return completed(attempt);
         },
       },
-      input,
     );
+    let outcome: Awaited<ReturnType<typeof runTestCoordinatorOperation>>;
+    try {
+      outcome = await withExecutionStateSave(
+        (...args) => {
+          if (
+            stage === "started_terminal_failed" &&
+            args[2].kind === "task_settle"
+          )
+            return {
+              status: "blocked",
+              reason: "fixture_terminal_failed",
+              value: null,
+              manualRecoveryRequired: true,
+              recoveryId: null,
+            };
+          const result = executionModel.saveProjectExecutionState(...args);
+          return ((stage === "reserve" && args[2].kind === "task_start") ||
+            (stage === "handoff" && args[2].kind === "task_handoff") ||
+            (stage === "terminal" && args[2].kind === "task_settle") ||
+            (startedCase && args[2].kind === "task_started")) &&
+            result.status === "completed"
+            ? {
+                ...result,
+                taskStartCandidates: {
+                  ...result.taskStartCandidates,
+                  taskIds: ["missing"],
+                },
+              }
+            : result;
+        },
+        (dispatch) =>
+          dispatch(
+            {
+              persistence: original,
+              runSingleTaskAttempt: async (attempt) => {
+                effects++;
+                expectedRecoveryId = host.createRuntimeProcessRecoveryIdentity(
+                  attempt.attemptId,
+                  attempt.operationId,
+                );
+                return completed(attempt);
+              },
+            },
+            input,
+          ),
+        (...args) => {
+          assert.strictEqual(args[0], original.repository);
+          assert.equal(args[1], original.repositoryBindingId);
+          assert.equal(args[2], "execution");
+          const result = executionModel.readState(...args);
+          return stage === "read" &&
+            result.status === "completed" &&
+            result.value
+            ? {
+                ...result,
+                value: {
+                  ...result.value,
+                  taskStartCandidates: result.value.taskStartCandidates.map(
+                    (candidate) =>
+                      candidate.projectId === input.projectId
+                        ? { ...candidate, taskIds: {} as never }
+                        : candidate,
+                  ),
+                },
+              }
+            : result;
+        },
+      );
+    } finally {
+      leaseBoundary.restore();
+    }
     assert.equal(outcome.status, "blocked", JSON.stringify(outcome));
     assert.equal(effects, startedCase || stage === "terminal" ? 1 : 0, stage);
     if (stage === "terminal") {
@@ -1668,7 +1920,11 @@ test("開始候補の輸送不正は各保存境界で後続処理を停止す�
       assert.equal(outcome.processRestartRequired, false);
       assert.deepEqual(outcome.recoveryIds, []);
       assert.equal(
-        original.readState(input.projectId).value?.tasks[0]?.startPhase,
+        readProjectExecutionState(
+          original.repository,
+          original.repositoryBindingId,
+          input.projectId,
+        ).value?.tasks[0]?.startPhase,
         "settled",
       );
     } else if (startedCase) {
@@ -1680,7 +1936,11 @@ test("開始候補の輸送不正は各保存境界で後続処理を停止す�
         { kind: "runtime_process", recoveryId: expectedRecoveryId },
       ]);
       if (stage !== "started_terminal_failed") {
-        const observed = original.readState(input.projectId);
+        const observed = readProjectExecutionState(
+          original.repository,
+          original.repositoryBindingId,
+          input.projectId,
+        );
         assert.equal(observed.status, "completed");
         assert.deepEqual(
           observed.value?.tasks.flatMap((task) =>
@@ -1716,41 +1976,40 @@ test("開始前終端の保存不明は元回復IDを保持する", async (t) =>
       const persistence = createTestPersistence(root, "binding-a");
       let calls = 0;
       let recoveryId: string | null = null;
-      const outcome = await runCoordinatorOperationWithPorts(
-        {
-          ...createCoordinatorExecutionHostPorts({}),
-          persistence: {
-            ...persistence,
-            state: {
-              ...persistence.state,
-              updateTask: (request, generation) => {
-                if (request.kind !== "task_settle_before_effect")
-                  return persistence.state.updateTask(request, generation);
-                if (mode === "save_failed")
-                  return {
-                    status: "blocked",
-                    reason: "fixture_pre_effect_save_failed",
-                    value: null,
-                    manualRecoveryRequired: true,
-                    recoveryId: null,
-                  };
-                const saved = persistence.state.updateTask(request, generation);
-                return saved.status === "completed"
-                  ? { ...saved, taskStartCandidates: null as never }
-                  : saved;
+      const outcome = await withExecutionStateSave(
+        (...args) => {
+          const request = args[2];
+
+          if (request.kind !== "task_settle_before_effect")
+            return executionModel.saveProjectExecutionState(...args);
+          if (mode === "save_failed")
+            return {
+              status: "blocked",
+              reason: "fixture_pre_effect_save_failed",
+              value: null,
+              manualRecoveryRequired: true,
+              recoveryId: null,
+            };
+          const saved = executionModel.saveProjectExecutionState(...args);
+          return saved.status === "completed"
+            ? { ...saved, taskStartCandidates: null as never }
+            : saved;
+        },
+        (dispatch) =>
+          dispatch(
+            {
+              persistence,
+              runSingleTaskAttempt: async (attempt) => {
+                calls++;
+                recoveryId = host.createRuntimeProcessRecoveryIdentity(
+                  attempt.attemptId,
+                  attempt.operationId,
+                );
+                throw Error("fixture_before_started");
               },
             },
-          },
-          runSingleTaskAttempt: async (attempt) => {
-            calls++;
-            recoveryId = createRuntimeProcessRecoveryIdentity(
-              attempt.attemptId,
-              attempt.operationId,
-            );
-            throw Error("fixture_before_started");
-          },
-        },
-        input,
+            input,
+          ),
       );
       assert.equal(calls, 1);
       assert.equal(outcome.status, "blocked");
@@ -1762,7 +2021,11 @@ test("開始前終端の保存不明は元回復IDを保持する", async (t) =>
       assert.deepEqual(outcome.recoveryObligations, [
         { kind: "runtime_process", recoveryId },
       ]);
-      const observed = persistence.state.readState(input.projectId);
+      const observed = readProjectExecutionState(
+        persistence.repository,
+        persistence.repositoryBindingId,
+        input.projectId,
+      );
       assert.equal(observed.status, "completed");
       assert.equal(
         observed.value?.tasks[0]?.startPhase,
@@ -1793,84 +2056,102 @@ test("開始前終端は実在する関連OperationをTaskと同一改訂で整�
   const file = path.join(root, ".crdd/domain-model/state.json");
   let exactRecoveryId: string | null = null;
   let settlements = 0;
-  const outcome = await runCoordinatorOperationWithPorts(
-    {
-      ...createCoordinatorExecutionHostPorts({}),
-      persistence: {
-        ...persistence,
-        state: {
-          ...persistence.state,
-          updateTask: (request, generation) => {
-            if (request.kind !== "task_settle_before_effect")
-              return persistence.state.updateTask(request, generation);
-            settlements++;
-            const before = JSON.parse(fs.readFileSync(file, "utf8"));
-            const beforeHosts = before.operations.filter(
-              (item: { kind: string }) => item.kind === "host_operation",
+  const outcome = await withExecutionStateSave(
+    (...args) => {
+      const request = args[2];
+
+      if (request.kind !== "task_settle_before_effect")
+        return executionModel.saveProjectExecutionState(...args);
+      settlements++;
+      const before = JSON.parse(fs.readFileSync(file, "utf8"));
+      const beforeHosts = before.operations.filter(
+        (item: { kind: string }) => item.kind === "host_operation",
+      );
+      const beforeOperations = before.operations.filter(
+        (item: { kind: string }) => item.kind === "docker_task",
+      );
+      assert.equal(beforeOperations.length, 1);
+      assert.equal(beforeOperations[0].recoveryId, exactRecoveryId);
+      const beforeTask = before.managedExecutions[0].tasks[0];
+      assert.equal(beforeTask.state, "starting");
+      assert.equal(beforeTask.startPhase, "handoff_prepared");
+      assert.equal(beforeTask.settlement.kind, "operations");
+      assert.deepEqual(beforeTask.settlement.recoveryIds, [exactRecoveryId]);
+      const saved = executionModel.saveProjectExecutionState(...args);
+      assert.equal(saved.status, "completed", saved.reason);
+      const after = JSON.parse(fs.readFileSync(file, "utf8"));
+      assert.equal(after.revision, before.revision + 1);
+      assert.deepEqual(after.operations, beforeHosts);
+      const afterTask = after.managedExecutions[0].tasks[0];
+      assert.equal(afterTask.state, "failed");
+      assert.equal(afterTask.startPhase, "settled");
+      assert.equal(afterTask.settlement.kind, "executor_result");
+      assert.equal(afterTask.settlement.recoveryUnresolved, false);
+      const bytes = fs.readFileSync(file);
+      const replay = executionModel.saveProjectExecutionState(...args);
+      assert.equal(replay.status, "completed", replay.reason);
+      assert.deepEqual(fs.readFileSync(file), bytes);
+      return saved;
+    },
+    (dispatch) =>
+      dispatch(
+        {
+          persistence,
+          runSingleTaskAttempt: async (attempt) => {
+            const operations = settleSyntheticOperations(
+              root,
+              attempt.operationId,
+              1,
             );
-            const beforeOperations = before.operations.filter(
-              (item: { kind: string }) => item.kind === "docker_task",
-            );
-            assert.equal(beforeOperations.length, 1);
-            assert.equal(beforeOperations[0].recoveryId, exactRecoveryId);
-            const beforeTask = before.managedExecutions[0].tasks[0];
-            assert.equal(beforeTask.state, "starting");
-            assert.equal(beforeTask.startPhase, "handoff_prepared");
-            assert.equal(beforeTask.settlement.kind, "operations");
-            assert.deepEqual(beforeTask.settlement.recoveryIds, [
-              exactRecoveryId,
-            ]);
-            const saved = persistence.state.updateTask(request, generation);
-            assert.equal(saved.status, "completed", saved.reason);
-            const after = JSON.parse(fs.readFileSync(file, "utf8"));
-            assert.equal(after.revision, before.revision + 1);
-            assert.deepEqual(after.operations, beforeHosts);
-            const afterTask = after.managedExecutions[0].tasks[0];
-            assert.equal(afterTask.state, "failed");
-            assert.equal(afterTask.startPhase, "settled");
-            assert.equal(afterTask.settlement.kind, "executor_result");
-            assert.equal(afterTask.settlement.recoveryUnresolved, false);
-            const bytes = fs.readFileSync(file);
-            const replay = persistence.state.updateTask(request, generation);
-            assert.equal(replay.status, "completed", replay.reason);
-            assert.deepEqual(fs.readFileSync(file), bytes);
-            return saved;
+            exactRecoveryId = operations[0]?.recoveryId ?? null;
+            assert.ok(exactRecoveryId);
+            // 値だけを生成する既存fixtureであり、observeStartedは呼び出さない。
+            return {
+              ...completedAfterStart(attempt),
+              status: "blocked",
+              reason: "fixture_preparation_failed",
+              effectState: "settled",
+            };
           },
         },
-      },
-      runSingleTaskAttempt: async (attempt) => {
-        const operations = settleSyntheticOperations(
-          root,
-          attempt.operationId,
-          1,
-        );
-        exactRecoveryId = operations[0]?.recoveryId ?? null;
-        assert.ok(exactRecoveryId);
-        // 値だけを生成する既存fixtureであり、observeStartedは呼び出さない。
-        return {
-          ...completedAfterStart(attempt),
-          status: "blocked",
-          reason: "fixture_preparation_failed",
-          effectState: "settled",
-        };
-      },
-    },
-    input,
+        input,
+      ),
   );
   assert.equal(settlements, 1);
   assert.equal(outcome.reason, "orchestrator_replan_required");
   assert.equal(outcome.cleanupConfirmed, true);
   assert.deepEqual(outcome.recoveryIds, []);
 });
-test("contract remains a partial Coordinator task-management capability", () => {
-  assert.deepEqual(describeCoordinatorExecutionContract(), {
-    contract: "crdd-coordinator/orchestrator-execution/v1",
-    maximumConcurrency: 5,
-    externalWaitWhileMutationLockHeld: false,
-    cleanupUnknownDisposition: "durable_recovery_and_reservation_retained",
-    staleOrOwnedQueueDisposition: "effect_zero_manual_reconciliation",
-    taskManagementCapabilityComplete: false,
-  });
+/**
+ * 実Processの単一世代と不可逆の再利用禁止を確認する。
+ * @responsibility 別Processへ閉じて、本試験Processの状態を汚染せずsticky停止を反証する。
+ * @trace PRL-IT-012
+ * @precondition 実Node.jsと同じ本番Process安全状態Moduleを使用する。
+ * @stimulus 初期状態、二度の停止通知、通知後の世代を照合する。
+ * @observation 停止前後の状態と同じ世代、子Processの正常終了。
+ * @oracle 一度停止すると同Processで解除されず、世代を再生成しない。
+ * @cleanup 子Processの完了を同期で待つ。File・Docker・AI資源を作らない。
+ * @boundary Node.js子Processと本番Moduleの終了状態。
+ */
+test("Processの再利用禁止は同じ世代でstickyに保持される", () => {
+  const script = `import assert from "node:assert/strict";
+import {getRuntimeProcessInstanceIdentity,isRuntimeProcessPoisoned,poisonRuntimeProcessAfterCleanupUnknown} from ${JSON.stringify(new URL("../../src/lifecycle/host.ts", import.meta.url).href)};
+const generation=getRuntimeProcessInstanceIdentity();
+assert.equal(isRuntimeProcessPoisoned(),false);
+poisonRuntimeProcessAfterCleanupUnknown();
+assert.equal(isRuntimeProcessPoisoned(),true);
+poisonRuntimeProcessAfterCleanupUnknown();
+assert.equal(isRuntimeProcessPoisoned(),true);
+assert.equal(getRuntimeProcessInstanceIdentity(),generation);
+process.stdout.write("verified");`;
+  assert.equal(
+    execFileSync(process.execPath, ["--input-type=module", "-e", script], {
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 15_000,
+    }),
+    "verified",
+  );
 });
 
 // EIの保存・診断失敗は新しいProvider境界の試験で確認する。

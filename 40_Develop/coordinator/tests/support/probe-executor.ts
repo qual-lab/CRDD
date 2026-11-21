@@ -22,9 +22,10 @@ import {
 } from "../../../execution-model/src/index.ts";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
+import { observeExecutionCompletion } from "../../src/lifecycle/environment.ts";
 
 const source = fs.readFileSync(
-  new URL("../../src/execution/diagnostics.ts", import.meta.url),
+  new URL("../../src/lifecycle/environment.ts", import.meta.url),
   "utf8",
 );
 const body = [
@@ -37,7 +38,7 @@ const body = [
   "normalizeFailure",
   "isolationProbeBlocked",
   "finishPreSubmissionCleanup",
-  "runDockerIsolationScenario",
+  "runDockerIsolationProbe",
 ]
   .map((name) => sourceDeclaration(source, name))
   .join("\n");
@@ -104,11 +105,12 @@ export function createProbeExecutionFixture(
     book = next;
   };
   const bind = runInThisContext(
-    "(dependencies)=>{const {randomUUID,getOwnedHostRecoveryId,createOwnedMountCapability,createOwnedOperationContextCapability,createOwnedOperationManagementCapability,verifyOwnedMountCapability,getIsolationSettings,readOwnedHostOperation,applyResourceEvent,applyResourceCleanup,recordOwnedHostResources,cleanupOwnedOperationDirectories}=dependencies;\n" +
+    "(dependencies)=>{const {randomUUID,getOwnedHostRecoveryId,createOwnedMountCapability,createOwnedOperationContextCapability,createOwnedOperationManagementCapability,verifyOwnedMountCapability,getIsolationSettings,readOwnedHostOperation,applyResourceEvent,applyResourceCleanup,recordOwnedHostResources,cleanupOwnedOperationDirectories,observeExecutionCompletion}=dependencies;\n" +
       body +
-      "\nreturn runDockerIsolationScenario;}",
+      "\nreturn runDockerIsolationProbe;}",
   );
   const run = bind({
+    observeExecutionCompletion,
     Object,
     Error,
     Number,
@@ -156,8 +158,8 @@ export function createProbeExecutionFixture(
     },
   }) as (
     owned: object,
+    signal: AbortSignal | undefined,
     factory: ProbeFactory,
-    signal?: AbortSignal,
   ) => Promise<ProbeResult>;
   return {
     events,
@@ -175,6 +177,6 @@ export function createProbeExecutionFixture(
     },
     book: () => book,
     run: (factory: ProbeFactory, signal?: AbortSignal) =>
-      run(owned, factory, signal),
+      run(owned, signal, factory),
   };
 }

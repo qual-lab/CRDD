@@ -14,7 +14,7 @@ import {
   inspectRecoveryStartFailureDiagnostic,
   inspectTaskStageDiagnostic,
 } from "../../coordinator/scripts/task-diagnostic.ts";
-import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/execution/observation.ts";
+import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/lifecycle/validation.ts";
 import { isPrimaryFailureDiagnostic } from "../../executor/scripts/provider-diagnostic.ts";
 import { parseUnambiguousJsonDocument } from "../src/server/request/parse-json.ts";
 

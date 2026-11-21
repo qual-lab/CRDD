@@ -35,7 +35,7 @@
 | Workspace候補 | Workbench／MCPとCoordinatorのWorkspace操作 | Workspace ID、Base／Candidate Commit、固定・採用・回収結果を分ける | 旧CLIのcandidate export／discardを現行入口として案内しない。採用はTask完了と別判断 |
 | Checker | 対象、`--json`、`--summary`、Scope | 診断、対象、未確認範囲を読む | 指摘0を全範囲検証済みやRelease可としない |
 
-上表の構文は[能力一覧の実装](../40_Develop/coordinator/src/execution/diagnostics.ts)と[CLI契約試験](../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts)に接続する。本書の更新では操作を実行しておらず、認証・実Task・Docker・回復の成功を新たに確認したものではない。
+上表の構文は[能力一覧の実装](../40_Develop/coordinator/src/lifecycle/environment.ts)と[CLI契約試験](../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts)に接続する。本書の更新では操作を実行しておらず、認証・実Task・Docker・回復の成功を新たに確認したものではない。
 
 ## 3. 状態の認識と操作条件
 
@@ -51,13 +51,13 @@ Taskの要求本文はstdin、結果はstdoutへ分離する。認証Loginの公
 | 終了・回収不明 | 残存や未確定処置を否定できない | 返された回復参照と記録を保持し、自動再試行しない |
 | 認証状態・Login結果 | Providerの状態観測または公式対話の結果 | 対話の完了、認証結果、資源回収を区別する |
 
-通常Task CLIは`status === "completed"`かつ`cleanupConfirmed === true`で終了コード0とし、それ以外の操作結果は2、引数等の受付不正は64を返す。取消Listener解除が確認できなければ元結果を保持しつつunknownと二次失敗を搬送する。詳しい相関は[Task受付](../40_Develop/coordinator/src/cli/request.ts)と[取消接続](../40_Develop/coordinator/src/cli/cancellation.ts)が所有する。
+通常Task CLIは`status === "completed"`かつ`cleanupConfirmed === true`で終了コード0とし、それ以外の操作結果は2、引数等の受付不正は64を返す。取消Listener解除が確認できなければ元結果を保持しつつunknownと二次失敗を搬送する。詳しい相関は[Task受付](../40_Develop/coordinator/src/cli/command.ts)と[取消接続](../40_Develop/coordinator/src/cli/command.ts)が所有する。
 
 ## 4. 現行表示の参照と表現方針
 
 Task／ProjectのJSONキー・状態・理由・回復参照を、表示都合で書き換えたり欠落をfalseへ補正したりしない。上位Clientは「結果→理由→次の行動→追跡情報」の順に整理する。技術回収、業務上の完了、採用、受入は別表示とする。進捗を残時間や成功確率へ変換しない。
 
-診断・回復の人間向け表示は[回復結果の投影](../40_Develop/coordinator/src/cli/recovery-report.ts)、Provider Loginの端末条件は[認証CLI](../40_Develop/coordinator/src/cli/authentication.ts)を参照する。廃止したrenderSafeHumanCommandReportや旧端末確認プログラムを現行の表示根拠にしない。Coordinator固有のRelease鍵・署名・昇格は[廃止済み](../19_Workflows/01_Coordinator_Runtime.md#coordinator固有署名方式の廃止)であり、通常操作の準備として案内しない。
+診断・回復の人間向け表示は[回復結果の投影](../40_Develop/coordinator/src/cli/command.ts)、Provider Loginの端末条件は[認証CLI](../40_Develop/coordinator/src/cli/command.ts)を参照する。廃止したrenderSafeHumanCommandReportや旧端末確認プログラムを現行の表示根拠にしない。Coordinator固有のRelease鍵・署名・昇格は[廃止済み](../19_Workflows/01_Coordinator_Runtime.md#coordinator固有署名方式の廃止)であり、通常操作の準備として案内しない。
 
 文字サイズ・配色・折返しはCLIでは端末、Workbenchではその画面が所有する。表示のために秘密・生Provider出力・内部Capabilityを復元しない。色だけに依存せず、操作できることとできないこと、未確認と失敗を文言でも示す。
 
@@ -76,8 +76,8 @@ Task／ProjectのJSONキー・状態・理由・回復参照を、表示都合�
 
 | 操作単位 | UIが所有する確認 | 契約・実装・試験の接続 |
 |---|---|---|
-| Task／Project受付 | 主体・対象・入力不正・JSON終端を識別する | [CLI受付](../40_Develop/coordinator/src/cli/request.ts)、[CLI試験](../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts) |
-| Provider認証 | 状態確認と対話Loginを分け、秘密を表示記録へ複製しない | [認証受付](../40_Develop/coordinator/src/cli/authentication.ts) |
+| Task／Project受付 | 主体・対象・入力不正・JSON終端を識別する | [CLI受付](../40_Develop/coordinator/src/cli/command.ts)、[CLI試験](../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts) |
+| Provider認証 | 状態確認と対話Loginを分け、秘密を表示記録へ複製しない | [認証受付](../40_Develop/coordinator/src/cli/command.ts) |
 | Workspace候補 | 固定・確認・採用・回収をTask完了と分ける | [候補昇格の振る舞い](../05_SPEC/Details/BHV-000027/behavior.md)、[Workspace結合試験](../40_Develop/coordinator/tests/integration/workspace-lifecycle.integration.test.ts) |
 | 取消・回復 | 要求・終端・回収確認を区別する | [取消試験](../40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts)、[回復CLI試験](../40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts) |
 | Workbench表示 | 画面の状態・次行動とBehaviorを同じ意味で示す | [UI／SPEC対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)、§9 |

@@ -11,8 +11,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS } from "../../src/execution/diagnostics.ts";
-import { verifyDynamicFakeProviderFailures } from "../../scripts/verify-dynamic-fake-provider-failures.ts";
+import {
+  DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS,
+  verifyDynamicFakeProviderFailures,
+} from "../../scripts/verify-dynamic-fake-provider-failures.ts";
 
 /**
  * 動的Fake失敗verificationは固定scenarioだけを所有し任意入力を受けないを検証する。
@@ -28,10 +30,10 @@ import { verifyDynamicFakeProviderFailures } from "../../scripts/verify-dynamic-
  */
 test("動的Fake失敗verificationは固定scenarioだけを所有し任意入力を受けない", () => {
   assert.deepEqual(DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS, [
-    "timeout",
-    "output_limit",
-    "invalid_output",
-    "nonzero_exit",
+    ["timeout", "docker_isolation_probe_timeout"],
+    ["output_limit", "docker_isolation_probe_output_too_large"],
+    ["invalid_output", "docker_isolation_probe_invalid_output"],
+    ["nonzero_exit", "docker_isolation_probe_failed"],
   ]);
   assert.equal(verifyDynamicFakeProviderFailures.length, 0);
 });

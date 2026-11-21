@@ -11,10 +11,10 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import { type TestContext, test } from "node:test";
 import vm from "node:vm";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import {
   getExecution,
   listExecutions,
@@ -26,15 +26,16 @@ import {
   type Repository,
 } from "../../../version-control/src/index.ts";
 import {
+  getExecutionIntelligenceStore,
   RepositoryDataBlockedError,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
+  resolveRepositoryExecutionDataPaths,
+} from "../../src/lifecycle/host.ts";
 import {
   beginProviderExecutionRecording,
   captureProviderExecutionCompletion,
-  finishProviderExecutionRecording,
-  getExecutionIntelligenceStore,
-} from "../../src/execution/intelligence.ts";
+  finishProviderExecutionRecordings,
+} from "../../src/lifecycle/environment.ts";
 
 /** 新品Git Repositoryを既存fixtureへ結合し、Root検証後だけ返す。回収はfixture hookが所有する。
  * @trace ERP-IT-008
@@ -53,44 +54,61 @@ function repository(t: TestContext): Repository {
  */
 test("Group開始の保存先拒否・例外・保存拒否は同じIDを診断し実行へ戻る", () => {
   const source = fs.readFileSync(
-    new URL("../../src/objective/execute.ts", import.meta.url),
+    new URL("../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
-  const begin = source.indexOf("  const groupState:"),
-    end = source.indexOf(
-      "  const execution = await executeAcceptedCoordinatorObjective(",
-      begin,
-    );
-  assert.ok(begin >= 0 && end > begin);
-  const block = stripTypeScriptTypes(source.slice(begin, end));
+  const block = sourceDeclaration(source, "beginObjectiveExecutionRecording");
   const expected = `group-${createHash("sha256").update("project-a\0request-a").digest("hex").slice(0, 40)}`;
   for (const mode of [
     "repository_blocked",
     "repository_throw",
     "store_blocked",
+    "success",
+    "store_missing",
+    "store_throw",
+    "group_throw",
   ] as const) {
     const ids: string[] = [];
+    const recording = {
+      repositoryRoot: "fixture",
+      projectId: "project-a",
+      requestId: "request-a",
+      groupId: expected,
+      workType: "coding",
+      attempted: false,
+      group: null,
+    };
+    const attemptedAtLookup: boolean[] = [];
+    const roots: unknown[] = [];
+    const groupInputs: object[] = [];
+    const store = { directory: "fixture", retentionDays: 1 };
     const continued = vm.runInNewContext(
-      `${block}\nbeginExecutionGroup();beginExecutionGroup();true`,
+      `${block}\nbeginObjectiveExecutionRecording(recording);beginObjectiveExecutionRecording(recording);true`,
       {
-        request: { projectId: "project-a", requestId: "request-a" },
+        recording,
         repositoryRoot: "fixture",
         createHash,
-        getRepository: () => {
+        getRepository: (root: unknown) => {
+          roots.push(root);
+          attemptedAtLookup.push(recording.attempted);
           if (mode === "repository_throw") throw Error("fixture");
           return {
             status: mode === "repository_blocked" ? "blocked" : "completed",
             capability: {},
           };
         },
-        getExecutionIntelligenceStore: () => ({
-          directory: "fixture",
-          retentionDays: 1,
-        }),
-        createGroup: (_store: unknown, input: { groupId: string }) => ({
-          status: "blocked",
-          recordId: input.groupId,
-        }),
+        getExecutionIntelligenceStore: () => {
+          if (mode === "store_throw") throw Error("fixture-store");
+          return mode === "store_missing" ? null : store;
+        },
+        createGroup: (_store: unknown, input: { groupId: string }) => {
+          groupInputs.push(input);
+          if (mode === "group_throw") throw Error("fixture-group");
+          return {
+            status: mode === "success" ? "completed" : "blocked",
+            recordId: input.groupId,
+          };
+        },
         reportExecutionRecording: (result: { recordId: string }) =>
           ids.push(result.recordId),
         reportExecutionRecordingUnavailable: (id: string) => ids.push(id),
@@ -98,6 +116,38 @@ test("Group開始の保存先拒否・例外・保存拒否は同じIDを診断�
     );
     assert.equal(continued, true);
     assert.deepEqual(ids, [expected], mode);
+    assert.equal(recording.attempted, true);
+    assert.deepEqual(attemptedAtLookup, [true]);
+    assert.deepEqual(roots, ["fixture"]);
+    assert.equal(
+      groupInputs.length,
+      ["success", "store_blocked", "group_throw"].includes(mode) ? 1 : 0,
+    );
+    if (groupInputs.length) {
+      const input = JSON.parse(JSON.stringify(groupInputs[0]));
+      assert.deepEqual(Object.keys(input).sort(), [
+        "application",
+        "groupId",
+        "metadata",
+        "operation",
+        "startedAt",
+      ]);
+      assert.equal(input.groupId, expected);
+      assert.equal(input.application, "CRDD");
+      assert.equal(input.operation, "objective_execution");
+      assert.deepEqual(input.metadata, {
+        projectId: "project-a",
+        requestId: "request-a",
+      });
+      assert.equal(typeof input.startedAt, "string");
+    }
+    const group = recording.group as { store: unknown; groupId: string } | null;
+    if (mode === "success") {
+      assert.ok(group);
+      assert.strictEqual(group.store, store);
+      assert.equal(group.groupId, expected);
+      assert.deepEqual(Object.keys(group).sort(), ["groupId", "store"]);
+    } else assert.equal(group, null);
   }
 });
 
@@ -106,13 +156,24 @@ for (const kind of ["execution", "group"] as const) {
    * @trace ERP-IT-008
    */
   test(`保存先の既知Effectと元回復参照を別の${kind} IDとともに保持する`, () => {
-    const source = fs.readFileSync(
-      new URL("../../src/execution/intelligence.ts", import.meta.url),
-      "utf8",
-    );
-    const script = stripTypeScriptTypes(source)
-      .replace(/^import[\s\S]*?;\s*$/gm, "")
-      .replace(/^export /gm, "");
+    const script = (
+      [
+        ["lifecycle/host.ts", "getExecutionIntelligenceStore"],
+        ["lifecycle/environment.ts", "beginProviderExecutionRecording"],
+        ["lifecycle/environment.ts", "reportExecutionRecording"],
+        ["lifecycle/environment.ts", "reportExecutionRecordingUnavailable"],
+      ] as const
+    )
+      .map(([file, name]) =>
+        sourceDeclaration(
+          fs.readFileSync(
+            new URL(`../../src/${file}`, import.meta.url),
+            "utf8",
+          ),
+          name,
+        ),
+      )
+      .join("\n");
     const diagnostics: Array<Record<string, unknown>> = [];
     let writes = 0;
     const harness = vm.runInNewContext(
@@ -162,22 +223,27 @@ for (const kind of ["execution", "group"] as const) {
       );
     } else {
       const groupSource = fs.readFileSync(
-        new URL("../../src/objective/execute.ts", import.meta.url),
+        new URL("../../src/lifecycle/execution.ts", import.meta.url),
         "utf8",
       );
-      const begin = groupSource.indexOf("  const groupState:"),
-        end = groupSource.indexOf(
-          "  const execution = await executeAcceptedCoordinatorObjective(",
-          begin,
-        );
-      assert.ok(begin >= 0 && end > begin);
-      const block = stripTypeScriptTypes(groupSource.slice(begin, end));
+      const block = sourceDeclaration(
+        groupSource,
+        "beginObjectiveExecutionRecording",
+      );
       expected = `group-${createHash("sha256").update("project-a\0request-a").digest("hex").slice(0, 40)}`;
       assert.equal(
         vm.runInNewContext(
-          `${block}\nbeginExecutionGroup();beginExecutionGroup();true`,
+          `${block}\nbeginObjectiveExecutionRecording(recording);beginObjectiveExecutionRecording(recording);true`,
           {
-            request: { projectId: "project-a", requestId: "request-a" },
+            recording: {
+              repositoryRoot: "fixture",
+              projectId: "project-a",
+              requestId: "request-a",
+              groupId: expected,
+              workType: null,
+              attempted: false,
+              group: null,
+            },
             repositoryRoot: "fixture",
             createHash,
             getRepository: () => ({ status: "completed", capability: {} }),
@@ -233,7 +299,7 @@ for (const [lower, upper, expected] of [
       manualRecoveryRequired: false,
       ...(lower !== undefined ? { processRestartRequired: lower } : {}),
     });
-    finishProviderExecutionRecording(recording, {
+    finishProviderExecutionRecordings([recording], {
       status: "completed",
       reason: "task_done",
       cleanupConfirmed: true,
@@ -257,7 +323,18 @@ for (const [lower, upper, expected] of [
  */
 test("要求直前のIDをCompletionへ接続し、Provider実時間は欠測を保つ", (t) => {
   const r = repository(t);
+  const areas = resolveRepositoryExecutionDataPaths(r);
+  assert.ok(areas);
+  const localIgnore = path.join(
+    areas.repositoryRoot,
+    ".git",
+    "info",
+    "exclude",
+  );
+  const originalIgnore = fs.readFileSync(localIgnore);
   assert.equal(getExecutionIntelligenceStore(r, false), null);
+  assert.equal(fs.existsSync(path.dirname(areas.executionIntelligence)), false);
+  assert.deepEqual(fs.readFileSync(localIgnore), originalIgnore);
   const recording = beginProviderExecutionRecording(
     r,
     "operation-a",
@@ -270,13 +347,15 @@ test("要求直前のIDをCompletionへ接続し、Provider実時間は欠測を
     { modelIdentifier: "fixture-model", reasoningEffort: "high" },
   );
   assert.ok(recording);
+  assert.equal(recording.store.directory, areas.executionIntelligence);
+  assert.ok(fs.statSync(recording.store.directory).isDirectory());
   captureProviderExecutionCompletion(recording, {
     status: "completed",
     reason: "done",
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
   });
-  finishProviderExecutionRecording(recording, {
+  finishProviderExecutionRecordings([recording], {
     status: "completed",
     reason: "done",
     cleanupConfirmed: true,
@@ -310,7 +389,7 @@ test("AI未要求では記録しない。EIの旧形式拒否・例外は通知�
   const r = repository(t),
     store = getExecutionIntelligenceStore(r, true);
   assert.ok(store);
-  finishProviderExecutionRecording(null, {
+  finishProviderExecutionRecordings([], {
     status: "blocked",
     reason: "before_provider",
     cleanupConfirmed: true,
@@ -344,12 +423,14 @@ test("Cleanup未確認の結果は保持し、Completion欠測はopenのまま�
     cleanupConfirmed: false,
     manualRecoveryRequired: true,
   });
-  finishProviderExecutionRecording(first, {
+  const recordings = [second, first];
+  finishProviderExecutionRecordings(recordings, {
     status: "blocked",
     reason: "cleanup_unknown",
     cleanupConfirmed: false,
     manualRecoveryRequired: true,
   });
+  assert.deepEqual(recordings, []);
   const a = getExecution(first.store, first.executionId),
     b = getExecution(second.store, second.executionId);
   if (a.status !== "completed" || b.status !== "completed")
@@ -404,7 +485,7 @@ for (const final of [
     assert.ok(observed);
     const before = getExecution(recording.store, recording.executionId);
     assert.equal(before.status === "completed" && before.value?.state, "open");
-    finishProviderExecutionRecording(recording, {
+    finishProviderExecutionRecordings([recording], {
       ...final,
       reason: final.name,
     });
@@ -428,7 +509,7 @@ for (const final of [
     }
     const history = path.join(recording.store.directory, "history.jsonl"),
       bytes = fs.readFileSync(history);
-    finishProviderExecutionRecording(recording, {
+    finishProviderExecutionRecordings([recording], {
       ...final,
       reason: "duplicate",
     });
@@ -458,14 +539,15 @@ test("複数AIの個別結果と共通Task結果を混同せず、capture欠測�
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
   });
-  for (const recording of [a, b, missing])
-    finishProviderExecutionRecording(recording, {
-      status: "blocked",
-      reason: "task_failed",
-      cleanupConfirmed: true,
-      manualRecoveryRequired: false,
-      processRestartRequired: false,
-    });
+  const recordings = [a, missing, b];
+  finishProviderExecutionRecordings(recordings, {
+    status: "blocked",
+    reason: "task_failed",
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    processRestartRequired: false,
+  });
+  assert.deepEqual(recordings, []);
   const ra = getExecution(a.store, a.executionId),
     rb = getExecution(b.store, b.executionId),
     rm = getExecution(missing.store, missing.executionId);

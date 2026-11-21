@@ -13,11 +13,10 @@ import test from "node:test";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import {
   consumeRuntimeOwnedProviderAdvicePacket,
-  describeProviderAdvicePacketContract,
   issueRuntimeOwnedProviderAdvicePacket,
   revokeRuntimeOwnedProviderAdvicePacket,
-  type ProviderAdvicePacketInput,
-} from "../../../src/execution/preparation.ts";
+} from "../../../src/lifecycle/selection.ts";
+import type { ProviderAdvicePacketInput } from "../../../src/lifecycle/types.ts";
 
 /**
  * 合成の確定入力を作る。
@@ -48,7 +47,7 @@ function input(): ProviderAdvicePacketInput {
  * @responsibility Commandの有無を実行権限や送信成立と混同しない。
  * @trace ERB-UT-023
  * @precondition 合成選定・参照・通信条件だけを使用する。
- * @stimulus 正常発行・別Owner・再消費・取消を与える。
+ * @stimulus 正常発行・別Owner・別Packetの使用参照・再消費・取消を与える。
  * @observation Packet、元参照、返却値とEffect非発行。
  * @oracle 元Ownerだけ一回消費でき、旧Command/Hashは公開されない。
  * @cleanup 発行Packetは消費又は取消する。外部資源なし。
@@ -60,6 +59,28 @@ test("助言Packetは元Ownerだけが一回消費しCommandを含まない", ()
   assert.equal(issued.providerEffectIssued, false);
   assert.equal(
     consumeRuntimeOwnedProviderAdvicePacket(issued.useCapability, {}),
+    null,
+  );
+  const cancelled = issueRuntimeOwnedProviderAdvicePacket(input());
+  assert.equal(cancelled.status, "issued");
+  assert.notEqual(issued.ownerCapability, cancelled.ownerCapability);
+  assert.notEqual(issued.useCapability, cancelled.useCapability);
+  assert.equal(
+    revokeRuntimeOwnedProviderAdvicePacket(issued.useCapability),
+    false,
+  );
+  assert.equal(
+    consumeRuntimeOwnedProviderAdvicePacket(
+      cancelled.useCapability,
+      issued.ownerCapability,
+    ),
+    null,
+  );
+  assert.equal(
+    consumeRuntimeOwnedProviderAdvicePacket(
+      issued.useCapability,
+      cancelled.ownerCapability,
+    ),
     null,
   );
   const packet = consumeRuntimeOwnedProviderAdvicePacket(
@@ -83,11 +104,18 @@ test("助言Packetは元Ownerだけが一回消費しCommandを含まない", ()
     ),
     null,
   );
-  const cancelled = issueRuntimeOwnedProviderAdvicePacket(input());
+  assert.equal(
+    revokeRuntimeOwnedProviderAdvicePacket(issued.ownerCapability),
+    false,
+  );
   const result = revokeRuntimeOwnedProviderAdvicePacket(
     cancelled.ownerCapability,
   );
   assert.equal(result, true);
+  assert.equal(
+    revokeRuntimeOwnedProviderAdvicePacket(cancelled.ownerCapability),
+    false,
+  );
   assert.equal(
     consumeRuntimeOwnedProviderAdvicePacket(
       cancelled.useCapability,
@@ -118,7 +146,7 @@ test("Packet Hashは操作・完全選定・本文・参照・Policyを固定す
   assert.ok(packet);
   const content = {
     contract: "crdd-executor/advice-input",
-    contractRevision: 2,
+    contractRevision: 3,
     packetRef: packet.packetRef,
     operationId: value.operationId,
     executionSelection: value.executionSelection,
@@ -241,25 +269,37 @@ test("Policy・参照・本文は発行時の値で固定する", () => {
 });
 
 /**
- * 公開契約は非共有と一回消費を維持する。
- * @responsibility Command廃止で実行許可や共有条件を広げない。
+ * 発行・消費の実値で助言の非共有と一回使用を確認する。
  * @trace ERB-UT-023
- * @precondition 値記述だけを使用する。
- * @stimulus 公開契約を取得する。
- * @observation 返却fieldと固定値。
- * @oracle 非共有と一回消費が変わらない。
- * @cleanup N/A: 値だけ。
- * @boundary Packet契約の記述。
+ * @precondition 合成入力のみ。
+ * @stimulus 助言Packetを発行して二度消費する。
+ * @observation Packetの同一性、制限と消費結果。
+ * @oracle 実行を発行せず、非共有のPacketを一度だけ取得できる。
+ * @cleanup Packetを消費する。外部資源なし。
  */
-test("助言Packetの非共有契約を維持する", () => {
-  assert.deepEqual(describeProviderAdvicePacketContract(), {
-    contract: "crdd-executor/advice-input",
-    contractRevision: 2,
-    singleUse: true,
-    repositoryMounted: false,
-    workspaceMounted: false,
-    toolsAllowed: false,
-    sessionPersistenceAllowed: false,
-    providerEffectIssuedByPacket: false,
-  });
+test("発行した助言Packetは非共有の内容を一回だけ返す", () => {
+  const issued = issueRuntimeOwnedProviderAdvicePacket(input());
+  assert.equal(issued.status, "issued");
+  assert.equal(issued.providerEffectIssued, false);
+  const packet = consumeRuntimeOwnedProviderAdvicePacket(
+    issued.useCapability,
+    issued.ownerCapability,
+  );
+  assert.ok(packet);
+  assert.equal(packet.packetRef, issued.packetRef);
+  assert.match(packet.packetHash, /^[a-f0-9]{64}$/u);
+  for (const field of [
+    "repositoryMounted",
+    "workspaceMounted",
+    "toolsAllowed",
+    "sessionPersistenceAllowed",
+  ] as const)
+    assert.equal(packet[field], false, field);
+  assert.equal(
+    consumeRuntimeOwnedProviderAdvicePacket(
+      issued.useCapability,
+      issued.ownerCapability,
+    ),
+    null,
+  );
 });

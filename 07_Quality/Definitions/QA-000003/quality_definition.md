@@ -1,5 +1,31 @@
 # QA-000003 Project実行と回復の検証定義
 
+## Graphの具体Task接続
+
+Objective回復では元Rootの相関観測と既存回復処理の具体接続を使う。PRL-UT-014は診断の凍結コピー・非待機・失敗非干渉、及び空の旧Binding項目だけを拒否し他の照合値を維持することを確認する。結合試験の回復と診断の代役は固有Moduleに閉じる。
+
+PRL-IT-012／PRL-IT-005は、保存と実Leaseを実装のまま使い、Graphが直接呼ぶ具体Task Moduleの結果境界と、Objective初期化時の具体選定境界を試験側で差し替える。EM保存故障・Process停止・Workspace観測拒否も同じ実Sourceへ接続し、故障発火回数と元入力・元IDのassertを維持する。PRL-UT-006は代役の構築失敗／呼出し拒否後の解除、未完了時の保持と同じ具体入口への到達を反証する。各呼出しのModule Identityは独立し、完了待機後にだけ解除する。immutable Source投影は既存の単発fixtureと共有し、本番の注入Hookへ戻さない。Objectiveの選定・Task組立て代役も固有Moduleで元要求・Stateを受け、同じ完了待機と逆順のfinally解除を維持する。Task組立て・ObjectiveのOwner観測代役の登録／解除失敗でも、先行登録したModuleを逆順に解除する。PRL-UT-014はWindowsの既存観測への搬送と、非Windowsの生存観測0・元所有者付き観測不能も確認する。PRL-UT-014はTask順序・廃止対象の除外・先頭一致・個別入力と許可Path・独立配列・固定選定参照・入力欠測を確認する。初期化前のresume拒否では選定0を確認する。 Task集合の直接組立てはPRL-UT-006で元Root・固定相関ID・重複拒否と外部の相関ID注入拒否を確認する。試験の本文差替えは元Rootと製品の相関IDを維持する。
+
+## 受付済み計画の直接搬送
+
+PRL-UT-014は、公開要求に渡す元計画・同内容コピー・越境・Accessor・Proxy・null・Errorを対照する。受付は一回で、正常値は元入力から独立捕捉・凍結され、その同じ検査済み参照が実行へ搬送される。不正値はBinding・保存・AI実行前に既存の要求拒否となり、Getter／trapを実行しない。元のRepository Context、intake、再送Identityと元回復参照を維持し、回復が必要な位置までは具体観測・処置を行わない。
+
+PRL-IT-005の許可範囲外・余分field等は、廃止した計画callbackの返却ではなく公開要求のplanへ与える。Bindingへの到達0、Stateなし・Task Effect 0と、その受付の既存拒否理由を確認する。PPR-IT-001の固有Task／二Task計画はCallerの要求へ明示し、各Taskの準備と既存実保存・順序・品質受入のassertを保持する。既存試験FileとLocal Test IDを使い、計画代役のための新しい本番Hookを作らない。
+
+## 共通実行Ownerの配置追従
+
+PRL-IT-012の実行・取消・取得後保存失敗、PRL-UT-006の受付と共通Lease終結、純粋依存閉包と循環検査は`lifecycle/execution.ts`の同じ実体へ接続する。型用参照、query付き動的import、実宣言読取り、所有者別Module代役も同じ所在へ揃える。本文一致と旧Path不在だけを動作保証へ換算せず、実Writer及び通常入口の限定結合で搬送・終結を確認する。台帳の識別子、保存形式と既存assertは維持し、旧Sourceへの互換転送は作らない。
+
+終結結果の回帰では、Objectiveの回復Queue保存・物理解放・解放確定の成否ごとに、表示理由・完了Task・回復義務と呼出し順を照合する。単発Taskでは開始保存失敗に解放失敗が重なっても、元理由と回復IDを失わず、解放未確認と保存副次失敗をこの順に返し、解放確定を発行しないことを確認する。
+
+単発の明示回復も共通終結に接続する。PRL-UT-006は`running`で通常終了だけが確定を短絡すること、回復保存の成否に応じたQueue世代、元Lease、失敗理由と回復IDの順序・重複除外を確認する。旧Owner喪失の照合と、再取得したLeaseの解放は別扱いとする。
+
+## CLI統合の境界検証
+
+PRL-ST-001は実CLI Fileの通常importで標準入力読取り・Signal登録・表示出力・操作API呼出しが0であることと、直接起動時に全宣言初期化後の拒否JSON・終了値64を確認する。下位APIのimport初期化そのものの無副作用はこの観測から推定しない。既存の引数、文法、JSON、終了値と秘匿のassertを維持する。
+
+配送のPID・引数・stdin・cwdは実CLI配送宣言と実Node子Process、用途実行の有限代役で確認する。認証／Projectの解除失敗は実CLI操作宣言と既存API・取消bindingの有限代役で反証し、一次結果とexact回復参照の保持を確認する。これらを実Providerや完全な本番Module実行の成立へ拡大しない。取消bindingの型・記号解決と負例、実File受付・診断及び回復表示の既存試験も同じOwnerへ追従する。台帳のIDは維持し、旧所在だけを更新する。
+
 ## 要求前終了とHost回収の分離
 
 PRL-UT-006の実モデル試験は、資源記録なしの終了準備について、Lease保持／解放の両方と元失敗の有無・Command観測の欠測／nullを対照する。元失敗と回復参照を保持し、失敗消去・開始済み／不明・送信／共有書込み・Owner活動／不明・Command取得／応答／Receiptの各反証を拒否する。資源判定の成功をHome解放・Host回収・結果確定へ換算しない。
@@ -98,7 +124,7 @@ PRL-UT-006のTask validation試験で、候補・回復・結果のnullable参�
 
 ## 受付済み計画のexact参照再利用
 
-PRL-UT-014は私有受付実行の製品宣言を使い、同じ受付で捕捉した計画だけを再利用することを確認する。同値別Objectは再検査し、範囲外・getter・Proxy・null・依存例外を内部実行へ渡さない。PRL-IT-005は既存の範囲外計画と未知field／accessor／Proxyの二試験に限定し、自己生成RepositoryでProject保存・Task Effectがないことと終了清掃を確認する。実保存の全正常経路・実AI・Docker・全体回帰の成功へ一般化しない。
+PRL-UT-014は内部受付の製品宣言を使い、公開要求に含まれる元計画と同内容の別Objectを受付で検査・独立捕捉し、同じ凍結済みrequest.planだけを内部実行へ渡すことを確認する。範囲外・getter・Proxy・null・Errorを含む不正な計画は内部実行へ渡さず、依存へ計画を重複して搬送しない。PRL-IT-005は既存の範囲外計画と未知field／accessor／Proxyの二試験に限定し、自己生成RepositoryでProject保存・Task Effectがないことと終了清掃を確認する。実保存の全正常経路・実AI・Docker・全体回帰の成功へ一般化しない。
 
 ## Task引渡し・開始観測のモデルOwner接続 — 2026-11-18
 
@@ -116,9 +142,9 @@ PRL-IT-005の初回受付は不正Owner・上限・旧完成State・getter／Pro
 
 PRL-UT-006の並列上限・Path／Conflict Key・親子Pathの三試験を既存EM snapshot-typesへ移す。依存充足・Cleanup不明・回復後の競合予約もモデル側の反証で維持し、Coordinator側にはHandoff以降の状態遷移と表示・搬送の検証を残す。合成予約fixtureは既知の前提値だけを作り、製品の予約検査・保存成功には数えない。
 
-PRL-IT-005は初回保存の同じ新品Rootで、保存Stateと非永続の開始候補のProject／世代相関、予約のgeneration＋1、古い世代・予約済みTaskの拒否と保存bytes不変を確認する。CoのPPR-UT-006は同版の開始候補を表示へ搬送し、欠測や別世代を待機へ補完しない。有限Executor結合は、予約保存後だけHandoffと実行へ進む条件を維持する。実AI・Docker・全体回帰の成立とは区別する。
+PRL-IT-005は初回保存の同じ新品Rootで、保存Stateと非永続の開始候補のProject／世代相関、予約のgeneration＋1、古い世代・予約済みTaskの拒否と保存bytes不変を確認する。CoのPPR-UT-006は同版の開始候補を表示へ搬送し、欠測や別世代を待機へ補完しない。有限Executor結合は、予約保存後だけHandoffと実行へ進む条件を維持する。実AI・Docker・全体回帰の成立とは区別する。 PRL-IT-012は二Taskの直列進行と、初回読取り・予約・引渡し・開始観測・終端保存の候補搬送不正を対照する。確認済み候補の再捕捉省略を、保存結果が異なる境界の照合省略とは扱わない。
 
-候補metadata由来の停止は、初回・recovering／settled保存後・最終読取りでも既知の元回復ID・種別・Process再起動必要性を維持する。PRL-UT-014の有限Source接続とMCP搬送で、公開Promiseへの例外漏出なし、projection null、unknown、清掃未確認、手動確認必要、元ID集合一致、停止後の追加Effectなしを確認する。未解決状態にIDがない場合も成功へ補完しない。
+候補metadata由来の停止は、初回・recovering／settled保存後・最終読取りでも既知の元回復ID・種別・Process再起動必要性を維持する。PRL-UT-014の有限Source接続とMCP搬送で、公開Promiseへの例外漏出なし、projection null、unknown、清掃未確認、手動確認必要、元ID集合一致、停止後の追加Effectなしを確認する。未解決状態にIDがない場合も成功へ補完しない。 状態照会はPPR-UT-006で、各候補を一度だけ受け付け、同じ候補が複数一致する場合は表示せず観測不能にすることも確認する。 公開照会の試験は取得済み断面の同一参照、保存読取り拒否・未初期化・別形式では表示0、回復義務有無とEffect未発行の区別を確認する。 公開の `queryState` で既知の保存例外2種だけを同じEffect・清掃・回復参照へ投影し、他の例外はそのまま伝播することも確認する。
 
 ## 履歴・退役の完成操作への直接接続 — 2026-11-18
 
@@ -328,7 +354,7 @@ Cの入口切替は[公開入口と同意の境界](../../../06_Architecture/Det
 
 先行CLI整理では`PRL-IT-012`に対し、`request.ts`のimport-only無出力とProject拒否JSON bytes・終了値を実Processで確認する。`ERB-IT-003`の取消接続検査では、引数拒否の先頭guard内出力とfinally後の終端出力を別に照合し、拒否return欠落と終了前追加出力を反証する。Human表示の専用試験撤去を、Domain共通結果の`RCM-UT-016`廃止とは扱わない。元結果・回復参照・機密非公開の既存義務は実JSONと元結果の検査に残す。
 
-Cの三接続は[接続設計](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#c-integration-three-connections)に対し、既存`PRL-IT-012`・`PRL-IT-013`等の検証を移管先へ接続する。Task Identity検査と単発実行の値検査を混同せず、元Controlの同期配送捕捉、Executor初回開始とReviewer通知、重複・終端後通知、通知false／throw／欠測、開始前後取消・取消例外と元完了joinを確認する。第5／第6引数の実行対象・consumer束縛、助言と編集、Workbench／CLIの一時返却とObjectiveの耐久ACKを別母集団として扱う。
+Cの三接続は[接続設計](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#c-integration-three-connections)に対し、既存`PRL-IT-012`・`PRL-IT-013`等の検証を移管先へ接続する。Task Identity検査と単発実行の値検査を混同せず、元Controlの同期配送捕捉、Executor初回開始とReviewer通知、重複・終端後通知、通知false／throw／欠測、開始前後取消・取消例外と元完了joinを確認する。技術開始の第5〜第8引数に搬送する用途・実行対象・記録メタデータ・Host情報、助言と編集、Workbench／CLIの一時返却とObjectiveの耐久記録を別母集団として扱う。
 
 回復では技術終端・cleanup・実履歴確認後、Task反映・Root受領本文・配送待ち解除を確定する単一CASを確認する。保存前失敗、保存後応答喪失、readback失敗、Owner解放不明と同じ候補の再入場を分け、exact参照を保持する。Provider・資源回収を再発行せず、私有CapabilityをIDから復元しない。元Map・Writer・短期Ownerを複製せず、既存の不正入力・相関差・失敗Oracleを維持する。
 
@@ -369,6 +395,8 @@ VC単独の実Git試験はこの上位結合試験の代替ではない。本表
 Merge後分析は既存`PRL-ST-001`／`PRL-IT-013`へ追加する。Merge成功後の分析成功・失敗・取消・保存中断後再入場を分け、対象Workspace・取込Commit・Task・分析資料の相関、元Merge結果とRefの保持、分析段階からの自動Rollback／追加修正／Merge再発行0を観測する。先行する明示MergeのEffectを0とは主張しない。資料保存が失敗してもMerge未実施へ巻戻さず、分析未完了と必要な再分析・人間判断を返す。古いCommitへの分析を現在の完了へ昇格しない。
 
 [Workspace詳細](../../../06_Architecture/Details/coordinator/05_Workspace.md)の`orchestrator.workspace-task-target`（ARCH-000004／000012）を追加条件として導出する。`PRL-UT-006`は対象結合・方式・状態判定、`PRL-IT-011`は同Workspace競合／別Workspace並行と共有資源制限・複数Process取得、`PRL-IT-012`はWorkbench／MCP／CLIの共通Task搬送、`PRL-IT-013`は元Attemptの再入場を確認する。`PRL-ST-001`／003／004は通常実行・取消・親喪失の公開経路で、Repository／Workspaceと開始・結果・保存・終了後資源を相関する。`PRL-UAT-002`は対象・判断待ち・再開を利用者が区別できるか評価する。取消時のContainer／Process回収を継続Workspaceの削除・resetへ変換せず、既存dirty・他Task成果の前後不変を観測する。旧Queue／Lease試験から新方式の並行・再入場成功を推定しない。
+
+既存`PRL-IT-005`では共通Attemptへ渡す借用対象の明示null・別Root・Getter・Proxyを拒否し、取消済みでも違反理由が変わらず技術依存に触れないことを確認する。借用先の既存対照試験では、元入力と同内容で独立した凍結結果を技術開始に渡し、Main／Linkedのdirty基準と所有寿命を変えないことを確認する。
 
 本節の全体評価はNot Run。限定結合は実Git・実Writer・既存Lease、二Task継続、保存Rootと実行Tree分離、別Processの競合・再入場、保存前open失敗とRef削除失敗を対象とする。再観測時の別HEAD／dirty／locked／prunable、破棄時の既終端Queue結果保持、委譲前拒否の回復非発行も反証する。保存失敗の一地点を全保存障害・実Process強制終了の実証へ一般化しない。回復／配送未解決、retry／Replan、履歴整理後継続、実Provider・公開Surface・Git採用・Merge・利用者受入は未確認として残す。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式へ継承しない。UT、IT、公開ST、利用者UATを相互代替しない。実施結果は[変更記録](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md)へ接続する。
 
@@ -684,7 +712,7 @@ PPR-UT-006は通常runTask二回の外側計測、明示主体・別ID、旧設�
 
 PPR-UT-006の取消・期限反証では、通常Taskと同じ待機後の閲覧認可を確認し、元結果・exact回復参照・清掃状態が保持されることを検証する。取消と正常完了が競合する場合も二件目を開始せず、認可の失効を取消の代用にしない。
 
-PRL-UT-014のPlatform契約は改訂3へ追従し、未接続Root候補の操作枠・保証宣言を含めない閉集合を確認する。専用Root候補の二試験は退役し、その削除を成功へ数えない。現役のProvider Home観測、Repository解決、Owner生存観測、未対応境界の拒否とコピー／差替え拒否は既存混合試験へ維持する。
+PRL-UT-014は本番経路で使用するProvider Home観測、Repository解決、Owner生存観測へ直接接続する。非対応・欠測のOSと不正ProviderではHomeを読まず、Root不正では別Rootへ切り替えず、PID不存在と観測不能は区別する。未接続のAdapter宣言・選択だけを試す旧項目は退役し、成功数へ加算しない。これらの局所結果を全OSの対応やProject開始全体のEffect 0への保証には拡張しない。
 
 計測結果取得後の出力Directory差・書込み例外でも、元Task結果・一次理由・cleanup・exact回復集合を保持する。出力未確認は副次失敗として返し、Taskの再実行、回収成功の捏造、Path・生例外の公開を行わない。標準出力自体の搬送失敗は成功として扱わない。
 

@@ -15,8 +15,8 @@ import test from "node:test";
 import { types } from "node:util";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { createCandidateValidationFailureDiagnostic } from "../../src/execution/result.ts";
-import { snapshotPlainArray } from "../../src/input/snapshot.ts";
+import { createCandidateValidationFailureDiagnostic } from "../../src/lifecycle/validation.ts";
+import { snapshotPlainArray } from "../../src/lifecycle/validation.ts";
 
 /**
  * 本番と検証Toolの診断が旧件数を欠測へ変換しない。
@@ -31,7 +31,7 @@ import { snapshotPlainArray } from "../../src/input/snapshot.ts";
  */
 test("候補拒否と検証Toolの診断は旧件数を欠測化しない", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/controller.ts", import.meta.url),
+    new URL("../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
   const notices: Record<string, unknown>[] = [];
@@ -47,10 +47,8 @@ test("候補拒否と検証Toolの診断は旧件数を欠測化しない", () =
       createCandidateValidationFailureDiagnostic: (
         raw: Parameters<typeof createCandidateValidationFailureDiagnostic>[0],
       ) => createCandidateValidationFailureDiagnostic({ ...raw }),
-      reportTaskDiagnostic: (
-        _state: unknown,
-        notice: Record<string, unknown>,
-      ) => notices.push(notice),
+      reportTaskDiagnostic: (notice: Record<string, unknown>) =>
+        notices.push(notice),
     },
   ) as (...args: unknown[]) => void;
   const paths = Array.from({ length: 1001 }, (_, i) => `src/f-${i}.ts`);
@@ -64,7 +62,7 @@ test("候補拒否と検証Toolの診断は旧件数を欠測化しない", () =
     [[...paths.slice(0, -1), "src/other.ts"], false],
     [[null], null],
   ] as const) {
-    report({}, { operationId: "synthetic" }, null, "codex", 0, candidate, {
+    report({ operationId: "synthetic" }, null, "codex", 0, candidate, {
       changedPaths: reported,
     });
     const diagnostic = notices.at(-1)?.diagnostic as Record<string, unknown>;
@@ -128,8 +126,8 @@ import {
   salvageVerificationRecoveryPair,
 } from "../../scripts/verification-safety.ts";
 
-const hostA = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
-const hostB = `host.crdd-coordinator-doctor-b.12345678-1234-4234-8234-123456789abc.${"b".repeat(64)}`;
+const hostA = "host-operation.OP-123456";
+const hostB = "host-operation.OP-123457";
 const dockerA = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 
 const SCHEMA = Object.freeze({

@@ -22,23 +22,21 @@ import {
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
+} from "../../src/lifecycle/host.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
   borrowRuntimeOwnedCoordinatorSettlementRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
-  borrowRuntimeOwnedCoordinatorStorageRepository,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-  describeRepositoryOperationRuntimeContract,
   inspectRepositoryObjectFormatCandidate,
   verifyRuntimeOwnedRepositoryBindingCapability,
   verifyRuntimeOwnedRepositoryOperation,
-} from "../../src/execution/operation.ts";
+} from "../../src/lifecycle/host.ts";
 
 const firstRevision = "1".repeat(40);
 const secondRevision = "2".repeat(40);
@@ -59,7 +57,7 @@ test("現行の実体ID取得点はWindowsだけ符号を補正し他の拒否�
   for (const [sourcePath, names] of [
     ["../../../version-control/src/repository/layout.ts", ["identity"]],
     ["../../../configuration-model/src/storage/store.ts", ["identity"]],
-    ["../../src/execution/operation.ts", ["readFilesystemIdentity"]],
+    ["../../src/lifecycle/host.ts", ["readFilesystemIdentity"]],
   ] as const) {
     const source = stripTypeScriptTypes(
       fs.readFileSync(new URL(sourcePath, import.meta.url), "utf8"),
@@ -289,17 +287,17 @@ function createFixtureOperation(t: TestContext) {
 }
 
 /**
- * 保存移管の四用途が異なる現在性を維持し、内部Rootを値搬送しないことを確認する。
- * @responsibility 通常操作、業務保存、再入場読取り、終端保存の誤同一視を反証する。
+ * 現役の三用途が異なる現在性を維持し、内部Rootを値搬送しないことを確認する。
+ * @responsibility 通常操作、再入場読取り、終端保存の誤同一視を反証する。
  * @trace PRL-IT-012
  * @precondition Repository内の合成Gitと自己生成Operationだけを使用する。
  * @stimulus 同じ実体のHEADを変更し、最後に操作Ownerを終了する。
- * @observation 四借用の用途、Root参照、再検証、JSONとspreadを観測する。
- * @oracle Revisionを要する二用途だけが失効し、終端と業務保存は実体確認を維持する。
+ * @observation 三借用の用途、Root参照、再検証、JSONとspreadを観測する。
+ * @oracle Revisionを要する二用途だけが失効し、終端は実体確認を維持する。
  * @cleanup 生成したOperationと合成Gitだけを既存hookで回収する。
  * @boundary 操作OwnerとVersion Controlの実観測。保存・Docker・AIは呼ばない。
  */
-test("保存の四用途はRevisionとOwnerの条件を分離しRoot参照を搬送値へ混入させない", (t) => {
+test("保存の三用途はRevisionとOwnerの条件を分離しRoot参照を搬送値へ混入させない", (t) => {
   const area = requireReadyRepositoryExecutionDataArea(
     ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
@@ -322,27 +320,20 @@ test("保存の四用途はRevisionとOwnerの条件を分離しRoot参照を搬
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   const execution = borrowRuntimeOwnedCoordinatorStateRepository(management);
-  const storage = borrowRuntimeOwnedCoordinatorStorageRepository(
-    verified.capability,
-  );
   const recovery = borrowRuntimeOwnedCoordinatorRecoveryRepository(
     verified.capability,
   );
   const settlement =
     borrowRuntimeOwnedCoordinatorSettlementRepository(management);
   assert.ok(execution);
-  assert.ok(storage);
   assert.ok(recovery);
   assert.ok(settlement);
   assert.equal(settlement.root, execution.root);
-  assert.equal(storage.root, verified.capability);
   assert.equal(recovery.root, verified.capability);
-  assert.equal(storage.repositoryBinding, execution.repositoryBinding);
   assert.equal(recovery.repositoryBinding, execution.repositoryBinding);
   assert.equal(settlement.repositoryBinding, execution.repositoryBinding);
   for (const [purpose, repository] of [
     ["execution", execution],
-    ["storage", storage],
     ["recovery", recovery],
     ["settlement", settlement],
   ] as const) {
@@ -358,7 +349,6 @@ test("保存の四用途はRevisionとOwnerの条件を分離しRoot参照を搬
     assert.equal(JSON.stringify(repository).includes('"root"'), false);
     assert.equal(JSON.stringify(repository).includes('"purpose"'), false);
   }
-  assert.equal("operationId" in storage, false);
   assert.equal("operationId" in recovery, false);
   fs.writeFileSync(
     path.join(root, ".git", "refs", "heads", "main"),
@@ -367,7 +357,6 @@ test("保存の四用途はRevisionとOwnerの条件を分離しRoot参照を搬
   );
   assert.equal(execution.revalidate(), false);
   assert.equal(recovery.revalidate(), false);
-  assert.equal(storage.revalidate(), true);
   assert.equal(settlement.revalidate(), true);
   assert.equal(borrowRuntimeOwnedCoordinatorStateRepository(management), null);
   assert.equal(
@@ -377,60 +366,7 @@ test("保存の四用途はRevisionとOwnerの条件を分離しRoot参照を搬
   cleanupOwnedOperationDirectories(owned);
   cleaned = true;
   assert.equal(execution.revalidate(), false);
-  assert.equal(storage.revalidate(), true);
   assert.equal(settlement.revalidate(), true);
-});
-
-/**
- * 保存借用の一回の再検証はfresh二探索を使い、呼出し間でcacheしない。
- * @responsibility 上位保存借用に追加の重複探索がなく、実体差は拒否することを確認する。
- * @trace PRL-IT-012
- * @precondition Repository内の自己生成Gitだけを使用する。
- * @stimulus 同じ借用を反復し、Git実体を差替えてから元へ戻す。
- * @observation configのopen回数と再検証結果。
- * @oracle 各正常呼出しは二探索、差替え中は拒否、復帰後は再成立。
- * @cleanup 観測代役とGit実体を復元しfixtureだけを回収する。
- * @boundary 本番Coordinator保存借用→Version Control実体観測。
- */
-test("保存借用は呼出しごとの二探索と実体差替え拒否を維持する", (t) => {
-  const parent = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
-  fs.mkdirSync(parent, { recursive: true });
-  const root = temporaryRepository(t, parent);
-  const verified = getRepository(root);
-  assert.equal(verified.status, "completed");
-  if (verified.status !== "completed") throw Error("fixture_root_invalid");
-  const borrowed = borrowRuntimeOwnedCoordinatorStorageRepository(
-    verified.capability,
-  );
-  assert.ok(borrowed);
-  assert.equal(borrowRuntimeOwnedCoordinatorStorageRepository({}), null);
-  const marker = path.join(root, ".git");
-  const retired = path.join(root, "retired-git");
-  const config = path.join(marker, "config");
-  const original = fs.openSync;
-  let opens = 0;
-  fs.openSync = ((...args: Parameters<typeof original>) => {
-    if (String(args[0]) === config) opens++;
-    return Reflect.apply(original, fs, args);
-  }) as typeof original;
-  try {
-    assert.equal(borrowed.revalidate(), true);
-    assert.equal(opens, 2);
-    opens = 0;
-    assert.equal(borrowed.revalidate(), true);
-    assert.equal(opens, 2);
-    fs.renameSync(marker, retired);
-    try {
-      fs.cpSync(retired, marker, { recursive: true });
-      assert.equal(borrowed.revalidate(), false);
-    } finally {
-      fs.rmSync(marker, { recursive: true, force: true });
-      fs.renameSync(retired, marker);
-    }
-    assert.equal(borrowed.revalidate(), true);
-  } finally {
-    fs.openSync = original;
-  }
 });
 
 /**
@@ -522,12 +458,30 @@ test("Repository実体と開始Revisionをopaque capabilityへ固定して再照
   assert.equal(bound.revision, firstRevision);
   assert.equal(bound.repositoryBound, true);
   assert.equal(bound.pathReported, false);
+  assert.deepEqual(Reflect.ownKeys(bound).sort(), [
+    "operationId",
+    "pathReported",
+    "repositoryBindingCapability",
+    "repositoryBound",
+    "revision",
+  ]);
+  assert.deepEqual(Reflect.ownKeys(bound.repositoryBindingCapability), []);
+  assert.equal(JSON.stringify(bound).includes(repository), false);
   assert.deepEqual(verifyRuntimeOwnedRepositoryOperation(management), {
     operationId: bound.operationId,
     revision: firstRevision,
     repositoryBound: true,
     revisionCurrent: true,
   });
+  assert.deepEqual(
+    verifyRuntimeOwnedRepositoryOperation(management, "selection_preflight"),
+    {
+      operationId: bound.operationId,
+      revision: firstRevision,
+      repositoryBound: true,
+      revisionCurrent: true,
+    },
+  );
   assert.deepEqual(
     verifyRuntimeOwnedRepositoryBindingCapability(
       bound.repositoryBindingCapability,
@@ -570,12 +524,19 @@ test("開始後にHEAD参照先が変わればEffectと結果公開の双方で�
   const management = operation(t);
   const bound = bindRuntimeOwnedRepositoryOperation(management, repository);
   assert.ok(bound);
+  assert.ok(
+    verifyRuntimeOwnedRepositoryOperation(management, "selection_preflight"),
+  );
   fs.writeFileSync(
     path.join(repository, ".git", "refs", "heads", "main"),
     `${secondRevision}\n`,
     "utf8",
   );
   assert.equal(verifyRuntimeOwnedRepositoryOperation(management), null);
+  assert.equal(
+    verifyRuntimeOwnedRepositoryOperation(management, "selection_preflight"),
+    null,
+  );
   assert.equal(
     verifyRuntimeOwnedRepositoryBindingCapability(
       bound.repositoryBindingCapability,
@@ -809,26 +770,4 @@ test("linked worktreeのCommon Git Directoryでもloose ref junctionをpreflight
     process.platform === "win32" ? "junction" : "dir",
   );
   assert.equal(inspectRepositoryObjectFormatCandidate(repository.root), null);
-});
-
-/**
- * 公開契約はcaller supplied identityを採用せずPathを返さないを検証する。
- *
- * @responsibility 公開契約はcaller supplied identityを採用せずPathを返さないの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開契約はcaller supplied identityを採用せずPathを返さないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("公開契約はcaller supplied identityを採用せずPathを返さない", () => {
-  const contract = describeRepositoryOperationRuntimeContract();
-  assert.equal(contract.contractRevision, 2);
-  assert.equal(contract.callerRevisionAccepted, false);
-  assert.equal(contract.pathReported, false);
-  assert.equal(contract.providerEffectAllowed, false);
-  assert.deepEqual(contract.runtimeSupportedObjectFormats, ["sha1"]);
-  assert.match(contract.revision, /reobserved_before_effect_and_result/u);
 });

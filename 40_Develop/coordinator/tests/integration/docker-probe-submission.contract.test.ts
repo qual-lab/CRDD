@@ -8,6 +8,7 @@
  * @boundary Coordinator通知受付とExecutorの技術完了。
  */
 import assert from "node:assert/strict";
+import { getEventListeners } from "node:events";
 import test from "node:test";
 import type { CompletionResult } from "../../../executor/src/index.ts";
 import { createProbeExecutionFixture } from "../support/probe-executor.ts";
@@ -186,23 +187,34 @@ test("Probe二保存は現通知のcreate前と実ID取得後をそれぞれ停�
  * @responsibility Listener解放と終了待機を要求受理とは区別する。
  * @trace ERB-IT-004
  * @precondition 各実行は独立したAbortControllerと未完了Promiseを持つ。
- * @stimulus 実行中取消、完了後の追加Abort、開始前取消を与える。
+ * @stimulus 実行中取消、開始中の同期取消、完了後の追加Abort、開始前取消・開始拒否を与える。
  * @observation cancel回数、Promise完了、Host清掃順。
  * @oracle 完了まで待機し、終了後のAbortから取消を追加配送しない。
  * @cleanup 全Promiseを解決しListener解除を追加Abortで確認する。
- * @boundary 同一Process内の取消と有限Executorのみ。
+ * @boundary 実共通観測と有限Executor。実Process／Dockerは使用しない。
  */
 test("Probe取消は元Executorの完了を待ち終了後のListenerを解放する", async () => {
-  for (const preAborted of [false, true]) {
+  for (const scenario of [
+    "running",
+    "during_start",
+    "before_start",
+    "start_refused",
+    "cancel_throw",
+    "cancel_reject",
+    "rejected_signal",
+    "rejected_no_signal",
+  ]) {
     const fixture = createProbeExecutionFixture();
     const controller = new AbortController();
-    if (preAborted) controller.abort();
+    if (scenario === "before_start") controller.abort();
     let finish:
       | ((value: CompletionResult<"isolation_probe">) => void)
       | undefined;
+    let reject: ((error: unknown) => void) | undefined;
     const completion = new Promise<CompletionResult<"isolation_probe">>(
-      (resolve) => {
+      (resolve, rejectCompletion) => {
         finish = resolve;
+        reject = rejectCompletion;
       },
     );
     let cancelled = 0,
@@ -211,16 +223,29 @@ test("Probe取消は元Executorの完了を待ち終了後のListenerを解放�
       .run(
         () => ({
           kind: "isolation_probe",
-          cancel: async () => {
+          cancel: () => {
             cancelled++;
-            return {
+            if (scenario === "cancel_throw")
+              throw Error("fixture_cancel_threw");
+            if (scenario === "cancel_reject")
+              return Promise.reject(Error("fixture_cancel_rejected"));
+            return Promise.resolve({
               status: "requested",
               reason: "cancellation_requested",
               cancellationRequested: true,
               processTerminationObserved: false,
-            };
+            });
           },
           start: (input) => {
+            assert.equal(Object.hasOwn(input, "signal"), false);
+            if (scenario === "start_refused")
+              return {
+                kind: "isolation_probe",
+                status: "blocked",
+                reason: "fixture_start_refused",
+                completion: null,
+              };
+            if (scenario === "during_start") controller.abort();
             input.callbacks?.onCommandSubmitting?.(
               "create_isolation_probe",
               fixture.target(),
@@ -228,34 +253,59 @@ test("Probe取消は元Executorの完了を待ち終了後のListenerを解放�
             return { kind: "isolation_probe", status: "started", completion };
           },
         }),
-        controller.signal,
+        scenario === "rejected_no_signal" ? undefined : controller.signal,
       )
       .then((result) => {
         returned = true;
         return result;
       });
-    if (!preAborted) controller.abort();
+    const started = scenario !== "start_refused";
+    if (["running", "cancel_throw", "cancel_reject"].includes(scenario)) {
+      assert.equal(getEventListeners(controller.signal, "abort").length, 1);
+      controller.abort();
+    }
+    const cancellationExpected = [
+      "running",
+      "during_start",
+      "before_start",
+      "cancel_throw",
+      "cancel_reject",
+    ].includes(scenario);
     await Promise.resolve();
-    assert.equal(cancelled, 1);
-    assert.equal(returned, false);
-    assert.equal(fixture.events.includes("host"), false);
+    assert.equal(cancelled, cancellationExpected ? 1 : 0);
+    if (started) {
+      assert.equal(returned, false);
+      assert.equal(fixture.events.includes("host"), false);
+    }
     assert.ok(finish);
-    finish({
-      kind: "isolation_probe",
-      status: "cancelled",
-      reason: "fixture_cancelled",
-      creationAttempted: false,
-      containerId: null,
-      facts: null,
-      resourceSnapshot: fixture.planned.snapshot,
-      processCompletionConfirmed: true,
-      cleanupConfirmed: true,
-      cancelled: true,
-    });
+    if (scenario.startsWith("rejected_")) {
+      assert.ok(reject);
+      reject(Error("docker_probe_cleanup_failed"));
+    } else
+      finish({
+        kind: "isolation_probe",
+        status: "cancelled",
+        reason: "fixture_cancelled",
+        creationAttempted: false,
+        containerId: null,
+        facts: null,
+        resourceSnapshot: fixture.planned.snapshot,
+        processCompletionConfirmed: true,
+        cleanupConfirmed: true,
+        cancelled: true,
+      });
     const result = await running;
     assert.equal(result.status, "blocked");
-    assert.equal(result.hostCleanupCompleted, true);
+    assert.equal(
+      result.hostCleanupCompleted,
+      !scenario.startsWith("rejected_"),
+    );
+    if (scenario.startsWith("rejected_")) {
+      assert.equal(result.reason, "docker_probe_cleanup_failed");
+      assert.equal(result.recoveryId, "host-operation.OP-123456");
+    }
     controller.signal.dispatchEvent(new Event("abort"));
-    assert.equal(cancelled, 1);
+    assert.equal(cancelled, cancellationExpected ? 1 : 0);
+    assert.equal(getEventListeners(controller.signal, "abort").length, 0);
   }
 });

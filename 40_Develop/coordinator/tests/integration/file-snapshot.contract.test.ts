@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { readStableFileSnapshot } from "../../src/cli/file-snapshot.ts";
+import { readStableFileSnapshot } from "../../src/cli/command.ts";
 
 /**
  * temporaryFileのTest準備責務を実行する。

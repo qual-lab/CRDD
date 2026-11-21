@@ -11,9 +11,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
-import { buildObjectiveTaskRequest } from "../../src/objective/execute.ts";
-import { resolveTaskExecutionSelections } from "../../src/selection/resolve.ts";
+import {
+  buildObjectiveTaskRequest,
+  snapshotCoordinatorTaskRequest,
+} from "../../src/lifecycle/validation.ts";
+import { resolveTaskExecutionSelections } from "../../src/lifecycle/selection.ts";
 import { selectionConfig } from "../fixtures/ai-selection.ts";
 
 const objective = Object.freeze(
@@ -89,4 +91,4 @@ test("Objectiveの固定選定は全四組合せでTask契約へexactに搬送�
   }
 });
 
-import { inspectCoordinatorObjectiveRequest } from "../../src/objective/plan.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../src/lifecycle/validation.ts";

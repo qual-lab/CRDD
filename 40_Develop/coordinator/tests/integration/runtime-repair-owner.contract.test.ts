@@ -27,15 +27,13 @@ import { sourceDeclaration } from "../../../execution-model/tests/support/source
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  historyRepositoryInput,
   observeRepositoryExecutionDataArea,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import * as bindings from "../../src/execution/operation.ts";
-import {
-  historyRepositoryInput,
   withHistoryRetention,
-} from "../../src/execution/persistence.ts";
-import { snapshotJsonValue } from "../../src/input/snapshot.ts";
+} from "../../src/lifecycle/host.ts";
+import * as bindings from "../../src/lifecycle/host.ts";
+import { snapshotJsonValue } from "../../src/lifecycle/validation.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
 /**
@@ -338,7 +336,7 @@ const isolationModule = {
 function createRepairOwnerFixture() {
   const body = sourceDeclaration(
     fs.readFileSync(
-      new URL("../../src/execution/recovery.ts", import.meta.url),
+      new URL("../../src/lifecycle/environment.ts", import.meta.url),
       "utf8",
     ),
     "repairRuntimeOwnedDockerRuntime",
@@ -412,7 +410,7 @@ function createRepairOwnerFixture() {
     `(function(deps){ const {${names.join(",")}} = deps; const getIsolationSettings = () => ({windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}); const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime; })`,
   )(
     dependencies,
-  ) as typeof import("../../src/execution/recovery.ts").repairRuntimeOwnedDockerRuntime;
+  ) as typeof import("../../src/lifecycle/environment.ts").repairRuntimeOwnedDockerRuntime;
 }
 
 const repairRuntimeOwnedDockerRuntime = createRepairOwnerFixture();

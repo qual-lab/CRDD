@@ -15,8 +15,8 @@ import {
   readRepositorySnapshot,
   getRepository,
 } from "../../version-control/src/index.ts";
-import { resolveTaskExecutionSelections } from "../src/selection/resolve.ts";
-import type { BorrowedExecutionTarget } from "../src/execution/operation.ts";
+import { resolveTaskExecutionSelections } from "../src/lifecycle/selection.ts";
+import type { BorrowedExecutionTarget } from "../src/lifecycle/types.ts";
 import {
   prepareVerificationWorkspace,
   readVerificationWorkspaceOutput,
@@ -26,7 +26,7 @@ import {
 import {
   isSupportedNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../src/execution/diagnostics.ts";
+} from "../src/lifecycle/environment.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "./measure-development-providers.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
@@ -35,16 +35,16 @@ import {
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "../src/execution/process-safety-state.ts";
+} from "../src/lifecycle/host.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
-} from "../src/execution/controller.ts";
+} from "../src/lifecycle/execution.ts";
 import {
   coordinatorTaskPublicReasons,
   type CoordinatorTaskPublicReason,
-} from "../src/execution/result.ts";
-import { snapshotPlainArray } from "../src/input/snapshot.ts";
+} from "../src/lifecycle/validation.ts";
+import { snapshotPlainArray } from "../src/lifecycle/validation.ts";
 import {
   isCanonicalCrddGitObjectId,
   isSupportedCrddRuntimeGitObjectId,
@@ -453,7 +453,6 @@ const productionDependencies: VerificationDependencies = Object.freeze({
       {},
       {
         root: repository,
-        purpose: "task",
         recordingCurrent: () =>
           resolveVerifiedRepositoryRoot(repository) === root,
       },

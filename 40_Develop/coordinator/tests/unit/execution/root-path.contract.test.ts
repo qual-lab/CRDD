@@ -9,13 +9,15 @@
  * @boundary RFD-UT-006=N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
+import { compileFunction } from "node:vm";
+import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 
 import {
-  describeAuthorityRootPathLexicalContract,
   isSupportedPosixAbsolutePathCandidate,
   isSupportedWindowsAbsolutePathCandidate,
-} from "../../../src/execution/authority.ts";
+} from "../../../src/lifecycle/environment.ts";
 
 /**
  * Windows absolute Pathの保守的字句subsetをOS非依存に判定するを検証する。
@@ -81,18 +83,25 @@ test("Windows absolute Pathの保守的字句subsetをOS非依存に判定する
  * @boundary RFD-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 test("予約名比較用の限定大文字写像を全件固定する", () => {
-  const contract = describeAuthorityRootPathLexicalContract();
-  assert.deepEqual(
-    contract.asciiLowercaseMappings,
-    Array.from({ length: 26 }, (unusedValue, index) => {
-      void unusedValue;
-      return [
-        String.fromCodePoint(0x61 + index),
-        String.fromCodePoint(0x41 + index),
-      ];
-    }),
+  const source = fs.readFileSync(
+    new URL("../../../src/lifecycle/environment.ts", import.meta.url),
+    "utf8",
   );
-  assert.deepEqual(contract.specialMappings, [
+  const uppercase = compileFunction(
+    `${[
+      "RESERVED_NAME_SPECIAL_UPPERCASE_MAPPINGS",
+      "reservedNameSpecialUppercaseMapping",
+      "reservedNameLimitedUppercase",
+    ]
+      .map((name) => sourceDeclaration(source, name))
+      .join("\n")}
+    return reservedNameLimitedUppercase;`,
+  )() as (value: string) => string;
+  assert.deepEqual(
+    Array.from("abcdefghijklmnopqrstuvwxyz", uppercase),
+    Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+  );
+  for (const [from, to] of [
     ["ß", "SS"],
     ["ı", "I"],
     ["ſ", "S"],
@@ -104,13 +113,11 @@ test("予約名比較用の限定大文字写像を全件固定する", () => {
     ["ﬄ", "FFL"],
     ["ﬅ", "ST"],
     ["ﬆ", "ST"],
-  ]);
-  assert.equal(
-    contract.windowsReservedNameComparison,
-    "repository_owned_limited_uppercase_mapping",
-  );
-  assert.equal(contract.unicodeNormalizationApplied, false);
-  assert.equal(contract.illFormedUtf16Accepted, false);
+  ] as const) {
+    assert.equal(uppercase(from), to);
+  }
+  assert.equal(uppercase("é"), "é");
+  assert.equal(uppercase("e\u0301"), "E\u0301");
 });
 
 /**

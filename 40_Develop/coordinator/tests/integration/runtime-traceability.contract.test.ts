@@ -589,27 +589,20 @@ test("Coordinator SourceのSymbol登録は実File集合と一致する", () => {
 });
 
 /**
- * 統合CLIの四責務と実行側への依存方向を固定する。
+ * 統合CLIの単一Ownerと実行側への依存方向を固定する。
  * @responsibility 旧Pathの中継と実行側からのCLI逆参照を検出する。
  * @trace PPR-IT-018
  * @precondition 現Sourceを読取り可能である。
  * @stimulus CLI集合・診断・回復・同意の接続を読む。
  * @observation File名集合と本番import・関数所在。
- * @oracle 四Fileだけを持ち、診断・状態Reader・端末をCLIが所有しない。
+ * @oracle command.tsだけを持ち、診断・状態Readerの実処理をCLIが所有しない。
  * @cleanup N/A: Source読取りのみ。
  * @boundary PPR-IT-018=Direct Boundary: Source責務配置と依存方向。
  */
 test("CLIは受付・表示と取消に閉じ実Ownerから逆参照されない", () => {
   const root = path.join(repositoryRoot, "40_Develop/coordinator/src");
   assert.deepEqual(fs.readdirSync(path.join(root, "cli")).sort(), [
-    "authentication.ts",
-    "cancellation.ts",
     "command.ts",
-    "doctor.ts",
-    "file-snapshot.ts",
-    "options.ts",
-    "recovery-report.ts",
-    "request.ts",
   ]);
   /**
    * 検査対象Source本文を読取り専用で取得する。
@@ -624,31 +617,34 @@ test("CLIは受付・表示と取消に閉じ実Ownerから逆参照されない
    */
   const read = (name: string) => fs.readFileSync(path.join(root, name), "utf8");
   assert.doesNotMatch(
-    read("execution/diagnostics.ts"),
+    read("lifecycle/environment.ts"),
     /from ["']\.\.\/cli\//u,
   );
   assert.doesNotMatch(
     read("cli/command.ts"),
     /storage\/settlement-store|function currentRecoveryOperationRoot/u,
   );
-  for (const file of [
-    "cli/command.ts",
-    "cli/doctor.ts",
-    "cli/request.ts",
-    "cli/authentication.ts",
-  ]) {
-    assert.match(read(file), /from "\.\.\/api\.ts"/u);
-    assert.doesNotMatch(
-      read(file),
-      /from "\.\.\/(execution|storage|state|objective)\//u,
-    );
-  }
+  const command = read("cli/command.ts");
+  assert.match(command, /from "\.\.\/api\.ts"/u);
+  const technicalImports = [
+    ...command.matchAll(
+      /from "((?:\.\.\/)(?:execution|lifecycle|storage|state|objective)\/[^"]+)"/gu,
+    ),
+  ].map((match) => match[1]);
+  assert.deepEqual(technicalImports, [
+    "../lifecycle/validation.ts",
+    "../lifecycle/environment.ts",
+  ]);
+  assert.match(
+    command,
+    /import \{\s*classifyDoctorOperationInitializationFailure\s*\} from "\.\.\/lifecycle\/environment\.ts";/u,
+  );
   assert.equal(
     fs.existsSync(path.join(root, "decision/external-send-grant.ts")),
     false,
   );
   assert.match(
-    read("cli/recovery-report.ts"),
+    read("cli/command.ts"),
     /classifyDoctorOperationInitializationFailure/u,
   );
 });

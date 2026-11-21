@@ -13,14 +13,14 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import test from "node:test";
+import test, { mock } from "node:test";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
 } from "../../../../version-control/src/index.ts";
 import { planExecution } from "../../../../ai-adapter/src/index.ts";
 import { createRepositoryTestDirectory } from "../../../../execution-model/tests/support/repository-test-directory.ts";
-import { createSignedGeneralTaskVerificationRequest } from "../../../scripts/verify-general-task.ts";
+import * as decision from "../../../src/lifecycle/decision.ts";
 
 import {
   cleanupOwnedOperationDirectories,
@@ -29,15 +29,50 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   verifyOwnedOperationManagementCapability,
-} from "../../../src/execution/operation.ts";
-import {
-  consumeTaskRemediation,
-  createIsolatedProviderTaskPacketRuntimeCandidate,
-  describeProviderTaskPacketRuntimeContract,
-  registerTaskRemediation,
-} from "../../../src/execution/preparation.ts";
-import { createTaskStageDiagnostic } from "../../../src/execution/result.ts";
-import { executionSelection } from "../../fixtures/ai-selection.ts";
+} from "../../../src/lifecycle/host.ts";
+import { createTaskStageDiagnostic } from "../../../src/lifecycle/validation.ts";
+
+type PolicyObservation = Readonly<{
+  enabled: boolean;
+  destinations: readonly { provider: "codex" | "claude" }[];
+  additionalHosts: readonly string[];
+}>;
+
+const policyObservations = new WeakMap<
+  object,
+  (repository: unknown) => PolicyObservation | null
+>();
+// 製品のPacket Ownerはそのまま使い、Repositoryの送信方針観測だけを代役にする。
+const policyMock = mock.module("../../../src/lifecycle/decision.ts", {
+  namedExports: {
+    ...decision,
+    verifyRuntimeOwnedExternalSendPolicy(
+      capability: unknown,
+      _management: unknown,
+      repository: unknown,
+    ) {
+      if (typeof capability !== "object" || capability === null) return null;
+      return policyObservations.get(capability)?.(repository) ?? null;
+    },
+  },
+});
+test.after(() => policyMock.restore());
+const {
+  consumeRuntimeOwnedProviderAdvicePacket,
+  consumeRuntimeOwnedProviderTaskPacket,
+  issueRuntimeOwnedProviderAdvicePacket,
+  issueRuntimeOwnedProviderTaskPacket,
+  revokeRuntimeOwnedProviderAdvicePacket,
+  revokeRuntimeOwnedProviderTaskPacket,
+} = await import("../../../src/lifecycle/selection.ts");
+const { consumeTaskRemediation, registerTaskRemediation } = await import(
+  "../../../src/lifecycle/environment.ts"
+);
+// 選定fixtureも同じModuleを読むため、送信方針の代役を登録した後に評価する。
+const { executionSelection } = await import("../../fixtures/ai-selection.ts");
+const { createSignedGeneralTaskVerificationRequest } = await import(
+  "../../../scripts/verify-general-task.ts"
+);
 
 /** Packet単体試験の前提となる検査済み所見を作る。Provider内容検査の成立は主張しない。 */
 function createReviewFixture(management: object, raw: string) {
@@ -239,18 +274,16 @@ function reviewerPacket(
 function packetRuntime() {
   const repositoryBindingCapability = Object.freeze({});
   const externalSendPolicyCapability = Object.freeze({});
-  const runtime = createIsolatedProviderTaskPacketRuntimeCandidate(
-    (capability, _management, repositoryBinding) =>
-      capability === externalSendPolicyCapability &&
-      repositoryBinding === repositoryBindingCapability
-        ? {
-            enabled: true,
-            destinations: [{ provider: "codex" }, { provider: "claude" }],
-            additionalHosts: Object.freeze([]),
-          }
-        : null,
+  policyObservations.set(externalSendPolicyCapability, (repositoryBinding) =>
+    repositoryBinding === repositoryBindingCapability
+      ? {
+          enabled: true,
+          destinations: [{ provider: "codex" }, { provider: "claude" }],
+          additionalHosts: Object.freeze([]),
+        }
+      : null,
   );
-  return { runtime, repositoryBindingCapability, externalSendPolicyCapability };
+  return { repositoryBindingCapability, externalSendPolicyCapability };
 }
 
 /**
@@ -273,7 +306,7 @@ test("Task PacketとReviewer診断は旧本文・件数上限を再適用しな�
       { length: 17 },
       (_, index) => `${index}-${"c".repeat(1025)}`,
     );
-    const issued = isolated.runtime.issue(
+    const issued = issueRuntimeOwnedProviderTaskPacket(
       current.managementCapability,
       isolated.repositoryBindingCapability,
       "claude",
@@ -285,7 +318,7 @@ test("Task PacketとReviewer診断は旧本文・件数上限を再適用しな�
     );
     assert.equal(issued?.status, "issued");
     if (issued?.status !== "issued") return;
-    const consumed = isolated.runtime.consume(
+    const consumed = consumeRuntimeOwnedProviderTaskPacket(
       issued.useCapability,
       current.managementCapability,
     );
@@ -333,7 +366,7 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
   const current = operation();
   const isolated = packetRuntime();
   try {
-    const issued = isolated.runtime.issue(
+    const issued = issueRuntimeOwnedProviderTaskPacket(
       current.managementCapability,
       isolated.repositoryBindingCapability,
       "claude",
@@ -348,7 +381,7 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
     assert.match(issued?.taskPacketRef ?? "", /^TASKPKT-[A-F0-9]{32}$/u);
     assert.match(issued?.taskPacketHash ?? "", /^[a-f0-9]{64}$/u);
     assert.equal(issued?.rawPromptReported, false);
-    const consumed = isolated.runtime.consume(
+    const consumed = consumeRuntimeOwnedProviderTaskPacket(
       issued?.useCapability,
       current.managementCapability,
     );
@@ -381,7 +414,7 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
       /not only paths written during the remediation turn/u,
     );
     assert.equal(
-      isolated.runtime.consume(
+      consumeRuntimeOwnedProviderTaskPacket(
         issued?.useCapability,
         current.managementCapability,
       ),
@@ -408,7 +441,7 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
   const current = operation();
   const isolated = packetRuntime();
   try {
-    const issued = isolated.runtime.issue(
+    const issued = issueRuntimeOwnedProviderTaskPacket(
       current.managementCapability,
       isolated.repositoryBindingCapability,
       "codex",
@@ -419,7 +452,7 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
       reviewerPacket(),
     );
     if (issued?.status !== "issued") assert.fail("packet must be issued");
-    const consumed = isolated.runtime.consume(
+    const consumed = consumeRuntimeOwnedProviderTaskPacket(
       issued.useCapability,
       current.managementCapability,
     );
@@ -542,7 +575,7 @@ test("文書を明示した受入条件は合成Reviewerの確認範囲から除
   const current = operation();
   const isolated = packetRuntime();
   try {
-    const issued = isolated.runtime.issue(
+    const issued = issueRuntimeOwnedProviderTaskPacket(
       current.managementCapability,
       isolated.repositoryBindingCapability,
       "claude",
@@ -565,7 +598,7 @@ test("文書を明示した受入条件は合成Reviewerの確認範囲から除
       ),
     );
     if (issued?.status !== "issued") assert.fail("packet must be issued");
-    const consumed = isolated.runtime.consume(
+    const consumed = consumeRuntimeOwnedProviderTaskPacket(
       issued.useCapability,
       current.managementCapability,
     );
@@ -606,7 +639,7 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
     const current = operation();
     const isolated = packetRuntime();
     try {
-      const issued = isolated.runtime.issue(
+      const issued = issueRuntimeOwnedProviderTaskPacket(
         current.managementCapability,
         isolated.repositoryBindingCapability,
         "claude",
@@ -626,7 +659,7 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
         ),
       );
       if (issued?.status !== "issued") assert.fail("packet must be issued");
-      const consumed = isolated.runtime.consume(
+      const consumed = consumeRuntimeOwnedProviderTaskPacket(
         issued.useCapability,
         current.managementCapability,
       );
@@ -703,9 +736,9 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
  * @responsibility 取消はuse aliasも失効し別Operationや動的入力を拒否するの合否判定を所有する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 取消はuse aliasも失効し別Operationや動的入力を拒否するの対象操作を実行する。
+ * @stimulus 別Operation・用途間の参照流用・使用と取消の取り違え・動的入力を与える。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
+ * @oracle 誤った参照では指示を失効させず、正しい取消は使用参照も失効させる。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
@@ -714,7 +747,7 @@ test("取消はuse aliasも失効し別Operationや動的入力を拒否する",
   const other = operation();
   const isolated = packetRuntime();
   try {
-    const issued = isolated.runtime.issue(
+    const issued = issueRuntimeOwnedProviderTaskPacket(
       current.managementCapability,
       isolated.repositoryBindingCapability,
       "codex",
@@ -725,22 +758,80 @@ test("取消はuse aliasも失効し別Operationや動的入力を拒否する",
       reviewerPacket(),
     );
     if (issued?.status !== "issued") assert.fail("packet must be issued");
+    const advice = issueRuntimeOwnedProviderAdvicePacket({
+      operationId: "OP-000001",
+      executionSelection: executionSelection("advice"),
+      provider: "codex",
+      taskHash: "a".repeat(64),
+      projectionHash: "b".repeat(64),
+      providerPrompt: "synthetic",
+      allowedReferences: ["PROJECT_CONTEXT.md"],
+      additionalHosts: [],
+    });
+    assert.equal(advice.status, "issued");
+    for (const reference of [issued.controlCapability, issued.useCapability]) {
+      assert.equal(revokeRuntimeOwnedProviderAdvicePacket(reference), false);
+      assert.equal(
+        consumeRuntimeOwnedProviderAdvicePacket(
+          advice.useCapability,
+          reference,
+        ),
+        null,
+      );
+    }
+    for (const reference of [advice.ownerCapability, advice.useCapability]) {
+      assert.equal(
+        revokeRuntimeOwnedProviderTaskPacket(
+          reference,
+          current.managementCapability,
+        ).status,
+        "blocked",
+      );
+      assert.equal(
+        consumeRuntimeOwnedProviderTaskPacket(
+          reference,
+          current.managementCapability,
+        ),
+        null,
+      );
+    }
     assert.equal(
-      isolated.runtime.revoke(
+      consumeRuntimeOwnedProviderTaskPacket(
+        issued.controlCapability,
+        current.managementCapability,
+      ),
+      null,
+    );
+    assert.equal(
+      revokeRuntimeOwnedProviderTaskPacket(
+        issued.useCapability,
+        current.managementCapability,
+      ).status,
+      "blocked",
+    );
+    assert.equal(
+      consumeRuntimeOwnedProviderAdvicePacket(
+        advice.useCapability,
+        advice.ownerCapability,
+      )?.provider,
+      "codex",
+    );
+    assert.equal(
+      revokeRuntimeOwnedProviderTaskPacket(
         issued?.controlCapability,
         other.managementCapability,
       ).status,
       "blocked",
     );
     assert.equal(
-      isolated.runtime.revoke(
+      revokeRuntimeOwnedProviderTaskPacket(
         issued?.controlCapability,
         current.managementCapability,
       ).status,
       "revoked",
     );
     assert.equal(
-      isolated.runtime.consume(
+      consumeRuntimeOwnedProviderTaskPacket(
         issued?.useCapability,
         current.managementCapability,
       ),
@@ -756,7 +847,7 @@ test("取消はuse aliasも失効し別Operationや動的入力を拒否する",
       },
     });
     assert.equal(
-      isolated.runtime.issue(
+      issueRuntimeOwnedProviderTaskPacket(
         current.managementCapability,
         isolated.repositoryBindingCapability,
         "claude",
@@ -813,7 +904,7 @@ test("Path、上限、重複、余分fieldとRole差をfail closedにする", ()
       { ...packet(), extra: true },
     ]) {
       assert.equal(
-        isolated.runtime.issue(
+        issueRuntimeOwnedProviderTaskPacket(
           current.managementCapability,
           isolated.repositoryBindingCapability,
           "claude",
@@ -827,7 +918,7 @@ test("Path、上限、重複、余分fieldとRole差をfail closedにする", ()
       );
     }
     assert.equal(
-      isolated.runtime.issue(
+      issueRuntimeOwnedProviderTaskPacket(
         current.managementCapability,
         isolated.repositoryBindingCapability,
         "claude",
@@ -878,7 +969,7 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
     );
     const normalized = reviewed.normalizedResult;
     assert.ok(normalized && "remediationCapability" in normalized);
-    const issued = isolated.runtime.issue(
+    const issued = issueRuntimeOwnedProviderTaskPacket(
       current.managementCapability,
       isolated.repositoryBindingCapability,
       "claude",
@@ -891,7 +982,7 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
     if (issued?.status !== "issued") {
       assert.fail("remediation packet must be issued");
     }
-    const consumed = isolated.runtime.consume(
+    const consumed = consumeRuntimeOwnedProviderTaskPacket(
       issued?.useCapability,
       current.managementCapability,
     );
@@ -915,7 +1006,7 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
       /"reviewerMessageSha256":"[0-9a-f]{64}"/u,
     );
     assert.equal(
-      isolated.runtime.issue(
+      issueRuntimeOwnedProviderTaskPacket(
         current.managementCapability,
         isolated.repositoryBindingCapability,
         "claude",
@@ -959,7 +1050,7 @@ test("Reviewer由来の秘密用Pathを送信Policy照合前に是正Packetか�
     let policyVerificationCount = 0;
     const repositoryBindingCapability = Object.freeze({});
     const externalSendPolicyCapability = Object.freeze({});
-    const runtime = createIsolatedProviderTaskPacketRuntimeCandidate(() => {
+    policyObservations.set(externalSendPolicyCapability, () => {
       policyVerificationCount += 1;
       return null;
     });
@@ -982,7 +1073,7 @@ test("Reviewer由来の秘密用Pathを送信Policy照合前に是正Packetか�
       );
       const normalized = reviewed.normalizedResult;
       assert.ok(normalized && "remediationCapability" in normalized);
-      const issued = runtime.issue(
+      const issued = issueRuntimeOwnedProviderTaskPacket(
         current.managementCapability,
         repositoryBindingCapability,
         "claude",
@@ -1024,7 +1115,7 @@ test("Reviewer由来の認識済みSecret本文を送信Policy照合前に是正
   let policyVerificationCount = 0;
   const repositoryBindingCapability = Object.freeze({});
   const externalSendPolicyCapability = Object.freeze({});
-  const runtime = createIsolatedProviderTaskPacketRuntimeCandidate(() => {
+  policyObservations.set(externalSendPolicyCapability, () => {
     policyVerificationCount += 1;
     return null;
   });
@@ -1047,7 +1138,7 @@ test("Reviewer由来の認識済みSecret本文を送信Policy照合前に是正
     );
     const normalized = reviewed.normalizedResult;
     assert.ok(normalized && "remediationCapability" in normalized);
-    const issued = runtime.issue(
+    const issued = issueRuntimeOwnedProviderTaskPacket(
       current.managementCapability,
       repositoryBindingCapability,
       "claude",
@@ -1087,7 +1178,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならPolicy照合前�
   let policyVerificationCount = 0;
   const repositoryBindingCapability = Object.freeze({});
   const externalSendPolicyCapability = Object.freeze({});
-  const runtime = createIsolatedProviderTaskPacketRuntimeCandidate(() => {
+  policyObservations.set(externalSendPolicyCapability, () => {
     policyVerificationCount += 1;
     return null;
   });
@@ -1110,7 +1201,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならPolicy照合前�
     );
     const normalized = reviewed.normalizedResult;
     assert.ok(normalized && "remediationCapability" in normalized);
-    const issued = runtime.issue(
+    const issued = issueRuntimeOwnedProviderTaskPacket(
       current.managementCapability,
       repositoryBindingCapability,
       "claude",
@@ -1132,44 +1223,53 @@ test("Reviewer由来の受入条件参照がTask範囲外ならPolicy照合前�
 });
 
 /**
- * 公開契約はPrompt非argvとcanonical非変更を固定するを検証する。
- *
- * @responsibility 公開契約はPrompt非argvとcanonical非変更を固定するの合否判定を所有する。
+ * Task Packetの発行値と消費値を区別し、準備結果に本文や実行引数を流さない。
  * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開契約はPrompt非argvとcanonical非変更を固定するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 自己生成したOperationと合成送信方針を使う。
+ * @stimulus 正常Taskを発行し、元の管理参照で消費する。
+ * @observation 発行結果の型、元のHashと本文の搬送方法。
+ * @oracle 本文は消費時だけ得られ、stdin以外の搬送情報や書込み結果を発行値へ出さない。
+ * @cleanup 自己生成したOperationだけを回収する。
  */
-test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
-  const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 22);
-  assert.equal(
-    contract.repositoryFileBytesEmbeddedInPrompt,
-    "reviewer_only_explicit_read_projection_bound_to_candidate_identity",
-  );
-  assert.match(contract.recognizedPromptSecretMaterial, /rejected/u);
-  assert.equal(contract.completeSecretAbsenceVerified, false);
-  assert.equal(contract.promptTransport, "provider_stdin_only");
-  assert.equal(contract.promptInDockerArgvAllowed, false);
-  assert.equal(contract.canonicalRepositoryEffectAllowed, false);
-  assert.equal(contract.rawPromptReported, false);
-  assert.equal(
-    contract.remediationProjection,
-    "path_severity_category_criterion_secret_screened_untrusted_message_claim_and_domain_separated_message_hash",
-  );
-  assert.equal(
-    contract.remediationSecretBoundary,
-    "finding_paths_and_messages_rejected_before_packet_issue",
-  );
-  assert.equal(
-    contract.reviewerScopeBoundary,
-    "all_stated_acceptance_criteria_including_explicit_documentation_plus_runtime_verified_changed_path_scope_and_independent_readable_candidate_semantics_without_git_metadata_or_unstated_repository_wide_gates",
-  );
-  assert.equal(
-    contract.reviewerDecisionInvariant,
-    "approved_requires_zero_findings_and_any_finding_requires_changes_requested",
-  );
+test("実Task Packetは発行時に本文を公開せず消費時はstdin専用にする", () => {
+  const current = operation();
+  const isolated = packetRuntime();
+  try {
+    const issued = issueRuntimeOwnedProviderTaskPacket(
+      current.managementCapability,
+      isolated.repositoryBindingCapability,
+      "claude",
+      "executor",
+      0,
+      isolated.externalSendPolicyCapability,
+      null,
+      packet(),
+    );
+    if (issued?.status !== "issued") assert.fail("packet must be issued");
+    assert.deepEqual(
+      Object.keys(issued).sort(),
+      [
+        "status",
+        "taskPacketRef",
+        "taskPacketHash",
+        "controlCapability",
+        "useCapability",
+        "rawPromptReported",
+        "repositoryFileBytesEmbeddedInPrompt",
+      ].sort(),
+    );
+    assert.equal(issued.rawPromptReported, false);
+    assert.equal(issued.repositoryFileBytesEmbeddedInPrompt, false);
+    const consumed = consumeRuntimeOwnedProviderTaskPacket(
+      issued.useCapability,
+      current.managementCapability,
+    );
+    assert.ok(consumed);
+    assert.equal(consumed.taskPacketHash, issued.taskPacketHash);
+    assert.equal(consumed.promptTransport, "provider_stdin_only");
+    assert.ok(consumed.prompt);
+    assert.equal("argv" in consumed, false);
+  } finally {
+    cleanupOwnedOperationDirectories(current.owned);
+  }
 });

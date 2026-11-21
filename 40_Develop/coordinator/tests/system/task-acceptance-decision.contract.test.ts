@@ -14,13 +14,14 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { readProjectExecutionState } from "../../../execution-model/src/index.ts";
 import type {
   AcceptanceDecision,
   ProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
-import { acceptResult } from "../../src/decision/acceptance.ts";
-import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
-import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";
+import { acceptResult } from "../../src/lifecycle/decision.ts";
+import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/lifecycle/decision.ts";
+import { queryState } from "../../src/index.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
 import {
   createRepository,
@@ -109,8 +110,12 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
       Object.freeze({ principalId: "operator-a" }),
     );
     assert.equal(accepted.status, "completed", accepted.reason);
-    const statePort = createTestPersistence(repository.root, bindingId).state;
-    const observed = statePort.readState(projectId);
+    const statePort = createTestPersistence(repository.root, bindingId);
+    const observed = readProjectExecutionState(
+      statePort.repository,
+      statePort.repositoryBindingId,
+      projectId,
+    );
     assert.equal(observed.status, "completed");
     assert.ok(observed.value);
     state = observed.value;
@@ -184,7 +189,7 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
     assert.equal(resent.history.status, "confirmed");
     assert.deepEqual(fs.readFileSync(stateFile), beforeResend);
 
-    const projection = executeCoordinatorPublicStateQuery(
+    const projection = queryState(
       Object.freeze({
         requestId: `query-${decision}`,
         projectId,

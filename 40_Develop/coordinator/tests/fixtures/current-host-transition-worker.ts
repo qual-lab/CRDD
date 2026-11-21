@@ -25,7 +25,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const fs = (await import('node:fs')).default;
       const path = (await import('node:path')).default;
       ${hostFixtureProcessBoundarySource}
-      let absenceProfile;
+      let absenceProfile, resourceBoundaryMock, rejectedEffects=0;
       try {
       const { createHash } = await import('node:crypto');
       const authenticationUnknownRestart = process.argv[3] === 'restart_auth_cli_entry';
@@ -97,8 +97,15 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
       const { canonicalJson } = await import(${JSON.stringify(new URL("../support/contract-assertions.ts", import.meta.url).href)});
       const store = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
-      const historyInputs = await import(${JSON.stringify(new URL("../../src/execution/persistence.ts", import.meta.url).href)});
-      const recovery = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
+      const historyInputs = await import(${JSON.stringify(new URL("../../src/lifecycle/host.ts", import.meta.url).href)});
+      if (['none','null_outcome','workbench_transient'].includes(process.argv[3]) || process.argv[3].startsWith('history_')) {
+        const executorUrl = ${JSON.stringify(new URL("../../../executor/src/index.ts", import.meta.url).href)};
+        const executor = await import(executorUrl);
+        const { mock } = await import('node:test');
+        const rejectEffect=()=>{rejectedEffects++;throw new Error('unrelated_docker_effect_forbidden');};
+        resourceBoundaryMock=mock.module(executorUrl,{namedExports:{...executor,cleanupResources:rejectEffect,inspectResources:rejectEffect}});
+      }
+      const recovery = await import(${JSON.stringify(new URL("../../src/lifecycle/environment.ts", import.meta.url).href)});
       const id = process.argv[2], verified = vc.getRepository(process.cwd());
       /**
        * 公開Readerと実履歴のexact相関を観測する。
@@ -133,7 +140,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const expectedResources = JSON.parse(process.argv[reentry?5:4]);
       assert.equal(verified.status, 'completed'); assert.ok(verified.capability);
       if(restartEntry) {
-        const restart = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
+        const restart = await import(${JSON.stringify(new URL("../../src/lifecycle/environment.ts", import.meta.url).href)});
         const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
         const before = fs.readFileSync(statePath), snapshot = JSON.parse(before);
         const target = snapshot.operations.find(item => item.recoveryId === id);
@@ -194,15 +201,15 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(restartCalls,1); assert.deepEqual(fs.readFileSync(statePath),restartExpectedBytes);
         assertRestartSiblingPhysical();
         assert.deepEqual(JSON.parse(fs.readFileSync(statePath)).operations.find(item => item.recoveryId === id).resources,initialResources);
-        const kernel = await import(${JSON.stringify(new URL("../../src/execution/kernel-lock.ts", import.meta.url).href)});
-        const authority = await import(${JSON.stringify(new URL("../../src/execution/authority.ts", import.meta.url).href)});
+        const kernel = await import(${JSON.stringify(new URL("../../src/lifecycle/host.ts", import.meta.url).href)});
+        const environment = await import(${JSON.stringify(new URL("../../src/lifecycle/environment.ts", import.meta.url).href)});
         const acquired = [];
         try {
           for(const item of snapshot.operations.filter(item=>item.kind==='docker_task')) {
-            const hostLock = kernel.acquireHostOperationLock(process.cwd(),JSON.parse(item.identityJson).operationId); assert.equal(hostLock.status,'acquired'); acquired.push(hostLock.lock);
-            const homeLock = kernel.acquireProviderHomeLock(item.recoveryId.split('.')[1], authority.providerHomesDirectoryCandidate()); assert.equal(homeLock.status, 'acquired'); acquired.push(homeLock.lock);
+            const lockRepository = vc.getRepository(process.cwd()); assert.equal(lockRepository.status,"completed"); const hostLock = kernel.acquireHostOperationLock(lockRepository.capability,JSON.parse(item.identityJson).operationId); assert.equal(hostLock.status,'acquired'); acquired.push(hostLock.lock);
+            const homeLock = kernel.acquireProviderHomeLock(item.recoveryId.split('.')[1], environment.providerHomesDirectoryCandidate()); assert.equal(homeLock.status, 'acquired'); acquired.push(homeLock.lock);
           }
-          const stateLock = kernel.acquireExecutionStateLock(authority.runtimeStateDirectoryCandidate()); assert.equal(stateLock.status, 'acquired'); acquired.push(stateLock.lock);
+          const stateLock = kernel.acquireExecutionStateLock(environment.runtimeStateDirectoryCandidate()); assert.equal(stateLock.status, 'acquired'); acquired.push(stateLock.lock);
           assert.ok(acquired.every(lock => lock.assertLive()));
         } finally { for(const lock of acquired.reverse()) assert.equal(lock.release(),true); }
         for(const file of ['state.pending.json','state.lock','history.pending.jsonl']) assert.throws(() => fs.lstatSync(path.join(path.dirname(statePath),file)),{code:'ENOENT'});
@@ -625,12 +632,8 @@ export const currentHostTransitionWorkerSource = `(async () => {
           const prepared=recovery.prepareRuntimeOwnedDockerTaskRecovery(id,verified.capability);
           assert.equal(prepared.status,'prepared');
           assert.equal(recovery.releaseRuntimeOwnedDockerTaskRecoveryPreparation(prepared.capability),true);
-let rejectedEffects=0;
-          const rejectEffect=()=>{rejectedEffects++;throw new Error('unrelated_docker_effect_forbidden');};
-          const refusedResources=await recovery.recoverRuntimeOwnedDockerTaskResources(prepared.capability,rejectEffect,rejectEffect);
+          const refusedResources=await recovery.recoverRuntimeOwnedDockerTaskResources(prepared.capability,new AbortController().signal);
           assert.equal(refusedResources.status,'blocked');assert.equal(refusedResources.reason,'docker_task_recovery_owner_unconfirmed');
-          const refusedExecution=await recovery.executeRuntimeOwnedDockerTaskResourceRecovery(prepared.capability,new AbortController().signal);
-          assert.equal(refusedExecution.status,'blocked');assert.equal(refusedExecution.reason,'docker_task_recovery_owner_unconfirmed');
           assert.equal(rejectedEffects,0);
           assert.equal(recovery.cleanupRuntimeOwnedDockerTaskHost(prepared.capability),false);
         }
@@ -738,5 +741,5 @@ let rejectedEffects=0;
         if(capability && !capabilityReleased) assert.equal(recovery.releaseRuntimeOwnedDockerTaskRecoveryPreparation(capability),true);
       }
       process.stdout.write('current_host_storage_verified');
-      } finally { try { await absenceProfile?.settle();absenceProfile?.assertComplete(); } finally { restoreHostFixtureProcesses(); } }
+      } finally { try { await absenceProfile?.settle();absenceProfile?.assertComplete(); } finally { try { resourceBoundaryMock?.restore(); } finally { restoreHostFixtureProcesses(); } } }
     })().catch(error => { console.error(error); process.exitCode = 1; });`;

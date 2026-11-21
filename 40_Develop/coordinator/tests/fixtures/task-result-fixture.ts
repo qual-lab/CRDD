@@ -393,4 +393,4 @@ export function settleSyntheticOperations(
 
 import { saveRecoveryHistory } from "../../../execution-model/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
-import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";
+import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/lifecycle/host.ts";

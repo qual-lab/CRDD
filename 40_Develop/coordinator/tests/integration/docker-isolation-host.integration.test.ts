@@ -52,8 +52,8 @@ import {
   createProviderAuthenticationDependencies,
   createProviderAuthenticationRecoveryRecord,
   readProviderAuthenticationResources,
-} from "../../src/execution/authority.ts";
-import { getIsolationSettings } from "../../src/execution/configuration.ts";
+} from "../../src/lifecycle/authentication.ts";
+import { getIsolationSettings } from "../../src/lifecycle/environment.ts";
 import { prepareAuthenticationProjection } from "../support/authentication.ts";
 
 /**

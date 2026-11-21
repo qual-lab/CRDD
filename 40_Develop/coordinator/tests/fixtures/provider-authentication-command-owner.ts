@@ -14,7 +14,7 @@ import {
   createAuthenticationFixture,
   prepareAuthenticationProjection,
 } from "../support/authentication.ts";
-import { acquireProviderHomeLock } from "../../src/execution/kernel-lock.ts";
+import { acquireProviderHomeLock } from "../../src/lifecycle/host.ts";
 import {
   authenticateProvider,
   beginProviderAuthenticationRecovery,
@@ -23,7 +23,7 @@ import {
   recordProviderAuthenticationResource,
   setProviderAuthenticationRecoveryCommandState,
   settleProviderAuthenticationRecovery,
-} from "../../src/execution/authority.ts";
+} from "../../src/lifecycle/authentication.ts";
 
 const [hash, home, token] = process.argv.slice(2);
 if (!hash || !home || !token) process.exit(70);

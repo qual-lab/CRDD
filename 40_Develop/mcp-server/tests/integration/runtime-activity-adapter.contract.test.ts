@@ -12,12 +12,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { verifyRuntimePersistenceRepository } from "../../../coordinator/src/execution/persistence.ts";
+import { verifyRuntimePersistenceRepository } from "../../../coordinator/src/lifecycle/host.ts";
 import { inspectCoordinatorObjectiveResult } from "../../../coordinator/src/index.ts";
-import { executeCoordinatorObjective } from "../../../coordinator/src/objective/execute.ts";
-import { createCoordinatorSnapshotPersistencePorts } from "../../../coordinator/src/state/transaction.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/state/validation.ts";
-import { createCoordinatorExecutionHostPorts } from "../../../coordinator/src/task/dispatch.ts";
+import { runTestCoordinatorObjective } from "../../../coordinator/tests/fixtures/task-persistence-fixture.ts";
+
+import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/lifecycle/validation.ts";
+
 import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import {
   fixture,
@@ -269,7 +269,6 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
     root,
     binding,
     base,
-    ports: createCoordinatorSnapshotPersistencePorts(root, binding),
     snapshot: () => {
       const read = readFixtureSnapshot(root, binding);
       if (read.status !== "completed" || !read.value)
@@ -281,7 +280,7 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
   const state = owner.snapshot().projects[0];
   assert.ok(state);
   let calls = 0;
-  const result = await executeCoordinatorObjective(
+  const result = await runTestCoordinatorObjective(
     {
       authenticatedPrincipalId: "principal-a",
       resolveTaskSelections: () => ({
@@ -289,22 +288,18 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
         value: taskExecutionSelections(),
         reason: null,
       }),
-      repositoryBindingId: f.binding,
-      repositoryRoot: f.root,
-      plan: {
-        milestoneAcceptanceCriteria: state.milestone.acceptanceCriteria,
-        objectives: state.objectives.map((entry) => entry.definition),
-        tasks: state.tasks.map((entry) => entry.definition),
+      verifyProjectBinding: () => ({
+        status: "verified",
+        repositoryBindingId: f.binding,
+        repositoryRevision: f.base,
+        workingDirectory: f.root,
+        repositoryRoot: f.root,
+      }),
+      resolveTaskRecoveryCorrelations: () => null,
+      recoverTaskRecovery: () => {
+        throw new Error("unexpected_recovery");
       },
-      persistence: f.ports,
-      ...createCoordinatorExecutionHostPorts(),
-      taskRecovery: {
-        resolveCorrelations: () => null,
-        recover: () => {
-          throw new Error("unexpected_recovery");
-        },
-        observeTransition: () => {},
-      },
+      observeRecoveryTransition: () => {},
       createTaskExecutions: () =>
         state.tasks.map((entry) => ({
           taskId: entry.definition.id,
@@ -315,7 +310,7 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
       execution: {
         runSingleTaskAttempt: async (input) => {
           calls++;
-          assert.equal(input.executionTree, f.root);
+          assert.equal(input.workspaceTarget?.executionTree, f.root);
           assert.equal(await input.observeStarted?.(), undefined);
           fs.writeFileSync(
             path.join(f.root, "source.txt"),
@@ -346,21 +341,28 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
         },
       },
     },
-    withCallerPlan({
-      operation: "start" as const,
-      requestId: "request-observation",
-      projectId: "project-a",
-      milestoneId: "milestone-a",
-      repositoryRevision: f.base,
-      objective: "synthetic direct edit",
-      acceptanceCriteria: ["done"],
-      allowedPaths: ["source.txt"],
-      readPaths: ["source.txt"],
-      maximumConcurrency: 1,
-      maximumReplans: 0,
-      originLane: "interactive",
-      adoptResult: false,
-    }),
+    withCallerPlan(
+      {
+        operation: "start" as const,
+        requestId: "request-observation",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        repositoryRevision: f.base,
+        objective: "synthetic direct edit",
+        acceptanceCriteria: ["done"],
+        allowedPaths: ["source.txt"],
+        readPaths: ["source.txt"],
+        maximumConcurrency: 1,
+        maximumReplans: 0,
+        originLane: "interactive",
+        adoptResult: false,
+      },
+      {
+        milestoneAcceptanceCriteria: state.milestone.acceptanceCriteria,
+        objectives: state.objectives.map((entry) => entry.definition),
+        tasks: state.tasks.map((entry) => entry.definition),
+      },
+    ),
     new AbortController().signal,
   );
   assert.equal(result.status, "completed", JSON.stringify(result));

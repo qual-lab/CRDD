@@ -14,16 +14,29 @@ import test from "node:test";
  * @responsibility 元Sourceと旧Path変異へ同じexact参照条件を適用する。
  * @trace ERB-IT-004
  * @precondition Source本文だけを受け取る。
- * @stimulus provider-executor参照と旧Ownerからの移管操作importを調べる。
- * @observation 正常通過又はAssertionError。
- * @oracle 固定Ownerへのexact一参照を要求し、旧Ownerで代用しない。
+ * @stimulus 共通開始の現Ownerと旧Ownerからの移管操作importを調べる。
+ * @observation 開始宣言とTask・助言の呼出し数。
+ * @oracle 同じ開始処理に両用途を接続し、旧Ownerへ委譲しない。
  * @cleanup N/A: 同期の文字列検査のみ。
  * @boundary Source配線だけ。実資源や実行Authorityを証明しない。
  */
 function assertProviderExecutorConsumer(source: string, name: string) {
   assert.equal(
-    [...source.matchAll(/from\s+["']\.\/provider-executor\.ts["']/g)].length,
+    [
+      ...source.matchAll(
+        /\bfunction startRuntimeOwnedDockerProcessController\(/gu,
+      ),
+    ].length,
     1,
+    name,
+  );
+  assert.equal(
+    [
+      ...source.matchAll(
+        /(?<!function )\bstartRuntimeOwnedDockerProcessController\(/gu,
+      ),
+    ].length,
+    2,
     name,
   );
   for (const match of source.matchAll(
@@ -66,7 +79,7 @@ test("固定Host接続は一つであり保存利用側はExecutorへ逆照会�
     import.meta.url,
   );
   const composition = fs.readFileSync(
-    new URL("provider-executor.ts", coordinator),
+    new URL("../lifecycle/selection.ts", coordinator),
     "utf8",
   );
   assert.equal([...composition.matchAll(/createExecutor\(/g)].length, 1);
@@ -85,17 +98,40 @@ test("固定Host接続は一つであり保存利用側はExecutorへ逆照会�
       /(?:from\s*|import\s*\()["'][^"']*executor\/src\/(?!index\.ts["'])/,
       file,
     );
+    assert.doesNotMatch(
+      source,
+      /from\s+["'][^"']*provider-executor\.ts["']/,
+      file,
+    );
   }
-  // 旧settlement Adapterは退役済み。元の終了観測を所有するoperationを確認する。
-  for (const name of ["persistence", "operation", "recovery", "controller"]) {
-    const source = fs.readFileSync(new URL(`${name}.ts`, coordinator), "utf8");
-    if (name === "controller") assertProviderExecutorConsumer(source, name);
-    else
-      assert.doesNotMatch(source, /from\s+["'][^"']*provider-executor\.ts["']/);
+  for (const name of ["lifecycle/execution.ts"]) {
+    const source = fs.readFileSync(new URL(name, coordinatorSource), "utf8");
+    assertProviderExecutorConsumer(source, name);
+  }
+  for (const name of [
+    "persistence",
+    "observation",
+    "provider-executor",
+    "preparation",
+    "operation",
+    "controller",
+  ])
+    assert.equal(fs.existsSync(new URL(`${name}.ts`, coordinator)), false);
+  // 元の終了観測のOwnerと、保存が実行制御を逆参照しないことを確認する。
+  for (const name of [
+    "lifecycle/host.ts",
+    "lifecycle/environment.ts",
+    "lifecycle/execution.ts",
+  ]) {
+    const source = fs.readFileSync(new URL(name, coordinatorSource), "utf8");
     assert.doesNotMatch(source, /createProviderObservationOwner/);
-  }
-  for (const old of ["observation", "controller"]) {
-    const source = fs.readFileSync(new URL(`${old}.ts`, coordinator), "utf8");
+    if (name === "lifecycle/host.ts")
+      assert.doesNotMatch(
+        source,
+        /from\s+["'](?:\.\.\/execution\/recovery|\.\/execution)\.ts["']/,
+      );
+    if (name === "lifecycle/environment.ts")
+      assert.doesNotMatch(source, /from\s+["']\.\/execution\.ts["']/);
     for (const symbol of [
       "verifyRuntimeOwnedDockerProviderSubmissionNotice",
       "verifyRuntimeOwnedDockerUnissuedNotice",

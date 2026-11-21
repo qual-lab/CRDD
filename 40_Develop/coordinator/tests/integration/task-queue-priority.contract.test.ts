@@ -18,6 +18,10 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  readProjectExecutionState,
+  createQueue,
+  readQueueEntry,
+  selectQueueEntry,
   initializeExecutionStore,
   readState,
   type ProjectExecutionInitialization,
@@ -29,9 +33,15 @@ import {
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
+  verifyRuntimePersistenceRepository,
+} from "../../src/lifecycle/host.ts";
+import {
+  inspectCoordinatorSnapshotLeaseAcquisitionOwner,
+  acquireCoordinatorSnapshotLease,
+  updateCoordinatorQueue,
+} from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
+import { chooseCoordinatorQueueOperation } from "../../src/lifecycle/execution.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
 const revision = "a".repeat(40);
@@ -49,22 +59,27 @@ const revision = "a".repeat(40);
  */
 test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は書き換えない", (t) => {
   const { root, ports, initializations } = fixture(t);
-  const preparation = ports.state.enqueueOperation(
-    {
-      queueId: "queue-prior",
-      projectId: "project-a",
-      milestoneId: "milestone-a",
-      requestHash: hash("prior"),
-      originLane: "interactive",
-      repositoryRevision: revision,
-      scopeHash: hash("prior-scope"),
-    },
-    initializations["project-a"],
-  );
+  assert.ok(initializations["project-a"]);
+  const preparation = createQueue(ports.repository, ports.repositoryBindingId, {
+    kind: "scheduled",
+    input: [
+      {
+        queueId: "queue-prior",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        requestHash: hash("prior"),
+        originLane: "interactive",
+        repositoryRevision: revision,
+        scopeHash: hash("prior-scope"),
+      },
+      initializations["project-a"],
+    ],
+  });
   assert.equal(preparation.status, "completed", preparation.reason);
   if (preparation.status !== "completed")
     throw new Error("fixture_initial_queue_failed");
-  const prior = ports.state.updateQueue(
+  const prior = updateCoordinatorQueue(
+    ports,
     "queue-prior",
     preparation.value.generation,
     {
@@ -87,14 +102,33 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
     throw Error("fixture");
   assert.equal(previous.value.schemaRevision, 9);
   const beforeSnapshot = JSON.parse(before.toString("utf8"));
-  assert.equal(ports.state.readState("project-a").status, "completed");
-  assert.equal(ports.state.readState("project-b").status, "completed");
   assert.equal(
-    ports.state.readState("../escape").reason,
+    readProjectExecutionState(
+      ports.repository,
+      ports.repositoryBindingId,
+      "project-a",
+    ).status,
+    "completed",
+  );
+  assert.equal(
+    readProjectExecutionState(
+      ports.repository,
+      ports.repositoryBindingId,
+      "project-b",
+    ).status,
+    "completed",
+  );
+  assert.equal(
+    readProjectExecutionState(
+      ports.repository,
+      ports.repositoryBindingId,
+      "../escape",
+    ).reason,
     "orchestrator_state_identity_invalid",
   );
   assert.equal(
-    ports.state.readQueue("queue-a").reason,
+    readQueueEntry(ports.repository, ports.repositoryBindingId, "queue-a")
+      .reason,
     "orchestrator_queue_observation_unknown",
   );
   assert.deepEqual(fs.readFileSync(file), before);
@@ -107,7 +141,10 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
     repositoryRevision: revision,
     scopeHash: hash("scope"),
   };
-  const created = ports.state.enqueueOperation(input);
+  const created = createQueue(ports.repository, ports.repositoryBindingId, {
+    kind: "scheduled",
+    input: [input],
+  });
   assert.equal(created.status, "completed");
   if (created.status !== "completed") throw Error("fixture");
   const after = fs.readFileSync(file);
@@ -133,20 +170,30 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
     },
     queueEntries: [...beforeSnapshot.queueEntries, created.value],
   });
-  const found = ports.state.readQueue("queue-a");
+  const found = readQueueEntry(
+    ports.repository,
+    ports.repositoryBindingId,
+    "queue-a",
+  );
   assert.equal(found.status, "completed");
   assert.deepEqual(found.value, created.value);
   assert.equal(
-    ports.state.enqueueOperation(input).reason,
+    createQueue(ports.repository, ports.repositoryBindingId, {
+      kind: "scheduled",
+      input: [input],
+    }).reason,
     "orchestrator_queue_request_reused",
   );
   assert.equal(
-    ports.state.enqueueOperation({ ...input, requestHash: hash("other") })
-      .reason,
+    createQueue(ports.repository, ports.repositoryBindingId, {
+      kind: "scheduled",
+      input: [{ ...input, requestHash: hash("other") }],
+    }).reason,
     "orchestrator_queue_identity_conflict",
   );
   assert.equal(
-    ports.state.readQueue("../escape").reason,
+    readQueueEntry(ports.repository, ports.repositoryBindingId, "../escape")
+      .reason,
     "orchestrator_queue_input_invalid",
   );
   assert.deepEqual(fs.readFileSync(file), after);
@@ -194,7 +241,8 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
   ];
   for (const scenario of scenarios) {
     const reads: string[] = [];
-    const result = ports.state.updateQueue(
+    const result = updateCoordinatorQueue(
+      ports,
       scenario.queueId,
       scenario.generation,
       {
@@ -332,43 +380,56 @@ test("interactive queue parks scheduled work without preempting an active owner"
   for (const [queueId, originLane] of [
     ["queue-scheduled", "scheduled"],
     ["queue-interactive", "interactive"],
-  ] as const)
+  ] as const) {
+    const input = {
+      queueId,
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: hash(queueId),
+      originLane,
+      repositoryRevision: revision,
+      scopeHash: hash("scope"),
+    } as const;
+    const initialization =
+      queueId === "queue-scheduled" ? initializations["project-a"] : undefined;
     assert.equal(
-      ports.state.enqueueOperation(
-        {
-          queueId,
-          projectId: "project-a",
-          milestoneId: "milestone-a",
-          requestHash: hash(queueId),
-          originLane,
-          repositoryRevision: revision,
-          scopeHash: hash("scope"),
-        },
-        queueId === "queue-scheduled"
-          ? initializations["project-a"]
-          : undefined,
-      ).status,
+      createQueue(ports.repository, ports.repositoryBindingId, {
+        kind: "scheduled",
+        input: initialization ? [input, initialization] : [input],
+      }).status,
       "completed",
     );
-  const first = ports.state.selectNextOperation();
+  }
+  const first = selectQueueEntry(
+    ports.repository,
+    ports.repositoryBindingId,
+    chooseCoordinatorQueueOperation,
+  );
   assert.equal(
     first.status === "completed" && first.value?.queueId,
     "queue-interactive",
   );
-  const parked = ports.state.readQueue("queue-scheduled");
+  const parked = readQueueEntry(
+    ports.repository,
+    ports.repositoryBindingId,
+    "queue-scheduled",
+  );
   assert.equal(
     parked.status === "completed" && parked.value.state,
     "waiting_foreground",
   );
   if (parked.status !== "completed") throw new Error("parked queue");
-  const forbiddenLease = ports.lease.acquire(
+  const forbiddenLease = acquireCoordinatorSnapshotLease(
+    ports.workingDirectory,
+    ports.repositoryBindingId,
     "project-a",
     "queue-scheduled",
     "project-operation",
   );
   assert.equal(forbiddenLease.status, "completed");
   if (forbiddenLease.status !== "completed") throw new Error("lease");
-  const directLease = ports.state.updateQueue(
+  const directLease = updateCoordinatorQueue(
+    ports,
     "queue-scheduled",
     parked.value.generation,
     {
@@ -381,19 +442,32 @@ test("interactive queue parks scheduled work without preempting an active owner"
   assert.equal(directLease.status, "blocked");
   assert.equal(directLease.reason, "orchestrator_queue_transition_invalid");
   assert.equal(forbiddenLease.value.release().status, "completed");
-  const interactive = ports.state.readQueue("queue-interactive");
+  const interactive = readQueueEntry(
+    ports.repository,
+    ports.repositoryBindingId,
+    "queue-interactive",
+  );
   assert.equal(interactive.status, "completed");
   if (interactive.status !== "completed") throw new Error("queue");
   assert.equal(
-    ports.state.updateQueue("queue-interactive", interactive.value.generation, {
-      state: "cancelled",
-      lease: null,
-      resumeCondition: null,
-      resultReference: null,
-    }).status,
+    updateCoordinatorQueue(
+      ports,
+      "queue-interactive",
+      interactive.value.generation,
+      {
+        state: "cancelled",
+        lease: null,
+        resumeCondition: null,
+        resultReference: null,
+      },
+    ).status,
     "completed",
   );
-  const second = ports.state.selectNextOperation();
+  const second = selectQueueEntry(
+    ports.repository,
+    ports.repositoryBindingId,
+    chooseCoordinatorQueueOperation,
+  );
   assert.equal(
     second.status === "completed" && second.value?.queueId,
     "queue-scheduled",
@@ -415,23 +489,29 @@ test("interactive queue parks scheduled work without preempting an active owner"
  */
 test("scheduled work arriving after an interactive operation starts remains effect-free", (t) => {
   const { ports, initializations } = fixture(t);
+  assert.ok(initializations["project-a"]);
 
   assert.equal(
-    ports.state.enqueueOperation(
-      {
-        queueId: "queue-interactive",
-        projectId: "project-a",
-        milestoneId: "milestone-a",
-        requestHash: hash("interactive"),
-        originLane: "interactive",
-        repositoryRevision: revision,
-        scopeHash: hash("scope"),
-      },
-      initializations["project-a"],
-    ).status,
+    createQueue(ports.repository, ports.repositoryBindingId, {
+      kind: "scheduled",
+      input: [
+        {
+          queueId: "queue-interactive",
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          requestHash: hash("interactive"),
+          originLane: "interactive",
+          repositoryRevision: revision,
+          scopeHash: hash("scope"),
+        },
+        initializations["project-a"],
+      ],
+    }).status,
     "completed",
   );
-  const lease = ports.lease.acquire(
+  const lease = acquireCoordinatorSnapshotLease(
+    ports.workingDirectory,
+    ports.repositoryBindingId,
     "project-a",
     "queue-interactive",
     "project-operation",
@@ -439,7 +519,7 @@ test("scheduled work arriving after an interactive operation starts remains effe
   assert.equal(lease.status, "completed");
   if (lease.status !== "completed") throw new Error("lease");
   const reads: string[] = [];
-  const leased = ports.state.updateQueue("queue-interactive", 1, {
+  const leased = updateCoordinatorQueue(ports, "queue-interactive", 1, {
     get state() {
       reads.push("state");
       return "leased" as const;
@@ -473,7 +553,8 @@ test("scheduled work arriving after an interactive operation starts remains effe
   ]);
   assert.equal(leased.status, "completed");
   if (leased.status !== "completed") throw new Error("leased queue");
-  const running = ports.state.updateQueue(
+  const running = updateCoordinatorQueue(
+    ports,
     "queue-interactive",
     leased.value.generation,
     {
@@ -486,25 +567,38 @@ test("scheduled work arriving after an interactive operation starts remains effe
   assert.equal(running.status, "completed");
 
   assert.equal(
-    ports.state.enqueueOperation({
-      queueId: "queue-scheduled",
-      projectId: "project-a",
-      milestoneId: "milestone-a",
-      requestHash: hash("scheduled"),
-      originLane: "scheduled",
-      repositoryRevision: revision,
-      scopeHash: hash("scope"),
+    createQueue(ports.repository, ports.repositoryBindingId, {
+      kind: "scheduled",
+      input: [
+        {
+          queueId: "queue-scheduled",
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          requestHash: hash("scheduled"),
+          originLane: "scheduled",
+          repositoryRevision: revision,
+          scopeHash: hash("scope"),
+        },
+      ],
     }).status,
     "completed",
   );
-  const selected = ports.state.selectNextOperation();
+  const selected = selectQueueEntry(
+    ports.repository,
+    ports.repositoryBindingId,
+    chooseCoordinatorQueueOperation,
+  );
   assert.equal(selected.status, "completed");
   assert.equal(selected.status === "completed" && selected.value, null);
   assert.equal(
     selected.status === "completed" && selected.reason,
     "orchestrator_active_operation_retained",
   );
-  const scheduled = ports.state.readQueue("queue-scheduled");
+  const scheduled = readQueueEntry(
+    ports.repository,
+    ports.repositoryBindingId,
+    "queue-scheduled",
+  );
   assert.equal(
     scheduled.status === "completed" && scheduled.value.state,
     "waiting_foreground",
@@ -539,35 +633,44 @@ test("one Repository Binding cannot acquire two Project Operation leases", (t) =
     ["project-a", "queue-b"],
     ["project-b", "queue-c"],
   ] as const) {
+    const input = {
+      queueId,
+      projectId,
+      milestoneId: "milestone-a",
+      requestHash: hash(queueId),
+      originLane: "interactive",
+      repositoryRevision: revision,
+      scopeHash: hash("scope"),
+    } as const;
+    const initialization =
+      queueId === "queue-b" ? undefined : initializations[projectId];
     assert.equal(
-      ports.state.enqueueOperation(
-        {
-          queueId,
-          projectId,
-          milestoneId: "milestone-a",
-          requestHash: hash(queueId),
-          originLane: "interactive",
-          repositoryRevision: revision,
-          scopeHash: hash("scope"),
-        },
-        queueId === "queue-b" ? undefined : initializations[projectId],
-      ).status,
+      createQueue(ports.repository, ports.repositoryBindingId, {
+        kind: "scheduled",
+        input: initialization ? [input, initialization] : [input],
+      }).status,
       "completed",
     );
   }
-  const first = ports.lease.acquire(
+  const first = acquireCoordinatorSnapshotLease(
+    ports.workingDirectory,
+    ports.repositoryBindingId,
     "project-a",
     "queue-a",
     "project-operation",
   );
   assert.equal(first.status, "completed");
   if (first.status !== "completed") throw new Error("first lease");
-  const sameProject = ports.lease.acquire(
+  const sameProject = acquireCoordinatorSnapshotLease(
+    ports.workingDirectory,
+    ports.repositoryBindingId,
     "project-a",
     "queue-b",
     "project-operation",
   );
-  const otherProject = ports.lease.acquire(
+  const otherProject = acquireCoordinatorSnapshotLease(
+    ports.workingDirectory,
+    ports.repositoryBindingId,
     "project-b",
     "queue-c",
     "project-operation",
@@ -603,19 +706,24 @@ test("separate processes cannot both own one Repository Binding operation", asyn
     ["project-b", "queue-b"],
     ["project-c", "queue-c"],
   ] as const) {
+    const initialization = initializations[projectId];
+    assert.ok(initialization);
     assert.equal(
-      ports.state.enqueueOperation(
-        {
-          queueId,
-          projectId,
-          milestoneId: "milestone-a",
-          requestHash: hash(queueId),
-          originLane: "interactive",
-          repositoryRevision: revision,
-          scopeHash: hash("scope"),
-        },
-        initializations[projectId],
-      ).status,
+      createQueue(ports.repository, ports.repositoryBindingId, {
+        kind: "scheduled",
+        input: [
+          {
+            queueId,
+            projectId,
+            milestoneId: "milestone-a",
+            requestHash: hash(queueId),
+            originLane: "interactive",
+            repositoryRevision: revision,
+            scopeHash: hash("scope"),
+          },
+          initialization,
+        ],
+      }).status,
       "completed",
     );
   }
@@ -713,7 +821,10 @@ test("separate processes cannot both own one Repository Binding operation", asyn
       stderr: results.map((result) => result.stderr),
     }),
   );
-  const owner = ports.lease.inspectAcquisitionOwner();
+  const owner = inspectCoordinatorSnapshotLeaseAcquisitionOwner(
+    ports.workingDirectory,
+    ports.repositoryBindingId,
+  );
   assert.equal(owner.status, "completed");
   assert.equal(owner.value?.acquisition, null);
 });

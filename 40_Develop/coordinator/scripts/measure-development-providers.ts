@@ -32,13 +32,13 @@ import {
   RepositoryDataBlockedError,
   ensureRepositoryExecutionDataArea,
   requireReadyRepositoryExecutionDataArea,
-} from "../src/configuration/runtime-data.ts";
+} from "../src/lifecycle/host.ts";
 import {
   snapshotJsonValue,
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../src/input/snapshot.ts";
-import { assertSupportedCoordinatorNodeRuntime } from "../src/execution/diagnostics.ts";
+} from "../src/lifecycle/validation.ts";
+import { assertSupportedCoordinatorNodeRuntime } from "../src/lifecycle/environment.ts";
 
 /**
  * 通常Task二件を外側から計測するための局所依存。

@@ -7,8 +7,8 @@
  * @boundary 試験専用。実行前に会話等で用途限定承認を取得する。端末入力は要求しない。
  */
 
-import { RepositoryDataBlockedError } from "../src/configuration/runtime-data.ts";
-import { fork, spawnSync } from "node:child_process";
+import { RepositoryDataBlockedError } from "../src/lifecycle/host.ts";
+import { fork } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import { registerHooks } from "node:module";
@@ -83,7 +83,11 @@ const {
   requireReadyRepositoryRuntimeDataArea,
   observeRepositoryRuntimeDataArea,
 } = await import("../../executor/scripts/runtime-data.ts");
-const { getRepository } = await import("../../version-control/src/index.ts");
+const {
+  getRepositoryFromWorkingDirectory,
+  getRepository,
+  resolveVerifiedRepositoryRoot,
+} = await import("../../version-control/src/index.ts");
 
 const { observeProviderHome } = await import(
   "../../executor/scripts/provider-home.ts"
@@ -1203,17 +1207,16 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
   const abort = () => cancellation.abort();
   process.once("SIGINT", abort);
   try {
-    const git = spawnSync(
-      "git",
-      ["-C", path.dirname(script), "rev-parse", "--show-toplevel"],
-      { encoding: "utf8", timeout: 15000, windowsHide: true },
+    const scriptRepository = getRepositoryFromWorkingDirectory(
+      path.dirname(script),
     );
+    const scriptRoot =
+      scriptRepository.status === "completed"
+        ? resolveVerifiedRepositoryRoot(scriptRepository.capability)
+        : null;
     if (
-      git.error ||
-      git.signal ||
-      git.status !== 0 ||
-      fs.realpathSync(git.stdout.trim()).toLowerCase() !==
-        repository.toLowerCase()
+      scriptRoot === null ||
+      fs.realpathSync(scriptRoot).toLowerCase() !== repository.toLowerCase()
     )
       throw Error("trial_repository_invalid");
     const nonce = randomBytes(32).toString("hex"),

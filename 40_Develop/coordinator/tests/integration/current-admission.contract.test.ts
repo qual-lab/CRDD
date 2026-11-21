@@ -21,9 +21,9 @@ import {
   getRepository,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import * as areas from "../../src/configuration/runtime-data.ts";
-import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";
-import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
+import * as areas from "../../src/lifecycle/host.ts";
+import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/lifecycle/host.ts";
+import { coordinatorDataBoundaryBlocked } from "../../src/lifecycle/host.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
 /**
@@ -76,7 +76,7 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     );
     assert.ok(binding);
     const { inspectRuntimeOwnedDockerTaskAdmission: inspect } = await import(
-      "../../src/execution/recovery.ts"
+      "../../src/lifecycle/environment.ts"
     );
     const current = path.join(root, ".crdd", "domain-model");
     const available = {
@@ -163,7 +163,7 @@ test("現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する
       lockReleased: true,
     });
   const ownerSource = fs.readFileSync(
-    new URL("../../src/execution/recovery.ts", import.meta.url),
+    new URL("../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   const inspector = sourceDeclaration(
@@ -254,7 +254,7 @@ test("現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する
  */
 test("現在入場: Task通常・正式診断APIの本番構成式はexact Rootを搬送する", async () => {
   const task = fs.readFileSync(
-    new URL("../../src/execution/controller.ts", import.meta.url),
+    new URL("../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
   const api = fs.readFileSync(
@@ -262,7 +262,7 @@ test("現在入場: Task通常・正式診断APIの本番構成式はexact Root�
     "utf8",
   );
   const adapter = fs.readFileSync(
-    new URL("../../src/execution/diagnostics.ts", import.meta.url),
+    new URL("../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   for (const source of [task, api, adapter]) {
@@ -272,9 +272,13 @@ test("現在入場: Task通常・正式診断APIの本番構成式はexact Root�
     );
     assert.equal(source.includes("projectDockerRecoveryAdmission"), false);
   }
-  const normal =
-    "prepareDockerRecoveryState: inspectRuntimeOwnedDockerTaskAdmission,";
-  assert.equal(task.split(normal).length, 2);
+  const taskCore = sourceDeclaration(task, "runCoordinatorTaskCore");
+  const normal = taskCore.match(
+    /\binspectRuntimeOwnedDockerTaskAdmission\(repositoryRoot\)/gu,
+  );
+  assert.deepEqual(normal, [
+    "inspectRuntimeOwnedDockerTaskAdmission(repositoryRoot)",
+  ]);
   const apiStart = api.indexOf("export async function diagnoseEnvironment(");
   const bodyStart = api.indexOf(
     "  const root = executionRoot(context);",
@@ -299,45 +303,35 @@ test("現在入場: Task通常・正式診断APIの本番構成式はexact Root�
     const calls: unknown[] = [];
     const doctorRoots: unknown[] = [];
     let resolutions = 0;
-    const configured = await runInNewContext(
-      kind === "api" ? snippet : `({${snippet}})`,
-      {
-        inspectRuntimeOwnedDockerTaskAdmission: (root: unknown) => {
-          calls.push(root);
-          return { status: "available" };
-        },
-        boundary: { repositoryRoot: expected },
-        guard: (fn: (root: string) => unknown) => fn,
-        context: "expected-context",
-        signal: undefined,
-        value: { activeIsolation: false },
-        executionRoot: (context: unknown) => {
-          assert.equal(context, "expected-context");
-          return ++resolutions === 1 ? expected : "C:\\other-root";
-        },
-        runDoctor: (options: { cwd: unknown }) => {
-          doctorRoots.push(options.cwd);
-          return { status: "observed" };
-        },
+    const configured = await runInNewContext(snippet, {
+      inspectRuntimeOwnedDockerTaskAdmission: (root: unknown) => {
+        calls.push(root);
+        return { status: "available" };
       },
-    );
-    if (kind !== "api") configured.prepareDockerRecoveryState(expected);
+      repositoryRoot: expected,
+      context: "expected-context",
+      signal: undefined,
+      value: { activeIsolation: false },
+      executionRoot: (context: unknown) => {
+        assert.equal(context, "expected-context");
+        return ++resolutions === 1 ? expected : "C:\\other-root";
+      },
+      runDoctor: (options: { cwd: unknown }) => {
+        doctorRoots.push(options.cwd);
+        return { status: "observed" };
+      },
+    });
+    if (kind !== "api") assert.equal(configured.status, "available");
     assert.deepEqual(calls, [expected]);
     if (kind === "api") {
       assert.equal(resolutions, 1);
       assert.deepEqual(doctorRoots, [expected]);
     }
   };
-  await verify(normal, "normal");
+  await verify(normal[0], "normal");
   await verify(doctor, "api");
   await assert.rejects(() =>
-    verify(
-      normal.replace(
-        ": inspectRuntimeOwnedDockerTaskAdmission",
-        ": () => inspectRuntimeOwnedDockerTaskAdmission('wrong')",
-      ),
-      "normal",
-    ),
+    verify(normal[0].replace("repositoryRoot", "'wrong'"), "normal"),
   );
   await assert.rejects(() =>
     verify(
@@ -397,9 +391,9 @@ test("現在入場: Task通常・正式診断APIの本番構成式はexact Root�
         )?.path,
     ),
     [
-      "src/execution/recovery.ts",
+      "src/lifecycle/environment.ts",
       "src/storage/publication.ts",
-      "src/execution/result.ts",
+      "src/lifecycle/validation.ts",
     ],
   );
 });
@@ -476,7 +470,7 @@ test("診断APIは同じdoctorの完了を待ち、拒否時に入場照会を�
  * @boundary 入場Inspector→Reader。本文codecの成立は前Caseと既存保存試験が所有する。
  */
 test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだけを搬送する", async () => {
-  const projection = await import("../../src/execution/result.ts");
+  const projection = await import("../../src/lifecycle/validation.ts");
   const repositoryRoot = fs.realpathSync(
     path.resolve(import.meta.dirname, "../../../.."),
   );
@@ -512,7 +506,7 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
   try {
     const owner = await import(
       new URL(
-        "../../src/execution/recovery.ts?current-admission-values",
+        "../../src/lifecycle/environment.ts?current-admission-values",
         import.meta.url,
       ).href
     );

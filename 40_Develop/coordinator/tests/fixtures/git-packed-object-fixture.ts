@@ -16,7 +16,7 @@ import path from "node:path";
 import { crc32, deflateSync, inflateSync } from "node:zlib";
 import { createDockerProcessEnvironment } from "../../../docker-isolation/src/docker-cli/environment.ts";
 import { createRepositoryTestTemporaryDirectory } from "./repository-test-directory-fixture.ts";
-import { getIsolationSettings } from "../../src/execution/configuration.ts";
+import { getIsolationSettings } from "../../src/lifecycle/environment.ts";
 
 const GIT_EXECUTABLE = "C:\\Program Files\\Git\\cmd\\git.exe";
 

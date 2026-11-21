@@ -26,7 +26,7 @@ import { sourceDeclaration } from "../../../execution-model/tests/support/source
 test("Probe回復は元SnapshotをExecutorへ渡し不明時にHostを削除しない", async () => {
   const body = sourceDeclaration(
     fs.readFileSync(
-      new URL("../../src/execution/diagnostics.ts", import.meta.url),
+      new URL("../../src/lifecycle/environment.ts", import.meta.url),
       "utf8",
     ),
     "recoverDockerIsolationProbe",

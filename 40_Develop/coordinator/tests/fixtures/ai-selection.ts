@@ -5,15 +5,29 @@
  * @boundary 試験用の純粋値。設定保存・認証・AI・Dockerを呼ばない。
  */
 import {
-  resolveExecutionSelection,
+  type ExecutionSelectionResult,
+  resolveCheckedExecutionSelection,
   resolveTaskExecutionSelections,
-} from "../../src/selection/resolve.ts";
+} from "../../src/lifecycle/selection.ts";
 import type {
   AiSelectionRole,
   AiSelectionChoice,
 } from "../../../configuration-model/src/index.ts";
 import type { ExecutionSelection } from "../../../execution-model/src/index.ts";
 import { inspectExecutionSelection } from "../../../execution-model/src/index.ts";
+import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { validateAiSelectionConfig } from "../../../configuration-model/src/index.ts";
+
+/** 合成設定を正式な設定検査へ通し、本番選定が受け取る断面を作る。 @trace RCM-UT-001 */
+export function resolveFixtureExecutionSelection(
+  config: unknown,
+  request: unknown,
+): ExecutionSelectionResult {
+  const checked = validateAiSelectionConfig(config, getModelCatalog().catalog);
+  return checked.status === "valid"
+    ? resolveCheckedExecutionSelection(checked.value, request)
+    : Object.freeze({ status: "blocked", value: null, reason: checked.reason });
+}
 
 /**
  * 完全選定から下位Executorに必要な技術五項目だけを投影する。
@@ -105,7 +119,7 @@ export function executionSelection(
   role: AiSelectionRole = "executor",
   choice?: AiSelectionChoice,
 ) {
-  const result = resolveExecutionSelection(selectionConfig(), {
+  const result = resolveFixtureExecutionSelection(selectionConfig(), {
     role,
     workType: null,
     ...(choice ? { choice } : {}),

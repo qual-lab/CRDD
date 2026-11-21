@@ -4,7 +4,7 @@
  * @responsibility obligationを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000010
  */
-import { spawnSync } from "node:child_process";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -21,9 +21,9 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const PROVIDER_HOME_COVERAGE_SOURCES = Object.freeze([
-  "40_Develop/coordinator/src/execution/authority.ts",
-  "40_Develop/coordinator/src/input/snapshot.ts",
-  "40_Develop/coordinator/src/execution/diagnostics.ts",
+  "40_Develop/coordinator/src/lifecycle/authentication.ts",
+  "40_Develop/coordinator/src/lifecycle/validation.ts",
+  "40_Develop/coordinator/src/lifecycle/environment.ts",
   "40_Develop/coordinator/scripts/coverage.ts",
   "40_Develop/coordinator/scripts/check-provider-home-coverage.ts",
 ]);
@@ -80,20 +80,20 @@ function obligation(
 }
 
 const coverageObligations = Object.freeze({
-  "40_Develop/coordinator/src/execution/authority.ts": obligation(
-    "実行OSと反対側のplatform dispatchおよび全複合短絡を同一runで到達していない",
-    "Path規則変更で反対OSのdispatchまたは稀な不正segmentを誤分類する可能性",
-    "Windows／POSIXの正負・境界fixture、予約名限定mapping全件、Codex／ClaudeのRoot境界・動的入力・非Effect試験",
-    "Path字句規則、platform dispatch、Provider Home配置、Root sourceまたはProvider集合の変更時",
+  "40_Develop/coordinator/src/lifecycle/authentication.ts": obligation(
+    "認証の保存故障・回復・Home解放および両Providerの全短絡を同一runで到達していない",
+    "認証完了・保存不明・排他の解放条件を稀な失敗時に誤分類する可能性",
+    "両Providerのstatus／login契約、認証記録の保存・再入場とHome競合／解放不明の試験",
+    "認証の準備・技術実行・回復記録・Home排他またはProvider集合の変更時",
   ),
-  "40_Develop/coordinator/src/input/snapshot.ts": obligation(
-    "未到達分岐がある場合はreflection failureの稀な順序である",
-    "動的入力の一部を実行する可能性",
-    "record／arrayのshape、accessor、Proxy、reflection failureおよび上限試験",
-    "plain-data snapshot実装変更時",
+  "40_Develop/coordinator/src/lifecycle/validation.ts": obligation(
+    "reflection failureの稀な順序と、入れ子JSONの不正文法を全組合せでは通過しない",
+    "動的入力を実行するか、重複キーや末尾データを含むJSONを受理する可能性",
+    "record／arrayのshape、accessor、Proxy、reflection failureと上限、JSONの正例・重複キー・不正文法を直接確認",
+    "入力値捕捉・相対Path・JSON解析の実装変更時",
   ),
 
-  "40_Develop/coordinator/src/execution/diagnostics.ts": obligation(
+  "40_Develop/coordinator/src/lifecycle/environment.ts": obligation(
     "合成候補の複合fail-closed述語の全短絡順序を同一runで到達していない／実Docker、全Git／Provider discovery形式および全cleanup failureを同一runで到達していない",
     "入力shapeまたは上限の稀な不正形を同じ固定reasonへ閉じる分岐の退行／private reportのProvider Home状態またはreason投影が稀な環境で不一致になる可能性",
     "Provider、mode、状態、入出力、deadline、cancel、結果、quotaおよび専用Home投影試験／passive／isolation、discovery、readiness、runtime request、Fake lifecycleおよびexact report contract試験",
@@ -175,6 +175,49 @@ export function isSupportedProviderHomeCoverageNodeVersion(value: unknown) {
 }
 
 /**
+ * 計測子Processの完了と既知の型除去警告を区別する。
+ * @responsibility 正常終了と、空のstderr又はNode.jsが出す固定の一件だけを受け付ける。
+ * @trace ARCH-000010
+ * @input result: 固定コマンドの終了結果。
+ * @returns 検査前のLCOV本文。
+ * @effect N/A: 終了結果の検査だけ。
+ * @failure 非0、起動不能、Signal、未知・重複警告は拒否する。
+ * @boundary Node.jsの終了結果とLCOV構文検査。
+ */
+export function requireProviderHomeCoverageOutput(
+  result: Pick<
+    SpawnSyncReturns<string>,
+    "error" | "signal" | "status" | "stdout" | "stderr"
+  >,
+): string {
+  if (
+    result.error ||
+    result.signal !== null ||
+    result.status !== 0 ||
+    typeof result.stdout !== "string" ||
+    typeof result.stderr !== "string"
+  ) {
+    throw new Error("Provider Home coverage command failed");
+  }
+  if (result.stderr !== "") {
+    const [warning, help, end, ...extra] = result.stderr.split(/\r?\n/u);
+    if (
+      warning === undefined ||
+      !/^\(node:[1-9][0-9]*\) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time$/u.test(
+        warning,
+      ) ||
+      help !==
+        "(Use `node --trace-warnings ...` to show where the warning was created)" ||
+      end !== "" ||
+      extra.length !== 0
+    ) {
+      throw new Error("Provider Home coverage command failed");
+    }
+  }
+  return result.stdout;
+}
+
+/**
  * Onceを観測する。
  *
  * @responsibility Onceの観測対象、取得根拠、観測不能結果の境界を所有する。
@@ -211,20 +254,15 @@ function inspectOnce() {
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
-  if (
-    result.error ||
-    result.signal !== null ||
-    result.status !== 0 ||
-    typeof result.stdout !== "string" ||
-    typeof result.stderr !== "string" ||
-    result.stderr.length !== 0
-  ) {
-    throw new Error("Provider Home coverage command failed");
-  }
-  return parseExactTsCoverageLcov(result.stdout, {
-    sources: PROVIDER_HOME_COVERAGE_SOURCES,
-    obligations: coverageObligations,
-  });
+  const coverage = parseExactTsCoverageLcov(
+    requireProviderHomeCoverageOutput(result),
+    {
+      sources: PROVIDER_HOME_COVERAGE_SOURCES,
+      obligations: coverageObligations,
+    },
+  );
+  if (result.stderr !== "") process.stderr.write(result.stderr);
+  return coverage;
 }
 
 /**

@@ -777,8 +777,8 @@ test("route安全観測不明でも有効Recovery IDをnested／top-levelへ保�
   assert.equal(observed.attempts, 1);
   assert.equal(result.validationFailure, "runner_exception");
   const expectedItems = [
-    `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`,
-    `host.crdd-coordinator-doctor-b.12345678-1234-4234-8234-123456789abc.${"b".repeat(64)}`,
+    "host-operation.OP-123456",
+    "host-operation.OP-123457",
   ];
   assert.deepEqual(nested?.hostRecoveryIds, expectedItems);
   assert.deepEqual(result.hostRecoveryIds, expectedItems);
@@ -809,7 +809,7 @@ test("route salvageは過長IDを公開せず同じfieldのvalid IDだけを保�
   assert.equal(probe.status, 0, probe.stderr);
   const observed = JSON.parse(probe.stdout) as Record<string, unknown>;
   const result = observed.result as Record<string, unknown>;
-  const valid = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+  const valid = "host-operation.OP-123456";
   assert.deepEqual(result.hostRecoveryIds, [valid]);
   assert.equal(result.hostRecoveryId, valid);
   assert.equal(result.recoveryIdentityAmbiguous, true);

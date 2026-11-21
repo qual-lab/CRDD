@@ -10,19 +10,15 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import path from "node:path";
 import test from "node:test";
-import { pathToFileURL } from "node:url";
 
 import {
   createRuntimeProcessRecoveryIdentity,
-  createIsolatedRuntimeProcessSafetyStateCandidate,
-  describeRuntimeProcessSafetyStateContract,
   getRuntimeProcessInstanceIdentity,
   inspectRuntimeProcessRecoveryIdentity,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "../../src/execution/process-safety-state.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
+} from "../../src/lifecycle/host.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/lifecycle/execution.ts";
 
 /**
  * 対話cleanup不明は同一Process stateを不可逆にpoisonするを検証する。
@@ -37,14 +33,35 @@ import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("対話cleanup不明は同一Process stateを不可逆にpoisonする", () => {
-  const firstProcess = createIsolatedRuntimeProcessSafetyStateCandidate();
-  const restartedProcess = createIsolatedRuntimeProcessSafetyStateCandidate();
-  assert.equal(firstProcess.isPoisoned(), false);
-  firstProcess.poisonCleanupUnknown();
-  assert.equal(firstProcess.isPoisoned(), true);
-  firstProcess.poisonCleanupUnknown();
-  assert.equal(firstProcess.isPoisoned(), true);
-  assert.equal(restartedProcess.isPoisoned(), false);
+  const url = new URL("../../src/lifecycle/host.ts", import.meta.url).href;
+  const observe = (body: string) =>
+    JSON.parse(
+      execFileSync(
+        process.execPath,
+        [
+          "--input-type=module",
+          "--eval",
+          `import {isRuntimeProcessPoisoned,poisonRuntimeProcessAfterCleanupUnknown} from ${JSON.stringify(url)}; ${body}`,
+        ],
+        { encoding: "utf8", windowsHide: true },
+      ),
+    );
+  assert.deepEqual(
+    observe(`
+      const initial = isRuntimeProcessPoisoned();
+      poisonRuntimeProcessAfterCleanupUnknown();
+      const stopped = isRuntimeProcessPoisoned();
+      poisonRuntimeProcessAfterCleanupUnknown();
+      process.stdout.write(JSON.stringify([initial, stopped, isRuntimeProcessPoisoned()]));
+    `),
+    [false, true, true],
+  );
+  assert.equal(
+    observe(
+      "process.stdout.write(JSON.stringify(isRuntimeProcessPoisoned()));",
+    ),
+    false,
+  );
 });
 
 /**
@@ -80,16 +97,8 @@ test("runtime_process回復Identityはattemptとoperationへ結合されfresh Pr
     ),
     null,
   );
-  const moduleUrl = pathToFileURL(
-    path.join(
-      import.meta.dirname,
-      "..",
-      "..",
-      "src",
-      "execution",
-      "process-safety-state.ts",
-    ),
-  ).href;
+  const moduleUrl = new URL("../../src/lifecycle/host.ts", import.meta.url)
+    .href;
   const fresh = execFileSync(
     process.execPath,
     [
@@ -109,37 +118,6 @@ test("runtime_process回復Identityはattemptとoperationへ結合されfresh Pr
     inspectedFresh.processIdentity,
     getRuntimeProcessInstanceIdentity(),
   );
-});
-
-/**
- * Process poison契約は同期不可逆Gateとfresh Process境界を固定するを検証する。
- *
- * @responsibility Process poison契約は同期不可逆Gateとfresh Process境界を固定するの合否判定を所有する。
- * @trace PRL-IT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Process poison契約は同期不可逆Gateとfresh Process境界を固定するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Process poison契約は同期不可逆Gateとfresh Process境界を固定する", () => {
-  assert.deepEqual(describeRuntimeProcessSafetyStateContract(), {
-    contract: "crdd-coordinator/runtime-process-safety-state",
-    stateScope: "single_runtime_process_nonserialized",
-    poisonTransition:
-      "synchronous_irreversible_on_cleanup_unknown_observation_before_return_or_next_non_cleanup_await",
-    poisonOrigins: [
-      "interactive_console_cleanup_unknown",
-      "host_operation_supervisor_cleanup_unknown",
-      "signed_general_task_started_result_or_completion_unknown",
-      "signed_route_matrix_started_or_outer_execution_unknown",
-    ],
-    guardedEntrypoints: ["coordinator_task_before_all_effects"],
-    sameProcessResetAllowed: false,
-    alreadyActiveOperationRetroactiveCancellationGuaranteed: false,
-    recoveryBoundary: "fresh_process_only",
-  });
 });
 
 /**

@@ -5,8 +5,8 @@
  * @responsibility coordinator:unit:task-recovery-projectionが所有する検証責務を実行する。
  * @trace PRL-UT-006
  * @level UT
- * @scope docker、recovery、public、projection
- * @boundary PRL-UT-006=N/A: 現在入場・回復観測を固定公開理由／DTOへ投影する純粋値境界。外部実行境界・処置Authorityを持たない。
+ * @scope 試行専用Control、現在入場、単発実行結果の回復参照
+ * @boundary PRL-UT-006=N/A: 合成値・代役・有限Promiseだけ。実資源の観測・回復処置は対象外。
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -14,8 +14,11 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 
-import { projectDockerRecoveryAdmission } from "../../../src/execution/result.ts";
-import { resolveRecoveryStartReason } from "../../../src/execution/validation.ts";
+import {
+  projectCurrentDockerAdmission,
+  resolveRecoveryStartReason,
+  snapshotSingleTaskOutcome,
+} from "../../../src/lifecycle/validation.ts";
 
 /**
  * 試行専用Executorへの取消配送と回復Authorityの区別を反証する。
@@ -24,12 +27,14 @@ import { resolveRecoveryStartReason } from "../../../src/execution/validation.ts
  * @precondition メモリ内の記録・Executor代役・有限Promiseだけを使用する。
  * @stimulus 未保存、別Owner、コピーControl、再結合、成功／拒否終端を与える。
  * @observation 元Controlへの配送回数、alias有無、回復検索の拒否、元結果の同一性。
- * @oracle Controlは回復Authorityにならず、終端後の取消は拒否される。
+ * @oracle 終端後の取消は拒否し、試行を終了できない場合は元の回復参照のHome解放事実だけを返す。
  * @cleanup Promiseをsettleしてalias不存在を確認する。外部資源は作らない。
  */
 test("試行専用ExecutorのControlは回復Authorityにならず終端で失効する", async () => {
+  const one = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
+  const two = `docker-task.${"4".repeat(64)}.${"5".repeat(64)}.${"6".repeat(64)}`;
   const source = fs.readFileSync(
-    new URL("../../../src/execution/recovery.ts", import.meta.url),
+    new URL("../../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   for (const outcome of ["resolved", "held", "rejected"] as const) {
@@ -38,11 +43,12 @@ test("試行専用ExecutorのControlは回復Authorityにならず終端で失�
       "durableRecord",
       "bindRuntimeOwnedExecutorAttempt",
       "cancelRuntimeOwnedExecutorAttempt",
-      "abandonRuntimeOwnedExecutorAttempt",
+      "abandonRuntimeOwnedAttemptRecovery",
+      "abandonRuntimeOwnedDockerRecovery",
     ];
     const api = runInNewContext(
       names.map((name) => sourceDeclaration(source, name)).join("\n") +
-        "\n({lookup:durableRecord,bind:bindRuntimeOwnedExecutorAttempt,cancel:cancelRuntimeOwnedExecutorAttempt,abandon:abandonRuntimeOwnedExecutorAttempt})",
+        "\n({lookup:durableRecord,bind:bindRuntimeOwnedExecutorAttempt,cancel:cancelRuntimeOwnedExecutorAttempt,abandon:abandonRuntimeOwnedAttemptRecovery})",
       { durableRecords: records },
     ) as {
       lookup(capability: unknown): unknown;
@@ -58,9 +64,12 @@ test("試行専用ExecutorのControlは回復Authorityにならず終端で失�
       managementCapability: management,
       initializationReady: true,
       recoveryId: one,
+      homeLeaseReleased: false,
     };
     let cancels = 0,
       abandons = 0;
+    let abandonResult = true;
+    let abandonError: Error | undefined;
     const executor = {
       cancel: async (input: {
         controlCapability: unknown;
@@ -78,7 +87,8 @@ test("試行専用ExecutorのControlは回復Authorityにならず終端で失�
         assert.strictEqual(input.recoveryCapability, capability);
         assert.strictEqual(input.managementCapability, management);
         abandons++;
-        return true;
+        if (abandonError) throw abandonError;
+        return abandonResult;
       },
     };
     assert.equal(api.bind(capability, management, executor), false);
@@ -127,230 +137,86 @@ test("試行専用ExecutorのControlは回復Authorityにならず終端で失�
     assert.equal((await api.cancel(control, management)).status, "blocked");
     assert.equal(api.abandon(capability, management), outcome !== "resolved");
     assert.equal(abandons, outcome !== "resolved" ? 1 : 0);
+    assert.equal(api.abandon(capability, {}), false);
+    abandonResult = false;
+    assert.equal(api.abandon(capability, management), false);
+    record.homeLeaseReleased = true;
+    assert.equal(api.abandon(control, management), false);
+    assert.equal(api.abandon({ ...capability }, management), false);
+    assert.equal(api.abandon(capability, management), true);
+    const previousAbandons = abandons;
+    // 別の管理参照では元Executorに処置を依頼せず、解放観測の読取りだけを行う。
+    assert.equal(api.abandon(capability, {}), true);
+    assert.equal(abandons, previousAbandons);
+    if (outcome !== "resolved") {
+      abandonError = Error("synthetic_abandon_failure");
+      assert.throws(
+        () => api.abandon(capability, management),
+        (error) => error === abandonError,
+      );
+    }
   }
 });
 
 /**
- * observationのTest準備責務を実行する。
- *
- * @responsibility observationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * 現在入場はロック解放を確認した場合だけ通し、旧一覧を搬送しない。
+ * @responsibility 本番のTask開始前に使う結果投影の拒否境界を検証する。
  * @trace PRL-UT-006
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus observationを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
- */
-function observation(overrides: Record<string, unknown> = {}) {
-  return Object.freeze({
-    status: "completed",
-    reason: "docker_task_runtime_state_clean",
-    manualRecoveryRequired: false,
-    dockerRecoveryId: null,
-    dockerRecoveryIds: Object.freeze([]),
-    activeStableLogicalHomeBindingHashes: Object.freeze([]),
-    ...overrides,
-  });
-}
-
-const one = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
-const two = `docker-task.${"4".repeat(64)}.${"5".repeat(64)}.${"6".repeat(64)}`;
-
-/**
- * 回復参照と対応するHome集合を旧256件を超えて公開投影する。
- * @responsibility 集合量の拒否だけを撤去し識別・単数相関・所属検査を維持する。
- * @trace PRL-UT-006
- * @precondition 一意な257件の正規Recovery IDとHome Hashを生成する。
- * @stimulus 全量集合と重複・非所属Hash・単数IDの矛盾を投入する。
- * @observation 投影された全IDの順序と不正時の値非公開。
- * @oracle 正常集合は保持し不正集合は回復不可分類へ閉じる。
+ * @precondition 合成値のみ。保存・実資源は対象外。
+ * @stimulus 正常、解放不明、未知理由、余分field、AccessorとProxyを投入する。
+ * @observation 状態、固定理由、Getter・Proxy trapの呼出回数。
+ * @oracle 正常だけ許可し、不明時に任意情報を公開しない。
  * @cleanup N/A: メモリ内だけ。
- * @boundary 回復観測の純粋投影。実回復を実行しない。
+ * @boundary 現在入場の結果投影。回復は発行しない。
  */
-test("回復観測は257件を保持しHash所属と単数相関を検査する", () => {
-  const hashes = Array.from({ length: 257 }, (_, index) =>
-    (index + 1).toString(16).padStart(64, "0"),
-  );
-  const ids = hashes.map(
-    (hash) => `docker-task.${hash}.${"2".repeat(64)}.${"3".repeat(64)}`,
-  );
-  const candidate = observation({
-    reason: "docker_task_multiple_recovery_inventory_available",
-    manualRecoveryRequired: true,
-    dockerRecoveryIds: ids,
-    activeStableLogicalHomeBindingHashes: hashes,
-  });
-  assert.deepEqual(projectDockerRecoveryAdmission(candidate), {
+test("現在入場はロック解放と固定理由を照合し旧一覧を搬送しない", () => {
+  const available = {
+    status: "available",
+    reason: "coordinator_current_admission_available",
+    lockReleased: true,
+  };
+  const unconfirmed = {
     status: "blocked",
-    reason: "docker_process_controller_recovery_conflict",
-    manualRecoveryRequired: true,
-    dockerRecoveryId: null,
-    dockerRecoveryIds: ids,
+    reason: "coordinator_current_admission_unconfirmed",
+    lockReleased: false,
+  };
+  const unavailable = {
+    status: "blocked",
+    reason: "docker_process_controller_recovery_unavailable",
+  };
+  let observed = 0;
+  const accessor = {
+    ...available,
+    get reason() {
+      observed++;
+      return available.reason;
+    },
+  };
+  const proxy = new Proxy(available, {
+    ownKeys() {
+      observed++;
+      return [];
+    },
+  });
+  assert.deepEqual(projectCurrentDockerAdmission(available), {
+    status: "completed",
+  });
+  assert.deepEqual(projectCurrentDockerAdmission(unconfirmed), {
+    status: "blocked",
+    reason: "docker_process_controller_recovery_observation_unknown",
   });
   for (const invalid of [
-    {
-      ...candidate,
-      activeStableLogicalHomeBindingHashes: [...hashes, "f".repeat(64)],
-    },
-    {
-      ...candidate,
-      activeStableLogicalHomeBindingHashes: [...hashes, hashes[0]],
-    },
-    { ...candidate, dockerRecoveryIds: [...ids, ids[0]] },
-    { ...candidate, dockerRecoveryId: ids[0] },
-    {
-      ...candidate,
-      dockerRecoveryIds: [ids[0]],
-      activeStableLogicalHomeBindingHashes: [hashes[0]],
-    },
-  ]) {
-    assert.deepEqual(projectDockerRecoveryAdmission(invalid), {
-      status: "blocked",
-      reason: "docker_process_controller_recovery_unavailable",
-      manualRecoveryRequired: true,
-      dockerRecoveryId: null,
-      dockerRecoveryIds: [],
-    });
-  }
-});
-
-/**
- * production Recovery inventory形状はcleanだけをTask Admissionへ通すを検証する。
- *
- * @responsibility production Recovery inventory形状はcleanだけをTask Admissionへ通すの合否判定を所有する。
- * @trace PRL-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus production Recovery inventory形状はcleanだけをTask Admissionへ通すの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
- */
-test("production Recovery inventory形状はcleanだけをTask Admissionへ通す", () => {
-  assert.deepEqual(projectDockerRecoveryAdmission(observation()), {
-    status: "completed",
-    reason: "docker_task_runtime_state_clean",
-    manualRecoveryRequired: false,
-    dockerRecoveryId: null,
-    dockerRecoveryIds: [],
-  });
-  assert.deepEqual(
-    projectDockerRecoveryAdmission(
-      observation({
-        reason: "docker_task_recovery_inventory_available",
-        manualRecoveryRequired: true,
-        dockerRecoveryId: one,
-        dockerRecoveryIds: Object.freeze([one]),
-        activeStableLogicalHomeBindingHashes: Object.freeze(["1".repeat(64)]),
-      }),
-    ),
-    {
-      status: "blocked",
-      reason: "docker_process_controller_recovery_conflict",
-      manualRecoveryRequired: true,
-      dockerRecoveryId: one,
-      dockerRecoveryIds: [one],
-    },
-  );
-  const ids = [one, two];
-  assert.deepEqual(
-    projectDockerRecoveryAdmission(
-      observation({
-        reason: "docker_task_multiple_recovery_inventory_available",
-        manualRecoveryRequired: true,
-        dockerRecoveryIds: Object.freeze(ids),
-        activeStableLogicalHomeBindingHashes: Object.freeze([
-          "1".repeat(64),
-          "4".repeat(64),
-        ]),
-      }),
-    ).dockerRecoveryIds,
-    ids,
-  );
-  assert.deepEqual(
-    projectDockerRecoveryAdmission(
-      observation({
-        reason: "docker_task_multiple_recovery_inventory_available",
-        manualRecoveryRequired: true,
-        dockerRecoveryIds: Object.freeze(ids),
-        activeStableLogicalHomeBindingHashes: Object.freeze(["1".repeat(64)]),
-      }),
-    ).dockerRecoveryIds,
-    ids,
-  );
-  assert.deepEqual(
-    projectDockerRecoveryAdmission(
-      observation({
-        reason: "docker_task_multiple_recovery_inventory_available",
-        manualRecoveryRequired: true,
-        dockerRecoveryIds: Object.freeze(ids),
-        activeStableLogicalHomeBindingHashes: Object.freeze([]),
-      }),
-    ).dockerRecoveryIds,
-    ids,
-  );
-});
-
-/**
- * clean、inventory、hashの相関差は値非公開で拒否するを検証する。
- *
- * @responsibility clean、inventory、hashの相関差は値非公開で拒否するの合否判定を所有する。
- * @trace PRL-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus clean、inventory、hashの相関差は値非公開で拒否するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
- */
-test("clean、inventory、hashの相関差は値非公開で拒否する", () => {
-  for (const candidate of [
-    observation({ reason: "docker_task_runtime_state_audit_failed" }),
-    observation({ activeStableLogicalHomeBindingHashes: ["1".repeat(64)] }),
-    observation({
-      reason: "docker_task_recovery_inventory_available",
-      manualRecoveryRequired: true,
-      dockerRecoveryId: "C:\\secret",
-      dockerRecoveryIds: ["C:\\secret"],
-    }),
-    observation({
-      reason: "docker_task_multiple_recovery_inventory_available",
-      manualRecoveryRequired: true,
-      dockerRecoveryId: null,
-      dockerRecoveryIds: [one, one],
-    }),
-    observation({
-      reason: "docker_task_recovery_inventory_available",
-      manualRecoveryRequired: true,
-      dockerRecoveryId: one,
-      dockerRecoveryIds: [one],
-      activeStableLogicalHomeBindingHashes: ["f".repeat(64)],
-    }),
-  ]) {
-    assert.deepEqual(projectDockerRecoveryAdmission(candidate), {
-      status: "blocked",
-      reason: "docker_process_controller_recovery_unavailable",
-      manualRecoveryRequired: true,
-      dockerRecoveryId: null,
-      dockerRecoveryIds: [],
-    });
-  }
-});
-
-/**
- * Recovery observation unknownと未登録理由は固定公開分類へ閉じるを検証する。
- *
- * @responsibility Recovery observation unknownと未登録理由は固定公開分類へ閉じるの合否判定を所有する。
- * @trace PRL-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Recovery observation unknownと未登録理由は固定公開分類へ閉じるの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Recovery observation unknownと未登録理由は固定公開分類へ閉じる", () => {
+    null,
+    { ...available, lockReleased: false },
+    { ...unconfirmed, lockReleased: true },
+    { ...unconfirmed, reason: "caller-path:C:\\secret" },
+    { ...available, dockerRecoveryIds: ["unknown-id"] },
+    { status: "completed", reason: "docker_task_runtime_state_clean" },
+    accessor,
+    proxy,
+  ])
+    assert.deepEqual(projectCurrentDockerAdmission(invalid), unavailable);
+  assert.equal(observed, 0);
   assert.equal(
     resolveRecoveryStartReason(
       "docker_task_runtime_state_lock_release_unconfirmed",
@@ -361,111 +227,52 @@ test("Recovery observation unknownと未登録理由は固定公開分類へ閉�
     resolveRecoveryStartReason("caller-path:C:\\secret"),
     "docker_process_controller_recovery_unavailable",
   );
-  assert.deepEqual(
-    projectDockerRecoveryAdmission(
-      observation({
-        status: "blocked",
-        reason: "docker_task_runtime_state_lock_release_unconfirmed",
-        manualRecoveryRequired: true,
-        dockerRecoveryId: one,
-        dockerRecoveryIds: [one],
-        activeStableLogicalHomeBindingHashes: ["1".repeat(64)],
-      }),
-    ),
-    {
-      status: "blocked",
-      reason: "docker_process_controller_recovery_observation_unknown",
-      manualRecoveryRequired: true,
-      dockerRecoveryId: one,
-      dockerRecoveryIds: [one],
-    },
+});
+
+/**
+ * 単発実行結果は回復参照を全量保持し、重複・不正値・未解決の成功扱いを拒否する。
+ * @responsibility 現役の結果捕捉境界で容量と非成功の保証を反証する。
+ * @trace PRL-UT-006
+ * @precondition 一意な257件の正規Docker回復IDを用いる。
+ * @stimulus 全量、末尾重複、不正文法、Accessorと成功状態を与える。
+ * @observation 返却IDの全件と順序、不正時の値非公開。
+ * @oracle 全量を保持し、不正または未解決の成功化は拒否する。
+ * @cleanup N/A: メモリ内だけ。
+ * @boundary 単発Taskの結果捕捉。実回復は発行しない。
+ */
+test("単発の実行結果は257件の回復参照を保持し不正な終端を拒否する", () => {
+  const ids = Array.from(
+    { length: 257 },
+    (_, index) =>
+      `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${index.toString(16).padStart(64, "0")}`,
   );
-});
-
-/**
- * malformed、accessor、Proxyは値を読まずRecovery requiredへ閉じるを検証する。
- *
- * @responsibility malformed、accessor、Proxyは値を読まずRecovery requiredへ閉じるの合否判定を所有する。
- * @trace PRL-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus malformed、accessor、Proxyは値を読まずRecovery requiredへ閉じるの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
- */
-test("malformed、accessor、Proxyは値を読まずRecovery requiredへ閉じる", () => {
-  const malformed = observation({ dockerRecoveryIds: ["one", "two"] });
-  Object.defineProperty(malformed.dockerRecoveryIds, "0", {
-    get: () => {
-      throw new Error("must_not_run");
+  const blocked = {
+    mode: "read_only_advice",
+    status: "blocked",
+    reason: "synthetic_recovery_required",
+    cleanupConfirmed: false,
+    recoveryIds: ids,
+    advice: null,
+    workspaceResult: null,
+  };
+  const result = snapshotSingleTaskOutcome(blocked);
+  assert.deepEqual(result?.recoveryIds, ids);
+  assert.notEqual(result?.recoveryIds, ids);
+  let observed = 0;
+  const accessor = [...ids];
+  Object.defineProperty(accessor, 256, {
+    get() {
+      observed++;
+      return ids[256];
     },
   });
-  for (const candidate of [
-    { status: "completed" },
-    malformed,
-    new Proxy(observation(), {
-      ownKeys: () => {
-        throw new Error("must_not_run");
-      },
-    }),
-  ]) {
-    assert.deepEqual(projectDockerRecoveryAdmission(candidate), {
-      status: "blocked",
-      reason: "docker_process_controller_recovery_unavailable",
-      manualRecoveryRequired: true,
-      dockerRecoveryId: null,
-      dockerRecoveryIds: [],
-    });
-  }
-});
-
-/**
- * RecoveryのHome hash配列不正はID配列が正しくても拒否しgetterを呼ばないを検証する。
- *
- * @responsibility RecoveryのHome hash配列不正はID配列が正しくても拒否しgetterを呼ばないの合否判定を所有する。
- * @trace PRL-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus RecoveryのHome hash配列不正はID配列が正しくても拒否しgetterを呼ばないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
- */
-test("RecoveryのHome hash配列不正はID配列が正しくても拒否しgetterを呼ばない", () => {
-  let getterCalls = 0;
-  const accessorHashes = ["1".repeat(64)];
-  Object.defineProperty(accessorHashes, "0", {
-    get: () => {
-      getterCalls += 1;
-      return "1".repeat(64);
-    },
-  });
-  for (const hashes of [
-    null,
-    {},
-    "1".repeat(64),
-    ["not-hex"],
-    accessorHashes,
-  ]) {
-    assert.deepEqual(
-      projectDockerRecoveryAdmission(
-        observation({
-          reason: "docker_task_recovery_inventory_available",
-          manualRecoveryRequired: true,
-          dockerRecoveryId: one,
-          dockerRecoveryIds: [one],
-          activeStableLogicalHomeBindingHashes: hashes,
-        }),
-      ),
-      {
-        status: "blocked",
-        reason: "docker_process_controller_recovery_unavailable",
-        manualRecoveryRequired: true,
-        dockerRecoveryId: null,
-        dockerRecoveryIds: [],
-      },
-    );
-  }
-  assert.equal(getterCalls, 0);
+  for (const invalid of [
+    { ...blocked, recoveryIds: [...ids, ids[0]] },
+    { ...blocked, recoveryIds: [...ids.slice(0, -1), "broken/ref"] },
+    { ...blocked, recoveryIds: accessor },
+    { ...blocked, status: "completed", cleanupConfirmed: true },
+    { ...blocked, status: "cancelled", cleanupConfirmed: true },
+  ])
+    assert.equal(snapshotSingleTaskOutcome(invalid), null);
+  assert.equal(observed, 0);
 });

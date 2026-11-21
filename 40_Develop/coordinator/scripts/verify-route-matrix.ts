@@ -11,13 +11,13 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "../src/execution/process-safety-state.ts";
+} from "../src/lifecycle/host.ts";
 import {
   displayVerificationRecording,
   runRecordedVerification,
 } from "./verification-result-record.ts";
 import { SIGNED_ROUTE_MATRIX_REASONS } from "./verification-result-reasons.ts";
-import { snapshotPlainArray } from "../src/input/snapshot.ts";
+import { snapshotPlainArray } from "../src/lifecycle/validation.ts";
 import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
 import {
   evaluateVerificationSafetyObservation,

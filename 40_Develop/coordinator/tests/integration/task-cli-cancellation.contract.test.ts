@@ -44,8 +44,7 @@ import { API } from "typescript/unstable/sync";
 import {
   bindTaskCliCancellationSignalsToPort,
   createTaskCliCancellationLatch,
-  projectTaskCliCancellationFailure,
-} from "../../src/cli/cancellation.ts";
+} from "../../src/cli/command.ts";
 
 /**
  * CLI取消latchは重複signalを同じPromiseと一つのobserverへ収束するを検証する。
@@ -312,116 +311,6 @@ test("CLI signal bindingはrollback・解除の片側失敗でも全signalを試
 });
 
 /**
- * CLI signal failure投影はRuntimeの全安全観測とRecovery Evidenceを単調保持するを検証する。
- *
- * @responsibility CLI signal failure投影はRuntimeの全安全観測とRecovery Evidenceを単調保持するの合否判定を所有する。
- * @trace ERB-IT-003
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus CLI signal failure投影はRuntimeの全安全観測とRecovery Evidenceを単調保持するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
- */
-test("CLI signal failure投影はRuntimeの全安全観測とRecovery Evidenceを単調保持する", () => {
-  const digestA = "a".repeat(64);
-  const digestB = "b".repeat(64);
-  const runtimeResult = Object.freeze({
-    status: "blocked",
-    reason: "coordinator_task_operation_cleanup_unconfirmed",
-    cleanupConfirmed: false,
-    manualRecoveryRequired: true,
-    processRestartRequired: true,
-    candidateId: `candidate.${digestA}.${digestB}`,
-    expiresAtMs: 2_000_000_000_000,
-    hostRecoveryId: `host.root.${digestA}.${digestB}`,
-    hostRecoveryIds: Object.freeze([
-      `host.root.${digestA}.${digestB}`,
-      `host.root.${digestB}.${digestA}`,
-    ]),
-    dockerRecoveryId: `docker-task.${digestA}.${digestB}.${digestA}`,
-    dockerRecoveryIds: Object.freeze([
-      `docker-task.${digestA}.${digestB}.${digestA}`,
-      `docker-task.${digestB}.${digestA}.${digestB}`,
-    ]),
-    candidateRecoveryId: `candidate-recovery.${digestA}.${digestB}`,
-    candidateRecoveryIds: Object.freeze([
-      `candidate-recovery.${digestA}.${digestB}`,
-    ]),
-    candidateStoreRecoveryId: `candidate-store-recovery.${digestA}`,
-    candidateStoreRecoveryIds: Object.freeze([
-      `candidate-store-recovery.${digestA}`,
-    ]),
-    canonicalRepositoryChanged: false,
-  });
-  for (const reason of [
-    "task_cli_cancellation_signal_binding_failed",
-    "task_cli_cancellation_signal_release_failed",
-  ] as const) {
-    const projected = projectTaskCliCancellationFailure(runtimeResult, reason);
-    assert.equal(projected.command, "task");
-    assert.equal(projected.status, "blocked");
-    assert.equal(projected.reason, reason);
-    const projectedRecord = projected as Readonly<Record<string, unknown>>;
-    const runtimeRecord = runtimeResult as Readonly<Record<string, unknown>>;
-    for (const key of Object.keys(runtimeResult)) {
-      if (key === "status" || key === "reason") continue;
-      assert.strictEqual(projectedRecord[key], runtimeRecord[key]);
-    }
-    assert.equal(Object.isFrozen(projected), true);
-    const json = JSON.parse(JSON.stringify(projected));
-    assert.deepEqual(json, projected);
-    assert.equal(json.manualRecoveryRequired, true);
-    assert.equal(json.processRestartRequired, true);
-    assert.deepEqual(json.hostRecoveryIds, runtimeResult.hostRecoveryIds);
-    assert.deepEqual(json.dockerRecoveryIds, runtimeResult.dockerRecoveryIds);
-  }
-});
-
-/**
- * CLI signal failure投影はcleanup確認済み対照へRecoveryを捏造しないを検証する。
- *
- * @responsibility CLI signal failure投影はcleanup確認済み対照へRecoveryを捏造しないの合否判定を所有する。
- * @trace ERB-IT-003
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus CLI signal failure投影はcleanup確認済み対照へRecoveryを捏造しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
- */
-test("CLI signal failure投影はcleanup確認済み対照へRecoveryを捏造しない", () => {
-  const projected = projectTaskCliCancellationFailure(
-    Object.freeze({
-      status: "completed",
-      reason: "coordinator_task_completed",
-      cleanupConfirmed: true,
-      manualRecoveryRequired: false,
-      processRestartRequired: false,
-      candidateId: null,
-      hostRecoveryId: null,
-      dockerRecoveryId: null,
-      dockerRecoveryIds: Object.freeze([]),
-      candidateRecoveryId: null,
-      candidateStoreRecoveryId: null,
-    }),
-    "task_cli_cancellation_signal_release_failed",
-  );
-  assert.equal(projected.status, "blocked");
-  assert.equal(projected.cleanupConfirmed, true);
-  assert.equal(projected.manualRecoveryRequired, false);
-  assert.equal(projected.processRestartRequired, false);
-  assert.equal(projected.candidateId, null);
-  assert.deepEqual(projected.dockerRecoveryIds, []);
-  const json = JSON.parse(JSON.stringify(projected));
-  assert.equal(json.hostRecoveryId, null);
-  assert.equal(json.dockerRecoveryId, null);
-  assert.equal(json.candidateRecoveryId, null);
-  assert.equal(json.candidateStoreRecoveryId, null);
-  assert.equal(json.manualRecoveryRequired, false);
-});
-
-/**
  * CLI相当のvoid取消はstrict独立Processで未処理rejectionを作らないを検証する。
  *
  * @responsibility CLI相当のvoid取消はstrict独立Processで未処理rejectionを作らないの合否判定を所有する。
@@ -571,11 +460,14 @@ function inspectTaskCliCancellationWiring(
 ) {
   const failures: string[] = [];
   const checker = project.checker;
-  const helper = namedImportIdentifier(
-    sourceFile,
-    "bindTaskCliCancellationSignals",
-    "./cancellation.ts",
-  );
+  const helper = sourceFile.statements
+    .filter(
+      (node): node is FunctionDeclaration =>
+        isFunctionDeclaration(node) &&
+        node.name?.text === "bindTaskCliCancellationSignals",
+    )
+    .map((node) => node.name)
+    .filter((name): name is Identifier => name !== undefined);
   const execution = namedImportIdentifier(sourceFile, "runTask", "../api.ts");
   if (helper.length !== 1 || execution.length !== 1)
     return ["operation_import_not_exact"];
@@ -787,7 +679,7 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
       assert.ok(project);
       const sourceFile = projectSourceFile(
         project,
-        path.join(coordinatorRoot, "src", "cli", "request.ts"),
+        path.join(coordinatorRoot, "src", "cli", "command.ts"),
       );
       assert.deepEqual(
         inspectTaskCliCancellationWiring(project, sourceFile),
@@ -822,37 +714,46 @@ test("CLI AST契約はshadow・二重binding・直接signal・非await join・fi
     "coordinator",
   );
   const original = fs.readFileSync(
-    path.join(coordinatorRoot, "src", "cli", "request.ts"),
+    path.join(coordinatorRoot, "src", "cli", "command.ts"),
     "utf8",
   );
+  const taskStart = original.indexOf(
+    "export async function runSingleTaskCommand(",
+  );
+  const taskEnd = original.indexOf("\n}\n", taskStart);
+  assert.ok(taskStart >= 0 && taskEnd > taskStart);
+  const originalTask = original.slice(taskStart, taskEnd + 2);
   const mutations = [
-    original.replace(
+    originalTask.replace(
       "    if (!released) {",
       "    { const cancellation = null; }\n    if (!released) {",
     ),
-    original.replace(
+    originalTask.replace(
       "    cancellation = bindTaskCliCancellationSignals(async () =>",
       "    bindTaskCliCancellationSignals(async()=>controller.abort());\n    cancellation = bindTaskCliCancellationSignals(async () =>",
     ),
-    original.replace(
+    originalTask.replace(
       "    cancellation = bindTaskCliCancellationSignals(async () =>",
       "    process.on('SIGINT',()=>undefined);\n    cancellation = bindTaskCliCancellationSignals(async () =>",
     ),
-    original.replace("...(await runTask(", "...(runTask("),
-    original.replace(
+    originalTask.replace("...(await runTask(", "...(runTask("),
+    originalTask.replace(
       "        controller.signal,",
       "        new AbortController().signal,",
     ),
-    original.replace("cancellation.unbind()", "cancellation.observe()"),
-    original.replace(
+    originalTask.replace("cancellation.unbind()", "cancellation.observe()"),
+    originalTask.replace(
       "...(await runTask(",
       '...(await (async()=>{process.stdout.write("early");return runTask;})()(',
     ),
-    original.replace(
+    originalTask.replace(
       "    return;\n  }\n  const operation = args[0]",
       "  }\n  const operation = args[0]",
     ),
-  ];
+  ].map((mutation) => {
+    assert.notEqual(mutation, originalTask);
+    return original.replace(originalTask, mutation);
+  });
   for (const mutation of mutations) assert.notEqual(mutation, original);
   const virtualFiles: Record<string, string> = {};
   const fileNames = [original, ...mutations].map((source, index) => {

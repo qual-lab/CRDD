@@ -27,10 +27,10 @@ import { getRepository } from "../../../version-control/src/index.ts";
 import {
   ensureRepositoryExecutionDataArea,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
+  verifyRuntimePersistenceRepository,
+} from "../../src/lifecycle/host.ts";
 import { queryActivity } from "../../src/index.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import {
   activityId,
@@ -800,5 +800,5 @@ test("offset日時も実時刻順で並び同じ境界から継続する", async
   assert.ok(parseRuntimeActivityObservation(all));
 });
 
-import { parseRuntimeActivityObservation } from "../../src/state/observation.ts";
-import type { ActivityRepository } from "../../src/state/types.ts";
+import { parseRuntimeActivityObservation } from "../../src/lifecycle/query.ts";
+import type { ActivityRepository } from "../../src/lifecycle/types.ts";

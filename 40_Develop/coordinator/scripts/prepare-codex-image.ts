@@ -15,7 +15,7 @@ import { getRepository } from "../../version-control/src/index.ts";
 import {
   ensureRepositoryExecutionDataArea,
   requireReadyRepositoryExecutionDataArea,
-} from "../src/configuration/runtime-data.ts";
+} from "../src/lifecycle/host.ts";
 
 /**
  * 明示した公式CLI・Host・bwrapから有限のImage入力を作成する。

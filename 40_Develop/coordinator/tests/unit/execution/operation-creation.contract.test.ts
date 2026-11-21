@@ -13,8 +13,8 @@ import fs from "node:fs";
 import test from "node:test";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 
-import { classifyOwnedCoordinatorOperationCreationFailure } from "../../../src/execution/operation.ts";
-import { createIsolatedOwnedOperationDirectoryCreationFailureCandidate } from "../../../src/execution/operation.ts";
+import { classifyOwnedCoordinatorOperationCreationFailure } from "../../../src/lifecycle/host.ts";
+import { loadOperationFailureFixture } from "../../support/task-requests.ts";
 
 /**
  * 同期wx解放とHost回収を一つの実宣言で検証する。
@@ -29,7 +29,7 @@ import { createIsolatedOwnedOperationDirectoryCreationFailureCandidate } from ".
  */
 test("Host清掃は同期wx解放まで同じ経路で閉じ、不明なら記録を保全する", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/operation.ts", import.meta.url),
+    new URL("../../../src/lifecycle/host.ts", import.meta.url),
     "utf8",
   );
   assert.equal(source.includes("cleanupOwnedOperationDirectoriesAsync"), false);
@@ -152,7 +152,7 @@ test("Host清掃は同期wx解放まで同じ経路で閉じ、不明なら記�
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 const creationSource = fs.readFileSync(
-  new URL("../../../src/execution/operation.ts", import.meta.url),
+  new URL("../../../src/lifecycle/host.ts", import.meta.url),
   "utf8",
 );
 const createFixtureOwner = new Function(
@@ -284,8 +284,8 @@ test("isolated transactionの正常形は取得済みIDとCapabilityを一括公
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("共有classifierは内包Directory producerの全failureを保持する", () => {
-  const lower = createIsolatedOwnedOperationDirectoryCreationFailureCandidate();
+test("共有classifierは内包Directory producerの全failureを保持する", async () => {
+  const { operation } = await loadOperationFailureFixture();
   for (const expected of [
     Object.freeze({
       cleanupConfirmed: true,
@@ -304,11 +304,19 @@ test("共有classifierは内包Directory producerの全failureを保持する", 
     }),
   ]) {
     assert.throws(
-      () => lower.fail(expected),
+      () =>
+        operation.throwOwnedOperationDirectoryCreationFailure(
+          Error("fixture_failure"),
+          expected,
+        ),
       (error) => {
         assert.deepEqual(
-          classifyOwnedCoordinatorOperationCreationFailure(error),
+          operation.classifyOwnedCoordinatorOperationCreationFailure(error),
           expected,
+        );
+        assert.equal(
+          classifyOwnedCoordinatorOperationCreationFailure(error),
+          null,
         );
         return true;
       },

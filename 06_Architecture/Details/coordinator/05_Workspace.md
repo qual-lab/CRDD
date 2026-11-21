@@ -35,7 +35,7 @@
 
 Isolatedでは上位発行の小文字UUIDを使い、Coordinatorが専用Branchを`crdd/workspace/<uuid>`、配置を所属Repository直下の`.crdd/workspaces/<uuid>/worktree/`へ導き、確定した相対PathとBranchをVersion Controlへ渡す。UUIDは操作許可ではない。採否・保留・非使用はOrchestratorが既存利用調停で処置期間を通じ維持し、削除時は期待HEADと変更破棄の明示有無を渡す。Workspace専用親の再利用禁止と明示回収も上位が所有し、VCは指定Worktree／Branchの技術処置と観測に集中する。新しい台帳・Lockは追加せず、既存の保存Path／Ref名・DTOは変更しない。
 
-候補の業務要求・表示名・関連CHGと既存保存DTOはDomainが所有する。Coordinatorの`workspace/git.ts`が技術要求と保存結果を投影し、Intent保存後に同期的な`createCommit`→`createReference`、採用時の`mergeCommit`、明示終了時の`removeReference`を接続する。Commit生成と保持Refの間に保存やawaitを挟まず、Ref確定前又は短命Index回収未確認を候補固定成功としない。技術契約と実体照合は[Version Control](../version-control/01_Architecture.md#31-現行公開symbol)を正本とする。
+候補の業務要求・表示名・関連CHGと既存保存DTOはDomainが所有する。Coordinatorの`lifecycle/workspace.ts`が技術要求と保存結果を投影し、Intent保存後に同期的な`createCommit`→`createReference`、採用時の`mergeCommit`、明示終了時の`removeReference`を接続する。Commit生成と保持Refの間に保存やawaitを挟まず、Ref確定前又は短命Index回収未確認を候補固定成功としない。技術契約と実体照合は[Version Control](../version-control/01_Architecture.md#31-現行公開symbol)を正本とする。
 
 新設Workspaceの名称はこの作業領域に用いる。既存のdevelopment／managementを表す`workspaceId(s)`は内容領域（設計名`contentAreaId(s)`）へ改名する。権限の意味を変えず、Role／Exposure・Manifest・通信・保存Schemaと全利用側を同じ切替単位で更新する。内容領域への閲覧許可から新Workspace作成・実行・Mergeの許可を自動生成しない。既存の短命作業領域は一時実行領域等の実責務名へ改め、Dockerや外部CLIの予約語は変更しない。過去Evidenceの名称・署名・Hashは維持する。
 
@@ -227,7 +227,7 @@ Source・実Gitの成立範囲と残件は[変更計画の実装結果](../../..
 | 終了 | 下位join・cleanup・未解決回復を照合する。Task完了はCandidate固定・採用・Workspace削除を意味しない |
 | 利用側 | 活動Reader、Workspace非使用判定、履歴移管、取消・Owner喪失はQueue内の単発Taskも対象にする |
 
-単発Ownerは`task/requests.ts`、本番組立ては`task/request-composition.ts`が所有する。助言の実Operation作成通知で非Authorityの実ID・Host回復参照を同じQueueへ保存し、保存確認前はProviderへ進めない。Provider Processの開始通知は作成保存と区別する。助言のCatalog改訂0は既定Catalogの既知改訂であり、不明を0へ補完しない。
+単発の受付と受付後の進行は`lifecycle/execution.ts`が所有する。助言の実Operation作成通知で非Authorityの実ID・Host回復参照を同じQueueへ保存し、保存確認前はProviderへ進めない。Provider Processの開始通知は作成保存と区別する。助言のCatalog改訂0は既定Catalogの既知改訂であり、不明を0へ補完しない。
 
 受付Leaseの真正な未取得は、当該Queueの取得意図・Ownerが存在しないことを既存Writerで確認して未開始拒否として閉じる。取得不明は同じexact参照を保持する。本文を失った依頼は再送せず、次の明示開始前又は同ID取消時に、既存のLease Owner喪失照合とCoordinatorの用途別正式回収へ接続する。回復後も元status／reasonを変更せず、cleanupと回復参照だけを確定する。同じ確定の再入場で履歴を重複追加しない。
 

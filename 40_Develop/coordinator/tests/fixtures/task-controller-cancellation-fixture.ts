@@ -219,14 +219,8 @@ export function createTaskControllerCancellationFixture(
       planInput: unknown,
       management: unknown,
       registerHandoff: (capability: unknown, id: unknown) => boolean,
-      restriction?: unknown,
     ) => {
-      const raw = controller.start(
-        planInput,
-        management,
-        registerHandoff,
-        restriction,
-      );
+      const raw = controller.start(planInput, management, registerHandoff);
       if (raw.status !== "started") events.push(`start-rejected:${raw.reason}`);
       const projected = projectAttemptStartResult(raw, recoveryId, operationId);
       assert.ok(projected);
@@ -253,20 +247,16 @@ export function createTaskControllerCancellationFixture(
       };
     },
     cancelProcess: controller.cancel,
-    prepareDockerHostCleanup: (capability: unknown) => {
+    prepareHostBoundary: (capability: unknown) => {
       assert.equal(capability, recoveryCapability);
       assert.ok(events.includes("recovery-finalizable"));
       events.push("host-intent");
       return hostRecoveryId;
     },
-    recordDockerHostCleanupReceipt: (capability: unknown) => {
+    finishHostBoundary: (capability: unknown) => {
       assert.equal(capability, recoveryCapability);
       assert.ok(events.includes("host-cleanup"));
       events.push("host-receipt");
-      return true;
-    },
-    finalizeDockerRecovery: (capability: unknown) => {
-      assert.equal(capability, recoveryCapability);
       assert.ok(events.includes("host-receipt"));
       events.push("docker-finalize");
       return { status: "completed" };

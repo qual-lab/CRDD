@@ -4027,7 +4027,9 @@
         "invalid_stored_selection_rejected",
         "provider_effect_zero",
         "captured_selection_hash_without_revalidation",
-        "selection_hash_bytes_unchanged"
+        "selection_hash_bytes_unchanged",
+        "preflight_bound_to_current_operation",
+        "unsupported_technical_candidate_rejected"
       ],
       "mandatoryByDefault": true
     },
@@ -5083,6 +5085,7 @@
       "humanInput": false,
       "postconditions": [
         "boundary_result_observed",
+        "task_selection_notice_matches_accepted_selection",
         "owned_resources_settled_or_reported"
       ],
       "mandatoryByDefault": true
@@ -5560,7 +5563,8 @@
       "humanInput": false,
       "postconditions": [
         "boundary_result_observed",
-        "owned_resources_settled_or_reported"
+        "owned_resources_settled_or_reported",
+        "settled_recovery_not_reissued_after_retry_ready_interruption"
       ],
       "mandatoryByDefault": true
     },
@@ -6743,7 +6747,9 @@
         "docker",
         "recovery",
         "public",
-        "projection"
+        "projection",
+        "current-admission",
+        "single-task-outcome"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -7051,25 +7057,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "orchestrator:unit:platform-contract",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/platform/contract.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "project",
-        "runtime",
-        "platform"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "orchestrator:unit:state",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/state/transitions.contract.test.ts",
@@ -7111,23 +7098,24 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:orchestrator-windows-platform-adapter",
+      "id": "coordinator:unit:platform-host-observation",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/task-windows-platform-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/platform/host-observation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
         "project",
         "runtime",
         "windows",
-        "platform",
-        "adapter"
+        "platform"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "result_observed"
+        "repository_root_bound_or_rejected",
+        "unsupported_platform_stops_before_provider_home_observation",
+        "lease_owner_absence_and_unknown_distinguished"
       ],
       "mandatoryByDefault": true
     },
@@ -7141,25 +7129,6 @@
         "provider",
         "billing",
         "policy"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:provider-eligibility-runtime",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/eligibility-observation.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "provider",
-        "eligibility",
-        "runtime"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -7975,21 +7944,18 @@
       "semanticTags": [
         "workbench",
         "ai-request",
-        "execution-plan",
-        "profile-identity",
-        "repository-not-mounted",
-        "fallback-prohibited"
+        "execution-input",
+        "fixed-selection",
+        "unknown-field-rejection"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "codex_profile_identity_exact",
-        "claude_profile_identity_exact",
-        "prompt_transport_stdin",
-        "repository_and_workspace_not_mounted",
-        "tools_and_session_disabled",
-        "invalid_plan_effect_zero"
+        "codex_selection_preserved",
+        "claude_selection_preserved",
+        "advice_input_frozen",
+        "unknown_fields_and_invalid_input_rejected"
       ],
       "mandatoryByDefault": true
     },
@@ -8101,6 +8067,8 @@
         "task_profile_and_projection_identity_preserved",
         "provider_execution_at_most_once",
         "host_and_docker_cleanup_before_advice_publication",
+        "duplicate_recovery_identity_or_capability_preserves_original_handoff",
+        "failed_host_settlement_preserves_handoffs_and_attempts_lock_release",
         "cleanup_failure_preserves_recovery_and_hides_advice",
         "unstarted_rejection_record_request_preserves_exact_reason",
         "started_control_or_effect_rejects_unstarted_record"
@@ -8130,6 +8098,9 @@
         "packet_consumed_at_most_once",
         "owner_capability_exact",
         "unused_packet_revocable",
+        "crossed_packet_references_rejected_without_consumption",
+        "use_reference_cannot_revoke",
+        "consumed_or_revoked_packet_not_revocable_again",
         "old_command_revision_rejected",
         "model_kind_and_catalog_identity_hash_bound",
         "repository_and_workspace_not_mounted",
@@ -8210,6 +8181,7 @@
       "postconditions": [
         "profile_snapshot_preserved",
         "advice_dispatch_observed",
+        "unobserved_initial_root_does_not_start_advice",
         "provider_effect_absent"
       ],
       "mandatoryByDefault": true

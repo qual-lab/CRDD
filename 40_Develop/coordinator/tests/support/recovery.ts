@@ -9,6 +9,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import type { TestContext } from "node:test";
 import { isDeepStrictEqual } from "node:util";
 import { runInThisContext } from "node:vm";
@@ -24,8 +25,47 @@ import {
 } from "../../../execution-model/src/index.ts";
 import { createResourceOperationFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { getIsolationSettings } from "../../src/execution/configuration.ts";
 import { canonicalJson } from "./contract-assertions.ts";
+import { sourceUrl } from "./task-requests.ts";
+
+/**
+ * 通常試行の開始時Home観測だけを登録済み代役へ結ぶ。
+ * @trace PRL-IT-013
+ * @boundary 回復試験内のModule評価。実ユーザーHomeを読まない。
+ */
+export function recoveryEnvironmentFixtureUrl(origin: URL) {
+  const source = fs.readFileSync(origin, "utf8");
+  const observe =
+    /const observation = inspectRuntimeOwnedWindowsProviderHomeCandidate\(\s*plan\.provider,\s*\);/gu;
+  assert.equal([...source.matchAll(observe)].length, 1);
+  const replacement =
+    "const observation = observeFixtureProviderHome(plan.provider);";
+  const declaration =
+    "import { inspectRuntimeOwnedWindowsProviderHomeCandidate as observeFixtureProviderHome } from " +
+    JSON.stringify(origin.href) +
+    ";\n";
+  return sourceUrl(
+    stripTypeScriptTypes(declaration + source.replace(observe, replacement)),
+    origin,
+    new Map(),
+  );
+}
+
+/** 回復本文の下位APIだけを試験ごとの代役へ結ぶ。 @trace ERB-IT-014 */
+export function recoveryResourceFixtureBody(body: string) {
+  const declaration = "function recoverRuntimeOwnedDockerTaskResources(";
+  assert.equal(body.split(declaration).length, 2);
+  return `${body.replace(declaration, "function runResourceRecovery(cleanupResources, inspectResources, getIsolationSettings, ")}
+    function recoverRuntimeOwnedDockerTaskResources(capability, cleanup, inspect, signal) {
+      return runResourceRecovery(
+        (target, _settings, callbacks) => cleanup(target, callbacks),
+        (target, _settings, options) => inspect(target, options),
+        () => undefined,
+        capability,
+        signal,
+      );
+    }`;
+}
 
 export async function createRecoveryFixture(
   t: TestContext,
@@ -34,6 +74,10 @@ export async function createRecoveryFixture(
 ) {
   const f = await createIsolationFixture(t, resourceSet),
     base = createResourceOperationFixture();
+  // 有限CLIを登録する前にCoordinator経由でDIを評価しない。
+  const { getIsolationSettings } = await import(
+    "../../src/lifecycle/environment.ts"
+  );
   const prepared = f.api.prepareIsolation(f.request, getIsolationSettings());
   assert.ok(prepared);
   const technical = await f.api.executeIsolation(prepared).completion;
@@ -164,7 +208,7 @@ export async function createRecoveryFixture(
     hostGeneration: "host-generation",
   };
   const source = fs.readFileSync(
-    new URL("../../src/execution/recovery.ts", import.meta.url),
+    new URL("../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   const names = [
@@ -175,7 +219,7 @@ export async function createRecoveryFixture(
   ];
   const api =
     runInThisContext(`(deps)=>{const {Buffer,canonicalJson,snapshotJsonValue,isDeepStrictEqual,dockerRecoveryPreparations,assertCurrentRecoveryOwner,readState,saveRecoveryCheckpoint,borrowHostRecoveryManagementDirectory}=deps;
- ${names.map((n) => sourceDeclaration(source, n)).join("\n")}
+ ${recoveryResourceFixtureBody(names.map((n) => sourceDeclaration(source, n)).join("\n"))}
  return {run:recoverRuntimeOwnedDockerTaskResources,target:projectResourceTarget};}`)(
       {
         Buffer,
@@ -400,4 +444,4 @@ export async function createRecoveryFixture(
 }
 
 import { applyResourceCleanup } from "../../../execution-model/src/index.ts";
-import { snapshotJsonValue } from "../../src/input/snapshot.ts";
+import { snapshotJsonValue } from "../../src/lifecycle/validation.ts";

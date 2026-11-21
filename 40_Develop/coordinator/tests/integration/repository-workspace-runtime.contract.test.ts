@@ -41,11 +41,7 @@ import {
   prepareVerificationWorkspace,
   readVerificationWorkspaceOutput,
 } from "../../scripts/workspace-task-fixture.ts";
-import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
-import {
-  isExecutionRelativePath,
-  readExecutionFile,
-} from "../../src/execution/files.ts";
+import { runTestSingleTaskAttempt } from "../support/task-requests.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   captureExecutionChangeSnapshot,
@@ -54,29 +50,30 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-  describeExecutionChangeSnapshotContract,
   inspectBorrowedExecutionTarget,
+  isExecutionRelativePath,
   bindRuntimeOwnedExecutionSnapshot as materializeReceivedTarget,
   observeBorrowedExecutionChanges,
   projectBorrowedExecutionResult,
   projectReviewerReadContent,
   readBorrowedExecutionBinding,
+  readExecutionFile,
   verifyExecutionChangeSnapshot,
   verifyOwnedOperationManagementMountBinding,
-} from "../../src/execution/operation.ts";
-import { createProviderDockerRuntimeDependencies } from "../../src/execution/preparation.ts";
+} from "../../src/lifecycle/host.ts";
+import { verifyProviderOperationMount } from "../../src/lifecycle/selection.ts";
 import {
   freezeWorkspaceCandidate,
   mergeWorkspaceCandidate,
   removeWorkspaceCandidate,
   workspaceWorktreeResult,
   workspaceWorktreeTarget,
-} from "../../src/workspace/git.ts";
+} from "../../src/lifecycle/workspace.ts";
 
 const gitSelectionBody = stripTypeScriptTypes(
   sourceDeclaration(
     fs.readFileSync(
-      new URL("../../src/execution/operation.ts", import.meta.url),
+      new URL("../../src/lifecycle/host.ts", import.meta.url),
       "utf8",
     ),
     "readGitSelection",
@@ -442,9 +439,9 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
       );
     }
     let receivedTarget: unknown;
-    const adapted = await runCoordinatorSingleTaskAttempt(
+    const adapted = await runTestSingleTaskAttempt(
       {
-        startTask: (_request, owner, _id, _observer, selected) => {
+        startTask: (_request, owner, _id, _observer, _consumer, selected) => {
           assert.equal(owner, root);
           receivedTarget = selected;
           return {
@@ -481,16 +478,14 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
         repositoryRevision: base,
         taskRequest: {},
         repositoryRoot: root,
-        workspaceId,
-        ownerRepositoryRoot: root,
-        executionTree: tree,
-        workspaceBaseCommit: target.baseCommit,
-        workspaceHead: target.head,
+        workspaceTarget: target,
         cancellationSignal: new AbortController().signal,
       },
     );
     assert.equal(adapted.status, "completed");
     assert.deepEqual(receivedTarget, target);
+    assert.notEqual(receivedTarget, target);
+    assert.ok(Object.isFrozen(receivedTarget));
     const internal = path.join(tree, ".crdd");
     fs.mkdirSync(internal, { recursive: true });
     fs.writeFileSync(path.join(internal, "state.json"), "not an input\n");
@@ -523,7 +518,7 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
             capability,
             target,
           );
-          const delivered = await runCoordinatorSingleTaskAttempt(
+          const delivered = await runTestSingleTaskAttempt(
             {
               startTask: () => ({
                 status: "started",
@@ -564,11 +559,7 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
               repositoryRevision: base,
               taskRequest: {},
               repositoryRoot: root,
-              workspaceId,
-              ownerRepositoryRoot: root,
-              executionTree: tree,
-              workspaceBaseCommit: target.baseCommit,
-              workspaceHead: target.head,
+              workspaceTarget: target,
               cancellationSignal: new AbortController().signal,
             },
           );
@@ -603,11 +594,10 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
             .executionTree,
           tree,
         );
-        const providerBinding =
-          createProviderDockerRuntimeDependencies().verifyOperationMount(
-            current.managementCapability,
-            current.mountCapability,
-          );
+        const providerBinding = verifyProviderOperationMount(
+          current.managementCapability,
+          current.mountCapability,
+        );
         assert.equal(providerBinding.mounts.workspace, tree);
         assert.ok("workspaceProtection" in providerBinding);
         fs.writeFileSync(path.join(tree, "source.txt"), `turn-${turn}\n`);
@@ -1486,6 +1476,8 @@ test("HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisi
     ["src/"],
   );
   assert.equal(candidate?.status, "candidate");
+  assert.ok(candidate?.candidateCommitId);
+  assert.match(candidate.candidateCommitId, /^[0-9a-f]{40}$/u);
   assert.deepEqual(candidate?.changedPaths, ["src/index.ts"]);
   assert.equal(candidate?.baseCommitId, materialized.baseCommitId);
   assert.equal(candidate?.canonicalRepositoryChanged, false);
@@ -1498,6 +1490,7 @@ test("HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisi
   );
   assert.equal(verified?.status, "verified");
   assert.equal(verified?.candidateCommitId, candidate?.candidateCommitId);
+  assert.deepEqual(verified?.changedPaths, candidate?.changedPaths);
 });
 
 /**
@@ -1852,37 +1845,6 @@ test("開発用情報を借用Treeで許容しReviewerへの認識済みSecret�
       "fixed_snapshot_content_policy_rejected",
     );
   }
-});
-
-/**
- * 公開契約は借用workspaceと固定Commitの変更契約を固定するを検証する。
- *
- * @responsibility 公開契約は借用workspaceと固定Commitの変更契約を固定するの合否判定を所有する。
- * @trace RFD-IT-013
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開契約は借用workspaceと固定Commitの変更契約を固定するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-013=Direct Boundary: coordinator Test Source→対象契約
- */
-test("公開契約は借用workspaceと固定Commitの変更契約を固定する", () => {
-  const contract = describeExecutionChangeSnapshotContract();
-  assert.equal(contract.contractRevision, 9);
-  assert.equal(contract.providerGitMetadataVisible, false);
-  assert.equal(contract.workspaceWrite, "caller_resolved_execution_tree");
-  assert.deepEqual(contract.candidateRevision, [
-    "base_commit_id",
-    "candidate_commit_id",
-    "changed_paths",
-  ]);
-  assert.equal(contract.canonicalRepositoryWriteAllowed, true);
-  assert.equal(
-    contract.allowedPathGuard,
-    "post_execution_scope_observation_not_write_acl",
-  );
-  assert.match(contract.recognizedSecretMaterial, /rejected/u);
-  assert.equal(contract.completeSecretAbsenceVerified, false);
 });
 
 /**
@@ -2586,7 +2548,7 @@ test("固定は内容変更・管理Path・不正名を拒否し削除は明示�
   assert.deepEqual(fs.readdirSync(path.dirname(f.target(id))), ["worktree"]);
 });
 
-import { inspectWorkspaceCommand } from "../../src/workspace/operations.ts";
+import { inspectWorkspaceCommand } from "../../src/lifecycle/workspace.ts";
 
 /**
  * FF可能時も二親Mergeを残し、再入場と独立Ref回収を確認する。

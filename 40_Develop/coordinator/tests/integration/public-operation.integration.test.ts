@@ -6,6 +6,7 @@
  * @trace PPR-IT-001
  * @trace PRL-IT-005
  * @trace PRL-IT-008
+ * @trace ERP-IT-008
  * @level IT
  * @scope project、runtime、public、state
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
@@ -18,6 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
+import { compileFunction } from "node:vm";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
 import {
@@ -25,25 +27,177 @@ import {
   initializeExecutionStore,
 } from "../../../execution-model/src/index.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
+import { getGroup } from "../../../execution-intelligence/src/index.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
+  getExecutionIntelligenceStore,
   RepositoryDataBlockedError,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import { acceptResult } from "../../src/decision/acceptance.ts";
+  verifyRuntimePersistenceRepository,
+} from "../../src/lifecycle/host.ts";
+import { acceptResult, submitDecision } from "../../src/lifecycle/decision.ts";
 import {
   COORDINATOR_HUMAN_DECISION_CONTRACT,
   inspectCoordinatorDecisionResult,
-} from "../../src/decision/request.ts";
+} from "../../src/lifecycle/decision.ts";
 import {
   COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX,
-  createCoordinatorExecutionIntelligenceDiagnosticReporter,
-  createCoordinatorRecoveryDiagnosticReporter,
-} from "../../src/execution/diagnostics.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { createDevelopmentCoordinatorPublicObjectiveCandidate } from "../../src/objective/composition.ts";
-import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
+  createCoordinatorDiagnosticReporter,
+} from "../../src/lifecycle/environment.ts";
+import type { runObjective } from "../../src/lifecycle/execution.ts";
+import {
+  type TestTaskAttemptDependencies,
+  runTestSingleTaskAttempt,
+} from "../support/task-requests.ts";
+import { queryState } from "../../src/index.ts";
+import { coordinatorDataBoundaryBlocked } from "../../src/lifecycle/host.ts";
+import { withTestAttempt } from "../fixtures/task-persistence-fixture.ts";
+
+/**
+ * 公開Objective入口が既定値・受付・非同期実行の失敗境界を維持する。
+ * @responsibility 既知の保存例外と未知例外を取り違えず、元の回復参照と失敗形式を保持する。
+ * @trace PRL-IT-005
+ * @precondition 実宣言・実例外型・実公開投影と有限代役だけを使用。
+ * @stimulus cwd欠測、既知の同期失敗・非同期失敗、未知の非同期失敗。
+ * @observation 同期throwとPromise結果、元参照、最終投影。
+ * @oracle cwdだけは従来どおり同期失敗。既知だけ公開拒否、未知は同じ例外のまま。
+ * @cleanup N/A: メモリ内だけ。
+ * @boundary 公開入口から保存境界の既知失敗を公開投影へ接続。
+ */
+test("公開Objectiveは既定cwdと受付・実行の既知例外を区別する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/lifecycle/execution.ts", import.meta.url),
+    "utf8",
+  );
+  const reason = "repository_runtime_data_ignore_registration_blocked";
+  const facts = {
+    status: "blocked",
+    reason,
+    effectIssued: true,
+    effectStateUnknown: true,
+    effectConfirmation: "unknown",
+    cleanupConfirmed: false,
+    retryAllowed: false,
+    recoveryReference: "repository-local-ignore.objective",
+    repositoryPathReported: false,
+  } as const;
+  const storageError = new ExecutionStorageBlockedError(facts);
+  const repositoryError = new RepositoryDataBlockedError({
+    ...facts,
+    recoveryReference: "repository-local-ignore.objective-directory",
+  });
+  const cwdError = new Error("cwd_unavailable");
+  const unexpectedError = new Error("unexpected_objective_failure");
+  const intake = Object.freeze({ queueId: "queue", requestHash: "hash" });
+  let cwdCalls = 0,
+    asyncCalls = 0,
+    inspectionCalls = 0,
+    bindingCalls = 0,
+    syncFailure: Error | null = storageError,
+    asyncFailure: Error = repositoryError;
+  const accepted = Object.freeze({
+    projectId: "project",
+    requestId: "request",
+    repositoryRevision: "fixture-revision",
+  });
+  let intakeCalls = 0;
+  const dependencies = {
+    process: {
+      cwd() {
+        cwdCalls++;
+        throw cwdError;
+      },
+    },
+    inspectCoordinatorObjectiveRequest() {
+      inspectionCalls++;
+      if (syncFailure) throw syncFailure;
+      return accepted;
+    },
+    isPrincipalId: () => true,
+    resolveVerifiedRepositoryRootFromWorkingDirectory: (value: string) => {
+      assert.equal(value, "known-root");
+      return value;
+    },
+    readObjectiveReplay: (
+      _request: unknown,
+      root: string,
+      id: string,
+      identity: unknown,
+    ) => {
+      assert.equal(root, "known-root");
+      assert.equal(id, "binding");
+      assert.strictEqual(identity, intake);
+      return null;
+    },
+    createObjectiveIntake: (
+      _request: unknown,
+      id: string,
+      principalId: string,
+    ) => {
+      intakeCalls++;
+      assert.equal(id, "binding");
+      assert.equal(principalId, "local");
+      return intake;
+    },
+    deriveCoordinatorRepositoryBindingId: () => {
+      bindingCalls++;
+      return "binding";
+    },
+    getRepository: () => ({ capability: {} }),
+    readRepositorySnapshot: () => ({
+      status: "observed",
+      revisionIdentity: "fixture-revision",
+    }),
+    validIdentity: (binding: unknown) => binding === "binding",
+    createHash,
+    executeAcceptedCoordinatorObjective: async (
+      dependencies: {
+        binding: unknown;
+        intake: unknown;
+      },
+      request: unknown,
+    ) => {
+      asyncCalls++;
+      assert.strictEqual(request, accepted);
+      assert.strictEqual(dependencies.intake, intake);
+      assert.deepEqual(dependencies.binding, {
+        repositoryBindingId: "binding",
+        workingDirectory: "known-root",
+        repositoryRoot: "known-root",
+      });
+      throw asyncFailure;
+    },
+    ExecutionStorageBlockedError,
+    RepositoryDataBlockedError,
+    coordinatorDataBoundaryBlocked,
+  };
+  const run = compileFunction(
+    `return (${sourceDeclaration(source, "runObjective")});`,
+    Object.keys(dependencies),
+  )(...Object.values(dependencies)) as typeof runObjective;
+  const signal = new AbortController().signal;
+  assert.throws(
+    () => run({}, signal),
+    (error: unknown) => error === cwdError,
+  );
+  assert.equal(cwdCalls, 1);
+  const invoke = () => run({}, signal, "known-root", { principalId: "local" });
+  const storage = await invoke();
+  assert.deepEqual(storage, coordinatorDataBoundaryBlocked(storageError));
+  assert.equal(asyncCalls, 0);
+  syncFailure = null;
+  const repository = await invoke();
+  assert.deepEqual(repository, coordinatorDataBoundaryBlocked(repositoryError));
+  asyncFailure = unexpectedError;
+  await assert.rejects(invoke(), (error: unknown) => error === unexpectedError);
+  assert.equal(asyncCalls, 2);
+  assert.equal(inspectionCalls, 3);
+  assert.equal(intakeCalls, 2);
+  assert.equal(bindingCalls, 2);
+  assert.equal(cwdCalls, 1);
+});
 
 /**
  * Co所在初期化の失敗をEM失敗と区別して同じ完成結果へ投影する。
@@ -156,16 +310,18 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
       },
     },
   });
-  t.mock.module("../../src/execution/persistence.ts", {
+  const areas = await import("../../src/lifecycle/host.ts");
+  t.mock.module("../../src/lifecycle/host.ts", {
     namedExports: {
+      ...areas,
       verifyRuntimePersistenceRepository: () => ({}),
       historyRepositoryInput: () => {
         throw new Error("unexpected_history_boundary");
       },
     },
   });
-  const modulePath = "../../src/decision/lifecycle.ts?boundary-failure-test";
-  const { executeCoordinatorPublicDecision } = await import(modulePath);
+  const modulePath = "../../src/lifecycle/decision.ts?boundary-failure-test";
+  const { submitDecision } = await import(modulePath);
   for (const [issued, unknown, cleanup] of [
     [true, true, false],
     [true, false, true],
@@ -186,7 +342,7 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
       Object.defineProperty(currentError, "cause", {
         value: "coordinator_snapshot_lock_release_unconfirmed",
       });
-    const result = executeCoordinatorPublicDecision(
+    const result = submitDecision(
       {
         operation: "apply",
         decisionId: "decision-a",
@@ -212,18 +368,19 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
 });
 
 /**
- * 開発用構成はTask終了後に明示品質受入を要求し再入場で再送しないを検証する。
+ * 直接受付はTask終了後に明示品質受入を要求し再入場で再送しないことを検証する。
  *
- * @responsibility 開発用構成はTask終了後に明示品質受入を要求し再入場で再送しないの合否判定を所有する。
+ * @responsibility 直接受付の明示品質受入と同ID再入場の合否判定を所有する。
  * @trace PPR-IT-001
+ * @trace ERP-IT-008
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 開発用構成はTask終了後に明示品質受入を要求し再入場で再送しないの対象操作を実行する。
+ * @stimulus 同じ凍結した技術依存で実受付・判断・状態照会を直接実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PPR-IT-001=Direct Boundary: orchestrator Test Source→対象契約
  */
-test("開発用構成はTask終了後に明示品質受入を要求し再入場で再送しない", async (t) => {
+test("直接受付はTask終了後に明示品質受入を要求し再入場で再送しない", async (t) => {
   const root = fs.mkdtempSync(
     path.join(
       requireReadyRepositoryExecutionDataArea(
@@ -279,8 +436,9 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(initialized.status, "completed");
   let taskStarts = 0;
   const deliveredRequests: Readonly<Record<string, unknown>>[] = [];
+  const deliveredMetadata: Readonly<Record<string, string>>[] = [];
   const publicationObservations: object[] = [];
-  const runtime = createDevelopmentCoordinatorPublicObjectiveCandidate({
+  const executionDependencies: TestTaskAttemptDependencies = Object.freeze({
     startTask: (
       taskRequest,
       _root,
@@ -288,22 +446,25 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       notifyStarted,
       consumer,
       workspaceTarget,
+      executionMetadata,
     ) => {
       taskStarts += 1;
+      assert.ok(executionMetadata);
+      deliveredMetadata.push(executionMetadata);
       const delivered = taskRequest as Readonly<Record<string, unknown>>;
       deliveredRequests.push(delivered);
       const selections = delivered.taskExecutionSelections as {
         executor: unknown;
         reviewer: unknown;
       };
-      assert.deepEqual(
-        selections.executor,
-        executionSelection("executor", {
+      assert.deepEqual(selections.executor, {
+        ...executionSelection("executor", {
           provider: "codex",
           model: "gpt-5.5",
           effort: "medium",
         }),
-      );
+        workType: taskStarts === 1 ? "coding" : null,
+      });
       assert.equal(Object.hasOwn(delivered, "requestedProfileId"), false);
       assert.equal(Object.hasOwn(delivered, "frontProvider"), false);
       assert.equal(consumer, "orchestrator");
@@ -368,13 +529,23 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
         }),
       ),
   });
+  const executeObjective = (...args: Parameters<typeof runObjective>) =>
+    withTestAttempt(
+      (input) => runTestSingleTaskAttempt(executionDependencies, input),
+      async (url) => {
+        const objective = (await import(
+          url
+        )) as typeof import("../../src/lifecycle/execution.ts");
+        return objective.runObjective(...args);
+      },
+    );
   // 主体欠測・不正は保存先の観測・初期化より前に拒否する。
   for (const context of [
     undefined,
     { principalId: "" },
     { principalId: " bad" },
   ]) {
-    const denied = runtime.runStateQuery(
+    const denied = queryState(
       {
         requestId: "query-no-principal",
         projectId: "project-public-runtime",
@@ -387,7 +558,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       denied.reason,
       "orchestrator_authenticated_principal_not_verified",
     );
-    const decisionDenied = runtime.runDecision(
+    const decisionDenied = submitDecision(
       {
         operation: "answer",
         decisionId: "decision-no-principal",
@@ -412,7 +583,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     assert.ok("effectState" in acceptanceDenied);
     assert.equal(acceptanceDenied.effectState, "no_effect");
   }
-  const before = runtime.runStateQuery(
+  const before = queryState(
     {
       requestId: "query-before",
       projectId: "project-public-runtime",
@@ -423,10 +594,11 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   );
   assert.equal(before.status, "completed");
   assert.equal(before.observationState, "absent");
-  const result = await runtime.run(
+  const result = await executeObjective(
     withCallerPlan({
       operation: "start" as const,
       requestId: "request-public-runtime",
+      workType: "coding",
       projectId: "project-public-runtime",
       milestoneId: "milestone-public-runtime",
       repositoryRevision: revision,
@@ -446,10 +618,24 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   );
   assert.equal(result.status, "blocked", JSON.stringify(result));
   assert.equal(result.reason, "orchestrator_quality_acceptance_required");
-  const resumedPending = await runtime.run(
+  const expectedGroupId = `group-${createHash("sha256").update("project-public-runtime\0request-public-runtime").digest("hex").slice(0, 40)}`;
+  assert.equal(deliveredMetadata[0]?.groupId, expectedGroupId);
+  assert.equal(deliveredMetadata[0]?.workType, "coding");
+  assert.equal(deliveredMetadata[0]?.projectId, "project-public-runtime");
+  assert.equal(deliveredMetadata[0]?.operation, "task_attempt");
+  const eiStore = getExecutionIntelligenceStore(verified.capability, false);
+  assert.ok(eiStore);
+  const firstGroup = getGroup(eiStore, expectedGroupId);
+  assert.equal(firstGroup.status, "completed");
+  assert.ok(firstGroup.status === "completed" && firstGroup.value);
+  assert.equal(firstGroup.value.state, "closed");
+  // Groupは実行Loopの終了。後続の品質受入待ちをAI実行失敗へ読み替えない。
+  assert.equal(firstGroup.value.completion?.status, "completed");
+  const resumedPending = await executeObjective(
     withCallerPlan({
       operation: "resume" as const,
       requestId: "request-public-runtime",
+      workType: "coding",
       projectId: "project-public-runtime",
       milestoneId: "milestone-public-runtime",
       repositoryRevision: revision,
@@ -475,7 +661,9 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(resumedPending.queueId, result.queueId);
   assert.equal(resumedPending.workspaceResults, undefined);
   assert.equal(taskStarts, 1);
-  let pending = runtime.runStateQuery(
+  assert.equal(deliveredMetadata.length, 1);
+  assert.deepEqual(getGroup(eiStore, expectedGroupId), firstGroup);
+  let pending = queryState(
     {
       requestId: "query-acceptance-pending",
       projectId: "project-public-runtime",
@@ -550,7 +738,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     ).status,
     "completed",
   );
-  pending = runtime.runStateQuery(
+  pending = queryState(
     {
       requestId: "query-objective-accepted",
       projectId: "project-public-runtime",
@@ -571,7 +759,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     ).status,
     "completed",
   );
-  const after = runtime.runStateQuery(
+  const after = queryState(
     {
       requestId: "query-after",
       projectId: "project-public-runtime",
@@ -593,7 +781,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(result.projection?.milestoneState, "executing");
   assert.equal(result.effectState, "settled");
   assert.equal(taskStarts, 1);
-  const cleanupBlocked = await runtime.run(
+  const cleanupBlocked = await executeObjective(
     withCallerPlan({
       operation: "start" as const,
       requestId: "request-candidate-cleanup-blocked",
@@ -624,10 +812,11 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.deepEqual(cleanupBlocked.recoveryIds, []);
   assert.equal(taskStarts, 1);
   // Mock Taskの終了をAI実行済みのEI記録へ変換しない。
-  const replay = await runtime.run(
+  const replay = await executeObjective(
     withCallerPlan({
       operation: "start" as const,
       requestId: "request-public-runtime",
+      workType: "coding",
       projectId: "project-public-runtime",
       milestoneId: "milestone-public-runtime",
       repositoryRevision: revision,
@@ -649,7 +838,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(replay.reason, "orchestrator_objective_request_reused");
   assert.equal(taskStarts, 1);
 
-  const publicationBlocked = await runtime.run(
+  const publicationBlocked = await executeObjective(
     withCallerPlan({
       operation: "start" as const,
       requestId: "request-public-runtime-publication-blocked",
@@ -678,7 +867,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(publicationObservations.length, 0);
   assert.equal(taskStarts, 2);
 
-  const diagnosticFailed = await runtime.run(
+  const diagnosticFailed = await executeObjective(
     withCallerPlan({
       operation: "start" as const,
       requestId: "request-public-runtime-diagnostic-failed",
@@ -764,7 +953,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     { principalId: "" },
     { principalId: " bad" },
   ]) {
-    const denied = await runtime.run(
+    const denied = await executeObjective(
       graphRequest,
       new AbortController().signal,
       root,
@@ -776,7 +965,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     );
     assert.equal(taskStarts, 3);
   }
-  const graphResult = await runtime.run(
+  const graphResult = await executeObjective(
     graphRequest,
     new AbortController().signal,
     root,
@@ -802,7 +991,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       allowedPaths: graphRequest.plan.tasks[index]?.allowedPaths,
     })),
   );
-  const graphReplay = await runtime.run(
+  const graphReplay = await executeObjective(
     graphRequest,
     new AbortController().signal,
     root,
@@ -810,7 +999,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   );
   assert.equal(graphReplay.reason, "orchestrator_objective_request_reused");
   assert.equal(taskStarts, 5);
-  const changedGraph = await runtime.run(
+  const changedGraph = await executeObjective(
     {
       ...graphRequest,
       taskInputs: graphRequest.taskInputs.map((input, index) =>
@@ -861,7 +1050,7 @@ class ControlledDiagnosticStream extends Writable {
  */
 test("回復診断を直列化しcallback成功だけを成功として扱う", async () => {
   const stream = new ControlledDiagnosticStream({ highWaterMark: 1 });
-  const reporter = createCoordinatorRecoveryDiagnosticReporter(stream, 200);
+  const reporter = createCoordinatorDiagnosticReporter(stream, "recovery", 200);
   const first = reporter.report({ phase: "required" });
   const second = reporter.report({ phase: "recovering" });
   await new Promise((resolve) => setImmediate(resolve));
@@ -888,29 +1077,47 @@ test("回復診断を直列化しcallback成功だけを成功として扱う", 
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: orchestrator Test Source→対象契約
  */
-test("実行Event発行診断は回復診断と別の閉じた識別子で出力する", async () => {
+test("実行Event発行診断は回復診断と別の閉じた識別子で出力する", async (t) => {
   const stream = new ControlledDiagnosticStream();
-  const reporter = createCoordinatorExecutionIntelligenceDiagnosticReporter(
+  const recovery = createCoordinatorDiagnosticReporter(stream, "recovery", 200);
+  const reporter = createCoordinatorDiagnosticReporter(
     stream,
+    "execution_intelligence",
     200,
   );
+  t.after(() => {
+    reporter.dispose();
+    recovery.dispose();
+  });
+  const recoveryResult = recovery.report({ phase: "required" });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.match(
+    stream.writes[0] ?? "",
+    /"event":"coordinator_recovery_transition"/u,
+  );
+  recovery.dispose();
+  assert.equal(await recoveryResult, "unavailable");
+  assert.equal(stream.listenerCount("close"), 1);
+  stream.callbacks[0]?.(null);
+
   const result = reporter.report({
     event: "untrusted_override",
     status: "blocked",
     reason: "execution_event_store_unavailable",
   });
   await new Promise((resolve) => setImmediate(resolve));
-  stream.callbacks[0]?.(null);
+  stream.callbacks[1]?.(null);
   assert.equal(await result, "success");
   assert.ok(
-    stream.writes[0]?.startsWith(COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX),
+    stream.writes[1]?.startsWith(COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX),
   );
   assert.match(
-    stream.writes[0] ?? "",
+    stream.writes[1] ?? "",
     /"event":"coordinator_execution_intelligence_publication"/u,
   );
-  assert.doesNotMatch(stream.writes[0] ?? "", /untrusted_override/u);
+  assert.doesNotMatch(stream.writes[1] ?? "", /untrusted_override/u);
   reporter.dispose();
+  assert.equal(stream.listenerCount("close"), 0);
 });
 
 /**
@@ -947,7 +1154,11 @@ test("回復診断の各終端を区別し失敗後の書込みを停止する",
       const stream = new ControlledDiagnosticStream();
       const baselineErrorListeners = stream.listenerCount("error");
       const baselineCloseListeners = stream.listenerCount("close");
-      const reporter = createCoordinatorRecoveryDiagnosticReporter(stream, 200);
+      const reporter = createCoordinatorDiagnosticReporter(
+        stream,
+        "recovery",
+        200,
+      );
       const result = reporter.report({ phase: "required" });
       await new Promise((resolve) => setImmediate(resolve));
       item.settle(stream);
@@ -978,7 +1189,7 @@ test("回復診断の各終端を区別し失敗後の書込みを停止する",
  */
 test("回復診断timeout後の遅延callbackとerrorを二重完了にしない", async () => {
   const stream = new ControlledDiagnosticStream();
-  const reporter = createCoordinatorRecoveryDiagnosticReporter(stream, 10);
+  const reporter = createCoordinatorDiagnosticReporter(stream, "recovery", 10);
   const result = reporter.report({ phase: "required" });
   assert.equal(await result, "timeout");
   stream.callbacks[0]?.(null);
@@ -1006,15 +1217,20 @@ test("回復診断の同期throwと明示disposeを閉じた結果へ変換す�
     }
   }
   const throwing = new ThrowingDiagnosticStream();
-  const throwingReporter = createCoordinatorRecoveryDiagnosticReporter(
+  const throwingReporter = createCoordinatorDiagnosticReporter(
     throwing,
+    "recovery",
     200,
   );
   assert.equal(await throwingReporter.report({ phase: "required" }), "throw");
   throwingReporter.dispose();
 
   const pending = new ControlledDiagnosticStream();
-  const reporter = createCoordinatorRecoveryDiagnosticReporter(pending, 200);
+  const reporter = createCoordinatorDiagnosticReporter(
+    pending,
+    "recovery",
+    200,
+  );
   const result = reporter.report({ phase: "required" });
   await new Promise((resolve) => setImmediate(resolve));
   reporter.dispose();

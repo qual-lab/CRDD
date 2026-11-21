@@ -18,13 +18,17 @@ import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
-import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
-import { parseDoctorArguments } from "../../src/cli/options.ts";
+import {
+  renderDockerRecoveryDoctorReport,
+  parseDoctorArguments,
+  renderRecoveryObservation,
+} from "../../src/cli/command.ts";
+
 import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
 import { fixture } from "../fixtures/workspace-surface.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { readRecovery } from "../../src/index.ts";
-import { renderRecoveryObservation } from "../../src/cli/recovery-report.ts";
+import { readExecutionCancellation } from "../../src/lifecycle/validation.ts";
 
 const recoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 const hostRecoveryId = "host-operation.OP-123456";
@@ -130,7 +134,7 @@ test("正式回復照会は実Readerで記録なしを確認し保存を変更�
  */
 test("回復照会CLIは読取りだけを一回呼び三状態を表示する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/cli/doctor.ts", import.meta.url),
+    new URL("../../src/cli/command.ts", import.meta.url),
     "utf8",
   );
   const body = stripTypeScriptTypes(
@@ -206,7 +210,7 @@ test("回復照会CLIは読取りだけを一回呼び三状態を表示する",
  */
 test("回復照会はTask・Repair・HostとProbe用途の保存観測を分離し処置を発行しない", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/recovery.ts", import.meta.url),
+    new URL("../../src/lifecycle/query.ts", import.meta.url),
     "utf8",
   );
   const body = stripTypeScriptTypes(
@@ -268,6 +272,7 @@ test("回復照会はTask・Repair・HostとProbe用途の保存観測を分離�
     reads = 0;
   let unavailable = false,
     release = true,
+    missingSnapshot = false,
     throws = false,
     probeFailure = false;
   let abortDuringRead: AbortController | null = null;
@@ -276,7 +281,7 @@ test("回復照会はTask・Repair・HostとProbe用途の保存観測を分離�
     JSON,
     path,
     parseDockerTaskRecoveryId,
-    readExecutionCancellation: (signal: AbortSignal) => signal.aborted,
+    readExecutionCancellation,
     readState: () => {
       reads++;
       abortDuringRead?.abort();
@@ -284,7 +289,7 @@ test("回復照会はTask・Repair・HostとProbe用途の保存観測を分離�
       return {
         status: unavailable ? "blocked" : "completed",
         lockReleased: release,
-        value: { snapshot: { operations } },
+        value: missingSnapshot ? null : { snapshot: { operations } },
       };
     },
   };
@@ -359,6 +364,13 @@ test("回復照会はTask・Repair・HostとProbe用途の保存観測を分離�
     "unknown",
   );
   unavailable = false;
+  missingSnapshot = true;
+  const missing = read(host.recoveryId, {}, new AbortController().signal);
+  assert.equal(missing.observationState, "unknown");
+  assert.equal(missing.record, null);
+  assert.equal(missing.lockReleased, true);
+  assert.equal(missing.dockerResourcesObserved, false);
+  missingSnapshot = false;
   release = false;
   const unreleased = read(recoveryId, {}, new AbortController().signal);
   assert.equal(unreleased.observationState, "unknown");
@@ -405,6 +417,23 @@ test("回復照会はTask・Repair・HostとProbe用途の保存観測を分離�
     "coordinator_recovery_observation_cancelled",
   );
   assert.equal(reads, before);
+  let customGetterCalls = 0;
+  const invalidSignal = Object.defineProperty(
+    new AbortController().signal,
+    "aborted",
+    {
+      get() {
+        customGetterCalls++;
+        throw Error("unexpected_custom_aborted_getter");
+      },
+    },
+  );
+  assert.equal(
+    read(recoveryId, {}, invalidSignal).reason,
+    "coordinator_recovery_signal_invalid",
+  );
+  assert.equal(customGetterCalls, 0);
+  assert.equal(reads, before);
   operations = [task];
   abortDuringRead = new AbortController();
   assert.equal(
@@ -427,14 +456,10 @@ test("回復照会はTask・Repair・HostとProbe用途の保存観測を分離�
  */
 test("現在CLIは正式APIを一度待機しRootと取消を結合する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/cli/doctor.ts", import.meta.url),
+    new URL("../../src/cli/command.ts", import.meta.url),
     "utf8",
   );
-  const body = stripTypeScriptTypes(
-    source
-      .slice(source.indexOf("export async function runDoctorCommand"))
-      .replace("export ", ""),
-  );
+  const body = sourceDeclaration(source, "runDoctorCommand");
   const id = "docker-runtime-repair." + "a".repeat(64) + "." + "b".repeat(64);
   for (const action of [
     "repair-docker",
@@ -900,7 +925,7 @@ test("新文法のparserは処置の混在と旧flagを拒否する", () => {
  */
 test("修復の公開投影は内部保存checkpointを返さない", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/recovery.ts", import.meta.url),
+    new URL("../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf(
@@ -1547,8 +1572,8 @@ test("修復保持再入場の三入口は別IDの成功を元要求へ転用し
     new URL("../../src/api.ts", import.meta.url),
     "utf8",
   );
-  const recovery = fs.readFileSync(
-    new URL("../../src/execution/recovery.ts", import.meta.url),
+  const execution = fs.readFileSync(
+    new URL("../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
   const expected =
@@ -1556,13 +1581,16 @@ test("修復保持再入場の三入口は別IDの成功を元要求へ転用し
   const other =
     "docker-runtime-repair." + "c".repeat(64) + "." + "d".repeat(64);
   const projector = sourceDeclaration(
-    recovery,
+    fs.readFileSync(
+      new URL("../../src/lifecycle/environment.ts", import.meta.url),
+      "utf8",
+    ),
     "projectRuntimeRepairObservation",
   );
   for (const [source, name] of [
     [api, "repairDockerRuntime"],
     [api, "retainRepair"],
-    [recovery, "resumeRuntimeOwnedExecution"],
+    [execution, "resumeRuntimeOwnedExecution"],
   ] as const) {
     const start = source.indexOf("export async function " + name + "("),
       end = source.indexOf("\n}\n", start);

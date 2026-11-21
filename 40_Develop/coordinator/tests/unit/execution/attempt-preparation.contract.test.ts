@@ -17,15 +17,17 @@ import { attemptPlan } from "../../../../executor/tests/fixtures/attempt-plan.ts
 import {
   capturePreparationInput,
   createPreparationFailure,
-} from "../../../src/execution/preparation.ts";
+} from "../../../src/lifecycle/selection.ts";
 import type {
-  AttemptPreparation,
   PreparationFailure,
   PreparationResult,
   PreparedAttemptPlan,
   RecoveryPlan,
-} from "../../../src/execution/types.ts";
-import { createAttemptPreparation } from "../../fixtures/attempt-preparation.ts";
+} from "../../../src/lifecycle/types.ts";
+import {
+  type AttemptPreparation,
+  createAttemptPreparation,
+} from "../../fixtures/attempt-preparation.ts";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 
 /**
@@ -74,7 +76,6 @@ test("準備計画は共有項目を再利用しProvider相関と段階差を維
     advicePacketRef: null,
     advicePacketHash: null,
     adviceAllowedReferences: null,
-    selectionNotice: "synthetic",
     workspaceProtection: {
       gitSourcePath: "synthetic",
       internalSourcePath: "synthetic",
@@ -121,10 +122,6 @@ test("準備計画は共有項目を再利用しProvider相関と段階差を維
   // @ts-expect-error 準備時にadviceAllowedReferencesを省略しない。
   const missing4: PreparedAttemptPlan<"codex"> = without4;
   void [ignored4, missing4];
-  const { selectionNotice: ignored8, ...without8 } = codex;
-  // @ts-expect-error 準備時にselectionNoticeを省略しない。
-  const missing8: PreparedAttemptPlan<"codex"> = without8;
-  void [ignored8, missing8];
   const expectedKeys: Record<keyof PreparedAttemptPlan<"codex">, true> = {
     provider: true,
     operationId: true,
@@ -145,7 +142,6 @@ test("準備計画は共有項目を再利用しProvider相関と段階差を維
     proxyImageDigest: true,
     additionalHosts: true,
     subscriptionOffering: true,
-    selectionNotice: true,
     operationMode: true,
     taskRole: true,
     taskPacketRef: true,
@@ -199,13 +195,7 @@ test("明示した構成・準備型は既存必須項目と拒否値を保持�
   const invalid: PreparationFailure = { ...failure, operationId: "synthetic" };
   assert.equal(failure.status, "blocked");
   assert.equal(failure.reason, "synthetic");
-  const nullKeys = [
-    "plan",
-    "operationId",
-    "selectedModel",
-    "selectedEffort",
-    "selectionNotice",
-  ] as const;
+  const nullKeys = ["plan", "operationId"] as const;
   const falseKeys = [
     "dockerEffectIssued",
     "filesystemEffectIssued",
@@ -233,6 +223,157 @@ test("明示した構成・準備型は既存必須項目と拒否値を保持�
     assert.equal(result.status, "blocked");
   }
   void [paths, missing, prepared, invalid];
+});
+
+/**
+ * 回復参照の準備判定をOperation観測より前に行う。
+ * @trace ERB-UT-023
+ * @precondition 合成のprobe要求と観測に失敗するHost代役。
+ * @stimulus 不正参照と、参照を持たない既存の二表現を渡す。
+ * @observation Operation照合回数、拒否理由と外部要求の有無。
+ * @oracle 不正参照は照合前に止まり、参照なしでは元の照合失敗を返す。
+ * @cleanup N/A: メモリ内のみ。
+ * @boundary Provider準備とHost照合の順序。
+ */
+test("準備は不正な回復参照をHost照合前に拒否し参照なしの扱いを維持する", () => {
+  let verified = 0;
+  const owner = createAttemptPreparation("codex", {
+    verifyOperationMount: () => {
+      verified++;
+      throw new Error("fixture_unavailable");
+    },
+    randomBytes: () => assert.fail("Host照合失敗後に乱数を取得しない"),
+  });
+  const input = {
+    purpose: "probe" as const,
+    managementCapability: {},
+    mountCapability: {},
+    providerHome: {
+      provider: "codex" as const,
+      providerHomeSourcePath: "fixture",
+      providerHomeIdentityHash: "a".repeat(64),
+      stableLogicalHomeBindingHash: "b".repeat(64),
+    },
+    executionSelection: executionSelection(),
+    taskAttempt: 0 as const,
+    consumer: "coordinator_cli" as const,
+  };
+  for (const [recoveryCorrelationId, reason, count] of [
+    [
+      "invalid/reference",
+      "codex_docker_runtime_recovery_correlation_invalid",
+      0,
+    ],
+    [null, "codex_docker_runtime_preparation_failed_closed", 1],
+    [undefined, "codex_docker_runtime_preparation_failed_closed", 2],
+  ] as const) {
+    const prepared = owner.prepare({
+      ...input,
+      recoveryCorrelationId: recoveryCorrelationId as string | null,
+    });
+    assert.equal(prepared.reason, reason);
+    assert.equal(prepared.providerRequestIssued, false);
+    assert.equal(verified, count);
+  }
+});
+
+/**
+ * 参照欠測時にTask／AdviceをProbeへ置き換えない。
+ * @trace ERB-UT-023
+ * @precondition 両Providerの合成選定と呼出し回数を記録する代役を使う。
+ * @stimulus Task参照欠測、Adviceの両方又は片側欠測、明示Probeを渡す。
+ * @observation 理由、Host観測・指示消費・計画用乱数の取得回数。
+ * @oracle 欠測ではすべて0回、明示ProbeだけがHost照合へ進む。
+ * @cleanup N/A: メモリのみ。
+ */
+test("TaskとAdviceの指示欠測はProbeに変換せず準備前に拒否する", () => {
+  for (const provider of ["codex", "claude"] as const) {
+    const calls: string[] = [];
+    const owner = createAttemptPreparation(provider, {
+      verifyOperationMount: () => {
+        calls.push("host");
+        throw Error("fixture_unavailable");
+      },
+      consumeTaskPacket: () => {
+        calls.push("task");
+        return null;
+      },
+      consumeAdvicePacket: () => {
+        calls.push("advice");
+        return null;
+      },
+      randomBytes: () => {
+        calls.push("plan");
+        return Buffer.alloc(0);
+      },
+    });
+    const selection = executionSelection("executor", {
+      provider,
+      model: provider === "codex" ? "gpt-5.5" : "opus",
+      effort: "medium",
+    });
+    const adviceSelection = executionSelection("advice", {
+      provider,
+      model: provider === "codex" ? "gpt-5.6-sol" : "opus",
+      effort: "low",
+    });
+    const common = {
+      managementCapability: {},
+      mountCapability: {},
+      providerHome: {
+        provider,
+        providerHomeSourcePath: "synthetic",
+        providerHomeIdentityHash: "a".repeat(64),
+        stableLogicalHomeBindingHash: "b".repeat(64),
+      },
+      taskAttempt: 0 as const,
+      consumer: "workbench",
+      recoveryCorrelationId: null,
+    };
+    for (const missing of [null, undefined]) {
+      const task = owner.prepare({
+        ...common,
+        purpose: "task",
+        executionSelection: selection,
+        packetCapability: missing,
+      });
+      assert.equal(task.status, "blocked");
+      assert.equal(
+        task.reason,
+        `${provider}_docker_runtime_task_packet_invalid`,
+      );
+      assert.equal(task.dockerEffectIssued, false);
+      assert.equal(task.providerRequestIssued, false);
+      for (const [use, control, reason] of [
+        [missing, missing, "advice_packet_invalid"],
+        [missing, {}, "input_mode_ambiguous"],
+        [{}, missing, "input_mode_ambiguous"],
+      ] as const) {
+        const advice = owner.prepare({
+          ...common,
+          purpose: "advice",
+          executionSelection: adviceSelection,
+          packetCapability: use,
+          packetOwnerCapability: control,
+        });
+        assert.equal(advice.status, "blocked");
+        assert.equal(advice.reason, `${provider}_docker_runtime_${reason}`);
+        assert.equal(advice.dockerEffectIssued, false);
+        assert.equal(advice.providerRequestIssued, false);
+      }
+    }
+    assert.deepEqual(calls, []);
+    const probe = owner.prepare({
+      ...common,
+      purpose: "probe",
+      executionSelection: selection,
+    });
+    assert.equal(
+      probe.reason,
+      `${provider}_docker_runtime_preparation_failed_closed`,
+    );
+    assert.deepEqual(calls, ["host"]);
+  }
 });
 
 /**

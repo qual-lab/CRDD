@@ -25,8 +25,8 @@ import { acquireLock } from "../../../lock/src/index.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import * as locks from "../../src/execution/kernel-lock.ts";
+} from "../../src/lifecycle/host.ts";
+import * as locks from "../../src/lifecycle/host.ts";
 import { verifyNormalOwnerLifecycle } from "../fixtures/docker-owned-process-test-support.ts";
 
 /**
@@ -1278,7 +1278,7 @@ for (const fault of [
  * @trace ERB-IT-003
  * @trace ERB-IT-014
  * @precondition Windowsと自己生成Repositoryを使い、修復Native・技術観測、Home観測とDocker証明だけを模擬する。
- * @stimulus 1回形は退避なし、または自動破棄判断の保存直前を一回拒否して自己生成物を明示保持した後、同じstateを再初期化せずTaskへ渡す。2回形は同一Host・Homeで本番begin／正常completeを反復し、一度の実清掃後に逆順で結果を登録する。
+ * @stimulus 1回形は退避なし、または自動破棄判断の保存直前を一回拒否して自己生成物を明示保持した後、同じstateを再初期化せずTaskへ渡す。2回形は同一Host・Homeで本番begin／正常completeを反復し、一度の実清掃後に結果を完成保存・退役し、逆順再送で再保存0を確認する。
  * @observation 実state本文、Home排他競合、Host marker、履歴、短命物と非対象操作を確認する。
  * @oracle 修復中のTask開始Writerは未保存・保存未確認・耐久Effectなし・Lock解放・元本文不変で拒否する。保持期限は七日で同ID再入場でも不変、保持物を再利用・削除せず、修復終了からの改訂・元版Hashと元修復履歴行を保全する。清掃前finalizeと複製結果は状態不変で拒否し、真正清掃後だけ対象を履歴化して現在状態から除く。
  * @cleanup 真正Ownerを放棄・解放し、確認済み自己生成HostとRepositoryだけを清掃する。
@@ -1296,7 +1296,7 @@ for (const { repeatCount, retained } of [
    * @trace ERB-IT-003
    * @trace ERB-IT-014
    * @precondition Windowsと自己生成Repositoryを使い、修復Native・技術観測、Home観測とDocker証明だけを模擬する。
-   * @stimulus 1回形は退避なし、または自動破棄判断の保存直前を一回拒否して自己生成物を明示保持した後、同じstateを再初期化せずTaskへ渡す。複数回形は同一Host・Homeで本番begin／正常completeを反復し、一度の実清掃後に全結果受領→全最終確定を行う。3回形はServer受信済みのHTTP照会を重ねる。
+   * @stimulus 1回形は退避なし、または自動破棄判断の保存直前を一回拒否して自己生成物を明示保持した後、同じstateを再初期化せずTaskへ渡す。複数回形は同一Host・Homeで本番begin／正常completeを反復し、一度の実清掃後に各結果の完成保存・退役を行い、逆順再送で再保存0を確認する。3回形はServer受信済みのHTTP照会を重ねる。
    * @observation 実state本文、Home排他競合、Host marker、履歴、短命物と非対象操作を確認する。
    * @oracle 修復中のTask開始Writerは未保存・保存未確認・耐久Effectなし・Lock解放・元本文不変で拒否する。保持期限は七日で同ID再入場でも不変、保持物を再利用・削除せず、修復終了からの改訂・元版Hashと元修復履歴行を保全する。清掃前finalizeと複製結果は状態不変で拒否し、真正清掃後だけ対象を履歴化して現在状態から除く。
    * @cleanup 真正Ownerを放棄・解放し、確認済み自己生成HostとRepositoryだけを清掃する。
@@ -1422,7 +1422,7 @@ test("正常Owner試験の清掃例外は後続回収と全模擬復元を飛ば
  */
 test("レビュー所見からの是正許可は同じ終端結果と初回レビューへ限定する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/recovery.ts", import.meta.url),
+    new URL("../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   const declaration = sourceDeclaration(

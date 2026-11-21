@@ -29,7 +29,7 @@ type HistoryInput = {
 
 // 不変コードだけを一回準備し、設定ReaderとOwnerは各試験で独立させる。
 const source = fs.readFileSync(
-  new URL("../../../src/execution/persistence.ts", import.meta.url),
+  new URL("../../../src/lifecycle/host.ts", import.meta.url),
   "utf8",
 );
 const createConsumer = compileFunction(

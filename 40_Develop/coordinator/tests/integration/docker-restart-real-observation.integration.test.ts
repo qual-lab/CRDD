@@ -19,9 +19,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createWindowsPowerShellAuthenticodeEnvironment } from "../../../docker-isolation/src/docker-cli/environment.ts";
 import { acquireDesktopOperations } from "../../../docker-isolation/src/docker-desktop/command.ts";
 import { createDockerRestartMachine } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
-import { runtimeStateDirectoryCandidate } from "../../src/execution/authority.ts";
-import { getIsolationSettings } from "../../src/execution/configuration.ts";
-import { acquireExecutionStateLock } from "../../src/execution/kernel-lock.ts";
+import {
+  getIsolationSettings,
+  runtimeStateDirectoryCandidate,
+} from "../../src/lifecycle/environment.ts";
+import { acquireExecutionStateLock } from "../../src/lifecycle/host.ts";
 
 /**
  * 中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できるを検証する。

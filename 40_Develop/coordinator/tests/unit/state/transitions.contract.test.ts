@@ -26,8 +26,7 @@ import {
   inspectCoordinatorProjection,
   isCoordinatorProjectionSemanticallyValid,
   projectCoordinatorState,
-} from "../../../src/state/projection.ts";
-import { describeCoordinatorStateContract } from "../../../src/state/validation.ts";
+} from "../../../src/lifecycle/validation.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 
 const revision = "a".repeat(40);
@@ -459,39 +458,5 @@ describe("Orchestrator state contract", () => {
     assert.equal(projection.qualityState, "blocked");
     assert.equal(projection.recoveryRequired, true);
     assert.equal(projection.nextAction, "recover");
-  });
-
-  /**
-  });
-
-  /**
-   * Lockとstale resultの保持条件を説明するを検証する。
-   *
-   * @responsibility Lockとstale resultの保持条件を説明するの合否判定を所有する。
-   * @trace PRL-UT-006
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus Lockとstale resultの保持条件を説明するの対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  it("Lockとstale resultの保持条件を説明する", () => {
-    assert.deepEqual(describeCoordinatorStateContract(), {
-      contract: "crdd-execution-model/project-state/v3",
-      maximumConcurrency: 5,
-      capacityStates: [
-        "starting",
-        "running",
-        "cleanup_pending",
-        "recovery_required_without_cleanup",
-      ],
-      lockContract:
-        "project_operation_then_short_project_state_transaction_never_held_across_single_task_runtime",
-      staleResult:
-        "generation_attempt_and_operation_identity_mismatch_blocks_without_projection",
-      acceptanceContract:
-        "task_completion_then_objective_integration_then_milestone_integration",
-    });
   });
 });

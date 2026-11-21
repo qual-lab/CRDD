@@ -86,8 +86,8 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
     consumer: "coordinator_cli",
   });
   assert.equal(prepared.status, "prepared");
-  assert.equal(prepared.selectedModel, "opus");
-  assert.equal(prepared.selectedEffort, "low");
+  assert.equal(prepared.plan.executionSelection.modelIdentifier, "opus");
+  assert.equal(prepared.plan.executionSelection.reasoningEffort, "low");
 
   const purposes: string[] = [];
   const controller = createExecutorTestCandidate({

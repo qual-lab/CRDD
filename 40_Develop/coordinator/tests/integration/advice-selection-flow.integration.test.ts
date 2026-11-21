@@ -22,17 +22,17 @@ import {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
 } from "../../../configuration-model/src/index.ts";
-import { resolveExecutionSelection } from "../../src/selection/resolve.ts";
+import { resolveSingleTaskSelection } from "../../src/lifecycle/selection.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
-import { createRepositoryAdviceExecutor } from "../../src/execution/advice.ts";
-import { createAdviceDispatch } from "../../src/execution/advice.ts";
-import type { ProviderAdviceExecutionPlan } from "../../src/execution/preparation.ts";
-import { createProviderAdviceAdapter } from "../../src/execution/advice.ts";
+import { loadAdviceDispatchFixture } from "../support/task-requests.ts";
+import type { ProviderAdviceExecutionInput } from "../../src/lifecycle/types.ts";
 
 const canonicalRepositoryRoot = path.resolve(
   import.meta.dirname,
   "../../../..",
 );
+const { executeAdviceRequest, executeAcceptedAdviceInput } =
+  await loadAdviceDispatchFixture();
 
 /**
  * 公開助言入口のReader・取消・元回復参照を実接続で検査する。
@@ -83,45 +83,80 @@ fs.writeFileSync(target, scenario === "limit" ? "x".repeat(65536) : scenario ===
 if (scenario === "missing") fs.unlinkSync(target);
 if (scenario === "link") { fs.renameSync(target, path.join(fixture, "context.md")); fs.symlinkSync(path.join(fixture,"context.md"), target, "file"); }
 const controller = new AbortController();
-let reads = 0, calls = 0;
-const domainUrl = ${JSON.stringify(moduleUrl("40_Develop/execution-model/src/index.ts"))};
-const domain = await import(domainUrl);
-mock.module(domainUrl, { namedExports: { ...domain, createFilesystemRepositoryObservationPort: (...args) => {
-  const observer = domain.createFilesystemRepositoryObservationPort(...args);
+let reads = 0, calls = 0, rootResolutions = 0;
+const versionControlUrl = ${JSON.stringify(moduleUrl("40_Develop/version-control/src/index.ts"))};
+const versionControl = await import(versionControlUrl);
+mock.module(versionControlUrl, { namedExports: { ...versionControl, resolveVerifiedRepositoryRoot: root => {
+  rootResolutions++;
+  if (scenario === "root_unavailable" && rootResolutions === 1) return null;
+  return versionControl.resolveVerifiedRepositoryRoot(root);
+} } });
+const documentUrl = ${JSON.stringify(moduleUrl("40_Develop/document-model/src/index.ts"))};
+const documentModel = await import(documentUrl);
+mock.module(documentUrl, { namedExports: { ...documentModel, createFilesystemRepositoryObservationPort: (...args) => {
+  const observer = documentModel.createFilesystemRepositoryObservationPort(...args);
   return { ...observer, observeFile: reference => { reads++; assert.equal(reference, "PROJECT_CONTEXT.md"); const result = observer.observeFile(reference); if (scenario === "cancel_after_read") controller.abort(); return result; } };
 } } });
 const host = "host.synthetic-exact-reference";
 const docker = "docker-task." + "1".repeat(64) + "." + "2".repeat(64) + "." + "3".repeat(64);
+let recoverable = null;
 globalThis.adviceFixture = {
-  runtime: () => async (plan, signal) => {
-    calls++; assert.equal(signal, controller.signal); assert.equal(plan.repositoryMounted,false); assert.equal(plan.workspaceMounted,false); assert.equal(plan.provider,"codex");
+  execute: async (context, plan, signal) => {
+    assert.equal(context.repositoryRoot, fixture);
+    assert.equal(Object.hasOwn(context, "createOperation"), false);
+    calls++; assert.equal(signal, controller.signal); assert.equal(plan.executionSelection.provider,"codex");
     if (scenario === "runtime_throw") throw new Error("synthetic");
-    if (scenario === "cleanup_unknown") return { status:"blocked",reason:"synthetic_cleanup_unknown",advice:null,providerEffectIssued:true,cleanupConfirmed:false };
+    if (scenario === "runtime_throw_after_cancel") {
+      controller.abort();
+      throw new Error("synthetic");
+    }
+    if (scenario === "invalid_observation") return { status:"blocked",reason:"synthetic",advice:null,providerEffectIssued:true,cleanupConfirmed:"invalid" };
+    if (scenario === "cleanup_unknown") {
+      recoverable = { status:"blocked",reason:"synthetic_cleanup_unknown",advice:null,providerEffectIssued:true,cleanupConfirmed:false };
+      return recoverable;
+    }
+    if (scenario === "cancel_after_effect") controller.abort();
     return {status:"completed",reason:null,advice:{...{status:"completed",facts:[{text:"合成",references:["PROJECT_CONTEXT.md"]}],sharedAnalysis:[],additionalInferences:[],nextOptions:[]},reason:null},providerEffectIssued:true,cleanupConfirmed:true};
   },
-  failure: value => value && !value.cleanupConfirmed ? {cleanupConfirmed:false,manualRecoveryRequired:true,hostRecoveryId:host,dockerRecoveryId:docker} : null,
+  failure: value => recoverable !== null && value === recoverable ? {cleanupConfirmed:false,manualRecoveryRequired:true,hostRecoveryId:host,dockerRecoveryId:docker} : null,
 };
-const adviceUrl = ${JSON.stringify(moduleUrl("40_Develop/coordinator/src/execution/advice.ts"))};
+const adviceUrl = ${JSON.stringify(moduleUrl("40_Develop/coordinator/src/lifecycle/execution.ts"))};
 let adviceSource = stripTypeScriptTypes(fs.readFileSync(new URL(adviceUrl), "utf8"));
 for (const [original, replacement] of [
-  ["createRuntimeOwnedProviderAdviceRuntime(root, observation)", "globalThis.adviceFixture.runtime(root, observation)"],
-  ["classifyProviderAdviceHostFailure(observed)", "globalThis.adviceFixture.failure(observed)"],
+  [/executeProviderAdvice\\(\\s*context,\\s*prepared,\\s*cancellationSignal,?\\s*\\)/gu, "globalThis.adviceFixture.execute(context, prepared, cancellationSignal)"],
+  [/classifyProviderAdviceHostFailure\\(observed\\)/gu, "globalThis.adviceFixture.failure(observed)"],
 ]) {
-  assert.equal(adviceSource.split(original).length, 2);
+  assert.equal([...adviceSource.matchAll(original)].length, 1);
   adviceSource = adviceSource.replace(original, replacement);
 }
 adviceSource = adviceSource.replace(/from "(\\.[^"]+)"/g, (_, specifier) => "from " + JSON.stringify(new URL(specifier, adviceUrl).href));
 const adviceFixture = await import("data:text/javascript;base64," + Buffer.from(adviceSource).toString("base64"));
 mock.module(adviceUrl, { namedExports: adviceFixture });
-const { runRepositoryAdvice } = await import(${JSON.stringify(moduleUrl("40_Develop/coordinator/src/execution/advice.ts"))});
+const { runRepositoryAdvice } = await import(${JSON.stringify(moduleUrl("40_Develop/coordinator/src/lifecycle/execution.ts"))});
 const verified = getRepository(fixture); assert.equal(verified.status,"completed");
 if(scenario === "cancel_before")controller.abort();
-const response=await runRepositoryAdvice(verified.capability,{mode:"read_only_advice",executionSelection:executionSelection("advice"),prompt:"合成状態を説明",contextReferences:["PROJECT_CONTEXT.md"],allowedPaths:[]},controller.signal);
-const success=scenario === "normal" || scenario === "limit";
-assert.equal(response.result.status,success?"completed":scenario === "cleanup_unknown" || scenario === "runtime_throw" ? "unknown":"blocked");
-assert.equal(calls,success || scenario === "cleanup_unknown" || scenario === "runtime_throw" ? 1:0);
+let observationReads = 0;
+const response=await runRepositoryAdvice(verified.capability,{mode:"read_only_advice",executionSelection:executionSelection("advice"),prompt:"合成状態を説明",contextReferences:["PROJECT_CONTEXT.md"],allowedPaths:[]},controller.signal,{
+  get recoveryCorrelationId() {
+    observationReads++;
+    assert.equal(rootResolutions, 1);
+    return "synthetic-advice-correlation";
+  }
+});
+const success=scenario === "normal" || scenario === "limit" || scenario === "over";
+const unknown = ["cleanup_unknown", "runtime_throw", "runtime_throw_after_cancel", "cancel_after_effect", "invalid_observation"].includes(scenario);
+assert.equal(response.result.status,success?"completed":unknown?"unknown":"blocked");
+assert.equal(calls,success || unknown ? 1:0);
+if (scenario === "root_unavailable") {
+  assert.equal(observationReads, 0);
+  assert.equal(reads, 1);
+  assert.equal(response.result.reason, "workbench_ai_advice_repository_binding_unavailable");
+}
+if (scenario === "cancel_after_effect" || scenario === "runtime_throw_after_cancel") assert.equal(response.result.reason,"workbench_ai_provider_effect_after_cancellation_unknown");
+if (scenario === "runtime_throw" || scenario === "cleanup_unknown") assert.equal(response.result.reason,"workbench_ai_provider_cleanup_unknown");
+if (scenario === "invalid_observation") assert.equal(response.result.reason,"workbench_ai_provider_outcome_invalid");
 if(scenario === "cancel_before")assert.equal(reads,0);
-assert.equal(response.cleanupConfirmed,scenario !== "cleanup_unknown" && scenario !== "runtime_throw");
+assert.equal(response.cleanupConfirmed,!(unknown && scenario !== "cancel_after_effect"));
 assert.equal(response.hostRecoveryId,scenario === "cleanup_unknown"?host:null);
 assert.equal(response.dockerRecoveryId,scenario === "cleanup_unknown"?docker:null);
 assert.equal(Object.hasOwn(response,"advice"),false);
@@ -131,12 +166,16 @@ process.stdout.write("verified");
       "normal",
       "limit",
       "over",
+      "root_unavailable",
       "missing",
       "link",
       "cancel_before",
       "cancel_after_read",
       "cleanup_unknown",
       "runtime_throw",
+      "runtime_throw_after_cancel",
+      "cancel_after_effect",
+      "invalid_observation",
     ]) {
       await rm(path.join(fixture, "PROJECT_CONTEXT.md"), { force: true });
       const output = execFileSync(
@@ -211,12 +250,18 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
     );
     assert.equal(saved.status, "saved", JSON.stringify(saved));
     if (saved.status !== "saved") throw Error("save_failed");
-    const selected = resolveExecutionSelection(saved.snapshot.config, {
-      role: "advice",
+    const selected = resolveSingleTaskSelection(root.capability, {
+      requestId: "advice-selection-fixture",
+      mode: "read_only_advice",
       workType: null,
+      prompt: "合成助言の選定を確認する。",
+      contextReferences: [],
+      allowedPaths: [],
+      workspaceId: null,
     });
-    assert.equal(selected.status, "resolved");
-    if (selected.status !== "resolved") throw Error("selection_failed");
+    assert.ok(selected);
+    assert.equal(selected.taskExecutionSelections, null);
+    assert.equal(selected.primary.configIdentity, saved.snapshot.identity);
     const base = selectionConfig();
     const next = {
       ...base,
@@ -244,40 +289,44 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
       policyFile,
       JSON.stringify({ version: 1, allowedHosts: ["start.example.com"] }),
     );
-    const plans: ProviderAdviceExecutionPlan[] = [];
-    const dispatch = createAdviceDispatch(
-      createProviderAdviceAdapter(async (plan) => {
-        plans.push(plan);
-        await writeFile(
-          policyFile,
-          JSON.stringify({ version: 1, allowedHosts: ["next.example.com"] }),
-        );
-        return {
-          status: "completed",
+    const plans: ProviderAdviceExecutionInput[] = [];
+    const runtime: Parameters<typeof executeAcceptedAdviceInput>[0] = async (
+      plan,
+    ) => {
+      plans.push(plan);
+      await writeFile(
+        policyFile,
+        JSON.stringify({ version: 1, allowedHosts: ["next.example.com"] }),
+      );
+      return {
+        status: "completed",
+        reason: null,
+        advice: Object.freeze({
+          ...{
+            status: "completed",
+            facts: [{ text: "合成", references: ["PROJECT_CONTEXT.md"] }],
+            sharedAnalysis: [],
+            additionalInferences: [],
+            nextOptions: [],
+          },
           reason: null,
-          advice: Object.freeze({
-            ...{
-              status: "completed",
-              facts: [{ text: "合成", references: ["PROJECT_CONTEXT.md"] }],
-              sharedAnalysis: [],
-              additionalInferences: [],
-              nextOptions: [],
-            },
-            reason: null,
-          }),
-          providerEffectIssued: true,
-          cleanupConfirmed: true,
-        };
-      }),
-    );
-    const application = createRepositoryAdviceExecutor(
+        }),
+        providerEffectIssued: true,
+        cleanupConfirmed: true,
+      };
+    };
+    const requestDependencies: [
+      Parameters<typeof executeAdviceRequest>[0],
+      Parameters<typeof executeAdviceRequest>[1],
+    ] = [
       root.capability,
-      dispatch,
-    );
-    const result = await application(
+      (input, signal) => executeAcceptedAdviceInput(runtime, input, signal),
+    ];
+    const result = await executeAdviceRequest(
+      ...requestDependencies,
       {
         mode: "read_only_advice",
-        executionSelection: selected.value,
+        executionSelection: selected.primary,
         prompt: "合成情報を説明",
         contextReferences: ["PROJECT_CONTEXT.md"],
         allowedPaths: [],
@@ -288,10 +337,11 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
     assert.equal(plans.length, 1);
     assert.ok(plans[0]?.additionalHosts.includes("start.example.com"));
     assert.equal(plans[0]?.additionalHosts.includes("next.example.com"), false);
-    const nextResult = await application(
+    const nextResult = await executeAdviceRequest(
+      ...requestDependencies,
       {
         mode: "read_only_advice",
-        executionSelection: selected.value,
+        executionSelection: selected.primary,
         prompt: "次の合成情報を説明",
         contextReferences: ["PROJECT_CONTEXT.md"],
         allowedPaths: [],
@@ -307,10 +357,11 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
     );
     assert.equal(plans[0]?.additionalHosts.includes("next.example.com"), false);
     await writeFile(policyFile, "{invalid");
-    const invalidResult = await application(
+    const invalidResult = await executeAdviceRequest(
+      ...requestDependencies,
       {
         mode: "read_only_advice",
-        executionSelection: selected.value,
+        executionSelection: selected.primary,
         prompt: "不正設定では実行しない",
         contextReferences: ["PROJECT_CONTEXT.md"],
         allowedPaths: [],
@@ -319,8 +370,8 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
     );
     assert.equal(invalidResult.status, "blocked");
     assert.equal(plans.length, 2);
-    assert.deepEqual(plans[0]?.executionSelection, selected.value);
-    assert.equal(plans[0]?.reasoningEffort, "medium");
+    assert.deepEqual(plans[0]?.executionSelection, selected.primary);
+    assert.equal(plans[0]?.executionSelection.reasoningEffort, "medium");
     assert.equal(
       plans[0]?.executionSelection.configIdentity,
       saved.snapshot.identity,

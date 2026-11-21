@@ -18,6 +18,8 @@ import { devNull } from "node:os";
 import path from "node:path";
 import type { TestContext } from "node:test";
 import {
+  readProjectExecutionState,
+  createQueue,
   initializeExecutionStore,
   readState,
 } from "../../../execution-model/src/index.ts";
@@ -25,13 +27,13 @@ import {
   projectExecutionFixture,
   initialExecutionInput,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { createCoordinatorSnapshotPersistencePorts } from "../../src/state/transaction.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
+
+import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
 import {
   type CoordinatorWorkspaceRequest,
   manageCoordinatorWorkspace,
-} from "../../src/workspace/operations.ts";
+} from "../../src/lifecycle/workspace.ts";
 import { taskExecutionSelections } from "./ai-selection.ts";
 
 /**
@@ -76,23 +78,38 @@ export function prepareWorkspaceSurface(
     ownerGeneration: "owner-a",
   });
   assert.ok(created.state);
-  const ports = createCoordinatorSnapshotPersistencePorts(root, binding);
+  const ports = Object.freeze({
+    workingDirectory: root,
+    repository: verifyRuntimePersistenceRepository(root),
+    repositoryBindingId: binding,
+    intake: undefined,
+  });
   for (const queueId of ["queue-a", "queue-b"]) {
-    const result = ports.state.enqueueOperation(
-      {
-        queueId,
-        projectId,
-        milestoneId: "milestone-a",
-        requestHash: queueId === "queue-a" ? "a".repeat(64) : "c".repeat(64),
-        originLane: "interactive",
-        repositoryRevision: base,
-        scopeHash: "b".repeat(64),
-      },
-      queueId === "queue-a" ? initialExecutionInput(created.state) : undefined,
-    );
+    const input = {
+      queueId,
+      projectId,
+      milestoneId: "milestone-a",
+      requestHash: queueId === "queue-a" ? "a".repeat(64) : "c".repeat(64),
+      originLane: "interactive",
+      repositoryRevision: base,
+      scopeHash: "b".repeat(64),
+    } as const;
+    const initialization =
+      queueId === "queue-a" ? initialExecutionInput(created.state) : undefined;
+    const result = createQueue(ports.repository, ports.repositoryBindingId, {
+      kind: "scheduled",
+      input: initialization ? [input, initialization] : [input],
+    });
     assert.equal(result.status, "completed", JSON.stringify(result));
     if (queueId === "queue-a")
-      assert.deepEqual(ports.state.readState(projectId).value, created.state);
+      assert.deepEqual(
+        readProjectExecutionState(
+          ports.repository,
+          ports.repositoryBindingId,
+          projectId,
+        ).value,
+        created.state,
+      );
   }
   return binding;
 }
@@ -235,21 +252,36 @@ export function fixture(t: TestContext, independent = false) {
     ownerGeneration: "owner-a",
   });
   assert.ok(created.state);
-  const ports = createCoordinatorSnapshotPersistencePorts(root, binding);
-  const queued = ports.state.enqueueOperation(
-    {
-      queueId: "queue-a",
-      projectId: "project-a",
-      milestoneId: "milestone-a",
-      requestHash: "a".repeat(64),
-      originLane: "interactive",
-      repositoryRevision: base,
-      scopeHash: "b".repeat(64),
-    },
-    initialExecutionInput(created.state),
-  );
+  const ports = Object.freeze({
+    workingDirectory: root,
+    repository: verifyRuntimePersistenceRepository(root),
+    repositoryBindingId: binding,
+    intake: undefined,
+  });
+  const queued = createQueue(ports.repository, ports.repositoryBindingId, {
+    kind: "scheduled",
+    input: [
+      {
+        queueId: "queue-a",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        requestHash: "a".repeat(64),
+        originLane: "interactive",
+        repositoryRevision: base,
+        scopeHash: "b".repeat(64),
+      },
+      initialExecutionInput(created.state),
+    ],
+  });
   assert.equal(queued.status, "completed", JSON.stringify(queued));
-  assert.deepEqual(ports.state.readState("project-a").value, created.state);
+  assert.deepEqual(
+    readProjectExecutionState(
+      ports.repository,
+      ports.repositoryBindingId,
+      "project-a",
+    ).value,
+    created.state,
+  );
   const workspaceId = randomUUID();
   const common = {
     ownerRepositoryRoot: root,

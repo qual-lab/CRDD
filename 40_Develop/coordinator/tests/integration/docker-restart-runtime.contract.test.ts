@@ -20,7 +20,7 @@ import { restartDesktopForVerification } from "../../../docker-isolation/src/doc
 import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
 import { createResourceOperationFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { restartRuntimeOwnedDockerForRecovery } from "../../src/execution/recovery.ts";
+import { restartRuntimeOwnedDockerForRecovery } from "../../src/lifecycle/environment.ts";
 import { restartRequestIdFixture } from "../support/contract-assertions.ts";
 
 /**
@@ -45,7 +45,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   });
   const hostFacade = fs.readFileSync(path.resolve("src/index.ts"), "utf8");
   const composition = fs.readFileSync(
-    path.resolve("src/execution/recovery.ts"),
+    path.resolve("src/lifecycle/environment.ts"),
     "utf8",
   );
   const expectedOperations = [
@@ -75,14 +75,14 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     assert.doesNotMatch(rootSource, /WithObserver|WithRunner/u);
     const restartOwnerExports = [
       ...rootSource.matchAll(
-        /export\s+(?:type\s+)?\{([^{}]+)\}\s*from\s*["']\.\/execution\/(?:recovery|runtime-restart)\.ts["']/gu,
+        /export\s+(?:type\s+)?\{([^{}]+)\}\s*from\s*["']\.\/(?:lifecycle\/environment|execution\/(?:recovery|runtime-restart))\.ts["']/gu,
       ),
     ];
     for (const declaration of restartOwnerExports)
       assert.doesNotMatch(declaration[1] ?? "", /RecoveryAcknowledgement/u);
     assert.doesNotMatch(
       rootSource,
-      /export\s*\*(?:\s+as\s+[A-Za-z_$][\w$]*)?\s+from\s*["']\.\/execution\/recovery\.ts["']/u,
+      /export\s*\*(?:\s+as\s+[A-Za-z_$][\w$]*)?\s+from\s*["']\.\/(?:lifecycle\/environment|execution\/recovery)\.ts["']/u,
     );
     for (const name of expectedOperations)
       assert.match(
@@ -108,7 +108,12 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
               .matchAll(
                 /["'](\.\.\/\.\.\/\.\.\/docker-isolation\/src\/[^"']+)["']/gu,
               ),
-          ].map((match) => match[1]),
+          ]
+            .map((match) => match[1])
+            .filter(
+              (specifier) =>
+                specifier !== "../../../docker-isolation/src/index.ts",
+            ),
         ),
       ],
       [],
@@ -139,7 +144,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   assert.throws(() => assertCurrentRestartBoundary(hostFacade, privateDriver));
   assert.throws(() =>
     assertCurrentRestartBoundary(
-      `${hostFacade}\nexport { prepareRuntimeOwnedDockerRestart } from "./execution/recovery.ts";`,
+      `${hostFacade}\nexport { prepareRuntimeOwnedDockerRestart } from "./lifecycle/environment.ts";`,
       composition,
     ),
   );
@@ -154,7 +159,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   for (const suffix of ["", " as privateRecovery"]) {
     assert.throws(() =>
       assertCurrentRestartBoundary(
-        `${hostFacade}\nexport *${suffix} from "./execution/recovery.ts";`,
+        `${hostFacade}\nexport *${suffix} from "./lifecycle/environment.ts";`,
         composition,
       ),
     );
@@ -170,7 +175,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     [
       "--input-type=module",
       "-e",
-      'await import("@qual-lab/crdd-coordinator/src/execution/recovery.ts")',
+      'await import("@qual-lab/crdd-coordinator/src/lifecycle/environment.ts")',
     ],
     { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
   );
@@ -179,7 +184,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
 });
 
 const source = fs.readFileSync(
-  new URL("../../src/execution/recovery.ts", import.meta.url),
+  new URL("../../src/lifecycle/environment.ts", import.meta.url),
   "utf8",
 );
 const body = sourceDeclaration(source, "restartRuntimeOwnedDockerForRecovery");

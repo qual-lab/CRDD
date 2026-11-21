@@ -82,7 +82,7 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 | 人間判断理由の注入・漏洩 | Prompt injection、秘密混入、表示崩れ | bounded UTF-8単一行として検査し、選択肢・対象・認可から分離する。非空commentは判断理由としてStateと履歴へ保存するが、Provider・Task Packet・診断ログへ転送しない。利用者が秘密を入力しない運用を前提とする | 理由からAuthorityやScopeを拡張しない。現在認可された読取りだけに理由を返し、外部AI送信0 |
 | 個別Task成功のProject成功化 | 未統合成果物の採用、受入誤判定 | Task、Objective、Milestoneを別状態・別世代とし、受入EvidenceとCross-task整合を要求 | Integration前のMilestone受入0 |
 | Integration候補の正本混入 | 未承認変更、既存変更の上書き | 隔離Workspace、固定候補hash、Adoption Authority、fresh Revision、短時間Adoption Lock | 採用前の正本Effect 0 |
-| 未対応Platformへの暗黙fallback | 保証低下、別OS機構での未観測Effect | Orchestrator CoreをPlatform Contractへ限定し、Adapter不在・保証未成立をFail Closed | Project／Task／Provider Effect 0 |
+| 未対応Platformへの暗黙fallback | 保証低下、別OS機構での未観測Effect | 各技術Ownerの実観測が不成立なら、別OS機構へ切り替えず当該技術操作を拒否 | 当該技術操作のEffect 0。先行取得済み資源は既存回復契約で扱う |
 | Project取消・Parent喪失後の部分残存 | slot誤解放、後続Task起動、Recovery衝突 | 対象Taskごとの終了・cleanup・Project State投影を分離し、unknownをexact Recoveryへ保持 | 全資源照合前のQueue完了0 |
 
 回復母集団は要求・回答・後日適用・閉鎖の保存前、CAS確定、応答喪失、履歴出版失敗と再送を含む。回答済み・未適用は理由と元回答を保持し、現在条件での明示applyだけを許可する。閉鎖だけではBlocker・Queueを解消しない。Host独立世代・Hash連鎖・SID／DACL・祖先Handleによる判断保護は維持しない。同じOSユーザーによるStateの意図的改変・巻戻しは新方式の独立防御対象外で、AIへRuntime領域の書換え権限を与えないことと、旧記録の明示切替を運用条件にする。

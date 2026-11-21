@@ -26,7 +26,7 @@ import {
   runRecordedVerification,
 } from "../../scripts/verification-result-record.ts";
 import { createSignedRouteMatrixCliFailureResult } from "../../scripts/verify-route-matrix.ts";
-import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
+import { coordinatorTaskPublicReasons } from "../../src/lifecycle/validation.ts";
 import { isCanonicalVerificationRecoveryId } from "../../scripts/verification-safety.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");

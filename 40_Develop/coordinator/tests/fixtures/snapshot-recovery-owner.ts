@@ -28,7 +28,8 @@ import {
 } from "../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
-import { snapshotJsonValue } from "../../src/input/snapshot.ts";
+import { snapshotJsonValue } from "../../src/lifecycle/validation.ts";
+import { recoveryResourceFixtureBody } from "../support/recovery.ts";
 
 const [root, operationId, recoveryId, scenario] = process.argv.slice(2);
 assert.ok(root && operationId && recoveryId && scenario);
@@ -62,10 +63,10 @@ assert.ok(verified.capability);
 const f = await createIsolationFixture({ mock });
 // 設定OwnerがDI Rootを読む前に、CLI・環境の有限境界を接続する。
 const { getIsolationSettings } = await import(
-  "../../src/execution/configuration.ts"
+  "../../src/lifecycle/environment.ts"
 );
 const { borrowRuntimeOwnedCoordinatorRecoveryRepository } = await import(
-  "../../src/execution/operation.ts"
+  "../../src/lifecycle/host.ts"
 );
 const observed = borrowRuntimeOwnedCoordinatorRecoveryRepository(
   verified.capability,
@@ -163,7 +164,7 @@ let live = true,
   mismatches = 0;
 const events: string[] = [];
 const source = fs.readFileSync(
-  new URL("../../src/execution/recovery.ts", import.meta.url),
+  new URL("../../src/lifecycle/environment.ts", import.meta.url),
   "utf8",
 );
 const names = [
@@ -172,7 +173,9 @@ const names = [
   "persistRuntimeOwnedDockerTaskRecoveryCheckpoint",
   "recoverRuntimeOwnedDockerTaskResources",
 ];
-const body = names.map((name) => sourceDeclaration(source, name)).join("\n");
+const body = recoveryResourceFixtureBody(
+  names.map((name) => sourceDeclaration(source, name)).join("\n"),
+);
 const needle = '{ event: "identified", key, snapshot, cleanup: book.cleanup }';
 assert.equal(body.split(needle).length - 1, 1);
 const mutant = body.replace(

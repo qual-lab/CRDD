@@ -11,6 +11,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  readProjectExecutionState,
+  saveProjectExecutionState,
+  createQueue,
   initializeExecutionStore,
   type ProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
@@ -21,8 +24,13 @@ import {
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
+  verifyRuntimePersistenceRepository,
+} from "../../src/lifecycle/host.ts";
+import {
+  acquireCoordinatorSnapshotLease,
+  settleCoordinatorSnapshotQueueLeaseRelease,
+  updateCoordinatorQueue,
+} from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "./task-persistence-fixture.ts";
 import { taskExecutionSelections } from "./ai-selection.ts";
 
@@ -132,23 +140,33 @@ export function persistAcceptancePendingState(
     "completed",
   );
   const ports = createTestPersistence(root, repositoryBindingId);
-  const port = ports.state;
+  const port = ports;
   let current: ProjectExecutionState = state.state;
   const queueId = `queue-${projectId}`;
-  const queued = port.enqueueOperation(
-    {
-      queueId,
-      projectId,
-      milestoneId: current.milestone.id,
-      requestHash: createHash("sha256").update(queueId).digest("hex"),
-      originLane: "interactive",
-      repositoryRevision: revision,
-      scopeHash: createHash("sha256").update(projectId).digest("hex"),
-    },
-    initialExecutionInput(current),
-  );
+  const queued = createQueue(port.repository, port.repositoryBindingId, {
+    kind: "scheduled",
+    input: [
+      {
+        queueId,
+        projectId,
+        milestoneId: current.milestone.id,
+        requestHash: createHash("sha256").update(queueId).digest("hex"),
+        originLane: "interactive",
+        repositoryRevision: revision,
+        scopeHash: createHash("sha256").update(projectId).digest("hex"),
+      },
+      initialExecutionInput(current),
+    ],
+  });
   assert.equal(queued.status, "completed", queued.reason);
-  assert.deepEqual(port.readState(projectId).value, current);
+  assert.deepEqual(
+    readProjectExecutionState(
+      port.repository,
+      port.repositoryBindingId,
+      projectId,
+    ).value,
+    current,
+  );
   for (const command of [
     {
       kind: "task_start" as const,
@@ -172,13 +190,21 @@ export function persistAcceptancePendingState(
       operationId: `operation-${projectId}`,
     },
   ]) {
-    const next = port.updateTask(command, current.generation);
+    const next = saveProjectExecutionState(
+      port.repository,
+      port.repositoryBindingId,
+      command,
+      current.generation,
+      port.intake,
+    );
     assert.equal(next.status, "completed", next.reason);
     if (next.status !== "completed")
       throw new Error("fixture_task_update_failed");
     current = next.value;
   }
-  const terminal = port.updateTask(
+  const terminal = saveProjectExecutionState(
+    port.repository,
+    port.repositoryBindingId,
     {
       kind: "task_settle",
       projectId,
@@ -193,6 +219,7 @@ export function persistAcceptancePendingState(
       resultUnresolved: false,
     },
     current.generation,
+    port.intake,
   );
   assert.equal(terminal.status, "completed", terminal.reason);
   if (terminal.status !== "completed") throw Error("fixture_terminal_failed");
@@ -202,7 +229,13 @@ export function persistAcceptancePendingState(
     outcome === "completed" ? "integration_pending" : "blocked",
   );
   assert.equal(current.milestone.state, "executing");
-  const acquired = ports.lease.acquire(projectId, queueId, "project-operation");
+  const acquired = acquireCoordinatorSnapshotLease(
+    ports.workingDirectory,
+    ports.repositoryBindingId,
+    projectId,
+    queueId,
+    "project-operation",
+  );
   assert.equal(acquired.status, "completed", acquired.reason);
   assert.ok(acquired.value && queued.value);
   let queue = queued.value;
@@ -211,7 +244,7 @@ export function persistAcceptancePendingState(
     "running",
     outcome === "completed" ? "integration_pending" : "replan_required",
   ] as const) {
-    const updated = port.updateQueue(queueId, queue.generation, {
+    const updated = updateCoordinatorQueue(port, queueId, queue.generation, {
       state,
       lease: acquired.value,
       resumeCondition: null,
@@ -223,7 +256,9 @@ export function persistAcceptancePendingState(
   }
   assert.equal(acquired.value.release().status, "completed");
   assert.ok(queue.ownerGeneration);
-  const released = port.settleQueueLeaseRelease(
+  const released = settleCoordinatorSnapshotQueueLeaseRelease(
+    port.repository,
+    port.repositoryBindingId,
     queueId,
     queue.generation,
     queue.ownerGeneration,

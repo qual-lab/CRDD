@@ -11,17 +11,20 @@
  * @boundary ERB-IT-003=Direct Boundary: CLIの実private読取り本文→Reader故障注入。実Kernel・実CLI搬送は現在状態ITで別確認する。
  */
 import assert from "node:assert/strict";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { parseRepositoryProjectContextMarkdown } from "../../../document-model/src/index.ts";
 
-import { parseDoctorArguments } from "../../src/cli/options.ts";
-import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
+import {
+  parseDoctorArguments,
+  renderDockerRecoveryDoctorReport,
+} from "../../src/cli/command.ts";
+
 import { assertPresent } from "../support/contract-assertions.ts";
 import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
 
@@ -35,23 +38,20 @@ const coordinatorExecutable = path.resolve(
  * @responsibility Checklist不備を起動拒否へ昇格せず、構造欠測と読取り故障を拒否する。
  * @trace PRL-IT-012
  * @precondition 実CLI関数本文・実Parserと、外部Effectを発行しない有限依存。
- * @stimulus Checklistだけ未評価の本文、構造欠測、読取り故障を渡す。
+ * @stimulus Checklistだけ未評価の本文、構造欠測、読取り故障、又は取消登録・解放の失敗を与える。
  * @observation Project ID搬送、Task受付代役の回数、取消解放と出力。
- * @oracle partial時だけ一回搬送・解放し、不正と読取り故障はTask受付0。
+ * @oracle 部分結果を搬送し、不正・読取り故障・登録拒否はTask受付0。解放失敗でも元回復参照を保つ。
  * @cleanup N/A: 読取り済み文字列とVM内のみ。実Listenerは登録しない。
  * @boundary CLIの受付接続を検証し、実CLI・Task・AI完了の証明とは区別する。
  */
 test("通常Task CLIはContext部分結果を搬送し構造欠測を拒否する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/cli/request.ts", import.meta.url),
+    new URL("../../src/cli/command.ts", import.meta.url),
     "utf8",
   );
   const offset = source.indexOf("export async function runSingleTaskCommand(");
   assert.ok(offset > 0);
-  const body = stripTypeScriptTypes(source.slice(offset)).replace(
-    "export async function",
-    "async function",
-  );
+  const body = sourceDeclaration(source, "runSingleTaskCommand");
   const complete = fs.readFileSync(
     new URL("../../../../PROJECT_CONTEXT.md", import.meta.url),
     "utf8",
@@ -69,12 +69,26 @@ test("通常Task CLIはContext部分結果を搬送し構造欠測を拒否す�
     { operation: "task", fault: "invalid" },
     { operation: "task", fault: "read" },
     { operation: "task", fault: "mismatch" },
+    { operation: "task", fault: "bind" },
+    { operation: "task", fault: "release-known" },
+    { operation: "task", fault: "release-unknown" },
     { operation: "advice", fault: "partial" },
     { operation: "advice", fault: "invalid" },
     { operation: "advice", fault: "read" },
     { operation: "advice", fault: "mismatch" },
   ] as const) {
     const { operation, fault } = scenario;
+    const releaseFailed =
+      fault === "release-known" || fault === "release-unknown";
+    const executionUnknown = fault === "release-unknown";
+    const recoveryIds = executionUnknown ? ["host-operation.OP-123456"] : [];
+    const result = {
+      status: executionUnknown ? "unknown" : "completed",
+      cleanupConfirmed: !executionUnknown,
+      recoveryIds,
+      reason: executionUnknown ? "fixture_cleanup_unconfirmed" : null,
+      secondaryFailures: executionUnknown ? ["fixture_primary_secondary"] : [],
+    };
     const mode = operation === "advice" ? "read_only_advice" : "workspace_edit";
     let tasks = 0,
       binds = 0,
@@ -117,9 +131,10 @@ test("通常Task CLIはContext部分結果を搬送し構造欠測を拒否す�
       bindTaskCliCancellationSignals: () => {
         binds++;
         return {
-          status: "bound",
+          status: fault === "bind" ? "binding_failed" : "bound",
           unbind: () => {
             releases++;
+            if (releaseFailed) return { status: "failed" };
             return { status: "released" };
           },
         };
@@ -137,7 +152,7 @@ test("通常Task CLIはContext部分結果を搬送し構造欠測を拒否す�
         assert.equal(context.projectId, actual.result?.projectId);
         assert.equal(context.rootCapability, capability);
         assert.equal(context.authorize(), true);
-        return { status: "completed", cleanupConfirmed: true };
+        return result;
       },
     }) as (args: readonly string[]) => Promise<void>;
     await run([
@@ -147,8 +162,15 @@ test("通常Task CLIはContext部分結果を搬送し構造欠測を拒否す�
       "--principal-id",
       "local.email.fixture@example.invalid",
     ]);
-    const expected = fault === "partial" ? 1 : 0;
-    assert.deepEqual([tasks, binds, releases], [expected, expected, expected]);
+    const expected = fault === "partial" || releaseFailed ? 1 : 0;
+    assert.deepEqual(
+      [tasks, binds, releases],
+      [
+        expected,
+        fault === "bind" ? 1 : expected,
+        fault === "bind" ? 1 : expected,
+      ],
+    );
     const report = JSON.parse(output);
     assert.equal(report.command, operation);
     if (fault === "mismatch")
@@ -158,7 +180,23 @@ test("通常Task CLIはContext部分結果を搬送し構造欠測を拒否す�
           ? "advice_request_required"
           : "task_workspace_request_required",
       );
-    assert.equal(report.status, fault === "partial" ? "completed" : "blocked");
+    if (fault === "bind")
+      assert.equal(report.reason, "task_cancellation_binding_failed");
+    if (releaseFailed) {
+      assert.deepEqual(report, {
+        command: operation,
+        ...result,
+        status: "unknown",
+        secondaryFailures: [
+          ...result.secondaryFailures,
+          "task_cancellation_release_unconfirmed",
+        ],
+      });
+    } else
+      assert.equal(
+        report.status,
+        fault === "partial" ? "completed" : "blocked",
+      );
     assert.equal(localProcess.exitCode, fault === "partial" ? 0 : 2);
   }
 });
@@ -276,148 +314,6 @@ process.exitCode=0;`,
       timeout: 15_000,
     });
     assert.equal(result.status, 0, result.stderr);
-  }
-});
-
-/**
- * CLIの回復先解決はReader欠測・解放不明を処置可能へ丸めない。
- * @responsibility 実CLIのprivate関数本文へ読取り故障だけを注入して停止条件を反証する。
- * @trace ERB-IT-003
- * @precondition 実入口の正常搬送は現在状態Filesystem試験で別確認する。
- * @stimulus Reader欠測・解放不明・複数一致・ID差・Host／Probe用途差とRoot拒否を与える。
- * @observation Root返却値と読取り回数。
- * @oracle exact HostだけRootを返し、欠測はnull、Reader例外は外側の拒否境界へ伝播する。Reader成功だけを処置Authorityにしない。
- * @cleanup N/A: VM内の局所値とSource読取りだけで資源を生成しない。
- * @boundary ERB-IT-003=Direct Boundary: 実関数本文のReader故障注入。実Kernel／CLI起動の証明には使用しない。
- */
-test("CLI回復先は読取り欠測と排他解放不明を拒否する", () => {
-  const source = fs.readFileSync(
-    new URL("../../src/execution/recovery.ts", import.meta.url),
-    "utf8",
-  );
-  const start = source.indexOf(
-    "function resolveRuntimeOwnedCurrentRecoveryOperationRoot(",
-  );
-  assert.ok(start >= 0);
-  const end = source.indexOf("\n/**", start);
-  assert.ok(end > start);
-  const body = stripTypeScriptTypes(source.slice(start, end));
-  const operationId = "OP-123";
-  const id = `host-operation.${operationId}`;
-  const repositoryRoot = path.resolve("fixture-repository");
-  const expectedRoot = path.join(
-    repositoryRoot,
-    ".crdd",
-    "operations",
-    operationId,
-  );
-  const valid = {
-    status: "completed",
-    lockReleased: true,
-    value: {
-      snapshot: {
-        operations: [
-          {
-            kind: "host_operation",
-            operationId,
-            recoveryId: id,
-            purpose: "task",
-          },
-        ],
-      },
-    },
-  };
-  for (const fault of [
-    "none",
-    "blocked",
-    "unreleased",
-    "missing",
-    "throw",
-    "multiple",
-    "wrong_id",
-    "probe",
-    "wrong_kind",
-    "root_invalid",
-    "bad_id",
-  ]) {
-    let reads = 0;
-    const capability = Object.freeze({});
-    const resolve = runInNewContext(
-      `${body}\nresolveRuntimeOwnedCurrentRecoveryOperationRoot`,
-      {
-        path,
-        borrowRuntimeOwnedCoordinatorRecoveryRepository: (
-          received: unknown,
-        ) => {
-          assert.equal(received, capability);
-          return fault === "root_invalid" ? null : { repositoryRoot };
-        },
-        readState: (received: unknown) => {
-          assert.equal(received, capability);
-          reads += 1;
-          if (fault === "throw") throw new Error("reader observation failed");
-          if (fault === "blocked") return { ...valid, status: "blocked" };
-          if (fault === "unreleased") return { ...valid, lockReleased: false };
-          if (fault === "missing") return { ...valid, value: null };
-          if (fault === "multiple")
-            return {
-              ...valid,
-              value: {
-                snapshot: {
-                  operations: [
-                    ...valid.value.snapshot.operations,
-                    ...valid.value.snapshot.operations,
-                  ],
-                },
-              },
-            };
-          if (fault === "wrong_id" || fault === "wrong_kind")
-            return {
-              ...valid,
-              value: {
-                snapshot: {
-                  operations: [
-                    {
-                      ...valid.value.snapshot.operations[0],
-                      recoveryId: fault === "wrong_id" ? `${id}-other` : id,
-                      kind:
-                        fault === "wrong_kind"
-                          ? "docker_task"
-                          : "host_operation",
-                    },
-                  ],
-                },
-              },
-            };
-          if (fault === "probe")
-            return {
-              ...valid,
-              value: {
-                snapshot: {
-                  operations: [
-                    {
-                      ...valid.value.snapshot.operations[0],
-                      purpose: "isolation_probe",
-                    },
-                  ],
-                },
-              },
-            };
-          return valid;
-        },
-      },
-    );
-    if (fault === "throw")
-      assert.throws(
-        () => resolve(id, capability),
-        /reader observation failed/u,
-      );
-    else
-      assert.equal(
-        resolve(fault === "bad_id" ? "host.invalid" : id, capability),
-        fault === "none" || fault === "probe" ? expectedRoot : null,
-      );
-    assert.equal(reads, fault === "root_invalid" ? 0 : 1);
   }
 });
 

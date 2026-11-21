@@ -16,6 +16,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  createQueue,
   initializeExecutionStore,
   readState,
   saveWorkspaceRecord,
@@ -29,9 +30,9 @@ import {
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
+  verifyRuntimePersistenceRepository,
+} from "../../src/lifecycle/host.ts";
+import { acquireCoordinatorSnapshotLease } from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
 import { saveIntegrationRecord } from "../../../execution-model/src/index.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
@@ -293,18 +294,21 @@ function fixture(t: test.TestContext) {
   );
   const ports = createTestPersistence(root, "binding-a");
   assert.equal(
-    ports.state.enqueueOperation(
-      {
-        queueId: "queue-a",
-        projectId: "project-a",
-        milestoneId: "milestone-a",
-        requestHash: "b".repeat(64),
-        originLane: "interactive",
-        repositoryRevision: "a".repeat(40),
-        scopeHash: "c".repeat(64),
-      },
-      initialExecutionInput(created.state),
-    ).status,
+    createQueue(ports.repository, ports.repositoryBindingId, {
+      kind: "scheduled",
+      input: [
+        {
+          queueId: "queue-a",
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          requestHash: "b".repeat(64),
+          originLane: "interactive",
+          repositoryRevision: "a".repeat(40),
+          scopeHash: "c".repeat(64),
+        },
+        initialExecutionInput(created.state),
+      ],
+    }).status,
     "completed",
   );
   return { root };

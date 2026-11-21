@@ -46,27 +46,27 @@ export {
   type CoordinatorDecisionRequest,
   inspectCoordinatorDecisionRequest,
   inspectCoordinatorDecisionResult,
-} from "./decision/request.ts";
-export { inspectCoordinatorObjectiveRequest } from "./objective/plan.ts";
-export type { CoordinatorObjectiveRequest } from "./objective/types.ts";
-export { parseRuntimeActivityObservation } from "./state/observation.ts";
+} from "./lifecycle/decision.ts";
+export { parseRuntimeActivityObservation } from "./lifecycle/query.ts";
 export {
+  inspectWorkspaceCommand,
+  type WorkspaceCommand,
+} from "./lifecycle/workspace.ts";
+export {
+  inspectCoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveResult,
   inspectCoordinatorStateQuery,
   inspectCoordinatorStateQueryResult,
-} from "./state/projection.ts";
+} from "./lifecycle/validation.ts";
 export type {
   ActivityRepository,
   ActivitySource,
+  CoordinatorObjectiveRequest,
   CoordinatorProjection,
   CoordinatorStateQuery,
   CoordinatorStateQueryResult,
   RuntimeActivityEvent,
   RuntimeActivityObservation,
   RuntimeActivityRequest,
-} from "./state/types.ts";
-export {
-  inspectWorkspaceCommand,
-  type WorkspaceCommand,
-} from "./workspace/operations.ts";
-export type { WorkspaceResult } from "./workspace/record.ts";
+  WorkspaceResult,
+} from "./lifecycle/types.ts";

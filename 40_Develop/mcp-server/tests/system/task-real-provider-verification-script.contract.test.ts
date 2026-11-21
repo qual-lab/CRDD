@@ -97,7 +97,7 @@ test("実検証入口は計測Ownerを解決し不正引数を処置前に拒否
 test("起動設定はDesktop所在を任意搬送し操作中に環境を再取得しない", () => {
   const source = fs.readFileSync(
     new URL(
-      "../../../coordinator/src/execution/configuration.ts",
+      "../../../coordinator/src/lifecycle/environment.ts",
       import.meta.url,
     ),
     "utf8",
@@ -878,7 +878,7 @@ test("CLI検証は妥当な段階通知をLifecycle成立証拠へ数えない",
   }
 });
 
-import { inspectCoordinatorObjectiveRequest } from "../../../coordinator/src/objective/plan.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../../coordinator/src/index.ts";
 
 /**
  * 起動要求前の拒否と発行後の不明を、実入口の例外処理で区別する。

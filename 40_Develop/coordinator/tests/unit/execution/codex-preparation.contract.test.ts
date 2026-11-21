@@ -25,28 +25,122 @@ import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/net
 import {
   containsRecognizedSecretMaterial,
   containsRecognizedSecretScope,
-} from "../../../src/input/secret-validation.ts";
-import {
+  snapshotCoordinatorTaskRequest,
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../../../src/input/snapshot.ts";
-import { snapshotCoordinatorTaskRequest } from "../../../src/execution/request.ts";
+} from "../../../src/lifecycle/validation.ts";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { bindIsolationRuntime } from "../../../../executor/scripts/executor-test.ts";
 import {
+  capturePreparationInput,
   createPreparationFailure,
-  createProviderDockerRuntimeDependencies,
-  describeProviderDockerRuntimeAdapterContract,
-} from "../../../src/execution/preparation.ts";
-import {
-  cancelRuntimeOwnedDockerProcessController,
-  startRuntimeOwnedDockerProcessController,
-} from "../../../src/execution/provider-executor.ts";
+} from "../../../src/lifecycle/selection.ts";
+import { startRuntimeOwnedDockerProcessController } from "../../../src/lifecycle/execution.ts";
+import { cancelRuntimeOwnedExecutorAttempt } from "../../../src/lifecycle/environment.ts";
 import {
   executionSelection,
   taskExecutionSelections,
 } from "../../fixtures/ai-selection.ts";
-import { createAttemptPreparation } from "../../fixtures/attempt-preparation.ts";
+import {
+  createAttemptPreparation,
+  createReviewerWorkspaceReader,
+  reviewerCommitId,
+  reviewerCopy,
+} from "../../fixtures/attempt-preparation.ts";
+
+/**
+ * 用途別の準備入力を一回捕捉する境界とCapabilityの搬送を確認する。
+ * @trace PRL-UT-014
+ * @precondition 各用途に同じメモリ内の準備情報を使う。
+ * @stimulus 正規三用途と、未知用途・不足・余剰・getter・Proxyを与える。
+ * @observation 捕捉結果、元参照、入力を介したコード実行の有無。
+ * @oracle 正規用途だけを受付し、元Capabilityを再生成せず、無効入力のtrapを呼ばない。
+ * @cleanup N/A: メモリのみ。実AI・Dockerを使わない。
+ */
+test("準備入力は用途ごとの正確な形だけを捕捉しCapabilityを作り直さない", () => {
+  const managementCapability = Object.freeze({});
+  const mountCapability = Object.freeze({});
+  const packetCapability = Object.freeze({});
+  const packetOwnerCapability = Object.freeze({});
+  const selection = executionSelection("executor");
+  const providerHome = {
+    provider: selection.provider,
+    providerHomeSourcePath: "synthetic",
+    providerHomeIdentityHash: "a".repeat(64),
+    stableLogicalHomeBindingHash: "b".repeat(64),
+  };
+  const probe = {
+    purpose: "probe",
+    managementCapability,
+    mountCapability,
+    providerHome,
+    executionSelection: selection,
+    taskAttempt: 0,
+    recoveryCorrelationId: null,
+    consumer: "workbench",
+  };
+  const task = { ...probe, purpose: "task", packetCapability };
+  const advice = {
+    ...task,
+    purpose: "advice",
+    executionSelection: executionSelection("advice"),
+    packetOwnerCapability,
+  };
+  for (const input of [probe, task, advice]) {
+    const result = capturePreparationInput(input);
+    assert.ok(result);
+    assert.equal(result.purpose, input.purpose);
+    assert.ok(Object.isFrozen(result));
+    assert.ok(Object.isFrozen(result.providerHome));
+    assert.notStrictEqual(result.providerHome, providerHome);
+    assert.deepEqual({ ...result.providerHome }, providerHome);
+    assert.strictEqual(result.managementCapability, managementCapability);
+    assert.strictEqual(result.mountCapability, mountCapability);
+    if (result.purpose !== "probe")
+      assert.strictEqual(result.packetCapability, packetCapability);
+    if (result.purpose === "advice")
+      assert.strictEqual(result.packetOwnerCapability, packetOwnerCapability);
+  }
+  let trapCalls = 0;
+  const unexpected = () => {
+    trapCalls++;
+    throw Error("gated input executed code");
+  };
+  for (const input of [
+    { ...task, purpose: "other" },
+    { ...task, purpose: "advice" },
+    { ...probe, purpose: "task" },
+    { ...advice, purpose: "probe" },
+    { ...advice, unexpected: true },
+    {
+      ...task,
+      get purpose() {
+        return unexpected();
+      },
+    },
+    { ...task, [Symbol()]: true },
+    Object.assign(Object.create({ purpose: "task" }), {
+      ...task,
+      purpose: undefined,
+    }),
+    new Proxy(task, {
+      getOwnPropertyDescriptor: unexpected,
+      ownKeys: unexpected,
+    }),
+    {
+      ...advice,
+      providerHome: {
+        ...providerHome,
+        get provider() {
+          return unexpected();
+        },
+      },
+    },
+  ]) {
+    assert.equal(capturePreparationInput(input), null);
+  }
+  assert.equal(trapCalls, 0);
+});
 
 /**
  * 借用内容の全量を要求捕捉・準備検査へ搬送し、Schema拒否を保持する。
@@ -61,7 +155,7 @@ import { createAttemptPreparation } from "../../fixtures/attempt-preparation.ts"
  */
 test("借用PathとReviewer全量は要求捕捉・準備へ接続し不正Schemaを拒否する", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/preparation.ts", import.meta.url),
+    new URL("../../../src/lifecycle/selection.ts", import.meta.url),
     "utf8",
   );
   const names = [
@@ -152,17 +246,16 @@ test("借用PathとReviewer全量は要求捕捉・準備へ接続し不正Schem
       content: text,
     };
   });
-  const candidatePatchHash = "a".repeat(64);
+  const candidateCommitId = reviewerCommitId;
   const projectionHash = createHash("sha256")
-    .update("crdd-candidate-read-projection-v1\0")
-    .update(candidatePatchHash)
+    .update("crdd-candidate-read-projection-v2\0")
+    .update(candidateCommitId)
     .update("\0")
     .update(JSON.stringify(files))
     .digest("hex");
   const projection = {
     status: "projected",
-    candidatePatchHash,
-    candidateContentManifestHash: "b".repeat(64),
+    candidateCommitId,
     projectionHash,
     totalBytes: content.length + 256,
     files,
@@ -176,6 +269,10 @@ test("借用PathとReviewer全量は要求捕捉・準備へ接続し不正Schem
   );
   assert.equal(
     api.reviewer({ ...projection, projectionHash: "c".repeat(64) }),
+    null,
+  );
+  assert.equal(
+    api.reviewer({ ...projection, candidateCommitId: "d".repeat(40) }),
     null,
   );
   let getterCalls = 0;
@@ -203,7 +300,7 @@ test("借用PathとReviewer全量は要求捕捉・準備へ接続し不正Schem
  */
 test("Executor向け投影は上位の時刻・速度・助言管理Hashと不要Pathを搬送しない", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/preparation.ts", import.meta.url),
+    new URL("../../../src/lifecycle/selection.ts", import.meta.url),
     "utf8",
   );
   const technicalSelection = { marker: "technical" };
@@ -231,13 +328,13 @@ test("Executor向け投影は上位の時刻・速度・助言管理Hashと不�
     throw Error("unexpected_effect");
   };
   const declarations = [
-    "createProviderDockerRuntimeDependencies",
+    "verifyProviderOperationMount",
     "consumeAttemptAdvicePacket",
   ]
     .map((name) => stripTypeScriptTypes(sourceDeclaration(source, name)))
     .join("\n");
   const callbacks = runInNewContext(
-    `${declarations};createProviderDockerRuntimeDependencies()`,
+    `${declarations};({ verifyProviderOperationMount, consumeAttemptAdvicePacket })`,
     {
       verifyOwnedOperationManagementMountBinding: () => ({
         operationId: "operation",
@@ -263,7 +360,7 @@ test("Executor向け投影は上位の時刻・速度・助言管理Hashと不�
       },
     },
   );
-  const binding = callbacks.verifyOperationMount({}, {});
+  const binding = callbacks.verifyProviderOperationMount({}, {});
   assert.deepEqual(
     Object.keys(binding).sort(),
     ["operationId", "mounts", "workspaceProtection"].sort(),
@@ -279,7 +376,7 @@ test("Executor向け投影は上位の時刻・速度・助言管理Hashと不�
     gitSourcePath: "git",
     internalSourcePath: "internal",
   });
-  const advice = callbacks.consumeAdvicePacket({}, {});
+  const advice = callbacks.consumeAttemptAdvicePacket({}, {});
   assert.deepEqual(
     Object.keys(advice).sort(),
     Object.keys(packet)
@@ -308,28 +405,20 @@ test("Executor向け投影は上位の時刻・速度・助言管理Hashと不�
  */
 test("共通Provider本番組立てはStoreを共有せず固定依存とEffect前拒否を保持する", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/provider-executor.ts", import.meta.url),
+    new URL("../../../src/lifecycle/selection.ts", import.meta.url),
     "utf8",
   );
-  assert.equal([...source.matchAll(/=>\s*createExecutor\(/g)].length, 1);
   assert.doesNotMatch(source, /getRuntimeOwnedProviderDockerAdapter/);
-  const first = createProviderDockerRuntimeDependencies();
-  const second = createProviderDockerRuntimeDependencies();
-  assert.equal(Object.isFrozen(first), true);
-  assert.notEqual(first, second);
-  assert.deepEqual(
-    Object.keys(first).sort(),
-    [
-      "consumeAdvicePacket",
-      "consumeTaskPacket",
-      "randomBytes",
-      "verifyOperationMount",
-    ].sort(),
+  const lifecycle = fs.readFileSync(
+    new URL("../../../src/lifecycle/execution.ts", import.meta.url),
+    "utf8",
   );
-  for (const key of Object.keys(first) as (keyof typeof first)[]) {
-    assert.equal(typeof first[key], "function");
-    if (key !== "verifyOperationMount") assert.equal(first[key], second[key]);
-  }
+  assert.match(lifecycle, /prepareProviderAttempt\(provider, captured\)/u);
+  assert.equal([...source.matchAll(/\bcreateExecutor\(/gu)].length, 1);
+  assert.doesNotMatch(
+    source,
+    /providerDockerPreparationDependencies|PreparationHost/u,
+  );
   const result = createPreparationFailure("fixed_preparation_failure");
   assert.equal(Object.isFrozen(result), true);
   assert.deepEqual(result, {
@@ -337,9 +426,6 @@ test("共通Provider本番組立てはStoreを共有せず固定依存とEffect�
     reason: "fixed_preparation_failure",
     plan: null,
     operationId: null,
-    selectedModel: null,
-    selectedEffort: null,
-    selectionNotice: null,
     dockerEffectIssued: false,
     filesystemEffectIssued: false,
     networkEffectIssued: false,
@@ -362,9 +448,11 @@ test("共通Provider本番組立てはStoreを共有せず固定依存とEffect�
  * @cleanup メモリ内の候補のみ。外部資源は生成しない。
  */
 test("本番の準備は上位計画を直接返し技術実行と記録投影を分離する", () => {
+  let management = Object.freeze({});
+  const reviewerPreparation = createReviewerWorkspaceReader(() => management);
   for (const mode of ["probe", "executor", "reviewer"] as const) {
     let observedPlan:
-      | import("../../../src/execution/types.ts").PreparedAttemptPlan<"codex">
+      | import("../../../src/lifecycle/types.ts").PreparedAttemptPlan<"codex">
       | null = null;
     const fixture = createFixture(
       {
@@ -374,7 +462,9 @@ test("本番の準備は上位計画を直接返し技術実行と記録投影�
       },
       mode !== "probe",
       mode === "reviewer" ? "reviewer" : "executor",
+      mode === "reviewer" ? reviewerPreparation : undefined,
     );
+    management = fixture.managementCapability;
     const prepared = fixture.adapter.prepare({
       ...(mode === "probe"
         ? { purpose: "probe" as const }
@@ -387,9 +477,9 @@ test("本番の準備は上位計画を直接返し技術実行と記録投影�
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
     });
-    assert.equal(prepared.status, "prepared");
+    assert.equal(prepared.status, "prepared", JSON.stringify(prepared));
     const owned = observedPlan as
-      | import("../../../src/execution/types.ts").PreparedAttemptPlan<"codex">
+      | import("../../../src/lifecycle/types.ts").PreparedAttemptPlan<"codex">
       | null;
     assert.ok(owned);
     assert.equal("commands" in owned, false);
@@ -461,11 +551,12 @@ function createFixture(
   > & {
     executionSelection?: ReturnType<typeof executionSelection>;
     observePlan?: (
-      plan: import("../../../src/execution/types.ts").PreparedAttemptPlan<"codex">,
+      plan: import("../../../src/lifecycle/types.ts").PreparedAttemptPlan<"codex">,
     ) => void;
   } = {},
   isTaskMode = false,
   taskRole: "executor" | "reviewer" = "executor",
+  createPreparation?: ReturnType<typeof createReviewerWorkspaceReader>,
 ) {
   const selected = isTaskMode
     ? executionSelection(
@@ -514,6 +605,9 @@ function createFixture(
         operationId: "OP-123456",
         taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         taskRole,
+        ...(taskRole === "reviewer"
+          ? { reviewerReadProjection: { candidateCommitId: reviewerCommitId } }
+          : {}),
         taskAttempt: 0 as const,
         executionSelection: selected,
         taskPacketHash: "a".repeat(64),
@@ -530,6 +624,7 @@ function createFixture(
       technicalPlan = lower;
       observePlan?.(upper);
     },
+    createPreparation,
   );
   return {
     adapter,
@@ -810,19 +905,9 @@ test("低推論選定を固定計画と元Executorの再開始拒否へ接続す
     consumer: "coordinator_cli",
   });
   assert.equal(prepared.status, "prepared");
-  assert.equal(prepared.selectedModel, "gpt-5.5");
-  assert.equal(prepared.selectedEffort, "low");
+  assert.equal(prepared.plan.executionSelection.modelIdentifier, "gpt-5.5");
+  assert.equal(prepared.plan.executionSelection.reasoningEffort, "low");
   assert.equal(Object.hasOwn(prepared, "selectedModelTier"), false);
-  assert.equal(
-    prepared.selectionNotice,
-    [
-      fixture.executionSelection.provider,
-      fixture.executionSelection.modelIdentifier,
-      fixture.executionSelection.reasoningEffort,
-      fixture.executionSelection.role,
-      fixture.executionSelection.source,
-    ].join(" / "),
-  );
   const { plan: internalPlan, ...presentation } = prepared;
   assert.strictEqual(internalPlan.executor, prepared.plan.executor);
   const publicJson = JSON.stringify({
@@ -1092,7 +1177,7 @@ test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する"
     packetCapability: Object.freeze({}),
   });
   assert.equal(prepared.status, "prepared");
-  assert.equal(prepared.selectedModel, "gpt-5.5");
+  assert.equal(prepared.plan.executionSelection.modelIdentifier, "gpt-5.5");
   const plan = fixture.getTechnicalPlan();
   assert.ok(plan);
   assert.equal(plan.operationMode, "isolated_task");
@@ -1140,6 +1225,8 @@ test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する"
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受け取らない", () => {
+  let management = Object.freeze({});
+  const reviewerPreparation = createReviewerWorkspaceReader(() => management);
   const fixture = createFixture(
     {
       consumeTaskPacket: () =>
@@ -1147,6 +1234,7 @@ test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受
           operationId: "OP-123456",
           taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
           taskRole: "reviewer" as const,
+          reviewerReadProjection: { candidateCommitId: reviewerCommitId },
           taskAttempt: 0 as const,
           executionSelection: executionSelection("independent_reviewer", {
             provider: "codex",
@@ -1161,7 +1249,9 @@ test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受
     },
     true,
     "reviewer",
+    reviewerPreparation,
   );
+  management = fixture.managementCapability;
   const prepared = fixture.adapter.prepare({
     purpose: "task",
     managementCapability: fixture.managementCapability,
@@ -1173,9 +1263,10 @@ test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受
     consumer: "coordinator_cli",
     packetCapability: Object.freeze({}),
   });
-  assert.equal(prepared.status, "prepared");
+  assert.equal(prepared.status, "prepared", JSON.stringify(prepared));
   const plan = fixture.getTechnicalPlan();
   assert.ok(plan);
+  assert.equal(plan.workspaceSourcePath, reviewerCopy);
   const provider = plan.commands.find(
     (candidate) => candidate.purpose === "create_provider",
   );
@@ -1335,53 +1426,72 @@ test("production adapterは未発行のCapabilityと未接続Selection 選定入
       consumer: "coordinator_cli",
     },
     () => true,
+    undefined,
+    {},
+    [],
   );
   assert.equal(prepared.status, "blocked");
   assert.equal(prepared.providerRequestStarted, false);
-  void cancelRuntimeOwnedDockerProcessController({}, {}).then((result) =>
+  void cancelRuntimeOwnedExecutorAttempt({}, {}).then((result) =>
     assert.equal(result.status, "blocked"),
   );
 });
 
 /**
- * 公開契約はCoordinator選定とProvider fallbackを分離するを検証する。
- *
- * @responsibility 公開契約はCoordinator選定とProvider fallbackを分離するの合否判定を所有する。
+ * 固定選定を実際のProvider準備へ搬送し、fallbackを追加しない。
  * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開契約はCoordinator選定とProvider fallbackを分離するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 固定選定と有限Host代役で準備する。
+ * @stimulus probeの技術計画を組み立てる。
+ * @observation 元選定、購読種別、Providerの引数と開始前の結果。
+ * @oracle 固定選定と隔離・ProxyのProvider差を維持し、公開向け結果に生の引数を出さない。
+ * @cleanup N/A: 外部資源を開始しない。
+ * @boundary Coordinatorの準備とExecutorの技術計画。
  */
-test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
-  const contract = describeProviderDockerRuntimeAdapterContract("codex");
-  assert.equal(contract.contractRevision, 10);
-  assert.equal(
-    contract.providerHomeCrossProcessLease,
-    "docker_global_provider_home_identity_container_name_fail_closed",
+test("固定選定とProxy条件を実計画で確認しfallbackを追加しない", () => {
+  const fixture = createFixture();
+  const prepared = fixture.adapter.prepare({
+    purpose: "probe",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    providerHome: fixture.providerHome,
+    executionSelection: fixture.executionSelection,
+    taskAttempt: 0,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  });
+  assert.equal(prepared.status, "prepared");
+  assert.deepEqual(
+    prepared.plan.executionSelection,
+    fixture.executionSelection,
   );
-  assert.equal(contract.coordinatorPrelaunchModelSelectionAllowed, true);
-  assert.equal(contract.providerAutomaticModelSwitchingAllowed, false);
-  assert.equal(contract.midExecutionModelSwitchingAllowed, false);
-  assert.equal(contract.speedMode, "normal_only");
-  assert.equal(contract.highCostSelection, "decisive_reason_required");
-  assert.equal(contract.fallbackModelArgumentAllowed, false);
-  assert.equal(contract.subscriptionOffering, "chatgpt_subscription_oauth");
-  assert.equal(contract.providerDirectEgress, false);
-  assert.deepEqual(contract.providerProxyEnvironment, [
-    "HTTPS_PROXY",
-    "HTTP_PROXY",
-    "ALL_PROXY",
-    "NO_PROXY_EMPTY",
-  ]);
-  assert.equal(contract.commandPlanReported, false);
-  assert.equal(Object.hasOwn(contract, "providerAuthority"), false);
   assert.equal(
-    contract.processController,
-    "production_runtime_owned_controller_and_fixed_docker_effect_connected",
+    prepared.plan.executionSelection.modelIdentifier,
+    fixture.executionSelection.modelIdentifier,
   );
+  assert.equal(
+    prepared.plan.subscriptionOffering,
+    "chatgpt_subscription_oauth",
+  );
+  assert.equal(prepared.providerRequestIssued, false);
+  assert.equal(prepared.dockerEffectIssued, false);
+  assert.equal("commands" in prepared.plan, false);
+  assert.equal("providerAuthority" in prepared.plan, false);
+  const provider = fixture
+    .getTechnicalPlan()
+    .commands.find((candidate) => candidate.purpose === "create_provider");
+  assert.ok(provider);
+  assert.equal(provider.argv.includes("--fallback-model"), false);
+  assert.match(
+    provider.argv[provider.argv.indexOf("--network") + 1] ?? "",
+    /^crdd-internal-/u,
+  );
+  assert.equal(
+    provider.argv[provider.argv.indexOf("--model") + 1],
+    "gpt-5.6-sol",
+  );
+  for (const key of ["HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY"])
+    assert.ok(provider.argv.some((arg) => arg.startsWith(`${key}=`)));
+  assert.ok(provider.argv.includes("NO_PROXY="));
 });
 
 /**

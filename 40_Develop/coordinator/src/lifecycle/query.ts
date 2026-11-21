@@ -1,8 +1,10 @@
 /**
- * 現在状態と実行履歴を読み取り、照会結果へ投影する。
+ * 現在状態・回復記録・実行履歴の読取り専用照会を所有する。
  *
- * @responsibility 現在状態OwnerとExecution Intelligenceの履歴Ownerから得た観測を相関する。
+ * @responsibility 確認済みの対象を既存State／履歴Readerへ接続し、同じ実行断面を共通の照会結果へ投影する。
  * @trace ARCH-000004
+ * @trace ARCH-000005
+ * @trace ARCH-000008
  */
 
 import { createHash } from "node:crypto";
@@ -11,18 +13,441 @@ import {
   type Execution,
   listExecutions,
 } from "../../../execution-intelligence/src/index.ts";
-import { readState } from "../../../execution-model/src/index.ts";
 import {
+  ExecutionStorageBlockedError,
+  isPrincipalId,
+  type OperationRecord,
+  parseDockerTaskRecoveryId,
+  type ProjectExecutionState,
+  readState,
+} from "../../../execution-model/src/index.ts";
+import {
+  getRepository,
   readRepositoryRevision,
+  readRepositorySnapshot,
   resolveVerifiedRepositoryRoot,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
-import { getExecutionIntelligenceStore } from "../execution/intelligence.ts";
-import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
-import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
+import {
+  coordinatorDataBoundaryBlocked,
+  getExecutionIntelligenceStore,
+  RepositoryDataBlockedError,
+  verifyRuntimePersistenceRepository,
+} from "./host.ts";
+import {
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  COORDINATOR_STATE_QUERY_CONTRACT,
+  deriveCoordinatorRepositoryBindingId,
+  inspectCoordinatorProjection,
+  inspectCoordinatorStateQuery,
+  inspectTaskStartCandidates,
+  projectCoordinatorState,
+  readExecutionCancellation,
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "./validation.ts";
+import type {
+  ActivityRepository,
+  ActivitySource,
+  CoordinatorStateQuery,
+  CoordinatorStateQueryResult,
+  RuntimeActivityEvent,
+  RuntimeActivityObservation,
+  RuntimeActivityRequest,
+} from "./types.ts";
+import { workspacePlanReadyForAcceptance } from "./workspace.ts";
 
-import { queryCoordinatorState } from "./query.ts";
+/**
+ * 現在の回復記録を非秘密の保存観測へ投影する。
+ * @responsibility 保存時点の状態だけを選び、実資源の現在性を推測しない。
+ * @trace ARCH-000008
+ * @input 既存Readerが検査した操作記録。
+ * @returns Path・Identity本文を含まない保存観測。
+ * @effect 外部Effectなし。
+ * @security 資源ID、Mount、環境値、内部Hashを公開しない。
+ */
+function projectRecoveryRecord(
+  operation: OperationRecord,
+  operations: readonly OperationRecord[],
+) {
+  if (operation.kind === "host_operation")
+    return Object.freeze({
+      kind: operation.kind,
+      phase: operation.phase,
+      hostCleanup: operation.cleanup,
+      outcome: null,
+      historyConfirmed: null,
+      resources:
+        operation.resources === null
+          ? null
+          : Object.freeze(
+              operation.resources.checkpoints.map((item) =>
+                Object.freeze({
+                  key: item.key,
+                  submission: item.submission,
+                  observation: item.observation,
+                }),
+              ),
+            ),
+    });
+  const common = {
+    phase: operation.phase,
+    outcome:
+      operation.outcome === null
+        ? null
+        : Object.freeze({
+            status: operation.outcome.status,
+            cleanupConfirmed: operation.outcome.cleanupConfirmed,
+          }),
+    historyConfirmed: operation.history?.confirmed ?? null,
+  };
+  if (operation.kind === "runtime_repair")
+    return Object.freeze({
+      ...common,
+      kind: operation.kind,
+      disposition: operation.disposition,
+      resources: null,
+    });
+  return Object.freeze({
+    ...common,
+    kind: operation.kind,
+    lease: operation.lease,
+    hostCleanup:
+      operations.find(
+        (r): r is Extract<OperationRecord, { kind: "host_operation" }> =>
+          r.kind === "host_operation" &&
+          r.operationId === JSON.parse(operation.identityJson).operationId,
+      )?.cleanup ?? "unknown",
+    resources:
+      operation.resources === null
+        ? null
+        : Object.freeze(
+            operation.resources.checkpoints.map((item) =>
+              Object.freeze({
+                key: item.key,
+                submission: item.submission,
+                observation: item.observation,
+              }),
+            ),
+          ),
+  });
+}
 
-import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
+/**
+ * 元の回復参照に一致する現在の保存記録だけを照会する。
+ * @responsibility 不一致、観測不能、保存時点の観測を分離する。
+ * @trace ARCH-000008
+ * @input exact回復ID、現在RepositoryのCapability、取消Signal。
+ * @returns recorded／not_recorded／unknown。Docker資源の現在状態は観測しない。
+ * @precondition 信頼した入口が現在Repositoryの読取りを許可している。
+ * @postcondition 照会から回復・再起動・初期化・清掃を発行しない。
+ * @effect 既存Readerの短期Lockと、Probeの元記録の読取りだけ。
+ * @failure 不正ID、破損、途中保存、解放不明、取消は固定理由で停止する。
+ * @invariant not_recordedを資源不存在又は再実行許可へ読み替えない。
+ * @boundary 保存正本と公開照会。
+ * @security 記録全体、Path、資格情報、生例外を返さない。
+ * @concurrency 同じReader断面で相関し、Lock解放確認後だけ記録を公開する。
+ */
+export function readRuntimeOwnedRecovery(
+  recoveryId: string,
+  rootCapability: unknown,
+  signal: AbortSignal,
+) {
+  const result = (
+    observationState: "recorded" | "not_recorded" | "unknown",
+    reason: string,
+    lockReleased: boolean,
+    record: ReturnType<typeof projectRecoveryRecord> | null = null,
+  ) =>
+    Object.freeze({
+      contract: "crdd-coordinator/recovery-observation/v1" as const,
+      status:
+        observationState === "unknown"
+          ? ("blocked" as const)
+          : ("completed" as const),
+      reason,
+      recoveryId,
+      observationState,
+      record,
+      dockerResourcesObserved: false as const,
+      lockReleased,
+    });
+  const cancellation = readExecutionCancellation(signal);
+  if (cancellation !== false)
+    return result(
+      "unknown",
+      cancellation === true
+        ? "coordinator_recovery_observation_cancelled"
+        : "coordinator_recovery_signal_invalid",
+      true,
+    );
+  try {
+    if (recoveryId.startsWith("docker-task.")) {
+      if (!parseDockerTaskRecoveryId(recoveryId)) throw Error();
+    } else if (recoveryId.startsWith("docker-runtime-repair.")) {
+      if (
+        !/^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(recoveryId)
+      )
+        throw Error();
+    } else if (recoveryId.startsWith("host-operation.")) {
+      if (!/^host-operation\.OP-[0-9]{6,}$/u.test(recoveryId)) throw Error();
+    } else throw Error();
+  } catch {
+    return result("unknown", "coordinator_recovery_id_invalid", true);
+  }
+  let lockReleased = false;
+  try {
+    const observed = readState(rootCapability, { scope: "recovery" });
+    lockReleased = observed.lockReleased;
+    if (readExecutionCancellation(signal) !== false)
+      return result(
+        "unknown",
+        "coordinator_recovery_observation_cancelled",
+        lockReleased,
+      );
+    if (
+      observed.status !== "completed" ||
+      !lockReleased ||
+      observed.value === null
+    )
+      return result(
+        "unknown",
+        "coordinator_recovery_observation_unknown",
+        lockReleased,
+      );
+    const matches = observed.value.snapshot.operations.filter(
+      (operation) => operation.recoveryId === recoveryId,
+    );
+    if (matches.length === 0)
+      return result("not_recorded", "coordinator_recovery_not_recorded", true);
+    if (matches.length !== 1 || !matches[0])
+      return result(
+        "unknown",
+        "coordinator_recovery_observation_unknown",
+        true,
+      );
+    const operation = matches[0];
+    if (readExecutionCancellation(signal) !== false)
+      return result(
+        "unknown",
+        "coordinator_recovery_observation_cancelled",
+        true,
+      );
+    return result(
+      "recorded",
+      "coordinator_recovery_recorded",
+      true,
+      projectRecoveryRecord(operation, observed.value.snapshot.operations),
+    );
+  } catch {
+    return result(
+      "unknown",
+      "coordinator_recovery_observation_unknown",
+      lockReleased,
+    );
+  }
+}
+
+/**
+ * 取得済みの実行データから指定Projectの状態を表示する。
+ * @responsibility 同じ保存断面のProjectと開始候補を選び、照会結果を構築する。
+ * @trace ARCH-000005
+ * @input current: 読取り成功済みの保存断面、request: CoordinatorStateQuery。
+ * @returns observed、absent又はunknownの照会結果。
+ * @failure 候補欠測・複数一致・投影不能又は改訂不一致はunknown。
+ * @effect N/A: 読取り・保存・権限発行を行わない。
+ */
+export function queryCoordinatorState(
+  current: Readonly<{
+    projects: readonly ProjectExecutionState[];
+    taskStartCandidates: unknown;
+  }>,
+  request: CoordinatorStateQuery,
+): CoordinatorStateQueryResult {
+  const state =
+    current.projects.find((item) => item.projectId === request.projectId) ??
+    null;
+  let projection: CoordinatorStateQueryResult["projection"] = null;
+  if (state !== null) {
+    try {
+      const records = snapshotPlainArray(
+        current.taskStartCandidates,
+        Number.MAX_SAFE_INTEGER,
+      );
+      const matches =
+        records.status === "ok"
+          ? records.value
+              .map((item) => inspectTaskStartCandidates(state, item))
+              .filter((item) => item !== null)
+          : [];
+      if (matches.length === 1)
+        projection = projectCoordinatorState(state, matches[0] ?? null);
+    } catch {
+      // 不正・欠測の候補を空の開始候補へ補完しない。
+    }
+  }
+  const reason =
+    state === null
+      ? "orchestrator_state_absent"
+      : projection === null
+        ? "orchestrator_state_observation_unknown"
+        : state.repositoryRevision !== request.repositoryRevision
+          ? "orchestrator_state_revision_mismatch"
+          : "orchestrator_state_observed";
+  const observationState =
+    reason === "orchestrator_state_absent"
+      ? "absent"
+      : reason === "orchestrator_state_observed"
+        ? "observed"
+        : "unknown";
+  return Object.freeze({
+    contract: COORDINATOR_STATE_QUERY_CONTRACT,
+    status: observationState === "unknown" ? "blocked" : "completed",
+    reason,
+    requestId: request.requestId,
+    projectId: request.projectId,
+    repositoryRevision: request.repositoryRevision,
+    observationState,
+    projection: observationState === "observed" ? projection : null,
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    effectState: "no_effect",
+  });
+}
+
+/**
+ * 認証済みの利用側へ同じ保存断面の状態を返す。
+ *
+ * @responsibility Coordinator Public 状態 Queryの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input rawRequest: unknown、workingDirectory、authenticationContext: 入口が認証・認可したPrincipal。
+ * @returns queryStateの公開照会結果。
+ * @precondition 入口が現在の認証・認可を確認する。Decision Storeの所在や可用性を本人確認へ使わない。
+ * @postcondition 確認済みの対象について観測結果だけを返す。
+ * @effect Repositoryと保存済みSnapshotを観測する。Task実行や状態変更は行わない。
+ * @failure 既知の保存境界例外は元の確認・回復情報を保持して結果へ返し、他の例外は伝播する。
+ * @invariant 読取りのみを行い、欠測・観測不能を正常な状態へ補完しない。
+ * @boundary 公開照会入力→Repository・認証済み主体・保存済み状態の読取り境界を接続する。
+ * @security 認証済み主体とRepository相関を確認し、認可した照会結果だけを返す。
+ * @concurrency 返却される読取り処理の完了・失敗を呼出し側へ搬送する。
+ */
+export function queryState(
+  rawRequest: unknown,
+  workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
+) {
+  try {
+    const request = inspectCoordinatorStateQuery(rawRequest);
+    if (!request)
+      return Object.freeze({
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: "orchestrator_state_query_invalid",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
+    if (
+      authenticationContext === undefined ||
+      !isPrincipalId(authenticationContext.principalId)
+    )
+      return Object.freeze({
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: "orchestrator_authenticated_principal_not_verified",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
+    let repositoryRoot: string;
+    try {
+      repositoryRoot =
+        resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
+    } catch {
+      return Object.freeze({
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: "orchestrator_repository_root_not_verified",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
+    }
+    const identity = readRepositorySnapshot(
+      getRepository(repositoryRoot).capability,
+    );
+    const adoptedPlan =
+      identity && identity.revisionIdentity !== request.repositoryRevision
+        ? readState(
+            verifyRuntimePersistenceRepository(repositoryRoot),
+            deriveCoordinatorRepositoryBindingId(repositoryRoot),
+            "execution",
+          ).value?.projects.find(
+            (plan) =>
+              plan.projectId === request.projectId &&
+              plan.repositoryRevision === request.repositoryRevision,
+          )
+        : null;
+    if (
+      !identity ||
+      (identity.revisionIdentity !== request.repositoryRevision &&
+        (!adoptedPlan ||
+          !workspacePlanReadyForAcceptance(
+            repositoryRoot,
+            deriveCoordinatorRepositoryBindingId(repositoryRoot),
+            request.projectId,
+            adoptedPlan.milestoneId,
+            request.repositoryRevision,
+            identity.revisionIdentity,
+          )))
+    )
+      return Object.freeze({
+        contract: COORDINATOR_STATE_QUERY_CONTRACT,
+        status: "blocked" as const,
+        reason: "orchestrator_state_revision_mismatch",
+        requestId: request.requestId,
+        projectId: request.projectId,
+        repositoryRevision: request.repositoryRevision,
+        observationState: "unknown" as const,
+        projection: null,
+        cleanupConfirmed: true as const,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
+    const snapshot = readState(
+      verifyRuntimePersistenceRepository(repositoryRoot),
+      deriveCoordinatorRepositoryBindingId(repositoryRoot),
+      "execution",
+    );
+    if (
+      snapshot.status !== "completed" ||
+      snapshot.value === null ||
+      snapshot.value.schemaRevision !== 9
+    )
+      return Object.freeze({
+        contract: COORDINATOR_STATE_QUERY_CONTRACT,
+        status: "blocked" as const,
+        reason: "orchestrator_snapshot_not_initialized",
+        requestId: request.requestId,
+        projectId: request.projectId,
+        repositoryRevision: request.repositoryRevision,
+        observationState: "unknown" as const,
+        projection: null,
+        cleanupConfirmed: true as const,
+        manualRecoveryRequired:
+          snapshot.status === "blocked" && snapshot.manualRecoveryRequired,
+        effectState: "no_effect" as const,
+      });
+    return queryCoordinatorState(snapshot.value, request);
+  } catch (error) {
+    if (
+      error instanceof ExecutionStorageBlockedError ||
+      error instanceof RepositoryDataBlockedError
+    )
+      return coordinatorDataBoundaryBlocked(error);
+    throw error;
+  }
+}
 
 /**
  * 今回要求をI/O前に固定する。
@@ -252,10 +677,6 @@ export async function queryActivity(
       if (snapshot.status !== "completed") stateUnknown = true;
       else if (snapshot.value !== null) {
         const value = snapshot.value;
-        const candidateRecords = snapshotPlainArray(
-          value.taskStartCandidates,
-          Number.MAX_SAFE_INTEGER,
-        );
         for (const queue of value.queueEntries) {
           const record = queue.singleTask;
           if (queue.projectId === request.projectId && record)
@@ -269,33 +690,11 @@ export async function queryActivity(
               recoveryRequired: queue.state === "recovery_required",
             });
         }
-        const result = queryCoordinatorState(
-          {
-            readState: (projectId) => {
-              const project =
-                value.projects.find((item) => item.projectId === projectId) ??
-                null;
-              const candidates =
-                project && candidateRecords.status === "ok"
-                  ? candidateRecords.value
-                      .map((item) => inspectTaskStartCandidates(project, item))
-                      .filter((item) => item !== null)
-                  : [];
-              return Object.freeze({
-                status: "completed",
-                reason: "orchestrator_state_observed",
-                taskStartCandidates:
-                  candidates.length === 1 ? (candidates[0] ?? null) : null,
-                value: project,
-              });
-            },
-          },
-          {
-            requestId: "runtime-activity-observation",
-            projectId: request.projectId,
-            repositoryRevision: revision,
-          },
-        );
+        const result = queryCoordinatorState(value, {
+          requestId: "runtime-activity-observation",
+          projectId: request.projectId,
+          repositoryRevision: revision,
+        });
         if (result.observationState === "unknown") stateUnknown = true;
         else if (result.projection !== null)
           observed.push({
@@ -371,17 +770,6 @@ export async function queryActivity(
   return result;
 }
 
-import {
-  inspectCoordinatorProjection,
-  inspectTaskStartCandidates,
-} from "./projection.ts";
-import type {
-  ActivityRepository,
-  ActivitySource,
-  RuntimeActivityEvent,
-  RuntimeActivityObservation,
-  RuntimeActivityRequest,
-} from "./types.ts";
 /**
  * Projectと正規Sourceの相関Hashを導出する。
  * @responsibility 同じ対象集合と改訂のbyte表現を一つにする。

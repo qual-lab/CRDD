@@ -15,9 +15,8 @@ import {
   containsRecognizedSecretMaterial,
   containsRecognizedSecretScope,
   containsRecognizedSecretText,
-  describeSecretMaterialPolicyContract,
   isRecognizedSecretBearingPath,
-} from "../../src/input/secret-validation.ts";
+} from "../../src/lifecycle/validation.ts";
 
 /**
  * 固定形式Secretと名前付き実値を検出し明示placeholderを誤検出しないを検証する。
@@ -363,26 +362,4 @@ test("Task scopeは本文と全Pathを同じSecret境界で判定する", () => 
     ),
     false,
   );
-});
-
-/**
- * 公開契約はSource許可とSecret検出限界を区別するを検証する。
- *
- * @responsibility 公開契約はSource許可とSecret検出限界を区別するの合否判定を所有する。
- * @trace AIT-UT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開契約はSource許可とSecret検出限界を区別するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("公開契約はSource許可とSecret検出限界を区別する", () => {
-  const contract = describeSecretMaterialPolicyContract();
-  assert.equal(contract.contractRevision, 1);
-  assert.equal(contract.promptSecretValuesAllowed, false);
-  assert.equal(contract.readProjectionSecretValuesAllowed, false);
-  assert.equal(contract.repositoryFileBytesEmbeddedInPrompt, false);
-  assert.equal(contract.authorizedSourceProjectionAllowed, true);
-  assert.equal(contract.unknownSecretAbsenceVerified, false);
 });

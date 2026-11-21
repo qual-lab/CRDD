@@ -15,7 +15,7 @@ import { PROVIDER_ADVICE_OUTPUT_REASONS } from "../../../ai-adapter/src/provider
 import { dockerProcessControllerPublicCompletionReasons } from "../../../execution-model/src/index.ts";
 // 実Producerの列そのものとのexact比較に限定した試験参照。製品向けの深い依存ではない。
 import { ATTEMPT_COMPLETION_REASONS } from "../../../executor/src/lifecycle/attempt.ts";
-import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
+import { coordinatorTaskPublicReasons } from "../../src/lifecycle/validation.ts";
 
 /**
  * 発行する技術理由と保存受理する理由の列をexact照合する。

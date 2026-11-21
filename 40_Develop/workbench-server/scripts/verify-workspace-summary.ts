@@ -19,7 +19,7 @@ if (
     "./task-summary-observation.ts"
   );
   const { containsRecognizedSecretMaterial } = await import(
-    "../../coordinator/src/input/secret-validation.ts"
+    "../../coordinator/src/lifecycle/validation.ts"
   );
   const observation = installTaskSummaryObservation(
     containsRecognizedSecretMaterial,

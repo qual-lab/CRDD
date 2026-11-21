@@ -14,16 +14,17 @@ import { updateTestTaskAndQueue } from "../fixtures/task-persistence-fixture.ts"
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
+import {
+  initializeExecutionStore,
+  readProjectExecutionState,
+} from "../../../execution-model/src/index.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 
-import { acceptResult } from "../../src/decision/acceptance.ts";
-import { executeCoordinatorPublicDecision } from "../../src/decision/lifecycle.ts";
-import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { runCoordinatorObjective } from "../../src/objective/execute.ts";
-import { readCurrentCoordinatorState } from "../../src/state/query.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
+import { acceptResult, submitDecision } from "../../src/lifecycle/decision.ts";
+import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/lifecycle/decision.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
+import { runTestCoordinatorObjective } from "../fixtures/task-persistence-fixture.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import { createRepository } from "../fixtures/decision-state.ts";
 
@@ -53,8 +54,8 @@ function acceptIntegratedResult(
     targetId: string,
     suffix: string,
   ) => {
-    const observed = readCurrentCoordinatorState(
-      input.root,
+    const observed = readProjectExecutionState(
+      verifyRuntimePersistenceRepository(input.root),
       input.repositoryBindingId,
       input.projectId,
     );
@@ -112,21 +113,38 @@ function fixture(t: test.TestContext) {
   if (initialized.status !== "completed")
     throw new Error("fixture_bootstrap_failed");
   const request = Object.freeze(
-    withCallerPlan({
-      operation: "start" as const,
-      requestId: "request-full",
-      projectId: "project-full",
-      milestoneId: "milestone-full",
-      repositoryRevision: revision,
-      objective: "Create the bounded result.",
-      acceptanceCriteria: Object.freeze(["result accepted"]),
-      allowedPaths: Object.freeze(["result.txt"]),
-      readPaths: Object.freeze(["README.md"]),
-      maximumConcurrency: 1,
-      maximumReplans: 2,
-      originLane: "interactive" as const,
-      adoptResult: false,
-    }),
+    withCallerPlan(
+      {
+        operation: "start" as const,
+        requestId: "request-full",
+        projectId: "project-full",
+        milestoneId: "milestone-full",
+        repositoryRevision: revision,
+        objective: "Create the bounded result.",
+        acceptanceCriteria: Object.freeze(["milestone accepted"]),
+        allowedPaths: Object.freeze(["result.txt"]),
+        readPaths: Object.freeze(["README.md"]),
+        maximumConcurrency: 1,
+        maximumReplans: 2,
+        originLane: "interactive" as const,
+        adoptResult: false,
+      },
+      {
+        milestoneAcceptanceCriteria: ["milestone accepted"],
+        objectives: [
+          { id: "objective-full", acceptanceCriteria: ["result accepted"] },
+        ],
+        tasks: [
+          {
+            id: "task-full",
+            objectiveId: "objective-full",
+            dependencies: [],
+            allowedPaths: ["result.txt"],
+            conflictKeys: ["result.txt"],
+          },
+        ],
+      },
+    ),
   );
   let attempts = 0;
   const dependencies = {
@@ -137,31 +155,14 @@ function fixture(t: test.TestContext) {
       repositoryRevision: revision,
       workingDirectory: root,
       repositoryRoot: root,
-      bindingCapability: {},
     }),
     resolveTaskSelections: () => ({
       status: "resolved" as const,
       value: taskExecutionSelections(),
       reason: null,
     }),
-    planObjective: () => ({
-      milestoneAcceptanceCriteria: ["milestone accepted"],
-      objectives: [
-        { id: "objective-full", acceptanceCriteria: ["result accepted"] },
-      ],
-      tasks: [
-        {
-          id: "task-full",
-          objectiveId: "objective-full",
-          dependencies: [],
-          allowedPaths: ["result.txt"],
-          conflictKeys: ["result.txt"],
-        },
-      ],
-    }),
     createTaskExecutions: (
       _request: unknown,
-      _binding: unknown,
       state: {
         tasks: readonly {
           definition: { id: string };
@@ -232,7 +233,7 @@ function fixture(t: test.TestContext) {
  */
 test("public intake, bounded retry, progress and integration form one accepted flow", async (t) => {
   const context = fixture(t);
-  const first = await runCoordinatorObjective(
+  const first = await runTestCoordinatorObjective(
     context.dependencies,
     context.request,
     new AbortController().signal,
@@ -252,7 +253,7 @@ test("public intake, bounded retry, progress and integration form one accepted f
     { kind: "task_retry", taskId: "task-full", previousRetryCount: 0 },
   );
   assert.equal(replanned.status, "completed");
-  const second = await runCoordinatorObjective(
+  const second = await runTestCoordinatorObjective(
     context.dependencies,
     { ...context.request, operation: "resume" },
     new AbortController().signal,
@@ -269,8 +270,8 @@ test("public intake, bounded retry, progress and integration form one accepted f
     milestoneId: context.request.milestoneId,
     objectiveId: "objective-full",
   });
-  const finalState = readCurrentCoordinatorState(
-    context.root,
+  const finalState = readProjectExecutionState(
+    verifyRuntimePersistenceRepository(context.root),
     deriveCoordinatorRepositoryBindingId(context.root),
     context.request.projectId,
   );
@@ -302,21 +303,48 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
   if (initialized.status !== "completed")
     throw new Error("fixture_bootstrap_failed");
   const request = Object.freeze(
-    withCallerPlan({
-      operation: "start" as const,
-      requestId: "request-bounded-evaluation",
-      projectId: "project-bounded-evaluation",
-      milestoneId: "milestone-bounded-evaluation",
-      repositoryRevision: revision,
-      objective: "Produce and integrate two independent bounded results.",
-      acceptanceCriteria: Object.freeze(["both results accepted"]),
-      allowedPaths: Object.freeze(["result-a.txt", "result-b.txt"]),
-      readPaths: Object.freeze(["README.md"]),
-      maximumConcurrency: 2,
-      maximumReplans: 0,
-      originLane: "interactive" as const,
-      adoptResult: false,
-    }),
+    withCallerPlan(
+      {
+        operation: "start" as const,
+        requestId: "request-bounded-evaluation",
+        projectId: "project-bounded-evaluation",
+        milestoneId: "milestone-bounded-evaluation",
+        repositoryRevision: revision,
+        objective: "Produce and integrate two independent bounded results.",
+        acceptanceCriteria: Object.freeze(["both results accepted"]),
+        allowedPaths: Object.freeze(["result-a.txt", "result-b.txt"]),
+        readPaths: Object.freeze(["README.md"]),
+        maximumConcurrency: 2,
+        maximumReplans: 0,
+        originLane: "interactive" as const,
+        adoptResult: false,
+      },
+      {
+        milestoneAcceptanceCriteria: ["both results accepted"],
+        objectives: [
+          {
+            id: "objective-bounded-evaluation",
+            acceptanceCriteria: ["both results accepted"],
+          },
+        ],
+        tasks: [
+          {
+            id: "task-a",
+            objectiveId: "objective-bounded-evaluation",
+            dependencies: [],
+            allowedPaths: ["result-a.txt"],
+            conflictKeys: ["result-a.txt"],
+          },
+          {
+            id: "task-b",
+            objectiveId: "objective-bounded-evaluation",
+            dependencies: [],
+            allowedPaths: ["result-b.txt"],
+            conflictKeys: ["result-b.txt"],
+          },
+        ],
+      },
+    ),
   );
   let active = 0;
   let maximumActive = 0;
@@ -329,41 +357,14 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
       repositoryRevision: revision,
       workingDirectory: root,
       repositoryRoot: root,
-      bindingCapability: {},
     }),
     resolveTaskSelections: () => ({
       status: "resolved" as const,
       value: taskExecutionSelections(),
       reason: null,
     }),
-    planObjective: () => ({
-      milestoneAcceptanceCriteria: ["both results accepted"],
-      objectives: [
-        {
-          id: "objective-bounded-evaluation",
-          acceptanceCriteria: ["both results accepted"],
-        },
-      ],
-      tasks: [
-        {
-          id: "task-a",
-          objectiveId: "objective-bounded-evaluation",
-          dependencies: [],
-          allowedPaths: ["result-a.txt"],
-          conflictKeys: ["result-a.txt"],
-        },
-        {
-          id: "task-b",
-          objectiveId: "objective-bounded-evaluation",
-          dependencies: [],
-          allowedPaths: ["result-b.txt"],
-          conflictKeys: ["result-b.txt"],
-        },
-      ],
-    }),
     createTaskExecutions: (
       _request: unknown,
-      _binding: unknown,
       state: {
         tasks: readonly { definition: { id: string }; state: string }[];
       },
@@ -411,7 +412,7 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
       },
     },
   };
-  const execution = await runCoordinatorObjective(
+  const execution = await runTestCoordinatorObjective(
     dependencies,
     request,
     new AbortController().signal,
@@ -451,7 +452,7 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
  */
 test("human decision is one-time and resumes only through a fresh bounded plan", async (t) => {
   const context = fixture(t);
-  const first = await runCoordinatorObjective(
+  const first = await runTestCoordinatorObjective(
     context.dependencies,
     context.request,
     new AbortController().signal,
@@ -464,8 +465,8 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
     queueId: "queueId" in first ? (first.queueId ?? "invalid") : "invalid",
     maximumReplans: context.request.maximumReplans,
   };
-  const state = readCurrentCoordinatorState(
-    context.root,
+  const state = readProjectExecutionState(
+    verifyRuntimePersistenceRepository(context.root),
     deriveCoordinatorRepositoryBindingId(context.root),
     context.request.projectId,
   );
@@ -479,7 +480,7 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
     generation: state.value.generation,
     repositoryRevision: state.value.repositoryRevision,
   };
-  const issued = executeCoordinatorPublicDecision(
+  const issued = submitDecision(
     {
       ...common,
       operation: "request",
@@ -492,7 +493,7 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
     { principalId: "principal-full" },
   );
   assert.equal(issued.status, "completed", issued.reason);
-  const applied = executeCoordinatorPublicDecision(
+  const applied = submitDecision(
     { ...common, operation: "answer", selectedOption: "resume" },
     context.root,
     { principalId: "principal-full" },
@@ -504,7 +505,7 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
     previousRetryCount: 0,
   });
   assert.equal(resumed.status, "completed");
-  const completed = await runCoordinatorObjective(
+  const completed = await runTestCoordinatorObjective(
     context.dependencies,
     { ...context.request, operation: "resume" },
     new AbortController().signal,

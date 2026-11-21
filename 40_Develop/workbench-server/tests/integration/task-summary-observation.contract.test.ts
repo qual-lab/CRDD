@@ -13,7 +13,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { extractProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 import { parseExecutionContent } from "../../../ai-adapter/src/provider/result.ts";
-import { containsRecognizedSecretMaterial } from "../../../coordinator/src/input/secret-validation.ts";
+import { containsRecognizedSecretMaterial } from "../../../coordinator/src/lifecycle/validation.ts";
 import { createTaskSummaryObservation } from "../../scripts/task-summary-observation.ts";
 
 const workload = {
@@ -307,14 +307,14 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
   const composition = fs.readFileSync(entry, "utf8");
   assert.match(
     composition,
-    /containsRecognizedSecretMaterial\s*\}\s*=\s*await import\(\s*["']\.\.\/\.\.\/coordinator\/src\/input\/secret-validation\.ts["']/u,
+    /containsRecognizedSecretMaterial\s*\}\s*=\s*await import\(\s*["']\.\.\/\.\.\/coordinator\/src\/lifecycle\/validation\.ts["']/u,
   );
   assert.match(
     composition,
     /installTaskSummaryObservation\(\s*containsRecognizedSecretMaterial,?\s*\)/u,
   );
   const forbidScannerImport = `data:text/javascript,${encodeURIComponent(
-    "import {registerHooks} from 'node:module';registerHooks({resolve(s,c,next){const r=next(s,c);if(r.url.includes('/coordinator/src/input/secret-validation.ts'))throw Error('unapproved_scanner_import');return r;}});",
+    "import {registerHooks} from 'node:module';registerHooks({resolve(s,c,next){const r=next(s,c);if(r.url.includes('/coordinator/src/lifecycle/validation.ts'))throw Error('unapproved_scanner_import');return r;}});",
   )}`;
   for (const argv of [[], ["--external-send-and-summary-confirmed"]]) {
     const rejected = spawnSync(

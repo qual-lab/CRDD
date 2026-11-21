@@ -11,9 +11,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { acceptResult } from "../../src/decision/acceptance.ts";
-import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
+import {
+  acceptResult,
+  COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
+} from "../../src/lifecycle/decision.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
 import {
   createRepository,
   persistAcceptancePendingState,

@@ -14,11 +14,57 @@ import { isDeepStrictEqual } from "node:util";
 import { runInNewContext } from "node:vm";
 
 import {
+  parseUnambiguousJsonDocument,
   snapshotJsonValue,
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../../src/input/snapshot.ts";
+} from "../../src/lifecycle/validation.ts";
 import { assertPresent } from "../support/contract-assertions.ts";
+
+/**
+ * 曖昧なJSONが値捕捉へ届かないことを確認する。
+ * @responsibility 同一Object内の重複を文字列表記で見逃さず、別Objectの同名は許す。
+ * @trace PPR-UT-006
+ * @precondition 実際の入力解析関数へ文字列を直接渡す。
+ * @stimulus 入れ子・エスケープと不正構文を比較する。
+ * @observation 解析後の値又はnull。
+ * @oracle 曖昧でない値だけを受理する。
+ * @cleanup N/A: メモリ内の比較だけ。
+ * @boundary 入力解析の純粋処理。
+ */
+test("入力JSONは同一Objectの重複キー・不正文法・末尾データを拒否する", () => {
+  assert.deepEqual(
+    parseUnambiguousJsonDocument(
+      ' [ {"x":[true,false,null,-1.5e+2,"a\\t"]}, {"\\u0078":[]} ] ',
+    ),
+    [{ x: [true, false, null, -150, "a\t"] }, { x: [] }],
+  );
+  assert.deepEqual(parseUnambiguousJsonDocument('{"x":{},"y":[]}'), {
+    x: {},
+    y: [],
+  });
+  for (const raw of [
+    "",
+    " ",
+    "\ufeff{}",
+    '{"a":1,"a":2}',
+    '{"a":1,"\\u0061":2}',
+    '[{"outer":{"x":1,"x":2}}]',
+    '{"x":"\\uZZZZ"}',
+    '{"x":"\\q"}',
+    '{"x":"unterminated}',
+    '{"x":"unescaped\n"}',
+    '{"x":}',
+    '{"x" 1}',
+    '{"x":01}',
+    '{"x":1.}',
+    "[1,]",
+    "[1 2]",
+    "{} []",
+  ]) {
+    assert.equal(parseUnambiguousJsonDocument(raw), null, raw);
+  }
+});
 
 /**
  * 入力捕捉後の値比較を保存用JSONの生成から独立させる。

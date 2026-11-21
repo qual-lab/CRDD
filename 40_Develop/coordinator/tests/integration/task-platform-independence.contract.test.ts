@@ -114,194 +114,110 @@ function normalize(relativePath: string): string {
 const allModules = discoverCoordinatorModules();
 // Folder名ではなく現行ArchitectureのFile責務を全数固定する。
 const SOURCE_ROLES = {
-  pure: [
-    "input/json.ts",
-    "input/secret-validation.ts",
-    "input/snapshot.ts",
-    "state/projection.ts",
-    "state/types.ts",
-    "decision/request.ts",
-    "state/persistence.ts",
-    "state/validation.ts",
-    "objective/types.ts",
-    "objective/plan.ts",
-    "state/result.ts",
-    "task/types.ts",
-    "workspace/record.ts",
-  ],
+  pure: ["lifecycle/validation.ts", "lifecycle/types.ts"],
   workflow: [
-    "state/observation.ts",
-    "decision/lifecycle.ts",
-    "decision/acceptance.ts",
-    "objective/execute.ts",
+    "lifecycle/query.ts",
+    "lifecycle/decision.ts",
 
-    "state/query.ts",
-    "task/dispatch.ts",
+    "lifecycle/execution.ts",
   ],
-  adapter: [
-    "state/transaction.ts",
-    "objective/composition.ts",
-    "task/requests.ts",
-    "workspace/commands.ts",
-    "workspace/operations.ts",
-    "selection/resolve.ts",
-  ],
-  storage: ["execution/intelligence.ts"],
+  adapter: ["lifecycle/workspace.ts", "lifecycle/selection.ts"],
   technicalExecution: [
-    "configuration/runtime-data.ts",
-    "execution/configuration.ts",
-    "execution/files.ts",
-    "workspace/git.ts",
-    "execution/types.ts",
-    "execution/lease.ts",
-    "execution/controller.ts",
-    "execution/authority.ts",
-    "execution/operation.ts",
-    "execution/result.ts",
-    "execution/recovery.ts",
-    "execution/observation.ts",
-    "execution/diagnostics.ts",
-    "execution/preparation.ts",
-    "execution/provider-executor.ts",
-    "execution/advice.ts",
-    "execution/request.ts",
-    "execution/persistence.ts",
-    "execution/validation.ts",
-    "execution/kernel-lock.ts",
-    "execution/process-safety-state.ts",
+    "lifecycle/authentication.ts",
+    "lifecycle/environment.ts",
+    "lifecycle/host.ts",
   ],
-  runtimeCli: [
-    "cli/file-snapshot.ts",
-    "cli/command.ts",
-    "cli/options.ts",
-    "cli/request.ts",
-    "cli/authentication.ts",
-    "cli/doctor.ts",
-    "cli/recovery-report.ts",
-    "cli/cancellation.ts",
-  ],
-  externalSendDecision: ["decision/external-send-policy.ts"],
+  runtimeCli: ["cli/command.ts"],
   entry: ["index.ts", "api.ts"],
 } as const;
 const SOURCE_PREFIX = "40_Develop/coordinator/src/";
 const coreModules = SOURCE_ROLES.pure.map((file) => `${SOURCE_PREFIX}${file}`);
 
 /**
- * 統合後のExecution値契約だけを型専用辺として許可する。
- * @responsibility 技術実装や別Symbolを純粋な実行時閉包へ混入させない。
+ * 共有型と固定語彙を純粋な所有者に保つ。
+ * @responsibility 技術実装への型依存、値ロードとWorkspace結果型の借用を拒否する。
  * @trace PRL-IT-012
- * @precondition Task実行型の実Pathと明示した型Symbol。
- * @stimulus 正しい型専用辺、値import、別Symbolを検査する。
- * @observation 依存検査の受理又は拒否。
- * @oracle 指定型だけ受理し、値importと別型は従来の閉包規則で拒否する。
- * @cleanup N/A: 局所データの同期検査のみ。
- * @boundary 同Package内TaskとExecutionの型依存。
+ * @precondition Task共有型の現行Sourceを使用する。
+ * @stimulus 外部技術Moduleへの型import、値import、Workspace結果型の借用。
+ * @observation 依存検査結果と固定語彙の宣言元。
+ * @oracle 語彙は型の所有者へ置き、技術Moduleへ依存しない。
+ * @cleanup N/A: 同期の値検査のみ。
+ * @boundary Task共有の純粋契約。
  */
-test("Taskの純粋契約はExecutionの指定型だけを型専用で参照する", () => {
-  const module = `${SOURCE_PREFIX}task/types.ts`;
-  const contracts = {
-    specifier: "./dispatch.ts",
-    typeOnly: true,
-    names: [
-      "COORDINATOR_EXECUTION_CONTRACT",
-      "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT",
-    ],
-  };
-  const workspace = {
-    specifier: "../workspace/record.ts",
-    typeOnly: true,
-    names: ["WorkspaceResult"],
-  };
-  const scan = (edges: (typeof workspace)[]) => ({ isConsistent: true, edges });
-  assert.doesNotThrow(() =>
-    assertPureImportEdges(module, scan([contracts, workspace])),
-  );
-  for (const edges of [
-    [contracts],
-    [contracts, workspace, workspace],
-    [
-      contracts,
-      { ...workspace, specifier: "../../../execution-model/src/index.ts" },
-    ],
-    [contracts, { ...workspace, typeOnly: false }],
-    [contracts, { ...workspace, names: ["UnapprovedExecutionType"] }],
-    [
-      contracts,
-      { ...workspace, specifier: "../execution/../execution/result.ts" },
-    ],
-  ])
-    assert.throws(
-      () => assertPureImportEdges(module, scan(edges)),
-      /private type dependency/u,
-    );
-});
-
-/**
- * Task共有型は二つの固定Contractだけを型専用で参照する。
- * @responsibility 実行Moduleの値ロードと未承認Symbolの混入を拒否する。
- * @trace PRL-IT-012
- * @precondition 共有型と実行組立ての確定したOwnerを用いる。
- * @stimulus 正しい二型参照と値・欠測・追加・重複・別Ownerを与える。
- * @observation 純粋依存検査の受理又は拒否を観測する。
- * @oracle exactな二つの型参照だけが受理される。
- * @cleanup N/A: 同期的な局所データ検査のみ。
- * @boundary Task共有型と実行組立ての型専用依存。
- */
-test("Task共有型のContract参照は二定数の型専用辺だけを許可する", () => {
-  const module = `${SOURCE_PREFIX}task/types.ts`;
-  const names = [
+test("Task共有型はWorkspace結果と固定語彙を所有し技術Moduleへ依存しない", () => {
+  const module = `${SOURCE_PREFIX}lifecycle/types.ts`;
+  const source = readRuntimeSource(module);
+  assert.match(source, /export type WorkspaceResult = Readonly</u);
+  for (const name of [
     "COORDINATOR_EXECUTION_CONTRACT",
     "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT",
-  ] as const;
-  const workspace = {
-    specifier: "../workspace/record.ts",
-    typeOnly: true,
-    names: ["WorkspaceResult"],
-  };
-  const scan = (
-    typeOnly: boolean,
-    symbols: readonly string[],
-    specifier = "./dispatch.ts",
-  ) => ({
-    isConsistent: true,
-    edges: [workspace, { specifier, typeOnly, names: [...symbols] }],
-  });
-  assert.doesNotThrow(() => assertPureImportEdges(module, scan(true, names)));
-  assert.throws(
-    () => assertPureImportEdges(module, scan(false, names)),
-    /private type dependency/u,
+    "RECOVERY_START_FAILURE_STAGES",
+  ]) {
+    assert.match(source, new RegExp(`export const ${name}\\s*=`, "u"));
+  }
+  assert.doesNotThrow(() =>
+    assertPureImportEdges(module, { isConsistent: true, edges: [] }),
   );
-  assert.throws(
-    () => assertPureImportEdges(module, { isConsistent: true, edges: [] }),
-    /private type dependency/u,
-  );
-  assert.throws(
-    () =>
-      assertPureImportEdges(module, { isConsistent: true, edges: [workspace] }),
-    /private type dependency/u,
-  );
-  assert.throws(
-    () =>
-      assertPureImportEdges(module, scan(true, names, "../task/dispatch.ts")),
-    /private type dependency/u,
-  );
-  for (const symbols of [
-    [],
-    [names[0]],
-    [names[0], names[0]],
-    [...names, "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION"],
-    [names[0], "UnapprovedContract"],
+  for (const edge of [
+    {
+      specifier: "../execution/result.ts",
+      typeOnly: true,
+      names: ["COORDINATOR_EXECUTION_CONTRACT"],
+    },
+    {
+      specifier: "../execution/../execution/result.ts",
+      typeOnly: true,
+      names: ["UnapprovedExecutionType"],
+    },
+    {
+      specifier: "../execution/controller.ts",
+      typeOnly: true,
+      names: ["Operation"],
+    },
+    {
+      specifier: "../execution/recovery.ts",
+      typeOnly: true,
+      names: ["ProviderExecutionRecording"],
+    },
+    {
+      specifier: "./selection.ts",
+      typeOnly: true,
+      names: ["resolveTaskExecutionSelections"],
+    },
+    {
+      specifier: "./execution.ts",
+      typeOnly: true,
+      names: ["UnapprovedContract"],
+    },
+    {
+      specifier: "./validation.ts",
+      typeOnly: true,
+      names: ["WorkspaceResult"],
+    },
+    {
+      specifier: "../../../execution-model/src/index.ts",
+      typeOnly: true,
+      names: ["WorkspaceResult"],
+    },
+    { specifier: "./validation.ts", typeOnly: false, names: ["validIdentity"] },
   ])
     assert.throws(
-      () => assertPureImportEdges(module, scan(true, symbols)),
+      () =>
+        assertPureImportEdges(module, { isConsistent: true, edges: [edge] }),
       /private type dependency/u,
     );
   assert.throws(
     () =>
-      assertPureImportEdges(
-        `${SOURCE_PREFIX}workspace/record.ts`,
-        scan(true, names),
-      ),
+      assertPureImportEdges(`${SOURCE_PREFIX}lifecycle/validation.ts`, {
+        isConsistent: true,
+        edges: [
+          {
+            specifier: "../execution/result.ts",
+            typeOnly: true,
+            names: ["COORDINATOR_EXECUTION_CONTRACT"],
+          },
+        ],
+      }),
     /private type dependency/u,
   );
 });
@@ -354,26 +270,11 @@ function assertPureImportEdges(
   scan: ReturnType<typeof importSpecifierScan>,
 ) {
   assert.ok(scan.isConsistent, "unresolved import syntax");
-  if (module === `${SOURCE_PREFIX}task/types.ts`) {
-    const contractEdges = scan.edges.filter(
-      (edge) => edge.specifier === "./dispatch.ts",
-    );
-    const workspaceEdges = scan.edges.filter(
-      (edge) =>
-        edge.specifier === "../workspace/record.ts" &&
-        edge.names.includes("WorkspaceResult"),
-    );
-    const names = contractEdges.flatMap((edge) => edge.names);
-    const workspaceNames = workspaceEdges.flatMap((edge) => edge.names);
+  if (module === `${SOURCE_PREFIX}lifecycle/types.ts`) {
     assert.ok(
-      contractEdges.every((edge) => edge.typeOnly) &&
-        names.length === 2 &&
-        new Set(names).size === 2 &&
-        names.includes("COORDINATOR_EXECUTION_CONTRACT") &&
-        names.includes("COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT") &&
-        workspaceEdges.every((edge) => edge.typeOnly) &&
-        workspaceNames.length === 1 &&
-        workspaceNames[0] === "WorkspaceResult",
+      scan.edges.every(
+        (edge) => edge.typeOnly && !edge.names.includes("WorkspaceResult"),
+      ),
       "private type dependency",
     );
   }
@@ -401,40 +302,6 @@ function assertPureImportEdges(
     if (typeOnly) {
       assert.ok(
         coreModules.includes(resolved) ||
-          (module === `${SOURCE_PREFIX}state/result.ts` &&
-            specifier === "../configuration/runtime-data.ts" &&
-            resolved === `${SOURCE_PREFIX}configuration/runtime-data.ts` &&
-            names.length === 1 &&
-            names[0] === "RepositoryDataBlockedError") ||
-          (module === `${SOURCE_PREFIX}objective/types.ts` &&
-            specifier === "../selection/resolve.ts" &&
-            resolved === `${SOURCE_PREFIX}selection/resolve.ts` &&
-            names.length === 1 &&
-            names[0] === "resolveTaskExecutionSelections") ||
-          (module === `${SOURCE_PREFIX}objective/types.ts` &&
-            specifier === "../execution/controller.ts" &&
-            names.length === 1 &&
-            names.every((name) =>
-              [
-                "startRuntimeOwnedCoordinatorTask",
-                "cancelRuntimeOwnedCoordinatorTask",
-                "captureRuntimeOwnedCoordinatorTaskResultDelivery",
-              ].includes(name),
-            )) ||
-          (module === `${SOURCE_PREFIX}task/types.ts` &&
-            specifier === "../workspace/record.ts" &&
-            resolved === `${SOURCE_PREFIX}workspace/record.ts` &&
-            names.length === 1 &&
-            names[0] === "WorkspaceResult") ||
-          (module === `${SOURCE_PREFIX}task/types.ts` &&
-            specifier === "./dispatch.ts" &&
-            resolved === `${SOURCE_PREFIX}task/dispatch.ts` &&
-            names.length > 0 &&
-            names.every(
-              (name) =>
-                name === "COORDINATOR_EXECUTION_CONTRACT" ||
-                name === "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT",
-            )) ||
           (/^40_Develop\/(?!coordinator\/)[^/]+\/src\/index\.ts$/u.test(
             resolved,
           ) &&
@@ -442,59 +309,28 @@ function assertPureImportEdges(
         `private type dependency: ${module} -> ${specifier} (${names.join(", ")})`,
       );
     } else if (
+      module === `${SOURCE_PREFIX}lifecycle/validation.ts` &&
+      specifier === "../../../configuration-model/src/index.ts" &&
+      resolved === "40_Develop/configuration-model/src/index.ts" &&
+      names.length === 1 &&
+      names[0] === "inspectAiSelectionChoice"
+    ) {
+      // 単発入力のモデル選択値だけを同期検査し、設定の読取り・保存は参照しない。
+    } else if (
       specifier === "../../../execution-model/src/index.ts" &&
       resolved === "40_Develop/execution-model/src/index.ts" &&
       names.length > 0 &&
       names.every((name) => {
         const allowed: Readonly<Record<string, readonly string[]>> = {
-          "state/projection.ts": [
-            "TaskStartCandidates",
-            "PROJECT_STATE_CONTRACT",
-            "CoordinatorProjection",
-            "OBJECTIVE_STATES",
-            "TASK_STATES",
-            "inspectTaskExecutionSelections",
-            "isCoordinatorProjectionSemanticallyValid",
-          ],
-          "state/types.ts": ["ProjectExecutionState"],
-          "decision/request.ts": [
-            "AcceptanceDecision",
-            "AcceptanceTarget",
-            "isPrincipalId",
-            "Decision",
-            "inspectDecision",
-          ],
-          "state/persistence.ts": [
-            "readProjectExecutionState",
-            "saveProjectExecutionState",
-            "LeaseKind",
-            "QueueEnqueueInput",
-            "ProjectExecutionState",
-            "ProjectExecutionInitialization",
-            "ProjectQueueEntry",
-            "ProjectQueueState",
-          ],
-          "state/validation.ts": [
-            "PROJECT_STATE_CONTRACT",
-            "normalizeRepositoryRelativePath",
-          ],
-          "objective/types.ts": [
-            "ObjectivePlan",
-            "CoordinatorObjectiveRequest",
-            "ProjectExecutionState",
-            "ProjectTaskDefinition",
-          ],
-          "objective/plan.ts": [
-            "ObjectivePlan",
-            "CoordinatorObjectiveRequest",
-            "inspectCoordinatorObjectiveRequest",
+          "lifecycle/validation.ts": [
+            "dockerProcessControllerPublicCompletionReasons",
             "inspectExecutionPlan",
+            "inspectTaskExecutionSelections",
+            "PROJECT_STATE_CONTRACT",
+            "OBJECTIVE_STATES",
+            "parseDockerTaskRecoveryId",
+            "TASK_STATES",
           ],
-          "state/result.ts": [
-            "COORDINATOR_PUBLIC_RUNTIME_CONTRACT",
-            "ExecutionStorageBlockedError",
-          ],
-          "task/types.ts": ["WorkspaceResult", "ProjectTaskRecoveryKind"],
         };
         return (
           allowed[module.slice(SOURCE_PREFIX.length)]?.includes(name) === true
@@ -664,26 +500,20 @@ function importSpecifierScan(source: SourceFile) {
  */
 test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する", () => {
   const boundaryErrorEdge = {
-    specifier: "../configuration/runtime-data.ts",
+    specifier: "./host.ts",
     typeOnly: true,
     names: ["RepositoryDataBlockedError"],
   };
-  assert.doesNotThrow(() =>
-    assertPureImportEdges(`${SOURCE_PREFIX}state/result.ts`, {
-      isConsistent: true,
-      edges: [boundaryErrorEdge],
-    }),
-  );
   for (const [module, edge] of [
     [
-      `${SOURCE_PREFIX}state/result.ts`,
+      `${SOURCE_PREFIX}lifecycle/validation.ts`,
       { ...boundaryErrorEdge, typeOnly: false },
     ],
     [
-      `${SOURCE_PREFIX}state/result.ts`,
+      `${SOURCE_PREFIX}lifecycle/validation.ts`,
       { ...boundaryErrorEdge, names: ["observeArea"] },
     ],
-    [`${SOURCE_PREFIX}state/projection.ts`, boundaryErrorEdge],
+    [`${SOURCE_PREFIX}lifecycle/validation.ts`, boundaryErrorEdge],
   ] as const) {
     assert.throws(() =>
       assertPureImportEdges(module, {
@@ -692,45 +522,13 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
       }),
     );
   }
-  const selectionEdge = {
-    specifier: "../selection/resolve.ts",
-    typeOnly: true,
-    names: ["resolveTaskExecutionSelections"],
-  };
-  assert.doesNotThrow(() =>
-    assertPureImportEdges(`${SOURCE_PREFIX}objective/types.ts`, {
-      isConsistent: true,
-      edges: [selectionEdge],
-    }),
-  );
-  for (const edge of [
-    { ...selectionEdge, names: [] },
-    { ...selectionEdge, names: ["unapprovedSelection"] },
-    { ...selectionEdge, names: [...selectionEdge.names, "extra"] },
-  ])
-    assert.throws(
-      () =>
-        assertPureImportEdges(`${SOURCE_PREFIX}objective/types.ts`, {
-          isConsistent: true,
-          edges: [edge],
-        }),
-      /private type dependency/u,
-    );
-  assert.throws(
-    () =>
-      assertPureImportEdges(`${SOURCE_PREFIX}objective/types.ts`, {
-        isConsistent: true,
-        edges: [{ ...selectionEdge, typeOnly: false }],
-      }),
-    /outside pure runtime closure/u,
-  );
   const snapshotEdge = {
     specifier: "../../../execution-model/src/index.ts",
     typeOnly: false,
     names: ["inspectExecutionPlan"],
   };
   assert.doesNotThrow(() =>
-    assertPureImportEdges(`${SOURCE_PREFIX}objective/plan.ts`, {
+    assertPureImportEdges(`${SOURCE_PREFIX}lifecycle/validation.ts`, {
       isConsistent: true,
       edges: [snapshotEdge],
     }),
@@ -742,12 +540,33 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
   ])
     assert.throws(
       () =>
-        assertPureImportEdges(`${SOURCE_PREFIX}objective/plan.ts`, {
+        assertPureImportEdges(`${SOURCE_PREFIX}lifecycle/validation.ts`, {
           isConsistent: true,
           edges: [{ ...snapshotEdge, names }],
         }),
       /outside pure runtime closure/u,
     );
+  const choiceEdge = {
+    specifier: "../../../configuration-model/src/index.ts",
+    typeOnly: false,
+    names: ["inspectAiSelectionChoice"],
+  };
+  assert.doesNotThrow(() =>
+    assertPureImportEdges(`${SOURCE_PREFIX}lifecycle/validation.ts`, {
+      isConsistent: true,
+      edges: [choiceEdge],
+    }),
+  );
+  assert.throws(
+    () =>
+      assertPureImportEdges(`${SOURCE_PREFIX}lifecycle/validation.ts`, {
+        isConsistent: true,
+        edges: [
+          { ...choiceEdge, names: [...choiceEdge.names, "readNetworkPolicy"] },
+        ],
+      }),
+    /outside pure runtime closure/u,
+  );
   assertSourcePopulation(SOURCE_ROLES, allModules);
   assert.throws(
     () =>
@@ -842,6 +661,14 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
             .filter((target) => modulePaths.has(target)),
         );
       }
+      const lifecycle = normalize(
+        path.join(repositoryRoot, SOURCE_PREFIX, "lifecycle/execution.ts"),
+      );
+      const recovery = normalize(
+        path.join(repositoryRoot, SOURCE_PREFIX, "lifecycle/environment.ts"),
+      );
+      assert.ok(graph.get(lifecycle)?.includes(recovery));
+      assert.equal(graph.get(recovery)?.includes(lifecycle), false);
       /** 型専用辺を除いた既存Source間の循環を拒否し、同じ走査を合成反例でも確認する。 */
       const assertAcyclic = (edges: ReadonlyMap<string, readonly string[]>) => {
         const visited = new Set<string>();
@@ -949,7 +776,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
     'import { randomUUID as random } from "node:crypto";',
     'import { readCurrentCoordinatorState } from "../storage/state.ts";',
     'import { queryCoordinatorState } from "./query.ts";',
-    'import { snapshotPlainRecord } from "./validation.ts";',
+    'import type { WorkspaceResult } from "./types.ts";',
     'import type { T } from "../storage/state.ts";',
     'import type { Stats } from "node:fs";',
     'import type { T } from "../index.ts";',
@@ -1019,7 +846,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
            * 変異した依存辺を純粋状態Moduleの境界へ照合する。
            * @responsibility 変異した依存辺を純粋状態Moduleの境界へ照合する。
            * @trace PRL-IT-012
-           * @precondition state/validationのscanと有限変異。
+           * @precondition 状態投影Ownerのscanと有限変異。
            * @stimulus 既存assertPureImportEdgesを同じ対象へ実行する。
            * @observation 禁止依存に対応する固定診断。
            * @oracle 型だけを含む禁止辺も拒否し正常対照は通る。
@@ -1027,7 +854,10 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
            * @boundary 静的Import境界。実ModuleのEffectは起動しない。
            */
           const check = () =>
-            assertPureImportEdges(`${SOURCE_PREFIX}state/validation.ts`, scan);
+            assertPureImportEdges(
+              `${SOURCE_PREFIX}lifecycle/validation.ts`,
+              scan,
+            );
           if (expected === null) check();
           else {
             assert.ok(expected);
@@ -1060,73 +890,30 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照しない", () => {
-  const windowsAdapterPath =
-    "40_Develop/coordinator/src/execution/diagnostics.ts";
-  assert.ok(
-    fs.existsSync(path.join(repositoryRoot, windowsAdapterPath)),
-    "windows adapter module must exist",
-  );
-  for (const moduleRelativePath of coreModules) {
-    const source = readRuntimeSource(moduleRelativePath);
-    assert.equal(
-      /windows-platform-(?:adapter|observation)/u.test(source),
-      false,
-      `${moduleRelativePath} must not reference the windows adapter`,
-    );
+test("OS観測の実処理は純粋なCoreの外にあり退役PAを参照しない", () => {
+  const environment = `${SOURCE_PREFIX}lifecycle/environment.ts`;
+  const host = `${SOURCE_PREFIX}lifecycle/host.ts`;
+  for (const owner of [environment, host]) {
+    assert.equal(coreModules.includes(owner), false);
+    assert.doesNotMatch(readRuntimeSource(owner), /platform-access\/src\//u);
   }
-  const windowsAdapterSource = readRuntimeSource(windowsAdapterPath);
+  for (const file of coreModules)
+    assert.doesNotMatch(
+      readRuntimeSource(file),
+      /windows-platform-(?:adapter|observation)/u,
+    );
   assert.equal(
-    windowsAdapterSource.includes(
-      'from "../../../platform-access/src/index.ts"',
+    /process\.platform/u.test(
+      readRuntimeSource("40_Develop/coordinator/src/lifecycle/execution.ts"),
     ),
     false,
   );
-  const adapterNames = new Set([
-    "createCoordinatorWindowsPlatformAdapter",
-    "resolveRepositoryRoot",
-  ]);
-  const config = path
-    .join(repositoryRoot, ".adapter-observation.json")
-    .replaceAll("\\", "/");
-  const file = path
-    .join(repositoryRoot, windowsAdapterPath)
-    .replaceAll("\\", "/");
-  const api = new API({
-    cwd: repositoryRoot,
-    fs: createVirtualFileSystem({
-      [config]: JSON.stringify({
-        files: [file],
-        compilerOptions: { noLib: true, noResolve: true },
-      }),
-      [file]: windowsAdapterSource,
-    }),
-  });
-  const snapshot = api.updateSnapshot({ openProjects: [config] });
-  try {
-    const source = snapshot.getProject(config)?.program.getSourceFile(file);
-    assert.ok(source);
-    const adapters = source.statements.filter(
-      (statement) =>
-        statement.kind === SyntaxKind.FunctionDeclaration &&
-        "name" in statement &&
-        adapterNames.has((statement.name as { text: string }).text),
-    );
-    assert.equal(adapters.length, adapterNames.size);
-    for (const adapter of adapters)
-      assert.doesNotMatch(adapter.getText(), /process\.platform/u);
-  } finally {
-    snapshot.dispose();
-    api.close();
-  }
-  assert.equal(
-    /process\.platform/u.test(
-      readRuntimeSource("40_Develop/coordinator/src/objective/execute.ts"),
-    ),
-    true,
+  assert.match(
+    readRuntimeSource("40_Develop/coordinator/src/lifecycle/host.ts"),
+    /process\.kill\(ownerProcessId, 0\)/u,
   );
   assert.match(
-    readRuntimeSource("40_Develop/coordinator/src/execution/kernel-lock.ts"),
-    /process\.kill\(ownerProcessId, 0\)/u,
+    readRuntimeSource("40_Develop/coordinator/src/lifecycle/host.ts"),
+    /process\.platform === "win32"/u,
   );
 });

@@ -1,5 +1,11 @@
 # CROS Workbench詳細設計
 
+## 検証HTTPの時刻と終了確認
+
+検証Toolの`completedAt`は子Process、`closedAt`は親がclose待機後に採取する壁時計である。表示値は補正せず保持し、親子の数値の大小を処理順序の保証に使わない。利用先は計測snapshot／summaryであり、Taskの成功・Recovery・Cleanupを判定しない。固定Schemaと正整数検査、子Process内の既存時刻相関は維持する。
+
+終了確認の正本は、既存HTTP子の結果frameと実`close`の共同確認である。[Node.js 24.19の契約](https://nodejs.org/download/release/v24.19.0/docs/api/child_process.html#event-close)に従い、frame到達だけで返却せず、Processと標準入出力の終了後の通知を待つ。親子の共通時計・補正値・新fieldは追加しない。検証ではframe到達済みのclose遅延、親時計の逆転、重複closeを与え、close前の返却・計測通知0、close後の各一回と元値保持を外側から照合する。
+
 ## 検証Toolの開発Source観測接続
 
 Workspace検証ToolはCoordinatorの`scripts/measure-development-providers.ts`からSource観測を直接取得し、同じScope・内容・実体の前後比較を維持する。旧診断Moduleからの転送を要求しない。対象集合の正本は[Coordinator設計](../coordinator/01_Architecture.md)とする。既存の同意なし・不正引数の実CLI拒否試験で、入口のImport解決まで確認する。合成Source fixtureは現行v4に合わせ、検証Toolの起動確認を実AI・Dockerの成功へ拡張しない。

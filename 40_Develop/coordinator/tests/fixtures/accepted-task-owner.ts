@@ -6,11 +6,17 @@
  * @boundary Repository-localの自己生成試験領域。AI・Docker・認証なし。
  */
 import assert from "node:assert/strict";
+import {
+  getRepository,
+  readRepositoryRevision,
+} from "../../../version-control/src/index.ts";
 import fs from "node:fs";
 import path from "node:path";
-import { executionSelection } from "./ai-selection.ts";
-import { createCoordinatorTaskRequests } from "../../src/task/requests.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
+import { selectionConfig } from "./ai-selection.ts";
+import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
+import { createCoordinatorTaskRequests } from "../../src/lifecycle/execution.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
 
 const root = process.argv[2];
 const revision = process.argv[3];
@@ -23,20 +29,31 @@ assert.equal(path.dirname(root), parent);
 assert.equal(fs.realpathSync.native(root), root);
 assert.match(path.basename(root), /^task-acceptance-/u);
 assert.match(revision, /^[0-9a-f]{40}$/u);
+const repository = getRepository(root);
+assert.equal(repository.status, "completed");
+if (repository.status !== "completed")
+  throw Error("fixture_repository_unverified");
+assert.equal(
+  saveRepositoryAiSelection(
+    repository.capability,
+    { expectedIdentity: null, config: selectionConfig() },
+    () => true,
+    getModelCatalog().catalog,
+  ).status,
+  "saved",
+);
+assert.equal(
+  readRepositoryRevision(repository.capability)?.revisionIdentity,
+  revision,
+);
 const owner = createCoordinatorTaskRequests({
   root,
+  rootCapability: repository.capability,
+  consumer: "workbench",
   binding: deriveCoordinatorRepositoryBindingId(root),
   projectId: "synthetic-project",
   principalId: "synthetic-user",
   authorize: () => true,
-  resolveSelection: () => ({
-    primary: executionSelection("advice"),
-    taskExecutionSelections: null,
-  }),
-  observeRevision: () => revision,
-  execute: async () => {
-    throw Error("execution_must_not_start");
-  },
 });
 const accepted = await owner.start({
   requestId: "accepted-task-owner-request",

@@ -20,7 +20,7 @@ import {
   validateResourceBook,
 } from "../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { snapshotJsonValue } from "../../src/input/snapshot.ts";
+import { snapshotJsonValue } from "../../src/lifecycle/validation.ts";
 
 /**
  * 認証記録の実宣言へ保存代役だけを接続する。
@@ -35,7 +35,7 @@ import { snapshotJsonValue } from "../../src/input/snapshot.ts";
  */
 function fixture() {
   const source = fs.readFileSync(
-    new URL("../../src/execution/authority.ts", import.meta.url),
+    new URL("../../src/lifecycle/authentication.ts", import.meta.url),
     "utf8",
   );
   const expected = {

@@ -24,7 +24,7 @@ import {
   type TaskSession,
   type WorkspaceView,
 } from "../../coordinator/src/index.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../coordinator/src/state/validation.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../coordinator/src/lifecycle/validation.ts";
 import { selectionConfig } from "../../coordinator/tests/fixtures/ai-selection.ts";
 import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/workspace-surface.ts";
 import {

@@ -20,7 +20,7 @@ import {
   ensureRepositoryExecutionDataArea,
   requireReadyRepositoryExecutionDataArea,
   RepositoryDataBlockedError,
-} from "../../src/configuration/runtime-data.ts";
+} from "../../src/lifecycle/host.ts";
 
 /**
  * 所在初期化の失敗をEM例外へ変換せずCo所有の情報として搬送する。

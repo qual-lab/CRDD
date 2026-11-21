@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import cp from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
-import { syncBuiltinESMExports } from "node:module";
+import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { mock } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -27,8 +27,10 @@ import type {
   ExecutionOperationRecord,
   OperationRecord,
 } from "../../../execution-model/src/index.ts";
-import { getIsolationSettings } from "../../src/execution/configuration.ts";
+import { getIsolationSettings } from "../../src/lifecycle/environment.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
+import { sourceUrl } from "../support/task-requests.ts";
+import { recoveryEnvironmentFixtureUrl } from "../support/recovery.ts";
 import { executionSelection } from "./ai-selection.ts";
 
 const mode = process.argv[2];
@@ -83,13 +85,13 @@ assert.ok(verified.capability);
 assert.equal(vc.resolveVerifiedRepositoryRoot(verified.capability), root);
 const statePath = path.join(root, ".crdd", "domain-model", "state.json");
 // この有限な親子試験だけで共有する所在。実ユーザーHomeと保護Policyは触らない。
-const authority =
+const environment =
   mode === "auth_create_unknown"
-    ? await import("../../src/execution/authority.ts")
+    ? await import("../../src/lifecycle/environment.ts")
     : null;
 const fixtureHomeDirectory =
   mode === "auth_create_unknown"
-    ? authority?.providerHomesDirectoryCandidate()
+    ? environment?.providerHomesDirectoryCandidate()
     : path.join(root, ".crdd", "tests", "reentry-home-locks");
 const fixtureRuntimeDirectory = path.join(
   root,
@@ -204,15 +206,13 @@ function captureHostRoot(target: string) {
 
 if (mode !== "recovery") {
   const domain = await import("../../../execution-model/src/index.ts");
-  const host = await import("../../src/execution/operation.ts");
-  const repository = await import("../../src/execution/operation.ts");
-  const store = {
-    ...domain,
-    ...(await import("../../src/execution/persistence.ts")),
-  };
-  const homes = await import("../../src/execution/authority.ts");
-  const locks = await import("../../src/execution/kernel-lock.ts");
-  const areas = await import("../../src/configuration/runtime-data.ts");
+  const host = await import("../../src/lifecycle/host.ts");
+  const repository = await import("../../src/lifecycle/host.ts");
+  const observeOperation = (owner: unknown) =>
+    domain.readState(host.operationStateInput(owner), { scope: "operation" });
+  const homes = await import("../../src/lifecycle/environment.ts");
+  const locks = await import("../../src/lifecycle/host.ts");
+  const areas = await import("../../src/lifecycle/host.ts");
   areas.requireReadyRepositoryExecutionDataArea(
     areas.ensureRepositoryExecutionDataAreaFromWorkingDirectory(root, "tests"),
     "abandon_fixture",
@@ -244,7 +244,7 @@ if (mode !== "recovery") {
   const otherBinding =
     repository.borrowRuntimeOwnedCoordinatorStateRepository(other);
   assert.ok(binding && otherBinding);
-  assert.equal(store.readOperationStateStage(management).status, "completed");
+  assert.equal(observeOperation(management).status, "completed");
   const hash = randomBytes(32).toString("hex"),
     suffix = randomBytes(8).toString("hex");
   const plan = Object.freeze({
@@ -270,7 +270,7 @@ if (mode !== "recovery") {
     operationMode: "workbench_advice" as const,
     workspaceMountMode: null,
   });
-  const baseline = await import("../../src/execution/recovery.ts");
+  const baseline = await import("../../src/lifecycle/environment.ts");
   const otherIdentity =
     baseline.prepareRuntimeOwnedRepositoryDockerOperationIdentity(
       {
@@ -284,16 +284,19 @@ if (mode !== "recovery") {
     );
   assert.ok(otherIdentity);
   assert.equal(
-    store.saveOperationStart(other, otherIdentity, () => null).status,
+    domain.saveOperationStart(
+      host.operationStartInput(other, () => null),
+      otherIdentity,
+    ).status,
     "completed",
   );
   let observedPlan = plan;
   let afterStateRead: (() => void) | null = null;
   let startWrites = 0;
-  const stateReads: ReturnType<typeof store.readOperationStateStage>[] = [];
+  const stateReads: ReturnType<typeof observeOperation>[] = [];
   const admissionChecks: string[] = [];
   const homeMock = mock.module(
-    new URL("../../src/execution/authority.ts", import.meta.url).href,
+    new URL("../../src/lifecycle/environment.ts", import.meta.url).href,
     {
       namedExports: {
         ...homes,
@@ -364,72 +367,38 @@ if (mode !== "recovery") {
     throw new Error("crash_fixture_process_survived");
   }
   try {
-    const actualStore = await import(
-      new URL(
-        "../../src/execution/persistence.ts?abandon-producer",
-        import.meta.url,
-      ).href
-    );
     const authCheckpointResults: ReturnType<
-      typeof actualStore.saveOperationCheckpoint
+      typeof domain.saveOperationCheckpoint
     >[] = [];
-    const storeMock = mock.module(
-      new URL("../../src/execution/persistence.ts", import.meta.url).href,
+    const domainMock = mock.module(
+      new URL("../../../execution-model/src/index.ts", import.meta.url).href,
       {
         namedExports: {
-          ...actualStore,
-          saveOperationCheckpoint: (
-            owner: unknown,
-            recoveryId: unknown,
-            request: { kind: string; value: unknown },
-          ) => {
-            if (request.kind === "resource")
-              return ((
-                ...args: [owner: unknown, recoveryId: unknown, value: unknown]
-              ) => {
-                const saved = actualStore.saveOperationCheckpoint(
-                  args[0],
-                  args[1],
-                  { kind: "resource", value: args[2] },
-                );
-                if (authCreateMode) authCheckpointResults.push(saved);
-                return saved;
-              })(owner, recoveryId, request.value);
-            return actualStore.saveOperationCheckpoint(
-              owner,
-              recoveryId,
-              request as Parameters<
-                typeof actualStore.saveOperationCheckpoint
-              >[2],
-            );
-          },
-          readOperationStateStage: (
-            ...args: Parameters<typeof store.readOperationStateStage>
-          ) => {
-            const result = actualStore.readOperationStateStage(...args);
-            stateReads.push(result);
-            if (afterStateRead) {
-              const hook = afterStateRead;
-              afterStateRead = null;
-              hook();
-            }
-            return result;
-          },
+          ...domain,
           saveOperationStart: (
-            ...args: Parameters<typeof store.saveOperationStart>
+            ...args: Parameters<typeof domain.saveOperationStart>
           ) => {
+            const input = args[0];
+            if (
+              typeof args[1] !== "string" ||
+              input === null ||
+              typeof input !== "object" ||
+              !("identity" in input) ||
+              !("observeSettlementRepository" in input)
+            )
+              return domain.saveOperationStart(...args);
             startWrites++;
-            const result = actualStore.saveOperationStart(...args);
+            const result = domain.saveOperationStart(...args);
             if (
               (mode === "cleanup_withheld" || mode === "parent_terminated") &&
-              args[0] === management
+              input.identity === management
             ) {
               assert.equal(result.status, "completed");
               assert.equal(result.snapshotConfirmed, true);
               assert.equal(result.lockReleased, true);
               assert.equal(typeof result.recoveryId, "string");
             }
-            if (mode === "state_saved" && args[0] === management) {
+            if (mode === "state_saved" && input.identity === management) {
               assert.equal(startWrites, 1);
               assert.equal(result.status, "completed");
               assert.equal(result.snapshotConfirmed, true);
@@ -440,15 +409,36 @@ if (mode !== "recovery") {
             }
             return result;
           },
+          saveOperationCheckpoint: (
+            ...args: Parameters<typeof domain.saveOperationCheckpoint>
+          ) => {
+            const result = domain.saveOperationCheckpoint(...args);
+            if (authCreateMode && args[2].kind === "resource")
+              authCheckpointResults.push(result);
+            return result;
+          },
+          readState: new Proxy(domain.readState, {
+            apply(target, receiver, args) {
+              const result = Reflect.apply(target, receiver, args);
+              if (args.length === 2 && args[1]?.scope === "operation") {
+                stateReads.push(result as ReturnType<typeof observeOperation>);
+                if (afterStateRead) {
+                  const hook = afterStateRead;
+                  afterStateRead = null;
+                  hook();
+                }
+              }
+              return result;
+            },
+          }),
         },
       },
     );
     try {
       owner = await import(
-        new URL(
-          "../../src/execution/recovery.ts?abandon-producer",
-          import.meta.url,
-        ).href
+        recoveryEnvironmentFixtureUrl(
+          new URL("../../src/lifecycle/environment.ts", import.meta.url),
+        )
       );
       assert.ok(owner);
       if (mode !== "producer") {
@@ -557,7 +547,7 @@ if (mode !== "recovery") {
           assert.equal(intent.status, "completed");
           assert.equal(intent.snapshotConfirmed, true);
           assert.equal(intent.lockReleased, true);
-          const savedIntent = actualStore.readOperationStateStage(management);
+          const savedIntent = observeOperation(management);
           assert.equal(savedIntent.status, "completed");
           assert.equal(savedIntent.lockReleased, true);
           assert.ok(savedIntent.value);
@@ -731,7 +721,7 @@ if (mode !== "recovery") {
             faultReached++;
             throw injectedFailure;
           }
-          const savedUnknown = actualStore.readOperationStateStage(management);
+          const savedUnknown = observeOperation(management);
           assert.equal(savedUnknown.status, "completed");
           assert.equal(savedUnknown.lockReleased, true);
           assert.ok(savedUnknown.value);
@@ -787,13 +777,13 @@ if (mode !== "recovery") {
           });
         }
         if (mode === "cleanup_withheld" || mode === "parent_terminated") {
-          const current = actualStore.readOperationStateStage(management);
+          const current = observeOperation(management);
           assert.equal(current.status, "completed");
           assert.equal(current.lockReleased, true);
           assert.ok(current.value);
           const target: ExecutionOperationRecord | undefined =
             current.value.snapshot.operations.find(
-              (item: OperationRecord) =>
+              (item): item is ExecutionOperationRecord =>
                 item.kind === "docker_task" &&
                 item.recoveryId === begun.recoveryId,
             );
@@ -908,10 +898,9 @@ if (mode !== "recovery") {
                   "workbench",
                 );
               assert.ok(concurrentIdentity);
-              const injected = actualStore.saveOperationStart(
-                other,
+              const injected = domain.saveOperationStart(
+                host.operationStartInput(other, () => null),
                 concurrentIdentity,
-                () => null,
               );
               assert.equal(injected.status, "completed");
               assert.equal(injected.snapshotConfirmed, true);
@@ -971,10 +960,11 @@ if (mode !== "recovery") {
               false,
             );
             assert.equal(
-              owner.prepareRuntimeOwnedDockerHostCleanup(
+              owner.canPrepareRuntimeOwnedDockerHostCleanup(
                 refused.recoveryCapability,
+                undefined,
               ),
-              null,
+              false,
             );
             assert.equal(
               owner.abandonRuntimeOwnedDockerRecovery(
@@ -1050,8 +1040,13 @@ if (mode !== "recovery") {
         false,
       );
       assert.equal(
-        owner.prepareRuntimeOwnedDockerHostCleanup(capability),
-        null,
+        owner.canPrepareRuntimeOwnedDockerHostCleanup(
+          capability,
+          observeOperation(management).value?.operationStates.find(
+            (state) => state.operation.recoveryId === begun.recoveryId,
+          ),
+        ),
+        false,
       );
       const reacquiredAcquisition = locks.acquireProviderHomeLock(
         hash,
@@ -1172,7 +1167,7 @@ if (mode !== "recovery") {
         }),
       );
     } finally {
-      storeMock.restore();
+      domainMock.restore();
     }
   } catch (error) {
     if (mode !== "auth_create_failure") throw error;
@@ -1396,7 +1391,7 @@ if (mode !== "recovery") {
     violations.splice(0);
     if (admissionVerification === "verify_admission") {
       const actualStore = await import("../../../execution-model/src/index.ts");
-      const actualHost = await import("../../src/execution/operation.ts");
+      const actualHost = await import("../../src/lifecycle/host.ts");
       // 公開回復が呼び得る保存・出版入口を明示する。安全なRepository借用と実Readerは代役にしない。
       const mutationNames = [
         "saveOperationCheckpoint",
@@ -1428,7 +1423,7 @@ if (mode !== "recovery") {
         },
       );
       admissionHostMock = mock.module(
-        new URL("../../src/execution/operation.ts", import.meta.url).href,
+        new URL("../../src/lifecycle/host.ts", import.meta.url).href,
         {
           namedExports: {
             ...actualHost,
@@ -1521,9 +1516,17 @@ if (mode !== "recovery") {
           },
         },
       );
-      const actualHost = await import("../../src/execution/operation.ts");
+      // 既存のHost Writer importを、上のEM代役が有効な状態で結び直す。
+      // 回復子には生成元Processの生Ownerがなく、このModuleで取得と解放をそろえる。
+      const actualHost: typeof import("../../src/lifecycle/host.ts") =
+        await import(
+          new URL(
+            "../../src/lifecycle/host.ts?host-writer-interruption",
+            import.meta.url,
+          ).href
+        );
       recoveryHostMock = mock.module(
-        new URL("../../src/execution/operation.ts", import.meta.url).href,
+        new URL("../../src/lifecycle/host.ts", import.meta.url).href,
         {
           namedExports: {
             ...actualHost,
@@ -1564,23 +1567,40 @@ if (mode !== "recovery") {
         );
       }
     }
-    const actualAuthority = await import("../../src/execution/authority.ts");
-    mock.module(
-      new URL("../../src/execution/authority.ts", import.meta.url).href,
-      {
-        namedExports: {
-          ...actualAuthority,
-          providerHomesDirectoryCandidate: () => fixtureHomeDirectory,
-          runtimeStateDirectoryCandidate: () => fixtureRuntimeDirectory,
-        },
-      },
+    // 通常Moduleのexport代役では、同じSource内の所在呼出しを差し替えられない。
+    const origin = new URL(
+      "../../src/lifecycle/environment.ts",
+      import.meta.url,
     );
-    // 実Storeの依存が通常namespaceを先に読むため、hook登録後の同じSourceを別namespaceで結合する。
-    const recovery = await import(
-      new URL(
-        "../../src/execution/recovery.ts?cleanup-interruption",
-        import.meta.url,
-      ).href
+    let recoverySource = fs.readFileSync(origin, "utf8");
+    assert.equal(typeof fixtureHomeDirectory, "string");
+    for (const [candidate, fixtureDirectory] of [
+      ["providerHomesDirectoryCandidate", fixtureHomeDirectory],
+      ["runtimeStateDirectoryCandidate", fixtureRuntimeDirectory],
+    ] as const) {
+      const declaration = new RegExp(
+        "^export function " +
+          candidate +
+          "\\(\\)(?:: string \\| null)? \\{[\\s\\S]*?^\\}",
+        "gmu",
+      );
+      assert.equal([...recoverySource.matchAll(declaration)].length, 1);
+      recoverySource = recoverySource.replace(
+        declaration,
+        () =>
+          `export function ${candidate}() { return ${JSON.stringify(fixtureDirectory)}; }`,
+      );
+    }
+    const recovery = (await import(
+      sourceUrl(stripTypeScriptTypes(recoverySource), origin, new Map())
+    )) as typeof import("../../src/lifecycle/environment.ts");
+    assert.equal(
+      recovery.providerHomesDirectoryCandidate(),
+      fixtureHomeDirectory,
+    );
+    assert.equal(
+      recovery.runtimeStateDirectoryCandidate(),
+      fixtureRuntimeDirectory,
     );
     if (admissionVerification === "verify_admission") {
       const model = await import("../../../execution-model/src/index.ts");

@@ -14,12 +14,13 @@ import test from "node:test";
 import {
   type ExecutionStateSnapshot,
   readDecision,
+  readProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
-import { executeCoordinatorPublicDecision } from "../../src/decision/lifecycle.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { readCurrentCoordinatorState } from "../../src/state/query.ts";
+import { submitDecision } from "../../src/lifecycle/decision.ts";
+import { acquireCoordinatorSnapshotLease } from "../../src/lifecycle/host.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
 import {
   createRepository,
   persistAcceptancePendingState,
@@ -62,15 +63,12 @@ test("継続要求から再計画待ち又は取消へ一回適用し履歴だ�
       allowedOptions: ["resume", "cancel"],
     };
     const auth = { principalId: "operator-a" };
-    const requested = executeCoordinatorPublicDecision(request, root, auth);
+    const requested = submitDecision(request, root, auth);
     assert.equal(requested.status, "completed", requested.reason);
     assert.equal(requested.decision?.status, "pending");
     const file = path.join(root, ".crdd", "domain-model", "state.json");
     const pending = fs.readFileSync(file, "utf8");
-    assert.equal(
-      executeCoordinatorPublicDecision(request, root, auth).status,
-      "completed",
-    );
+    assert.equal(submitDecision(request, root, auth).status, "completed");
     assert.equal(fs.readFileSync(file, "utf8"), pending);
     const answer = { ...common, operation: "answer", selectedOption };
     for (const [input, principal] of [
@@ -79,7 +77,7 @@ test("継続要求から再計画待ち又は取消へ一回適用し履歴だ�
       [{ ...answer, continuationCapability: "old-token" }, "operator-a"],
     ] as const) {
       assert.equal(
-        executeCoordinatorPublicDecision(input, root, {
+        submitDecision(input, root, {
           principalId: principal,
         }).status,
         "blocked",
@@ -89,7 +87,7 @@ test("継続要求から再計画待ち又は取消へ一回適用し履歴だ�
     let finalAnswer = answer;
     let firstAnswer: unknown;
     if (selectedOption === "resume") {
-      const other = executeCoordinatorPublicDecision(
+      const other = submitDecision(
         {
           ...request,
           decisionId: "second-approval",
@@ -99,7 +97,7 @@ test("継続要求から再計画待ち又は取消へ一回適用し履歴だ�
         auth,
       );
       assert.equal(other.status, "completed", other.reason);
-      const first = executeCoordinatorPublicDecision(answer, root, auth);
+      const first = submitDecision(answer, root, auth);
       assert.equal(first.status, "blocked");
       assert.equal(first.decision?.status, "answered");
       firstAnswer = first.decision?.result?.answer;
@@ -141,16 +139,16 @@ test("継続要求から再計画待ち又は取消へ一回適用し履歴だ�
         });
       return Reflect.apply(rename, fs, [from, to]);
     }) as typeof rename);
-    let result: ReturnType<typeof executeCoordinatorPublicDecision>;
+    let result: ReturnType<typeof submitDecision>;
     try {
-      result = executeCoordinatorPublicDecision(finalAnswer, root, auth);
+      result = submitDecision(finalAnswer, root, auth);
     } finally {
       fault.mock.restore();
     }
     assert.equal(result.decision?.status, "applied", result.reason);
     assert.equal(result.history?.status, "unconfirmed");
     const saved = fs.readFileSync(file, "utf8");
-    const replay = executeCoordinatorPublicDecision(finalAnswer, root, auth);
+    const replay = submitDecision(finalAnswer, root, auth);
     assert.equal(replay.status, "completed", replay.reason);
     assert.equal(replay.history?.status, "confirmed");
     assert.deepEqual(replay.decision, result.decision);
@@ -177,11 +175,15 @@ test("継続要求から再計画待ち又は取消へ一回適用し履歴だ�
       selectedOption === "resume" ? "replan_required" : "cancelled",
     );
     assert.equal(queue.ownerGeneration, null);
-    const observed = readCurrentCoordinatorState(root, binding, projectId);
+    const observed = readProjectExecutionState(
+      verifyRuntimePersistenceRepository(root),
+      binding,
+      projectId,
+    );
     assert.ok(observed.value);
     assert.equal(observed.value.generation, state.generation + 1);
     assert.equal(
-      executeCoordinatorPublicDecision(
+      submitDecision(
         {
           ...common,
           operation: "close",
@@ -234,7 +236,7 @@ test("明示無効化は判断を閉じるだけでBlockerとQueueを保持す�
       return Reflect.apply(rename, fs, [from, to]);
     }) as typeof rename);
     try {
-      return executeCoordinatorPublicDecision(input, root, auth);
+      return submitDecision(input, root, auth);
     } finally {
       fault.mock.restore();
     }
@@ -252,7 +254,7 @@ test("明示無効化は判断を閉じるだけでBlockerとQueueを保持す�
   assert.equal(requested.history?.status, "unconfirmed");
   const file = path.join(root, ".crdd", "domain-model", "state.json");
   const pending = fs.readFileSync(file, "utf8");
-  const reentered = executeCoordinatorPublicDecision(request, root, auth);
+  const reentered = submitDecision(request, root, auth);
   assert.equal(reentered.history?.status, "confirmed", reentered.reason);
   assert.deepEqual(reentered.decision, requested.decision);
   assert.equal(fs.readFileSync(file, "utf8"), pending);
@@ -267,7 +269,7 @@ test("明示無効化は判断を閉じるだけでBlockerとQueueを保持す�
   assert.equal(result.status, "completed", result.reason);
   assert.equal(result.decision?.status, "invalidated");
   const saved = fs.readFileSync(file, "utf8");
-  const closedReplay = executeCoordinatorPublicDecision(close, root, auth);
+  const closedReplay = submitDecision(close, root, auth);
   assert.equal(closedReplay.status, "completed", closedReplay.reason);
   assert.equal(closedReplay.history?.status, "confirmed");
   assert.deepEqual(closedReplay.decision, result.decision);
@@ -276,8 +278,7 @@ test("明示無効化は判断を閉じるだけでBlockerとQueueを保持す�
     { operation: "apply" },
   ])
     assert.equal(
-      executeCoordinatorPublicDecision({ ...common, ...operation }, root, auth)
-        .status,
+      submitDecision({ ...common, ...operation }, root, auth).status,
       "blocked",
     );
   assert.equal(fs.readFileSync(file, "utf8"), saved);
@@ -289,14 +290,14 @@ test("明示無効化は判断を閉じるだけでBlockerとQueueを保持す�
     decisionId: "closing-next",
     allowedOptions: ["resume", "cancel"],
   };
-  const wrongPrincipal = executeCoordinatorPublicDecision(nextRequest, root, {
+  const wrongPrincipal = submitDecision(nextRequest, root, {
     principalId: "operator-b",
   });
   assert.equal(wrongPrincipal.status, "blocked");
   assert.equal(fs.readFileSync(file, "utf8"), saved);
-  const next = executeCoordinatorPublicDecision(nextRequest, root, auth);
+  const next = submitDecision(nextRequest, root, auth);
   assert.equal(next.status, "completed", next.reason);
-  const otherProblem = executeCoordinatorPublicDecision(
+  const otherProblem = submitDecision(
     {
       ...nextRequest,
       decisionId: "other-problem-proposal",
@@ -307,7 +308,7 @@ test("明示無効化は判断を閉じるだけでBlockerとQueueを保持す�
     auth,
   );
   assert.equal(otherProblem.status, "completed", otherProblem.reason);
-  const cancelled = executeCoordinatorPublicDecision(
+  const cancelled = submitDecision(
     {
       ...common,
       decisionId: nextRequest.decisionId,
@@ -379,7 +380,7 @@ test("Lease競合で保持した回答を解放後に明示適用し履歴だけ
     repositoryRevision: revision,
   };
   const auth = { principalId: "operator-a" };
-  const requested = executeCoordinatorPublicDecision(
+  const requested = submitDecision(
     {
       ...common,
       operation: "request",
@@ -393,17 +394,19 @@ test("Lease競合で保持した回答を解放後に明示適用し履歴だけ
   );
   assert.equal(requested.status, "completed", requested.reason);
   const ports = createTestPersistence(root, binding);
-  const acquired = ports.lease.acquire(
+  const acquired = acquireCoordinatorSnapshotLease(
+    ports.workingDirectory,
+    ports.repositoryBindingId,
     "later",
     "queue-later",
     "project-operation",
   );
   assert.equal(acquired.status, "completed", acquired.reason);
   assert.ok(acquired.value);
-  let answered: ReturnType<typeof executeCoordinatorPublicDecision>;
+  let answered: ReturnType<typeof submitDecision>;
   const file = path.join(root, ".crdd", "domain-model", "state.json");
   try {
-    answered = executeCoordinatorPublicDecision(
+    answered = submitDecision(
       {
         ...common,
         operation: "answer",
@@ -417,11 +420,7 @@ test("Lease競合で保持した回答を解放後に明示適用し履歴だけ
     assert.equal(answered.decision?.result?.status, "unapplied");
     const saved = fs.readFileSync(file, "utf8");
     assert.equal(
-      executeCoordinatorPublicDecision(
-        { ...common, operation: "apply" },
-        root,
-        auth,
-      ).status,
+      submitDecision({ ...common, operation: "apply" }, root, auth).status,
       "blocked",
     );
     assert.equal(fs.readFileSync(file, "utf8"), saved);
@@ -434,13 +433,9 @@ test("Lease競合で保持した回答を解放後に明示適用し履歴だけ
       throw Object.assign(new Error("history failure"), { code: "EACCES" });
     return Reflect.apply(rename, fs, [from, to]);
   }) as typeof rename);
-  let result: ReturnType<typeof executeCoordinatorPublicDecision>;
+  let result: ReturnType<typeof submitDecision>;
   try {
-    result = executeCoordinatorPublicDecision(
-      { ...common, operation: "apply" },
-      root,
-      auth,
-    );
+    result = submitDecision({ ...common, operation: "apply" }, root, auth);
   } finally {
     fault.mock.restore();
   }
@@ -451,11 +446,7 @@ test("Lease競合で保持した回答を解放後に明示適用し履歴だけ
     answered.decision?.result?.answer,
   );
   const saved = fs.readFileSync(file, "utf8");
-  const replay = executeCoordinatorPublicDecision(
-    { ...common, operation: "apply" },
-    root,
-    auth,
-  );
+  const replay = submitDecision({ ...common, operation: "apply" }, root, auth);
   assert.equal(replay.history?.status, "confirmed", replay.reason);
   assert.deepEqual(replay.decision, result.decision);
   assert.equal(fs.readFileSync(file, "utf8"), saved);

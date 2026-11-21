@@ -44,7 +44,7 @@ test("Taskの追加Hostは開始時に捕捉し次Taskだけが変更を採用�
     },
   });
   const { readRepositoryNetworkHosts } = await import(
-    "../../../src/decision/external-send-policy.ts"
+    "../../../src/lifecycle/decision.ts"
   );
   const first = readRepositoryNetworkHosts(root);
   assert.equal(first.status, "ready");
@@ -66,7 +66,7 @@ test("Taskの追加Hostは開始時に捕捉し次Taskだけが変更を採用�
   assert.equal(reads, 3);
   assert.doesNotMatch(
     fs.readFileSync(
-      new URL("../../../src/decision/external-send-policy.ts", import.meta.url),
+      new URL("../../../src/lifecycle/decision.ts", import.meta.url),
       "utf8",
     ),
     /docker-isolation/u,

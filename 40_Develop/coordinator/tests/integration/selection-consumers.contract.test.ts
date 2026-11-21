@@ -24,7 +24,7 @@ import type {
   ExecutionSelection,
   OperationResources,
 } from "../../../execution-model/src/index.ts";
-import { resolveExecutionSelection } from "../../src/selection/resolve.ts";
+import { resolveFixtureExecutionSelection } from "../fixtures/ai-selection.ts";
 
 /**
  * 両Providerの助言計画とDI公開配置を接続する。
@@ -157,7 +157,7 @@ test("技術Catalogの明示選定をProvider計画へ無変換で搬送する",
       workTypes: {},
       overrides: {},
     };
-    const resolved = resolveExecutionSelection(config, {
+    const resolved = resolveFixtureExecutionSelection(config, {
       role: "advice",
       workType: null,
     });
@@ -185,7 +185,7 @@ test("技術Catalogの明示選定をProvider計画へ無変換で搬送する",
       provider === "claude" ? "alias" : "exact",
     );
     assert.equal(
-      resolveExecutionSelection(null, { role: "advice", workType: null })
+      resolveFixtureExecutionSelection(null, { role: "advice", workType: null })
         .status,
       "blocked",
     );
@@ -230,7 +230,10 @@ test("新Model設定はmediumを維持しCodexの両役割と保護条件へ接�
     "result_integration",
     "advice",
   ] as const) {
-    const result = resolveExecutionSelection(config, { role, workType: null });
+    const result = resolveFixtureExecutionSelection(config, {
+      role,
+      workType: null,
+    });
     assert.equal(result.status, "resolved");
     if (result.status !== "resolved") throw new Error("selection_blocked");
     assert.equal(result.value.reasoningEffort, "medium");

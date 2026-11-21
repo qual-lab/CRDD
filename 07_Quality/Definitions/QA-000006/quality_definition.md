@@ -1,5 +1,59 @@
 # QA-000006 外部実行境界の検証定義
 
+## 検証HTTPの時計前提とclose待機
+
+ERB-IT-021では、親のclosedAtと子のcompletedAtを別の壁時計による表示値として扱う。固定Schema・正整数・子Process内の時刻相関を維持し、逆転値を補正せず計測snapshotとsummary受付まで保持する。親子の大小比較を終了順序の証明にはしない。
+
+既存のHTTP子有限試験は、frame到達後にcloseを遅らせ、返却0・計測通知0を外側で確認する。close後は返却・通知が各一回で、重複closeでも増えないことを確認する。通知例外が元HTTP結果を変えない条件、close欠測・終了値・期限・不正frameの既存拒否は残す。元のHTTP失敗と是正後の再実行を別結果として記録し、再成功だけを原因解消の根拠にしない。既存の同一試験File・Local Test IDへ接続し、台帳IDや公開Schemaは変更しない。
+
+## 共通の取消・完了観測
+
+Owner観測の直接接続はPRL-UT-006で、Lease回復へ渡す関数の同一参照、記録欠測時の観測0、不明結果の元ID保持を確認する。五つのModule代役を登録した後の構築失敗を注入し、全登録の逆順解除と、未指定Owner観測へ到達した場合の明示例外・property取得数・実代役呼出し数を照合する。PRL-UT-014の既存PID試験で不正入力のOS要求0、正常値のSignal 0、ESRCHだけのabsentと他失敗のunknownを維持する。実保存・HTTPの確認は既存Caseを維持し、これらの有限代役を実OS観測や実Docker回復の証明へ拡大しない。
+
+単発の回復直接接続では、PRL-UT-006で元OperationとRoot・consumer・現在認可の参照、相関観測不能時の元ID、Docker回復未完了、EM完了照合、Host回収拒否及び未開始状態を確認する。Host世代の取得不能・清掃拒否・解放拒否・各段の例外は移管元と同じ順序で処置し、例外時の既存解放処置も変更しない。PRL-IT-013の既存実保存では再入場・同じOwnerの回復・取消待機と終了後回収を維持する。実技術回復は有限代役へ限定し、Owner観測未設定又は回復代役未設定を空成功で補完しない。実Docker回復の成立へ拡大しない。
+
+単発の選定・改訂版Readerへの直接接続では、PRL-UT-006で助言／編集の用途分岐、同じRoot・Catalog・設定・明示選択の搬送、一回読取り、欠測と例外を確認する。受付の選定→primary／pair検査→改訂版観測の順序を固定し、PRL-IT-013では再送時に両Readerを呼ばない反証を維持する。Module代役は所有者別に全exportを保ち、構築失敗又は同じpending終了後に全登録を逆順解除する。accepted直後終了の子fixtureは自己生成Rootへ正式CM APIで設定を保存し、実VC改訂版が親の期待版と一致することを確認してから、実選定・実Readerで耐久受付を行う。同期exitまで実行延期を越えず、AI／Dockerは開始しない。
+
+単発用途実行の直接接続は、PRL-UT-006で元の選定参照・現在認可・Root再確認・開始前取消を確認する。PRL-IT-013の実受付・Writer・Leaseと、Workbenchの既存「実保存付きHTTPは受付と実行を分離し応答喪失でも同じTaskを継続する」1 Caseは選定・改訂版観測・用途実行・回復・Owner観測の五境界を所有者別の固有Moduleへ差し替え、実受付・Writer・Leaseは維持し、元pendingの終了後に解除する。不変の受付・Dispatch Sourceだけを一回取得し、Map・Owner・保存領域・故障注入は共有しない。WorkbenchからCoordinatorの非公開試験接続への参照は既存ITの未移行差分であり、Package公開境界の成立とは扱わない。正式API又は恒久allowlistを増やさず、当該既存Caseの移行時に試験接続を撤去する。
+
+Clock／Process接続層の撤去はPRL-UT-014で、旧公式から固定した空配列・空文字・入力順・区切り・日本語のvector、prefixの保持、ID40桁と内容Hash64桁を照合する。Process世代と回復IDは既存実関数、停止通知の一回搬送は実宣言と有限Ownerで確認する。PRL-IT-012では別Node Processを正常終了まで待ち、同じ世代でsticky停止が解除されないことを確認する。実保存では委譲前後のthrowと停止通知回数、Task／Attempt／Operationへの回復相関を維持し、対象関数だけのModule代役を完了・解放後に解除する。実回復再入場とMCP搬送も限定Caseへ接続し、試験用Portを製品へ残さない。
+
+回復Adapter撤去はPRL-UT-014で、実受付から元のcallback所有者を同一参照で搬送し、不要な三propertyのgetter評価0を確認する。Owner喪失の相関解決では元receiver・入力配列・exact参照と保存拒否／候補不正を維持する。任意診断は同期throw・即時／後着reject・未完了・欠測・getter例外を差分にし、通知の凍結コピー、元receiver、一回呼出し、回復継続と拒否結果の不変を確認する。PRL-IT-005の実保存を使う回復再入場と、MCPへの結果搬送は限定Caseで確認し、局所成功を実AI・Dockerや全体回帰へ拡大しない。
+
+単発／Graphの共通取得・終結はPRL-UT-006の実宣言とPRL-IT-012／013の既存実保存で確認する。単発は受付前の取得を禁止し、同じpendingへの即時取消・待機、開始・Operation・結果保存とOwner喪失を維持する。共通終結では単発の解放拒否・例外、running、解放後Root例外、確定拒否・例外を独立に反証し、解放一回、Rootと保存の呼出し順・元Queue／Owner世代を確認する。Graphは従来の取得前観測、取得後fresh選択、保存不明とnull／欠測の区別を維持する。実処理を包むだけの助言Factoryは試験からも使用せず、ERB-UT-023／RCM-IT-005で既存実処理への依存値搬送、取消、Context観測、元回復参照と旧量上限超過の全量保持を確認する。
+
+Queue終結の一正本化はPRL-UT-006で、所有前後と物理解放／保存確定の成功・拒否・例外を交差して確認する。解放一回、成功かつ対象Queueありだけの確定、元のRepository・Queue／Owner世代、例外非吸収、回復群・完了Task・再起動要求・Workspace結果の保全を照合する。未所有の明示nullと対象欠測は区別する。PRL-IT-012の既存保存故障及び実Lease解放の反証、PRL-IT-013の耐久受付→即時取消→同じpendingへのjoin／Owner喪失回復は維持する。単発の同じ取得断面を二重判定しない変更を、reconcile後のfresh観測省略へ広げない。
+
+State Port／Factory撤去はPRL-UT-014で、受付から元の検証済みRepository・Directory・binding・intakeだけを同じ参照で凍結搬送することを確認する。初回Project読取りの未初期化例外は元intake、Reader区分・理由・手動回復・元IDを独立に反証し、全条件一致だけ従来値へ投影する。後続の初期化直後・回復中・最終結果投影は既存の位置別処置を保ち、最終欠測では元の実行状態・理由・清掃・回復参照を変更しない。PPR-UT-006／PRL-UT-006の公開・活動照会は同断面の観測値だけを純粋投影へ渡し、読取り回数と採用確認前後のfresh観測、候補不正・対象外・不存在・unknownの既存反証を維持する。
+
+Queue更新の直接接続はPRL-UT-014で具体操作の実宣言を一度捕捉し、元Repository参照・binding・Queue・世代、Writerに入る前のgetter評価0、各更新値とLease借用の評価順を確認する。生存・欠測・差替え・null・借用例外は独立値で反証し、同じ関数の二度目の呼出しでも前回の借用を持ち越さない。PRL-IT-005／011／012の既存実保存で、偽Lease・解放後Lease、別Queue、Owner世代、回復参照、Writer拒否と保存後故障を照合する。故障注入は具体保存の局所Module代役だけとし、元実装への委譲と完了後の解除を維持する。
+
+Workspace対象観測の直接接続はPRL-UT-014の実Dispatch断面で、元Directory・binding・Queue ID、Direct／Isolatedの一致、別ID・欠測・不明・拒否と事前取消を確認する。PRL-IT-012／013の既存実Git・実Writer試験は保留、別HEAD、対象消失、Reader拒否の委譲0・元結果と、Direct二Taskの対象搬送・途中失敗時の既得観測保持を維持する。Reader故障は具体観測関数だけを局所差替えし、実Dispatchの完了・解放後に解除する。本番Portや観測を省略する互換経路は追加しない。
+
+PRL-IT-013の単発受付では、Queue作成・未開始拒否をEMの正式操作へ直接接続し、対象Repository、binding、操作種別、Queue世代及び遅延時刻関数を確認する。Lease解放確定は同じOwner世代へ接続する。保存拒否、別主体への同ID衝突、Lease拒否、開始保存拒否で実行0と元回復参照を維持し、実保存の再送・終端・回復義務を削らない。保存中の実Lease観測は別途維持し、試験専用の旧名転送入口を設けない。
+
+PRL-UT-014／PRL-IT-005／011／012では、ObjectiveとTaskから正式EM操作への同じRepository参照・binding、再開時の読取り順序、初期化あり／なしのscheduled要求、元Queue世代・回復IDを確認する。未検証の候補・未知の再開は作成・実行へ進まず、回復中の別版・別Owner・不明読取りを拒否する。実保存では同値再送の無書込み、対象外区画、優先順位、Lease境界と終了後の自己生成領域不存在を保持する。局所代役の成功を実Writerや実Dockerの証明へ拡大しない。
+
+Task保存の直接接続では、構築時の受付情報を同じ参照で第5引数へ渡す。故障試験はEMの正式保存だけをModule代役へ置き、代役登録後に読み込んだ実Dispatchを使用する。保存前拒否と実保存後の応答喪失、開始準備後の取消、各保存後の候補metadata不正と元回復IDを区別する。実保存を呼ぶ反証を空の成功代役へ置換せず、Dispatchの完了・解放を待った後に代役を解除する。同じProcess内のCaseで代役を並列共有せず、本番Hookや旧Task保存Portを追加しない。
+
+Queue選択の直接接続では、PRL-IT-011／012の既存試験で現在Ownerの非奪取、interactive優先、scheduledの待機・再開、対象外Queueの保持を確認する。PRL-IT-005／012の採用Lease回復は専門入口へ直接接続し、固定kind・Queue、元observer、返却Queue／回復IDと周辺State・Lockを共同照合する。生存／不明Owner、観測例外、解放不明、元の保持状態のassertは維持する。投影Wrapperの撤去を技術回復の撤去や実回復の成功証明へ読み替えない。
+
+Lease取得・解放確定の直接接続では、PRL-IT-005／011／012の既存実Lock試験と故障試験で、元の作業Directory・binding、Queue世代・取得Owner世代を照合する。Repository内のsubdirectoryを起点にした場合も、保持する元Pathと正しいRepository参照を区別する。取得失敗時のEffect 0、物理解放失敗時の確定非発行、解放不明時の元参照と一回解放を維持する。故障代役は具体Lease操作だけを差し替え、元の技術関数を使用し、Dispatchの通知・終了・解放を待って保存代役・Lease代役の逆順で解除する。
+
+PRL-UT-014は、取得Ownerの未初期化例外について元intakeと結果区分・理由・手動回復・回復IDを一つずつ反証し、全条件成立時だけ従来と同じ成功値へ投影することを確認する。回復Queueの照合は、主Queueと異なる同Projectの回復対象を肯定例とし、別Project・主Queueへの取り違え・Queue欠測を元回復IDあり／なしで反証する。集合Port・二重階層の撤去で既存試験のQueue本文・世代・元参照・State不変のassertを削らず、MCPの実Objective受付による搬送も同じState接続へ追従する。
+
+ERB-UT-023／ERB-IT-004の既存Provider／Probe試験は、開始中に同期取消が発生する場合、購読前に取消済みの場合、取消操作のthrow／reject、元completionのresolve／reject、完了後の追加Abortを区別する。取消先は開始時のexact Control／management又は同じProbe Executorとし、一度だけ配送する。取消応答失敗でも元completionを待ち、Host回収や結果返却を先行させない。終端後のListener数と追加取消配送は0とする。
+
+Probeの公開startは外部Signalを受け取らないため、技術ControlのSignal処置を推定しない。Coordinatorの共通観測から既存cancelへ接続し、Signalなしとの拒否理由・元回復参照の一致も対照する。内部観測は元Errorを失敗分類のためだけに保持し、公開結果・ログ・保存へ追加しない。有限代役の成功を実AI・Docker・技術資源不存在の証明へ拡大しない。
+
+## 共通Host終結の検証境界
+
+ERB-UT-023では、共通の回復登録がIDまたは制御参照の片側だけの重複でも拒否し、最初の組を置換せず、別試行の組だけを追記することを確認する。Adviceは別の組でも二件目を拒否する。本番の共通終結宣言と既存Stage検査宣言を一回だけ組み立て、各条件のMap・元Owner・State・結果を独立させる。0件・全件成功、対象漏れ、IDとCapabilityの個別重複、別Host・別completion、資源／Lease不明、終端観測欠測、清掃不明・例外、後続保存失敗・再入場、受動通知例外を反証する。全件Gate前の清掃0、重複時のReader前拒否、清掃一回、成功分即時退役、清掃後の再入場で旧Host再検証・清掃・成功分保存がないことを確認する。これは有限Reader／Host／Writerでの制御検証であり実Docker・実AIの保証ではない。
+
+Callerの結合試験は一つの完成操作への元record搬送と、取消・公開理由・未解決参照を検証する。代役自身を本番の全件照合証明へ読み替えない。内部の次Stage前拒否では、明示null＋空一覧と全handoffの元completionを対照し、元参照の欠測・foreign・未終端は清掃しない。Host清掃後のAdvice保存失敗は消えたHost参照を再公開せず、未完了Docker参照を保持する。
+
+AdviceのProvider未開始・引渡し0件の失敗も同じ完成操作へ接続し、清掃成功・不明・例外で元一次理由と進捗recordを確認する。清掃成功時はHost参照と所有参照を退役し、別の失効不明で停止してもHost回復参照や失効したHostへの放棄を復活させない。不明・例外では元Host参照を保持し、新しいProvider Effectを発行しない。
+
 ## Hostの値契約と既存Writer接続
 
 ERB-IT-003／014の保存結合は、State v7の独立Host、Identity v6、summary v6を使用する。Labelは構築時の値搬送と保存受付を区別し、不正Labelの保存はEffect 0・元State不変で拒否する。初回Docker保存の出版故障は実renameで注入し、元Host本文と同じ回復参照のpendingを保持する。再起動Scopeに属する全Hostの生存Ownerを正規に退役してから回復し、通常CLI終了の8更新と再起動要求・結果を加えた13更新を、各段階の全文比較と併せて確認する。
@@ -567,7 +621,9 @@ fresh回収Ownerと途中Writerの局所確認は`ERB-IT-003`／`ERB-IT-014`へ�
 
 Engine観測移管では既存`ERB-IT-014`／`ERB-IT-001`へ、再起動と修復の固定構成差、Publisher前後変化、明示pipe不存在と観測不能、close不明を接続する。回収不明は同一操作の初回・待機再観測で共有し、以後の観測0、最終blocked、元のexact IDと現在の操作cleanup値保持を確認する。移管した三Caseの判定内容は維持し、合成境界の成功を実Publisher・実pipe・再起動完了へ拡張しない。新Local Itemは追加しない。
 
-AI Adapterの解決済み公開境界では、既存`ERB-UT-023`へPlanの許可参照・固定Schema・内容条件との相関、`ERB-UT-016`へ認証の終了不明と非0成功文面の拒否、`ERB-UT-032`へEnvelopeと非0終了分類を接続する。`ERB-IT-002`／`ERB-IT-004`はExecutorの計画搬送・通知待ち・取消・清掃と型付き助言の直接配送を確認する。未信頼JSON／保存Readerは検査を維持し、同Processの検査済み内容をJSON再生成して再解析しない。Provider五軸の純粋判定はCoordinatorが所有し、`ERB-IT-006`の利用可能性確認に対するUT補助Oracleとする。構成選択・保存・実Provider境界のITを代替せず、Artifact Trustの`AIT-UT-005`へ接続しない。有限試験を実AI・実認証・実Docker成立へ読み替えない。
+AI Adapterの解決済み公開境界では、既存`ERB-UT-023`へPlanの許可参照・固定Schema・内容条件との相関、`ERB-UT-016`へ認証の終了不明と非0成功文面の拒否、`ERB-UT-032`へEnvelopeと非0終了分類を接続する。`ERB-IT-002`／`ERB-IT-004`はExecutorの計画搬送・通知待ち・取消・清掃と型付き助言の直接配送を確認する。未信頼JSON／保存Readerは検査を維持し、同Processの検査済み内容をJSON再生成して再解析しない。Coordinatorの実行前照合は、現在操作と選定の相関・非対応Modelの拒否・候補以外の非発行を `ERB-UT-023` で確認する。実在する利用可能性を固定値で代用せず、`ERB-IT-006` の既存検証義務を残す。構成選択・保存・実Provider境界のITを代替せず、Artifact Trustの`AIT-UT-005`へ接続しない。有限試験を実AI・実認証・実Docker成立へ読み替えない。
+
+同じ選定事前照合におけるHost実体確認の重複撤去は、`ERB-UT-023` で管理確認一回・Git確認一回、管理拒否とRepository欠測・改訂差・観測不能の失敗分類を確認する。`PRL-IT-012` では実ファイルによる登録結合と変更後のGit改訂拒否が、通常照合と選定事前照合の両方で成立することを確認する。
 
 `ERB-UT-016`の認証入口反証は、両Providerのstatus／loginへHome観測拒否を与え、一次理由と回復分類の保持、認証開始0を確認する。明示的なEffect 0は清掃未確認にせず、Effect不明・残存ありを清掃成功へ変換しない。旧Helper終了fieldをNode観測の清掃根拠に使用しない。
 
@@ -920,7 +976,7 @@ Codexの内部error Itemは総件数とCode Mode文字列一致件数だけを�
 
 ## 複数Stageの終了確定とHTTP待機
 
-- 同じHostの複数Stageを全件受領した後、全件最終確定する本番順序で、各確定が成功すること。最終確定によるstate／history再保存がなく、非対象操作・元履歴が不変であること。
+- 同じHostの全Stageの準備後にHostを一回清掃し、各Stageを完成保存・即時退役する本番順序で確定すること。後続Stageの保存・退役失敗で成功済み参照を未解決集合へ戻さず、確定後の再送によるstate／history再保存がなく、非対象操作・元履歴が不変であること。
 - 元入力差替え・別Stage結果・複製Capability・退役Capabilityを拒否すること。blocked結果の再入場を維持し、durable配送待ちのOwnerを保持すること。
 - 三Stageの実Writer処理と単純loopback状態照会を重ね、Server受信→同期処理→応答終了の順序と、子Clientの十五秒以内完了・実終了を確認すること。各受領／確定の有限時計だけを診断し、本文・Path・資格値は記録しない。
 - Workbenchの本番HTTP回帰を別に確認し、単純応答試験を全画面Route又は実AI編集の成功へ流用しない。十五秒期限やWriterの不一致拒否を緩和しない。
@@ -1166,6 +1222,10 @@ HST-UT-001では要約の元Buffer参照、LF有無・固定Hash・不正入力�
 ## 助言Packetの選定受付維持 — 2026-11-18
 
 ERB-UT-023はDispatchとProvider受付で必要な未信頼入力を独立捕捉し、元の不変完全選定をPacket・準備計画へ直接搬送する。余剰field・Getter・Proxy・欠測を拒否し、hook実行0、Adapter／Runtime呼出し0、Provider Effect未発行を確認する。Packet本文Hash・現在Operation・Home実体の検査は維持し、選定借戻しHash・別Grant・TTLを再導入しない。
+
+同じ入力から発行した二件でも使用参照と所有参照を交差させて消費できず、不一致後も元の組は有効であることを確認する。使用参照だけの取消、消費・取消後の再消費、消費・取消後の再取消は成立しない。
+
+ERB-UT-023は計画の非共有条件と、計画・選定・通信先が固定されたまま実行へ一度だけ渡ることを確認する。不正計画、事前取消、実行応答の欠測と回収不明を区別する。RCM-IT-005は初回Root確認が通知参照の読取り前に一度行われ、初回の観測不能を後のContext読取りで補完してProvider実行を始めないことを確認する。
 
 ## 開発Source観測の利用側接続
 

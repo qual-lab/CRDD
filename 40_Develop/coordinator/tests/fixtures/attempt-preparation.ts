@@ -7,16 +7,78 @@
  * @boundary tests専用。製品の保存・実行契約ではない。
  */
 
-import type { Provider } from "../../../ai-adapter/src/index.ts";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import { isDeepStrictEqual } from "node:util";
+import { compileFunction } from "node:vm";
+import { planExecution, type Provider } from "../../../ai-adapter/src/index.ts";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import type { TestAttemptPlan } from "../../../executor/scripts/executor-test.ts";
 import { prepareAttempt } from "../../../executor/scripts/executor-test.ts";
-import { createExecutor, type Executor } from "../../../executor/src/index.ts";
-import { createAttemptPreparation as createOwner } from "../../src/execution/preparation.ts";
+import {
+  createExecutor,
+  type Executor,
+  type ExecutorRequest,
+} from "../../../executor/src/index.ts";
+import {
+  capturePreparationInput,
+  createPreparationFailure,
+} from "../../src/lifecycle/selection.ts";
+import { readOwnedReviewerWorkspace } from "../../src/lifecycle/host.ts";
 import type {
-  AttemptPreparation,
-  PreparationHost,
+  AdvicePacket,
+  AttemptBinding,
+  ConsumedTaskPacket,
+  PreparationInput,
+  PreparationResult,
   PreparedAttemptPlan,
-} from "../../src/execution/types.ts";
+} from "../../src/lifecycle/types.ts";
+
+export type AttemptPreparation<P extends Provider = Provider> = Readonly<{
+  productionAuthority: false;
+  prepare: (input: PreparationInput) => PreparationResult<P>;
+}>;
+
+export const reviewerCommitId = "c".repeat(40);
+export const reviewerCopy = "C:\\crdd\\operation\\reviewer-copy";
+
+type PreparationFixture<P extends Provider> = {
+  verifyOperationMount: (management: unknown, mount: unknown) => AttemptBinding;
+  consumeTaskPacket?: (
+    use: unknown,
+    management: unknown,
+  ) => ConsumedTaskPacket<P> | null;
+  consumeAdvicePacket?: (use: unknown, owner: unknown) => AdvicePacket | null;
+  diagnoseTaskPlanning?: typeof planExecution;
+  randomBytes: (size: number) => Buffer;
+};
+
+const compilePreparation = compileFunction(
+  `return (${stripTypeScriptTypes(sourceDeclaration(readFileSync(new URL("../../src/lifecycle/selection.ts", import.meta.url), "utf8"), "prepareProviderAttempt"))});`,
+  [
+    "createPreparationFailure",
+    "verifyProviderOperationMount",
+    "consumeRuntimeOwnedProviderTaskPacket",
+    "consumeAttemptAdvicePacket",
+    "planExecution",
+    "isDeepStrictEqual",
+    "readOwnedReviewerWorkspace",
+    "createExecutor",
+    "borrowOwnedDockerExecutionPaths",
+    "getIsolationSettings",
+    "randomBytes",
+  ],
+);
+
+/** 所有コピーの観測だけを差し替え、準備本体は実装を使う。 @trace PRL-UT-014 */
+export function createReviewerWorkspaceReader(getManagement: () => object) {
+  return (management: unknown, commitId: unknown) => {
+    assert.strictEqual(management, getManagement());
+    assert.equal(commitId, reviewerCommitId);
+    return reviewerCopy;
+  };
+}
 
 /**
  * 同じ乱数列の内部構成を検査用に保持し、上位準備自体は本番関数へ渡す。
@@ -27,15 +89,20 @@ import type {
  */
 export function createAttemptPreparation<P extends Provider>(
   provider: P,
-  dependencies: PreparationHost<P>,
+  dependencies: PreparationFixture<P>,
   observePlan?: (
     plan: PreparedAttemptPlan<P>,
     technicalPlan: TestAttemptPlan,
   ) => void,
+  readReviewerWorkspace = readOwnedReviewerWorkspace,
 ): AttemptPreparation<P> {
   const plans = new WeakMap<Executor<"attempt">, TestAttemptPlan>();
-  const owner = createOwner(provider, dependencies, (request, random) => {
-    const values = [random.randomBytes(8), random.randomBytes(32)];
+  const create = (
+    request: ExecutorRequest<"attempt">,
+    _options: unknown,
+    random: Readonly<{ randomBytes: (size: number) => Buffer }>,
+  ) => {
+    const values: Buffer[] = [];
     const replay = () => {
       let index = 0;
       return {
@@ -47,7 +114,16 @@ export function createAttemptPreparation<P extends Provider>(
         },
       };
     };
-    const plan = prepareAttempt(replay(), request);
+    const plan = prepareAttempt(
+      {
+        randomBytes(size) {
+          const value = random.randomBytes(size);
+          values.push(value);
+          return value;
+        },
+      },
+      request,
+    );
     if (!plan) return null;
     const executor = createExecutor(
       request,
@@ -65,11 +141,29 @@ export function createAttemptPreparation<P extends Provider>(
     );
     if (executor) plans.set(executor, plan);
     return executor;
-  });
+  };
+  const prepare = compilePreparation(
+    createPreparationFailure,
+    dependencies.verifyOperationMount,
+    dependencies.consumeTaskPacket ?? (() => null),
+    dependencies.consumeAdvicePacket ?? (() => null),
+    dependencies.diagnoseTaskPlanning ?? planExecution,
+    isDeepStrictEqual,
+    readReviewerWorkspace,
+    create,
+    () => undefined,
+    () => undefined,
+    dependencies.randomBytes,
+  ) as (provider: P, input: PreparationInput) => PreparationResult<P>;
   return Object.freeze({
-    ...owner,
+    productionAuthority: false as const,
     prepare: (input: Parameters<AttemptPreparation<P>["prepare"]>[0]) => {
-      const prepared = owner.prepare(input);
+      const captured = capturePreparationInput(input);
+      if (!captured)
+        return createPreparationFailure(
+          `${provider}_docker_runtime_input_mode_ambiguous`,
+        );
+      const prepared = prepare(provider, captured);
       if (prepared.status !== "prepared") return prepared;
       const plan = plans.get(prepared.plan.executor);
       if (!plan) throw Error("fixture_plan_missing");

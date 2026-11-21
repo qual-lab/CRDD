@@ -5,15 +5,15 @@
  * @trace ERB-IT-021
  * @boundary 検証用のJSON受入。本番Sourceからは参照しない。
  */
-import { snapshotPlainRecord } from "../src/input/snapshot.ts";
 import { inspectCodexExecutionObservation } from "../../ai-adapter/scripts/ai-adapter-test.ts";
 import {
   createCandidateValidationFailureDiagnostic,
   createTaskStageDiagnostic,
-} from "../src/execution/result.ts";
+  snapshotPlainRecord,
+} from "../src/lifecycle/validation.ts";
 
 // 回復開始診断の検査は、生成するCoordinatorの正本を利用する。
-export { inspectRecoveryStartFailureDiagnostic } from "../src/execution/validation.ts";
+export { inspectRecoveryStartFailureDiagnostic } from "../src/lifecycle/validation.ts";
 
 /**
  * 候補診断の未検査fieldを捕捉する。

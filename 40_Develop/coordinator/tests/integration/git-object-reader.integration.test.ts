@@ -28,7 +28,7 @@ import { getRepository } from "../../../version-control/src/repository/location.
 import {
   ensureRepositoryExecutionDataArea,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
+} from "../../src/lifecycle/host.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedRepositorySource,
@@ -38,8 +38,8 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   verifyOwnedOperationManagementMountBinding,
-} from "../../src/execution/operation.ts";
-import { containsRecognizedSecretMaterial } from "../../src/input/secret-validation.ts";
+} from "../../src/lifecycle/host.ts";
+import { containsRecognizedSecretMaterial } from "../../src/lifecycle/validation.ts";
 import {
   createGitPackedObjectFixture,
   mutateGitPackedObjectFixture,

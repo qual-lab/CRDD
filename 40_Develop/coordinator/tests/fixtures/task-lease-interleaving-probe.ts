@@ -55,7 +55,7 @@ if (mode === "pause-before-publish") {
   }) as typeof fs.openSync;
 }
 
-const foundation = await import("../../src/execution/lease.ts");
+const foundation = await import("../../src/lifecycle/host.ts");
 const result = foundation.acquireCoordinatorSnapshotLease(
   workingDirectory,
   "binding-a",

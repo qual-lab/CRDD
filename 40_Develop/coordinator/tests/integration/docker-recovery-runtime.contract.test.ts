@@ -14,33 +14,47 @@ import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { beginRuntimeOwnedDockerRecovery } from "../../src/execution/recovery.ts";
+import { beginRuntimeOwnedDockerRecovery } from "../../src/lifecycle/environment.ts";
+import { recoveryEnvironmentFixtureUrl } from "../support/recovery.ts";
 
 /**
  * 保存Identityの拒否後にProvider Homeを観測しない。
  * @responsibility Domainの既存候補検査をNative観測・保存Effectより前へ接続する。
  * @trace PRL-IT-013
  * @precondition 本番開始本文と、Domain拒否を返す有限の入力準備境界。
- * @stimulus Identity候補が不成立となる計画を渡す。
- * @observation 結果、Native Home観測数と診断段階。
- * @oracle plan_validationで拒否しHome観測・耐久保存を呼ばない。
+ * @stimulus Identity候補が不成立または例外となる計画を渡す。
+ * @observation 結果、Native Home観測数、診断段階・回数。
+ * @oracle Home観測・耐久保存なし。例外は理由を秘匿して停止し、診断は一回。
  * @cleanup N/A: メモリ内のみ。実Native・Docker・File操作なし。
  * @boundary 本番開始順とDomainの候補結果。Domain自体は別試験で反証する。
  */
 test("保存Identity拒否はNative Home観測より前に停止する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/recovery.ts", import.meta.url),
+    new URL("../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   let homeObservations = 0;
+  let identityThrows = false;
   const diagnostics: unknown[] = [];
   const begin = runInNewContext(
-    stripTypeScriptTypes(sourceDeclaration(source, "beginProductionRecovery")) +
-      "\nbeginProductionRecovery",
+    [
+      sourceDeclaration(
+        fs.readFileSync(
+          new URL("../../src/lifecycle/validation.ts", import.meta.url),
+          "utf8",
+        ),
+        "safeRecoveryReason",
+      ),
+      sourceDeclaration(source, "beginRuntimeOwnedDockerRecovery"),
+    ].join("\n") + "\nbeginRuntimeOwnedDockerRecovery",
     {
+      Error,
       validProductionPlan: () => true,
       randomBytes: () => Buffer.alloc(32, 1),
-      prepareRuntimeOwnedRepositoryDockerOperationIdentity: () => null,
+      prepareRuntimeOwnedRepositoryDockerOperationIdentity: () => {
+        if (identityThrows) throw Error("unpublished host path");
+        return null;
+      },
       inspectRuntimeOwnedWindowsProviderHomeCandidate: () => {
         homeObservations++;
         throw Error("must_not_observe");
@@ -55,6 +69,19 @@ test("保存Identity拒否はNative Home観測より前に停止する", () => {
   );
   assert.equal(homeObservations, 0);
   assert.equal((diagnostics[0] as { stage: string }).stage, "plan_validation");
+  identityThrows = true;
+  diagnostics.length = 0;
+  const stopped = begin({ consumer: "coordinator_cli" }, {}, (d: unknown) =>
+    diagnostics.push(d),
+  );
+  assert.equal(stopped.status, "blocked");
+  assert.equal(stopped.reason, "docker_task_recovery_begin_failed_closed");
+  assert.equal(stopped.recoveryId, null);
+  assert.equal(stopped.manualRecoveryRequired, true);
+  assert.equal(homeObservations, 0);
+  assert.equal(diagnostics.length, 1);
+  assert.equal((diagnostics[0] as { stage: string }).stage, "plan_validation");
+  assert.equal((diagnostics[0] as { recoveryId: unknown }).recoveryId, null);
 });
 
 /**
@@ -70,7 +97,7 @@ test("保存Identity拒否はNative Home観測より前に停止する", () => {
  */
 test("資源Identityの非文字列は変換・環境観測・保存前に拒否する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/recovery.ts", import.meta.url),
+    new URL("../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   let conversions = 0;
@@ -79,8 +106,8 @@ test("資源Identityの非文字列は変換・環境観測・保存前に拒否
     stripTypeScriptTypes(
       sourceDeclaration(source, "validProductionPlan") +
         "\n" +
-        sourceDeclaration(source, "beginProductionRecovery"),
-    ) + "\nbeginProductionRecovery",
+        sourceDeclaration(source, "beginRuntimeOwnedDockerRecovery"),
+    ) + "\nbeginRuntimeOwnedDockerRecovery",
     {
       getConsumerCompletionPolicy: () => ({}),
       inspectExecutionSelection: () => ({ provider: "claude" }),
@@ -212,19 +239,17 @@ test("Production Docker Recoveryは不正Consumerを環境観測前に拒否す�
     observations += 1;
     throw new Error("unexpected_environment_observation");
   };
-  const providerMock = t.mock.module("../../src/execution/authority.ts", {
+  const providerMock = t.mock.module("../../src/lifecycle/environment.ts", {
     namedExports: {
-      ...(await import("../../src/execution/authority.ts")),
+      ...(await import("../../src/lifecycle/environment.ts")),
       inspectRuntimeOwnedWindowsProviderHomeCandidate: observe,
-      consumeRuntimeOwnedProviderHomeObservationCapability: observe,
     },
   });
   try {
     const runtime = await import(
-      new URL(
-        "../../src/execution/recovery.ts?consumer-preflight",
-        import.meta.url,
-      ).href
+      recoveryEnvironmentFixtureUrl(
+        new URL("../../src/lifecycle/environment.ts", import.meta.url),
+      )
     );
     const valid = productionPlan("OP-123456", "5".repeat(64));
     for (const consumer of [undefined, null, "unknown", 1, {}, true]) {

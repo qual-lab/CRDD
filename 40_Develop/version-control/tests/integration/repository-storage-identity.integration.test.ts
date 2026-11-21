@@ -114,7 +114,7 @@ function storageIdentityFixture(t: test.TestContext, linked = false) {
  * @responsibility 公開shapeを維持したfresh二探索と偽Capability拒否を反証する。
  * @trace RFD-IT-001
  * @precondition 通常Repositoryと専用linked worktreeを実Gitで準備する。
- * @stimulus normal／linked、同一呼出し反復、偽Capability、不正化後の復帰。
+ * @stimulus normal／linked、同一呼出し反復、偽Capability、不正化・同一内容でのGit実体置換と復帰。
  * @observation configの実open回数、公開shapeとIdentity。
  * @oracle 各正常観測は二open、不正入力は零、旧値のcacheなし。
  * @cleanup FS代役をfinallyで復元しfixtureを回収する。
@@ -167,6 +167,33 @@ test("保存Identityはnormal／linkedをfresh二探索で確認し公開APIを�
         readRepositoryStorageIdentity(fixture.capability),
         before,
       );
+      if (!linked) {
+        const marker = path.dirname(fixture.config);
+        const retired = path.join(fixture.area, "retired-between-reads");
+        fs.renameSync(marker, retired);
+        try {
+          fs.cpSync(retired, marker, { recursive: true });
+          const swapped = readRepositoryStorageIdentity(fixture.capability);
+          assert.ok(swapped);
+          assert.notEqual(
+            swapped.repositoryIdentity,
+            before.repositoryIdentity,
+          );
+          assert.equal(
+            swapped.repositoryInstanceIdentity,
+            before.repositoryInstanceIdentity,
+          );
+        } finally {
+          fs.rmSync(marker, { recursive: true, force: true });
+          fs.renameSync(retired, marker);
+        }
+        opens = 0;
+        assert.deepEqual(
+          readRepositoryStorageIdentity(fixture.capability),
+          before,
+        );
+        assert.equal(opens, 2);
+      }
     } finally {
       fs.openSync = original;
     }

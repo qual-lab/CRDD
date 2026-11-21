@@ -10,6 +10,7 @@
  */
 
 import assert from "node:assert/strict";
+import { createTaskRequestsFixture } from "../support/task-requests.ts";
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { devNull } from "node:os";
@@ -17,20 +18,22 @@ import path from "node:path";
 import test, { mock } from "node:test";
 import * as snapshotStorage from "../../../execution-model/src/index.ts";
 import {
+  createQueue,
   initializeExecutionStore,
   type ProjectQueueEntry,
   readState,
   type SingleTaskRecord,
 } from "../../../execution-model/src/index.ts";
-import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
+import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
-  createCoordinatorSnapshotStatePort,
-  enqueueCoordinatorSingleTask,
+  acquireCoordinatorSnapshotLease,
+  settleCoordinatorSnapshotQueueLeaseRelease,
+  updateCoordinatorQueue,
   updateCoordinatorSingleTask,
-} from "../../src/state/transaction.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
-import { createCoordinatorTaskRequests } from "../../src/task/requests.ts";
+} from "../../src/lifecycle/host.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
+import type { createCoordinatorTaskRequests } from "../../src/lifecycle/execution.ts";
 import {
   executionSelection,
   taskExecutionSelections,
@@ -52,7 +55,15 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   assert.equal(fs.realpathSync.native(parent), parent);
   const root = fs.mkdtempSync(path.join(parent, "single-task-state-"));
   assert.equal(path.dirname(root), parent);
-  t.after(() => {
+  const owners: ReturnType<typeof createCoordinatorTaskRequests>[] = [];
+  t.after(async () => {
+    const closed = await Promise.allSettled(
+      owners.map((owner) => owner.close()),
+    );
+    assert.ok(
+      closed.every((result) => result.status === "fulfilled"),
+      "fixture_owner_close_unconfirmed",
+    );
     fs.rmSync(root, { recursive: true, force: true });
     assert.equal(fs.existsSync(root), false);
   });
@@ -110,25 +121,45 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     workspaceId: null,
     singleTask: record,
   };
-  const first = enqueueCoordinatorSingleTask(root, binding, entry);
+  const first = createQueue(verifyRuntimePersistenceRepository(root), binding, {
+    kind: "single",
+    input: [entry],
+  });
   assert.equal(first.status, "completed", JSON.stringify(first));
   assert.equal(
-    enqueueCoordinatorSingleTask(root, binding, entry).status,
+    createQueue(verifyRuntimePersistenceRepository(root), binding, {
+      kind: "single",
+      input: [entry],
+    }).status,
     "completed",
   );
   assert.equal(
-    enqueueCoordinatorSingleTask(root, binding, {
-      ...entry,
-      requestHash: "d".repeat(64),
+    createQueue(verifyRuntimePersistenceRepository(root), binding, {
+      kind: "single",
+      input: [
+        {
+          ...entry,
+          requestHash: "d".repeat(64),
+        },
+      ],
     }).status,
     "blocked",
   );
   const stateFile = path.join(root, ".crdd/domain-model/state.json");
   const beforeIdentityConflict = fs.readFileSync(stateFile);
-  const identityConflict = enqueueCoordinatorSingleTask(root, binding, {
-    ...entry,
-    singleTask: { ...record, principalId: "other-user" },
-  });
+  const identityConflict = createQueue(
+    verifyRuntimePersistenceRepository(root),
+    binding,
+    {
+      kind: "single",
+      input: [
+        {
+          ...entry,
+          singleTask: { ...record, principalId: "other-user" },
+        },
+      ],
+    },
+  );
   assert.equal(identityConflict.status, "blocked");
   assert.equal(identityConflict.reason, "orchestrator_queue_identity_conflict");
   assert.deepEqual(fs.readFileSync(stateFile), beforeIdentityConflict);
@@ -161,9 +192,14 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
       { ...record, phase: "starting" },
     );
     assert.equal(started.status, "completed", JSON.stringify(started));
-    const port = createCoordinatorSnapshotStatePort(root, binding);
+    const port = Object.freeze({
+      workingDirectory: root,
+      repository: verifyRuntimePersistenceRepository(root),
+      repositoryBindingId: binding,
+      intake: undefined,
+    });
     assert.equal(
-      port.updateQueue(entry.queueId, 2, {
+      updateCoordinatorQueue(port, entry.queueId, 2, {
         state: "cancelled",
         lease,
         resumeCondition: null,
@@ -242,7 +278,10 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     },
   };
   assert.equal(
-    enqueueCoordinatorSingleTask(root, binding, second).status,
+    createQueue(verifyRuntimePersistenceRepository(root), binding, {
+      kind: "single",
+      input: [second],
+    }).status,
     "completed",
   );
   const read = readState(
@@ -268,47 +307,54 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   let failedExecution = false;
   let sameOwnerRecoveries = 0;
   let executionStarted = () => {};
-  const owner = createCoordinatorTaskRequests({
-    root,
-    binding,
-    projectId: entry.projectId,
-    principalId: record.principalId,
-    authorize: () => permitted,
-    resolveSelection: (command) => ({
-      primary: executionSelection(
-        command.mode === "read_only_advice" ? "advice" : "executor",
-      ),
-      taskExecutionSelections:
-        command.mode === "workspace_edit" ? taskExecutionSelections() : null,
-    }),
-    observeRevision: () => entry.repositoryRevision,
-    observeLeaseOwner: () => {
-      throw new Error("released_owner_must_not_be_observed");
+  const owner = await createTaskRequestsFixture(
+    {
+      root,
+      binding,
+      projectId: entry.projectId,
+      principalId: record.principalId,
+      authorize: () => permitted,
+      resolveSelection: (command) => ({
+        primary: executionSelection(
+          command.mode === "read_only_advice" ? "advice" : "executor",
+        ),
+        taskExecutionSelections:
+          command.mode === "workspace_edit" ? taskExecutionSelections() : null,
+      }),
+      observeRevision: () => entry.repositoryRevision,
+      observeLeaseOwner: () => {
+        throw new Error("released_owner_must_not_be_observed");
+      },
+      recover: async () => {
+        sameOwnerRecoveries++;
+        return {
+          cleanupConfirmed: true,
+          recoveryIds: [],
+          reason: "fixture_recovered",
+        };
+      },
     },
-    recover: async () => {
-      sameOwnerRecoveries++;
-      return {
-        cleanupConfirmed: true,
-        recoveryIds: [],
-        reason: "fixture_recovered",
-      };
-    },
-    execute: async (command, _execution, signal, started) => {
+    async (command, _execution, signal, started) => {
       calls++;
       assert.equal(await started(), undefined);
       executionStarted();
       if (cancelProbe) {
-        await new Promise<void>((resolve) =>
-          signal.addEventListener(
-            "abort",
-            () => {
-              joined = true;
-              if (revokeDuringJoin) permitted = false;
-              resolve();
-            },
-            { once: true },
-          ),
-        );
+        await new Promise<void>((resolve) => {
+          let finished = false;
+          const done = () => {
+            if (finished) return;
+            finished = true;
+            signal.removeEventListener("abort", done);
+            joined = true;
+            if (revokeDuringJoin) permitted = false;
+            resolve();
+          };
+          if (signal.aborted) done();
+          else {
+            signal.addEventListener("abort", done, { once: true });
+            if (signal.aborted) done();
+          }
+        });
       }
       return {
         mode: command.mode,
@@ -346,7 +392,8 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
             : null,
       };
     },
-  });
+  );
+  owners.push(owner);
   const command = {
     requestId: "request-fixture-10598",
     mode: "read_only_advice",
@@ -514,38 +561,43 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   assert.equal(sameOwnerRecoveries, 1);
   await owner.close();
   let recoveries = 0;
-  const createReentry = (
+  const createReentry = async (
     principalId = record.principalId,
     projectId = entry.projectId,
-  ) =>
-    createCoordinatorTaskRequests({
-      root,
-      binding,
-      projectId,
-      principalId,
-      authorize: () => true,
-      resolveSelection: () => {
-        throw Error("recovery_must_not_read_configuration");
+  ) => {
+    const reentry = await createTaskRequestsFixture(
+      {
+        root,
+        binding,
+        projectId,
+        principalId,
+        authorize: () => true,
+        resolveSelection: () => {
+          throw Error("recovery_must_not_read_configuration");
+        },
+        observeRevision: () => {
+          throw Error("replay_must_not_observe_new_revision");
+        },
+        observeLeaseOwner: () => {
+          throw new Error("released_owner_must_not_be_observed");
+        },
+        recover: async () => {
+          recoveries++;
+          return {
+            cleanupConfirmed: true,
+            recoveryIds: [],
+            reason: "fixture_recovered",
+          };
+        },
       },
-      observeRevision: () => {
-        throw Error("replay_must_not_observe_new_revision");
-      },
-      observeLeaseOwner: () => {
-        throw new Error("released_owner_must_not_be_observed");
-      },
-      recover: async () => {
-        recoveries++;
-        return {
-          cleanupConfirmed: true,
-          recoveryIds: [],
-          reason: "fixture_recovered",
-        };
-      },
-      execute: async () => {
+      async () => {
         throw new Error("body_must_not_be_replayed");
       },
-    });
-  const reentry = createReentry();
+    );
+    owners.push(reentry);
+    return reentry;
+  };
+  const reentry = await createReentry();
   const replayCommand = { ...command, requestId: "completed-request" };
   const reordered = Object.fromEntries(Object.entries(replayCommand).reverse());
   const replay = await reentry.start(reordered);
@@ -565,8 +617,8 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     "orchestrator_task_request_identity_conflict",
   );
   for (const denied of [
-    createReentry("different-principal"),
-    createReentry(record.principalId, "different-project"),
+    await createReentry("different-principal"),
+    await createReentry(record.principalId, "different-project"),
   ]) {
     const rejected = await denied.start(replayCommand);
     assert.equal(rejected.status, "blocked");
@@ -604,7 +656,10 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     },
   };
   assert.equal(
-    enqueueCoordinatorSingleTask(root, binding, recoveryEntry).status,
+    createQueue(verifyRuntimePersistenceRepository(root), binding, {
+      kind: "single",
+      input: [recoveryEntry],
+    }).status,
     "completed",
   );
   const recoveryLease = acquireCoordinatorSnapshotLease(
@@ -648,7 +703,9 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     );
     assert.equal(recoveryLease.value.release().status, "completed");
     assert.equal(
-      createCoordinatorSnapshotStatePort(root, binding).settleQueueLeaseRelease(
+      settleCoordinatorSnapshotQueueLeaseRelease(
+        verifyRuntimePersistenceRepository(root),
+        binding,
         recoveryEntry.queueId,
         3,
         recoveryLease.value.ownerGeneration,
@@ -688,8 +745,15 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   const root = fs.mkdtempSync(path.join(parent, "task-acceptance-"));
   assert.equal(path.dirname(root), parent);
   let owner: ReturnType<typeof createCoordinatorTaskRequests> | null = null;
+  const owners: ReturnType<typeof createCoordinatorTaskRequests>[] = [];
   t.after(async () => {
-    await owner?.close();
+    const closed = await Promise.allSettled(
+      owners.map((entry) => entry.close()),
+    );
+    assert.ok(
+      closed.every((result) => result.status === "fulfilled"),
+      "fixture_owner_close_unconfirmed",
+    );
     fs.rmSync(root, { recursive: true, force: true });
     assert.equal(fs.existsSync(root), false);
   });
@@ -728,29 +792,34 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   }).trim();
   const binding = deriveCoordinatorRepositoryBindingId(root);
   let executions = 0;
-  const createOwner = () =>
-    createCoordinatorTaskRequests({
-      root,
-      binding,
-      projectId: "synthetic-project",
-      principalId: "synthetic-user",
-      authorize: () => true,
-      resolveSelection: () => ({
-        primary: executionSelection("advice"),
-        taskExecutionSelections: null,
-      }),
-      observeRevision: () => revision,
-      observeLeaseOwner: () => {
-        throw Error("unstarted_owner_has_no_lease");
+  const createOwner = async () => {
+    const entry = await createTaskRequestsFixture(
+      {
+        root,
+        binding,
+        projectId: "synthetic-project",
+        principalId: "synthetic-user",
+        authorize: () => true,
+        resolveSelection: () => ({
+          primary: executionSelection("advice"),
+          taskExecutionSelections: null,
+        }),
+        observeRevision: () => revision,
+        observeLeaseOwner: () => {
+          throw Error("unstarted_owner_has_no_lease");
+        },
+        recover: async () => {
+          throw Error("unstarted_owner_has_no_provider");
+        },
       },
-      recover: async () => {
-        throw Error("unstarted_owner_has_no_provider");
-      },
-      execute: async () => {
+      async () => {
         executions++;
         throw Error("cancelled_before_execution");
       },
-    });
+    );
+    owners.push(entry);
+    return entry;
+  };
   const command = {
     requestId: "request-fixture-21427",
     mode: "read_only_advice",
@@ -760,7 +829,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     allowedPaths: [],
     workspaceId: null,
   };
-  owner = createOwner();
+  owner = await createOwner();
   const refused = await owner.start(command);
   assert.equal(refused.status, "blocked");
   assert.equal(refused.requestId, null);
@@ -773,8 +842,8 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   );
   for (const operation of ["cancel", "close"] as const) {
     const input = { ...command, requestId: `before-start-${operation}` };
-    owner = createOwner();
-    const peer = createOwner();
+    owner = await createOwner();
+    const peer = await createOwner();
     const [accepted, peerAccepted] = await Promise.all([
       owner.start(input),
       peer.start(input),
@@ -864,7 +933,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     "accepted",
   );
   assert.deepEqual(saved.value.leaseIntents, []);
-  owner = createOwner();
+  owner = await createOwner();
   const observed = await owner.observe(lost.requestId);
   assert.equal(observed.requestId, lost.requestId);
   assert.equal(observed.executionStatus, "pending");
@@ -928,10 +997,17 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
     windowsHide: true,
     stdio: "pipe",
   });
-  for (const stage of ["enqueue", "identity", "lease", "starting"] as const) {
+  for (const stage of [
+    "enqueue",
+    "identity",
+    "lease",
+    "starting",
+    "starting_release",
+  ] as const) {
     let queue: ProjectQueueEntry | null = null;
     let executions = 0;
     let releases = 0;
+    let settlements = 0;
     const failures = {
       ...snapshotStorage,
       readState: () => ({
@@ -941,16 +1017,24 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
           leaseIntents: [],
         },
       }),
-      enqueueCoordinatorSingleTask: (
-        ...args: Parameters<typeof enqueueCoordinatorSingleTask>
+      createQueue: (
+        ...args: Parameters<typeof snapshotStorage.createQueue>
       ) => {
+        assert.equal(
+          resolveVerifiedRepositoryRoot(args[0]),
+          fs.realpathSync.native(root),
+        );
+        assert.equal(args[1], "synthetic-binding");
+        assert.equal(args[2].kind, "single");
+        assert.ok(args[2].kind === "single");
+        const input = args[2].input[0];
         if (stage === "identity") {
-          assert.ok(args[2].singleTask);
+          assert.ok(input.singleTask);
           queue = {
-            ...args[2],
+            ...input,
             projectId: "different-project",
             singleTask: {
-              ...args[2].singleTask,
+              ...input.singleTask,
               principalId: "different-principal",
             },
           };
@@ -959,7 +1043,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
             reason: "orchestrator_queue_identity_conflict",
           };
         }
-        queue = args[2];
+        queue = input;
         return stage === "enqueue"
           ? { status: "blocked", reason: "fixture_enqueue_failed" }
           : { status: "completed", value: queue };
@@ -973,12 +1057,33 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
                 ownerGeneration: "synthetic-owner",
                 release: () => {
                   releases++;
-                  return { status: "completed" };
+                  return stage === "starting_release"
+                    ? { status: "blocked", reason: "fixture_release_failed" }
+                    : { status: "completed" };
                 },
               },
             },
-      closeUnstartedCoordinatorSingleTask: () => {
+      updateQueue: (
+        ...args: [
+          Parameters<typeof snapshotStorage.updateQueue>[0],
+          string,
+          { kind: string; input: readonly unknown[] },
+        ]
+      ) => {
+        assert.equal(
+          resolveVerifiedRepositoryRoot(args[0]),
+          fs.realpathSync.native(root),
+        );
+        assert.equal(args[1], "synthetic-binding");
+        assert.equal(args[2].kind, "close_unstarted");
+        assert.ok(args[2].kind === "close_unstarted");
         assert.ok(queue?.singleTask);
+        assert.equal(args[2].input[0], queue.queueId);
+        assert.equal(args[2].input[1], queue.generation);
+        assert.equal(args[2].input[2], "fixture_lease_failed");
+        const clock = args[2].input[3];
+        assert.ok(clock && typeof clock === "object" && "now" in clock);
+        assert.equal(typeof clock.now, "function");
         return {
           status: "completed",
           value: {
@@ -997,9 +1102,22 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
         reason: "fixture_starting_save_failed",
         recoveryId: "store.synthetic",
       }),
-      createCoordinatorSnapshotStatePort: () => ({
-        settleQueueLeaseRelease: () => ({ status: "completed" }),
-      }),
+      settleCoordinatorSnapshotQueueLeaseRelease: (
+        ...args: Parameters<
+          typeof import("../../src/lifecycle/host.ts").settleCoordinatorSnapshotQueueLeaseRelease
+        >
+      ) => {
+        settlements++;
+        assert.equal(
+          resolveVerifiedRepositoryRoot(args[0]),
+          fs.realpathSync.native(root),
+        );
+        assert.equal(args[1], "synthetic-binding");
+        assert.equal(args[2], queue?.queueId);
+        assert.equal(args[3], queue?.generation);
+        assert.equal(args[4], "synthetic-owner");
+        return { status: "completed" };
+      },
     };
     const storage = mock.module(
       new URL("../../../execution-model/src/index.ts", import.meta.url).href,
@@ -1007,62 +1125,44 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
         namedExports: {
           ...snapshotStorage,
           readState: failures.readState,
-        },
-      },
-    );
-    const queueStorage = mock.module(
-      new URL("../../src/state/transaction.ts", import.meta.url).href,
-      {
-        namedExports: {
-          ...(await import("../../src/state/transaction.ts")),
-          ...Object.fromEntries(
-            Object.entries(failures).filter(([name]) =>
-              [
-                "enqueueCoordinatorSingleTask",
-                "closeUnstartedCoordinatorSingleTask",
-                "updateCoordinatorSingleTask",
-                "createCoordinatorSnapshotStatePort",
-              ].includes(name),
-            ),
-          ),
+          createQueue: failures.createQueue,
+          updateQueue: failures.updateQueue,
         },
       },
     );
     const leaseStorage = mock.module(
-      new URL("../../src/execution/lease.ts", import.meta.url).href,
+      new URL("../../src/lifecycle/host.ts", import.meta.url).href,
       {
         namedExports: {
-          ...(await import("../../src/execution/lease.ts")),
+          ...(await import("../../src/lifecycle/host.ts")),
+          updateCoordinatorSingleTask: failures.updateCoordinatorSingleTask,
           acquireCoordinatorSnapshotLease:
             failures.acquireCoordinatorSnapshotLease,
+          settleCoordinatorSnapshotQueueLeaseRelease:
+            failures.settleCoordinatorSnapshotQueueLeaseRelease,
         },
       },
     );
     let owner: ReturnType<typeof createCoordinatorTaskRequests> | null = null;
     try {
-      const moduleUrl = new URL(
-        `../../src/task/requests.ts?acceptance-failure=${stage}`,
-        import.meta.url,
-      );
-      const fresh = (await import(
-        moduleUrl.href
-      )) as typeof import("../../src/task/requests.ts");
-      owner = fresh.createCoordinatorTaskRequests({
-        root,
-        binding: "synthetic-binding",
-        projectId: "synthetic-project",
-        principalId: "synthetic-user",
-        authorize: () => true,
-        resolveSelection: () => ({
-          primary: executionSelection("advice"),
-          taskExecutionSelections: null,
-        }),
-        observeRevision: () => "a".repeat(40),
-        execute: async () => {
+      owner = await createTaskRequestsFixture(
+        {
+          root,
+          binding: "synthetic-binding",
+          projectId: "synthetic-project",
+          principalId: "synthetic-user",
+          authorize: () => true,
+          resolveSelection: () => ({
+            primary: executionSelection("advice"),
+            taskExecutionSelections: null,
+          }),
+          observeRevision: () => "a".repeat(40),
+        },
+        async () => {
           executions++;
           throw Error("execution_forbidden");
         },
-      });
+      );
       const accepted = await owner.start({
         requestId: "request-fixture-31117",
         mode: "read_only_advice",
@@ -1090,19 +1190,29 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
         assert.equal(result.requestId, accepted.requestId);
         assert.equal(result.status, stage === "lease" ? "blocked" : "unknown");
         assert.equal(result.cleanupConfirmed, stage === "lease");
-        if (stage === "starting") {
-          assert.ok(result.recoveryIds.includes("store.synthetic"));
-          assert.ok(
-            result.secondaryFailures.includes("fixture_starting_save_failed"),
+        if (stage === "starting" || stage === "starting_release") {
+          assert.equal(
+            result.reason,
+            "orchestrator_task_start_save_unconfirmed",
+          );
+          assert.deepEqual(result.recoveryIds, ["store.synthetic"]);
+          assert.deepEqual(
+            result.secondaryFailures,
+            stage === "starting_release"
+              ? [
+                  "orchestrator_task_lease_release_unconfirmed",
+                  "fixture_starting_save_failed",
+                ]
+              : ["fixture_starting_save_failed"],
           );
           assert.equal(releases, 1);
         } else assert.equal(releases, 0);
       }
       assert.equal(executions, 0);
+      assert.equal(settlements, stage === "starting" ? 1 : 0);
     } finally {
       await owner?.close();
       storage.restore();
-      queueStorage.restore();
       leaseStorage.restore();
     }
   }

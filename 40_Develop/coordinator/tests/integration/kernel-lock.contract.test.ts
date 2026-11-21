@@ -5,19 +5,21 @@
  * @boundary 新品Repository-local領域と実Node子Process。AI・Dockerなし。
  */
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
+import { execFileSync, spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { acquireLock } from "../../../lock/src/index.ts";
 import {
   acquireExecutionStateLock,
   acquireHostOperationLock,
   acquireProviderHomeLock,
-} from "../../src/execution/kernel-lock.ts";
+} from "../../src/lifecycle/host.ts";
+import { isHostOperationRootAbsent } from "../../src/lifecycle/host.ts";
 
 function fixture(t: TestContext) {
   const parent = fileURLToPath(
@@ -83,16 +85,59 @@ test("共有RuntimeStateはRepository・Homeキーが違っても同じ所在で
   assert.equal(next.release(), true);
 });
 
+/** 新品Git Rootに、既存LockとHost領域の親だけを用意する。 */
+function hostFixture(t: TestContext) {
+  const root = fixture(t);
+  execFileSync("git", ["init", "--quiet", "--template=", root], {
+    windowsHide: true,
+  });
+  const repository = getRepository(root);
+  assert.equal(repository.status, "completed");
+  if (repository.status !== "completed")
+    throw Error("fixture_repository_unavailable");
+  const lockDirectory = path.join(root, ".crdd", "lock");
+  const hostDirectory = path.join(root, ".crdd", "operations", "OP-000001");
+  fs.mkdirSync(lockDirectory, { recursive: true });
+  fs.mkdirSync(path.dirname(hostDirectory), { recursive: true });
+  return {
+    root,
+    capability: repository.capability,
+    lockDirectory,
+    hostDirectory,
+    operationId: "OP-000001",
+  };
+}
+
 test("Host世代は子Rootの外で保持し、子Root清掃後も元世代だけを解放する", (t) => {
-  const parent = fixture(t),
-    nonce = randomUUID();
-  const root = path.join(parent, `crdd-coordinator-doctor-${nonce}`);
-  fs.mkdirSync(root);
-  const first = acquireHostOperationLock(root, nonce);
+  const { root, capability, lockDirectory, hostDirectory, operationId } =
+    hostFixture(t);
+  fs.mkdirSync(hostDirectory);
+  assert.equal(isHostOperationRootAbsent(capability, operationId), false);
+  assert.equal(
+    Reflect.apply(acquireHostOperationLock, undefined, [root, operationId])
+      .status,
+    "blocked",
+  );
+  assert.equal(
+    acquireHostOperationLock(capability, "invalid").status,
+    "blocked",
+  );
+  assert.deepEqual(fs.readdirSync(lockDirectory), []);
+  const first = acquireHostOperationLock(capability, operationId);
   assert.equal(first.status, "acquired");
   if (first.status !== "acquired") return;
-  assert.equal(acquireHostOperationLock(root, nonce).status, "blocked");
-  fs.rmdirSync(root);
+  assert.equal(
+    acquireHostOperationLock(capability, operationId).status,
+    "blocked",
+  );
+  fs.rmdirSync(hostDirectory);
+  assert.equal(isHostOperationRootAbsent(capability, operationId), true);
+  const hostParent = path.dirname(hostDirectory);
+  fs.rmdirSync(hostParent);
+  assert.equal(isHostOperationRootAbsent(capability, operationId), false);
+  assert.equal(fs.existsSync(hostParent), false);
+  fs.writeFileSync(hostParent, "not a directory");
+  assert.equal(isHostOperationRootAbsent(capability, operationId), false);
   assert.equal(first.lock.assertLive(), true);
   assert.equal(first.lock.release(), true);
   assert.equal(first.lock.release(), false);
@@ -101,9 +146,7 @@ test("Host世代は子Rootの外で保持し、子Root清掃後も元世代だ�
 test("Host世代のCrashはFileを残し、停止下の元実体処置まで再入場しない", {
   timeout: 15000,
 }, async (t) => {
-  const parent = fixture(t),
-    nonce = randomUUID();
-  const root = path.join(parent, `crdd-coordinator-doctor-${nonce}`);
+  const { root, capability, operationId, lockDirectory } = hostFixture(t);
   const child = spawn(
     process.execPath,
     [
@@ -111,7 +154,7 @@ test("Host世代のCrashはFileを残し、停止下の元実体処置まで再�
         new URL("../fixtures/kernel-lock-owner.ts", import.meta.url),
       ),
       root,
-      nonce,
+      operationId,
     ],
     {
       shell: false,
@@ -135,25 +178,32 @@ test("Host世代のCrashはFileを残し、停止下の元実体処置まで再�
     }),
   ]);
   assert.equal(ready[0].toString(), "READY\n");
-  assert.equal(acquireHostOperationLock(root, nonce).status, "blocked");
-  const names = fs.readdirSync(parent);
+  assert.equal(
+    acquireHostOperationLock(capability, operationId).status,
+    "blocked",
+  );
+  const names = fs.readdirSync(lockDirectory);
   assert.equal(names.length, 1);
   const name = names[0];
   assert.ok(name);
-  const target = path.join(parent, name);
+  assert.equal(name, `coordinator.host-operation.${operationId}.lock`);
+  const target = path.join(lockDirectory, name);
   const bytes = fs.readFileSync(target),
     before = fs.lstatSync(target, { bigint: true });
   assert.equal(JSON.parse(bytes.toString()).owner.processId, child.pid);
   assert.equal(child.kill(), true);
   await closed;
-  assert.equal(acquireHostOperationLock(root, nonce).status, "blocked");
+  assert.equal(
+    acquireHostOperationLock(capability, operationId).status,
+    "blocked",
+  );
   const current = fs.lstatSync(target, { bigint: true });
   assert.equal(current.dev, before.dev);
   assert.equal(current.ino, before.ino);
   assert.deepEqual(fs.readFileSync(target), bytes);
   // この試験の全利用者をjoinし、同じFile・世代だけを明示回収する。
   fs.unlinkSync(target);
-  const next = acquireHostOperationLock(root, nonce);
+  const next = acquireHostOperationLock(capability, operationId);
   assert.equal(next.status, "acquired");
   if (next.status === "acquired") assert.equal(next.lock.release(), true);
 });

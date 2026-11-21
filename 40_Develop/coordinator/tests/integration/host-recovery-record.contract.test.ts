@@ -15,11 +15,9 @@ import test from "node:test";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 
 const modules = {
-  operation: new URL("../../src/execution/operation.ts", import.meta.url).href,
+  operation: new URL("../../src/lifecycle/host.ts", import.meta.url).href,
   model: new URL("../../../execution-model/src/index.ts", import.meta.url).href,
   repository: new URL("../../../version-control/src/index.ts", import.meta.url)
-    .href,
-  persistence: new URL("../../src/execution/persistence.ts", import.meta.url)
     .href,
   fixture: new URL(
     "../../../execution-model/tests/support/resource-operation.ts",
@@ -37,10 +35,9 @@ import { mock } from "node:test";
 import { syncBuiltinESMExports } from "node:module";
 import { execFileSync } from "node:child_process";
 import * as operation from ${JSON.stringify(modules.operation)};
-import { readState, applyResourceEvent, applyResourceCleanup } from ${JSON.stringify(modules.model)};
+import { readState, applyResourceEvent, applyResourceCleanup, saveOperationCheckpoint, saveOperationStart, saveRecoveryCheckpoint } from ${JSON.stringify(modules.model)};
 import { restartRequestIdFixture } from ${JSON.stringify(modules.assertions)};
 import { getRepository, resolveVerifiedRepositoryRoot, readRepositorySnapshot, readCommitFile, createWorktree } from ${JSON.stringify(modules.repository)};
-import { saveOperationStart, saveOperationCheckpoint, saveResourceNotIssuedStage } from ${JSON.stringify(modules.persistence)};
 import { createResourceOperationFixture, createResourceBookFixture } from ${JSON.stringify(modules.fixture)};
 const root = process.argv[1], scenario = process.argv[2];
 const git = (at, ...args) => execFileSync("git", ["-C", at, "-c", "user.name=CRDD Test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false", ...args], {encoding: "utf8", windowsHide: true});
@@ -198,13 +195,15 @@ if (scenario === "crash_reentry") {
     assert.ok(bound);
     const identity = { ...createResourceOperationFixture().identity,
       operationId: host().operationId, repositoryBinding: read().snapshot.repositoryBinding };
-    const started = saveOperationStart(management, JSON.stringify(identity) + "\\n", () => null);
+    const started = saveOperationStart(operation.operationStartInput(management, () => null), JSON.stringify(identity) + "\\n");
     assert.equal(started.startSaved, true, JSON.stringify(started));
     if (scenario === "git_unsettled_restart") {
       const frame = createResourceBookFixture(identity.ownershipLabel, "planned", ["create_provider"]);
-      const record = request => { const result = saveOperationCheckpoint(management, started.recoveryId, request); assert.equal(result.snapshotConfirmed && result.lockReleased, true, JSON.stringify(result)); };
+      const record = request => { const result = saveOperationCheckpoint(operation.operationStateInput(management), started.recoveryId, request); assert.equal(result.snapshotConfirmed && result.lockReleased, true, JSON.stringify(result)); };
       record({kind: "resource", value: {event: "submission", key: "create_provider", snapshot: frame.snapshot, cleanup: frame.cleanup}});
-      const notIssued = saveResourceNotIssuedStage(management, started.recoveryId, "create_provider");
+      const notIssued = saveRecoveryCheckpoint(operation.operationStateInput(management), started.recoveryId, null, {
+        kind: "resource_not_issued", purpose: "create_provider"
+      });
       assert.equal(notIssued.snapshotConfirmed && notIssued.lockReleased, true, JSON.stringify(notIssued));
       const original = read().snapshot.operations.find(item => item.kind === "docker_task");
       record({kind: "lifecycle", value: {phase: "settling", lease: "released", execution: {...original.execution, ownerEffect: "disabled"}, primaryFailure: null, outcome: null, summarySha256: null}});

@@ -4,8 +4,11 @@
  * @level IT
  * @boundary 親試験から受け取ったRepository-localのexact Rootだけ。
  */
-import { acquireHostOperationLock } from "../../src/execution/kernel-lock.ts";
-const result = acquireHostOperationLock(process.argv[2], process.argv[3]);
+import { getRepository } from "../../../version-control/src/index.ts";
+import { acquireHostOperationLock } from "../../src/lifecycle/host.ts";
+const repository = getRepository(process.argv[2]);
+if (repository.status !== "completed") process.exit(2);
+const result = acquireHostOperationLock(repository.capability, process.argv[3]);
 if (result.status !== "acquired") process.exit(2);
 process.stdout.write("READY\n");
 process.on("message", (message) => {

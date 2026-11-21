@@ -5,87 +5,396 @@
  * @responsibility coordinator:unit:task-execution-host-adapterが所有する検証責務を実行する。
  * @trace PRL-UT-014
  * @level UT
- * @scope project、runtime、clock、identity、process、adapter
+ * @scope Identity値と既存保存・Process安全状態への局所接続。
  * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 
-import { createCoordinatorExecutionHostPorts } from "../../src/task/dispatch.ts";
-import { createCoordinatorTaskRecoveryAdapter } from "../../src/task/dispatch.ts";
+import {
+  createCoordinatorStableId,
+  hashCoordinatorContent,
+} from "../../src/lifecycle/validation.ts";
+import {
+  createRuntimeProcessRecoveryIdentity,
+  getRuntimeProcessInstanceIdentity,
+  inspectRuntimeProcessRecoveryIdentity,
+} from "../../src/lifecycle/host.ts";
+import type { CoordinatorRecoveryTransition } from "../../src/lifecycle/types.ts";
 
 /**
- * Host Adapterは時刻と安定IdentityをCoordinator Portへ閉じるを検証する。
+ * Queue具体保存の実Lease確認と更新値の遅延評価を確認する。
+ * @responsibility 保存前の展開や別呼出しのLease持越しを反証する。
+ * @trace PRL-UT-014
+ * @precondition 具体保存関数の実宣言を一度捕捉しWriterだけを有限代役にする。
+ * @stimulus 生存、欠測、差替え、null、borrow例外を独立に与える。
+ * @observation 元Repository・世代、getter評価順、borrowと同じOwnerの観測。
+ * @oracle Writer内でだけ評価し、元結果・例外を変更しない。
+ * @cleanup N/A: 各呼出しの局所値だけを使う。
+ * @boundary 実関数と有限Writer。実保存成立は別の結合試験で確認する。
+ */
+test("Queue具体保存は元更新をWriter内で遅延評価しLeaseを持ち越さない", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/lifecycle/host.ts", import.meta.url),
+    "utf8",
+  );
+  const declarations = [
+    "writerLeaseAccess",
+    "updateCoordinatorQueue",
+    "updateCoordinatorSingleTask",
+  ]
+    .map((name) => stripTypeScriptTypes(sourceDeclaration(source, name)))
+    .join("\n");
+  const compile = new Function(
+    "updateQueue",
+    "borrowCoordinatorActiveLease",
+    "activeLeaseIsObserved",
+    "verifyRuntimePersistenceRepository",
+    "Date",
+    `${declarations}; return { updateCoordinatorQueue, updateCoordinatorSingleTask };`,
+  );
+  for (const profile of [
+    "active",
+    "absent",
+    "replaced",
+    "null",
+    "throws",
+  ] as const) {
+    const events: string[] = [];
+    const repository = Object.freeze({});
+    const lease = profile === "null" ? null : Object.freeze({ profile });
+    const active = {
+      kind: "project-operation",
+      repositoryRoot: "root",
+      repositoryBindingId: "binding",
+      projectId: "project",
+      queueId: "queue",
+      ownerGeneration: "owner",
+    };
+    const failure = new Error("borrow-failed");
+    const outcome = Object.freeze({ status: "blocked", reason: "original" });
+    const next = Object.defineProperties(
+      {},
+      Object.fromEntries(
+        Object.entries({
+          state: "running",
+          resumeCondition: "resume",
+          resultReference: "reference",
+          lease,
+        }).map(([key, value]) => [
+          key,
+          {
+            get: () => {
+              events.push(key);
+              return value;
+            },
+          },
+        ]),
+      ),
+    );
+    const raw = Object.freeze({ source: "single" });
+    const run = compile(
+      (
+        actualRepository: unknown,
+        binding: string,
+        request: {
+          kind: string;
+          input: [
+            string,
+            number,
+            Record<string, unknown>,
+            {
+              borrowActiveLease: () => unknown;
+              isActiveLeaseObserved: () => boolean;
+              now?: () => number;
+            },
+          ];
+        },
+      ) => {
+        assert.strictEqual(actualRepository, repository);
+        assert.equal(binding, "binding");
+        const [queueId, generation, values, access] = request.input;
+        assert.equal(queueId, "queue");
+        assert.equal(generation, 7);
+        assert.equal(access.isActiveLeaseObserved(), false);
+        if (request.kind === "operation") {
+          assert.deepEqual(events, []);
+          assert.equal(values.state, "running");
+          assert.equal(values.resumeCondition, "resume");
+          assert.equal(values.resultReference, "reference");
+          assert.equal(values.leasePresent, lease !== null);
+          assert.equal(values.leaseIsNull, lease === null);
+          assert.equal(access.now, undefined);
+        } else {
+          assert.equal(request.kind, "single");
+          assert.deepEqual(events, ["repository"]);
+          assert.strictEqual(values, raw);
+          assert.equal(access.now?.(), 123);
+        }
+        const borrowed = access.borrowActiveLease();
+        assert.deepEqual(
+          borrowed,
+          profile === "absent" || profile === "null" ? undefined : active,
+        );
+        assert.equal(access.isActiveLeaseObserved(), profile === "active");
+        return outcome;
+      },
+      (actualLease: unknown) => {
+        assert.strictEqual(actualLease, lease);
+        if (profile === "throws") throw failure;
+        return profile === "absent" || profile === "null" ? undefined : active;
+      },
+      (observed: unknown) => {
+        assert.strictEqual(observed, active);
+        return profile === "active";
+      },
+      (directory: string) => {
+        assert.equal(directory, "worktree");
+        events.push("repository");
+        return repository;
+      },
+      {
+        now() {
+          events.push("now");
+          return 123;
+        },
+      },
+    ) as Record<
+      "updateCoordinatorQueue" | "updateCoordinatorSingleTask",
+      (...args: unknown[]) => unknown
+    >;
+    for (let invocation = 0; invocation < 2; invocation++) {
+      events.length = 0;
+      const execute = () =>
+        run.updateCoordinatorQueue(
+          { repository, repositoryBindingId: "binding" },
+          "queue",
+          7,
+          next,
+        );
+      if (profile === "throws")
+        assert.throws(execute, (error) => error === failure);
+      else assert.strictEqual(execute(), outcome);
+      assert.deepEqual(events, [
+        "state",
+        "resumeCondition",
+        "resultReference",
+        "lease",
+        "lease",
+        "lease",
+      ]);
+      events.length = 0;
+      const executeSingle = () =>
+        run.updateCoordinatorSingleTask(
+          "worktree",
+          "binding",
+          "queue",
+          7,
+          lease,
+          raw,
+        );
+      if (profile === "throws")
+        assert.throws(executeSingle, (error) => error === failure);
+      else assert.strictEqual(executeSingle(), outcome);
+      assert.deepEqual(events, ["repository", "now"]);
+    }
+  }
+});
+
+/**
+ * Task搬送前の取消とWorkspace照合を実Sourceの同じ断面で検証する。
+ * @responsibility Portを経由せず元対象を照合し、拒否後に委譲しないことを確認する。
+ * @trace PRL-UT-014
+ * @precondition Graphの対象観測と委譲を含む実Source断面を一回だけ捕捉する。
+ * @stimulus Direct／Isolated一致、別ID、欠測、観測不能、取消、前後の例外を与える。
+ * @observation 元の観測引数、委譲、委譲前停止と実際の結果を区別する。
+ * @oracle 同じWorkspaceだけを委譲し、取消なら観測0。委譲前停止で下位結果を作らない。
+ * @cleanup N/A: 各差分は独立した局所値のみを使う。
+ * @boundary Source断面と有限観測代役。実Git・実Writerの証明ではない。
+ */
+test("TaskのWorkspace直接観測は元対象を照合し取消では観測しない", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/lifecycle/execution.ts", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf("    let stoppedBeforeDelegation:");
+  const end = source.indexOf("    const capturedOutcome", start);
+  assert.ok(start > 0 && end > start);
+  const evaluate = new Function(
+    "resolveCoordinatorWorkspaceTaskTarget",
+    "runCoordinatorSingleTaskAttempt",
+    "persistence",
+    "input",
+    "queue",
+    `${stripTypeScriptTypes(`
+      async function inspectTarget() {
+        let delegated = false;
+        const recording = null, attemptId = "attempt-a", operationId = "operation-a";
+        const taskId = "task-a", state = { tasks: [], repositoryRevision: "revision-a" };
+        const execution = { authorityBindingId: "authority-a" };
+        const observeStarted = () => {};
+        ${source.slice(start, end)}
+        return { delegated, stoppedBeforeDelegation, outcome };
+      }`)}\nreturn inspectTarget();`,
+  ) as (...args: unknown[]) => Promise<Record<string, unknown>>;
+  for (const profile of [
+    "direct",
+    "isolated",
+    "other",
+    "missing",
+    "unknown",
+    "blocked",
+    "cancelled",
+    "observation_throws",
+    "delegation_rejects",
+  ] as const) {
+    let observations = 0;
+    let delegations = 0;
+    const outcome = Object.freeze({ status: "completed" });
+    const persistence = Object.freeze({
+      workingDirectory: "original/nested",
+      repositoryBindingId: "binding-a",
+    });
+    const result = await evaluate(
+      (...args: unknown[]) => {
+        observations++;
+        assert.deepEqual(args, [
+          persistence.workingDirectory,
+          persistence.repositoryBindingId,
+          "queue-a",
+        ]);
+        if (profile === "blocked" || profile === "unknown")
+          return { status: profile, value: null };
+        if (profile === "observation_throws") throw Error("synthetic");
+        return {
+          status: "completed",
+          value: {
+            workspaceId:
+              profile === "other"
+                ? "workspace-b"
+                : profile === "direct"
+                  ? null
+                  : profile === "missing"
+                    ? null
+                    : "workspace-a",
+          },
+        };
+      },
+      async (attempt: Record<string, unknown>) => {
+        delegations++;
+        assert.deepEqual(attempt.workspaceTarget, {
+          workspaceId: profile === "direct" ? null : "workspace-a",
+        });
+        if (profile === "delegation_rejects") throw Error("synthetic");
+        return outcome;
+      },
+      persistence,
+      {
+        queueId: "queue-a",
+        cancellationSignal: { aborted: profile === "cancelled" },
+      },
+      { workspaceId: profile === "direct" ? null : "workspace-a" },
+    );
+    assert.equal(observations, profile === "cancelled" ? 0 : 1, profile);
+    const matched = profile === "direct" || profile === "isolated";
+    const delegated = matched || profile === "delegation_rejects";
+    assert.equal(delegations, delegated ? 1 : 0, profile);
+    assert.equal(result.delegated, delegated, profile);
+    assert.strictEqual(result.outcome, matched ? outcome : null, profile);
+    assert.equal(
+      result.stoppedBeforeDelegation,
+      profile === "cancelled"
+        ? "cancelled"
+        : delegated || profile === "observation_throws"
+          ? null
+          : "blocked",
+      profile,
+    );
+  }
+});
+
+/**
+ * 元の相関IDと内容Hashの値契約を検証する。
  *
- * @responsibility Host Adapterは時刻と安定IdentityをCoordinator Portへ閉じるの合否判定を所有する。
+ * @responsibility prefix、入力順、NUL区切り、40桁と64桁の使い分けを固定vectorで照合する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Host Adapterは時刻と安定IdentityをCoordinator Portへ閉じるの対象操作を実行する。
+ * @stimulus 空・複数要素・日本語の入力と内容差を純粋関数へ渡す。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Host Adapterは時刻と安定IdentityをOrchestrator Portへ閉じる", () => {
-  const reading = Object.freeze({
-    monotonicMs: 12_345,
-    iso: "2026-09-06T00:00:00.000Z",
-  });
-  const ports = createCoordinatorExecutionHostPorts({ now: () => reading });
-
-  assert.equal(ports.clockIdentity.now(), reading);
+test("相関IDと内容Hashは元の区切り・順序・桁数を維持する", () => {
+  const vectors: readonly [readonly string[], string][] = [
+    [[], "e3b0c44298fc1c149afbf4c8996fb92427ae41e4"],
+    [[""], "e3b0c44298fc1c149afbf4c8996fb92427ae41e4"],
+    [["project", "task", "1"], "3465ddaaaffd5bd57c04d4cf1709fd6e8eb40fcf"],
+    [["task", "project", "1"], "ad1db0ae9a58a7750f9dbe6af9b61889a0551ffb"],
+    [["日本語", "実行"], "7e4a502f9d7fcd2d77e96ff96d0f757cfc51c8a9"],
+    [["projecttask", "1"], "02ef8505705b26e1910732935549d020429c7d07"],
+    [["project", "task1"], "2778d7c308fb1c04a466ff84f41b957e2d25a07d"],
+  ];
+  for (const [parts, digest] of vectors) {
+    assert.equal(
+      createCoordinatorStableId("attempt", parts),
+      `attempt-${digest}`,
+    );
+    assert.equal(createCoordinatorStableId("queue", parts), `queue-${digest}`);
+  }
   assert.equal(
-    ports.clockIdentity.createStableId("attempt", ["project", "task", "1"]),
-    ports.clockIdentity.createStableId("attempt", ["project", "task", "1"]),
+    hashCoordinatorContent("content"),
+    "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73",
+  );
+  assert.doesNotMatch(
+    fs.readFileSync(
+      new URL("../../src/lifecycle/execution.ts", import.meta.url),
+      "utf8",
+    ),
+    /performance\.now\s*\(/u,
+  );
+  assert.equal(
+    createCoordinatorStableId("attempt", ["project", "task", "1"]),
+    createCoordinatorStableId("attempt", ["project", "task", "1"]),
   );
   assert.notEqual(
-    ports.clockIdentity.createStableId("attempt", ["project", "task", "1"]),
-    ports.clockIdentity.createStableId("attempt", ["project", "task", "2"]),
+    createCoordinatorStableId("attempt", ["project", "task", "1"]),
+    createCoordinatorStableId("attempt", ["project", "task", "2"]),
   );
   assert.match(
-    ports.clockIdentity.createStableId("attempt", ["project", "task", "1"]),
+    createCoordinatorStableId("attempt", ["project", "task", "1"]),
     /^attempt-[0-9a-f]{40}$/u,
   );
-  assert.match(
-    ports.clockIdentity.createContentHash("content"),
-    /^[0-9a-f]{64}$/u,
-  );
+  assert.match(hashCoordinatorContent("content"), /^[0-9a-f]{64}$/u);
   assert.notEqual(
-    ports.clockIdentity.createContentHash("content"),
-    ports.clockIdentity.createContentHash("changed"),
+    hashCoordinatorContent("content"),
+    hashCoordinatorContent("changed"),
   );
 });
 
 /**
- * Host AdapterはProcess Recovery Identityと再利用禁止通知をCoordinatorから分離するを検証する。
+ * Process世代と回復参照の照合・停止Ownerへの直接接続を検証する。
  *
- * @responsibility Host AdapterはProcess Recovery Identityと再利用禁止通知をCoordinatorから分離するの合否判定を所有する。
+ * @responsibility 元のProcess世代と相関を保ち、停止通知を既存Ownerへ一回渡す。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Host AdapterはProcess Recovery Identityと再利用禁止通知をCoordinatorから分離するの対象操作を実行する。
+ * @stimulus 実Identity生成と照合を行い、実停止処理を独立した状態で呼ぶ。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Host AdapterはProcess Recovery Identityと再利用禁止通知をOrchestratorから分離する", () => {
-  let poisonCount = 0;
-  const ports = createCoordinatorExecutionHostPorts({
-    poisonAfterCleanupUnknown: () => {
-      poisonCount += 1;
-    },
-  });
-
-  const recoveryId = ports.processSafety.createRecoveryIdentity(
+test("同じProcess世代の回復照合と既存停止Ownerへの直接接続を維持する", () => {
+  const recoveryId = createRuntimeProcessRecoveryIdentity(
     "attempt-12345678",
     "operation-12345678",
   );
-  assert.match(
-    ports.processSafety.getProcessInstanceIdentity(),
-    /^[0-9a-f-]{36}$/u,
-  );
+  assert.match(getRuntimeProcessInstanceIdentity(), /^[0-9a-f-]{36}$/u);
   assert.deepEqual(
-    ports.processSafety.inspectRecoveryIdentity(
+    inspectRuntimeProcessRecoveryIdentity(
       recoveryId,
       "attempt-12345678",
       "operation-12345678",
@@ -96,31 +405,77 @@ test("Host AdapterはProcess Recovery Identityと再利用禁止通知をOrchest
     },
   );
 
-  ports.processSafety.poisonAfterCleanupUnknown();
-  assert.equal(poisonCount, 1);
+  const source = fs.readFileSync(
+    new URL("../../src/lifecycle/host.ts", import.meta.url),
+    "utf8",
+  );
+  const state = new Function(
+    `${sourceDeclaration(source, "processCleanupUnknown")}
+    ${sourceDeclaration(source, "poisonRuntimeProcessAfterCleanupUnknown")}
+    ${sourceDeclaration(source, "isRuntimeProcessPoisoned")}
+    return { poisonRuntimeProcessAfterCleanupUnknown, isRuntimeProcessPoisoned };`,
+  )() as {
+    poisonRuntimeProcessAfterCleanupUnknown(): void;
+    isRuntimeProcessPoisoned(): boolean;
+  };
+  assert.equal(state.isRuntimeProcessPoisoned(), false);
+  state.poisonRuntimeProcessAfterCleanupUnknown();
+  assert.equal(state.isRuntimeProcessPoisoned(), true);
 });
 
+const recoveryDiagnostic = sourceDeclaration(
+  fs.readFileSync(
+    new URL("../../src/lifecycle/environment.ts", import.meta.url),
+    "utf8",
+  ),
+  "writeCoordinatorRecoveryDiagnostic",
+);
+
+/** 既存診断Writer本体を有限の出力先だけへ接続する。 */
+function withRecoveryReporter(reporter: object) {
+  return new Function(
+    "productionRecoveryDiagnosticReporter",
+    "return (" + recoveryDiagnostic + ");",
+  )(reporter) as (event: CoordinatorRecoveryTransition) => void;
+}
+
 /**
- * Task Recovery AdapterはRepository情報を閉じて意味IdentityだけをCoordinatorへ公開するを検証する。
+ * 回復通知の内容と失敗境界を検証する。
  *
- * @responsibility Task Recovery AdapterはRepository情報を閉じて意味IdentityだけをCoordinatorへ公開するの合否判定を所有する。
+ * @responsibility 通知を凍結した値へ限定し、診断例外を実回復へ漏らさないことを確認する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Task Recovery AdapterはRepository情報を閉じて意味IdentityだけをCoordinatorへ公開するの対象操作を実行する。
+ * @stimulus 実通知関数へ同期例外を返す通知先を渡す。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Task Recovery AdapterはRepository情報を閉じて意味IdentityだけをOrchestratorへ公開する", async () => {
-  const port = createCoordinatorTaskRecoveryAdapter({
-    observeRecoveryTransition: () => {
-      throw new Error("diagnostic_unavailable");
-    },
-  });
-  assert.equal(Object.hasOwn(port, "acknowledgeDocker"), false);
+test("回復通知はAuthorityを含まず診断の同期例外を回復へ漏らさない", async () => {
+  let seen: CoordinatorRecoveryTransition | undefined;
+  const observer = (event: CoordinatorRecoveryTransition) => {
+    seen = event;
+    throw new Error("diagnostic_unavailable");
+  };
+  const inspect = (event: CoordinatorRecoveryTransition) => {
+    assert.equal(Object.isFrozen(event), true);
+    assert.equal(Object.hasOwn(event, "acknowledgeDocker"), false);
+    assert.deepEqual(
+      Object.keys(event).sort(),
+      [
+        "phase",
+        "projectId",
+        "milestoneId",
+        "queueId",
+        "taskId",
+        "operationId",
+        "recoveryId",
+        "stateGeneration",
+      ].sort(),
+    );
+  };
   await assert.doesNotReject(async () => {
-    await port.observeTransition({
+    await withRecoveryReporter({ report: observer })({
       phase: "required",
       projectId: "project-1",
       milestoneId: "milestone-1",
@@ -131,6 +486,8 @@ test("Task Recovery AdapterはRepository情報を閉じて意味Identityだけ�
       stateGeneration: 2,
     });
   });
+  assert.ok(seen);
+  inspect(seen);
 });
 
 /**
@@ -151,6 +508,8 @@ test("任意の回復診断は未完了でも回復を止めず、後着拒否�
     "reject",
     "pending",
     "late_reject",
+    "missing",
+    "getter_throw",
   ] as const) {
     let recoveries = 0,
       notices = 0;
@@ -163,12 +522,16 @@ test("任意の回復診断は未完了でも回復を止めず、後着拒否�
       recoveryId: "exact-recovery",
       cleanupConfirmed: false,
     });
-    const port = createCoordinatorTaskRecoveryAdapter({
-      recoverTaskRecovery: () => {
+    const cancellationSignal = new AbortController().signal;
+    const callbacks = {
+      recoverTaskRecovery: (recoveryId: string, signal: AbortSignal) => {
+        assert.equal(recoveryId, "exact-recovery");
+        assert.strictEqual(signal, cancellationSignal);
         recoveries++;
         return outcome;
       },
-      observeRecoveryTransition: (event) => {
+      report(event: CoordinatorRecoveryTransition) {
+        assert.strictEqual(this, callbacks);
         notices++;
         assert.equal(Object.isFrozen(event), true);
         if (mode === "throw") throw Error("diagnostic_failure");
@@ -177,9 +540,18 @@ test("任意の回復診断は未完了でも回復を止めず、後着拒否�
         if (mode === "pending") return new Promise<void>(() => {});
         if (mode === "late_reject") return late;
       },
-    });
+    };
+    if (mode === "missing")
+      assert.equal(Reflect.deleteProperty(callbacks, "report"), true);
+    if (mode === "getter_throw")
+      Object.defineProperty(callbacks, "report", {
+        get() {
+          notices++;
+          throw Error("diagnostic_getter_failure");
+        },
+      });
     assert.equal(
-      port.observeTransition({
+      withRecoveryReporter(callbacks)({
         phase: "required",
         projectId: "p",
         milestoneId: "m",
@@ -192,14 +564,14 @@ test("任意の回復診断は未完了でも回復を止めず、後着拒否�
       undefined,
     );
     assert.equal(
-      await port.recover("exact-recovery", new AbortController().signal),
+      await callbacks.recoverTaskRecovery("exact-recovery", cancellationSignal),
       outcome,
     );
     if (mode === "late_reject")
       rejectLate(Error("diagnostic_failure_after_recovery"));
     await new Promise<void>((resolve) => setImmediate(resolve));
     assert.equal(recoveries, 1);
-    assert.equal(notices, 1);
+    assert.equal(notices, mode === "missing" ? 0 : 1);
     assert.equal(outcome.cleanupConfirmed, false);
     assert.equal(outcome.recoveryId, "exact-recovery");
   }

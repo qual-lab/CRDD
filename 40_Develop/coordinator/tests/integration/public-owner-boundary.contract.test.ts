@@ -24,7 +24,7 @@ import {
   isPrincipalId,
 } from "../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { readExecutionCancellation } from "../../src/execution/authority.ts";
+import { readExecutionCancellation } from "../../src/lifecycle/validation.ts";
 import * as coordinator from "../../src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
@@ -91,7 +91,7 @@ test("三公開CLI入口はProjectとTaskの六経路を同じ条件で受け付
  * 認証・ProjectのCLI解除不明でも一次結果を保持する。
  * @responsibility throwと非releasedを同じ副次失敗へ閉じ、元回復参照を消さない。
  * @trace PRL-IT-012
- * @precondition 実CLIと既存API・取消bindingの有限代役。
+ * @precondition 実CLI操作宣言と既存API・取消bindingの有限代役。
  * @stimulus 回復必要結果の後、解除をthrow又は非releasedにする。
  * @observation stdoutの一件JSON、元field、終了値と下位一回呼出し。
  * @oracle 一次reason・exact ID・下位cleanupを保持しexit2、自動再送0。
@@ -99,28 +99,26 @@ test("三公開CLI入口はProjectとTaskの六経路を同じ条件で受け付
  * @boundary PRL-IT-012=Related 2 Blocks: CLI→正式API→CLI解除。
  */
 test("認証とProjectは解除throwと非releasedでも一次結果と回復参照を保持する", () => {
+  const source = fs.readFileSync(
+    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/command.ts"),
+    "utf8",
+  );
+  const declarations = [
+    "UsageError",
+    "runAuthenticationCommand",
+    "runProjectCommand",
+  ]
+    .map((name) => sourceDeclaration(source, name))
+    .join("\n");
+  const model = pathToFileURL(
+    path.join(repositoryRoot, "40_Develop/execution-model/src/index.ts"),
+  ).href;
   for (const target of ["auth", "project"]) {
     for (const failure of ["throw", "not_released"]) {
       const api = pathToFileURL(
         path.join(repositoryRoot, "40_Develop/coordinator/src/api.ts"),
       ).href;
-      const options = pathToFileURL(
-        path.join(repositoryRoot, "40_Develop/coordinator/src/cli/options.ts"),
-      ).href;
-      const cancellation = pathToFileURL(
-        path.join(
-          repositoryRoot,
-          "40_Develop/coordinator/src/cli/cancellation.ts",
-        ),
-      ).href;
-      const entry = pathToFileURL(
-        path.join(
-          repositoryRoot,
-          "40_Develop/coordinator/src/cli",
-          target === "auth" ? "authentication.ts" : "request.ts",
-        ),
-      ).href;
-      const script = `import {mock} from"node:test";let calls=0;
+      const script = `import {isPrincipalId} from ${JSON.stringify(model)};let calls=0;
    const actual=await import(${JSON.stringify(api)});
    const result={status:"blocked",reason:"primary_fixture_failure",recoveryId:"same-exact-fixture-id",cleanupConfirmed:false,manualRecoveryRequired:true,recoveryIds:["same-exact-fixture-id"],effectState:"unknown"};
    /**
@@ -135,11 +133,12 @@ test("認証とProjectは解除throwと非releasedでも一次結果と回復参
     * @boundary PRL-IT-012=Related 2 Blocks: CLIとAPI代役。
     */
    const operation=async()=>{calls++;return result;};
-   mock.module(${JSON.stringify(api)},{exports:{...actual,runObjective:operation,getAuthenticationStatus:operation}});
-   const options=await import(${JSON.stringify(options)});mock.module(${JSON.stringify(options)},{exports:{...options,readBoundedTaskRequestFromStdin:()=>({})}});
-   mock.module(${JSON.stringify(cancellation)},{exports:{bindTaskCliCancellationSignals:()=>({status:"bound",unbind:()=>{if(${JSON.stringify(failure)}==="throw")throw Error("PRIVATE_DETAIL");return {status:"unknown"};}})}});
-   const cli=await import(${JSON.stringify(entry)});
-   if(${JSON.stringify(target)}==="auth")await cli.runAuthenticationCommand(["status","codex","--json"]);else await cli.runProjectCommand(["objective","--request-stdin","--json","--principal-id","local.email.fixture@example.invalid"]);
+   const {isSupportedNodeRuntime,PROVIDER_AUTHENTICATION_INPUT_NOTICE}=actual;
+   const runObjective=operation,getAuthenticationStatus=operation,authenticateProvider=()=>{throw Error("unexpected_login");};
+   const readBoundedTaskRequestFromStdin=()=>({});
+   const bindTaskCliCancellationSignals=()=>({status:"bound",unbind:()=>{if(${JSON.stringify(failure)}==="throw")throw Error("PRIVATE_DETAIL");return {status:"unknown"};}});
+   ${declarations}
+   if(${JSON.stringify(target)}==="auth")await runAuthenticationCommand(["status","codex","--json"]);else await runProjectCommand(["objective","--request-stdin","--json","--principal-id","local.email.fixture@example.invalid"]);
    if(calls!==1)throw Error("incorrect_call_count");`;
       const child = spawnSync(
         process.execPath,
@@ -187,7 +186,7 @@ test("認証とProjectは解除throwと非releasedでも一次結果と回復参
  */
 test("受付Moduleのimportは起動せずProject拒否JSONのbytesを維持する", () => {
   const requestUrl = pathToFileURL(
-    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/request.ts"),
+    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/command.ts"),
   ).href;
   for (const example of [
     { call: "", input: "", reason: null },
@@ -242,7 +241,7 @@ test("受付Moduleのimportは起動せずProject拒否JSONのbytesを維持す�
  */
 test("Taskの不正引数は本番入口で標準入力を読む前に拒否する", () => {
   const commandUrl = pathToFileURL(
-    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/request.ts"),
+    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/command.ts"),
   ).href;
   for (const args of [
     [],
@@ -283,7 +282,7 @@ test("Taskの不正引数は本番入口で標準入力を読む前に拒否す�
  */
 test("移管したTask Readerは128KiBと厳格な入力拒否を維持する", () => {
   const readerUrl = pathToFileURL(
-    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/options.ts"),
+    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/command.ts"),
   ).href;
   const exact = JSON.stringify({ value: "x".repeat(128 * 1024 - 12) });
   assert.equal(Buffer.byteLength(exact), 128 * 1024);
@@ -320,7 +319,7 @@ test("移管したTask Readerは128KiBと厳格な入力拒否を維持する", 
  */
 test("単発操作は受付後の待機・終了例外でも元依頼IDを保持する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/task/requests.ts", import.meta.url),
+    new URL("../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
   const body = sourceDeclaration(source, "runTask");
@@ -418,7 +417,7 @@ test("単発操作は受付後の待機・終了例外でも元依頼IDを保持
  */
 test("CLIは明示したローカル要求主体だけを渡し、欠測時に自動取得しない", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/cli/request.ts", import.meta.url),
+    new URL("../../src/cli/command.ts", import.meta.url),
     "utf8",
   );
   const body = sourceDeclaration(source, "runProjectCommand");
@@ -646,7 +645,7 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
     assert.equal(JSON.parse(result.stdout).reason, example.reason);
   }
   const commandSource = fs.readFileSync(
-    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/request.ts"),
+    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/command.ts"),
     "utf8",
   );
   assert.doesNotMatch(commandSource, /orchestrator\/src/);

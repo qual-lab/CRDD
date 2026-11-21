@@ -28,7 +28,7 @@ import { planDockerIsolationCommands } from "../../../executor/tests/support/iso
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
+} from "../../src/lifecycle/host.ts";
 import {
   acquireHostOperationRecoveryGeneration,
   borrowOwnedDockerExecutionPaths,
@@ -42,7 +42,7 @@ import {
   releaseHostOperationRecoveryGeneration,
   verifyOwnedOperationCleanupOutcome,
   verifyOwnedOperationManagementMountBinding,
-} from "../../src/execution/operation.ts";
+} from "../../src/lifecycle/host.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import { createAttemptPreparation } from "../fixtures/attempt-preparation.ts";
 
@@ -683,10 +683,7 @@ test("Host Windows: 清掃後の上位所在取得拒否と固定値の技術搬
  * @boundary 論理Kernel故障・実Filesystem・本番private世代。実Kernel故障やDaemon終端は証明しない。
  */
 test("Host Windows: 世代失効は上位で拒否し固定値から上位を再照会しない", async () => {
-  const kernelUrl = new URL(
-    "../../src/execution/kernel-lock.ts",
-    import.meta.url,
-  );
+  const kernelUrl = new URL("../../src/lifecycle/host.ts", import.meta.url);
   const kernel = await import(kernelUrl.href);
   let live = true,
     falseObservations = 0,
@@ -720,10 +717,10 @@ test("Host Windows: 世代失効は上位で拒否し固定値から上位を再
   try {
     const host = (await import(
       new URL(
-        "../../src/execution/operation.ts?generation-loss-test",
+        "../../src/lifecycle/host.ts?generation-loss-test",
         import.meta.url,
       ).href
-    )) as typeof import("../../src/execution/operation.ts");
+    )) as typeof import("../../src/lifecycle/host.ts");
     const area = requireReadyRepositoryExecutionDataArea(
       ensureRepositoryExecutionDataAreaFromWorkingDirectory(
         import.meta.dirname,

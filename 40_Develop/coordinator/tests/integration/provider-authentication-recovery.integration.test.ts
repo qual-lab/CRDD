@@ -19,7 +19,7 @@ import {
   createAuthenticationFixture,
   prepareAuthenticationProjection,
 } from "../support/authentication.ts";
-import { acquireProviderHomeLock } from "../../src/execution/kernel-lock.ts";
+import { acquireProviderHomeLock } from "../../src/lifecycle/host.ts";
 import {
   authenticateProvider,
   beginProviderAuthenticationRecovery,
@@ -28,7 +28,7 @@ import {
   recordProviderAuthenticationResource,
   setProviderAuthenticationRecoveryCommandState,
   settleProviderAuthenticationRecovery,
-} from "../../src/execution/authority.ts";
+} from "../../src/lifecycle/authentication.ts";
 
 test("認証は旧keyの別名記録と旧revisionを保全して新規Effect前に停止する", () => {
   const root = createRepositoryTestDirectory("provider-auth-old-record-");

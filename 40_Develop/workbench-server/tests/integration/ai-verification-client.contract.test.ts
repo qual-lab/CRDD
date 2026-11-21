@@ -20,6 +20,7 @@ import { runInNewContext } from "node:vm";
 import { createReadonlyVerificationTiming } from "../../scripts/ai-verification-timing.ts";
 import { parseUnambiguousJsonDocument } from "../../src/server/request/parse-json.ts";
 import {
+  type VerificationHttpTiming,
   projectVerificationTransportFailure,
   requestInChild,
 } from "../../scripts/ai-verification-http.ts";
@@ -394,6 +395,8 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
   );
   const scenarios = [
     "success",
+    "parent-clock-behind",
+    "deferred-close",
     "spawn-throw",
     "spawn-error",
     "send-callback-error",
@@ -445,6 +448,16 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
     child.stdout = new EventEmitter();
     child.stderr = new EventEmitter();
     const timers = new Map<number, () => void>();
+    const deferred: { close?: () => void } = {};
+    const observations: {
+      timing: VerificationHttpTiming;
+      closed: boolean;
+    }[] = [];
+    let closeObserved = false;
+    let frameDelivered = false;
+    child.once("close", () => {
+      closeObserved = true;
+    });
     const scheduledDeadlines: number[] = [];
     let kills = 0;
     let input = "";
@@ -491,6 +504,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
       CLIENT_OUTPUT_MAX_BYTES: 6 * 1024 * 1024 + 4096,
       parseUnambiguousJsonDocument,
       projectVerificationTransportFailure,
+      Date: scenario === "parent-clock-behind" ? { now: () => 2 } : Date,
       setTimeout: (callback: () => void, ms: number) => {
         scheduledDeadlines.push(ms);
         timers.set(ms, () => {
@@ -599,7 +613,10 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
                   .replace('"headersSendingAt":1', '"headersSendingAt":2')
                   .replace('"headersAt":2', '"headersAt":1');
               child.stdout.emit("data", Buffer.from(output));
-              if (
+              frameDelivered = true;
+              if (scenario === "deferred-close") {
+                deferred.close = () => child.emit("close", 0, null);
+              } else if (
                 scenario === "payload-no-close" ||
                 scenario === "cleanup-unknown" ||
                 scenario === "late-close" ||
@@ -639,10 +656,32 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
       "http://127.0.0.1:1234/",
       route,
       new URLSearchParams({ actionToken: "synthetic-token" }),
-      () => {
+      (timing) => {
+        observations.push({ timing, closed: closeObserved });
         throw Error("clock-only");
       },
     );
+    let settled = 0;
+    void operation.then(
+      () => {
+        settled++;
+      },
+      () => {
+        settled++;
+      },
+    );
+    if (scenario === "deferred-close") {
+      try {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        assert.equal(frameDelivered, true);
+        assert.equal(closeObserved, false);
+        assert.equal(settled, 0);
+        assert.equal(observations.length, 0);
+        assert.ok(deferred.close);
+      } finally {
+        deferred.close?.();
+      }
+    }
     assert.equal(
       scheduledDeadlines.includes(
         route === "/workspace/action" ? 65_000 : 20_000,
@@ -650,9 +689,14 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
       scenario !== "spawn-throw",
     );
     if (
-      ["success", "late-close", "backpressure", "late-callback-error"].includes(
-        scenario,
-      )
+      [
+        "success",
+        "parent-clock-behind",
+        "deferred-close",
+        "late-close",
+        "backpressure",
+        "late-callback-error",
+      ].includes(scenario)
     )
       assert.equal((await operation).status, 303);
     else
@@ -691,6 +735,32 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
         return true;
       });
     assert.equal(spawned, 1);
+    if (scenario === "parent-clock-behind" || scenario === "deferred-close") {
+      assert.equal(settled, 1);
+      assert.equal(observations.length, 1);
+      assert.equal(observations[0]?.closed, true);
+      assert.equal(observations[0]?.timing.completedAt, 3);
+      if (scenario === "parent-clock-behind") {
+        assert.equal(observations[0]?.timing.closedAt, 2);
+        const timing = createReadonlyVerificationTiming();
+        try {
+          timing.client(observations[0].timing);
+          if (route === "/workspace/action") {
+            // 読取りsummaryの対象外経路を新たに収集しない。
+            assert.deepEqual(timing.snapshot().clients, []);
+          } else {
+            assert.equal(timing.snapshot().clients[0]?.closedAt, 2);
+            assert.equal(timing.snapshot().clients[0]?.completedAt, 3);
+          }
+        } finally {
+          timing.dispose();
+        }
+      }
+      child.emit("close", 0, null);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.equal(settled, 1);
+      assert.equal(observations.length, 1);
+    }
     assert.ok(kills <= 1);
     assert.equal(timers.size, 0, scenario);
     if (input)

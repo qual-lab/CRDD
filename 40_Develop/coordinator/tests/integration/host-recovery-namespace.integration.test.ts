@@ -150,7 +150,7 @@ test("production doctorは受動診断でHost領域・Namespaceを作成しな�
   runNodeNamespaceCase(
     `
 import assert from "node:assert/strict";
-import { runDoctor, REQUIRED_CHECK_IDS } from ${JSON.stringify(new URL("../../src/execution/diagnostics.ts", import.meta.url).href)};
+import { runDoctor, REQUIRED_CHECK_IDS } from ${JSON.stringify(new URL("../../src/lifecycle/environment.ts", import.meta.url).href)};
 
   const report = await runDoctor({
     activeIsolation: false,
@@ -206,7 +206,7 @@ test("production Operationは実Directory producerのexact Host Recovery IDを�
 }, () => {
   runNodeNamespaceCase(`
 import assert from "node:assert/strict";
-import { createRuntimeOwnedCoordinatorOperation, cleanupOwnedOperationDirectories, getOwnedHostRecoveryId } from ${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)};
+import { createRuntimeOwnedCoordinatorOperation, cleanupOwnedOperationDirectories, getOwnedHostRecoveryId } from ${JSON.stringify(new URL("../../src/lifecycle/host.ts", import.meta.url).href)};
 
   for (let attempt = 0; attempt < 2; attempt++) {
   const created = createRuntimeOwnedCoordinatorOperation();
@@ -241,7 +241,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createRuntimeOwnedCoordinatorOperation, classifyOwnedOperationDirectoryCreationFailure } from ${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)};
+import { createRuntimeOwnedCoordinatorOperation, classifyOwnedOperationDirectoryCreationFailure } from ${JSON.stringify(new URL("../../src/lifecycle/host.ts", import.meta.url).href)};
 const parent = fs.realpathSync(os.tmpdir());
 const directory = path.join(parent, "crdd-coordinator-recovery-v1");
 function reject(expected) {
@@ -293,7 +293,7 @@ assert.deepEqual(fs.readdirSync(directory), []);
  */
 test("通常producerは既存NodeのDirectory Ownerへ直接接続する", () => {
   const source = readFileSync(
-    new URL("../../src/execution/operation.ts", import.meta.url),
+    new URL("../../src/lifecycle/host.ts", import.meta.url),
     "utf8",
   );
   assert.match(source, /createDirectories: createOwnedOperationDirectories,/u);

@@ -9,37 +9,462 @@
  * @boundary Coordinator RuntimeとFake Docker／Host境界。
  */
 import assert from "node:assert/strict";
+import { createHostCompletionFixture } from "../../fixtures/docker-owned-process-test-support.ts";
+import type {
+  HostCompletionTarget,
+  PreparationInput,
+} from "../../../src/lifecycle/types.ts";
+import { getEventListeners } from "node:events";
+import { setImmediate } from "node:timers/promises";
 import type {
   ExecutorCallbacks,
   StartInput,
   AttemptCancelInput,
 } from "../../../../executor/src/index.ts";
 
-import type { PreparationInput } from "../../../src/execution/types.ts";
 import test from "node:test";
 import fs from "node:fs";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { attemptPlan } from "../../../../executor/tests/fixtures/attempt-plan.ts";
-import { poisonRuntimeProcessAfterCleanupUnknown } from "../../../src/execution/process-safety-state.ts";
+import { poisonRuntimeProcessAfterCleanupUnknown } from "../../../src/lifecycle/host.ts";
 
 import { executionSelection } from "../../fixtures/ai-selection.ts";
-import { prepareProviderAdvicePlan } from "../../../src/execution/preparation.ts";
 import {
-  createIsolatedProviderAdviceRuntimeCandidate,
-  createRuntimeOwnedProviderAdviceRuntime,
-  classifyProviderAdviceHostFailure,
-  type ProviderAdviceRuntimeDependencies,
-} from "../../../src/execution/advice.ts";
-import { createIsolatedOwnedOperationDirectoryCreationFailureCandidate } from "../../../src/execution/operation.ts";
+  capturePreparationInput,
+  createPreparationFailure,
+  prepareProviderAdviceInput,
+} from "../../../src/lifecycle/selection.ts";
+import { runRepositoryAdvice } from "../../../src/lifecycle/execution.ts";
+import { registerRuntimeOwnedDockerHandoff } from "../../../src/lifecycle/host.ts";
+import {
+  loadAdviceRuntimeFixture,
+  loadOperationFailureFixture,
+  type TestAdviceDependencies,
+} from "../../support/task-requests.ts";
 import { types, isDeepStrictEqual } from "node:util";
 import { createResourceOperationFixture } from "../../../../execution-model/tests/support/resource-operation.ts";
-import { snapshotPlainRecord } from "../../../src/input/snapshot.ts";
+import { snapshotPlainRecord } from "../../../src/lifecycle/validation.ts";
+import { parseDockerTaskRecoveryId } from "../../../../execution-model/src/index.ts";
+import { snapshotReadyRecovery } from "../../../src/lifecycle/validation.ts";
+
+const { executeProviderAdvice, classifyProviderAdviceHostFailure } =
+  await loadAdviceRuntimeFixture();
+
+// EMの用途固定読取りへ切替後も、各反例は元Ownerとscopeを検査する。
+const operationReadFixtureSource = `
+const operationStateInput = identity => ({identity});
+const readState = (input, request) => {
+  if (request.scope !== "operation" || Object.keys(request).length !== 1)
+    throw Error("fixture_operation_read_scope");
+  return readFixtureOperation(input.identity);
+};
+`;
 
 const recoverySource = fs.readFileSync(
-  new URL("../../../src/execution/recovery.ts", import.meta.url),
+  new URL("../../../src/lifecycle/environment.ts", import.meta.url),
   "utf8",
 );
+
+/**
+ * 同一Hostで受け取った組を置換せず、別試行の組だけを追加する。
+ * @responsibility Taskと助言が使う回復登録の同一性条件を検証する。
+ * @trace ERB-UT-023
+ * @precondition Host進捗は空であり、両試行の合成回復参照がある。
+ * @stimulus 不正、片側の重複、両側の重複、別試行の組を順に登録する。
+ * @observation 登録の成否と最初の組の同一参照。
+ * @oracle 拒否は元の組を変更せず、別試行の組だけを追加する。
+ * @cleanup メモリ内のみ。
+ * @boundary 下位の登録通知と同じHostの進捗。
+ */
+test("同じ回復ID・制御参照の再登録を拒否し別試行だけ追加する", () => {
+  const target: Pick<HostCompletionTarget, "dockerHandoffs"> = {
+    dockerHandoffs: [],
+  };
+  const first = Object.freeze({});
+  const second = Object.freeze({});
+  const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+  const otherId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"d".repeat(64)}`;
+  assert.equal(registerRuntimeOwnedDockerHandoff(target, first, id), true);
+  const original = target.dockerHandoffs[0];
+  assert.ok(original);
+  for (const [capability, recoveryId] of [
+    [null, otherId],
+    [() => {}, otherId],
+    [second, "invalid"],
+    [first, id],
+    [first, otherId],
+    [second, id],
+  ] as const) {
+    assert.equal(
+      registerRuntimeOwnedDockerHandoff(target, capability, recoveryId),
+      false,
+    );
+    assert.equal(target.dockerHandoffs.length, 1);
+    assert.equal(target.dockerHandoffs[0], original);
+    assert.equal(original.capability, first);
+    assert.equal(original.recoveryId, id);
+    assert.equal(original.state, "active");
+  }
+  assert.equal(
+    registerRuntimeOwnedDockerHandoff(target, second, otherId),
+    true,
+  );
+  assert.equal(target.dockerHandoffs.length, 2);
+  assert.equal(target.dockerHandoffs[0], original);
+  assert.equal(target.dockerHandoffs[1]?.capability, second);
+  assert.equal(target.dockerHandoffs[1]?.recoveryId, otherId);
+});
+
+/**
+ * 失敗終結で元の回復参照と保持終了の結果を区別する。
+ * @responsibility TaskとAdviceで共用する保持終了の順序と回復参照の保存を検証する。
+ * @trace ERB-UT-023
+ * @precondition ケースごとに独立した所有参照と進捗を作る。
+ * @stimulus 保持終了の成功、未確認、例外と、清掃済みHostを与える。
+ * @observation 同じ管理参照、呼出し順、終了前後の引渡し状態。
+ * @oracle 成功分だけをabandonedとし、例外でも未清掃Hostの世代Lock解放を試みる。
+ * @cleanup N/A: メモリ上の値だけ。
+ * @boundary 本番の保持終了とExecutor／Host Lockの代役。
+ */
+test("共通の失敗終結は回復参照を残し、保持終了の確認だけを記録する", async () => {
+  const build = new Function(
+    "abandonRuntimeOwnedAttemptRecovery",
+    "abandonOwnedHostOperationGenerationLock",
+    `${sourceDeclaration(recoverySource, "retainRuntimeOwnedHostOperation")}; return retainRuntimeOwnedHostOperation;`,
+  );
+  for (const scenario of ["unconfirmed", "throw", "host_cleaned"] as const) {
+    const management = {};
+    const handoffs: HostCompletionTarget["dockerHandoffs"] = [
+      { capability: {}, recoveryId: "final", state: "finalized" },
+      { capability: {}, recoveryId: "released", state: "abandoned" },
+      { capability: {}, recoveryId: "settled-now", state: "finalizable" },
+      { capability: {}, recoveryId: "unresolved", state: "active" },
+    ];
+    const target: HostCompletionTarget = {
+      ownedOperation: {},
+      managementCapability: management,
+      hostRecoveryId: "HOST",
+      hostCleanupCompleted: scenario === "host_cleaned",
+      dockerHandoffs: handoffs,
+    };
+    const calls: string[] = [];
+    const failure = Error("abandon_unconfirmed");
+    const retain = build(
+      (capability: object, owner: unknown) => {
+        assert.strictEqual(owner, management);
+        const handoff = handoffs.find((item) => item.capability === capability);
+        assert.ok(handoff);
+        calls.push(handoff.recoveryId);
+        if (handoff.recoveryId === "settled-now") return true;
+        if (scenario === "throw") throw failure;
+        return false;
+      },
+      async (owner: unknown) => {
+        assert.strictEqual(owner, management);
+        calls.push("host-lock");
+        return true;
+      },
+    ) as (target: HostCompletionTarget) => Promise<void>;
+    if (scenario === "throw")
+      await assert.rejects(retain(target), (error) => error === failure);
+    else await retain(target);
+    assert.deepEqual(calls, [
+      "settled-now",
+      "unresolved",
+      ...(scenario === "host_cleaned" ? [] : ["host-lock"]),
+    ]);
+    assert.deepEqual(
+      handoffs.map((item) => [item.recoveryId, item.state]),
+      [
+        ["final", "finalized"],
+        ["released", "abandoned"],
+        ["settled-now", "abandoned"],
+        ["unresolved", "active"],
+      ],
+    );
+    assert.equal(target.hostRecoveryId, "HOST");
+    assert.equal(target.hostCleanupCompleted, scenario === "host_cleaned");
+  }
+});
+
+/**
+ * 共通Host終結の実宣言で全件Gateと清掃・成功分退役の順を反証する。
+ * @responsibility Caller代役と別に、本番完成操作の全対象照合・再入場を検証する。
+ * @trace ERB-UT-023
+ * @precondition 条件ごとにMap・元Owner・結果・進捗を独立生成する。
+ * @stimulus 欠測・重複・別Host／結果・未解放・清掃不明・途中保存失敗を与える。
+ * @observation 清掃回数、元結果同一性、待機前進捗、再読取り・再保存数。
+ * @oracle 全件成立前は清掃0、清掃は1回、成功分は即退役し再入場で再保存しない。
+ * @cleanup N/A: 実Filesystem・Docker・AIは使わない。
+ * @boundary 本番完成操作の制御と有限のEM／Host／Writer。
+ */
+test("共通Host終結は全件照合後に一清掃し、部分成功を戻さず再入場する", async () => {
+  const build = new Function(
+    "durableRecord",
+    "readFixtureOperation",
+    "getOwnedHostRecoveryId",
+    "cleanupOwnedOperationDirectories",
+    "verifyOwnedOperationCleanupOutcome",
+    "finishRuntimeOwnedDockerRecovery",
+    "setImmediate",
+    "readOwnedHostOperation",
+    operationReadFixtureSource +
+      `${sourceDeclaration(recoverySource, "canPrepareRuntimeOwnedDockerHostCleanup")}\n${sourceDeclaration(recoverySource, "completeRuntimeOwnedHostOperation")};return completeRuntimeOwnedHostOperation;`,
+  );
+  for (const fault of [
+    "none",
+    "empty",
+    "omitted",
+    "all_omitted",
+    "duplicate_capability",
+    "duplicate_id",
+    "duplicate_saved_id",
+    "reader_unknown",
+    "reader_lock_unknown",
+    "fresh_host_foreign",
+    "fresh_host_inactive",
+    "host_version_changed",
+    "foreign_host",
+    "foreign_result",
+    "resource_unknown",
+    "lease_unknown",
+    "terminal_missing",
+    "cleanup_unknown",
+    "cleanup_throw",
+    "second_save",
+    "retired_notification_not_called",
+  ] as const) {
+    const management = {},
+      owned = {},
+      outcome = {};
+    const target: HostCompletionTarget = {
+      ownedOperation: owned,
+      managementCapability: management,
+      hostRecoveryId: "HOST",
+      hostCleanupCompleted: false,
+      dockerHandoffs: [],
+    };
+    const records = new Map<
+      object,
+      {
+        completedPlan: object;
+        homeLeaseReleased: boolean;
+        terminalObservation: object | null;
+        managementCapability: object;
+        operationId: string;
+        recoveryId: string;
+        dockerCompletion: object;
+        hostCleanupOutcome?: unknown;
+      }
+    >();
+    for (let i = 0; i < (fault === "empty" ? 0 : 2); i++) {
+      const capability = {},
+        dockerCompletion = { i };
+      target.dockerHandoffs.push({
+        capability,
+        recoveryId: `R${i}`,
+        state: "finalizable",
+        dockerCompletion,
+      });
+      records.set(capability, {
+        completedPlan: {},
+        homeLeaseReleased: true,
+        terminalObservation: {},
+        managementCapability: management,
+        operationId: "OP",
+        recoveryId: `R${i}`,
+        dockerCompletion,
+      });
+    }
+    const operations = [...records.values()].map((record) => ({
+      kind: "docker_task",
+      recoveryId: record.recoveryId,
+      identityJson: JSON.stringify({ operationId: "OP" }),
+      phase: "settling",
+      lease: "released",
+      execution: { ownerEffect: "disabled" },
+    }));
+    if (fault === "omitted") target.dockerHandoffs.pop();
+    if (fault === "all_omitted") target.dockerHandoffs.splice(0);
+    if (fault === "duplicate_saved_id") {
+      const [first, second] = operations;
+      assert.ok(first && second);
+      second.recoveryId = first.recoveryId;
+    }
+    if (fault === "duplicate_capability" || fault === "duplicate_id") {
+      const first = target.dockerHandoffs[0];
+      assert.ok(first);
+      if (fault === "duplicate_capability")
+        target.dockerHandoffs.push({ ...first, recoveryId: "NEW" });
+      else {
+        const capability = {};
+        const original = records.get(first.capability);
+        assert.ok(original);
+        records.set(capability, { ...original });
+        target.dockerHandoffs.push({ ...first, capability });
+      }
+    }
+    if (fault === "foreign_host" || fault === "terminal_missing") {
+      const first = records.values().next().value;
+      assert.ok(first);
+      if (fault === "foreign_host") first.operationId = "OTHER";
+      else first.terminalObservation = null;
+    }
+    if (fault === "foreign_result") {
+      const first = target.dockerHandoffs[0];
+      assert.ok(first);
+      first.dockerCompletion = {};
+    }
+    if (fault === "lease_unknown") {
+      const first = operations[0];
+      assert.ok(first);
+      first.lease = "unknown";
+    }
+    let reads = 0,
+      hostReads = 0,
+      cleanups = 0,
+      writes = 0,
+      notifications = 0,
+      rejected = false;
+    const complete = build(
+      (cap: object) => records.get(cap),
+      () => {
+        reads++;
+        if (fault === "empty")
+          throw Error("unbound_host_must_not_borrow_stage");
+        return {
+          status: fault === "reader_unknown" ? "unknown" : "completed",
+          lockReleased: fault !== "reader_lock_unknown",
+          value: {
+            payloadSha256: "same",
+            snapshot: {
+              operations: [
+                {
+                  kind: "host_operation",
+                  operationId: "OP",
+                  recoveryId: "HOST",
+                  phase: "active",
+                },
+                ...operations,
+              ],
+            },
+            operationStates: operations.map((operation) => ({
+              kind: "docker_task",
+              operation,
+              resourcesSettled: fault !== "resource_unknown",
+              restartSettled: true,
+            })),
+          },
+        };
+      },
+      (value: unknown) => {
+        assert.equal(value, owned);
+        return "HOST";
+      },
+      (value: unknown) => {
+        assert.equal(value, owned);
+        cleanups++;
+        if (fault === "cleanup_throw") throw Error("cleanup");
+        return outcome;
+      },
+      (value: unknown) =>
+        value === outcome && fault !== "cleanup_unknown" ? "completed" : null,
+      (
+        cap: object,
+        input: { hostCleanupOutcome: unknown; dockerCompletion: unknown },
+      ) => {
+        assert.equal(target.hostCleanupCompleted, true);
+        assert.equal(target.ownedOperation, null);
+        assert.equal(target.hostRecoveryId, null);
+        assert.equal(input.hostCleanupOutcome, outcome);
+        assert.equal(
+          input.dockerCompletion,
+          records.get(cap)?.dockerCompletion,
+        );
+        assert.equal(notifications, 0);
+        writes++;
+        if (fault === "second_save" && writes === 2 && !rejected) {
+          rejected = true;
+          return { status: "blocked", stage: "receipt" };
+        }
+        records.delete(cap);
+        return { status: "completed", stage: "finalization" };
+      },
+      setImmediate,
+      () => {
+        hostReads++;
+        return {
+          payloadSha256: fault === "host_version_changed" ? "changed" : "same",
+          record: {
+            kind: "host_operation",
+            operationId: fault === "fresh_host_foreign" ? "OTHER" : "OP",
+            recoveryId: "HOST",
+            phase: fault === "fresh_host_inactive" ? "terminal" : "active",
+          },
+          snapshot: {
+            operations: [
+              {
+                kind: "host_operation",
+                operationId: "OP",
+                recoveryId: "HOST",
+                phase: "active",
+              },
+              ...operations,
+            ],
+          },
+        };
+      },
+    );
+    const result = await (fault === "retired_notification_not_called"
+      ? Reflect.apply(complete, undefined, [
+          target,
+          () => {
+            notifications++;
+            throw Error("retired_callback_invoked");
+          },
+        ])
+      : complete(target));
+    assert.equal(notifications, 0, fault);
+    if (["none", "empty", "retired_notification_not_called"].includes(fault)) {
+      assert.equal(result.status, "completed", fault);
+      assert.equal(cleanups, 1);
+      assert.equal(writes, fault === "empty" ? 0 : 2);
+      assert.equal(reads, fault === "empty" ? 0 : 1);
+      assert.equal(hostReads, 1);
+      assert.ok(
+        target.dockerHandoffs.every((handoff) => handoff.state === "finalized"),
+      );
+    } else if (fault === "second_save") {
+      assert.equal(result.status, "blocked");
+      assert.equal(result.recoveryId, "R1");
+      assert.equal(target.dockerHandoffs[0]?.state, "finalized");
+      assert.equal(target.dockerHandoffs[1]?.state, "finalizable");
+      const resumed = await complete(target);
+      assert.equal(resumed.status, "completed");
+      assert.equal(cleanups, 1);
+      assert.equal(reads, 1);
+      assert.equal(hostReads, 1);
+      assert.equal(writes, 3);
+    } else {
+      assert.equal(result.status, "blocked", fault);
+      assert.equal(writes, 0);
+      assert.equal(cleanups, fault.startsWith("cleanup_") ? 1 : 0);
+      assert.equal(target.hostCleanupCompleted, false);
+      if (fault === "duplicate_capability" || fault === "duplicate_id")
+        assert.equal(reads, 0);
+      if (fault === "duplicate_saved_id") {
+        assert.equal(reads, 1);
+        assert.equal(hostReads, 0);
+      }
+      if (fault.startsWith("fresh_host_") || fault === "host_version_changed") {
+        assert.equal(result.stage, "intent");
+        assert.equal(result.recoveryId, "R0");
+        assert.equal(hostReads, 1);
+      }
+    }
+  }
+});
 
 /**
  * Provider開始通知の保存結果と既知Effect保持を確認する。
@@ -54,9 +479,10 @@ const recoverySource = fs.readFileSync(
 test("Provider開始通知は保存三確認と既知Effectを保持する", () => {
   const create = new Function(
     "durableRecord",
-    "readOperationStateStage",
+    "readFixtureOperation",
     "saveOperationCheckpoint",
-    `${sourceDeclaration(recoverySource, "recordRuntimeOwnedDockerProviderSubmission")}; return recordRuntimeOwnedDockerProviderSubmission;`,
+    operationReadFixtureSource +
+      `${sourceDeclaration(recoverySource, "recordRuntimeOwnedDockerProviderSubmission")}; return recordRuntimeOwnedDockerProviderSubmission;`,
   );
   for (const known of [false, true])
     for (const fault of [
@@ -98,11 +524,11 @@ test("Provider開始通知は保存三確認と既知Effectを保持する", () 
           value: { snapshot: { operations: [operation] } },
         }),
         (
-          owner: unknown,
+          owner: { identity: unknown },
           id: string,
           request: { kind: string; value: { execution: unknown } },
         ) => {
-          assert.equal(owner, management);
+          assert.equal(owner.identity, management);
           assert.equal(id, "exact");
           assert.equal(request.kind, "lifecycle");
           writes++;
@@ -139,7 +565,7 @@ test("Provider開始通知は保存三確認と既知Effectを保持する", () 
  * @responsibility 保存不明を計画固定成功へ補完しない。
  * @trace ERB-UT-023
  * @precondition 現行の五資源名と独立Owner・現在版を使う。
- * @stimulus 元版差・別Owner・余剰入力・保存三確認の失敗後に元計画を再送する。
+ * @stimulus 元版差・別Owner・不正な計画・保存三確認の失敗後に元計画を再送する。
  * @oracle 拒否時はcompletedPlanを確定せず、成功後は同じ計画参照だけを再受理する。
  * @cleanup N/A: メモリのみ。
  * @boundary 本番正常終了準備と有限下位境界。
@@ -147,24 +573,27 @@ test("Provider開始通知は保存三確認と既知Effectを保持する", () 
 test("正常終了準備は元版・元計画と保存三確認へ再入場する", () => {
   const create = new Function(
     "durableRecord",
-    "snapshotPlainRecord",
-    "validProductionPlan",
-    "readOperationStateStage",
+    "HEX64",
+    "inspectExecutionSelection",
+    "readFixtureOperation",
     "readOwnedHostOperation",
     "isDeepStrictEqual",
     "saveOperationCheckpoint",
-    `${sourceDeclaration(recoverySource, "completeProductionRecovery")}; return completeProductionRecovery;`,
+    sourceDeclaration(recoverySource, "validProductionPlan") +
+      operationReadFixtureSource +
+      `${sourceDeclaration(recoverySource, "completeRuntimeOwnedDockerRecovery")}; return completeRuntimeOwnedDockerRecovery;`,
   );
   for (const fault of [
     "revision",
     "hash",
     "management",
-    "extra",
+    "invalid_plan",
     "home",
     "resources",
     "status",
     "snapshot",
     "unlock",
+    "writer_throw",
     "operation",
     "attempt",
     "book_missing",
@@ -193,6 +622,9 @@ test("正常終了準備は元版・元計画と保存三確認へ再入場す�
       proxyContainerName: "proxy",
       internalNetworkName: "internal",
       egressNetworkName: "egress",
+      providerImageDigest: "provider-image",
+      proxyImageDigest: "proxy-image",
+      workspaceMountMode: null,
     };
     const operation = {
       kind: "docker_task",
@@ -238,8 +670,8 @@ test("正常終了準備は元版・元計画と保存三確認へ再入場す�
       writes = 0;
     const complete = create(
       (value: unknown) => (value === capability ? record : null),
-      snapshotPlainRecord,
-      (value: unknown) => !!value,
+      /^[0-9a-f]{64}$/u,
+      (value: unknown) => value,
       () => {
         const resources = operation.resources.snapshot.resources;
         const observedOperation = {
@@ -288,8 +720,11 @@ test("正常終了準備は元版・元計画と保存三確認へ再入場す�
       },
       () => ({ record: { operationId: plan.operationId, phase: "active" } }),
       isDeepStrictEqual,
-      () => {
+      (input: { identity: unknown }) => {
+        assert.strictEqual(input.identity, management);
         writes++;
+        if (activeFault === "writer_throw")
+          throw Error("unpublished write failure");
         return {
           status: activeFault === "status" ? "blocked" : "completed",
           snapshotConfirmed: activeFault !== "snapshot",
@@ -299,95 +734,132 @@ test("正常終了準備は元版・元計画と保存三確認へ再入場す�
     );
     record.homeLeaseReleased = fault !== "home";
     const requestedPlan =
-      fault === "operation"
-        ? { ...plan, operationId: "OP-999999" }
-        : fault === "attempt"
-          ? { ...plan, taskAttempt: 1 }
-          : fault.startsWith("selection:")
-            ? {
-                ...plan,
-                executionSelection: {
-                  ...plan.executionSelection,
-                  [fault.slice("selection:".length)]: "different",
-                },
-              }
-            : plan;
+      fault === "invalid_plan"
+        ? { ...plan, providerImageDigest: null }
+        : fault === "operation"
+          ? { ...plan, operationId: "OP-999999" }
+          : fault === "attempt"
+            ? { ...plan, taskAttempt: 1 }
+            : fault.startsWith("selection:")
+              ? {
+                  ...plan,
+                  executionSelection: {
+                    ...plan.executionSelection,
+                    [fault.slice("selection:".length)]: "different",
+                  },
+                }
+              : plan;
     const rejected = complete(
       capability,
       fault === "management" ? {} : management,
-      fault === "extra" ? { plan, unexpected: true } : { plan: requestedPlan },
+      requestedPlan,
     );
     assert.equal(rejected.status, "blocked", fault);
     assert.equal(record.completedPlan, undefined, fault);
     assert.equal(
       writes,
-      ["status", "snapshot", "unlock"].includes(fault) ? 1 : 0,
+      ["status", "snapshot", "unlock", "writer_throw"].includes(fault) ? 1 : 0,
       fault,
     );
     activeFault = "none";
     record.homeLeaseReleased = true;
     assert.equal(
-      complete(capability, management, { plan }).status,
+      complete(capability, management, plan).status,
       "completed",
       fault,
     );
     assert.equal(record.completedPlan, plan);
     const count = writes;
     assert.equal(
-      complete(capability, management, { plan: { ...plan } }).status,
+      complete(capability, management, { ...plan }).status,
       "blocked",
     );
-    assert.equal(
-      complete(capability, management, { plan }).status,
-      "completed",
-    );
+    assert.equal(complete(capability, management, plan).status, "completed");
     assert.equal(writes, count);
   }
 });
 
 /**
- * 正常finalizerの保存失敗後の再試行と確定後の失効を確認する。
+ * 正常終了完成操作の保存失敗後の再試行と確定後の失効を確認する。
  * @responsibility 失敗Effectを消さず、一回の確定後は元Ownerを再使用させない。
  * @trace ERB-UT-023
  * @precondition 現行終端本文と独立した私有Mapを使う。
  * @stimulus blocked→completed→再送、偽Ownerを渡す。
- * @oracle 二回だけ保存し、以後の保存0と元結果を保持する。
+ * @oracle 非受理・受理未完・確定の三回だけ保存し、結果差替えと以後の再送は保存0で拒否する。
  * @cleanup N/A: メモリのみ。
  * @boundary 正常終了保存の制御と有限Writer。
  */
 test("正常終了保存は失敗Effectを保持して再試行し確定後に失効する", () => {
   const capability = {},
+    hostCleanupOutcome = {},
     record = {
-      hostCleanupOutcome: {},
+      hostCleanupOutcome: undefined as unknown,
       dockerCompletion: {},
       settlementContext: {},
+      terminalObservation: {},
     };
   const records = new WeakMap([[capability, record]]);
   let writes = 0;
-  const failed = { status: "blocked", filesystemEffectIssued: true },
-    saved = { status: "completed", filesystemEffectIssued: true };
+  const rejected = {
+      status: "blocked",
+      inputAccepted: false,
+      filesystemEffectIssued: true,
+    },
+    failed = {
+      status: "blocked",
+      inputAccepted: true,
+      filesystemEffectIssued: true,
+    },
+    saved = {
+      status: "completed",
+      inputAccepted: true,
+      filesystemEffectIssued: true,
+    };
   const finalize = new Function(
     "durableRecord",
     "durableRecords",
     "completeOperation",
-    `${sourceDeclaration(recoverySource, "finalizeRuntimeOwnedDockerRecovery")}; return finalizeRuntimeOwnedDockerRecovery;`,
+    "snapshotPlainRecord",
+    `${sourceDeclaration(recoverySource, "finishRuntimeOwnedDockerRecovery")}; return finishRuntimeOwnedDockerRecovery;`,
   )(
     (value: object) => records.get(value),
     records,
     (context: unknown, cleanup: unknown, result: unknown) => {
       assert.equal(context, record.settlementContext);
-      assert.equal(cleanup, record.hostCleanupOutcome);
+      assert.equal(cleanup, hostCleanupOutcome);
       assert.equal(result, record.dockerCompletion);
-      return ++writes === 1 ? failed : saved;
+      writes++;
+      return writes === 1 ? rejected : writes === 2 ? failed : saved;
     },
+    snapshotPlainRecord,
   );
-  assert.equal(finalize({}).status, "blocked");
+  const completion = Object.freeze({
+    hostCleanupOutcome,
+    dockerCompletion: record.dockerCompletion,
+  });
+  assert.equal(finalize({}, completion).status, "blocked");
   assert.equal(writes, 0);
-  assert.equal(finalize(capability), failed);
-  assert.equal(failed.filesystemEffectIssued, true);
-  assert.equal(finalize(capability).status, "completed");
-  assert.equal(finalize(capability).status, "blocked");
+  const unaccepted = finalize(capability, completion);
+  assert.equal(unaccepted.stage, "receipt");
+  assert.equal(unaccepted.inputAccepted, false);
+  assert.equal(unaccepted.filesystemEffectIssued, true);
+  assert.equal(record.hostCleanupOutcome, undefined);
+  const pending = finalize(capability, completion);
+  assert.equal(pending.status, "blocked");
+  assert.equal(pending.filesystemEffectIssued, true);
+  assert.equal(record.hostCleanupOutcome, hostCleanupOutcome);
+  assert.equal(
+    finalize(capability, { ...completion, dockerCompletion: {} }).status,
+    "blocked",
+  );
+  assert.equal(
+    finalize(capability, { ...completion, hostCleanupOutcome: {} }).status,
+    "blocked",
+  );
   assert.equal(writes, 2);
+  assert.equal(finalize(capability, completion).status, "completed");
+  assert.equal(finalize(capability, completion).status, "blocked");
+  assert.equal(writes, 3);
 });
 
 /**
@@ -425,7 +897,8 @@ test("初期化失敗はexact相関だけを結合しHome解放後も記録を�
     const records = new WeakMap([[capability, record]]);
     const api = new Function(
       "durableRecords",
-      `${sourceDeclaration(recoverySource, "durableRecord")}\n${sourceDeclaration(recoverySource, "bindRuntimeOwnedDockerInitializationFailure")}\n${sourceDeclaration(recoverySource, "abandonRuntimeOwnedDockerRecovery")}\n${sourceDeclaration(recoverySource, "verifyRuntimeOwnedDockerRecoveryBinding")};return {bind:bindRuntimeOwnedDockerInitializationFailure,abandon:abandonRuntimeOwnedDockerRecovery,verify:verifyRuntimeOwnedDockerRecoveryBinding};`,
+      operationReadFixtureSource +
+        `${sourceDeclaration(recoverySource, "durableRecord")}\n${sourceDeclaration(recoverySource, "bindRuntimeOwnedDockerInitializationFailure")}\n${sourceDeclaration(recoverySource, "abandonRuntimeOwnedDockerRecovery")}\n${sourceDeclaration(recoverySource, "verifyRuntimeOwnedDockerRecoveryBinding")};return {bind:bindRuntimeOwnedDockerInitializationFailure,abandon:abandonRuntimeOwnedDockerRecovery,verify:verifyRuntimeOwnedDockerRecoveryBinding};`,
     )(records);
     assert.equal(
       api.bind(
@@ -500,16 +973,17 @@ test("不存在観測は保存とfresh読戻しの共同確認後だけ一度固
     const invoke = new Function(
       "durableRecords",
       "saveOperationCheckpoint",
-      "readOperationStateStage",
-      `${sourceDeclaration(recoverySource, "durableRecord")}\n${sourceDeclaration(recoverySource, "recordRuntimeOwnedDockerAbsence")};return recordRuntimeOwnedDockerAbsence;`,
+      "readFixtureOperation",
+      operationReadFixtureSource +
+        `${sourceDeclaration(recoverySource, "durableRecord")}\n${sourceDeclaration(recoverySource, "recordRuntimeOwnedDockerAbsence")};return recordRuntimeOwnedDockerAbsence;`,
     )(
       records,
       (
-        owner: unknown,
+        owner: { identity: unknown },
         id: string,
         request: { kind: string; value: unknown },
       ) => {
-        assert.equal(owner, management);
+        assert.equal(owner.identity, management);
         assert.equal(id, "exact");
         assert.equal(request.kind, "cleanup");
         assert.equal(request.value, observations);
@@ -558,14 +1032,15 @@ test("不存在観測は保存とfresh読戻しの共同確認後だけ一度固
  */
 test("未開始拒否の四理由は元段階と参照を保って記録要求へ渡る", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/recovery.ts", import.meta.url),
+    new URL("../../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   const createRecorder = new Function(
     "durableRecord",
-    "readOperationStateStage",
+    "readFixtureOperation",
     "saveOperationCheckpoint",
-    String(sourceDeclaration(source, "recordRuntimeOwnedUnstartedAttempt")) +
+    operationReadFixtureSource +
+      String(sourceDeclaration(source, "recordRuntimeOwnedUnstartedAttempt")) +
       "\nreturn recordRuntimeOwnedUnstartedAttempt;",
   );
   for (const reason of [
@@ -599,11 +1074,11 @@ test("未開始拒否の四理由は元段階と参照を保って記録要求�
         return { status: "completed", lockReleased: true, value: { snapshot } };
       },
       (
-        value: unknown,
+        value: { identity: unknown },
         id: unknown,
         checkpoint: { kind: string; value: unknown },
       ) => {
-        assert.strictEqual(value, management);
+        assert.strictEqual(value.identity, management);
         assert.equal(id, fixture.recoveryId);
         assert.equal(checkpoint.kind, "lifecycle");
         captured = checkpoint.value;
@@ -663,23 +1138,18 @@ test("未開始拒否の四理由は元段階と参照を保って記録要求�
 });
 
 const selection = executionSelection("advice");
-const prepared = prepareProviderAdvicePlan(
+const prepared = prepareProviderAdviceInput(
   Object.freeze({
     additionalHosts: Object.freeze([]),
-    provider: selection.provider,
     providerPrompt: "固定投影だけを根拠に説明する",
     allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
     taskHash: "a".repeat(64),
     projectionHash: "b".repeat(64),
     executionSelection: selection,
-    exactModelId: selection.modelIdentifier,
-    reasoningEffort: selection.reasoningEffort,
-    offering: "chatgpt_subscription_oauth" as const,
   }),
 );
-if (prepared.status !== "prepared" || prepared.executionPlan === null)
-  throw new Error("test_execution_plan_required");
-const plan = prepared.executionPlan;
+if (!prepared) throw new Error("test_execution_plan_required");
+const plan = prepared;
 const dockerRecoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 
 /**
@@ -709,10 +1179,10 @@ test("助言は引渡し済みDocker参照を初回失敗まで保持し正式�
   ]) {
     const current = fixture();
     const abort = new AbortController();
-    const runtime = createIsolatedProviderAdviceRuntimeCandidate({
+    const dependencies: TestAdviceDependencies = {
       ...current.dependencies,
       startProcess(
-        ...args: Parameters<ProviderAdviceRuntimeDependencies["startProcess"]>
+        ...args: Parameters<TestAdviceDependencies["startProcess"]>
       ) {
         const register = args[2] as (
           capability: unknown,
@@ -758,12 +1228,20 @@ test("助言は引渡し済みDocker参照を初回失敗まで保持し正式�
           }),
         };
       },
-      finalizeDockerRecovery:
+      completeHostOperation:
         scenario === "finalize_failed"
-          ? () => ({ status: "blocked" as const })
-          : current.dependencies.finalizeDockerRecovery,
-    } as unknown as ProviderAdviceRuntimeDependencies);
-    const result = await runtime.run(plan, abort.signal);
+          ? createHostCompletionFixture({
+              cleanup: current.cleanupBoundary,
+              classify: current.classifyBoundary,
+              finish: () => ({ status: "blocked", stage: "finalization" }),
+            })
+          : current.dependencies.completeHostOperation,
+    } as unknown as TestAdviceDependencies;
+    const result = await executeProviderAdvice(
+      dependencies,
+      plan,
+      abort.signal,
+    );
     const classification = classifyProviderAdviceHostFailure(result);
     if (scenario === "normal") {
       assert.equal(result.cleanupConfirmed, true);
@@ -779,7 +1257,11 @@ test("助言は引渡し済みDocker参照を初回失敗まで保持し正式�
         dockerRecoveryId,
         scenario,
       );
-      assert.equal(classification?.hostRecoveryId, "HOST-RECOVERY", scenario);
+      assert.equal(
+        classification?.hostRecoveryId,
+        scenario === "finalize_failed" ? null : "HOST-RECOVERY",
+        scenario,
+      );
       if (scenario === "throw" || scenario === "blocked")
         assert.equal(
           current.calls.includes("cleanup-operation"),
@@ -805,7 +1287,7 @@ test("助言は引渡し済みDocker参照を初回失敗まで保持し正式�
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 function fixture(
-  overrides: Partial<ProviderAdviceRuntimeDependencies> = {},
+  overrides: Partial<TestAdviceDependencies> = {},
   options: Readonly<{
     selectionPreflightMismatch?: boolean;
     selectionPreflightUnavailable?: boolean;
@@ -814,6 +1296,7 @@ function fixture(
     recoveryAbandonOutcome?: "false" | "unknown" | "throw";
     startAfterHandoffThrows?: boolean;
     poisonNotificationThrows?: boolean;
+    hostCleanup?: "completed" | "unknown" | "throw";
   }> = {},
 ) {
   const owned = Object.freeze({});
@@ -824,6 +1307,16 @@ function fixture(
   const processControl = Object.freeze({});
   const recoveryCapability = Object.freeze({});
   const calls: string[] = [];
+  /** 有限Host境界。実Filesystemは操作しない。 @trace ERB-UT-023 */
+  const cleanupBoundary = (_owned: object) => {
+    calls.push("cleanup-operation");
+    if (options.hostCleanup === "throw")
+      throw Error("fixture_host_cleanup_failed");
+    return Object.freeze({ status: "completed" as const });
+  };
+  /** 清掃の不明を成功へ補完しない。 @trace ERB-UT-023 */
+  const classifyBoundary = () =>
+    options.hostCleanup === "unknown" ? null : ("completed" as const);
   const runtimeObservation = {
     providerHomeCount: 0,
   };
@@ -854,9 +1347,9 @@ function fixture(
       runtimeObservation.providerHomeCount++;
       return Object.freeze({
         status: "candidate" as const,
-        provider: plan.provider,
+        provider: plan.executionSelection.provider,
         providerHome: Object.freeze({
-          provider: plan.provider,
+          provider: plan.executionSelection.provider,
           providerHomeSourcePath: "C:\\provider-home",
           providerHomeIdentityHash: "a".repeat(64),
           stableLogicalHomeBindingHash: "b".repeat(64),
@@ -870,20 +1363,15 @@ function fixture(
         operationId: "OP-123456",
         executionSelections: [plan.executionSelection],
       });
-      if (options.selectionPreflightUnavailable)
+      if (
+        options.selectionPreflightUnavailable ||
+        options.selectionPreflightMismatch
+      )
         return Object.freeze({
           status: "blocked" as const,
           reason: "provider_unavailable",
         });
-      return Object.freeze({
-        status: "candidate" as const,
-        operationId: "OP-123456",
-        executionSelections: [
-          options.selectionPreflightMismatch
-            ? { ...plan.executionSelection, configIdentity: "f".repeat(64) }
-            : plan.executionSelection,
-        ],
-      });
+      return Object.freeze({ status: "matched" as const });
     },
     issuePacket: (input: Readonly<Record<string, unknown>>) => {
       calls.push("issue-packet");
@@ -915,7 +1403,10 @@ function fixture(
       assert.strictEqual(input.managementCapability, managementCapability);
       assert.deepEqual(input.executionSelection, plan.executionSelection);
       assert.equal(input.taskAttempt, 0);
-      assert.equal(input.providerHome.provider, plan.provider);
+      assert.equal(
+        input.providerHome.provider,
+        plan.executionSelection.provider,
+      );
       assert.equal(Object.hasOwn(input, "selectionUseCapability"), false);
       assert.equal(Object.hasOwn(input, "mountAuthorizationCapability"), false);
       calls.push("start-process");
@@ -948,23 +1439,19 @@ function fixture(
       });
     },
     cancelProcess: async () => Object.freeze({ status: "cancelled" as const }),
-    prepareDockerHostCleanup: () => {
-      calls.push("prepare-docker-host-cleanup");
-      return "HOST-RECOVERY";
-    },
-    cleanupOperation: () => {
-      calls.push("cleanup-operation");
-      return Object.freeze({ status: "completed" as const });
-    },
-    classifyOperationCleanup: () => "completed" as const,
-    recordDockerHostCleanupReceipt: () => {
-      calls.push("record-docker-host-cleanup");
-      return true;
-    },
-    finalizeDockerRecovery: () => {
-      calls.push("finalize-docker-recovery");
-      return Object.freeze({ status: "completed" as const });
-    },
+    completeHostOperation: createHostCompletionFixture({
+      cleanup: cleanupBoundary,
+      classify: classifyBoundary,
+      prepare: () => {
+        calls.push("prepare-docker-host-cleanup");
+        return "HOST-RECOVERY";
+      },
+      finish: () => {
+        calls.push("record-docker-host-cleanup");
+        calls.push("finalize-docker-recovery");
+        return Object.freeze({ status: "completed" as const });
+      },
+    }),
     abandonDockerRecovery: () => {
       calls.push("abandon-docker-recovery");
       if (options.recoveryAbandonOutcome === "throw")
@@ -985,9 +1472,11 @@ function fixture(
         throw Error("fixture_poison_notification_failed");
     },
     ...overrides,
-  }) as unknown as ProviderAdviceRuntimeDependencies;
+  }) as unknown as TestAdviceDependencies;
   return Object.freeze({
     dependencies,
+    cleanupBoundary,
+    classifyBoundary,
     calls,
     adviceJson,
     runtimeObservation,
@@ -1016,7 +1505,7 @@ test("助言終了は元結果を搬送しProtocol失敗と分類不能を成功
     let dockerCompletion: unknown;
     let hostCleanupOutcome: unknown;
     let receipts = 0;
-    const runtime = createIsolatedProviderAdviceRuntimeCandidate({
+    const dependencies: TestAdviceDependencies = {
       ...current.dependencies,
       startProcess(...args) {
         const started = current.dependencies.startProcess(...args);
@@ -1028,22 +1517,39 @@ test("助言終了は元結果を搬送しProtocol失敗と分類不能を成功
         });
         return Object.freeze({ ...started, completion }) as typeof started;
       },
-      cleanupOperation(...args) {
-        hostCleanupOutcome = current.dependencies.cleanupOperation(...args);
-        return hostCleanupOutcome as Awaited<
-          ReturnType<ProviderAdviceRuntimeDependencies["cleanupOperation"]>
-        >;
-      },
-      classifyOperationCleanup: () => classification,
-      recordDockerHostCleanupReceipt(_capability, completion) {
-        receipts += 1;
-        assert.equal(Object.isFrozen(completion), true);
-        assert.equal(completion.hostCleanupOutcome, hostCleanupOutcome);
-        assert.equal(completion.dockerCompletion, dockerCompletion);
-        return true;
-      },
-    });
-    const result = await runtime.run(plan, new AbortController().signal);
+      completeHostOperation: createHostCompletionFixture({
+        cleanup(owned) {
+          hostCleanupOutcome = current.cleanupBoundary(owned);
+          return hostCleanupOutcome;
+        },
+        classify: () => classification,
+        finish(_capability, completion) {
+          receipts += 1;
+          assert.equal(Object.isFrozen(completion), true);
+          assert.equal(completion.hostCleanupOutcome, hostCleanupOutcome);
+          assert.equal(completion.dockerCompletion, dockerCompletion);
+          current.calls.push("finalize-docker-recovery");
+          return Object.freeze({
+            status: "completed",
+            stage: "finalization",
+            inputAccepted: true,
+            revision: null,
+            payloadSha256: null,
+            recoveryIds: [],
+            reason: "operation_completed",
+            snapshotConfirmed: true,
+            lockReleased: true,
+            filesystemEffectIssued: false,
+            recoveryId: dockerRecoveryId,
+          });
+        },
+      }),
+    };
+    const result = await executeProviderAdvice(
+      dependencies,
+      plan,
+      new AbortController().signal,
+    );
     assert.equal(
       result.status,
       classification === "completed" ? "completed" : "blocked",
@@ -1074,10 +1580,35 @@ test("助言終了は元結果を搬送しProtocol失敗と分類不能を成功
  */
 test("署名資格なしで実行しHost／Docker cleanup完了後にだけ助言JSONを返す", async () => {
   const current = fixture();
-  const runtime = createIsolatedProviderAdviceRuntimeCandidate(
-    current.dependencies,
+  let lowerCompletion: unknown;
+  const result = await executeProviderAdvice(
+    {
+      ...current.dependencies,
+      startProcess: (...args) => {
+        const started = current.dependencies.startProcess(...args);
+        if (started.status !== "started") return started;
+        return {
+          ...started,
+          completion: started.completion.then((result) => {
+            lowerCompletion = result;
+            return result;
+          }),
+        };
+      },
+      completeHostOperation: (target, notify) => {
+        assert.ok(lowerCompletion);
+        assert.equal(target.dockerHandoffs.length, 1);
+        assert.equal(target.dockerHandoffs[0]?.state, "finalizable");
+        assert.strictEqual(
+          target.dockerHandoffs[0]?.dockerCompletion,
+          lowerCompletion,
+        );
+        return current.dependencies.completeHostOperation(target, notify);
+      },
+    },
+    plan,
+    new AbortController().signal,
   );
-  const result = await runtime.run(plan, new AbortController().signal);
   assert.deepEqual(result, {
     status: "completed",
     reason: null,
@@ -1114,9 +1645,11 @@ test("署名資格なしで実行しHost／Docker cleanup完了後にだけ助�
  */
 test("Production要求を実Selection Runtimeへ直接接続できる", async () => {
   const current = fixture();
-  const result = await createIsolatedProviderAdviceRuntimeCandidate(
+  const result = await executeProviderAdvice(
     current.dependencies,
-  ).run(plan, new AbortController().signal);
+    plan,
+    new AbortController().signal,
+  );
   assert.deepEqual(result, {
     status: "completed",
     reason: null,
@@ -1140,9 +1673,11 @@ test("Production要求を実Selection Runtimeへ直接接続できる", async ()
  */
 test("助言の非発行preflight拒否はHome観測とProvider要求より前に停止する", async () => {
   const current = fixture({}, { selectionPreflightUnavailable: true });
-  const result = await createIsolatedProviderAdviceRuntimeCandidate(
+  const result = await executeProviderAdvice(
     current.dependencies,
-  ).run(plan, new AbortController().signal);
+    plan,
+    new AbortController().signal,
+  );
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "workbench_ai_advice_selection_unavailable");
   assert.equal(current.runtimeObservation.providerHomeCount, 0);
@@ -1168,9 +1703,11 @@ test("助言の非発行preflight拒否はHome観測とProvider要求より前�
  */
 test("Repository結合が不成立なら選定観測とProvider Effectへ進まない", async () => {
   const current = fixture({ bindRepository: () => null });
-  const result = await createIsolatedProviderAdviceRuntimeCandidate(
+  const result = await executeProviderAdvice(
     current.dependencies,
-  ).run(plan, new AbortController().signal);
+    plan,
+    new AbortController().signal,
+  );
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -1199,22 +1736,35 @@ test("Repository結合が不成立なら選定観測とProvider Effectへ進ま�
  * @boundary Operation作成通知と上位Writer。
  */
 test("RO Operation参照の保存拒否はProvider前で停止しHost回収結果を残す", async () => {
-  for (const cleanup of [true, false]) {
+  for (const mode of ["completed", "unknown", "throw"] as const) {
+    const cleanup = mode === "completed";
     let notified = 0;
-    const current = fixture({
-      observeOperation: async (operation) => {
-        notified++;
-        assert.deepEqual(operation, {
-          operationId: "OP-123456",
-          hostRecoveryId: "HOST-RECOVERY",
-        });
-        throw Error("fixture_operation_save_failed");
+    let observed: HostCompletionTarget | undefined;
+    const current = fixture(
+      {
+        observeOperation: async (operation) => {
+          notified++;
+          assert.deepEqual(operation, {
+            operationId: "OP-123456",
+            hostRecoveryId: "HOST-RECOVERY",
+          });
+          throw Error("fixture_operation_save_failed");
+        },
       },
-      classifyOperationCleanup: () => (cleanup ? "completed" : null),
-    });
-    const result = await createIsolatedProviderAdviceRuntimeCandidate(
-      current.dependencies,
-    ).run(plan, new AbortController().signal);
+      { hostCleanup: mode },
+    );
+    const result = await executeProviderAdvice(
+      {
+        ...current.dependencies,
+        completeHostOperation: async (target, notify) => {
+          observed = target;
+          assert.equal(target.dockerHandoffs.length, 0);
+          return current.dependencies.completeHostOperation(target, notify);
+        },
+      },
+      plan,
+      new AbortController().signal,
+    );
     assert.equal(notified, 1);
     assert.equal(
       result.reason,
@@ -1227,6 +1777,10 @@ test("RO Operation参照の保存拒否はProvider前で停止しHost回収結�
       1,
     );
     assert.equal(result.cleanupConfirmed, cleanup);
+    assert.ok(observed);
+    assert.equal(observed.hostCleanupCompleted, cleanup);
+    assert.equal(observed.hostRecoveryId, cleanup ? null : "HOST-RECOVERY");
+    assert.equal(observed.ownedOperation === null, cleanup);
     assert.equal(
       classifyProviderAdviceHostFailure(result)?.hostRecoveryId,
       cleanup ? null : "HOST-RECOVERY",
@@ -1248,9 +1802,11 @@ test("RO Operation参照の保存拒否はProvider前で停止しHost回収結�
  */
 test("preflightの完全選定が固定計画と異なる場合はProvider Effectを発行しない", async () => {
   const current = fixture({}, { selectionPreflightMismatch: true });
-  const result = await createIsolatedProviderAdviceRuntimeCandidate(
+  const result = await executeProviderAdvice(
     current.dependencies,
-  ).run(plan, new AbortController().signal);
+    plan,
+    new AbortController().signal,
+  );
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "workbench_ai_advice_selection_unavailable");
   assert.equal(result.providerEffectIssued, false);
@@ -1276,10 +1832,21 @@ test("preflightの完全選定が固定計画と異なる場合はProvider Effec
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host cleanup不成立後は助言を公開せず回復状態を保持する", async () => {
-  const current = fixture({ prepareDockerHostCleanup: () => null });
-  const result = await createIsolatedProviderAdviceRuntimeCandidate(
+  const current = fixture({
+    completeHostOperation: async (target) =>
+      Object.freeze({
+        status: "blocked",
+        stage: "intent",
+        recoveryId: target.dockerHandoffs[0]?.recoveryId ?? null,
+        hostCleanup: null,
+        error: undefined,
+      }),
+  });
+  const result = await executeProviderAdvice(
     current.dependencies,
-  ).run(plan, new AbortController().signal);
+    plan,
+    new AbortController().signal,
+  );
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -1324,9 +1891,11 @@ test("助言のPacket失効拒否・未知値・例外でも後続処置と元�
             poisonNotificationThrows,
           },
         );
-        const result = await createIsolatedProviderAdviceRuntimeCandidate(
+        const result = await executeProviderAdvice(
           current.dependencies,
-        ).run(plan, new AbortController().signal);
+          plan,
+          new AbortController().signal,
+        );
         assert.equal(
           result.reason,
           "workbench_ai_advice_runtime_packet_unavailable",
@@ -1335,15 +1904,12 @@ test("助言のPacket失効拒否・未知値・例外でも後続処置と元�
         assert.equal(result.providerEffectIssued, false);
         const failure = classifyProviderAdviceHostFailure(result);
         assert.equal(failure?.manualRecoveryRequired, !confirmed);
-        assert.equal(
-          failure?.hostRecoveryId,
-          confirmed ? null : "HOST-RECOVERY",
-        );
+        assert.equal(failure?.hostRecoveryId, null);
         assert.equal(failure?.dockerRecoveryId, null);
         for (const [call, count] of [
           ["revoke-packet", target === "packet" ? 1 : 0],
           ["cleanup-operation", 1],
-          ["abandon-operation", confirmed ? 0 : 1],
+          ["abandon-operation", 0],
           ["poison", confirmed ? 0 : 1],
         ] as const)
           assert.equal(
@@ -1380,9 +1946,11 @@ test("助言は失効例外と回復放棄不明でも元Docker参照とHost保�
           poisonNotificationThrows,
         },
       );
-      const result = await createIsolatedProviderAdviceRuntimeCandidate(
+      const result = await executeProviderAdvice(
         current.dependencies,
-      ).run(plan, new AbortController().signal);
+        plan,
+        new AbortController().signal,
+      );
       assert.equal(result.reason, "workbench_ai_advice_runtime_failed_closed");
       assert.equal(result.cleanupConfirmed, false);
       assert.deepEqual(classifyProviderAdviceHostFailure(result), {
@@ -1416,15 +1984,23 @@ test("助言は失効例外と回復放棄不明でも元Docker参照とHost保�
  * @cleanup N/A: Filesystem、Dockerまたは子Processを操作しない。
  * @boundary ERB-UT-023=Direct Boundary: Operation作成分類→助言Runtime。
  */
-function initializationFailure(cleanupConfirmed: boolean): unknown {
-  const candidate =
-    createIsolatedOwnedOperationDirectoryCreationFailureCandidate();
+function initializationFailure(
+  operation: Awaited<
+    ReturnType<typeof loadOperationFailureFixture>
+  >["operation"],
+  cleanupConfirmed: boolean,
+): unknown {
   try {
-    candidate.fail({
-      cleanupConfirmed,
-      manualRecoveryRequired: !cleanupConfirmed,
-      hostRecoveryId: cleanupConfirmed ? null : "exact-host-reference-fixture",
-    });
+    operation.throwOwnedOperationDirectoryCreationFailure(
+      Error("fixture_failure"),
+      {
+        cleanupConfirmed,
+        manualRecoveryRequired: !cleanupConfirmed,
+        hostRecoveryId: cleanupConfirmed
+          ? null
+          : "exact-host-reference-fixture",
+      },
+    );
   } catch (error) {
     return error;
   }
@@ -1444,20 +2020,23 @@ function initializationFailure(cleanupConfirmed: boolean): unknown {
  * @boundary ERB-UT-023=Direct Boundary: 作成失敗分類→初回Runtime結果。
  */
 test("初期化失敗の清掃分類と取得済み参照を初回結果まで保持する", async () => {
+  const { operation, advice } = await loadOperationFailureFixture();
   for (const confirmed of [true, false]) {
-    const failure = initializationFailure(confirmed);
+    const failure = initializationFailure(operation, confirmed);
     const current = fixture({
       createOperation: async () => {
         throw failure;
       },
     });
-    const result = await createIsolatedProviderAdviceRuntimeCandidate(
+    const result = await advice.executeProviderAdvice(
       current.dependencies,
-    ).run(plan, new AbortController().signal);
+      plan,
+      new AbortController().signal,
+    );
     assert.equal(result.status, "blocked");
     assert.equal(result.cleanupConfirmed, confirmed);
     assert.equal(result.providerEffectIssued, false);
-    assert.deepEqual(classifyProviderAdviceHostFailure(result), {
+    assert.deepEqual(advice.classifyProviderAdviceHostFailure(result), {
       cleanupConfirmed: confirmed,
       manualRecoveryRequired: !confirmed,
       hostRecoveryId: confirmed ? null : "exact-host-reference-fixture",
@@ -1491,9 +2070,11 @@ test("未知の初期化失敗は不存在へ畳まない", async () => {
       throw new Error("fixture_unknown_creation");
     },
   });
-  const result = await createIsolatedProviderAdviceRuntimeCandidate(
+  const result = await executeProviderAdvice(
     current.dependencies,
-  ).run(plan, new AbortController().signal);
+    plan,
+    new AbortController().signal,
+  );
   assert.equal(result.cleanupConfirmed, false);
   assert.deepEqual(classifyProviderAdviceHostFailure(result), {
     cleanupConfirmed: false,
@@ -1518,8 +2099,9 @@ test("未知の初期化失敗は不存在へ畳まない", async () => {
  * @boundary ERB-UT-023=Direct Boundary: 本番初期化状態機械→助言Runtime初回結果。
  */
 test("作成失敗の元Errorと公開結果へ回復参照を列挙しない", async () => {
+  const { operation, advice } = await loadOperationFailureFixture();
   for (const confirmed of [true, false]) {
-    const failure = initializationFailure(confirmed);
+    const failure = initializationFailure(operation, confirmed);
     assert.ok(failure instanceof Error);
     assert.equal(Object.keys(failure).includes("hostFailure"), false);
     assert.equal(
@@ -1535,12 +2117,14 @@ test("作成失敗の元Errorと公開結果へ回復参照を列挙しない", 
         throw failure;
       },
     });
-    const result = await createIsolatedProviderAdviceRuntimeCandidate(
+    const result = await advice.executeProviderAdvice(
       current.dependencies,
-    ).run(plan, new AbortController().signal);
+      plan,
+      new AbortController().signal,
+    );
     assert.equal(result.status, "blocked");
     assert.equal(result.cleanupConfirmed, confirmed);
-    assert.deepEqual(classifyProviderAdviceHostFailure(result), {
+    assert.deepEqual(advice.classifyProviderAdviceHostFailure(result), {
       cleanupConfirmed: confirmed,
       manualRecoveryRequired: !confirmed,
       hostRecoveryId: confirmed ? null : "exact-host-reference-fixture",
@@ -1551,44 +2135,53 @@ test("作成失敗の元Errorと公開結果へ回復参照を列挙しない", 
       JSON.stringify(result).includes("exact-host-reference"),
       false,
     );
-    assert.equal(classifyProviderAdviceHostFailure({ ...result }), null);
+    assert.equal(advice.classifyProviderAdviceHostFailure({ ...result }), null);
   }
 });
 
 /**
  * 無効なRepository資格から本番助言Operationを作成しない。
- * @responsibility Rootを補完せず固定拒否しPathやAuthorityを公開しない。
+ * @responsibility 正式受付がRootを補完せず、PathやAuthorityを公開しないことを確認する。
  * @trace ERB-UT-023
- * @precondition テスト専用の無効Objectであり本番Root資格ではない。
- * @stimulus 同じ一引数の本番Factoryで未取消と開始前取消のSignalを使う。
- * @observation Root結合拒否と取消優先、Provider Effect非発行、秘密を含まない固定結果。
- * @oracle 署名資格の撤去後も無効RootではProduction依存の構築前に停止する。
- * @cleanup N/A: Root解決失敗の早期返却なのでOperationを作らない。
- * @boundary ERB-UT-023=Unit: 本番助言FactoryのRoot入口。
+ * @precondition 本番Root資格でない固定Objectと合成要求を使う。
+ * @stimulus 取消前と取消済みの両方で同じ無効Rootから助言を要求する。
+ * @observation 受付結果と開始通知の有無。
+ * @oracle 投影不能として停止し、実行開始や回復参照を返さない。
+ * @cleanup 局所値のみ。Operationを作成しない。
+ * @boundary ERB-UT-023=Unit: 本番助言の正式受付。
  */
-test("署名資格を要求しない本番助言Factoryも無効Rootを補完しない", async () => {
-  const runtime = createRuntimeOwnedProviderAdviceRuntime(
-    Object.freeze({}) as Parameters<
-      typeof createRuntimeOwnedProviderAdviceRuntime
-    >[0],
-  );
-  const result = await runtime(plan, new AbortController().signal);
-  assert.deepEqual(result, {
-    status: "blocked",
-    reason: "workbench_ai_advice_repository_binding_unavailable",
-    advice: null,
-    providerEffectIssued: false,
-    cleanupConfirmed: true,
-  });
-  const controller = new AbortController();
-  controller.abort();
-  assert.deepEqual(await runtime(plan, controller.signal), {
-    status: "blocked",
-    reason: "workbench_ai_advice_cancelled_before_runtime_effect",
-    advice: null,
-    providerEffectIssued: false,
-    cleanupConfirmed: true,
-  });
+test("本番助言は無効Rootを補完せず開始通知を出さない", async () => {
+  const root = Object.freeze({}) as Parameters<typeof runRepositoryAdvice>[0];
+  let started = 0;
+  for (const cancelled of [false, true]) {
+    const controller = new AbortController();
+    if (cancelled) controller.abort();
+    const response = await runRepositoryAdvice(
+      root,
+      {
+        mode: "read_only_advice",
+        executionSelection: plan.executionSelection,
+        prompt: "合成要求",
+        contextReferences: ["PROJECT_CONTEXT.md"],
+        allowedPaths: [],
+      },
+      controller.signal,
+      {
+        observeStarted: () => {
+          started++;
+        },
+      },
+    );
+    assert.equal(response.result.status, "blocked");
+    assert.equal(
+      response.result.reason,
+      "coordinator_ai_advice_projection_unavailable",
+    );
+    assert.equal(response.cleanupConfirmed, true);
+    assert.equal(response.hostRecoveryId, null);
+    assert.equal(response.dockerRecoveryId, null);
+    assert.equal(started, 0);
+  }
 });
 
 /**
@@ -1606,9 +2199,11 @@ test("署名資格なしでも開始前取消は全依存を呼ばない", async
   const current = fixture();
   const controller = new AbortController();
   controller.abort();
-  const result = await createIsolatedProviderAdviceRuntimeCandidate(
+  const result = await executeProviderAdvice(
     current.dependencies,
-  ).run(plan, controller.signal);
+    plan,
+    controller.signal,
+  );
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -1631,7 +2226,7 @@ test("署名資格なしでも開始前取消は全依存を呼ばない", async
  */
 test("技術Planの往復を廃止し上位は同じ試行専用Executorを開始する", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/provider-executor.ts", import.meta.url),
+    new URL("../../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
   const startSource = sourceDeclaration(
@@ -1639,8 +2234,18 @@ test("技術Planの往復を廃止し上位は同じ試行専用Executorを開�
     "startRuntimeOwnedDockerProcessController",
   );
   const recorded = sourceDeclaration(source, "startRecordedAttempt");
+  const hostStart = sourceDeclaration(source, "startHostAttempt");
   assert.doesNotMatch(source, /projectExecutionPlan|\.prepare\(state,/);
-  assert.match(startSource, /plan\.executor/);
+  assert.match(
+    startSource,
+    /startHostAttempt\(\s*plan,\s*management,\s*handoff,/u,
+  );
+  assert.doesNotMatch(source, /ExecutionRecordOperations/);
+  assert.match(
+    hostStart,
+    /startRecordedAttempt\(\s*plan,\s*managementCapability,/u,
+  );
+  assert.match(recorded, /const executor = plan\.executor;/u);
   assert.match(
     recorded,
     /executor\.start\(\{\s*managementCapability: management,\s*reference: recovery,\s*callbacks,\s*\}\)/,
@@ -1653,17 +2258,31 @@ test("技術Planの往復を廃止し上位は同じ試行専用Executorを開�
  * @responsibility 同じ実行計画とOperation参照を開始・記録へ接続する。
  * @trace ERB-UT-023
  * @precondition 同一Ownerの合成参照と有限の開始代役だけ。
- * @stimulus 計画拒否・改訂拒否・同期例外・Recovery引渡し後拒否。
+ * @stimulus 入力拒否、準備中の元管理参照の変更、開始拒否と正常開始後の送信通知再送。
  * @observation 開始回数と拒否結果、別Planの記録前拒否。
- * @oracle 同じExecutorは開始一回、別Plan・別Ownerの記録操作0。
+ * @oracle 同じ計画・管理参照で開始を一度呼び、任意記録も一回だけ開始する。
  * @cleanup N/A: Docker・実Home・Fileを使用しない。
  */
-test("準備計画の開始拒否は元選定と同じExecutor・Operation相関を保持する", () => {
+test("準備計画の開始と計測は元選定と同じExecutor・Operation相関を保持する", async () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/provider-executor.ts", import.meta.url),
+    new URL("../../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
-  for (const mode of ["throws", "refused", "recovery_attempted"]) {
+  const declarations = [
+    "blockedAttemptStart",
+    "beginAttemptRecording",
+    "startRuntimeOwnedDockerProcessController",
+  ]
+    .map((name) => sourceDeclaration(source, name))
+    .join("\n");
+  for (const mode of [
+    "provider_invalid",
+    "input_invalid",
+    "preparation_refused",
+    "throws",
+    "refused",
+    "started",
+  ]) {
     const management = {};
     const technical = attemptPlan();
     const owned = {
@@ -1673,139 +2292,405 @@ test("準備計画の開始拒否は元選定と同じExecutor・Operation相関
       consumer: "workbench",
       executor: {},
     };
-    let revisions = 0,
-      recoveryCalls = 0,
-      starts = 0;
+    let starts = 0;
+    let captures = 0;
+    let preparationCalls = 0;
+    let getterCalls = 0;
+    const recording = {};
+    const recordings: object[] = [];
+    const technicalResult = {};
+    const recordingOrder: string[] = [];
     const noop = () => {
       throw Error("unexpected_effect");
     };
-    const preparation = {
-      prepare: () => ({
-        status: "prepared",
-        plan: owned,
-        selectionNotice: "selected",
-        selectedModel: "opus",
-        selectedEffort: "low",
-      }),
+    const input = {
+      purpose: "probe",
+      managementCapability: management,
+      mountCapability: {},
+      providerHome: {
+        provider: "claude",
+        providerHomeSourcePath: "synthetic",
+        providerHomeIdentityHash: "a".repeat(64),
+        stableLogicalHomeBindingHash: "b".repeat(64),
+      },
+      executionSelection: executionSelection("independent_reviewer"),
+      taskAttempt: 0,
+      recoveryCorrelationId: null,
+      consumer: "workbench",
     };
+    if (mode === "input_invalid")
+      Object.defineProperty(input, "managementCapability", {
+        get() {
+          getterCalls++;
+          return management;
+        },
+      });
+    let captured: PreparationInput | null = null;
     const bindings: Record<string, unknown> = {
-      codexPreparation: preparation,
-      claudePreparation: preparation,
+      capturePreparationInput: (supplied: unknown) => {
+        captures++;
+        assert.strictEqual(supplied, input);
+        captured = capturePreparationInput(supplied);
+        return captured;
+      },
+      createPreparationFailure,
+      prepareProviderAttempt: (provider: unknown, supplied: unknown) => {
+        preparationCalls++;
+        assert.equal(provider, "claude");
+        assert.ok(captured);
+        assert.strictEqual(supplied, captured);
+        assert.strictEqual(captured.managementCapability, management);
+        input.managementCapability = {};
+        if (mode === "preparation_refused")
+          return {
+            status: "blocked",
+            reason: "synthetic_preparation_refused",
+          };
+        return {
+          status: "prepared",
+          plan: owned,
+        };
+      },
     };
-    for (const name of [
-      "bindRuntimeOwnedDockerInitializationFailure",
-      "abandonRuntimeOwnedDockerRecovery",
-      "verifyRuntimeOwnedDockerRecoveryBinding",
-      "recordRuntimeOwnedAttemptCleanup",
-      "recordRuntimeOwnedUnstartedAttempt",
-      "markRuntimeOwnedDockerResourceSubmission",
-      "recordRuntimeOwnedDockerProviderSubmission",
-      "recordRuntimeOwnedDockerTerminalObservation",
-      "recordRuntimeOwnedDockerResourceNotIssued",
-      "recordRuntimeOwnedDockerResourceReceipt",
-    ])
-      bindings[name] = noop;
     Object.assign(bindings, {
-      startHostAttempt: (
-        executor: { start: (...args: unknown[]) => unknown },
-        state: { dependencies: unknown },
-        plan: unknown,
-        candidate: unknown,
-      ) => executor.start(plan, candidate, state.dependencies),
-      beginRuntimeOwnedDockerRecovery: (plan: unknown, candidate: unknown) => {
-        assert.strictEqual(plan, owned);
+      borrowRuntimeOwnedCoordinatorStateRepository: (candidate: unknown) => {
         assert.strictEqual(candidate, management);
-        recoveryCalls++;
-        return null;
+        return { repositoryRoot: "fixture" };
+      },
+      getRepository: () => ({ status: "completed", capability: {} }),
+      beginProviderExecutionRecording: (
+        _repository: unknown,
+        operationId: unknown,
+        provider: unknown,
+        _metadata: unknown,
+        suppliedSelection: unknown,
+      ) => {
+        assert.equal(operationId, owned.operationId);
+        assert.equal(provider, owned.provider);
+        assert.strictEqual(suppliedSelection, owned.executionSelection);
+        recordingOrder.push("begin");
+        return recording;
+      },
+      captureProviderExecutionCompletion: (entry: unknown, result: unknown) => {
+        assert.equal(entry, recording);
+        assert.equal(result, technicalResult);
+        recordingOrder.push("observed");
+      },
+      startHostAttempt: (
+        supplied: typeof owned,
+        candidate: unknown,
+        _handoff: unknown,
+        _report: unknown,
+        observeSubmission: () => void,
+      ) => {
+        starts++;
+        assert.strictEqual(supplied, owned);
+        assert.strictEqual(candidate, management);
+        if (mode === "throws") throw Error("start_failed");
+        if (mode === "started") {
+          assert.deepEqual(recordings, []);
+          observeSubmission();
+          observeSubmission();
+          assert.deepEqual(recordings, [recording]);
+          return {
+            status: "started",
+            completion: Promise.resolve(technicalResult),
+          };
+        }
+        return {
+          status: "blocked",
+          reason: "synthetic",
+          cleanupConfirmed: false,
+          recoveryId: null,
+          manualRecoveryRequired: true,
+        };
       },
       process: { stderr: {} },
       createRuntimeOwnedLifecycleNoticeReporter: () => noop,
-      verifyRuntimeOwnedRepositoryOperation: () => {
-        revisions++;
-        return true;
-      },
-      executor: {
-        start: (
-          plan: unknown,
-          candidate: unknown,
-          callbacks: {
-            verifyRevision: (m: unknown, p: unknown) => unknown;
-            beginRecovery: (p: unknown, m: unknown) => unknown;
-          },
-        ) => {
-          starts++;
-          assert.strictEqual(plan, owned);
-          assert.strictEqual(candidate, management);
-          assert.equal(callbacks.verifyRevision(candidate, {}), false);
-          assert.equal(callbacks.verifyRevision({}, plan), false);
-          assert.equal(callbacks.beginRecovery({}, candidate), null);
-          assert.equal(callbacks.beginRecovery(plan, {}), null);
-          assert.equal(revisions, 0);
-          assert.equal(recoveryCalls, 0);
-          if (mode === "throws") throw Error("start_failed");
-          if (mode === "recovery_attempted")
-            callbacks.beginRecovery(plan, candidate);
-          return {
-            status: "blocked",
-            reason: "synthetic",
-            cleanupConfirmed: false,
-            recoveryId: null,
-            manualRecoveryRequired: true,
-          };
-        },
-      },
     });
-    Object.assign(owned, { executor: bindings.executor });
-    const declarations = [
-      "createBlockedPreparationStart",
-      "createExecutionRecordOperations",
-      "startRuntimeOwnedDockerProcessController",
-    ]
-      .map((name) => sourceDeclaration(source, name))
-      .join("\n");
     const start = runInNewContext(
       `${declarations}\nstartRuntimeOwnedDockerProcessController`,
       bindings,
     );
     const result = start(
-      "claude",
-      { managementCapability: management },
+      mode === "provider_invalid" ? "invalid" : "claude",
+      input,
       () => true,
+      undefined,
+      {},
+      recordings,
     );
-    assert.equal(result.status, "blocked");
-    assert.equal(result.preparationFailed, false);
-    assert.equal(result.selectionNotice, "selected");
-    assert.equal(result.selectedModel, "opus");
-    assert.equal(result.selectedEffort, "low");
-    assert.equal(result.cleanupConfirmed, false);
-    assert.equal(result.manualRecoveryRequired, true);
-    assert.equal(starts, 1);
-    assert.equal(recoveryCalls, mode === "recovery_attempted" ? 1 : 0);
+    assert.equal(result.status, mode === "started" ? "started" : "blocked");
+    const preparationFailed =
+      mode === "provider_invalid" ||
+      mode === "input_invalid" ||
+      mode === "preparation_refused";
+    assert.equal(result.preparationFailed, preparationFailed);
+    for (const field of ["selectionNotice", "selectedModel", "selectedEffort"])
+      assert.equal(Object.hasOwn(result, field), false, field);
+    if (mode === "started") {
+      assert.equal(await result.completion, technicalResult);
+      assert.deepEqual(recordingOrder, ["begin", "observed"]);
+      assert.deepEqual(recordings, [recording]);
+    } else {
+      assert.equal(result.cleanupConfirmed, false);
+      assert.equal(result.manualRecoveryRequired, true);
+      if (mode !== "refused") {
+        assert.equal(result.dockerEffectStarted, false);
+        assert.equal(result.recoveryId, null);
+        assert.equal(
+          result.reason,
+          mode === "provider_invalid"
+            ? "docker_process_controller_plan_invalid"
+            : mode === "input_invalid"
+              ? "claude_docker_runtime_input_mode_ambiguous"
+              : mode === "preparation_refused"
+                ? "synthetic_preparation_refused"
+                : "docker_process_controller_start_failed_closed",
+        );
+      }
+      assert.deepEqual(recordings, []);
+    }
+    assert.equal(starts, preparationFailed ? 0 : 1);
+    assert.equal(captures, mode === "provider_invalid" ? 0 : 1);
+    assert.equal(
+      preparationCalls,
+      mode === "provider_invalid" || mode === "input_invalid" ? 0 : 1,
+    );
+    assert.equal(getterCalls, 0);
   }
 });
 
 /**
- * 回収不明で停止したProcessから新しい助言を開始しない。
- * @responsibility 旧署名拒否とProcess再起動要求を区別する。
+ * 起動前の各照合を実装順に通過した試行だけを開始する。
  * @trace ERB-UT-023
- * @precondition このファイルの最終Caseで現在Processを停止状態にする。
- * @stimulus 既存process safety Ownerをpoisonし二引数のRuntimeを呼ぶ。
- * @observation 再起動要求理由、Effect非発行、依存call空。
- * @oracle 署名資格なしでも既存の新Effect抑止を維持する。
- * @cleanup 試験Runnerがこのファイル専用Processを終了する。Poison解除APIは作らない。
- * @boundary ERB-UT-023=Unit: Process safety→助言開始。
+ * @precondition 合成計画と有限の記録・実行代役を使う。
+ * @stimulus 改訂拒否、別Home、回復引渡し拒否、正常を与える。
+ * @observation 照合・放棄・開始の順と元計画、元管理参照、元回復ID。
+ * @oracle 不一致時に開始せず、正常時は元Executorを一度使う。
+ * @cleanup N/A: メモリ内の値だけ。
+ * @boundary Coordinator開始本体から回復記録・Executorへの接続。
  */
-test("Process回収不明は署名拒否でなく再起動要求として停止する", async () => {
-  const current = fixture();
-  poisonRuntimeProcessAfterCleanupUnknown();
-  const result = await createIsolatedProviderAdviceRuntimeCandidate(
-    current.dependencies,
-  ).run(plan, new AbortController().signal);
-  assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "workbench_ai_advice_process_restart_required");
-  assert.equal(result.providerEffectIssued, false);
-  assert.equal(result.cleanupConfirmed, true);
-  assert.deepEqual(current.calls, []);
+test("起動は元計画の改訂と回復引渡しの後にだけ行う", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/lifecycle/execution.ts", import.meta.url),
+    "utf8",
+  );
+  const body = [
+    "startHostAttempt",
+    "settleInvalidRecoveryStart",
+    "blockedAttemptStart",
+  ]
+    .map((name) => sourceDeclaration(source, name))
+    .join("\n");
+  for (const [mode, expected] of [
+    ["revision", ["revision"]],
+    ["home", ["revision", "begin", "abandon"]],
+    ["binding", ["revision", "begin", "verify", "abandon"]],
+    ["handoff", ["revision", "begin", "verify", "handoff", "abandon"]],
+    ["ready", ["revision", "begin", "verify", "handoff", "start"]],
+  ] as const) {
+    const events: string[] = [];
+    const executor = Object.freeze({});
+    const plan = Object.freeze({
+      executor,
+      stableLogicalHomeBindingHash: "1".repeat(64),
+    });
+    const management = Object.freeze({});
+    const recoveryCapability = Object.freeze({});
+    const recoveryId =
+      mode === "home"
+        ? dockerRecoveryId.replace("1".repeat(64), "f".repeat(64))
+        : dockerRecoveryId;
+    const recovery = Object.freeze({
+      status: "ready",
+      recoveryCapability,
+      recoveryId,
+    });
+    const bindings = {
+      verifyRuntimeOwnedRepositoryOperation(candidate: unknown) {
+        events.push("revision");
+        assert.strictEqual(candidate, management);
+        return mode !== "revision";
+      },
+      beginRuntimeOwnedDockerRecovery(supplied: unknown, candidate: unknown) {
+        events.push("begin");
+        assert.strictEqual(supplied, plan);
+        assert.strictEqual(candidate, management);
+        return recovery;
+      },
+      verifyRuntimeOwnedDockerRecoveryBinding(
+        capability: unknown,
+        id: unknown,
+        candidate: unknown,
+        homeHash: unknown,
+      ) {
+        events.push("verify");
+        assert.strictEqual(capability, recoveryCapability);
+        assert.equal(id, recoveryId);
+        assert.strictEqual(candidate, management);
+        assert.equal(homeHash, plan.stableLogicalHomeBindingHash);
+        return mode !== "binding";
+      },
+      abandonRuntimeOwnedDockerRecovery(capability: unknown) {
+        events.push("abandon");
+        assert.strictEqual(capability, recoveryCapability);
+      },
+    };
+    const start = runInNewContext(`${body}\nstartHostAttempt`, {
+      ...bindings,
+      parseDockerTaskRecoveryId,
+      snapshotReadyRecovery,
+      startRecordedAttempt: (
+        supplied: typeof plan,
+        candidate: unknown,
+        reference: typeof recovery,
+      ) => {
+        events.push("start");
+        assert.strictEqual(supplied.executor, executor);
+        assert.strictEqual(supplied, plan);
+        assert.strictEqual(candidate, management);
+        assert.strictEqual(reference.recoveryCapability, recoveryCapability);
+        assert.equal(reference.recoveryId, recoveryId);
+        return { status: "started" };
+      },
+    });
+    const result = start(
+      plan,
+      management,
+      (capability: unknown, id: unknown) => {
+        events.push("handoff");
+        assert.strictEqual(capability, recoveryCapability);
+        assert.equal(id, recoveryId);
+        return mode !== "handoff";
+      },
+      () => undefined,
+      () => undefined,
+    );
+    assert.deepEqual(events, expected);
+    assert.equal(result.status, mode === "ready" ? "started" : "blocked");
+    if (mode !== "ready") {
+      assert.equal(result.preparationFailed, false);
+      assert.equal(result.dockerEffectStarted, false);
+      assert.equal(result.cleanupConfirmed, mode === "revision");
+      assert.equal(result.manualRecoveryRequired, mode !== "revision");
+    }
+    if (mode === "home" || mode === "binding" || mode === "handoff") {
+      assert.equal(result.recoveryId, recoveryId);
+    }
+  }
+});
+
+/**
+ * 助言の取消を共通の完了観測へ接続し、登録前取消も失わない。
+ * @responsibility 元Control／managementの配送と元completionのjoinを確認する。
+ * @trace ERB-UT-023
+ * @precondition 各Caseが独立したSignal・完了Promise・Host代役を持つ。
+ * @stimulus 開始内同期取消、待機中取消、取消throw／rejectと完了rejectの単独・交差、正常完了。
+ * @observation 配送先と回数、Listener数、早期返却とHost清掃、元回復参照。
+ * @oracle 取消応答が失敗しても完了前に返さず、終端後の取消配送とListenerは0。
+ * @cleanup 全completionを解決し、実資源は作らない。
+ * @boundary 実助言本文と共通観測。技術実行は有限代役。
+ */
+test("Advice取消は開始内の取消と応答失敗でも元completionを待つ", async () => {
+  for (const scenario of [
+    "normal",
+    "during_start",
+    "running",
+    "cancel_throw",
+    "cancel_reject",
+    "completion_reject",
+    "running_completion_reject",
+    "cancel_throw_completion_reject",
+    "cancel_reject_completion_reject",
+  ]) {
+    const controller = new AbortController();
+    const base = fixture();
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let expectedControl: object | null = null;
+    let expectedManagement: object | null = null;
+    let cancellations = 0,
+      returned = false;
+    const dependencies: TestAdviceDependencies = {
+      ...base.dependencies,
+      startProcess: (...args) => {
+        const started = base.dependencies.startProcess(...args);
+        assert.equal(started.status, "started");
+        if (started.status !== "started") throw Error("fixture_start_refused");
+        expectedControl = started.controlCapability;
+        assert.ok(
+          args[1].managementCapability &&
+            typeof args[1].managementCapability === "object",
+        );
+        expectedManagement = args[1].managementCapability;
+        if (scenario === "during_start") controller.abort();
+        return {
+          ...started,
+          completion: gate.then(() => {
+            if (scenario.endsWith("completion_reject"))
+              throw Error("fixture_completion_rejected");
+            return started.completion;
+          }),
+        };
+      },
+      cancelProcess: (control, management) => {
+        assert.equal(control, expectedControl);
+        assert.equal(management, expectedManagement);
+        cancellations++;
+        if (scenario.startsWith("cancel_throw"))
+          throw Error("fixture_cancel_threw");
+        if (scenario.startsWith("cancel_reject"))
+          return Promise.reject(Error("fixture_cancel_rejected"));
+        return base.dependencies.cancelProcess(control, management);
+      },
+    };
+    const pending = executeProviderAdvice(
+      dependencies,
+      plan,
+      controller.signal,
+    ).then((result) => {
+      returned = true;
+      return result;
+    });
+    await setImmediate();
+    assert.ok(expectedControl);
+    assert.equal(getEventListeners(controller.signal, "abort").length, 1);
+    if (!["normal", "during_start", "completion_reject"].includes(scenario))
+      controller.abort();
+    await setImmediate();
+    assert.equal(
+      cancellations,
+      ["normal", "completion_reject"].includes(scenario) ? 0 : 1,
+    );
+    assert.equal(returned, false);
+    assert.equal(base.calls.includes("cleanup-operation"), false);
+    assert.ok(release);
+    release();
+    const result = await pending;
+    assert.equal(
+      result.status,
+      scenario === "normal" ? "completed" : "blocked",
+    );
+    if (scenario.endsWith("completion_reject")) {
+      assert.equal(result.cleanupConfirmed, false);
+      assert.equal(base.calls.includes("cleanup-operation"), false);
+      const failure = classifyProviderAdviceHostFailure(result);
+      assert.equal(failure?.hostRecoveryId, "HOST-RECOVERY");
+      assert.equal(failure?.dockerRecoveryId, dockerRecoveryId);
+    } else {
+      assert.equal(result.cleanupConfirmed, true);
+      assert.equal(base.calls.includes("cleanup-operation"), true);
+    }
+    assert.equal(getEventListeners(controller.signal, "abort").length, 0);
+    assert.equal(cancellations, scenario === "normal" ? 0 : 1);
+    const before = cancellations;
+    controller.abort();
+    controller.signal.dispatchEvent(new Event("abort"));
+    assert.equal(cancellations, before);
+  }
 });
 
 /**
@@ -1821,10 +2706,11 @@ test("Process回収不明は署名拒否でなく再起動要求として停止�
  */
 test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は同じ参照へ閉じる", async () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/provider-executor.ts", import.meta.url),
+    new URL("../../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
   const declaration = sourceDeclaration(source, "startRecordedAttempt");
+  const blockedStart = sourceDeclaration(source, "blockedAttemptStart");
   const required = [
     "onCommandSubmitting",
     "onCommandNotIssued",
@@ -1846,17 +2732,117 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
     assert.throws(() =>
       verify(declaration.replace(`${name}:`, `removed_${name}:`)),
     );
-  const run = runInNewContext(`${declaration}\nstartRecordedAttempt`, {
-    Object,
-    Error,
-    types,
-    commandRestrictionAllows: () => true,
-    bindRuntimeOwnedExecutorAttempt: () => true,
-  });
+  const bind = (bindings: Record<string, unknown>) =>
+    runInNewContext(`${declaration}\n${blockedStart}\nstartRecordedAttempt`, {
+      Object,
+      Error,
+      types,
+      bindRuntimeOwnedExecutorAttempt: () => true,
+      ...bindings,
+    });
+  // 必須通知は同じ回復参照へ記録し、同期成功以外は後続へ進ませない。
+  const preparation = Object.freeze({
+    snapshot: {},
+    cleanup: {},
+  }) as Parameters<
+    NonNullable<ExecutorCallbacks<"attempt">["onCommandSubmitting"]>
+  >[1];
+  const purpose = "create_provider";
+  const notifications = [
+    [
+      "markRuntimeOwnedDockerResourceSubmission",
+      [purpose, preparation],
+      (callbacks: ExecutorCallbacks<"attempt">) =>
+        callbacks.onCommandSubmitting?.(purpose, preparation),
+    ],
+    [
+      "recordRuntimeOwnedDockerResourceNotIssued",
+      [purpose],
+      (callbacks: ExecutorCallbacks<"attempt">) =>
+        callbacks.onCommandNotIssued?.(purpose, preparation),
+    ],
+    [
+      "recordRuntimeOwnedDockerProviderSubmission",
+      [],
+      (callbacks: ExecutorCallbacks<"attempt">) =>
+        callbacks.onProviderSubmitting?.(),
+    ],
+    [
+      "recordRuntimeOwnedDockerResourceReceipt",
+      [purpose, preparation, "identified"],
+      (callbacks: ExecutorCallbacks<"attempt">) =>
+        callbacks.onResourceIdentified?.(purpose, preparation),
+    ],
+    [
+      "recordRuntimeOwnedDockerResourceReceipt",
+      [purpose, preparation],
+      (callbacks: ExecutorCallbacks<"attempt">) =>
+        callbacks.onResourceCreated?.(purpose, "synthetic-id", preparation),
+    ],
+  ] as const;
+  for (const [writer, expected, notify] of notifications) {
+    for (const outcome of [true, false, "throw", "reject"] as const) {
+      const recoveryCapability = Object.freeze({});
+      let submissions = 0;
+      const refused = { status: "blocked" };
+      const executor = {
+        start: ({ callbacks }: StartInput<"attempt">) => {
+          assert.ok(callbacks);
+          const submit = () => notify(callbacks);
+          if (outcome === true) assert.equal(submit(), undefined);
+          else
+            assert.throws(
+              submit,
+              /record_unconfirmed|synthetic_submission_failure/u,
+            );
+          return refused;
+        },
+      };
+      let observedSubmissions = 0;
+      const run = bind({
+        [writer]: (reference: unknown, ...args: unknown[]) => {
+          submissions++;
+          assert.strictEqual(reference, recoveryCapability);
+          assert.equal(args.length, expected.length);
+          for (const [index, item] of expected.entries())
+            assert.strictEqual(args[index], item);
+          if (outcome === "throw") throw Error("synthetic_submission_failure");
+          if (outcome === "reject")
+            return Promise.reject(Error("synthetic_submission_failure"));
+          return outcome;
+        },
+      });
+      assert.equal(
+        run(
+          { executor },
+          {},
+          { recoveryCapability },
+          () => undefined,
+          () => {
+            assert.equal(submissions, 1);
+            observedSubmissions++;
+          },
+        ),
+        refused,
+      );
+      assert.equal(
+        observedSubmissions,
+        writer === "recordRuntimeOwnedDockerProviderSubmission" &&
+          outcome === true
+          ? 1
+          : 0,
+      );
+      assert.equal(submissions, 1);
+    }
+  }
   for (const mode of [
     "resolve",
+    "revision_changed",
+    "cleanup_unconfirmed",
+    "cleanup_and_revision_unconfirmed",
     "reject",
     "throw",
+    "recovery_binding_refused",
     "start_refused_false",
     "start_refused_throw",
   ]) {
@@ -1879,19 +2865,30 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
     };
     let entered = false,
       settled = false,
-      unstarted = 0;
+      unstarted = 0,
+      starts = 0;
     let saved: unknown = null;
+    const revisionChanged =
+      mode === "revision_changed" ||
+      mode === "cleanup_and_revision_unconfirmed";
+    const cleanupUnconfirmed =
+      mode === "cleanup_unconfirmed" ||
+      mode === "cleanup_and_revision_unconfirmed";
+    const executionObservation = Object.freeze({ kind: "execution" });
+    const turnObservation = Object.freeze({ kind: "turn" });
     const raw = {
       status: "completed",
       reason: "provider_operation_completed",
-      cleanupConfirmed: true,
+      cleanupConfirmed: !cleanupUnconfirmed,
       homeLeaseReleased: true,
-      manualRecoveryRequired: false,
+      manualRecoveryRequired: cleanupUnconfirmed,
       recoveryId: reference.recoveryId,
       normalizedResult: { status: true },
       resultBytes: 1,
       resultSha256: "synthetic",
-      reviewFindings: null,
+      reviewFindings: ["synthetic"],
+      providerExecutionObservation: executionObservation,
+      providerTurnObservation: turnObservation,
     };
     const observation = {
       operationId: plan.operationId,
@@ -1901,7 +2898,7 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
       primaryFailure: null,
       processTreeTerminationConfirmed: true,
       containersAbsent: true,
-      networksAbsent: true,
+      networksAbsent: !cleanupUnconfirmed,
       homeLeaseReleased: true,
     };
     const blocked = {
@@ -1920,34 +2917,75 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
         assert.strictEqual(managementCapability, management);
         assert.strictEqual(supplied, reference);
         assert.ok(callbacks);
+        starts++;
         if (mode.startsWith("start_refused")) return blocked;
         callbacks.onCleanupCompleted?.(observation);
         return { status: "started", completion: Promise.resolve(raw) };
       },
     };
-    const operations = {
-      verifyRevision: () => true,
-      completeCleanup: () => ({
-        homeLeaseReleased: true,
-        recoveryCompleted: true,
-        recoveryFinalizationCapability: {},
-      }),
-      recordUnstarted: () => {
+    const run = bind({
+      bindRuntimeOwnedExecutorAttempt: () =>
+        mode !== "recovery_binding_refused",
+      verifyRuntimeOwnedRepositoryOperation: (supplied: unknown) => {
+        assert.strictEqual(supplied, management);
+        return !revisionChanged;
+      },
+      recordRuntimeOwnedAttemptCleanup: (input: {
+        plan: unknown;
+        managementCapability: unknown;
+        recoveryCapability: unknown;
+      }) => {
+        assert.strictEqual(input.plan, owned);
+        assert.strictEqual(input.managementCapability, management);
+        assert.strictEqual(
+          input.recoveryCapability,
+          reference.recoveryCapability,
+        );
+        return {
+          homeLeaseReleased: true,
+          recoveryCompleted: true,
+          recoveryFinalizationCapability: {},
+        };
+      },
+      recordRuntimeOwnedUnstartedAttempt: () => {
         unstarted++;
         if (mode.endsWith("throw")) throw Error("synthetic");
         return false;
       },
-      recordTerminalObservation: async (
-        _reference: unknown,
+      recordRuntimeOwnedDockerTerminalObservation: async (
+        supplied: unknown,
         value: unknown,
       ) => {
+        assert.strictEqual(supplied, reference.recoveryCapability);
         entered = true;
         saved = value;
         if (mode === "throw") throw Error("synthetic");
         await terminal.promise;
       },
-    };
-    const result = run(executor, plan, management, reference, operations);
+    });
+    const owned = { ...plan, executor };
+    const result = run(
+      owned,
+      management,
+      reference,
+      () => undefined,
+      () => undefined,
+    );
+    if (mode === "recovery_binding_refused") {
+      assert.equal(starts, 0);
+      assert.equal(unstarted, 1);
+      assert.equal(result.status, "blocked");
+      assert.equal(
+        result.reason,
+        "docker_process_controller_recovery_unavailable",
+      );
+      assert.equal(result.preparationFailed, false);
+      assert.equal(result.cleanupConfirmed, false);
+      assert.equal(result.manualRecoveryRequired, true);
+      assert.equal(result.recoveryId, reference.recoveryId);
+      continue;
+    }
+    assert.equal(starts, 1);
     if (mode.startsWith("start_refused")) {
       assert.equal(result, blocked);
       assert.equal(unstarted, 1);
@@ -1968,16 +3006,61 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
     else terminal.resolve();
     const completed = (await pending) as Record<string, unknown>;
     assert.equal(completed.homeLeaseReleased, true);
-    if (mode === "resolve") {
+    assert.equal(completed.cleanupConfirmed, !cleanupUnconfirmed);
+    assert.equal(
+      completed.providerExecutionObservation,
+      cleanupUnconfirmed ? null : executionObservation,
+    );
+    assert.equal(
+      completed.providerTurnObservation,
+      cleanupUnconfirmed ? null : turnObservation,
+    );
+    if (mode === "resolve" || revisionChanged || cleanupUnconfirmed) {
       assert.equal(completed, saved);
-      assert.equal(completed.status, "completed");
+      assert.equal(
+        completed.status,
+        mode === "resolve" ? "completed" : "blocked",
+      );
+      assert.equal(
+        completed.reason,
+        revisionChanged
+          ? "repository_revision_changed"
+          : cleanupUnconfirmed
+            ? "docker_process_controller_cleanup_unconfirmed"
+            : raw.reason,
+      );
+      assert.equal(
+        completed.recoveryId,
+        cleanupUnconfirmed ? reference.recoveryId : null,
+      );
+      assert.equal(completed.manualRecoveryRequired, cleanupUnconfirmed);
     } else {
       assert.equal(completed.status, "blocked");
+      assert.equal(
+        completed.reason,
+        "docker_process_controller_execution_failed_closed",
+      );
       assert.equal(completed.recoveryId, reference.recoveryId);
       assert.equal(completed.manualRecoveryRequired, true);
       assert.equal(completed.recoveryCompleted, false);
-      assert.equal(completed.normalizedResult, null);
+      assert.equal(completed.recoveryFinalizationCapability, null);
     }
+    assert.equal(
+      completed.normalizedResult,
+      mode === "resolve" ? raw.normalizedResult : null,
+    );
+    assert.equal(
+      completed.resultSha256,
+      mode === "resolve" ? raw.resultSha256 : null,
+    );
+    assert.equal(
+      completed.resultBytes,
+      mode === "resolve" ? raw.resultBytes : 0,
+    );
+    assert.equal(
+      completed.reviewFindings,
+      mode === "resolve" ? raw.reviewFindings : null,
+    );
   }
 });
 
@@ -1993,7 +3076,7 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
  */
 test("Control結合失敗でも同じExecutorを一回取り消し元completionをjoinする", async () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/provider-executor.ts", import.meta.url),
+    new URL("../../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
   const management = {},
@@ -2052,7 +3135,11 @@ test("Control結合失敗でも同じExecutorを一回取り消し元completion�
       Object,
       Error,
       types,
-      commandRestrictionAllows: () => true,
+      recordRuntimeOwnedAttemptCleanup: () => ({
+        homeLeaseReleased: true,
+        recoveryCompleted: false,
+        recoveryFinalizationCapability: null,
+      }),
       bindRuntimeOwnedExecutorAttempt: (
         supplied: unknown,
         owner: unknown,
@@ -2073,13 +3160,13 @@ test("Control結合失敗でも同じExecutorを一回取り消し元completion�
     },
   );
   const plan = attemptPlan();
-  const result = run(executor, plan, management, reference, {
-    completeCleanup: () => ({
-      homeLeaseReleased: true,
-      recoveryCompleted: false,
-      recoveryFinalizationCapability: null,
-    }),
-  });
+  const result = run(
+    { ...plan, executor },
+    management,
+    reference,
+    () => undefined,
+    () => undefined,
+  );
   assert.equal(result.status, "started");
   let settled = false;
   const pending = result.completion.then((value: unknown) => {
@@ -2115,4 +3202,30 @@ test("Control結合失敗でも同じExecutorを一回取り消し元completion�
   assert.equal(terminal.homeLeaseReleased, true);
   assert.equal(terminal.normalizedResult, null);
   assert.equal(cancellations, 1);
+});
+
+/**
+ * 回収不明で停止したProcessから新しい助言を開始しない。
+ * @responsibility 旧署名拒否とProcess再起動要求を区別する。
+ * @trace ERB-UT-023
+ * @precondition このファイルの最終Caseで現在Processを停止状態にする。
+ * @stimulus 既存process safety Ownerをpoisonし二引数のRuntimeを呼ぶ。
+ * @observation 再起動要求理由、Effect非発行、依存call空。
+ * @oracle 署名資格なしでも既存の新Effect抑止を維持する。
+ * @cleanup 試験Runnerがこのファイル専用Processを終了する。Poison解除APIは作らない。
+ * @boundary ERB-UT-023=Unit: Process safety→助言開始。
+ */
+test("Process回収不明は署名拒否でなく再起動要求として停止する", async () => {
+  const current = fixture();
+  poisonRuntimeProcessAfterCleanupUnknown();
+  const result = await executeProviderAdvice(
+    current.dependencies,
+    plan,
+    new AbortController().signal,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "workbench_ai_advice_process_restart_required");
+  assert.equal(result.providerEffectIssued, false);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.deepEqual(current.calls, []);
 });

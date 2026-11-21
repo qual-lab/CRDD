@@ -19,7 +19,12 @@ import { PassThrough } from "node:stream";
 import test from "node:test";
 import { runInNewContext, Script } from "node:vm";
 import { startOwnedWindowsProcess } from "../../../docker-isolation/src/process/start.ts";
-import type { ExecutionOperationRecord } from "../../../execution-model/src/index.ts";
+import {
+  type ExecutionOperationRecord,
+  readState,
+  saveOperationCheckpoint,
+  saveOperationStart,
+} from "../../../execution-model/src/index.ts";
 import {
   createResourceBookFixture,
   createResourceOperationFixture,
@@ -27,7 +32,7 @@ import {
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
+} from "../../src/lifecycle/host.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   bindRuntimeOwnedRepositoryOperation,
@@ -38,12 +43,9 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   readOwnedHostOperation,
-} from "../../src/execution/operation.ts";
-import {
-  readOperationStateStage,
-  saveOperationCheckpoint,
-  saveOperationStart,
-} from "../../src/execution/persistence.ts";
+  operationStartInput,
+  operationStateInput,
+} from "../../src/lifecycle/host.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import {
@@ -64,7 +66,7 @@ import {
  */
 test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一般経路か安全停止", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/recovery.ts", import.meta.url),
+    new URL("../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf(
@@ -282,12 +284,14 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
         cleanupOrder: keys,
         previouslyAbsent: [],
       }),
-      inspect: (
+      getIsolationSettings: () => undefined,
+      inspectResources: (
         target: {
           resources: { resources: { key: string }[] };
           cleanupOrder: string[];
           previouslyAbsent: unknown[];
         },
+        _settings: unknown,
         options: unknown,
       ) => {
         counts.inspect++;
@@ -758,7 +762,7 @@ test("認証回収診断: 元Sessionを返し非秘密fieldだけを観測する
  */
 test("回収再入場の拒否: await省略と下位Effect発行を反例で拒否する", async () => {
   const start = currentHostTransitionWorkerSource.indexOf(
-    "let rejectedEffects=0;",
+    "const refusedResources=await ",
   );
   const end = currentHostTransitionWorkerSource.indexOf(
     "assert.equal(recovery.cleanupRuntimeOwnedDockerTaskHost",
@@ -766,32 +770,24 @@ test("回収再入場の拒否: await省略と下位Effect発行を反例で拒�
   );
   assert.ok(start > 0 && end > start);
   const block = currentHostTransitionWorkerSource.slice(start, end);
-  const run = async (source: string, issueEffect = false) =>
-    runInNewContext(`(async()=>{${source}})()`, {
+  const run = async (source: string, issueEffect = false) => {
+    const context = {
       assert,
       AbortController,
+      rejectedEffects: 0,
       prepared: { capability: {} },
       recovery: {
-        recoverRuntimeOwnedDockerTaskResources: async (
-          _capability: unknown,
-          cleanup: () => void,
-        ) => {
-          if (issueEffect) {
-            try {
-              cleanup();
-            } catch {}
-          }
+        recoverRuntimeOwnedDockerTaskResources: async () => {
+          if (issueEffect) context.rejectedEffects++;
           return {
             status: "blocked",
             reason: "docker_task_recovery_owner_unconfirmed",
           };
         },
-        executeRuntimeOwnedDockerTaskResourceRecovery: async () => ({
-          status: "blocked",
-          reason: "docker_task_recovery_owner_unconfirmed",
-        }),
       },
-    });
+    };
+    return runInNewContext(`(async()=>{${source}})()`, context);
+  };
   await run(block);
   await assert.rejects(() =>
     run(
@@ -1818,25 +1814,27 @@ for (const publicationFault of [
       )
         target.identity.consumer = "workbench";
       targetManagement = target.management;
-      const seeded = readOperationStateStage(target.management);
+      const seeded = readState(operationStateInput(target.management), {
+        scope: "operation",
+      });
       assert.equal(seeded.status, "completed", seeded.reason);
       assert.equal(
         saveOperationStart(
-          other.management,
+          operationStartInput(other.management, () => null),
           `${JSON.stringify(other.identity)}\n`,
-          () => null,
         ).status,
         "completed",
       );
       const started = saveOperationStart(
-        target.management,
+        operationStartInput(target.management, () => null),
         `${JSON.stringify(target.identity)}\n`,
-        () => null,
       );
       assert.equal(started.status, "completed");
       assert.ok(started.recoveryId);
       targetStarted = true;
-      const current = readOperationStateStage(target.management);
+      const current = readState(operationStateInput(target.management), {
+        scope: "operation",
+      });
       const operation = current.value?.snapshot.operations.find(
         (item) => item.recoveryId === started.recoveryId,
       );
@@ -1890,7 +1888,7 @@ for (const publicationFault of [
           const previous = fs.readFileSync(statePath);
           const previousSnapshot = JSON.parse(previous.toString());
           const saved = saveOperationCheckpoint(
-            target.management,
+            operationStateInput(target.management),
             started.recoveryId,
             {
               kind: "resource",
@@ -1971,25 +1969,33 @@ for (const publicationFault of [
             lockReleased: boolean;
           } =
             event === "cleanup"
-              ? saveOperationCheckpoint(target.management, started.recoveryId, {
-                  kind: "cleanup",
-                  value: {
-                    snapshot,
-                    observations: snapshot.resources.map((r) => ({
-                      key: r.key,
-                      observation: r.key === key ? "absent" : "not_requested",
-                    })),
+              ? saveOperationCheckpoint(
+                  operationStateInput(target.management),
+                  started.recoveryId,
+                  {
+                    kind: "cleanup",
+                    value: {
+                      snapshot,
+                      observations: snapshot.resources.map((r) => ({
+                        key: r.key,
+                        observation: r.key === key ? "absent" : "not_requested",
+                      })),
+                    },
                   },
-                })
-              : saveOperationCheckpoint(target.management, started.recoveryId, {
-                  kind: "resource",
-                  value: {
-                    event,
-                    key,
-                    snapshot,
-                    cleanup: planned.cleanup,
+                )
+              : saveOperationCheckpoint(
+                  operationStateInput(target.management),
+                  started.recoveryId,
+                  {
+                    kind: "resource",
+                    value: {
+                      event,
+                      key,
+                      snapshot,
+                      cleanup: planned.cleanup,
+                    },
                   },
-                });
+                );
           assert.equal(saved.status, "completed", event);
           assert.equal(saved.snapshotConfirmed, true);
           assert.equal(saved.lockReleased, true);
@@ -2050,7 +2056,7 @@ for (const publicationFault of [
         }
       }
       const disabled = saveOperationCheckpoint(
-        target.management,
+        operationStateInput(target.management),
         started.recoveryId,
         {
           kind: "lifecycle",
@@ -2083,7 +2089,9 @@ for (const publicationFault of [
         },
       );
       assert.equal(disabled.status, "completed");
-      const before = readOperationStateStage(target.management);
+      const before = readState(operationStateInput(target.management), {
+        scope: "operation",
+      });
       assert.equal(before.status, "completed");
       assert.ok(before.value);
       const beforeOperation = before.value.snapshot.operations.find(
@@ -2123,7 +2131,11 @@ for (const publicationFault of [
       const child = spawnSync(
         process.execPath,
         [
-          ...(publicationFault.startsWith("restart_")
+          ...(publicationFault.startsWith("restart_") ||
+          publicationFault.startsWith("history_") ||
+          ["none", "null_outcome", "workbench_transient"].includes(
+            publicationFault,
+          )
             ? ["--experimental-test-module-mocks"]
             : []),
           "-",

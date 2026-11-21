@@ -14,23 +14,26 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import type { ProjectExecutionState } from "../../../../execution-model/src/index.ts";
+import {
+  ExecutionStorageBlockedError,
+  type ProjectExecutionState,
+} from "../../../../execution-model/src/index.ts";
 import { projectExecutionFixture } from "../../../../execution-model/tests/fixtures/execution-plan.ts";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
-import { snapshotPlainArray } from "../../../src/input/snapshot.ts";
-import type { CoordinatorStatePort } from "../../../src/state/persistence.ts";
+import { queryState } from "../../../src/index.ts";
 import {
+  coordinatorDataBoundaryBlocked,
+  RepositoryDataBlockedError,
+} from "../../../src/lifecycle/host.ts";
+import { queryCoordinatorState } from "../../../src/lifecycle/query.ts";
+import { snapshotPlainArray } from "../../../src/lifecycle/validation.ts";
+import {
+  COORDINATOR_STATE_QUERY_CONTRACT,
   inspectCoordinatorObjectiveResult,
   inspectCoordinatorProjection,
   inspectTaskStartCandidates,
   projectCoordinatorState,
-  COORDINATOR_STATE_QUERY_CONTRACT,
-} from "../../../src/state/projection.ts";
-
-import {
-  executeCoordinatorPublicStateQuery,
-  queryCoordinatorState,
-} from "../../../src/state/query.ts";
+} from "../../../src/lifecycle/validation.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 
 /**
@@ -46,7 +49,7 @@ import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
  */
 test("状態照会は完成投影で一度だけ候補を受け付ける", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/state/query.ts", import.meta.url),
+    new URL("../../../src/lifecycle/query.ts", import.meta.url),
     "utf8",
   );
   const state = runtimeState();
@@ -57,9 +60,11 @@ test("状態照会は完成投影で一度だけ候補を受け付ける", () =>
     taskIds: ["task-a"],
   };
   let projections = 0;
+  let inspections = 0;
   const query = new Function(
     "projectCoordinatorState",
     "inspectTaskStartCandidates",
+    "snapshotPlainArray",
     "COORDINATOR_STATE_QUERY_CONTRACT",
     `return (${stripTypeScriptTypes(sourceDeclaration(source, "queryCoordinatorState"))});`,
   )(
@@ -67,7 +72,11 @@ test("状態照会は完成投影で一度だけ候補を受け付ける", () =>
       projections++;
       return projectCoordinatorState(...args);
     },
-    () => assert.fail("duplicate_candidate_intake"),
+    (...args: Parameters<typeof inspectTaskStartCandidates>) => {
+      inspections++;
+      return inspectTaskStartCandidates(...args);
+    },
+    snapshotPlainArray,
     COORDINATOR_STATE_QUERY_CONTRACT,
   ) as typeof queryCoordinatorState;
   for (const [metadata, repositoryRevision, reason] of [
@@ -84,19 +93,27 @@ test("状態照会は完成投影で一度だけ候補を受け付ける", () =>
     ],
     [base, "b".repeat(40), "orchestrator_state_revision_mismatch"],
     [null, "b".repeat(40), "orchestrator_state_observation_unknown"],
+    [
+      [base, base],
+      request.repositoryRevision,
+      "orchestrator_state_observation_unknown",
+    ],
   ] as const) {
     projections = 0;
+    inspections = 0;
     const result = query(
-      reader({
-        status: "completed",
-        reason: "observed",
-        value: state,
-        taskStartCandidates: metadata,
+      Object.freeze({
+        projects: [state],
+        taskStartCandidates: Array.isArray(metadata) ? metadata : [metadata],
       }),
       { ...request, repositoryRevision },
     );
     assert.equal(result.reason, reason);
-    assert.equal(projections, 1);
+    assert.equal(
+      projections,
+      reason === "orchestrator_state_observation_unknown" ? 0 : 1,
+    );
+    assert.equal(inspections, Array.isArray(metadata) ? 2 : 1);
   }
   assert.equal(JSON.stringify(state), before);
 });
@@ -104,19 +121,19 @@ test("状態照会は完成投影で一度だけ候補を受け付ける", () =>
 /**
  * 保存失敗の結果は別Taskの既知義務と今回の回復参照を併合する。
  * @trace PRL-UT-006
- * @precondition 実dispatchの結果構築と三つの終了closureを一度だけ捕捉する。
+ * @precondition 実dispatchの結果構築と終了処理を一度だけ捕捉する。
  * @stimulus 明示義務の有無・重複とQueue／Leaseの失敗位置だけを差分化する。
  * @observation exact ID・種別、unknown、清掃未確認と再起動flag。
- * @oracle 明示空集合も既知義務を消さず、古い義務だけから現在Processの再起動を推定しない。
+ * @oracle 明示空集合も既知義務を消さず、古い義務だけから現在Processの再起動を推定しない。終端を書けない場合は成功結果を作らない。
  * @cleanup N/A: 各差分は独立したメモリ値だけを使用する。
  * @boundary 保存Portは有限代役。実保存7profileとは区別する。
  */
 test("終端保存失敗は既知義務と今回分をQueue・Lease失敗後も保持する", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/task/dispatch.ts", import.meta.url),
+    new URL("../../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
-  const start = source.indexOf("  const completeWithoutOwnedQueue =");
+  const start = source.indexOf("  const completeQueue =");
   const end = source.indexOf("  // Selection made before", start);
   assert.ok(start > 0 && end > start);
   const run = new Function(
@@ -127,17 +144,53 @@ test("終端保存失敗は既知義務と今回分をQueue・Lease失敗後も�
     ${sourceDeclaration(source, "result")}
     ${sourceDeclaration(source, "blocked")}
     const input = {projectId:'project-a', queueId:'queue-a'};
-    const lease = {ownerGeneration:1, release:()=> mode==='release' ? {status:'blocked',reason:'release_failed'} : {status:'completed'}};
+    const calls = [];
+    const lease = {ownerGeneration:1, release:()=> {
+      calls.push('release');
+      return mode==='release' || mode==='queue_release' ? {status:'blocked',reason:'release_failed'} : {status:'completed'};
+    }};
     let queue = {generation:1};
-    const dependencies = {persistence:{state:{
-      updateQueue:()=>mode.startsWith('queue') ? {status:'blocked',reason:'queue_failed'} : {status:'completed',value:{generation:2}},
-      settleQueueLeaseRelease:()=>mode==='settlement' ? {status:'blocked',reason:'settlement_failed'} : {status:'completed'}
-    }}};
-    if(mode==='queue_release') lease.release=()=>({status:'blocked',reason:'release_failed'});
-    const stableId=()=> 'existing-id';
+    const repository=Object.freeze({});
+    const state = options.state;
+    const persistence = {repository,repositoryBindingId:'binding'};
+    const updateCoordinatorQueue=(context,id,generation,next)=>{
+      if(context!==persistence || id!=='queue-a' || generation!==1 || next.lease!==lease)throw Error('wrong_queue_context');
+      if (next.state==='integration_pending') {
+        calls.push('integration');
+        if (next.resultReference!=='project-result' || next.resumeCondition!=='objective_integration')
+          throw Error('wrong_queue_transition');
+        return mode==='integration_failed' || mode==='integration_failed_recovery_failed'
+          ? {status:'blocked',reason:'integration_write_failed'}
+          : {status:'completed',value:{generation:2}};
+      }
+      calls.push('write');
+      if (next.state!=='recovery_required' || next.resumeCondition!=='owned_operation_failure')
+        throw Error('wrong_recovery_transition');
+      if (mode==='integration_failed_recovery_failed') return {status:'blocked',reason:'queue_failed'};
+      return mode.startsWith('queue') ? {status:'blocked',reason:'queue_failed'} : {status:'completed',value:{generation:2}};
+    };
+    const settleCoordinatorSnapshotQueueLeaseRelease=(actualRepository,binding,id,generation,owner)=>{
+      calls.push('settle');
+      if(actualRepository!==repository || binding!=='binding' || id!=='queue-a' || generation!==2 || owner!==1)throw Error('wrong_lease_settlement');
+      return mode==='settlement' ? {status:'blocked',reason:'settlement_failed'} : {status:'completed'};
+    };
+    const createCoordinatorStableId=()=> 'existing-id';
     const withWorkspaceResults=value=>value;
+    ${sourceDeclaration(source, "finishOperationLease")}
     ${stripTypeScriptTypes(source.slice(start, end))}
-    return finalizeOwnedFailure('save_failed', options);
+    const outcome = mode.startsWith('integration') ? settleOwnedQueue(
+      {state:'integration_pending',resumeCondition:'objective_integration',resultReference:'project-result'},
+      () => {
+        calls.push('project');
+        return result(input, {
+          status:'completed',reason:'integration_pending',stateGeneration:state.generation,
+          completedTaskIds:options.completedTaskIds,cleanupConfirmed:true,
+          manualRecoveryRequired:false,effectState:'settled',
+        });
+      },
+      {completedTaskIds:options.completedTaskIds,processRestartRequired:options.processRestartRequired},
+    ) : finalizeOwnedFailure('save_failed', options);
+    return {...outcome, calls};
   `,
   ) as (mode: string, options: object) => Record<string, unknown>;
   for (const mode of [
@@ -167,6 +220,7 @@ test("終端保存失敗は既知義務と今回分をQueue・Lease失敗後も�
           ],
         },
         recoveryIds: explicit ? [current.recoveryId, current.recoveryId] : [],
+        completedTaskIds: ["finished-task"],
         recoveryObligations: explicit ? [old, current, current] : [],
         processRestartRequired: explicit,
       });
@@ -183,22 +237,330 @@ test("終端保存失敗は既知義務と今回分をQueue・Lease失敗後も�
       assert.equal(output.effectState, "unknown");
       assert.equal(output.cleanupConfirmed, false);
       assert.equal(output.manualRecoveryRequired, true);
+      assert.equal(output.stateGeneration, 4);
+      assert.deepEqual(output.completedTaskIds, ["finished-task"]);
+      assert.equal(
+        output.reason,
+        {
+          normal: "save_failed",
+          queue: "queue_failed",
+          release: "release_failed",
+          settlement: "settlement_failed",
+          queue_release: "release_failed",
+        }[mode],
+      );
+      assert.deepEqual(
+        output.calls,
+        mode === "normal" || mode === "settlement"
+          ? ["write", "release", "settle"]
+          : ["write", "release"],
+      );
     }
+  }
+  const state = {
+    generation: 4,
+    tasks: [
+      {
+        recoveryObligations: [
+          { kind: "host", recoveryId: "known-recovery", phase: "required" },
+        ],
+      },
+    ],
+  };
+  for (const [mode, calls, reason] of [
+    [
+      "integration",
+      ["integration", "project", "release", "settle"],
+      "integration_pending",
+    ],
+    [
+      "integration_failed",
+      ["integration", "write", "release", "settle"],
+      "integration_write_failed",
+    ],
+    [
+      "integration_failed_recovery_failed",
+      ["integration", "write", "release"],
+      "queue_failed",
+    ],
+  ] as const) {
+    const outcome = run(mode, {
+      state,
+      completedTaskIds: ["finished-task"],
+      processRestartRequired: true,
+    });
+    assert.deepEqual(outcome.calls, calls);
+    assert.equal(outcome.reason, reason);
+    assert.equal(outcome.stateGeneration, 4);
+    assert.deepEqual(outcome.completedTaskIds, ["finished-task"]);
+    const failed = mode !== "integration";
+    assert.equal(outcome.status, failed ? "blocked" : "completed");
+    assert.equal(outcome.cleanupConfirmed, !failed);
+    assert.equal(outcome.processRestartRequired, failed);
+    assert.deepEqual(outcome.recoveryIds, failed ? ["known-recovery"] : []);
   }
 });
 
 /**
- * 既存State照会の受付世代だけでPortを構成する。
+ * Queue所有前後の終結が同じ解放順序と結果保存を使うことを確認する。
+ * @responsibility 物理解放の重複と未所有Queueへの確定を反証する。
+ * @trace PRL-UT-006
+ * @precondition 実completeQueue断面を一回捕捉する。
+ * @stimulus Queue有無と解放・確定の成功／拒否／例外を独立に与える。
+ * @observation 呼出し順・回数、元世代・Owner、元回復群とWorkspace結果。
+ * @oracle 解放は一回、成功かつQueueありだけ確定し、例外を握り潰さない。
+ * @cleanup N/A: 各条件は独立したメモリ値のみ。
+ * @boundary 実終結制御と有限Lease／Writer代役。
+ */
+test("Queue所有前後の終結は一回解放し対象がある場合だけ確定する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/lifecycle/execution.ts", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf("  const completeQueue =");
+  const end = source.indexOf("  const finalizeOwnedFailure =", start);
+  assert.ok(start > 0 && end > start);
+  const compile = new Function(
+    "lease",
+    "persistence",
+    "input",
+    "settleCoordinatorSnapshotQueueLeaseRelease",
+    "withWorkspaceResults",
+    `const COORDINATOR_EXECUTION_CONTRACT='fixture'; ${sourceDeclaration(source, "result")} ${sourceDeclaration(source, "finishOperationLease")} ${stripTypeScriptTypes(`function terminalControl() {const queue = {generation:7}; ${source.slice(start, end)} return completeQueue;}`)} return terminalControl();`,
+  );
+  for (const owned of [false, true])
+    for (const mode of [
+      "normal",
+      "release_blocked",
+      "settlement_blocked",
+      "release_throw",
+      "settlement_throw",
+      "missing_target",
+    ] as const) {
+      const calls: string[] = [];
+      const repository = Object.freeze({});
+      const failure = new Error(mode);
+      const workspaceResults = Object.freeze([{ result: "same-workspace" }]);
+      const terminal = Object.freeze({
+        status: "completed",
+        reason: "original_result",
+        stateGeneration: 4,
+        completedTaskIds: ["task-a"],
+        recoveryIds: ["exact-recovery"],
+        recoveryObligations: [
+          { kind: "runtime_process", recoveryId: "exact-recovery" },
+        ],
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        processRestartRequired: true,
+        effectState: "settled",
+      });
+      const blocked =
+        mode === "release_blocked" || (owned && mode === "settlement_blocked");
+      const run = compile(
+        {
+          ownerGeneration: "owner-a",
+          release: () => {
+            calls.push("release");
+            if (mode === "release_throw") throw failure;
+            return mode === "release_blocked"
+              ? { status: "blocked", reason: mode }
+              : { status: "completed" };
+          },
+        },
+        { repository, repositoryBindingId: "binding-a" },
+        { projectId: "project-a", queueId: "queue-a" },
+        (...args: unknown[]) => {
+          calls.push("settlement");
+          assert.deepEqual(args, [
+            repository,
+            "binding-a",
+            "queue-a",
+            7,
+            "owner-a",
+          ]);
+          if (mode === "settlement_throw") throw failure;
+          return mode === "settlement_blocked"
+            ? { status: "blocked", reason: mode }
+            : { status: "completed" };
+        },
+        (value: Record<string, unknown>) => {
+          calls.push("projection");
+          if (!blocked) assert.strictEqual(value, terminal);
+          return { ...value, workspaceResults };
+        },
+      ) as (result: object, queue: object | null) => Record<string, unknown>;
+      const execute = () =>
+        run(
+          terminal,
+          owned
+            ? mode === "missing_target"
+              ? (undefined as never)
+              : { generation: 7 }
+            : null,
+        );
+      if (owned && mode === "missing_target") {
+        assert.throws(execute, TypeError);
+        assert.deepEqual(calls, ["release"]);
+      } else if (
+        mode === "release_throw" ||
+        (owned && mode === "settlement_throw")
+      ) {
+        assert.throws(execute, (error) => error === failure);
+        assert.deepEqual(
+          calls,
+          mode === "release_throw" ? ["release"] : ["release", "settlement"],
+        );
+      } else {
+        const observed = execute();
+        assert.deepEqual(
+          calls,
+          owned && mode !== "release_blocked"
+            ? ["release", "settlement", "projection"]
+            : ["release", "projection"],
+        );
+        assert.equal(observed.status, blocked ? "blocked" : terminal.status);
+        assert.equal(observed.reason, blocked ? mode : terminal.reason);
+        assert.equal(observed.stateGeneration, terminal.stateGeneration);
+        assert.deepEqual(observed.completedTaskIds, terminal.completedTaskIds);
+        assert.deepEqual(observed.recoveryIds, terminal.recoveryIds);
+        assert.deepEqual(
+          observed.recoveryObligations,
+          terminal.recoveryObligations,
+        );
+        assert.equal(
+          observed.processRestartRequired,
+          terminal.processRestartRequired,
+        );
+        assert.strictEqual(observed.workspaceResults, workspaceResults);
+        assert.equal(observed.cleanupConfirmed, !blocked);
+        assert.equal(observed.manualRecoveryRequired, blocked);
+        assert.equal(
+          observed.effectState,
+          blocked ? "unknown" : terminal.effectState,
+        );
+      }
+    }
+});
+
+/**
+ * 単発終結では物理解放後だけRootを検証し、runningの保存確定を禁止する。
+ * @responsibility Graphと共用する終結処理が単発固有の順序・拒否条件を保つことを確認する。
+ * @trace PRL-UT-006
+ * @precondition 実終結宣言と独立した有限のLease・Repository・Queueを使う。
+ * @stimulus 通常と明示回復のrunning、物理解放拒否・例外、Root例外、確定拒否・例外を与える。
+ * @observation 呼出し順序、回数、元Queue／Owner世代と返却値又は同じ例外。
+ * @oracle 解放一回、通常running又は解放拒否ではRoot・保存0、明示回復のrunningはEMへ委譲。
+ * @cleanup Process内の値だけ。実Filesystem・AI・Dockerを使用しない。
+ * @boundary 単発のLease終了と保存接続。実保存の成立は別の既存試験が所有する。
+ */
+test("共通終結は単発と明示回復の解放順・running分岐を保つ", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/lifecycle/execution.ts", import.meta.url),
+    "utf8",
+  );
+  const compile = new Function(
+    "verifyRuntimePersistenceRepository",
+    "settleCoordinatorSnapshotQueueLeaseRelease",
+    `${sourceDeclaration(source, "finishOperationLease")} return finishOperationLease;`,
+  );
+  for (const mode of [
+    "normal",
+    "running",
+    "recovery_running",
+    "release_blocked",
+    "release_throw",
+    "root_throw",
+    "settlement_blocked",
+    "recovery_settlement_blocked",
+    "settlement_throw",
+  ]) {
+    const calls: string[] = [];
+    const repository = Object.freeze({});
+    const failure = new Error(mode);
+    const released = {
+      status: mode === "release_blocked" ? "blocked" : "completed",
+      reason: mode,
+    };
+    const settled = {
+      status: mode.endsWith("settlement_blocked") ? "blocked" : "completed",
+      reason: mode,
+      recoveryId: "settlement.original",
+    };
+    const finish = compile(
+      (root: string) => {
+        calls.push("root");
+        assert.equal(root, "original-working-directory");
+        if (mode === "root_throw") throw failure;
+        return repository;
+      },
+      (...args: unknown[]) => {
+        calls.push("settlement");
+        assert.deepEqual(args, [repository, "binding", "request", 9, "owner"]);
+        if (mode === "settlement_throw") throw failure;
+        return settled;
+      },
+    ) as (lease: object, target: object) => { status: string; reason: string };
+    const invoke = () =>
+      finish(
+        {
+          ownerGeneration: "owner",
+          release: () => {
+            calls.push("release");
+            if (mode === "release_throw") throw failure;
+            return released;
+          },
+        },
+        {
+          kind: mode.startsWith("recovery_") ? "single-recovery" : "single",
+          root: "original-working-directory",
+          binding: "binding",
+          queueId: "request",
+          queue: {
+            generation: 9,
+            state: mode.endsWith("running") ? "running" : "completed",
+          },
+        },
+      );
+    if (mode.endsWith("_throw"))
+      assert.throws(invoke, (error) => error === failure);
+    else {
+      const observed = invoke();
+      if (mode === "running") {
+        assert.equal(observed.status, "blocked");
+        assert.equal(
+          observed.reason,
+          "orchestrator_task_lease_release_unconfirmed",
+        );
+      } else
+        assert.strictEqual(
+          observed,
+          mode === "release_blocked" ? released : settled,
+        );
+    }
+    assert.deepEqual(
+      calls,
+      mode === "running" || mode.startsWith("release_")
+        ? ["release"]
+        : mode === "root_throw"
+          ? ["release", "root"]
+          : ["release", "root", "settlement"],
+    );
+  }
+});
+
+/**
+ * 初期化済みの試験状態から値Contextだけを構成する。
  * @responsibility 内部Reader廃止後も同じ世代と未初期化・解放不明の分類を維持する。
  * @trace PRL-UT-006
  * @precondition Source本文と有限なReader返却値だけを使う。
  * @stimulus 正常値、真正不存在、読取り失敗、解放不明を与える。
- * @observation 固定intake view、一回の照会、元epochと構成停止理由。
- * @oracle 不明を補完せず、正常時だけ同じepochでPortを作る。
+ * @observation execution viewの一回観測、凍結した値と準備停止理由。
+ * @oracle 不明を補完せず、正常時だけ操作を持たないContextを作る。
  * @cleanup N/A: メモリ内だけ。
  * @boundary Co構成とEMの既存State照会。
  */
-test("現在Port構成はStateのexecution viewだけを一度取得する", () => {
+test("試験の値Context構成はexecution viewだけを一度取得する", () => {
   const source = stripTypeScriptTypes(
     sourceDeclaration(
       fs.readFileSync(
@@ -216,11 +578,9 @@ test("現在Port構成はStateのexecution viewだけを一度取得する", () 
     reason: "ready",
     value: {},
   };
-  const port = {};
   const create = new Function(
     "readState",
     "verifyRuntimePersistenceRepository",
-    "createCoordinatorSnapshotPersistencePorts",
     `${source}; return createTestPersistence;`,
   )(
     (actual: unknown, binding: string, scope: string) => {
@@ -231,13 +591,16 @@ test("現在Port構成はStateのexecution viewだけを一度取得する", () 
       return reply;
     },
     () => root,
-    (directory: string, binding: string) => {
-      assert.equal(directory, "fixture-root");
-      assert.equal(binding, "binding-a");
-      return port;
-    },
   );
-  assert.equal(create("fixture-root", "binding-a"), port);
+  const context = create("fixture-root", "binding-a");
+  assert.deepEqual(context, {
+    workingDirectory: "fixture-root",
+    repository: root,
+    repositoryBindingId: "binding-a",
+    intake: undefined,
+  });
+  assert.equal(Object.isFrozen(context), true);
+  assert.equal(Object.hasOwn(context, "readState"), false);
   for (const [value, expected] of [
     [
       { status: "completed", reason: "absent", value: null },
@@ -276,21 +639,28 @@ test("現在Port構成はStateのexecution viewだけを一度取得する", () 
  * @boundary Co照会本文と固定下位結果。実Git・Lockの成立は主張しない。
  */
 test("公開状態照会は同版のProjectを使い採用確認後だけ再取得する", () => {
-  const source = stripTypeScriptTypes(
-    sourceDeclaration(
-      fs.readFileSync(
-        new URL("../../../src/state/query.ts", import.meta.url),
-        "utf8",
-      ),
-      "executeCoordinatorPublicStateQuery",
-    ),
-    { mode: "strip" },
+  const querySource = fs.readFileSync(
+    new URL("../../../src/lifecycle/query.ts", import.meta.url),
+    "utf8",
   );
-  for (const mode of ["current", "adopted", "absent", "unknown"] as const) {
+  const source = sourceDeclaration(querySource, "queryState");
+  for (const mode of [
+    "current",
+    "adopted",
+    "absent",
+    "unknown",
+    "unknown_without_recovery",
+    "missing_snapshot",
+    "wrong_schema",
+  ] as const) {
     const state = runtimeState();
     const capability = {};
     let reads = 0;
     let adoptionChecks = 0;
+    let queries = 0;
+    let lastSnapshot: unknown;
+    const storageUnknown =
+      mode === "unknown" || mode === "unknown_without_recovery";
     const dependencies = {
       snapshotPlainArray,
       inspectTaskStartCandidates,
@@ -308,30 +678,35 @@ test("公開状態照会は同版のProjectを使い採用確認後だけ再取�
         assert.equal(binding, "binding-a");
         assert.equal(scope, "execution");
         reads++;
-        if (mode === "unknown")
+        if (storageUnknown)
           return {
             status: "blocked",
             value: null,
-            manualRecoveryRequired: true,
+            manualRecoveryRequired: mode === "unknown",
+            recoveryId: mode === "unknown" ? "recovery-a" : null,
           };
+        lastSnapshot =
+          mode === "missing_snapshot"
+            ? null
+            : {
+                projects:
+                  mode === "absent" ? [] : [{ ...state, generation: reads }],
+                queueEntries: [],
+                schemaRevision: mode === "wrong_schema" ? 8 : 9,
+                taskStartCandidates:
+                  mode === "absent"
+                    ? []
+                    : [
+                        {
+                          projectId: state.projectId,
+                          generation: reads,
+                          taskIds: ["task-a"],
+                        },
+                      ],
+              };
         return {
           status: "completed",
-          value: {
-            projects:
-              mode === "absent" ? [] : [{ ...state, generation: reads }],
-            queueEntries: [],
-            schemaRevision: 9,
-            taskStartCandidates:
-              mode === "absent"
-                ? []
-                : [
-                    {
-                      projectId: state.projectId,
-                      generation: reads,
-                      taskIds: ["task-a"],
-                    },
-                  ],
-          },
+          value: lastSnapshot,
         };
       },
       workspacePlanReadyForAcceptance: () => {
@@ -341,29 +716,41 @@ test("公開状態照会は同版のProjectを使い採用確認後だけ再取�
       },
       createTestPersistence: () => assert.fail("unexpected_state_reread"),
       queryCoordinatorState: (
-        reader: Pick<CoordinatorStatePort, "readState">,
+        observed: Parameters<typeof queryCoordinatorState>[0],
         query: typeof request,
       ) => {
-        return queryCoordinatorState(reader, query);
+        queries++;
+        assert.strictEqual(observed, lastSnapshot);
+        return queryCoordinatorState(observed, query);
       },
       COORDINATOR_PUBLIC_RUNTIME_CONTRACT: "public-fixture",
       COORDINATOR_STATE_QUERY_CONTRACT: "query-fixture",
     };
     const evaluate = new Function(
       ...Object.keys(dependencies),
-      `${source}; return executeCoordinatorPublicStateQuery;`,
+      `${source}; return queryState;`,
     )(...Object.values(dependencies));
     const result = evaluate(request, "fixture-root", {
       principalId: "local:fixture",
     });
     assert.equal(reads, mode === "adopted" ? 2 : 1, mode);
     assert.equal(adoptionChecks, mode === "adopted" ? 1 : 0, mode);
-    if (mode === "unknown") {
+    if (
+      storageUnknown ||
+      mode === "missing_snapshot" ||
+      mode === "wrong_schema"
+    ) {
       assert.equal(result.status, "blocked");
+      assert.equal(result.reason, "orchestrator_snapshot_not_initialized");
       assert.equal(result.observationState, "unknown");
-      assert.equal(result.manualRecoveryRequired, true);
+      assert.equal(result.manualRecoveryRequired, mode === "unknown");
+      assert.equal(result.cleanupConfirmed, true);
+      assert.equal(result.effectState, "no_effect");
+      assert.equal(result.projection, null);
+      assert.equal(queries, 0);
       assert.equal(Object.hasOwn(result, "intakeEpoch"), false);
     } else {
+      assert.equal(queries, 1);
       assert.equal(result.status, "completed");
       assert.equal(
         result.observationState,
@@ -387,6 +774,74 @@ const request = Object.freeze({
 });
 
 /**
+ * 公開照会で既知の保存例外と、契約外の例外を区別する。
+ * @trace PPR-UT-006
+ * @precondition 検査済みの要求と有限のRepository読取り代役を用いる。
+ * @stimulus 保存Readerから二種の既知例外と一般例外を返す。
+ * @observation 元の回復参照、Effect、清掃確認と一般例外の同一性。
+ * @oracle 既知例外だけを公開結果へ投影し、状態表示を呼ばない。
+ * @cleanup N/A: 合成の値と例外だけ。
+ * @boundary 公開照会の読取りと保存例外。
+ */
+test("公開状態照会は既知の保存例外だけを元の回復情報付きで返す", () => {
+  const source = sourceDeclaration(
+    fs.readFileSync(
+      new URL("../../../src/lifecycle/query.ts", import.meta.url),
+      "utf8",
+    ),
+    "queryState",
+  );
+  const blocked = {
+    status: "blocked",
+    reason: "repository_runtime_data_ignore_registration_blocked",
+    effectIssued: true,
+    effectStateUnknown: true,
+    effectConfirmation: "unknown",
+    cleanupConfirmed: false,
+    retryAllowed: false,
+    recoveryReference: "repository-local-ignore.exact-recovery-a",
+    repositoryPathReported: false,
+  } as const;
+  const unexpected = Error("unexpected_query_error");
+  for (const error of [
+    new ExecutionStorageBlockedError(blocked),
+    new RepositoryDataBlockedError(blocked),
+    unexpected,
+  ]) {
+    const dependencies = {
+      inspectCoordinatorStateQuery,
+      isPrincipalId: () => true,
+      resolveVerifiedRepositoryRootFromWorkingDirectory: () => "fixture-root",
+      getRepository: () => ({ capability: {} }),
+      readRepositorySnapshot: () => ({ revisionIdentity: revision }),
+      verifyRuntimePersistenceRepository: () => ({}),
+      deriveCoordinatorRepositoryBindingId: () => "binding-a",
+      readState: () => {
+        throw error;
+      },
+      queryCoordinatorState: () => assert.fail("failed read cannot project"),
+      ExecutionStorageBlockedError,
+      RepositoryDataBlockedError,
+      coordinatorDataBoundaryBlocked,
+    };
+    const run = new Function(
+      ...Object.keys(dependencies),
+      `return (${source});`,
+    )(...Object.values(dependencies)) as typeof queryState;
+    const read = () =>
+      run(request, "fixture-root", { principalId: "local:test" });
+    if (error === unexpected) assert.throws(read, (value) => value === error);
+    else
+      assert.deepEqual(
+        read(),
+        coordinatorDataBoundaryBlocked(
+          error as ExecutionStorageBlockedError | RepositoryDataBlockedError,
+        ),
+      );
+  }
+});
+
+/**
  * Host Storeを渡さない公開照会でも、認証Contextの欠測を拒否する。
  * @trace PPR-UT-006
  * @precondition 正規の照会要求と、参照してはならない所在を使う。
@@ -398,11 +853,7 @@ const request = Object.freeze({
  */
 test("公開状態照会はHost Storeを認証の代替にせず未認証入力を拒否する", () => {
   for (const authentication of [undefined, { principalId: "" }]) {
-    const result = executeCoordinatorPublicStateQuery(
-      request,
-      "must-not-be-read",
-      authentication,
-    );
+    const result = queryState(request, "must-not-be-read", authentication);
     assert.equal(result.status, "blocked");
     assert.equal(
       result.reason,
@@ -675,24 +1126,6 @@ test("差戻しと回復必要はProducerから両結果受付まで一貫する
 });
 
 /**
- * readerのTest準備責務を実行する。
- *
- * @responsibility readerがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PPR-UT-006
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus readerを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=Direct Boundary: orchestrator Test Source→対象契約
- */
-function reader(
-  result: ReturnType<CoordinatorStatePort["readState"]>,
-): Pick<CoordinatorStatePort, "readState"> {
-  return Object.freeze({ readState: () => result });
-}
-
-/**
  * 状態参照は閉じた要求だけを受け入れるを検証する。
  *
  * @responsibility 状態参照は閉じた要求だけを受け入れるの合否判定を所有する。
@@ -710,6 +1143,24 @@ test("状態参照は閉じた要求だけを受け入れる", () => {
     inspectCoordinatorStateQuery({ ...request, unexpected: true }),
     null,
   );
+  for (const value of ["a", "a".repeat(128)]) {
+    const input = { ...request, requestId: value, projectId: value };
+    assert.deepEqual(inspectCoordinatorStateQuery(input), input);
+  }
+  for (const value of ["", "-a", "a\n", "a".repeat(129)]) {
+    for (const key of ["requestId", "projectId"] as const)
+      assert.equal(
+        inspectCoordinatorStateQuery({ ...request, [key]: value }),
+        null,
+      );
+  }
+  for (const length of [39, 40, 41, 64, 65]) {
+    const input = { ...request, repositoryRevision: "a".repeat(length) };
+    assert.deepEqual(
+      inspectCoordinatorStateQuery(input),
+      length >= 40 && length <= 64 ? input : null,
+    );
+  }
 });
 
 /**
@@ -773,11 +1224,9 @@ test("状態参照はOrchestratorのcanonical投影だけを返す", () => {
     proxy,
   ]) {
     const rejected = queryCoordinatorState(
-      reader({
-        status: "completed",
-        reason: "observed",
-        value: state,
-        taskStartCandidates: invalid as never,
+      Object.freeze({
+        projects: [state],
+        taskStartCandidates: [invalid],
       }),
       request,
     );
@@ -786,11 +1235,9 @@ test("状態参照はOrchestratorのcanonical投影だけを返す", () => {
   }
   assert.equal(hooks, 0);
   const idle = queryCoordinatorState(
-    reader({
-      status: "completed",
-      reason: "observed",
-      value: state,
-      taskStartCandidates: { ...base, taskIds: [] },
+    Object.freeze({
+      projects: [state],
+      taskStartCandidates: [{ ...base, taskIds: [] }],
     }),
     request,
   );
@@ -804,11 +1251,9 @@ test("状態参照はOrchestratorのcanonical投影だけを返す", () => {
     },
   ]) {
     const unknown = queryCoordinatorState(
-      reader({
-        status: "completed",
-        reason: "observed",
-        value: state,
-        taskStartCandidates,
+      Object.freeze({
+        projects: [state],
+        taskStartCandidates: [taskStartCandidates],
       }),
       request,
     );
@@ -817,15 +1262,15 @@ test("状態参照はOrchestratorのcanonical投影だけを返す", () => {
     assert.equal(unknown.projection, null);
   }
   const result = queryCoordinatorState(
-    reader({
-      status: "completed",
-      reason: "observed",
-      value: state,
-      taskStartCandidates: {
-        projectId: state.projectId,
-        generation: state.generation,
-        taskIds: ["task-a"],
-      },
+    Object.freeze({
+      projects: [state],
+      taskStartCandidates: [
+        {
+          projectId: state.projectId,
+          generation: state.generation,
+          taskIds: ["task-a"],
+        },
+      ],
     }),
     request,
   );
@@ -857,10 +1302,8 @@ test("状態参照はOrchestratorのcanonical投影だけを返す", () => {
  */
 test("状態不存在は失敗や成功推定ではなくabsent観測として返す", () => {
   const result = queryCoordinatorState(
-    reader({
-      status: "completed",
-      reason: "absent",
-      value: null,
+    Object.freeze({
+      projects: [],
       taskStartCandidates: null,
     }),
     request,
@@ -884,15 +1327,15 @@ test("状態不存在は失敗や成功推定ではなくabsent観測として�
  */
 test("異なるRepository改訂版の状態を現在値として返さない", () => {
   const result = queryCoordinatorState(
-    reader({
-      status: "completed",
-      reason: "observed",
-      value: { ...runtimeState(), repositoryRevision: "b".repeat(40) },
-      taskStartCandidates: {
-        projectId: runtimeState().projectId,
-        generation: runtimeState().generation,
-        taskIds: ["task-a"],
-      },
+    Object.freeze({
+      projects: [{ ...runtimeState(), repositoryRevision: "b".repeat(40) }],
+      taskStartCandidates: [
+        {
+          projectId: runtimeState().projectId,
+          generation: runtimeState().generation,
+          taskIds: ["task-a"],
+        },
+      ],
     }),
     request,
   );
@@ -903,39 +1346,52 @@ test("異なるRepository改訂版の状態を現在値として返さない", (
 });
 
 /**
- * 観測不能と既存Recovery義務をEffect発行と混同しないを検証する。
- *
- * @responsibility 観測不能と既存Recovery義務をEffect発行と混同しないの合否判定を所有する。
+ * 複数Projectから要求したProjectと同版の候補だけを返す。
  * @trace PPR-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 観測不能と既存Recovery義務をEffect発行と混同しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-UT-006=Direct Boundary: orchestrator Test Source→対象契約
+ * @precondition 内容が同一の別Projectと複数世代の候補が同じ断面にある。
+ * @stimulus 別Project、古い世代、同版、同版重複の候補を組み合わせる。
+ * @observation 公開状態、次操作及び観測不能の区分。
+ * @oracle 別Projectや別世代で一致数を増やさず、同版重複は拒否する。
+ * @cleanup N/A: 合成値だけ。
+ * @boundary 取得済み実行断面と状態照会の表示。
  */
-test("観測不能と既存Recovery義務をEffect発行と混同しない", () => {
-  const result = queryCoordinatorState(
-    reader({
-      status: "blocked",
-      reason: "store_unavailable",
-      value: null,
-      manualRecoveryRequired: true,
-      recoveryId: "recovery-a",
-    }),
+test("取得済み断面から指定Projectと同版の候補だけを選ぶ", () => {
+  const state = runtimeState();
+  const other = { ...state, projectId: "project-other" };
+  const base = {
+    projectId: state.projectId,
+    generation: state.generation,
+    taskIds: ["task-a"],
+  };
+  const snapshot = {
+    projects: [other, state],
+    taskStartCandidates: [
+      { ...base, projectId: other.projectId },
+      { ...base, generation: state.generation + 1 },
+      base,
+    ],
+  };
+  const result = queryCoordinatorState(snapshot, request);
+  assert.equal(result.observationState, "observed");
+  assert.equal(result.projection?.projectId, state.projectId);
+  assert.equal(result.projection?.generation, state.generation);
+  assert.equal(result.projection?.nextAction, "schedule_task");
+  const duplicate = queryCoordinatorState(
+    {
+      ...snapshot,
+      taskStartCandidates: [...snapshot.taskStartCandidates, base],
+    },
     request,
   );
-  assert.equal(result.status, "blocked");
-  assert.equal(result.observationState, "unknown");
-  assert.equal(result.manualRecoveryRequired, true);
-  assert.equal(result.effectState, "no_effect");
+  assert.equal(duplicate.reason, "orchestrator_state_observation_unknown");
+  assert.equal(duplicate.projection, null);
 });
 
-import { parseRuntimeActivityObservation } from "../../../src/state/observation.ts";
+import { parseRuntimeActivityObservation } from "../../../src/lifecycle/query.ts";
 import {
   inspectCoordinatorStateQuery,
   inspectCoordinatorStateQueryResult,
-} from "../../../src/state/projection.ts";
+} from "../../../src/lifecycle/validation.ts";
 
 /**
  * 取得済み活動観測を量だけで欠測へ変えない。

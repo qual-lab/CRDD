@@ -86,10 +86,10 @@ export async function simulateAuthCreateClosure(
     body = body.replace(guard, "void values;");
   } else if (mutation === "wrong_lifecycle_import") {
     const original = body;
-    const target = "execution/recovery.ts?auth-create-parent";
+    const target = "lifecycle/environment.ts?auth-create-parent";
     // Lifecycleと再起動は統合後の同じOwnerを参照する。最初のLifecycle接続だけを変異する。
     assert.equal(body.split(target).length, 3);
-    body = body.replace(target, "execution/recovery.ts?unregistered");
+    body = body.replace(target, "lifecycle/environment.ts?unregistered");
     assert.notEqual(body, original);
   } else if (mutation === "omit_identified_guards") {
     const guard =
@@ -797,16 +797,16 @@ export async function simulateAuthCreateClosure(
   const restartUrl = moduleUrl(
     "../../../docker-isolation/src/docker-desktop/restart.ts",
   );
-  const lifecycleUrl = moduleUrl("../../src/execution/recovery.ts");
+  const lifecycleUrl = moduleUrl("../../src/lifecycle/environment.ts");
   const loads: string[] = [];
   const expectedLoads = [
     moduleUrl("../../../version-control/src/index.ts"),
-    moduleUrl("../../src/configuration/runtime-data.ts"),
+    moduleUrl("../../src/lifecycle/host.ts"),
     recoveryUrl,
     moduleUrl("../../../execution-model/src/index.ts"),
     `${lifecycleUrl}?auth-create-parent`,
     moduleUrl("./recovery-resource-expectations.ts"),
-    moduleUrl("../../src/execution/recovery.ts?auth-create-parent"),
+    moduleUrl("../../src/lifecycle/environment.ts?auth-create-parent"),
   ];
   /**
    * 明示したmodule順だけを解決する。

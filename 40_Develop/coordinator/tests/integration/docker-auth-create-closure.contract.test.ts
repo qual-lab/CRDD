@@ -29,7 +29,7 @@ import { createResourceBookFixture } from "../../../execution-model/tests/suppor
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
+} from "../../src/lifecycle/host.ts";
 import { simulateAuthCreateClosure } from "../fixtures/docker-auth-create-closure-simulation.ts";
 import {
   captureAuthCreateCleanupTree,

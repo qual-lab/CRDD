@@ -12,7 +12,7 @@ import test from "node:test";
 import {
   describeProviderHomeWindowsAdapterContract,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
-} from "../../../src/execution/authority.ts";
+} from "../../../src/lifecycle/environment.ts";
 
 test("Provider HomeのNode契約はNative・OS主体・ACL検証を成功扱いしない", () => {
   const contract = describeProviderHomeWindowsAdapterContract();

@@ -30,7 +30,7 @@ import {
   readOwnedHostOperation,
   recordOwnedHostResources,
   verifyOwnedMountCapability,
-} from "../src/execution/operation.ts";
+} from "../src/lifecycle/host.ts";
 
 /**
  * docker-isolationで使用するDynamic Fake Provider Recoverable Residue 結果の値契約を定義する。

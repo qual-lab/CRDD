@@ -34,7 +34,7 @@ test("Workbench助言の本番入口は署名発行を注入しない", () => {
     "utf8",
   );
   const runtime = readFileSync(
-    path.join(repositoryRoot, "40_Develop/coordinator/src/execution/advice.ts"),
+    path.join(repositoryRoot, "40_Develop/coordinator/src/lifecycle/execution.ts"),
     "utf8",
   );
   assert.doesNotMatch(
@@ -49,10 +49,7 @@ test("Workbench助言の本番入口は署名発行を注入しない", () => {
     runtime,
     /consumeVerifiedPackage|verifiedPackageCapability|issueVerifiedPackageCapability|workbench_ai_advice_release_verification_required/,
   );
-  assert.match(
-    runtime,
-    /function createRuntimeOwnedProviderAdviceRuntime\(\s*repositoryRootCapability: Repository,/,
-  );
+  assert.match(runtime, /function runRepositoryAdvice\(\s*root: Repository,/);
 });
 
 /**

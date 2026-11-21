@@ -8,8 +8,8 @@
  * @scope 署名Route検証の停止境界
  * @boundary 模擬操作→Route検証Tool。実Provider依頼や署名を発行するFixtureではない。
  */
-import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
-import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/lifecycle/execution.ts";
+import { isRuntimeProcessPoisoned } from "../../src/lifecycle/host.ts";
 import { runSignedRouteMatrixVerification } from "../../scripts/verify-route-matrix.ts";
 import {
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
@@ -114,13 +114,11 @@ const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
   if (scenario === "recovery_pair_mismatch") {
     value.cleanupConfirmed = false;
     value.manualRecoveryRequired = true;
-    value.hostRecoveryId = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
-    value.hostRecoveryIds = Object.freeze([
-      `host.crdd-coordinator-doctor-b.12345678-1234-4234-8234-123456789abc.${"b".repeat(64)}`,
-    ]);
+    value.hostRecoveryId = "host-operation.OP-123456";
+    value.hostRecoveryIds = Object.freeze(["host-operation.OP-123457"]);
   }
   if (scenario === "recovery_overlong_mixed") {
-    const valid = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+    const valid = "host-operation.OP-123456";
     value.cleanupConfirmed = false;
     value.manualRecoveryRequired = true;
     value.hostRecoveryId = valid;

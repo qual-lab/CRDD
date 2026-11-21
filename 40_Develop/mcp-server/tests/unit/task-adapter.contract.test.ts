@@ -24,18 +24,21 @@ import {
   MCP_COORDINATOR_STATE_TOOL,
   type McpCoordinatorDependencies,
 } from "@qual-lab/crdd-mcp/automation";
-import { createRuntimeProcessRecoveryIdentity } from "../../../coordinator/src/execution/process-safety-state.ts";
+import {
+  createRuntimeProcessRecoveryIdentity,
+  observeObjectiveLeaseOwner,
+} from "../../../coordinator/src/lifecycle/host.ts";
 import {
   inspectCoordinatorDecisionResult,
   inspectCoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveResult,
   inspectWorkspaceCommand,
 } from "../../../coordinator/src/index.ts";
-import { createCoordinatorObjectiveResult } from "../../../coordinator/src/objective/execute.ts";
+import { createCoordinatorObjectiveResult } from "../../../coordinator/src/lifecycle/execution.ts";
 import {
   inspectTaskStartCandidates,
   projectCoordinatorState,
-} from "../../../coordinator/src/state/projection.ts";
+} from "../../../coordinator/src/lifecycle/validation.ts";
 import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { inspectTaskExecutionSelections } from "../../../execution-model/src/index.ts";
 import {
@@ -1441,7 +1444,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     nextAction: "recover",
   };
   const source = fs.readFileSync(
-    new URL("../../../coordinator/src/objective/execute.ts", import.meta.url),
+    new URL("../../../coordinator/src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
   const result = compileFunction(
@@ -1480,19 +1483,16 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
   let projection = runningProjection;
   const replay = compileFunction(
     `return (${sourceDeclaration(source, "projectObjectiveReplay")});`,
-    [
-      "createCoordinatorObjectiveResult",
-      "projectCoordinatorState",
-      "inspectTaskStartCandidates",
-    ],
+    ["createCoordinatorObjectiveResult", "projectCoordinatorState", "blocked"],
   )(
     result,
     () => projection,
-    () => ({}),
+    () => assert.fail("captured_candidates_must_reach_replay"),
   ) as (
     request: object,
     queue: object,
     state: object | null,
+    candidates?: object,
   ) => Record<string, unknown>;
   const input = objective();
   const queue = {
@@ -1517,7 +1517,12 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
       },
     ],
   };
-  const running = replay(input, queue, state);
+  const candidates = Object.freeze({
+    projectId: state.projectId,
+    generation: state.generation,
+    taskIds: Object.freeze([]),
+  });
+  const running = replay(input, queue, state, candidates);
   assert.ok(
     inspectCoordinatorObjectiveResult(running),
     JSON.stringify(running),
@@ -1565,6 +1570,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
         },
       ],
     },
+    candidates,
   );
   assert.equal(acceptedReplay.status, "completed");
   assert.ok(inspectCoordinatorObjectiveResult(acceptedReplay));
@@ -1584,13 +1590,18 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
         },
       ],
     },
+    candidates,
   );
   assert.ok(inspectCoordinatorObjectiveResult(recovering));
   assert.equal(recovering.cleanupConfirmed, false);
   assert.deepEqual(recovering.recoveryIds, ["host-original"]);
   const identity = compileFunction(
     `return (${sourceDeclaration(source, "createObjectiveIntake")});`,
-  )();
+    ["createCoordinatorStableId", "hashCoordinatorContent"],
+  )(
+    () => "queue",
+    () => "hash",
+  );
   const failedRead = compileFunction(
     `return (${sourceDeclaration(source, "readObjectiveReplay")});`,
     [
@@ -1613,70 +1624,96 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     root: string,
     binding: string,
     principal: string,
-    clock: object,
   ) => Record<string, unknown>;
-  const boundary = failedRead(input, "fixture", "binding", "principal", {
-    createStableId: () => "queue",
-    createContentHash: () => "hash",
-  });
+  const boundary = failedRead(input, "fixture", "binding", "principal");
   assert.deepEqual(inspectCoordinatorObjectiveResult(boundary)?.recoveryIds, [
     "store-original",
   ]);
-  const core = compileFunction(
-    `return (${sourceDeclaration(source, "executeCoordinatorObjective")});`,
-    [
-      "isPrincipalId",
-      "createObjectiveIntake",
-      "COORDINATOR_PUBLIC_RUNTIME_CONTRACT",
-      "inspectTaskExecutionSelections",
-      "objectiveSelectionsMatch",
-      "inspectTaskStartCandidates",
-    ],
-  )(
-    () => true,
-    identity,
-    "crdd-coordinator/public-runtime/v2",
-    inspectTaskExecutionSelections,
-    () => true,
-    inspectTaskStartCandidates,
-  ) as (
-    deps: object,
-    input: object,
-    signal: AbortSignal,
-  ) => Promise<Record<string, unknown>>;
+  const createCore = (operations: {
+    readProjectExecutionState?: () => unknown;
+    readQueueEntry?: () => unknown;
+    createQueue?: () => unknown;
+    inspectAcquisition?: () => unknown;
+    reconcileOwnerLoss?: () => unknown;
+    resolveObjectiveTaskSelections?: () => unknown;
+  }) =>
+    compileFunction(
+      `return (${sourceDeclaration(source, "executeCoordinatorObjective")});`,
+      [
+        "isPrincipalId",
+        "COORDINATOR_PUBLIC_RUNTIME_CONTRACT",
+        "resolveObjectiveTaskSelections",
+        "inspectTaskExecutionSelections",
+        "objectiveSelectionsMatch",
+        "inspectTaskStartCandidates",
+        "readQueueEntry",
+        "createQueue",
+        "inspectCoordinatorSnapshotLeaseAcquisitionOwner",
+        "reconcileCoordinatorSnapshotLeaseOwnerLoss",
+        "observeObjectiveLeaseOwner",
+        "updateCoordinatorQueue",
+        "readProjectExecutionState",
+        "wasObjectiveStateUninitialized",
+        "hashCoordinatorContent",
+        "getRuntimeProcessInstanceIdentity",
+        "runCoordinatorOperation",
+      ],
+    )(
+      () => true,
+      "crdd-coordinator/public-runtime/v2",
+      operations.resolveObjectiveTaskSelections ??
+        (() => assert.fail("selection forbidden")),
+      inspectTaskExecutionSelections,
+      () => true,
+      inspectTaskStartCandidates,
+      operations.readQueueEntry ?? (() => assert.fail("Queue read forbidden")),
+      operations.createQueue ?? (() => assert.fail("enqueue forbidden")),
+      operations.inspectAcquisition ??
+        (() => assert.fail("lease inspection forbidden")),
+      operations.reconcileOwnerLoss ??
+        (() => assert.fail("reconciliation forbidden")),
+      observeObjectiveLeaseOwner,
+      () => assert.fail("Queue mutation forbidden"),
+      operations.readProjectExecutionState ??
+        (() => assert.fail("state must not be created")),
+      compileFunction(
+        `return (${sourceDeclaration(source, "wasObjectiveStateUninitialized")});`,
+        [],
+      )(),
+      () => "hash",
+      () => "owner",
+      () => assert.fail("execution forbidden after Store refusal"),
+    ) as (
+      deps: object,
+      input: object,
+      signal: AbortSignal,
+    ) => Promise<Record<string, unknown>>;
   let queueReads = 0;
-  const coreBoundary = await core(
+  const coreBoundary = await createCore({
+    readQueueEntry: () => {
+      queueReads++;
+      return {
+        status: "blocked",
+        reason: "store_read_unknown",
+        manualRecoveryRequired: true,
+        recoveryId: "queue-store-original",
+      };
+    },
+  })(
     {
       authenticatedPrincipalId: "principal",
-      repositoryBindingId: "binding",
-      clockIdentity: {
-        createStableId: () => "queue",
-        createContentHash: () => "hash",
-      },
-      plan: input.plan,
+
       persistence: {
-        state: {
-          readQueue: () => {
-            queueReads++;
-            return {
-              status: "blocked",
-              reason: "store_read_unknown",
-              manualRecoveryRequired: true,
-              recoveryId: "queue-store-original",
-            };
-          },
-          readState: () => assert.fail("state must not be created"),
-          writeState: () => assert.fail("write forbidden"),
-          enqueueOperation: () => assert.fail("enqueue forbidden"),
-        },
-        get lease() {
-          return assert.fail("lease forbidden");
-        },
+        repository: {},
+        repositoryBindingId: "binding",
+        workingDirectory: "fixture",
+        intake: identity(
+          { ...input, operation: "resume" },
+          "binding",
+          "principal",
+        ),
       },
-      resolveTaskSelections: () => assert.fail("selection forbidden"),
-      execution: {
-        runSingleTaskAttempt: () => assert.fail("execution forbidden"),
-      },
+      execution: {},
     },
     { ...input, operation: "resume" },
     new AbortController().signal,
@@ -1718,49 +1755,39 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     let reads = 0;
     let saves = 0;
     const saved = new Map();
-    const result = await core(
+    const result = await createCore({
+      resolveObjectiveTaskSelections: () => ({
+        status: "resolved",
+        value: taskExecutionSelections(),
+      }),
+      readProjectExecutionState: () =>
+        ++reads === 1 ? { status: "completed", value: null } : failedState,
+      createQueue: () => {
+        saves++;
+        saved.set("queue", queue);
+        return "duringEnqueue" in failedState
+          ? failedState
+          : { status: "completed", reason: "accepted", value: queue };
+      },
+      inspectAcquisition: () => ({
+        status: "completed",
+        value: { acquisition: null },
+      }),
+    })(
       {
         authenticatedPrincipalId: "principal",
-        repositoryBindingId: "binding",
-        clockIdentity: {
-          createStableId: () => "queue",
-          createContentHash: () => "hash",
-        },
-        plan: input.plan,
-        processSafety: { getProcessInstanceIdentity: () => "owner" },
-        resolveTaskSelections: () => ({
-          status: "resolved",
-          value: taskExecutionSelections(),
-        }),
-        taskRecovery: {},
+
         persistence: {
-          state: {
-            readState: () =>
-              ++reads === 1
-                ? { status: "completed", value: null }
-                : failedState,
-            writeState: () =>
-              assert.fail("initial state must not publish separately"),
-            enqueueOperation: () => {
-              saves++;
-              saved.set("queue", queue);
-              return "duringEnqueue" in failedState
-                ? failedState
-                : { status: "completed", reason: "accepted", value: queue };
-            },
-          },
-          lease: {
-            inspectAcquisitionOwner: () => ({
-              status: "completed",
-              value: { acquisition: null },
-            }),
-            acquire: () => assert.fail("Lease forbidden after failed read"),
-          },
+          repository: {},
+          repositoryBindingId: "binding",
+          workingDirectory: "fixture",
+          intake: identity(
+            { ...input, operation: "start" },
+            "binding",
+            "principal",
+          ),
         },
-        execution: {
-          runSingleTaskAttempt: () =>
-            assert.fail("Provider forbidden after failed read"),
-        },
+        execution: {},
       },
       { ...input, operation: "start" },
       new AbortController().signal,
@@ -1811,79 +1838,74 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     let reconciliations = 0;
     let queueReads = 0;
     const saved = new Map([["queue", queue]]);
-    const observed = await core(
+    const observed = await createCore({
+      readProjectExecutionState: () => {
+        stateReads++;
+        return stage === "initial_read"
+          ? outcome
+          : {
+              status: "completed",
+              value: state,
+              taskStartCandidates: {
+                projectId: state.projectId,
+                generation: state.generation,
+                taskIds: [],
+              },
+            };
+      },
+      createQueue: () => {
+        enqueues++;
+        return stage === "enqueue"
+          ? outcome
+          : { status: "completed", reason: "existing", value: queue };
+      },
+      readQueueEntry: () => {
+        queueReads++;
+        assert.equal(stage, "queue_read");
+        return outcome;
+      },
+      inspectAcquisition: () =>
+        stage === "acquisition"
+          ? outcome
+          : {
+              status: "completed",
+              value: {
+                acquisition:
+                  stage === "acquisition_other"
+                    ? {
+                        projectId: "other-project",
+                        recoveryId: uncertain.recoveryId,
+                      }
+                    : null,
+              },
+            },
+      reconcileOwnerLoss: () => {
+        reconciliations++;
+        return stage === "reconciliation"
+          ? outcome
+          : {
+              status: "completed",
+              value: {
+                queue: { ...queue, queueId: "queue" },
+                recoveryId: null,
+              },
+            };
+      },
+    })(
       {
         authenticatedPrincipalId: "principal",
-        repositoryBindingId: "binding",
-        clockIdentity: {
-          createStableId: () => "queue",
-          createContentHash: () => "hash",
-        },
-        plan: input.plan,
-        resolveTaskSelections: () =>
-          assert.fail("selection forbidden after Store refusal"),
-        processSafety: {
-          getProcessInstanceIdentity: () => assert.fail("new owner forbidden"),
-        },
-        taskRecovery: {},
+
         persistence: {
-          state: {
-            readState: () => {
-              stateReads++;
-              return stage === "initial_read"
-                ? outcome
-                : {
-                    status: "completed",
-                    value: state,
-                    taskStartCandidates: {
-                      projectId: state.projectId,
-                      generation: state.generation,
-                      taskIds: [],
-                    },
-                  };
-            },
-            writeState: () => assert.fail("State publication forbidden"),
-            enqueueOperation: () => {
-              enqueues++;
-              return stage === "enqueue"
-                ? outcome
-                : { status: "completed", reason: "existing", value: queue };
-            },
-            readQueue: () => {
-              queueReads++;
-              assert.equal(stage, "queue_read");
-              return outcome;
-            },
-            updateQueue: () => assert.fail("Queue mutation forbidden"),
-          },
-          lease: {
-            inspectAcquisitionOwner: () =>
-              stage === "acquisition"
-                ? outcome
-                : {
-                    status: "completed",
-                    value: {
-                      acquisition:
-                        stage === "acquisition_other"
-                          ? {
-                              projectId: "other-project",
-                              recoveryId: uncertain.recoveryId,
-                            }
-                          : null,
-                    },
-                  },
-            reconcileOperationOwnerLoss: () => {
-              reconciliations++;
-              return stage === "reconciliation"
-                ? outcome
-                : { status: "completed", value: queue };
-            },
-            acquire: () => assert.fail("Lease acquisition forbidden"),
-          },
+          repository: {},
+          repositoryBindingId: "binding",
+          workingDirectory: "fixture",
+          intake: identity(
+            { ...input, operation: "start" },
+            "binding",
+            "principal",
+          ),
         },
-        execution: {
-          runSingleTaskAttempt: () => assert.fail("Provider forbidden"),
-        },
+        execution: {},
       },
       { ...input, operation: "start" },
       new AbortController().signal,

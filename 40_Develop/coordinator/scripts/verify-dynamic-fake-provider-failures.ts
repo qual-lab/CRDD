@@ -9,16 +9,30 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createIsolationProbe } from "../../executor/src/lifecycle/probe.ts";
 
-import {
-  DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS,
-  expectedDynamicFakeProviderFailureReason,
-  runDynamicFakeProviderFailureScenario,
-} from "../src/execution/diagnostics.ts";
-import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
+import { createOwnedOperationDirectories } from "../src/lifecycle/host.ts";
+import { runDockerIsolationProbe } from "../src/lifecycle/environment.ts";
 import {
   getRepositoryFromWorkingDirectory,
   resolveVerifiedRepositoryRoot,
 } from "../../version-control/src/index.ts";
+
+/**
+ * 開発用の固定故障シナリオと期待する診断結果。
+ * @trace ARCH-000004
+ * @invariant CLIに任意の故障条件を追加せず、既存の実行順序と診断理由を保つ。
+ */
+export const DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS = Object.freeze([
+  Object.freeze(["timeout", "docker_isolation_probe_timeout"] as const),
+  Object.freeze([
+    "output_limit",
+    "docker_isolation_probe_output_too_large",
+  ] as const),
+  Object.freeze([
+    "invalid_output",
+    "docker_isolation_probe_invalid_output",
+  ] as const),
+  Object.freeze(["nonzero_exit", "docker_isolation_probe_failed"] as const),
+]);
 
 /**
  * Dynamic Fake Provider Failuresを検証する。
@@ -44,19 +58,21 @@ export async function verifyDynamicFakeProviderFailures() {
     root = resolveVerifiedRepositoryRoot(repository);
   if (!root) throw Error("repository_identity_unavailable");
   const results = [];
-  for (const scenario of DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS) {
+  for (const [
+    scenario,
+    expectedReason,
+  ] of DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS) {
     const owned = createOwnedOperationDirectories({
       root: repository,
       purpose: "isolation_probe",
       recordingCurrent: () =>
         resolveVerifiedRepositoryRoot(repository) === root,
     });
-    const result = await runDynamicFakeProviderFailureScenario(
+    const result = await runDockerIsolationProbe(
       owned,
-      scenario,
+      undefined,
       (request, options) => createIsolationProbe(request, options, scenario),
     );
-    const expectedReason = expectedDynamicFakeProviderFailureReason(scenario);
     const isRootRemoved = !fs.existsSync(owned.root);
     const isPassed =
       result.status === "blocked" &&

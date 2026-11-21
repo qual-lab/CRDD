@@ -10,7 +10,7 @@
  */
 import fs from "node:fs";
 
-import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
+import { acquireCoordinatorSnapshotLease } from "../../src/lifecycle/host.ts";
 
 const [workingDirectory, barrier, projectId, queueId] = process.argv.slice(2);
 if (!workingDirectory || !barrier || !projectId || !queueId)

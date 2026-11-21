@@ -20,7 +20,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
 import path from "node:path";
-import test from "node:test";
+import test, { mock } from "node:test";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import {
@@ -29,20 +29,17 @@ import {
   saveWorkspaceRecord,
   type WorkspaceRecord,
 } from "../../../execution-model/src/index.ts";
-import { acceptResult } from "../../src/decision/acceptance.ts";
-import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
-import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
+import { acceptResult } from "../../src/lifecycle/decision.ts";
+import { runTestSingleTaskAttempt } from "../support/task-requests.ts";
+import { acquireCoordinatorSnapshotLease } from "../../src/lifecycle/host.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
 import { executeWorkspace, type WorkspaceView } from "../../src/index.ts";
-import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";
-import {
-  createCoordinatorExecutionHostPorts,
-  runCoordinatorOperation,
-} from "../../src/task/dispatch.ts";
+import { queryState } from "../../src/index.ts";
+import { runTestCoordinatorOperation } from "../fixtures/task-persistence-fixture.ts";
 import {
   resolveCoordinatorWorkspaceTaskTarget,
   workspacePlanReadyForAcceptance,
-} from "../../src/workspace/operations.ts";
+} from "../../src/lifecycle/workspace.ts";
 import {
   fixture,
   git,
@@ -78,15 +75,14 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
       let calls = 0,
         active = 0,
         maximum = 0;
-      const result = await runCoordinatorOperation(
+      const result = await runTestCoordinatorOperation(
         {
-          ...createCoordinatorExecutionHostPorts(),
           persistence: f.ports,
           runSingleTaskAttempt: async (input) => {
             const call = ++calls;
             active++;
             maximum = Math.max(maximum, active);
-            assert.equal(input.executionTree, tree);
+            assert.equal(input.workspaceTarget?.executionTree, tree);
             assert.equal(await input.observeStarted?.(), undefined);
             await Promise.resolve();
             if (call === 2)
@@ -116,7 +112,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
               candidateId: null,
               recoveryIds: [],
               workspaceResult: {
-                workspaceId: input.workspaceId ?? null,
+                workspaceId: input.workspaceTarget?.workspaceId ?? null,
                 changedPaths: [call === 1 ? "task-a.txt" : "task-b.txt"],
                 canonicalRepositoryChanged: !isolated,
                 changeAttribution: "unattributed",
@@ -186,7 +182,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
             principalId: "principal-a",
           });
         const entry = pathToFileURL(
-          path.resolve(import.meta.dirname, "../../src/decision/acceptance.ts"),
+          path.resolve(import.meta.dirname, "../../src/lifecycle/decision.ts"),
         ).href;
         return JSON.parse(
           (
@@ -340,7 +336,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
       );
       const accepted = await decide(isolated);
       assert.equal(accepted.status, "completed", JSON.stringify(accepted));
-      const query = executeCoordinatorPublicStateQuery(
+      const query = queryState(
         {
           requestId: "query-after-adoption",
           projectId: "project-a",
@@ -720,7 +716,7 @@ test("未完了Mergeは拒否・応答喪失後も同操作でCommitだけを継
     const primary = failed.candidateResult?.reason;
     assert.ok(primary);
     const module = pathToFileURL(
-      path.resolve(import.meta.dirname, "../../src/workspace/operations.ts"),
+      path.resolve(import.meta.dirname, "../../src/lifecycle/workspace.ts"),
     ).href;
     const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
     const resumed = JSON.parse(
@@ -828,7 +824,7 @@ test("採否後のRef回収失敗は不変記録を保ち別Processで同候補�
     );
     const original = JSON.stringify(before.results);
     const module = pathToFileURL(
-      path.resolve(import.meta.dirname, "../../src/workspace/operations.ts"),
+      path.resolve(import.meta.dirname, "../../src/lifecycle/workspace.ts"),
     ).href;
     const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
     const resumed = JSON.parse(
@@ -941,7 +937,7 @@ test("回収終端保存後の解除失敗と後発欠測でも固定本文を�
   assert.equal(saved.workspaces[0]?.candidate?.phase, "removing");
   const original = JSON.stringify(saved.results);
   const module = pathToFileURL(
-    path.resolve(import.meta.dirname, "../../src/workspace/operations.ts"),
+    path.resolve(import.meta.dirname, "../../src/lifecycle/workspace.ts"),
   ).href;
   const diagnostic = `Promise.all([import(${JSON.stringify(module)}),import('node:child_process'),import('node:module')]).then(([m,cp,modules])=>{const original=cp.default.spawnSync;cp.default.spawnSync=(...args)=>Array.isArray(args[1])&&args[1].includes('rev-parse')&&args[1].includes(${JSON.stringify(ref)})?{pid:0,status:1,signal:null,stdout:'synthetic',stderr:'',output:[null,'synthetic','']}:Reflect.apply(original,cp.default,args);modules.syncBuiltinESMExports();process.stdout.write(JSON.stringify(m.manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true})));});`;
   /**
@@ -1184,7 +1180,7 @@ test("Merge成功後の保存失敗は別Process再入場で二重Mergeせず閉
   const head = git(f.root, ["rev-parse", "HEAD"]);
   assert.equal(f.snapshot().workspaces[0]?.candidate?.phase, "merging");
   const module = pathToFileURL(
-    path.resolve(import.meta.dirname, "../../src/workspace/operations.ts"),
+    path.resolve(import.meta.dirname, "../../src/lifecycle/workspace.ts"),
   ).href;
   const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
   const resumed = JSON.parse(
@@ -1229,7 +1225,7 @@ function reenter(
   operation: "observe" | "discard",
 ) {
   const module = pathToFileURL(
-    path.resolve(import.meta.dirname, "../../src/workspace/operations.ts"),
+    path.resolve(import.meta.dirname, "../../src/lifecycle/workspace.ts"),
   ).href;
   const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace(JSON.parse(process.argv[1])))));`;
   return JSON.parse(
@@ -1493,7 +1489,9 @@ test("Candidate codecは矛盾した成功を拒否し正当な途中意図を�
     authorize: () => true,
   });
   assert.equal(fixed.status, "completed", JSON.stringify(fixed));
-  const lease = f.ports.lease.acquire(
+  const lease = acquireCoordinatorSnapshotLease(
+    f.ports.workingDirectory,
+    f.ports.repositoryBindingId,
     "project-a",
     "queue-a",
     "project-operation",
@@ -1609,20 +1607,23 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
     "completed",
   );
   let calls = 0;
-  const outcome = await runCoordinatorOperation(
+  const outcome = await runTestCoordinatorOperation(
     {
-      ...createCoordinatorExecutionHostPorts(),
       persistence: f.ports,
       runSingleTaskAttempt: async (input) => {
         calls++;
-        assert.equal(input.workspaceId, f.common.workspaceId);
-        assert.equal(input.ownerRepositoryRoot, f.root);
-        assert.equal(input.executionTree, f.tree);
-        assert.equal(input.workspaceHead, f.base);
-        assert.equal(input.workspaceBaseCommit, f.base);
+        const target = input.workspaceTarget;
+        assert.ok(target);
+        assert.deepEqual(target, {
+          workspaceId: f.common.workspaceId,
+          ownerRepositoryRoot: f.root,
+          executionTree: f.tree,
+          head: f.base,
+          baseCommit: f.base,
+        });
         assert.equal(await input.observeStarted?.(), undefined);
         fs.writeFileSync(
-          path.join(input.executionTree, "source.txt"),
+          path.join(target.executionTree, "source.txt"),
           `task-${calls}\n`,
         );
         return {
@@ -1640,7 +1641,7 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
           candidateId: null,
           recoveryIds: [],
           workspaceResult: {
-            workspaceId: input.workspaceId ?? null,
+            workspaceId: target.workspaceId,
             changedPaths: ["source.txt"],
             canonicalRepositoryChanged: false,
             changeAttribution: "unattributed",
@@ -1682,8 +1683,8 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
     fs.existsSync(path.join(f.tree, ".crdd", "orchestrator")),
     false,
   );
-  const unavailable = await runCoordinatorSingleTaskAttempt(
-    new Proxy({} as Parameters<typeof runCoordinatorSingleTaskAttempt>[0], {
+  const unavailable = await runTestSingleTaskAttempt(
+    new Proxy({} as Parameters<typeof runTestSingleTaskAttempt>[0], {
       get() {
         throw new Error("provider_dependency_touched");
       },
@@ -1695,9 +1696,13 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
       repositoryRevision: f.base,
       taskRequest: {},
       repositoryRoot: f.root,
-      workspaceId: f.common.workspaceId,
-      executionTree: f.tree,
-      ownerRepositoryRoot: f.root,
+      workspaceTarget: {
+        workspaceId: f.common.workspaceId,
+        executionTree: f.tree,
+        ownerRepositoryRoot: f.root,
+        baseCommit: null,
+        head: null,
+      },
       cancellationSignal: new AbortController().signal,
     },
   );
@@ -1758,14 +1763,13 @@ test("DirectのTask搬送はID省略と途中失敗でも変更観測を保持�
   for (const failSecond of [false, true]) {
     const f = fixture(t);
     let calls = 0;
-    const outcome = await runCoordinatorOperation(
+    const outcome = await runTestCoordinatorOperation(
       {
-        ...createCoordinatorExecutionHostPorts(),
         persistence: f.ports,
         runSingleTaskAttempt: async (input) => {
           calls++;
-          assert.equal(input.workspaceId, null);
-          assert.equal(input.executionTree, f.root);
+          assert.equal(input.workspaceTarget?.workspaceId, null);
+          assert.equal(input.workspaceTarget?.executionTree, f.root);
           assert.equal(await input.observeStarted?.(), undefined);
           fs.writeFileSync(path.join(f.root, "source.txt"), "direct-" + calls);
           return {
@@ -1957,43 +1961,64 @@ test("Workspace対象拒否はProvider委譲も架空の回復も発行しない
       git(f.tree, ["commit", "--allow-empty", "-m", "changed"]);
     if (mode === "missing") fs.renameSync(f.tree, `${f.tree}-missing`);
     let calls = 0;
-    const outcome = await runCoordinatorOperation(
-      {
-        ...createCoordinatorExecutionHostPorts(),
-        persistence:
-          mode === "reader"
-            ? {
-                ...f.ports,
-                state: {
-                  ...f.ports.state,
-                  readWorkspaceTaskTarget: () => ({
+    let readerCalls = 0;
+    const original = await import("../../src/lifecycle/workspace.ts");
+    const reader =
+      mode === "reader"
+        ? mock.module(
+            new URL("../../src/lifecycle/workspace.ts", import.meta.url).href,
+            {
+              namedExports: {
+                ...original,
+                resolveCoordinatorWorkspaceTaskTarget: (
+                  root: string,
+                  binding: string,
+                  queueId: string,
+                ) => {
+                  readerCalls++;
+                  assert.equal(root, f.ports.workingDirectory);
+                  assert.equal(binding, f.ports.repositoryBindingId);
+                  assert.equal(queueId, "queue-a");
+                  return {
                     status: "blocked",
                     reason: "synthetic_reader_blocked",
                     value: null,
                     manualRecoveryRequired: false,
                     recoveryId: null,
-                  }),
+                  };
                 },
-              }
-            : f.ports,
-        runSingleTaskAttempt: async () => {
-          calls++;
-          throw new Error("must_not_delegate");
+              },
+            },
+          )
+        : null;
+    let outcome: Awaited<ReturnType<typeof runTestCoordinatorOperation>>;
+    try {
+      const dispatch = runTestCoordinatorOperation;
+      outcome = await dispatch(
+        {
+          persistence: f.ports,
+          runSingleTaskAttempt: async () => {
+            calls++;
+            throw new Error("must_not_delegate");
+          },
         },
-      },
-      {
-        projectId: "project-a",
-        milestoneId: "milestone-a",
-        queueId: "queue-a",
-        cancellationSignal: new AbortController().signal,
-        taskExecutions: ["task-a", "task-b"].map((taskId) => ({
-          taskId,
-          authorityBindingId: `authority-${taskId}`,
-          taskRequest: {},
-          repositoryRoot: f.root,
-        })),
-      },
-    );
+        {
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          queueId: "queue-a",
+          cancellationSignal: new AbortController().signal,
+          taskExecutions: ["task-a", "task-b"].map((taskId) => ({
+            taskId,
+            authorityBindingId: `authority-${taskId}`,
+            taskRequest: {},
+            repositoryRoot: f.root,
+          })),
+        },
+      );
+    } finally {
+      reader?.restore();
+    }
+    assert.equal(readerCalls, mode === "reader" ? 1 : 0);
     assert.equal(calls, 0, mode);
     assert.equal(outcome.status, "blocked", JSON.stringify(outcome));
     assert.equal(outcome.effectState, "no_effect", JSON.stringify(outcome));
@@ -2021,7 +2046,7 @@ test("Workspace対象拒否はProvider委譲も架空の回復も発行しない
 test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を保持する", () => {
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/workspace/operations.ts", import.meta.url),
+      new URL("../../src/lifecycle/workspace.ts", import.meta.url),
       "utf8",
     ),
   );
@@ -2039,7 +2064,7 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
      * @responsibility 保存または解放失敗のexact回復参照を返す。
      * @trace PRL-IT-013
      * @precondition 有限reasonと固有recoveryId。
-     * @stimulus manualRecoveryRequired付きblocked StoreResultを構築する。
+     * @stimulus manualRecoveryRequired付きの保存拒否結果を構築する。
      * @observation 元reason、一次回復IDと解放側回復ID。
      * @oracle 一次失敗を上書きせず副次参照も脱落しない。
      * @cleanup N/A: 故障結果の局所生成だけ。
@@ -2112,4 +2137,4 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
   }
 });
 
-import { inspectWorkspaceCommand } from "../../src/workspace/operations.ts";
+import { inspectWorkspaceCommand } from "../../src/lifecycle/workspace.ts";

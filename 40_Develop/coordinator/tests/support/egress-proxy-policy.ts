@@ -11,7 +11,7 @@ import net from "node:net";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../../src/input/snapshot.ts";
+} from "../../src/lifecycle/validation.ts";
 
 const REGISTRY_METADATA = Object.freeze({
   specialPurposeRegistryLastUpdated: "2025-10-09",

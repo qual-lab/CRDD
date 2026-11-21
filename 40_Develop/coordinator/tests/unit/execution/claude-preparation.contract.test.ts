@@ -13,13 +13,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { planExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
-import { describeProviderDockerRuntimeAdapterContract } from "../../../src/execution/preparation.ts";
-import {
-  cancelRuntimeOwnedDockerProcessController,
-  startRuntimeOwnedDockerProcessController,
-} from "../../../src/execution/provider-executor.ts";
+import { startRuntimeOwnedDockerProcessController } from "../../../src/lifecycle/execution.ts";
+import { cancelRuntimeOwnedExecutorAttempt } from "../../../src/lifecycle/environment.ts";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
-import { createAttemptPreparation } from "../../fixtures/attempt-preparation.ts";
+import {
+  createAttemptPreparation,
+  createReviewerWorkspaceReader,
+  reviewerCommitId,
+  reviewerCopy,
+} from "../../fixtures/attempt-preparation.ts";
 
 const fixedSelection = executionSelection("independent_reviewer", {
   provider: "claude",
@@ -43,6 +45,7 @@ function createFixture(
   overrides: Partial<
     Parameters<typeof createAttemptPreparation<"claude">>[1]
   > & { executionSelection?: ReturnType<typeof executionSelection> } = {},
+  prepare?: ReturnType<typeof createReviewerWorkspaceReader>,
 ) {
   const { executionSelection: selectedOverride, ...hostOverrides } = overrides;
   const managementCapability = Object.freeze({});
@@ -77,6 +80,7 @@ function createFixture(
         operationId: "OP-123456",
         taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         taskRole: "reviewer" as const,
+        reviewerReadProjection: { candidateCommitId: reviewerCommitId },
         taskAttempt: 0 as const,
         executionSelection: fixedSelection,
         taskWorkload: {
@@ -98,6 +102,7 @@ function createFixture(
     (_upper, lower) => {
       technicalPlan = lower;
     },
+    prepare,
   );
   return {
     adapter,
@@ -246,19 +251,9 @@ test("低推論選定を固定計画と元Executorの再開始拒否へ接続す
     consumer: "coordinator_cli",
   });
   assert.equal(prepared.status, "prepared");
-  assert.equal(prepared.selectedModel, "opus");
-  assert.equal(prepared.selectedEffort, "low");
+  assert.equal(prepared.plan.executionSelection.modelIdentifier, "opus");
+  assert.equal(prepared.plan.executionSelection.reasoningEffort, "low");
   assert.equal(Object.hasOwn(prepared, "selectedModelTier"), false);
-  assert.equal(
-    prepared.selectionNotice,
-    [
-      fixture.executionSelection.provider,
-      fixture.executionSelection.modelIdentifier,
-      fixture.executionSelection.reasoningEffort,
-      fixture.executionSelection.role,
-      fixture.executionSelection.source,
-    ].join(" / "),
-  );
   const { plan: internalPlan, ...presentation } = prepared;
   assert.strictEqual(internalPlan.executor, prepared.plan.executor);
   const publicJson = JSON.stringify({
@@ -522,7 +517,10 @@ test("DI乱数検査の不成立は発行前停止を保つ", () => {
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Task Packetをstdin専用入力と隔離workspace RO mountへ結合する", () => {
-  const fixture = createFixture();
+  let management = Object.freeze({});
+  const prepare = createReviewerWorkspaceReader(() => management);
+  const fixture = createFixture({}, prepare);
+  management = fixture.managementCapability;
   const prepared = fixture.adapter.prepare({
     purpose: "task",
     managementCapability: fixture.managementCapability,
@@ -540,6 +538,7 @@ test("Task Packetをstdin専用入力と隔離workspace RO mountへ結合する"
   assert.equal(plan.operationMode, "isolated_task");
   assert.equal(plan.taskRole, "reviewer");
   assert.equal(plan.workspaceMountMode, "read_only");
+  assert.equal(plan.workspaceSourcePath, reviewerCopy);
   assert.equal(plan.providerInput, "Review the exact local candidate.");
   const argv = plan.commands.flatMap((command) => command.argv);
   assert.equal(argv.includes(plan.providerInput), false);
@@ -657,34 +656,52 @@ test("Executor Task PacketをacceptEditsと隔離workspace RW mountへ結合す�
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 検証済み作業量を固定argvへ接続し、過大・不明ならPlan発行前に計画発行を拒否するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
+ * @observation 技術計画、拒否理由、上位診断と計画用乱数の要求回数を観測する。
+ * @oracle 正常時に上位診断せず、作業量拒否時は乱数取得なしで元の理由を一度だけ診断する。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("検証済み作業量を固定argvへ接続し、過大・不明ならPlan発行前に計画発行を拒否する", () => {
+  let management = Object.freeze({});
+  const prepare = createReviewerWorkspaceReader(() => management);
   for (const readPathCount of [6, 12, 13, 0]) {
+    let diagnosticCalls = 0;
+    const randomSizes: number[] = [];
     const taskWorkload = {
       readPathCount,
       allowedPathCount: 1,
       acceptanceCriterionCount: 4,
       remediationFindingCount: 0,
     };
-    const fixture = createFixture({
-      consumeTaskPacket: () => ({
-        operationId: "OP-123456",
-        taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
-        taskRole: "reviewer",
-        taskAttempt: 0 as const,
-        executionSelection: fixedSelection,
-        taskWorkload,
-        taskPacketHash: "b".repeat(64),
-        prompt: "Review the exact local candidate.",
-        additionalHosts: Object.freeze([]),
-        promptTransport: "provider_stdin_only",
-      }),
-      ...(readPathCount === 0 || readPathCount === 13 ? {} : {}),
-    });
+    const fixture = createFixture(
+      {
+        diagnoseTaskPlanning: new Proxy(planExecution, {
+          apply(target, receiver, args) {
+            diagnosticCalls++;
+            return Reflect.apply(target, receiver, args);
+          },
+        }),
+        randomBytes: (size) => {
+          randomSizes.push(size);
+          return Buffer.alloc(size, randomSizes.length);
+        },
+        consumeTaskPacket: () => ({
+          operationId: "OP-123456",
+          taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+          taskRole: "reviewer",
+          reviewerReadProjection: { candidateCommitId: reviewerCommitId },
+          taskAttempt: 0 as const,
+          executionSelection: fixedSelection,
+          taskWorkload,
+          taskPacketHash: "b".repeat(64),
+          prompt: "Review the exact local candidate.",
+          additionalHosts: Object.freeze([]),
+          promptTransport: "provider_stdin_only",
+        }),
+      },
+      prepare,
+    );
+    management = fixture.managementCapability;
     const prepared = fixture.adapter.prepare({
       purpose: "task",
       managementCapability: fixture.managementCapability,
@@ -698,6 +715,8 @@ test("検証済み作業量を固定argvへ接続し、過大・不明ならPlan
     });
     if (readPathCount === 0 || readPathCount === 13) {
       assert.equal(prepared.status, "blocked");
+      assert.equal(diagnosticCalls, 1);
+      assert.deepEqual(randomSizes, []);
       assert.equal(
         prepared.reason,
         readPathCount === 13
@@ -708,6 +727,8 @@ test("検証済み作業量を固定argvへ接続し、過大・不明ならPlan
       assert.equal(prepared.providerRequestIssued, false);
     } else {
       assert.equal(prepared.status, "prepared");
+      assert.equal(diagnosticCalls, 0);
+      assert.deepEqual(randomSizes, [8, 32]);
       const plan = fixture.getTechnicalPlan();
       assert.ok(plan);
       assert.deepEqual(
@@ -757,45 +778,66 @@ test("production adapterは未発行のCapabilityと未接続Selection 選定入
       consumer: "coordinator_cli",
     },
     () => true,
+    undefined,
+    {},
+    [],
   );
   assert.equal(prepared.status, "blocked");
   assert.equal(prepared.providerRequestStarted, false);
-  void cancelRuntimeOwnedDockerProcessController({}, {}).then((result) =>
+  void cancelRuntimeOwnedExecutorAttempt({}, {}).then((result) =>
     assert.equal(result.status, "blocked"),
   );
 });
 
 /**
- * 公開契約はCoordinator選定とProvider fallbackを分離するを検証する。
- *
- * @responsibility 公開契約はCoordinator選定とProvider fallbackを分離するの合否判定を所有する。
+ * 固定選定を実際のProvider準備へ搬送し、fallbackを追加しない。
  * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開契約はCoordinator選定とProvider fallbackを分離するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 固定選定と有限Host代役で準備する。
+ * @stimulus probeの技術計画を組み立てる。
+ * @observation 元選定、購読種別、Providerの引数と開始前の結果。
+ * @oracle 固定選定と隔離・ProxyのProvider差を維持し、公開向け結果に生の引数を出さない。
+ * @cleanup N/A: 外部資源を開始しない。
+ * @boundary Coordinatorの準備とExecutorの技術計画。
  */
-test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
-  const contract = describeProviderDockerRuntimeAdapterContract("claude");
-  assert.equal(contract.contractRevision, 9);
-  assert.equal(
-    contract.providerHomeCrossProcessLease,
-    "docker_global_provider_home_identity_container_name_fail_closed",
+test("固定選定とProxy条件を実計画で確認しfallbackを追加しない", () => {
+  const fixture = createFixture();
+  const prepared = fixture.adapter.prepare({
+    purpose: "probe",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    providerHome: fixture.providerHome,
+    executionSelection: fixture.executionSelection,
+    taskAttempt: 0,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  });
+  assert.equal(prepared.status, "prepared");
+  assert.deepEqual(
+    prepared.plan.executionSelection,
+    fixture.executionSelection,
   );
-  assert.equal(contract.coordinatorPrelaunchModelSelectionAllowed, true);
-  assert.equal(contract.providerAutomaticModelSwitchingAllowed, false);
-  assert.equal(contract.midExecutionModelSwitchingAllowed, false);
-  assert.equal(contract.speedMode, "normal_only");
-  assert.equal(contract.highCostSelection, "decisive_reason_required");
-  assert.equal(contract.fallbackModelArgumentAllowed, false);
-  assert.equal(contract.subscriptionOffering, "claude_max");
-  assert.equal(contract.providerDirectEgress, false);
-  assert.equal(contract.commandPlanReported, false);
-  assert.equal(Object.hasOwn(contract, "providerAuthority"), false);
   assert.equal(
-    contract.processController,
-    "production_runtime_owned_controller_and_fixed_docker_effect_connected",
+    prepared.plan.executionSelection.modelIdentifier,
+    fixture.executionSelection.modelIdentifier,
+  );
+  assert.equal(prepared.plan.subscriptionOffering, "claude_max");
+  assert.equal(prepared.providerRequestIssued, false);
+  assert.equal(prepared.dockerEffectIssued, false);
+  assert.equal("commands" in prepared.plan, false);
+  assert.equal("providerAuthority" in prepared.plan, false);
+  const provider = fixture
+    .getTechnicalPlan()
+    .commands.find((candidate) => candidate.purpose === "create_provider");
+  assert.ok(provider);
+  assert.equal(provider.argv.includes("--fallback-model"), false);
+  assert.match(
+    provider.argv[provider.argv.indexOf("--network") + 1] ?? "",
+    /^crdd-internal-/u,
+  );
+  assert.equal(provider.argv.includes("--model"), false);
+  assert.ok(provider.argv.some((arg) => arg.startsWith("HTTPS_PROXY=")));
+  assert.equal(
+    provider.argv.some((arg) => /^(HTTP_PROXY|ALL_PROXY|NO_PROXY)=/u.test(arg)),
+    false,
   );
 });

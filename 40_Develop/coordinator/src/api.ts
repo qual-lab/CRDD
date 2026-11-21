@@ -11,23 +11,23 @@ import {
   type Repository,
   resolveVerifiedRepositoryRoot,
 } from "../../version-control/src/index.ts";
-import type { AuthenticationRequest } from "./execution/authority.ts";
+import type { AuthenticationRequest } from "./lifecycle/authentication.ts";
+import { runProviderAuthenticationRequest } from "./lifecycle/authentication.ts";
+import {
+  projectRuntimeRepairObservation,
+  repairRuntimeOwnedDockerRuntime,
+  runDoctor,
+  restartRuntimeOwnedDockerForRecovery,
+  inspectRuntimeOwnedDockerTaskAdmission,
+} from "./lifecycle/environment.ts";
+import { resumeRuntimeOwnedExecution } from "./lifecycle/execution.ts";
+import { readRuntimeOwnedRecovery } from "./lifecycle/query.ts";
 import {
   readExecutionCancellation,
-  runProviderAuthenticationRequest,
-} from "./execution/authority.ts";
-import { runDoctor } from "./execution/diagnostics.ts";
-import {
-  inspectRuntimeOwnedDockerTaskAdmission,
-  projectRuntimeRepairObservation,
-  readRuntimeOwnedRecovery,
-  repairRuntimeOwnedDockerRuntime,
-  restartRuntimeOwnedDockerForRecovery,
-  resumeRuntimeOwnedExecution,
-} from "./execution/recovery.ts";
-import { snapshotPlainRecord } from "./input/snapshot.ts";
+  snapshotPlainRecord,
+} from "./lifecycle/validation.ts";
 
-export type { AuthenticationRequest } from "./execution/authority.ts";
+export type { AuthenticationRequest } from "./lifecycle/authentication.ts";
 
 /**
  * Providerの現在認証状態を隔離環境で確認する。
@@ -74,23 +74,26 @@ export function authenticateProvider(
 }
 
 export type { ExecutionSelection } from "../../execution-model/src/index.ts";
-export { acceptResult } from "./decision/acceptance.ts";
-export { submitDecision } from "./decision/lifecycle.ts";
-export { runObjective } from "./objective/composition.ts";
-export { queryActivity } from "./state/observation.ts";
-export { queryState } from "./state/query.ts";
+export {
+  acceptResult,
+  inspectCoordinatorDecisionRequest,
+  readRepositoryNetworkHosts,
+  submitDecision,
+} from "./lifecycle/decision.ts";
+export { queryActivity, queryState } from "./lifecycle/query.ts";
+export { executeWorkspace } from "./lifecycle/workspace.ts";
+export { runObjective } from "./lifecycle/execution.ts";
+export type { SingleTaskCommand } from "./lifecycle/types.ts";
+export { inspectSingleTaskCommand } from "./lifecycle/validation.ts";
 export type {
-  SingleTaskCommand,
   TaskRunResult,
   TaskSession,
   TaskSessionContext,
-} from "./task/requests.ts";
+} from "./lifecycle/execution.ts";
 export {
-  inspectSingleTaskCommand,
   openTaskSession,
   runTask,
-} from "./task/requests.ts";
-export { executeWorkspace } from "./workspace/commands.ts";
+} from "./lifecycle/execution.ts";
 
 /**
  * 信頼したHost入口が渡す実行対象。
@@ -396,36 +399,36 @@ export async function retainRepair(
   );
 }
 
-export { readRepositoryNetworkHosts } from "./decision/external-send-policy.ts";
-export type { CoordinatorDecisionRequest } from "./decision/request.ts";
-export { inspectCoordinatorDecisionRequest } from "./decision/request.ts";
-export { PROVIDER_AUTHENTICATION_INPUT_NOTICE } from "./execution/authority.ts";
+export type { CoordinatorDecisionRequest } from "./lifecycle/decision.ts";
+export { PROVIDER_AUTHENTICATION_INPUT_NOTICE } from "./lifecycle/authentication.ts";
 export {
   getCapabilities,
   isSupportedNodeRuntime,
-} from "./execution/diagnostics.ts";
-export { inspectCoordinatorObjectiveRequest } from "./objective/plan.ts";
-export type { CoordinatorObjectiveRequest } from "./objective/types.ts";
-export { parseRuntimeActivityObservation } from "./state/observation.ts";
+} from "./lifecycle/environment.ts";
+export { parseRuntimeActivityObservation } from "./lifecycle/query.ts";
 export {
+  inspectWorkspaceCommand,
+  type WorkspaceCommand,
+  type WorkspaceView,
+} from "./lifecycle/workspace.ts";
+export {
+  inspectCoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveResult,
   inspectCoordinatorStateQuery,
   inspectCoordinatorStateQueryResult,
-} from "./state/projection.ts";
+} from "./lifecycle/validation.ts";
 export type {
   ActivityRepository,
   ActivitySource,
+  CoordinatorObjectiveRequest,
   CoordinatorProjection,
   CoordinatorStateQuery,
   CoordinatorStateQueryResult,
   RuntimeActivityEvent,
   RuntimeActivityObservation,
   RuntimeActivityRequest,
-} from "./state/types.ts";
-export type { WorkspaceView } from "./workspace/commands.ts";
-export type { WorkspaceCommand } from "./workspace/operations.ts";
-export { inspectWorkspaceCommand } from "./workspace/operations.ts";
-export type { WorkspaceResult } from "./workspace/record.ts";
+  WorkspaceResult,
+} from "./lifecycle/types.ts";
 
 /**
  * 正式認証操作の完了・不明・回収を識別する結果。

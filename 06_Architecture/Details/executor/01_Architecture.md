@@ -261,7 +261,7 @@ ExecutorはProvider一段を一試行として、開始・取消・終了待ち�
 
 ### 単発実行への入力境界整理（進行中、2026-10-30）
 
-上位のOperation正本の作成時刻、選定正本の速度設定、助言PacketのTask／Projection Hashは、Executorで参照しないため搬送対象から除く。上位の発行・消費・Hash照合は維持し、型の削除だけでなくcallbackの返却値を明示投影する。操作領域の全6PathはCoordinatorの`execution/operation.ts`が所有し、Coordinatorの`AttemptBinding.mounts`はworkspace／tmpの借用値だけとし、単独の`AttemptPaths`型とRoot exportは廃止する。Docker Isolationが借用するtmp／managementは別の既存接続で維持する。
+上位のOperation正本の作成時刻、選定正本の速度設定、助言PacketのTask／Projection Hashは、Executorで参照しないため搬送対象から除く。上位の発行・消費・Hash照合は維持し、型の削除だけでなくcallbackの返却値を明示投影する。操作領域の全6PathはCoordinatorの`lifecycle/host.ts`が所有し、Coordinatorの`AttemptBinding.mounts`はworkspace／tmpの借用値だけとし、単独の`AttemptPaths`型とRoot exportは廃止する。Docker Isolationが借用するtmp／managementは別の既存接続で維持する。
 
 上位の同期prepareは完全選定・試行番号・観測Homeを計画へ直接結合する。準備専用二WeakMap、Prepared Capability、consume／cancelは持たない。Executorの既存Controlは実Home wx Lockを所有し、上位のDurableRecordはHandleでなく受領した実解放事実だけを保持する。
 
@@ -279,7 +279,7 @@ ExecutorはProvider一段を一試行として、開始・取消・終了待ち�
 | `AttemptPreparation`・`PreparationResult`・`PreparationFailure` | Coordinatorの同期準備Owner。取消／消費の準備専用契約は撤去 | 不正入力はEffect前拒否、計画を実行開始へ直接渡す |
 | `AttemptBinding` | mounts内へworkspace／tmpを直接定義。`AttemptPaths`は削除済み。全操作領域の正本・検証はCoordinator | 同じ操作に結合したworkspace／tmpと保護対象 |
 | `ProviderHome` | CoordinatorのNode観測による内部の非秘密四値 | Provider・正規Path・物理実体Hash・共有資源キー。許可tokenではない |
-| `ProviderPreparationDependencies`・`PreparationHost`・`PreparedAttempt` | Coordinatorの同期準備Owner。準備候補Storeを生成しない | 現在Operation、完全選定・試行、HomeとPacketの直接相関 |
+| `prepareProviderAttempt`・`PreparedAttempt` | Coordinatorが固定の照合・Packet消費とExecutor生成を直接呼ぶ。依存セットや準備候補Storeを作らない | 現在Operation、完全選定・試行、HomeとPacketの直接相関 |
 | `PreparedAttemptPlan`・`PreparedPlan`・`ProviderAttemptPlan` | 技術入力と上位の受付・選定・保存Contextへ分解。Executorには一試行の技術構成だけを残す | 元九Commandの正規構成照合、実行前の相関検査、同じ回復参照 |
 | `ConsumedTaskPacket`・`TaskPacket`・`AdvicePacket`・`ModelSelection` | 発行・消費・送信範囲・選定の意味をCoordinatorへ移管。本文・許可参照・解決済みModel等の必要値だけExecutorへ渡す | Packet差替え拒否、選定・用途・役割との一致、本文非保存 |
 | `AttemptSelection`（削除済み） | AI Adapterの`ModelSelection`を直接参照。ロールの相関はCoordinatorの準備Ownerが検査する | Provider・Model・識別種別・Effort・用途と実行Roleの整合 |
@@ -338,9 +338,9 @@ executor/src/
 
 `ExecutorCallbacks`は通知専用interfaceとし、引数は既存の責務型を再利用する。通知の戻り値は`void`又は`Promise<void>`であり、上位の保存結果・許可・回復参照を返さない。固定構成は所有元の`DockerIsolationRuntimeOptions`を直接使用し、単純別名の`ExecutorOptions`は宣言・再公開しない。通常AttemptはDIの元Completionを直接解釈し、`ExecutionServices`・`RuntimeDependencies`の汎用操作束を製品Sourceに置かない。
 
-準備Ownerの型はCoordinatorの`execution/types.ts`に置く。同期prepareは完全選定・試行番号とHome四値を捕捉して計画を直接返し、別の準備Store・一回消費token・独自期限を置かない。prepareから開始までawaitを挟まない。現在Operationと耐久記録・exact回復参照の引渡しを上位が確認し、技術実行後の回収責務を上位の合成完了操作へ戻さない。
+準備Ownerの型はCoordinatorの`lifecycle/types.ts`に置く。同期prepareは完全選定・試行番号とHome四値を捕捉して計画を直接返し、別の準備Store・一回消費token・独自期限を置かない。prepareから開始までawaitを挟まない。現在Operationと耐久記録・exact回復参照の引渡しを上位が確認し、技術実行後の回収責務を上位の合成完了操作へ戻さない。
 
-Executor内のAttempt実行型は`lifecycle/types.ts`、通知interfaceは各用途の`types.ts`と共通の`lifecycle/types.ts`、資源回収の対象・結果は`lifecycle/types.ts`、ResourceCleanupCallbacksは`lifecycle/types.ts`へ置く。同期準備だけが使う型はCoordinatorの準備Owner内へ置き、共有する準備型は同Packageの`execution/types.ts`へ置く。上位の`RecoveryPlan`は既存記録に必要な完全選定・Packet・利用側相関を保持し、`PreparedAttemptPlan<P>`が元Operation・Mountの相関と表示情報を結合する。新しいMap・Registry・保存単位は追加しない。
+Executor内のAttempt実行型は`lifecycle/types.ts`、通知interfaceは各用途の`types.ts`と共通の`lifecycle/types.ts`、資源回収の対象・結果は`lifecycle/types.ts`、ResourceCleanupCallbacksは`lifecycle/types.ts`へ置く。同期準備だけが使う型はCoordinatorの準備Owner内へ置き、共有する準備型は同Packageの`lifecycle/types.ts`へ置く。上位の`RecoveryPlan`は既存記録に必要な完全選定・Packet・利用側相関を保持し、`PreparedAttemptPlan<P>`が元Operation・Mountの相関と表示情報を結合する。新しいMap・Registry・保存単位は追加しない。
 
 builderは乱数供給と、一つの`AttemptRequest`を受け取る。Request内に実行対象の`target`、AI Adapterの五項目`selection`、Probe／Task／Adviceの排他的な実行内容をまとめ、独立した`AttemptTarget`型は撤去する。上位はBindingと現在Operation・Provider対応、完全選定・試行番号・Packet参照／本文Hash・stdin搬送・roleと用途・助言四非共有条件を検査する。下位は五項目選定・本文・Command・Image・Mountの技術的一致を維持する。利用側名、試行番号、選定記録ID、Packet相関をExecutorのPlanへ含めない。
 
@@ -350,7 +350,7 @@ builderは乱数供給と、一つの`AttemptRequest`を受け取る。Request�
 
 本番入口は`createExecutor(request, options, random?)`とする。FactoryがAttemptRequestから一試行の技術構成を作って閉包へ保持し、試行専用Executor又はnullを返す。Executorはkind・recordProjection・start・cancel・abandonを持ち、公開prepareやPlan受渡しは持たない。記録用投影は資源名・所有label・Image Digest・購読種別・実行／Mount modeだけで、Command・Provider本文を含めない。上位は同期prepareの計画と現在Operation、耐久受付・exact回復参照を確定してstartする。Home取得とDocker要求はstart以後だけで、同じExecutorのstartは一回に限る。
 
-Coordinatorの`execution/provider-executor.ts`は本番Executorを一度だけ生成する固定接続部。旧Controllerには単段Controller実装を残さない。要求前保存は固定Host callbackへ直接接続し、終端材料は既存の操作記録へ渡す。Domainの既存終了保存Contextはその記録を読み取り、Executorへ逆照会しない。初期化中の相互参照は関数宣言の束縛だけとし、構築中に実行せず、追加Loaderや遅延Registryを置かない。
+Coordinatorの`lifecycle/selection.ts`は、試行用のExecutorを一度だけ生成する。`lifecycle/execution.ts`がその試行を開始して要求前保存と終端通知を接続し、終端材料は`lifecycle/environment.ts`の既存操作記録へ渡す。実行モデルの終了保存は同じ記録を読み取り、Executorへ逆照会しない。旧Controllerや互換転送は残さない。
 
 ### 内部整理の境界
 
@@ -360,7 +360,7 @@ Coordinatorの`execution/provider-executor.ts`は本番Executorを一度だけ�
 
 Task／Adviceとも同じstartとcompletionを使い、`CompletionResult`の`normalizedResult`を型付き`AttemptContent`として返す。実行時の編集・レビュー内容はAI Adapterの`provider/task-result.ts`、助言の内容モデル・Schema・許可参照検査は`provider/advice-result.ts`が唯一所有する。Domainにあった旧実体・公開APIは撤去し、保存Schema・Writer・遷移は変更しない。AI Adapterの公開`parseProviderResult`は用途別内容検査まで完了し、内容・非秘密観測・内部搬送用所見を区別して返す。Executorの`lifecycle/attempt.ts`の`parseAttemptOutput`がこの一入口と成功時の内容Hash計算をまとめる。`lifecycle/attempt.ts`は解析のタイミング・結果受理・失敗の確定を所有し、Provider固有の解析や作業量判定を組み立てない。`lifecycle/attempt.ts`は`createStartResult`で開始成功・拒否結果、`createCompletionResult`で清掃後の終了結果を組み立てる。制御Handleとcompletion Promiseの生成・管理は実行Ownerが行い、開始Factoryは渡された同じ参照と既存の準備・選択metadataを結果へ組み立てる。`StartResult`／`CompletionResult`は`lifecycle/types.ts`が明示する公開結果契約とし、両Factoryは対応する型を明示して返す。両Factoryは名前付きObject一つを引数とし、開始入力はstatus別の必要値と準備失敗表示・選択三値、終了入力は操作ID・回復IDと技術観測を受ける。完全選定は上位Planと保存Identityに保持し、人工的な選定記録IDを持たない。`StartResultDetails`、返却型のジェネリクス・Extract・型アサーションは使わない。準備内部のHome実体・操作相関・本文は開始結果へ展開せず、準備Ownerの内部診断にだけ保持する。入力の許可参照集合は準備時に複製・固定し、試行Identityへ含める。結果の用途別内容は保ち、同じfieldへ無理に平坦化しない。
 
-限定是正証拠の発行・一回消費はCoordinatorの`execution/preparation.ts`だけが所有する。Executorは検査済み所見を`CompletionResult.reviewFindings`で返す。所見はAI Adapterの`TaskReviewFinding`をそのまま使用し、別名型・再export・専用callback・是正許可fieldをExecutorへ追加しない。正常完了・清掃確認・未取消・是正要求・非空所見の場合だけ配列を返し、それ以外はnull。二回目レビューも内容として所見を返せるが、それから次の是正を許可するかは上位の判断である。Coordinatorは取消確認後、既存handoff・元終端結果・Home解放・操作／選定・初回レビューを照合し、同じ同期区間で既存の限定是正許可を発行する。本文はProcess内の一時結果として扱い、state／history・公開DTO・通常ログへ投影しない。新しいMapや許可FrameworkをExecutorへ作らない。
+限定是正証拠の発行・一回消費はCoordinatorの`lifecycle/environment.ts`だけが所有する。Executorは検査済み所見を`CompletionResult.reviewFindings`で返す。所見はAI Adapterの`TaskReviewFinding`をそのまま使用し、別名型・再export・専用callback・是正許可fieldをExecutorへ追加しない。正常完了・清掃確認・未取消・是正要求・非空所見の場合だけ配列を返し、それ以外はnull。二回目レビューも内容として所見を返せるが、それから次の是正を許可するかは上位の判断である。Coordinatorは取消確認後、既存handoff・元終端結果・Home解放・操作／選定・初回レビューを照合し、同じ同期区間で既存の限定是正許可を発行する。本文はProcess内の一時結果として扱い、state／history・公開DTO・通常ログへ投影しない。新しいMapや許可FrameworkをExecutorへ作らない。
 
 Docker Commandの構築はExecutor内部のAdapter仕様取得・用途構成とDIの技術Compilerへ接続する。不要になったDIのAdviceCommand wrapper・bindAdviceCommand・hashAdviceCommandも撤去する。Codex助言用Image Digestと非共有のMount・Tool・Session条件は維持する。専用Command Hashはなくすが、旧検証Scriptの完全Command相関は残る。公開・共有結果型は`lifecycle/types.ts`から明示し、未使用の結果文字列検査は保持しない。内容のbyte上限と文字列条件はAI Adapterの内容検査Ownerが持つ。barrelや互換転送ファイルは追加しない。
 
@@ -391,7 +391,7 @@ Probeも同じAI Adapter解析入口を使用し、ExecutorへCodex／Claudeの�
 
 技術構成の組立ては`lifecycle/attempt.ts`の`prepareAttempt`が所有し、製品からは`createExecutor`だけが呼ぶ。有限検証からの内部参照を除き利用側は直接呼ばず、Rootから公開しない。`preparation.ts`や互換転送は残さない。入力は乱数供給と`AttemptRequest`で、Taskの計画・Authority発行・Home取得・永続化は行わない。構成の不成立はFactoryで拒否し、開始時の完全な技術照合も維持する。
 
-回復開始の診断型・段階語彙・失敗通知はCoordinatorの`execution/types.ts`／`observation.ts`が所有する。Executorの通知は開始Process、技術構成、技術終了と一次故障だけを表す。回復開始失敗は上位が既存Reporterへ直接報告し、ExecutorCallbacksへ再注入しない。検証ツールはCoordinatorの検査正本へ接続する。Executorの有限合成Hostに必要な回復処理はprivateな試験処理に限定し、他Packageへ正本として公開しない。
+回復開始の診断型・失敗通知型と段階語彙はCoordinatorの`lifecycle/types.ts`、検査は`lifecycle/validation.ts`が所有する。Executorの通知は開始Process、技術構成、技術終了と一次故障だけを表す。回復開始失敗は上位が既存Reporterへ直接報告し、ExecutorCallbacksへ再注入しない。検証ツールはCoordinatorの検査正本へ接続する。Executorの有限合成Hostに必要な回復処理はprivateな試験処理に限定し、他Packageへ正本として公開しない。
 
 DIの`onExecutionStarted`は同期voidの技術signalであり、Executorの公開非同期通知とは区別する。Executorは公開onStartedをjoinする。保留中も開始済みProcessのwait・期限・終了・回収を進めるが、Provider内容受理とcompletion公開は通知成功後に限る。既に通知成功済みならその時点で内容を検査し、既知失敗を遅延取消で上書きしない。通知保留中に別のCommandや別試行を開始しない。
 

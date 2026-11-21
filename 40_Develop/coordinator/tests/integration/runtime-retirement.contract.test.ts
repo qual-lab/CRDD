@@ -69,14 +69,16 @@ test("旧Runtime署名方式の十八入口は現在Treeに存在しない", () 
  * @boundary 利用側の配置回帰。任意Sourceの安全性の証明ではない。
  */
 test("現在の通常入口・Task回復・Nativeは旧署名資格と履歴loaderへ依存しない", () => {
+  assert.equal(
+    fs.existsSync(new URL("../../src/execution/recovery.ts", import.meta.url)),
+    false,
+  );
   for (const relative of [
     "bin/coordinator.ts",
     "src/cli/command.ts",
     "src/index.ts",
-    "src/execution/recovery.ts",
-    "src/execution/diagnostics.ts",
-    "src/execution/authority.ts",
-    "src/execution/authority.ts",
+    "src/lifecycle/environment.ts",
+    "src/lifecycle/authentication.ts",
   ]) {
     const source = fs.readFileSync(
       new URL(["../../", relative].join(""), import.meta.url),

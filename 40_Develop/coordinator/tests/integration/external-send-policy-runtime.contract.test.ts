@@ -21,21 +21,20 @@ import {
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 
-import { parseUnambiguousJsonDocument } from "../../src/input/json.ts";
+import { parseUnambiguousJsonDocument } from "../../src/lifecycle/validation.ts";
 import {
   compileExternalSendPolicyCandidate,
-  describeExternalSendPolicyRuntimeContract,
   EXTERNAL_SEND_POLICY_FILE,
   resolveRuntimeOwnedExternalSendPolicy,
-} from "../../src/decision/external-send-policy.ts";
+} from "../../src/lifecycle/decision.ts";
 import {
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-} from "../../src/execution/operation.ts";
-import { bindRuntimeOwnedRepositoryOperation } from "../../src/execution/operation.ts";
+} from "../../src/lifecycle/host.ts";
+import { bindRuntimeOwnedRepositoryOperation } from "../../src/lifecycle/host.ts";
 
 const revision = "1".repeat(40);
 const fileHash = "2".repeat(64);
@@ -379,32 +378,6 @@ test("未知field・Provider欠落・不正保持期間・順序差をPolicyへ�
       null,
     );
   }
-});
-
-/**
- * 公開契約は開始Commitの固定Policy fileと不明時停止を保持するを検証する。
- *
- * @responsibility 公開契約は開始Commitの固定Policy fileと不明時停止を保持するの合否判定を所有する。
- * @trace EST-IT-004
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開契約は開始Commitの固定Policy fileと不明時停止を保持するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary EST-IT-004=Direct Boundary: coordinator Test Source→対象契約
- */
-test("公開契約は開始Commitの固定Policy fileと不明時停止を保持する", () => {
-  const contract = describeExternalSendPolicyRuntimeContract();
-  assert.equal(contract.contractRevision, 3);
-  assert.equal(contract.fixedRepositoryFile, EXTERNAL_SEND_POLICY_FILE);
-  assert.equal(contract.source, "exact_bound_repository_commit");
-  assert.equal(contract.unknownPolicy, "blocked");
-  assert.equal(
-    contract.repositoryPolicyAuthority,
-    "authorized_repository_request",
-  );
-  assert.equal(contract.legalTermsRuntimeVerified, false);
-  assert.equal(contract.hostPathReported, false);
 });
 
 /**

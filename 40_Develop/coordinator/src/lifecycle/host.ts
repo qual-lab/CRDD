@@ -1,30 +1,50 @@
 /**
- * Host操作領域・借用Tree・Host記録と実体Capabilityを管理する。
- *
- * @responsibility Host記録の生成・読取り・三値観測・遷移と、操作領域の所有・借用・清掃境界を所有する。
+ * 実行ホストの操作領域・保存・排他・長期リース・再利用停止を所有する。
+ * @responsibility Lockの実体は共通Lockへ任せ、元の試行引渡し、Process世代と回収不明後の不可逆停止を同じ箇所で管理する。
+ * @trace ARCH-000004
  * @trace ARCH-000008
+ * @trace ARCH-000015
+ * @boundary 長期リースの保存は実行モデルへ接続する。共通Lockに自動回復を追加しない。
  */
 
-import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { isDeepStrictEqual, types } from "node:util";
+import { createHash, randomUUID } from "node:crypto";
 import {
+  readCoordinatorConfig,
+  readExecutionIntelligenceConfig,
+} from "../../../configuration-model/src/index.ts";
+import type { StoreOptions } from "../../../execution-intelligence/src/index.ts";
+import {
+  acquireLease,
+  type ExecutionStorageBlockedError,
+  type LeaseKind,
+  type ProjectQueueEntry,
+  readLease,
+  recoverLease,
+  releaseLease,
+  updateQueue,
   readState,
   saveOperationStart,
   saveOperationCheckpoint,
   type OperationRecord,
   type StateVersion,
 } from "../../../execution-model/src/index.ts";
-import type { Lock } from "../../../lock/src/index.ts";
+import {
+  acquireLock,
+  type Lock,
+  type LockResult,
+} from "../../../lock/src/index.ts";
 import {
   getRepository,
+  getRepositoryFromWorkingDirectory,
+  registerRepositoryLocalIgnore,
+  resolveVerifiedRepositoryRoot,
   type Repository,
   readRepositoryFormat,
   readRepositoryRevision,
   readRepositorySnapshot,
   readRepositoryStorageIdentity,
-  resolveVerifiedRepositoryRoot,
   readRepositoryEntries,
   readWorkingChanges,
   readFile,
@@ -35,18 +55,2231 @@ import {
   readCommitDiff,
   copyCommitFiles,
 } from "../../../version-control/src/index.ts";
+import type {
+  CoordinatorLease,
+  CoordinatorLeaseAcquisitionResolution,
+  CoordinatorLeaseOwnerObservation,
+  CoordinatorLeaseResult,
+  CoordinatorQueueUpdate,
+  CoordinatorStateContext,
+  BorrowedExecutionTarget,
+  HostCompletionTarget,
+  WorkspaceResult,
+} from "./types.ts";
 import {
-  checkRepositoryRuntimeDataProtectionDirectory,
-  ensureRepositoryExecutionDataArea,
-  requireReadyRepositoryExecutionDataArea,
-} from "../configuration/runtime-data.ts";
-import { snapshotJsonValue } from "../input/snapshot.ts";
-import { containsRecognizedSecretMaterial } from "../input/secret-validation.ts";
-import type { Operation } from "./controller.ts";
-import { isExecutionRelativePath, readExecutionFile } from "./files.ts";
-import { acquireHostOperationLock } from "./kernel-lock.ts";
-import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
-import type { historyRepositoryInput } from "./persistence.ts";
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  validIdentity,
+  snapshotPlainRecord,
+  resolveRecoveryReference,
+  containsRecognizedSecretMaterial,
+  snapshotJsonValue,
+} from "./validation.ts";
+import { isDeepStrictEqual, types } from "node:util";
+
+/**
+ * 一回のWriter呼出しに、借用した実Leaseとその現在観測を結び付ける。
+ * @trace ARCH-000004、ARCH-000008
+ * @input Writer内でのみ評価するLeaseの読取り。
+ * @returns 実Leaseの借用と、同じ実体の現在観測。未借用時は観測しない。
+ * @security 保存済みOwnerや別の更新で借用したLeaseを使用しない。
+ */
+function writerLeaseAccess(readLease: () => CoordinatorLease) {
+  let active: ReturnType<typeof borrowCoordinatorActiveLease>;
+  return {
+    borrowActiveLease: () => {
+      active = borrowCoordinatorActiveLease(readLease());
+      return active
+        ? {
+            kind: active.kind,
+            repositoryRoot: active.repositoryRoot,
+            repositoryBindingId: active.repositoryBindingId,
+            projectId: active.projectId,
+            queueId: active.queueId,
+            ownerGeneration: active.ownerGeneration,
+          }
+        : undefined;
+    },
+    isActiveLeaseObserved: () =>
+      active !== undefined && activeLeaseIsObserved(active),
+  };
+}
+
+/**
+ * Queue更新を同じ保存Writer内の実Lease照合へ接続する。
+ * @responsibility 元の次記録を遅延参照し、実Leaseのborrowと現在観測を同じ更新へ結合する。
+ * @trace ARCH-000004、ARCH-000008
+ * @input 検証済みRepository・binding、Queue ID、期待世代、元の更新要求。
+ * @returns 既存Writerの更新結果をそのまま返す。
+ * @precondition Repository参照とbindingは既存受付で確定済み。
+ * @postcondition Writer外で実Lease確認を先取りせず、未知Ownerの更新を確定しない。
+ * @effect 既存EM WriterによるQueue保存。
+ * @failure 対象・世代・Lease不一致は既存Writerの拒否を保持する。
+ * @invariant 元nextを展開・複製せず、getterの評価時点を維持する。
+ * @boundary 検証済み実行ContextとEMの完成保存。
+ * @security 保存されたOwner情報から実Leaseを復元しない。
+ * @concurrency 一回のWriter内でborrowした同じLeaseを現在観測する。
+ */
+export function updateCoordinatorQueue(
+  context: Pick<CoordinatorStateContext, "repository" | "repositoryBindingId">,
+  queueId: string,
+  expectedGeneration: number,
+  next: CoordinatorQueueUpdate,
+) {
+  return updateQueue(context.repository, context.repositoryBindingId, {
+    kind: "operation",
+    input: [
+      queueId,
+      expectedGeneration,
+      {
+        get state() {
+          return next.state;
+        },
+        get resumeCondition() {
+          return next.resumeCondition;
+        },
+        get resultReference() {
+          return next.resultReference;
+        },
+        get leasePresent() {
+          return Boolean(next.lease);
+        },
+        get leaseIsNull() {
+          return next.lease === null;
+        },
+      },
+      writerLeaseAccess(() => next.lease as CoordinatorLease),
+    ],
+  });
+}
+
+/**
+ * 単発Taskの開始・終端を同じ実行Leaseと世代で保存する。
+ * @responsibility 元ID、失敗・回復参照を保持して終端だけを更新する。
+ * @trace ARCH-000004
+ * @input Root、binding、Queue、期待世代、実Lease、次記録。
+ * @returns 更新したQueue又は停止。
+ * @precondition 呼出し元は同じTaskをjoinするOwner。
+ * @postcondition 未解決cleanupを完了Queueへ変えない。
+ * @effect 既存Snapshot更新。履歴は既存搬送へ渡す。
+ * @failure 世代・Lease・識別子・遷移不一致で停止。
+ * @invariant 本文・回答を保存せず採用を行わない。
+ * @boundary 単発実行と既存Writer。
+ * @security 保存値から実Leaseを復元しない。
+ * @concurrency 既存operation LeaseとSnapshot短期排他。
+ */
+export function updateCoordinatorSingleTask(
+  workingDirectory: string,
+  binding: string,
+  queueId: string,
+  expectedGeneration: number,
+  lease: CoordinatorLease,
+  raw: unknown,
+) {
+  return updateQueue(
+    verifyRuntimePersistenceRepository(workingDirectory),
+    binding,
+    {
+      kind: "single",
+      input: [
+        queueId,
+        expectedGeneration,
+        raw,
+        {
+          ...writerLeaseAccess(() => lease),
+          now: () => Date.now(),
+        },
+      ],
+    },
+  );
+}
+
+/** 解放・回復の成功値を、返却時点で固定する。 @trace ARCH-000004 */
+function completed<T>(reason: string, value: T): CoordinatorLeaseResult<T> {
+  return Object.freeze({ status: "completed", reason, value });
+}
+
+/** 実行Leaseの停止理由と、既知の回復参照を保持する。 @trace ARCH-000004 */
+function blocked<T>(
+  reason: string,
+  manualRecoveryRequired = false,
+  recoveryId: string | null = null,
+): CoordinatorLeaseResult<T> {
+  return Object.freeze({
+    status: "blocked",
+    reason,
+    value: null,
+    manualRecoveryRequired,
+    recoveryId,
+  });
+}
+
+/** 同じHomeはRepositoryに関係なく同じProviderHomes親DirectoryとBindingを使用する。 */
+export function acquireProviderHomeLock(
+  binding: unknown,
+  directory: unknown,
+): LockResult {
+  if (
+    typeof directory !== "string" ||
+    typeof binding !== "string" ||
+    !/^[0-9a-f]{64}$/u.test(binding)
+  )
+    return Object.freeze({
+      status: "blocked",
+      reason: "lock_input_invalid",
+      reference: null,
+      cleanupConfirmed: true,
+      descriptorClosed: true,
+    });
+  return acquireLock({
+    directory,
+    name: `executor.provider-home.${binding}.lock`,
+    identity: `provider-home:${binding}`,
+  });
+}
+
+/** 同じRuntime状態と回復処理を、Ownerが確定した既存RuntimeState内で排他する。 */
+export function acquireExecutionStateLock(directory: unknown): LockResult {
+  if (typeof directory !== "string")
+    return Object.freeze({
+      status: "blocked",
+      reason: "lock_input_invalid",
+      reference: null,
+      cleanupConfirmed: true,
+      descriptorClosed: true,
+    });
+  // RuntimeStateはRepositoryやHomeをまたいで共有される。同じ所在は同じLockで保護する。
+  const result = acquireLock({
+    directory,
+    name: "coordinator.docker-state.lock",
+    identity: "docker-state:shared",
+  });
+  return result;
+}
+
+/** 作成・回復は同じRepositoryと元操作IDで排他する。 @trace ARCH-000008 */
+export function acquireHostOperationLock(
+  repository: Repository,
+  operationId: unknown,
+): LockResult {
+  const paths =
+    typeof operationId === "string" && /^OP-[0-9]{6,}$/u.test(operationId)
+      ? resolveRepositoryExecutionDataPaths(repository)
+      : null;
+  if (!paths)
+    return Object.freeze({
+      status: "blocked",
+      reason: "lock_input_invalid",
+      reference: null,
+      cleanupConfirmed: true,
+      descriptorClosed: true,
+    });
+  return acquireLock({
+    directory: paths.locks,
+    name: `coordinator.host-operation.${operationId}.lock`,
+    identity: `host-operation:${operationId}`,
+  });
+}
+
+/**
+ * ObjectiveのLease所有者を、既存の対応OSに限って観測する。
+ * @trace ARCH-000004
+ * @input 保存から取得した所有者のPIDと世代。
+ * @returns Windowsでは既存観測、その他では元の相関を保持した観測不能。
+ * @effect Windowsでのみ既存のPID生存観測を行う。
+ * @security 観測不能を不存在へ変換しない。
+ */
+export function observeObjectiveLeaseOwner(
+  owner: Readonly<{ ownerProcessId: number; ownerGeneration: string }>,
+): CoordinatorWindowsLeaseOwnerObservation {
+  if (process.platform === "win32") return observeLeaseOwner(owner);
+  return Object.freeze({
+    status: "unknown",
+    ownerProcessId: owner.ownerProcessId,
+    ownerGeneration: owner.ownerGeneration,
+  });
+}
+
+/**
+ * windows-platform-adapterで使用するCoordinator Windows Lease 所有者 Observationの値契約を定義する。
+ *
+ * @responsibility Coordinator Windows Lease 所有者 ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CoordinatorWindowsLeaseOwnerObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorWindowsLeaseOwnerObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorWindowsLeaseOwnerObservationの宣言は外部境界を開かない。
+ * @security CoordinatorWindowsLeaseOwnerObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CoordinatorWindowsLeaseOwnerObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type CoordinatorWindowsLeaseOwnerObservation = Readonly<{
+  status: "alive" | "absent" | "unknown";
+  ownerProcessId: number;
+  ownerGeneration: string;
+}>;
+
+/**
+ * Lease 所有者を観測する。
+ *
+ * @responsibility Lease 所有者の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input rawOwner: unknown
+ * @returns CoordinatorWindowsLeaseOwnerObservationを返す。
+ * @precondition 「rawOwner: unknown」がobserveLeaseOwnerの入力契約を満たす。
+ * @postcondition observeLeaseOwnerの責務を完了した結果だけを返す。
+ * @effect observeLeaseOwnerは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure observeLeaseOwnerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeLeaseOwnerは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security observeLeaseOwnerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeLeaseOwnerは共有非同期状態を持たない同期処理である。
+ */
+export function observeLeaseOwner(
+  rawOwner: unknown,
+): CoordinatorWindowsLeaseOwnerObservation {
+  const invalid = Object.freeze({
+    status: "unknown" as const,
+    ownerProcessId: 0,
+    ownerGeneration: "invalid",
+  });
+  if (
+    !rawOwner ||
+    typeof rawOwner !== "object" ||
+    Array.isArray(rawOwner) ||
+    Object.getPrototypeOf(rawOwner) !== Object.prototype
+  )
+    return invalid;
+  const owner = rawOwner as Readonly<Record<string, unknown>>;
+  if (
+    Object.keys(owner).sort().join("\0") !==
+      ["ownerGeneration", "ownerProcessId"].sort().join("\0") ||
+    !Number.isSafeInteger(owner.ownerProcessId) ||
+    Number(owner.ownerProcessId) < 1 ||
+    typeof owner.ownerGeneration !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(owner.ownerGeneration)
+  )
+    return invalid;
+  const ownerProcessId = Number(owner.ownerProcessId);
+  const ownerGeneration = owner.ownerGeneration;
+  let status: "alive" | "absent" | "unknown" = "unknown";
+  try {
+    process.kill(ownerProcessId, 0);
+    status = "alive";
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ESRCH"
+    )
+      status = "absent";
+  }
+  return Object.freeze({
+    status,
+    ownerProcessId,
+    ownerGeneration,
+  });
+}
+
+const runtimeProcessInstanceIdentity = randomUUID();
+
+/**
+ * Runtime Process Instance Identityを取得する。
+ *
+ * @responsibility Runtime Process Instance Identityの参照条件、返却値、未検出結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns getRuntimeProcessInstanceIdentityの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がgetRuntimeProcessInstanceIdentityの入力契約を満たす。
+ * @postcondition getRuntimeProcessInstanceIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: getRuntimeProcessInstanceIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: getRuntimeProcessInstanceIdentityは独自の失敗分岐を所有しない。
+ * @invariant getRuntimeProcessInstanceIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: getRuntimeProcessInstanceIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: getRuntimeProcessInstanceIdentityは共有非同期状態を持たない同期処理である。
+ */
+export function getRuntimeProcessInstanceIdentity() {
+  return runtimeProcessInstanceIdentity;
+}
+
+const RUNTIME_PROCESS_RECOVERY_ID =
+  /^runtime-process\.([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.restart-([0-9a-f]{40})$/u;
+
+/**
+ * recovery Digestを決定する。
+ *
+ * @responsibility recovery Digestの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input processIdentity: string、attemptId: string、operationId: string
+ * @returns recoveryDigestの計算結果を返す。
+ * @precondition 「processIdentity: string、attemptId: string、operationId: string」がrecoveryDigestの入力契約を満たす。
+ * @postcondition recoveryDigestの責務を完了した結果だけを返す。
+ * @effect N/A: recoveryDigestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recoveryDigestは独自の失敗分岐を所有しない。
+ * @invariant recoveryDigestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: recoveryDigestはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: recoveryDigestは共有非同期状態を持たない同期処理である。
+ */
+function recoveryDigest(
+  processIdentity: string,
+  attemptId: string,
+  operationId: string,
+) {
+  return createHash("sha256")
+    .update([processIdentity, attemptId, operationId].join("\0"))
+    .digest("hex")
+    .slice(0, 40);
+}
+
+/**
+ * Runtime Process 回復 Identityを構築する。
+ *
+ * @responsibility Runtime Process 回復 Identityの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input attemptId: string、operationId: string
+ * @returns createRuntimeProcessRecoveryIdentityの計算結果を返す。
+ * @precondition 「attemptId: string、operationId: string」がcreateRuntimeProcessRecoveryIdentityの入力契約を満たす。
+ * @postcondition createRuntimeProcessRecoveryIdentityの責務を完了した結果だけを返す。
+ * @effect createRuntimeProcessRecoveryIdentityは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: createRuntimeProcessRecoveryIdentityは独自の失敗分岐を所有しない。
+ * @invariant createRuntimeProcessRecoveryIdentityは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: createRuntimeProcessRecoveryIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createRuntimeProcessRecoveryIdentityは共有非同期状態を持たない同期処理である。
+ */
+export function createRuntimeProcessRecoveryIdentity(
+  attemptId: string,
+  operationId: string,
+) {
+  return `runtime-process.${runtimeProcessInstanceIdentity}.restart-${recoveryDigest(
+    runtimeProcessInstanceIdentity,
+    attemptId,
+    operationId,
+  )}`;
+}
+
+/**
+ * Runtime Process 回復 Identityを観測する。
+ *
+ * @responsibility Runtime Process 回復 Identityの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、attemptId: string、operationId: string
+ * @returns inspectRuntimeProcessRecoveryIdentityの計算結果を返す。
+ * @precondition 「value: unknown、attemptId: string、operationId: string」がinspectRuntimeProcessRecoveryIdentityの入力契約を満たす。
+ * @postcondition inspectRuntimeProcessRecoveryIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRuntimeProcessRecoveryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectRuntimeProcessRecoveryIdentityは独自の失敗分岐を所有しない。
+ * @invariant inspectRuntimeProcessRecoveryIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: inspectRuntimeProcessRecoveryIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectRuntimeProcessRecoveryIdentityは共有非同期状態を持たない同期処理である。
+ */
+export function inspectRuntimeProcessRecoveryIdentity(
+  value: unknown,
+  attemptId: string,
+  operationId: string,
+) {
+  if (typeof value !== "string") return null;
+  const match = RUNTIME_PROCESS_RECOVERY_ID.exec(value);
+  if (!match?.[1] || !match[2]) return null;
+  if (match[2] !== recoveryDigest(match[1], attemptId, operationId))
+    return null;
+  return Object.freeze({ processIdentity: match[1], recoveryId: value });
+}
+
+/** 回収が不明になった同じProcessで新規Taskを開始させない。 @trace ARCH-000008 */
+let processCleanupUnknown = false;
+
+/**
+ * poison Runtime Process After 清掃 Unknownを決定する。
+ *
+ * @responsibility poison Runtime Process After 清掃 Unknownの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns N/A: poisonRuntimeProcessAfterCleanupUnknownは戻り値を返さない。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がpoisonRuntimeProcessAfterCleanupUnknownの入力契約を満たす。
+ * @postcondition poisonRuntimeProcessAfterCleanupUnknownの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: poisonRuntimeProcessAfterCleanupUnknownは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: poisonRuntimeProcessAfterCleanupUnknownは独自の失敗分岐を所有しない。
+ * @invariant poisonRuntimeProcessAfterCleanupUnknownは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: poisonRuntimeProcessAfterCleanupUnknownはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: poisonRuntimeProcessAfterCleanupUnknownは共有非同期状態を持たない同期処理である。
+ */
+export function poisonRuntimeProcessAfterCleanupUnknown() {
+  processCleanupUnknown = true;
+}
+
+/**
+ * Runtime Process Poisonedかを判定する。
+ *
+ * @responsibility Runtime Process Poisonedの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns isRuntimeProcessPoisonedの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がisRuntimeProcessPoisonedの入力契約を満たす。
+ * @postcondition isRuntimeProcessPoisonedの責務を完了した結果だけを返す。
+ * @effect N/A: isRuntimeProcessPoisonedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isRuntimeProcessPoisonedは独自の失敗分岐を所有しない。
+ * @invariant isRuntimeProcessPoisonedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: isRuntimeProcessPoisonedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isRuntimeProcessPoisonedは共有非同期状態を持たない同期処理である。
+ */
+export function isRuntimeProcessPoisoned() {
+  return processCleanupUnknown;
+}
+
+/**
+ * durable-foundationで使用するActive Leaseの値契約を定義する。
+ *
+ * @responsibility Active LeaseのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ActiveLeaseが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ActiveLeaseで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ActiveLeaseの宣言は外部境界を開かない。
+ * @security ActiveLeaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ActiveLeaseの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type ActiveLease = Readonly<{
+  repositoryRoot: string;
+  repositoryBindingId: string;
+  projectId: string;
+  queueId: string;
+  kind: LeaseKind;
+  ownerGeneration: string;
+  lock: string;
+  recoveryMarker: string;
+  acquisitionMarker: string;
+  lockOwnershipMarker: string;
+  evidenceDirectory: string;
+  identity: string;
+  snapshotPhysicalIdentity?: string;
+  physicalLock: Lock;
+}>;
+
+const activeLeases = new WeakMap<CoordinatorLease, ActiveLease>();
+
+/**
+ * 元Queue世代と資源不存在の観測を結合してLease解放を確定する。
+ * @responsibility Root・保存領域の前後実体確認と既存EMの解放遷移を同じ保存へ接続する。
+ * @trace ARCH-000004
+ * @input 構築時に検証済みRepository、binding、Queueと元世代。
+ * @returns 元Writerによる保存確定又はblocked。
+ * @precondition RootはPort構築時又は回復受付で検証済み。元Queue・Owner世代を渡す。
+ * @postcondition 元世代・資源の明示不存在・保存領域の前後実体が一致した変更だけを確定する。
+ * @effect 既存の短期排他・CASで解放を保存する。物理Lockを独自に削除しない。
+ * @failure 不存在・実体・保存又は読戻しが不明・不成立なら確定成功にしない。
+ * @invariant Queue保存成功を、新たな物理Lock削除や自動回復の許可へ変換しない。
+ * @boundary Leaseの解放確定と既存EM Writer。
+ * @security 他のQueue／Owner世代や未知の残存物を解放しない。
+ * @concurrency 既存Writerの短期排他・元版照合へ接続し、独自の排他を追加しない。
+ */
+export function settleCoordinatorSnapshotQueueLeaseRelease(
+  storageRepository: ReturnType<typeof verifyRuntimePersistenceRepository>,
+  binding: string,
+  queueId: string,
+  expectedGeneration: number,
+  ownerGeneration: string,
+) {
+  return updateQueue(storageRepository, binding, {
+    kind: "lease_released",
+    input: [
+      queueId,
+      expectedGeneration,
+      ownerGeneration,
+      {
+        resourcesAbsent: (repositoryRoot: string, identity: string) => {
+          const paths = resolveNamedPaths(repositoryRoot);
+          if (!paths) throw new Error("orchestrator_repository_root_invalid");
+          const boundary = assertArea(
+            repositoryRoot,
+            "domain-model",
+            paths.domainModel,
+          );
+          if (!snapshotLeaseResourcesAbsent(repositoryRoot, identity))
+            return false;
+          assertAreaUnchanged(repositoryRoot, "domain-model", boundary);
+          return true;
+        },
+      },
+    ],
+  });
+}
+
+/**
+ * 同じ実Leaseへ結合した観測値だけを借りる。
+ * @responsibility 実行OwnerのMapを公開せず、Queueのfresh観測へ同じ結合を渡す。
+ * @trace ARCH-000004
+ * @input lease: 実行側で発行済みのLease候補。
+ * @returns 同じ実発行記録、又は未登録のundefined。
+ * @precondition 現在の生存確認は呼出し側が既存の位置で行う。
+ * @postcondition Mapの寿命・登録・削除を変更しない。
+ * @effect N/A: 私有Mapの同期読取りだけ。
+ * @failure 未発行値ではundefined。
+ * @invariant 値の同一性だけで実Leaseを再構成しない。
+ * @boundary 実行Lease OwnerとQueueの現在観測。
+ * @security Mapや書換え操作は公開しない。
+ * @concurrency freshな観測の直前に同じ記録を参照する。
+ */
+export function borrowCoordinatorActiveLease(lease: CoordinatorLease) {
+  return activeLeases.get(lease);
+}
+
+/**
+ * Lease Is Observedが有効な状態か判定する。
+ *
+ * @responsibility Lease Is Observedの有効状態条件と判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input activeLease: ActiveLease
+ * @returns activeLeaseIsObservedの計算結果を返す。
+ * @precondition 「activeLease: ActiveLease」がactiveLeaseIsObservedの入力契約を満たす。
+ * @postcondition activeLeaseIsObservedの責務を完了した結果だけを返す。
+ * @effect activeLeaseIsObservedはFilesystemの読取りまたは書込みを実行する。
+ * @failure activeLeaseIsObservedは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant activeLeaseIsObservedは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security activeLeaseIsObservedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: activeLeaseIsObservedは共有非同期状態を持たない同期処理である。
+ */
+function activeLeaseIsObserved(activeLease: ActiveLease) {
+  try {
+    if (!activeLease.physicalLock.assertLive()) return false;
+    if (activeLease.snapshotPhysicalIdentity !== undefined) {
+      const paths = resolveNamedPaths(activeLease.repositoryRoot);
+      if (!paths) return false;
+      const boundary = assertArea(
+        activeLease.repositoryRoot,
+        "lock",
+        paths.locks,
+      );
+      for (const directory of [
+        activeLease.repositoryRoot,
+        boundary.directory,
+        path.dirname(activeLease.lock),
+      ]) {
+        assertDirectory(directory);
+        if (fs.realpathSync.native(directory) !== directory) return false;
+      }
+      const physicalIdentity = observePhysicalLeaseFile(activeLease.lock);
+      assertAreaUnchanged(activeLease.repositoryRoot, "lock", boundary);
+      return physicalIdentity === activeLease.snapshotPhysicalIdentity;
+    }
+    return !fs.existsSync(activeLease.recoveryMarker);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 新版の未終了取得意図から、操作LeaseのOwner参照を取得する。
+ * @responsibility 記録の取得とOS上のOwner生死判定を分離する。
+ * @trace ARCH-000004
+ * @input workingDirectory: Repository内起点、binding: 対象Repository結合。
+ * @returns 同一Ownerに結合した取得参照、真正な参照不存在、または停止。
+ * @precondition 新版v2の現在状態が確定している。
+ * @postcondition 記録の読取りだけでOwner死亡や回収成功を表示しない。
+ * @effect 短期排他を取得してSnapshotを読む。状態を保存しない。
+ * @failure 複数Owner、Queue結合差、未知Schemaと観測不能を拒否する。
+ * @invariant 別ProjectのLeaseや採用Leaseを操作Ownerとして返さない。
+ * @boundary 現在Snapshotから既存Lease PortのOwner参照へ。
+ * @security JSONから実行用opaque LeaseやAuthorityを復元しない。
+ * @concurrency 同じ短期Owner内でQueueと取得意図を照合し、解放確認後に返す。
+ */
+export function inspectCoordinatorSnapshotLeaseAcquisitionOwner(
+  workingDirectory: string,
+  binding: string,
+): CoordinatorLeaseResult<
+  Readonly<{ acquisition: CoordinatorLeaseAcquisitionResolution | null }>
+> {
+  return readLease(
+    verifyRuntimePersistenceRepository(workingDirectory),
+    binding,
+    { kind: "acquisition", input: [binding] },
+  );
+}
+
+/**
+ * 統合保存の取得意図と短命な実排他を結合する。
+ * @responsibility 記録の確定と物理取得を分け、同Ownerのopaque Leaseだけを返す。
+ * @trace ARCH-000004
+ * @input workingDirectory、binding、projectId、queueId、kind。
+ * @returns 実排他を取得したLease、またはexact取得回復参照付き停止。
+ * @precondition v2保存と対象Project／Queueがある。
+ * @postcondition 意図と取得証拠の確定後にだけLeaseを返す。
+ * @effect 取得意図を保存し、Repository内tmpの固定名を共通wx Lockで取得する。
+ * @failure 部分取得は意図を保全し、未取得や清掃済みへ丸めない。
+ * @invariant 短期保存排他を長期実行や外部待機へ持ち越さない。
+ * @boundary 現在状態、実Filesystem排他、Process内opaque Lease。
+ * @security JSONからLeaseを復元しない。
+ * @concurrency Repository単位／Project単位の既存Lease Identityを維持する。
+ */
+export function acquireCoordinatorSnapshotLease(
+  workingDirectory: string,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+): CoordinatorLeaseResult<CoordinatorLease> {
+  if (
+    ![binding, projectId, queueId].every(validIdentity) ||
+    (kind !== "project-operation" && kind !== "canonical-adoption")
+  )
+    return blocked("orchestrator_lease_identity_invalid");
+  const ownerGeneration = randomUUID();
+  let recoveryId: string | null = null;
+  let intentSaveRequested = false;
+  const reserved = acquireLease(
+    verifyRuntimePersistenceRepository(workingDirectory),
+    binding,
+    {
+      kind: "intent",
+      input: [
+        projectId,
+        queueId,
+        kind,
+        { ownerGeneration, ownerProcessId: process.pid },
+        {
+          resourcesAbsent: (repositoryRoot: string, identity: string) =>
+            snapshotLeaseResourcesAbsent(repositoryRoot, identity),
+          observeRoot: (repositoryRoot: string) => {
+            const metadata = fs.lstatSync(repositoryRoot);
+            return {
+              repositoryRoot: repositoryRoot,
+              rootIdentity: createHash("sha256")
+                .update(
+                  JSON.stringify([
+                    metadata.dev,
+                    metadata.ino,
+                    metadata.birthtimeMs,
+                  ]),
+                  "utf8",
+                )
+                .digest("hex"),
+            };
+          },
+          markIntentSaveRequested: (id: string) => {
+            recoveryId = id;
+            intentSaveRequested = true;
+          },
+        },
+      ],
+    },
+  );
+  if (reserved.status !== "completed")
+    return intentSaveRequested && reserved.manualRecoveryRequired
+      ? blocked(reserved.reason, true, recoveryId)
+      : reserved;
+  const { repositoryRoot, rootIdentity, identity, intent } = reserved.value;
+  recoveryId = reserved.value.recoveryId;
+  const leasePaths = resolveNamedPaths(repositoryRoot);
+  if (!leasePaths || leasePaths.repositoryRoot !== repositoryRoot)
+    return blocked(
+      "orchestrator_lease_acquisition_recovery_required",
+      true,
+      recoveryId,
+    );
+  const lock = path.join(
+    leasePaths.locks,
+    "coordinator.lease." + identity + ".lock",
+  );
+  let physicalIdentity: string;
+  let physicalLock: Lock | null = null;
+  try {
+    const resolved = resolveNamedPaths(workingDirectory);
+    const rootMetadata = fs.lstatSync(repositoryRoot);
+    if (
+      !resolved ||
+      resolved.repositoryRoot !== repositoryRoot ||
+      !rootMetadata.isDirectory() ||
+      rootMetadata.isSymbolicLink() ||
+      fs.realpathSync.native(repositoryRoot) !== repositoryRoot ||
+      createHash("sha256")
+        .update(
+          JSON.stringify([
+            rootMetadata.dev,
+            rootMetadata.ino,
+            rootMetadata.birthtimeMs,
+          ]),
+          "utf8",
+        )
+        .digest("hex") !== rootIdentity
+    )
+      throw new Error("lease_root_changed");
+    const temporary = requireReadyRepositoryExecutionDataArea(
+      ensureRepositoryExecutionDataAreaFromWorkingDirectory(
+        repositoryRoot,
+        "lock",
+      ),
+      "orchestrator_repository_root_invalid",
+    ).directory;
+    const boundary = assertArea(repositoryRoot, "lock", temporary);
+    const locks = temporary;
+    assertDirectory(locks);
+    const acquiredLock = acquireLock({
+      directory: locks,
+      name: path.basename(lock),
+      identity,
+    });
+    if (acquiredLock.status !== "acquired") {
+      // 初期化途中・descriptor終了不明も既存Intentと同じ回復IDで保全する。
+      return blocked(
+        "orchestrator_lease_acquisition_recovery_required",
+        true,
+        recoveryId,
+      );
+    }
+    physicalLock = acquiredLock.lock;
+    assertDirectory(locks);
+    physicalIdentity = observePhysicalLeaseFile(lock);
+    assertAreaUnchanged(repositoryRoot, "lock", boundary);
+  } catch {
+    physicalLock?.release(true);
+    return blocked(
+      "orchestrator_lease_acquisition_recovery_required",
+      true,
+      recoveryId,
+    );
+  }
+  let acquired: ReturnType<typeof acquireLease>;
+  try {
+    acquired = acquireLease(
+      verifyRuntimePersistenceRepository(workingDirectory),
+      binding,
+      {
+        kind: "observed",
+        input: [
+          binding,
+          projectId,
+          queueId,
+          kind,
+          ownerGeneration,
+          intent,
+          physicalIdentity,
+          recoveryId,
+          process.pid,
+          {
+            physicalIdentityMatches: () => {
+              return (
+                physicalLock?.assertLive() === true &&
+                observePhysicalLeaseFile(lock) === physicalIdentity
+              );
+            },
+          },
+        ],
+      },
+    );
+  } catch {
+    physicalLock.release(true);
+    return blocked(
+      "orchestrator_lease_acquisition_recovery_required",
+      true,
+      recoveryId,
+    );
+  }
+  if (acquired.status !== "completed") {
+    physicalLock.release(true);
+    return blocked(
+      "orchestrator_lease_acquisition_recovery_required",
+      true,
+      recoveryId,
+    );
+  }
+  let released = false;
+  let lease!: CoordinatorLease;
+  lease = Object.freeze({
+    kind,
+    ownerGeneration,
+    /**
+     * 同じ実排他を解放して終了を保存する。
+     * @responsibility 解放意図、実体照合、不存在確認、終了証拠の順を守る。
+     * @trace ARCH-000004
+     * @input N/A: opaque Leaseの取得時結合を使う。
+     * @returns 解放確定またはexact回復参照付き停止。
+     * @precondition 同じ実体を保持するLeaseである。
+     * @postcondition 成功時は実排他が不在でintentが終了している。
+     * @effect 元共通Lockのdescriptor・Fileを解放し保存を更新する。
+     * @failure 別実体、観測不能、保存失敗を保全停止する。
+     * @invariant 要求発行を解放完了にしない。
+     * @boundary opaque Lease、Filesystem、統合保存。
+     * @security 別Ownerの実体を処置しない。
+     * @concurrency 短期保存Ownerを物理操作の前後で分離する。
+     */
+    release(): CoordinatorLeaseResult<Readonly<{ released: true }>> {
+      if (released) return blocked("orchestrator_lease_already_released");
+      try {
+        const active = activeLeases.get(lease);
+        if (!active || !activeLeaseIsObserved(active))
+          throw new Error("lease_identity_changed");
+        const pending = releaseLease(
+          verifyRuntimePersistenceRepository(workingDirectory),
+          binding,
+          { kind: "intent", input: [intent, physicalIdentity] },
+        );
+        if (pending.status !== "completed")
+          throw new Error("lease_release_intent_unknown");
+        if (!activeLeaseIsObserved(active))
+          throw new Error("lease_identity_changed");
+        const boundary = assertArea(repositoryRoot, "lock", leasePaths.locks);
+        if (!physicalLock.release())
+          throw new Error("lease_release_unconfirmed");
+        assertAreaUnchanged(repositoryRoot, "lock", boundary);
+        if (!snapshotLeaseResourcesAbsent(repositoryRoot, identity))
+          throw new Error("lease_release_unconfirmed");
+        activeLeases.delete(lease);
+        const settled = releaseLease(
+          verifyRuntimePersistenceRepository(workingDirectory),
+          binding,
+          {
+            kind: "observed",
+            input: [binding, intent, physicalIdentity, process.pid],
+          },
+        );
+        if (settled.status !== "completed")
+          throw new Error("lease_release_settlement_unknown");
+        released = true;
+        return settled;
+      } catch {
+        // 失敗したLeaseは再利用せず、descriptorを閉じて元Fileと回復参照を保全する。
+        activeLeases.delete(lease);
+        physicalLock.release(true);
+        return blocked("orchestrator_lease_release_unknown", true, recoveryId);
+      }
+    },
+  });
+  activeLeases.set(lease, {
+    repositoryRoot,
+    repositoryBindingId: binding,
+    projectId,
+    queueId,
+    kind,
+    ownerGeneration,
+    lock,
+    recoveryMarker: "",
+    acquisitionMarker: "",
+    lockOwnershipMarker: "",
+    evidenceDirectory: "",
+    identity,
+    snapshotPhysicalIdentity: physicalIdentity,
+    physicalLock,
+  });
+  return completed("orchestrator_lease_acquired", lease);
+}
+
+/**
+ * 新版LeaseのOwner喪失を現在観測から終了処置する。
+ * @responsibility 過去の取得結果と現在の資源不存在を分けて保存する。
+ * @trace ARCH-000004
+ * @input Repository起点、binding、Project、Queue、Lease種別、既存Owner観測。
+ * @returns 終了後のQueueと回復参照、または同じ参照付き停止。
+ * @precondition v2現在状態と対象の取得意図が検証できる。
+ * @postcondition 回収確認だけでTask成功や採用成功を表示しない。
+ * @effect 回収意図を保存し、fresh照合後の短期保存Lock内で元Fileを処置・不存在確認して終了を保存する。
+ * @failure Owner存続、観測不能、対象変更、由来未確定実体では処置しない。
+ * @invariant 取得未確定を取得成功へ書き換えない。
+ * @boundary Snapshot、Process観測、Repository内の実排他。
+ * @security 他Owner、他Root、候補と保護判断へ処置を広げない。
+ * @concurrency Owner生存観測は短期排他外、物理処置は全fresh照合後の同じ保存Lock内で同期実行する。
+ */
+export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
+  workingDirectory: string,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+  observeOwner: CoordinatorLeaseOwnerObservation,
+): CoordinatorLeaseResult<
+  Readonly<{ queue: ProjectQueueEntry | null; recoveryId: string | null }>
+> {
+  if (
+    ![binding, projectId, queueId].every(validIdentity) ||
+    !["project-operation", "canonical-adoption"].includes(kind) ||
+    typeof observeOwner !== "function"
+  )
+    return blocked("orchestrator_lease_recovery_input_invalid");
+  const inspected = readLease(
+    verifyRuntimePersistenceRepository(workingDirectory),
+    binding,
+    {
+      kind: "owner_loss",
+      input: [
+        projectId,
+        queueId,
+        kind,
+        {
+          observeRoot: (repositoryRoot: string) => {
+            const metadata = fs.lstatSync(repositoryRoot);
+            return {
+              repositoryRoot: repositoryRoot,
+              rootIdentity: createHash("sha256")
+                .update(
+                  JSON.stringify([
+                    metadata.dev,
+                    metadata.ino,
+                    metadata.birthtimeMs,
+                  ]),
+                  "utf8",
+                )
+                .digest("hex"),
+            };
+          },
+        },
+      ],
+    },
+  );
+  if (inspected.status !== "completed")
+    return blocked(inspected.reason, true, inspected.recoveryId);
+  const initial = inspected.value;
+  const { recoveryId, identity } = initial;
+  const leasePaths = resolveNamedPaths(initial.repositoryRoot);
+  if (!leasePaths || leasePaths.repositoryRoot !== initial.repositoryRoot)
+    return blocked(
+      "orchestrator_lease_recovery_observation_unknown",
+      true,
+      recoveryId,
+    );
+  const lock = path.join(
+    leasePaths.locks,
+    "coordinator.lease." + identity + ".lock",
+  );
+  const first = initial.intents[0];
+  if (!first) {
+    if (initial.queue?.ownerGeneration) {
+      if (!["leased", "running"].includes(initial.queue.state)) {
+        const storageRepository =
+          verifyRuntimePersistenceRepository(workingDirectory);
+        if (!validIdentity(binding))
+          throw new Error("snapshot_port_binding_invalid");
+        const settled = settleCoordinatorSnapshotQueueLeaseRelease(
+          storageRepository,
+          binding,
+          queueId,
+          initial.queue.generation,
+          initial.queue.ownerGeneration,
+        );
+        return settled.status === "completed"
+          ? completed(settled.reason, {
+              queue: settled.value,
+              recoveryId: null,
+            })
+          : blocked(settled.reason, true, recoveryId);
+      }
+      return recoverLease(
+        verifyRuntimePersistenceRepository(workingDirectory),
+        binding,
+        {
+          kind: "reconcile",
+          input: [
+            projectId,
+            queueId,
+            kind,
+            initial.queue,
+            recoveryId,
+            {
+              resourcesAbsent: (repositoryRoot: string) =>
+                snapshotLeaseResourcesAbsent(repositoryRoot, identity),
+            },
+          ],
+        },
+      );
+    }
+    try {
+      if (
+        !snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity) ||
+        initial.queue?.ownerGeneration
+      )
+        return blocked(
+          "orchestrator_lease_recovery_state_mismatch",
+          true,
+          recoveryId,
+        );
+      return completed("orchestrator_lease_acquisition_resources_absent", {
+        queue: initial.queue,
+        recoveryId: null,
+      });
+    } catch {
+      return blocked(
+        "orchestrator_lease_recovery_observation_unknown",
+        true,
+        recoveryId,
+      );
+    }
+  }
+  const ownIntents = initial.intents;
+  if (
+    ownIntents.some(
+      (item) =>
+        item.ownerGeneration !== first.ownerGeneration ||
+        item.ownerProcessId !== first.ownerProcessId ||
+        item.recoveryId !== first.recoveryId,
+    ) ||
+    (initial.queue?.ownerGeneration !== null &&
+      initial.queue?.ownerGeneration !== undefined &&
+      initial.queue.ownerGeneration !== first.ownerGeneration)
+  )
+    return blocked(
+      "orchestrator_lease_acquisition_owner_mismatch",
+      true,
+      recoveryId,
+    );
+  let observation: unknown;
+  try {
+    observation = observeOwner(
+      Object.freeze({
+        ownerProcessId: first.ownerProcessId,
+        ownerGeneration: first.ownerGeneration,
+      }),
+    );
+  } catch {
+    return blocked(
+      "orchestrator_lease_owner_observation_unknown",
+      true,
+      recoveryId,
+    );
+  }
+  const observedOwner = snapshotPlainRecord(
+    observation,
+    new Set(["status", "ownerProcessId", "ownerGeneration"]),
+  );
+  if (
+    !observedOwner ||
+    Object.getPrototypeOf(observation) !== Object.prototype ||
+    observedOwner.ownerProcessId !== first.ownerProcessId ||
+    observedOwner.ownerGeneration !== first.ownerGeneration
+  )
+    return blocked(
+      "orchestrator_lease_owner_observation_unknown",
+      true,
+      recoveryId,
+    );
+  if (observedOwner.status === "alive")
+    return blocked("orchestrator_lease_owner_still_active");
+  if (observedOwner.status !== "absent")
+    return blocked(
+      "orchestrator_lease_owner_observation_unknown",
+      true,
+      recoveryId,
+    );
+  let physicalIdentity =
+    ownIntents.find((item) => item.physicalIdentity !== null)
+      ?.physicalIdentity ?? null;
+  if (physicalIdentity === null) {
+    try {
+      if (!snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)) {
+        if (first.phase !== "acquisition_reserved" || ownIntents.length !== 1)
+          return blocked(
+            "orchestrator_lease_physical_identity_unconfirmed",
+            true,
+            recoveryId,
+          );
+        const boundary = assertArea(
+          initial.repositoryRoot,
+          "lock",
+          leasePaths.locks,
+        );
+        assertDirectory(path.dirname(lock));
+        physicalIdentity = observePhysicalLeaseFile(lock);
+        assertAreaUnchanged(initial.repositoryRoot, "lock", boundary);
+      }
+    } catch {
+      return blocked(
+        "orchestrator_lease_recovery_observation_unknown",
+        true,
+        recoveryId,
+      );
+    }
+  }
+  const pending = {
+    ...first,
+    phase: "recovery_pending" as const,
+    physicalIdentity,
+  };
+  const reserved = recoverLease(
+    verifyRuntimePersistenceRepository(workingDirectory),
+    binding,
+    {
+      kind: "intent",
+      input: [
+        projectId,
+        queueId,
+        kind,
+        initial,
+        ownIntents,
+        pending,
+        recoveryId,
+        {
+          observeRoot: (repositoryRoot: string) => {
+            const metadata = fs.lstatSync(repositoryRoot);
+            return {
+              repositoryRoot: repositoryRoot,
+              rootIdentity: createHash("sha256")
+                .update(
+                  JSON.stringify([
+                    metadata.dev,
+                    metadata.ino,
+                    metadata.birthtimeMs,
+                  ]),
+                  "utf8",
+                )
+                .digest("hex"),
+            };
+          },
+        },
+      ],
+    },
+  );
+  if (reserved.status !== "completed")
+    return blocked(reserved.reason, true, recoveryId);
+  let recoveryFailureReason: string | null = null;
+  const settled = recoverLease(
+    verifyRuntimePersistenceRepository(workingDirectory),
+    binding,
+    {
+      kind: "observed",
+      input: [
+        binding,
+        projectId,
+        queueId,
+        kind,
+        initial,
+        ownIntents,
+        pending,
+        first,
+        recoveryId,
+        {
+          observeRoot: (repositoryRoot: string) => {
+            const metadata = fs.lstatSync(repositoryRoot);
+            return {
+              repositoryRoot: repositoryRoot,
+              rootIdentity: createHash("sha256")
+                .update(
+                  JSON.stringify([
+                    metadata.dev,
+                    metadata.ino,
+                    metadata.birthtimeMs,
+                  ]),
+                  "utf8",
+                )
+                .digest("hex"),
+            };
+          },
+          recoverResources: () => {
+            try {
+              const resolved = resolveNamedPaths(workingDirectory);
+              const rootMetadata = fs.lstatSync(initial.repositoryRoot);
+              if (
+                !resolved ||
+                resolved.repositoryRoot !== initial.repositoryRoot ||
+                !rootMetadata.isDirectory() ||
+                rootMetadata.isSymbolicLink() ||
+                fs.realpathSync.native(initial.repositoryRoot) !==
+                  initial.repositoryRoot ||
+                createHash("sha256")
+                  .update(
+                    JSON.stringify([
+                      rootMetadata.dev,
+                      rootMetadata.ino,
+                      rootMetadata.birthtimeMs,
+                    ]),
+                    "utf8",
+                  )
+                  .digest("hex") !== initial.rootIdentity
+              )
+                throw new Error("lease_root_changed");
+              // 不存在と観測不能を区別し、親にaliasがある場合も処置しない。
+              if (
+                !snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)
+              ) {
+                const boundary = assertArea(
+                  initial.repositoryRoot,
+                  "lock",
+                  leasePaths.locks,
+                );
+                assertDirectory(path.dirname(lock));
+                const observedIdentity = observePhysicalLeaseFile(lock);
+                if (
+                  physicalIdentity === null ||
+                  observedIdentity !== physicalIdentity
+                )
+                  throw new Error(
+                    "orchestrator_lease_physical_identity_unconfirmed",
+                  );
+                if (observePhysicalLeaseFile(lock) !== observedIdentity)
+                  throw new Error(
+                    "orchestrator_lease_physical_identity_unconfirmed",
+                  );
+                fs.unlinkSync(lock);
+                assertAreaUnchanged(initial.repositoryRoot, "lock", boundary);
+              }
+              if (
+                !snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)
+              )
+                throw new Error("lease_release_unconfirmed");
+              return true;
+            } catch (error) {
+              recoveryFailureReason =
+                error instanceof Error &&
+                error.message ===
+                  "orchestrator_lease_physical_identity_unconfirmed"
+                  ? error.message
+                  : "orchestrator_lease_recovery_observation_unknown";
+              return false;
+            }
+          },
+          resourcesAbsent: (repositoryRoot: string) =>
+            snapshotLeaseResourcesAbsent(repositoryRoot, identity),
+        },
+      ],
+    },
+  );
+  return settled.status === "completed"
+    ? settled
+    : blocked(recoveryFailureReason ?? settled.reason, true, recoveryId);
+}
+
+/**
+ * Directoryを表明どおりか検査する。
+ *
+ * @responsibility Directoryの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000004
+ * @input directory: string
+ * @returns N/A: assertDirectoryは戻り値を返さない。
+ * @precondition 「directory: string」がassertDirectoryの入力契約を満たす。
+ * @postcondition assertDirectoryの責務を完了して呼出し元へ制御を戻す。
+ * @effect assertDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure assertDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertDirectoryは共有非同期状態を持たない同期処理である。
+ */
+function assertDirectory(directory: string) {
+  const metadata = fs.lstatSync(directory);
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    fs.realpathSync.native(directory) !== directory
+  ) {
+    throw new Error("orchestrator_storage_boundary_invalid");
+  }
+}
+
+/**
+ * 固定Lease Fileの実体と元内容を一つの不透明な照合値へ固定する。
+ * 通常File・単一Link・2KiB上限と同じdescriptor／Pathを照合し、共通Lockのwireを再解釈しない。
+ * 旧Directory・alias・観測不能は拒否する。descriptorは成功・失敗とも閉じる。
+ */
+function observePhysicalLeaseFile(file: string): string {
+  const before = fs.lstatSync(file, { bigint: true });
+  if (
+    !before.isFile() ||
+    before.isSymbolicLink() ||
+    before.nlink !== 1n ||
+    before.size > 2048n
+  )
+    throw new Error("lease_file_invalid");
+  const descriptor = fs.openSync(file, "r");
+  try {
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    const same = (s: fs.BigIntStats) =>
+      s.isFile() &&
+      !s.isSymbolicLink() &&
+      s.nlink === 1n &&
+      s.dev === before.dev &&
+      s.ino === before.ino &&
+      s.birthtimeNs === before.birthtimeNs &&
+      s.size === before.size;
+    if (!same(opened) || opened.size > 2048n)
+      throw new Error("lease_file_changed");
+    const buffer = Buffer.alloc(2049);
+    let length = 0;
+    while (length < buffer.length) {
+      const read = fs.readSync(
+        descriptor,
+        buffer,
+        length,
+        buffer.length - length,
+        length,
+      );
+      if (read === 0) break;
+      length += read;
+    }
+    const content = buffer.subarray(0, length);
+    const finished = fs.fstatSync(descriptor, { bigint: true });
+    const after = fs.lstatSync(file, { bigint: true });
+    if (
+      !same(finished) ||
+      !same(after) ||
+      content.length > 2048 ||
+      BigInt(content.length) !== before.size
+    )
+      throw new Error("lease_file_changed");
+    return createHash("sha256")
+      .update(
+        JSON.stringify([
+          before.dev.toString(),
+          before.ino.toString(),
+          before.birthtimeNs.toString(),
+          createHash("sha256")
+            .update(content.toString("hex"), "utf8")
+            .digest("hex"),
+        ]),
+        "utf8",
+      )
+      .digest("hex");
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
+/**
+ * 検証済みRootから名前付きPathだけを投影する。
+ * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
+ * @trace ARCH-000004
+ * @input 検証するRepository起点と宣言済み領域。
+ * @returns 公開投影または無効Rootのnull。
+ * @precondition Callerは既存のRepository/Lease結合を保持する。
+ * @postcondition 観測不能を不存在または有効Authorityへ変換しない。
+ * @effect VCSとFilesystemを読み取る。初期化、Lock、書込みは0。
+ * @failure Root不正、Owner blocked、境界不一致で停止する。
+ * @invariant Physical IdentityとRecovery Identityは変更しない。
+ * @boundary Coordinator永続基盤からRuntime Data/Version Control公開入口。
+ * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
+ * @concurrency 観測した現在境界だけを返す。
+ */
+
+export function resolveNamedPaths(workingDirectory: string) {
+  const verified = getRepositoryFromWorkingDirectory(workingDirectory);
+  return verified.status === "completed"
+    ? resolveRepositoryExecutionDataPaths(verified.capability)
+    : null;
+}
+
+/**
+ * 既存の名前付き領域をEffect0で観測する。
+ * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
+ * @trace ARCH-000004
+ * @input 検証するRepository起点と宣言済み領域。
+ * @returns readyまたは真正不存在のnot_observed。
+ * @precondition Callerは既存のRepository/Lease結合を保持する。
+ * @postcondition 観測不能を不存在または有効Authorityへ変換しない。
+ * @effect VCSとFilesystemを読み取る。初期化、Lock、書込みは0。
+ * @failure Root不正、Owner blocked、境界不一致で停止する。
+ * @invariant Physical IdentityとRecovery Identityは変更しない。
+ * @boundary Coordinator永続基盤からRuntime Data/Version Control公開入口。
+ * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
+ * @concurrency 観測した現在境界だけを返す。
+ */
+function observeArea(
+  repositoryRoot: string,
+  area: "domain-model" | "tmp" | "lock",
+) {
+  const verified = getRepository(repositoryRoot);
+  if (verified.status !== "completed")
+    throw new Error("orchestrator_repository_root_invalid");
+  const observation = observeRepositoryExecutionDataArea(
+    verified.capability,
+    area,
+  );
+  if (observation.status === "blocked") throw new Error(observation.reason);
+  if (
+    observation.status === "ready" &&
+    observation.repositoryRoot !== repositoryRoot
+  )
+    throw new Error("orchestrator_repository_root_invalid");
+  return observation;
+}
+
+/**
+ * I/O対象の名前付き領域が現在も成立することを確認する。
+ * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
+ * @trace ARCH-000004
+ * @input 検証するRepository起点と宣言済み領域。
+ * @returns 確認済みready観測。
+ * @precondition Callerは既存のRepository/Lease結合を保持する。
+ * @postcondition 観測不能を不存在または有効Authorityへ変換しない。
+ * @effect VCSとFilesystemを読み取る。初期化、Lock、書込みは0。
+ * @failure Root不正、Owner blocked、境界不一致で停止する。
+ * @invariant Physical IdentityとRecovery Identityは変更しない。
+ * @boundary Coordinator永続基盤からRuntime Data/Version Control公開入口。
+ * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
+ * @concurrency 観測した現在境界だけを返す。
+ */
+export function assertArea(
+  repositoryRoot: string,
+  area: "domain-model" | "tmp" | "lock",
+  directory: string,
+) {
+  const observation = observeArea(repositoryRoot, area);
+  if (observation.status !== "ready" || observation.directory !== directory)
+    throw new Error("orchestrator_storage_boundary_invalid");
+  return observation;
+}
+
+/**
+ * I/O前後の同じ境界観測を照合する。
+ * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
+ * @trace ARCH-000004
+ * @input 検証するRepository起点と宣言済み領域。
+ * @returns N/A: 一致確認のみ。
+ * @precondition Callerは既存のRepository/Lease結合を保持する。
+ * @postcondition 観測不能を不存在または有効Authorityへ変換しない。
+ * @effect VCSとFilesystemを読み取る。初期化、Lock、書込みは0。
+ * @failure Root不正、Owner blocked、境界不一致で停止する。
+ * @invariant Physical IdentityとRecovery Identityは変更しない。
+ * @boundary Coordinator永続基盤からRuntime Data/Version Control公開入口。
+ * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
+ * @concurrency 観測した現在境界だけを返す。
+ */
+export function assertAreaUnchanged(
+  repositoryRoot: string,
+  area: "domain-model" | "tmp" | "lock",
+  initial: Exclude<
+    RepositoryExecutionDataAreaObservation,
+    { status: "blocked" }
+  >,
+) {
+  const current = observeArea(repositoryRoot, area);
+  if (
+    initial.status !== current.status ||
+    (initial.status === "ready" &&
+      (current.status !== "ready" ||
+        current.directory !== initial.directory ||
+        current.boundaryIdentity !== initial.boundaryIdentity))
+  )
+    throw new Error("orchestrator_storage_boundary_changed");
+}
+
+/**
+ * error Codeを決定する。
+ *
+ * @responsibility error Codeの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input error: unknown
+ * @returns errorCodeの計算結果を返す。
+ * @precondition 「error: unknown」がerrorCodeの入力契約を満たす。
+ * @postcondition errorCodeの責務を完了した結果だけを返す。
+ * @effect N/A: errorCodeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: errorCodeは独自の失敗分岐を所有しない。
+ * @invariant errorCodeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: errorCodeはProcess内の同一Subsystemで完結する。
+ * @security errorCodeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: errorCodeは共有非同期状態を持たない同期処理である。
+ */
+function leaseErrorCode(error: unknown) {
+  return error && typeof error === "object" && "code" in error
+    ? String(error.code)
+    : null;
+}
+
+/**
+ * lease Acquisition Temporary Prefixを決定する。
+ *
+ * @responsibility lease Acquisition Temporary Prefixの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input identity: string
+ * @returns leaseAcquisitionTemporaryPrefixの計算結果を返す。
+ * @precondition 「identity: string」がleaseAcquisitionTemporaryPrefixの入力契約を満たす。
+ * @postcondition leaseAcquisitionTemporaryPrefixの責務を完了した結果だけを返す。
+ * @effect N/A: leaseAcquisitionTemporaryPrefixは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: leaseAcquisitionTemporaryPrefixは独自の失敗分岐を所有しない。
+ * @invariant leaseAcquisitionTemporaryPrefixは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: leaseAcquisitionTemporaryPrefixはProcess内の同一Subsystemで完結する。
+ * @security leaseAcquisitionTemporaryPrefixはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: leaseAcquisitionTemporaryPrefixは共有非同期状態を持たない同期処理である。
+ */
+function leaseAcquisitionTemporaryPrefix(identity: string) {
+  return `.pending-${identity}-acquisition-`;
+}
+
+/**
+ * lease Acquisition Temporary Filesを決定する。
+ *
+ * @responsibility lease Acquisition Temporary Filesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input directory: string、identity: string
+ * @returns leaseAcquisitionTemporaryFilesの計算結果を返す。
+ * @precondition 「directory: string、identity: string」がleaseAcquisitionTemporaryFilesの入力契約を満たす。
+ * @postcondition leaseAcquisitionTemporaryFilesの責務を完了した結果だけを返す。
+ * @effect N/A: leaseAcquisitionTemporaryFilesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure leaseAcquisitionTemporaryFilesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant leaseAcquisitionTemporaryFilesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: leaseAcquisitionTemporaryFilesはProcess内の同一Subsystemで完結する。
+ * @security leaseAcquisitionTemporaryFilesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: leaseAcquisitionTemporaryFilesは共有非同期状態を持たない同期処理である。
+ */
+function leaseAcquisitionTemporaryFiles(directory: string, identity: string) {
+  assertDirectory(directory);
+  const prefix = leaseAcquisitionTemporaryPrefix(identity);
+  const names = fs
+    .readdirSync(directory)
+    .filter((name) => name.startsWith(prefix));
+  if (names.some((name) => !name.endsWith(".tmp")))
+    throw new Error("orchestrator_lease_acquisition_inventory_invalid");
+  return Object.freeze(names);
+}
+
+/**
+ * path Confirmed Absentを決定する。
+ *
+ * @responsibility path Confirmed Absentの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input candidate: string
+ * @returns pathConfirmedAbsentの計算結果を返す。
+ * @precondition 「candidate: string」がpathConfirmedAbsentの入力契約を満たす。
+ * @postcondition pathConfirmedAbsentの責務を完了した結果だけを返す。
+ * @effect pathConfirmedAbsentはFilesystemの読取りまたは書込みを実行する。
+ * @failure pathConfirmedAbsentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant pathConfirmedAbsentは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security pathConfirmedAbsentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: pathConfirmedAbsentは共有非同期状態を持たない同期処理である。
+ */
+function pathConfirmedAbsent(candidate: string) {
+  try {
+    fs.lstatSync(candidate);
+    return false;
+  } catch (error) {
+    if (leaseErrorCode(error) === "ENOENT") return true;
+    throw error;
+  }
+}
+
+/**
+ * lease Acquisition Footprint Absentを決定する。
+ *
+ * @responsibility lease Acquisition Footprint Absentの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input directory: string、identity: string、paths: readonly string[]
+ * @returns leaseAcquisitionFootprintAbsentの計算結果を返す。
+ * @precondition 「directory: string、identity: string、paths: readonly string[]」がleaseAcquisitionFootprintAbsentの入力契約を満たす。
+ * @postcondition leaseAcquisitionFootprintAbsentの責務を完了した結果だけを返す。
+ * @effect N/A: leaseAcquisitionFootprintAbsentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: leaseAcquisitionFootprintAbsentは独自の失敗分岐を所有しない。
+ * @invariant leaseAcquisitionFootprintAbsentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: leaseAcquisitionFootprintAbsentはProcess内の同一Subsystemで完結する。
+ * @security leaseAcquisitionFootprintAbsentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: leaseAcquisitionFootprintAbsentは共有非同期状態を持たない同期処理である。
+ */
+function leaseAcquisitionFootprintAbsent(
+  directory: string,
+  identity: string,
+  paths: readonly string[],
+) {
+  return (
+    paths.every(pathConfirmedAbsent) &&
+    leaseAcquisitionTemporaryFiles(directory, identity).length === 0
+  );
+}
+
+/**
+ * 新版Leaseの実排他を、親の真正不存在も含めて観測する。
+ * @responsibility 不存在と不正親・観測不能を区別する。
+ * @trace ARCH-000004
+ * @input repositoryRoot: 検証済みRoot、identity: 実排他の固定Identity。
+ * @returns 実排他と取得途中Fileが真正に不在か。
+ * @precondition 呼出し側がRoot実体と対象intentを照合する。
+ * @postcondition FileやDirectoryを作成せず観測結果だけを返す。
+ * @effect Repository内の正規親と対象のmetadataを読む。
+ * @failure alias、不正形状、読取り拒否は例外として呼出し側へ返す。
+ * @invariant 親の不存在と観測不能を同一視しない。
+ * @boundary Repository Rootから.crdd/lock内の短命な実排他へ。
+ * @security Root外の実体へ辿らない。
+ * @concurrency Rootと最後の既知親を不存在判定前に再確認する。
+ */
+export function snapshotLeaseResourcesAbsent(
+  repositoryRoot: string,
+  identity: string,
+): boolean {
+  assertDirectory(repositoryRoot);
+  const boundary = observeArea(repositoryRoot, "lock");
+  if (boundary.status === "not_observed") {
+    assertAreaUnchanged(repositoryRoot, "lock", boundary);
+    return true;
+  }
+  const parent = boundary.directory;
+  if (pathConfirmedAbsent(parent)) {
+    assertAreaUnchanged(repositoryRoot, "lock", boundary);
+    return true;
+  }
+  assertDirectory(parent);
+  const isAbsent = leaseAcquisitionFootprintAbsent(parent, identity, [
+    path.join(parent, "coordinator.lease." + identity + ".lock"),
+  ]);
+  assertDirectory(repositoryRoot);
+  assertDirectory(parent);
+  assertAreaUnchanged(repositoryRoot, "lock", boundary);
+  return isAbsent;
+}
+
+/**
+ * Hostが選択したRepositoryを既存VCの真正参照へ固定する。
+ * @responsibility 生PathをDomain保存APIへ渡さず、保存Portが同じ参照を保持できるようにする。
+ * @trace ARCH-000004、ARCH-000008
+ * @input workingDirectory: 既存Host入口が選択したRepository内の起点。
+ * @returns VCが発行した同一性参照。
+ * @precondition 呼出し元が内容認可・実行Authorityを別に検査する。
+ * @postcondition 新しい資格・State・登録を発行しない。
+ * @effect 既存VCの読取りだけ。
+ * @failure 不明RootはEffect前の例外で停止する。
+ * @invariant Repository参照を実行許可にしない。
+ * @boundary Coordinator HostとDomain保存。
+ * @security 外部JSONから参照Objectを構築しない。
+ * @concurrency 保存Portは返却参照を保持し、各操作のDomain側で再観測する。
+ */
+export function verifyRuntimePersistenceRepository(workingDirectory: string) {
+  const verified = getRepositoryFromWorkingDirectory(workingDirectory);
+  if (verified.status !== "completed")
+    throw new Error("orchestrator_repository_root_invalid");
+  return verified.capability;
+}
+
+export const TESTS_RELATIVE_PATH = ".crdd/tests" as const;
+
+/** 履歴を扱う呼出しだけ、確定日数と既存の同期現在性検査を結合する。 */
+export function historyRepositoryInput<T>(root: T) {
+  const initial = readCoordinatorConfig(root as Repository);
+  return Object.freeze({
+    root,
+    historyRetentionDays:
+      initial.status === "ready" ? initial.config.historyRetentionDays : null,
+    revalidate(expectedHistoryRetentionDays?: number) {
+      if (expectedHistoryRetentionDays === undefined) return true;
+      const fresh = readCoordinatorConfig(root as Repository);
+      return (
+        fresh.status === "ready" &&
+        fresh.config.historyRetentionDays === expectedHistoryRetentionDays
+      );
+    },
+  });
+}
+
+/** 既存の実行・終端借用の再検証を、履歴確認時だけ設定現在性へ接続する。 */
+export function withHistoryRetention<
+  T extends Readonly<{ revalidate: () => boolean }>,
+>(context: T | null, root?: unknown) {
+  if (!context) return null;
+  const history = historyRepositoryInput(
+    root ?? (context as { root?: unknown }).root,
+  );
+  return Object.freeze({
+    ...context,
+    historyRetentionDays: history.historyRetentionDays,
+    revalidate(expectedHistoryRetentionDays?: number) {
+      return (
+        context.revalidate() && history.revalidate(expectedHistoryRetentionDays)
+      );
+    },
+  });
+}
+
+export const REPOSITORY_AREAS = Object.freeze([
+  "config",
+  "domain-model",
+  "execution-intelligence",
+  "candidates",
+  "workspaces",
+  "operations",
+  "release",
+  "communication",
+  "tests",
+  "tmp",
+  "lock",
+] as const);
+
+export const AREA_PATH_KEYS = Object.freeze({
+  config: "config",
+  "domain-model": "domainModel",
+  "execution-intelligence": "executionIntelligence",
+  candidates: "candidates",
+  workspaces: "workspaces",
+  operations: "operations",
+  release: "release",
+  communication: "communication",
+  tests: "tests",
+  tmp: "temporary",
+  lock: "locks",
+} as const);
+
+/**
+ * runtime-data-path-resolverで使用するRepository Runtime Areaの値契約を定義する。
+ *
+ * @responsibility Repository Runtime AreaのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000011
+ * @shape RepositoryExecutionAreaが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RepositoryExecutionAreaで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RepositoryExecutionAreaの宣言は外部境界を開かない。
+ * @security N/A: RepositoryExecutionAreaはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RepositoryExecutionAreaの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type RepositoryExecutionArea = (typeof REPOSITORY_AREAS)[number];
+
+/**
+ * 既存Runtime領域の読取り専用観測結果を定義する。
+ * @responsibility 不存在、境界不正、観測不能、検証済み既存領域を区別する。
+ * @trace ARCH-000011
+ * @shape readyは名前付きareaと不透明な境界Identity、他状態は閉じたreasonを持つ。
+ * @invariant private Runtime RootのPathや書込みAuthorityを公開しない。
+ * @boundary Runtime Data Ownerと名前付き領域の利用側。
+ * @security boundaryIdentityは置換検知用の非Authority参照である。
+ * @compatibility areaの作成入口とは独立した読取り専用APIである。
+ */
+export type RepositoryExecutionDataAreaObservation =
+  | Readonly<{
+      status: "ready";
+      repositoryRoot: string;
+      directory: string;
+      boundaryIdentity: string;
+      effectIssued: false;
+    }>
+  | Readonly<{
+      status: "not_observed";
+      reason: "repository_runtime_data_area_absent";
+      effectIssued: false;
+    }>
+  | Readonly<{
+      status: "blocked";
+      reason:
+        | "repository_runtime_data_root_capability_invalid"
+        | "repository_runtime_data_area_boundary_invalid"
+        | "repository_runtime_data_area_observation_failed";
+      effectIssued: false;
+    }>;
+
+/**
+ * Resolves only canonical paths. The caller remains responsible for proving
+ *
+ * @responsibility Repository Runtime Data Paths From Validated Rootの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @trace ARCH-000011
+ * @input repositoryRoot: string
+ * @returns resolveRepositoryExecutionDataPathsFromValidatedRootの計算結果を返す。
+ * @precondition 「repositoryRoot: string」がresolveRepositoryExecutionDataPathsFromValidatedRootの入力契約を満たす。
+ * @postcondition resolveRepositoryExecutionDataPathsFromValidatedRootの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRepositoryExecutionDataPathsFromValidatedRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveRepositoryExecutionDataPathsFromValidatedRootは独自の失敗分岐を所有しない。
+ * @invariant resolveRepositoryExecutionDataPathsFromValidatedRootは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRepositoryExecutionDataPathsFromValidatedRootはProcess内の同一Subsystemで完結する。
+ * @security N/A: resolveRepositoryExecutionDataPathsFromValidatedRootはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resolveRepositoryExecutionDataPathsFromValidatedRootは共有非同期状態を持たない同期処理である。
+ */
+function resolveRepositoryExecutionDataPathsFromValidatedRoot(
+  repositoryRoot: string,
+) {
+  if (
+    !path.isAbsolute(repositoryRoot) ||
+    path.resolve(repositoryRoot) !== repositoryRoot
+  )
+    return null;
+  const root = path.join(repositoryRoot, ".crdd");
+  return Object.freeze({
+    repositoryRoot,
+    root,
+    config: path.join(root, "config"),
+    repositoryManifest: path.join(root, "config", "repository-manifest.json"),
+    externalSendPolicy: path.join(root, "config", "external-send-policy.json"),
+    domainModel: path.join(root, "domain-model"),
+    executionIntelligence: path.join(root, "execution-intelligence"),
+    candidates: path.join(root, "candidates"),
+    workspaces: path.join(root, "workspaces"),
+    operations: path.join(root, "operations"),
+    release: path.join(root, "release"),
+    communication: path.join(root, "communication"),
+    tests: path.join(root, "tests"),
+    temporary: path.join(root, "tmp"),
+    locks: path.join(root, "lock"),
+    allowedTopLevelAreas: REPOSITORY_AREAS,
+  });
+}
+
+/**
+ * Repository Runtime Data Pathsを一意に解決する。
+ *
+ * @responsibility Repository Runtime Data Pathsの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @trace ARCH-000011
+ * @input capability: Repository
+ * @returns resolveRepositoryExecutionDataPathsの計算結果を返す。
+ * @precondition 「capability: Repository」がresolveRepositoryExecutionDataPathsの入力契約を満たす。
+ * @postcondition resolveRepositoryExecutionDataPathsの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRepositoryExecutionDataPathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveRepositoryExecutionDataPathsは独自の失敗分岐を所有しない。
+ * @invariant resolveRepositoryExecutionDataPathsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRepositoryExecutionDataPathsはProcess内の同一Subsystemで完結する。
+ * @security resolveRepositoryExecutionDataPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveRepositoryExecutionDataPathsは共有非同期状態を持たない同期処理である。
+ */
+export function resolveRepositoryExecutionDataPaths(capability: Repository) {
+  const resolved =
+    resolveRepositoryExecutionDataPathsForInternalUse(capability);
+  if (!resolved) return null;
+  const { root: internalRoot, ...publicPaths } = resolved;
+  if (path.dirname(internalRoot) !== resolved.repositoryRoot) return null;
+  return Object.freeze(publicPaths);
+}
+
+/**
+ * Runtime Data implementation-only path set; omitted from the public index.
+ *
+ * @responsibility Repository Runtime Data Paths For Internal Useの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @trace ARCH-000011
+ * @input capability: Repository
+ * @returns resolveRepositoryExecutionDataPathsForInternalUseの計算結果を返す。
+ * @precondition 「capability: Repository」がresolveRepositoryExecutionDataPathsForInternalUseの入力契約を満たす。
+ * @postcondition resolveRepositoryExecutionDataPathsForInternalUseの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRepositoryExecutionDataPathsForInternalUseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveRepositoryExecutionDataPathsForInternalUseは独自の失敗分岐を所有しない。
+ * @invariant resolveRepositoryExecutionDataPathsForInternalUseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRepositoryExecutionDataPathsForInternalUseはProcess内の同一Subsystemで完結する。
+ * @security resolveRepositoryExecutionDataPathsForInternalUseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveRepositoryExecutionDataPathsForInternalUseは共有非同期状態を持たない同期処理である。
+ */
+function resolveRepositoryExecutionDataPathsForInternalUse(
+  capability: Repository,
+) {
+  const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
+  return repositoryRoot === null
+    ? null
+    : resolveRepositoryExecutionDataPathsFromValidatedRoot(repositoryRoot);
+}
+
+/**
+ * private Rootと名前付き領域の既存境界をOwner内で観測する。
+ * @responsibility 利用側によるParent Rootの復元を不要にし、真正不存在と観測障害を分ける。
+ * @trace ARCH-000011
+ * @input capability: 検証済みRepository Root能力、area: 宣言済み領域名。
+ * @returns ready、not_observed、blockedの閉じた観測結果。
+ * @precondition Callerは公開されたRepository Root能力を渡す。
+ * @postcondition readyではRootとareaのlstat/realpath相関を確認済みである。
+ * @effect Filesystem metadataとVCS境界を読む。Ignore登録、mkdir、Lock、書込みは0。
+ * @failure 無効能力、link/type不正、観測障害を閉じたreasonで返す。
+ * @invariant ENOENTだけをnot_observedとし、時刻やmtimeをIdentityに使わない。
+ * @boundary private Runtime Rootと公開された名前付きareaの観測境界。
+ * @security raw Root、秘密値、回復Authorityを公開しない。
+ * @concurrency 開始・終了の不透明Identity比較で境界置換を検出できる。将来の状態を保証しない。
+ */
+export function observeRepositoryExecutionDataArea(
+  capability: Repository,
+  area: RepositoryExecutionArea,
+): RepositoryExecutionDataAreaObservation {
+  try {
+    const paths = resolveRepositoryExecutionDataPathsForInternalUse(capability);
+    if (!paths || !REPOSITORY_AREAS.includes(area))
+      return Object.freeze({
+        status: "blocked",
+        reason: "repository_runtime_data_root_capability_invalid",
+        effectIssued: false,
+      });
+    const directory = paths[AREA_PATH_KEYS[area]];
+    const identities: string[] = [];
+    for (const target of [paths.root, directory]) {
+      let metadata: fs.BigIntStats;
+      try {
+        metadata = fs.lstatSync(target, { bigint: true });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT")
+          return Object.freeze({
+            status: "not_observed",
+            reason: "repository_runtime_data_area_absent",
+            effectIssued: false,
+          });
+        throw error;
+      }
+      if (
+        !metadata.isDirectory() ||
+        metadata.isSymbolicLink() ||
+        fs.realpathSync.native(target) !== target
+      )
+        return Object.freeze({
+          status: "blocked",
+          reason: "repository_runtime_data_area_boundary_invalid",
+          effectIssued: false,
+        });
+      const canonical = fs.lstatSync(fs.realpathSync.native(target), {
+        bigint: true,
+      });
+      if (canonical.dev !== metadata.dev || canonical.ino !== metadata.ino)
+        return Object.freeze({
+          status: "blocked",
+          reason: "repository_runtime_data_area_boundary_invalid",
+          effectIssued: false,
+        });
+      identities.push(metadata.dev.toString(), metadata.ino.toString());
+    }
+    const boundaryIdentity = createHash("sha256")
+      .update(identities.join("\0"))
+      .digest("hex");
+    return Object.freeze({
+      status: "ready",
+      repositoryRoot: paths.repositoryRoot,
+      directory,
+      boundaryIdentity,
+      effectIssued: false,
+    });
+  } catch {
+    return Object.freeze({
+      status: "blocked",
+      reason: "repository_runtime_data_area_observation_failed",
+      effectIssued: false,
+    });
+  }
+}
+
+/**
+ * AI書込みから守る内部Directoryだけを観測又は準備する。
+ * @responsibility raw Rootを公開せず空の保護Mount先を既存Ownerで扱う。
+ * @trace ARCH-000011
+ * @input 検証済み実行Treeとobserve／prepareの明示操作。
+ * @returns ready／absent／blocked。Pathや書込みAuthorityは返さない。
+ * @precondition 呼出し元が借用Treeの利用許可を保持する。
+ * @postcondition 観測は作成0、準備も既存内容を変更しない。
+ * @effect prepare時の真正不存在に限りRoot直下のDirectory一件を作成する。
+ * @failure 型不正・link・観測不能はblocked、旧Pathへfallbackしない。
+ * @invariant 状態初期化、子領域、Lockや台帳を追加しない。
+ * @boundary 実行Treeと内部状態の保護Mount先。
+ * @security raw Rootを一般保存先として利用側へ渡さない。
+ * @concurrency 既存の上位利用調停下で呼び、将来の置換不存在は保証しない。
+ */
+export function checkRepositoryRuntimeDataProtectionDirectory(
+  capability: Repository,
+  operation: "observe" | "prepare",
+): "ready" | "absent" | "blocked" {
+  try {
+    if (operation !== "observe" && operation !== "prepare") return "blocked";
+    const paths = resolveRepositoryExecutionDataPathsForInternalUse(capability);
+    if (!paths) return "blocked";
+    let metadata: fs.Stats;
+    try {
+      metadata = fs.lstatSync(paths.root);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") return "blocked";
+      if (operation === "observe") return "absent";
+      fs.mkdirSync(paths.root);
+      metadata = fs.lstatSync(paths.root);
+    }
+    return metadata.isDirectory() &&
+      !metadata.isSymbolicLink() &&
+      fs.realpathSync.native(paths.root) === paths.root
+      ? "ready"
+      : "blocked";
+  } catch {
+    return "blocked";
+  }
+}
+
+/**
+ * Canonical Directoryが成立する状態を確保する。
+ *
+ * @responsibility Canonical Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。
+ * @trace ARCH-000011
+ * @input target: string
+ * @returns N/A: ensureCanonicalDirectoryは戻り値を返さない。
+ * @precondition 「target: string」がensureCanonicalDirectoryの入力契約を満たす。
+ * @postcondition ensureCanonicalDirectoryの責務を完了して呼出し元へ制御を戻す。
+ * @effect ensureCanonicalDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure ensureCanonicalDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ensureCanonicalDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: ensureCanonicalDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ensureCanonicalDirectoryは共有非同期状態を持たない同期処理である。
+ */
+function ensureCanonicalDirectory(target: string): void {
+  try {
+    fs.mkdirSync(target, { mode: 0o700 });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  }
+  const metadata = fs.lstatSync(target);
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    fs.realpathSync.native(target) !== target
+  )
+    throw new Error("runtime_data_area_boundary_invalid");
+}
+
+/**
+ * 宣言済みRuntime領域を、ローカル除外の確定後だけ作成する。
+ * @responsibility VCの完成した登録結果を受け、保存領域の判断と失敗情報を保持する。
+ * @trace ARCH-000011
+ * @effect 除外登録後に既存のRepository内領域を作成する。
+ * @failure 除外のEffect不明・回収不明はblockedのまま返し、領域を作らない。
+ */
+export function ensureRepositoryExecutionDataArea(
+  capability: Repository,
+  area: RepositoryExecutionArea,
+) {
+  const paths = resolveRepositoryExecutionDataPathsForInternalUse(capability);
+  if (!paths || !REPOSITORY_AREAS.includes(area)) return null;
+  const ignore = registerRepositoryLocalIgnore(capability, ".crdd/");
+  if (ignore.status !== "registered")
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "repository_runtime_data_ignore_registration_blocked" as const,
+      effectIssued: ignore.effectIssued,
+      effectStateUnknown: ignore.effectStateUnknown,
+      effectConfirmation: ignore.effectConfirmation,
+      cleanupConfirmed: ignore.cleanupConfirmed,
+      retryAllowed: ignore.retryAllowed,
+      recoveryReference: ignore.recoveryReference,
+      repositoryPathReported: false as const,
+    });
+  ensureCanonicalDirectory(paths.root);
+  const directory = paths[AREA_PATH_KEYS[area]];
+  ensureCanonicalDirectory(directory);
+  return Object.freeze({
+    status: "ready" as const,
+    repositoryRoot: paths.repositoryRoot,
+    directory,
+  });
+}
+
+/**
+ * Repository Runtime Data Area From Working Directoryが成立する状態を確保する。
+ *
+ * @responsibility Repository Runtime Data Area From Working Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。
+ * @trace ARCH-000011
+ * @input workingDirectory: unknown、area: RepositoryExecutionArea
+ * @returns ensureRepositoryExecutionDataAreaFromWorkingDirectoryの計算結果を返す。
+ * @precondition 「workingDirectory: unknown、area: RepositoryExecutionArea」がensureRepositoryExecutionDataAreaFromWorkingDirectoryの入力契約を満たす。
+ * @postcondition ensureRepositoryExecutionDataAreaFromWorkingDirectoryの責務を完了した結果だけを返す。
+ * @effect N/A: ensureRepositoryExecutionDataAreaFromWorkingDirectoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: ensureRepositoryExecutionDataAreaFromWorkingDirectoryは独自の失敗分岐を所有しない。
+ * @invariant ensureRepositoryExecutionDataAreaFromWorkingDirectoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ensureRepositoryExecutionDataAreaFromWorkingDirectoryはProcess内の同一Subsystemで完結する。
+ * @security N/A: ensureRepositoryExecutionDataAreaFromWorkingDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ensureRepositoryExecutionDataAreaFromWorkingDirectoryは共有非同期状態を持たない同期処理である。
+ */
+export function ensureRepositoryExecutionDataAreaFromWorkingDirectory(
+  workingDirectory: unknown,
+  area: RepositoryExecutionArea,
+) {
+  const verified = getRepositoryFromWorkingDirectory(workingDirectory);
+  return verified.status === "completed"
+    ? ensureRepositoryExecutionDataArea(verified.capability, area)
+    : null;
+}
+
+/**
+ * require Ready Repository Runtime Data Areaを決定する。
+ *
+ * @responsibility require Ready Repository Runtime Data Areaの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000011
+ * @input result: ReturnType<typeof ensureRepositoryExecutionDataArea>、invalidReason: string
+ * @returns requireReadyRepositoryExecutionDataAreaの計算結果を返す。
+ * @precondition 「result: ReturnType<typeof ensureRepositoryExecutionDataArea>、invalidReason: string」がrequireReadyRepositoryExecutionDataAreaの入力契約を満たす。
+ * @postcondition requireReadyRepositoryExecutionDataAreaの責務を完了した結果だけを返す。
+ * @effect N/A: requireReadyRepositoryExecutionDataAreaは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure requireReadyRepositoryExecutionDataAreaは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant requireReadyRepositoryExecutionDataAreaは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: requireReadyRepositoryExecutionDataAreaはProcess内の同一Subsystemで完結する。
+ * @security N/A: requireReadyRepositoryExecutionDataAreaはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: requireReadyRepositoryExecutionDataAreaは共有非同期状態を持たない同期処理である。
+ */
+export function requireReadyRepositoryExecutionDataArea(
+  result: ReturnType<typeof ensureRepositoryExecutionDataArea>,
+  invalidReason: string,
+) {
+  if (result?.status === "ready") return result;
+  if (result?.status === "blocked")
+    throw new RepositoryDataBlockedError(result);
+  throw new Error(invalidReason);
+}
+
+/**
+ * Coordinator所有の領域初期化失敗を情報を失わず搬送する。
+ * @responsibility EM保存失敗とは区別して既知Effect・回復参照を保持する。
+ * @trace ARCH-000004
+ * @boundary Coordinatorの所在初期化と公開結果・診断への接続。
+ */
+export class RepositoryDataBlockedError extends Error {
+  readonly reason: string;
+  readonly effectIssued: boolean;
+  readonly effectStateUnknown: boolean;
+  readonly cleanupConfirmed: boolean;
+  readonly retryAllowed: boolean;
+  readonly recoveryReference: string | null;
+  readonly repositoryPathReported = false as const;
+
+  constructor(
+    result: Exclude<
+      ReturnType<typeof ensureRepositoryExecutionDataArea>,
+      null | { status: "ready" }
+    >,
+  ) {
+    super(result.reason);
+    this.name = "RepositoryDataBlockedError";
+    this.reason = result.reason;
+    this.effectIssued = result.effectIssued;
+    this.effectStateUnknown = result.effectStateUnknown;
+    this.cleanupConfirmed = result.cleanupConfirmed;
+    this.retryAllowed = result.retryAllowed;
+    this.recoveryReference = result.recoveryReference;
+  }
+}
+
+/** 読取りでは保存領域を初期化しない。設定・Root拒否を欠測と区別する。 */
+export function getExecutionIntelligenceStore(
+  repository: Repository,
+  prepare: boolean,
+): StoreOptions | null {
+  const config = readExecutionIntelligenceConfig(repository);
+  if (config.status !== "ready")
+    throw Error("execution_intelligence_configuration_unavailable");
+  const area = prepare
+    ? requireReadyRepositoryExecutionDataArea(
+        ensureRepositoryExecutionDataArea(repository, "execution-intelligence"),
+        "execution_intelligence_directory_unavailable",
+      )
+    : observeRepositoryExecutionDataArea(repository, "execution-intelligence");
+  if (!area) throw Error("execution_intelligence_directory_unavailable");
+  if (area.status === "not_observed") return null;
+  if (area.status !== "ready") throw Error(area.reason);
+  return {
+    directory: area.directory,
+    retentionDays: config.config.historyRetentionDays,
+  };
+}
+
+/**
+ * Runtime Data Boundary Blockedを公開結果へ投影する。
+ *
+ * @responsibility Runtime Data Boundary Blockedの公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input error: EM保存失敗またはCoordinator領域初期化失敗。
+ * @returns coordinatorDataBoundaryBlockedの計算結果を返す。
+ * @precondition 各Ownerが確定した停止情報を、その例外型のまま受け取る。
+ * @postcondition coordinatorDataBoundaryBlockedの責務を完了した結果だけを返す。
+ * @effect N/A: coordinatorDataBoundaryBlockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: coordinatorDataBoundaryBlockedは独自の失敗分岐を所有しない。
+ * @invariant coordinatorDataBoundaryBlockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: coordinatorDataBoundaryBlockedはProcess内の同一Subsystemで完結する。
+ * @security N/A: coordinatorDataBoundaryBlockedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: coordinatorDataBoundaryBlockedは共有非同期状態を持たない同期処理である。
+ */
+export function coordinatorDataBoundaryBlocked(
+  error: ExecutionStorageBlockedError | RepositoryDataBlockedError,
+) {
+  const ownerReleased =
+    error.cause !== "coordinator_snapshot_lock_release_unconfirmed";
+  return Object.freeze({
+    contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+    status: "blocked" as const,
+    reason: error.reason,
+    cleanupConfirmed: error.cleanupConfirmed && ownerReleased,
+    manualRecoveryRequired:
+      error.effectStateUnknown || !error.cleanupConfirmed || !ownerReleased,
+    effectState: error.effectStateUnknown
+      ? ("unknown" as const)
+      : error.effectIssued
+        ? ("settled" as const)
+        : ("no_effect" as const),
+    effectIssued: error.effectIssued,
+    effectStateUnknown: error.effectStateUnknown,
+    retryAllowed: error.retryAllowed && ownerReleased,
+    recoveryIds: Object.freeze(
+      error.recoveryReference === null ? [] : [error.recoveryReference],
+    ),
+  });
+}
 
 /**
  * Coordinatorが管理する操作領域の全Pathを定義する。
@@ -62,11 +2295,6 @@ type OperationPaths = Readonly<{
   projection: string;
   management: string;
 }>;
-
-export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT =
-  "crdd-coordinator/repository-workspace-runtime";
-
-export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 9;
 
 /**
  * 借用Treeの最終観測を内容なしで投影する。
@@ -122,6 +2350,132 @@ type WorkspaceRecord = Readonly<{
   basePaths: readonly string[];
 }>;
 
+const RESERVED_WINDOWS_SEGMENT =
+  /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
+const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
+/**
+ * Segmentが有効か判定する。
+ *
+ * @responsibility Segmentの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000013
+ * @input segment: string
+ * @returns validSegmentの計算結果を返す。
+ * @precondition 「segment: string」がvalidSegmentの入力契約を満たす。
+ * @postcondition validSegmentの責務を完了した結果だけを返す。
+ * @effect N/A: validSegmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validSegmentは独自の失敗分岐を所有しない。
+ * @invariant validSegmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validSegmentはProcess内の同一Subsystemで完結する。
+ * @security validSegmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validSegmentは共有非同期状態を持たない同期処理である。
+ */
+function validSegment(segment: string) {
+  return !(
+    segment.length === 0 ||
+    segment === "." ||
+    segment === ".." ||
+    segment.toLowerCase() === ".git" ||
+    Buffer.byteLength(segment, "utf8") > 255 ||
+    INVALID_WINDOWS_CHARACTER.test(segment) ||
+    RESERVED_WINDOWS_SEGMENT.test(segment) ||
+    segment.endsWith(".") ||
+    segment.endsWith(" ")
+  );
+}
+
+/**
+ * Relative Pathが有効か判定する。
+ *
+ * @responsibility Relative Pathの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000013
+ * @input relativePath: string
+ * @returns isExecutionRelativePathの計算結果を返す。
+ * @precondition 「relativePath: string」がisExecutionRelativePathの入力契約を満たす。
+ * @postcondition isExecutionRelativePathの責務を完了した結果だけを返す。
+ * @effect N/A: isExecutionRelativePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isExecutionRelativePathは独自の失敗分岐を所有しない。
+ * @invariant isExecutionRelativePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isExecutionRelativePathはProcess内の同一Subsystemで完結する。
+ * @security isExecutionRelativePathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isExecutionRelativePathは共有非同期状態を持たない同期処理である。
+ */
+export function isExecutionRelativePath(relativePath: string) {
+  return (
+    relativePath.length > 0 &&
+    !path.isAbsolute(relativePath) &&
+    !relativePath.includes("\\") &&
+    relativePath.split("/").every(validSegment)
+  );
+}
+
+/**
+ * File Contentを安定Identityへ変換する。
+ *
+ * @responsibility File Contentの正規化条件、一意性、変換不能時の拒否境界を所有する。
+ * @trace ARCH-000013
+ * @input target: string
+ * @returns readExecutionFileの計算結果を返す。
+ * @precondition 「target: string」がreadExecutionFileの入力契約を満たす。
+ * @postcondition readExecutionFileの責務を完了した結果だけを返す。
+ * @effect readExecutionFileは内容と実体を読取り、書込みを発行しない。
+ * @failure readExecutionFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readExecutionFileは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readExecutionFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readExecutionFileは共有非同期状態を持たない同期処理である。
+ */
+export function readExecutionFile(target: string) {
+  const handle = fs.openSync(target, "r");
+  try {
+    const before = fs.fstatSync(handle, { bigint: true });
+    if (
+      !before.isFile() ||
+      before.isSymbolicLink() ||
+      before.size < 0n ||
+      !Number.isSafeInteger(Number(before.size))
+    ) {
+      throw new Error("repository_workspace_file_invalid");
+    }
+    const content = Buffer.alloc(Number(before.size));
+    let offset = 0;
+    while (offset < content.byteLength) {
+      const readBytes = fs.readSync(
+        handle,
+        content,
+        offset,
+        content.byteLength - offset,
+        offset,
+      );
+      if (readBytes <= 0) throw new Error("repository_workspace_file_changed");
+      offset += readBytes;
+    }
+    const after = fs.fstatSync(handle, { bigint: true });
+    const current = fs.lstatSync(target, { bigint: true });
+    if (
+      before.dev !== after.dev ||
+      before.ino !== after.ino ||
+      before.birthtimeNs !== after.birthtimeNs ||
+      before.size !== after.size ||
+      before.mtimeNs !== after.mtimeNs ||
+      before.ctimeNs !== after.ctimeNs ||
+      !current.isFile() ||
+      current.isSymbolicLink() ||
+      current.dev !== before.dev ||
+      current.ino !== before.ino ||
+      current.birthtimeNs !== before.birthtimeNs
+    ) {
+      throw new Error("repository_workspace_file_changed");
+    }
+    return Object.freeze({
+      content,
+      byteLength: content.byteLength,
+      sha256: createHash("sha256").update(content).digest("hex"),
+    });
+  } finally {
+    fs.closeSync(handle);
+  }
+}
+
 /** Git可視の現在内容をVCの選択値として捕捉する。 @trace ARCH-000013 */
 function readGitSelection(record: WorkspaceRecord, comparison: string) {
   const observed = readRepositoryEntries(record.sourceTree);
@@ -139,7 +2493,7 @@ function readGitSelection(record: WorkspaceRecord, comparison: string) {
       ...changes.changedPaths,
     ]),
   ]
-    .filter((value) => value !== ".crdd" && !value.startsWith(".crdd/"))
+    .filter((value) => !/^\.crdd(?:\/|$)/u.test(value))
     .sort();
   const spellings = new Map<string, string>();
   for (const relativePath of paths) {
@@ -471,6 +2825,83 @@ export function bindRuntimeOwnedExecutionSnapshot(
   } catch {
     return null;
   }
+}
+
+/**
+ * 既存Hostの進捗に、下位が引き渡した回復参照を登録する。
+ * @responsibility 回復IDと制御参照の組をそのまま保持し、どちらかの再利用も拒否する。
+ * @trace ARCH-000008
+ * @precondition 呼出し側が対象Hostと、用途ごとに残せる引渡し件数を決める。
+ * @returns 新規の組を登録できた場合だけtrue。
+ * @effect 元の進捗への同期登録だけ。保存・回収・権限発行は行わない。
+ * @failure 欠測、不正、重複では既存の組を変更しない。
+ */
+export function registerRuntimeOwnedDockerHandoff(
+  target: Pick<HostCompletionTarget, "dockerHandoffs">,
+  capability: unknown,
+  recoveryReference: unknown,
+): boolean {
+  const recoveryId = resolveRecoveryReference(recoveryReference);
+  if (
+    capability === null ||
+    typeof capability !== "object" ||
+    !recoveryId ||
+    target.dockerHandoffs.some(
+      (handoff) =>
+        handoff.capability === capability || handoff.recoveryId === recoveryId,
+    )
+  )
+    return false;
+  target.dockerHandoffs.push({ capability, recoveryId, state: "active" });
+  return true;
+}
+
+/**
+ * 下位完了通知を受け取った元の回復引渡しを照合する。
+ * @responsibility 回復参照と確定用の制御参照の一致をTaskとAdviceで同じ規則で判定する。
+ * @trace ARCH-000008
+ * @input target: 元の引渡しを持つHost。recoveryId: 下位開始と相関する回復参照。completionCapability: 下位完了が返した確定用参照。
+ * @returns 一致した引渡し、対象なし、または不一致。
+ * @precondition 下位の回収確認は呼出し側が既存契約に従って確認する。
+ * @postcondition 照合前後で引渡し状態を変更しない。
+ * @effect N/A: 元の引渡し記録を読むだけ。
+ * @failure 片側だけの引渡し、または別の制御参照は不一致を返す。
+ * @invariant 参照なしを清掃確定に置き換えない。
+ * @boundary 元の回復引渡しと下位完了の照合。
+ * @security 参照を再生成せず、保存・清掃の権限を発行しない。
+ * @concurrency 呼出しと同じ同期区間で照合する。
+ */
+export function matchRuntimeOwnedDockerHandoff(
+  target: HostCompletionTarget,
+  recoveryId: string | null,
+  completionCapability: unknown,
+) {
+  const handoff = target.dockerHandoffs.find(
+    (candidate) => candidate.recoveryId === recoveryId,
+  );
+  const capability =
+    completionCapability !== null && typeof completionCapability === "object"
+      ? completionCapability
+      : null;
+  if (!handoff && !capability) return "not_tracked";
+  if (!handoff || handoff.capability !== capability) return "mismatch";
+  return handoff;
+}
+
+/**
+ * 照合した引渡しに元の完了結果を保持し、確定準備へ進める。
+ * @responsibility TaskとAdviceで同じ引渡し状態の更新を所有する。
+ * @trace ARCH-000008
+ * @precondition 元の引渡しとの照合と、用途固有の完了条件が成立している。
+ * @postcondition 元の完了結果を差し替えず、同じ引渡しをfinalizableにする。
+ * @effect 同期の状態更新だけ。Host清掃・保存・回復確定は行わない。
+ */
+export function recordRuntimeOwnedDockerHandoffCompletion(
+  handoff: HostCompletionTarget["dockerHandoffs"][number],
+  completion: unknown,
+): void {
+  handoff.dockerCompletion = completion;
+  handoff.state = "finalizable";
 }
 
 /** 借用結合の既存Mapだけに実行中の固定内容を保持する。 @trace ARCH-000013 */
@@ -849,49 +3280,6 @@ export function verifyExecutionChangeSnapshot(
 }
 
 /**
- * Repository Workspace Runtime 契約の公開契約を記述する。
- *
- * @responsibility Repository Workspace Runtime 契約の公開field、非公開境界、互換性を所有する。
- * @trace ARCH-000013
- * @input N/A: 実行時引数を受け取らない。
- * @returns describeExecutionChangeSnapshotContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeExecutionChangeSnapshotContractの入力契約を満たす。
- * @postcondition describeExecutionChangeSnapshotContractの責務を完了した結果だけを返す。
- * @effect N/A: describeExecutionChangeSnapshotContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeExecutionChangeSnapshotContractは独自の失敗分岐を所有しない。
- * @invariant describeExecutionChangeSnapshotContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeExecutionChangeSnapshotContractはProcess内の同一Subsystemで完結する。
- * @security describeExecutionChangeSnapshotContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: describeExecutionChangeSnapshotContractは共有非同期状態を持たない同期処理である。
- */
-export function describeExecutionChangeSnapshotContract() {
-  return Object.freeze({
-    contract: REPOSITORY_WORKSPACE_RUNTIME_CONTRACT,
-    contractRevision: REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION,
-    source: "caller_resolved_execution_tree_including_existing_dirty_changes",
-    providerReadProjection:
-      "explicit_file_or_directory_prefix_plus_write_scope",
-    reviewerReadProjection: "fixed_commit_owned_copy_for_explicit_read_paths",
-    reviewerContentProjection:
-      "candidate_identity_bound_utf8_content_for_explicit_read_paths_with_secret_detection",
-    recognizedSecretMaterial:
-      "rejected_before_reviewer_content_delivery_development_env_may_be_visible_to_executor",
-    completeSecretAbsenceVerified: false,
-    providerGitMetadataVisible: false,
-    workspaceWrite: "caller_resolved_execution_tree",
-    allowedPathGuard: "post_execution_scope_observation_not_write_acl",
-    candidateRevision: Object.freeze([
-      "base_commit_id",
-      "candidate_commit_id",
-      "changed_paths",
-    ]),
-    approvedCandidateTransfer: "immutable_git_commit_without_bundle_store",
-    canonicalRepositoryWriteAllowed: true,
-    pathReported: false,
-  });
-}
-
-/**
  * coordinator-task-runtimeで使用するProduction Operation 失敗の値契約を定義する。
  *
  * @responsibility Production Operation 失敗のProperty、Identity、状態制約を型境界として所有する。
@@ -959,96 +3347,6 @@ export function throwProductionOperationFailure(
   productionOperationFailures.set(error, Object.freeze(details));
   throw error;
 }
-
-/**
- * Production Operation Rootを構築する。
- *
- * @responsibility Production Operation Rootの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000004
- * @input createOperation: () => Operation、poisonAfterCleanupUnknown: () => void
- * @returns createProductionOperationRootの計算結果を返す。
- * @precondition 「createOperation: () => Operation、poisonAfterCleanupUnknown: () => void」がcreateProductionOperationRootの入力契約を満たす。
- * @postcondition createProductionOperationRootの責務を完了した結果だけを返す。
- * @effect N/A: createProductionOperationRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure createProductionOperationRootは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant createProductionOperationRootは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createProductionOperationRootはProcess内の同一Subsystemで完結する。
- * @security createProductionOperationRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createProductionOperationRootは共有非同期状態を持たない同期処理である。
- */
-export function createProductionOperationRoot(
-  createOperation: () => Operation,
-  poisonAfterCleanupUnknown: () => void,
-) {
-  try {
-    return createOperation();
-  } catch (error) {
-    const creation =
-      classifyOwnedOperationDirectoryCreationFailure(error) ??
-      classifyOwnedCoordinatorOperationCreationFailure(error);
-    if (!creation) throw error;
-    if (!creation.cleanupConfirmed) poisonAfterCleanupUnknown();
-    throwProductionOperationFailure(
-      Object.freeze({
-        reason: creation.cleanupConfirmed
-          ? "coordinator_task_operation_initialization_failed_cleanup_confirmed"
-          : "coordinator_task_operation_initialization_cleanup_unknown_process_restart_required",
-        hostRecoveryId: creation.hostRecoveryId,
-        cleanupConfirmed: creation.cleanupConfirmed,
-        manualRecoveryRequired: creation.manualRecoveryRequired,
-      }),
-    );
-  }
-}
-
-/**
- * Test-only seam for the exact production operation-root failure wrapper.
- *
- * @responsibility Isolated Coordinator Task Operation Creation 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000004
- * @input createOperation: () => Operation
- * @returns createIsolatedCoordinatorTaskOperationCreationCandidateの計算結果を返す。
- * @precondition 「createOperation: () => Operation」がcreateIsolatedCoordinatorTaskOperationCreationCandidateの入力契約を満たす。
- * @postcondition createIsolatedCoordinatorTaskOperationCreationCandidateの責務を完了した結果だけを返す。
- * @effect N/A: createIsolatedCoordinatorTaskOperationCreationCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createIsolatedCoordinatorTaskOperationCreationCandidateは独自の失敗分岐を所有しない。
- * @invariant createIsolatedCoordinatorTaskOperationCreationCandidateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createIsolatedCoordinatorTaskOperationCreationCandidateはProcess内の同一Subsystemで完結する。
- * @security createIsolatedCoordinatorTaskOperationCreationCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createIsolatedCoordinatorTaskOperationCreationCandidateは共有非同期状態を持たない同期処理である。
- */
-export function createIsolatedCoordinatorTaskOperationCreationCandidate(
-  createOperation: () => Operation,
-) {
-  let isPoisoned = false;
-  return Object.freeze({
-    productionAuthority: false as const,
-    create: () =>
-      createProductionOperationRoot(createOperation, () => {
-        isPoisoned = true;
-      }),
-    classify: productionOperationFailure,
-    isProcessPoisoned: () => isPoisoned,
-  });
-}
-
-/**
- * 借用先の内部入力を表す。
- * @responsibility 上位が解決した所属Root、実行先、期待改訂を受け取る。
- * @trace ARCH-000004
- * @shape workspaceIdは上位の非Authority相関値。実行先は実PathとGit同一性で検査する。
- * @invariant PathやIDだけでは実行許可にならない。
- * @boundary Coordinatorから単発実行への内部入力。
- * @security 外部SurfaceへHost Pathを返さない。
- * @compatibility 旧複製入口とは明示的に区別する。
- */
-export type BorrowedExecutionTarget = Readonly<{
-  workspaceId: string | null;
-  ownerRepositoryRoot: string;
-  executionTree: string;
-  baseCommit: string | null;
-  head: string | null;
-}>;
 
 /**
  * 一つの実行中Operationに限る借用対象を保持する。
@@ -1531,14 +3829,19 @@ type ChildSnapshots = Readonly<{
   management: DirectorySnapshot;
 }>;
 
-/** 同じ保存操作の現在確認・確認済み版と実Lockを保持する。 @trace ARCH-000008 */
-export type HostOperationInput = Readonly<{
+/** Host記録を現在のRepositoryと同じ保存可否確認に結び付ける。 @trace ARCH-000008 */
+export type HostOperationRecording = Readonly<{
   root: Repository;
-  purpose: HostRecord["purpose"];
   recordingCurrent: () => boolean;
-  signal?: AbortSignal;
-  executionCurrent?: () => boolean;
 }>;
+
+/** Host作成時の用途と実行境界を、既存の記録先に結び付ける。 @trace ARCH-000008 */
+export type HostOperationInput = HostOperationRecording &
+  Readonly<{
+    purpose: HostRecord["purpose"];
+    signal?: AbortSignal;
+    executionCurrent?: () => boolean;
+  }>;
 type HostRecord = Extract<OperationRecord, { kind: "host_operation" }>;
 type HostState = {
   input: HostOperationInput;
@@ -1708,9 +4011,9 @@ const HOST_CHILD_NAMES = Object.freeze({
 
 /** 専用Rootは検証済みRepositoryと元操作IDだけから導く。 @trace ARCH-000008 */
 function ownedHostRoot(host: HostState): string {
-  const root = resolveVerifiedRepositoryRoot(host.input.root);
-  if (!root) throw Error("host_operation_repository_unavailable");
-  return path.join(root, ".crdd", "operations", host.record.operationId);
+  const paths = resolveRepositoryExecutionDataPaths(host.input.root);
+  if (!paths) throw Error("host_operation_repository_unavailable");
+  return path.join(paths.operations, host.record.operationId);
 }
 /** DIが観測したProbe資源を同じ元Hostへ保存する。 @trace ARCH-000008 */
 export function recordOwnedHostResources(
@@ -1794,24 +4097,12 @@ export function isHostOperationRootAbsent(
   operationId: string,
 ): boolean {
   try {
-    const root = resolveVerifiedRepositoryRoot(repository);
-    if (!root || !/^OP-[0-9]{6,}$/u.test(operationId)) return false;
-    for (const parent of [
-      path.join(root, ".crdd"),
-      path.join(root, ".crdd", "operations"),
-    ]) {
-      const stat = fs.lstatSync(parent);
-      if (
-        !stat.isDirectory() ||
-        stat.isSymbolicLink() ||
-        fs.realpathSync(parent) !== parent
-      )
-        return false;
-    }
+    if (!/^OP-[0-9]{6,}$/u.test(operationId)) return false;
+    const parent = observeRepositoryExecutionDataArea(repository, "operations");
     return (
-      observeFilesystemEntry(
-        path.join(root, ".crdd", "operations", operationId),
-      ) === "confirmed_absent"
+      parent.status === "ready" &&
+      observeFilesystemEntry(path.join(parent.directory, operationId)) ===
+        "confirmed_absent"
     );
   } catch {
     return false;
@@ -2004,33 +4295,6 @@ export function classifyOwnedOperationDirectoryCreationFailure(error: unknown) {
   return error && typeof error === "object"
     ? (ownedOperationDirectoryCreationFailures.get(error) ?? null)
     : null;
-}
-
-/**
- * Isolated 所有 Operation Directory Creation 失敗 候補を構築する。
- *
- * @responsibility Isolated 所有 Operation Directory Creation 失敗 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000008
- * @input N/A: 実行時引数を受け取らない。
- * @returns createIsolatedOwnedOperationDirectoryCreationFailureCandidateの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がcreateIsolatedOwnedOperationDirectoryCreationFailureCandidateの入力契約を満たす。
- * @postcondition createIsolatedOwnedOperationDirectoryCreationFailureCandidateの責務を完了した結果だけを返す。
- * @effect N/A: createIsolatedOwnedOperationDirectoryCreationFailureCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createIsolatedOwnedOperationDirectoryCreationFailureCandidateは独自の失敗分岐を所有しない。
- * @invariant createIsolatedOwnedOperationDirectoryCreationFailureCandidateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createIsolatedOwnedOperationDirectoryCreationFailureCandidateはProcess内の同一Subsystemで完結する。
- * @security createIsolatedOwnedOperationDirectoryCreationFailureCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createIsolatedOwnedOperationDirectoryCreationFailureCandidateは共有非同期状態を持たない同期処理である。
- */
-export function createIsolatedOwnedOperationDirectoryCreationFailureCandidate() {
-  return Object.freeze({
-    productionAuthority: false as const,
-    fail: (details: OwnedOperationDirectoryCreationFailure): never =>
-      throwOwnedOperationDirectoryCreationFailure(
-        new Error("isolated_owned_operation_directory_creation_failed"),
-        Object.freeze(details),
-      ),
-  });
 }
 
 /**
@@ -2304,10 +4568,7 @@ export function acquireHostOperationRecoveryGeneration(
     if (matches.length !== 1) return null;
     const record = matches[0];
     if (!record) return null;
-    const acquired = acquireHostOperationLock(
-      repositoryRoot,
-      record.operationId,
-    );
+    const acquired = acquireHostOperationLock(root, record.operationId);
     if (acquired.status !== "acquired") return null;
     const host: HostState = {
       input: { root, purpose: record.purpose, recordingCurrent },
@@ -2962,7 +5223,7 @@ export function createOwnedOperationDirectories(
         hostRecoveryId: record.recoveryId,
       },
     );
-  const acquired = acquireHostOperationLock(repositoryRoot, operationId);
+  const acquired = acquireHostOperationLock(input.root, operationId);
   if (acquired.status !== "acquired")
     throwOwnedOperationDirectoryCreationFailure(
       Error("host_operation_lock_unavailable"),
@@ -3064,12 +5325,10 @@ export function createOwnedOperationDirectories(
     try {
       if (owned) cleanupOwnedOperationDirectories(owned);
       else {
-        const root = path.join(
-          repositoryRoot,
-          ".crdd",
-          "operations",
-          operationId,
-        );
+        const paths = resolveRepositoryExecutionDataPaths(input.root);
+        if (!paths)
+          throw Error("host_recovery_initialization_root_identity_unknown");
+        const root = path.join(paths.operations, operationId);
         requireConfirmedAbsent(
           root,
           "host_recovery_initialization_root_identity_unknown",
@@ -3131,20 +5390,6 @@ function ownedOperationFromManagementCapability(managementCapability: unknown) {
   return Object.freeze({ binding, identity });
 }
 
-/** 記録Writerへの再入なしで、元操作の実排他を照合する。 @trace ARCH-000008 */
-export function assertOwnedHostOperationLock(
-  managementCapability: unknown,
-): void {
-  const { binding, identity } =
-    ownedOperationFromManagementCapability(managementCapability);
-  const state = ownedOperationGeneration(binding.owned, identity);
-  if (
-    !state.generationLock?.assertLive() ||
-    identity.host.input.recordingCurrent() !== true
-  )
-    throw Error("owned_operation_generation_liveness_lost");
-}
-
 /**
  * abandon 所有 Host Operation Generation Lockを決定する。
  *
@@ -3181,14 +5426,6 @@ export async function abandonOwnedHostOperationGenerationLock(
   } catch {
     return false;
   }
-}
-
-/** 元Hostの固定参照を返す。 @trace ARCH-000008 */
-export function getOwnedHostRecoveryIdByManagementCapability(
-  management: unknown,
-) {
-  return ownedOperationFromManagementCapability(management).identity.host.record
-    .recoveryId;
 }
 
 /**
@@ -3742,11 +5979,6 @@ export function credentialEnvironmentNamesPresent(
   });
 }
 
-export const REPOSITORY_OPERATION_RUNTIME_CONTRACT =
-  "crdd-coordinator/repository-operation-runtime";
-
-export const REPOSITORY_OPERATION_RUNTIME_CONTRACT_REVISION = 2;
-
 /**
  * repository-operation-runtimeで使用するBindingの値契約を定義する。
  *
@@ -3909,29 +6141,27 @@ export function bindRuntimeOwnedRepositoryOperation(
 }
 
 /**
- * current Bindingを決定する。
- *
- * @responsibility current Bindingの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * Repositoryの登録と現在の実体・改訂版を照合する。
+ * @responsibility 所有操作とRepositoryの同じ結合が現在も成立するか確認する。
  * @trace ARCH-000009
- * @input managementCapability: unknown
- * @returns currentBindingの計算結果を返す。
- * @precondition 「managementCapability: unknown」がcurrentBindingの入力契約を満たす。
- * @postcondition currentBindingの責務を完了した結果だけを返す。
- * @effect N/A: currentBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: currentBindingは独自の失敗分岐を所有しない。
- * @invariant currentBindingは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: currentBindingはProcess内の同一Subsystemで完結する。
- * @security currentBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: currentBindingは共有非同期状態を持たない同期処理である。
+ * @input 管理参照と、同じ同期呼出しが管理参照から直前に検証した場合だけその操作ID。
+ * @returns 同一結合又はnull。観測の例外は呼出し側が分類する。
+ * @effect 元のHost検証及びRepositoryの現在読取り。保存なし。
+ * @invariant 操作IDを受け取っても登録・実体・改訂版の検査は省略しない。
+ * @boundary 私有の結合読取り。遅延処理・後続の再検証へ操作IDを借り回さない。
  */
-function currentBinding(managementCapability: unknown) {
+function currentBinding(
+  managementCapability: unknown,
+  verifiedOperationId?: string,
+) {
   if (!managementCapability || typeof managementCapability !== "object")
     return null;
   const binding = bindings.get(managementCapability);
   if (!binding) return null;
-  const operation =
-    verifyOwnedOperationManagementCapability(managementCapability);
-  if (operation.operationId !== binding.operationId) return null;
+  const operationId =
+    verifiedOperationId ??
+    verifyOwnedOperationManagementCapability(managementCapability).operationId;
+  if (operationId !== binding.operationId) return null;
   const current = observe(binding.repositoryRoot);
   return current.repositoryKind === binding.repositoryKind &&
     current.logicalRepositoryIdentity === binding.logicalRepositoryIdentity &&
@@ -3942,26 +6172,28 @@ function currentBinding(managementCapability: unknown) {
 }
 
 /**
- * Runtime 所有 Repository Operationを検証する。
- *
- * @responsibility Runtime 所有 Repository Operationの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * 現在の所有操作とRepositoryの結合を検証する。
+ * @responsibility 同一呼出し内でHost実体を一度だけ調べ、Gitを現在観測する。
  * @trace ARCH-000009
- * @input managementCapability: unknown
- * @returns verifyRuntimeOwnedRepositoryOperationの計算結果を返す。
- * @precondition 「managementCapability: unknown」がverifyRuntimeOwnedRepositoryOperationの入力契約を満たす。
- * @postcondition verifyRuntimeOwnedRepositoryOperationの責務を完了した結果だけを返す。
- * @effect N/A: verifyRuntimeOwnedRepositoryOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure verifyRuntimeOwnedRepositoryOperationは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant verifyRuntimeOwnedRepositoryOperationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: verifyRuntimeOwnedRepositoryOperationはProcess内の同一Subsystemで完結する。
- * @security verifyRuntimeOwnedRepositoryOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: verifyRuntimeOwnedRepositoryOperationは共有非同期状態を持たない同期処理である。
+ * @input 管理参照、選定事前照合の場合のみ失敗を区別する内部用途。
+ * @returns 現在の操作ID・改訂版、又は結合の欠測・差・観測不能を示すnull。
+ * @effect Host実体・Repository読取り。実体差替え時の世代退役は管理検証に従う。
+ * @failure 選定事前照合では管理参照拒否だけを例外で伝える。通常の観測不能はnull。
+ * @invariant 検証済みIDは今回の同期呼出しだけで使い、後続の現在検証を置き換えない。
+ * @boundary Host所有操作とRepositoryの現在性。
+ * @security 結果を実行AuthorityにせずHost Pathを公開しない。
  */
 export function verifyRuntimeOwnedRepositoryOperation(
   managementCapability: unknown,
+  purpose?: "selection_preflight",
 ) {
+  const verifiedOperationId =
+    purpose === "selection_preflight"
+      ? verifyOwnedOperationManagementCapability(managementCapability)
+          .operationId
+      : undefined;
   try {
-    const binding = currentBinding(managementCapability);
+    const binding = currentBinding(managementCapability, verifiedOperationId);
     return binding
       ? Object.freeze({
           operationId: binding.operationId,
@@ -3973,6 +6205,62 @@ export function verifyRuntimeOwnedRepositoryOperation(
   } catch {
     return null;
   }
+}
+
+/**
+ * EMの確認時点で、元操作Ownerに結合した保存先だけを借りる。
+ * @trace ARCH-000008
+ * @returns 貸出し前にはRepositoryを読まず、失効・観測不能はnullを保持する。
+ */
+export function operationStateInput(managementCapability: unknown) {
+  return {
+    identity: managementCapability as object,
+    observeRepository: () => {
+      const observed =
+        borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
+      return observed
+        ? {
+            purpose: "execution" as const,
+            root: observed.root,
+            operationId: observed.operationId,
+            revalidate: observed.revalidate,
+          }
+        : null;
+    },
+  };
+}
+
+/**
+ * 開始保存と後続の終端照合に、元の操作Ownerからの観測を結び付ける。
+ * @trace ARCH-000008
+ * @returns EMが必要な時点で借用先と回収証拠を確認するための入力。生成時にI/Oをしない。
+ */
+export function operationStartInput(
+  managementCapability: unknown,
+  observeTerminal: (
+    result: unknown,
+    operationId: unknown,
+    recoveryId: unknown,
+  ) => unknown,
+) {
+  return {
+    ...operationStateInput(managementCapability),
+    observeSettlementRepository: () => {
+      const observed =
+        borrowRuntimeOwnedCoordinatorSettlementRepository(managementCapability);
+      return observed
+        ? withHistoryRetention({
+            purpose: observed.purpose,
+            root: observed.root,
+            operationId: observed.operationId,
+            revalidate: observed.revalidate,
+          })
+        : null;
+    },
+    captureCleanupVerification: () =>
+      captureOwnedOperationCleanupVerification(managementCapability),
+    observeTerminal,
+  };
 }
 
 /**
@@ -4073,63 +6361,6 @@ function deriveCoordinatorRepositoryStateBinding(
       "utf8",
     )
     .digest("hex");
-}
-
-/**
- * 業務保存を現在Repositoryの実体へ結合する。
- * @responsibility 保存Ownerに実行Commitを要求せず、Root・Git実体の再確認を提供する。
- * @trace ARCH-000009
- * @input rootCapability: 検証済みRoot。
- * @returns 保存専用の内部結合、又はnull。
- * @precondition 実行要求のRevision確認には使用しない。
- * @postcondition 既存技術保存と同じ物理結合Hashを使う。
- * @effect RootとGit実体の読取りだけ。
- * @failure 未検証Root・実体変更・観測不能はnull。
- * @invariant 不明なHEADを不存在や固定Revisionへ補完しない。
- * @boundary 業務保存とVersion Control。
- * @security Provider・回収Authorityを発行しない。
- * @concurrency 短期保存Ownerが再確認を呼ぶ。
- */
-export function borrowRuntimeOwnedCoordinatorStorageRepository(
-  rootCapability: unknown,
-) {
-  try {
-    const capability = rootCapability as Repository;
-    const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
-    const observed = readRepositoryStorageIdentity(capability);
-    if (!repositoryRoot || !observed) return null;
-    const repository = {
-      repositoryRoot,
-      repositoryBinding: deriveCoordinatorRepositoryStateBinding(
-        repositoryRoot,
-        observed.repositoryIdentity,
-        observed.repositoryInstanceIdentity,
-      ),
-      revalidate: () => {
-        const fresh = readRepositoryStorageIdentity(capability);
-        return (
-          fresh !== null &&
-          fresh.repositoryForm === observed.repositoryForm &&
-          fresh.repositoryIdentity === observed.repositoryIdentity &&
-          fresh.repositoryInstanceIdentity ===
-            observed.repositoryInstanceIdentity
-        );
-      },
-    };
-    return Object.freeze(
-      Object.defineProperties(repository, {
-        purpose: { value: "storage" as const },
-        root: { value: capability },
-      }),
-    ) as Readonly<
-      typeof repository & {
-        purpose: "storage";
-        root: Repository;
-      }
-    >;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -4382,43 +6613,3 @@ export function borrowRuntimeOwnedRepositorySource(
     return null;
   }
 }
-
-/**
- * Repository Operation Runtime 契約の公開契約を記述する。
- *
- * @responsibility Repository Operation Runtime 契約の公開field、非公開境界、互換性を所有する。
- * @trace ARCH-000009
- * @input N/A: 実行時引数を受け取らない。
- * @returns describeRepositoryOperationRuntimeContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeRepositoryOperationRuntimeContractの入力契約を満たす。
- * @postcondition describeRepositoryOperationRuntimeContractの責務を完了した結果だけを返す。
- * @effect N/A: describeRepositoryOperationRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeRepositoryOperationRuntimeContractは独自の失敗分岐を所有しない。
- * @invariant describeRepositoryOperationRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeRepositoryOperationRuntimeContractはProcess内の同一Subsystemで完結する。
- * @security describeRepositoryOperationRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: describeRepositoryOperationRuntimeContractは共有非同期状態を持たない同期処理である。
- */
-export function describeRepositoryOperationRuntimeContract() {
-  return Object.freeze({
-    contract: REPOSITORY_OPERATION_RUNTIME_CONTRACT,
-    contractRevision: REPOSITORY_OPERATION_RUNTIME_CONTRACT_REVISION,
-    repositoryIdentity:
-      "logical_common_git_metadata_plus_worktree_instance_filesystem_identity",
-    revision: "exact_head_object_id_reobserved_before_effect_and_result",
-    supportedRefs: Object.freeze([
-      "loose_heads_tags",
-      "packed_heads_tags",
-      "detached_head",
-    ]),
-    pathReported: false,
-    callerRevisionAccepted: false,
-    internalSourceBorrow:
-      "same_runtime_owned_binding_and_current_revision_only",
-    runtimeSupportedObjectFormats: Object.freeze(["sha1"]),
-    unsupportedObjectFormatResult: "fail_closed_before_operation_effect",
-    providerEffectAllowed: false,
-  });
-}
-
-import type { WorkspaceResult } from "../workspace/record.ts";

@@ -153,7 +153,7 @@ test("計測CLIは全量入力を搬送し出力失敗でも元結果と回復�
 });
 
 import { ExecutionStorageBlockedError } from "../../../execution-model/src/index.ts";
-import { RepositoryDataBlockedError } from "../../src/configuration/runtime-data.ts";
+import { RepositoryDataBlockedError } from "../../src/lifecycle/host.ts";
 import {
   createIsolatedDevelopmentProviderMeasurementCandidate,
   projectDevelopmentMeasurementEntryFailure,

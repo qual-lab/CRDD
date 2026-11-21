@@ -15,6 +15,7 @@
  */
 
 import assert from "node:assert/strict";
+import { createHostCompletionFixture } from "../fixtures/docker-owned-process-test-support.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -34,17 +35,11 @@ import {
 } from "../../../execution-model/tests/support/resource-operation.ts";
 import type { CompletionResult } from "../../../executor/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
-import {
-  createIsolatedCoordinatorTaskRuntimeCandidate,
-  describeCoordinatorTaskRuntimeContract,
-  startRuntimeOwnedCoordinatorTask,
-} from "../../src/execution/controller.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/lifecycle/execution.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   bindRuntimeOwnedRepositoryOperation,
   cleanupOwnedOperationDirectories,
-  createIsolatedCoordinatorTaskOperationCreationCandidate,
-  createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
@@ -52,14 +47,10 @@ import {
   getOwnedHostRecoveryId,
   inspectRepositoryObjectFormatCandidate,
   verifyOwnedOperationManagementCapability,
-} from "../../src/execution/operation.ts";
-import * as persistence from "../../src/execution/persistence.ts";
-import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/execution/process-safety-state.ts";
-import {
-  classifyCoordinatorTaskTerminalLifecycleState,
-  coordinatorTaskPublicReasons,
-} from "../../src/execution/result.ts";
-import { resolveTaskExecutionSelections } from "../../src/selection/resolve.ts";
+  operationStartInput,
+} from "../../src/lifecycle/host.ts";
+import { coordinatorTaskPublicReasons } from "../../src/lifecycle/validation.ts";
+import { resolveTaskExecutionSelections } from "../../src/lifecycle/selection.ts";
 import {
   executionSelection,
   selectionConfig,
@@ -71,6 +62,15 @@ import {
   getRuntimeTraceCase,
   type RuntimeTraceCase,
 } from "../support/runtime-trace-case.ts";
+import {
+  executionHostCreationFixture,
+  loadOperationFailureFixture,
+  loadTaskRuntimeFixture,
+  traceTaskTerminalState,
+  type TaskFixtureDependencies,
+} from "../support/task-requests.ts";
+
+const createTaskRuntimeFixture = await loadTaskRuntimeFixture();
 
 type TraceSnapshot = Readonly<{
   state: string;
@@ -499,7 +499,7 @@ function selectResourcePostconditions(
 async function assertTerminalRuntimeTraceCase(
   caseId: string,
   harness: ReturnType<typeof fixture>,
-  result: Parameters<typeof classifyCoordinatorTaskTerminalLifecycleState>[0],
+  result: Parameters<typeof traceTaskTerminalState>[0],
 ) {
   assert.deepEqual(await harness.observeLastControlInvalid(), {
     status: "blocked",
@@ -508,10 +508,7 @@ async function assertTerminalRuntimeTraceCase(
   const terminal = harness.lifecycleSnapshots.at(-1);
   const source = harness.lifecycleSnapshots.at(-2);
   assert.ok(source && terminal);
-  assert.equal(
-    terminal.state,
-    classifyCoordinatorTaskTerminalLifecycleState(result),
-  );
+  assert.equal(terminal.state, traceTaskTerminalState(result));
   assert.match(
     terminal.state,
     /^STATE-(?:BLOCKED-CLEAN|PROCESS-RESTART-REQUIRED|RECOVERY-REQUIRED|OPERATOR-TRANSFER-REQUIRED)$/u,
@@ -725,6 +722,7 @@ function request(overrides: Record<string, unknown> = {}) {
 function fixture(
   options: {
     observeStartRegistration?: (observer: unknown) => void;
+    observePacketIssue?: () => void;
     admitState?: (
       provider: "codex" | "claude",
       role: "executor" | "reviewer",
@@ -740,6 +738,7 @@ function fixture(
     cleanupThrows?: boolean;
     cleanupProtocolFailure?: boolean;
     completionRejectRole?: "executor" | "reviewer";
+    finalizationCapabilityMismatch?: boolean;
     candidateVerificationFails?: boolean;
     candidateVerificationFailureAt?: number;
     borrowedWorkspace?: boolean;
@@ -756,6 +755,7 @@ function fixture(
     externalSendNoticeObserver?: () => void;
     reviewerReadProjectionObserver?: (projection: unknown) => void;
     reviewerReadProjectionFails?: boolean;
+    reviewerReadProjectionMissingAt?: 1 | 2;
     externalSendReason?: string;
     pauseExternalAuthorization?: boolean;
     pauseOperationCreation?: boolean;
@@ -805,7 +805,6 @@ function fixture(
     slateUnavailable?: boolean;
     selectionPreflightFailureAt?: number;
     selectionPreflightMismatchAt?: number;
-    selectionPreflightValue?: unknown;
     packetIssueInvalid?: boolean;
     grantRevokeFailure?: Readonly<{
       target: "packet" | "mount";
@@ -833,13 +832,7 @@ function fixture(
     providerExecutionObservation?: boolean | "invalid";
     terminalObserver?: (state: string) => void;
     inspectRepository?: typeof inspectRepositoryObjectFormatCandidate;
-    createOperationOverride?: () => Readonly<{
-      owned: object;
-      mountCapability: object;
-      managementCapability: object;
-      operationId: string;
-      hostRecoveryId: string;
-    }>;
+    createOperationOverride?: TaskFixtureDependencies["createOperation"];
     classifyOperationCreationFailureOverride?: (error: unknown) => Readonly<{
       reason?: string;
       hostRecoveryId: string | null;
@@ -884,6 +877,7 @@ function fixture(
   let selectionCount = 0;
   let packetRevokeCount = 0;
   let providerHomeObservationCount = 0;
+  let reviewerReadProjectionCount = 0;
   let dockerFinalizeCount = 0;
   let dockerReceiptCount = 0;
   let dockerIntentCount = 0;
@@ -1006,7 +1000,7 @@ function fixture(
           repositoryPathReported: false,
         })),
     createOperation: async (
-      _signal: AbortSignal,
+      signal: AbortSignal,
       verifyBoundary: () => boolean,
     ) => {
       options.operationBoundaryObserver?.(verifyBoundary);
@@ -1023,13 +1017,14 @@ function fixture(
         throw operationCreationError;
       }
       if (options.createOperationOverride)
-        return options.createOperationOverride();
+        return options.createOperationOverride(signal, verifyBoundary);
       return Object.freeze({
         owned,
         mountCapability,
         managementCapability,
         operationId: "OP-123456",
-        hostRecoveryId: "host.fixture.recovery.record",
+        hostRecoveryId:
+          options.dockerHostCleanupId ?? "host.fixture.recovery.record",
       });
     },
     classifyOperationCreationFailure: (error: unknown) =>
@@ -1149,40 +1144,27 @@ function fixture(
           taskAttempt: selectionCount > 2 ? 1 : 0,
         });
       }
-      const expected = values.map((value, index) => {
-        const changedProvider =
-          values.length === 2
-            ? index === 0
-              ? options.slateExecutorProvider
-              : options.slateReviewerProvider
-            : options.selectionPreflightMismatchAt === selectionCount
-              ? value.provider === "codex"
-                ? "claude"
-                : "codex"
-              : undefined;
-        return changedProvider && changedProvider !== value.provider
-          ? { ...value, provider: changedProvider }
-          : value;
-      });
-      if (
-        stage &&
-        selectionCount === 1 &&
-        Object.hasOwn(options, "selectionPreflightValue")
-      )
-        expected[0] = options.selectionPreflightValue as ReturnType<
-          typeof executionSelection
-        >;
+      const differs = stage
+        ? options.selectionPreflightMismatchAt === selectionCount
+        : values.some((value, index) => {
+            const expected =
+              index === 0
+                ? options.slateExecutorProvider
+                : options.slateReviewerProvider;
+            return expected !== undefined && expected !== value.provider;
+          });
+      if (differs)
+        return Object.freeze({
+          status: "blocked",
+          reason: "delegation_slate_selection_invalid",
+        });
       return options.slateUnavailable ||
         (stage && options.selectionPreflightFailureAt === selectionCount)
         ? Object.freeze({
             status: "blocked",
             reason: "delegation_slate_reviewer_unavailable",
           })
-        : Object.freeze({
-            status: "candidate",
-            operationId: selection.operationId,
-            executionSelections: expected,
-          });
+        : Object.freeze({ status: "matched" });
     },
     materializeWorkspace: () => {
       workspaceMaterializeCount += 1;
@@ -1197,8 +1179,13 @@ function fixture(
             ...(options.borrowedWorkspace !== false ? { borrowed: true } : {}),
           });
     },
-    projectReviewerReadContent: () =>
-      options.reviewerReadProjectionFails
+    projectReviewerReadContent: () => {
+      reviewerReadProjectionCount++;
+      if (
+        options.reviewerReadProjectionMissingAt === reviewerReadProjectionCount
+      )
+        return null;
+      return options.reviewerReadProjectionFails
         ? Object.freeze({
             status: "blocked",
             reason: "candidate_read_projection_identity_mismatch",
@@ -1218,7 +1205,8 @@ function fixture(
                 content: "ok",
               }),
             ]),
-          }),
+          });
+    },
     observeProviderHome: (provider: "codex" | "claude") => {
       providerHomeObservationCount++;
       selectionLifecycleEvents.push(
@@ -1277,6 +1265,7 @@ function fixture(
         useCapability,
         Object.freeze({ role: taskRole, provider }),
       );
+      options.observePacketIssue?.();
       return Object.freeze({
         status: options.packetIssueInvalid ? "blocked" : "issued",
         controlCapability: Object.freeze({}),
@@ -1294,12 +1283,11 @@ function fixture(
     },
     startProcess: (
       provider: "codex" | "claude",
-      input: import("../../src/execution/types.ts").PreparationInput,
+      input: import("../../src/lifecycle/types.ts").PreparationInput,
       registerRecoveryHandoff: (
         capability: unknown,
         recoveryId: unknown,
       ) => boolean,
-      commandRestriction?: unknown,
       observeProviderStarted?: unknown,
     ) => {
       preparedConsumers.push(input.consumer);
@@ -1324,15 +1312,6 @@ function fixture(
           preparationFailed: true,
         });
       options.observeStartRegistration?.(observeProviderStarted);
-      if (commandRestriction !== undefined) {
-        assert.equal(typeof commandRestriction, "function");
-        assert.equal(
-          (commandRestriction as (purpose: string) => boolean)(
-            "start_provider_attached",
-          ),
-          true,
-        );
-      }
       const roleStartCount = (processStartCounts.get(role) ?? 0) + 1;
       if (
         options.admitState &&
@@ -1406,9 +1385,9 @@ function fixture(
               : cleanupFails
                 ? activeRecoveryId
                 : null,
-        ...(options.hostCleanupWal
-          ? { recoveryFinalizationCapability: recoveryCapability }
-          : {}),
+        recoveryFinalizationCapability: options.finalizationCapabilityMismatch
+          ? Object.freeze({ role })
+          : recoveryCapability,
         ...(options.providerTurnObservation && role === "executor"
           ? {
               providerTurnObservation: Object.freeze({
@@ -1540,7 +1519,8 @@ function fixture(
       });
       return Object.freeze({
         status: "started",
-        selectionNotice: role + "-selection-notice",
+        // 開始結果に旧表示が残っていても、受付時の選定を上書きさせない。
+        selectionNotice: `${role}-selection-notice`,
         reason: "started",
         controlCapability: Object.freeze({}),
         recoveryId: activeRecoveryId,
@@ -1612,13 +1592,15 @@ function fixture(
     },
     ...(options.hostCleanupWal
       ? {
-          prepareDockerHostCleanup: () => {
+          prepareHostBoundary: () => {
             events.push("docker-host-cleanup-intent");
             dockerIntentCount += 1;
             if (options.dockerIntentFailsAt === dockerIntentCount) return null;
-            return options.dockerHostCleanupId ?? "host.fixture.cleanup.intent";
+            return (
+              options.dockerHostCleanupId ?? "host.fixture.recovery.record"
+            );
           },
-          recordDockerHostCleanupReceipt: (
+          finishHostBoundary: (
             capability: object,
             completion: Readonly<{
               hostCleanupOutcome: unknown;
@@ -1639,12 +1621,12 @@ function fixture(
             events.push("docker-host-cleanup-receipt");
             dockerReceiptCount += 1;
             options.onDockerReceipt?.(dockerReceiptCount);
-            return options.dockerReceiptFailsAt !== dockerReceiptCount;
-          },
-          finalizeDockerRecovery: () => {
+            if (options.dockerReceiptFailsAt === dockerReceiptCount)
+              return Object.freeze({ status: "blocked", stage: "receipt" });
             events.push("docker-finalize");
             dockerFinalizeCount += 1;
             return Object.freeze({
+              stage: "finalization",
               status:
                 options.dockerFinalizeFailsAt === dockerFinalizeCount
                   ? "blocked"
@@ -1703,10 +1685,22 @@ function fixture(
       },
     });
   }
-  const baseRuntime = createIsolatedCoordinatorTaskRuntimeCandidate(
-    dependencies as unknown as Parameters<
-      typeof createIsolatedCoordinatorTaskRuntimeCandidate
-    >[0],
+  Object.assign(dependencies, {
+    completeHostOperation: createHostCompletionFixture({
+      cleanup: dependencies.cleanupOperation,
+      classify: dependencies.classifyOperationCleanup,
+      prepare:
+        "prepareHostBoundary" in dependencies
+          ? dependencies.prepareHostBoundary
+          : undefined,
+      finish:
+        "finishHostBoundary" in dependencies
+          ? dependencies.finishHostBoundary
+          : undefined,
+    }),
+  });
+  const baseRuntime = createTaskRuntimeFixture(
+    dependencies as unknown as TaskFixtureDependencies,
   );
   let lastControlCapability: object | null = null;
   const runtime = Object.freeze({
@@ -2917,18 +2911,30 @@ test("検証済みProvider turn観測をcleanup後のTask結果へ伝播する",
  * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Candidate結合済みReviewer投影を作れなければReviewer Effect前に停止する", async () => {
-  const harness = fixture({ reviewerReadProjectionFails: true });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "coordinator_task_reviewer_read_projection_failed",
-  );
-  assert.equal(result.cleanupConfirmed, true);
-  assert.equal(result.manualRecoveryRequired, false);
-  assert.equal(result.candidateDisposition, "not_issued");
-  assert.equal(harness.processStartCount(), 1);
+  for (const [options, started] of [
+    [{ reviewerReadProjectionFails: true }, 1],
+    [{ reviewerReadProjectionMissingAt: 1 }, 1],
+    [
+      {
+        reviewerReadProjectionMissingAt: 2,
+        reviewerDecision: "changes_requested",
+      },
+      3,
+    ],
+  ] as const) {
+    const harness = fixture(options);
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "coordinator_task_reviewer_read_projection_failed",
+    );
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.manualRecoveryRequired, false);
+    assert.equal(result.candidateDisposition, "not_issued");
+    assert.equal(harness.processStartCount(), started);
+  }
 });
 
 /**
@@ -3062,6 +3068,22 @@ test("固定した両Providerの選定をEffect前確認と独立Reviewerへ接�
     assert.equal(result.reviewerProvider, reviewer);
     assert.equal(result.reviewerIndependence, "provider_independent");
     assert.equal(harness.processStartCount(), 2);
+    assert.deepEqual(
+      [result.executorSelectionNotice, result.reviewerSelectionNotice],
+      [selections.executor, selections.reviewer].map((selected) =>
+        [
+          selected.provider,
+          selected.modelIdentifier,
+          selected.reasoningEffort,
+          selected.role,
+          selected.source,
+        ].join(" / "),
+      ),
+    );
+    assert.deepEqual(
+      harness.selectionNotices.map((notice) => notice.selectionReason),
+      [result.executorSelectionNotice, result.reviewerSelectionNotice],
+    );
     assert.deepEqual(
       harness.selectionRequests.map((x) => x.executionSelection),
       [selections.executor, selections.reviewer],
@@ -3277,22 +3299,6 @@ test("Packet失効の拒否・未知値・例外は元理由と回復参照を�
  * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("preflight選定の不成立・完全値差はProvider Effect前に停止する", async () => {
-  const original = fixedSelections().executor;
-  for (const [selectionPreflightValue, matches] of [
-    [Object.fromEntries(Object.entries(original).reverse()), true],
-    [{ ...original, modelIdentifier: "different-model" }, false],
-    [{ ...original, configIdentity: "f".repeat(64) }, false],
-    [{ ...original, unknown: true }, false],
-    [null, false],
-  ] as const) {
-    const harness = fixture({ selectionPreflightValue });
-    const result = await harness.runtime.start(request(), "C:\\repository")
-      .completion;
-    assert.equal(result.status, matches ? "completed" : "blocked");
-    assert.equal(harness.processStartCount(), matches ? 2 : 0);
-    if (!matches)
-      assert.equal(result.reason, "coordinator_task_selection_failed");
-  }
   for (const [options, reason] of [
     [{ selectionPreflightFailureAt: 1 }, "coordinator_task_selection_failed"],
     [{ selectionPreflightMismatchAt: 1 }, "coordinator_task_selection_failed"],
@@ -3481,8 +3487,8 @@ test("Docker回復記録はHost cleanup intentと不存在receiptの後だけfin
     "docker-host-cleanup-intent",
     "host-cleanup",
     "docker-host-cleanup-receipt",
-    "docker-host-cleanup-receipt",
     "docker-finalize",
+    "docker-host-cleanup-receipt",
     "docker-finalize",
   ]);
 });
@@ -3627,6 +3633,25 @@ test("finalizable Docker handoffは0／1／2件で同じcleanup DAGへ進む", a
     two.events.filter((event) => event === "docker-finalize").length,
     2,
   );
+
+  const mismatch = fixture({
+    hostCleanupWal: true,
+    finalizationCapabilityMismatch: true,
+  });
+  const mismatchResult = await mismatch.runtime.start(
+    request(),
+    "C:\\repository",
+  ).completion;
+  assert.equal(mismatchResult.status, "blocked");
+  assert.equal(
+    mismatchResult.reason,
+    "coordinator_task_docker_finalization_capability_missing",
+  );
+  assert.deepEqual(mismatchResult.dockerRecoveryIds, [
+    fixtureDockerRecoveryId("executor.active"),
+  ]);
+  assert.equal(mismatch.cleanupCount(), 0);
+  assert.equal(mismatch.events.includes("docker-finalize"), false);
 });
 
 /**
@@ -3714,6 +3739,10 @@ test("各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup 
     assert.equal(result.status, "blocked");
     assert.equal(result.manualRecoveryRequired, true);
     assert.deepEqual(result.dockerRecoveryIds, expectedItems);
+    assert.equal(
+      result.dockerRecoveryId,
+      expectedItems.length === 1 ? expectedItems[0] : null,
+    );
     assert.equal(harness.dockerIntentCount(), 0);
     assert.equal(harness.dockerReceiptCount(), 0);
     assert.equal(harness.dockerFinalizeCount(), 0);
@@ -3742,7 +3771,7 @@ test("複数Docker intentの途中失敗はHost cleanupへ進まず未解決集�
     result.reason,
     "coordinator_task_host_cleanup_intent_unconfirmed",
   );
-  assert.equal(result.hostRecoveryId, "host.fixture.cleanup.intent");
+  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
   assert.deepEqual(
     [...result.dockerRecoveryIds].sort(),
     [
@@ -3771,23 +3800,33 @@ test("複数Docker intentの途中失敗はHost cleanupへ進まず未解決集�
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("先にfinalize済みのDocker IDを後続finalize失敗の未解決集合へ再混入しない", async () => {
-  const harness = fixture({ hostCleanupWal: true, dockerFinalizeFailsAt: 2 });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "coordinator_task_docker_recovery_finalization_unconfirmed",
-  );
-  assert.deepEqual(result.dockerRecoveryIds, [
-    fixtureDockerRecoveryId("reviewer.active"),
-  ]);
-  assert.equal(
-    result.dockerRecoveryId,
-    fixtureDockerRecoveryId("reviewer.active"),
-  );
-  assert.equal(result.hostRecoveryId, null);
-  assert.equal(harness.abandonOperationCount(), 0);
+  for (const stage of ["receipt", "finalization"] as const) {
+    const harness = fixture({
+      hostCleanupWal: true,
+      ...(stage === "receipt"
+        ? { dockerReceiptFailsAt: 2 }
+        : { dockerFinalizeFailsAt: 2 }),
+    });
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      stage === "receipt"
+        ? "coordinator_task_host_cleanup_receipt_unconfirmed"
+        : "coordinator_task_docker_recovery_finalization_unconfirmed",
+    );
+    assert.deepEqual(result.dockerRecoveryIds, [
+      fixtureDockerRecoveryId("reviewer.active"),
+    ]);
+    assert.equal(
+      result.dockerRecoveryId,
+      fixtureDockerRecoveryId("reviewer.active"),
+    );
+    assert.equal(result.hostRecoveryId, null);
+    assert.equal(harness.abandonOperationCount(), 0);
+    assert.equal(harness.cleanupCount(), 1);
+  }
 });
 
 /**
@@ -4420,7 +4459,10 @@ test("Provider start／completion cleanup不明はHostとDockerのRecovery IDを
     ],
     [
       { processCleanupFailureRole: "reviewer" as const },
-      [fixtureDockerRecoveryId("reviewer.active")],
+      [
+        fixtureDockerRecoveryId("reviewer.active"),
+        fixtureDockerRecoveryId("executor.active"),
+      ],
     ],
   ] as const) {
     const harness = fixture(options);
@@ -4588,6 +4630,122 @@ test("不正なlower取消receiptも同じlive Operationでは同じcached rejec
 });
 
 /**
+ * 作業指示の発行中に再入した取消では下位実行を開始しない。
+ *
+ * @responsibility 開始要求前の取消で未使用の作業指示を失効させることを検証する。
+ * @trace PRL-IT-012
+ * @precondition 下位開始前の作業指示発行で同期通知する代役を使う。
+ * @stimulus 発行の応答が戻る前に同じ操作を取り消す。
+ * @observation 開始要求、作業指示の失効、清掃を観測する。
+ * @oracle 下位実行も下位取消も発行せず、作業指示は一度失効する。
+ * @cleanup 通常の終結による清掃を確認する。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("作業指示発行中の同期取消は下位実行を開始せず指示を失効する", async () => {
+  const harness = fixture({ observePacketIssue: cancelBeforeStart });
+  const started = harness.runtime.start(request(), "C:\\repository");
+  function cancelBeforeStart() {
+    void harness.runtime.cancel(started.controlCapability);
+  }
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_cancelled_before_stage_start");
+  assert.equal(harness.processStartCount(), 0);
+  assert.equal(harness.cancelProcessCount(), 0);
+  assert.equal(harness.packetRevokeCount(), 1);
+  assert.equal(harness.cleanupCount(), 1);
+});
+
+/**
+ * 下位ハンドルの受領前に再入した取消でも元の完了観測を維持する。
+ *
+ * @responsibility 起動中の同期取消が同じ下位実行へ一度だけ届くことを検証する。
+ * @trace PRL-IT-012
+ * @precondition 下位実行の完了を保留し、起動通知で取消を二度呼ぶ。
+ * @stimulus 下位の取消応答を成功または拒否させ、元の実行を後から完了させる。
+ * @observation 取消応答、要求回数、清掃の時点と最終状態を観測する。
+ * @oracle 取消は同じ応答を共有し、元の完了前には清掃や次の実行を開始しない。
+ * @cleanup 代役の保留を解除し、元の完了を待つ。
+ * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("起動中の同期取消は同じ下位へ一度だけ届き、元の完了を待つ", async (t) => {
+  for (const invalid of [false, true]) {
+    await t.test(
+      invalid ? "取消応答が不正" : "終了未確認の取消応答",
+      async () => {
+        const cancellations: Promise<unknown>[] = [];
+        const harness = fixture({
+          pauseRole: "executor",
+          cancellationReceiptInvalid: invalid,
+          cancellationTerminationObserved: false,
+          observeStartRegistration: cancelDuringStart,
+        });
+        const started = harness.runtime.start(request(), "C:\\repository");
+        function cancelDuringStart() {
+          cancellations.push(
+            harness.runtime.cancel(started.controlCapability),
+            harness.runtime.cancel(started.controlCapability),
+          );
+        }
+        try {
+          await new Promise((resolve) => setImmediate(resolve));
+          const [first, duplicate] = cancellations;
+          assert.ok(first);
+          assert.strictEqual(duplicate, first);
+          if (invalid) {
+            await assert.rejects(
+              first,
+              /coordinator_task_cancellation_receipt_invalid/u,
+            );
+          } else {
+            assert.deepEqual(await first, {
+              status: "requested",
+              reason: "provider_cancellation_grace_exceeded",
+              cancellationRequested: true,
+              processTerminationObserved: false,
+            });
+          }
+          assert.equal(harness.cancelProcessCount(), 1);
+          assert.equal(harness.cleanupCount(), 0);
+        } finally {
+          harness.releasePausedProcess();
+        }
+        const result = await started.completion;
+        assert.equal(result.status, "blocked");
+        assert.equal(result.processRestartRequired, invalid);
+        assert.equal(harness.cancelProcessCount(), 1);
+        assert.equal(harness.cleanupCount(), 1);
+        assert.equal(harness.events.includes("start:reviewer"), false);
+      },
+    );
+  }
+  await t.test("元の完了が拒否されても取消を再送しない", async () => {
+    const harness = fixture({
+      completionRejectRole: "executor",
+      observeStartRegistration: cancelDuringStart,
+    });
+    const started = harness.runtime.start(request(), "C:\\repository");
+    function cancelDuringStart() {
+      void harness.runtime.cancel(started.controlCapability);
+    }
+    const result = await started.completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "coordinator_task_process_completion_unconfirmed",
+    );
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
+    assert.equal(
+      result.dockerRecoveryId,
+      fixtureDockerRecoveryId("executor.active"),
+    );
+    assert.equal(harness.cancelProcessCount(), 1);
+    assert.equal(harness.cleanupCount(), 0);
+  });
+});
+
+/**
  * never取消receiptはack上限後にcleanupを続けて不可逆poisonへ閉じるを検証する。
  *
  * @responsibility never取消receiptはack上限後にcleanupを続けて不可逆poisonへ閉じるの合否判定を所有する。
@@ -4600,6 +4758,18 @@ test("不正なlower取消receiptも同じlive Operationでは同じcached rejec
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("never取消receiptはack上限後にcleanupを続けて不可逆poisonへ閉じる", async () => {
+  const production = fs.readFileSync(
+    new URL("../../src/lifecycle/execution.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    production,
+    /const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;/u,
+  );
+  assert.match(
+    production,
+    /const timeoutMs = PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS;/u,
+  );
   const harness = fixture({
     pauseRole: "executor",
     cancellationReceiptNever: true,
@@ -4698,7 +4868,7 @@ test("分類不能なopaque cleanup outcomeはcleanup unknownへ閉じる", asyn
     const harness = fixture({
       cleanupOutcomeUnverified: true,
       hostCleanupWal: isHostCleanupWal,
-      dockerHostCleanupId: cleanupIntentId,
+      ...(isHostCleanupWal ? { dockerHostCleanupId: cleanupIntentId } : {}),
     });
     const result = await harness.runtime.start(request(), "C:\\repository")
       .completion;
@@ -4987,103 +5157,6 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
 });
 
 /**
- * 公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定するを検証する。
- *
- * @responsibility 公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定するの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
-  const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 37);
-  assert.equal(
-    contract.productionPackageGate,
-    "not_required_for_runtime_execution",
-  );
-  assert.equal(
-    contract.providerTurnObservations,
-    "provider_role_requested_cli_limit_and_reported_positive_safe_integer_metadata_without_comparison_after_cleanup",
-  );
-  assert.equal(
-    contract.successfulHostRecoveryProjection,
-    "explicit_null_never_omitted",
-  );
-  assert.equal(contract.routes.length, 4);
-  assert.equal(
-    contract.executionSlate,
-    "executor_and_reviewer_preflighted_together_before_external_send_or_provider_effect",
-  );
-  assert.equal(
-    contract.independentReview.providerIndependent,
-    "preferred_subject_provider_excluded",
-  );
-  assert.equal(contract.independentReview.highRiskSameProviderAllowed, false);
-  assert.equal(
-    contract.candidateReviewClassification,
-    "candidate_integrity_verification_failure_is_distinct_from_independent_reviewer_semantic_rejection",
-  );
-  assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");
-  assert.equal(contract.directWorkingTreeEffectAllowed, true);
-  assert.equal(contract.implicitGitMutationAllowed, false);
-  assert.equal(contract.directProviderToProviderSpawnAllowed, false);
-  assert.equal(contract.apiKeyFallbackAllowed, false);
-  assert.equal(
-    contract.processPoisonGate,
-    "before_operation_console_workspace_provider_and_network",
-  );
-  assert.equal(
-    contract.processRestartProjection,
-    "runtime_owned_final_irreversible_process_poison_boolean_independent_from_recovery_identifiers_and_manual_recovery_reason",
-  );
-  assert.deepEqual(contract.cancellation, {
-    liveControlReceipt:
-      "exact_status_reason_cancellation_requested_process_termination_observed",
-    reasonCorrelation:
-      "termination_true_requested_or_termination_false_grace_exceeded",
-    duplicateLiveOperation:
-      "same_cancellation_effect_same_promise_same_frozen_receipt",
-    invalidForeignOrExpiredControl:
-      "exact_blocked_control_invalid_with_zero_effect",
-    legacyReceiptFallbackAllowed: false,
-    acknowledgmentTimeoutMs: 10_000,
-    protocolFailure:
-      "irreversible_process_poison_joined_before_completion_projection_while_resource_cleanup_continues",
-    liveControlLifetime:
-      "from_started_return_until_outer_completion_final_settlement_including_cleanup",
-  });
-  assert.equal(
-    contract.completionOwnership,
-    "production_producer_returns_exact_native_promise_and_owns_settlement_non_native_completion_is_not_runner_authority",
-  );
-  assert.equal(
-    contract.hostOperationGenerationReadiness,
-    "synchronous_wx_acquisition_then_same_generation_and_durable_record_file_hash_state_root_children_reconfirmation_before_any_following_effect",
-  );
-  assert.equal(
-    contract.hostOperationLockOutcomes,
-    "acquired_unavailable_initialization_residue_or_descriptor_close_unknown_with_exact_recovery_and_existing_process_poison",
-  );
-  assert.equal(
-    contract.operationCreationCancellation,
-    "rechecked_after_async_creation_before_repository_policy_slate_console_or_provider_effect",
-  );
-  assert.equal(
-    contract.interactiveCleanupRecovery,
-    "restart_only_without_operation_recovery_id_unless_operation_cleanup_also_fails",
-  );
-  assert.equal(contract.candidatePersistence, "not_issued_by_task_completion");
-  assert.equal(
-    contract.boundedRemediation,
-    "maximum_one_same_executor_then_same_independent_reviewer",
-  );
-});
-
-/**
  * Task terminal分類はcleanup・手動Recovery・再起動・actionable IDを直交させるを検証する。
  *
  * @responsibility Task terminal分類はcleanup・手動Recovery・再起動・actionable IDを直交させるの合否判定を所有する。
@@ -5095,10 +5168,8 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Task terminal分類はcleanup・手動Recovery・再起動・actionable IDを直交させる", () => {
-  type TerminalRecord = Parameters<
-    typeof classifyCoordinatorTaskTerminalLifecycleState
-  >[0];
+test("Task試験の終端ラベルはcleanup・手動Recovery・再起動・actionable IDを直交させる", () => {
+  type TerminalRecord = Parameters<typeof traceTaskTerminalState>[0];
   const record = (overrides: Partial<TerminalRecord> = {}): TerminalRecord =>
     Object.freeze({
       status: "blocked",
@@ -5151,7 +5222,7 @@ test("Task terminal分類はcleanup・手動Recovery・再起動・actionable ID
                     ? "STATE-RESULT-PUBLISHED"
                     : "STATE-BLOCKED-CLEAN";
             assert.equal(
-              classifyCoordinatorTaskTerminalLifecycleState(
+              traceTaskTerminalState(
                 record({
                   status,
                   cleanupConfirmed,
@@ -5424,12 +5495,12 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
   await t.test(
     "下位Directory生成のtyped cleanup不明をTask公開結果へ接続する",
     async () => {
-      const lowerFailure =
-        createIsolatedOwnedOperationDirectoryCreationFailureCandidate();
+      const { operation } = await loadOperationFailureFixture();
       const hostRecoveryId = "host.fixture.lower.directory.creation";
       let error: unknown = null;
       try {
-        lowerFailure.fail(
+        operation.throwOwnedOperationDirectoryCreationFailure(
+          Error("fixture_failure"),
           Object.freeze({
             cleanupConfirmed: false,
             manualRecoveryRequired: true,
@@ -5439,14 +5510,30 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       } catch (caught) {
         error = caught;
       }
-      const productionWrapper =
-        createIsolatedCoordinatorTaskOperationCreationCandidate(() => {
+      let processPoisoned = false;
+      const createOperation = executionHostCreationFixture("task", {
+        getIsolationSettings: () => ({}),
+        startDockerEnvironment: async () => ({ status: "ready" }),
+        createRuntimeOwnedCoordinatorOperation: () => {
           throw error;
-        });
+        },
+        classifyOwnedCoordinatorOperationCreationFailure:
+          operation.classifyOwnedCoordinatorOperationCreationFailure,
+        poisonRuntimeProcessAfterCleanupUnknown: () => {
+          processPoisoned = true;
+        },
+        throwProductionOperationFailure:
+          operation.throwProductionOperationFailure,
+      });
       const harness = fixture({
-        createOperationOverride: productionWrapper.create,
-        classifyOperationCreationFailureOverride: productionWrapper.classify,
-        isProcessPoisoned: productionWrapper.isProcessPoisoned,
+        createOperationOverride: (signal, current) =>
+          createOperation(signal, current, {
+            root: {} as never,
+            recordingCurrent: () => true,
+          }),
+        classifyOperationCreationFailureOverride:
+          operation.productionOperationFailure,
+        isProcessPoisoned: () => processPoisoned,
       });
       const result = await harness.runtime.start(request(), "C:\\repository")
         .completion;
@@ -5906,17 +5993,22 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
   }
 
   await t.test("CASE-PROCESS-RESTART-HOST-CLEAN-COMPLETED", async () => {
-    const processSafetyState =
-      createIsolatedRuntimeProcessSafetyStateCandidate();
+    const hostUrl = new URL(
+      "../../src/lifecycle/host.ts?terminal-clean-process",
+      import.meta.url,
+    );
+    const processSafetyState = (await import(
+      hostUrl.href
+    )) as typeof import("../../src/lifecycle/host.ts");
     const harness = fixture({
       pauseRole: "reviewer",
       pauseRoleOccurrence: 1,
-      isProcessPoisoned: processSafetyState.isPoisoned,
+      isProcessPoisoned: processSafetyState.isRuntimeProcessPoisoned,
     });
     const started = harness.runtime.start(request(), "C:\\repository");
     while (harness.processStartCount() < 2)
       await new Promise((resolve) => setImmediate(resolve));
-    processSafetyState.poisonCleanupUnknown();
+    processSafetyState.poisonRuntimeProcessAfterCleanupUnknown();
     harness.releasePausedProcess();
     const result = await started.completion;
     assert.equal(result.status, "completed");
@@ -5933,11 +6025,15 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       harness.lifecycleStates.at(-1),
       "STATE-PROCESS-RESTART-REQUIRED",
     );
-    assert.equal(processSafetyState.isPoisoned(), true);
-    assert.equal(
-      createIsolatedRuntimeProcessSafetyStateCandidate().isPoisoned(),
-      false,
+    assert.equal(processSafetyState.isRuntimeProcessPoisoned(), true);
+    const freshHostUrl = new URL(
+      "../../src/lifecycle/host.ts?terminal-clean-independent-state",
+      import.meta.url,
     );
+    const freshSafetyState = (await import(
+      freshHostUrl.href
+    )) as typeof import("../../src/lifecycle/host.ts");
+    assert.equal(freshSafetyState.isRuntimeProcessPoisoned(), false);
     await assertTerminalRuntimeTraceCase(
       "CASE-PROCESS-RESTART-HOST-CLEAN-COMPLETED",
       harness,
@@ -5997,10 +6093,9 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
     operationId: operation.operationId,
     repositoryBinding: state.value.snapshot.repositoryBinding,
   };
-  const started = persistence.saveOperationStart(
-    managementCapability,
+  const started = saveOperationStart(
+    operationStartInput(managementCapability, () => null),
     `${JSON.stringify(identity)}\n`,
-    () => null,
   );
   assert.equal(started.startSaved, true, JSON.stringify(started));
   const harness = fixture({

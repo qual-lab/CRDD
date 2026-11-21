@@ -268,7 +268,7 @@ RCM-IT-010の旧CROS汎用Tool Registry専用試験は、本番Consumer未接続
 
 ## 呼出し元別助言経路の解体に伴う検証
 
-`RCM-IT-005`の現行入口はCoordinator公開`runRepositoryAdvice`とする。実Domain Readerと自己生成Repositoryを接続し、用途固定Runtime構築・Host失敗分類を有限代役にして、正常本文、65,536／65,537 bytes、欠測、Link、読取り前後・Catalog後の取消を確認する。拒否・取消ではRuntime代役呼出し0、正常では一回かつ計画のRepository／Workspace Mountなしを観測する。Runtime応答不明と清掃不明は成功へ丸めず、cleanup未確認と合成分類された元Host参照の投影を確認する。応答未観測からcleanup済みを推定しない。Operation／Home／一回Packet／Controller／Host終端の実接続は既存別Suiteで評価し、この代役Caseの成立へ含めない。旧Profile Storeの採用・Revision列は退役し、Repository設定の競合・破損・観測不能・公開後不明の拒否は現行設定Storeで確認する。技術Catalogの同梱JSON欠落・構文不正・Schema不正ではModule起動停止を維持する。
+`RCM-IT-005`の現行入口はCoordinatorの単発ライフサイクルが呼び出す助言入口`runRepositoryAdvice`とする。実Domain Readerと自己生成Repositoryを接続し、用途固定Runtime構築・Host失敗分類を有限代役にして、正常本文、65,536／65,537 bytes、欠測、Link、読取り前後・Catalog後の取消を確認する。拒否・取消ではRuntime代役呼出し0、正常では一回かつ計画のRepository／Workspace Mountなしを観測する。Runtime応答不明と清掃不明は成功へ丸めず、cleanup未確認と合成分類された元Host参照の投影を確認する。応答未観測からcleanup済みを推定しない。Operation／Home／一回Packet／Controller／Host終端の実接続は既存別Suiteで評価し、この代役Caseの成立へ含めない。旧Profile Storeの採用・Revision列は退役し、Repository設定の競合・破損・観測不能・公開後不明の拒否は現行設定Storeで確認する。技術Catalogの同梱JSON欠落・構文不正・Schema不正ではModule起動停止を維持する。
 
 旧`workbench-ai/`の試験は`execution/`へ追従し、Schema・Hash入力・完全選定／通信方針固定・一回消費・取消join・結果参照検査を維持する。内部Symbolの呼出し元名除去は通信上のcontract／revision／reason／modeを変更する根拠にしない。実Provider・実Dockerの再試行と②保持物の操作はこの整理の検証範囲へ含めない。
 

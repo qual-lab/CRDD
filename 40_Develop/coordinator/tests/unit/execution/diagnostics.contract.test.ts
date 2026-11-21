@@ -12,19 +12,20 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
-import { isSupportedNodeRuntime } from "../../../src/execution/diagnostics.ts";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import { observeExecutionCompletion } from "../../../src/lifecycle/environment.ts";
 
-import type { DiagnosticCheck } from "../../../src/execution/diagnostics.ts";
 import {
   CHECK_STATUS,
+  type DiagnosticCheck,
   discoverCommand,
   evaluateReadiness,
+  isSupportedNodeRuntime,
   REQUIRED_CHECK_IDS,
   runDoctor,
-} from "../../../src/execution/diagnostics.ts";
-import { renderDoctorCommandFailure } from "../../../src/cli/recovery-report.ts";
+} from "../../../src/lifecycle/environment.ts";
+import { renderDoctorCommandFailure } from "../../../src/cli/command.ts";
 
 /**
  * 同じProbeのReceipt・終了・回収・Host終端を共同成立条件として確認する。
@@ -39,7 +40,7 @@ import { renderDoctorCommandFailure } from "../../../src/cli/recovery-report.ts"
  */
 test("Probeは同じReceiptと終了・回収・Host保存が揃うまで成功しない", async () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/diagnostics.ts", import.meta.url),
+    new URL("../../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   const declarations = [
@@ -90,7 +91,7 @@ test("Probeは同じReceiptと終了・回収・Host保存が揃うまで成功�
       };
       const cleanupOwnedOperationDirectories = () => { calls.push("host_cleanup"); };
       const getIsolationSettings = () => ({});
-      const create = request => ({
+      const createExecutor = request => ({
         cancel: async () => ({ status: "accepted" }),
         start(input) {
           const completion = (async () => {
@@ -119,13 +120,13 @@ test("Probeは同じReceiptと終了・回収・Host保存が揃うまで成功�
           return { status: "started", completion };
         },
       });
-      const execute = ${sourceDeclaration(source, "runDockerIsolationScenario")};
-      const result = await execute({}, create, new AbortController().signal);
+      const execute = ${sourceDeclaration(source, "runDockerIsolationProbe")};
+      const result = await execute({}, new AbortController().signal);
       return JSON.stringify({ result, calls, saved });
     }
     exercise;
   `,
-      { assert, AbortController },
+      { assert, AbortController, observeExecutionCompletion },
     ) as (scenario: string) => Promise<string>;
   for (const scenario of [
     "normal",
@@ -189,7 +190,7 @@ test("Probeは同じReceiptと終了・回収・Host保存が揃うまで成功�
  */
 test("Probe回復は削除後再入場を閉じ、不明と解放失敗を成功にしない", async () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/diagnostics.ts", import.meta.url),
+    new URL("../../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   const body = sourceDeclaration(source, "recoverDockerIsolationProbe");
@@ -430,7 +431,7 @@ test("doctor optionsは余分field、accessorおよびProxyを処置前に拒否
  */
 test("Doctorは受動の成功・失敗でHost資源を作らず明示隔離だけ取得する", async () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/diagnostics.ts", import.meta.url),
+    new URL("../../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   const body = sourceDeclaration(source, "runDoctor");
@@ -605,7 +606,7 @@ test("Doctor診断失敗は理由コードだけを公開する", () => {
  */
 test("診断とCLI表示は元Errorの回復参照を共有しコピーを拒否する", () => {
   const diagnostics = new URL(
-    "../../../src/execution/diagnostics.ts",
+    "../../../src/lifecycle/environment.ts",
     import.meta.url,
   ).href;
   const source = fs.readFileSync(new URL(diagnostics), "utf8");
@@ -617,8 +618,8 @@ test("診断とCLI表示は元Errorの回復参照を共有しコピーを拒否
   ]
     .map((name) => sourceDeclaration(source, name))
     .join("\n");
-  const report = new URL("../../../src/cli/recovery-report.ts", import.meta.url)
-    .href;
+  const report = new URL("../../../src/cli/command.ts", import.meta.url).href;
+  const parentCoverage = process.env.NODE_V8_COVERAGE;
   const result = spawnSync(
     process.execPath,
     [
@@ -644,7 +645,9 @@ const recoveryId = "host-operation.OP-123456";
 const classifyOwnedCoordinatorOperationCreationFailure = error => error === original
   ? { cleanupConfirmed: false, hostRecoveryId: recoveryId } : null;
 ${declarations}
+const actualDiagnostics = await import(${JSON.stringify(diagnostics)});
 mock.module(${JSON.stringify(diagnostics)}, { namedExports: {
+  ...actualDiagnostics,
   classifyDoctorOperationInitializationFailure,
   projectDoctorOperationCreationFailure,
 } });
@@ -663,8 +666,15 @@ const copy = report.renderDoctorCommandFailure(new Error(projected.message));
 assert.equal(Object.hasOwn(JSON.parse(copy.json), "hostRecoveryId"), false);
 `,
     ],
-    { encoding: "utf8", windowsHide: true, timeout: 15_000 },
+    {
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 15_000,
+      // 模擬Moduleの評価を製品Sourceの計測には混ぜない。
+      env: { ...process.env, NODE_V8_COVERAGE: "" },
+    },
   );
+  assert.equal(process.env.NODE_V8_COVERAGE, parentCoverage);
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);

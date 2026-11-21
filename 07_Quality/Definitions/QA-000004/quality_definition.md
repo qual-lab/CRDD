@@ -1,5 +1,9 @@
 # QA-000004 読取り投影と時間的出所の検証定義
 
+## Coordinatorの入力受付
+
+既存の `PPR-UT-006` は `lifecycle/validation.ts` の値捕捉を直接確認する。JSON解析の正例、別Objectにある同名キー、同一Objectでの入れ子・エスケープを含む重複、不正文法と末尾データも同じ試験で確認する。Parserの拒否を保存や実行の検証と同一視しない。
+
 ## 内部モデルの量制約と投影の追従 — 2026-11-12
 
 DMの宣言129件・表示名161文字、長いTopic／Meeting検索とCursor、活動の10,001件集合・51event、保存Path4,097文字、Workspace表示名121コードポイントを、入力・Decoder・投影の同じ契約で対照する。ID／relation文法・重複・Path境界・Query結合・不明の維持を負例とし、ページ最大・RootPolicy・codec深度32・Network32は変更しない。Browser／Transport入力側の保留制約は内部受理の成立と分離して記録する。AM表示名は人間判断で今回保留する。

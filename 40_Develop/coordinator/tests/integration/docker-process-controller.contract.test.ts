@@ -29,12 +29,10 @@ import {
 } from "../../../executor/scripts/executor-test.ts";
 import { attemptPlan } from "../../../executor/tests/fixtures/attempt-plan.ts";
 import { planDockerIsolationCommands } from "../../../executor/tests/support/isolation-plan.ts";
-import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
-import { createRuntimeOwnedLifecycleNoticeReporter } from "../../src/execution/observation.ts";
-import {
-  cancelRuntimeOwnedDockerProcessController,
-  startRuntimeOwnedDockerProcessController,
-} from "../../src/execution/provider-executor.ts";
+import { bindTaskCliCancellationSignals } from "../../src/cli/command.ts";
+import { createRuntimeOwnedLifecycleNoticeReporter } from "../../src/lifecycle/environment.ts";
+import { startRuntimeOwnedDockerProcessController } from "../../src/lifecycle/execution.ts";
+import { cancelRuntimeOwnedExecutorAttempt } from "../../src/lifecycle/environment.ts";
 import {
   attemptSelection,
   executionSelection,
@@ -80,16 +78,16 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
    */
   const runtime = (name: string) => stripTypeScriptTypes(source(name));
   assert.doesNotMatch(
-    runtime("execution/recovery.ts"),
+    runtime("lifecycle/environment.ts"),
     /from\s+["'][^"']*provider-executor\.ts["']/,
   );
   assert.doesNotMatch(
-    runtime("execution/operation.ts"),
-    /from\s+["']\.\/recovery\.ts["']/,
+    runtime("lifecycle/host.ts"),
+    /from\s+["']\.\.\/execution\/recovery\.ts["']/,
   );
   const recoveryControllerImports = [
-    ...runtime("execution/recovery.ts").matchAll(
-      /import\s*\{([^}]+)\}\s*from\s*["']\.\/controller\.ts["']/g,
+    ...runtime("lifecycle/environment.ts").matchAll(
+      /import\s*\{([^}]+)\}\s*from\s*["']\.\/execution\.ts["']/g,
     ),
   ].flatMap((match) =>
     (match[1] ?? "")
@@ -98,32 +96,40 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
       .filter(Boolean),
   );
   assert.deepEqual(recoveryControllerImports, []);
-  for (const name of ["authority", "diagnostics"])
+  for (const name of [
+    "lifecycle/authentication.ts",
+    "lifecycle/selection.ts",
+    "lifecycle/environment.ts",
+  ])
     assert.doesNotMatch(
-      runtime(`execution/${name}.ts`),
-      /from\s+["']\.\/preparation\.ts["']/,
+      runtime(name),
+      /from\s+["'][^"']*\/preparation\.ts["']/,
     );
   assert.doesNotMatch(
-    runtime("execution/provider-executor.ts"),
-    /from\s+["']\.\/controller\.ts["']/,
+    runtime("lifecycle/environment.ts"),
+    /from\s+["']\.\/execution\.ts["']/,
   );
   assert.doesNotMatch(
-    source("execution/controller.ts"),
+    source("lifecycle/execution.ts"),
     /export function createRuntimeOwnedLifecycleNoticeReporter/,
   );
   assert.doesNotMatch(
-    runtime("execution/observation.ts"),
-    /from\s+["'][^"']*(?:controller|recovery|settlement-store)\.ts["']/,
-  );
-  assert.doesNotMatch(
-    runtime("execution/request.ts"),
-    /from\s+["'][^"']*(?:advice|controller|recovery)\.ts["']/,
+    runtime("lifecycle/validation.ts"),
+    /from\s+["'][^"']*(?:advice|controller|recovery|settlement-store)\.ts["']/,
   );
   assert.doesNotMatch(
     source("index.ts"),
     /createProviderObservationOwner|registerRuntimeOwnedProviderTerminalObservation|registerRuntimeOwnedProviderSubmissionNotice|revokeRuntimeOwnedProviderSubmissionNotice/,
   );
-  const observationSource = source("execution/observation.ts");
+  const observationSource = source("lifecycle/environment.ts");
+  assert.doesNotMatch(
+    runtime("lifecycle/environment.ts"),
+    /from\s+["'][^"']*(?:advice|controller|recovery|settlement-store)\.ts["']/,
+  );
+  assert.equal(
+    fs.existsSync(new URL("../../src/execution/result.ts", import.meta.url)),
+    false,
+  );
   assert.doesNotMatch(
     observationSource,
     /export const runtimeOwnedProviderObservationOwner/,
@@ -136,10 +142,10 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
   const root = new URL("../../src/", import.meta.url);
   for (const entry of fs.readdirSync(root, { recursive: true })) {
     const name = String(entry).replaceAll("\\", "/");
-    if (!name.endsWith(".ts") || name === "execution/observation.ts") continue;
+    if (!name.endsWith(".ts")) continue;
     const text = runtime(name);
     assert.doesNotMatch(text, /runtimeOwnedProviderObservationOwner/);
-    if (name !== "execution/controller.ts") {
+    if (name !== "lifecycle/execution.ts") {
       for (const writer of writers)
         assert.equal(text.includes(writer), false, `${name}: ${writer}`);
     }
@@ -2813,7 +2819,9 @@ test("追加制約のtrueはRepository改訂検査を代替せず、不正な改
       "codex",
       {} as never,
       () => true,
-      restriction,
+      undefined,
+      {},
+      [],
     ).status,
     "blocked",
   );
@@ -4688,12 +4696,18 @@ test("Recovery記録前と偽造production CapabilityはDocker Effectを開始�
   assert.equal(fixture.getCommandCount(), 0);
 
   assert.equal(
-    startRuntimeOwnedDockerProcessController("codex", {} as never, () => true)
-      .status,
+    startRuntimeOwnedDockerProcessController(
+      "codex",
+      {} as never,
+      () => true,
+      undefined,
+      {},
+      [],
+    ).status,
     "blocked",
   );
   assert.equal(
-    (await cancelRuntimeOwnedDockerProcessController({}, {})).status,
+    (await cancelRuntimeOwnedExecutorAttempt({}, {})).status,
     "blocked",
   );
 });
@@ -5741,7 +5755,7 @@ test("技術失敗と開始確認拒否の二順序は一次診断を上書き�
  */
 test("表示通知の5秒期限はDocker取消猶予と独立し後着writeを無視する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/observation.ts", import.meta.url),
+    new URL("../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(source, /describeDockerCommandSessionContract/);

@@ -157,7 +157,7 @@ Task／Adviceでは、受領済み結果の総byte、要約・所見・助言本
 | 未信頼値 | Getter／Proxy等を評価せず所有Snapshotへ固定。未知field・任意引数・秘密値を受理しない |
 | Model | 識別子・用途・Effortを補正しない。aliasを未観測exact版にしない |
 | 環境 | 禁止名全数・非文字列・NULを拒否し、値の一回取得と入力順序を維持 |
-| 利用可否 | Capability・認証・Quota・配布・方針の五軸を保持。unknownをavailableへ丸めない |
+| 利用可否 | 技術Catalogの適合を現在の利用可能性や実行許可と同一視しない |
 | 結果 | 生出力を公開せず、解析成功を実終了・cleanup・品質採用と扱わない |
 
 ## 5. 状態とLifecycle
@@ -216,7 +216,7 @@ Profile・storage Folder、Host Catalog、既定Profile JSONは持たない。�
 
 ### 7.1. 責務別配置と公開操作
 
-技術Catalogの検索は`catalog/resolve.ts`、検証は`catalog/validation.ts`。Providerの構文・固定環境は`provider/validation.ts`が所有する。Capability／認証観測／Quota／配布状態／Policyの五軸利用判断はCoordinatorの`execution/observation.ts`が所有し、AI Adapterは現在状態を集約しない。呼出し元Package名やRoleごとに同じ処理を分割しない。
+技術Catalogの検索は`catalog/resolve.ts`、検証は`catalog/validation.ts`。Providerの構文・固定環境は`provider/validation.ts`が所有する。AI Adapterは現在状態を集約しない。Coordinatorは技術選定を現在操作と照合し、実行前のHome・配布・認証・送信条件は各実行境界で確認する。呼出し元Package名やRoleごとに同じ処理を分割しない。
 
 共通計画は`advice / task / probe`とProviderを入力時に照合する。Task内のexecutor／reviewer、助言のTool／Repository非共有、Probe診断を区別する。Claude Model／Effort付加は共通計画内で行い、準備時とEffect直前で同じ生成を使う。
 

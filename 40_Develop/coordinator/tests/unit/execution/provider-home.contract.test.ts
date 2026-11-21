@@ -15,7 +15,7 @@ import {
   describeProviderHomeContract,
   PROVIDER_HOME_CONTRACT,
   PROVIDER_HOME_CONTRACT_REVISION,
-} from "../../../src/execution/authority.ts";
+} from "../../../src/lifecycle/environment.ts";
 
 /**
  * 専用Provider Homeはlocal userとProvider単位の固定方針を持つを検証する。

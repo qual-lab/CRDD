@@ -4,7 +4,7 @@
  * @responsibility ownValueを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000003
  */
-import { RepositoryDataBlockedError } from "../src/configuration/runtime-data.ts";
+import { RepositoryDataBlockedError } from "../src/lifecycle/host.ts";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -19,10 +19,10 @@ import {
   ensureRepositoryExecutionDataArea,
   requireReadyRepositoryExecutionDataArea,
   TESTS_RELATIVE_PATH,
-} from "../src/configuration/runtime-data.ts";
-import { isSupportedNodeRuntime } from "../src/execution/diagnostics.ts";
-import { coordinatorTaskPublicReasons } from "../src/execution/result.ts";
-import { snapshotPlainArray } from "../src/input/snapshot.ts";
+} from "../src/lifecycle/host.ts";
+import { isSupportedNodeRuntime } from "../src/lifecycle/environment.ts";
+import { coordinatorTaskPublicReasons } from "../src/lifecycle/validation.ts";
+import { snapshotPlainArray } from "../src/lifecycle/validation.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   SIGNED_ROUTE_MATRIX_REASONS,

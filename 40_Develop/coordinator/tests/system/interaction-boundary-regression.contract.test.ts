@@ -20,10 +20,10 @@ import {
   createWindowsPowerShellAuthenticodeEnvironment,
 } from "../../../docker-isolation/src/docker-cli/environment.ts";
 import {
-  describeCoordinatorNodeRuntimeVersionContract,
+  getIsolationSettings,
+  isSupportedNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../../src/execution/diagnostics.ts";
-import { getIsolationSettings } from "../../src/execution/configuration.ts";
+} from "../../src/lifecycle/environment.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 
@@ -250,14 +250,14 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   const developmentE2e = packageDocument.scripts?.["development-e2e:verify"];
   assert.equal(
     developmentE2e,
-    "node --test --test-concurrency=1 ./tests/system/coordinator-launch.contract.test.ts ./tests/system/verification-result-record.contract.test.ts ./tests/system/interaction-boundary-regression.contract.test.ts ./tests/integration/claude-execution-plan.contract.test.ts ./tests/unit/execution/claude-preparation.contract.test.ts ./tests/unit/provider-authentication.contract.test.ts ./tests/integration/provider-authentication-recovery.integration.test.ts ./tests/integration/codex-execution-plan.contract.test.ts ./tests/unit/execution/codex-preparation.contract.test.ts ./tests/integration/coordinator-task-runtime.contract.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/system/signed-general-task-verification.contract.test.ts ./tests/system/signed-reviewer-boundary-verification.contract.test.ts ./tests/system/signed-route-matrix-verification.contract.test.ts ./tests/system/signed-recovery-matrix-verification.contract.test.ts",
+    "node --experimental-test-module-mocks --test --test-concurrency=1 ./tests/system/coordinator-launch.contract.test.ts ./tests/system/verification-result-record.contract.test.ts ./tests/system/interaction-boundary-regression.contract.test.ts ./tests/integration/claude-execution-plan.contract.test.ts ./tests/unit/execution/claude-preparation.contract.test.ts ./tests/unit/provider-authentication.contract.test.ts ./tests/integration/provider-authentication-recovery.integration.test.ts ./tests/integration/codex-execution-plan.contract.test.ts ./tests/unit/execution/codex-preparation.contract.test.ts ./tests/integration/coordinator-task-runtime.contract.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/system/signed-general-task-verification.contract.test.ts ./tests/system/signed-reviewer-boundary-verification.contract.test.ts ./tests/system/signed-route-matrix-verification.contract.test.ts ./tests/system/signed-recovery-matrix-verification.contract.test.ts",
   );
   assert.equal(
     /sign-release|release-key|passphrase/u.test(developmentE2e),
     false,
   );
 
-  for (const relative of ["src/execution/diagnostics.ts"]) {
+  for (const relative of ["src/lifecycle/environment.ts"]) {
     const source = fs.readFileSync(
       path.join(coordinatorRoot, relative),
       "utf8",
@@ -443,14 +443,8 @@ test("保護操作は別名でも裸Runtimeのpackage aliasへ公開しない", 
  * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
-  assert.deepEqual(describeCoordinatorNodeRuntimeVersionContract(), {
-    contract: "crdd-coordinator/node-runtime-version",
-    contractRevision: 1,
-    minimumVersion: "24.12.0",
-    checkTiming: "before_interactive_input_release_verification_or_effect",
-    pathLookupAuthority: false,
-    unsupportedRuntimeFallbackAllowed: false,
-  });
+  assert.equal(isSupportedNodeRuntime("24.11.9"), false);
+  assert.equal(isSupportedNodeRuntime("24.12.0"), true);
 
   const guardedEntrypoints = [
     [
@@ -461,7 +455,7 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
     [
       "scripts/verify-general-task.ts",
       /isSupportedNodeRuntime\(\s*dependencies\.runtimeVersion\(\),?\s*\)/u,
-      /import\s*\{[^}]*\bisSupportedNodeRuntime\b[^}]*\}\s*from "\.\.\/src\/execution\/diagnostics\.ts"/u,
+      /import\s*\{[^}]*\bisSupportedNodeRuntime\b[^}]*\}\s*from "\.\.\/src\/lifecycle\/environment\.ts"/u,
     ],
   ] as const;
   for (const [relative, call, imported] of guardedEntrypoints) {

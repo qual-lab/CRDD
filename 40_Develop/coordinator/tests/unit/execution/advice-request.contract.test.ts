@@ -18,18 +18,19 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRepositoryTestDirectory } from "../../../../execution-model/tests/support/repository-test-directory.ts";
 import test from "node:test";
-import { createRepositoryAdviceExecutor } from "../../../src/execution/advice.ts";
+import { loadAdviceDispatchFixture } from "../../support/task-requests.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   getRepository,
 } from "../../../../version-control/src/index.ts";
+
+const { executeAdviceRequest } = await loadAdviceDispatchFixture();
 import {
-  describeAdviceTaskContract,
   issueRuntimeOwnedProviderAdvicePacket,
   revokeRuntimeOwnedProviderAdvicePacket,
   prepareAdviceTask,
   PROVIDER_ADVICE_TASK_CONTRACT,
-} from "../../../src/execution/preparation.ts";
+} from "../../../src/lifecycle/selection.ts";
 
 /**
  * request用の試験入力または観測処理を提供する。
@@ -52,7 +53,7 @@ const request = (mode: "read_only_advice") =>
     allowedPaths: Object.freeze([]),
   });
 
-const COMPLETED = Object.freeze({
+const ADVICE = Object.freeze({
   status: "completed" as const,
   reason: null,
   facts: Object.freeze([
@@ -79,7 +80,14 @@ const COMPLETED = Object.freeze({
       references: Object.freeze(["PROJECT_CONTEXT.md#4"]),
     }),
   ]),
-  candidate: null,
+});
+
+const COMPLETED = Object.freeze({
+  status: "completed" as const,
+  reason: null,
+  advice: ADVICE,
+  providerEffectIssued: true,
+  cleanupConfirmed: true,
 });
 
 /**
@@ -103,13 +111,25 @@ test("許可済み投影からEffect 0の読取り助言Task Packetを作る", (
       {
         reference: "PROJECT_CONTEXT.md#current-project",
         content,
-        sha256: createHash("sha256").update(content).digest("hex"),
       },
     ],
   });
 
   assert.equal(prepared.status, "prepared");
   assert.equal(prepared.taskPacket?.contract, PROVIDER_ADVICE_TASK_CONTRACT);
+  assert.deepEqual(prepared.taskPacket?.projection, [
+    {
+      reference: "PROJECT_CONTEXT.md#current-project",
+      content,
+      sha256: createHash("sha256").update(content, "utf8").digest("hex"),
+    },
+  ]);
+  assert.equal(
+    prepared.taskPacket?.projectionHash,
+    createHash("sha256")
+      .update(JSON.stringify(prepared.taskPacket?.projection))
+      .digest("hex"),
+  );
   assert.deepEqual(prepared.taskPacket?.allowedReferences, [
     "PROJECT_CONTEXT.md#current-project",
   ]);
@@ -150,7 +170,6 @@ test("助言準備は旧容量超過の正常なPromptと投影を全量保持�
   const projection = Array.from({ length: 65 }, (_, index) => ({
     reference: `${"reference".repeat(65)}-${index}.md`,
     content,
-    sha256: createHash("sha256").update(content).digest("hex"),
   }));
   const prepared = prepareAdviceTask({
     executionSelection: executionSelection("advice"),
@@ -189,12 +208,11 @@ test("助言準備は旧容量超過の正常なPromptと投影を全量保持�
     "maximumProjectionBytes",
     "maximumProjectionItems",
   ])
-    assert.equal(Object.hasOwn(describeAdviceTaskContract(), field), false);
+    assert.equal(Object.hasOwn(prepared.taskPacket ?? {}, field), false);
 });
 
-test("改変投影・秘密Prompt・越境参照をTask Packet生成前に拒否する", () => {
+test("外部指定Hash・秘密Prompt・越境参照をTask Packet生成前に拒否する", () => {
   const content = "# Current Project";
-  const hash = createHash("sha256").update(content).digest("hex");
   const base = {
     executionSelection: executionSelection("advice"),
     prompt: "現在状態を説明する",
@@ -202,7 +220,6 @@ test("改変投影・秘密Prompt・越境参照をTask Packet生成前に拒否
       {
         reference: "PROJECT_CONTEXT.md#current-project",
         content,
-        sha256: hash,
       },
     ],
   };
@@ -210,10 +227,28 @@ test("改変投影・秘密Prompt・越境参照をTask Packet生成前に拒否
   assert.equal(
     prepareAdviceTask({
       ...base,
-      projection: [{ ...base.projection[0], sha256: "0".repeat(64) }],
+      projection: [
+        {
+          ...base.projection[0],
+          sha256: createHash("sha256").update(content).digest("hex"),
+        },
+      ],
     }).status,
     "blocked",
   );
+  let reads = 0;
+  const dynamic = Object.defineProperty({ ...base.projection[0] }, "content", {
+    enumerable: true,
+    get: () => {
+      reads++;
+      return content;
+    },
+  });
+  assert.equal(
+    prepareAdviceTask({ ...base, projection: [dynamic] }).status,
+    "blocked",
+  );
+  assert.equal(reads, 0);
   assert.equal(
     prepareAdviceTask({
       ...base,
@@ -236,25 +271,34 @@ test("改変投影・秘密Prompt・越境参照をTask Packet生成前に拒否
 });
 
 /**
- * 読取り助言Task契約は結果契約とEffect 0を固定するを検証する。
- *
- * @responsibility 読取り助言Task契約は結果契約とEffect 0を固定するを検証するの検証責務を所有する。
+ * 助言の実準備は結果契約へ先行せず外部実行を開始しない。
  * @trace ERB-UT-023
- * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 読取り助言Task契約は結果契約とEffect 0を固定するの対象操作を実行する。
- * @observation 返却値、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionがSummaryの期待条件を満たす。
- * @cleanup N/A: Process外資源を生成しない局所検証である。
- * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 合成の参照と本文だけを渡す。
+ * @stimulus 通常の助言準備を実行する。
+ * @observation 実Packetの識別と準備結果。
+ * @oracle 版を保持し、外部Effectや結果契約を返さない。
+ * @cleanup N/A: メモリ内だけ。
  */
-test("読取り助言Task契約は結果契約とEffect 0を固定する", () => {
-  const contract = describeAdviceTaskContract();
-  assert.equal(contract.contractRevision, 2);
-  assert.equal("resultContract" in contract, false);
-  assert.equal(contract.providerEffectIssued, false);
-  assert.equal(contract.filesystemEffectIssued, false);
-  assert.equal(contract.candidateCreated, false);
-  assert.equal(contract.rawProjectionReported, false);
+test("実助言準備はPacketの版を保持し実行結果と外部Effectを発行しない", () => {
+  const content = "# Project";
+  const prepared = prepareAdviceTask({
+    executionSelection: executionSelection("advice"),
+    prompt: "現在状態を説明する",
+    projection: [
+      {
+        reference: "PROJECT_CONTEXT.md",
+        content,
+      },
+    ],
+  });
+  assert.equal(prepared.status, "prepared");
+  assert.equal(prepared.taskPacket?.contractRevision, 3);
+  assert.equal("resultContract" in prepared, false);
+  assert.equal("resultContract" in (prepared.taskPacket ?? {}), false);
+  assert.equal(prepared.providerEffectIssued, false);
+  assert.equal(prepared.filesystemEffectIssued, false);
+  assert.equal(prepared.candidateCreated, false);
+  assert.equal("rawProjection" in prepared, false);
 });
 
 /**
@@ -290,9 +334,17 @@ test("Repository Project Contextを専用Task Packetへ固定してDispatchす�
         taskHash: string;
       }>
     | undefined;
-  const application = createRepositoryAdviceExecutor(
+  const signal = new AbortController().signal;
+  let calls = 0;
+  let cleanupConfirmed = true;
+  const applicationDependencies: [
+    Parameters<typeof executeAdviceRequest>[0],
+    Parameters<typeof executeAdviceRequest>[1],
+  ] = [
     verified.capability,
-    async (input) => {
+    async (input, receivedSignal) => {
+      calls++;
+      assert.equal(receivedSignal, signal);
       observedTask = Object.freeze({
         executionSelection: input.taskPacket.executionSelection,
         exactModelId: input.executionSelection.modelIdentifier,
@@ -300,18 +352,22 @@ test("Repository Project Contextを専用Task Packetへ固定してDispatchす�
         projectionHash: input.taskPacket.projectionHash,
         taskHash: input.taskPacket.taskHash,
       });
-      return COMPLETED;
+      return { ...COMPLETED, cleanupConfirmed };
     },
-  );
+  ];
 
-  const snapshot = await application(
-    {
-      ...request("read_only_advice"),
-      executionSelection: executionSelection("advice"),
-    },
-    new AbortController().signal,
+  const adviceRequest = {
+    ...request("read_only_advice"),
+    executionSelection: executionSelection("advice"),
+  };
+  const snapshot = await executeAdviceRequest(
+    ...applicationDependencies,
+    adviceRequest,
+    signal,
   );
+  assert.equal(calls, 1);
   assert.equal(snapshot.status, "completed", JSON.stringify(snapshot));
+  assert.deepEqual(snapshot, { ...ADVICE, candidate: null });
   assert.deepEqual(
     observedTask?.executionSelection,
     executionSelection("advice"),
@@ -320,6 +376,17 @@ test("Repository Project Contextを専用Task Packetへ固定してDispatchす�
   assert.deepEqual(observedTask?.allowedReferences, ["PROJECT_CONTEXT.md"]);
   assert.match(observedTask?.projectionHash ?? "", /^[a-f0-9]{64}$/u);
   assert.match(observedTask?.taskHash ?? "", /^[a-f0-9]{64}$/u);
+
+  cleanupConfirmed = false;
+  const unknown = await executeAdviceRequest(
+    ...applicationDependencies,
+    adviceRequest,
+    signal,
+  );
+  assert.equal(calls, 2);
+  assert.equal(unknown.status, "unknown");
+  assert.equal(unknown.reason, "workbench_ai_provider_cleanup_unknown");
+  assert.deepEqual(unknown.facts, []);
 });
 
 /**
@@ -342,16 +409,20 @@ test("未登録または非Coordinator ProfileはDispatch前に拒否する", as
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   let dispatchCount = 0;
-  const application = createRepositoryAdviceExecutor(
+  const applicationDependencies: [
+    Parameters<typeof executeAdviceRequest>[0],
+    Parameters<typeof executeAdviceRequest>[1],
+  ] = [
     verified.capability,
     async () => {
       dispatchCount += 1;
       return COMPLETED;
     },
-  );
+  ];
 
   for (const selected of [null, executionSelection("executor")]) {
-    const snapshot = await application(
+    const snapshot = await executeAdviceRequest(
+      ...applicationDependencies,
       {
         ...request("read_only_advice"),
         executionSelection: selected as ExecutionSelection,

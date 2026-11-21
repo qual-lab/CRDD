@@ -1,46 +1,384 @@
 /**
- * 既存Queueの操作区間からWorkspace保存とGit処置を接続する。
- * @responsibility 意図保存、VC呼出し、結果保存、既存Lease解放。
+ * Workspaceの受付、対象照合、Lease・保存とGit操作の接続を所有する。
+ * @responsibility 所属や世代を照合し、現在の認可と既存の実行モデル・Version Controlへ接続する。
  * @trace ARCH-000004
- * @boundary 所属Repositoryの保存Rootと独立した実行Tree。
+ * @trace ARCH-000005
+ * @boundary 公開Workspace操作と、単発Task・Objectiveからの対象観測。
  */
 
 import { randomUUID } from "node:crypto";
-import { existsSync, lstatSync } from "node:fs";
+import fs, { existsSync, lstatSync } from "node:fs";
 import path from "node:path";
-import { isDeepStrictEqual } from "node:util";
+import { isDeepStrictEqual, types } from "node:util";
 import {
   type RepositoryWorktreeResult,
   readState,
   saveIntegrationRecord,
   saveWorkspaceRecord,
+  type WorkspaceCandidateRequest,
   type WorkspaceCandidateResult,
   type WorkspaceRecord,
 } from "../../../execution-model/src/index.ts";
-
 import {
   type CommitSelection,
+  type CommitTemporary,
+  createCommit,
+  createReference,
   createWorktree,
+  type FileReadRequest,
   getRepository,
   getWorktree,
+  mergeCommit,
+  type Repository,
+  readCommitDiff,
+  readFile,
+  readRepositoryRevision,
   readRepositoryStorageIdentity,
+  readWorkingChanges,
+  removeReference,
   removeWorktree,
+  resolveVerifiedRepositoryRoot,
+  type WorktreeResult,
+  type WorktreeTarget,
 } from "../../../version-control/src/index.ts";
-import { acquireCoordinatorSnapshotLease } from "../execution/lease.ts";
-import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
-import type { CoordinatorLease } from "../state/persistence.ts";
-
 import {
-  assertWorkspaceDirectoryAvailable,
-  freezeWorkspaceCandidate,
-  mergeWorkspaceCandidate,
-  removeWorkspaceCandidate,
-  workspaceWorktreeResult,
-  workspaceWorktreeTarget,
-} from "./git.ts";
+  resolveRepositoryExecutionDataPaths,
+  verifyRuntimePersistenceRepository,
+  acquireCoordinatorSnapshotLease,
+} from "./host.ts";
+import type { CoordinatorLease } from "./types.ts";
+import {
+  deriveCoordinatorRepositoryBindingId,
+  validIdentity,
+  containsRecognizedSecretText,
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "./validation.ts";
 
-import { types } from "node:util";
-import { snapshotPlainArray, snapshotPlainRecord } from "../input/snapshot.ts";
+/**
+ * 内部Workspace記録を必要最小限の現在投影へ変換する。
+ * @responsibility 候補の同一性・元失敗・清掃失敗を保持する。
+ * @trace ARCH-000004
+ * @input 所属確認済み記録。
+ * @returns Root・内部一時物を持たない投影。
+ * @precondition 現在認可済み。
+ * @postcondition 保存記録をそのまま公開しない。
+ * @effect N/A: 値投影。
+ * @failure N/A: 型検査済み入力。
+ * @invariant 未実施・不明を成功にしない。
+ * @boundary Coordinator→Surface。
+ * @security 本文・資格を複製しない。
+ * @concurrency 取得した一Snapshotだけを投影する。
+ */
+function workspaceView(record: WorkspaceRecord) {
+  const c = record.candidate;
+  return {
+    workspaceId: record.workspaceId,
+    name: record.name,
+    generation: record.generation,
+    baseCommit: record.baseCommit,
+    head: record.head,
+    phase: record.phase,
+    holdUntil: record.holdUntil,
+    primaryFailure: record.primaryFailure,
+    candidate:
+      c === null
+        ? null
+        : {
+            operationId: c.request.operationId,
+            name: c.request.candidateName,
+            workspaceName: c.request.workspaceName,
+            phase: c.phase,
+            baseCommit: c.request.baseCommit,
+            candidateCommit: c.candidateCommit,
+            mergeCommit: c.mergeCommit,
+            target: c.target,
+            disposition: c.disposition,
+            selection: c.request.selection,
+            relatedChangeIds: c.request.relatedChangeIds,
+            primaryFailure: c.primaryFailure,
+            cleanupFailure: c.cleanupFailure,
+            lastResult:
+              c.lastResult === null
+                ? null
+                : {
+                    status: c.lastResult.status,
+                    reason: c.lastResult.reason,
+                    effectIssued: c.lastResult.effectIssued,
+                    cleanupConfirmed: c.lastResult.cleanupConfirmed,
+                  },
+          },
+  };
+}
+
+/**
+ * 公開現在投影の型を共有する。
+ * @responsibility Browserに内部保存型を流用させない。
+ * @trace ARCH-000004
+ * @shape workspaceViewが選択した非秘密fieldだけ。
+ * @invariant 型だけを認可へ使わない。
+ * @boundary 公開投影の利用側。
+ * @security 内部一時物とRootを含まない。
+ * @compatibility 投影の変更時に両Surfaceを確認する。
+ */
+export type WorkspaceView = ReturnType<typeof workspaceView>;
+
+/**
+ * 公開する文字列をJSON化前に既存の秘密判定へ渡す。
+ * @responsibility raw本文と差分の削除行も同じ出力境界で検査する。
+ * @trace ARCH-000004
+ * @input Ownerが構築した投影。未検証外部objectは受けない。
+ * @returns 既知秘密を含む場合true。
+ * @precondition 閉入力又は内部のplain投影。
+ * @postcondition 表示本文を編集・redactしない。
+ * @effect N/A: 値検査のみ。
+ * @failure 検出時は呼出し元が固定拒否へ閉じる。
+ * @invariant 検査成功は未知秘密不存在の保証ではない。
+ * @boundary 公開前のCoordinator投影。
+ * @security patchは元値とhunkの検査用本文を両方確認する。
+ * @concurrency N/A: 局所値のみ。
+ */
+function containsWorkspaceOutputSecret(value: unknown): boolean {
+  if (typeof value === "string") return containsRecognizedSecretText(value);
+  if (Array.isArray(value)) return value.some(containsWorkspaceOutputSecret);
+  if (!value || typeof value !== "object") return false;
+  return Object.entries(value).some(([key, item]) => {
+    if (containsWorkspaceOutputSecret(item)) return true;
+    if (key !== "patch" || typeof item !== "string") return false;
+    let inHunk = false;
+    const lines: string[] = [];
+    for (const line of item.split(/\r?\n/u)) {
+      if (line.startsWith("diff --git ")) inHunk = false;
+      else if (line.startsWith("@@ ")) inHunk = true;
+      else if (inHunk && /^[ +-]/u.test(line)) lines.push(line.slice(1));
+    }
+    return containsRecognizedSecretText(lines.join("\n"));
+  });
+}
+
+/**
+ * 公開操作を検証済み固定Ownerへ一回配送する。
+ * @responsibility 所属・世代・現在認可と既存Lease／Writerを接続する。
+ * @trace ARCH-000004
+ * @trace ARCH-000012
+ * @input Server解決Root・Project、閉入力、現在認可callback、Signal。
+ * @returns 検証した現在投影と技術処置結果。
+ * @precondition Root／Project／callbackは外部JSONでなくServer構成が所有。
+ * @postcondition 返却直前の現在許可不成立では公開しない。
+ * @effect 読取り又は明示された既存Git／Snapshot操作。
+ * @failure 不明・不一致は固定理由で停止。発行後取消はrollbackしない。
+ * @invariant 新State・Lock・自動再送なし。
+ * @boundary Surface→Coordinator→VC。
+ * @security 保存BindingとHost Pathを返さない。
+ * @concurrency 同期Ownerの終了を待ち、操作内でも現在許可を再検査する。
+ */
+export function executeWorkspace(
+  ownerRoot: string,
+  projectId: string,
+  raw: unknown,
+  authorize: () => boolean,
+  signal: AbortSignal = new AbortController().signal,
+) {
+  const command = inspectWorkspaceCommand(raw);
+  if (!command || command.projectId !== projectId)
+    throw new Error("workspace_input_invalid");
+  if (containsWorkspaceOutputSecret(command))
+    throw new Error("workspace_input_invalid");
+  const allowed = () => !signal.aborted && authorize();
+  if (!allowed()) throw new Error("workspace_access_unavailable");
+  const root = getRepository(ownerRoot);
+  if (
+    root.status !== "completed" ||
+    resolveVerifiedRepositoryRoot(root.capability) !== ownerRoot
+  )
+    throw new Error("workspace_access_unavailable");
+  const binding = deriveCoordinatorRepositoryBindingId(ownerRoot);
+  const snapshot = readState(
+    verifyRuntimePersistenceRepository(ownerRoot),
+    binding,
+    "workspace",
+  );
+  if (snapshot.status !== "completed" || !snapshot.value)
+    throw new Error("workspace_state_unavailable");
+  const current = snapshot.value;
+  const queues = current.queueEntries
+    .filter((q) => q.projectId === projectId)
+    .sort((a, b) =>
+      a.queueId < b.queueId ? -1 : a.queueId > b.queueId ? 1 : 0,
+    );
+  const record =
+    command.operation === "list"
+      ? null
+      : (current.workspaces.find(
+          (w) => w.workspaceId === command.workspaceId,
+        ) ?? null);
+  const queue =
+    command.operation === "list"
+      ? null
+      : queues.find((q) => q.queueId === command.queueId);
+  if (command.operation !== "list") {
+    if (
+      !queue ||
+      (command.operation !== "create" && !record) ||
+      (record && !queues.some((q) => q.workspaceId === record.workspaceId)) ||
+      (command.operation !== "create" &&
+        command.operation !== "select" &&
+        queue.workspaceId !== command.workspaceId)
+    )
+      throw new Error("workspace_target_unavailable");
+  }
+  let data: unknown;
+  if (command.operation === "list") {
+    let after = "";
+    if (command.cursor !== null) {
+      let cursor: unknown;
+      try {
+        cursor = JSON.parse(
+          Buffer.from(command.cursor, "base64url").toString("utf8"),
+        );
+      } catch {
+        throw new Error("workspace_cursor_invalid");
+      }
+      if (
+        !Array.isArray(cursor) ||
+        cursor.length !== 3 ||
+        cursor[0] !== projectId ||
+        cursor[1] !== current.snapshotRevision ||
+        !validIdentity(cursor[2])
+      )
+        throw new Error("workspace_cursor_stale");
+      after = cursor[2];
+    }
+    const remaining = queues.filter((q) => q.queueId > after);
+    const page = remaining.slice(0, command.limit);
+    data = {
+      entries: page.map((q) => ({
+        queueId: q.queueId,
+        state: q.state,
+        workspace: q.workspaceId
+          ? workspaceView(
+              current.workspaces.find(
+                (w) => w.workspaceId === q.workspaceId,
+              ) as WorkspaceRecord,
+            )
+          : null,
+      })),
+      nextCursor:
+        remaining.length > page.length
+          ? Buffer.from(
+              JSON.stringify([
+                projectId,
+                current.snapshotRevision,
+                page.at(-1)?.queueId,
+              ]),
+            ).toString("base64url")
+          : null,
+    };
+  } else if (
+    command.operation === "get" ||
+    command.operation === "inspect" ||
+    command.operation === "candidate-diff"
+  ) {
+    if (!record) throw new Error("workspace_target_unavailable");
+    if (command.operation === "candidate-diff") {
+      if (!record.candidate?.candidateCommit)
+        throw new Error("workspace_target_unavailable");
+      data = readWorkspaceCandidatePatch(
+        root.capability,
+        record.candidate.request,
+        record.candidate.candidateCommit,
+        command.path,
+      );
+      if (containsWorkspaceOutputSecret(data))
+        throw new Error("workspace_content_unavailable");
+      if (!allowed()) throw new Error("workspace_result_unavailable");
+      return {
+        contract: "crdd-orchestrator/workspace-surface/v1" as const,
+        projectId,
+        operation: command.operation,
+        data,
+      };
+    }
+    const observed = getWorktree(
+      root.capability,
+      workspaceWorktreeTarget(record.workspaceId),
+    );
+    if (
+      observed.status !== "completed" ||
+      observed.relativePath === null ||
+      observed.observation?.head !== record.head ||
+      record.phase !== "ready"
+    )
+      throw new Error("workspace_target_unavailable");
+    const target = getRepository(path.join(ownerRoot, observed.relativePath));
+    if (target.status !== "completed")
+      throw new Error("workspace_target_unavailable");
+    if (command.operation === "inspect") {
+      const request: FileReadRequest = {
+        baseCommit: record.baseCommit,
+        path: command.path,
+      };
+      data = readFile(target.capability, request);
+    } else {
+      data = {
+        workspace: workspaceView(record),
+        changedPaths: readWorkingChanges(target.capability, record.baseCommit)
+          .changedPaths,
+      };
+    }
+  } else {
+    const { operation, ...input } = command;
+    const result = manageCoordinatorWorkspace({
+      ...input,
+      operation: operation === "select" ? "observe" : operation,
+      ...(operation === "create" && command.name === null
+        ? { name: undefined }
+        : {}),
+      ...(operation === "close-candidate"
+        ? {
+            referencesReleased:
+              record?.holdUntil === null &&
+              !current.queueEntries.some(
+                (q) =>
+                  q.workspaceId === command.workspaceId &&
+                  q.queueId !== command.queueId &&
+                  !["completed", "cancelled"].includes(q.state),
+              ),
+          }
+        : {}),
+      ownerRepositoryRoot: ownerRoot,
+      repositoryBindingId: binding,
+      authorize: allowed,
+    } as Parameters<typeof manageCoordinatorWorkspace>[0]);
+    data = {
+      status: result.status,
+      reason: result.reason,
+      workspace:
+        result.workspace === null ? null : workspaceView(result.workspace),
+      gitEffectIssued:
+        result.candidateResult?.effectIssued ??
+        result.gitResult?.effectIssued ??
+        false,
+      cleanupConfirmed: result.candidateResult?.cleanupConfirmed ?? null,
+      manualRecoveryRequired: result.manualRecoveryRequired,
+      recoveryId: result.recoveryId,
+      releaseFailure: result.releaseFailure,
+      releaseRecoveryId: result.releaseRecoveryId,
+      adoptionReleaseFailure: result.adoptionReleaseFailure,
+      adoptionReleaseRecoveryId: result.adoptionReleaseRecoveryId,
+    };
+  }
+  if (!allowed()) throw new Error("workspace_result_unavailable");
+  if (containsWorkspaceOutputSecret(data))
+    throw new Error("workspace_content_unavailable");
+  return {
+    contract: "crdd-orchestrator/workspace-surface/v1" as const,
+    projectId,
+    operation: command.operation,
+    data,
+  };
+}
+
 /**
  * 公開入力の閉じた操作集合。
  * @responsibility 読取り・固定・採用・終了を別要求にする。
@@ -1271,5 +1609,365 @@ export function resolveCoordinatorWorkspaceTaskTarget(
       baseCommit: record.baseCommit,
       head: record.head,
     },
+  };
+}
+
+/** 検証したWorkspace UUIDから上位所有の配置とBranchを導く。Git操作は行わない。 */
+export function workspaceWorktreeTarget(workspaceId: string): WorktreeTarget {
+  if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(workspaceId))
+    throw new Error("worktree_id_invalid");
+  return {
+    relativePath: `.crdd/workspaces/${workspaceId}/worktree`,
+    branch: `crdd/workspace/${workspaceId}`,
+  };
+}
+
+/** exactなRepositoryの名前付き領域から既存Workspace親を得る。作成はしない。 */
+function workspaceDirectory(root: string, workspaceId: string): string {
+  workspaceWorktreeTarget(workspaceId);
+  const repository = getRepository(root);
+  const paths =
+    repository.status === "completed"
+      ? resolveRepositoryExecutionDataPaths(repository.capability)
+      : null;
+  if (paths === null) throw Error("workspace_directory_boundary_invalid");
+  return path.join(paths.workspaces, workspaceId);
+}
+
+/** 新しいWorkspaceが既存の専用親を引き継がないことを上位で保証する。 */
+export function assertWorkspaceDirectoryAvailable(
+  root: string,
+  workspaceId: string,
+): void {
+  try {
+    fs.lstatSync(workspaceDirectory(root, workspaceId));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+  throw new Error("worktree_target_exists");
+}
+
+/** 既存保存形状へ投影する。廃棄成功時だけ既知のWorkspace親を再照合する。 */
+export function workspaceWorktreeResult(
+  root: string,
+  workspaceId: string,
+  value: WorktreeResult,
+  removeParent = false,
+): RepositoryWorktreeResult {
+  let retained = value.parentDirectoryRetained;
+  let reason = value.reason;
+  let status = value.status;
+  if (
+    removeParent &&
+    status === "completed" &&
+    value.worktreeRemoved &&
+    value.branchRemoved
+  ) {
+    const expected = workspaceWorktreeTarget(workspaceId);
+    try {
+      const parent = workspaceDirectory(root, workspaceId);
+      if (
+        value.relativePath !== expected.relativePath ||
+        value.branch !== expected.branch
+      )
+        throw new Error();
+      let cursor = root;
+      for (const segment of path.relative(root, parent).split(path.sep)) {
+        cursor = path.join(cursor, segment);
+        const info = fs.lstatSync(cursor);
+        if (
+          !info.isDirectory() ||
+          info.isSymbolicLink() ||
+          fs.realpathSync.native(cursor) !== cursor
+        )
+          throw new Error();
+      }
+      if (fs.readdirSync(parent).length === 0) fs.rmdirSync(parent);
+      try {
+        fs.lstatSync(parent);
+        retained = true;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        retained = false;
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") retained = false;
+      else {
+        status = "blocked";
+        reason = "worktree_parent_cleanup_unconfirmed";
+        retained = null;
+      }
+    }
+  }
+  const { parentDirectoryRetained: _parent, ...result } = value;
+  return {
+    ...result,
+    status,
+    reason,
+    workspaceId,
+    workspaceDirectoryRetained: retained,
+  };
+}
+
+/** 業務IntentをGit技術要求へ投影し、Commit直後に同期CASで保持Refを確保する。 */
+export function freezeWorkspaceCandidate(
+  repository: Repository,
+  request: WorkspaceCandidateRequest,
+  previousCommit: string | null = null,
+  previousTemporary: CommitTemporary | null = null,
+): WorkspaceCandidateResult {
+  const reference = `refs/heads/crdd/candidate/${request.workspaceId}/${request.operationId}`;
+  let result: WorkspaceCandidateResult = {
+    status: "blocked",
+    reason: "candidate_input_invalid",
+    candidateRef: reference,
+    candidateCommit: previousCommit,
+    mergeCommit: null,
+    effectIssued: false,
+    cleanupConfirmed: previousTemporary === null,
+    temporary: previousTemporary,
+    changedPaths: [],
+  };
+  const root = resolveVerifiedRepositoryRoot(repository);
+  if (root === null)
+    return { ...result, reason: "worktree_repository_invalid" };
+  const held = readRepositoryRevision(repository, { reference });
+  if (held.status !== "completed")
+    return {
+      ...result,
+      reason:
+        held.reason === "reference_not_direct"
+          ? "candidate_ref_not_direct"
+          : "candidate_ref_unavailable",
+    };
+  if (
+    held.present &&
+    previousCommit !== null &&
+    held.commitId !== previousCommit
+  )
+    return { ...result, reason: "candidate_ref_mismatch" };
+  const fixedCommit = held.commitId ?? previousCommit;
+  const target = workspaceWorktreeTarget(request.workspaceId);
+  const technical = createCommit(repository, {
+    worktree: target,
+    baseCommit: request.baseCommit,
+    expectedHead: request.expectedWorkspaceHead,
+    selection: request.selection,
+    message: `Candidate: ${request.candidateName ?? request.operationId}`,
+    temporaryDirectory: `.crdd/workspaces/${request.workspaceId}`,
+    previousCommit: fixedCommit,
+    temporary: previousTemporary,
+  });
+  result = {
+    ...result,
+    status: technical.status,
+    reason: technical.reason,
+    candidateCommit: technical.commitId ?? fixedCommit,
+    effectIssued: technical.effectIssued,
+    cleanupConfirmed: technical.cleanupConfirmed,
+    temporary: technical.temporary,
+    changedPaths: technical.changedPaths,
+  };
+  // 保存やawaitを挟まず、既知OIDの保持を確保する。保存成功だけでGC保護を主張しない。
+  if (technical.commitId !== null) {
+    const bound = createReference(repository, {
+      name: reference,
+      commitId: technical.commitId,
+    });
+    result = {
+      ...result,
+      effectIssued: result.effectIssued || bound.effectIssued,
+    };
+    if (bound.status !== "completed")
+      return {
+        ...result,
+        status: "blocked",
+        reason:
+          technical.status === "blocked"
+            ? technical.reason
+            : bound.reason === "reference_update_rejected"
+              ? "candidate_git_failed"
+              : "candidate_ref_unconfirmed",
+      };
+  }
+  return result;
+}
+
+/** 明示的な候補終了を、期待OID付きRef削除と既知の短命Index回収へ投影する。 */
+export function removeWorkspaceCandidate(
+  repository: Repository,
+  request: WorkspaceCandidateRequest,
+  expectedCommit: string | null,
+  previousTemporary: CommitTemporary | null = null,
+): WorkspaceCandidateResult {
+  const reference = `refs/heads/crdd/candidate/${request.workspaceId}/${request.operationId}`;
+  const result: WorkspaceCandidateResult = {
+    status: "blocked",
+    reason: "candidate_input_invalid",
+    candidateRef: reference,
+    candidateCommit: expectedCommit,
+    mergeCommit: null,
+    effectIssued: false,
+    cleanupConfirmed: previousTemporary === null,
+    temporary: previousTemporary,
+    changedPaths: [],
+  };
+  if (expectedCommit !== null) {
+    const verified = createCommit(repository, {
+      baseCommit: request.baseCommit,
+      expectedHead: request.expectedWorkspaceHead,
+      selection: request.selection,
+      message: `Candidate: ${request.candidateName ?? request.operationId}`,
+      temporaryDirectory: `.crdd/workspaces/${request.workspaceId}`,
+      previousCommit: expectedCommit,
+      temporary: previousTemporary,
+    });
+    if (verified.status !== "completed")
+      return {
+        ...result,
+        reason: verified.reason,
+        cleanupConfirmed: verified.cleanupConfirmed,
+        temporary: verified.temporary,
+      };
+    previousTemporary = verified.temporary;
+  }
+  const removed = removeReference(repository, {
+    name: reference,
+    expectedCommitId: expectedCommit,
+    ...(previousTemporary
+      ? {
+          temporaryIndex: {
+            directory: `.crdd/workspaces/${request.workspaceId}`,
+            value: previousTemporary,
+          },
+        }
+      : {}),
+  });
+  const failureReasons: Readonly<Record<string, string>> = {
+    reference_commit_changed: "candidate_ref_mismatch",
+    reference_checked_out: "candidate_ref_in_use",
+    reference_update_rejected: "candidate_ref_removal_unconfirmed",
+    reference_result_unconfirmed: "candidate_ref_removal_unconfirmed",
+    reference_not_direct: "candidate_ref_not_direct",
+    reference_temporary_cleanup_unconfirmed:
+      "commit_temporary_cleanup_unconfirmed",
+  };
+  return {
+    ...result,
+    status: removed.status === "completed" ? "completed" : "blocked",
+    reason:
+      removed.status === "completed"
+        ? removed.effectIssued
+          ? "candidate_ref_removed"
+          : "candidate_ref_absent"
+        : (failureReasons[removed.reason] ?? "candidate_ref_unavailable"),
+    effectIssued: removed.effectIssued,
+    cleanupConfirmed: removed.cleanupConfirmed,
+    temporary: removed.temporary,
+  };
+}
+
+/** 既存採用Intentの内容確認・保持Ref確認を終え、現在RepositoryへMergeを依頼する。 */
+export function mergeWorkspaceCandidate(
+  repository: Repository,
+  request: WorkspaceCandidateRequest,
+  target: Readonly<{
+    candidateCommit: string;
+    targetBranch: string;
+    expectedTargetHead: string;
+  }>,
+): WorkspaceCandidateResult {
+  const reference = `refs/heads/crdd/candidate/${request.workspaceId}/${request.operationId}`;
+  const result: WorkspaceCandidateResult = {
+    status: "blocked",
+    reason: "candidate_input_invalid",
+    candidateRef: reference,
+    candidateCommit: target.candidateCommit,
+    mergeCommit: null,
+    effectIssued: false,
+    cleanupConfirmed: true,
+    temporary: null,
+    changedPaths: [],
+  };
+  const held = readRepositoryRevision(repository, { reference });
+  if (held.status !== "completed")
+    return {
+      ...result,
+      reason:
+        held.reason === "reference_not_direct"
+          ? "candidate_ref_not_direct"
+          : "candidate_ref_unavailable",
+    };
+  if (held.commitId !== target.candidateCommit)
+    return { ...result, reason: "candidate_ref_mismatch" };
+  const fixed = createCommit(repository, {
+    baseCommit: request.baseCommit,
+    expectedHead: request.expectedWorkspaceHead,
+    selection: request.selection,
+    message: `Candidate: ${request.candidateName ?? request.operationId}`,
+    temporaryDirectory: `.crdd/workspaces/${request.workspaceId}`,
+    previousCommit: target.candidateCommit,
+  });
+  if (fixed.status !== "completed") return { ...result, reason: fixed.reason };
+  const message = [
+    `Merge Candidate: ${request.candidateName ?? request.operationId}`,
+    "",
+    ...(request.workspaceName ? [`Workspace: ${request.workspaceName}`] : []),
+    `Workspace-ID: ${request.workspaceId}`,
+    `Base-Commit: ${request.baseCommit}`,
+    `Candidate-Commit: ${target.candidateCommit}`,
+    ...request.relatedChangeIds.map((id) => `Related-CHG: ${id}`),
+  ].join("\n");
+  const merged = mergeCommit(repository, {
+    baseCommit: request.baseCommit,
+    sourceCommit: target.candidateCommit,
+    targetBranch: target.targetBranch,
+    expectedHead: target.expectedTargetHead,
+    message,
+  });
+  return {
+    ...result,
+    status: merged.status,
+    reason: merged.reason,
+    mergeCommit: merged.commitId,
+    effectIssued: merged.effectIssued,
+    changedPaths: fixed.changedPaths,
+  };
+}
+
+/** 保存済み候補の選択相関を確認してから、固定Objectの差分だけを返す。 */
+export function readWorkspaceCandidatePatch(
+  repository: Repository,
+  request: WorkspaceCandidateRequest,
+  commit: string,
+  selectedPath: string,
+) {
+  const selection = request.selection.find(
+    (item) => item.path === selectedPath,
+  );
+  if (!selection) throw Error("candidate_path_invalid");
+  const verified = createCommit(repository, {
+    baseCommit: request.baseCommit,
+    expectedHead: request.expectedWorkspaceHead,
+    selection: request.selection,
+    message: `Candidate: ${request.candidateName ?? request.operationId}`,
+    temporaryDirectory: `.crdd/workspaces/${request.workspaceId}`,
+    previousCommit: commit,
+  });
+  if (verified.status !== "completed") throw Error(verified.reason);
+  const diff = readCommitDiff(repository, {
+    baseCommit: request.baseCommit,
+    commitId: commit,
+    path: selectedPath,
+  });
+  return {
+    baseCommit: diff.baseCommit,
+    head: commit,
+    candidateCommit: commit,
+    selection,
+    content: null,
+    binary: diff.binary,
+    patch: diff.patch,
   };
 }

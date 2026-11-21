@@ -12,13 +12,29 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 
-import {
-  COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
-  COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
-  validSingleTaskResult,
-} from "../../src/task/dispatch.ts";
+import { COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT } from "../../src/lifecycle/types.ts";
+import { snapshotSingleTaskResult } from "../../src/lifecycle/execution.ts";
+import { runObjective } from "../../src/index.ts";
+import { runObjective as runObjectiveImplementation } from "../../src/lifecycle/execution.ts";
 
 const repositoryRevision = "a".repeat(40);
+
+/**
+ * Package Rootから統合後の受付本体へ直接つなぐ。
+ * @trace PRL-UT-014
+ * @stimulus 不正要求を既存の公開入口へ渡す。
+ * @oracle 同じ実体を公開し、不正入力でEffectを発行しない。
+ * @cleanup 局所値のみ。
+ */
+test("公開Objective入口は配置変更後も同じ受付契約を使う", async () => {
+  assert.equal(runObjective, runObjectiveImplementation);
+  const result = await runObjective(null, new AbortController().signal);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "orchestrator_objective_request_invalid");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.effectState, "no_effect");
+});
 
 /**
  * 複数Taskの入力相関を公開要求から検査する。
@@ -95,37 +111,36 @@ test("公開GraphはTask別の指示を固定し不正な相関を拒否する",
 });
 
 /**
- * Execution Portは既存Single Task結果契約を意味変更せず所有するを検証する。
+ * 単発結果は既存の固定契約を意味変更せず所有するを検証する。
  *
- * @responsibility Execution Portは既存Single Task結果契約を意味変更せず所有するの合否判定を所有する。
+ * @responsibility 単発結果は既存の固定契約を意味変更せず所有するの合否判定を所有する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Execution Portは既存Single Task結果契約を意味変更せず所有するの対象操作を実行する。
+ * @stimulus 単発結果は既存の固定契約を意味変更せず所有するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
-test("Execution Portは既存Single Task結果契約を意味変更せず所有する", () => {
+test("単発結果は既存の固定契約を意味変更せず所有する", () => {
   assert.equal(
     COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
     "crdd-coordinator/orchestrator-single-task-adapter",
   );
-  assert.equal(COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION, 3);
 });
 
 /**
  * 移管後の単発結果検査は閉形式とRuntime回復の元相関を維持する。
  * @responsibility 正常結果・不整合・自己発行回復参照の拒否を確認する。
  * @trace PRL-UT-014
- * @precondition 合成結果と呼出しOwnerが発行した回復参照集合。
+ * @precondition 下位試行の合成結果を使う。
  * @stimulus 正常値、余剰field、矛盾、Accessorと回復相関差を与える。
  * @observation 受理可否とAccessor実行回数。
- * @oracle 正常値と元の相関だけを受理し、他は副作用なく拒否する。
+ * @oracle 正常値と下位Ownerの回復義務を受理し、Process再起動義務の持込みを拒否する。
  * @cleanup N/A: Process内の局所値だけを用いる。
  * @boundary Task単発結果と上位実行Ownerの検査境界。
  */
-test("単発結果検査は閉形式とRuntime発行回復参照の相関を維持する", () => {
+test("単発結果検査は閉形式を維持し下位からのProcess再起動義務を拒否する", () => {
   const result = {
     contract: COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
     attemptId: "attempt-a",
@@ -141,7 +156,7 @@ test("単発結果検査は閉形式とRuntime発行回復参照の相関を維�
     candidateId: null,
     recoveryIds: [],
   };
-  assert.equal(validSingleTaskResult(result, new Map()), true);
+  assert.deepEqual(snapshotSingleTaskResult(result), result);
   for (const value of [
     { ...result, extra: true },
     { ...result, contract: "wrong-contract" },
@@ -149,7 +164,7 @@ test("単発結果検査は閉形式とRuntime発行回復参照の相関を維�
     { ...result, effectState: "unknown" },
     { ...result, workspaceResult: { workspaceId: "unbound" } },
   ])
-    assert.equal(validSingleTaskResult(value, new Map()), false);
+    assert.equal(snapshotSingleTaskResult(value), null);
   let reads = 0;
   const accessor = Object.defineProperty({ ...result }, "reason", {
     get() {
@@ -158,7 +173,7 @@ test("単発結果検査は閉形式とRuntime発行回復参照の相関を維�
     },
     enumerable: true,
   });
-  assert.equal(validSingleTaskResult(accessor, new Map()), false);
+  assert.equal(snapshotSingleTaskResult(accessor), null);
   assert.equal(reads, 0);
   const recovery = {
     ...result,
@@ -170,15 +185,61 @@ test("単発結果検査は閉形式とRuntime発行回復参照の相関を維�
     recoveryIds: ["runtime-a"],
     recoveryObligations: [{ kind: "runtime_process", recoveryId: "runtime-a" }],
   };
-  assert.equal(validSingleTaskResult(recovery, new Map()), false);
-  const issued = new Map([
-    ["runtime-a", { attemptId: "attempt-a", operationId: "operation-a" }],
+  assert.equal(snapshotSingleTaskResult(recovery), null);
+  const paths = ["one.txt"];
+  const obligation = { kind: "docker", recoveryId: "runtime-a" };
+  const source = {
+    ...recovery,
+    recoveryObligations: [obligation],
+    workspaceResult: {
+      workspaceId: null,
+      changedPaths: paths,
+      canonicalRepositoryChanged: true,
+      changeAttribution: "unattributed",
+      workspaceDeletionIssued: false,
+    },
+  };
+  const captured = snapshotSingleTaskResult(source);
+  assert.deepEqual(captured, source);
+  assert.ok(captured);
+  source.reason = "changed";
+  source.recoveryIds.push("other-recovery");
+  obligation.kind = "runtime_process";
+  paths.push("two.txt");
+  assert.equal(captured.reason, "completed");
+  assert.deepEqual(captured.recoveryIds, ["runtime-a"]);
+  assert.deepEqual(captured.recoveryObligations, [
+    { kind: "docker", recoveryId: "runtime-a" },
   ]);
-  assert.equal(validSingleTaskResult(recovery, issued), true);
+  assert.deepEqual(captured.workspaceResult?.changedPaths, ["one.txt"]);
+  const accessorObligation = {
+    get kind() {
+      reads += 1;
+      return "docker";
+    },
+    recoveryId: "runtime-a",
+  };
   assert.equal(
-    validSingleTaskResult({ ...recovery, operationId: "operation-b" }, issued),
-    false,
+    snapshotSingleTaskResult({
+      ...recovery,
+      recoveryIds: ["runtime-a"],
+      recoveryObligations: [accessorObligation],
+    }),
+    null,
   );
+  assert.equal(
+    snapshotSingleTaskResult({
+      ...result,
+      status: {
+        toString: () => {
+          reads += 1;
+          return "completed";
+        },
+      },
+    }),
+    null,
+  );
+  assert.equal(reads, 0);
 });
 
 /**
@@ -425,11 +486,11 @@ test("Objectiveの明示選択は不正形式・Accessor・Proxyを実行せず�
 import {
   COORDINATOR_HUMAN_DECISION_CONTRACT,
   inspectCoordinatorDecisionRequest,
-} from "../../src/decision/request.ts";
+} from "../../src/lifecycle/decision.ts";
 
-import { inspectCoordinatorObjectiveRequest } from "../../src/objective/plan.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../src/index.ts";
 
-import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../src/state/projection.ts";
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../src/lifecycle/validation.ts";
 
 /**
  * Objective要求は未知field・accessor・ProxyをEffect前に拒否するを検証する。

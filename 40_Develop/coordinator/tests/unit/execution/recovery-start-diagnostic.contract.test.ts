@@ -17,7 +17,7 @@ import {
   inspectRecoveryStartFailureDiagnostic,
   snapshotBlockedRecoveryWithExactId,
   snapshotReadyRecovery,
-} from "../../../src/execution/validation.ts";
+} from "../../../src/lifecycle/validation.ts";
 
 /**
  * 任意診断の失敗・遅延が回復開始を待たせず、元の返却と保存・要求を変えないことを確認する。
@@ -32,10 +32,10 @@ import {
  */
 test("回復開始診断は全段階を一回通知し元結果とEffectを変えない", async () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/recovery.ts", import.meta.url),
+    new URL("../../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
-  const start = source.indexOf("function beginProductionRecovery(");
+  const start = source.indexOf("function beginRuntimeOwnedDockerRecovery(");
   const end = source.indexOf("\n/**", start);
   assert.ok(start > 0 && end > start);
   const body = stripTypeScriptTypes(source.slice(start, end));
@@ -83,7 +83,7 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
       let expectedRecoveryId: string | null = null;
       let hostReads = 0;
       const invoke = runInNewContext(
-        `${identityBody}\n${body}; beginProductionRecovery`,
+        `${identityBody}\n${body}; beginRuntimeOwnedDockerRecovery`,
         {
           Object,
           Error,
@@ -104,22 +104,26 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
           verifyOwnedOperationManagementCapability: () => ({
             operationId: stage === "operation_binding" ? "other" : "op",
           }),
-          readOperationStateStage: () => ({
-            value: {
-              snapshot: {
-                operations:
-                  stage === "state_conflict"
-                    ? [
-                        {
-                          kind: "docker_task",
-                          identityJson: JSON.stringify(plan),
-                          lease: "held",
-                        },
-                      ]
-                    : [],
+          operationStateInput: (identity: unknown) => ({ identity }),
+          readState: (_input: unknown, request: { scope: string }) => {
+            assert.equal(request.scope, "operation");
+            return {
+              value: {
+                snapshot: {
+                  operations:
+                    stage === "state_conflict"
+                      ? [
+                          {
+                            kind: "docker_task",
+                            identityJson: JSON.stringify(plan),
+                            lease: "held",
+                          },
+                        ]
+                      : [],
+                },
               },
-            },
-          }),
+            };
+          },
           randomBytes: () => Buffer.alloc(32, 1),
           HEX64: /^[a-f0-9]{64}$/,
           readOwnedHostOperation: () => {
@@ -151,7 +155,19 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
           }),
           durableRecords: new WeakMap(),
           releasedLogicalHomeLeases: new WeakSet(),
-          saveOperationStart: (_management: unknown, identityJson: string) => {
+          operationStartInput: (
+            identity: unknown,
+            observeTerminal: unknown,
+          ) => ({
+            identity,
+            observeTerminal,
+          }),
+          saveOperationStart: (
+            input: { identity: unknown; observeTerminal: unknown },
+            identityJson: string,
+          ) => {
+            assert.ok(input.identity);
+            assert.equal(typeof input.observeTerminal, "function");
             writes++;
             expectedRecoveryId = `docker-task.${plan.stableLogicalHomeBindingHash}.${"01".repeat(32)}.${createHash("sha256").update(identityJson).digest("hex")}`;
             return {

@@ -16,7 +16,7 @@ Toolのavailable／unavailable／unverified／blockedと、モデル構成のval
 | 所有しない責務 | Tool実行、Provider利用可能性の捏造、Repository Binding |
 | 主な外部境界 | Repository設定、Tool Package、Provider Preflight |
 
-AI Adapterは同梱JSONの技術Model Catalog、明示モデル・推論設定の解決とProvider固有の入力／出力・認証差を所有する。Repository別選択・保存・現在の五軸利用判断は上位Ownerが所有する。Tool能力発見とAI構成は一つの実行許可へまとめない。Profile選択やPreflight成功からCoordinatorの送信・実行Authority、Docker資源、Repository書込みAuthorityを生成しない。Callerは作業目的と許可範囲を保持し、Adapterはその範囲を拡張しない。
+AI Adapterは同梱JSONの技術Model Catalog、明示モデル・推論設定の解決とProvider固有の入力／出力・認証差を所有する。Repository別選択・保存と実行判断は上位Ownerが所有する。技術適合からHome・認証・配布・送信条件・Quotaの成立を推定しない。Tool能力発見とAI構成は一つの実行許可へまとめない。Profile選択やPreflight成功からCoordinatorの送信・実行Authority、Docker資源、Repository書込みAuthorityを生成しない。Callerは作業目的と許可範囲を保持し、Adapterはその範囲を拡張しない。
 
 ## 2. UI観点の入力
 

@@ -9,6 +9,7 @@
  */
 
 import assert from "node:assert/strict";
+import { createTaskRequestsFixture } from "../../../coordinator/tests/support/task-requests.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { channel } from "node:diagnostics_channel";
@@ -244,8 +245,8 @@ test("WorkspaceのPackage直結事前確認はHTTPなしで実GitとDomainまで
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
 import { readRepositoryNetworkHosts } from "../../../coordinator/src/index.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/state/validation.ts";
-import { createCoordinatorTaskRequests } from "../../../coordinator/src/task/requests.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/lifecycle/validation.ts";
+import type { createCoordinatorTaskRequests } from "../../../coordinator/src/lifecycle/execution.ts";
 import {
   executionSelection,
   selectionConfig,
@@ -354,7 +355,8 @@ function assertReadonlyTiming(input: unknown) {
           if (r.headersSendingAt !== null)
             assert.ok(Number(r.headersAt) >= Number(r.headersSendingAt));
         }
-        integer(r.closedAt, completed);
+        // closedAtだけ親の壁時計。子の時刻との大小でcloseの順序を推定しない。
+        integer(r.closedAt, 1);
       } else if (kind === "servers") {
         assert.ok(["view", "action"].includes(String(r.route)));
         const start = integer(r.receivedAt, 1);
@@ -415,6 +417,12 @@ test("読取り計測summaryは閉じた型と欠測を検査し容量で拒否�
     ],
   };
   assertReadonlyTiming(value);
+  const parentClockBehind = {
+    ...value,
+    clients: [{ ...value.clients[0], closedAt: 1 }],
+  };
+  assertReadonlyTiming(parentClockBehind);
+  assert.equal(parentClockBehind.clients[0]?.closedAt, 1);
   assertReadonlyTiming({
     ...value,
     clients: Array(513).fill(value.clients[0]),
@@ -442,7 +450,7 @@ test("読取り計測summaryは閉じた型と欠測を検査し容量で拒否�
       { requestCreatedAt: -1 },
       { headersSendingAt: 1 },
       { requestCreatedAt: 1, headersSendingAt: 2, headersAt: 1 },
-      { closedAt: 1 },
+      { closedAt: 0 },
       { secret: "synthetic-secret" },
     ].map((change) => ({
       ...value,
@@ -2819,26 +2827,22 @@ for (const transport of ["tool-child-process"] as const) {
       initializeExecutionStore(verified.capability, binding).status,
       "completed",
     );
-    owner = createCoordinatorTaskRequests({
-      root,
-      binding,
-      projectId: "project.synthetic-http",
-      principalId: "local.email.test@example.invalid",
-      authorize: () => true,
-      resolveSelection: () => ({
-        primary: executionSelection("advice"),
-        taskExecutionSelections: null,
-      }),
-      observeRevision: () =>
-        readRepositoryRevision(getRepository(root).capability)
-          ?.revisionIdentity ?? null,
-      execute: async (
-        _command,
-        _execution,
-        signal,
-        started,
-        operationCreated,
-      ) => {
+    owner = await createTaskRequestsFixture(
+      {
+        root,
+        binding,
+        projectId: "project.synthetic-http",
+        principalId: "local.email.test@example.invalid",
+        authorize: () => true,
+        resolveSelection: () => ({
+          primary: executionSelection("advice"),
+          taskExecutionSelections: null,
+        }),
+        observeRevision: () =>
+          readRepositoryRevision(getRepository(root).capability)
+            ?.revisionIdentity ?? null,
+      },
+      async (_command, _execution, signal, started, operationCreated) => {
         calls++;
         currentSignal = signal;
         await operationCreated({
@@ -2879,7 +2883,7 @@ for (const transport of ["tool-child-process"] as const) {
           workspaceResult: null,
         };
       },
-    });
+    );
     const taskOwner = owner;
     handle = await startWorkbench({
       workingDirectory: root,

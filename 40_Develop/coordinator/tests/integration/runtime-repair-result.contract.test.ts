@@ -30,8 +30,8 @@ import type {
   RepositoryRevisionObservation,
 } from "../../../version-control/src/index.ts";
 import * as versionControl from "../../../version-control/src/index.ts";
-import type { repairRuntimeOwnedDockerRuntime } from "../../src/execution/recovery.ts";
-import { snapshotJsonValue } from "../../src/input/snapshot.ts";
+import type { repairRuntimeOwnedDockerRuntime } from "../../src/lifecycle/environment.ts";
+import { snapshotJsonValue } from "../../src/lifecycle/validation.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
 let fixedRevision: {
@@ -111,11 +111,10 @@ after(() => {
   revisionMock.restore();
 });
 const model = await import("../../../execution-model/src/index.ts");
-const stateValues = await import("../../src/state/validation.ts");
-const bindings = await import("../../src/execution/operation.ts");
+const bindings = await import("../../src/lifecycle/host.ts");
 const { createRepository } = await import("../fixtures/decision-state.ts");
 const { renderDockerRecoveryDoctorReport } = await import(
-  "../../src/cli/recovery-report.ts"
+  "../../src/cli/command.ts"
 );
 const { getRepository } = versionControl;
 const projectedVersionControl = await import(
@@ -124,7 +123,7 @@ const projectedVersionControl = await import(
 
 const repairSource = sourceDeclaration(
   fs.readFileSync(
-    new URL("../../src/execution/recovery.ts", import.meta.url),
+    new URL("../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   ),
   "repairRuntimeOwnedDockerRuntime",
@@ -680,7 +679,6 @@ function fixture(
     randomBytes,
     randomUUID,
     ...model,
-    ...stateValues,
     canonicalJson,
     Date: class extends Date {
       constructor(value?: string | number) {

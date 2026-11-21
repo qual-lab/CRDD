@@ -12,7 +12,7 @@
  * @scope signed、general、task、verification
  * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還 / PRL-ST-001=System/E2E: 公開入口→Coordinator→Execution→受入
  */
-import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
+import { snapshotCoordinatorTaskRequest } from "../../src/lifecycle/validation.ts";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -62,8 +62,8 @@ const runnerSourceTree = "2".repeat(40);
 const baseManifestHash = "c".repeat(64);
 const contentManifestHash = "d".repeat(64);
 const allowedPathsHash = "e".repeat(64);
-const hostRecoveryA = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
-const hostRecoveryB = `host.crdd-coordinator-doctor-b.12345678-1234-4234-8234-123456789abc.${"b".repeat(64)}`;
+const hostRecoveryA = "host-operation.OP-123456";
+const hostRecoveryB = "host-operation.OP-123457";
 const dockerRecoveryA = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 const dockerRecoveryB = `docker-task.${"4".repeat(64)}.${"5".repeat(64)}.${"6".repeat(64)}`;
 const dockerRecoveryC = `docker-task.${"7".repeat(64)}.${"8".repeat(64)}.${"9".repeat(64)}`;
@@ -2300,11 +2300,7 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
       assert.equal(result.manualRecoveryRequired, false, scenario);
     if (scenario === "bind_throw_recovery") {
       assert.equal(result.manualRecoveryRequired, true, scenario);
-      assert.equal(
-        result.hostRecoveryId,
-        `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`,
-        scenario,
-      );
+      assert.equal(result.hostRecoveryId, hostRecoveryA, scenario);
     }
     if (scenario === "docker_pair_mismatch") {
       assert.deepEqual(result.dockerRecoveryIds, [
@@ -2746,7 +2742,7 @@ test("四経路は完全な二役割選定を持つ新Task入力だけを発行�
 test("経路選定不能は観測・準備・Task開始前に閉じる", () => {
   const program = `
     import { mock } from "node:test";
-    const url = ${JSON.stringify(new URL("../../src/selection/resolve.ts", import.meta.url).href)};
+    const url = ${JSON.stringify(new URL("../../src/lifecycle/selection.ts", import.meta.url).href)};
     const actual = await import(url);
     mock.module(url, { namedExports: { ...actual, resolveTaskExecutionSelections: () => ({ status: "blocked", value: null, reason: "ai_selection_config_invalid" }) } });
     const { runSignedGeneralTaskVerification } = await import(${JSON.stringify(new URL("../../scripts/verify-general-task.ts", import.meta.url).href)});

@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { describeProviderLifecycleContract } from "../../../src/execution/diagnostics.ts";
+import { describeProviderLifecycleContract } from "../../../src/lifecycle/environment.ts";
 
 /**
  * Provider認証方針は標準Profileをsubscription OAuthへ限定するを検証する。
@@ -26,7 +26,7 @@ import { describeProviderLifecycleContract } from "../../../src/execution/diagno
  */
 test("Provider認証方針は標準Profileをsubscription OAuthへ限定する", () => {
   const contract = describeProviderLifecycleContract();
-  assert.equal(contract.contractRevision, 7);
+  assert.equal(contract.contractRevision, 8);
   assert.equal(
     contract.implementationState,
     "repository_owned_docker_fake_observation",

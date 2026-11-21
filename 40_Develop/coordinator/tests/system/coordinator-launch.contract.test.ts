@@ -8,6 +8,8 @@
  * @boundary PRL-ST-001=System: 公開入口と正式API。
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import test from "node:test";
@@ -24,6 +26,92 @@ const terminal = {
   stdoutIsTty: true,
   stdoutWritable: true,
 };
+
+/**
+ * 統合CLIは通常importだけでは受付又は実行を開始しない。
+ * @responsibility 正式APIを事前読込みした境界からCLI自身の副作用を観測する。
+ * @trace PRL-ST-001
+ * @precondition 実Node子Process、実CLI File、正式APIだけの呼出し拒否代役。
+ * @stimulus CLIを通常のFile URLから一回importする。
+ * @observation stdin読取り・Signal登録・出力・API呼出し件数。
+ * @oracle 全件数0、例外なし、子Process正常終了。下位APIの初期化全体の証明へ拡大しない。
+ * @cleanup 全観測を復元し、子Processのcloseを確認する。Fileを作らない。
+ * @boundary PRL-ST-001=System: 実CLI ModuleのimportとProcess境界。
+ */
+test("統合CLIの通常importはstdin・Signal・出力・実行要求を発行しない", () => {
+  const api = pathToFileURL(path.join(packageRoot, "src/api.ts")).href;
+  const command = pathToFileURL(
+    path.join(packageRoot, "src/cli/command.ts"),
+  ).href;
+  const script = `import fs from "node:fs";import {mock} from "node:test";
+const actual=await import(${JSON.stringify(api)});
+const counts={stdin:0,signals:0,output:0,api:0};
+const replacements=Object.fromEntries(Object.entries(actual).map(([name,value])=>[name,typeof value==="function"?()=>{counts.api++;throw Error("unexpected_api_call");}:value]));
+const module=mock.module(${JSON.stringify(api)},{namedExports:replacements});
+const restore=[];const stdout=process.stdout.write;
+const watch=(object,key,check)=>{const original=object[key];object[key]=function(...args){if(check(...args))throw Error("unexpected_import_effect");return Reflect.apply(original,this,args);};restore.push(()=>object[key]=original);};
+watch(fs,"readFileSync",(fd)=>{if(fd===0){counts.stdin++;return true;}return false;});
+for(const key of ["on","once","addListener"])watch(process,key,(signal)=>{if(signal==="SIGINT"||signal==="SIGTERM"){counts.signals++;return true;}return false;});
+for(const key of ["read","setEncoding"])watch(process.stdin,key,()=>{counts.stdin++;return true;});
+for(const stream of [process.stdout,process.stderr])watch(stream,"write",()=>{counts.output++;return true;});
+let failure=null;try{await import(${JSON.stringify(command + "?passive-import")});}catch(error){failure=error instanceof Error?error.message:"unknown";}finally{for(const cleanup of restore.reverse())cleanup();module.restore();}
+stdout.call(process.stdout,JSON.stringify({counts,failure}));if(failure)process.exitCode=1;`;
+  const child = spawnSync(
+    process.execPath,
+    ["--experimental-test-module-mocks", "--input-type=module", "-e", script],
+    {
+      cwd: root,
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 15000,
+      env: { ...process.env, NODE_NO_WARNINGS: "1" },
+    },
+  );
+  assert.equal(child.status, 0, child.stderr || child.stdout);
+  assert.deepEqual(JSON.parse(child.stdout), {
+    counts: { stdin: 0, signals: 0, output: 0, api: 0 },
+    failure: null,
+  });
+});
+
+/**
+ * 直接起動判定は全値初期化後に一度だけ受付する。
+ * @responsibility import経由のbinだけでは検出できない初期化前参照を反証する。
+ * @trace PRL-ST-001
+ * @precondition 実CLI File、直接起動相当argv、実行APIの拒否代役。
+ * @stimulus 不正doctor引数を直接起動判定へ渡す。
+ * @observation 一件の拒否JSON、終了64、実行API呼出し0。
+ * @oracle 定数とUsageErrorが初期化済みで、一回拒否して追加実行しない。
+ * @cleanup 子Process正常終了。実AI・Docker・File作成なし。
+ * @boundary PRL-ST-001=System: CLI直接起動と値初期化。
+ */
+test("CLI直接起動は全値初期化後に一度だけ拒否して実行APIを呼ばない", () => {
+  const api = pathToFileURL(path.join(packageRoot, "src/api.ts")).href;
+  const file = path.join(packageRoot, "src/cli/command.ts");
+  const command = pathToFileURL(file).href;
+  const script = `import {mock} from "node:test";import assert from "node:assert/strict";
+const actual=await import(${JSON.stringify(api)});let calls=0;
+mock.module(${JSON.stringify(api)},{namedExports:Object.fromEntries(Object.entries(actual).map(([name,value])=>[name,typeof value==="function"&&name!=="isSupportedNodeRuntime"?()=>{calls++;throw Error("unexpected_execution_api");}:value]))});
+process.argv=[process.execPath,${JSON.stringify(file)},"doctor","--not-a-command","--json"];
+await import(${JSON.stringify(command)});assert.equal(calls,0);`;
+  const child = spawnSync(
+    process.execPath,
+    ["--experimental-test-module-mocks", "--input-type=module", "-e", script],
+    {
+      cwd: root,
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 15000,
+      env: { ...process.env, NODE_NO_WARNINGS: "1" },
+    },
+  );
+  assert.equal(child.status, 64, child.stderr || child.stdout);
+  assert.equal(child.stderr, "");
+  assert.equal(
+    child.stdout,
+    '{"status":"blocked","reason":"doctor_arguments_invalid"}\n',
+  );
+});
 
 /**
  * 新文法は対象と操作を一意に解決し機械出力条件を維持する。
@@ -269,7 +357,7 @@ test("認証statusは正式APIを一回待機し単一JSONだけを返す", () =
  * 同一Processの配送はPID・引数・stdin・cwdを維持し例外を秘匿する。
  * @responsibility 公開CLIの受付保証を検証する。
  * @trace PRL-ST-001
- * @precondition 合成入力・有限代役だけを使用する。
+ * @precondition 実CLI配送宣言・実Node子Process・用途実行の有限代役を使用する。
  * @stimulus 正常・拒否・失敗の対象入力を渡す。
  * @observation 出力、終了値、配送値と呼出し回数。
  * @oracle 本文の期待値と一致し秘密値を公開しない。
@@ -277,11 +365,20 @@ test("認証statusは正式APIを一回待機し単一JSONだけを返す", () =
  * @boundary PRL-ST-001=System: CLIと正式APIの接続。
  */
 test("同一Processの配送はPID・引数・stdin・cwdを維持し例外を秘匿する", () => {
-  const request = pathToFileURL(
-    path.join(packageRoot, "src/cli/request.ts"),
-  ).href;
-  const command = pathToFileURL(
+  const source = fs.readFileSync(
     path.join(packageRoot, "src/cli/command.ts"),
+    "utf8",
+  );
+  const declarations = [
+    "resolveCoordinatorLaunch",
+    "coordinatorLaunchFailureMessage",
+    "runCoordinatorCommand",
+  ]
+    .map((name) => sourceDeclaration(source, name))
+    .join("\n");
+  const apiUrl = pathToFileURL(path.join(packageRoot, "src/api.ts")).href;
+  const modelUrl = pathToFileURL(
+    path.join(packageRoot, "../execution-model/src/index.ts"),
   ).href;
   for (const { fail, operation } of [
     { fail: false, operation: "task" },
@@ -289,9 +386,12 @@ test("同一Processの配送はPID・引数・stdin・cwdを維持し例外を�
     { fail: false, operation: "advice" },
     { fail: true, operation: "advice" },
   ]) {
-    const script = `import {mock} from"node:test";
- mock.module(${JSON.stringify(request)},{namedExports:{runProjectCommand:async()=>{},runSingleTaskCommand:async(args)=>{if(${fail})throw Error("PRIVATE_FIXTURE_DETAIL");const chunks=[];for await(const c of process.stdin)chunks.push(c);console.log(JSON.stringify({pid:process.pid,args,cwd:process.cwd(),input:Buffer.concat(chunks).toString("hex")}));process.exitCode=37;}}});
- const {runCoordinatorCommand}=await import(${JSON.stringify(command)});await runCoordinatorCommand(["run",${JSON.stringify(operation)},"--request-stdin", "--json", "--principal-id", "local.email.fixture@example.invalid"]);`;
+    const script = `import {getCapabilities,isSupportedNodeRuntime} from ${JSON.stringify(apiUrl)};
+ import {isPrincipalId} from ${JSON.stringify(modelUrl)};
+ ${declarations}
+ const runProjectCommand=async()=>{};
+ const runSingleTaskCommand=async(args)=>{if(${fail})throw Error("PRIVATE_FIXTURE_DETAIL");const chunks=[];for await(const c of process.stdin)chunks.push(c);console.log(JSON.stringify({pid:process.pid,args,cwd:process.cwd(),input:Buffer.concat(chunks).toString("hex")}));process.exitCode=37;};
+ await runCoordinatorCommand(["run",${JSON.stringify(operation)},"--request-stdin", "--json", "--principal-id", "local.email.fixture@example.invalid"]);`;
     const input = Buffer.from('{"text":"日本語"}\n');
     const child = spawnSync(
       process.execPath,

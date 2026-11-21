@@ -27,7 +27,7 @@ import { sourceDeclaration } from "../../../execution-model/tests/support/source
  */
 test("認証管理領域は自作した元の空Directoryだけを終了する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/authority.ts", import.meta.url),
+    new URL("../../src/lifecycle/authentication.ts", import.meta.url),
     "utf8",
   );
   const recordPath = `C:\\runtime\\Recovery\\provider-authentication\\codex.${"a".repeat(64)}.json`;

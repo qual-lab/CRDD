@@ -15,8 +15,8 @@
 import { createHash } from "node:crypto";
 
 import { runSignedGeneralTaskVerification } from "../../scripts/verify-general-task.ts";
-import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
+import { isRuntimeProcessPoisoned } from "../../src/lifecycle/host.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/lifecycle/execution.ts";
 
 const scenario = process.argv[2] ?? "completed_true";
 const TARGET_PATH =
@@ -29,7 +29,7 @@ const baseTree = "b".repeat(40);
 const baseManifestHash = "c".repeat(64);
 const contentManifestHash = "d".repeat(64);
 const allowedPathsHash = "e".repeat(64);
-const hostRecoveryA = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+const hostRecoveryA = "host-operation.OP-123456";
 const dockerRecoveryA = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 const dockerRecoveryB = `docker-task.${"4".repeat(64)}.${"5".repeat(64)}.${"6".repeat(64)}`;
 const patchHash = createHash("sha256")

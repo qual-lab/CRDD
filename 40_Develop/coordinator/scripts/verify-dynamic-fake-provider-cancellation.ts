@@ -9,7 +9,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { runDynamicFakeProviderCancellationVerification } from "./probe-verification.ts";
-import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
+import { createOwnedOperationDirectories } from "../src/lifecycle/host.ts";
 import {
   getRepositoryFromWorkingDirectory,
   resolveVerifiedRepositoryRoot,

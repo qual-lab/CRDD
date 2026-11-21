@@ -45,18 +45,9 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.execution.intelligence",
-      "kind": "file",
-      "path": "src/execution/intelligence.ts",
-      "archIds": [
-        "ARCH-000007",
-        "ARCH-000018"
-      ]
-    },
-    {
       "symbolId": "coordinator.execution.isolation-configuration",
       "kind": "file",
-      "path": "src/execution/configuration.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -64,20 +55,10 @@
     {
       "symbolId": "coordinator.workspace.git",
       "kind": "file",
-      "path": "src/workspace/git.ts",
+      "path": "src/lifecycle/workspace.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000009"
-      ]
-    },
-    {
-      "symbolId": "coordinator.execution.files",
-      "kind": "file",
-      "path": "src/execution/files.ts",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000009",
-        "ARCH-000013"
       ]
     },
     {
@@ -99,7 +80,7 @@
     {
       "symbolId": "coordinator.execution.preparation-types",
       "kind": "file",
-      "path": "src/execution/types.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000015"
@@ -108,7 +89,7 @@
     {
       "symbolId": "coordinator.provider.preparation-lifecycle",
       "kind": "file",
-      "path": "src/execution/preparation.ts",
+      "path": "src/lifecycle/selection.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -142,7 +123,7 @@
     {
       "symbolId": "coordinator.execution.provider-executor",
       "kind": "file",
-      "path": "src/execution/provider-executor.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -150,24 +131,16 @@
     {
       "symbolId": "coordinator.source.src.execution.lease",
       "kind": "file",
-      "path": "src/execution/lease.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
       ]
     },
     {
-      "symbolId": "coordinator.source.src.execution.settlement",
-      "kind": "file",
-      "path": "src/execution/persistence.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.execution.validation",
       "kind": "file",
-      "path": "src/execution/validation.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -176,7 +149,7 @@
     {
       "symbolId": "coordinator.source.src.state.transaction",
       "kind": "file",
-      "path": "src/state/transaction.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -185,7 +158,7 @@
     {
       "symbolId": "coordinator.source.src.task.queue",
       "kind": "file",
-      "path": "src/state/transaction.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -194,7 +167,7 @@
     {
       "symbolId": "coordinator.selection.resolve",
       "kind": "file",
-      "path": "src/selection/resolve.ts",
+      "path": "src/lifecycle/selection.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -204,21 +177,24 @@
       "kind": "test-suite",
       "path": "tests/unit/selection/resolve.contract.test.ts",
       "qaIds": [
-        "QA-000001"
+        "QA-000001",
+        "QA-000006"
       ],
       "localTestIds": [
-        "RCM-UT-001"
+        "RCM-UT-001",
+        "ERB-UT-023"
       ],
       "verifies": [
         "coordinator.selection.types",
         "domain-model.ai-selection.validation",
-        "coordinator.selection.resolve"
+        "coordinator.selection.resolve",
+        "coordinator.source.src.security.authority.prelaunch.verifier"
       ]
     },
     {
       "symbolId": "coordinator.execution.result-reasons",
       "kind": "file",
-      "path": "src/execution/result.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -226,7 +202,7 @@
     {
       "symbolId": "coordinator.execution.host-submission",
       "kind": "file",
-      "path": "src/execution/controller.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -234,10 +210,12 @@
     {
       "symbolId": "coordinator.source.repository-operation.borrowed-workspace",
       "kind": "file",
-      "path": "src/execution/operation.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000004",
-        "ARCH-000008"
+        "ARCH-000008",
+        "ARCH-000009",
+        "ARCH-000013"
       ]
     },
     {
@@ -386,7 +364,7 @@
     {
       "symbolId": "coordinator.diagnostics.runtime-repair",
       "kind": "module",
-      "path": "src/execution/recovery.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -557,7 +535,7 @@
     {
       "symbolId": "coordinator.task.task-attempt-runtime",
       "kind": "file",
-      "path": "src/execution/controller.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -565,7 +543,7 @@
     {
       "symbolId": "coordinator.task.task-completion-observation",
       "kind": "file",
-      "path": "src/execution/observation.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -574,7 +552,7 @@
     {
       "symbolId": "coordinator.task.types",
       "kind": "file",
-      "path": "src/execution/advice.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -582,7 +560,7 @@
     {
       "symbolId": "coordinator.provider.execution-adapter",
       "kind": "file",
-      "path": "src/execution/preparation.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -590,7 +568,7 @@
     {
       "symbolId": "coordinator.provider.preparation",
       "kind": "file",
-      "path": "src/execution/preparation.ts",
+      "path": "src/lifecycle/selection.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -598,7 +576,7 @@
     {
       "symbolId": "coordinator.provider.execution-types",
       "kind": "file",
-      "path": "src/execution/preparation.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -637,7 +615,7 @@
     {
       "symbolId": "coordinator.task-runtime",
       "kind": "file",
-      "path": "src/execution/controller.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008",
@@ -654,7 +632,7 @@
     {
       "symbolId": "coordinator.provider-authority-runtime",
       "kind": "file",
-      "path": "src/execution/authority.ts",
+      "path": "src/lifecycle/authentication.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000015"
@@ -666,7 +644,7 @@
     {
       "symbolId": "coordinator.provider-model-selection-runtime",
       "kind": "file",
-      "path": "src/selection/resolve.ts",
+      "path": "src/lifecycle/selection.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000010"
@@ -726,6 +704,7 @@
         "ERB-IT-003"
       ],
       "verifies": [
+        "coordinator.source.src.security.repository.operation.runtime",
         "coordinator.host-execution.kernel-lock"
       ]
     },
@@ -842,7 +821,6 @@
         "coordinator.provider-model-selection-runtime",
         "coordinator.source.src.core.runtime.process.safety.state",
         "coordinator.source.src.security.execution.environment",
-        "coordinator.source.src.security.local.personal.authority.runtime",
         "coordinator.source.src.security.repository.operation.runtime",
         "coordinator.task-runtime"
       ]
@@ -948,6 +926,7 @@
         "EST-IT-004"
       ],
       "verifies": [
+        "coordinator.source.lifecycle.validation",
         "coordinator.source.src.security.claude.structured.result",
         "coordinator.source.src.security.execution.environment",
         "coordinator.source.src.security.external.send.policy.runtime",
@@ -1112,7 +1091,7 @@
       ],
       "verifies": [
         "coordinator.host-execution.kernel-lock",
-        "orchestrator.task.windows-platform-adapter",
+        "coordinator.source.src.security.provider.home.windows.adapter",
         "orchestrator.public-api"
       ]
     },
@@ -1228,7 +1207,6 @@
         "version-control.repository.commit",
         "version-control.repository.reference",
         "version-control.repository.merge",
-        "coordinator.execution.files",
         "coordinator.source.src.security.execution.environment",
         "coordinator.source.src.security.repository.operation.runtime",
         "coordinator.source.src.security.repository.workspace.runtime",
@@ -1308,7 +1286,8 @@
         "coordinator.source.src.core.docker.recovery.command.report",
         "coordinator.source.src.cli.command",
         "coordinator.source.src.security.docker.recovery.runtime.internal",
-        "coordinator.cli.doctor"
+        "coordinator.cli.doctor",
+        "orchestrator.state-public-query"
       ]
     },
     {
@@ -1666,7 +1645,8 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.task.recovery-projection"
+        "coordinator.task.recovery-projection",
+        "coordinator.source.src.security.docker.recovery.runtime.internal"
       ]
     },
     {
@@ -1737,7 +1717,7 @@
         "PPR-UT-006"
       ],
       "verifies": [
-        "coordinator.source.src.security.plain.data.snapshot"
+        "coordinator.source.lifecycle.validation"
       ]
     },
     {
@@ -1751,14 +1731,18 @@
         "PRL-UT-014"
       ],
       "verifies": [
+        "orchestrator.execution-diagnostics",
         "coordinator.source.src.security.orchestrator.execution.host.adapter",
-        "coordinator.source.src.security.orchestrator.task.recovery.adapter"
+        "coordinator.source.src.security.orchestrator.task.recovery.adapter",
+        "orchestrator.execution",
+        "coordinator.source.src.state.transaction",
+        "coordinator.source.src.core.runtime.process.safety.state"
       ]
     },
     {
-      "symbolId": "coordinator.test.unit.orchestrator-windows-platform-adapter",
+      "symbolId": "coordinator.test.unit.platform-host-observation",
       "kind": "test-suite",
-      "path": "tests/unit/task-windows-platform-adapter.contract.test.ts",
+      "path": "tests/unit/platform/host-observation.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1766,27 +1750,9 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "docker-isolation.execution.cli-environment",
-        "coordinator.source.src.security.docker.recovery.runtime",
         "coordinator.host-execution.kernel-lock",
-        "orchestrator.task.windows-platform-adapter",
         "coordinator.source.src.security.provider.home.windows.adapter",
-        "orchestrator.source.src.ports.platform.contract",
         "version-control.source.src.repository.location"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.provider-eligibility-runtime",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/eligibility-observation.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-UT-023"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.provider.eligibility.runtime"
       ]
     },
     {
@@ -1924,6 +1890,7 @@
         "ERB-UT-023"
       ],
       "verifies": [
+        "coordinator.execution.isolation-configuration",
         "coordinator.source.src.security.workbench.ai.provider.adapter",
         "coordinator.source.src.security.workbench.ai.advice.provider.output"
       ]
@@ -1942,6 +1909,7 @@
         "coordinator.source.src.core.runtime.process.safety.state",
         "coordinator.source.src.security.workbench.ai.advice.production.runtime",
         "coordinator.source.src.security.workbench.ai.provider.adapter",
+        "coordinator.source.src.security.docker.recovery.runtime.internal",
         "coordinator.source.src.security.coordinator.operation.creation.internal"
       ]
     },
@@ -2116,7 +2084,7 @@
         "PRL-IT-005"
       ],
       "verifies": [
-        "coordinator.execution.persistence",
+        "coordinator.source.src.security.repository.operation.runtime",
         "coordinator.source.src.security.docker.recovery.runtime.internal",
         "domain-model.src.attempt.crud",
         "docker-isolation.cleanup.recovery-executor",
@@ -2146,7 +2114,7 @@
     {
       "symbolId": "coordinator.host-execution.kernel-lock",
       "kind": "file",
-      "path": "src/execution/kernel-lock.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000015"
@@ -2155,7 +2123,7 @@
     {
       "symbolId": "coordinator.source.src.security.claude.subscription.authentication",
       "kind": "file",
-      "path": "src/execution/authority.ts",
+      "path": "src/lifecycle/authentication.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008",
@@ -2180,7 +2148,7 @@
     {
       "symbolId": "coordinator.source.src.core.cli.options",
       "kind": "file",
-      "path": "src/cli/options.ts",
+      "path": "src/cli/command.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2188,7 +2156,7 @@
     {
       "symbolId": "coordinator.source.src.core.docker.recovery.command.report",
       "kind": "file",
-      "path": "src/cli/recovery-report.ts",
+      "path": "src/cli/command.ts",
       "archIds": [
         "ARCH-000003",
         "ARCH-000004"
@@ -2197,7 +2165,7 @@
     {
       "symbolId": "coordinator.source.src.core.task.cli.cancellation",
       "kind": "file",
-      "path": "src/cli/cancellation.ts",
+      "path": "src/cli/command.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2205,7 +2173,7 @@
     {
       "symbolId": "coordinator.source.src.security.execution.environment",
       "kind": "file",
-      "path": "src/execution/operation.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2213,7 +2181,7 @@
     {
       "symbolId": "coordinator.source.src.core.runtime.process.safety.state",
       "kind": "file",
-      "path": "src/execution/process-safety-state.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2221,7 +2189,7 @@
     {
       "symbolId": "coordinator.source.src.security.repository.operation.runtime",
       "kind": "file",
-      "path": "src/execution/operation.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000009"
       ]
@@ -2237,7 +2205,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home.windows.adapter",
       "kind": "file",
-      "path": "src/execution/authority.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2245,7 +2213,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.recovery.runtime.internal",
       "kind": "file",
-      "path": "src/execution/recovery.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2253,7 +2221,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.recovery.runtime",
       "kind": "file",
-      "path": "src/execution/recovery.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2261,7 +2229,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.recovery.record",
       "kind": "file",
-      "path": "src/execution/operation.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2307,7 +2275,7 @@
     {
       "symbolId": "coordinator.source.src.security.external.send.policy.runtime",
       "kind": "file",
-      "path": "src/decision/external-send-policy.ts",
+      "path": "src/lifecycle/decision.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2331,7 +2299,7 @@
     {
       "symbolId": "coordinator.source.src.composition.workbench.ai.request.application",
       "kind": "file",
-      "path": "src/execution/advice.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -2340,7 +2308,7 @@
     {
       "symbolId": "coordinator.source.src.composition.workbench.ai.repository.composition",
       "kind": "file",
-      "path": "src/execution/advice.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000009",
         "ARCH-000015"
@@ -2349,7 +2317,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.execution.plan",
       "kind": "file",
-      "path": "src/execution/preparation.ts",
+      "path": "src/lifecycle/selection.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -2358,7 +2326,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.production.runtime",
       "kind": "file",
-      "path": "src/execution/advice.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000010",
@@ -2368,7 +2336,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.runtime.packet",
       "kind": "file",
-      "path": "src/execution/preparation.ts",
+      "path": "src/lifecycle/selection.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -2377,7 +2345,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.dispatch.runtime",
       "kind": "file",
-      "path": "src/execution/advice.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2385,7 +2353,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.provider.adapter",
       "kind": "file",
-      "path": "src/execution/advice.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -2394,7 +2362,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.task",
       "kind": "file",
-      "path": "src/execution/preparation.ts",
+      "path": "src/lifecycle/selection.ts",
       "archIds": [
         "ARCH-000014",
         "ARCH-000015"
@@ -2422,7 +2390,7 @@
     {
       "symbolId": "coordinator.source.src.security.repository.workspace.runtime",
       "kind": "file",
-      "path": "src/execution/operation.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -2451,7 +2419,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.isolation",
       "kind": "file",
-      "path": "src/execution/diagnostics.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2475,7 +2443,7 @@
     {
       "symbolId": "coordinator.source.src.core.node.runtime.version",
       "kind": "file",
-      "path": "src/execution/diagnostics.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2521,17 +2489,9 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.authority.grant.verifier",
-      "kind": "file",
-      "path": "src/execution/authority.ts",
-      "archIds": [
-        "ARCH-000014"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.provider.isolation.profile",
       "kind": "file",
-      "path": "src/execution/validation.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2539,7 +2499,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.prelaunch.verifier",
       "kind": "file",
-      "path": "src/execution/authority.ts",
+      "path": "src/lifecycle/selection.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -2547,7 +2507,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.root.path.lexical",
       "kind": "file",
-      "path": "src/execution/authority.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -2555,7 +2515,7 @@
     {
       "symbolId": "coordinator.source.src.security.coordinator.operation.creation.internal",
       "kind": "file",
-      "path": "src/execution/operation.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2571,7 +2531,7 @@
     {
       "symbolId": "coordinator.source.src.security.coordinator.task.request",
       "kind": "file",
-      "path": "src/execution/request.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2579,7 +2539,7 @@
     {
       "symbolId": "coordinator.task.cleanup-eligibility",
       "kind": "file",
-      "path": "src/execution/recovery.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2587,7 +2547,7 @@
     {
       "symbolId": "coordinator.task.recovery-projection",
       "kind": "file",
-      "path": "src/execution/result.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2595,7 +2555,7 @@
     {
       "symbolId": "coordinator.source.src.core.doctor",
       "kind": "file",
-      "path": "src/execution/diagnostics.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2611,25 +2571,9 @@
     {
       "symbolId": "coordinator.source.src.core.host.generation.loss.transition",
       "kind": "file",
-      "path": "src/execution/operation.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.local.personal.authority.runtime",
-      "kind": "file",
-      "path": "src/execution/authority.ts",
-      "archIds": [
-        "ARCH-000014"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.provider.eligibility.runtime",
-      "kind": "file",
-      "path": "src/execution/observation.ts",
-      "archIds": [
-        "ARCH-000010"
       ]
     },
     {
@@ -2643,7 +2587,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home",
       "kind": "file",
-      "path": "src/execution/authority.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2651,7 +2595,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.lifecycle",
       "kind": "file",
-      "path": "src/execution/diagnostics.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2659,7 +2603,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.task.packet.runtime",
       "kind": "file",
-      "path": "src/execution/preparation.ts",
+      "path": "src/lifecycle/selection.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2675,7 +2619,7 @@
     {
       "symbolId": "coordinator.diagnostics.runtime-restart",
       "kind": "file",
-      "path": "src/execution/recovery.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2699,6 +2643,8 @@
         "PRL-UT-014"
       ],
       "verifies": [
+        "coordinator.objective.plan-validation",
+        "orchestrator.task.request-composition",
         "coordinator.source.src.security.coordinator.task.request",
         "orchestrator.source.src.public.contract.objective.request"
       ]
@@ -2729,7 +2675,7 @@
     {
       "symbolId": "orchestrator.cli.request-input",
       "kind": "file",
-      "path": "src/cli/options.ts",
+      "path": "src/cli/command.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2762,14 +2708,23 @@
         "PRL-UT-006"
       ],
       "verifies": [
+        "coordinator.objective.plan-validation",
         "orchestrator.task.requests",
-        "orchestrator.workspace.record"
+        "coordinator.task.task-attempt-runtime",
+        "orchestrator.workspace.record",
+        "orchestrator.execution",
+        "orchestrator.state-projection",
+        "coordinator.execution.result-reasons",
+        "coordinator.execution.host-submission",
+        "coordinator.selection.resolve",
+        "coordinator.source.src.security.docker.recovery.runtime",
+        "coordinator.host-execution.kernel-lock"
       ]
     },
     {
       "symbolId": "orchestrator.workspace.commands",
       "kind": "file",
-      "path": "src/workspace/commands.ts",
+      "path": "src/lifecycle/workspace.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000012"
@@ -2778,7 +2733,7 @@
     {
       "symbolId": "orchestrator.workspace.record",
       "kind": "file",
-      "path": "src/workspace/record.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2786,7 +2741,7 @@
     {
       "symbolId": "orchestrator.workspace.operations",
       "kind": "file",
-      "path": "src/workspace/operations.ts",
+      "path": "src/lifecycle/workspace.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000009"
@@ -2824,7 +2779,7 @@
     {
       "symbolId": "orchestrator.activity.types",
       "kind": "file",
-      "path": "src/state/types.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007"
@@ -2833,7 +2788,7 @@
     {
       "symbolId": "orchestrator.activity.cursor",
       "kind": "file",
-      "path": "src/state/projection.ts",
+      "path": "src/lifecycle/query.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007"
@@ -2842,7 +2797,7 @@
     {
       "symbolId": "orchestrator.activity.validate",
       "kind": "file",
-      "path": "src/state/projection.ts",
+      "path": "src/lifecycle/query.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007"
@@ -2851,7 +2806,7 @@
     {
       "symbolId": "orchestrator.activity.read",
       "kind": "file",
-      "path": "src/state/observation.ts",
+      "path": "src/lifecycle/query.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007"
@@ -2860,7 +2815,7 @@
     {
       "symbolId": "orchestrator.identity.repository-binding",
       "kind": "file",
-      "path": "src/state/validation.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2886,7 +2841,7 @@
     {
       "symbolId": "orchestrator.cli.project-command",
       "kind": "file",
-      "path": "src/cli/request.ts",
+      "path": "src/cli/command.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2919,7 +2874,7 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.objective.intake",
       "kind": "file",
-      "path": "src/objective/execute.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000004"
       ],
@@ -2930,15 +2885,7 @@
     {
       "symbolId": "coordinator.source.src.composition.orchestrator.composition.root",
       "kind": "file",
-      "path": "src/objective/composition.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.task.windows-platform-adapter",
-      "kind": "file",
-      "path": "src/execution/diagnostics.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2946,7 +2893,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.project.recovery.settlement",
       "kind": "file",
-      "path": "src/execution/recovery.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2962,7 +2909,7 @@
     {
       "symbolId": "orchestrator.storage.types",
       "kind": "file",
-      "path": "src/workspace/record.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -2970,15 +2917,16 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.task.recovery.adapter",
       "kind": "file",
-      "path": "src/task/dispatch.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
+        "ARCH-000004",
         "ARCH-000008"
       ]
     },
     {
       "symbolId": "coordinator.source.src.security.orchestrator.execution.host.adapter",
       "kind": "file",
-      "path": "src/task/dispatch.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2986,7 +2934,7 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.single.task.adapter",
       "kind": "file",
-      "path": "src/execution/controller.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2994,7 +2942,7 @@
     {
       "symbolId": "coordinator.source.src.security.execution.intelligence.adapter",
       "kind": "file",
-      "path": "src/task/dispatch.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -3002,7 +2950,7 @@
     {
       "symbolId": "orchestrator.acceptance-decision-application",
       "kind": "file",
-      "path": "src/decision/acceptance.ts",
+      "path": "src/lifecycle/decision.ts",
       "archIds": [
         "ARCH-000005"
       ],
@@ -3013,7 +2961,7 @@
     {
       "symbolId": "orchestrator.objective-application",
       "kind": "file",
-      "path": "src/objective/execute.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000004"
       ],
@@ -3027,7 +2975,7 @@
     {
       "symbolId": "orchestrator.state-projection",
       "kind": "file",
-      "path": "src/state/projection.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000005"
@@ -3039,7 +2987,7 @@
     {
       "symbolId": "orchestrator.human-decision-application",
       "kind": "file",
-      "path": "src/decision/lifecycle.ts",
+      "path": "src/lifecycle/decision.ts",
       "archIds": [
         "ARCH-000005"
       ],
@@ -3048,7 +2996,7 @@
     {
       "symbolId": "orchestrator.state-query-application",
       "kind": "file",
-      "path": "src/state/query.ts",
+      "path": "src/lifecycle/query.ts",
       "archIds": [
         "ARCH-000005"
       ],
@@ -3059,7 +3007,7 @@
     {
       "symbolId": "orchestrator.queue-core",
       "kind": "file",
-      "path": "src/task/types.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000004"
       ],
@@ -3070,7 +3018,7 @@
     {
       "symbolId": "orchestrator.objective-intake",
       "kind": "file",
-      "path": "src/objective/execute.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000004"
       ],
@@ -3081,7 +3029,7 @@
     {
       "symbolId": "coordinator.objective.shared-types",
       "kind": "file",
-      "path": "src/objective/types.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3089,7 +3037,7 @@
     {
       "symbolId": "coordinator.objective.plan-validation",
       "kind": "file",
-      "path": "src/objective/plan.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3097,7 +3045,7 @@
     {
       "symbolId": "orchestrator.execution",
       "kind": "file",
-      "path": "src/task/dispatch.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000004"
       ],
@@ -3108,7 +3056,7 @@
     {
       "symbolId": "orchestrator.execution-observation-port",
       "kind": "file",
-      "path": "src/task/types.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000007"
       ],
@@ -3143,7 +3091,7 @@
       ],
       "verifies": [
         "orchestrator.human-decision-application",
-        "orchestrator.source.src.ports.port.result"
+        "orchestrator.source.src.public.contract.decision.request"
       ]
     },
     {
@@ -3174,7 +3122,10 @@
         "ERP-IT-008"
       ],
       "verifies": [
-        "coordinator.source.execution.intelligence",
+        "coordinator.execution.provider-executor",
+        "coordinator.source.src.configuration.runtime-data",
+        "orchestrator.execution-diagnostics",
+        "orchestrator.execution",
         "execution-intelligence.source.record.execution",
         "execution-intelligence.source.storage.store"
       ]
@@ -3194,6 +3145,7 @@
       "verifies": [
         "orchestrator.objective-intake",
         "orchestrator.source.src.public.contract.objective.request",
+        "orchestrator.task.request-composition",
         "domain-model.task.crud"
       ]
     },
@@ -3233,21 +3185,8 @@
         "domain-model.task.crud",
         "orchestrator.state-query-application",
         "coordinator.state.request",
-        "orchestrator.state-projection"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.test.unit.platform-contract",
-      "kind": "test-suite",
-      "path": "tests/unit/platform/contract.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-014"
-      ],
-      "verifies": [
-        "orchestrator.source.src.ports.platform.contract"
+        "orchestrator.state-projection",
+        "orchestrator.execution"
       ]
     },
     {
@@ -3268,23 +3207,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.execution.port",
       "kind": "file",
-      "path": "src/task/types.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.source.src.ports.platform.contract",
-      "kind": "file",
-      "path": "src/execution/diagnostics.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.source.src.ports.port.result",
-      "kind": "file",
-      "path": "src/state/result.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3292,7 +3215,7 @@
     {
       "symbolId": "orchestrator.source.src.public.contract.decision.request",
       "kind": "file",
-      "path": "src/decision/request.ts",
+      "path": "src/lifecycle/decision.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3300,7 +3223,7 @@
     {
       "symbolId": "orchestrator.source.src.public.contract.runtime.result",
       "kind": "file",
-      "path": "src/state/result.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3308,7 +3231,7 @@
     {
       "symbolId": "orchestrator.source.src.public.contract.project.state.query",
       "kind": "file",
-      "path": "src/state/projection.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3316,7 +3239,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.state.port",
       "kind": "file",
-      "path": "src/state/persistence.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3324,7 +3247,7 @@
     {
       "symbolId": "orchestrator.task.requests",
       "kind": "file",
-      "path": "src/task/requests.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000015"
@@ -3333,7 +3256,7 @@
     {
       "symbolId": "orchestrator.task.request-composition",
       "kind": "file",
-      "path": "src/task/requests.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000015"
@@ -3371,13 +3294,14 @@
       ],
       "verifies": [
         "orchestrator.task.single-task-record",
-        "orchestrator.task.requests"
+        "orchestrator.task.requests",
+        "orchestrator.execution"
       ]
     },
     {
       "symbolId": "orchestrator.decision-public-operation",
       "kind": "file",
-      "path": "src/decision/lifecycle.ts",
+      "path": "src/lifecycle/decision.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3385,7 +3309,7 @@
     {
       "symbolId": "orchestrator.decision-public-acceptance",
       "kind": "file",
-      "path": "src/decision/acceptance.ts",
+      "path": "src/lifecycle/decision.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -3393,15 +3317,16 @@
     {
       "symbolId": "orchestrator.state-public-query",
       "kind": "file",
-      "path": "src/state/query.ts",
+      "path": "src/lifecycle/query.ts",
       "archIds": [
-        "ARCH-000005"
+        "ARCH-000005",
+        "ARCH-000008"
       ]
     },
     {
       "symbolId": "orchestrator.execution-diagnostics",
       "kind": "file",
-      "path": "src/execution/diagnostics.ts",
+      "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3409,7 +3334,7 @@
     {
       "symbolId": "orchestrator.execution-contract",
       "kind": "file",
-      "path": "src/task/dispatch.ts",
+      "path": "src/lifecycle/execution.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3420,12 +3345,14 @@
       "path": "tests/integration/public-operation.integration.test.ts",
       "qaIds": [
         "QA-000003",
-        "QA-000004"
+        "QA-000004",
+        "QA-000012"
       ],
       "localTestIds": [
         "PPR-IT-001",
         "PRL-IT-005",
-        "PRL-IT-008"
+        "PRL-IT-008",
+        "ERP-IT-008"
       ],
       "verifies": [
         "coordinator.source.src.composition.orchestrator.composition.root",
@@ -3439,7 +3366,9 @@
         "orchestrator.decision-public-operation",
         "orchestrator.decision-public-acceptance",
         "orchestrator.state-public-query",
-        "orchestrator.execution-diagnostics"
+        "orchestrator.execution-diagnostics",
+        "coordinator.source.src.configuration.runtime-data",
+        "execution-intelligence.source.record.group"
       ]
     },
     {
@@ -3453,18 +3382,23 @@
         "PRL-UT-014"
       ],
       "verifies": [
+        "orchestrator.execution-diagnostics",
+        "coordinator.host-execution.kernel-lock",
+        "coordinator.objective.plan-validation",
+        "orchestrator.task.request-composition",
         "coordinator.source.src.security.orchestrator.objective.intake",
         "orchestrator.objective-application",
         "orchestrator.source.src.public.contract.objective.request",
         "coordinator.selection.types",
         "domain-model.ai-selection.validation",
-        "coordinator.selection.resolve"
+        "coordinator.selection.resolve",
+        "coordinator.source.src.security.orchestrator.task.recovery.adapter"
       ]
     },
     {
       "symbolId": "orchestrator.source.src.ports.clock.identity",
       "kind": "file",
-      "path": "src/state/persistence.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3472,7 +3406,7 @@
     {
       "symbolId": "coordinator.source.src.input.plain.data.snapshot",
       "kind": "file",
-      "path": "src/state/validation.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3480,7 +3414,7 @@
     {
       "symbolId": "orchestrator.source.src.public.contract.repository.relative.path",
       "kind": "file",
-      "path": "src/state/validation.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3488,7 +3422,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.lease.port",
       "kind": "file",
-      "path": "src/state/persistence.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3496,7 +3430,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.process.safety.port",
       "kind": "file",
-      "path": "src/task/types.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3504,7 +3438,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.task.recovery.port",
       "kind": "file",
-      "path": "src/task/types.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3512,7 +3446,7 @@
     {
       "symbolId": "coordinator.cli.authentication",
       "kind": "file",
-      "path": "src/cli/authentication.ts",
+      "path": "src/cli/command.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3520,17 +3454,9 @@
     {
       "symbolId": "coordinator.cli.doctor",
       "kind": "file",
-      "path": "src/cli/doctor.ts",
+      "path": "src/cli/command.ts",
       "archIds": [
         "ARCH-000004",
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.execution.persistence",
-      "kind": "file",
-      "path": "src/execution/persistence.ts",
-      "archIds": [
         "ARCH-000008"
       ]
     },
@@ -3595,7 +3521,7 @@
     {
       "symbolId": "coordinator.source.src.cli.file-snapshot",
       "kind": "file",
-      "path": "src/cli/file-snapshot.ts",
+      "path": "src/cli/command.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3603,26 +3529,20 @@
     {
       "symbolId": "coordinator.source.src.configuration.runtime-data",
       "kind": "file",
-      "path": "src/configuration/runtime-data.ts",
+      "path": "src/lifecycle/host.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000011"
       ]
     },
     {
-      "symbolId": "coordinator.source.src.input.json",
+      "symbolId": "coordinator.source.lifecycle.validation",
       "kind": "file",
-      "path": "src/input/json.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
+        "ARCH-000010",
+        "ARCH-000014",
         "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.input.snapshot",
-      "kind": "file",
-      "path": "src/input/snapshot.ts",
-      "archIds": [
-        "ARCH-000014"
       ]
     },
     {
@@ -3643,7 +3563,7 @@
     {
       "symbolId": "coordinator.source.src.security.secret.material.policy",
       "kind": "file",
-      "path": "src/input/secret-validation.ts",
+      "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3778,7 +3698,7 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.execution.persistence",
+        "coordinator.source.src.configuration.runtime-data",
         "execution-model.source.tests.support.source-declaration"
       ]
     },
@@ -3801,9 +3721,23 @@
         "RDL-IT-001"
       ],
       "verifies": [
+        "coordinator.host-execution.kernel-lock",
+        "coordinator.source.src.configuration.runtime-data",
+        "coordinator.source.src.security.repository.operation.runtime",
+        "coordinator.source.src.security.docker.recovery.runtime",
+        "domain-model.attempt.settlement",
         "access-management.public-api",
         "crdd-domain-library.repository-entry",
         "domain-model.configuration-entry"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.support.task-requests",
+      "kind": "file",
+      "path": "tests/support/task-requests.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
       ]
     }
   ]

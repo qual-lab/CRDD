@@ -22,10 +22,10 @@ import { withCallerPlan } from "../../../execution-model/tests/fixtures/executio
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";
-import type { CoordinatorSingleTaskResult } from "../../src/task/types.ts";
+  verifyRuntimePersistenceRepository,
+} from "../../src/lifecycle/host.ts";
+import { runTestCoordinatorObjective } from "../fixtures/task-persistence-fixture.ts";
+import type { CoordinatorSingleTaskResult } from "../../src/lifecycle/types.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import { readCoordinatorState } from "../fixtures/task-persistence-fixture.ts";
 import {
@@ -34,9 +34,7 @@ import {
 } from "../fixtures/task-result-fixture.ts";
 
 const revision = "a".repeat(40);
-type ObjectiveDependencies = Parameters<
-  typeof runCoordinatorObjectiveWithPorts
->[0];
+type ObjectiveDependencies = Parameters<typeof runTestCoordinatorObjective>[0];
 type TestObjectiveDependencies = Omit<ObjectiveDependencies, "execution"> &
   Readonly<{
     execution: Omit<ObjectiveDependencies["execution"], "authorization">;
@@ -59,7 +57,7 @@ function runCoordinatorObjective(
   rawRequest: unknown,
   cancellationSignal: AbortSignal,
 ) {
-  return runCoordinatorObjectiveWithPorts(
+  return runTestCoordinatorObjective(
     {
       ...dependencies,
       execution: {
@@ -285,27 +283,11 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
       repositoryRevision: revision,
       workingDirectory,
       repositoryRoot: workingDirectory,
-      bindingCapability: {},
     }),
     resolveTaskSelections: () => ({
       status: "resolved" as const,
       value: taskExecutionSelections(),
       reason: null,
-    }),
-    planObjective: () => ({
-      milestoneAcceptanceCriteria: ["Result exists."],
-      objectives: [
-        { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-      ],
-      tasks: [
-        {
-          id: "task-a",
-          objectiveId: "objective-a",
-          dependencies: [],
-          allowedPaths: ["result.txt"],
-          conflictKeys: ["result.txt"],
-        },
-      ],
     }),
     createTaskExecutions: () => [
       { taskId: "task-a", taskRequest: {}, repositoryRoot: workingDirectory },

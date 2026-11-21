@@ -31,7 +31,7 @@ export type VerificationHttpTiming = Readonly<{
   headersSendingAt: number | null;
   headersAt: number | null;
   completedAt: number;
-  /** 親event loopがclose callbackを処理した時刻。子の実終了時刻ではない。 */
+  /** 親でclose待機後に採取する壁時計。子のcompletedAtとの大小は処理順序を保証しない。 */
   closedAt: number;
 }>;
 

@@ -1,19 +1,17 @@
 /**
- * 固定した助言選定と非共有実行計画を検証する。
+ * 固定した助言選定とProvider実行入力を検証する。
  * @packageDocumentation
  * @responsibility 完全選定の搬送、未知項目拒否とEffect前検査を確認する。
  * @trace ERB-UT-023
  * @level UT
  * @scope advice、plan、selection
- * @boundary ERB-UT-023=N/A: 純粋な計画生成。
+ * @boundary ERB-UT-023=N/A: 純粋な入力検査と固定。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
-import {
-  prepareProviderAdvicePlan,
-  type ProviderAdviceExecutionInput,
-} from "../../../src/execution/preparation.ts";
+import { prepareProviderAdviceInput } from "../../../src/lifecycle/selection.ts";
+import type { ProviderAdviceExecutionInput } from "../../../src/lifecycle/types.ts";
 /**
  * 正規の助言選定から計画入力を合成する。
  * @responsibility Provider・Model・推論強度・購読を一致させる。
@@ -37,51 +35,31 @@ function executionInput(
     allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
     additionalHosts: Object.freeze([]),
     executionSelection: selected,
-    provider,
     providerPrompt: "固定投影だけを説明する",
     taskHash: "a".repeat(64),
     projectionHash: "b".repeat(64),
-    exactModelId: selected.modelIdentifier,
-    reasoningEffort: selected.reasoningEffort,
-    offering:
-      provider === "codex" ? "chatgpt_subscription_oauth" : "claude_max",
   };
 }
 
 /**
- * CodexとClaudeの固定選定を非共有計画へ渡す。
+ * CodexとClaudeの固定選定を助言入力へ渡す。
  * @responsibility 固定選定と計画の整合・拒否を確認する。
  * @trace ERB-UT-023
  * @precondition 合成した選定だけを使う。
  * @stimulus 計画生成を呼ぶ。
- * @observation 値と非共有・拒否を確認する。
+ * @observation 入力値だけが変更不能な形で返ることを確認する。
  * @oracle 本文assertionを満たす。
  * @cleanup N/A: 外部資源なし。
  * @boundary ERB-UT-023=N/A: 局所計画生成。
  */
-test("CodexとClaudeの固定選定を非共有計画へ渡す", () => {
+test("CodexとClaudeの固定選定を助言入力へ渡す", () => {
   for (const provider of ["codex", "claude"] as const) {
     const input = executionInput(provider);
-    const result = prepareProviderAdvicePlan(input);
-    assert.equal(result.status, "prepared");
-    assert.deepEqual(
-      result.executionPlan?.executionSelection,
-      input.executionSelection,
-    );
-    assert.equal(
-      result.executionPlan?.executionSelection.modelIdentifier,
-      input.executionSelection.modelIdentifier,
-    );
-    assert.equal(
-      result.executionPlan?.executionSelection.identifierKind,
-      input.executionSelection.identifierKind,
-    );
-    assert.equal(result.executionPlan?.repositoryMounted, false);
-    assert.equal(result.executionPlan?.workspaceMounted, false);
-    assert.equal(result.executionPlan?.toolsAllowed, false);
-    assert.equal(result.executionPlan?.sessionPersistenceAllowed, false);
-    assert.equal(result.executionPlan?.apiKeyFallbackAllowed, false);
-    assert.equal(result.executionPlan?.paidApiFallbackAllowed, false);
+    const result = prepareProviderAdviceInput(input);
+    assert.ok(result);
+    assert.equal(Object.isFrozen(result), true);
+    assert.equal(result.executionSelection.provider, provider);
+    assert.deepEqual(result, input);
   }
 });
 
@@ -99,8 +77,9 @@ test("CodexとClaudeの固定選定を非共有計画へ渡す", () => {
 test("旧改訂・任意引数と不整合な計画を拒否する", () => {
   const input = executionInput("codex");
   for (const change of [
-    { offering: "claude_max" },
-    { exactModelId: "opus" },
+    { offering: "chatgpt_subscription_oauth" },
+    { exactModelId: input.executionSelection.modelIdentifier },
+    { reasoningEffort: input.executionSelection.reasoningEffort },
     { provider: "claude" },
     { taskHash: "invalid" },
     { catalogRevision: -1 },
@@ -115,13 +94,19 @@ test("旧改訂・任意引数と不整合な計画を拒否する", () => {
     },
     { executionSelection: { ...input.executionSelection, role: "executor" } },
     { providerPrompt: "" },
+    { repositoryMounted: true },
+    { workspaceMounted: true },
+    { toolsAllowed: true },
+    { sessionPersistenceAllowed: true },
+    { apiKeyFallbackAllowed: true },
+    { paidApiFallbackAllowed: true },
+    { promptTransport: "argv" },
   ]) {
-    const result = prepareProviderAdvicePlan({
+    const result = prepareProviderAdviceInput({
       ...input,
       ...change,
     } as ProviderAdviceExecutionInput);
-    assert.equal(result.status, "blocked", JSON.stringify(change));
-    assert.equal(result.executionPlan, null);
+    assert.equal(result, null, JSON.stringify(change));
   }
 });
 
@@ -136,7 +121,7 @@ test("旧改訂・任意引数と不整合な計画を拒否する", () => {
  * @cleanup N/A: 外部資源なし。
  * @boundary ERB-UT-023=N/A: 局所計画生成。
  */
-test("GetterとProxyを実行せず拒否する", () => {
+test("Getter、Proxy、Hashの暗黙変換を実行せず拒否する", () => {
   let calls = 0;
   const getter = Object.defineProperty(
     executionInput("codex"),
@@ -148,14 +133,28 @@ test("GetterとProxyを実行せず拒否する", () => {
       },
     },
   );
-  assert.equal(prepareProviderAdvicePlan(getter).status, "blocked");
+  assert.equal(prepareProviderAdviceInput(getter), null);
   const proxy = new Proxy(executionInput("codex"), {
     ownKeys() {
       calls++;
       throw Error();
     },
   });
-  assert.equal(prepareProviderAdvicePlan(proxy).status, "blocked");
+  assert.equal(prepareProviderAdviceInput(proxy), null);
+  const hashObject = {
+    toString() {
+      calls++;
+      return "a".repeat(64);
+    },
+  };
+  for (const key of ["taskHash", "projectionHash"])
+    assert.equal(
+      prepareProviderAdviceInput({
+        ...executionInput("codex"),
+        [key]: hashObject,
+      }),
+      null,
+    );
   assert.equal(calls, 0);
 });
 
@@ -172,12 +171,14 @@ test("GetterとProxyを実行せず拒否する", () => {
  */
 test("選定値を後の設定再読取りなしに固定する", () => {
   const input = executionInput("codex");
-  const result = prepareProviderAdvicePlan(input);
-  assert.equal(result.status, "prepared");
-  assert.equal(Object.isFrozen(result.executionPlan?.executionSelection), true);
-  assert.equal(Object.hasOwn(result.executionPlan ?? {}, "profileId"), false);
-  assert.equal(
-    Object.hasOwn(result.executionPlan ?? {}, "catalogRevision"),
-    false,
-  );
+  const result = prepareProviderAdviceInput(input);
+  assert.ok(result);
+  assert.equal(Object.isFrozen(result.executionSelection), true);
+  assert.equal(Object.isFrozen(result.allowedReferences), true);
+  assert.equal(Object.isFrozen(result.additionalHosts), true);
+  assert.notStrictEqual(result.allowedReferences, input.allowedReferences);
+  assert.equal(Object.hasOwn(result, "profileId"), false);
+  for (const key of ["exactModelId", "reasoningEffort", "offering"])
+    assert.equal(Object.hasOwn(result, key), false, key);
+  assert.equal(Object.hasOwn(result, "catalogRevision"), false);
 });

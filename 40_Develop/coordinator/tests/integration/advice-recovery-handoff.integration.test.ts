@@ -12,16 +12,24 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import { registerHooks } from "node:module";
 import path from "node:path";
-import test, { mock } from "node:test";
+import test from "node:test";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
 import { readQueueEntry } from "../../../execution-model/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
-import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
-import { updateCoordinatorSingleTask } from "../../src/state/transaction.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
+import {
+  acquireCoordinatorSnapshotLease,
+  updateCoordinatorSingleTask,
+} from "../../src/lifecycle/host.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
 import { selectionConfig } from "../fixtures/ai-selection.ts";
+import {
+  dispatchSource,
+  dispatchUrl,
+  sourceUrl,
+} from "../support/task-requests.ts";
 
 /**
  * 一回目の助言終了で取得済み参照を保存し、後から別参照を混入できないことを確認する。
@@ -80,25 +88,41 @@ test("助言の初回終端はHostとDockerのexact参照を保持し後付け�
   assert.equal(saved.status, "saved");
   const hostId = "host.synthetic-handoff";
   const dockerId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
-  let calls = 0;
-  const adviceUrl = new URL("../../src/execution/advice.ts", import.meta.url)
-    .href;
-  const advice = await import(adviceUrl);
-  mock.module(adviceUrl, {
-    namedExports: {
-      ...advice,
-      runRepositoryAdvice: async () => {
-        calls++;
-        return {
-          result: { status: "unknown", reason: "synthetic_cleanup_unknown" },
-          cleanupConfirmed: false,
-          hostRecoveryId: hostId,
-          dockerRecoveryId: dockerId,
-        };
-      },
+  const adviceUrl = new URL(
+    "../../src/lifecycle/execution.ts?advice-handoff-fixture",
+    import.meta.url,
+  ).href;
+  const hook = registerHooks({
+    load(url, context, nextLoad) {
+      if (url !== adviceUrl) return nextLoad(url, context);
+      return {
+        shortCircuit: true,
+        format: "module",
+        source: `let calls = 0;
+        export function readFixtureCalls() { return calls; }
+        export async function runFixtureAdvice() {
+          calls++;
+          return {
+            result: { status: "unknown", reason: "synthetic_cleanup_unknown" },
+            cleanupConfirmed: false,
+            hostRecoveryId: ${JSON.stringify(hostId)},
+            dockerRecoveryId: ${JSON.stringify(dockerId)},
+          };
+        }`,
+      };
     },
   });
-  const { openTaskSession } = await import("../../src/task/requests.ts");
+  t.after(() => hook.deregister());
+  const call = "await runRepositoryAdvice(";
+  assert.equal(dispatchSource.split(call).length, 2);
+  const fixtureUrl = sourceUrl(
+    `${dispatchSource.replace(call, "await runFixtureAdvice(")}\nimport { runFixtureAdvice } from "advice-handoff-fixture";`,
+    dispatchUrl,
+    new Map([["advice-handoff-fixture", adviceUrl]]),
+  );
+  const { openTaskSession } = (await import(
+    fixtureUrl
+  )) as typeof import("../../src/lifecycle/execution.ts");
   const session = openTaskSession({
     rootCapability: verified.capability,
     projectId: "synthetic-project",
@@ -118,7 +142,10 @@ test("助言の初回終端はHostとDockerのexact参照を保持し後付け�
   assert.ok(accepted.requestId);
   assert.equal(accepted.requestId, "advice-recovery-request");
   const outcome = await session.wait(accepted.requestId);
-  assert.equal(calls, 1);
+  const { readFixtureCalls } = (await import(adviceUrl)) as {
+    readFixtureCalls: () => number;
+  };
+  assert.equal(readFixtureCalls(), 1);
   assert.deepEqual(outcome.recoveryIds, [hostId, dockerId]);
   const binding = deriveCoordinatorRepositoryBindingId(root);
   const read = readQueueEntry(verified.capability, binding, accepted.requestId);

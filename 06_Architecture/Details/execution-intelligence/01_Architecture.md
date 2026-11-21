@@ -33,12 +33,12 @@ Task／Attempt等のCRDD IDはCoordinatorが任意メタデータへ写す。EI�
 
 | 境界 | Coordinatorの接続 | 保存する意味 |
 |---|---|---|
-| Provider要求直前 | `execution/provider-executor.ts`の既存`onProviderSubmitting`。既存Recovery Intent保存の成功後、EI保存だけを別の例外境界で実施 | 開始要求直前の日時。Task受付・Plan・Container準備を含めない。推論開始の証明ではない |
+| Provider要求直前 | `lifecycle/execution.ts`の既存`onProviderSubmitting`。既存Recovery Intent保存の成功後、EI保存だけを別の例外境界で実施 | 開始要求直前の日時。Task受付・Plan・Container準備を含めない。推論開始の証明ではない |
 | Provider開始通知 | 既存`onStarted` | 開始要求と実際の開始観測を区別する。既存必須通知・取消条件を変更しない |
 | Completion受領 | 元ExecutorのCompletionで、同じExecution IDの終了日時・経過時間・限定したAI結果を短命な記録へ固定 | AI側の終了観測。任意`onCompleted`の発行を保存完了とみなさない |
 | 上位の最終判定 | Task／AdviceのHost清掃・取消・Process再使用可否・必要な結果投影の後、同じExecution IDへ一度だけ終了保存 | AI結果とは別にTask／Adviceの結果・未解決保持条件を記録。後段の待機時間をAI経過時間へ足さない |
 
-開始要求直前からCompletion受領までは後処理を含む経過時間である。Provider実行時間とは別の項目とし、Provider開始・終了の実測値が公開結果にない場合、Provider実行時間は欠測とする。既存`dispatch.ts`のTask準備を含み得る時計をAI開始時計へ転用しない。
+開始要求直前からCompletion受領までは後処理を含む経過時間である。Provider実行時間とは別の項目とし、Provider開始・終了の実測値が公開結果にない場合、Provider実行時間は欠測とする。既存`lifecycle/execution.ts`のTask準備を含み得る時計をAI開始時計へ転用しない。
 
 元Completionを観測できなかった場合、終了日時を補完せずopenを保持する。上位の最終結果が不明な場合も通常保持へ落とさず、同じExecution IDで診断する。一つのTaskから複数AIを呼ぶ場合は各AIの結果を別々に保持し、Task全体の成否で上書きしない。既存Activityへの投影はAIの成功からTask成功を推測せず、Coordinatorが保存した最終Task判定を使う。
 

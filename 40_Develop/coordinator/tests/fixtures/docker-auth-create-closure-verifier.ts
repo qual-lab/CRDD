@@ -29,7 +29,7 @@ import type {
   ExecutionOperationRecord,
   ExecutionStateSnapshot,
 } from "../../../execution-model/src/index.ts";
-import { getIsolationSettings } from "../../src/execution/configuration.ts";
+import { getIsolationSettings } from "../../src/lifecycle/environment.ts";
 
 const fixedImage =
   "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
@@ -380,7 +380,7 @@ async function executeApprovedAuthCreateClosure() {
     vc.resolveVerifiedRepositoryRoot(distributionVerified.capability),
     distribution,
   );
-  const areas = await import("../../src/configuration/runtime-data.ts");
+  const areas = await import("../../src/lifecycle/host.ts");
   const area = areas.requireReadyRepositoryExecutionDataArea(
     areas.ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       distribution,
@@ -968,12 +968,12 @@ async function executeApprovedAuthCreateClosure() {
       );
     const lifecycle = (await import(
       new URL(
-        "../../src/execution/recovery.ts?auth-create-parent",
+        "../../src/lifecycle/environment.ts?auth-create-parent",
         import.meta.url,
       ).href
-    )) as typeof import("../../src/execution/recovery.ts");
+    )) as typeof import("../../src/lifecycle/environment.ts");
     lifecycleMock = mock.module(
-      new URL("../../src/execution/recovery.ts", import.meta.url).href,
+      new URL("../../src/lifecycle/environment.ts", import.meta.url).href,
       { namedExports: { ...lifecycle } },
     );
     const { readRecoveryResourceSnapshots } = await import(
@@ -1016,10 +1016,10 @@ async function executeApprovedAuthCreateClosure() {
     assert.deepEqual(baseline(dockerId, false, true), before);
     const restart = (await import(
       new URL(
-        "../../src/execution/recovery.ts?auth-create-parent",
+        "../../src/lifecycle/environment.ts?auth-create-parent",
         import.meta.url,
       ).href
-    )) as typeof import("../../src/execution/recovery.ts");
+    )) as typeof import("../../src/lifecycle/environment.ts");
     const restarted = await restart.restartRuntimeOwnedDockerForRecovery(
       recoveryId,
       abort.signal,

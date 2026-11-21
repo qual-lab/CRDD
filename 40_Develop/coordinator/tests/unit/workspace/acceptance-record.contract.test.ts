@@ -13,7 +13,10 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import type { Repository } from "../../../../version-control/src/index.ts";
-import { readWorkspaceCandidatePatch } from "../../../src/workspace/git.ts";
+import {
+  assertWorkspaceDirectoryAvailable,
+  readWorkspaceCandidatePatch,
+} from "../../../src/lifecycle/workspace.ts";
 
 /** 上位の選択外拒否と、VCへ進んだ技術理由を混同しない。 */
 test("選択外PathはCoordinatorの拒否、選択内はVCの技術結果を保つ", () => {
@@ -65,7 +68,7 @@ test("選択外PathはCoordinatorの拒否、選択内はVCの技術結果を保
  */
 test("採用記録はexactなCommit長と計画相関を要求し過去失敗を消さない", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/workspace/operations.ts", import.meta.url),
+    new URL("../../../src/lifecycle/workspace.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf(
@@ -197,6 +200,10 @@ test("採用記録はexactなCommit長と計画相関を要求し過去失敗を
  * @boundary Coordinator入力検査。Git操作なし。
  */
 test("Workspace入力は型変換せずPathと選択と名前を拒否する", () => {
+  assert.throws(
+    () => assertWorkspaceDirectoryAvailable("not-a-repository", "../invalid"),
+    { message: "worktree_id_invalid" },
+  );
   const command = {
     operation: "freeze",
     projectId: "project",
@@ -317,8 +324,8 @@ test("固定候補操作は旧件数を超える入力を保持する", () => {
   }
 });
 
-import { inspectWorkspaceCommand } from "../../../src/workspace/operations.ts";
-import { inspectCoordinatorWorkspaceResults } from "../../../src/workspace/record.ts";
+import { inspectWorkspaceCommand } from "../../../src/lifecycle/workspace.ts";
+import { inspectCoordinatorWorkspaceResults } from "../../../src/lifecycle/validation.ts";
 
 /**
  * Task別Workspace観測の旧1024件上限を超える集合を検査する。

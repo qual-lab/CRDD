@@ -10,7 +10,7 @@
  */
 import { EventEmitter } from "node:events";
 
-import { bindTaskCliCancellationSignalsToPort } from "../../src/cli/cancellation.ts";
+import { bindTaskCliCancellationSignalsToPort } from "../../src/cli/command.ts";
 
 const scenario = process.argv[2];
 if (

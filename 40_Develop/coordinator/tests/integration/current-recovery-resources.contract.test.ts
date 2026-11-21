@@ -25,12 +25,15 @@ import path from "node:path";
 import {
   snapshotJsonValue,
   snapshotPlainRecord,
-} from "../../src/input/snapshot.ts";
-import { createRecoveryFixture } from "../support/recovery.ts";
-import { inspectTaskStartCandidates } from "../../src/state/projection.ts";
+} from "../../src/lifecycle/validation.ts";
+import {
+  createRecoveryFixture,
+  recoveryResourceFixtureBody,
+} from "../support/recovery.ts";
+import { captureTaskStartCandidates } from "../../src/lifecycle/validation.ts";
 
 const source = fs.readFileSync(
-  new URL("../../src/execution/recovery.ts", import.meta.url),
+  new URL("../../src/lifecycle/environment.ts", import.meta.url),
   "utf8",
 );
 const recoveryCapabilitySource = stripTypeScriptTypes(
@@ -51,7 +54,7 @@ assert.ok(start >= 0);
  */
 test("Host世代は同じ途中保存だけを観測しHost変更を許可しない", () => {
   const operationSource = fs.readFileSync(
-    new URL("../../src/execution/operation.ts", import.meta.url),
+    new URL("../../src/lifecycle/host.ts", import.meta.url),
     "utf8",
   );
   const body = [
@@ -149,6 +152,7 @@ test("Host世代は同じ途中保存だけを観測しHost変更を許可しな
               value: { snapshot, payloadSha256: "hash" },
             };
           },
+          operationStateInput: (identity: unknown) => ({ identity }),
           saveOperationCheckpoint: () => {
             effects++;
             throw Error("unexpected_writer");
@@ -280,6 +284,12 @@ test("現在回復の部分取得は保持済みLockだけを逆順に全解放�
         dockerRecoveryPreparations: new WeakMap(),
         borrowRuntimeOwnedCoordinatorRecoveryRepository: (value: unknown) =>
           value === root ? repository : null,
+        resolveRepositoryExecutionDataPaths: (value: unknown) => {
+          assert.equal(value, root);
+          return {
+            operations: path.join(repository.repositoryRoot, "operations"),
+          };
+        },
         readState: () => {
           reads++;
           const changed = fault.startsWith("release_") && reads > 1;
@@ -580,17 +590,21 @@ test("現在Host回復は前後の現在観測と停止状態を共同確認す�
  * @boundary 通知搬送の論理試験。WriterやDockerの成立は示さない。
  */
 test("資源作成通知の入力捕捉拒否はIntentとReceiptのWriterへ到達しない", () => {
+  const attemptSource = fs.readFileSync(
+    new URL("../../src/lifecycle/environment.ts", import.meta.url),
+    "utf8",
+  );
   const names = [
     "markRuntimeOwnedDockerResourceSubmission",
     "recordRuntimeOwnedDockerResourceReceipt",
   ];
   const body = names
     .map((name) => {
-      const begin = source.indexOf(`export function ${name}(`);
-      const end = source.indexOf("\n/**", begin);
+      const begin = attemptSource.indexOf(`export function ${name}(`);
+      const end = attemptSource.indexOf("\n/**", begin);
       assert.ok(begin >= 0 && end > begin);
       return stripTypeScriptTypes(
-        source.slice(begin, end).replace("export function", "function"),
+        attemptSource.slice(begin, end).replace("export function", "function"),
       );
     })
     .join("\n");
@@ -610,12 +624,13 @@ test("資源作成通知の入力捕捉拒否はIntentとReceiptのWriterへ到�
           input === capability
             ? { managementCapability: management, recoveryId: "exact" }
             : null,
+        operationStateInput: (identity: unknown) => ({ identity }),
         saveOperationCheckpoint: (
-          owner: unknown,
+          owner: { identity: unknown },
           recoveryId: unknown,
           request: { kind: string; value: Record<string, unknown> },
         ) => {
-          assert.equal(owner, management);
+          assert.equal(owner.identity, management);
           assert.equal(recoveryId, "exact");
           assert.equal(request.kind, "resource");
           received.push(request.value);
@@ -1342,19 +1357,12 @@ test("現在回収終端: 未確認履歴だけ保持設定を搬送する", () 
     source.slice(begin, start).replaceAll("export function", "function"),
   );
   const persistence = fs.readFileSync(
-    new URL("../../src/execution/persistence.ts", import.meta.url),
+    new URL("../../src/lifecycle/host.ts", import.meta.url),
     "utf8",
   );
-  const connection = stripTypeScriptTypes(
-    persistence
-      .slice(
-        persistence.indexOf("export function historyRepositoryInput"),
-        persistence.indexOf(
-          "export function verifyRuntimePersistenceRepository",
-        ),
-      )
-      .replaceAll("export function", "function"),
-  );
+  const connection = ["historyRepositoryInput", "withHistoryRetention"]
+    .map((name) => sourceDeclaration(persistence, name))
+    .join("\n");
   for (const scenario of [
     "pending",
     "invalid",
@@ -1657,7 +1665,7 @@ test("認証不明終了後の保持版は保存とfresh読戻しの共同確認
     const before = Buffer.from(record.before);
     let saves = 0;
     const run = runInNewContext(
-      `${recoveryCapabilitySource}\n${body}; recoverRuntimeOwnedDockerTaskResources`,
+      `${recoveryCapabilitySource}\n${recoveryResourceFixtureBody(body)}; recoverRuntimeOwnedDockerTaskResources`,
       {
         Buffer,
         Object,
@@ -1956,7 +1964,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
           retirementYieldPending = retired;
           return retired;
         },
-        executeRuntimeOwnedDockerTaskResourceRecovery(key: unknown) {
+        recoverRuntimeOwnedDockerTaskResources(key: unknown) {
           assert.equal(retired, true);
           assert.deepEqual(retirementEvents, [
             "retire",
@@ -2682,7 +2690,7 @@ test("現在回復の公開組立て: Task相関・共同成立・内部値非�
  */
 test("Objective回復はexact技術終端と待機後の同じ境界を要求する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/objective/execute.ts", import.meta.url),
+    new URL("../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("function exactRecoveryCompleted(");
@@ -2772,8 +2780,8 @@ test("Objective回復はexact技術終端と待機後の同じ境界を要求す
     "process",
     "state",
     "queue",
-    "state_blocked",
-    "queue_blocked",
+    "snapshot_blocked",
+    "queue_absent",
     "candidates_absent",
     "candidates_generation",
     "null",
@@ -2796,57 +2804,68 @@ test("Objective回復はexact技術終端と待機後の同じ境界を要求す
       state: "recovery_required",
       resultReference: "same",
     };
+    const repository = Object.freeze({});
     const current = runInNewContext(
-      `${recoveryCapabilitySource}\n${body}; readCurrentRecoveryState`,
+      `${recoveryCapabilitySource}\nlet state; ${body}; readCurrentRecoveryState`,
       {
         JSON,
         isDeepStrictEqual,
-        inspectTaskStartCandidates,
+        captureTaskStartCandidates,
         cancellationSignal: { aborted: scenario === "cancel" },
         recoveryProcess: "owner",
         recoveryQueue: queue,
         recoveryState: state,
         request: { projectId: "project" },
         queueId: "queue",
-        dependencies: {
-          processSafety: {
-            getProcessInstanceIdentity: () =>
-              scenario === "process" ? "other" : "owner",
-          },
-        },
+        getRuntimeProcessInstanceIdentity: () =>
+          scenario === "process" ? "other" : "owner",
         persistence: {
-          state: {
-            readState: () => {
-              if (scenario === "throw") throw new Error("fixture");
-              return {
-                status: scenario === "state_blocked" ? "blocked" : "completed",
-                taskStartCandidates:
-                  scenario === "candidates_absent"
-                    ? null
-                    : {
-                        projectId: state.projectId,
-                        generation:
-                          scenario === "candidates_generation"
-                            ? state.generation + 1
-                            : state.generation,
-                        taskIds: [],
-                      },
-                value:
-                  scenario === "null"
-                    ? null
-                    : scenario === "state"
-                      ? { ...state, generation: 6 }
-                      : state,
-              };
-            },
-            readQueue: () => ({
-              status: scenario === "queue_blocked" ? "blocked" : "completed",
-              value:
-                scenario === "queue"
-                  ? { ...queue, resultReference: "other" }
-                  : queue,
-            }),
-          },
+          repository,
+          repositoryBindingId: "binding",
+        },
+        readState: (
+          actualRepository: unknown,
+          binding: string,
+          scope: string,
+        ) => {
+          assert.strictEqual(actualRepository, repository);
+          assert.equal(binding, "binding");
+          assert.equal(scope, "execution");
+          if (scenario === "throw") throw new Error("fixture");
+          return {
+            status: scenario === "snapshot_blocked" ? "blocked" : "completed",
+            value:
+              scenario === "null"
+                ? null
+                : {
+                    taskStartCandidates:
+                      scenario === "candidates_absent"
+                        ? []
+                        : [
+                            {
+                              projectId: state.projectId,
+                              generation:
+                                scenario === "candidates_generation"
+                                  ? state.generation + 1
+                                  : state.generation,
+                              taskIds: [],
+                            },
+                          ],
+                    projects: [
+                      scenario === "state"
+                        ? { ...state, generation: 6 }
+                        : state,
+                    ],
+                    queueEntries:
+                      scenario === "queue_absent"
+                        ? []
+                        : [
+                            scenario === "queue"
+                              ? { ...queue, resultReference: "other" }
+                              : queue,
+                          ],
+                  },
+          };
         },
       },
     ) as () => unknown;

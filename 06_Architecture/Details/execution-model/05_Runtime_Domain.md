@@ -78,7 +78,7 @@ CRDD文書とCoordinator状態の自動同期、文書からの自動WBS生成�
 | `ProjectObjectiveRecord` | 同じObjectiveに属するTaskの状態を集約し、全完了後integration_pending、明示判断でaccepted／returnedへ進む | 実行内のTask群の受入単位。文書の目標達成を自動確定しない |
 | `ProjectMilestoneRecord` | 同じ実行計画の上位集約。全Objective受入後integrating、明示受入・判断待ち・回復・取消を保持 | 実行依頼全体の区切り。文書Milestoneと同名でも同一正本ではない |
 | `state/create.ts` | CallerのProject／Milestone識別と渡された定義集合からRuntime状態を初期化 | IDの一致だけで文書との対応・現在性・認可を証明しない |
-| `objective/execute.ts`の公開構成`planObjective` | 基準版は1 Objective＋1 Task包装。今回のSourceはCallerの明示Planを返し、Task別入力へ結合する | 文書解析・上位計画の生成は行わない。二Taskの非AI本番組立て試験を実施し、実AI成立とは区別する |
+| `lifecycle/execution.ts`の公開構成`planObjective` | 基準版は1 Objective＋1 Task包装。今回のSourceはCallerの明示Planを返し、Task別入力へ結合する | 文書解析・上位計画の生成は行わない。二Taskの非AI本番組立て試験を実施し、実AI成立とは区別する |
 
 今回、これらのSymbol・保存値を機械改名しない。既存の受入・再入場・回復保証を維持して用途を限定する。共有型と局所規則はDomainに置けるが、CRDD文書のMilestone／Roadmap／WBSモデルとして一般化しない。公開受付は分解済み計画を受け取る新形式へ切り替え、入力必須化に伴いObjective受付契約をv2へ改訂する。旧形式の自動補完は行わない。
 
@@ -94,13 +94,13 @@ Core入口をCoordinatorのModule読込みから独立させるため、実行�
 | `state/projection-types.ts` | 状態照会・実行観測の非秘密な共有型 | 実観測・Scheduler |
 | `state/projection.ts` | 公開投影と外側結果の閉形式・相関、既存件数上限 | 次Task選択、投影生成の実行判断 |
 | `state/activity.ts` | 観測値の検査、出所・Cursorの符号化と相関 | 履歴の実取得、認可、実行再開 |
-| `state/query.ts` | 状態照会要求の閉形式 | 状態Readerの起動構成 |
+| `lifecycle/query.ts` | 状態照会要求の閉形式 | 状態Readerの起動構成 |
 | `objective/request.ts` | 分解済み計画の公開入力・Task入力の相関検査 | 受付・Queue・実行・再試行 |
-| `decision/request.ts` | 人間判断要求の値検査 | 現在Authorityの検証・判断保存 |
+| `lifecycle/decision.ts` | Coordinatorの判断受付と公開結果の値検査 | 判断の状態・保存規則は実行モデルに残す |
 | `workspace/command.ts` | Workspace明示操作の閉じた入力。技術的な固定候補入力検査はVersion Controlの正本を利用する | Git処置・Workspace寿命管理 |
 | `workspace/result.ts` | 内容を含まない変更観測の閉形式・相関 | 実Filesystem観測・採用 |
 
-Coordinatorの`state/projection.ts`には投影生成とSchedulerとの接続を残す。Coordinatorの公開名は同じDomain実体を再公開して既存Consumerを保つが、新しいCore ConsumerはDomainの標準入口へ直接接続する。型や純粋Validatorの移管を、Executor又はCoordinator任意化の完成とは扱わない。
+この節の表は2026-10-28時点の移管を示す。現行Coordinatorの状態投影と開始候補受付の所在は[Coordinator設計](../coordinator/03_Task_Architecture.md)を参照する。型や純粋Validatorの移管を、Executor又はCoordinator任意化の完成とは扱わない。
 
 以下は実装する型の入出力定義であって、新しい権限発行Frameworkではない。Contextは信頼したHost構成からだけ渡し、HTTP／MCPのJSON入力に含めない。
 
@@ -231,7 +231,7 @@ TaskのallowedPathsはglobal書込み範囲、readPathsはglobal読取り範囲�
 |---|---|
 | DomainのPlan値・validation | DAG・ID・範囲・局所参照検査を再利用。文書計画へ一般化しない |
 | Coordinator objective/request.ts・plan.ts | 閉じた新入力と全体量・1対1相関検査。Plan生成・欠測補完なし |
-| objective/execute.tsのplanObjective／createTaskExecutions | Callerの固定Planを検査し、Task別入力へ結合。現在の1＋1包装とglobal指示コピーを置換 |
+| lifecycle/execution.tsのplanObjective／createTaskExecutions | Callerの固定Planを検査し、Task別入力へ結合。現在の1＋1包装とglobal指示コピーを置換 |
 | 保存・受付・再入場 | requestHashへ全入力を含める。既存世代・単一CAS・終端／受領・回復参照を保全。本文Storeなし |
 | CLI・MCP・配布入口 | 閉じた入力Schema・公開版・受付／取消／結果の相関を追従。旧形式Fallbackなし |
 | Workbench | 現行の単発runTaskとGraph受付を混同しない。Graph入力を使う接続があるか棚卸しし、新しい計画UIを暗黙追加しない |
@@ -263,7 +263,7 @@ TaskのallowedPathsはglobal書込み範囲、readPathsはglobal読取り範囲�
 | 同関数のObjective集約 | superseded以外の対象Taskがすべてcompletedならintegration_pendingへ進める。自動acceptはしない | 値の集約規則はDomainへ。元の技術終端条件を緩和しない |
 | Domain `decision/crud.ts`・`decision/operations.ts` | 受入対象はObjective／Milestone。accept／return／wait、対象世代・状態、根拠IDを照合する。Milestoneは全Objective受入を要求 | 要求・回答・適用を同じState候補へ導出する。新しい手動Task完了遷移なし |
 | Domain `decision/types.ts`・`decision/crud.ts`とCoordinator判断入口 | 対象・回答先・元世代・質問・選択肢・理由・根拠・適用を一つのStateへ記録し、同一回答の再入場と異内容拒否を保つ | 元本文と対象状態を同じWriterで照合し、独立した判断台帳や二段階記録を作らない |
-| 同公開受入経路と`workspace/operations.ts: workspacePlanReadyForAcceptance` | 現在Principal／Repository相関、integration_pendingのQueueとOwner解放、DirectのHEAD一致又はIsolatedの同計画採用・Merge記録を再観測する | 実行・Queue／Gitの横断条件はCoordinator／VCの既存Owner。純粋受入関数を公開してこの検査を迂回しない |
+| 同公開受入経路と`lifecycle/workspace.ts: workspacePlanReadyForAcceptance` | 現在Principal／Repository相関、integration_pendingのQueueとOwner解放、DirectのHEAD一致又はIsolatedの同計画採用・Merge記録を再観測する | 実行・Queue／Gitの横断条件はCoordinator／VCの既存Owner。純粋受入関数を公開してこの検査を迂回しない |
 
 `criterionEvidenceIds`は既に判断RecordとObjective／Milestoneへ保存される。確認した経路では識別子の形式・重複・必要件数・対象／再入場相関を検査するが、Evidence本文・Fileの実在、根拠が受入基準を満たす内容か、試験品質の成立までは読み取って検証しない。「根拠IDの結合」と「Evidence検証済み」は異なる。この限界を維持し、自動Evidence評価器・本文の複製・新しい根拠Registryは追加しない。他の文書検査や品質工程の保証まで否定するものではない。
 
@@ -425,8 +425,8 @@ MCP／Workbenchは共通Domainへ直接接続し、Core構成ではCoordinator�
 | 短期保存Owner・実体Map・保存専用Kernel | Domain `storage/runtime-lock.ts`／`runtime-kernel-lock.ts`。同じ参照の現在実体をI/O前後まで再照合し、既存Pipe名・Hash・解放結果を維持する。RootへOwner・handleを公開しない |
 | 履歴の実I/O・保持・一回出版 | Domain `storage/runtime-history.ts`。元操作をkeyにする一回証拠は一実体だけ。通常終端の相関・一回消費は`attempt/settlement.ts`に置く |
 | 一般定義CRUD | `objective/crud.ts`の純粋候補を、同じ`runtime-store.ts`のReader／Writerへ接続。初期化・Plan保存、Objective／Taskの追加・更新・削除と用途別照会はCoordinatorなしで利用する |
-| 元Owner・Home・Host・Processの現在観測 | Coordinator。`execution/persistence.ts`／`settlement.ts`は既存Ownerから有限の同期観測を搬送し、保存Mapや第二Writerを持たない |
-| 実Leaseと資源不存在の観測 | Coordinator `execution/lease.ts`。Domain候補の観測位置・短絡順を維持し、Rootへ生Path観測helperを公開しない |
+| 元Owner・Home・Host・Processの現在観測 | Coordinator。`lifecycle/host.ts` が元の操作Ownerへ結び付く遅延観測を組み立て、`lifecycle/environment.ts` からEMの正式保存操作へ渡す。保存Mapや第二Writerを持たない |
+| 実Leaseと資源不存在の観測 | Coordinator `lifecycle/host.ts`。Domain候補の観測位置・短絡順を維持し、Rootへ生Path観測helperを公開しない |
 | 判断State | Domainの既存State Writerへ統合。Coordinatorは認証済み回答先・対象・操作を搬送する。Host専用Store・独立Hash連鎖・Bearerは使用しない |
 
 一般CRUDのHost入力`ExecutionModelAccess`は現在認可を持ち、真正Rootだけで権限を代用しない。技術保存の真正Rootも実行Authorityではなく、既存Host限定の利用側から渡す。長命Portは構築時の同じ参照を保持し、各保存入口がfreshに再検証する。値と同じ構造のObject、別のRootやcaller指定Pathへの付替えを認めない。

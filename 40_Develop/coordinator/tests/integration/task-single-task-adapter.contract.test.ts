@@ -14,14 +14,13 @@ import { getEventListeners } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS } from "../../src/lifecycle/execution.ts";
 import {
-  COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS,
-  type CoordinatorTaskDependencies,
-  describeCoordinatorSingleTaskAdapterContract,
-  runCoordinatorSingleTaskAttempt,
-} from "../../src/execution/controller.ts";
-import { observeCoordinatorTaskCompletion } from "../../src/execution/observation.ts";
-import { validSingleTaskResult } from "../../src/task/dispatch.ts";
+  runTestSingleTaskAttempt,
+  type TestTaskAttemptDependencies,
+} from "../support/task-requests.ts";
+import { observeExecutionCompletion } from "../../src/lifecycle/environment.ts";
+import { snapshotSingleTaskResult } from "../../src/lifecycle/execution.ts";
 
 /**
  * 変更観測の意味と閉じた形を固定する。
@@ -59,6 +58,23 @@ test("Workspace観測snapshotは方式と変更情報の相関を保持する", 
   changedPaths.push("later.txt");
   assert.equal(snapshot?.changedPaths?.length, 1001);
   assert.deepEqual(inspectWorkspaceResult(base), base);
+  const nonEnumerablePaths = Object.defineProperty(["src/file.ts"], "0", {
+    enumerable: false,
+  });
+  const nonEnumerableRecord = Object.defineProperty(
+    { ...base, changedPaths: nonEnumerablePaths },
+    "changedPaths",
+    { enumerable: false },
+  );
+  assert.deepEqual(inspectWorkspaceResult(nonEnumerableRecord), base);
+  assert.equal(
+    inspectWorkspaceResult(
+      new Proxy(base, {
+        ownKeys: () => assert.fail("proxy trap"),
+      }),
+    ),
+    null,
+  );
   for (const raw of [
     { ...base, canonicalRepositoryChanged: false },
     { ...base, changedPaths: null },
@@ -108,25 +124,33 @@ test("単発Adapterは配送捕捉なしで元TaskのCompletionを待つ", async
   });
   const { dependencies, startCalls } = harness({ completion });
   let returned = false;
-  const pending = runCoordinatorSingleTaskAttempt(
-    dependencies,
-    validInput({}),
-  ).then((value) => {
-    returned = true;
-    return value;
-  });
+  const pending = runTestSingleTaskAttempt(dependencies, validInput({})).then(
+    (value) => {
+      returned = true;
+      return value;
+    },
+  );
   assert.equal(startCalls.length, 1);
   await Promise.resolve();
   assert.equal(returned, false);
   resolve(completionRecord());
   const outcome = await pending;
+  assert.equal(outcome.contract, CONTRACT);
   assert.equal(outcome.status, "completed");
   assert.equal(outcome.effectState, "settled");
   assert.equal(startCalls.length, 1);
   assert.ok(
     Object.values(outcome).every((value) => typeof value !== "function"),
   );
-  assert.equal(Object.hasOwn(outcome, "delivery"), false);
+  for (const key of [
+    "delivery",
+    "projectState",
+    "followUpTask",
+    "acceptance",
+    "contractRevision",
+  ]) {
+    assert.equal(Object.hasOwn(outcome, key), false, key);
+  }
 });
 
 /**
@@ -148,7 +172,7 @@ test("開始通知は初回Executorだけを保存し受付・重複・終端後
     settle = resolve;
   });
   const { dependencies, startCalls } = harness({ completion });
-  const pending = runCoordinatorSingleTaskAttempt(
+  const pending = runTestSingleTaskAttempt(
     dependencies,
     validInput({
       observeStarted: async () => {
@@ -158,7 +182,7 @@ test("開始通知は初回Executorだけを保存し受付・重複・終端後
   );
   assert.equal(saves, 0);
   const notify = startCalls[0]?.[3] as NonNullable<
-    Parameters<CoordinatorTaskDependencies["startTask"]>[3]
+    Parameters<TestTaskAttemptDependencies["startTask"]>[3]
   >;
   assert.equal(typeof notify, "function");
   const notice = Object.freeze({
@@ -204,7 +228,7 @@ test("開始通知は初回Executorだけを保存し受付・重複・終端後
  * @boundary 上位開始確認とTask結果公開の境界。
  */
 test("必須開始通知の欠落・保存拒否・例外を成功へ補正しない", async () => {
-  const missing = await runCoordinatorSingleTaskAttempt(
+  const missing = await runTestSingleTaskAttempt(
     harness().dependencies,
     validInput({ observeStarted: async () => {} }),
   );
@@ -214,7 +238,7 @@ test("必須開始通知の欠落・保存拒否・例外を成功へ補正し�
   assert.equal(missing.manualRecoveryRequired, false);
   assert.equal(missing.candidateId, null);
   for (const isThrows of [false, true]) {
-    const dependencies: CoordinatorTaskDependencies = {
+    const dependencies: TestTaskAttemptDependencies = {
       startTask: (_request, _root, _correlation, notify) => ({
         status: "started",
         controlCapability: Object.freeze({}),
@@ -236,7 +260,7 @@ test("必須開始通知の欠落・保存拒否・例外を成功へ補正し�
       }),
       cancelTask: () => null,
     };
-    const outcome = await runCoordinatorSingleTaskAttempt(
+    const outcome = await runTestSingleTaskAttempt(
       dependencies,
       validInput({
         observeStarted: async () => {
@@ -272,13 +296,13 @@ test("開始通知の保存待機中も取消を一回搬送して元の完了�
     releaseSave = resolve;
   });
   let notify!: NonNullable<
-    Parameters<CoordinatorTaskDependencies["startTask"]>[3]
+    Parameters<TestTaskAttemptDependencies["startTask"]>[3]
   >;
   let settle!: (value: unknown) => void;
   const completion = new Promise<unknown>((resolve) => {
     settle = resolve;
   });
-  const dependencies: CoordinatorTaskDependencies = {
+  const dependencies: TestTaskAttemptDependencies = {
     startTask: (_request, _root, _correlation, observer) => {
       assert.ok(observer);
       notify = observer;
@@ -289,7 +313,7 @@ test("開始通知の保存待機中も取消を一回搬送して元の完了�
       return null;
     },
   };
-  const pending = runCoordinatorSingleTaskAttempt(
+  const pending = runTestSingleTaskAttempt(
     dependencies,
     validInput({
       cancellationSignal: controller.signal,
@@ -336,7 +360,7 @@ test("開始通知の保存待機中も取消を一回搬送して元の完了�
 test("開始保存reject後のjoinでもexact回復参照と清掃事実を失わない", async () => {
   for (const clean of [true, false]) {
     let saves = 0;
-    const dependencies: CoordinatorTaskDependencies = {
+    const dependencies: TestTaskAttemptDependencies = {
       startTask: (_request, _root, _correlation, notify) => ({
         status: "started",
         controlCapability: Object.freeze({}),
@@ -361,7 +385,7 @@ test("開始保存reject後のjoinでもexact回復参照と清掃事実を失�
       }),
       cancelTask: () => null,
     };
-    const outcome = await runCoordinatorSingleTaskAttempt(
+    const outcome = await runTestSingleTaskAttempt(
       dependencies,
       validInput({
         observeStarted: async () => {
@@ -392,7 +416,7 @@ test("開始保存reject後のjoinでもexact回復参照と清掃事実を失�
  */
 test("遅延completion前の開始保存rejectをOwnerが直ちに捕捉する", () => {
   const source = `
-    import { runCoordinatorSingleTaskAttempt } from ${JSON.stringify(new URL("../../src/execution/controller.ts", import.meta.url).href)};
+    import { runTestSingleTaskAttempt } from ${JSON.stringify(new URL("../support/task-requests.ts", import.meta.url).href)};
     let unhandled = 0, calls = 0;
     process.on("unhandledRejection", () => unhandled++);
     const results = [];
@@ -406,7 +430,7 @@ test("遅延completion前の開始保存rejectをOwnerが直ちに捕捉する",
         },
         cancelTask() {}
       };
-      results.push(await runCoordinatorSingleTaskAttempt(dependencies, {
+      results.push(await runTestSingleTaskAttempt(dependencies, {
         ...${JSON.stringify(validInput())},
         cancellationSignal: new AbortController().signal,
         observeStarted: async () => { calls++; throw Error("private_save_failure"); }
@@ -457,7 +481,7 @@ test("完了待機中の入力変更で上位相関を置き換えない", async
   });
   const input = { ...validInput() };
   const { dependencies } = harness({ completion });
-  const pending = runCoordinatorSingleTaskAttempt(dependencies, input);
+  const pending = runTestSingleTaskAttempt(dependencies, input);
   input.attemptId = "another-attempt";
   input.authorityBindingId = "another-authority";
   input.repositoryRevision = "b".repeat(40);
@@ -475,8 +499,8 @@ test("完了待機中の入力変更で上位相関を置き換えない", async
  * @trace PRL-IT-005
  * @precondition 実AbortSignalと局所完了Promiseを使用する。
  * @stimulus Signalを二回取消し、元の完了Promiseを成功または拒否で終端する。
- * @observation 取消搬送回数、同一制御参照、監視数と返却statusを観測する。
- * @oracle 取消搬送は一度で、終端後abort監視は0件、拒否はunknownとなる。
+ * @observation 取消搬送回数、同一制御参照、監視数と元の完了値又は拒否理由を観測する。
+ * @oracle 取消搬送は一度で、終端後abort監視は0件、成功と拒否はともに元の値を保持する。
  * @cleanup 元のPromiseを終端し、観測関数が登録した監視を解除する。
  * @boundary PRL-IT-005=Task完了待機と取消SignalのProcess内境界。
  */
@@ -485,13 +509,15 @@ test("Task completion observation releases abort listeners on resolve and reject
     const controller = new AbortController();
     const controlCapability = Object.freeze({});
     const calls: object[] = [];
-    let resolveCompletion!: (value: unknown) => void;
+    const completed = Object.freeze({ status: "blocked" });
+    const completionError = new Error("completion_unknown");
+    let resolveCompletion!: (value: typeof completed) => void;
     let rejectObservedCompletion!: (reason: Error) => void;
-    const completion = new Promise<unknown>((resolve, reject) => {
+    const completion = new Promise<typeof completed>((resolve, reject) => {
       resolveCompletion = resolve;
       rejectObservedCompletion = reject;
     });
-    const pending = observeCoordinatorTaskCompletion(
+    const pending = observeExecutionCompletion(
       { controlCapability, completion },
       (control) => {
         calls.push(control);
@@ -502,15 +528,19 @@ test("Task completion observation releases abort listeners on resolve and reject
     assert.equal(getEventListeners(controller.signal, "abort").length, 1);
     controller.abort();
     controller.abort();
-    if (isRejectCompletion)
-      rejectObservedCompletion(new Error("completion_unknown"));
-    else resolveCompletion(Object.freeze({ status: "blocked" }));
+    if (isRejectCompletion) rejectObservedCompletion(completionError);
+    else resolveCompletion(completed);
     const observed = await pending;
     assert.deepEqual(calls, [controlCapability]);
     assert.equal(observed.status, isRejectCompletion ? "unknown" : "observed");
     assert.equal(getEventListeners(controller.signal, "abort").length, 0);
-    if (observed.status === "observed")
+    if (observed.status === "observed") {
       assert.equal(observed.cancellationTransferred, true);
+      assert.equal(observed.rawCompletion.status, "blocked");
+      assert.strictEqual(observed.rawCompletion, completed);
+    } else {
+      assert.strictEqual(observed.error, completionError);
+    }
   }
 });
 
@@ -559,15 +589,15 @@ function completionRecord(
  */
 function harness(
   overrides: Readonly<{
-    startTask?: CoordinatorTaskDependencies["startTask"];
-    cancelTask?: CoordinatorTaskDependencies["cancelTask"];
+    startTask?: TestTaskAttemptDependencies["startTask"];
+    cancelTask?: TestTaskAttemptDependencies["cancelTask"];
     completion?: Promise<unknown>;
   }> = Object.freeze({}),
 ) {
   const startCalls: unknown[][] = [];
   const cancelCalls: unknown[] = [];
   const controlCapability = Object.freeze({});
-  const dependencies: CoordinatorTaskDependencies = Object.freeze({
+  const dependencies: TestTaskAttemptDependencies = Object.freeze({
     startTask:
       overrides.startTask ??
       ((...startArguments: unknown[]) => {
@@ -619,10 +649,65 @@ function validInput(
     repositoryRoot: "C:\\repository",
     cancellationSignal: new AbortController().signal,
     ...overrides,
-  }) as Parameters<typeof runCoordinatorSingleTaskAttempt>[1];
+  }) as Parameters<typeof runTestSingleTaskAttempt>[1];
 }
 
-test("実行メタデータは共通Task入口の第6引数で同じ内容を搬送する", async () => {
+/**
+ * 借用先の不正値を技術開始前に拒否する。
+ * @responsibility 不正な対象を未指定・取消に読み替えないことを確認する。
+ * @trace PRL-IT-005
+ * @precondition 同じ有効な実行相関と、明示した不正対象。
+ * @stimulus null、別Root、Getter、Proxyを通常と取消済みの入口へ渡す。
+ * @observation 拒否理由と技術依存への接触回数。
+ * @oracle 対象不正を返し、技術実行とGetter観測は行わない。
+ * @cleanup N/A: ローカル値のみ。
+ * @boundary Task Attemptから技術開始への接続。
+ */
+test("不正な借用対象は取消済みでも技術開始前に拒否する", async () => {
+  const target = {
+    workspaceId: null,
+    ownerRepositoryRoot: "C:\\other",
+    executionTree: "C:\\other",
+    baseCommit: null,
+    head: null,
+  };
+  let dependencyReads = 0;
+  let getterReads = 0;
+  const dependencies = new Proxy({} as TestTaskAttemptDependencies, {
+    get() {
+      dependencyReads++;
+      throw Error("unexpected_technical_dependency");
+    },
+  });
+  const getterTarget = {
+    ...target,
+    get head() {
+      getterReads++;
+      return null;
+    },
+  };
+  for (const workspaceTarget of [
+    null,
+    target,
+    getterTarget,
+    new Proxy(target, {}),
+  ]) {
+    const controller = new AbortController();
+    for (const aborted of [false, true]) {
+      if (aborted) controller.abort();
+      const result = await runTestSingleTaskAttempt(
+        dependencies,
+        validInput({ workspaceTarget, cancellationSignal: controller.signal }),
+      );
+      assert.equal(result.reason, "single_task_workspace_target_invalid");
+      assert.equal(result.effectState, "no_effect");
+    }
+  }
+  assert.equal(dependencyReads, 0);
+  assert.equal(getterReads, 0);
+});
+
+test("実行メタデータは共通Task入口の第7引数で同じ内容を搬送する", async () => {
   let received: unknown;
   const { dependencies } = harness({
     startTask: (
@@ -630,9 +715,11 @@ test("実行メタデータは共通Task入口の第6引数で同じ内容を搬
       _root,
       _correlation,
       _observer,
+      consumer,
       _workspace,
       metadata,
     ) => {
+      assert.equal(consumer, "orchestrator");
       received = metadata;
       throw Error(COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS[0]);
     },
@@ -645,8 +732,43 @@ test("実行メタデータは共通Task入口の第6引数で同じ内容を搬
       attemptId: "attempt-a",
     },
   };
-  await runCoordinatorSingleTaskAttempt(dependencies, input);
-  assert.deepEqual(received, input.executionMetadata);
+  await runTestSingleTaskAttempt(dependencies, input);
+  assert.equal(received, input.executionMetadata);
+});
+
+/**
+ * 単発用途とHostを既存技術開始へ同時に渡す。
+ * @trace PRL-IT-005
+ * @stimulus Workbench／CLIの用途、元Host情報と開始相関を渡す。
+ * @oracle 用途とHostは元の位置・参照を保ち、認可を先に評価しない。
+ * @cleanup メモリ内の代役のみ。
+ */
+test("共通Task開始は単発用途と元Hostの認可参照を搬送する", async () => {
+  for (const consumer of ["workbench", "coordinator_cli"] as const) {
+    let authorizations = 0;
+    const hostInput = Object.freeze({
+      root: Object.freeze({
+        contract: "crdd-version-control/repository-location/v1" as const,
+      }),
+      recordingCurrent: () => {
+        authorizations++;
+        return true;
+      },
+    });
+    const { dependencies, startCalls } = harness();
+    const input = validInput();
+    const result = await runTestSingleTaskAttempt(dependencies, input, {
+      consumer,
+      hostInput,
+    });
+    assert.equal(result.status, "completed");
+    assert.equal(startCalls.length, 1);
+    assert.equal(startCalls[0]?.[2], input.operationId);
+    assert.equal(startCalls[0]?.[4], consumer);
+    assert.equal(startCalls[0]?.[6], undefined);
+    assert.equal(startCalls[0]?.[7], hostInput);
+    assert.equal(authorizations, 0);
+  }
 });
 
 /**
@@ -663,10 +785,7 @@ test("実行メタデータは共通Task入口の第6引数で同じ内容を搬
  */
 test("正常完了はattemptと固定Revisionへ結合した閉結果で返る", async () => {
   const { dependencies, startCalls } = harness();
-  const attempt = await runCoordinatorSingleTaskAttempt(
-    dependencies,
-    validInput(),
-  );
+  const attempt = await runTestSingleTaskAttempt(dependencies, validInput());
   assert.deepEqual(attempt, {
     contract: CONTRACT,
     attemptId: ATTEMPT_ID,
@@ -708,10 +827,7 @@ test("実行元が返した実効Executor Providerだけを閉結果へ保持す
       completionRecord({ executorProvider: "claude" }),
     ),
   });
-  const attempt = await runCoordinatorSingleTaskAttempt(
-    dependencies,
-    validInput(),
-  );
+  const attempt = await runTestSingleTaskAttempt(dependencies, validInput());
   assert.equal(attempt.status, "completed");
   assert.equal(attempt.executorProvider, "claude");
 });
@@ -739,7 +855,7 @@ test("入力不正はTask Effect 0の入力拒否として閉じる", async () =
     validInput({ cancellationSignal: {} }),
   ];
   for (const input of invalidInputs) {
-    const attempt = await runCoordinatorSingleTaskAttempt(dependencies, input);
+    const attempt = await runTestSingleTaskAttempt(dependencies, input);
     assert.deepEqual(attempt, {
       contract: CONTRACT,
       attemptId: null,
@@ -761,6 +877,52 @@ test("入力不正はTask Effect 0の入力拒否として閉じる", async () =
 });
 
 /**
+ * 受付で読んだ値と、実行へ渡すコピーが異なる場合は開始しない。
+ * @responsibility コピー元のgetterから変わった操作ID・Signal・通知型と例外を検出する。
+ * @trace PRL-IT-005
+ * @precondition 開始は回数を観測できる有限代役。
+ * @stimulus 受付時は妥当で、コピー時だけ変化又は例外になる入力を渡す。
+ * @observation 拒否結果、既存の相関項目、開始回数。
+ * @oracle 開始は全例で0、コピーの例外を開始失敗で補完しない。
+ * @cleanup N/A: メモリ内だけ。
+ * @boundary PRL-IT-005=Direct Boundary: 実行前の値コピーと開始前検査。
+ */
+test("受付後のコピーで不正になった値は開始前に拒否する", async () => {
+  const { dependencies, startCalls } = harness();
+  const initial = validInput();
+  for (const [key, before, after] of [
+    ["operationId", initial.operationId, ".invalid"],
+    ["cancellationSignal", initial.cancellationSignal, {}],
+    ["observeStarted", undefined, 23],
+  ] as const) {
+    let read = 0;
+    const input = Object.defineProperty({ ...initial }, key, {
+      enumerable: true,
+      get() {
+        return ++read === 1 ? before : after;
+      },
+    });
+    const attempt = await runTestSingleTaskAttempt(dependencies, input);
+    assert.equal(attempt.reason, "single_task_input_invalid");
+    assert.equal(attempt.effectState, "no_effect");
+    assert.equal(attempt.attemptId, initial.attemptId);
+    assert.equal(read, 2);
+  }
+  const failure = new Error("input_copy_failure");
+  const throwingInput = Object.defineProperty({ ...initial }, "taskRequest", {
+    enumerable: true,
+    get() {
+      throw failure;
+    },
+  });
+  await assert.rejects(
+    runTestSingleTaskAttempt(dependencies, throwingInput),
+    (error: unknown) => error === failure,
+  );
+  assert.equal(startCalls.length, 0);
+});
+
+/**
  * 開始前の取消はTask Effect 0のcancelledとして閉じるを検証する。
  *
  * @responsibility 開始前の取消はTask Effect 0のcancelledとして閉じるの合否判定を所有する。
@@ -776,7 +938,7 @@ test("開始前の取消はTask Effect 0のcancelledとして閉じる", async (
   const { dependencies, startCalls } = harness();
   const controller = new AbortController();
   controller.abort();
-  const attempt = await runCoordinatorSingleTaskAttempt(
+  const attempt = await runTestSingleTaskAttempt(
     dependencies,
     validInput({ cancellationSignal: controller.signal }),
   );
@@ -807,10 +969,7 @@ test("既知のEffect前拒否はEffect 0のblockedへ写像する", async () =>
         throw new Error(message);
       },
     });
-    const attempt = await runCoordinatorSingleTaskAttempt(
-      dependencies,
-      validInput(),
-    );
+    const attempt = await runTestSingleTaskAttempt(dependencies, validInput());
     assert.deepEqual(attempt, {
       contract: CONTRACT,
       attemptId: ATTEMPT_ID,
@@ -848,10 +1007,7 @@ test("未知の開始例外はEffect不明としてfail closedする", async () 
       throw new Error("unexpected_infrastructure_error");
     },
   });
-  const attempt = await runCoordinatorSingleTaskAttempt(
-    dependencies,
-    validInput(),
-  );
+  const attempt = await runTestSingleTaskAttempt(dependencies, validInput());
   assert.equal(attempt.status, "blocked");
   assert.equal(attempt.reason, "single_task_start_observation_invalid");
   assert.equal(attempt.effectState, "unknown");
@@ -882,10 +1038,7 @@ test("開始結果の形不一致はEffect不明としてfail closedする", asy
     }),
   ]) {
     const { dependencies } = harness({ startTask: () => started });
-    const attempt = await runCoordinatorSingleTaskAttempt(
-      dependencies,
-      validInput(),
-    );
+    const attempt = await runTestSingleTaskAttempt(dependencies, validInput());
     assert.equal(attempt.status, "blocked");
     assert.equal(attempt.reason, "single_task_start_observation_invalid");
     assert.equal(attempt.effectState, "unknown");
@@ -949,10 +1102,7 @@ test("完了結果の観測不能・形不一致は成功へ補正せずfail clo
   ];
   for (const completion of malformedCompletions) {
     const { dependencies } = harness({ completion });
-    const attempt = await runCoordinatorSingleTaskAttempt(
-      dependencies,
-      validInput(),
-    );
+    const attempt = await runTestSingleTaskAttempt(dependencies, validInput());
     assert.equal(attempt.status, "blocked");
     assert.equal(attempt.reason, "single_task_completion_observation_invalid");
     assert.equal(attempt.effectState, "unknown");
@@ -989,10 +1139,7 @@ test("Recovery Identityは種類横断で重複なく保持される", async () 
       }),
     ),
   });
-  const attempt = await runCoordinatorSingleTaskAttempt(
-    dependencies,
-    validInput(),
-  );
+  const attempt = await runTestSingleTaskAttempt(dependencies, validInput());
   assert.equal(attempt.status, "blocked");
   assert.equal(attempt.effectState, "unknown");
   assert.equal(attempt.cleanupConfirmed, false);
@@ -1019,48 +1166,40 @@ test("Recovery Identityは種類横断で重複なく保持される", async () 
       }),
     ),
   });
-  const collected = await runCoordinatorSingleTaskAttempt(
+  const collected = await runTestSingleTaskAttempt(
     many.dependencies,
     validInput(),
   );
   assert.deepEqual(collected.recoveryIds, recoveryIds);
   assert.equal(collected.recoveryObligations?.length, 129);
-  assert.equal(validSingleTaskResult(collected, new Map()), true);
+  assert.deepEqual(snapshotSingleTaskResult(collected), collected);
   assert.equal(
-    validSingleTaskResult({ ...collected, cleanupConfirmed: true }, new Map()),
-    false,
+    snapshotSingleTaskResult({ ...collected, cleanupConfirmed: true }),
+    null,
   );
   const obligations = collected.recoveryObligations ?? [];
   assert.equal(
-    validSingleTaskResult(
-      { ...collected, recoveryObligations: [...obligations, obligations[0]] },
-      new Map(),
-    ),
-    false,
+    snapshotSingleTaskResult({
+      ...collected,
+      recoveryObligations: [...obligations, obligations[0]],
+    }),
+    null,
   );
   assert.equal(
-    validSingleTaskResult(
-      { ...collected, recoveryObligations: obligations.slice(1) },
-      new Map(),
-    ),
-    false,
+    snapshotSingleTaskResult({
+      ...collected,
+      recoveryObligations: obligations.slice(1),
+    }),
+    null,
   );
   assert.equal(
-    validSingleTaskResult(
-      {
-        ...collected,
-        recoveryObligations: obligations.map((item, index) =>
-          index === 128 ? { ...item, kind: "runtime_process" } : item,
-        ),
-      },
-      new Map([
-        [
-          recoveryIds[128] ?? "",
-          { attemptId: "foreign", operationId: OPERATION_ID },
-        ],
-      ]),
-    ),
-    false,
+    snapshotSingleTaskResult({
+      ...collected,
+      recoveryObligations: obligations.map((item, index) =>
+        index === 128 ? { ...item, kind: "runtime_process" } : item,
+      ),
+    }),
+    null,
   );
 });
 
@@ -1089,10 +1228,7 @@ test("Project Stateへ保存できないRecovery Identityは閉結果へ取り�
         }),
       ),
     });
-    const attempt = await runCoordinatorSingleTaskAttempt(
-      dependencies,
-      validInput(),
-    );
+    const attempt = await runTestSingleTaskAttempt(dependencies, validInput());
     assert.equal(attempt.status, "blocked");
     assert.equal(attempt.reason, "single_task_completion_observation_invalid");
     assert.equal(attempt.effectState, "unknown");
@@ -1133,10 +1269,7 @@ test("cleanup未確認またはRecovery義務をsettledへ補正しない", asyn
     const { dependencies } = harness({
       completion: Promise.resolve(completion),
     });
-    const attempt = await runCoordinatorSingleTaskAttempt(
-      dependencies,
-      validInput(),
-    );
+    const attempt = await runTestSingleTaskAttempt(dependencies, validInput());
     assert.equal(attempt.status, "blocked");
     assert.equal(attempt.effectState, "unknown");
   }
@@ -1178,10 +1311,7 @@ test("成功表示とRecovery義務が競合する完了Recordをblockedへ単�
     const { dependencies } = harness({
       completion: Promise.resolve(completion),
     });
-    const attempt = await runCoordinatorSingleTaskAttempt(
-      dependencies,
-      validInput(),
-    );
+    const attempt = await runTestSingleTaskAttempt(dependencies, validInput());
     assert.equal(attempt.status, "blocked");
     assert.equal(attempt.reason, expectedReason);
     assert.equal(attempt.effectState, "unknown");
@@ -1211,7 +1341,7 @@ test("実行中の取消はexactなcontrolへ一度だけ転送し完了観測�
   const { dependencies, cancelCalls, controlCapability } = harness({
     completion,
   });
-  const pendingAttempt = runCoordinatorSingleTaskAttempt(
+  const pendingAttempt = runTestSingleTaskAttempt(
     dependencies,
     validInput({ cancellationSignal: controller.signal }),
   );
@@ -1255,7 +1385,7 @@ test("取消入口の例外は完了観測を切り離さない", async () => {
       throw new Error("cancel_entry_failed");
     },
   });
-  const pendingAttempt = runCoordinatorSingleTaskAttempt(
+  const pendingAttempt = runTestSingleTaskAttempt(
     dependencies,
     validInput({ cancellationSignal: controller.signal }),
   );
@@ -1313,7 +1443,7 @@ test("取消入口の非同期失敗は未処理rejectionにせず完了観測�
       completion,
       cancelTask: () => Promise.reject(new Error("cancel_settlement_lost")),
     });
-    const pendingAttempt = runCoordinatorSingleTaskAttempt(
+    const pendingAttempt = runTestSingleTaskAttempt(
       dependencies,
       validInput({ cancellationSignal: controller.signal }),
     );
@@ -1353,7 +1483,7 @@ test("startTask実行中の同期abortも一度だけ転送される", async () 
   const controller = new AbortController();
   const cancelCalls: unknown[] = [];
   const controlCapability = Object.freeze({});
-  const dependencies: CoordinatorTaskDependencies = Object.freeze({
+  const dependencies: TestTaskAttemptDependencies = Object.freeze({
     startTask: () => {
       controller.abort();
       return Object.freeze({
@@ -1373,7 +1503,7 @@ test("startTask実行中の同期abortも一度だけ転送される", async () 
       return Promise.resolve(Object.freeze({ status: "cancelled" }));
     },
   });
-  const attempt = await runCoordinatorSingleTaskAttempt(
+  const attempt = await runTestSingleTaskAttempt(
     dependencies,
     validInput({ cancellationSignal: controller.signal }),
   );
@@ -1402,7 +1532,7 @@ test("取消と同時に観測した通常失敗はcancelledへ丸めない", as
     settleCompletion = resolve;
   });
   const { dependencies } = harness({ completion });
-  const pendingAttempt = runCoordinatorSingleTaskAttempt(
+  const pendingAttempt = runTestSingleTaskAttempt(
     dependencies,
     validInput({ cancellationSignal: controller.signal }),
   );
@@ -1438,7 +1568,7 @@ test("回復義務を伴う取消結果はcancelledへ丸めない", async () =>
     settleCompletion = resolve;
   });
   const { dependencies } = harness({ completion });
-  const pendingAttempt = runCoordinatorSingleTaskAttempt(
+  const pendingAttempt = runTestSingleTaskAttempt(
     dependencies,
     validInput({ cancellationSignal: controller.signal }),
   );
@@ -1490,40 +1620,11 @@ test("開始観測はaccessorやProxyの開始Recordをfail closedで拒否す�
   );
   for (const started of [accessorControl, proxied]) {
     const { dependencies } = harness({ startTask: () => started });
-    const attempt = await runCoordinatorSingleTaskAttempt(
-      dependencies,
-      validInput(),
-    );
+    const attempt = await runTestSingleTaskAttempt(dependencies, validInput());
     assert.equal(attempt.status, "blocked");
     assert.equal(attempt.reason, "single_task_start_observation_invalid");
     assert.equal(attempt.effectState, "unknown");
   }
-});
-
-/**
- * 契約表示はProject状態・後続Task・受入の非所有を宣言するを検証する。
- *
- * @responsibility 契約表示はProject状態・後続Task・受入の非所有を宣言するの合否判定を所有する。
- * @trace PRL-IT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 契約表示はProject状態・後続Task・受入の非所有を宣言するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("契約表示はProject状態・後続Task・受入の非所有を宣言する", () => {
-  assert.deepEqual(describeCoordinatorSingleTaskAdapterContract(), {
-    contract: CONTRACT,
-    contractRevision: 3,
-    taskRequestSchemaOwnership: "single_task_runtime",
-    projectStateOwnership: "none",
-    followUpTaskCreation: "none",
-    acceptanceOwnership: "none",
-    unknownSettlement: "fail_closed_manual_recovery",
-    effectCancellationRepresentation:
-      "pre_effect_and_confirmed_post_effect_cleanup_normalized_to_project_cancelled_other_effect_era_results_preserved",
-  });
 });
 
 /**
@@ -1544,7 +1645,7 @@ test("Effect前拒否母集団は現在Runtimeの実throw経路と一致する",
     "coordinator_task_workspace_target_invalid",
   ]);
   const runtimeSource = fs.readFileSync(
-    path.resolve(import.meta.dirname, "../../src/execution/controller.ts"),
+    path.resolve(import.meta.dirname, "../../src/lifecycle/execution.ts"),
     "utf8",
   );
   for (const rejection of COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS)
@@ -1578,10 +1679,7 @@ test("未選択Providerの拒否は理由とexact回復を保持する", async (
         }),
       ),
     });
-    const result = await runCoordinatorSingleTaskAttempt(
-      dependencies,
-      validInput(),
-    );
+    const result = await runTestSingleTaskAttempt(dependencies, validInput());
     assert.equal(result.status, "blocked");
     assert.equal(
       result.reason,
@@ -1626,10 +1724,7 @@ test("Provider未選択は成功へ拡張せず欠測互換を維持する", asy
     const { dependencies } = harness({
       completion: Promise.resolve(completionRecord({ executorProvider })),
     });
-    const result = await runCoordinatorSingleTaskAttempt(
-      dependencies,
-      validInput(),
-    );
+    const result = await runTestSingleTaskAttempt(dependencies, validInput());
     if (executorProvider === null || executorProvider === "unknown") {
       assert.equal(result.reason, "single_task_completion_observation_invalid");
       assert.equal(result.manualRecoveryRequired, true);
@@ -1664,13 +1759,10 @@ test("Provider Accessorを実行せず欠測互換から除外する", async () 
   const { dependencies } = harness({
     completion: Promise.resolve(Object.freeze(value)),
   });
-  const result = await runCoordinatorSingleTaskAttempt(
-    dependencies,
-    validInput(),
-  );
+  const result = await runTestSingleTaskAttempt(dependencies, validInput());
   assert.equal(getterCalls, 0);
   assert.equal(result.reason, "single_task_completion_observation_invalid");
   assert.equal(result.manualRecoveryRequired, true);
 });
 
-import { inspectWorkspaceResult } from "../../src/workspace/record.ts";
+import { inspectWorkspaceResult } from "../../src/lifecycle/validation.ts";

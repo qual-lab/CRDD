@@ -12,6 +12,10 @@ Git対象の変更観測は既存`RFD-IT-013`で、追跡済みIgnore対象・�
 
 `RDL-IT-001`の`storage-consumer-closure.integration.test.ts`はCoordinatorのIntegration試験に配置する。複数モデル・Executor・Workbench・MCPの本番Sourceを照合するため、下位EMの試験として上位構成へ依存させない。既存の固定所在・raw Root拒否・失敗結果搬送・未登録Consumer検出を維持し、Catalog・Symbolを新Owner／Pathへ、試験の固定期待集合を現役Consumerと共通Lock所在へ追従する。非Ownerの任意Root構築を許容する例外へ広げない。移動を新しい品質合格や実保存・実回復の成立へ換算しない。
 
+現在の閉包試験では、Coordinatorの実行用Host領域と実行モデルの一時領域を分ける。名前付き領域の準備は、Host作成OwnerのoperationsとAttempt保存Ownerのtmpを、それぞれ確定したRepository参照と対応付ける。operationsの利用元をHost作成・回復Ownerに限定し、領域の登録をraw Root構築の許可にしない。別Consumer・別領域・未登録領域・raw構築を負例で拒否する。
+
+Host作成・回復とそのwx排他は名前付き所在から接続し、既存の正式ID・同じLock名と取得順を維持する。ERB-IT-003の限定試験で、正規Repository参照とOP ID、raw入力の発行0、Lock残存・通常解放、子Root存在・明示不存在・親欠測／不正を区別する。RDL-IT-001はResolverへの検証済み入力のrootと、返却した保存Rootの不正な利用を混同せず、返却Rootの直接利用・分割代入・親逆算を拒否する。
+
 ## 未接続Temporary Operationの退役 — 2026-11-12
 
 旧署名準備の本番Callerがa04ecb703で撤去されたため、実行モデルのTemporary Operation実装・専用IT／ST・fixture二個を代替なしで退役する。active Catalogの`runtime-data:integration:temporary-operation-lifecycle`と`runtime-data:system:temporary-operation-cleanup`を退役し、過去の結果は変更Evidenceへ残す。`RDL-IT-003`・`RDL-IT-004`・`RDL-ST-002`の正式ID・元の検証義務は削除せず、この旧一時操作APIに対応した自動化sliceだけを現行適用範囲から外す。これを正式項目全体のPass、未評価範囲の免除又は一般清掃保証の成立としない。

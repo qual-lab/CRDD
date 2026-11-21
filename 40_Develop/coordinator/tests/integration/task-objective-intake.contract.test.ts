@@ -26,13 +26,13 @@ import { withCallerPlan } from "../../../execution-model/tests/fixtures/executio
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-} from "../../src/configuration/runtime-data.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";
+  verifyRuntimePersistenceRepository,
+} from "../../src/lifecycle/host.ts";
+import { runTestCoordinatorObjective } from "../fixtures/task-persistence-fixture.ts";
 import type {
   CoordinatorSingleTaskAttemptInput,
   CoordinatorSingleTaskResult,
-} from "../../src/task/types.ts";
+} from "../../src/lifecycle/types.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import {
   acquireCoordinatorLease,
@@ -76,9 +76,7 @@ function intakeDockerRecoveryReady(recoveryId: string) {
     cleanupReason: null,
   });
 }
-type ObjectiveDependencies = Parameters<
-  typeof runCoordinatorObjectiveWithPorts
->[0];
+type ObjectiveDependencies = Parameters<typeof runTestCoordinatorObjective>[0];
 type TestObjectiveDependencies = Omit<ObjectiveDependencies, "execution"> &
   Readonly<{
     execution: Omit<ObjectiveDependencies["execution"], "authorization">;
@@ -101,7 +99,7 @@ function runCoordinatorObjective(
   rawRequest: unknown,
   cancellationSignal: AbortSignal,
 ) {
-  return runCoordinatorObjectiveWithPorts(
+  return runTestCoordinatorObjective(
     {
       ...dependencies,
       execution: {
@@ -438,7 +436,6 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
       repositoryRevision: revision,
       workingDirectory,
       repositoryRoot: workingDirectory,
-      bindingCapability: {},
     }),
     resolveTaskSelections: () => {
       selectionReads += 1;
@@ -446,21 +443,6 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
         throw new Error("config_must_not_be_read_on_reentry");
       return { status: "resolved" as const, value: selected, reason: null };
     },
-    planObjective: () => ({
-      milestoneAcceptanceCriteria: ["Result exists."],
-      objectives: [
-        { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-      ],
-      tasks: [
-        {
-          id: "task-a",
-          objectiveId: "objective-a",
-          dependencies: [],
-          allowedPaths: ["result.txt"],
-          conflictKeys: ["result.txt"],
-        },
-      ],
-    }),
     createTaskExecutions: () => [
       {
         taskId: "task-a",
@@ -699,27 +681,11 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
         repositoryRevision: revision,
         workingDirectory,
         repositoryRoot: workingDirectory,
-        bindingCapability: {},
       }),
       resolveTaskSelections: () => ({
         status: "resolved" as const,
         value: taskExecutionSelections(),
         reason: null,
-      }),
-      planObjective: () => ({
-        milestoneAcceptanceCriteria: ["Result exists."],
-        objectives: [
-          { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-        ],
-        tasks: [
-          {
-            id: "task-a",
-            objectiveId: "objective-a",
-            dependencies: [],
-            allowedPaths: ["result.txt"],
-            conflictKeys: ["result.txt"],
-          },
-        ],
       }),
       createTaskExecutions: () => [
         {
@@ -779,27 +745,11 @@ test("public Objective re-entry preserves malformed snapshot without inventing a
           repositoryRevision: revision,
           workingDirectory,
           repositoryRoot: workingDirectory,
-          bindingCapability: {},
         }),
         resolveTaskSelections: () => ({
           status: "resolved" as const,
           value: taskExecutionSelections(),
           reason: null,
-        }),
-        planObjective: () => ({
-          milestoneAcceptanceCriteria: ["Result exists."],
-          objectives: [
-            { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-          ],
-          tasks: [
-            {
-              id: "task-a",
-              objectiveId: "objective-a",
-              dependencies: [],
-              allowedPaths: ["result.txt"],
-              conflictKeys: ["result.txt"],
-            },
-          ],
         }),
         createTaskExecutions: () => [],
         observeLeaseOwner: (owner) => ({ ...owner, status: "unknown" }),
@@ -887,27 +837,11 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
           repositoryRevision: revision,
           workingDirectory,
           repositoryRoot: workingDirectory,
-          bindingCapability: {},
         }),
         resolveTaskSelections: () => ({
           status: "resolved" as const,
           value: taskExecutionSelections(),
           reason: null,
-        }),
-        planObjective: () => ({
-          milestoneAcceptanceCriteria: ["Result exists."],
-          objectives: [
-            { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-          ],
-          tasks: [
-            {
-              id: "task-a",
-              objectiveId: "objective-a",
-              dependencies: [],
-              allowedPaths: ["result.txt"],
-              conflictKeys: ["result.txt"],
-            },
-          ],
         }),
         createTaskExecutions: () => [],
         observeLeaseOwner: (owner) => ({ ...owner, status: "absent" }),
@@ -973,27 +907,11 @@ test("a scheduled Objective arriving during interactive execution waits without 
       repositoryRevision: revision,
       workingDirectory,
       repositoryRoot: workingDirectory,
-      bindingCapability: {},
     }),
     resolveTaskSelections: () => ({
       status: "resolved" as const,
       value: taskExecutionSelections(),
       reason: null,
-    }),
-    planObjective: () => ({
-      milestoneAcceptanceCriteria: ["Result exists."],
-      objectives: [
-        { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-      ],
-      tasks: [
-        {
-          id: "task-a",
-          objectiveId: "objective-a",
-          dependencies: [],
-          allowedPaths: ["result.txt"],
-          conflictKeys: ["result.txt"],
-        },
-      ],
     }),
     createTaskExecutions: () => [
       {
@@ -1043,18 +961,18 @@ test("a scheduled Objective arriving during interactive execution waits without 
 });
 
 /**
- * binding or planner scope failure creates no Project State or Task effectを検証する。
+ * 公開Objective受付は許可範囲外の計画をEffect前に拒否するを検証する。
  *
- * @responsibility binding or planner scope failure creates no Project State or Task effectの合否判定を所有する。
+ * @responsibility 公開Objective受付は許可範囲外の計画をEffect前に拒否するの合否判定を所有する。
  * @trace PRL-IT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus binding or planner scope failure creates no Project State or Task effectの対象操作を実行する。
+ * @stimulus 公開Objective受付は許可範囲外の計画をEffect前に拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("binding or planner scope failure creates no Project State or Task effect", async (t) => {
+test("公開Objective受付は許可範囲外の計画をEffect前に拒否する", async (t) => {
   const workingDirectory = root(t);
   let effects = 0;
   const base = {
@@ -1065,27 +983,11 @@ test("binding or planner scope failure creates no Project State or Task effect",
       repositoryRevision: revision,
       workingDirectory,
       repositoryRoot: workingDirectory,
-      bindingCapability: {},
     }),
     resolveTaskSelections: () => ({
       status: "resolved" as const,
       value: taskExecutionSelections(),
       reason: null,
-    }),
-    planObjective: () => ({
-      milestoneAcceptanceCriteria: ["Result exists."],
-      objectives: [
-        { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-      ],
-      tasks: [
-        {
-          id: "task-a",
-          objectiveId: "objective-a",
-          dependencies: [],
-          allowedPaths: ["outside.txt"],
-          conflictKeys: [],
-        },
-      ],
     }),
     createTaskExecutions: () => [
       {
@@ -1104,10 +1006,27 @@ test("binding or planner scope failure creates no Project State or Task effect",
   };
   const result = await runCoordinatorObjective(
     base,
-    request(),
+    {
+      ...request(),
+      plan: {
+        milestoneAcceptanceCriteria: ["Result exists."],
+        objectives: [
+          { id: "objective-a", acceptanceCriteria: ["Result exists."] },
+        ],
+        tasks: [
+          {
+            id: "task-a",
+            objectiveId: "objective-a",
+            dependencies: [],
+            allowedPaths: ["outside.txt"],
+            conflictKeys: [],
+          },
+        ],
+      },
+    },
     new AbortController().signal,
   );
-  assert.equal(result.reason, "orchestrator_plan_invalid_or_out_of_scope");
+  assert.equal(result.reason, "orchestrator_objective_request_invalid");
   assert.equal(effects, 0);
   const state = readCoordinatorState(
     workingDirectory,
@@ -1118,18 +1037,18 @@ test("binding or planner scope failure creates no Project State or Task effect",
 });
 
 /**
- * public Objective intake rejects unknown fields, accessors, proxies, and non-closed planner output before effectを検証する。
+ * 公開Objective受付は余分field・Accessor・Proxy・不正計画をEffect前に拒否するを検証する。
  *
- * @responsibility public Objective intake rejects unknown fields, accessors, proxies, and non-closed planner output before effectの合否判定を所有する。
+ * @responsibility 公開Objective受付は余分field・Accessor・Proxy・不正計画をEffect前に拒否するの合否判定を所有する。
  * @trace PRL-IT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus public Objective intake rejects unknown fields, accessors, proxies, and non-closed planner output before effectの対象操作を実行する。
+ * @stimulus 公開Objective受付は余分field・Accessor・Proxy・不正計画をEffect前に拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("public Objective intake rejects unknown fields, accessors, proxies, and non-closed planner output before effect", async (t) => {
+test("公開Objective受付は余分field・Accessor・Proxy・不正計画をEffect前に拒否する", async (t) => {
   const workingDirectory = root(t);
   let bindingCalls = 0;
   let taskEffects = 0;
@@ -1143,29 +1062,12 @@ test("public Objective intake rejects unknown fields, accessors, proxies, and no
         repositoryRevision: revision,
         workingDirectory,
         repositoryRoot: workingDirectory,
-        bindingCapability: {},
       };
     },
     resolveTaskSelections: () => ({
       status: "resolved" as const,
       value: taskExecutionSelections(),
       reason: null,
-    }),
-    planObjective: () => ({
-      milestoneAcceptanceCriteria: ["Result exists."],
-      objectives: [
-        { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-      ],
-      tasks: [
-        {
-          id: "task-a",
-          objectiveId: "objective-a",
-          dependencies: [],
-          allowedPaths: ["result.txt"],
-          conflictKeys: ["result.txt"],
-        },
-      ],
-      unknown: true,
     }),
     createTaskExecutions: () => [],
     observeLeaseOwner: () => ({ status: "absent" }),
@@ -1215,13 +1117,31 @@ test("public Objective intake rejects unknown fields, accessors, proxies, and no
   assert.equal(proxyTrapCount, 0);
   assert.equal(bindingCalls, 0);
 
-  const planner = await runCoordinatorObjective(
+  const invalidPlan = await runCoordinatorObjective(
     dependencies,
-    request(),
+    {
+      ...request(),
+      plan: {
+        milestoneAcceptanceCriteria: ["Result exists."],
+        objectives: [
+          { id: "objective-a", acceptanceCriteria: ["Result exists."] },
+        ],
+        tasks: [
+          {
+            id: "task-a",
+            objectiveId: "objective-a",
+            dependencies: [],
+            allowedPaths: ["result.txt"],
+            conflictKeys: ["result.txt"],
+          },
+        ],
+        unknown: true,
+      },
+    },
     new AbortController().signal,
   );
-  assert.equal(planner.reason, "orchestrator_plan_invalid_or_out_of_scope");
-  assert.equal(bindingCalls, 1);
+  assert.equal(invalidPlan.reason, "orchestrator_objective_request_invalid");
+  assert.equal(bindingCalls, 0);
   assert.equal(taskEffects, 0);
   const state = readCoordinatorState(
     workingDirectory,
@@ -1316,27 +1236,11 @@ test("async recovery interruption preserves technical and Task settlement bounda
           repositoryRevision: revision,
           workingDirectory,
           repositoryRoot: workingDirectory,
-          bindingCapability: {},
         }),
         resolveTaskSelections: () => ({
           status: "resolved" as const,
           value: taskExecutionSelections(),
           reason: null,
-        }),
-        planObjective: () => ({
-          milestoneAcceptanceCriteria: ["Result exists."],
-          objectives: [
-            { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-          ],
-          tasks: [
-            {
-              id: "task-a",
-              objectiveId: "objective-a",
-              dependencies: [],
-              allowedPaths: ["result.txt"],
-              conflictKeys: ["result.txt"],
-            },
-          ],
         }),
         createTaskExecutions: () => [
           {
@@ -1556,6 +1460,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   let attempts = 0;
   let recoveries = 0;
   let recoveryObservationAttempts = 0;
+  let interruptRetryAdmission = false;
   const dependencies = {
     authenticatedPrincipalId: "principal-a",
     verifyProjectBinding: () => ({
@@ -1564,35 +1469,25 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
       repositoryRevision: revision,
       workingDirectory,
       repositoryRoot: workingDirectory,
-      bindingCapability: {},
     }),
     resolveTaskSelections: () => ({
       status: "resolved" as const,
       value: taskExecutionSelections(),
       reason: null,
     }),
-    planObjective: () => ({
-      milestoneAcceptanceCriteria: ["Result exists."],
-      objectives: [
-        { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-      ],
-      tasks: [
+    createTaskExecutions: () => {
+      if (interruptRetryAdmission) {
+        interruptRetryAdmission = false;
+        throw new Error("fixture_retry_admission_interrupted");
+      }
+      return [
         {
-          id: "task-a",
-          objectiveId: "objective-a",
-          dependencies: [],
-          allowedPaths: ["result.txt"],
-          conflictKeys: ["result.txt"],
+          taskId: "task-a",
+          taskRequest: {},
+          repositoryRoot: workingDirectory,
         },
-      ],
-    }),
-    createTaskExecutions: () => [
-      {
-        taskId: "task-a",
-        taskRequest: {},
-        repositoryRoot: workingDirectory,
-      },
-    ],
+      ];
+    },
     observeLeaseOwner: () => ({ status: "absent" }),
     recoverTaskRecovery: async (exact: string, signal: AbortSignal) => {
       recoveries += 1;
@@ -1602,8 +1497,9 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
       settleSyntheticOperation(workingDirectory, exact);
       return intakeDockerRecoveryReady(exact);
     },
-    observeRecoveryTransition: async () => {
+    observeRecoveryTransition: async (event: Readonly<{ phase: string }>) => {
       recoveryObservationAttempts += 1;
+      if (event.phase === "retry_ready") interruptRetryAdmission = true;
       throw new Error("diagnostic_unavailable");
     },
     execution: {
@@ -1678,6 +1574,37 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     "project-a",
   );
 
+  const interrupted = await runCoordinatorObjective(
+    dependencies,
+    request({ operation: "resume", maximumReplans: 0 }),
+    recoverySignal,
+  );
+  assert.equal(interrupted.status, "blocked", JSON.stringify(interrupted));
+  assert.equal(interrupted.reason, "orchestrator_task_execution_set_invalid");
+  assert.equal(attempts, 1);
+  assert.equal(recoveries, 1);
+  const retained = readState(
+    verifyRuntimePersistenceRepository(workingDirectory),
+    "binding-a",
+    "execution",
+  );
+  assert.equal(retained.status, "completed");
+  assert.ok(retained.value);
+  const queued = retained.value.queueEntries.find(
+    (entry) => entry.projectId === "project-a",
+  );
+  assert.equal(queued?.state, "queued");
+  assert.equal(queued?.resumeCondition, "exact_recovery_settled");
+  assert.ok(queued?.resultReference);
+  const task = retained.value.projects[0]?.tasks[0];
+  assert.equal(task?.state, "ready");
+  assert.equal(task.attemptId, null);
+  assert.ok(
+    task.recoveryObligations.some(
+      (entry) => entry.recoveryId === recoveryId && entry.phase === "settled",
+    ),
+  );
+
   const completedRecovery = await runCoordinatorObjective(
     dependencies,
     request({ operation: "resume", maximumReplans: 0 }),
@@ -1736,27 +1663,11 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
         repositoryRevision: revision,
         workingDirectory,
         repositoryRoot: workingDirectory,
-        bindingCapability: {},
       }),
       resolveTaskSelections: () => ({
         status: "resolved" as const,
         value: taskExecutionSelections(),
         reason: null,
-      }),
-      planObjective: () => ({
-        milestoneAcceptanceCriteria: ["Result exists."],
-        objectives: [
-          { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-        ],
-        tasks: [
-          {
-            id: "task-a",
-            objectiveId: "objective-a",
-            dependencies: [],
-            allowedPaths: ["result.txt"],
-            conflictKeys: ["result.txt"],
-          },
-        ],
       }),
       createTaskExecutions: () => [
         {
@@ -1949,27 +1860,11 @@ test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjec
       repositoryRevision: revision,
       workingDirectory,
       repositoryRoot: workingDirectory,
-      bindingCapability: {},
     }),
     resolveTaskSelections: () => ({
       status: "resolved" as const,
       value: taskExecutionSelections(),
       reason: null,
-    }),
-    planObjective: () => ({
-      milestoneAcceptanceCriteria: ["Result exists."],
-      objectives: [
-        { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-      ],
-      tasks: [
-        {
-          id: "task-a",
-          objectiveId: "objective-a",
-          dependencies: [],
-          allowedPaths: ["result.txt"],
-          conflictKeys: ["result.txt"],
-        },
-      ],
     }),
     observeLeaseOwner: () => ({ status: "absent" }),
     execution: {
@@ -2089,27 +1984,11 @@ for (const interruption of [
         repositoryRevision: revision,
         workingDirectory,
         repositoryRoot: workingDirectory,
-        bindingCapability: {},
       }),
       resolveTaskSelections: () => ({
         status: "resolved" as const,
         value: taskExecutionSelections(),
         reason: null,
-      }),
-      planObjective: () => ({
-        milestoneAcceptanceCriteria: ["Result exists."],
-        objectives: [
-          { id: "objective-a", acceptanceCriteria: ["Result exists."] },
-        ],
-        tasks: [
-          {
-            id: "task-a",
-            objectiveId: "objective-a",
-            dependencies: [],
-            allowedPaths: ["result.txt"],
-            conflictKeys: ["result.txt"],
-          },
-        ],
       }),
       createTaskExecutions: () => [
         {
@@ -2223,4 +2102,4 @@ for (const interruption of [
   });
 }
 
-import { inspectCoordinatorObjectiveRequest } from "../../src/objective/plan.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../src/index.ts";

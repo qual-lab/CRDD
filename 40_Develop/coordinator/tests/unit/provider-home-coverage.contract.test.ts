@@ -16,6 +16,7 @@ import {
   PROVIDER_HOME_COVERAGE_MINIMUM_NODE_VERSION,
   PROVIDER_HOME_COVERAGE_SOURCES,
   PROVIDER_HOME_COVERAGE_TESTS,
+  requireProviderHomeCoverageOutput,
   serializeProviderHomeCoverage,
 } from "../../scripts/check-provider-home-coverage.ts";
 
@@ -50,6 +51,52 @@ test("Provider Home coverageはRepository基準Node以上だけを受理する",
 });
 
 /**
+ * 計測子の既知警告を失敗・未知の出力と区別する。
+ * @responsibility 既知警告が非0や余分なstderrを隠さないことを検証する。
+ * @trace AIT-UT-005
+ * @precondition 子Processは起動せず固定の終了結果だけを使用する。
+ * @stimulus 警告なし、正規警告、余剰や不完全な警告、非0、Signal、起動失敗を渡す。
+ * @observation LCOV本文の搬送又は拒否。
+ * @oracle 正常終了と空又は正規警告一件だけを許容する。
+ * @cleanup N/A: メモリ内の値だけ。
+ * @boundary AIT-UT-005=Direct Boundary: 計測子の終了結果受付。
+ */
+test("Provider Home coverageは正常終了と既知警告一件だけを受け付ける", () => {
+  const child = {
+    status: 0,
+    signal: null,
+    stdout: "lcov",
+    stderr: "",
+  } as const;
+  const known =
+    "(node:24) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time\n" +
+    "(Use `node --trace-warnings ...` to show where the warning was created)\n";
+  for (const stderr of ["", known, known.replaceAll("\n", "\r\n")])
+    assert.equal(
+      requireProviderHomeCoverageOutput({ ...child, stderr }),
+      "lcov",
+    );
+  for (const stderr of [
+    known.repeat(2),
+    known.slice(0, -1),
+    known + "\n",
+    "\n" + known,
+    known + "unexpected",
+    known.replace("stripTypeScriptTypes", "otherOperation"),
+    known.replace("node:24", "node:0"),
+  ])
+    assert.throws(() =>
+      requireProviderHomeCoverageOutput({ ...child, stderr }),
+    );
+  for (const result of [
+    { ...child, status: 1, stderr: known },
+    { ...child, status: null, signal: "SIGTERM" as const, stderr: known },
+    { ...child, error: new Error("spawn"), stderr: known },
+  ])
+    assert.throws(() => requireProviderHomeCoverageOutput(result));
+});
+
+/**
  * Provider Home coverageはrunnerと共有parserを含むexact母集団を所有するを検証する。
  *
  * @responsibility Provider Home coverageはrunnerと共有parserを含むexact母集団を所有するの合否判定を所有する。
@@ -63,9 +110,9 @@ test("Provider Home coverageはRepository基準Node以上だけを受理する",
  */
 test("Provider Home coverageはrunnerと共有parserを含むexact母集団を所有する", () => {
   assert.deepEqual(PROVIDER_HOME_COVERAGE_SOURCES, [
-    "40_Develop/coordinator/src/execution/authority.ts",
-    "40_Develop/coordinator/src/input/snapshot.ts",
-    "40_Develop/coordinator/src/execution/diagnostics.ts",
+    "40_Develop/coordinator/src/lifecycle/authentication.ts",
+    "40_Develop/coordinator/src/lifecycle/validation.ts",
+    "40_Develop/coordinator/src/lifecycle/environment.ts",
     "40_Develop/coordinator/scripts/coverage.ts",
     "40_Develop/coordinator/scripts/check-provider-home-coverage.ts",
   ]);

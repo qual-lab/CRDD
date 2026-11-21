@@ -13,7 +13,7 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
-import { recoverDockerIsolationProbe } from "../../src/execution/diagnostics.ts";
+import { recoverDockerIsolationProbe } from "../../src/lifecycle/environment.ts";
 
 const createProbeRecovery = new Function(
   "dependencies",
@@ -275,7 +275,7 @@ test("診断回復は対象排他を先に取得し同じOwnerを清掃・解放
  */
 test("Host清掃は待機後のLock不一致を読取り・削除より前に拒否する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/operation.ts", import.meta.url),
+    new URL("../../src/lifecycle/host.ts", import.meta.url),
     "utf8",
   );
   const owned = {},

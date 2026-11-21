@@ -9,7 +9,10 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 
-import { updateTestTaskAndQueue } from "../fixtures/task-persistence-fixture.ts";
+import {
+  updateTestTaskAndQueue,
+  runTestCoordinatorOperation,
+} from "../fixtures/task-persistence-fixture.ts";
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -18,6 +21,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
+  saveProjectExecutionState,
   initializeExecutionStore,
   readState,
 } from "../../../execution-model/src/index.ts";
@@ -25,12 +29,9 @@ import {
   initialExecutionInput,
   projectExecutionFixture,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
-import {
-  createCoordinatorExecutionHostPorts,
-  runCoordinatorOperation as runCoordinatorOperationWithPorts,
-} from "../../src/task/dispatch.ts";
+
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import {
   enqueueProjectOperation,
@@ -57,12 +58,10 @@ const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 
 type BoundExecutionDependencies = Omit<
-  Parameters<typeof runCoordinatorOperationWithPorts>[0],
-  "persistence" | "clockIdentity" | "processSafety" | "authorization"
+  Parameters<typeof runTestCoordinatorOperation>[0],
+  "persistence" | "authorization"
 >;
-type BoundExecutionInput = Parameters<
-  typeof runCoordinatorOperationWithPorts
->[1] &
+type BoundExecutionInput = Parameters<typeof runTestCoordinatorOperation>[1] &
   Readonly<{ workingDirectory: string; repositoryBindingId: string }>;
 
 /**
@@ -82,10 +81,10 @@ function runCoordinatorOperation(
   input: BoundExecutionInput,
 ) {
   const { workingDirectory, repositoryBindingId, ...applicationInput } = input;
-  return runCoordinatorOperationWithPorts(
+  return runTestCoordinatorOperation(
     {
       ...dependencies,
-      ...createCoordinatorExecutionHostPorts(),
+
       persistence: createTestPersistence(workingDirectory, repositoryBindingId),
     },
     applicationInput,
@@ -314,7 +313,9 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.equal(queue.status === "completed" && queue.value.state, "queued");
   assert.ok(state.status === "completed" && state.value);
   const replayBytes = fs.readFileSync(stateFile);
-  const replay = createTestPersistence(root, "binding-a").state.updateTask(
+  const replay = saveProjectExecutionState(
+    verifyRuntimePersistenceRepository(root),
+    "binding-a",
     {
       kind: "task_replan",
       projectId: input.projectId,
@@ -421,7 +422,9 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.equal(state.status, "completed");
   if (state.status !== "completed" || !state.value) throw new Error("state");
   assert.equal(
-    createTestPersistence(root, "binding-a").state.updateTask(
+    saveProjectExecutionState(
+      verifyRuntimePersistenceRepository(root),
+      "binding-a",
       {
         kind: "task_replan",
         projectId: "project-a",
@@ -485,18 +488,24 @@ test("maintaining the plan creates a fresh attempt and enforces the retry limit"
     previousRetryCount: 0,
   } as const;
   const ports = createTestPersistence(root, "binding-a");
-  const replay = ports.state.updateTask(
+  const replay = saveProjectExecutionState(
+    ports.repository,
+    ports.repositoryBindingId,
     request,
     beforeRetry.value.generation - 1,
+    ports.intake,
   );
   assert.equal(replay.status, "completed", replay.reason);
   assert.deepEqual(replay.status === "completed" && replay.taskUpdateTaskIds, [
     "task-a",
   ]);
   assert.equal(
-    ports.state.updateTask(
+    saveProjectExecutionState(
+      ports.repository,
+      ports.repositoryBindingId,
       { ...request, previousRetryCount: 1 },
       beforeRetry.value.generation - 1,
+      ports.intake,
     ).status,
     "blocked",
   );

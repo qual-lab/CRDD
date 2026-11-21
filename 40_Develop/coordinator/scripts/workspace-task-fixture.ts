@@ -14,12 +14,12 @@ import {
   readFile,
   removeWorktree,
 } from "../../version-control/src/index.ts";
-import { resolveRepositoryExecutionDataPaths } from "../src/configuration/runtime-data.ts";
-import type { BorrowedExecutionTarget } from "../src/execution/operation.ts";
+import { resolveRepositoryExecutionDataPaths } from "../src/lifecycle/host.ts";
+import type { BorrowedExecutionTarget } from "../src/lifecycle/types.ts";
 import {
   workspaceWorktreeResult,
   workspaceWorktreeTarget,
-} from "../src/workspace/git.ts";
+} from "../src/lifecycle/workspace.ts";
 
 /** 一回の検証Toolが所有する作成結果。新しい永続台帳ではない。 */
 export type VerificationWorkspacePreparation = Readonly<{

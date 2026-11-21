@@ -22,8 +22,8 @@ import {
 import {
   createProviderAuthenticationDependencies,
   createProviderAuthenticationRecoveryRecord,
-} from "../../src/execution/authority.ts";
-import { getIsolationSettings } from "../../src/execution/configuration.ts";
+} from "../../src/lifecycle/authentication.ts";
+import { getIsolationSettings } from "../../src/lifecycle/environment.ts";
 
 const [directory, hash] = process.argv.slice(2);
 assert.ok(directory && hash && /^[a-f0-9]{64}$/u.test(hash));

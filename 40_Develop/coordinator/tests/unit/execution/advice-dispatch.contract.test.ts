@@ -13,13 +13,10 @@ import { parseAdviceResult } from "../../../../ai-adapter/src/provider/advice-re
 import test from "node:test";
 
 import { executionSelection } from "../../fixtures/ai-selection.ts";
-import {
-  createAdviceDispatch,
-  createProviderAdviceAdapter,
-  describeAdviceDispatchContract,
-} from "../../../src/execution/advice.ts";
-import { prepareAdviceTask } from "../../../src/execution/preparation.ts";
+import { prepareAdviceTask } from "../../../src/lifecycle/selection.ts";
+import { loadAdviceDispatchFixture } from "../../support/task-requests.ts";
 
+const { dispatchAdviceRequest } = await loadAdviceDispatchFixture();
 const selection = executionSelection("advice");
 
 const prepared = prepareAdviceTask({
@@ -29,8 +26,6 @@ const prepared = prepareAdviceTask({
     {
       reference: "PROJECT_CONTEXT.md",
       content: "# Project Context\n\nStatus: Current\n",
-      sha256:
-        "cd23b32223047696c7913a695cfc289cb39afbaa4874b13247bfdaf90d6732cc",
     },
   ],
 });
@@ -43,24 +38,22 @@ const taskPacket = prepared.taskPacket;
  * 助言Packet側の選定も各完成入口で一回独立捕捉する。
  * @responsibility 検査済み値のHash計算へ切替えても未信頼Packetの受付を省かない。
  * @trace ERB-UT-023
- * @precondition 実Dispatch・Provider Adapterと正常な合成Packetを使う。
+ * @precondition 本番の配送受付と正常な合成Packetを使う。
  * @stimulus Packet選定の余剰field・Getter・Proxy・欠測を与える。
- * @observation 拒否理由、実行可能PropertyとAdapter／Runtimeの呼出し数。
- * @oracle 両入口ともProvider前で拒否し、hook・外部依存呼出し0。
+ * @observation 拒否理由、実行可能PropertyとProvider接続の呼出し数。
+ * @oracle 配送受付で拒否し、hook・Provider接続の呼出し0。
  * @cleanup メモリ値のみ。実AI・Dockerを起動しない。
- * @boundary 助言Dispatchと単発Provider Adapterの独立した受付境界。
+ * @boundary 助言配送の受付境界。
  */
-test("助言Packet選定の余剰・実行可能Property・欠測は両入口でEffect前に拒否する", async () => {
+test("助言Packet選定の余剰・実行可能Property・欠測は配送受付でEffect前に拒否する", async () => {
   let hooks = 0;
   let calls = 0;
-  const dispatch = createAdviceDispatch(async () => {
-    calls++;
-    throw new Error("provider_must_not_run");
-  });
-  const adapter = createProviderAdviceAdapter(async () => {
-    calls++;
-    throw new Error("runtime_must_not_run");
-  });
+  const dispatchDependencies: [Parameters<typeof dispatchAdviceRequest>[0]] = [
+    async () => {
+      calls++;
+      throw new Error("provider_must_not_run");
+    },
+  ];
   const accessor = Object.defineProperty({ ...selection }, "modelIdentifier", {
     enumerable: true,
     get() {
@@ -95,13 +88,13 @@ test("助言Packet選定の余剰・実行可能Property・欠測は両入口で
         executionSelection: invalid as typeof selection,
       },
     };
-    const rejected = await dispatch(input, new AbortController().signal);
+    const rejected = await dispatchAdviceRequest(
+      ...dispatchDependencies,
+      input,
+      new AbortController().signal,
+    );
     assert.equal(rejected.status, "blocked");
     assert.equal(rejected.reason, "workbench_ai_advice_dispatch_input_invalid");
-    const direct = await adapter(input, new AbortController().signal);
-    assert.equal(direct.status, "blocked");
-    assert.equal(direct.reason, "workbench_ai_provider_profile_invalid");
-    assert.equal(direct.providerEffectIssued, false);
     assert.equal(calls, 0);
     assert.equal(hooks, 0);
   }
@@ -148,23 +141,37 @@ function dispatchInput() {
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 test("確定した一依頼だけをProviderへ渡して根拠付き結果を返す", async () => {
-  assert.deepEqual(describeAdviceDispatchContract().authorityScope, [
-    "taskHash",
-    "executionSelection",
-    "provider",
-  ]);
   let calls = 0;
-  const dispatch = createAdviceDispatch(async () => {
-    calls += 1;
-    return Object.freeze({
-      status: "completed" as const,
-      reason: null,
-      advice: Object.freeze({ ...JSON.parse(RAW_RESULT), reason: null }),
-      providerEffectIssued: true,
-      cleanupConfirmed: true,
-    });
-  });
-  const result = await dispatch(dispatchInput(), new AbortController().signal);
+  const hosts = ["example.com"];
+  const suppliedSelection = { ...selection };
+  const dispatchDependencies: [Parameters<typeof dispatchAdviceRequest>[0]] = [
+    async (accepted) => {
+      calls += 1;
+      hosts.push("other.example.com");
+      suppliedSelection.modelIdentifier = "different";
+      assert.deepEqual(accepted.additionalHosts, ["example.com"]);
+      assert.deepEqual(accepted.executionSelection, selection);
+      assert.equal(Object.isFrozen(accepted.additionalHosts), true);
+      assert.equal(Object.isFrozen(accepted.executionSelection), true);
+      assert.strictEqual(accepted.taskPacket, taskPacket);
+      return Object.freeze({
+        status: "completed" as const,
+        reason: null,
+        advice: Object.freeze({ ...JSON.parse(RAW_RESULT), reason: null }),
+        providerEffectIssued: true,
+        cleanupConfirmed: true,
+      });
+    },
+  ];
+  const result = await dispatchAdviceRequest(
+    ...dispatchDependencies,
+    {
+      ...dispatchInput(),
+      additionalHosts: hosts,
+      executionSelection: suppliedSelection,
+    },
+    new AbortController().signal,
+  );
   assert.equal(result.status, "completed");
   assert.equal(calls, 1);
   assert.equal(result.facts[0]?.references[0], "PROJECT_CONTEXT.md");
@@ -184,13 +191,19 @@ test("確定した一依頼だけをProviderへ渡して根拠付き結果を返
  */
 test("Effect前の取消ではProviderを呼ばない", async () => {
   let calls = 0;
-  const dispatch = createAdviceDispatch(async () => {
-    calls += 1;
-    throw new Error("unreachable");
-  });
+  const dispatchDependencies: [Parameters<typeof dispatchAdviceRequest>[0]] = [
+    async () => {
+      calls += 1;
+      throw new Error("unreachable");
+    },
+  ];
   const controller = new AbortController();
   controller.abort();
-  const result = await dispatch(dispatchInput(), controller.signal);
+  const result = await dispatchAdviceRequest(
+    ...dispatchDependencies,
+    dispatchInput(),
+    controller.signal,
+  );
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_ai_request_cancelled");
   assert.equal(calls, 0);
@@ -209,16 +222,21 @@ test("Effect前の取消ではProviderを呼ばない", async () => {
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 test("cleanupを確認できない完了をunknownへ保つ", async () => {
-  const dispatch = createAdviceDispatch(async () =>
-    Object.freeze({
-      status: "completed" as const,
-      reason: null,
-      advice: Object.freeze({ ...JSON.parse(RAW_RESULT), reason: null }),
-      providerEffectIssued: true,
-      cleanupConfirmed: false,
-    }),
+  const dispatchDependencies: [Parameters<typeof dispatchAdviceRequest>[0]] = [
+    async () =>
+      Object.freeze({
+        status: "completed" as const,
+        reason: null,
+        advice: Object.freeze({ ...JSON.parse(RAW_RESULT), reason: null }),
+        providerEffectIssued: true,
+        cleanupConfirmed: false,
+      }),
+  ];
+  const result = await dispatchAdviceRequest(
+    ...dispatchDependencies,
+    dispatchInput(),
+    new AbortController().signal,
   );
-  const result = await dispatch(dispatchInput(), new AbortController().signal);
   assert.equal(result.status, "unknown");
   assert.equal(result.reason, "workbench_ai_provider_cleanup_unknown");
 });
@@ -236,21 +254,27 @@ test("cleanupを確認できない完了をunknownへ保つ", async () => {
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 test("投影外参照を含むProvider結果を部分公開せず拒否する", async () => {
-  const dispatch = createAdviceDispatch(async () => {
-    const parsed = parseAdviceResult(
-      RAW_RESULT.replace('PROJECT_CONTEXT.md"', 'OTHER.md"'),
-      taskPacket.allowedReferences,
-    );
-    assert.equal(parsed.status, "blocked");
-    return Object.freeze({
-      status: "blocked" as const,
-      reason: parsed.reason,
-      advice: null,
-      providerEffectIssued: true,
-      cleanupConfirmed: true,
-    });
-  });
-  const result = await dispatch(dispatchInput(), new AbortController().signal);
+  const dispatchDependencies: [Parameters<typeof dispatchAdviceRequest>[0]] = [
+    async () => {
+      const parsed = parseAdviceResult(
+        RAW_RESULT.replace('PROJECT_CONTEXT.md"', 'OTHER.md"'),
+        taskPacket.allowedReferences,
+      );
+      assert.equal(parsed.status, "blocked");
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: parsed.reason,
+        advice: null,
+        providerEffectIssued: true,
+        cleanupConfirmed: true,
+      });
+    },
+  ];
+  const result = await dispatchAdviceRequest(
+    ...dispatchDependencies,
+    dispatchInput(),
+    new AbortController().signal,
+  );
   assert.equal(result.status, "blocked");
   assert.equal(result.facts.length, 0);
 });
@@ -268,10 +292,16 @@ test("投影外参照を含むProvider結果を部分公開せず拒否する", 
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Provider例外後はEffect不存在を推測せずunknownへ保つ", async () => {
-  const dispatch = createAdviceDispatch(async () => {
-    throw new Error("provider failed after an unknown boundary");
-  });
-  const result = await dispatch(dispatchInput(), new AbortController().signal);
+  const dispatchDependencies: [Parameters<typeof dispatchAdviceRequest>[0]] = [
+    async () => {
+      throw new Error("provider failed after an unknown boundary");
+    },
+  ];
+  const result = await dispatchAdviceRequest(
+    ...dispatchDependencies,
+    dispatchInput(),
+    new AbortController().signal,
+  );
   assert.equal(result.status, "unknown");
   assert.equal(result.reason, "workbench_ai_provider_effect_state_unknown");
 });
@@ -290,17 +320,23 @@ test("Provider例外後はEffect不存在を推測せずunknownへ保つ", async
  */
 test("Provider Effect後の取消競合をcompletedへ畳まない", async () => {
   const controller = new AbortController();
-  const dispatch = createAdviceDispatch(async () => {
-    controller.abort();
-    return Object.freeze({
-      status: "completed" as const,
-      reason: null,
-      advice: Object.freeze({ ...JSON.parse(RAW_RESULT), reason: null }),
-      providerEffectIssued: true,
-      cleanupConfirmed: true,
-    });
-  });
-  const result = await dispatch(dispatchInput(), controller.signal);
+  const dispatchDependencies: [Parameters<typeof dispatchAdviceRequest>[0]] = [
+    async () => {
+      controller.abort();
+      return Object.freeze({
+        status: "completed" as const,
+        reason: null,
+        advice: Object.freeze({ ...JSON.parse(RAW_RESULT), reason: null }),
+        providerEffectIssued: true,
+        cleanupConfirmed: true,
+      });
+    },
+  ];
+  const result = await dispatchAdviceRequest(
+    ...dispatchDependencies,
+    dispatchInput(),
+    controller.signal,
+  );
   assert.equal(result.status, "unknown");
   assert.equal(
     result.reason,

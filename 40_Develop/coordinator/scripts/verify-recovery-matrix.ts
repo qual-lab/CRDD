@@ -9,13 +9,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getIsolationSettings } from "../src/execution/configuration.ts";
 import {
+  getIsolationSettings,
   isSupportedNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
   recoverDockerIsolationProbe,
-} from "../src/execution/diagnostics.ts";
-import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
+} from "../src/lifecycle/environment.ts";
+import { createOwnedOperationDirectories } from "../src/lifecycle/host.ts";
 import {
   getRepositoryFromWorkingDirectory,
   resolveVerifiedRepositoryRoot,

@@ -14,9 +14,9 @@ import {
   inspectTaskStageDiagnostic,
 } from "../../coordinator/scripts/task-diagnostic.ts";
 import { isSupportedCrddRuntimeGitObjectId } from "../../coordinator/scripts/verification-safety.ts";
-import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/execution/observation.ts";
+import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/lifecycle/validation.ts";
 import { inspectCoordinatorObjectiveResult } from "../../coordinator/src/index.ts";
-import { snapshotPlainRecord } from "../../coordinator/src/input/snapshot.ts";
+import { snapshotPlainRecord } from "../../coordinator/src/lifecycle/validation.ts";
 import { isPrimaryFailureDiagnostic } from "../../executor/scripts/provider-diagnostic.ts";
 import {
   getRepository,

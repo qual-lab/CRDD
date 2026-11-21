@@ -20,11 +20,10 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
-  "40_Develop/coordinator/src/execution/diagnostics.ts",
+  "40_Develop/coordinator/src/lifecycle/environment.ts",
   "40_Develop/coordinator/scripts/probe-verification.ts",
-  "40_Develop/coordinator/src/execution/operation.ts",
-  "40_Develop/coordinator/src/execution/recovery.ts",
-  "40_Develop/coordinator/src/input/snapshot.ts",
+  "40_Develop/coordinator/src/lifecycle/host.ts",
+  "40_Develop/coordinator/src/lifecycle/validation.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts",
   "40_Develop/coordinator/scripts/coverage.ts",
@@ -91,30 +90,24 @@ const coverageObligations = Object.freeze({
     "実本文へ有限DIを接続した二保存・現在Mount・取消join・構成拒否・exact参照の正負試験",
     "取消、意図残存又はProbe構成の変更時",
   ),
-  "40_Develop/coordinator/src/execution/diagnostics.ts": obligation(
-    "実Docker、敵対的置換、全recovery分岐および同期process errorの全短絡をunit runで到達していない／合成候補の複合fail-closed述語の全短絡順序を同一runで到達していない／実Docker成功、全Git／Provider discovery形式および全cleanup failureを同一runで到達していない",
+  "40_Develop/coordinator/src/lifecycle/environment.ts": obligation(
+    "実Docker、全Filesystemエラー・操作記録の置換競合、全回復分岐・同期子Process例外、環境候補の全拒否条件、Git／Providerの全形式と失敗を同じ実行では確認しない",
     "稀なDocker failureでcontainer不存在またはHost cleanupを誤分類する可能性／入力shapeまたは上限の稀な不正形を同じ固定reasonへ閉じる分岐の退行／private reportの状態またはreason投影が稀な環境で不一致になる可能性",
-    "Docker normalizer、Identity、inspect、submission、3軸absence、cleanupおよびrecoveryの正負・境界試験と固定環境integration／Provider、mode、状態、入出力、deadline、cancel、結果およびquotaの正負・境界試験／passive／isolation、CLI discovery、readiness、runtime request、Fake lifecycleおよびexact report contract試験",
+    "Docker normalizer、Identity、inspect、submission、3軸absence、cleanupとrecoveryの正負・境界試験、実行モデルのIntent・Receipt・終端保存、固定参照・現在版照合と置換・欠測・解放不明の拒否、Provider入出力・期限・取消・結果、診断・CLI・隔離・模擬実行の契約試験",
     "Docker CLI／image／mount／lifecycle／recovery変更時／Provider lifecycle contractまたは上限変更時／doctor report、check、Provider投影またはDocker接続変更時",
   ),
 
-  "40_Develop/coordinator/src/execution/operation.ts": obligation(
-    "OS別link／junction、回復recordおよび全cleanup failureを同一runで到達していない",
-    "mount元置換または部分回復時に所有外entryへ影響する可能性",
-    "owned root／child Identity、unknown entry、link置換、部分削除およびHost recovery試験",
-    "Operation directory、mount capabilityまたはcleanup変更時",
+  "40_Develop/coordinator/src/lifecycle/host.ts": obligation(
+    "OS別link／junction、回復記録、清掃失敗、Leaseの取得・解放・所有者喪失の全分岐には同一runで到達していない",
+    "mount元の置換・部分回復で所有外の項目に影響するか、Leaseの不明を解放済みと誤分類する可能性",
+    "所有するRoot／子項目の実体、未知の項目、link置換、部分削除、Host回復、Lease所有者喪失と解放不明の各試験",
+    "操作領域、mount capability、清掃またはLease境界の変更時",
   ),
-  "40_Develop/coordinator/src/execution/recovery.ts": obligation(
-    "全Filesystem errorとrecord置換競合を同一runで到達していない",
-    "回復状態またはrecord Identityの稀な差を誤分類する可能性",
-    "EM Host Intent・Receipt・終端保存、固定参照、現在版照合、実体置換・部分欠測、資源終結と解放不明の拒否試験",
-    "Host／ProbeのEM保存契約、元操作相関又は回復Lifecycle変更時",
-  ),
-  "40_Develop/coordinator/src/input/snapshot.ts": obligation(
-    "未到達分岐がある場合はreflection failureの稀な順序である",
-    "動的入力の一部を実行する可能性",
-    "record／arrayのshape、accessor、Proxy、reflection failureおよび上限試験",
-    "plain-data snapshot実装変更時",
+  "40_Develop/coordinator/src/lifecycle/validation.ts": obligation(
+    "reflection failureの稀な順序と、入れ子JSONの不正文法を全組合せでは通過しない",
+    "動的入力を実行するか、重複キーや末尾データを含むJSONを受理する可能性",
+    "record／arrayのshape、accessor、Proxy、reflection failureと上限、JSONの正例・重複キー・不正文法を直接確認",
+    "入力値捕捉・相対Path・JSON解析の実装変更時",
   ),
 
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts":
