@@ -2643,13 +2643,15 @@ export function observeBorrowedExecutionChanges(capability: object) {
   try {
     const management = ownValue(capability, "managementCapability");
     if (!isObject(management)) return null;
-    const record = readBorrowedExecutionBinding(management)?.snapshot;
-    if (!record || record !== capability) return null;
+    const observed = readBorrowedExecutionBinding(management);
+    const record = observed?.snapshot;
+    if (!observed || !record || record !== capability) return null;
     const current = currentWorkspaceRecord(
       capability,
       record.repositoryBindingCapability,
       record.managementCapability,
       record.mountCapability,
+      observed,
     );
     if (!current) return null;
     return Object.freeze(
@@ -2913,16 +2915,18 @@ function bindExecutionSnapshotToBorrowed(
   borrowed.set(management, Object.freeze({ ...current, snapshot }));
 }
 
-/** 同じ借用・管理・Mount・基準Refの現在性を照合する。 @trace ARCH-000013 */
+/** 同じ借用・管理・Mount・基準Refの現在性を照合する。観測済み値は直前の同期観測だけを渡す。 @trace ARCH-000013 */
 function currentWorkspaceRecord(
   workspaceCapability: unknown,
   repositoryBindingCapability: unknown,
   managementCapability: unknown,
   mountCapability: unknown,
+  observed?: BorrowedBinding,
 ) {
   if (!isObject(workspaceCapability) || !isObject(managementCapability))
     return null;
-  const borrowed = readBorrowedExecutionBinding(managementCapability);
+  const borrowed =
+    observed ?? readBorrowedExecutionBinding(managementCapability);
   const record = borrowed?.snapshot;
   if (
     !record ||
@@ -2948,7 +2952,7 @@ function currentWorkspaceRecord(
     baseline?.commitId === record.baseCommitId &&
     baseline.request === "confirmed" &&
     baseline.cleanup === "pending"
-    ? { workspaceRecord: record, workspace: record.sourceTree }
+    ? record
     : null;
 }
 
@@ -2969,18 +2973,15 @@ export function captureExecutionChangeSnapshot(
     );
     const paths = allowedPaths(rawAllowedPaths);
     if (!current || !paths) return null;
-    const candidate = createExecutionCommit(
-      current.workspaceRecord,
-      current.workspaceRecord.baseCommitId,
-    );
-    const diff = readCommitDiff(current.workspaceRecord.source, {
-      baseCommit: current.workspaceRecord.baseCommitId,
+    const candidate = createExecutionCommit(current, current.baseCommitId);
+    const diff = readCommitDiff(current.source, {
+      baseCommit: current.baseCommitId,
       commitId: candidate.commitId,
     });
     return Object.freeze({
       status: "candidate" as const,
-      operationId: current.workspaceRecord.operationId,
-      baseCommitId: current.workspaceRecord.baseCommitId,
+      operationId: current.operationId,
+      baseCommitId: current.baseCommitId,
       candidateCommitId: candidate.commitId,
       changedPaths: diff.changedPaths,
       unexpectedPaths: Object.freeze(
@@ -3049,7 +3050,7 @@ export function projectReviewerReadContent(
     const root = resolveVerifiedRepositoryRoot(host.input.root);
     if (!root) return null;
     const files: Readonly<Record<string, unknown>>[] = [];
-    const copied = copyCommitFiles(current.workspaceRecord.source, {
+    const copied = copyCommitFiles(current.source, {
       commit: verified.candidateCommitId,
       outputRepository: host.input.root,
       relativeDirectory: path
@@ -3089,21 +3090,21 @@ export function projectReviewerReadContent(
             ? copied.reason
             : "execution_reviewer_copy_unconfirmed",
       });
+    const presentPaths = new Set<string>();
     for (const file of files) {
+      const relativePath = String(file.path);
       const observed = readExecutionFile(
-        path.join(directory, ...String(file.path).split("/")),
+        path.join(directory, ...relativePath.split("/")),
       );
       if (
         observed.sha256 !== file.sha256 ||
         observed.byteLength !== file.byteLength
       )
         throw Error("execution_reviewer_copy_changed");
+      presentPaths.add(relativePath);
     }
     for (const relativePath of readPaths)
-      if (
-        !relativePath.endsWith("/") &&
-        !files.some((file) => file.path === relativePath)
-      )
+      if (!relativePath.endsWith("/") && !presentPaths.has(relativePath))
         files.push(Object.freeze({ path: relativePath, state: "absent" }));
     files.sort((left, right) =>
       Buffer.from(String(left.path)).compare(Buffer.from(String(right.path))),
@@ -3176,7 +3177,10 @@ export function readOwnedReviewerWorkspace(
       )
     )
       return null;
-    const found: string[] = [];
+    const remaining = new Map(
+      copy.fileHashes.map((file) => [file.path, file.sha256]),
+    );
+    if (remaining.size !== copy.fileHashes.length) return null;
     const read = (directory: string) => {
       const info = fs.lstatSync(directory);
       if (
@@ -3195,18 +3199,18 @@ export function readOwnedReviewerWorkspace(
             .relative(copy.directory, target)
             .split(path.sep)
             .join("/");
-          const expected = copy.fileHashes.find(
-            (file) => file.path === relative,
-          );
-          if (!expected || readExecutionFile(target).sha256 !== expected.sha256)
+          const expected = remaining.get(relative);
+          if (
+            expected === undefined ||
+            readExecutionFile(target).sha256 !== expected
+          )
             throw Error("execution_reviewer_copy_changed");
-          found.push(relative);
+          remaining.delete(relative);
         }
       }
     };
     read(copy.directory);
-    if (found.length !== copy.fileHashes.length) return null;
-    return copy.directory;
+    return remaining.size === 0 ? copy.directory : null;
   } catch {
     return null;
   }
@@ -3224,12 +3228,14 @@ export function verifyExecutionChangeSnapshot(
     const borrowed = readBorrowedExecutionBinding(managementCapability);
     const record = borrowed?.snapshot;
     if (
+      !borrowed ||
       !record ||
       !currentWorkspaceRecord(
         record,
         repositoryBindingCapability,
         managementCapability,
         mountCapability,
+        borrowed,
       ) ||
       !isObject(candidateCapability)
     )

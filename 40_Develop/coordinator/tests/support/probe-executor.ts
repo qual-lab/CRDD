@@ -29,10 +29,8 @@ const source = fs.readFileSync(
   "utf8",
 );
 const body = [
-  "isolationProbeIsObject",
-  "isolationProbeOwnValue",
-  "ownString",
-  "isolationProbeErrorMessage",
+  "isObject",
+  "ownValue",
   "dynamicFakeLifecycleBlocked",
   "projectProbeExecutionFacts",
   "normalizeFailure",

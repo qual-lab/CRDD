@@ -879,6 +879,9 @@ export function buildObjectiveTaskExecutions(
   state: ProjectExecutionState,
   repositoryRoot: object | string,
 ) {
+  const inputs = new Map<string, CallerTaskInput>();
+  for (const input of request.taskInputs)
+    if (!inputs.has(input.taskId)) inputs.set(input.taskId, input);
   const seen = new Set<string>();
   return Object.freeze(
     state.tasks
@@ -888,9 +891,7 @@ export function buildObjectiveTaskExecutions(
         if (seen.has(taskId))
           throw new Error("coordinator_task_execution_duplicate");
         seen.add(taskId);
-        const input = request.taskInputs.find(
-          (candidate) => candidate.taskId === taskId,
-        );
+        const input = inputs.get(taskId);
         if (!input) throw new Error("coordinator_task_input_missing");
         const authorityBindingId = createCoordinatorStableId("authority", [
           state.projectId,
@@ -3245,7 +3246,7 @@ export function inspectCompletionRecord(value: unknown): Readonly<{
     const dockerRecoveryIds: string[] = [];
     for (let index = 0; index < rawDockerRecoveryIds.length; index += 1) {
       const id = ownDataProperty(rawDockerRecoveryIds, String(index));
-      if (!isTaskRecoveryIdentity(id)) return null;
+      if (!isCoordinatorRecoveryIdentity(id)) return null;
       dockerRecoveryIds.push(id);
     }
     const recoveryObligations = [
@@ -3275,7 +3276,8 @@ export function inspectCompletionRecord(value: unknown): Readonly<{
     const recoveryIds = [
       ...new Set(recoveryObligations.map((entry) => entry.recoveryId)),
     ];
-    if (recoveryIds.some((id) => !isTaskRecoveryIdentity(id))) return null;
+    if (recoveryIds.some((id) => !isCoordinatorRecoveryIdentity(id)))
+      return null;
     return Object.freeze({
       status,
       reason,
@@ -3295,30 +3297,6 @@ export function inspectCompletionRecord(value: unknown): Readonly<{
   } catch {
     return null;
   }
-}
-
-/**
- * 回復参照の保存可能な文字列範囲を確認する。
- * @responsibility Task結果に含む回復参照の長さと文字集合を固定する。
- * @trace ARCH-000004
- * @input value: 未検証の回復参照。
- * @returns 保存可能な文字列ならtrue。
- * @precondition N/A: unknownを受け取る。
- * @postcondition 値を変更せず真偽を返す。
- * @effect N/A: 純粋な値検査。
- * @failure 不正値はfalse。
- * @invariant 回復参照の形式を実資源不存在の根拠にしない。
- * @boundary 完了結果と保存可能な回復参照。
- * @security Authorityや回復許可を発行しない。
- * @concurrency N/A: 同期処理。
- */
-function isTaskRecoveryIdentity(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= 512 &&
-    /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value)
-  );
 }
 
 /**
@@ -4028,13 +4006,10 @@ export function inspectTaskStartCandidates(
     return null;
   const ids = snapshotPlainArray(record.taskIds, Number.MAX_SAFE_INTEGER);
   if (ids.status !== "ok") return null;
+  const stateTaskIds = new Set(state.tasks.map((task) => task.definition.id));
   const seen = new Set<string>();
   for (const id of ids.value) {
-    if (
-      typeof id !== "string" ||
-      seen.has(id) ||
-      !state.tasks.some((task) => task.definition.id === id)
-    )
+    if (typeof id !== "string" || seen.has(id) || !stateTaskIds.has(id))
       return null;
     seen.add(id);
   }

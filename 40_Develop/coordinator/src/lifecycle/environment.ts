@@ -3073,95 +3073,6 @@ type DynamicFakeProviderLifecycleObservation = Readonly<{
 }>;
 
 /**
- * Objectかを判定する。
- *
- * @responsibility Objectの判定条件とtrue／false境界を所有する。
- * @trace ARCH-000008
- * @input value: unknown
- * @returns value is objectを返す。
- * @precondition 「value: unknown」がisObjectの入力契約を満たす。
- * @postcondition isObjectの責務を完了した結果だけを返す。
- * @effect N/A: isObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isObjectは独自の失敗分岐を所有しない。
- * @invariant isObjectは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isObjectはProcess内の同一Subsystemで完結する。
- * @security isObjectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: isObjectは共有非同期状態を持たない同期処理である。
- */
-function isolationProbeIsObject(value: unknown): value is object {
-  return typeof value === "object" && value !== null;
-}
-
-/**
- * own Valueを決定する。
- *
- * @responsibility own Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input value: object、key: string
- * @returns unknownを返す。
- * @precondition 「value: object、key: string」がownValueの入力契約を満たす。
- * @postcondition ownValueの責務を完了した結果だけを返す。
- * @effect N/A: ownValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: ownValueは独自の失敗分岐を所有しない。
- * @invariant ownValueは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: ownValueはProcess内の同一Subsystemで完結する。
- * @security ownValueはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: ownValueは共有非同期状態を持たない同期処理である。
- */
-function isolationProbeOwnValue(value: object, key: string): unknown {
-  const descriptor = Object.getOwnPropertyDescriptor(value, key);
-  return descriptor &&
-    "value" in descriptor &&
-    !descriptor.get &&
-    !descriptor.set
-    ? descriptor.value
-    : undefined;
-}
-
-/**
- * own Stringを決定する。
- *
- * @responsibility own Stringの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input value: unknown、key: string
- * @returns string | nullを返す。
- * @precondition 「value: unknown、key: string」がownStringの入力契約を満たす。
- * @postcondition ownStringの責務を完了した結果だけを返す。
- * @effect N/A: ownStringは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: ownStringは独自の失敗分岐を所有しない。
- * @invariant ownStringは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: ownStringはProcess内の同一Subsystemで完結する。
- * @security ownStringはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: ownStringは共有非同期状態を持たない同期処理である。
- */
-function ownString(value: unknown, key: string): string | null {
-  const candidate = isolationProbeIsObject(value)
-    ? isolationProbeOwnValue(value, key)
-    : undefined;
-  return typeof candidate === "string" ? candidate : null;
-}
-
-/**
- * error Messageを決定する。
- *
- * @responsibility error Messageの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input error: unknown
- * @returns string | nullを返す。
- * @precondition 「error: unknown」がerrorMessageの入力契約を満たす。
- * @postcondition errorMessageの責務を完了した結果だけを返す。
- * @effect N/A: errorMessageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: errorMessageは独自の失敗分岐を所有しない。
- * @invariant errorMessageは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: errorMessageはProcess内の同一Subsystemで完結する。
- * @security errorMessageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: errorMessageは共有非同期状態を持たない同期処理である。
- */
-function isolationProbeErrorMessage(error: unknown): string | null {
-  return error instanceof Error ? error.message : ownString(error, "message");
-}
-
-/**
  * dynamic Fake Lifecycle Blockedを決定する。
  *
  * @responsibility dynamic Fake Lifecycle Blockedの導出に必要な入力、判定規則、返却結果の境界を所有する。
@@ -3277,8 +3188,13 @@ function normalizeFailure(
     "docker_recovery_boundary_failed",
     "docker_recovery_host_generation_active_or_unknown",
   ]);
-  const message = isolationProbeErrorMessage(error);
-  return message && known.has(message) ? message : fallback;
+  const message =
+    error instanceof Error
+      ? error.message
+      : isObject(error)
+        ? ownValue(error, "message")
+        : undefined;
+  return typeof message === "string" && known.has(message) ? message : fallback;
 }
 
 /**
@@ -7461,52 +7377,6 @@ export function verifyRuntimeOwnedDockerRecoveryBinding(
 }
 
 /**
- * 作成要求前の予定を単一現在状態へ保存する。
- * @responsibility 作成要求前の予定を単一現在状態へ保存する。
- * @trace ARCH-000008
- * @input recoveryCapability: 元Owner。purpose: 固定資源用途。
- * @returns 保存確定時だけtrue。
- * @precondition 同じ本番操作Ownerとexact回復参照を使用する。
- * @postcondition 確認済みの元結果だけを同じ現在状態へ接続する。
- * @effect 同じstate.jsonの資源checkpoint。
- * @failure 不正用途・別操作・既要求・保存不明はfalse。
- * @invariant 旧形式へのfallbackと新しい共有管理機構を追加しない。
- * @boundary 本番Docker OwnerとRepository内の現在状態。
- * @security 保存値やCaller supplied成功booleanからAuthorityを発行しない。
- * @concurrency 保存は既存Writerの短期排他と元版照合を用いる。
- */
-export function markRuntimeOwnedDockerResourceSubmission(
-  recoveryCapability: unknown,
-  purpose: unknown,
-  resourcesValue: unknown,
-) {
-  const record = durableRecord(recoveryCapability);
-  if (!record || typeof purpose !== "string" || !CREATE_PURPOSES.has(purpose))
-    return false;
-  try {
-    const resources = snapshotJsonValue(resourcesValue) as Record<
-      string,
-      unknown
-    >;
-    const saved = saveOperationCheckpoint(
-      operationStateInput(record.managementCapability),
-      record.recoveryId,
-      {
-        kind: "resource",
-        value: { ...resources, event: "submission", key: purpose },
-      },
-    );
-    return (
-      saved.status === "completed" &&
-      saved.snapshotConfirmed &&
-      saved.lockReleased
-    );
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Provider要求前の観測限界を同じ現在状態へ保存する。
  * @responsibility 固定Host callbackを同じOwnerの実行評価checkpointへ接続する。
  * @trace ARCH-000008
@@ -7663,25 +7533,25 @@ export function recordRuntimeOwnedDockerProviderSubmission(
 }
 
 /**
- * Dockerが返したexact IDを元作成予定へ保存する。
- * @responsibility Dockerが返したexact IDを元作成予定へ保存する。
+ * Docker資源の作成通知を現在状態へ保存する。
+ * @responsibility 作成前の予定、作成応答、後からの識別を同じ所有者の記録へ保存する。
  * @trace ARCH-000008
- * @input recoveryCapability: 元Owner。purpose: 用途。rawDockerId: 元作成応答。
- * @returns 保存確定時だけtrue。
+ * @input recoveryCapability: 元Owner。purpose: 固定資源用途。resourcesValue: 元通知。event: 通知区分。
+ * @returns 保存の確定と排他解放を確認した場合だけtrue。
  * @precondition 同じ本番操作Ownerとexact回復参照を使用する。
  * @postcondition 確認済みの元結果だけを同じ現在状態へ接続する。
  * @effect 同じstate.jsonの資源checkpoint。
- * @failure 予定欠落・ID不正・別ID・保存不明はfalse。
+ * @failure 別操作・不正用途・不正な通知・保存不明はfalse。
  * @invariant 旧形式へのfallbackと新しい共有管理機構を追加しない。
  * @boundary 本番Docker OwnerとRepository内の現在状態。
  * @security 保存値やCaller supplied成功booleanからAuthorityを発行しない。
  * @concurrency 保存は既存Writerの短期排他と元版照合を用いる。
  */
-export function recordRuntimeOwnedDockerResourceReceipt(
+export function recordDockerResourceEvent(
   recoveryCapability: unknown,
   purpose: unknown,
   resourcesValue: unknown,
-  source: "receipt" | "identified" = "receipt",
+  event: "submission" | "receipt" | "identified",
 ) {
   const record = durableRecord(recoveryCapability);
   if (!record || typeof purpose !== "string" || !CREATE_PURPOSES.has(purpose))
@@ -7696,7 +7566,7 @@ export function recordRuntimeOwnedDockerResourceReceipt(
       record.recoveryId,
       {
         kind: "resource",
-        value: { ...resources, event: source, key: purpose },
+        value: { ...resources, event, key: purpose },
       },
     );
     return (

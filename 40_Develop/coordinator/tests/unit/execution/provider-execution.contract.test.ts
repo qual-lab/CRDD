@@ -2750,8 +2750,8 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
   const purpose = "create_provider";
   const notifications = [
     [
-      "markRuntimeOwnedDockerResourceSubmission",
-      [purpose, preparation],
+      "recordDockerResourceEvent",
+      [purpose, preparation, "submission"],
       (callbacks: ExecutorCallbacks<"attempt">) =>
         callbacks.onCommandSubmitting?.(purpose, preparation),
     ],
@@ -2768,14 +2768,14 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
         callbacks.onProviderSubmitting?.(),
     ],
     [
-      "recordRuntimeOwnedDockerResourceReceipt",
+      "recordDockerResourceEvent",
       [purpose, preparation, "identified"],
       (callbacks: ExecutorCallbacks<"attempt">) =>
         callbacks.onResourceIdentified?.(purpose, preparation),
     ],
     [
-      "recordRuntimeOwnedDockerResourceReceipt",
-      [purpose, preparation],
+      "recordDockerResourceEvent",
+      [purpose, preparation, "receipt"],
       (callbacks: ExecutorCallbacks<"attempt">) =>
         callbacks.onResourceCreated?.(purpose, "synthetic-id", preparation),
     ],

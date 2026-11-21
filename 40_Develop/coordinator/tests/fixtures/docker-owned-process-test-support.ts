@@ -1139,10 +1139,11 @@ export async function verifyNormalOwnerLifecycle(
         },
       };
       assert.equal(
-        ownerRuntime.markRuntimeOwnedDockerResourceSubmission(
+        ownerRuntime.recordDockerResourceEvent(
           capability,
           "create_subscription_auth_probe",
           resourceFrame,
+          "submission",
         ),
         true,
         JSON.stringify({

@@ -136,6 +136,8 @@ State／LeaseのPortと構築Factory、`persistence.state`の二重階層は持�
 
 初回受付で保存の明示不存在を認める条件は、Lease取得記録とProject読取りで共通とする。読取り応答を成功へ書き換えず、未初期化は実行側だけで扱う。初回読取り・回復保存・回復中の再読取りから後続へ渡すのは、同じ版のProjectと開始候補だけとし、元の停止理由や回復参照は読取りの分岐で保つ。
 
+同じ保存断面内ではTask IDの集合や入力索引を一度だけ作り、開始候補とTask別実行入力の照合に使う。失効済みTaskへの実行入力・重複・欠測は引き続き拒否する。Lease取得後のQueue選択と実行後の状態表示は、事前に読んだ値で代用しない。共通試行の完了受付とGraphの終了保存では検査の目的が異なる。例えば、回収が確認済みでも未解決の回復参照が残る結果は、Graphの終結にそのまま採用しない。
+
 Queue更新と単発Task更新は、実Leaseを所有する`lifecycle/host.ts`から既存EM Writerへ接続する。これは単純転送ではなく、既存EM Writer内の実Lease確認を所有する。構築時のRepository参照・bindingと期待世代をそのまま使い、元のnextを先に展開せず遅延getterを維持する。借用した実Leaseは一呼出しに閉じ、同じ借用結果だけを現在観測する。事前の観測結果や保存済みOwnerを実Leaseの代わりにしない。PortメソッドとそのClosureは持たず、初回State投影・単発Taskの専用更新・Lease技術本体は変更しない。
 
 単発とGraphの実Lease取得は、`lifecycle/execution.ts`の`runCoordinatorOperation`が一箇所で所有する。入口には用途を明示した受付済み操作を一つ渡す。単発は耐久受付を返す延期を維持してから元Directoryで取得し、Graphは従来のProject・Queue・候補の観測後に元workingDirectoryで取得する。取得後のfreshなQueue選択とTask依存LoopはGraph固有のまま保持する。単発受付Mapは同じitem・controller・pendingを渡し、cancel／wait／closeが元pendingの終了を待つ。新しいRunner、Hook群又は実行台帳は持たない。
@@ -224,6 +226,8 @@ Lease取得と解放確定は`lifecycle/host.ts`が所有し、Task実行は具�
 ## Host記録と回復調停の依存境界
 
 Host領域の生成・読取り・Root／Receiptの実体観測はlifecycle/host.tsが所有し、記録の正本はEMの同じStateにある独立Host操作とする。`lifecycle/environment.ts`は元回復ID・保存状態・現在Ownerを照合し、観測と実処置を使って回復を進める。Host側は環境操作へ逆依存しない。
+
+Docker資源の作成前予定・作成応答・後からの識別は、それぞれの通知時点と区分を維持し、Coordinator内部の一つの保存入口からEMへ渡す。保存の確定と短期排他の解放を確認できない通知は成功としない。要求未発行・回収後の不存在は別の事実であり、同じ通知に畳まない。
 
 Host領域の清掃は`cleanupOwnedOperationDirectories`と同じHost清掃本体へ一本化する。wx排他は同期解放であり、別の非同期清掃／失効経路を持たない。子資源・再起動の終結、元Lease解放・Owner無効を確認し、Host清掃pendingを保存してから、Receiptに対応するRoot／子実体を回収し、明示不存在の後にHost terminal／confirmedを保存する。解放false又は例外では世代を退役し、現在記録を保持してProcessを停止する。旧marker・専用Token正本を残さない。本番接続の切替と、全旧試験の追従完了・全体回帰の成立は区別する。
 

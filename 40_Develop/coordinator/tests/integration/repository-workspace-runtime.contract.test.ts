@@ -58,6 +58,7 @@ import {
   projectReviewerReadContent,
   readBorrowedExecutionBinding,
   readExecutionFile,
+  readOwnedReviewerWorkspace,
   verifyExecutionChangeSnapshot,
   verifyOwnedOperationManagementMountBinding,
 } from "../../src/lifecycle/host.ts";
@@ -1853,7 +1854,7 @@ test("開発用情報を借用Treeで許容しReviewerへの認識済みSecret�
  * @responsibility Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒否するの合否判定を所有する。
  * @trace RFD-IT-013
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒否するの対象操作を実行する。
+ * @stimulus 存在・不存在の明示Pathを投影し、コピーの内容変更・欠落・追加と元の差替えを別々に与える。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
@@ -1879,13 +1880,22 @@ test("Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒
   );
   assert.equal(candidate?.status, "candidate");
   assert.ok(candidate?.status === "candidate");
+  assert.equal(
+    verifyExecutionChangeSnapshot(
+      candidate.candidateCapability,
+      runtime.bound.repositoryBindingCapability,
+      runtime.managementCapability,
+      runtime.mountCapability,
+    )?.status,
+    "verified",
+  );
   const projected = projectReviewerReadContent(
     materialized?.workspaceCapability,
     candidate.candidateCapability,
     runtime.bound.repositoryBindingCapability,
     runtime.managementCapability,
     runtime.mountCapability,
-    ["README.md"],
+    ["missing.md", "README.md"],
   );
   assert.equal(projected?.status, "projected");
   assert.deepEqual(projected?.files, [
@@ -1897,8 +1907,59 @@ test("Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒
       encoding: "utf-8",
       content: "candidate\n",
     },
+    { path: "missing.md", state: "absent" },
   ]);
+  const reviewerWorkspace = readOwnedReviewerWorkspace(
+    runtime.managementCapability,
+    candidate.candidateCommitId,
+  );
+  assert.ok(reviewerWorkspace);
+  const reviewerFile = path.join(reviewerWorkspace, "README.md");
+  fs.writeFileSync(reviewerFile, "different");
+  assert.equal(
+    readOwnedReviewerWorkspace(
+      runtime.managementCapability,
+      candidate.candidateCommitId,
+    ),
+    null,
+  );
+  fs.writeFileSync(reviewerFile, "candidate\n");
+  fs.unlinkSync(reviewerFile);
+  assert.equal(
+    readOwnedReviewerWorkspace(
+      runtime.managementCapability,
+      candidate.candidateCommitId,
+    ),
+    null,
+  );
+  fs.writeFileSync(reviewerFile, "candidate\n");
+  const extraFile = path.join(reviewerWorkspace, "missing.md");
+  fs.writeFileSync(extraFile, "unexpected\n");
+  assert.equal(
+    readOwnedReviewerWorkspace(
+      runtime.managementCapability,
+      candidate.candidateCommitId,
+    ),
+    null,
+  );
+  fs.unlinkSync(extraFile);
+  assert.equal(
+    readOwnedReviewerWorkspace(
+      runtime.managementCapability,
+      candidate.candidateCommitId,
+    ),
+    reviewerWorkspace,
+  );
   fs.writeFileSync(path.join(runtime.workspace, "README.md"), "replaced\n");
+  assert.equal(
+    verifyExecutionChangeSnapshot(
+      candidate.candidateCapability,
+      runtime.bound.repositoryBindingCapability,
+      runtime.managementCapability,
+      runtime.mountCapability,
+    ),
+    null,
+  );
   assert.equal(
     projectReviewerReadContent(
       materialized?.workspaceCapability,

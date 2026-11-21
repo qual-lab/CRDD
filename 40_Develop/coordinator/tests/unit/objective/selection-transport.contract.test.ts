@@ -37,6 +37,7 @@ import {
   inspectCoordinatorObjectiveResult,
   inspectTaskStartCandidates,
   captureTaskStartCandidates,
+  validIdentity,
 } from "../../../src/lifecycle/validation.ts";
 import {
   createCoordinatorStableId,
@@ -1871,9 +1872,9 @@ test("回復後の再確認はQueue・Project・候補を同じ保存版で比�
  * @responsibility 別改訂版と候補欠測を実行準備成功へ変えない。
  * @trace PRL-UT-014
  * @precondition 実準備関数に既存EM読取りの有限結果を渡す。
- * @stimulus 同版一致、Queueの改訂版違いと候補欠測を与える。
+ * @stimulus 同版一致、Queueの改訂版違いと候補欠測、不正なTask別実行入力を与える。
  * @observation 読取り回数と準備結果。
- * @oracle 一回の読取りで一致時だけ実行準備を返す。
+ * @oracle 一回の読取りで一致時だけ実行準備を返し、入力順と元の参照を維持する。
  * @cleanup N/A: メモリのみ。
  * @boundary 共通実行ループのLease取得前準備。
  */
@@ -1891,18 +1892,38 @@ test("共通ループの準備は同版から一度だけ読み、版違いと�
       "blockExecution",
     ],
   );
+  const mapExecutions = compileFunction(
+    `return (${sourceDeclaration(source, "taskExecutionMap")});`,
+    ["validIdentity"],
+  )(validIdentity);
   const state = {
     projectId: "project",
     milestoneId: "milestone",
     repositoryRevision: "revision",
     generation: 1,
-    tasks: [],
+    tasks: [
+      { definition: { id: "task-a" }, state: "queued" },
+      { definition: { id: "task-b" }, state: "queued" },
+      { definition: { id: "task-old" }, state: "superseded" },
+    ],
   };
   const queue = { ...state, queueId: "queue", state: "queued" };
-  for (const [scenario, expected] of [
-    ["match", "scheduled"],
-    ["revision", "orchestrator_execution_identity_mismatch"],
-    ["missing", "orchestrator_state_observation_unknown"],
+  const first = { taskId: "task-a", authorityBindingId: "authority-a" };
+  const second = { taskId: "task-b", authorityBindingId: "authority-b" };
+  const expectedRefusal = "orchestrator_task_execution_set_invalid";
+  for (const [scenario, expected, taskExecutions] of [
+    ["match", "scheduled", [second, first]],
+    ["revision", "orchestrator_execution_identity_mismatch", [first, second]],
+    ["missing", "orchestrator_state_observation_unknown", [first, second]],
+    ["duplicate", expectedRefusal, [first, first]],
+    ["superseded", expectedRefusal, [first, { ...second, taskId: "task-old" }]],
+    ["foreign", expectedRefusal, [first, { ...second, taskId: "foreign" }]],
+    [
+      "authority",
+      expectedRefusal,
+      [first, { ...second, authorityBindingId: "" }],
+    ],
+    ["incomplete", expectedRefusal, [first]],
   ] as const) {
     let reads = 0;
     const prepare = compile(
@@ -1935,7 +1956,7 @@ test("共通ループの準備は同版から一度だけ読み、版違いと�
         };
       },
       captureTaskStartCandidates,
-      () => new Map(),
+      mapExecutions,
       (_input: unknown, reason: string) => ({ reason }),
     );
     const output = prepare(
@@ -1943,10 +1964,19 @@ test("共通ループの準備は同版から一度だけ読み、版違いと�
         repository: "repository",
         repositoryBindingId: "binding",
       },
-      { ...queue, cancellationSignal: new AbortController().signal },
+      {
+        ...queue,
+        taskExecutions,
+        cancellationSignal: new AbortController().signal,
+      },
     );
     assert.equal(output.kind ?? output.reason, expected, scenario);
     assert.equal(reads, 1, scenario);
+    if (scenario === "match") {
+      assert.deepEqual([...output.executions.keys()], ["task-b", "task-a"]);
+      assert.strictEqual(output.executions.get("task-a"), first);
+      assert.strictEqual(output.executions.get("task-b"), second);
+    }
   }
 
   const events: string[] = [];

@@ -583,9 +583,9 @@ test("現在Host回復は前後の現在観測と停止状態を共同確認す�
  * @responsibility 保存用codecを入力コピーに使わず、不正入力時のWriter到達を拒否する。
  * @trace ERB-IT-014
  * @precondition 本番通知本文と有限の現在Owner・Writer応答を使う。
- * @stimulus 正規通知、Getter・Proxy・toJSON・循環を作成前と応答後へ渡す。
+ * @stimulus 予定・作成応答・識別通知ごとに正規入力、Getter・Proxy・toJSON・循環と保存異常を渡す。
  * @observation Writer回数、元入力との参照分離、固定event／keyと未知実行数。
- * @oracle 正規入力だけ一度到達し、不正入力はWriter0・未知実行0となる。
+ * @oracle 正規入力だけ一度到達し、保存・解放の不明は拒否する。不正入力はWriter0・未知実行0となる。
  * @cleanup 外部資源なし。
  * @boundary 通知搬送の論理試験。WriterやDockerの成立は示さない。
  */
@@ -594,28 +594,26 @@ test("資源作成通知の入力捕捉拒否はIntentとReceiptのWriterへ到�
     new URL("../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
-  const names = [
-    "markRuntimeOwnedDockerResourceSubmission",
-    "recordRuntimeOwnedDockerResourceReceipt",
-  ];
-  const body = names
-    .map((name) => {
-      const begin = attemptSource.indexOf(`export function ${name}(`);
-      const end = attemptSource.indexOf("\n/**", begin);
-      assert.ok(begin >= 0 && end > begin);
-      return stripTypeScriptTypes(
-        attemptSource.slice(begin, end).replace("export function", "function"),
-      );
-    })
-    .join("\n");
-  for (const name of names) {
+  const name = "recordDockerResourceEvent";
+  const begin = attemptSource.indexOf(`export function ${name}(`);
+  const end = attemptSource.indexOf("\n/**", begin);
+  assert.ok(begin >= 0 && end > begin);
+  const body = stripTypeScriptTypes(
+    attemptSource.slice(begin, end).replace("export function", "function"),
+  );
+  for (const event of ["submission", "receipt", "identified"]) {
     let calls = 0,
       traps = 0;
     const capability = {},
       management = {};
     const received: Record<string, unknown>[] = [];
-    const api = runInNewContext(
-      `${recoveryCapabilitySource}\n${body}; ({ ${names.join(",")} })`,
+    let writerResult = {
+      status: "completed",
+      snapshotConfirmed: true,
+      lockReleased: true,
+    };
+    const invoke = runInNewContext(
+      `${recoveryCapabilitySource}\n${body}; ${name}`,
       {
         snapshotJsonValue,
         isDeepStrictEqual,
@@ -635,30 +633,26 @@ test("資源作成通知の入力捕捉拒否はIntentとReceiptのWriterへ到�
           assert.equal(request.kind, "resource");
           received.push(request.value);
           calls++;
-          return {
-            status: "completed",
-            snapshotConfirmed: true,
-            lockReleased: true,
-          };
+          return writerResult;
         },
       },
-    ) as Record<string, (...args: unknown[]) => boolean>;
-    const invoke = api[name];
-    assert.ok(invoke);
+    ) as (...args: unknown[]) => boolean;
     const nested = { resources: [] };
     assert.equal(
-      invoke(capability, "create_provider", {
-        snapshot: nested,
-        event: "foreign",
-        key: "foreign",
-      }),
+      invoke(
+        capability,
+        "create_provider",
+        {
+          snapshot: nested,
+          event: "foreign",
+          key: "foreign",
+        },
+        event,
+      ),
       true,
     );
     assert.equal(calls, 1);
-    assert.equal(
-      received[0]?.event,
-      name === names[0] ? "submission" : "receipt",
-    );
+    assert.equal(received[0]?.event, event);
     assert.equal(received[0]?.key, "create_provider");
     assert.deepEqual(received[0]?.snapshot, nested);
     assert.notEqual(received[0]?.snapshot, nested);
@@ -686,9 +680,20 @@ test("資源作成通知の入力捕捉拒否はIntentとReceiptのWriterへ到�
     const cycle: unknown[] = [];
     cycle.push(cycle);
     for (const input of [getter, proxy, toJSON, cycle])
-      assert.equal(invoke(capability, "create_provider", input), false);
+      assert.equal(invoke(capability, "create_provider", input, event), false);
+    assert.equal(invoke({}, "create_provider", {}, event), false);
+    assert.equal(invoke(capability, "not_a_create_purpose", {}, event), false);
     assert.equal(calls, 1);
     assert.equal(traps, 0);
+    for (const result of [
+      { status: "unknown", snapshotConfirmed: true, lockReleased: true },
+      { status: "completed", snapshotConfirmed: false, lockReleased: true },
+      { status: "completed", snapshotConfirmed: true, lockReleased: false },
+    ]) {
+      writerResult = result;
+      assert.equal(invoke(capability, "create_provider", {}, event), false);
+    }
+    assert.equal(calls, 4);
   }
 });
 

@@ -49,13 +49,39 @@ test("Probeは同じReceiptと終了・回収・Host保存が揃うまで成功�
     "projectProbeExecutionFacts",
     "finishPreSubmissionCleanup",
     "normalizeFailure",
-    "isolationProbeErrorMessage",
-    "ownString",
-    "isolationProbeOwnValue",
-    "isolationProbeIsObject",
+    "ownValue",
+    "isObject",
   ]
     .map((name) => sourceDeclaration(source, name))
     .join("\n");
+  const classifyFailure = runInNewContext(
+    `${declarations}\nnormalizeFailure;`,
+    { Error },
+  ) as (error: unknown, fallback?: string) => string;
+  const knownReason = "docker_probe_receipt_mismatch";
+  const unknownReason = "docker_isolation_probe_failed";
+  let getterCalls = 0;
+  assert.equal(classifyFailure(new Error(knownReason)), knownReason);
+  assert.equal(classifyFailure({ message: knownReason }), knownReason);
+  assert.equal(
+    classifyFailure(Object.create({ message: knownReason })),
+    unknownReason,
+  );
+  assert.equal(
+    classifyFailure({
+      get message() {
+        getterCalls++;
+        return knownReason;
+      },
+    }),
+    unknownReason,
+  );
+  assert.equal(getterCalls, 0);
+  assert.equal(classifyFailure({ message: 42 }), unknownReason);
+  assert.equal(
+    classifyFailure({ message: "arbitrary" }, "fallback"),
+    "fallback",
+  );
   const build = () =>
     runInNewContext(
       `

@@ -208,11 +208,10 @@ import {
   beginRuntimeOwnedDockerRecovery,
   bindRuntimeOwnedDockerInitializationFailure,
   bindRuntimeOwnedExecutorAttempt,
-  markRuntimeOwnedDockerResourceSubmission,
   recordRuntimeOwnedAttemptCleanup,
   recordRuntimeOwnedDockerProviderSubmission,
   recordRuntimeOwnedDockerResourceNotIssued,
-  recordRuntimeOwnedDockerResourceReceipt,
+  recordDockerResourceEvent,
   recordRuntimeOwnedDockerTerminalObservation,
   recordRuntimeOwnedUnstartedAttempt,
   verifyRuntimeOwnedDockerRecoveryBinding,
@@ -1298,26 +1297,17 @@ function taskExecutionMap(
   state: ProjectExecutionState,
   executions: readonly CoordinatorTaskExecution[],
 ) {
-  if (
-    !Array.isArray(executions) ||
-    executions.length !==
-      state.tasks.filter((task) => task.state !== "superseded").length ||
-    new Set(executions.map((entry) => entry.taskId)).size !== executions.length
-  )
-    return null;
+  if (!Array.isArray(executions)) return null;
+  const active = state.tasks.filter((task) => task.state !== "superseded");
+  if (executions.length !== active.length) return null;
+  const unmatched = new Set(active.map((task) => task.definition.id));
   const result = new Map<string, CoordinatorTaskExecution>();
   for (const entry of executions) {
-    if (
-      !entry ||
-      typeof entry !== "object" ||
-      !state.tasks.some(
-        (task) =>
-          task.definition.id === entry.taskId && task.state !== "superseded",
-      ) ||
-      !validIdentity(entry.authorityBindingId)
-    )
+    if (!entry || typeof entry !== "object") return null;
+    const taskId = entry.taskId;
+    if (!unmatched.delete(taskId) || !validIdentity(entry.authorityBindingId))
       return null;
-    result.set(entry.taskId, entry);
+    result.set(taskId, entry);
   }
   return result;
 }
@@ -9078,10 +9068,11 @@ function startRecordedAttempt(
     onCommandSubmitting: (purpose, resources) => {
       if (purpose.startsWith("create_"))
         requireRecorded(
-          markRuntimeOwnedDockerResourceSubmission(
+          recordDockerResourceEvent(
             recovery.recoveryCapability,
             purpose,
             resources,
+            "submission",
           ),
         );
     },
@@ -9101,7 +9092,7 @@ function startRecordedAttempt(
     },
     onResourceIdentified: (key, resources) => {
       requireRecorded(
-        recordRuntimeOwnedDockerResourceReceipt(
+        recordDockerResourceEvent(
           recovery.recoveryCapability,
           key,
           resources,
@@ -9111,10 +9102,11 @@ function startRecordedAttempt(
     },
     onResourceCreated: (purpose, _id, resources) => {
       requireRecorded(
-        recordRuntimeOwnedDockerResourceReceipt(
+        recordDockerResourceEvent(
           recovery.recoveryCapability,
           purpose,
           resources,
+          "receipt",
         ),
       );
     },

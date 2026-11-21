@@ -534,10 +534,11 @@ if (mode !== "recovery") {
           assert.deepEqual(createArgv, expected);
           assert.equal(authCheckpointResults.length, 0);
           assert.equal(
-            owner.markRuntimeOwnedDockerResourceSubmission(
+            owner.recordDockerResourceEvent(
               begun.recoveryCapability,
               "create_subscription_auth_probe",
               frame,
+              "submission",
             ),
             true,
           );
@@ -944,7 +945,7 @@ if (mode !== "recovery") {
               false,
             );
             assert.equal(
-              owner.markRuntimeOwnedDockerResourceSubmission(
+              owner.recordDockerResourceEvent(
                 refused.recoveryCapability,
                 "create_provider",
                 {
@@ -956,6 +957,7 @@ if (mode !== "recovery") {
                     verifyLabelAbsence: true,
                   },
                 },
+                "submission",
               ),
               false,
             );
