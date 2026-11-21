@@ -35,6 +35,7 @@ import * as selection from "../../src/lifecycle/selection.ts";
 import * as kernel from "../../src/lifecycle/host.ts";
 import * as objectiveValidation from "../../src/lifecycle/validation.ts";
 import * as environment from "../../src/lifecycle/environment.ts";
+import * as executionModel from "../../../execution-model/src/index.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -107,6 +108,9 @@ type TestObjective = {
   observeRecoveryTransition?: (
     event: CoordinatorRecoveryTransition,
   ) => void | Promise<void>;
+  finalizeRecoveryWrite?: (
+    ...args: Parameters<typeof saveProjectExecutionState>
+  ) => unknown;
   observeLeaseOwner: (
     owner: Parameters<typeof kernel.observeObjectiveLeaseOwner>[0],
   ) => unknown;
@@ -193,6 +197,7 @@ export async function runTestCoordinatorObjective(
     recoverTaskRecovery,
     resolveTaskRecoveryCorrelations,
     observeRecoveryTransition,
+    finalizeRecoveryWrite,
     resolveTaskSelections,
     createTaskExecutions,
     observeLeaseOwner,
@@ -219,7 +224,25 @@ export async function runTestCoordinatorObjective(
   let ownerReplacement: ReturnType<typeof mock.module> | null = null;
   let objectiveValidationReplacement: ReturnType<typeof mock.module> | null =
     null;
+  let executionModelReplacement: ReturnType<typeof mock.module> | null = null;
+  const executionModelUrl = new URL(
+    `../../../execution-model/src/index.ts?objective-fixture=${randomUUID()}`,
+    import.meta.url,
+  ).href;
   try {
+    if (finalizeRecoveryWrite) {
+      executionModelReplacement = mock.module(executionModelUrl, {
+        namedExports: {
+          ...executionModel,
+          saveProjectExecutionState: (
+            ...args: Parameters<typeof saveProjectExecutionState>
+          ) =>
+            args[2].kind === "task_recovery_finalize"
+              ? finalizeRecoveryWrite(...args)
+              : saveProjectExecutionState(...args),
+        },
+      });
+    }
     const objectiveValidationUrl = new URL(
       `../../src/lifecycle/validation.ts?objective-fixture=${randomUUID()}`,
       import.meta.url,
@@ -385,19 +408,31 @@ export async function runTestCoordinatorObjective(
         ["./validation.ts", objectiveValidationUrl],
         ["./host.ts", ownerUrl],
         ["./environment.ts", environmentUrl],
+        ...(finalizeRecoveryWrite
+          ? [
+              [
+                "../../../execution-model/src/index.ts",
+                executionModelUrl,
+              ] as const,
+            ]
+          : []),
       ]),
     );
   } finally {
     try {
-      environmentReplacement?.restore();
+      executionModelReplacement?.restore();
     } finally {
       try {
-        ownerReplacement?.restore();
+        environmentReplacement?.restore();
       } finally {
         try {
-          objectiveValidationReplacement?.restore();
+          ownerReplacement?.restore();
         } finally {
-          replacement.restore();
+          try {
+            objectiveValidationReplacement?.restore();
+          } finally {
+            replacement.restore();
+          }
         }
       }
     }

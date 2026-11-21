@@ -1461,6 +1461,13 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   let recoveries = 0;
   let recoveryObservationAttempts = 0;
   let interruptRetryAdmission = false;
+  let finalizationFault:
+    | "refused"
+    | "save_blocked"
+    | "candidate_missing"
+    | null = null;
+  let finalizations = 0;
+  let finalizationDiagnostics = 0;
   const dependencies = {
     authenticatedPrincipalId: "principal-a",
     verifyProjectBinding: () => ({
@@ -1499,8 +1506,43 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     },
     observeRecoveryTransition: async (event: Readonly<{ phase: string }>) => {
       recoveryObservationAttempts += 1;
+      if (event.phase === "verification_resources_finalized")
+        finalizationDiagnostics++;
       if (event.phase === "retry_ready") interruptRetryAdmission = true;
       throw new Error("diagnostic_unavailable");
+    },
+    finalizeRecoveryWrite: (
+      ...args: Parameters<typeof saveProjectExecutionState>
+    ) => {
+      const [repository, binding, update, generation, intake] = args;
+      assert.equal(binding, "binding-a");
+      assert.equal(intake?.operation, "resume");
+      assert.deepEqual(update, {
+        kind: "task_recovery_finalize",
+        projectId: "project-a",
+        recoveries: [{ taskId: "task-a", recoveryId }],
+      });
+      const current = readState(repository, binding, "execution");
+      assert.equal(current.status, "completed");
+      assert.equal(current.value?.projects[0]?.generation, generation);
+      finalizations++;
+      if (
+        finalizationFault === "refused" ||
+        finalizationFault === "save_blocked"
+      )
+        return {
+          status: "blocked",
+          reason:
+            finalizationFault === "refused"
+              ? "orchestrator_task_recovery_not_settled"
+              : "save_unconfirmed",
+        };
+      const result = saveProjectExecutionState(...args);
+      if (finalizationFault === "candidate_missing") {
+        assert.equal(result.status, "completed");
+        return { ...result, taskStartCandidates: null };
+      }
+      return result;
     },
     execution: {
       runSingleTaskAttempt: async (input: Parameters<typeof completed>[0]) => {
@@ -1558,6 +1600,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     true,
   );
   assert.equal(recoveries, 0);
+  assert.equal(finalizations, 0);
   const resumed = await runCoordinatorObjective(
     dependencies,
     request({ operation: "resume", maximumReplans: 0 }),
@@ -1567,6 +1610,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   assert.equal(resumed.reason, "orchestrator_task_recovery_not_settled");
   assert.equal(recoveries, 1);
   assert.equal(attempts, 1);
+  assert.equal(finalizations, 0);
 
   settleRuntimeProcessAsFreshProcess(
     workingDirectory,
@@ -1574,6 +1618,29 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     "project-a",
   );
 
+  for (const [fault, reason] of [
+    ["refused", "orchestrator_task_recovery_not_settled"],
+    ["save_blocked", "save_unconfirmed"],
+    ["candidate_missing", "orchestrator_state_observation_unknown"],
+  ] as const) {
+    finalizationFault = fault;
+    const before: number = finalizations;
+    const stopped = await runCoordinatorObjective(
+      dependencies,
+      request({ operation: "resume", maximumReplans: 0 }),
+      recoverySignal,
+    );
+    assert.equal(stopped.status, "blocked");
+    assert.equal(stopped.reason, reason);
+    assert.equal(stopped.cleanupConfirmed, false);
+    assert.equal(stopped.manualRecoveryRequired, true);
+    assert.ok(stopped.recoveryIds.includes(recoveryId));
+    assert.equal(finalizations, before + 1);
+    assert.equal(finalizationDiagnostics, 0);
+    assert.equal(attempts, 1);
+    assert.equal(recoveries, 1);
+  }
+  finalizationFault = null;
   const interrupted = await runCoordinatorObjective(
     dependencies,
     request({ operation: "resume", maximumReplans: 0 }),
@@ -1583,6 +1650,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   assert.equal(interrupted.reason, "orchestrator_task_execution_set_invalid");
   assert.equal(attempts, 1);
   assert.equal(recoveries, 1);
+  assert.equal(finalizationDiagnostics, 1);
   const retained = readState(
     verifyRuntimePersistenceRepository(workingDirectory),
     "binding-a",
@@ -1605,6 +1673,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     ),
   );
 
+  const finalizedBeforeRetry = finalizations;
   const completedRecovery = await runCoordinatorObjective(
     dependencies,
     request({ operation: "resume", maximumReplans: 0 }),
@@ -1621,6 +1690,8 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   );
   assert.equal(recoveries, 1);
   assert.equal(attempts, 2);
+  assert.equal(finalizations, finalizedBeforeRetry);
+  assert.equal(finalizationDiagnostics, 1);
   assert.ok(recoveryObservationAttempts > 0);
   const latest = readCoordinatorState(
     workingDirectory,

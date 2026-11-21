@@ -25,6 +25,7 @@ import {
 } from "../../src/lifecycle/host.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
+  borrowOwnedDockerExecutionPaths,
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
   borrowRuntimeOwnedCoordinatorSettlementRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
@@ -34,6 +35,8 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   inspectRepositoryObjectFormatCandidate,
+  verifyOwnedMountCapability,
+  verifyOwnedOperationManagementMountBinding,
   verifyRuntimeOwnedRepositoryBindingCapability,
   verifyRuntimeOwnedRepositoryOperation,
 } from "../../src/lifecycle/host.ts";
@@ -172,9 +175,9 @@ test("Windowsの上位bit付きIDで操作作成・再検証・回収が成立�
  * @responsibility 保存先の一致、公開Path非開示、Owner終了後の失効を確認する。
  * @trace PRL-IT-012
  * @precondition 現在Repository内の試験一時領域だけを使用する。
- * @stimulus 保存先を借用し、操作Ownerを終了して再検証する。
+ * @stimulus 保存先を借用し、Mount用Pathを別々の入口から取得して、操作Owner終了後に再検証する。
  * @observation Root、Identity、再検証結果と公開結果を観測する。
- * @oracle 借用は同じRepositoryだけを返し、終了後は拒否される。
+ * @oracle 借用は同じRepositoryだけを返し、各入口で子実体を一回ずつ照合する。終了後は拒否される。
  * @cleanup 所有操作の一時領域を終了時に回収する。
  * @boundary PRL-IT-012=Direct Boundary: Repository Operation Owner→Coordinator保存先。
  */
@@ -184,10 +187,42 @@ test("Coordinator保存先借用は現在Repositoryと有効Ownerだけに結合
   t.after(() => {
     if (!isCleaned) cleanupOwnedOperationDirectories(owned);
   });
+  const mount = createOwnedMountCapability(owned);
   const management = createOwnedOperationManagementCapability(
     createOwnedOperationContextCapability(owned),
-    createOwnedMountCapability(owned),
+    mount,
   );
+  const mounts = verifyOwnedMountCapability(mount);
+  const observeIdentity = t.mock.method(fs, "lstatSync");
+  try {
+    assert.deepEqual(
+      verifyOwnedOperationManagementMountBinding(management, mount).mounts,
+      mounts,
+    );
+    for (const child of Object.values(mounts))
+      assert.equal(
+        observeIdentity.mock.calls.filter(
+          ({ arguments: [target, options] }) =>
+            target === child && options?.bigint === true,
+        ).length,
+        1,
+      );
+    observeIdentity.mock.resetCalls();
+    assert.deepEqual(borrowOwnedDockerExecutionPaths(management), {
+      tmp: mounts.tmp,
+      management: mounts.management,
+    });
+    for (const child of Object.values(mounts))
+      assert.equal(
+        observeIdentity.mock.calls.filter(
+          ({ arguments: [target, options] }) =>
+            target === child && options?.bigint === true,
+        ).length,
+        1,
+      );
+  } finally {
+    observeIdentity.mock.restore();
+  }
   const root = path.resolve(import.meta.dirname, "../../../..");
   assert.ok(bindRuntimeOwnedRepositoryOperation(management, root));
   assert.equal(borrowRuntimeOwnedCoordinatorStateRepository({}), null);
@@ -217,6 +252,11 @@ test("Coordinator保存先借用は現在Repositoryと有効Ownerだけに結合
   assert.equal("root" in publicResult, false);
   cleanupOwnedOperationDirectories(owned);
   isCleaned = true;
+  assert.throws(() => verifyOwnedMountCapability(mount));
+  assert.throws(() =>
+    verifyOwnedOperationManagementMountBinding(management, mount),
+  );
+  assert.throws(() => borrowOwnedDockerExecutionPaths(management));
   assert.equal(borrowed.revalidate(), false);
   assert.equal(borrowRuntimeOwnedCoordinatorStateRepository(management), null);
 });

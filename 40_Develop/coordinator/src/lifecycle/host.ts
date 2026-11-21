@@ -5495,12 +5495,12 @@ export function verifyOwnedMountCapability(
   if (children !== mount.children)
     throw new Error("owned_operation_mount_capability_required");
   return Object.freeze({
-    workspace: validateDirectorySnapshot(children.workspace),
-    providerHome: validateDirectorySnapshot(children.providerHome),
-    tmp: validateDirectorySnapshot(children.tmp),
-    events: validateDirectorySnapshot(children.events),
-    projection: validateDirectorySnapshot(children.projection),
-    management: validateDirectorySnapshot(children.management),
+    workspace: children.workspace.root,
+    providerHome: children.providerHome.root,
+    tmp: children.tmp.root,
+    events: children.events.root,
+    projection: children.projection.root,
+    management: children.management.root,
   });
 }
 
@@ -5581,7 +5581,6 @@ export function createOwnedOperationManagementCapability(
   ) {
     throw new Error("owned_operation_management_binding_required");
   }
-  validateDirectorySnapshot(children.management);
   const capability = Object.freeze({
     kind: "owned_operation_management_binding" as const,
   });
@@ -5688,12 +5687,12 @@ export function verifyOwnedOperationManagementMountBinding(
     operationId: management.operationId,
     createdAt: management.createdAt,
     mounts: Object.freeze({
-      workspace: validateDirectorySnapshot(children.workspace),
-      providerHome: validateDirectorySnapshot(children.providerHome),
-      tmp: validateDirectorySnapshot(children.tmp),
-      events: validateDirectorySnapshot(children.events),
-      projection: validateDirectorySnapshot(children.projection),
-      management: validateDirectorySnapshot(children.management),
+      workspace: children.workspace.root,
+      providerHome: children.providerHome.root,
+      tmp: children.tmp.root,
+      events: children.events.root,
+      projection: children.projection.root,
+      management: children.management.root,
     }),
   });
 }
@@ -5717,15 +5716,13 @@ export function verifyOwnedOperationManagementMountBinding(
 export function borrowOwnedDockerExecutionPaths(
   managementCapability: unknown,
 ): Readonly<{ tmp: string; management: string }> {
-  const { binding } =
+  const { identity } =
     ownedOperationFromManagementCapability(managementCapability);
-  const identity = ownedIdentities.get(binding.owned);
   if (!identity?.children)
     throw new Error("owned_operation_management_binding_required");
-  const children = validateOwnedOperationIdentity(binding.owned, identity);
   return Object.freeze({
-    tmp: validateDirectorySnapshot(children.tmp),
-    management: validateDirectorySnapshot(children.management),
+    tmp: identity.children.tmp.root,
+    management: identity.children.management.root,
   });
 }
 
