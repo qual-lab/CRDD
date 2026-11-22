@@ -10,17 +10,18 @@
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import path from "node:path";
-import test from "node:test";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 
 import {
   describeSignedRecoveryMatrixContract,
   SIGNED_RECOVERY_MATRIX_CONTRACT,
   SIGNED_RECOVERY_MATRIX_CONTRACT_REVISION,
-} from "../../scripts/verify-recovery-matrix.ts";
+} from "./manual/verify-recovery-matrix.ts";
 
 /**
  * 固定Worker回復Matrixは通常Task入力へFault注入面を追加しないことを検証する。
@@ -78,7 +79,7 @@ test("固定Worker回復Matrixは通常Task入力へFault注入面を追加し�
  */
 test("回復Matrixは署名資格を要求せずNode境界と七形を保持する", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-recovery-matrix.ts", import.meta.url),
+    new URL("./manual/verify-recovery-matrix.ts", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(
@@ -270,17 +271,19 @@ test("回復Matrixは署名資格を要求せずNode境界と七形を保持す�
  */
 test("回復Matrixの両子モードはRoot生成前にNodeを拒否する", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-recovery-matrix.ts", import.meta.url),
+    new URL("./manual/verify-recovery-matrix.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("async function runInternalResidueChild(");
   const body = source.slice(start, source.indexOf("\n/**", start));
   const checkStart = body.indexOf("  if (!isSupportedNodeRuntime(");
+  const repositoryStart = body.indexOf("  const location =");
   const rootStart = body.indexOf(
-    "  const owned = createOwnedOperationDirectories();",
+    "  const owned = createOwnedOperationDirectories(",
   );
+  assert.ok(repositoryStart > checkStart && rootStart > repositoryStart);
   assert.ok(checkStart > 0 && rootStart > checkStart);
-  const check = body.slice(checkStart, rootStart);
+  const check = body.slice(checkStart, repositoryStart);
   /**
    * 実子入口を固定した局所環境で照合する。
    * @responsibility 判定前Effectの有無と二モードの待機差を観測する。
@@ -300,8 +303,10 @@ test("回復Matrixの両子モードはRoot生成前にNodeを拒否する", asy
     const events: string[] = [];
     let output = "";
     const owned = Object.freeze({ root: "owned-test-root" });
+    const repository = Object.freeze({});
     const childProcess = {
       versions: { node: "24.19.0" },
+      cwd: () => "fixture-directory",
       exitCode: undefined as number | undefined,
       stdout: {
         write: (value: string) => {
@@ -322,7 +327,18 @@ test("回復Matrixの両子モードはRoot生成前にNodeを拒否する", asy
         events.push("node");
         return supported;
       },
-      createOwnedOperationDirectories: () => {
+      getRepositoryFromWorkingDirectory: (directory: string) => {
+        assert.equal(directory, "fixture-directory");
+        events.push("repository");
+        return { status: "completed", capability: repository };
+      },
+      resolveVerifiedRepositoryRoot: (capability: unknown) => {
+        assert.equal(capability, repository);
+        events.push("resolve");
+        return "fixture-directory";
+      },
+      createOwnedOperationDirectories: (input: { root: unknown }) => {
+        assert.equal(input.root, repository);
         events.push("root");
         return owned;
       },
@@ -364,6 +380,8 @@ test("回復Matrixの両子モードはRoot生成前にNodeを拒否する", asy
     } else {
       assert.deepEqual(events, [
         "node",
+        "repository",
+        "resolve",
         "root",
         "residue",
         "output",
@@ -387,12 +405,13 @@ test("回復Matrixの両子モードはRoot生成前にNodeを拒否する", asy
       evaluate(body.replace(check, ""), false, wait),
       assert.AssertionError,
     );
-    const moved = body
-      .replace(check, "")
-      .replace(
-        "  const owned = createOwnedOperationDirectories();",
-        `  const owned = createOwnedOperationDirectories();\n${check}`,
-      );
+    const residueStart = body.indexOf("  const residue =", rootStart);
+    assert.ok(residueStart > rootStart);
+    const moved =
+      body.slice(0, checkStart) +
+      body.slice(repositoryStart, residueStart) +
+      check +
+      body.slice(residueStart);
     await assert.rejects(evaluate(moved, false, wait), assert.AssertionError);
   }
 });
@@ -413,7 +432,9 @@ test("公開CLIは引数なし以外を固定JSONでEffect前に拒否する", (
   const result = spawnSync(
     process.execPath,
     [
-      path.resolve("scripts/verify-recovery-matrix.ts"),
+      fileURLToPath(
+        new URL("./manual/verify-recovery-matrix.ts", import.meta.url),
+      ),
       "--scenario",
       "timeout",
     ],

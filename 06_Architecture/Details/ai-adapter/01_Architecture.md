@@ -25,7 +25,7 @@ Task JSONLの非秘密実行観測には、完了Itemのerror型件数`itemError
 
 内部error messageの語句観測は`itemErrorHostMentionCount`、`itemErrorSpawnMentionCount`、`itemErrorProtocolMentionCount`、`itemErrorConnectionMentionCount`、`itemErrorToolMentionCount`、`itemErrorPermissionMentionCount`、`itemErrorMissingPathMentionCount`、`itemErrorTimeoutMentionCount`で区別する。各値は該当語句を含むerror item数で、同じitemの複数語句は重複計上する。いずれの語句にも一致しないitemとmessage欠測は`itemErrorUnclassifiedCount`に含める。単にCode Modeを言及するだけでは分類済みとしない。これらは原因・発生点を確定するcodeではなく、実行許可・採否・清掃成立へ利用しない。本文はメモリ内でだけ処理し、任意Path・Command・秘密値を保存しない。各件数は0〜itemErrorCountとする。旧観測に九fieldがない場合は欠測を維持し、部分集合や零補完を受理しない。
 
-Codexの非秘密実行観測の検査は`codex/observation.ts`の内部`inspectCodexExecutionObservation(raw: unknown)`が所有する。固定field、数値、mention相関、本文非公開を検査し、凍結観測又はnullを返す。既存`provider/input.ts`の通常データ捕捉を再利用し、現行形・warning欠測形・mention欠測形・旧transport形の読取りを欠測補完せず維持する。Provider解析は生成直後に内部検査を一回通し、不成立時は既存の不正結果へ閉じる。通常RootにはInspectorを公開せず、公開Parserの返却型からExecutorのCompletionResult、Coordinatorの段階結果まで検査済み観測型を伝播させる。同Processの製品利用側は再検査しない。検証ツールの未信頼JSON受入だけが、既存の`./testing`入口から内部Inspectorを利用する。この検査はProvider固有の診断値の受理だけで、実行許可・原因確定・回収成立を意味しない。
+Codexの非秘密実行観測の検査は`codex/observation.ts`の内部`inspectCodexExecutionObservation(raw: unknown)`が所有する。固定field、数値、mention相関、本文非公開を検査し、凍結観測又はnullを返す。既存`provider/input.ts`の通常データ捕捉を再利用し、現行形・warning欠測形・mention欠測形・旧transport形の読取りを欠測補完せず維持する。Provider解析は生成直後に内部検査を一回通し、不成立時は既存の不正結果へ閉じる。通常RootにはInspectorを公開せず、公開Parserの返却型からExecutorのCompletionResult、Coordinatorの段階結果まで検査済み観測型を伝播させる。同Processの製品利用側は再検査しない。検証ツールの未信頼JSON受入だけが、`tests/support/ai-adapter-test.ts`から内部Inspectorを利用する。この検査はProvider固有の診断値の受理だけで、実行許可・原因確定・回収成立を意味しない。
 
 AI AdapterはProvider固有の操作、認証方式、技術対応、入力計画と出力変換を所有する。Repository別の役割既定値・作業分類・明示選択と保存はCoordinatorが所有する。旧Profile Catalog、Host／Repository Profile Store、Family／Tierによる自動選定は撤去対象であり、新形式の互換Readerとして残さない。
 
@@ -271,7 +271,7 @@ Codexの16KiBとClaudeの0.10はboolean Probe normalizerの固定契約であり
 
 編集・レビューの検査済み内容型は`TaskResult`、助言は`AdviceResult`として本Packageが所有する。`TaskResult`／`AdviceResult`は明示型を正本とし、内容検査実装の返却値をその契約へ型検査する。内容にはProviderの実行観測、清掃状態、レビュー所見の内部搬送本文、次試行の許可を含めない。Executorはこれらを内容型へ拡張せず、実行結果の外側で扱う。内容検査条件・理由文字列・容量制限は変更しない。
 
-公開`parseProviderResult`はtask／advice／probeに応じ、Envelope抽出と内容検査までを一回の呼出しで完了する。入力は解決済み計画と実行観測とし、taskの役割・推論強度・作業量、adviceの許可参照は計画内から引き継ぐ。Coordinatorの助言配送は型付き内容を直接受け、JSON再生成・再解析を行わない。未信頼JSONや永続読取りの境界検査は維持する。返却はconfirmed＋型付きnormalizedResult又はblocked＋固定reason＋nullであり、Provider実行観測・Turn観測・レビュー所見は内容の外側へ分離する。Envelopeだけの抽出`extractProviderResult`はRoot非公開とし、その搬送契約を直接検査する他Packageの試験と限定診断は明示した`./testing`（`scripts/ai-adapter-test.ts`）だけを利用する。製品Sourceからこの試験入口を使用しない。Task／Adviceの個別合成処理をExecutorに再定義しない。
+公開`parseProviderResult`はtask／advice／probeに応じ、Envelope抽出と内容検査までを一回の呼出しで完了する。入力は解決済み計画と実行観測とし、taskの役割・推論強度・作業量、adviceの許可参照は計画内から引き継ぐ。Coordinatorの助言配送は型付き内容を直接受け、JSON再生成・再解析を行わない。未信頼JSONや永続読取りの境界検査は維持する。返却はconfirmed＋型付きnormalizedResult又はblocked＋固定reason＋nullであり、Provider実行観測・Turn観測・レビュー所見は内容の外側へ分離する。Envelopeだけの抽出`extractProviderResult`はRoot非公開とし、その搬送契約を直接検査する他Packageの試験と限定診断は`tests/support/ai-adapter-test.ts`だけを利用する。製品Sourceからこの試験入口を使用しない。Task／Adviceの個別合成処理をExecutorに再定義しない。
 
 ## Checklist
 

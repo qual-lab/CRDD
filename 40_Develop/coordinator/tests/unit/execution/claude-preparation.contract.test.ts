@@ -52,7 +52,7 @@ function createFixture(
   const mountCapability = Object.freeze({});
   let randomValue = 0;
   let technicalPlan:
-    | import("../../../../executor/scripts/executor-test.ts").TestAttemptPlan
+    | import("../../../../executor/tests/support/executor-test.ts").TestAttemptPlan
     | null = null;
   const dependencies = {
     verifyOperationMount: (management: unknown, mount: unknown) => {

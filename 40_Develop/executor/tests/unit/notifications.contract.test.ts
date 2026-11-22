@@ -14,11 +14,11 @@ import { runInNewContext } from "node:vm";
 import * as di from "../../../docker-isolation/src/index.ts";
 import type { DockerResourceReceipts } from "../../../docker-isolation/tests/support/cleanup.ts";
 import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
-import type { IsolationRuntime } from "../../scripts/executor-test.ts";
+import type { IsolationRuntime } from "../support/executor-test.ts";
 import {
   bindLegacyTestIsolation,
   createExecutorTestRuntime,
-} from "../../scripts/executor-test.ts";
+} from "../support/executor-test.ts";
 import type {
   AttemptDiagnosticNotice,
   CompletionResult,

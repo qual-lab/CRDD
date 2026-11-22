@@ -22,7 +22,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import test from "node:test";
-import { verifyStandaloneProviderAttempt } from "../../scripts/verify-provider-attempt.ts";
+import { verifyStandaloneProviderAttempt } from "../system/manual/verify-provider-attempt.ts";
 
 /**
  * 技術試験領域の失敗観測はモデル保存例外へ依存しない。
@@ -55,9 +55,9 @@ test("試験領域の技術補助はEMなしで全失敗観測を保持する", 
       for(const name of ['writeFileSync','mkdirSync','mkdtempSync','rmSync','unlinkSync'])fs[name]=forbidden;
       for(const name of ['spawn','spawnSync','fork','exec','execSync','execFile','execFileSync'])cp[name]=forbidden;
       syncBuiltinESMExports();
-      const api=await import(${JSON.stringify(new URL("../../scripts/runtime-data.ts", import.meta.url).href)});
-      await import(${JSON.stringify(new URL("../../scripts/verify-provider-attempt.ts", import.meta.url).href)});
-      await import(${JSON.stringify(new URL("../../scripts/verify-provider-home.ts", import.meta.url).href)});
+      const api=await import(${JSON.stringify(new URL("../support/runtime-data.ts", import.meta.url).href)});
+      await import(${JSON.stringify(new URL("../system/manual/verify-provider-attempt.ts", import.meta.url).href)});
+      await import(${JSON.stringify(new URL("../system/manual/verify-provider-home.ts", import.meta.url).href)});
       const ready=Object.freeze({status:'ready',repositoryRoot:'not-used',directory:'not-used'});
       assert.equal(api.requireReadyRepositoryRuntimeDataArea(ready,'invalid'),ready);
       assert.throws(()=>api.requireReadyRepositoryRuntimeDataArea(null,'invalid'),{message:'invalid'});
@@ -181,7 +181,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
   );
   const root = new URL("../../src/index.ts", import.meta.url).href;
   const verification = new URL(
-    "../../scripts/verify-provider-attempt.ts",
+    "../system/manual/verify-provider-attempt.ts",
     import.meta.url,
   ).href;
   const script = `
@@ -220,7 +220,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
       assert.equal(name in api,false,name);
     let calls=0;
     const dependencies=new Proxy({}, {get(){return ()=>{calls++;throw Error('unexpected_effect');};}});
-    const testing=await import(${JSON.stringify(new URL("../../scripts/executor-test.ts", import.meta.url).href)});
+    const testing=await import(${JSON.stringify(new URL("../support/executor-test.ts", import.meta.url).href)});
     const runtime=testing.createExecutorTestCandidate(dependencies);
     assert.equal(runtime.start(null,null).status,'blocked');
     assert.equal((await runtime.cancel(null,null)).status,'blocked');
@@ -229,7 +229,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
       assert.equal(name in runtime,false,name);
     // 名前付き領域APIの依存Sourceを先にロードし、以下ではTool自体のimport Effectを検査する。
     await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-    await import(${JSON.stringify(new URL("../../scripts/runtime-data.ts", import.meta.url).href)});
+    await import(${JSON.stringify(new URL("../support/runtime-data.ts", import.meta.url).href)});
     const {default:fs}=await import('node:fs');
     const {default:childProcess}=await import('node:child_process');
     const {syncBuiltinESMExports}=await import('node:module');

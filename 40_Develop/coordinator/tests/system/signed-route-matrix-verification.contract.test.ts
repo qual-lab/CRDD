@@ -15,14 +15,14 @@ import test from "node:test";
 import {
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
-} from "../../scripts/verify-general-task.ts";
+} from "./manual/verify-general-task.ts";
 
 import {
   createSignedRouteMatrixCliFailureResult,
   describeSignedRouteMatrixVerificationContract,
   isExactSignedRouteResult,
   runSignedRouteMatrixVerification,
-} from "../../scripts/verify-route-matrix.ts";
+} from "./manual/verify-route-matrix.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 const routePoisonProbePath = path.join(
@@ -79,7 +79,7 @@ function completed(
     contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed" as const,
     reason: "signed_general_task_verification_completed",
-    sourceScope: "crdd-development-source-snapshot/v4",
+    sourceScope: "crdd-development-source-snapshot/v5",
     sourceSha256: "b".repeat(64),
     sourceObservationStatus: "matched",
     signatureRequired: false,
@@ -144,7 +144,7 @@ function safelyRetryable(
   return Object.freeze({
     status: "blocked" as const,
     reason,
-    sourceScope: "crdd-development-source-snapshot/v4",
+    sourceScope: "crdd-development-source-snapshot/v5",
     sourceSha256: "b".repeat(64),
     sourceObservationStatus: "matched",
     signatureRequired: false,
@@ -196,7 +196,7 @@ test("4経路をcross-provider優先で順番に実測し全cleanup後だけ完�
     assert.ok(route);
     seenItems.push(route);
     return completed(route);
-  }) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
+  }) as typeof import("./manual/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "completed");
   assert.deepEqual(seenItems, [
     "forward",
@@ -253,7 +253,7 @@ test("最初の未完了経路で停止し既知cleanup状態を失わない", a
           credentialReported: false,
         })
       : completed(route);
-  }) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
+  }) as typeof import("./manual/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "blocked");
   assert.deepEqual(seenItems, ["forward", "reverse"]);
   assert.equal(result.completedRouteCount, 1);
@@ -337,7 +337,7 @@ test("専用送信同意なしで全経路を閉じる", async () => {
   ) =>
     completed(
       route ?? "forward",
-    )) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
+    )) as typeof import("./manual/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "completed");
   assert.equal(result.completedRouteCount, 4);
   assert.equal("initialConsentAuthorizationMode" in result, false);
@@ -373,7 +373,7 @@ test("exact破棄と残存0を確認した閉集合理由だけ同じ経路を�
         );
     }
     return completed(route);
-  }) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
+  }) as typeof import("./manual/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "completed");
   assert.deepEqual(seenItems, [
     "forward",
@@ -414,7 +414,7 @@ test("安全再試行の全attemptを同じ作業対象Execution Revisionへ固�
       ...completed(route ?? "forward"),
       executionCommit: "1".repeat(40),
     });
-  }) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
+  }) as typeof import("./manual/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "blocked");
   assert.equal(result.attemptedRouteCount, 2);
   assert.equal(result.completedRouteCount, 0);
@@ -444,7 +444,7 @@ test("是正後の独立Reviewer拒否は同一入力を再実行せず停止す
     safelyRetryable(
       "coordinator_task_independent_review_not_approved",
       "not_issued",
-    )) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
+    )) as typeof import("./manual/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "blocked");
   assert.equal(result.attemptedRouteCount, 1);
   assert.equal(result.completedRouteCount, 0);
@@ -476,7 +476,7 @@ test("Candidate整合性不成立は同一入力を再実行せず停止する",
     safelyRetryable(
       "coordinator_task_candidate_verification_failed",
       "not_issued",
-    )) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
+    )) as typeof import("./manual/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "blocked");
   assert.equal(result.attemptedRouteCount, 1);
   assert.equal(result.retryableRouteAttemptCount, 0);
@@ -506,7 +506,7 @@ test("内容不一致でもCandidate未発行という矛盾した結果は再�
     safelyRetryable(
       "signed_general_task_candidate_content_mismatch",
       "not_issued",
-    )) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
+    )) as typeof import("./manual/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "blocked");
   assert.equal(result.attemptedRouteCount, 1);
   assert.equal(result.retryableRouteAttemptCount, 0);
@@ -542,7 +542,7 @@ test("Recovery曖昧・候補未破棄・汎用失敗は再試行せず初回で
           ...safelyRetryable("signed_general_task_candidate_content_mismatch"),
           ...mutation,
         });
-      }) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification,
+      }) as typeof import("./manual/verify-general-task.ts").runSignedGeneralTaskVerification,
     );
     assert.equal(result.status, "blocked");
     assert.equal(attempts, 1);
@@ -579,7 +579,7 @@ test("4経路は同一Source Identityへ固定し別Sourceを集約しない", a
         return count === 2
           ? Object.freeze({ ...result, [field]: value })
           : result;
-      }) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification,
+      }) as typeof import("./manual/verify-general-task.ts").runSignedGeneralTaskVerification,
     );
     assert.equal(result.status, "blocked", field);
     assert.equal(result.attemptedRouteCount, 2, field);
@@ -615,7 +615,7 @@ test("4経路は同一の実行Repository Identityへ固定し別Revisionを集�
         return count === 2
           ? Object.freeze({ ...routeResult, [field]: value })
           : routeResult;
-      }) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification,
+      }) as typeof import("./manual/verify-general-task.ts").runSignedGeneralTaskVerification,
     );
     assert.equal(result.status, "blocked", field);
     assert.equal(result.attemptedRouteCount, 2, field);
@@ -851,7 +851,7 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
   const cli = spawnSync(
     process.execPath,
     [
-      path.join(coordinatorRoot, "scripts/verify-route-matrix.ts"),
+      path.join(coordinatorRoot, "tests/system/manual/verify-route-matrix.ts"),
       "unexpected",
     ],
     { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },

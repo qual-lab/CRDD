@@ -18,7 +18,7 @@ import {
   PROVIDER_HOME_COVERAGE_TESTS,
   requireProviderHomeCoverageOutput,
   serializeProviderHomeCoverage,
-} from "../../scripts/check-provider-home-coverage.ts";
+} from "../support/check-provider-home-coverage.ts";
 
 /**
  * Provider Home coverageはRepository基準Node以上だけを受理するを検証する。
@@ -113,8 +113,8 @@ test("Provider Home coverageはrunnerと共有parserを含むexact母集団を�
     "40_Develop/coordinator/src/lifecycle/authentication.ts",
     "40_Develop/coordinator/src/lifecycle/validation.ts",
     "40_Develop/coordinator/src/lifecycle/environment.ts",
-    "40_Develop/coordinator/scripts/coverage.ts",
-    "40_Develop/coordinator/scripts/check-provider-home-coverage.ts",
+    "40_Develop/coordinator/tests/support/coverage.ts",
+    "40_Develop/coordinator/tests/support/check-provider-home-coverage.ts",
   ]);
   assert.deepEqual(PROVIDER_HOME_COVERAGE_TESTS, [
     "40_Develop/coordinator/tests/unit/execution/root-path.contract.test.ts",

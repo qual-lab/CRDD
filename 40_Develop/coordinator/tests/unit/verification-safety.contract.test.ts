@@ -71,7 +71,7 @@ test("候補拒否と検証Toolの診断は旧件数を欠測化しない", () =
     assert.equal(diagnostic.pathsMatch, expected);
   }
   const general = fs.readFileSync(
-    new URL("../../scripts/verify-general-task.ts", import.meta.url),
+    new URL("../system/manual/verify-general-task.ts", import.meta.url),
     "utf8",
   );
   const project = runInNewContext(
@@ -124,7 +124,7 @@ import {
   evaluateVerificationSafetyObservation,
   salvageVerificationNullableRecovery,
   salvageVerificationRecoveryPair,
-} from "../../scripts/verification-safety.ts";
+} from "../support/verification-safety.ts";
 
 const hostA = "host-operation.OP-123456";
 const hostB = "host-operation.OP-123457";
@@ -198,7 +198,7 @@ test("検証Readerと集約は257件の回復IDを容量だけで拒否・切詰
     true,
   );
   const generalSource = fs.readFileSync(
-    new URL("../../scripts/verify-general-task.ts", import.meta.url),
+    new URL("../system/manual/verify-general-task.ts", import.meta.url),
     "utf8",
   );
   const collect = runInNewContext(
@@ -233,7 +233,7 @@ test("検証Readerと集約は257件の回復IDを容量だけで拒否・切詰
   assert.equal(collected.ambiguous, false);
   assert.deepEqual(Array.from(collected.ids), ids);
   const routeSource = fs.readFileSync(
-    new URL("../../scripts/verify-route-matrix.ts", import.meta.url),
+    new URL("../system/manual/verify-route-matrix.ts", import.meta.url),
     "utf8",
   );
   const aggregate = runInNewContext(

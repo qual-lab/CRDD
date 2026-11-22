@@ -572,7 +572,7 @@ Architecture Definition          Quality Definition
 
 本番実装を呼ばない合成環境の実証は、Test Symbolへ`verificationTarget: "environment"`を明示する。この場合もQA・Local Test・実Pathの関係を必須とし、`verifies`は空集合だけを許す。通常試験の`verifies`非空条件は維持し、環境実証を実装Symbol又は実装の意味Coverageへ加算しない。未知値、実装Symbolへの付与、架空の実装関係との併記は拒否する。
 
-検証Tool自身の構築・判定・終了制御を検査するSuiteは、環境実証へ分類しない。検証Toolと用途限定判定fixtureを`kind: "verification-tool"`としてQA・Local Test・実Pathへ接続し、Suiteは非空の`verifies`で実際の対象Toolへ結合する。ToolのPathはPackage内の`scripts/`または`tests/fixtures/`の通常fileだけを許す。言語や拡張子で参加条件を分けない。ARCH・意味実装・環境指定とTool自身の検証辺を禁止し、`verifies`は明示空配列とする。既存のPath実体観測、QA／Local解決、通常試験の参照条件を維持する。Tool宛て辺は実装検証Indexへ登録せず、Semantic CoverageもToolを実装や意味の検証証拠へ加算しない。ここで確認するのは検証手段の局所契約であり、本番Capabilityや実Native／OS動作の合格ではない。
+検証Tool自身の構築・判定・終了制御を検査するSuiteは、環境実証へ分類しない。検証Toolと用途限定判定fixtureを`kind: "verification-tool"`としてQA・Local Test・実Pathへ接続し、Suiteは非空の`verifies`で実際の対象Toolへ結合する。ToolのPathはPackage内の`scripts/`、`tests/fixtures/`、`tests/support/`または`tests/system/manual/`の通常fileだけを許す。言語や拡張子で参加条件を分けない。ARCH・意味実装・環境指定とTool自身の検証辺を禁止し、`verifies`は明示空配列とする。既存のPath実体観測、QA／Local解決、通常試験の参照条件を維持する。Tool宛て辺は実装検証Indexへ登録せず、Semantic CoverageもToolを実装や意味の検証証拠へ加算しない。ここで確認するのは検証手段の局所契約であり、本番Capabilityや実Native／OS動作の合格ではない。
 
 
 Test Catalogの定義、変更影響からの試験選択、試験段階の実行および結果集約は[Verification Runner](../verification-runner/01_Architecture.md)が所有する。CheckerのTest Catalog Adapterは、Reality Symbolとの構造整合だけを読取り検査し、試験を選択・実行しない。

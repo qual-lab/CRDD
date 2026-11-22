@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { inspectCoordinatorDesignTraceability } from "../../scripts/task-design-traceability.ts";
+import { inspectCoordinatorDesignTraceability } from "../support/task-design-traceability.ts";
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -67,7 +67,7 @@ function currentTrace(): Record<string, unknown> {
   ) as Record<string, unknown>;
 }
 
-describe("Orchestrator design traceability", () => {
+describe("Task design traceability", () => {
   /**
    * 新判断モデルの安全条件を個別に壊し、旧Protocolで代用できないことを確認する。
    * @trace AIT-IT-008
@@ -181,6 +181,16 @@ describe("Orchestrator design traceability", () => {
         failureInjections: 16,
         implementationBindings: 9,
         verificationBindings: 23,
+      },
+    );
+    const oldTrace = currentTrace();
+    oldTrace.schema = "crdd-coordinator/orchestrator-design-traceability";
+    assert.deepEqual(
+      inspectCoordinatorDesignTraceability(oldTrace, repositoryReader),
+      {
+        status: "blocked",
+        reason: "task_design_traceability_invalid",
+        issues: ["trace_schema_invalid"],
       },
     );
   });

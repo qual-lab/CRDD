@@ -23,7 +23,7 @@ import test from "node:test";
 import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
-import { observeRuntimeOwnedDevelopmentSource } from "../../scripts/measure-development-providers.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../../scripts/benchmark.ts";
 import {
   getRepository,
   readRepositorySnapshot,
@@ -47,7 +47,7 @@ import {
   createSignedGeneralTaskVerificationRequest,
   describeSignedGeneralTaskVerificationContract,
   runSignedGeneralTaskVerification,
-} from "../../scripts/verify-general-task.ts";
+} from "./manual/verify-general-task.ts";
 
 const TARGET_PATH =
   "40_Develop/coordinator/tests/fixtures/general-task-verification.txt";
@@ -209,7 +209,7 @@ function resolvesToForbiddenWindowsAsciiModule(
  */
 function source(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
-    scope: "crdd-development-source-snapshot/v4",
+    scope: "crdd-development-source-snapshot/v5",
     sourceSha256: "0".repeat(64),
     sourceIdentitySha256: "9".repeat(64),
     crddCommit: baseCommit,
@@ -697,7 +697,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   );
   const runnerPath = path.join(
     coordinatorRoot,
-    "scripts/verify-general-task.ts",
+    "tests/system/manual/verify-general-task.ts",
   );
   const source = fs.readFileSync(runnerPath, "utf8");
   const forbiddenConsoleModule = "../src/decision/external-send-grant.ts";
@@ -763,7 +763,10 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => {
-  const script = path.join(coordinatorRoot, "scripts/verify-general-task.ts");
+  const script = path.join(
+    coordinatorRoot,
+    "tests/system/manual/verify-general-task.ts",
+  );
   const result = spawnSync(process.execPath, [script, "unexpected"], {
     cwd: coordinatorRoot,
     encoding: "utf8",
@@ -795,7 +798,10 @@ test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => 
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("CLIのRoute grammarは引数なしと三つのexact profileだけを許可する", () => {
-  const script = path.join(coordinatorRoot, "scripts/verify-general-task.ts");
+  const script = path.join(
+    coordinatorRoot,
+    "tests/system/manual/verify-general-task.ts",
+  );
   for (const args of [
     ["--route"],
     ["--route", "forward"],
@@ -927,7 +933,7 @@ test("Source初回観測の欠測・例外・不正値はTask開始0で閉じる
   const getter = {
     get scope() {
       getterCalls += 1;
-      return "crdd-development-source-snapshot/v4";
+      return "crdd-development-source-snapshot/v5";
     },
   };
   for (const observed of [
@@ -978,10 +984,7 @@ test("Source初回観測の欠測・例外・不正値はTask開始0で閉じる
  * @boundary 本番依存のSource観測callback→既存Git／Source Reader。
  */
 test("Source本番観測は固定module RootとGit前後照合を使用する", () => {
-  const scriptUrl = new URL(
-    "../../scripts/verify-general-task.ts",
-    import.meta.url,
-  );
+  const scriptUrl = new URL("./manual/verify-general-task.ts", import.meta.url);
   const text = fs.readFileSync(scriptUrl, "utf8");
   const start = text.indexOf("  observeSource: () => {");
   const end = text.indexOf("\n  prepareWorkspace:", start);
@@ -1096,7 +1099,7 @@ test("Source終了観測は破棄・解除後に五値を照合し内部値を�
     assert.equal(result.cleanupConfirmed, true);
     assert.equal(result.effectStateUnknown, false);
     assert.equal(result.canonicalRepositoryChanged, false);
-    assert.equal(result.sourceScope, "crdd-development-source-snapshot/v4");
+    assert.equal(result.sourceScope, "crdd-development-source-snapshot/v5");
     assert.equal(result.sourceSha256, "0".repeat(64));
     assert.equal(result.signatureRequired, false);
     for (const key of [
@@ -2745,7 +2748,7 @@ test("経路選定不能は観測・準備・Task開始前に閉じる", () => {
     const url = ${JSON.stringify(new URL("../../src/lifecycle/selection.ts", import.meta.url).href)};
     const actual = await import(url);
     mock.module(url, { namedExports: { ...actual, resolveTaskExecutionSelections: () => ({ status: "blocked", value: null, reason: "ai_selection_config_invalid" }) } });
-    const { runSignedGeneralTaskVerification } = await import(${JSON.stringify(new URL("../../scripts/verify-general-task.ts", import.meta.url).href)});
+    const { runSignedGeneralTaskVerification } = await import(${JSON.stringify(new URL("./manual/verify-general-task.ts", import.meta.url).href)});
     let effects = 0;
     const result = await runSignedGeneralTaskVerification(process.cwd(), {
       runtimeVersion: () => process.versions.node,

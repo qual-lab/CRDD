@@ -14,8 +14,8 @@ import { isDeepStrictEqual } from "node:util";
 import { compileFunction } from "node:vm";
 import { planExecution, type Provider } from "../../../ai-adapter/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import type { TestAttemptPlan } from "../../../executor/scripts/executor-test.ts";
-import { prepareAttempt } from "../../../executor/scripts/executor-test.ts";
+import type { TestAttemptPlan } from "../../../executor/tests/support/executor-test.ts";
+import { prepareAttempt } from "../../../executor/tests/support/executor-test.ts";
 import {
   createExecutor,
   type Executor,

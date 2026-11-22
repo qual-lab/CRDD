@@ -710,7 +710,7 @@ pendingの作成拒否・部分作成・置換・観測不能・既存物・遅�
 
 Local許可元と独立Provider Authorityの専用試験・Coverageは退役する。PRL-UT-006の現在Operation・Home／Mount・固定選定・Packet・取消・回復の共用義務は現役Ownerに維持し、退役機構を別名で再実装しない。計測用Contextを通常認可へ混入させない。
 
-PPR-UT-006は通常runTask二回の外側計測、明示主体・別ID、旧設定拒否、期限・取消の最終返却待機、Timer／Listener解放、回復参照・一次結果保持を確認する。専用Session／呼出し制約／段階Timingの3試験は退役し、削除をPassへ数えない。PPR-IT-010の本来のClock／来歴の検証義務は既存Ownerへ維持し、退役した開発Timingの試験へ戻さない。ERB-IT-004は現行12Package・Scope v4、対象外の旧Directory／.crddの不変、対象内の内容・実体差、旧容量境界の両側、途中変更拒否を自己生成Rootで確認する。PRL-IT-012は製品Sourceが開発Scriptへ逆依存しないことと、旧専用入口・Context・会計の不存在を確認する。
+PPR-UT-006は通常runTask二回の外側計測、明示主体・別ID、旧設定拒否、期限・取消の最終返却待機、Timer／Listener解放、回復参照・一次結果保持を確認する。専用Session／呼出し制約／段階Timingの3試験は退役し、削除をPassへ数えない。PPR-IT-010の本来のClock／来歴の検証義務は既存Ownerへ維持し、退役した開発Timingの試験へ戻さない。ERB-IT-004は現行12Package・Scope v5、対象外の旧Directory／.crddの不変、対象内の内容・実体差、旧容量境界の両側、途中変更拒否を自己生成Rootで確認する。PRL-IT-012は製品Sourceが開発Scriptへ逆依存しないことと、旧専用入口・Context・会計の不存在を確認する。
 
 PPR-UT-006の取消・期限反証では、通常Taskと同じ待機後の閲覧認可を確認し、元結果・exact回復参照・清掃状態が保持されることを検証する。取消と正常完了が競合する場合も二件目を開始せず、認可の失効を取消の代用にしない。
 
@@ -724,7 +724,7 @@ PRL-UT-014は本番経路で使用するProvider Home観測、Repository解決�
 
 ## Package外の開発Source観測利用側
 
-PRL-ST-004はMCP所有の正式検証入口を不正引数だけで実Node起動し、Import解決後に検証未開始・子未開始・回収確認済みの既存拒否結果となることを確認する。Sourceの正常値は現行v4だけとし、旧v2／v3・不正Hash・欠測・途中差を成功へ昇格しない。新規Objective構築では`operation: "start"`を明示し、現行の完成受付が受理することと旧fieldを拒否することを維持する。これらは実Provider検証Tool自体の契約試験であり、実AI・Dockerの成功証拠ではない。
+PRL-ST-004はMCP所有の正式検証入口を不正引数だけで実Node起動し、Import解決後に検証未開始・子未開始・回収確認済みの既存拒否結果となることを確認する。Sourceの正常値は現行v5だけとし、旧v2／v3／v4・不正Hash・欠測・途中差を成功へ昇格しない。新規Objective構築では`operation: "start"`を明示し、現行の完成受付が受理することと旧fieldを拒否することを維持する。これらは実Provider検証Tool自体の契約試験であり、実AI・Dockerの成功証拠ではない。
 
 ## Checklist
 

@@ -149,7 +149,7 @@ export function mapRealityDomainIssueToCheckerFinding(
       case "manifest.verification-tool.relation-domain-invalid":
         return [
           "symbol-manifest-verification-tool-invalid",
-          "Verification tools require an owned scripts or tests/fixtures path, Quality and Local IDs, empty verifies, and no Architecture, meaning, or environment declaration.",
+          "Verification tools require an owned scripts, tests/fixtures, tests/support or tests/system/manual path, Quality and Local IDs, empty verifies, and no Architecture, meaning, or environment declaration.",
         ];
       case "manifest.implementation.architecture-relation-missing":
         return [

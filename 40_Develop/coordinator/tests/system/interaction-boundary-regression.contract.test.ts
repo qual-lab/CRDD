@@ -344,9 +344,9 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
  */
 test("非同期の対話・正式Runner entrypointはtop-levelでmain完了を所有する", () => {
   const asynchronousEntrypoints = [
-    "scripts/verify-general-task.ts",
-    "scripts/verify-recovery-matrix.ts",
-    "scripts/verify-route-matrix.ts",
+    "tests/system/manual/verify-general-task.ts",
+    "tests/system/manual/verify-recovery-matrix.ts",
+    "tests/system/manual/verify-route-matrix.ts",
   ];
   for (const relative of asynchronousEntrypoints) {
     const source = fs.readFileSync(
@@ -374,11 +374,11 @@ test("保護操作は別名でも裸Runtimeのpackage aliasへ公開しない", 
   const protectedEntrypoints = [
     "bin/coordinator.ts",
     "src/cli/command.ts",
-    "scripts/verify-general-task.ts",
-    "scripts/verify-route-matrix.ts",
-    "scripts/verify-recovery-matrix.ts",
+    "tests/system/manual/verify-general-task.ts",
+    "tests/system/manual/verify-route-matrix.ts",
+    "tests/system/manual/verify-recovery-matrix.ts",
     "scripts/revoke-external-send-consent.ts",
-    "scripts/measure-development-providers.ts",
+    "scripts/benchmark.ts",
   ];
   const packageDocument = JSON.parse(
     fs.readFileSync(path.join(coordinatorRoot, "package.json"), "utf8"),
@@ -453,9 +453,9 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
       /import\s*\{[^}]*\bisSupportedNodeRuntime\b[^}]*\}\s*from "\.\.\/api\.ts"/u,
     ],
     [
-      "scripts/verify-general-task.ts",
+      "tests/system/manual/verify-general-task.ts",
       /isSupportedNodeRuntime\(\s*dependencies\.runtimeVersion\(\),?\s*\)/u,
-      /import\s*\{[^}]*\bisSupportedNodeRuntime\b[^}]*\}\s*from "\.\.\/src\/lifecycle\/environment\.ts"/u,
+      /import\s*\{[^}]*\bisSupportedNodeRuntime\b[^}]*\}\s*from "(?:\.\.\/){3}src\/lifecycle\/environment\.ts"/u,
     ],
   ] as const;
   for (const [relative, call, imported] of guardedEntrypoints) {
@@ -493,7 +493,7 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
   assert.match(readme, /coordinator\.ts" capabilities --json/u);
   assert.match(
     readme,
-    /"<selected-verified-checkout-root>\\40_Develop\\coordinator\\scripts\\verify-general-task\.ts"/u,
+    /"<selected-verified-checkout-root>\\40_Develop\\coordinator\\tests\\system\\manual\\verify-general-task\.ts"/u,
   );
   assert.match(
     readme,

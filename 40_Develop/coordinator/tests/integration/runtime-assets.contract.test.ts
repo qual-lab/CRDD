@@ -5,17 +5,13 @@
  * @responsibility unknown gate試験の前提となる資産相関だけを検証する。
  * @trace ERB-IT-004
  * @level IT
- * @scope レシピ、Provider設定、助言Image準備の三入力搬送。
+ * @scope レシピ、Provider設定、ビルド入力の照合値。
  * @boundary REQ-000016由来の構成前提。Local Item全体の成立は主張しない。
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
-import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
-import { runInNewContext } from "node:vm";
 import { planExecution } from "../../../ai-adapter/src/index.ts";
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
@@ -176,24 +172,6 @@ function source(relative: string) {
 }
 
 /**
- * 固定Sourceの一つの関数本体をそのまま取得する。
- * @responsibility 試験がProductionと別の収集実装を作ることを防ぐ。
- * @trace ERB-IT-004
- * @precondition 対象は改行で閉じる名前付き関数である。
- * @stimulus 固定名の宣言開始と最上位の閉括弧を取得する。
- * @observation 型除去前の実関数Source。
- * @oracle 未発見や曖昧な切出しで試験を進めない。
- * @cleanup N/A: メモリ上の文字列処理だけ。
- * @boundary ERB-IT-004=Integration: 現在Source→限定VM。
- */
-function actualFunction(text: string, name: string) {
-  const start = text.indexOf(`function ${name}(`);
-  const end = text.indexOf("\n}", start) + 2;
-  assert.ok(start >= 0 && end > start, name);
-  return text.slice(start, end);
-}
-
-/**
  * DockerfileのCOPY契約と各資産Ownerを照合する。
  * @responsibility レシピ所在を暗黙のビルドcontextとして扱う配置回帰を拒否する。
  * @trace ERB-IT-004
@@ -248,13 +226,6 @@ test("Dockerビルド入力は隔離レシピとProvider設定を明示的に組
       }
     }
   }
-  const preparation = source(
-    "40_Develop/coordinator/scripts/prepare-codex-image.ts",
-  );
-  assert.ok(preparation.includes("recipe.imageBuildDefinition"));
-  assert.ok(preparation.includes('name: "codex-code-mode-host"'));
-  assert.ok(preparation.includes('path.join(context, "Dockerfile")'));
-  assert.doesNotMatch(preparation, /coordinator\/runtime/u);
 });
 
 /**
@@ -374,6 +345,7 @@ test("隔離レシピはDocker Isolationの実行物とAI設定へ結合する",
   for (const [name, expected] of [
     ["claude-managed-settings.json", buildInputs.claude.managedSettingsSha256],
     ["claude-task-settings.json", buildInputs.claude.taskSettingsSha256],
+    ["codex-result-schema.json", codex.resultSchemaSha256],
     ["codex-executor-result-schema.json", codex.executorSchemaSha256],
     ["codex-reviewer-result-schema.json", codex.reviewerSchemaSha256],
   ] as const) {
@@ -392,169 +364,40 @@ test("隔離レシピはDocker Isolationの実行物とAI設定へ結合する",
 });
 
 /**
- * 助言Image準備の実関数を入力搬送に限定して観測する。
- * @responsibility 共通公式入力と用途別レシピ・Schemaの搬送、Host欠測・Hash差・レシピ差の拒否を確認する。
+ * ビルド手順が参照する固定レシピと公式実行物の期待値を照合する。
  * @trace ERB-IT-004
- * @precondition binary検証の既知Hashは仮依存とし、公式配布検証の根拠には使わない。
- * @stimulus 実prepare本体へ仮binaryと実recipeを渡し書込みをメモリで捕捉する。
- * @observation 助言四File／Task七Fileの各bytes、拒否時書込み0、Build・Provider要求の非発行。
- * @oracle 元資産をコピーした別実装でなく実本体が実recipeを搬送する。
- * @cleanup N/A: メモリFSだけを書き換える。
- * @boundary ERB-IT-004=Integration: 実準備本体→用途別context。
+ * @stimulus 実Dockerfileのbytesと、両Providerの入力定義を読み取る。
+ * @oracle Codexの両レシピが期待Hashと一致し、公式実行物のサイズ・HashとClaude Manifestの対象が一致する。
+ * @cleanup N/A: 固定資産の読取りだけを行う。
+ * @boundary 公式配布物を取得せず、実Buildや手動作業の成功は証明しない。
  */
-test("Taskと助言の実準備本体は共通公式入力と用途別レシピだけを搬送する", () => {
-  for (const purpose of ["task", "advice"] as const) {
-    const relative = "40_Develop/coordinator/scripts/prepare-codex-image.ts";
-    const root = fileURLToPath(new URL("../../../../", import.meta.url));
-    const script = source(relative);
-    const body = actualFunction(script, "prepareCodexImage").replaceAll(
-      "import.meta.url",
-      JSON.stringify(new URL(`../../../../${relative}`, import.meta.url).href),
+test("Providerイメージのビルド入力は固定レシピと期待値を持つ", () => {
+  const codex = buildInputs.codex.identity;
+  const claude = buildInputs.claude.identity;
+  const claudeVersion =
+    describeDockerProviderAssets("claude").identity.exactVersion;
+  assert.equal(claude.targetPlatform, "linux-x64");
+  assert.equal(
+    claude.manifestUrl,
+    `https://downloads.claude.ai/claude-code-releases/${claudeVersion}/manifest.json`,
+  );
+  for (const recipe of [codex, buildInputs.codex.adviceIdentity]) {
+    const bytes = fs.readFileSync(
+      new URL(`../../../../${recipe.imageBuildDefinition}`, import.meta.url),
     );
-    const binary = path.join(root, ".crdd", "tmp", "fixed-codex-input");
-    const host = path.join(root, ".crdd", "tmp", "fixed-host-input");
-    const bwrap = path.join(root, ".crdd", "tmp", "fixed-bwrap-input");
-    const recipePath = path.join(
-      root,
-      "40_Develop",
-      "docker-isolation",
-      "images",
-      purpose === "task"
-        ? "codex-provider.Dockerfile"
-        : "codex-advice-provider.Dockerfile",
+    assert.equal(
+      createHash("sha256").update(bytes).digest("hex"),
+      recipe.imageBuildDefinitionSha256,
+      recipe.imageBuildDefinition,
     );
-    const recipe = fs.readFileSync(recipePath);
-    const codexBytes = Buffer.from("fixture-codex");
-    const hostBytes = Buffer.from("fixture-host");
-    const bwrapBytes = Buffer.from("fixture-bwrap");
-    const written = new Map<string, Buffer>();
-    let corruptHost = false;
-    let missingHost = false;
-    let wrongRecipe = false;
-    const output = path.join(
-      root,
-      ".crdd",
-      "tmp",
-      "codex-advice-image-fixture",
-    );
-    const run = runInNewContext(
-      `${stripTypeScriptTypes(body)}; prepareCodexImage`,
-      {
-        buildInputs,
-        path,
-        fileURLToPath,
-        Buffer,
-        getRepository: () => ({ status: "completed", capability: {} }),
-        ensureRepositoryExecutionDataArea: () => ({}),
-        requireReadyRepositoryExecutionDataArea: () => ({
-          directory: path.dirname(output),
-        }),
-        createHash: () => ({
-          update: (bytes: Buffer) => ({
-            digest: () =>
-              bytes === codexBytes
-                ? buildInputs.codex.identity.binarySha256
-                : bytes === hostBytes
-                  ? corruptHost
-                    ? "0".repeat(64)
-                    : buildInputs.codex.identity.hostBinarySha256
-                  : bytes === bwrapBytes
-                    ? buildInputs.codex.identity.bwrapBinarySha256
-                    : createHash("sha256").update(bytes).digest("hex"),
-          }),
-        }),
-        fs: {
-          realpathSync: { native: (target: string) => target },
-          lstatSync: (target: string) => ({
-            isFile: () =>
-              target === binary ||
-              (target === host && !missingHost) ||
-              target === bwrap,
-            isSymbolicLink: () => false,
-            size:
-              target === binary
-                ? buildInputs.codex.identity.binaryBytes
-                : target === host
-                  ? buildInputs.codex.identity.hostBinaryBytes
-                  : buildInputs.codex.identity.bwrapBinaryBytes,
-          }),
-          readFileSync: (target: string) => {
-            if (target === binary) return codexBytes;
-            if (target === host) return hostBytes;
-            if (target === bwrap) return bwrapBytes;
-            if (target === recipePath && wrongRecipe)
-              return Buffer.from("wrong-recipe");
-            assert.ok(
-              target === recipePath ||
-                target.startsWith(
-                  path.join(root, "40_Develop", "ai-adapter", "src", "codex"),
-                ),
-            );
-            return fs.readFileSync(target);
-          },
-          mkdtempSync: (prefix: string) => {
-            assert.equal(
-              prefix,
-              path.join(path.dirname(output), `codex-${purpose}-image-`),
-            );
-            return output;
-          },
-          writeFileSync: (
-            target: string,
-            bytes: Buffer,
-            options: { flag: string },
-          ) => {
-            assert.equal(path.dirname(target), output);
-            assert.equal(options.flag, "wx");
-            assert.equal(written.has(path.basename(target)), false);
-            written.set(path.basename(target), Buffer.from(bytes));
-          },
-        },
-      },
-    ) as (
-      purpose: "task" | "advice",
-      codex: string,
-      host: string,
-      bwrap: string,
-    ) => { dockerBuildPerformed: boolean; providerRequestIssued: boolean };
-    corruptHost = true;
-    assert.throws(
-      () => run(purpose, binary, host, bwrap),
-      /input_hash_mismatch/u,
-    );
-    corruptHost = false;
-    missingHost = true;
-    assert.throws(() => run(purpose, binary, host, bwrap), /input_invalid/u);
-    missingHost = false;
-    wrongRecipe = true;
-    assert.throws(
-      () => run(purpose, binary, host, bwrap),
-      /recipe_hash_mismatch/u,
-    );
-    wrongRecipe = false;
-    assert.equal(written.size, 0);
-    const result = run(purpose, binary, host, bwrap);
-    assert.deepEqual(
-      [...written.keys()].sort(),
-      [
-        "Dockerfile",
-        "bwrap",
-        "codex",
-        "codex-code-mode-host",
-        ...(purpose === "task"
-          ? [
-              "codex-executor-result-schema.json",
-              "codex-result-schema.json",
-              "codex-reviewer-result-schema.json",
-            ]
-          : []),
-      ].sort(),
-    );
-    assert.deepEqual(written.get("codex"), codexBytes);
-    assert.deepEqual(written.get("codex-code-mode-host"), hostBytes);
-    assert.deepEqual(written.get("bwrap"), bwrapBytes);
-    assert.deepEqual(written.get("Dockerfile"), recipe);
-    assert.equal(result.dockerBuildPerformed, false);
-    assert.equal(result.providerRequestIssued, false);
+  }
+  for (const [name, size, hash] of [
+    ["codex", codex.binaryBytes, codex.binarySha256],
+    ["codex-code-mode-host", codex.hostBinaryBytes, codex.hostBinarySha256],
+    ["bwrap", codex.bwrapBinaryBytes, codex.bwrapBinarySha256],
+    ["claude", claude.binaryBytes, claude.binarySha256],
+  ] as const) {
+    assert.ok(Number.isSafeInteger(size) && size > 0, name);
+    assert.match(hash, /^[a-f0-9]{64}$/u, name);
   }
 });

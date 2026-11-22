@@ -32,7 +32,7 @@ import { sourceDeclaration } from "../../../executor/tests/support/source-declar
  */
 test("単段検証結果Readerは旧4,096件上限を再適用しない", () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-provider-real.ts", import.meta.url),
+    new URL("../system/manual/verify-provider-real.ts", import.meta.url),
     "utf8",
   );
   const capture = compileFunction(
@@ -271,11 +271,11 @@ test("固定Task試験は両Providerの計画と実Fileの相関を検査する"
  */
 test("単段CLIの計画・Effect前拒否を確認する", () => {
   const entry = new URL(
-    "../../scripts/verify-provider-real.ts",
+    "../system/manual/verify-provider-real.ts",
     import.meta.url,
   ).href;
   const platform = new URL(
-    "../../../executor/scripts/provider-home.ts",
+    "../../../executor/tests/support/provider-home.ts",
     import.meta.url,
   ).href;
   const child = spawnSync(
@@ -309,7 +309,7 @@ test("単段CLIの計画・Effect前拒否を確認する", () => {
   assert.equal(child.signal, null);
   assert.equal(child.status, 0, child.stderr);
   const domainEntry = new URL(
-    "../../../executor/scripts/runtime-data.ts",
+    "../../../executor/tests/support/runtime-data.ts",
     import.meta.url,
   ).href;
   for (const absent of [false, true]) {
@@ -391,12 +391,12 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
     const f=await createIsolationFixture({mock});
     const di=await import(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))});
     const {captureIsolationRequest}=await import(${JSON.stringify(url("../../../docker-isolation/src/execution/preparation.ts"))});
-    const platform=await import(${JSON.stringify(url("../../../executor/scripts/provider-home.ts"))});
+    const platform=await import(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))});
     const domain=await import(${JSON.stringify(url("../../../execution-model/src/index.ts"))});
     const createResourceRecords = ${createResourceRecords.toString()};
     let fixture=null,live=false,releases=0;
     process.env.LOCALAPPDATA='C:/fixture'.replaceAll('/',String.fromCharCode(92));
-    mock.module(${JSON.stringify(url("../../../executor/scripts/provider-home.ts"))},{namedExports:{...platform,
+    mock.module(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))},{namedExports:{...platform,
       observeProviderHome:provider=>({status:'candidate',provider,processEffectIssued:false,manualRecoveryRequired:false,filesystemEffectIssued:false,providerHomeIdentityHash:'a'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)}),
       }});
     mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:()=>{live=true;return {status:'acquired',lock:{assertLive:()=>live,release:()=>{releases++;live=false;return true;}}};}
@@ -413,9 +413,9 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
       }
     };
     f.observationFilter=(argv,result)=>argv[0]==='start'&&argv.includes('--attach')&&argv.at(-1)===String(f.request.resources.findIndex(r=>r.key==='create_provider')+1).repeat(64)?{...result,stdout:fixture.output}:result;
-    const api=await import(${JSON.stringify(url("../../scripts/verify-provider-real.ts"))});
+    const api=await import(${JSON.stringify(url("../system/manual/verify-provider-real.ts"))});
     const executor=await import(${JSON.stringify(url("../../../executor/src/index.ts"))});
-    const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/verify-provider-real.ts"))}));
+    const repository=fileURLToPath(${JSON.stringify(url("../../../../"))});
     const schema=(await import(${JSON.stringify(url("../../../ai-adapter/src/provider/advice-result.ts"))})).describeAdviceResultSchema();
     for(const provider of ['codex','claude'])for(const mode of ['normal','extra','missing','contract','revision','status','empty','item','reference','transport',...(provider==='codex'?['duplicate']:[]),'task_edit','task_review',...(provider==='codex'?['task_review_command']:[]),'task_cancel']){
       const trialMode=mode==='task_edit'?'edit':mode.startsWith('task_review')?'review':mode.startsWith('task_cancel')?'cancel':'advice';
@@ -474,13 +474,13 @@ test("単段CLI子は製品Executorの排他・再観測・取消・保持を確
  const f=await createIsolationFixture({mock});
  const di=await import(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))});
  const {captureIsolationRequest}=await import(${JSON.stringify(url("../../../docker-isolation/src/execution/preparation.ts"))});
- const platform=await import(${JSON.stringify(url("../../../executor/scripts/provider-home.ts"))});
+ const platform=await import(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))});
  let mode='normal',observations=0,acquisitions=0,releases=0,live=false,controller=null;
  process.env.LOCALAPPDATA='C:\\\\fixture';
  mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
    prepareIsolation:(request,settings)=>{f.useRequest(captureIsolationRequest(request),'claude');return f.api.prepareIsolation(request,settings);},executeIsolation:f.api.executeIsolation
  }});
- mock.module(${JSON.stringify(url("../../../executor/scripts/provider-home.ts"))},{namedExports:{...platform,
+ mock.module(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))},{namedExports:{...platform,
    observeProviderHome:provider=>{observations++;if(mode==='unexpected_error')throw Error('private');if(observations===2)assert.equal(live,true);return {status:mode==='home_unknown'||(observations===2&&mode==='home_unavailable')?'blocked':'candidate',provider,processEffectIssued:false,filesystemEffectIssued:false,providerHomeIdentityHash:(observations===2&&mode==='changed'?'e':'a').repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)};},
    }});
     mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:()=>{acquisitions++;if(mode==='acquire_unknown')return {status:'blocked',reason:'lock_exists',reference:null,cleanupConfirmed:true,descriptorClosed:true};live=true;return {status:'acquired',lock:{assertLive:()=>live,release:()=>{releases++;if(mode==='release_unknown')return false;live=false;return true;}}};}
@@ -490,8 +490,8 @@ test("単段CLI子は製品Executorの排他・再観測・取消・保持を確
    const item={text:'A pending documentation task.',references:['synthetic-context']};
    return {...result,stdout:JSON.stringify({type:'result',subtype:'success',is_error:false,num_turns:1,total_cost_usd:0,structured_output:{status:'completed',facts:[item],sharedAnalysis:[],additionalInferences:[],nextOptions:[item]}})};
  }return result;};
- const api=await import(${JSON.stringify(url("../../scripts/verify-provider-real.ts"))});
- const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/verify-provider-real.ts"))}));
+ const api=await import(${JSON.stringify(url("../system/manual/verify-provider-real.ts"))});
+ const repository=fileURLToPath(${JSON.stringify(url("../../../../"))});
  for(mode of ['normal','cancel','changed','home_unavailable','home_unknown','unexpected_error','prestart_cancel','acquire_unknown','release_unknown']){
    observations=0;acquisitions=0;releases=0;live=false;f.calls.length=0;controller=new AbortController();
    const runId='fixture-'+randomUUID(),root=path.join(repository,'.crdd','tests','executor-real-claude-'+runId);
@@ -549,21 +549,21 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
         "-e",
         `
     import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {createHash,randomUUID} from 'node:crypto';import {EventEmitter} from 'node:events';import {PassThrough} from 'node:stream';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';import {mock} from 'node:test';
-    const platform=await import(${JSON.stringify(url("../../../executor/scripts/provider-home.ts"))});const domain=await import(${JSON.stringify(url("../../../execution-model/src/index.ts"))});
-    const report=await import(${JSON.stringify(url("../../../executor/scripts/report.ts"))});
+    const platform=await import(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))});const domain=await import(${JSON.stringify(url("../../../execution-model/src/index.ts"))});
+    const report=await import(${JSON.stringify(url("../../../executor/tests/support/report.ts"))});
     const awaitTaskApi=await import(${JSON.stringify(url("../../../executor/tests/support/task-trial.ts"))});
     const createResourceRecords = ${createResourceRecords.toString()};
     let mode='normal',forks=0,cancelCount=0,output=[],gitCalls=0,beforeWait=null;
     Object.defineProperty(process.stdin,'isTTY',{value:false,configurable:true});Object.defineProperty(process.stdout,'isTTY',{value:false,configurable:true});
     mock.method(process.stdout,'write',function(value,...rest){const text=String(value);assert.equal(/この端末に|入力してください/.test(text),false);if(text.startsWith('{'))output.push(JSON.parse(text));const callback=rest.find(v=>typeof v==='function');if(callback)callback(null);return true;});
-    mock.module(${JSON.stringify(url("../../../executor/scripts/provider-home.ts"))},{namedExports:{...platform,
+    mock.module(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))},{namedExports:{...platform,
       observeProviderHome:()=>{throw Error('native_forbidden');},}});
     mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:()=>{throw Error('lock_forbidden');}
     }});
-    const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/verify-provider-real.ts"))}));let root=null;
+    const repository=fileURLToPath(${JSON.stringify(url("../../../../"))});let root=null;
     const actualTimeout=globalThis.setTimeout;let timeoutDelay=null;
     mock.method(globalThis,'setTimeout',(fn,ms,...args)=>{timeoutDelay=Math.max(timeoutDelay??0,ms);return actualTimeout(fn,['close_unknown','disconnected_no_close','late_close','ack_missing'].includes(mode)?(ms>10000?10:mode==='late_close'?100:10):ms,...args);});
-    const realSpawn=cp.spawnSync;mock.method(cp,'spawnSync',(...args)=>{gitCalls++;assert.equal(args[0],'git');return realSpawn(...args);});
+    mock.method(cp,'spawnSync',()=>{gitCalls++;throw Error('repository_subprocess_forbidden');});
     mock.method(cp,'fork',(file,args,options)=>{
       forks++;assert.equal(args[0],'--worker');assert.match(args[1],/^[a-f0-9]{64}$/);assert.deepEqual(Object.keys(options.env).sort().filter(k=>!['SystemRoot','WINDIR','LOCALAPPDATA','USERPROFILE'].includes(k)),[]);
       const emitter=new EventEmitter();emitter.connected=true;emitter.stdout=new PassThrough();emitter.stderr=new PassThrough();emitter.unref=()=>{};emitter.disconnect=()=>{assert.equal(emitter.connected,true);emitter.connected=false;emitter.emit('disconnect');};let input=null,finish=null;
@@ -612,7 +612,7 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
       };
       queueMicrotask(()=>emitter.emit('spawn'));return emitter;
     });syncBuiltinESMExports();
-    const api=await import(${JSON.stringify(url("../../scripts/verify-provider-real.ts"))});
+    const api=await import(${JSON.stringify(url("../system/manual/verify-provider-real.ts"))});
     const originalLstat=fs.lstatSync,originalRmdir=fs.rmdirSync,originalRealpath=fs.realpathSync,originalOpen=fs.opendirSync,originalUnlink=fs.unlinkSync;let temporaryReads=0,ancestorReads=0,childRemovals=0,leafReads=0,inventoryReads=0,temporaryEffects=0,rootInventoryReads=0;
     mock.method(fs,'unlinkSync',(p,...args)=>{if(root&&String(p).startsWith(path.join(root,'tmp')+path.sep))temporaryEffects++;if(mode==='tmp_tree_remove_failure'&&String(p).endsWith('runtime.bin'))throw Error('synthetic_unlink_failure');return originalUnlink(p,...args);});
     mock.method(fs,'realpathSync',(p,...args)=>mode==='tmp_tree_realpath'&&String(p).endsWith('runtime.bin')?path.join(root,'outside'):originalRealpath(p,...args));
@@ -626,7 +626,7 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
       const code=await api.runStandaloneProviderTrialCli(['--run',(mode.startsWith('tmp_')&&mode!=='tmp_codex')||trialMode==='review'?'claude':'codex','fixture-'+randomUUID(),trialMode]);const result=output.at(-1);
       const success=['normal','ack_late','tmp_empty','tmp_codex','tmp_unknown','tmp_file','tmp_nonempty','tmp_tree','task_edit','task_review','task_cancel','codex_tmp_none','codex_tmp_daemon','codex_tmp_empty','codex_tmp_lock','codex_tmp_both','codex_tmp_nonzero','codex_tmp_extra'].includes(mode);
       assert.equal(code,success?0:2,mode);assert.equal(forks,1,mode);
-      assert.equal(gitCalls,1);
+      assert.equal(gitCalls,0,mode+': repository identity requires no Git subprocess');
       assert.equal(result.fixtureCleanupConfirmed,success,mode);assert.ok(timeoutDelay>10000);
       if(mode==='failed_diag'||mode==='process_failure_diag'){assert.equal(result.reason,'docker_process_controller_cleanup_unconfirmed');assert.equal(result.result.diagnostic.primaryFailure.stage,'command_wait');assert.equal(result.result.diagnostic.cleanupConfirmed,false);if(mode==='process_failure_diag')assert.equal(result.result.diagnostic.primaryFailure.exceptionCode,'PROCESS_FAILURE');assert.match(result.recoveryId,/^docker-task\\./);}
       if(mode==='raw_diag'){assert.equal(result.result,null);assert.equal(JSON.stringify(result).includes('forbidden'),false);}
@@ -666,13 +666,11 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
  */
 test("単段CLIの先行hookは静的依存変異を拒否する", () => {
   const entry = new URL(
-    "../../scripts/verify-provider-real.ts",
+    "../system/manual/verify-provider-real.ts",
     import.meta.url,
   ).href;
-  const host = new URL(
-    "../../scripts/provider-attempt-host.ts",
-    import.meta.url,
-  ).href;
+  const host = new URL("../support/provider-attempt-host.ts", import.meta.url)
+    .href;
   const coordinator = new URL(
     "../../../coordinator/src/index.ts",
     import.meta.url,
@@ -712,14 +710,9 @@ test("単段CLIの先行hookは静的依存変異を拒否する", () => {
  */
 test("単段CLIの実IPC子は不正計画と開始前取消を拒否する", async () => {
   const script = fileURLToPath(
-    new URL("../../scripts/verify-provider-real.ts", import.meta.url),
+    new URL("../system/manual/verify-provider-real.ts", import.meta.url),
   );
-  const repository = fileURLToPath(
-    new URL(
-      "../../../",
-      new URL("../../scripts/verify-provider-real.ts", import.meta.url),
-    ),
-  );
+  const repository = fileURLToPath(new URL("../../../../", import.meta.url));
   const reviewDescriptor = spawnSync(
     process.execPath,
     [script, "--describe", "codex", "review"],

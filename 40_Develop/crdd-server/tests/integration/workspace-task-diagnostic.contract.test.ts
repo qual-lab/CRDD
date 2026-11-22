@@ -17,12 +17,12 @@ import { runInNewContext } from "node:vm";
 import {
   extractProviderResult,
   inspectCodexExecutionObservation,
-} from "../../../ai-adapter/scripts/ai-adapter-test.ts";
+} from "../../../ai-adapter/tests/support/ai-adapter-test.ts";
 import {
   inspectCandidateValidationFailureDiagnostic,
   inspectTaskStageDiagnostic,
-} from "../../../coordinator/scripts/task-diagnostic.ts";
-import { captureWorkspaceTaskDiagnostic } from "../../scripts/workspace-task-diagnostic.ts";
+} from "../../../coordinator/tests/support/task-diagnostic.ts";
+import { captureWorkspaceTaskDiagnostic } from "../support/workspace-task-diagnostic.ts";
 
 const correlation = "operation-11111111-2222-3333-4444-555555555555";
 const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
@@ -1252,7 +1252,7 @@ test("回復開始collectorは完全IdentityとTask相関のみを区別する",
   }
   {
     const source = fs.readFileSync(
-      new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
+      new URL("../system/manual/verify-workspace-ai.ts", import.meta.url),
       "utf8",
     );
     const begin = source.indexOf(
@@ -1303,7 +1303,7 @@ test("回復開始collectorは完全IdentityとTask相関のみを区別する",
   }
   {
     const source = fs.readFileSync(
-      new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
+      new URL("../system/manual/verify-workspace-ai.ts", import.meta.url),
       "utf8",
     );
     const begin = source.indexOf("for (const row of read.historyRows)");
@@ -1413,7 +1413,7 @@ test("回復開始collectorは復元不能後の再設置を拒否する", () =>
  */
 test("回復開始collectorは復元代入の拒否と無反映を保持する", () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/workspace-task-diagnostic.ts", import.meta.url),
+    new URL("../support/workspace-task-diagnostic.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf(

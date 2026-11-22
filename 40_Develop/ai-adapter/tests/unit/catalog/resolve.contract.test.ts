@@ -25,7 +25,7 @@ test("試験用抽出入口は通常Rootと製品Sourceから分離する", asyn
   const { fileURLToPath } = await import("node:url");
   const root = fileURLToPath(new URL("../../../", import.meta.url));
   const api = await import("../../../src/index.ts");
-  const testing = await import("../../../scripts/ai-adapter-test.ts");
+  const testing = await import("../../support/ai-adapter-test.ts");
   assert.deepEqual(Object.keys(testing), [
     "extractProviderResult",
     "inspectCodexExecutionObservation",
@@ -35,11 +35,11 @@ test("試験用抽出入口は通常Rootと製品Sourceから分離する", asyn
   const pkg = JSON.parse(
     fs.readFileSync(new URL("../../../package.json", import.meta.url), "utf8"),
   );
-  assert.deepEqual(Object.keys(pkg.exports).sort(), [".", "./testing"]);
+  assert.deepEqual(Object.keys(pkg.exports), ["."]);
   for (const p of fs.globSync("src/**/*.ts", { cwd: root }))
     assert.doesNotMatch(
       fs.readFileSync(root + "/" + p, "utf8"),
-      /scripts\/ai-adapter-test|\/testing["']/,
+      /tests\/support\/ai-adapter-test|\/testing["']/,
     );
 });
 

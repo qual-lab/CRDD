@@ -39,7 +39,7 @@ Workbench経由の合成Contextは、Metadataと見出しだけでなく、現�
 
 ## 開発実測入力の新方式への移行
 
-開発計測は通常の`runTask`二件を外側から計測する。フロントAIは旧実測packetを互換読込みさせず、現在Sourceと通常操作に合わせて入力を作り直す。`40_Develop/coordinator/scripts/measure-development-providers.ts --describe-source`は読取りだけでScopeと`expectedSourceSha256`を返し、設定保存・Task・Docker・Provider準備を行わない。
+開発計測は通常の`runTask`二件を外側から計測する。フロントAIは旧実測packetを互換読込みさせず、現在Sourceと通常操作に合わせて入力を作り直す。`40_Develop/coordinator/scripts/benchmark.ts --describe-source`は読取りだけでScopeと`expectedSourceSha256`を返し、設定保存・Task・Docker・Provider準備を行わない。
 
 - 新設定は`projectId`、`principalId`、`expiresAtMs`、`expectedSourceSha256`、`tasks`の五項目を明示する。
 - `tasks`は別の`requestId`を持つ通常SingleTaskCommand二件とする。通常の`choice`、Workspace、送信確認等の契約を使用し、旧内部Task要求から変換しない。
@@ -90,8 +90,8 @@ if ($LASTEXITCODE -ne 0 -or $gitUser.status -ne "completed" -or [string]::IsNull
 $principalId = "local.email.$($gitUser.email)"
 & "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" run task --request-stdin --json --principal-id $principalId
 & "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" doctor --json
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-route-matrix.ts"
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-recovery-matrix.ts"
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\tests\system\manual\verify-route-matrix.ts"
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\tests\system\manual\verify-recovery-matrix.ts"
 ```
 
 一般Taskでは構造化stdinをバイト列のまま渡し、stdoutを機械向けに受け取る。対象→操作の同じ入口へ必要な--jsonを指定する。旧interactive／automationと検証Script用の起動モードは受理しない。固定検証Scriptは上記の直接入口を使う。対話同意を自動入力せず、不足時は停止結果を処置する。Coordinator専用の`sign-release`／`promote-release`は廃止した。通常Taskの準備として署名・Manifest昇格を行わない。正式配布の署名が必要なら、配布Ownerが独立した汎用Artifact署名の適用を判断する。
@@ -197,12 +197,11 @@ $principalId = "local.email.$($gitUser.email)"
 この固定検証では、上記の汎用stdin入口へShellからJSONを組み立てて渡さない。対象Repositoryを現在Directoryにした対話端末から、選択したCheckout内の固定Runnerを直接起動する。実Providerへの依頼には、その対象・送信について別途許可が必要である。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-general-task.ts"
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-general-task.ts" --route reverse
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-general-task.ts" --route same-codex
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-general-task.ts" --route same-claude
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-route-matrix.ts"
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\revoke-external-send-consent.ts"
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\tests\system\manual\verify-general-task.ts"
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\tests\system\manual\verify-general-task.ts" --route reverse
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\tests\system\manual\verify-general-task.ts" --route same-codex
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\tests\system\manual\verify-general-task.ts" --route same-claude
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\tests\system\manual\verify-route-matrix.ts"
 ```
 
 `<absolute-preverified-node-24.12+-executable>`は、絶対Path、version 24.12.0以上および実体を直前に確認したNode実行ファイルで置き換える。PATH上の裸の`node`、version判定不能または未対応Nodeを使用しない。Runner自身はNode versionをPackage／Release検証とTask開始より前に再確認する。独立したconsole availability preflightは行わず、初回同意が必要な場合だけTask Runtimeが[設計に定める単一Console lifecycle](../06_Architecture/Details/coordinator/01_Architecture.md#14-consoletask内部搬送回収の実装契約)を実行する。有効な同意の再利用時はconsoleを要求しない。
@@ -213,7 +212,7 @@ $principalId = "local.email.$($gitUser.email)"
 固定Workerの復旧検証であり、実Providerの認証・通信を使う試験ではない。CRDD署名は不要で、選択したCheckoutの既存Node／隔離・Host境界を使う。期待結果は全要求シナリオの成立と回収確認。未達・回収不明なら残るIDと影響を保持し、回復成立と扱わない。結果改訂2は署名不要を明示する。Script名は`verify-recovery-matrix.ts`へ整理した。既存の結果識別子・内部子のroleに残る` signed `は機械契約として維持し、署名検証済みの意味には使わない。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-recovery-matrix.ts"
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\tests\system\manual\verify-recovery-matrix.ts"
 ```
 
 
@@ -416,7 +415,7 @@ Coordinator固有の署名・配布Tree固定AST／body SHA検査と専用試験
 `verify-task-real-providers.ts`は自身を含むCheckoutの公開MCP入口を使い、別の署名配布Root引数は受け取らない。送信範囲・認証・実行許可と検証対象Repositoryの準備を確認した後、そのRepositoryを作業Directoryとして次を実行する。
 
 ```shell
-node <selected-verified-checkout-root>/40_Develop/crdd-server/scripts/verify-task-real-providers.ts
+node <selected-verified-checkout-root>/40_Develop/crdd-server/tests/system/manual/verify-task-real-providers.ts
 ```
 
 対応範囲はWindowsでの固定実Provider試験であり、このコマンド自体が外部送信の許可を与えるものではない。結果改訂13では対象Repositoryの改訂を`executionIdentity`、実行Sourceの観測を`runtimeSource`に分ける。Source／入口の欠測は最初のMCP起動前に拒否し、終了時不一致は既知の回収事実を変更せず検証不成立とする。入口Hashは既存Readerが返したUTF8文字列のHashである。旧署名結果を新版のE2E根拠として扱わない。

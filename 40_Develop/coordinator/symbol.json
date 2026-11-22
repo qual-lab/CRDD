@@ -64,7 +64,7 @@
     {
       "symbolId": "coordinator.verification.probe",
       "kind": "file",
-      "path": "scripts/probe-verification.ts",
+      "path": "tests/support/probe-verification.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -115,7 +115,7 @@
     {
       "symbolId": "coordinator.verification.task-diagnostic",
       "kind": "file",
-      "path": "scripts/task-diagnostic.ts",
+      "path": "tests/support/task-diagnostic.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -234,14 +234,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.scripts.prepare-codex-advice-image",
-      "kind": "file",
-      "path": "scripts/prepare-codex-image.ts",
-      "archIds": [
-        "ARCH-000010"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.integration.runtime-assets",
       "kind": "test-suite",
       "path": "tests/integration/runtime-assets.contract.test.ts",
@@ -252,7 +244,6 @@
         "ERB-IT-004"
       ],
       "verifies": [
-        "coordinator.scripts.prepare-codex-advice-image",
         "ai-adapter.codex.advice-distribution",
         "coordinator.source.src.security.claude.execution.plan",
         "coordinator.source.src.security.codex.execution.plan",
@@ -984,7 +975,7 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.integration.orchestrator-design-traceability",
+      "symbolId": "coordinator.test.integration.task-design-traceability",
       "kind": "test-suite",
       "path": "tests/integration/task-design-traceability.contract.test.ts",
       "qaIds": [
@@ -994,7 +985,7 @@
         "AIT-IT-008"
       ],
       "verifies": [
-        "coordinator.source.src.core.orchestrator.design.traceability"
+        "coordinator.source.tests.support.task-design-traceability"
       ]
     },
     {
@@ -2197,7 +2188,7 @@
     {
       "symbolId": "coordinator.source.task.development-source-observation",
       "kind": "file",
-      "path": "scripts/measure-development-providers.ts",
+      "path": "scripts/benchmark.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2283,15 +2274,15 @@
     {
       "symbolId": "coordinator.source.scripts.check.platform.access.ts.coverage",
       "kind": "module",
-      "path": "scripts/coverage.ts",
+      "path": "tests/support/coverage.ts",
       "archIds": [
         "ARCH-000004"
       ]
     },
     {
-      "symbolId": "coordinator.source.src.core.orchestrator.design.traceability",
+      "symbolId": "coordinator.source.tests.support.task-design-traceability",
       "kind": "file",
-      "path": "scripts/task-design-traceability.ts",
+      "path": "tests/support/task-design-traceability.ts",
       "archIds": [
         "ARCH-000002"
       ]
@@ -2398,7 +2389,7 @@
     {
       "symbolId": "coordinator.source.src.core.runtime.traceability",
       "kind": "file",
-      "path": "scripts/runtime-traceability.ts",
+      "path": "tests/support/runtime-traceability.ts",
       "archIds": [
         "ARCH-000018"
       ]
@@ -2427,7 +2418,7 @@
     {
       "symbolId": "coordinator.source.scripts.verify.dynamic.fake.provider.cancellation",
       "kind": "module",
-      "path": "scripts/verify-dynamic-fake-provider-cancellation.ts",
+      "path": "tests/system/manual/verify-dynamic-fake-provider-cancellation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2435,7 +2426,7 @@
     {
       "symbolId": "coordinator.source.scripts.verify.dynamic.fake.provider.failures",
       "kind": "module",
-      "path": "scripts/verify-dynamic-fake-provider-failures.ts",
+      "path": "tests/system/manual/verify-dynamic-fake-provider-failures.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2451,7 +2442,7 @@
     {
       "symbolId": "coordinator.source.scripts.verify.signed.reviewer.boundary",
       "kind": "module",
-      "path": "scripts/verify-reviewer-boundary.ts",
+      "path": "tests/system/manual/verify-reviewer-boundary.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2459,7 +2450,7 @@
     {
       "symbolId": "coordinator.source.scripts.verify.signed.general.task",
       "kind": "module",
-      "path": "scripts/verify-general-task.ts",
+      "path": "tests/system/manual/verify-general-task.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2467,7 +2458,7 @@
     {
       "symbolId": "coordinator.source.scripts.verify.signed.recovery.matrix",
       "kind": "module",
-      "path": "scripts/verify-recovery-matrix.ts",
+      "path": "tests/system/manual/verify-recovery-matrix.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2475,7 +2466,7 @@
     {
       "symbolId": "coordinator.source.scripts.verify.signed.route.matrix",
       "kind": "module",
-      "path": "scripts/verify-route-matrix.ts",
+      "path": "tests/system/manual/verify-route-matrix.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2483,7 +2474,7 @@
     {
       "symbolId": "coordinator.source.src.core.verification.result.record",
       "kind": "file",
-      "path": "scripts/verification-result-record.ts",
+      "path": "tests/support/verification-result-record.ts",
       "archIds": [
         "ARCH-000003"
       ]
@@ -2523,7 +2514,7 @@
     {
       "symbolId": "coordinator.source.scripts.measure.development.providers",
       "kind": "module",
-      "path": "scripts/measure-development-providers.ts",
+      "path": "scripts/benchmark.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2563,7 +2554,7 @@
     {
       "symbolId": "coordinator.source.scripts.check.dynamic.fake.provider.coverage",
       "kind": "module",
-      "path": "scripts/check-dynamic-fake-provider-coverage.ts",
+      "path": "tests/support/check-dynamic-fake-provider-coverage.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2579,7 +2570,7 @@
     {
       "symbolId": "coordinator.source.scripts.check.provider.home.coverage",
       "kind": "module",
-      "path": "scripts/check-provider-home-coverage.ts",
+      "path": "tests/support/check-provider-home-coverage.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2611,7 +2602,7 @@
     {
       "symbolId": "coordinator.source.src.security.signed.runner.safety.observation",
       "kind": "file",
-      "path": "scripts/verification-safety.ts",
+      "path": "tests/support/verification-safety.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -2666,7 +2657,7 @@
     {
       "symbolId": "coordinator.tool.workspace-task-fixture",
       "kind": "file",
-      "path": "scripts/workspace-task-fixture.ts",
+      "path": "tests/support/workspace-task-fixture.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000009"
@@ -3591,7 +3582,7 @@
     {
       "symbolId": "executor.verification.provider-real",
       "kind": "verification-tool",
-      "path": "scripts/verify-provider-real.ts",
+      "path": "tests/system/manual/verify-provider-real.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -3619,7 +3610,7 @@
     {
       "symbolId": "executor.verification.attempt-host",
       "kind": "verification-tool",
-      "path": "scripts/provider-attempt-host.ts",
+      "path": "tests/support/provider-attempt-host.ts",
       "qaIds": [
         "QA-000006"
       ],

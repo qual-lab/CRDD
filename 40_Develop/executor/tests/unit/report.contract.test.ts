@@ -26,7 +26,7 @@ import vm from "node:vm";
  */
 test("削除分類は到達可能三状態だけを処理し不整合組を拒否する", () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/report.ts", import.meta.url),
+    new URL("../support/report.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("function classifyReportDeleteState(");

@@ -561,7 +561,7 @@ OPEN: 各Ownerの保持上限値・自動循環・旧形式の清掃は未完了
 
 ## 検証報告と保存物読取りのOwner
 
-汎用JSON確定StoreはDomainの責務から撤去する。旧sidecar方式の現役利用はExecutorの検証報告だけであるため、実装をExecutorの `scripts/report.ts` へ専用化する。報告本文・確定sidecar・中断時intentの同一性、byte・Hash照合、部分保存・観測不能時の停止を維持し、本番判断Stateの保存や旧Host記録の互換読取りには使用しない。形式とsuffixは既存検証報告の契約として維持する。
+汎用JSON確定StoreはDomainの責務から撤去する。旧sidecar方式の現役利用はExecutorの検証報告だけであるため、実装をExecutorの `tests/support/report.ts` へ専用化する。報告本文・確定sidecar・中断時intentの同一性、byte・Hash照合、部分保存・観測不能時の停止を維持し、本番判断Stateの保存や旧Host記録の互換読取りには使用しない。形式とsuffixは既存検証報告の契約として維持する。
 
 旧容量制限付き共有Readerは維持しない。EMの保存物読取りは`storage/store.ts`の既存Node.js処理が所有し、正規byte表現、Link・実体の照合、descriptor終了、元版との一致を公開操作の必要条件に応じて確認する。今回の公開境界整理を理由に容量上限、汎用永続Store、新しいFacade又は用途別の読取り実装を再導入しない。
 

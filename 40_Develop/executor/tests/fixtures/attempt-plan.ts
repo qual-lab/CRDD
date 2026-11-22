@@ -6,7 +6,7 @@
  * @scope 値だけのfixture。実Command成立は主張しない。
  * @boundary Executor局所試験。
  */
-import type { TestAttemptPlan } from "../../scripts/executor-test.ts";
+import type { TestAttemptPlan } from "../support/executor-test.ts";
 import { PURPOSES } from "../../src/lifecycle/attempt.ts";
 import { planExecution } from "../../../ai-adapter/src/index.ts";
 

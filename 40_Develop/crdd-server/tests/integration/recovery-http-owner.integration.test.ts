@@ -11,7 +11,7 @@
  */
 import test from "node:test";
 import { verifyNormalOwnerLifecycle } from "../../../coordinator/tests/fixtures/docker-owned-process-test-support.ts";
-import { requestInChild } from "../../scripts/ai-verification-http.ts";
+import { requestInChild } from "../support/ai-verification-http.ts";
 
 /**
  * 正常Owner三回の結果保存とWorkbench検証HTTP一要求を結合する。

@@ -71,7 +71,7 @@ const { consumeTaskRemediation, registerTaskRemediation } = await import(
 // 選定fixtureも同じModuleを読むため、送信方針の代役を登録した後に評価する。
 const { executionSelection } = await import("../../fixtures/ai-selection.ts");
 const { createSignedGeneralTaskVerificationRequest } = await import(
-  "../../../scripts/verify-general-task.ts"
+  "../../system/manual/verify-general-task.ts"
 );
 
 /** Packet単体試験の前提となる検査済み所見を作る。Provider内容検査の成立は主張しない。 */

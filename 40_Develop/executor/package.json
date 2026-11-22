@@ -4,8 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./testing": "./scripts/executor-test.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "check": "npm run format:check && npm run typecheck && npm run lint",
@@ -16,8 +15,8 @@
     "test": "npm run check && npm run test:run",
     "result:coverage": "node --experimental-test-coverage --test ./tests/unit/attempt/*.test.ts ./tests/unit/controller.contract.test.ts",
     "test:run": "node --experimental-test-module-mocks --test --test-concurrency=1 ./tests/**/*.test.ts",
-    "verify:standalone": "node ./scripts/verify-provider-attempt.ts",
-    "verify:home-boundary": "node ./scripts/verify-provider-home.ts"
+    "verify:standalone": "node ./tests/system/manual/verify-provider-attempt.ts",
+    "verify:home-boundary": "node ./tests/system/manual/verify-provider-home.ts"
   },
   "engines": {
     "node": ">=24.12.0"

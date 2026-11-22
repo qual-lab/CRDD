@@ -2,7 +2,7 @@
 
 Status: Draft (v0.22.0 Source構造改訂。実装・機械検査の移行は未完了)
 Owner: Qual-Lab
-Last Updated: 2026-11-09
+Last Updated: 2026-11-23
 Scope: `40_Develop/**`の実装と、CRDDが配布する`template/tools/**`の現行Tool本体・起動入口・設定・Schema。v0.21移行目標は本文で区別する
 
 ## 1. 目的と正本
@@ -323,6 +323,10 @@ Package Rootへ任意の`.ts` Sourceを平置きしてはならない（MUST NOT
 `bin/`の主要CLI File名は、Packageを所有する親Folder名と同じ`<package-folder>.ts`を基本とする（MUST）。例えば`checker/bin/checker.ts`、`mcp-server/bin/mcp-server.ts`とする。npm package名のscopeやprefixからFile名を生成しない。追加の独立したCLIが実在する場合は用途を表す名前を使い、別入口が必要な理由と利用側をArchitectureへ示す。外部固定コマンド名が異なる場合はpackageのコマンド解決定義で維持し、Source File名と利用者向けコマンド名を混同しない。
 
 `scripts/`は開発・保守・生成・署名・診断・実測の定型作業を所有する。開発・診断の必要性がある場合、同じPackageの内部Sourceを直接参照できるが、Script利用だけのために内部Capabilityを公開APIへ追加してはならない（MUST NOT）。通常Runtimeの実装を複製せず、共有する製品実装は`src/`へ置く。`src/`から`scripts/`または`tests/`を通常Runtimeの実装依存としてimport／再exportしてはならない（MUST NOT）。Architectureで宣言した用途限定の検証子入口のPath登録は実装依存と区別し、任意Script起動の許可へ広げない。Package Rootには`package.json`、TypeScript設定、lockfileその他のecosystemがRoot配置を要求する設定だけを置く。Root配置が外部ecosystem契約として必要な場合は、exact filenameと理由を本節または対象Architectureへ固定する。
+
+性能計測を主目的とするスクリプトの入口は、Package内で1種類なら `scripts/benchmark.ts` とする（MUST）。独立した計測が複数あり、入口を分ける場合だけ、対象をハイフンで区別した `scripts/benchmark-<対象>.ts` とする（MUST）。同じ計測で入力・条件を切り替えるだけなら入口や名前を分けない。検証や診断に伴う時刻観測・計時の補助にはこの命名を適用しない。
+
+試験専用の代役・観測・判定補助は所有Packageの `tests/support/` に置く。明示実行する実環境向けの検証入口は `tests/system/manual/` に置き、通常回帰で発見・自動実行する試験のファイル名を付けない。既存の実行同意・認可・終了・回収条件を配置変更で緩めず、通常Runtimeの公開入口から試験補助を公開しない。
 
 CRDD所有APIはNamed Exportを基本とし、Default Exportは明確な理由がある場合だけ使用する。`src/index.ts`では公開Symbolと型を明示列挙する。Frameworkが要求する設定入口等のDefault Exportは理由付き例外として扱い、その例外を製品API全体へ広げない。
 
@@ -672,7 +676,7 @@ HeaderはCodeから明白な「値を返す」「関数を実行する」等を�
 
 Test CodeではARCH-IDへ直接接続せず、検証するQuality Local Itemへ接続する。Test File HeaderはそのFileが扱う一つ以上のLocal Itemを示し、個別Test Case、名前付きTest Helperおよび名前付きFixtureは対応する一つ以上のLocal Itemへ`@trace`する。Local ItemがArchitectureとのRelationを所有するため、Test側へARCH-IDを重複記載しない。匿名CallbackやInline Object等、独立責務を持たない処理はSymbol Header対象外とする。Caseの必要な説明は、その言語の標準的なコメントまたはdocstringで記述できる。
 
-検証Toolとその用途限定の判定fixtureは、実装CapabilityではなくQualityが所有する検証手段である。これらを試験する場合、Symbol Manifestでは`kind: "verification-tool"`としてQA・Local Item・実Pathへ接続し、試験Suiteから既存の`verifies`で対象Toolを参照する。対象はPackage内の`scripts/`または`tests/fixtures/`にある通常fileに限定し、言語や拡張子を参加条件にせず、`src/`の本番実装をこの分類へ移さない。ToolはARCH・意味実装・環境実証のRelationを持たず、自身の`verifies`は明示空配列とする。ToolのFileとNamed Helperにも、以下のQuality HeaderとLocal Itemの対応を適用する。通常試験の非空`verifies`条件は維持する。Toolとそれを検査するSuiteの関係は本番実装／意味Coverageへ加算せず、Tool試験の成功を実Native・OS・Runtimeの成立へ読み替えない。
+検証Toolとその用途限定の判定fixtureは、実装CapabilityではなくQualityが所有する検証手段である。これらを試験する場合、Symbol Manifestでは`kind: "verification-tool"`としてQA・Local Item・実Pathへ接続し、試験Suiteから既存の`verifies`で対象Toolを参照する。対象はPackage内の`scripts/`、`tests/fixtures/`、`tests/support/`または`tests/system/manual/`にある通常fileに限定し、言語や拡張子を参加条件にせず、`src/`の本番実装をこの分類へ移さない。ToolはARCH・意味実装・環境実証のRelationを持たず、自身の`verifies`は明示空配列とする。ToolのFileとNamed Helperにも、以下のQuality HeaderとLocal Itemの対応を適用する。通常試験の非空`verifies`条件は維持する。Toolとそれを検査するSuiteの関係は本番実装／意味Coverageへ加算せず、Tool試験の成功を実Native・OS・Runtimeの成立へ読み替えない。
 
 Test File Headerは、File全体の検証範囲を示す。
 

@@ -29,14 +29,14 @@ import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { invokeMcpCoordinatorRequest } from "../fixtures/sdk-request.ts";
 import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-server.ts";
-import { inspectTaskStageDiagnostic } from "../../../coordinator/scripts/task-diagnostic.ts";
+import { inspectTaskStageDiagnostic } from "../../../coordinator/tests/support/task-diagnostic.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 
 import {
   buildCoordinatorRealProviderReport,
   observePublicMcpProcess,
   type PublicProcessObservation,
-} from "../../scripts/task-real-provider-contract.ts";
+} from "../support/task-real-provider-contract.ts";
 
 const fixture = fileURLToPath(
   new URL("../fixtures/task-public-process-probe.ts", import.meta.url),
@@ -44,7 +44,7 @@ const fixture = fileURLToPath(
 const MCP_COORDINATOR_STATE_TOOL = "crdd.get_execution_state";
 const verificationScriptSource = fs.readFileSync(
   fileURLToPath(
-    new URL("../../scripts/verify-task-real-providers.ts", import.meta.url),
+    new URL("./manual/verify-task-real-providers.ts", import.meta.url),
   ),
   "utf8",
 );
@@ -62,7 +62,7 @@ const verificationScriptSource = fs.readFileSync(
  */
 test("実検証入口は計測Ownerを解決し不正引数を処置前に拒否する", () => {
   const entry = fileURLToPath(
-    new URL("../../scripts/verify-task-real-providers.ts", import.meta.url),
+    new URL("./manual/verify-task-real-providers.ts", import.meta.url),
   );
   const child = spawnSync(process.execPath, [entry, "--invalid"], {
     encoding: "utf8",
@@ -250,7 +250,7 @@ test("親終了未確認では再入場Processを起動しない", async () => {
 test("回復Matrixの固定Node子は必要所在だけを搬送しWindowsの暗黙補完を中立化する", () => {
   const source = fs.readFileSync(
     new URL(
-      "../../../coordinator/scripts/verify-recovery-matrix.ts",
+      "../../../coordinator/tests/system/manual/verify-recovery-matrix.ts",
       import.meta.url,
     ),
     "utf8",
@@ -378,7 +378,7 @@ test("回復Matrixの固定Node子は必要所在だけを搬送しWindowsの暗
 test("回復Matrixは親kill失敗・close欠落で回復を発行せず元IDを保持する", async () => {
   const source = fs.readFileSync(
     new URL(
-      "../../../coordinator/scripts/verify-recovery-matrix.ts",
+      "../../../coordinator/tests/system/manual/verify-recovery-matrix.ts",
       import.meta.url,
     ),
     "utf8",
@@ -488,7 +488,7 @@ test("回復Matrixは親kill失敗・close欠落で回復を発行せず元IDを
 test("回復Matrixの両子はready前失敗でも停止後closeを確認し一次理由を保持する", async () => {
   const source = fs.readFileSync(
     new URL(
-      "../../../coordinator/scripts/verify-recovery-matrix.ts",
+      "../../../coordinator/tests/system/manual/verify-recovery-matrix.ts",
       import.meta.url,
     ),
     "utf8",
@@ -709,7 +709,7 @@ test("回復Matrixの両子はready前失敗でも停止後closeを確認し一�
 test("回復Matrixのready前拒否は固定Node実子のcloseを待って返る", async () => {
   const source = fs.readFileSync(
     new URL(
-      "../../../coordinator/scripts/verify-recovery-matrix.ts",
+      "../../../coordinator/tests/system/manual/verify-recovery-matrix.ts",
       import.meta.url,
     ),
     "utf8",
@@ -801,7 +801,7 @@ test("回復Matrixのready前拒否は固定Node実子のcloseを待って返る
  */
 test("CLI検証は妥当な段階通知をLifecycle成立証拠へ数えない", () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/task-real-provider-contract.ts", import.meta.url),
+    new URL("../support/task-real-provider-contract.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("function parseKnownDiagnosticLine(");
@@ -1585,7 +1585,7 @@ const buildInput = (overrides: Record<string, unknown> = {}) =>
     aiSelectionObservationStatus: "matched",
     executionIdentity: { commit: "a".repeat(40), tree: "b".repeat(40) },
     runtimeSource: {
-      scope: "crdd-development-source-snapshot/v4",
+      scope: "crdd-development-source-snapshot/v5",
       sourceSha256: "c".repeat(64),
       crddCommit: "d".repeat(40),
       crddTree: "e".repeat(40),
@@ -1748,7 +1748,7 @@ test("Orchestrator検証の固定Source観測は入口欠測と途中差を拒�
         scenario === "source_missing"
           ? null
           : {
-              scope: "crdd-development-source-snapshot/v4",
+              scope: "crdd-development-source-snapshot/v5",
               sourceSha256: "c".repeat(64),
               sourceIdentitySha256: "d".repeat(64),
             },
@@ -1866,6 +1866,7 @@ test("Orchestrator検証のSource不成立は終了事実を変えず公開値�
     { ...source, scope: "other" },
     { ...source, scope: "crdd-development-source-snapshot/v2" },
     { ...source, scope: "crdd-development-source-snapshot/v3" },
+    { ...source, scope: "crdd-development-source-snapshot/v4" },
     { ...source, sourceSha256: "bad" },
     { ...source, mcpEntrySourceSha256: "bad" },
     { ...source, crddCommit: "bad" },
@@ -2100,7 +2101,7 @@ test("現在操作の終了と別操作の未解決状態を独立して保持�
  */
 test("対象終了の相関省略と共同判定の無条件化を反証する", async () => {
   const sourceUrl = new URL(
-    "../../scripts/task-real-provider-contract.ts",
+    "../support/task-real-provider-contract.ts",
     import.meta.url,
   );
   const source = stripTypeScriptTypes(

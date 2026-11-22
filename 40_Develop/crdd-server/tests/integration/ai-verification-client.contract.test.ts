@@ -17,13 +17,13 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { createReadonlyVerificationTiming } from "../../scripts/ai-verification-timing.ts";
+import { createReadonlyVerificationTiming } from "../support/readonly-request-timing.ts";
 import { parseUnambiguousJsonDocument } from "../../src/transport/parse-json.ts";
 import {
   type VerificationHttpTiming,
   projectVerificationTransportFailure,
   requestInChild,
-} from "../../scripts/ai-verification-http.ts";
+} from "../support/ai-verification-http.ts";
 
 /**
  * 正式子へ不正IPC入力を一件送り、HTTP未発行・自然終了を確認する。
@@ -64,7 +64,7 @@ test("IPC子は不正入力でもchannelを残さず終了する", async () => {
         process.execPath,
         [
           fileURLToPath(
-            new URL("../../scripts/ai-verification-client.ts", import.meta.url),
+            new URL("../support/ai-verification-client.ts", import.meta.url),
           ),
         ],
         {
@@ -130,7 +130,7 @@ test("IPC子は不正入力でもchannelを残さず終了する", async () => {
  */
 test("IPC子は二件目を実行せず拒否経路でも購読を解除する", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/ai-verification-client.ts", import.meta.url),
+    new URL("../support/ai-verification-client.ts", import.meta.url),
     "utf8",
   );
   const body = stripTypeScriptTypes(
@@ -381,7 +381,7 @@ test("IPC入力は親22秒停止中にも子のHTTP完了を妨げない", async
  */
 test("HTTP子は結果frameと実closeを共同確認し異常を有限分類する", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/ai-verification-http.ts", import.meta.url),
+    new URL("../support/ai-verification-http.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("export async function requestInChild(");
@@ -899,7 +899,7 @@ test("HTTP子の診断は閉形式だけを搬送する", () => {
  */
 test("HTTP子の故障は同ID観測を保持し終了未確認だけをstickyにする", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/ai-verification-http.ts", import.meta.url),
+    new URL("../support/ai-verification-http.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf(
@@ -962,7 +962,7 @@ test("HTTP子の故障は同ID観測を保持し終了未確認だけをsticky�
           );
         },
       },
-    ) as typeof import("../../scripts/ai-verification-http.ts").createWorkbenchAiVerificationHttpClient;
+    ) as typeof import("../support/ai-verification-http.ts").createWorkbenchAiVerificationHttpClient;
     const client = await createClient("http://127.0.0.1:1234/");
     const close = client.close;
     assert.ok(close);

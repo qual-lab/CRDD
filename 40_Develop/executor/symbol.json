@@ -6,7 +6,7 @@
     {
       "symbolId": "executor.verification.provider-diagnostic",
       "kind": "file",
-      "path": "scripts/provider-diagnostic.ts",
+      "path": "tests/support/provider-diagnostic.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -38,7 +38,7 @@
     {
       "symbolId": "executor.verification.report",
       "kind": "file",
-      "path": "scripts/report.ts",
+      "path": "tests/support/report.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -74,7 +74,7 @@
     {
       "symbolId": "executor.verification.node-provider-home",
       "kind": "verification-tool",
-      "path": "scripts/provider-home.ts",
+      "path": "tests/support/provider-home.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -194,7 +194,7 @@
     {
       "symbolId": "executor.verification.test-entry",
       "kind": "file",
-      "path": "scripts/executor-test.ts",
+      "path": "tests/support/executor-test.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000015"
@@ -324,7 +324,7 @@
     {
       "symbolId": "executor.verification.provider-attempt",
       "kind": "verification-tool",
-      "path": "scripts/verify-provider-attempt.ts",
+      "path": "tests/system/manual/verify-provider-attempt.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -337,7 +337,7 @@
     {
       "symbolId": "executor.verification.provider-home",
       "kind": "verification-tool",
-      "path": "scripts/verify-provider-home.ts",
+      "path": "tests/system/manual/verify-provider-home.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -623,7 +623,7 @@
     {
       "symbolId": "executor.verification.test-area",
       "kind": "file",
-      "path": "scripts/runtime-data.ts",
+      "path": "tests/support/runtime-data.ts",
       "archIds": [
         "ARCH-000008"
       ]

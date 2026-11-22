@@ -40,7 +40,7 @@ import {
   closeVerificationWorkspace,
   prepareVerificationWorkspace,
   readVerificationWorkspaceOutput,
-} from "../../scripts/workspace-task-fixture.ts";
+} from "../support/workspace-task-fixture.ts";
 import { runTestSingleTaskAttempt } from "../support/task-requests.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,

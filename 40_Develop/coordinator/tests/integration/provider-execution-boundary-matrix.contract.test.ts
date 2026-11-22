@@ -5,7 +5,7 @@ import test from "node:test";
 import {
   type ProviderEnvelopeInput,
   extractProviderResult,
-} from "../../../ai-adapter/scripts/ai-adapter-test.ts";
+} from "../../../ai-adapter/tests/support/ai-adapter-test.ts";
 /**
  * coordinator:integration:provider-execution-boundary-matrixの検証範囲を定義する。
  *
@@ -416,7 +416,10 @@ test("実Provider結合はCodex／ClaudeをExecutorとReviewerの双方で一回
     { route: "reverse", executor: "codex", reviewer: "claude" },
   ]);
   const source = fs.readFileSync(
-    path.join(repositoryRoot, "scripts/verify-reviewer-boundary.ts"),
+    path.join(
+      repositoryRoot,
+      "tests/system/manual/verify-reviewer-boundary.ts",
+    ),
     "utf8",
   );
   assert.match(source, /"forward"/u);

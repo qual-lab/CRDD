@@ -147,35 +147,37 @@ test("固定Host接続は一つであり保存利用側はExecutorへ逆照会�
 });
 /** 実AI用Toolは製品公開入口だけを実行経路とし、管理情報は現存Sourceへ接続する。 @trace ERB-IT-004 */
 test("実試験ToolとSymbol管理情報は現行Sourceへ接続する", () => {
-  for (const name of ["verify-provider-real", "provider-attempt-host"]) {
-    const source = fs.readFileSync(
-      new URL("../../scripts/" + name + ".ts", import.meta.url),
-      "utf8",
-    );
+  for (const [toolPath, expectedFixtures] of [
+    [
+      "../system/manual/verify-provider-real.ts",
+      [
+        "report.ts",
+        "task-trial.ts",
+        "runtime-data.ts",
+        "provider-home.ts",
+        "provider-diagnostic.ts",
+        "task-trial.ts",
+      ],
+    ],
+    [
+      "../support/provider-attempt-host.ts",
+      ["provider-home.ts", "report.ts", "runtime-data.ts"],
+    ],
+  ] as const) {
+    const source = fs.readFileSync(new URL(toolPath, import.meta.url), "utf8");
     assert.doesNotMatch(
       source,
       /executor-test|createDockerIsolationRuntime|startDockerCommandSessionCandidate/,
     );
     const fixtureImports = [
       ...source.matchAll(
-        /["'](\.\.\/\.\.\/executor\/tests\/support\/[^"']+)["']/gu,
+        /["'](?:\.\.\/)+executor\/tests\/support\/([^"']+)["']/gu,
       ),
     ].map((match) => match[1]);
-    assert.deepEqual(
-      fixtureImports,
-      name === "verify-provider-real"
-        ? [
-            "../../executor/tests/support/task-trial.ts",
-            "../../executor/tests/support/task-trial.ts",
-          ]
-        : [],
-    );
+    assert.deepEqual(fixtureImports, expectedFixtures);
     assert.doesNotMatch(
-      source.replaceAll(
-        "../../executor/tests/support/task-trial.ts",
-        "fixed-task-fixture",
-      ),
-      /tests\/support/,
+      source,
+      /(?:\.\.\/)+(?!executor\/)[a-z-]+\/tests\/support\//u,
     );
   }
   const fixture = fs.readFileSync(
@@ -199,7 +201,7 @@ test("実試験ToolとSymbol管理情報は現行Sourceへ接続する", () => {
   );
   const candidate = fs.readFileSync(
     new URL(
-      "../../../executor/scripts/verify-provider-attempt.ts",
+      "../../../executor/tests/system/manual/verify-provider-attempt.ts",
       import.meta.url,
     ),
     "utf8",
@@ -209,7 +211,10 @@ test("実試験ToolとSymbol管理情報は現行Sourceへ接続する", () => {
     /production_factory|createExecutorLifecycleTestRuntime/,
   );
   const testAdapter = fs.readFileSync(
-    new URL("../../../executor/scripts/executor-test.ts", import.meta.url),
+    new URL(
+      "../../../executor/tests/support/executor-test.ts",
+      import.meta.url,
+    ),
     "utf8",
   );
   assert.doesNotMatch(
@@ -217,7 +222,7 @@ test("実試験ToolとSymbol管理情報は現行Sourceへ接続する", () => {
     /export function createExecutorLifecycleTestRuntime/,
   );
   const host = fs.readFileSync(
-    new URL("../../scripts/provider-attempt-host.ts", import.meta.url),
+    new URL("../support/provider-attempt-host.ts", import.meta.url),
     "utf8",
   );
   assert.match(host, /createExecutor\(request,/);

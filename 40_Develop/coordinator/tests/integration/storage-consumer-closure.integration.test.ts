@@ -34,8 +34,6 @@ const RUNTIME_STORAGE_OWNERS = new Set([
   "40_Develop/execution-model/src/storage/store.ts",
   "40_Develop/execution-model/src/storage/lock.ts",
   "40_Develop/coordinator/src/lifecycle/host.ts",
-  "40_Develop/executor/scripts/runtime-data.ts",
-  "40_Develop/crdd-server/scripts/runtime-data.ts",
 ]);
 const runtimePublicEntries = [
   "40_Develop/document-model/src/index.ts",
@@ -57,9 +55,7 @@ const HOST_RECOVERY_OWNER =
   "40_Develop/coordinator/src/lifecycle/environment.ts";
 const ATTEMPT_OWNER = "40_Develop/execution-model/src/attempt/crud.ts";
 const expectedAreaConsumers = [
-  "40_Develop/coordinator/scripts/measure-development-providers.ts",
-  "40_Develop/coordinator/scripts/prepare-codex-image.ts",
-  "40_Develop/coordinator/scripts/verification-result-record.ts",
+  "40_Develop/coordinator/scripts/benchmark.ts",
   ATTEMPT_OWNER,
 ] as const;
 const fixedAreaRequests = new Map([
@@ -93,13 +89,10 @@ const blockedMeaningFields = [
 const SEMANTIC_ROOT_LITERAL_OWNERS = new Set([
   RESOLVER_PATH,
   "40_Develop/execution-model/src/storage/lock.ts",
-  "40_Develop/crdd-server/scripts/task-real-provider-contract.ts",
   "40_Develop/execution-model/src/storage/store.ts",
   "40_Develop/configuration-model/src/storage/store.ts",
   "40_Develop/configuration-model/src/storage/lock.ts",
   "40_Develop/coordinator/src/lifecycle/host.ts",
-  "40_Develop/executor/scripts/runtime-data.ts",
-  "40_Develop/crdd-server/scripts/runtime-data.ts",
   "40_Develop/crdd-server/src/service/configuration.ts",
   "40_Develop/visual-preview/src/browser/temporary.ts",
 ]);

@@ -26,25 +26,25 @@ test("単独Hostは公開Executorで実行し必要な保存とHome終了を接�
     const f=await createIsolationFixture({mock});
     const di=await import(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))});
     const {captureIsolationRequest}=await import(${JSON.stringify(url("../../../docker-isolation/src/execution/preparation.ts"))});
-    const platform=await import(${JSON.stringify(url("../../../executor/scripts/provider-home.ts"))});
+    const platform=await import(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))});
     const domain=await import(${JSON.stringify(url("../../../execution-model/src/index.ts"))});
-    const report=await import(${JSON.stringify(url("../../../executor/scripts/report.ts"))});
+    const report=await import(${JSON.stringify(url("../../../executor/tests/support/report.ts"))});
     let mode='normal',live=false,releases=0,observations=0,failKind=null,activeHost=null,activeStarted=null,cancelPromise=null;
     mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
       prepareIsolation:(request,settings)=>{f.useRequest(captureIsolationRequest(request),'claude');return f.api.prepareIsolation(request,settings);},
       executeIsolation:f.api.executeIsolation,
     }});
-    mock.module(${JSON.stringify(url("../../../executor/scripts/provider-home.ts"))},{namedExports:{...platform,
+    mock.module(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))},{namedExports:{...platform,
 
       observeProviderHome:provider=>{assert.equal(live,true);observations++;if(mode==='lease_lost_observation')live=false;return {status:mode==='home_unavailable'?'blocked':'candidate',provider,processEffectIssued:false,filesystemEffectIssued:false,providerHomeIdentityHash:(mode==='home_changed'?'e':'a').repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)};},
     }});
     mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:()=>{if(mode==='lock_denied')return {status:'blocked',reason:'lock_exists',reference:null,cleanupConfirmed:true,descriptorClosed:true};live=true;return {status:'acquired',lock:{assertLive:()=>{if(mode==='lease_assert_throw')throw Error('synthetic');return live;},release:()=>{releases++;if(mode==='release_throw')throw Error('synthetic');if(mode==='release_false'||!live)return false;live=false;return true;}}};}}});
-    mock.module(${JSON.stringify(url("../../../executor/scripts/report.ts"))},{namedExports:{...report,
+    mock.module(${JSON.stringify(url("../../../executor/tests/support/report.ts"))},{namedExports:{...report,
       writeReport:(d,n,k,v)=>{if(v.kind===failKind)throw Error('synthetic_save_refusal');if(v.kind==='provider_submission'&&mode==='lease_lost_provider')live=false;if(v.kind==='execution_settled'&&mode==='cancel_diagnostic')cancelPromise=activeHost.runtime.cancel({controlCapability:activeStarted.controlCapability,managementCapability:activeHost.management});if(v.kind==='provider_submission'&&mode==='cancel_notice')queueMicrotask(()=>{cancelPromise=activeHost.runtime.cancel({controlCapability:activeStarted.controlCapability,managementCapability:activeHost.management});});return report.writeReport(d,n,k,v);},
       readReport:(...args)=>{if(mode==='read_after_write')throw Error('synthetic_read_refusal');return report.readReport(...args);}
     }});
-    const {createStandaloneProviderAttemptHost}=await import(${JSON.stringify(url("../../scripts/provider-attempt-host.ts"))});
-    const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/provider-attempt-host.ts"))}));
+    const {createStandaloneProviderAttemptHost}=await import(${JSON.stringify(url("../support/provider-attempt-host.ts"))});
+    const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../support/provider-attempt-host.ts"))}));
     const parent=path.join(repository,'.crdd','tests');
     for(mode of ['normal','receipt_crlf','receipt_bare','receipt_invalid_short','receipt_invalid_multiple','receipt_invalid_embedded','receipt_invalid_character','receipt_invalid_uppercase','receipt_invalid_empty','cancel','process_unknown','cleanup_unknown','home_changed','home_unavailable','lock_denied','release_false','release_throw','lease_lost_observation','lease_lost_provider','lease_assert_throw','cancel_notice','cancel_diagnostic','recovery_opened','read_after_write','submission_planned','receipt_recorded','provider_submission','absence_observed','terminal_received','execution_settled']){
       live=false;releases=0;observations=0;failKind=mode;cancelPromise=null;f.calls.length=0;f.processTermination=true;f.pendingRun=false;

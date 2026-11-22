@@ -14,8 +14,8 @@ import test from "node:test";
 import {
   describeSignedReviewerBoundaryVerificationContract,
   runSignedReviewerBoundaryVerification,
-} from "../../scripts/verify-reviewer-boundary.ts";
-import { SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION } from "../../scripts/verify-general-task.ts";
+} from "./manual/verify-reviewer-boundary.ts";
+import { SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION } from "./manual/verify-general-task.ts";
 
 /**
  * completedのTest準備責務を実行する。
@@ -35,7 +35,7 @@ function completed(route: "forward" | "reverse") {
     contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed",
     reason: "signed_general_task_verification_completed",
-    sourceScope: "crdd-development-source-snapshot/v4",
+    sourceScope: "crdd-development-source-snapshot/v5",
     sourceSha256: "b".repeat(64),
     crddCommit: "c".repeat(40),
     crddTree: "d".repeat(40),

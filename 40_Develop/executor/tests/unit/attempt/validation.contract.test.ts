@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { classifyDockerCommandExecution } from "../../../../docker-isolation/src/execution/result.ts";
-import { isPrimaryFailureDiagnostic } from "../../../scripts/provider-diagnostic.ts";
+import { isPrimaryFailureDiagnostic } from "../../support/provider-diagnostic.ts";
 import {
   ATTEMPT_COMPLETION_REASONS,
   convertCommandResult,

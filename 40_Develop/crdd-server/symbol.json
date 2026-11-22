@@ -460,7 +460,7 @@
     {
       "symbolId": "coordinator.source.scripts.orchestrator.real.provider.contract",
       "kind": "module",
-      "path": "scripts/task-real-provider-contract.ts",
+      "path": "tests/support/task-real-provider-contract.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -487,7 +487,7 @@
     {
       "symbolId": "mcp-server.verification.task-real-providers",
       "kind": "verification-tool",
-      "path": "scripts/verify-task-real-providers.ts",
+      "path": "tests/system/manual/verify-task-real-providers.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -518,7 +518,7 @@
     {
       "symbolId": "workbench.verification.workspace-summary",
       "kind": "file",
-      "path": "scripts/verify-workspace-summary.ts",
+      "path": "tests/system/manual/verify-workspace-summary.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -526,7 +526,7 @@
     {
       "symbolId": "workbench.verification.readonly-cli",
       "kind": "file",
-      "path": "scripts/verify-readonly-ai.ts",
+      "path": "tests/system/manual/verify-readonly-ai.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -1190,7 +1190,7 @@
     {
       "symbolId": "workbench.verification.workspace-output",
       "kind": "file",
-      "path": "scripts/workspace-output-verification.ts",
+      "path": "tests/support/workspace-output-verification.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -1318,7 +1318,7 @@
     {
       "symbolId": "workbench-server.scripts.ai-verification-client",
       "kind": "verification-tool",
-      "path": "scripts/ai-verification-client.ts",
+      "path": "tests/support/ai-verification-client.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -1330,7 +1330,7 @@
     {
       "symbolId": "workbench-server.scripts.ai-verification-http",
       "kind": "verification-tool",
-      "path": "scripts/ai-verification-http.ts",
+      "path": "tests/support/ai-verification-http.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -1340,9 +1340,9 @@
       "verifies": []
     },
     {
-      "symbolId": "workbench-server.scripts.ai-verification-timing",
+      "symbolId": "crdd-server.verification.readonly-request-timing",
       "kind": "verification-tool",
-      "path": "scripts/ai-verification-timing.ts",
+      "path": "tests/support/readonly-request-timing.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -1364,13 +1364,13 @@
       "verifies": [
         "workbench-server.scripts.ai-verification-client",
         "workbench-server.scripts.ai-verification-http",
-        "workbench-server.scripts.ai-verification-timing"
+        "crdd-server.verification.readonly-request-timing"
       ]
     },
     {
-      "symbolId": "workbench-server.test.integration.ai-verification-timing",
+      "symbolId": "crdd-server.test.integration.readonly-request-timing",
       "kind": "test-suite",
-      "path": "tests/integration/ai-verification-timing.contract.test.ts",
+      "path": "tests/integration/readonly-request-timing.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -1378,14 +1378,14 @@
         "ERB-IT-021"
       ],
       "verifies": [
-        "workbench-server.scripts.ai-verification-timing",
+        "crdd-server.verification.readonly-request-timing",
         "workbench-server.scripts.ai-verification-http"
       ]
     },
     {
       "symbolId": "workbench-server.scripts.workspace-task-diagnostic",
       "kind": "verification-tool",
-      "path": "scripts/workspace-task-diagnostic.ts",
+      "path": "tests/support/workspace-task-diagnostic.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -1419,7 +1419,7 @@
     {
       "symbolId": "workbench-server.source.scripts.runtime-data",
       "kind": "file",
-      "path": "scripts/runtime-data.ts",
+      "path": "tests/support/runtime-data.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000011"
@@ -1428,7 +1428,7 @@
     {
       "symbolId": "executor.verification.task-summary-observation",
       "kind": "file",
-      "path": "scripts/task-summary-observation.ts",
+      "path": "tests/support/task-summary-observation.ts",
       "archIds": [
         "ARCH-000008"
       ]

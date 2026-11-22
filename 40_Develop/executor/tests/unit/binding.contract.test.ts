@@ -18,12 +18,12 @@ import {
 } from "../../../ai-adapter/src/index.ts";
 import { prepareProviderEnvironment } from "../../../ai-adapter/src/provider/validation.ts";
 import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
-import type { TestAttemptPlan } from "../../scripts/executor-test.ts";
+import type { TestAttemptPlan } from "../support/executor-test.ts";
 import {
   prepareAttempt,
   resolveIsolationCommandInput,
   resolveProviderExecution,
-} from "../../scripts/executor-test.ts";
+} from "../support/executor-test.ts";
 import { attemptPlan, attemptTarget } from "../fixtures/attempt-plan.ts";
 import {
   dockerIsolationCommandsMatch,

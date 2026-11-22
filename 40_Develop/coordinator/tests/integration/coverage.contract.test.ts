@@ -11,14 +11,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseExactTsCoverageLcov } from "../../scripts/coverage.ts";
+import { parseExactTsCoverageLcov } from "../support/coverage.ts";
 
 const SOURCES = Object.freeze([
-  "40_Develop/coordinator/scripts/coverage.ts",
+  "40_Develop/coordinator/tests/support/coverage.ts",
   "40_Develop/coordinator/src/lifecycle/environment.ts",
   "40_Develop/coordinator/src/lifecycle/authentication.ts",
   "40_Develop/configuration-model/src/storage/store.ts",
-  "40_Develop/executor/scripts/provider-home.ts",
+  "40_Develop/executor/tests/support/provider-home.ts",
   "40_Develop/executor/src/lifecycle/attempt.ts",
 ]);
 function parseCoverage(raw: unknown) {
@@ -115,7 +115,7 @@ test("LCOV parserは分母分子と未到達branchを割合へ縮約しない", 
   ]);
   assert.equal(result.uncoveredBranchObligations.length, 1);
   assert.deepEqual(result.uncoveredBranchObligations[0], {
-    source: "40_Develop/coordinator/scripts/coverage.ts",
+    source: "40_Develop/coordinator/tests/support/coverage.ts",
     line: 1,
     block: 0,
     branch: 0,

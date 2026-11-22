@@ -28,7 +28,7 @@ import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { observeProviderHome } from "../../../executor/scripts/provider-home.ts";
+import { observeProviderHome } from "../../../executor/tests/support/provider-home.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/lifecycle/environment.ts";
 
 test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLinkを拒否する", {
@@ -144,10 +144,7 @@ async function createSourceObservationFixture(readMutation = "") {
   const root = directory.path;
   try {
     const fullSource = readFileSync(
-      new URL(
-        "../../scripts/measure-development-providers.ts",
-        import.meta.url,
-      ),
+      new URL("../../scripts/benchmark.ts", import.meta.url),
       "utf8",
     );
     const declarations = [
@@ -242,7 +239,7 @@ if (process.argv[2] !== "--probe") {
       const first = fixture.observe();
       assert.ok(first);
       assert.equal(first.fileCount, 24);
-      assert.equal(first.scope, "crdd-development-source-snapshot/v4");
+      assert.equal(first.scope, "crdd-development-source-snapshot/v5");
       assert.ok(Object.isFrozen(first));
       writeFileSync(
         path.join(
@@ -280,6 +277,33 @@ if (process.argv[2] !== "--probe") {
         assert.equal(fixture.observe()?.sourceSha256, first.sourceSha256);
       }
       const base = path.join(fixture.root, "40_Develop", "coordinator");
+      const support = path.join(base, "tests", "support");
+      const manual = path.join(base, "tests", "system", "manual");
+      const unit = path.join(base, "tests", "unit");
+      mkdirSync(unit, { recursive: true });
+      writeFileSync(path.join(unit, "unrelated.test.ts"), "export {};\n");
+      const excludedTest = fixture.observe();
+      assert.ok(excludedTest);
+      assert.equal(excludedTest.sourceSha256, first.sourceSha256);
+      for (const selected of [support, manual]) {
+        mkdirSync(selected, { recursive: true });
+        const empty = fixture.observe();
+        assert.ok(empty);
+        writeFileSync(path.join(selected, "verification.ts"), "export {};\n");
+        const populated = fixture.observe();
+        assert.ok(populated);
+        assert.notEqual(populated.sourceSha256, empty.sourceSha256);
+        writeFileSync(
+          path.join(selected, "verification.ts"),
+          "export const changed = true;\n",
+        );
+        assert.notEqual(
+          fixture.observe()?.sourceSha256,
+          populated.sourceSha256,
+        );
+      }
+      rmSync(path.join(base, "tests"), { recursive: true });
+      assert.equal(fixture.observe()?.sourceSha256, first.sourceSha256);
       mkdirSync(path.join(base, "policies"));
       const withPolicy = fixture.observe();
       assert.ok(withPolicy);
@@ -405,6 +429,32 @@ if (process.argv[2] !== "--probe") {
         assert.equal(fixture.observe(), null);
         rmSync(alias);
       }
+      const externalTests = path.join(fixture.root, "outside-tests");
+      for (const relative of ["support", "system/manual", "manual"]) {
+        const directory = path.join(externalTests, relative);
+        mkdirSync(directory, { recursive: true });
+        writeFileSync(
+          path.join(directory, "verification.ts"),
+          "outside unchanged",
+        );
+      }
+      for (const relative of ["tests", "tests/system"]) {
+        const alias = path.join(base, relative);
+        mkdirSync(path.dirname(alias), { recursive: true });
+        symlinkSync(externalTests, alias, "junction");
+        try {
+          assert.equal(fixture.observe(), null);
+          assert.equal(
+            readFileSync(
+              path.join(externalTests, "manual/verification.ts"),
+              "utf8",
+            ),
+            "outside unchanged",
+          );
+        } finally {
+          rmSync(alias);
+        }
+      }
     } finally {
       fixture.cleanup();
     }
@@ -527,10 +577,7 @@ if (process.argv[2] !== "--probe") {
   test("development source snapshot enumerates beyond the former limit and closes its exact handle", () => {
     const source = stripTypeScriptTypes(
       readFileSync(
-        new URL(
-          "../../scripts/measure-development-providers.ts",
-          import.meta.url,
-        ),
+        new URL("../../scripts/benchmark.ts", import.meta.url),
         "utf8",
       ),
     );
@@ -608,7 +655,7 @@ if (process.argv[2] !== "--probe") {
       "40_Develop",
       "coordinator",
       "scripts",
-      "measure-development-providers.ts",
+      "benchmark.ts",
     );
     const tests = path.join(root, ".crdd", "tests");
     /**
@@ -657,7 +704,7 @@ if (process.argv[2] !== "--probe") {
       assert.ok((positions[1] as number) < position);
     const before = inventory();
     const { observeRuntimeOwnedDevelopmentSource } = await import(
-      "../../scripts/measure-development-providers.ts"
+      "../../scripts/benchmark.ts"
     );
     const expected = observeRuntimeOwnedDevelopmentSource();
     assert.ok(expected);

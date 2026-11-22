@@ -20,14 +20,14 @@ import { deflateSync } from "node:zlib";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   SIGNED_ROUTE_MATRIX_REASONS,
-} from "../../scripts/verification-result-reasons.ts";
+} from "../support/verification-result-reasons.ts";
 import {
   projectVerificationResult,
   runRecordedVerification,
-} from "../../scripts/verification-result-record.ts";
-import { createSignedRouteMatrixCliFailureResult } from "../../scripts/verify-route-matrix.ts";
+} from "../support/verification-result-record.ts";
+import { createSignedRouteMatrixCliFailureResult } from "./manual/verify-route-matrix.ts";
 import { coordinatorTaskPublicReasons } from "../../src/lifecycle/validation.ts";
-import { isCanonicalVerificationRecoveryId } from "../../scripts/verification-safety.ts";
+import { isCanonicalVerificationRecoveryId } from "../support/verification-safety.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const packageRoot = path.resolve(import.meta.dirname, "../..");
@@ -292,13 +292,14 @@ test("Source観測は固定語彙とHashで投影し旧Producerの配布情報�
     "crdd-development-source-snapshot/v2",
     "crdd-development-source-snapshot/v3",
     "crdd-development-source-snapshot/v4",
+    "crdd-development-source-snapshot/v5",
   ])
     assert.equal(
       projectVerificationResult({ sourceScope: scope }).sourceScope,
       scope,
     );
   const valid = {
-    sourceScope: "crdd-development-source-snapshot/v4",
+    sourceScope: "crdd-development-source-snapshot/v5",
     sourceSha256: "a".repeat(64),
     crddCommit: "b".repeat(40),
     crddTree: "c".repeat(40),
@@ -901,7 +902,7 @@ test("実子が開始後に終了してもstartedが残り、成功記録は生�
   const root = fixture(t);
   const entry = path.join(root, "abrupt-exit.ts");
   const moduleUrl = pathToFileURL(
-    path.join(packageRoot, "scripts/verification-result-record.ts"),
+    path.join(packageRoot, "tests/support/verification-result-record.ts"),
   ).href;
   fs.writeFileSync(
     entry,
@@ -1006,7 +1007,7 @@ test("固定Recovery検証入口はProducer拒否を実Dockerなしで最終記�
     for (const name of ["spawn", "spawnSync", "exec", "execSync", "execFile", "execFileSync", "fork"])
       mock.method(cp, name, () => { processCalls++; throw new Error("external_process_forbidden"); });
     syncBuiltinESMExports();
-    mock.module(${JSON.stringify(pathToFileURL(path.join(packageRoot, "scripts/verify-dynamic-fake-provider-failures.ts")).href)}, {
+    mock.module(${JSON.stringify(pathToFileURL(path.join(packageRoot, "tests/system/manual/verify-dynamic-fake-provider-failures.ts")).href)}, {
       namedExports: { verifyDynamicFakeProviderFailures: () => {
         producerCalls++;
         throw new Error("signed_recovery_matrix_failed_closed");
@@ -1020,7 +1021,7 @@ test("固定Recovery検証入口はProducer拒否を実Dockerなしで最終記�
       "--experimental-test-module-mocks",
       "--import",
       `data:text/javascript,${encodeURIComponent(preload)}`,
-      path.join(packageRoot, "scripts/verify-recovery-matrix.ts"),
+      path.join(packageRoot, "tests/system/manual/verify-recovery-matrix.ts"),
     ],
     { cwd: root, encoding: "utf8", windowsHide: true, timeout: 30_000 },
   );

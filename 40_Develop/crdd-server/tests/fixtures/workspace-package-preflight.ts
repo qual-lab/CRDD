@@ -38,7 +38,7 @@ await mock.module(coordinatorUrl.href, {
   },
 });
 const inventoryUrl = new URL(
-  "../../scripts/ai-verification-http.ts",
+  "../support/ai-verification-http.ts",
   import.meta.url,
 );
 const inventory = await import(inventoryUrl.href);
@@ -63,7 +63,7 @@ await mock.module(inventoryUrl.href, {
   },
 });
 process.argv.splice(2, process.argv.length - 2, "--preflight");
-await import("../../scripts/verify-workspace-ai.ts");
+await import("../system/manual/verify-workspace-ai.ts");
 assert.equal(process.exitCode, 0);
 assert.equal(inventoryCalls, 2);
 assert.equal(workspaceCalls, 8);

@@ -26,7 +26,7 @@ import {
   createExecutorTestCandidate,
   projectAttemptResult,
   projectAttemptStartResult,
-} from "../../../executor/scripts/executor-test.ts";
+} from "../../../executor/tests/support/executor-test.ts";
 import { attemptPlan } from "../../../executor/tests/fixtures/attempt-plan.ts";
 import { planDockerIsolationCommands } from "../../../executor/tests/support/isolation-plan.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/command.ts";

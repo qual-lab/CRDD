@@ -30,7 +30,7 @@ import {
   snapshotPlainRecord,
 } from "../../../src/lifecycle/validation.ts";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
-import { bindIsolationRuntime } from "../../../../executor/scripts/executor-test.ts";
+import { bindIsolationRuntime } from "../../../../executor/tests/support/executor-test.ts";
 import {
   capturePreparationInput,
   createPreparationFailure,
@@ -577,7 +577,7 @@ function createFixture(
   const mountCapability = Object.freeze({});
   let randomValue = 0;
   let technicalPlan:
-    | import("../../../../executor/scripts/executor-test.ts").TestAttemptPlan
+    | import("../../../../executor/tests/support/executor-test.ts").TestAttemptPlan
     | null = null;
   const dependencies = {
     verifyOperationMount: (management: unknown, mount: unknown) => {

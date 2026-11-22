@@ -30,7 +30,7 @@ import { sourceDeclaration } from "../../../execution-model/tests/support/source
  */
 test("計測CLIは全量入力を搬送し出力失敗でも元結果と回復参照を保持する", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/measure-development-providers.ts", import.meta.url),
+    new URL("../../scripts/benchmark.ts", import.meta.url),
     "utf8",
   );
   const configuration = { description: "a".repeat(131_073) };
@@ -157,7 +157,7 @@ import { RepositoryDataBlockedError } from "../../src/lifecycle/host.ts";
 import {
   createIsolatedDevelopmentProviderMeasurementCandidate,
   projectDevelopmentMeasurementEntryFailure,
-} from "../../scripts/measure-development-providers.ts";
+} from "../../scripts/benchmark.ts";
 
 type Dependencies = Parameters<
   typeof createIsolatedDevelopmentProviderMeasurementCandidate
@@ -250,7 +250,7 @@ function fixture(outcomes: readonly string[]) {
       sourceCalls++;
       if (missingSource) return null;
       return Object.freeze({
-        scope: "crdd-development-source-snapshot/v4",
+        scope: "crdd-development-source-snapshot/v5",
         sourceSha256:
           changeSource && sourceCalls > 1 ? "d".repeat(64) : "c".repeat(64),
         sourceIdentitySha256: "e".repeat(64),

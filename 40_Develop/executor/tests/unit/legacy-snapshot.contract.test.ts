@@ -13,7 +13,7 @@ import type { DockerCommandSessionResult } from "../../../docker-isolation/tests
 import {
   bindLegacyTestIsolation,
   type IsolationRuntime,
-} from "../../scripts/executor-test.ts";
+} from "../support/executor-test.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**

@@ -14,7 +14,7 @@
  */
 import { createHash } from "node:crypto";
 
-import { runSignedGeneralTaskVerification } from "../../scripts/verify-general-task.ts";
+import { runSignedGeneralTaskVerification } from "../system/manual/verify-general-task.ts";
 import { isRuntimeProcessPoisoned } from "../../src/lifecycle/host.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/lifecycle/execution.ts";
 
@@ -48,7 +48,7 @@ const patchHash = createHash("sha256")
   .digest("hex");
 
 const source = Object.freeze({
-  scope: "crdd-development-source-snapshot/v4",
+  scope: "crdd-development-source-snapshot/v5",
   sourceSha256: "0".repeat(64),
   sourceIdentitySha256: "9".repeat(64),
   crddCommit: baseCommit,

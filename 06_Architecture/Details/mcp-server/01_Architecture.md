@@ -20,9 +20,9 @@ runtime-activity-adapter ITは、実Coordinator受付・保存・有限Provider�
 
 ## 公開MCP実行の検証Tool所有 — 2026-11-14
 
-`scripts/verify-task-real-providers.ts`と`task-real-provider-contract.ts`は、公開MCP入口の応答・取消・親終了後の再入場を検証するToolとしてMCPが所有する。対応する48試験と専用の有限Node fixtureも同じPackageへ置く。Coordinatorは下位の業務実行Ownerとして利用し、CoordinatorのscriptからMCPの公開結果Parserを逆参照しない。旧Pathに転送入口は残さない。
+`tests/system/manual/verify-task-real-providers.ts`と`task-real-provider-contract.ts`は、公開MCP入口の応答・取消・親終了後の再入場を検証するToolとしてMCPが所有する。対応する48試験と専用の有限Node fixtureも同じPackageへ置く。Coordinatorは下位の業務実行Ownerとして利用し、CoordinatorのscriptからMCPの公開結果Parserを逆参照しない。旧Pathに転送入口は残さない。
 
-Reportの契約ID・改訂13・試験対象Repositoryの固定marker Path・取消／回復順序と期限は維持する。Source観測はCoordinatorの`scripts/measure-development-providers.ts`から直接取得し、受付は現Producerのv4だけに合わせ、旧v2／v3を拒否する。旧Hashを補完・変換しない。対象集合・二読取りの正本は[Coordinator設計](../coordinator/01_Architecture.md)とし、MCPで再構築しない。公開にはHashと非秘密の改訂情報だけを返し、内部実体情報・Source本文は返さない。新規Objectiveを構築する検証Tool自身が`operation: "start"`を明示し、受付側に省略補完を追加しない。
+Reportの契約ID・改訂13・試験対象Repositoryの固定marker Path・取消／回復順序と期限は維持する。Source観測はCoordinatorの`scripts/benchmark.ts`から直接取得し、受付は現Producerのv5だけに合わせ、旧v2／v3／v4を拒否する。旧Hashを補完・変換しない。対象集合・二読取りの正本は[Coordinator設計](../coordinator/01_Architecture.md)とし、MCPで再構築しない。公開にはHashと非秘密の改訂情報だけを返し、内部実体情報・Source本文は返さない。新規Objectiveを構築する検証Tool自身が`operation: "start"`を明示し、受付側に省略補完を追加しない。
 
 有限試験は起動対象の代役と固定Node子を使い、実Provider検証の実行経路は起動しない。ただし、Import解決と処置前拒否の確認では、不正引数だけを付けた新品Node Processで正式入口を起動する。検証未開始・MCP子未開始の既存拒否結果と終了を確認し、この起動確認や合成値のScope検査を実AI・実Dockerの成立へ拡張しない。
 

@@ -181,7 +181,7 @@ Task／Advice／Probeの用途相関、固定Image選択、RoleとWorkspace権�
 
 今回採用する公式の固定版はCodex 0.164.0、Claude Code 2.1.310である。新しいTask・助言Imageは既存Dockerfileで作成し、実測したImage Digestだけを`image/assets.ts`へ固定する。実行時のPull禁止・自動更新禁止、非root、read-only root、Mount・通信制限とexact資源回収は維持し、旧Imageは削除しない。新Imageが作られたことは実AI・認証・全体E2Eの成功を意味しない。
 
-Codex Taskにも同じ公式配布版のCode Mode Hostを含め、助言のbwrapを旧Task Imageから取り込む依存は廃止する。CLI・Host・bwrapの公式Archive Hashと展開実行物のSigstore署名、Claudeの公式Manifestによるサイズ・SHA-256をBuild前に確認する。実行時の同一性はImage Digestを利用し、内包BinaryのHash検査をTaskごとに再実装しない。三実行物の由来は`build-inputs.json`の共通`codex.identity`へ集約し、用途別レシピだけを分ける。既存準備入口を`prepare-codex-image.ts`へ改名し、三入力と用途別レシピを実体・サイズ・Hashで検査する。助言は四File、Taskは改行をLFへ正規化しHash照合した固定Schema三件を加えた七FileのContextを作る。認証Home、Repository本文、Source ArchiveをImageへ含めない。
+Codex Taskにも同じ公式配布版のCode Mode Hostを含め、助言のbwrapを旧Task Imageから取り込む依存は廃止する。CLI・Host・bwrapの公式Archive Hashと展開実行物のSigstore署名、Claudeの公式Manifestによるサイズ・SHA-256をBuild前に確認する。実行時の同一性はImage Digestを利用し、内包BinaryのHash検査をTaskごとに再実装しない。三実行物の由来は`build-inputs.json`の共通`codex.identity`へ集約し、用途別レシピだけを分ける。ビルド入力の検証と組立ては本書の隔離用静的資産に示す手順に従う。認証Home、Repository本文、Source ArchiveをImageへ含めない。
 
 配置変更は新しい処理に適用し、旧exact回復参照と保持物を更新版のIdentityで書き換えない。公式取得物・試験ContextはRepository-local tmpの短命生成物であり、正式文書には取得元・検証結果・Image同一性・未確認範囲だけを要約する。新しいBuild Runner・Registry・回復機構は作らない。
 
@@ -594,7 +594,12 @@ freshでは保存済み期待実体をcurrent観測で同じ固定対象へ再�
 
 `images/`はClaude／Codex／Codex助言／通信プロキシのDockerfileと、収録済み取得・Build入力の期待値`build-inputs.json`を所有する。同JSONは全Imageの完全Build manifestではない。Codex seccompは`src/execution/`、プロキシ実装は`src/network/`、Provider固定設定はAI Adapterの`src/claude/`、結果Schemaは同`src/codex/`へ置く。固定Task検証textはCoordinatorの`tests/fixtures/`に属し、通常実行の配布集合へ試験Directory全体を追加しない。配布・Buildは実際に必要な固定Pathを明示し、任意Directoryを探索・採用しない。
 
-Dockerfileの所在はビルドcontextを意味しない。ビルド時は検証済み公式CLIと各Ownerの設定を、Dockerfileが宣言するbasename・mode・Container内Pathを維持して明示的に組み合わせる。Codexは`codex`・`bwrap`と3結果Schema、Claudeは`claude`と2設定、助言は`codex`・`codex-code-mode-host`、通信プロキシは`src/network/`のPython実装を入力とする。Image内のProvider版・実行PathはDIの実行定義、取得検証材料は同PackageのBuild入力が所有する。配置変更だけでImage digestや資産Hashを更新しない。seccompの物理取得と実体・容量・Hash照合はDIの既存単一Resolverへ閉じる。助言Imageの三入力Context準備は既存Scriptで確認するが、他三Imageの実Build context自動準備と全Imageの実Buildは本配置変更で成立済みとしない。
+Dockerfileの所在はビルド用ディレクトリを意味しない。準備はDIが所有する次の手順に統一し、Provider専用の組立てスクリプトは置かない。実行時の版・PathはDIの実行定義、取得検証の期待値は `images/build-inputs.json` を正本とする。
+
+1. 固定版の公式配布物を取得する。Codexは各Archiveのサイズ・Hashと展開したCLI／Code Mode Host／bwrapのSigstore署名を、Claudeは公式Manifestの対象Platformと本体のサイズ・SHA-256を照合する。期待値の記載だけで検証済みと扱わない。
+2. 検証済みRepositoryの境界内で、入力が通常FileでありLinkや越境がないこと、固定実行物のサイズ・SHA-256が一致することを確認する。対象Dockerfileは固定したSourceから選び、期待HashのあるレシピはそのHashも照合する。Task用Codexの三つの結果SchemaとClaudeの二設定はAI Adapterの正本から取得し、改行をLFへ正規化したbytesを期待Hashと照合する。不一致・欠測・観測不能では組立てを開始しない。
+3. 照合済みの内容だけを、同Repository直下の `.crdd/tmp` に作る未使用の専用ディレクトリに、上書きせず揃える。Codexの両用途は `codex`・`codex-code-mode-host`・`bwrap` を置く。Task用だけ、AI Adapterの `src/codex/` にある `codex-result.json`・`codex-executor-result.json`・`codex-reviewer-result.json` の照合済みbytesを、拡張子の前に `-schema` を加えた名前で置く。Claudeは `claude` と、AI Adapterの `src/claude/` にある `claude-managed-settings.json`・`claude-task-settings.json` を置く。権限・配置は各レシピの `COPY` 宣言に従い、レシピは `Dockerfile` として置く。認証情報・Repository本文・Source Archiveは含めない。通信プロキシの入力は既存の `src/network/` の固定実装を使用する。
+4. ビルドと採用は準備から分離する。イメージを更新する場合だけ版・内容・動作と生成Digestを確認し、採用したDigestを実行定義へ反映する。準備だけで既存イメージや固定Digestを変更しない。seccompの取得・照合は従来どおりDIの単一Resolverが所有する。
 
 Desktop修復の読取り技術処理は、`docker-desktop/directory.ts`と既存`docker-desktop/engine.ts`が所有する。上位修復は検証済み境界のDirectoryだけを渡して固定FS観測を呼び、前後の親実体と64件以内のentry集合が一致し、既知のopen拒否が少なくとも一つある場合だけロック識別子を受ける。非Windowsは下位入口でFS操作0のまま拒否する。open後のclose失敗は既知の拒否コードであっても観測不能とし、再closeしない。`null`は不存在・解放済みを意味しない。依存差替え入口はPackage内部試験に閉じ、本番FS接続も内部に置き、公開環境操作は共通二入口へ集約する。
 

@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { homeLockRequest } from "../../scripts/verify-provider-home.ts";
+import { homeLockRequest } from "../system/manual/verify-provider-home.ts";
 import test from "node:test";
 
 /**
@@ -26,13 +26,12 @@ import test from "node:test";
  */
 test("Home事前確認は元Lockの終了と未知の保持を区別する", () => {
   const scriptUrl = new URL(
-    "../../scripts/verify-provider-home.ts",
+    "../system/manual/verify-provider-home.ts",
     import.meta.url,
   ).href;
-  const platformUrl = new URL("../../scripts/provider-home.ts", import.meta.url)
+  const platformUrl = new URL("../support/provider-home.ts", import.meta.url)
     .href;
-  const domainUrl = new URL("../../scripts/runtime-data.ts", import.meta.url)
-    .href;
+  const domainUrl = new URL("../support/runtime-data.ts", import.meta.url).href;
   const child = spawnSync(
     process.execPath,
     [
@@ -47,7 +46,7 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
     registerHooks({resolve(s,c,n){const r=n(s,c);if(r.url.includes('/coordinator/'))throw Error('coordinator_forbidden');return r;}});
     const platform=await import(${JSON.stringify(platformUrl)});
     const domain=await import(${JSON.stringify(domainUrl)});
-    const report=await import(${JSON.stringify(new URL("../../scripts/report.ts", import.meta.url).href)});
+    const report=await import(${JSON.stringify(new URL("../support/report.ts", import.meta.url).href)});
     process.env.LOCALAPPDATA=${JSON.stringify("C:\\synthetic-home-not-read")};
     let mode='normal',observations=0,acquisitions=0,releases=0,held=false,pipe=null;
     mock.module(${JSON.stringify(platformUrl)},{namedExports:{...platform,
@@ -76,7 +75,7 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
         }}};
       }
     }});
-    mock.module(${JSON.stringify(new URL("../../scripts/report.ts", import.meta.url).href)},{namedExports:{...report,
+    mock.module(${JSON.stringify(new URL("../support/report.ts", import.meta.url).href)},{namedExports:{...report,
       writeReport:(directory,name,key,value)=>{
         if(mode==='save_throw'&&name==='observed.json')throw Error('synthetic_save_throw');
         return report.writeReport(directory,name,key,value);

@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import test from "node:test";
 
-import { createExecutorTestCandidate } from "../../../executor/scripts/executor-test.ts";
+import { createExecutorTestCandidate } from "../../../executor/tests/support/executor-test.ts";
 
 /**
  * Codex frontから選定理由付きClaude委譲をcleanup済みResultまで接続するを検証する。
@@ -34,7 +34,7 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
   let randomValue = 0;
   let recoveryCompletionCount = 0;
   let technicalPlan:
-    | import("../../../executor/scripts/executor-test.ts").TestAttemptPlan
+    | import("../../../executor/tests/support/executor-test.ts").TestAttemptPlan
     | null = null;
   const selected = executionSelection("executor", {
     provider: "claude",

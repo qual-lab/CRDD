@@ -1,4 +1,4 @@
-import { inspectCodexExecutionObservation } from "../../../scripts/ai-adapter-test.ts";
+import { inspectCodexExecutionObservation } from "../../support/ai-adapter-test.ts";
 import { parseExecutionContent } from "../../../src/provider/result.ts";
 import { extractProviderResult } from "../../../src/provider/result.ts";
 /**

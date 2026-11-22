@@ -20,7 +20,7 @@
 
 ## 検証Toolの開発Source観測接続
 
-Workspace検証ToolはCoordinatorの`scripts/measure-development-providers.ts`からSource観測を直接取得し、同じScope・内容・実体の前後比較を維持する。旧診断Moduleからの転送を要求しない。対象集合の正本は[Coordinator設計](../coordinator/01_Architecture.md)とする。既存の同意なし・不正引数の実CLI拒否試験で、入口のImport解決まで確認する。合成Source fixtureは現行v4に合わせ、検証Toolの起動確認を実AI・Dockerの成功へ拡張しない。
+Workspace検証ToolはCoordinatorの`scripts/benchmark.ts`からSource観測を直接取得し、同じScope・内容・実体の前後比較を維持する。旧診断Moduleからの転送を要求しない。対象集合の正本は[Coordinator設計](../coordinator/01_Architecture.md)とする。既存の同意なし・不正引数の実CLI拒否試験で、入口のImport解決まで確認する。合成Source fixtureは現行v5に合わせ、検証Toolの起動確認を実AI・Dockerの成功へ拡張しない。
 
 ## 単発依頼IDの搬送と結果欠測
 
@@ -38,7 +38,7 @@ AI依頼Formは依頼IDを画面内に一度保持し、通常POST／共有接�
 
 ## 診断表示用の説明文観測の所有 — 2026-11-14
 
-`scripts/task-summary-observation.ts`は合成診断だけのModule観測であり、製品公開APIではない。専用新品Node Processでconsumer import前に元normalizerを包み、同じ引数・同じreturn object／例外を維持する。最初のCodex executorのsummary候補一件だけをメモリで保持し、外側の単一Task終了・段階順序・資源回収結果を照合後、人間承認した端末へ一回表示する。元関数にはTask／Attempt IDがないため、観測seam単独のexact identity証明とはしない。表示前の制御文字・Path・認識済みSecret検査の不成立は非表示へ閉じ、元結果と採否・回収を変更しない。本文はLog／File／APIに保存せず、端末scrollback残存は人間の限定受容を必要とする。復元はmock解除だけでなく専用Process終了まで確認する。計測付きの結果を通常Source無計測E2E成立へ算入しない。
+`tests/support/task-summary-observation.ts`は合成診断だけのModule観測であり、製品公開APIではない。専用新品Node Processでconsumer import前に元normalizerを包み、同じ引数・同じreturn object／例外を維持する。最初のCodex executorのsummary候補一件だけをメモリで保持し、外側の単一Task終了・段階順序・資源回収結果を照合後、人間承認した端末へ一回表示する。元関数にはTask／Attempt IDがないため、観測seam単独のexact identity証明とはしない。表示前の制御文字・Path・認識済みSecret検査の不成立は非表示へ閉じ、元結果と採否・回収を変更しない。本文はLog／File／APIに保存せず、端末scrollback残存は人間の限定受容を必要とする。復元はmock解除だけでなく専用Process終了まで確認する。計測付きの結果を通常Source無計測E2E成立へ算入しない。
 
 唯一の外部利用側verify-workspace-summaryと同じWorkbenchのscriptsが観測処理を所有する。元の二試験もtests/integrationへ移管し、全assert・故障シナリオ・専用子の終了を維持する。機密検査は入口がCoの既存検査を注入し、観測Helper自体はCoを読み込まない。Executorの有限技術Consumer／fixtureは明示的な下位参照として利用する。旧入口の転送や新しい共通fixture、製品公開は追加しない。
 
@@ -183,11 +183,11 @@ Repository操作の入力規則と処置結果の意味検査はGit操作を担�
 
 ### 読取り助言の限定実試験入口
 
-合成編集の試験器`scripts/verify-workspace-ai.ts`では、通信失敗の操作段階、固定理由、応答前／本文受信中の分類、期限Timerの実発火、許可済み通信codeだけを記録する。清掃用abortを期限超過へ読み替えず、URL・Token・自由な例外本文は保存しない。受付IDが確定した後の観測失敗では、公開HTTPでのTask再送をせず、元のCoordinator Task Ownerへ同じIDの取消を一回発行し、返却されたTask／cleanup／回復参照を記録してからServerを閉じる。これは試験器の終了処置であり、公開取消HTTPの成立を証明しない。受付結果不明、取消結果欠測、実行継続中は清掃成功にせず、一次失敗、取消失敗、Server close失敗を分離する。既存のDocker回収条件・期限・保存形式は変更しない。
+合成編集の試験器`tests/system/manual/verify-workspace-ai.ts`では、通信失敗の操作段階、固定理由、応答前／本文受信中の分類、期限Timerの実発火、許可済み通信codeだけを記録する。清掃用abortを期限超過へ読み替えず、URL・Token・自由な例外本文は保存しない。受付IDが確定した後の観測失敗では、公開HTTPでのTask再送をせず、元のCoordinator Task Ownerへ同じIDの取消を一回発行し、返却されたTask／cleanup／回復参照を記録してからServerを閉じる。これは試験器の終了処置であり、公開取消HTTPの成立を証明しない。受付結果不明、取消結果欠測、実行継続中は清掃成功にせず、一次失敗、取消失敗、Server close失敗を分離する。既存のDocker回収条件・期限・保存形式は変更しない。
 
 Root検証を先行し、既存Version ControlのFilesystem観測でCommit、固定文書のHash、Repository AI設定の内容Identityだけを照合する。試験器自身の前後照合ではGit子Processを使用せず、既存Workbenchの安全なGit読取りは変更しない。`projectContextUnchanged`／`revisionUnchanged`と`wholeRepositoryUnchangedClaimed:false`を返し、index・他Sourceの不変は主張しない。DockerのHash対象fieldは欠落・型不正と正常nullを区別する。開始前・終了後ともContainerはcreated／exited／deadのみ許容し、paused／restarting／removingや状態欠測をidleへ畳まない。
 
-`scripts/verify-readonly-ai.ts`は、外部送信の別許可を確認した操作者が一Providerだけを明示実行する検証入口とする。`--provider codex|claude --external-send-confirmed`以外はServer／Docker観測前に拒否する。明示Model選定・質問・`PROJECT_CONTEXT.md`一件だけを公開HTTP→既存Coordinator Task Ownerへ渡す。本文・資格は記録せず、自動再送・編集・採用・再起動は行わない。timeout、一次失敗、cleanup、副次失敗、close、最終観測を別に保持する。HTTPの固定診断をTask期限と分離し、受付済みIDの観測失敗では同じOwnerへ一回だけ取消を発行する。同IDの取消結果・回復参照を保持してからcloseし、取消失敗・ID不一致で一次失敗を上書きしない。受付前・受付結果不明には推測したIDで取消を発行しない。通常回帰から実送信を起動しない。
+`tests/system/manual/verify-readonly-ai.ts`は、外部送信の別許可を確認した操作者が一Providerだけを明示実行する検証入口とする。`--provider codex|claude --external-send-confirmed`以外はServer／Docker観測前に拒否する。明示Model選定・質問・`PROJECT_CONTEXT.md`一件だけを公開HTTP→既存Coordinator Task Ownerへ渡す。本文・資格は記録せず、自動再送・編集・採用・再起動は行わない。timeout、一次失敗、cleanup、副次失敗、close、最終観測を別に保持する。HTTPの固定診断をTask期限と分離し、受付済みIDの観測失敗では同じOwnerへ一回だけ取消を発行する。同IDの取消結果・回復参照を保持してからcloseし、取消失敗・ID不一致で一次失敗を上書きしない。受付前・受付結果不明には推測したIDで取消を発行しない。通常回帰から実送信を起動しない。
 
 Dockerの事前照会はDesktop省電力cacheを含み得るため、全ID完全一致をEngine同一世代の証明にしない。既定bridge／host／noneは名前・driver・local scope・default bridge指定を厳密確認し、ID差を専用診断として出す。IPAM／Options／IPv4・IPv6／internal等の捕捉構成差は許容しない。既存Containerと利用者Networkは捕捉属性と集合を保持し、未知追加・消失・欠測・重複は非成功とする。runtimeの個別cleanup確認は独立条件であり、一覧成立やeventsだけで代替しない。構成Hashは観測した属性の比較であり、全設定・Filesystem内容の完全保全を主張しない。結果は限定試験だけの成立とし、全E2Eへ拡張しない。保存台帳・Lock・Recoveryは追加しない。
 

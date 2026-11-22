@@ -14,13 +14,13 @@ Executorが構築する固定入力を旧九argvへ写像する有限Oracleは�
 
 有限Sessionの通知・結果・回収五型はDIの試験実装`tests/support/session.ts`が所有する。Executorの`executor-test.ts`と型を明示参照する試験は宣言元を直接利用し、旧scriptから再exportしない。製品Executorの型・公開IFや実行手順を変更する処置ではない。
 
-`scripts/runtime-data.ts`はVCの技術結果だけで新品試験領域を準備し、EMの保存例外を読まない。準備失敗は標準Errorのcauseに元のblocked観測を同参照で保持する。記録を行う実試験CLIは、自身が直前に取得したblocked結果だけを既存のEM例外へ渡し、従来のCLI失敗fieldを維持する。任意のcauseから保存結果を復元・信頼する処理は追加しない。この補助の独立化と記録接続のOwner移管は別に検証する。記録Host・実試験CLIはCoordinatorへ移管し、製品Executorの実行・Home排他は従来のOwnerへ残す。
+`tests/support/runtime-data.ts`はVCの技術結果だけで新品試験領域を準備し、EMの保存例外を読まない。準備失敗は標準Errorのcauseに元のblocked観測を同参照で保持する。記録を行う実試験CLIは、自身が直前に取得したblocked結果だけを既存のEM例外へ渡し、従来のCLI失敗fieldを維持する。任意のcauseから保存結果を復元・信頼する処理は追加しない。この補助の独立化と記録接続のOwner移管は別に検証する。記録Host・実試験CLIはCoordinatorへ移管し、製品Executorの実行・Home排他は従来のOwnerへ残す。
 
 Source宣言抽出と新品Repository-local試験Root管理は、Executorの`tests/support`が所有する。EMの試験補助をimportせず、構文検査・exact宣言選択・欠測／重複拒否・Snapshot解放、Root／Link／実体確認と同じ新品Rootだけの清掃を維持する。補助の本文を反証する試験も同じ局所Sourceを読む。製品API・新しい共通Package・モデル検査のコピーは追加しない。
 
 この処置は試験準備の借用撤去だけである。その後、Attempt通知をEM資源Bookへ適用する一試験と、技術理由列をEM保存語彙へ比較する検証をCoへ移した。単独技術fixtureは`tests/fixtures/attempt-execution.ts`が一意に所有し、Executor試験と登録済みCo接続試験で共有する。有限の技術ProducerにEM規則を入れず、製品向けの公開操作にはしない。
 
-純粋なIPC診断受付`isPrimaryFailureDiagnostic`は`scripts/provider-diagnostic.ts`が所有する。元の記録Hostから本体・専用Helper・再exportを撤去し、単独試験や検証ToolがEM記録処理を間接ロードしない。関数名・全field・相関・拒否条件を維持し、実行時変換や新しいRoot公開は追加しない。上位記録と結合した検証CLI・記録Hostと対応ITはCoordinatorへ移管した。DIの試験用内部契約への依存は残るOwner移管対象として[変更計画§14.33–14.37](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)で追跡する。単独Rootのロード成功や本単位の限定成功からPackage全体の独立性を主張しない。
+純粋なIPC診断受付`isPrimaryFailureDiagnostic`は`tests/support/provider-diagnostic.ts`が所有する。元の記録Hostから本体・専用Helper・再exportを撤去し、単独試験や検証ToolがEM記録処理を間接ロードしない。関数名・全field・相関・拒否条件を維持し、実行時変換や新しいRoot公開は追加しない。上位記録と結合した検証CLI・記録Hostと対応ITはCoordinatorへ移管した。DIの試験用内部契約への依存は残るOwner移管対象として[変更計画§14.33–14.37](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md)で追跡する。単独Rootのロード成功や本単位の限定成功からPackage全体の独立性を主張しない。
 
 ## 計測表示・検証診断の残存制限撤去 — 2026-11-12
 
@@ -193,7 +193,7 @@ onResourcesClosedは技術資源の終了観測を渡す任意通知であり、
 
 依存はCoordinator→Executor→Docker Isolationとし、ExecutorからDomain Modelへの依存は追加しない。単発実行の既存準備・開始・取消・清掃Lifecycle、Provider選択、Docker Desktop修復、Domain SchemaとHistoryは今回変更しない。診断・回収中の失敗でも取得済みconfigのcloseを行い、保存失敗と技術資源の回収不明を混同しない。既知実IDの診断は名前不存在だけでabsentにせず、削除なしのexact ID照合と明示取消の確認を行う。presentはallowAlreadyAbsent:falseで検証し、不存在を許す確認結果をpresentへ流用しない。
 
-共有する内部型RuntimeStateと実行記録型はlifecycle/types.tsに置く。旧IsolationRuntime・Session・Cleanup包装は製品Sourceから撤去し、既存有限Oracleの変換だけをscripts/executor-test.tsに限定する。index.tsの公開型は増やさない。単一Owner内の入力容量定数や検査用Setはその実装内へ残し、複数Sourceで共有する固定語彙はconstants.tsに置く。
+共有する内部型RuntimeStateと実行記録型はlifecycle/types.tsに置く。旧IsolationRuntime・Session・Cleanup包装は製品Sourceから撤去し、既存有限Oracleの変換だけをtests/support/executor-test.tsに限定する。index.tsの公開型は増やさない。単一Owner内の入力容量定数や検査用Setはその実装内へ残し、複数Sourceで共有する固定語彙はconstants.tsに置く。
 
 ## 詳細成果物の適用判断
 
@@ -444,7 +444,7 @@ onCompletedとonDiagnosticは受動通知であり、同期throw・非同期拒�
 - `ATTEMPT_OBSERVATION_KEYS`、内部Command・内部準備型・`readOwnDataProperty`・完全計画検査はRoot非公開。検査の項目集合はvalidationの私有値とし、利用側へは必要な検査関数と結果型を渡す。
 - `TaskPacket`／`AdvicePacket`はCoordinatorの内部搬送型であり、Executor Root／私有Moduleのどちらにも定義しない。Executorへ渡すのは`AttemptRequest`である。`AdviceResultItem`はAI Adapter所有の内容項目型であり、Executorから再公開しない。内容型はAI Adapterから直接参照し、Executorに別定義を作らない。
 - `normalizeTaskResult`、`normalizeAdviceResult`、`describeAdviceResultSchema`、`consumeTaskRemediation`、`hashAdviceCommand`、`bindAdviceCommand`はExecutor Rootから公開しない。内容SchemaはAI Adapterの解決済み計画内だけで使用し、利用側が取得・組立てしない。Docker構成はExecutorがDocker Isolationと結合し、上位へ個々のDocker操作を転送するAPIは作らない。
-- 通常Rootと分離した`./testing`には`createExecutorTestCandidate`、`bindLegacyTestIsolation`、`describeIsolationContract`等、既存の有限検証用接続を置く。準備失敗Factoryは移管先のCoordinatorだけが所有する。本番Authorityや自由な本番Process注入を許可しない。
+- 公開しない`tests/support/executor-test.ts`には`createExecutorTestCandidate`、`bindLegacyTestIsolation`、`describeIsolationContract`等、既存の有限検証用接続を置く。準備失敗Factoryは移管先のCoordinatorだけが所有する。本番Authorityや自由な本番Process注入を許可しない。
 
 製品CLIは追加しない。scriptsは有限検証専用で、ライブラリのRoot APIを置き換えない。
 
@@ -459,11 +459,11 @@ onCompletedとonDiagnosticは受動通知であり、同期throw・非同期拒�
 
 通知の原本・コピー・失効を管理するMapと照会APIは持たない。外部の任意値を内部通知として受ける公開入口も設けない。本番Host型はsubmission・notIssued・terminalの三callbackを必須とする。Controlの一回開始と準備計画の直接搬送、下位清掃結果の実体検証は別責務として維持する。生保存OwnerをRootへ公開せず、Domain→Executor依存を作らない。生Provider出力・認証値は保存せず、既存の閉じた診断だけを搬送する。
 
-試験用の組立は製品Hostとは区別する。`scripts/verify-provider-attempt.ts`は明示呼出し時だけ非AI検証を開始し、既存ITも同じ関数を使う。試験の新品Repository-local Rootに限る排他と、Domainの既存確定JSON保存・読戻しを接続し、要求前の同期保存Gate、元Owner、終端callbackの相関を確認する。生成物は全子Process終了後に確認して回収し、確認不能ならexact Rootを報告する。これは試験fixture専用排他とイベントcommitであり、本番共有Home／Host排他、認証、Runtime state Writer又はRecovery保存の成立ではない。製品用Hostや保存Frameworkを新設せず、必要な有限試験構成をscripts／tests内に置ける。
+試験用の組立は製品Hostとは区別する。`tests/system/manual/verify-provider-attempt.ts`は明示呼出し時だけ非AI検証を開始し、既存ITも同じ関数を使う。試験の新品Repository-local Rootに限る排他と、Domainの既存確定JSON保存・読戻しを接続し、要求前の同期保存Gate、元Owner、終端callbackの相関を確認する。生成物は全子Process終了後に確認して回収し、確認不能ならexact Rootを報告する。これは試験fixture専用排他とイベントcommitであり、本番共有Home／Host排他、認証、Runtime state Writer又はRecovery保存の成立ではない。製品用Hostや保存Frameworkを新設せず、必要な有限試験構成をscripts／tests内に置ける。
 
-実Homeの事前確認は別の明示入口`scripts/verify-provider-home.ts <provider> <run-id>`とする。固定Provider一値の既存Home metadataをPlatform Accessで観測し、既存と同じProviderHome Pipe名を使って共有排他を一回取得する。保持中の再観測と四Hash一致を要求し、元Lockの解放・終了を確認する。Native・取得・解放の未知は別に保持し、試験checkpointだけを残して停止する。checkpointへHome Path・Hash・SID・ACL・認証内容は保存しない。通常の単独非AI入口からは呼ばず、実行は用途限定の別承認を必要とする。これは事前観測であり、認証状態、AI実行許可、試行全体を覆うHome保持又は本番Host回復の成立ではない。
+実Homeの事前確認は別の明示入口`tests/system/manual/verify-provider-home.ts <provider> <run-id>`とする。固定Provider一値の既存Home metadataをPlatform Accessで観測し、既存と同じProviderHome Pipe名を使って共有排他を一回取得する。保持中の再観測と四Hash一致を要求し、元Lockの解放・終了を確認する。Native・取得・解放の未知は別に保持し、試験checkpointだけを残して停止する。checkpointへHome Path・Hash・SID・ACL・認証内容は保存しない。通常の単独非AI入口からは呼ばず、実行は用途限定の別承認を必要とする。これは事前観測であり、認証状態、AI実行許可、試行全体を覆うHome保持又は本番Host回復の成立ではない。
 
-Coordinator所有の単段実試験の組立補助`40_Develop/coordinator/scripts/provider-attempt-host.ts`は、検証済みRequestと新品試験Rootを受け、公開createExecutorへ渡す。Home Leaseの取得・生存確認・解放は製品Executorが所有する。Tool Hostは取得後の最初のcreate前にNative Homeを再観測し、同じRootで提出前Intent／Receipt・元Snapshot・清掃と解放の観測・元Completion受領を確定JSONへ保存する。Tool自身が別Leaseを取得したり元Leaseを解放したりしない。失敗時のretry・強制清掃・別回復参照は作らない。技術清掃とHome解放の確認は子Process最終exitの証明とは区別し、呼出し側が子closeと残存時のRoot保持を管理する。補助は試験Root作成や実行同意を代行せず、製品の永続StoreやHost喪失後の回復機能を提供しない。
+Coordinator所有の単段実試験の組立補助`40_Develop/coordinator/tests/support/provider-attempt-host.ts`は、検証済みRequestと新品試験Rootを受け、公開createExecutorへ渡す。Home Leaseの取得・生存確認・解放は製品Executorが所有する。Tool Hostは取得後の最初のcreate前にNative Homeを再観測し、同じRootで提出前Intent／Receipt・元Snapshot・清掃と解放の観測・元Completion受領を確定JSONへ保存する。Tool自身が別Leaseを取得したり元Leaseを解放したりしない。失敗時のretry・強制清掃・別回復参照は作らない。技術清掃とHome解放の確認は子Process最終exitの証明とは区別し、呼出し側が子closeと残存時のRoot保持を管理する。補助は試験Root作成や実行同意を代行せず、製品の永続StoreやHost喪失後の回復機能を提供しない。
 
 ### DI結果の直接接続と実行後処理（2026-11-05）
 
@@ -493,7 +493,7 @@ tmpは内側から通常unlink／rmdirで回収し、各削除直前に元Root�
 
 単段試験Hostの作成前記録はpurpose・既存計画の予定資源名・所有labelを持つ。これは予定の相関であり、Docker受理・実在・削除許可ではない。正常時の試験Root清掃は、五用途各一件・単一label・終了資源観測との予定名完全一致も要求する。既存の境界終了通知から、同じ操作・Provider・回復参照に一致する一次故障と固定終了boolだけを受け取り、試験結果IPCの`diagnostic`へ載せる。排他解放成功後だけ同じ投影を確定JSONへ保存し、解放拒否・不明後は書かずメモリから搬送する。診断保存失敗で実行結果を変更せず、生本文・例外本文・Home情報は保存しない。通知の受領をWorker exit・子close・清掃成功の証明にしない。
 
-Coordinator所有の単段実試験CLIは`40_Develop/coordinator/scripts/verify-provider-real.ts --describe <provider>`と`--run <provider> <run-id>`を分ける。前者は固定合成Context・Model／medium・Image Digestと非共有境界の純粋表示だけを行う。後者は会話等で用途・送信内容・モデル・回数・回収範囲について事前の人間承認を取得した実行者が明示的に呼び出す。端末の有無や確認コード入力は要求せず、nonce結合したIPC子一件を開始する。承認の永続台帳・自動判定・別の確認Frameworkは追加しない。子はRoot確定の親確認後、既存Home二観測・同期排他・固定助言計画・試験Hostへ接続する。Repository／Workspaceはmountせず、tools／session無効・API Key fallbackなし・Provider一回だけとする。取消・親切断は同Controlへ伝えcompletionをjoinし、親は一つの相関結果と子closeを共同確認する。既存単段期限から導いた試験監督上限を超えた場合は取消し、終了不明・Root保持とし、実行期限を緩和したり強制成功へ変更しない。
+Coordinator所有の単段実試験CLIは`40_Develop/coordinator/tests/system/manual/verify-provider-real.ts --describe <provider>`と`--run <provider> <run-id>`を分ける。前者は固定合成Context・Model／medium・Image Digestと非共有境界の純粋表示だけを行う。後者は会話等で用途・送信内容・モデル・回数・回収範囲について事前の人間承認を取得した実行者が明示的に呼び出す。端末の有無や確認コード入力は要求せず、nonce結合したIPC子一件を開始する。承認の永続台帳・自動判定・別の確認Frameworkは追加しない。子はRoot確定の親確認後、既存Home二観測・同期排他・固定助言計画・試験Hostへ接続する。Repository／Workspaceはmountせず、tools／session無効・API Key fallbackなし・Provider一回だけとする。取消・親切断は同Controlへ伝えcompletionをjoinし、親は一つの相関結果と子closeを共同確認する。既存単段期限から導いた試験監督上限を超えた場合は取消し、終了不明・Root保持とし、実行期限を緩和したり強制成功へ変更しない。
 
 親は子close前に試験Rootを清掃・更新しない。Effect前に子が元回復参照を親へ渡し、親の受領確認後だけ開始する。結果搬送を失っても同じ参照を保持する。監督上限では同Controlへ一回取消し、既存取消猶予内でcloseを待つ。close未観測ではRootを更新せず、そのexact Pathと既知参照を報告する。元終端保存・exact回復参照・同期解放・技術清掃・正常closeの共同成立後、初回Root Identity、連番の確定JSONと既知Schema、非link・nlink、tmpの所有範囲とwork／managementの個別条件を確認して既存削除へ接続する。期待と異なる終端・tmp外の未知名・partial・内容不整合等では清掃せず、closeを観測した場合だけ当該Rootに非秘密の結果と七日後の再評価時刻を保存する。期限だけで削除しない。子stdout／stderrはdrainするが本文を保存・表示しない。固定Imageの存在・Engineの使用可否と外部送信は別途承認された読取り確認・一回試験で検証し、このCLI実装や代役試験から成立としない。
 

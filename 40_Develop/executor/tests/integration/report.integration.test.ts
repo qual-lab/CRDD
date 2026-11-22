@@ -20,7 +20,7 @@ import {
   readReport,
   removeReport,
   writeReport,
-} from "../../scripts/report.ts";
+} from "../support/report.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 
 /**
@@ -259,7 +259,7 @@ test("recovery test directory rejects uncertain roots before creation or deletio
  * @boundary 専用子とローカルFilesystem。外部Runtimeなし。
  */
 function crashWriter(directory: string, point: string) {
-  const url = new URL("../../scripts/report.ts", import.meta.url).href;
+  const url = new URL("../support/report.ts", import.meta.url).href;
   const script = [
     'import fs from "node:fs";',
     "const originalFsync = fs.fsyncSync, originalRename = fs.renameSync; let syncCount = 0, renameCount = 0;",
@@ -442,7 +442,7 @@ test("削除intentの不正Schema・実体・各pair要素は処置前に拒否�
   ]) {
     const f = createRepositoryTestDirectory("committed-json-intent-");
     try {
-      const url = new URL("../../scripts/report.ts", import.meta.url).href;
+      const url = new URL("../support/report.ts", import.meta.url).href;
       const script = [
         'import fs from "node:fs";import {createHash} from "node:crypto";',
         "const store=await import(" +
@@ -500,7 +500,7 @@ test("削除の全四状態は既知三形の完了と不整合保持へ接続�
   for (const mode of ["both", "commit_only", "neither", "content_only"]) {
     const f = createRepositoryTestDirectory("committed-json-delete-");
     try {
-      const url = new URL("../../scripts/report.ts", import.meta.url).href;
+      const url = new URL("../support/report.ts", import.meta.url).href;
       const script = [
         'import fs from "node:fs";const store=await import(' +
           JSON.stringify(url) +
@@ -683,7 +683,7 @@ test("fsyncと二段renameの中断で不完全組と完全組を区別する", 
 test("削除後の観測不能は失敗理由とintentを保持する", () => {
   const f = createRepositoryTestDirectory("committed-json-unknown-");
   try {
-    const url = new URL("../../scripts/report.ts", import.meta.url).href;
+    const url = new URL("../support/report.ts", import.meta.url).href;
     const script = [
       'import fs from "node:fs";const store=await import(' +
         JSON.stringify(url) +

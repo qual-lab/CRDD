@@ -18,7 +18,7 @@ import {
   createExecutorTestCandidate,
   projectAttemptStartResult,
   projectAttemptResult,
-} from "../../../executor/scripts/executor-test.ts";
+} from "../../../executor/tests/support/executor-test.ts";
 import { attemptPlan } from "../../../executor/tests/fixtures/attempt-plan.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/process/start.ts";
 import { createOwnedProcessFixture } from "./docker-owned-process-test-support.ts";

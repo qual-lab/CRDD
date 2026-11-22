@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
+import { extractProviderResult } from "../../../ai-adapter/tests/support/ai-adapter-test.ts";
 import { PROVIDER_ADVICE_OUTPUT_REASONS } from "../../../ai-adapter/src/provider/result.ts";
 /**
  * Workbench助言のProvider出力抽出契約を検証する。

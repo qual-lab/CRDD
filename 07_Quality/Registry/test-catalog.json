@@ -5485,7 +5485,7 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:orchestrator-design-traceability",
+      "id": "coordinator:integration:task-design-traceability",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/integration/task-design-traceability.contract.test.ts",
       "level": "integration",
@@ -10138,13 +10138,13 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "workbench-server:integration:ai-verification-timing",
+      "id": "crdd-server:integration:readonly-request-timing",
       "owner": "crdd-server",
-      "path": "40_Develop/crdd-server/tests/integration/ai-verification-timing.contract.test.ts",
+      "path": "40_Develop/crdd-server/tests/integration/readonly-request-timing.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
-        "ai-verification-timing"
+        "readonly-request-timing"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,

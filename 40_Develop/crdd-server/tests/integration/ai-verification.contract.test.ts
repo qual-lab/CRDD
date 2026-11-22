@@ -39,7 +39,7 @@ import {
  */
 test("Workspace診断は同じ全履歴Readerの共同成立だけを採用する", () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
+    new URL("../system/manual/verify-workspace-ai.ts", import.meta.url),
     "utf8",
   );
   const marker = source.indexOf("const currentRoot = getRepository(root);");
@@ -267,9 +267,9 @@ import {
   readMain,
   type VerificationDockerInventory,
   type VerificationHttpTiming,
-} from "../../scripts/ai-verification-http.ts";
-import { createReadonlyVerificationTiming } from "../../scripts/ai-verification-timing.ts";
-import { verifyWorkspaceOutputBytes } from "../../scripts/workspace-output-verification.ts";
+} from "../support/ai-verification-http.ts";
+import { createReadonlyVerificationTiming } from "../support/readonly-request-timing.ts";
+import { verifyWorkspaceOutputBytes } from "../support/workspace-output-verification.ts";
 import { readProjectViewData, startWorkbench } from "../../src/app.ts";
 import type { AiRequestSnapshot, AiRequestStartResult } from "../../src/app.ts";
 
@@ -469,7 +469,7 @@ test("読取り計測summaryは閉じた型と欠測を検査し容量で拒否�
  */
 test("Workspace試験はHTTPなしでOwner終了とDomainを照合し失敗時だけ同ID取消する", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
+    new URL("../system/manual/verify-workspace-ai.ts", import.meta.url),
     "utf8",
   );
   assert.equal(
@@ -828,7 +828,7 @@ test("通信診断は未知codeと自由な例外本文を保存しない", () =
  */
 test("HTTP試験器は期限超過と本文清掃のabortを区別する", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/ai-verification-http.ts", import.meta.url),
+    new URL("../support/ai-verification-http.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("export async function requestBounded(");
@@ -949,7 +949,7 @@ test("HTTP試験器は期限超過と本文清掃のabortを区別する", async
  */
 test("Workspace実AI試験CLIは同意なしと未知引数を起動前に拒否する", () => {
   const entry = fileURLToPath(
-    new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
+    new URL("../system/manual/verify-workspace-ai.ts", import.meta.url),
   );
   for (const args of [
     [],
@@ -985,7 +985,7 @@ test("Workspace実AI試験CLIは同意なしと未知引数を起動前に拒否
  */
 test("Workspace試験mainは作成前のRoot検査と元結果を失わない清掃を行う", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
+    new URL("../system/manual/verify-workspace-ai.ts", import.meta.url),
     "utf8",
   );
   const body = source.slice(
@@ -1036,7 +1036,7 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
           if (sourceReads > 1 && scenario === "source-unknown")
             throw new Error("synthetic_observation_unknown");
           return {
-            scope: "crdd-development-source-snapshot/v4",
+            scope: "crdd-development-source-snapshot/v5",
             sourceSha256:
               sourceReads > 1 && scenario === "source-changed"
                 ? "different"
@@ -1197,7 +1197,7 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
  */
 test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する", () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
+    new URL("../system/manual/verify-workspace-ai.ts", import.meta.url),
     "utf8",
   );
   const body = source.slice(
@@ -1613,7 +1613,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
  */
 test("実inventory Readerは欠測を拒否しIPAMとOptions差を比較へ搬送する", () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/ai-verification-http.ts", import.meta.url),
+    new URL("../support/ai-verification-http.ts", import.meta.url),
     "utf8",
   );
   const body = source
@@ -1990,7 +1990,7 @@ test("Docker比較は標準ID差を区別し不明・構成差・利用者資源
  */
 test("実AI試験CLIは明示同意と固定Provider以外を起動前に拒否する", () => {
   const script = fileURLToPath(
-    new URL("../../scripts/verify-readonly-ai.ts", import.meta.url),
+    new URL("../system/manual/verify-readonly-ai.ts", import.meta.url),
   );
   for (const args of [
     [],
@@ -2024,7 +2024,7 @@ test("実AI試験CLIは明示同意と固定Provider以外を起動前に拒否�
  */
 test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して閉じる", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-readonly-ai.ts", import.meta.url),
+    new URL("../system/manual/verify-readonly-ai.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("  let primaryFailure:");
@@ -2346,7 +2346,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
   const root = fileURLToPath(new URL("../../../../", import.meta.url));
   const surface = await readProjectViewData(root);
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-readonly-ai.ts", import.meta.url),
+    new URL("../system/manual/verify-readonly-ai.ts", import.meta.url),
     "utf8",
   );
   const body = source.slice(

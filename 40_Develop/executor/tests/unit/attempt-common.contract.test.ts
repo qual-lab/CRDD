@@ -13,7 +13,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import type * as di from "../../../docker-isolation/src/index.ts";
-import { isPrimaryFailureDiagnostic } from "../../scripts/provider-diagnostic.ts";
+import { isPrimaryFailureDiagnostic } from "../support/provider-diagnostic.ts";
 import type { AttemptDiagnosticNotice, CancelResult } from "../../src/index.ts";
 import * as boundary from "../../src/lifecycle/attempt.ts";
 import { PURPOSES } from "../../src/lifecycle/attempt.ts";

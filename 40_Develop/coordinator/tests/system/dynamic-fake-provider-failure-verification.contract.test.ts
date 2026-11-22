@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS,
   verifyDynamicFakeProviderFailures,
-} from "../../scripts/verify-dynamic-fake-provider-failures.ts";
+} from "./manual/verify-dynamic-fake-provider-failures.ts";
 
 /**
  * 動的Fake失敗verificationは固定scenarioだけを所有し任意入力を受けないを検証する。

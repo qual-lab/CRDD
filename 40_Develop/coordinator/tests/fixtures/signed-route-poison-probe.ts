@@ -10,12 +10,12 @@
  */
 import { startRuntimeOwnedCoordinatorTask } from "../../src/lifecycle/execution.ts";
 import { isRuntimeProcessPoisoned } from "../../src/lifecycle/host.ts";
-import { runSignedRouteMatrixVerification } from "../../scripts/verify-route-matrix.ts";
+import { runSignedRouteMatrixVerification } from "../system/manual/verify-route-matrix.ts";
 import {
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
   type SignedGeneralTaskRouteProfile,
-} from "../../scripts/verify-general-task.ts";
+} from "../system/manual/verify-general-task.ts";
 
 const scenario = process.argv[2] ?? "runner_exception";
 const routes = {
@@ -52,7 +52,7 @@ function completed(route: SignedGeneralTaskRouteProfile) {
     contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed",
     reason: "signed_general_task_verification_completed",
-    sourceScope: "crdd-development-source-snapshot/v4",
+    sourceScope: "crdd-development-source-snapshot/v5",
     sourceSha256: "b".repeat(64),
     sourceObservationStatus: "matched",
     signatureRequired: false,
@@ -141,7 +141,7 @@ const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
       },
     });
   return Object.freeze(value);
-}) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
+}) as typeof import("../system/manual/verify-general-task.ts").runSignedGeneralTaskVerification);
 const secondMatrix = await runSignedRouteMatrixVerification(process.cwd());
 
 let taskReads = 0;

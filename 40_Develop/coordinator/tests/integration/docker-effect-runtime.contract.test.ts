@@ -21,9 +21,9 @@ import {
   describeIsolationContract,
   isAttemptPlanValid,
   resolveIsolationCommandInput,
-} from "../../../executor/scripts/executor-test.ts";
+} from "../../../executor/tests/support/executor-test.ts";
 import type { DockerIsolationRuntimePlan } from "../../../executor/tests/support/isolation-execution.ts";
-import type { TestAttemptPlan } from "../../../executor/scripts/executor-test.ts";
+import type { TestAttemptPlan } from "../../../executor/tests/support/executor-test.ts";
 import { planDockerIsolationCommands } from "../../../executor/tests/support/isolation-plan.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,

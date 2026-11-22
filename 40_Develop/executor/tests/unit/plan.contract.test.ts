@@ -19,7 +19,7 @@ import {
   describeDockerProviderExecutionLocations,
 } from "../../../docker-isolation/src/image/assets.ts";
 import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/network/policy.ts";
-import type { TestAttemptPlan } from "../../scripts/executor-test.ts";
+import type { TestAttemptPlan } from "../support/executor-test.ts";
 import {
   bindTestIsolationRuntime,
   isAttemptPlanValid,
@@ -28,7 +28,7 @@ import {
   resolveIsolationCommandInput,
   resolveProviderExecution,
   resolveValidatedPlan,
-} from "../../scripts/executor-test.ts";
+} from "../support/executor-test.ts";
 import type { AttemptRequest } from "../../src/lifecycle/types.ts";
 import { attemptPlan, attemptTarget } from "../fixtures/attempt-plan.ts";
 import { planDockerIsolationCommands } from "../support/isolation-plan.ts";

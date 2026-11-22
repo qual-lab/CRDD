@@ -276,7 +276,7 @@ Executor既存資源入口でpresent／absent／unknown・Running肯定・非秘
 
 DI共通回収を通常Sessionと単独再入場の双方から利用し、全Receiptの処置前検査、未要求／提出済みID欠測、発見ID通知完了前の削除0、通知後の構成変更時の削除0、Process終了不明時の追加Docker要求0、既不存在の再削除0、別ID／名前／Label・同名replacement、config closeの一回性を検証する。認証は元DI計画との順序・名前・種類・IDの照合、accessor／Proxy拒否、通知前の元実ID保持と通知不成立後の前進停止、補償回収の必要通知失敗時の削除0、通常と単独の同一回収処理を反証する。型や模擬成功から実Dockerの成立を推定しない。Coordinator回復は元記録・世代排他・exact IDを維持し、不明時に処置せず同じ参照を返す。
 
-取消検証・意図的残存作成はscripts/probe-verification.tsの実本文を有限DI／Host代役へ接続して検査する。二保存・実ID・構成投影・取消join・Host回収・失敗時参照のOracleを維持し、製品Sourceからの呼出し・逆importを禁止する。この非AI検証を実Docker・実AIの成立へ算入しない。
+取消検証・意図的残存作成はtests/support/probe-verification.tsの実本文を有限DI／Host代役へ接続して検査する。二保存・実ID・構成投影・取消join・Host回収・失敗時参照のOracleを維持し、製品Sourceからの呼出し・逆importを禁止する。この非AI検証を実Docker・実AIの成立へ算入しない。
 
 ## Executor結果検査の責務整理
 
@@ -354,7 +354,7 @@ Task／Adviceの応答内容正規化はAI Adapterが一実体で所有する。
 |---|---|---|
 | CoordinatorなしのRootロード、必要な公開集合、不正開始、無効Control、import副作用 | executor/tests/integration/public-boundary.contract.test.ts | 上位依存解決なし、Effect呼出し0、私有Map・内部Key・形式タグ定数の非公開 |
 | 上位準備の完全選定・試行番号・Home四値・管理参照、同期拒否と開始後の元回復参照保持 | coordinator/tests/unit/execution/attempt-preparation.contract.test.ts | 計画を直接返し準備Storeを作らない。実開始・実清掃・回復引渡しの有無を区別する |
-| Codex／Claudeの局所候補Oracle、正常／wait中取消／清掃不明／同期通知例外 | executor/scripts/verify-provider-attempt.ts（上記公開境界試験から実行） | 候補内の順序・join・一回性・相関と試験領域処置。本番Factory・Home・DI実行の証明には使わない |
+| Codex／Claudeの局所候補Oracle、正常／wait中取消／清掃不明／同期通知例外 | executor/tests/system/manual/verify-provider-attempt.ts（上記公開境界試験から実行） | 候補内の順序・join・一回性・相関と試験領域処置。本番Factory・Home・DI実行の証明には使わない |
 | 製品公開Factory、両Providerの内容・取消と記録 | coordinator/tests/integration/provider-attempt-host.contract.test.ts、provider-real-cli.contract.test.ts | 公開createExecutor→共通DIの有限CLI接続、必須通知、Home生存・解放、Receipt・回収・元Completion、親IPCを確認 |
 | 固定構成の非秘密診断投影 | executor/tests/unit/observation.contract.test.ts | 元操作・Providerの相関を保ち、Command・Home Pathを公開しない |
 | 任意診断の同期例外・Promise拒否、必須通知待機と取消 | executor/tests/unit/notifications.contract.test.ts | 受動通知の故障を実行結果へ伝播させず、必須通知の拒否でも実清掃を一回行い元回復参照を保持する |
@@ -448,7 +448,7 @@ Coordinator借用接続の追加断面は、`ERB-IT-006`の通常二役割・一
 
 隔離Packageの依存配置は`package-boundary.contract.test.ts`で現行src全数と同じ判定による反例を確認する。既知Node builtin、同Package src、Platform AccessのRoot公開入口だけを許可し、type-only／再export／literal dynamic importの上位依存・PA内部参照・未知moduleを拒否する。非literal dynamicは未検査のまま通さず拒否する。この限定静的検査と実Rootの必要API存在は`ERB-IT-004`の前提配置だけであり、完全なTypeScript構文解析、敵対Sourceの安全性、実Effectの拒否や隔離成立は主張しない。
 
-現行資産の相関試験はREQ-000016由来の構成前提として、既存`ERB-IT-004`のunknown gate試験へ接続する。`runtime-assets.contract.test.ts`の三Caseは、DockerfileのCOPY／ENTRYPOINT、AI Adapterの版・実行Path・設定Hash、助言Image準備の実本体による三入力搬送だけを確認する。未知状態での次Effect拒否自体は既存の実行境界試験が所有し、この三CaseをLocal Item全体のPass、公式実行物のHash検証、実Build、Image検証、Provider／Docker実境界またはE2Eの成立根拠にはしない。旧署名配布の収集・graph検査はQA-000010の退役対象と区別する。
+現行資産の相関試験はREQ-000016由来の構成前提として、既存`ERB-IT-004`のunknown gate試験へ接続する。`runtime-assets.contract.test.ts`は、DockerfileのCOPY／ENTRYPOINT、AI Adapterの版・実行Path・設定／SchemaのHash、Codexの両レシピのHashおよび両Providerの公式実行物の照合値を確認する。ClaudeのManifestは固定版と対象Platformに対応することまで照合する。廃止した自動準備入口の搬送試験は残さず、準備時の照合と停止条件はDIの手順へ接続する。未知状態での次Effect拒否自体は既存の実行境界試験が所有し、この局所試験をLocal Item全体のPass、公式実行物のHash検証、実Build、Image検証、Provider／Docker実境界またはE2Eの成立根拠にはしない。旧署名配布の収集・graph検査はQA-000010の退役対象と区別する。
 
 Sessionの署名配布依存撤去では同じ`ERB-IT-004`で、旧三入力fieldの拒否、期待Source Hash差、旧配布API呼出し0、元admission tokenの欠測／初回失効／再確認失効、新token最終失効、同Artifact内容の別実体とborrow時だけの失効／例外を確認する。cleanup初回も元Identityへ結合し、失効を新しい観測で上書きしない。各確認を省く実本文変異、元tokenと新tokenの個別照合順、実観測由来のScope／期待Hashの結果搬送を確認する。これらの局所結合から実Native・Provider・Dockerの実境界成立を推定しない。
 

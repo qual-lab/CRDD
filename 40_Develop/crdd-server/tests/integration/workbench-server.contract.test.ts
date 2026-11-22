@@ -57,7 +57,7 @@ import {
   getRepository,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
-import { createWorkbenchAiVerificationHttpClient } from "../../scripts/ai-verification-http.ts";
+import { createWorkbenchAiVerificationHttpClient } from "../support/ai-verification-http.ts";
 import {
   createRepositoryWorkbenchActivityReader,
   readProjectViewData,

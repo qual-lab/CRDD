@@ -179,7 +179,7 @@ Objectiveの回復相関解決と技術回復は、必要になった元の時�
 | 対象 | 所有する処理 | 持たない処理 |
 | --- | --- | --- |
 | `lifecycle/authentication.ts` | Provider認証・Home排他と認証回復記録 | 自作Profile／Registry、人工的な許可ID、Local許可元cache、独立した起動Authorityの発行 |
-| `scripts/measure-development-providers.ts` | 通常runTask二回の外側計測・期限Signal・Source前後観測 | 専用Session・予約・呼出し会計・段階別Timing・Operationへの開発Context結合 |
+| `scripts/benchmark.ts` | 通常runTask二回の外側計測・期限Signal・Source前後観測 | 専用Session・予約・呼出し会計・段階別Timing・Operationへの開発Context結合 |
 | `lifecycle/environment.ts` | DI起動設定・Provider Home観測・環境診断と隔離Probe・Docker環境の明示修復と保持・修復結果の公開投影 | 未接続の合成claim専用Plan／Evaluator |
 | `lifecycle/host.ts` | Cleanup不明後の不可逆poisonとfresh Processの識別 | 本番の開始経路がないdrain、解除token・WeakSet・件数 |
 
@@ -187,7 +187,7 @@ Local実行の許可元として自作していたProfile／Registry、人工的
 
 Doctorは退役した外部TrustとLocal許可元の検証器を現役機能として表示しない。実際に接続された診断と未評価を区別し、候補や自作許可元から実行成立を主張しない。Rootの関数集合は維持する。実行記録のOperation Identityはv5へ更新し、旧v4を含むStateは受理しない。要求型と保存受付の変更は第8節に示す。
 
-開発Source観測は`crdd-development-source-snapshot/v4`。退役したdomain-modelを除き、configuration-model・document-model・execution-model・executorを含む現行12Packageを固定観測する。内容／実体を二回読み、前後差・Link・非通常File・観測不能を拒否する。新ScopeのHashを旧Scopeと同値扱いせず、期待Hashを自動補完・移行しない。検証記録の既存v2／v3読取りは過去結果の投影に限定する。
+開発Source観測は`crdd-development-source-snapshot/v5`。退役したdomain-modelを除き、configuration-model・document-model・execution-model・executorを含む現行12Packageを固定観測する。内容／実体を二回読み、前後差・Link・非通常File・観測不能を拒否する。新ScopeのHashを旧Scopeと同値扱いせず、期待Hashを自動補完・移行しない。検証記録の既存v2／v3／v4読取りは過去結果の投影に限定する。
 
 旧合成専用の正常claim・状態列・入出力量・取消claimを検査する自己完結実装と専用試験は退役する。認証・課金はAD、Home・実行許可はAuthority、実Fakeの終了・取消・回収はDoctor／Executor／DIの既存試験が所有する。Doctorの既存JSONキーは維持し、内側の契約改訂を7へ更新する。実装説明は実Docker所有Fake観測だけとし、合成受付はretired、旧合成専用limitsはnull（非該当）へ変更する。実DI／Executorの期限・取消・安全条件は変更せず、診断を実Providerの能力総覧へ拡大しない。Cleanup不明の新規Task／助言拒否と元回復IDは維持し、実在しない一時drainの拒否理由を生成しない。
 
@@ -391,7 +391,7 @@ physicalIdentity未確定時は、取得前に不存在を確認した唯一のa
 
 ## PA退役後のSource／Git照合 — 2026-11-11
 
-通常TaskのRepository・Workspace・Revision検証は既存Ownerへ委譲し、開発計測ScriptはSourceの内容・実体の前後観測と外側の期限・取消だけを所有する。専用Sessionの予約・呼出し会計・段階ごとのSource失効は撤去した。Native成果物Hash・借用API・専用出所照合は対象成果物とともに撤去した。Source観測scopeは`crdd-development-source-snapshot/v4`。以下の過去段階のNative実装記述を現行要件へ読み替えない。既存保存field名に残るNative表記は、この整理を理由に変更しない。
+通常TaskのRepository・Workspace・Revision検証は既存Ownerへ委譲し、開発計測ScriptはSourceの内容・実体の前後観測と外側の期限・取消だけを所有する。専用Sessionの予約・呼出し会計・段階ごとのSource失効は撤去した。Native成果物Hash・借用API・専用出所照合は対象成果物とともに撤去した。Source観測scopeは`crdd-development-source-snapshot/v5`。以下の過去段階のNative実装記述を現行要件へ読み替えない。既存保存field名に残るNative表記は、この整理を理由に変更しない。
 
 ## Desktop修復の技術境界更新 — 2026-11-10
 
@@ -472,7 +472,7 @@ Coordinatorは対象選定・許可・排他保持・保存と進行判断を所
 
 ## 検証専用Probeと認証取消理由（2026-11-02）
 
-scripts/probe-verification.tsの取消検証・意図的残存作成は、呼出前に既存Mount確認を行い、DIへ固定三所在を渡す。DI Binding生成もmanagementに加えて元三Directoryを含め、下位からOwnerや所在を再照会しない。実ID・二保存・inspect構成・Handle終了・Host回収の判定は維持する。回収試験は現行cleanupObservedへ直接接続し、旧同期処置Adapterで成立を補完しない。
+tests/support/probe-verification.tsの取消検証・意図的残存作成は、呼出前に既存Mount確認を行い、DIへ固定三所在を渡す。DI Binding生成もmanagementに加えて元三Directoryを含め、下位からOwnerや所在を再照会しない。実ID・二保存・inspect構成・Handle終了・Host回収の判定は維持する。回収試験は現行cleanupObservedへ直接接続し、旧同期処置Adapterで成立を補完しない。
 
 認証の明示取消はExecutorの取消理由を受け、上位で確認したHome Lock喪失と区別する。既存Home Lockの確認・停止・回復参照保持は変更しない。
 
@@ -482,7 +482,7 @@ scripts/probe-verification.tsの取消検証・意図的残存作成は、呼出
 
 ## 旧固定Probe回復の技術委譲（2026-11-01）
 
-recoverDockerIsolationProbeは旧記録・Root／Host世代・exact Container IDの相関を確認し、同じ作成構成をExecutorのinspectResources／cleanupResourcesへ渡す。CLI生成・Docker実体inspect・削除・三軸一覧の組立ては本番回復経路から撤去する。構成不明では削除せず、回収後も不存在を再観測してから既存Host状態遷移へ接続する。現在世代と同じ記録を各要求直前に再確認し、記録Schema・回復ID・Host排他・一回消費・Host回収順は維持する。取消検証・意図的残存作成と専用の私有照合補助はscripts/probe-verification.tsへ移管し、製品Sourceから呼び出さない。呼出し元の検証CLIと試験を同じ移管先へ接続し、import時に試験を実行しない。Network Policy構築・検査、Recovery ID解析・Checkpoint判定・型参照は人間の合意により現在の境界へ維持する。
+recoverDockerIsolationProbeは旧記録・Root／Host世代・exact Container IDの相関を確認し、同じ作成構成をExecutorのinspectResources／cleanupResourcesへ渡す。CLI生成・Docker実体inspect・削除・三軸一覧の組立ては本番回復経路から撤去する。構成不明では削除せず、回収後も不存在を再観測してから既存Host状態遷移へ接続する。現在世代と同じ記録を各要求直前に再確認し、記録Schema・回復ID・Host排他・一回消費・Host回収順は維持する。取消検証・意図的残存作成と専用の私有照合補助はtests/support/probe-verification.tsへ移管し、製品Sourceから呼び出さない。呼出し元の検証CLIと試験を同じ移管先へ接続し、import時に試験を実行しない。Network Policy構築・検査、Recovery ID解析・Checkpoint判定・型参照は人間の合意により現在の境界へ維持する。
 
 ## AIツール認証の保存と技術実行の境界（2026-11-01）
 
@@ -933,7 +933,7 @@ Task側の四unitは[Task詳細のQuality引渡し](03_Task_Architecture.md#qual
 | `external-send/` | 外部送信の同意、許可、一回消費と出口制御 |
 | `storage/` | 現在状態のmodelと単一Settlement Writer・排他・原子単位。共通JSON確定保存はDomain Model、Host実遷移と終了根拠の照合はexecutionが所有する |
 
-純粋な値取込みはDomain Modelの既存公開APIを使う。公開Symbolは必要操作と検査へ限定して`src/index.ts`に明示集約する。通常Runtimeから実装依存を持たない検査・E2E補助は`scripts/`、試験と試験専用支援は`tests/`が所有する。保存方式・Protocol・Runtime所在はSource再配置から変更しない。
+純粋な値取込みはDomain Modelの既存公開APIを使う。公開Symbolは必要操作と検査へ限定して`src/index.ts`に明示集約する。開発計測は`scripts/`、独立した手動検証は`tests/system/manual/`、試験と検証の専用補助は`tests/support/`が所有する。通常Runtimeはこれらへ依存しない。保存方式・Protocol・Runtime所在はSource再配置から変更しない。
 
 `workspace/`と`diagnostics/`は実責務へ分配して解体する。継続Workspaceの選択・寿命・採否は既にOrchestratorが所有するため、CoordinatorからWorkspaceを新たに管理させない。借用対象照合・変更Snapshot・一時Operation作成・技術的な修復Sessionの保存直列化は`execution/`、診断受付・表示は`cli/`が所有する。GitのHEAD／Tree・前後同一性観測はVersion Controlへ移し、Orchestratorはその公開操作を直接利用する。Coordinatorの40桁実行制限を汎用Git観測へ持ち込まない。
 
@@ -1085,7 +1085,7 @@ Taskの既存型契約は`startRuntimeOwnedCoordinatorTask`の引数・戻り値
 | `cli/coordinator-command.ts`のTask処理 | CoordinatorのCLIから下位公開Task操作へ接続 | Runtime検証とRoot確認、開始拒否、Signal登録、完了待機、Signal解除、最終結果を保持する。単体利用にOrchestratorを要求しない。 |
 | `workbench-ai/workbench-ai-change-candidate-runtime.ts` | Coordinatorの候補実行処理から同じTask操作へ接続 | Workbench受付は上位へ分離しても、候補生成時のTask開始・取消・回収は重複実装しない。正本採用・Commit・Pushを発行しない。 |
 | `orchestrator/orchestrator-composition-root.ts`の`productionExecutionDependencies.startTask/cancelTask` | Orchestratorの本番構成からCoordinator公開入口をimport | 下位から上位へのimportと旧署名実行Capabilityの発行・失効を撤去する。現在の実行許可、Task取消、上位結果保存、slot解除の責務を混ぜない。 |
-| `scripts/verify-general-task.ts` | Coordinatorの検証スクリプトから同じ公開Task操作へ接続 | 本番と同じ開始・取消・完了境界を検証する。開発factoryだけの成功を公開入口の成功にしない。 |
+| `tests/system/manual/verify-general-task.ts` | Coordinatorの検証スクリプトから同じ公開Task操作へ接続 | 本番と同じ開始・取消・完了境界を検証する。開発factoryだけの成功を公開入口の成功にしない。 |
 | `tests/fixtures/*poison-probe.ts`等の拒否試験とTask契約試験 | Coordinatorの試験から新公開入口または用途限定の試験入口へ接続 | 無効Capability、終了後control、Process利用不能状態の拒否を保持する。開発用Task factoryを本番公開入口へ追加しない。 |
 | `platform-access/platform-provisioner-package-filesystem.ts`のTask Symbol照合 | Coordinator配布閉包の照合として維持し、Native OS処理と混同しない | Symbol文字列・実行入口・配布物の対応を更新する。名前が一致するだけで本番接続済みとはしない。 |
 
@@ -1391,7 +1391,7 @@ Provider準備・Task Packet・助言準備の保証は、準備済み計画、P
 
 ### 開発計測とSource観測
 
-開発計測は`scripts/measure-development-providers.ts`が通常の`runTask`を二回、別の明示Request IDで逐次実行する。新設定は`projectId`・`principalId`・`expiresAtMs`・`expectedSourceSha256`・`tasks`の五項目で、各Taskは通常のSingleTaskCommandをそのまま渡す。Rootは起動位置から既存VCで検証する。主体・Workspace・選定・Task IDを推測せず、旧計測設定を互換変換しない。信頼されたローカル入口の許可であり、AM認証やリモート利用の認可を代替しない。
+開発計測は`scripts/benchmark.ts`が通常の`runTask`を二回、別の明示Request IDで逐次実行する。新設定は`projectId`・`principalId`・`expiresAtMs`・`expectedSourceSha256`・`tasks`の五項目で、各Taskは通常のSingleTaskCommandをそのまま渡す。Rootは起動位置から既存VCで検証する。主体・Workspace・選定・Task IDを推測せず、旧計測設定を互換変換しない。信頼されたローカル入口の許可であり、AM認証やリモート利用の認可を代替しない。
 
 Scriptは経過時間だけを計測し、通常Taskの最終返却とSession終了まで待つ。取消・期限は同じAbortControllerへ配送し、早期完了のPromise競争を作らない。全出口でTimerとListenerを解放する。回収未確認、unknown、取消、回復参照又は終了失敗では後続を止め、元の結果・exact回復参照を保持する。cleanな業務上の不成功は別IDの二件目と比較できるが、同じTaskを再送しない。観測時計の失敗から元Taskの成功・失敗・回収状態を捏造しない。
 
@@ -1399,7 +1399,7 @@ Scriptは経過時間だけを計測し、通常Taskの最終返却とSession終
 
 専用Session、Task予約、四回／八回の呼出し会計、各段階のSource失効、段階別Timing、Operationの開発Contextと専用開始入口は撤去する。通常の認可、現在Operation／Home、排他、Task内の実行制御、取消joinとRecoveryは既存Ownerに残す。この変更を旧開発Sessionと同等保証とは扱わず、計測結果は改訂4とする。Root公開と通常保存形式は変更しない。
 
-Source観測も同じScriptが所有する。Scopeは`crdd-development-source-snapshot/v4`、固定12Package（access-management、ai-adapter、coordinator、docker-isolation、configuration-model、document-model、execution-model、executor、execution-intelligence、lock、mcp-server、version-control）の`package.json`と`src/bin/runtime/config/schemas/scripts/policies`を対象とする。RootはModuleから導出し、任意Rootを公開受付しない。二読取り、Link・非通常File・実体差・内容差・欠測・観測不能の拒否、除外領域と内容Hash／内部実体Hashの分離を維持する。Sourceは実行前後で観測し、途中の連続不変性や実行資格を保証しない。
+Source観測も同じScriptが所有する。Scopeは`crdd-development-source-snapshot/v5`、固定12Package（access-management、ai-adapter、coordinator、docker-isolation、configuration-model、document-model、execution-model、executor、execution-intelligence、lock、crdd-server、version-control）の`package.json`と`src`、`bin`、`runtime`、`config`、`schemas`、`scripts`、`policies`、`tests/support`、`tests/system/manual`を対象とする。RootはModuleから導出し、任意Rootを公開受付しない。二読取り、Link・非通常File・実体差・内容差・欠測・観測不能の拒否、除外領域と内容Hash／内部実体Hashの分離を維持する。Sourceは実行前後で観測し、途中の連続不変性や実行資格を保証しない。
 
 計測結果の`sourceBefore`・`sourceAfter`はScope・内容Hash・件数・byte数だけを返す。Root・内部実体Hash・本文は出力せず、内部実体Hashは前後比較にだけ使用する。`--describe-source`は設定読取り・保存・Task準備より前に読取りだけを行う。MCP／Workbench／一般Taskの検証Scriptも同じ観測関数へ直接接続し、製品Sourceから開発Scriptを参照しない。
 
@@ -1441,7 +1441,7 @@ Coordinator固有の署名・準備コピー・Manifest昇格・巨大閉包検�
 
 単一NativeのGit出所照合は`scripts/native-git-provenance.ts`が所有し、旧配布全体の`platform-access/release-identity.ts`から分離する。対応する実Git・Blob差・読取り中差替え・Windows junctionのITも同名の専用Suiteへ移し、処理本文と試験本文は変更しない。旧配布Tree／署名閉包の試験をNative観測の根拠へ混在させず、Source／Test Symbol・台帳・Host Profile・coverage対象も同じOwnerへ接続する。これはGit出所観測を通常Nativeの必須Gateへ戻すものではなく、固定Bootstrap Hashと同じtokenの要求前後確認は現行方式を維持する。
 
-現行のレシピ・Provider設定・助言Image準備の入力搬送は、署名配布graphと独立した資産相関として維持する。専用の`runtime-assets.contract.test.ts`で既存の三つの検査本文を保持し、公式CLIの未改造利用と資産Owner間の接続を確認する。この局所検査を未知状態のEffect拒否、公式実行物検証、実Buildまたは実Docker隔離の証明へ拡張しない。検証義務の限定範囲はQA-000006を正本とする。
+現行のレシピ・Provider設定・ビルド入力の照合値は、署名配布graphと独立した資産相関として維持する。準備手順は[Docker Isolationの設計](../docker-isolation/01_Architecture.md#隔離用の静的資産)を正本とし、Coordinatorには専用準備入口を置かない。`runtime-assets.contract.test.ts`は現在の資産同士を照合し、未知状態のEffect拒否、公式実行物の検証、実Buildまたは実Docker隔離の証明へ拡張しない。検証義務の限定範囲はQA-000006を正本とする。
 
 ### 廃止した専用署名方式
 

@@ -11,10 +11,10 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { extractProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
+import { extractProviderResult } from "../../../ai-adapter/tests/support/ai-adapter-test.ts";
 import { parseExecutionContent } from "../../../ai-adapter/src/provider/result.ts";
 import { containsRecognizedSecretMaterial } from "../../../coordinator/src/lifecycle/validation.ts";
-import { createTaskSummaryObservation } from "../../scripts/task-summary-observation.ts";
+import { createTaskSummaryObservation } from "../support/task-summary-observation.ts";
 
 const workload = {
   readPathCount: 1,
@@ -299,12 +299,12 @@ test("summary観測は元結果を保全し、検査・順序・清掃の不成�
  */
 test("summary観測は新品子Processの正式consumerへ接続する", () => {
   const entry = fileURLToPath(
-    new URL("../../scripts/verify-workspace-summary.ts", import.meta.url),
+    new URL("../system/manual/verify-workspace-summary.ts", import.meta.url),
   );
   const composition = fs.readFileSync(entry, "utf8");
   assert.match(
     composition,
-    /containsRecognizedSecretMaterial\s*\}\s*=\s*await import\(\s*["']\.\.\/\.\.\/coordinator\/src\/lifecycle\/validation\.ts["']/u,
+    /containsRecognizedSecretMaterial\s*\}\s*=\s*await import\(\s*["'](?:\.\.\/){4}coordinator\/src\/lifecycle\/validation\.ts["']/u,
   );
   assert.match(
     composition,
@@ -330,11 +330,11 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
     assert.equal(rejected.stdout, "");
   }
   const helper = new URL(
-    "../../scripts/task-summary-observation.ts",
+    "../support/task-summary-observation.ts",
     import.meta.url,
   ).href;
   const consumer = new URL(
-    "../../../executor/scripts/executor-test.ts",
+    "../../../executor/tests/support/executor-test.ts",
     import.meta.url,
   ).href;
   const child = spawnSync(
