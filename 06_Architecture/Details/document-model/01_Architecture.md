@@ -81,7 +81,7 @@ ReleaseはRoadmap表題・README版・観測済みTag・Evidence案内を比較�
 
 Change配置の比較はfilename／evidence／aggregateの三用途に限定する。Checkerが検査Pathを認識できない結果は文書の意味検査ではないため、unrecognizedという要求・Issueを持たない。認識不能の表示はCheckerが直接所有し、Repository Modeと認識Path一覧をDMへ伝播しない。公開関数・型の項目数は変更しない。
 
-配布ひな型の責任者宣言はUI／Architectureの明示templateモードで検査する。CommunicationとActor／System Sequenceはそれぞれの完成Parseとモデルを設け、原文・Artifact・主要節と部分結果を保持する。共通Helperへ工程固有の必須文言を集めず、各Ownerが固定条件を渡す。新しいSourceは対応Ownerがなかったcommunication/parse.tsだけとし、中間Facade・Rule Registry・第二の保存Schemaは作らない。追加公開は二Parse・二モデル型・独立した配置比較二操作であり、Rootは227項目（値103・型124）。既存Parserの通常モードの診断は変更しない。
+配布ひな型の責任者宣言はUI／Architectureの明示templateモードで検査する。CommunicationとActor／System Sequenceはそれぞれの完成Parseとモデルを設け、原文・Artifact・主要節と部分結果を保持する。共通Helperへ工程固有の必須文言を集めず、各Ownerが固定条件を渡す。新しいSourceは対応Ownerがなかったcommunication/parse.tsだけとし、中間Facade・Rule Registry・第二の保存Schemaは作らない。追加公開は二Parse・二モデル型・独立した配置比較二操作であり、この追加時点のRootは227項目（値103・型124）。既存Parserの通常モードの診断は変更しない。
 
 文書モデル（document-model）はCRDD成果物・Markdown構造・Relation・Project Context・Topic／Meeting・Semantic・Reality・試験Catalogと、それらの保存を所有する。実行State、設定Reader、認証、AI／Docker実行、Recovery許可は所有しない。
 
@@ -92,7 +92,7 @@ Change配置の比較はfilename／evidence／aggregateの三用途に限定す�
 
 通常ScreenはSPEC Readerの既存取得点で一度解析し、局所ChecklistのIssueをUI診断へ配送する。局所不備があっても同じ部分モデルを既存の関係比較へ渡す。文書と祖先のLinkを除外し、不在時の新しい作成義務は設けない。参照用のUI Definitionまで局所診断を追加する変更ではない。
 
-以下は人間が採用したモデル優先の方向を具体化した設計である。UI／SPEC分析・定義・台帳と、Screen内のPart・Detail対応根拠はモデル構築と既存の関係評価へ接続した。下流担当はArchitecture／Qualityが原文・出典付きの担当モデルを構築し、Semanticへ接続した。Definition対応の八観点根拠、Architectureの分析・定義・登録・横断文書・詳細本文、Qualityの工程別分析・統合・定義も内容モデルへ接続した。通常AREA／CMP／Visual／BHVも局所Checklist診断へ接続した。他工程には未接続・検査用投影が残り、現行の227公開項目全体がこの契約を満たすという説明ではない。型名を変えたりFileを移すだけで成果物の概念モデルが成立したとは扱わない。
+以下は人間が採用したモデル優先の方向を具体化した設計である。UI／SPEC分析・定義・台帳と、Screen内のPart・Detail対応根拠はモデル構築と既存の関係評価へ接続した。下流担当はArchitecture／Qualityが原文・出典付きの担当モデルを構築し、Semanticへ接続した。Definition対応の八観点根拠、Architectureの分析・定義・登録・横断文書・詳細本文、Qualityの工程別分析・統合・定義も内容モデルへ接続した。通常AREA／CMP／Visual／BHVも局所Checklist診断へ接続した。他工程には未接続・検査用投影が残り、公開項目全体がこの契約を満たすという説明ではない。型名を変えたりFileを移すだけで成果物の概念モデルが成立したとは扱わない。
 
 下流比較ではSemanticが期待関係・Owner Mode・中央／局所の被覆を評価する。ARCH／QAの第一読取りから作る内容モデル列と、後の所有投影用読取りは別の既存観測であり、それらを統合したり同一世代の保証を追加したりしない。UI件数はDirectory観測、SPEC件数は実在定義集合の件数を渡し、モデル配列長に置換しない。QA側の集合は旧サイズ比較、第一観測の内容モデルは可視行へのsubstring検索で旧combined本文includesの条件を保持する。文書内の自由文から記載されていない状態・品質を推論しない。
 
@@ -265,7 +265,7 @@ compileSemanticIrはArchitectureDetailModel、compileQualitySemanticRelationsは
 
 QualityのIdentityは従来どおりSource Pathから評価し、期待ID・本文宣言で不正Pathを補完しない。Local IDのexact出現数、実行形態表の最初の表と最初の一致行、不明はnullという条件を維持する。工程Parserの局所IssueはSemanticのIssueと別であり、一方の結果から他方を省略しない。Checkerは既存の観測位置で取得した値からモデルを構築し、読取りの追加・統合をしない。
 
-Qualityの定義閉包は定義モデル列・既存の工程分析結果・統合モデル、GoalとLocal Itemの閉包は定義モデル列・統合モデル、横断Goal処置は工程分析結果を受ける。比較用Set・出現列・条件MapをCheckerに組み立てさせない。定義の集約は既存quality/definition.tsの内部処理が所有し、Quality比較と下流Semanticが同じ実装を使う。文書順・出現重複・Set初出順・Map後勝ち・段階Setの独立複製を維持し、partialを除外しない。各比較で独立に集約するため、一回集約の保証や永続Cacheは持たない。Local Item所有者の先勝ち照合は別の契約として維持する。
+Qualityの定義閉包は定義モデル列・既存の工程分析結果・統合モデル、GoalとLocal Itemの閉包は定義モデル列・統合モデル、横断Goal処置は工程分析結果を受ける。比較用Set・出現列・条件MapをCheckerに組み立てさせない。定義の集約は`quality/validation.ts`の内部処理が所有し、Quality比較と下流Semanticが同じ実装を使う。文書順・出現重複・Set初出順・Map後勝ち・段階Setの独立複製を維持し、partialを除外しない。各比較で独立に集約するため、一回集約の保証や永続Cacheは持たない。Local Item所有者の先勝ち照合は別の契約として維持する。
 
 Quality分析結果のhasCoverageSectionsは、渡された各分析モデルの先頭Coverage節が取得できていることだけを示す。Checkerは先に六工程の分析Fileを確認する。空のモデル列を全工程の観測完了とは扱わない。節が揃わなくても集約・照合を停止せず、正本外の既知ID、取得済みCoverageから情報源関係への不足、既知の要求段階の不足、重複・不正処置・定義とDetailの照合を継続する。欠測があるときは逆方向の不足・全体件数・未知Goal名・全Goal集合の一致を保留し、欠測を空表として不一致を生成しない。節が存在するが内容が空の表と、節自体の欠測は区別する。既存Issueの分類・正常時の順序は維持し、公開関数・型の追加は行わない。
 
@@ -273,7 +273,7 @@ Reality Graphは観測済みManifest・実在ID／試験台帳・前提Issue、S
 
 ### Architecture分析・定義の内容モデル
 
-parseArchitectureAnalysis／parseArchitectureDefinitionは既存architecture/validation.tsで原文を捕捉し、DocumentResultのresultへ内容モデル、issuesへ局所診断を分ける。旧ArchitectureBodyModelとinspectArchitectureAnalysis／inspectArchitectureDefinitionは撤去した。局所違反でもモデルと関係出現を保持し、モデル自身へissuesを置かない。新Fileや互換Wrapperは追加しない。
+parseArchitectureAnalysis／parseArchitectureDefinitionは`architecture/parse.ts`で原文を捕捉し、DocumentResultのresultへ内容モデル、issuesへ局所診断を分ける。旧ArchitectureBodyModelとinspectArchitectureAnalysis／inspectArchitectureDefinitionは撤去した。局所違反でもモデルと関係出現を保持し、モデル自身へissuesを置かない。対象文書固有の型は `architecture/types.ts`、Checklistの期待集合は `architecture/validation.ts`、組合せの整合評価は `architecture/relations.ts` が所有する。
 
 | モデル | 保持する内容 | 評価に使う既存断面 |
 |---|---|---|
@@ -439,10 +439,10 @@ UI／SPEC Definitionは、対応根拠用の題名とexact見出しの先頭本�
 
 | モデルとOwner | 保持する明示内容 | 評価・実装の成立と区別する点 |
 |---|---|---|
-| ArchitectureDetailAssignment（architecture/validation.ts） | 原文・Artifact・全表行、期待Identityとdefinition／area種別、担当行の本文と出典、UI／SPEC担当、先頭Traceability行とARCH所属 | 定義と領域は型で区別。先頭所属が空でも後続から補完しない。担当宣言は実装・認可ではない |
+| ArchitectureDetailAssignment（architecture/types.ts） | 原文・Artifact・全表行、期待Identityとdefinition／area種別、担当行の本文と出典、UI／SPEC担当、先頭Traceability行とARCH所属 | 定義と領域は型で区別。先頭所属が空でも後続から補完しない。担当宣言は実装・認可ではない |
 | ArchitectureDetailTrace（同上） | 原文・Artifact・全表行、全可視本文のSCR／PRT／BHV、六列の成立行数、Owner／Area・Mode・BHV、重複と後勝ちMap | 不正行中のIDも旧抽出範囲へ残し、空Areaや未認識行を失わない |
-| QualityDetailAssignment（quality/definition.ts） | 原文・Artifact・全表行、期待Identity、出典付き担当行、UI／SPEC担当とRelation出現 | ARCH型へ依存しない。行内重複flagと別行の出現回数を分ける |
-| QualityDetailTrace（quality/analysis.ts） | 原文・Artifact・全表行、全可視本文の発行ID、五列の成立行数、Owner・Mode・BHV、重複と後勝ちMap | 品質Passや実試験成功を本文宣言から発行しない |
+| QualityDetailAssignment（quality/types.ts） | 原文・Artifact・全表行、期待Identity、出典付き担当行、UI／SPEC担当とRelation出現 | ARCH型へ依存しない。行内重複flagと別行の出現回数を分ける |
+| QualityDetailTrace（quality/types.ts） | 原文・Artifact・全表行、全可視本文の発行ID、五列の成立行数、Owner・Mode・BHV、重複と後勝ちMap | 品質Passや実試験成功を本文宣言から発行しない |
 
 担当・追跡は、それぞれArchitecture定義／領域モデルのassignment、Architecture詳細Mapのtrace、Quality定義のassignment、Quality Detail分析のtraceへ統合した。独立した部分Parserは公開しない。原文は同じ既存read点で取得し、可視化は各Owner内で行う。期待IdentityはDirectory列挙元、本文のCanonical ID・状態はArtifactへ別に保持する。Semanticだけが両工程を合成し、工程型同士をimportしない。Checker製のID集合・合同中央表・owner／ownership Wrapperは撤去した。初回readではArchitectureDefinition／QualityDefinitionModel列を別に構築し、後の担当モデルへ再利用しない。Qualityはraw局所検査と別にvisibleLinesを保持し、第一観測の可視substring比較へ渡す。
 
@@ -489,7 +489,7 @@ publishSemanticCoverageは検証済みRepositoryを受け、Bundle構築後に�
 
 parseRealityTestCatalogは取得済みJSON本文と出典を受け、解析と三文字列field・Path重複だけの限定Map構築を完了する。JSON不正と構造不正はいずれも結果nullだが別Issueで区別し、Checkerは従来のcode・文言へ変換する。readTestCatalogの全Schema・走査条件へ置き換えず、一回観測・Manifestなし時の読取り省略・前提不成立時のGraph省略を維持する。parseMarkdownLinkReferenceとMarkdownLinkReferenceは、現在参照と固定Git履歴のraw値を一回Decodeして失敗を保持する独立値契約として残す。Filesystem／Git解決はCheckerに残し、解析を複製しない。
 
-`40_Develop/document-model/src/index.ts`は明示公開227項目（値103・型124）を持つ。値には定数・Parser・検査を含み、227個の操作を意味しない。公開集合は[変更計画](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md#document-public-inventory)の全件棚卸しと固定期待値の契約試験で追跡する。文書単位のParse・モデルと、実利用または独立した完成契約を残し、内部構文Helperと部分更新はRootへ出さない。文書の保存・照会・連合操作や共通技術受付までParseだけへ押し込まず、未接続Capabilityの本番利用を主張しない。
+[Rootの宣言](../../../40_Develop/document-model/src/index.ts)は明示公開226項目（値102・型124）を持つ。値には定数・Parser・検査を含み、226個の操作を意味しない。現在の集合は[公開契約試験](../../../40_Develop/document-model/tests/unit/public-boundary.contract.test.ts)の固定期待値と照合する。[分離途中の棚卸し](../../../99_Roadmap/Changes/CHG-000082/domain-model-three-package-plan.md#document-public-inventory)は調査時点の履歴である。文書単位のParse・モデルと、実利用または独立した完成契約を残し、内部構文Helperと部分更新はRootへ出さない。文書の保存・照会・連合操作や共通技術受付までParseだけへ押し込まず、未接続Capabilityの本番利用を主張しない。
 
 公開内部化候補六項目は、Publisher Factory／Port型とTopicMeetingRepositoryの三公開を撤去し、Reality Catalogの限定受付とMarkdown参照受付・型の三項目を独立入力境界として維持した。前者は完成出版とRoot指定CRUDへ統合し、後者は異なる観測や全Schema走査への置換・Checkerでの解析複製を避ける。今回の分類と選択的整理は完了したが、参照数や公開数だけから全将来用途に対する最小性は主張しない。
 
@@ -506,6 +506,8 @@ parseRealityTestCatalogは取得済みJSON本文と出典を受け、解析と�
 parseArtifactは共通構造・Identity・Related・Anchor・Linkと局所Issueを返し、明示したschemasだけを同じ結果へ適用する。Artifact内部の構造捕捉とSchema／Graphエンジンは非公開とする。横断的なGraph比較はinspectDocumentRelationsへ、任意Markdownの品質表はparseQualityTablesが同じ取得本文からArtifactとQualityTables、区分別件数・Issueを返す。一般Artifactの局所Issueを品質表のIssueへ混ぜず、ArtifactからQualityへの逆依存も作らない。Checkerは従来の各取得位置で必要なIssue集合だけを配送し、別readの統合や適用文書の追加はしない。
 
 Project Contextは単体Parseの部分結果と構造欠測を区別し、Manifestとの比較はSemanticが所有する。表示用の内容捕捉とCheckerの固定構造条件を混同せず、旧Consumerで検査していなかった局所Issueを新しい認可条件にしない。Reality Manifestは既存manifest.tsのparseRealitySymbolManifestがunknownを受け付け、JSON読取りの失敗と構造不正を区別する。
+
+共通Artifactは、Checker向けの診断用リンク集合と、本文のインラインリンク（出現位置・直前の見出しを含む）を区別する。本文の捕捉からはHTMLコメント・コードフェンス・インラインコード内のリンクを除き、Checkerの既存リンク集合と診断条件は変えない。`project-context/parse.ts` の完成Parseは、本文中の相対Markdownリンクを直前のH2と結び、参照候補として返す。参照候補は内容モデルとは別に返し、MCPやWorkbenchの既存Project Context応答には項目を増やさない。Repository実体・認可・公開は利用側が確認する。
 
 readTopicMeetingListは入力検査、取消確認、呼出し側が所有する認可済み対象の一回解決、再度の取消確認、一覧取得を閉じる。resolverや保存読取りの例外は入力不正へ畳まない。Factoryは変更せず、新しいキャッシュ・Authority・Facadeを作らない。
 

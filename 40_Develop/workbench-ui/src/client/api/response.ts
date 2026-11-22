@@ -20,7 +20,7 @@ import type { AccessViewResponse } from "../../../../crdd-server/src/service/acc
 import type {
   ArtifactViewResponse,
   ProjectDetailResponse,
-} from "../../../../crdd-server/src/service/project.ts";
+} from "../../../../crdd-server/src/service/project-context.ts";
 import type { RecordDetailResponse } from "../../../../crdd-server/src/service/topic.ts";
 import type {
   ViewResponse,
@@ -36,7 +36,7 @@ export type { AccessViewResponse } from "../../../../crdd-server/src/service/acc
 export type {
   ArtifactViewResponse,
   ProjectDetailResponse,
-} from "../../../../crdd-server/src/service/project.ts";
+} from "../../../../crdd-server/src/service/project-context.ts";
 export type { RecordDetailResponse } from "../../../../crdd-server/src/service/topic.ts";
 export type {
   ViewResponse,
@@ -51,9 +51,9 @@ export type {
   AiRequestSnapshot,
   AiResultItem,
 } from "../../../../crdd-server/src/service/execution.ts";
-export type { OwnerArtifactCatalog } from "../../../../crdd-server/src/service/project.ts";
-export type { ProjectPlanObservation } from "../../../../crdd-server/src/service/project.ts";
-export type { ProjectQualityObservation } from "../../../../crdd-server/src/service/project.ts";
+export type { OwnerArtifactCatalog } from "../../../../crdd-server/src/service/project-context.ts";
+export type { ProjectPlanObservation } from "../../../../crdd-server/src/service/project-context.ts";
+export type { ProjectQualityObservation } from "../../../../crdd-server/src/service/project-context.ts";
 import type { AiRequestSnapshot } from "../../../../crdd-server/src/service/execution.ts";
 
 const aiResultItemsAreValid = (candidate: unknown): boolean =>

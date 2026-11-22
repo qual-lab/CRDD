@@ -194,8 +194,6 @@ export function parseIaIndex(
       kind: "index",
       mode: options.mode === undefined ? "evaluated" : options.mode,
     }),
-    artifact: parseMarkdownArtifact(captured),
-    source: captured,
     tableRows: captureDocumentTableRows({
       path: captured.path,
       content: iaIndex,
@@ -400,8 +398,6 @@ export function parseIaAnalysis(
     status: finalIssues.length ? "partial" : "complete",
     result: {
       ...base,
-      artifact: parseMarkdownArtifact(captured),
-      source: captured,
       expectedIdentity: expectedUxId,
       tableRows: captureDocumentTableRows({
         path: captured.path,
@@ -662,8 +658,6 @@ export function parseIaDefinition(
         ([sourceObject, identity]) => ({ sourceObject, identity }),
       ),
       ...base,
-      artifact: parseMarkdownArtifact(captured),
-      source: captured,
       expectedIdentity: expectedIaId,
       tableRows: captureDocumentTableRows({
         path: captured.path,

@@ -11,7 +11,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { captureArchitectureDocument } from "../../../src/architecture/validation.ts";
+import { captureArchitectureDocument } from "../../../src/architecture/parse.ts";
 import {
   compileSemanticIr,
   createSemanticBundle,

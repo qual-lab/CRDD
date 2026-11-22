@@ -20,7 +20,7 @@ import {
   parseUiIndex,
   parseUxIndex,
 } from "../../../src/index.ts";
-import { captureQualityDocument } from "../../../src/quality/readiness.ts";
+import { captureQualityDocument } from "../../../src/quality/parse.ts";
 
 const profiles = [
   [

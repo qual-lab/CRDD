@@ -456,7 +456,7 @@ UI／SPEC移管の独立レビューは実装・Consumer・型依存・既存ass
 Architecture専用の件数／Directory反証試験一件は、assertionを削らずSemanticからArchitecture試験へ移した。Root・旧分岐なし・逆依存なし・未知kind拒否と既存診断変換を追従する。Rootは212項目（値93・型119）、Semantic残存は29kind（工程移管候補19／Semantic維持10）。下記210項目・37kindの表は移管前の全件調査断面として保持し、今回の追加二公開はArchitectureの完成比較とその入力契約である。限定回帰・独立レビューの結果は確定後に追記する。全体回帰・実AI・Docker・過去保持物は操作しない。
 
 <a id="document-public-inventory"></a>
-#### 残るRelationと公開物の全件棚卸し — 2026-11-16
+#### 残るRelationと公開物の全件棚卸し（当時の記録） — 2026-11-16
 
 Architecture移管の独立レビューでは判定・依存・Consumer接続の退行指摘はなく、新規未知kind試験の個別HeaderにLocal Itemの追跡IDが欠ける一点を是正した。@trace RCM-UT-002の記載だけを追加し、Architecture15試験・当該FileのBiome・diff確認が成功した。是正と記録の読取り専用再確認で、残る必須指摘は0件となった。確認者は試験を実行しておらず、実装や試験本文は変更していない。
 
@@ -549,9 +549,9 @@ P2は限定三field／Path重複のReality受付であり、readTestCatalogの�
 
 分類は、モデル・型／値契約118、完成操作86、独立入力受付4、内部実現手段2。型宣言の数は118だが、この分類の「モデル・型／値契約118」は117型とtestLevels定数であり、内部実現手段2のうち一つがSemanticBundlePublisher型である。分類の数とTypeScriptの値／型の数を混同しない。
 
-以下は各項目の現行宣言元、直接本番利用、公開理由と処置を全数対応する。候補六項目は「完成操作への統合後に内部化を検討」の意味であり、即時削除済み・Rootが最小化完了という主張ではない。取得済み入力から結果を返す純粋契約の成立と、正本保存・実観測・本番Gateの接続も区別する。
+以下は基準 `069dd1fef` の調査時点における宣言元・利用先・公開理由・処置の記録であり、現行Sourceの一覧ではない。現在の配置は[Document Modelの設計](../../../06_Architecture/Details/document-model/01_Architecture.md)、実装の `index.ts` と公開契約試験を参照する。候補六項目は「完成操作への統合後に内部化を検討」の意味である。取得済み入力から結果を返す純粋契約の成立と、正本保存・実観測・本番Gateの接続も区別する。
 
-| 公開名 | 分類（値／型） | 現行宣言元（src配下） | 本番Root直接参照・理由 | 処置 |
+| 公開名 | 分類（値／型） | 調査時の宣言元（src配下） | 調査時の本番Root直接参照・理由 | 処置 |
 |---|---|---|---|---|
 | `federateTopicMeetingRelations` | 完成操作（値） | `activity/federate-relations.ts` | `mcp-server/src/request/authentication.ts`<br>`workbench-server/src/server/topic-meeting/access-resolver.ts`。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |
 | `TopicMeetingRelationSource` | モデル・型／値契約（型） | `activity/federate-relations.ts` | 本番Root直参照なし。Topic/Meetingの記録・照会・更新・関係の公開入力/結果 | 維持 |

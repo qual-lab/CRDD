@@ -50,7 +50,7 @@ import { authenticateLocalConnectionForm } from "../../src/transport/api-server.
 import {
   readAccessPortfolio,
   resolveAccessRepository,
-} from "../../src/service/project.ts";
+} from "../../src/service/project-context.ts";
 import { resolveTopicMeetingAccess } from "../../src/service/topic.ts";
 import { validateTopicMeetingActionForm } from "../../src/transport/api-server.ts";
 import { validateManagementResponse } from "../../../workbench-ui/src/client/api/response.ts";

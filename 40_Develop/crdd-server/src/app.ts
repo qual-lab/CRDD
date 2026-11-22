@@ -38,7 +38,7 @@ import {
 import { createRepositoryWorkbenchActivityReader } from "./service/execution.ts";
 import type { AiRequests } from "./service/execution.ts";
 import type { CredentialAdministration } from "./service/access.ts";
-import { readProjectViewData } from "./service/project.ts";
+import { readProjectViewData } from "./service/project-context.ts";
 import type {
   CrddServerStartRequest,
   WorkbenchHandle,
@@ -48,10 +48,9 @@ import type {
   WorkbenchPresentationState,
   WorkbenchConnectionState,
 } from "./transport/api-types.ts";
+import { setResponseHeaders, createApiServer } from "./transport/api-http.ts";
 import {
-  setResponseHeaders,
   createApiApplication,
-  createApiServer,
   executionHttpPaths,
   handleAiRequestAction,
   handleAiSelection,
@@ -68,7 +67,7 @@ import {
   handleWorkspaceAction,
 } from "./transport/api-server.ts";
 import { readAiSelectionView } from "./service/configuration.ts";
-import { readArtifactSelection } from "./service/project.ts";
+import { readArtifactSelection } from "./service/project-context.ts";
 
 // 活動Readerは起動時のDomain ContextのProject／Repository IDを第二引数に要求する。
 export {
@@ -93,15 +92,15 @@ export {
   readOwnerArtifactCatalog,
   type OwnerArtifact,
   type OwnerArtifactCatalog,
-} from "./service/project.ts";
-export { readProjectViewData } from "./service/project.ts";
+} from "./service/project-context.ts";
+export { readProjectViewData } from "./service/project-context.ts";
 export type {
   ProjectPlanObservation,
   WorkbenchCapabilityState,
   ProjectViewData,
   RecordCollectionView,
   ProjectQualityObservation,
-} from "./service/project.ts";
+} from "./service/project-context.ts";
 export type {
   WorkbenchRuntimeActivityObservation,
   WorkbenchRuntimeActivityPageRequest,

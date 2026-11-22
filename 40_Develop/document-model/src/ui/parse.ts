@@ -241,8 +241,6 @@ export function parseUiDefinition(
     ...base,
     correspondenceTitle,
     correspondenceSections,
-    artifact: parseMarkdownArtifact(captured),
-    source: captured,
     expectedIdentity,
     declarations: lines.filter(({ text }) => text.includes("UI ID: ")),
     syntaxTokens: lines.filter(
@@ -315,8 +313,6 @@ export function parseUiAnalysis(
   );
   const common = {
     ...base,
-    source: captured,
-    artifact: parseMarkdownArtifact(captured),
     expectedIdentity,
     declarations: lines.filter(({ text }) => text.includes("分析単位: ")),
     syntaxTokens: lines.filter(

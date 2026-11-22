@@ -15,7 +15,7 @@ import test from "node:test";
 import {
   captureArchitectureDetailTemplate,
   captureArchitectureDocument,
-} from "../../../../document-model/src/architecture/validation.ts";
+} from "../../../../document-model/src/architecture/parse.ts";
 import type { DocumentIssue } from "../../../../document-model/src/index.ts";
 import {
   inspectArchitectureConsistency,

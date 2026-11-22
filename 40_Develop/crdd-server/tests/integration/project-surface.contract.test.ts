@@ -17,7 +17,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   parseRepositoryProjectContextMarkdown,
-  parseRepositoryQualityProjectionMarkdown,
+  parseQualityCenter,
   parseRepositoryReleaseProjectionMarkdown,
 } from "../../../document-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
@@ -27,7 +27,7 @@ import {
   readProjectViewData,
   type OwnerArtifactCatalog,
 } from "../../src/app.ts";
-import { readArtifactSelection } from "../../src/service/project.ts";
+import { readArtifactSelection } from "../../src/service/project-context.ts";
 import { validateArtifactResponse } from "../../../workbench-ui/src/client/api/response.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
@@ -69,12 +69,15 @@ test("共通Project Contextを読み未構成Capabilityを明示する", async (
   assert.deepEqual(surface.plan.projection, release);
   assert.equal(surface.quality.state, "available");
   assert.equal(surface.quality.projection?.target, "v0.22.0");
-  const quality = parseRepositoryQualityProjectionMarkdown(
-    await readFile(
+  const { currentProjection } = parseQualityCenter({
+    path: "07_Quality/01_Quality_Center.md",
+    content: await readFile(
       path.join(repositoryRoot, "07_Quality", "01_Quality_Center.md"),
       "utf8",
     ),
-  );
+  }).result;
+  assert.equal(currentProjection.status, "complete");
+  const quality = currentProjection.result;
   assert.ok(quality.unobserved.length > 0);
   assert.deepEqual(surface.quality.projection, quality);
   assert.ok(
@@ -178,9 +181,24 @@ test("Owner文書は旧容量境界を超えて見出しと本文を返し終了
     await writeFile(file, longBody);
     const longCatalog = await readOwnerArtifactCatalog(
       root,
-      `[long](${relative})`,
+      [
+        "## 正本の参照",
+        `[long](${relative}#first)`,
+        "## 再掲",
+        `[same](${relative})`,
+        "<!-- [comment](missing-comment.md) -->",
+        "`[inline code](missing-code.md)`",
+        "```markdown",
+        "[example](missing-example.md)",
+        "```",
+      ].join("\n"),
     );
     assert.equal(longCatalog.state, "available");
+    assert.equal(
+      longCatalog.artifacts.find((entry) => entry.relativePath === relative)
+        ?.sourceSection,
+      "正本の参照",
+    );
     assert.equal(
       longCatalog.artifacts.find((entry) => entry.relativePath === relative)
         ?.title,
@@ -374,6 +392,21 @@ test("TopicとMeetingの正本を検証済み一覧へ投影する", async () =>
     assert.equal(surface.quality.state, "not_configured");
     assert.equal(surface.repository.state, "unknown");
     assert.equal(surface.repository.changeSet, null);
+
+    const qualityDirectory = path.join(fixtureRoot, "07_Quality");
+    await mkdir(qualityDirectory);
+    await writeFile(
+      path.join(qualityDirectory, "01_Quality_Center.md"),
+      "# Quality Center\n\n状態: Quality Ready\n",
+      "utf8",
+    );
+    const after = await readProjectViewData(fixtureRoot);
+    assert.deepEqual(after.quality, {
+      state: "unknown",
+      projection: null,
+      reason: "quality_projection_invalid",
+    });
+    assert.deepEqual(after.context, surface.context);
   } finally {
     await rm(fixtureRoot, { recursive: true, force: true });
   }

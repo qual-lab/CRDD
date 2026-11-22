@@ -11,7 +11,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { captureArchitectureDocument } from "../../../src/architecture/validation.ts";
+import { captureArchitectureDocument } from "../../../src/architecture/parse.ts";
 import {
   inspectEvaluatedChecklist,
   inspectTemplateChecklist,
@@ -49,7 +49,7 @@ import {
   parseUxQualityExpectations,
   parseUxServiceBlueprint,
 } from "../../../src/index.ts";
-import { captureQualityDocument } from "../../../src/quality/readiness.ts";
+import { captureQualityDocument } from "../../../src/quality/parse.ts";
 
 /**
  * 同じ受付の独立性を全工程の47種類で観測する。

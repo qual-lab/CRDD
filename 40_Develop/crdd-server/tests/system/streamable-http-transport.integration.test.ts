@@ -326,7 +326,7 @@ test("共有MCP設定Readerは当該Repositoryの閉設定だけを受理する"
  */
 test("共有MCPはHTTPS Origin以外の構成を拒否する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/transport/mcp-server.ts", import.meta.url),
+    new URL("../../src/transport/mcp-http.ts", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(source, /orchestrator_mcp_http_/u);

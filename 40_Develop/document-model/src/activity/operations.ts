@@ -9,8 +9,8 @@
  * @security Repository RootやFilesystem Pathを公開結果へ含めない。
  */
 
-import { applyMeetingOutcomeTreatment } from "../meeting/markdown.ts";
-import { applyTopicPromotion } from "../topic/markdown.ts";
+import { applyMeetingOutcomeTreatment } from "../meeting/update.ts";
+import { applyTopicPromotion } from "../topic/update.ts";
 import type {
   MeetingOutcomeCommandResult,
   ProjectOperationRecord,

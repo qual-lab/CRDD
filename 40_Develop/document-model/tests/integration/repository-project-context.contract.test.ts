@@ -14,9 +14,9 @@ import path from "node:path";
 import test from "node:test";
 
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { parseRepositoryProjectContextMarkdown } from "../../src/project-context/parse-context.ts";
-import { parseRepositoryQualityProjectionMarkdown } from "../../src/project-context/parse-quality.ts";
-import { parseRepositoryReleaseProjectionMarkdown } from "../../src/project-context/parse-release.ts";
+import { parseRepositoryProjectContextMarkdown } from "../../src/project-context/parse.ts";
+import { parseQualityCenter } from "../../src/quality/parse.ts";
+import { parseRepositoryReleaseProjectionMarkdown } from "../../src/release/parse.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -213,7 +213,12 @@ test("現行Quality CenterをCurrent Quality Read Modelへ変換する", async (
     path.join(repositoryRoot, "07_Quality", "01_Quality_Center.md"),
     "utf8",
   );
-  const projection = parseRepositoryQualityProjectionMarkdown(markdown);
+  const { currentProjection } = parseQualityCenter({
+    path: "07_Quality/01_Quality_Center.md",
+    content: markdown,
+  }).result;
+  assert.equal(currentProjection.status, "complete");
+  const projection = currentProjection.result;
 
   for (const [label, value] of [
     ["全体状態", projection.overallState],
@@ -227,6 +232,22 @@ test("現行Quality CenterをCurrent Quality Read Modelへ変換する", async (
     assert.ok(value && value.length > 0);
     assert.ok(markdown.includes(`| ${label} | ${value} |`));
   }
+  const pathName = "07_Quality/01_Quality_Center.md";
+  const current = parseQualityCenter({ path: pathName, content: markdown });
+  const withoutProjection = parseQualityCenter({
+    path: pathName,
+    content: markdown.replace("## Current Quality Projection", "## 表示対象外"),
+  });
+  assert.equal(
+    withoutProjection.result.currentProjection.status,
+    "unavailable",
+  );
+  assert.equal(
+    withoutProjection.result.normalizedQualityState,
+    current.result.normalizedQualityState,
+  );
+  assert.equal(withoutProjection.status, current.status);
+  assert.deepEqual(withoutProjection.issues, current.issues);
 });
 
 /**
@@ -254,7 +275,19 @@ test("品質Projectionの固定Schemaを読み取り欠測を拒否する", () =
 | 次Gate | 評価結果を確認 | 固定根拠 |
 | 現在人間判断 | 残る一件の評価 | 固定根拠 |
 `;
-  const projection = parseRepositoryQualityProjectionMarkdown(markdown);
+  const source = (content: string) => ({
+    path: "07_Quality/01_Quality_Center.md",
+    content,
+  });
+  const parsed = parseQualityCenter(source(markdown));
+  assert.equal(
+    parsed.status,
+    "partial",
+    "正常な表示表だけで文書全体を合格にしない",
+  );
+  const { currentProjection } = parsed.result;
+  assert.equal(currentProjection.status, "complete");
+  const projection = currentProjection.result;
   assert.deepEqual(
     [
       projection.overallState,
@@ -279,11 +312,33 @@ test("品質Projectionの固定Schemaを読み取り欠測を拒否する", () =
     Object.values(projection.rationale).every((value) => value === "固定根拠"),
     true,
   );
-  assert.throws(
-    () =>
-      parseRepositoryQualityProjectionMarkdown(
-        markdown.replace("| 既知Gap | 人間評価待ち | 固定根拠 |\n", ""),
+  for (const [content, reason] of [
+    [
+      markdown.replace("## Current Quality Projection", "## 別の見出し"),
+      "quality_projection_section_missing",
+    ],
+    [
+      markdown.replace("|---|---|---|", "|---| 不正 |---|"),
+      "quality_projection_table_invalid",
+    ],
+    [
+      markdown.replace(
+        "| 既知Gap | 人間評価待ち | 固定根拠 |",
+        "| 既知Gap | 人間評価待ち | |",
       ),
-    /quality_projection_value_missing/u,
-  );
+      "quality_projection_row_invalid",
+    ],
+    [
+      markdown.replace("| 既知Gap | 人間評価待ち | 固定根拠 |\n", ""),
+      "quality_projection_value_missing",
+    ],
+  ] as const) {
+    const failed = parseQualityCenter(source(content));
+    assert.deepEqual(failed.result.currentProjection, {
+      status: "unavailable",
+      reason,
+    });
+    assert.equal(failed.status, parsed.status);
+    assert.deepEqual(failed.issues, parsed.issues);
+  }
 });

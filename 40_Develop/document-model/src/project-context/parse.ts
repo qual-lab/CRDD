@@ -9,10 +9,12 @@
  * @security 宣言されていないContext、RepositoryまたはAuthorityを補完しない。
  */
 import type {
+  ArtifactModel,
   ArtifactSource,
   DocumentIssue,
   ParseResult,
 } from "../artifact/types.ts";
+import { parseMarkdownArtifact } from "../artifact/parse-markdown.ts";
 import type {
   RepositoryProjectContext,
   RepositoryProjectContextScene,
@@ -221,12 +223,40 @@ function projectionContractInvalid(
 
   return isIdentityInvalid || isHeadingOrderInvalid || isChecklistInvalid;
 }
+
+/**
+ * 本文の相対Markdownリンクを、出典を保持した成果物の参照候補へ投影する。
+ * @responsibility 共通Artifactから対象と出典のH2を選ぶ。実在や操作許可は判断しない。
+ * @trace ARCH-000005
+ * @boundary 文書の宣言とRepositoryを観測する利用側の境界。
+ */
+function captureArtifactReferences(artifact: ArtifactModel) {
+  const references: Readonly<{
+    relativePath: string;
+    sourceSection: string | null;
+  }>[] = [];
+  for (const link of artifact.bodyInlineLinks) {
+    const relativePath = link.target.split("#", 1)[0] ?? "";
+    if (
+      !relativePath.endsWith(".md") ||
+      relativePath.includes("\\") ||
+      relativePath.startsWith("/") ||
+      /^[A-Za-z][A-Za-z0-9+.-]*:/u.test(relativePath) ||
+      relativePath.split("/").includes("..")
+    )
+      continue;
+    const sourceSection =
+      link.precedingHeadings.find(({ level }) => level === 2)?.title ?? null;
+    references.push(Object.freeze({ relativePath, sourceSection }));
+  }
+  return Object.freeze(references);
+}
 /**
  * Project Contextを内容モデルと文書単体の診断へ受け付ける。
  * @responsibility 単体条件と解析失敗を保持し、外部Manifest照合や認可を行わない。
  * @trace ARCH-000005
  * @input markdown: 取得済み本文。options: ひな型方式と相対出典。
- * @returns 解析可能な部分内容と診断。構造不成立時は結果nullと元の理由を返す。
+ * @returns 部分内容と診断、共通Artifactと参照候補。構造不成立時は結果nullと元の理由を返す。
  * @effect N/A: 取得済み文字列のみ。File・外部サービスへ接続しない。
  * @failure 契約にない例外は伝播し、既知の文書不正と混同しない。
  */
@@ -239,6 +269,8 @@ export function parseRepositoryProjectContextMarkdown(
 ): ParseResult<RepositoryProjectContext> &
   Readonly<{
     source: ArtifactSource;
+    artifact: ArtifactModel;
+    artifactReferences: ReturnType<typeof captureArtifactReferences>;
     manifestIdentity: Readonly<{
       projectId: string;
       repositoryId: string;
@@ -291,12 +323,15 @@ export function parseRepositoryProjectContextMarkdown(
       details: {},
     });
   }
+  const artifact = parseMarkdownArtifact(source);
   return {
     status:
       result === null ? "invalid" : issues.length ? "partial" : "complete",
     result,
     issues,
     source,
+    artifact,
+    artifactReferences: captureArtifactReferences(artifact),
     manifestIdentity,
   };
 }

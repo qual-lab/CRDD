@@ -10,7 +10,51 @@
 
 import { omitMarkdownFencedCode } from "./anchors.ts";
 import { omitMarkdownCommentsAndFencedCode } from "./markdown.ts";
-import type { MarkdownLinkReference } from "./types.ts";
+import type {
+  ArtifactModel,
+  ArtifactSource,
+  MarkdownLinkReference,
+} from "./types.ts";
+
+const inlineLinkPattern = /(?<!!)\[[^\]]+\]\(([^)\n]+)\)/gu;
+
+/**
+ * 表示される本文のインラインリンクと、各見出しレベルの直前出典を捕捉する。
+ * @trace ARCH-000008
+ * @boundary 一覧候補用の構文観測。Checkerの診断リンク集合には混ぜず、Path・認可も判断しない。
+ */
+export function captureBodyInlineLinks(
+  source: ArtifactSource,
+): ArtifactModel["bodyInlineLinks"] {
+  const body = omitMarkdownCommentsAndFencedCode(
+    source.content.replace(/\r\n?/gu, "\n"),
+  );
+  const visible = body.replace(
+    /(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/gu,
+    (span) => span.replace(/[^\n]/g, " "),
+  );
+  const visibleLines = visible.split("\n");
+  const precedingHeadings = new Map<number, string>();
+  const links: ArtifactModel["bodyInlineLinks"][number][] = [];
+  for (const [index, line] of body.split("\n").entries()) {
+    const visibleLine = visibleLines[index] ?? "";
+    const heading = /^(#{1,6})\s+(.+?)\s*$/u.exec(line);
+    if (heading?.[1] && heading[2] && visibleLine.startsWith("#"))
+      precedingHeadings.set(heading[1].length, heading[2]);
+    for (const match of line.matchAll(inlineLinkPattern)) {
+      if (visibleLine[match.index] !== "[") continue;
+      links.push({
+        target: match[1] ?? "",
+        location: { path: source.path, line: index + 1 },
+        precedingHeadings: [...precedingHeadings].map(([level, title]) => ({
+          level,
+          title,
+        })),
+      });
+    }
+  }
+  return links;
+}
 
 /**
  * Markdown本文から参照先と出現単位の注記を抽出する。
@@ -18,7 +62,7 @@ import type { MarkdownLinkReference } from "./types.ts";
  * @responsibility Inline・参照形式・短縮参照の順序と重複を保ち、Labelを解決する。
  * @trace ARCH-000008
  * @input text: string
- * @returns 未Decodeの参照先と出現単位の旧参照注記。走査順と重複を維持する。
+ * @returns 未Decodeの参照先・位置と出現単位の旧参照注記。走査順と重複を維持する。
  * @precondition textは取得済みの本文である。
  * @postcondition 通常参照の三走査順と重複を保持し、注記した出現だけを分類する。
  * @effect N/A: 入力と局所値だけを扱う。
@@ -49,26 +93,29 @@ export function parseMarkdownLinks(text: string): readonly Readonly<{
   const relatedRanges = [
     ...content.matchAll(/^Related:\n(?:- [^\n]*(?:\n|$))+/gmu),
   ].map((match) => [match.index, match.index + match[0].length] as const);
-  const targets = [...content.matchAll(/(?<!!)\[[^\]]+\]\(([^)\n]+)\)/gu)].map(
-    (match) => {
-      const start = match.index;
-      const prefixStart = start - "[旧参照]".length;
-      const slashes =
-        content.slice(0, prefixStart).match(/\\+$/u)?.[0].length ?? 0;
-      const historical =
-        prefixStart >= 0 &&
-        visible.slice(prefixStart, start) === "[旧参照]" &&
-        visible[start] === "[" &&
-        commentVisible.slice(start, start + match[0].length) === match[0] &&
-        slashes % 2 === 0;
-      if (historical)
-        annotatedRanges.push([prefixStart, start + match[0].length]);
-      const related = relatedRanges.some(
-        ([from, to]) => start >= from && start < to,
-      );
-      return { target: match[1] ?? "", historical, related, offset: start };
-    },
-  );
+  const targets = [...content.matchAll(inlineLinkPattern)].map((match) => {
+    const start = match.index;
+    const prefixStart = start - "[旧参照]".length;
+    const slashes =
+      content.slice(0, prefixStart).match(/\\+$/u)?.[0].length ?? 0;
+    const historical =
+      prefixStart >= 0 &&
+      visible.slice(prefixStart, start) === "[旧参照]" &&
+      visible[start] === "[" &&
+      commentVisible.slice(start, start + match[0].length) === match[0] &&
+      slashes % 2 === 0;
+    if (historical)
+      annotatedRanges.push([prefixStart, start + match[0].length]);
+    const related = relatedRanges.some(
+      ([from, to]) => start >= from && start < to,
+    );
+    return {
+      target: match[1] ?? "",
+      historical,
+      related,
+      offset: start,
+    };
+  });
   for (const match of content.matchAll(/(?<!!)\[([^\]]+)\]\[([^\]]*)\]/gu)) {
     if (
       annotatedRanges.some(

@@ -6,12 +6,12 @@
  */
 
 import path from "node:path";
-import type { ArchitectureDetailTrace } from "../architecture/details.ts";
 import type {
   ArchitectureDefinition,
   ArchitectureDetailAssignment,
-} from "../architecture/validation.ts";
-import { architectureCrossModelFiles } from "../architecture/validation.ts";
+  ArchitectureDetailTrace,
+} from "../architecture/types.ts";
+import { architectureCrossModelFiles } from "../architecture/parse.ts";
 import { buildArtifactGraph } from "../artifact/graph.ts";
 import type {
   ArtifactModel,
@@ -19,16 +19,14 @@ import type {
   DocumentResult,
   ParseResult,
 } from "../artifact/types.ts";
-import type { parseRepositoryProjectContextMarkdown } from "../project-context/parse-context.ts";
+import type { parseRepositoryProjectContextMarkdown } from "../project-context/parse.ts";
 import type {
   QualityDetailTrace,
   QualityIntegration,
-} from "../quality/analysis.ts";
-import type {
   QualityDefinitionModel,
   QualityDetailAssignment,
-} from "../quality/definition.ts";
-import { collectQualityDefinitionRelations } from "../quality/definition.ts";
+} from "../quality/types.ts";
+import { collectQualityDefinitionRelations } from "../quality/validation.ts";
 import type {
   SpecDefinition,
   SpecDefinitionCorrespondence,

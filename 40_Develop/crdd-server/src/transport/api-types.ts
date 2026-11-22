@@ -16,7 +16,7 @@ import type {
 import type {
   ProjectDetailResponse,
   ArtifactViewResponse,
-} from "../service/project.ts";
+} from "../service/project-context.ts";
 import type {
   RecordDocumentView,
   RecordDetailResponse,
@@ -29,7 +29,7 @@ import type {
   AiRequestSnapshot,
   WorkbenchRuntimeActivityObservation,
 } from "../service/execution.ts";
-import type { ProjectViewData } from "../service/project.ts";
+import type { ProjectViewData } from "../service/project-context.ts";
 import type { TopicMeetingActionResult } from "../service/topic.ts";
 import type { FilesystemStoreRoot } from "../../../access-management/src/index.ts";
 import type { PortfolioProjection } from "../../../document-model/src/index.ts";

@@ -14,7 +14,7 @@ import {
   type FileDiff,
   type TreePage,
 } from "../../../version-control/src/index.ts";
-import type { ProjectViewData } from "./project.ts";
+import type { ProjectViewData } from "./project-context.ts";
 import {
   stagePaths,
   unstagePaths,

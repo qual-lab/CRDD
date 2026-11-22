@@ -355,12 +355,7 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
   ].flatMap((owner) =>
     walkFiles(
       repositoryRoot,
-      path.join(
-        repositoryRoot,
-        "40_Develop",
-        owner,
-        "tests",
-      ),
+      path.join(repositoryRoot, "40_Develop", owner, "tests"),
     )
       .filter((file) => file.endsWith(".test.ts"))
       .map((file) => repositoryPath(repositoryRoot, file)),
@@ -761,9 +756,7 @@ export function inspectTestCatalog(
       binding.producerPaths.some(
         (entry) =>
           !isSafeRepositoryPath(entry) ||
-          !entry.startsWith(
-            `40_Develop/${binding.producerOwner}/`,
-          ),
+          !entry.startsWith(`40_Develop/${binding.producerOwner}/`),
       )
     )
       failures.push(`invalid_consumer_producer_paths:${index}`);

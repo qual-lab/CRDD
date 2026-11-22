@@ -12,7 +12,7 @@ import {
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { createFilesystemRepositoryObservationPort } from "../repository/create-observer.ts";
-import { parseRepositoryProjectContextMarkdown } from "./parse-context.ts";
+import { parseRepositoryProjectContextMarkdown } from "./parse.ts";
 import type {
   RepositoryProjectContext,
   RepositoryProjectContextReadResult,

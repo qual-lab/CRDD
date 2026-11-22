@@ -1298,6 +1298,14 @@ Workbenchの受信検査を `workbench-ui/src/client/api/response.ts` へ移し�
 
 製品起動を `template/tools/crdd-server.ts` に統合し、旧MCP単独ランチャーと旧フラグの互換入口を廃止した。HTTPは全モードで `127.0.0.1` 固定。単体HTTPのMCPは既存の固定Bearerが未設定なら認証を拒否し、共有はAMと両公開Originの照合を維持する。stdio指定でもHTTP APIとUIは残し、stdoutをMCP専用にしてEOF・失敗・終了Signalで所有する待受を閉じる。起動入口はHTTPとstdioの終了確認を待ち、重複通知で別の終了を発行しない。採用Repositoryの旧MCPコマンド・Inspector設定は新入口へ切り替え、公式配布物のUI資産を用意する。OpenAPIは単体loopbackの契約を記載し、管理APIは現在認可から応答公開まで非同期の待機を挟まない。起動のみではAI Sessionを開かない。外部公開、保存形式、実AI・Dockerの実行は変更・検証対象外とする。
 
+HTTP接続・取消と共通のフォーム／応答を `transport/api-http.ts` に分離し、Expressルートと操作別受付は `transport/api-server.ts` に維持した。MCPはTool登録、Streamable HTTP、標準入出力、共通要求検査とSDK接続を分離した。HTTPとstdioの認可・取消・終了契約、公開 `./api`／`./mcp`、CLI、保存形式は変更しない。Projectの成果物一覧の抽出はDocument Modelの正式な文書解析と等価ではなく、作業ツリーの読取りもGit比較を要する既存操作とは異なるため、表示投影と実体境界の所有は変更しない。
+
+Project Contextの成果物参照と出典は共通Artifactを使うDocument Modelの完成Parseへ移管し、Server側のMarkdown再走査を廃止した。Serverの接続元は `service/project-context.ts` に揃え、成果物の実体照合・公開形式・認可は維持する。コメントとコード例は一覧候補から除外し、Checkerが使うリンクの検査対象やMCP応答は変更しない。
+
+Document Modelの完成Parseを文書Ownerの `parse.ts` に揃えた。ArchitectureとQualityはモデル・検査を分け、Quality Center／Releaseの表示用Projectionも該当Ownerに置く。Topic／Meetingの書換えは `update.ts` に分ける。同じ本文の共通Artifactを複数回作っていた箇所は捕捉済み値を再利用し、原文・可視本文で検査条件が異なる観測は残す。公開名、診断条件、Topic／Meetingの保存形式は変えない。
+
+Quality Centerの公開Parseを `parseQualityCenter` に統一した。同一原文の表示表を `currentProjection` として保持し、その欠測をCheckerの状態・Checklist診断へ混ぜない。Workbenchは既存の表示結果と観測不明を維持する。専用の公開Parseを撤去したため、Document Model Rootは226項目（値102・型124）となる。保存形式、Release投影およびRepository実体の観測順は変更しない。
+
 ### Provider計測を用途の最終結果へ一本化 — 2026-11-21
 
 TaskとAdviceが必ず渡していた記録集合を内部の必須引数とし、技術完了だけで計測を確定する未接続の別経路を撤去した。両用途の記録集合は同じ確定処理が一度消費し、技術結果と上位最終結果を区別して保存する。観測欠測の試行を未完了のまま残し、後続の観測済み試行の確定は妨げない。公開API、保存形式、実行・回収の判定は変更しない。

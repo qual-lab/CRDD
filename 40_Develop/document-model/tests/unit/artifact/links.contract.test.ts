@@ -115,8 +115,18 @@ test("旧参照注記は可視Inline出現だけを分類し参照定義へ二�
   assert.deepEqual(
     links.filter((link) => link.historical),
     [
-      { target: "related.md", historical: "invalid", related: true },
-      { target: "same.md", historical: "declared", related: false },
+      {
+        target: "related.md",
+        historical: "invalid",
+        related: true,
+        location: { path: "Evidence/result.md", line: 2 },
+      },
+      {
+        target: "same.md",
+        historical: "declared",
+        related: false,
+        location: { path: "Evidence/result.md", line: 4 },
+      },
     ],
   );
   assert.equal(links.filter((link) => link.target === "same.md").length, 2);

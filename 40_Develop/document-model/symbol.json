@@ -303,7 +303,7 @@
     {
       "symbolId": "project-operation.domain.repository-project-context",
       "kind": "file",
-      "path": "src/project-context/parse-context.ts",
+      "path": "src/project-context/parse.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -311,7 +311,7 @@
     {
       "symbolId": "project-operation.domain.repository-release-projection",
       "kind": "file",
-      "path": "src/project-context/parse-release.ts",
+      "path": "src/release/parse.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -319,7 +319,7 @@
     {
       "symbolId": "project-operation.domain.repository-quality-projection",
       "kind": "file",
-      "path": "src/project-context/parse-quality.ts",
+      "path": "src/quality/parse.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -470,7 +470,7 @@
     {
       "symbolId": "domain-model.topic-markdown",
       "kind": "file",
-      "path": "src/topic/markdown.ts",
+      "path": "src/topic/parse.ts",
       "archIds": [
         "ARCH-000006"
       ]
@@ -478,10 +478,22 @@
     {
       "symbolId": "domain-model.meeting-markdown",
       "kind": "file",
-      "path": "src/meeting/markdown.ts",
+      "path": "src/meeting/parse.ts",
       "archIds": [
         "ARCH-000006"
       ]
+    },
+    {
+      "symbolId": "domain-model.topic-markdown-update",
+      "kind": "file",
+      "path": "src/topic/update.ts",
+      "archIds": ["ARCH-000006"]
+    },
+    {
+      "symbolId": "domain-model.meeting-markdown-update",
+      "kind": "file",
+      "path": "src/meeting/update.ts",
+      "archIds": ["ARCH-000006"]
     },
     {
       "symbolId": "project-operation.repository.topic-meeting",
@@ -529,6 +541,8 @@
       ],
       "verifies": [
         "domain-model.activity-federate-relations",
+        "domain-model.topic-markdown-update",
+        "domain-model.meeting-markdown-update",
         "project-operation.application.topic-meeting",
         "project-operation.repository.topic-meeting"
       ]
@@ -1079,7 +1093,7 @@
     {
       "symbolId": "domain-model.artifact-architecture",
       "kind": "file",
-      "path": "src/architecture/validation.ts",
+      "path": "src/architecture/parse.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1087,7 +1101,7 @@
     {
       "symbolId": "domain-model.artifact-architecture-details",
       "kind": "file",
-      "path": "src/architecture/details.ts",
+      "path": "src/architecture/parse.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1099,6 +1113,18 @@
       "archIds": [
         "ARCH-000008"
       ]
+    },
+    {
+      "symbolId": "domain-model.artifact-architecture-types",
+      "kind": "file",
+      "path": "src/architecture/types.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "domain-model.artifact-architecture-validation",
+      "kind": "file",
+      "path": "src/architecture/validation.ts",
+      "archIds": ["ARCH-000008"]
     },
     {
       "symbolId": "domain-model.test.unit.artifact-architecture",
@@ -1114,16 +1140,24 @@
         "domain-model.artifact-architecture",
         "domain-model.artifact-architecture-details",
         "domain-model.artifact-architecture-relations",
+        "domain-model.artifact-architecture-types",
+        "domain-model.artifact-architecture-validation",
         "domain-model.artifact-markdown"
       ]
     },
     {
       "symbolId": "domain-model.artifact-quality-definition",
       "kind": "file",
-      "path": "src/quality/definition.ts",
+      "path": "src/quality/parse.ts",
       "archIds": [
         "ARCH-000008"
       ]
+    },
+    {
+      "symbolId": "domain-model.artifact-quality-types",
+      "kind": "file",
+      "path": "src/quality/types.ts",
+      "archIds": ["ARCH-000008"]
     },
     {
       "symbolId": "domain-model.test.unit.artifact-quality-definition",
@@ -1137,13 +1171,14 @@
       ],
       "verifies": [
         "domain-model.artifact-quality-definition",
+        "domain-model.artifact-quality-types",
         "domain-model.artifact-markdown"
       ]
     },
     {
       "symbolId": "domain-model.artifact-quality-readiness",
       "kind": "file",
-      "path": "src/quality/readiness.ts",
+      "path": "src/quality/parse.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1151,7 +1186,7 @@
     {
       "symbolId": "domain-model.artifact-quality-analysis",
       "kind": "file",
-      "path": "src/quality/analysis.ts",
+      "path": "src/quality/parse.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1159,7 +1194,7 @@
     {
       "symbolId": "domain-model.artifact-quality-templates",
       "kind": "file",
-      "path": "src/quality/templates.ts",
+      "path": "src/quality/parse.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -1177,6 +1212,7 @@
       "verifies": [
         "domain-model.artifact-quality-readiness",
         "domain-model.artifact-quality-analysis",
+        "domain-model.artifact-quality-types",
         "domain-model.semantic-relations",
         "domain-model.artifact-quality-templates",
         "domain-model.artifact-markdown"
@@ -1185,7 +1221,7 @@
     {
       "symbolId": "domain-model.artifact-verification-tables",
       "kind": "file",
-      "path": "src/quality/verification-tables.ts",
+      "path": "src/quality/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]

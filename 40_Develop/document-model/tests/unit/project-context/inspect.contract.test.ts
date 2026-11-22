@@ -17,6 +17,75 @@ import {
 } from "../../../src/index.ts";
 
 /**
+ * 参照を本文の出現順と出典付きで返し、診断と区別する。
+ * @trace RCM-UT-014
+ * @stimulus 本文・コード・コメント・参考形式・外部参照を混ぜる。
+ * @oracle Artifactの従来の解析対象を削らず、一覧候補には本文の相対リンクだけを返す。
+ */
+test("Project Contextは共通Artifactから本文リンクと出典節を得る", () => {
+  const markdown = [
+    "[前文](intro.md)",
+    "## 品質",
+    "[品質](quality/main.md#current)",
+    "<!--",
+    "## コメントの節",
+    "[非表示](comment.md)",
+    "-->",
+    "```markdown",
+    "## コード例",
+    "[例](example.md)",
+    "```",
+    "`[値](code.md)` [実際の参照](second.md)",
+    "### 補足",
+    "[外部](https://example.test/out.md) [越境](../out.md)",
+    "[定義参照][q]",
+    "[q]: reference.md",
+    "## 次",
+    "[再掲](quality/main.md)",
+  ].join("\r\n");
+  const parsed = parseRepositoryProjectContextMarkdown(markdown);
+  assert.equal(parsed.status, "invalid");
+  assert.deepEqual(parsed.artifactReferences, [
+    { relativePath: "intro.md", sourceSection: null },
+    { relativePath: "quality/main.md", sourceSection: "品質" },
+    { relativePath: "second.md", sourceSection: "品質" },
+    { relativePath: "quality/main.md", sourceSection: "次" },
+  ]);
+  assert.deepEqual(
+    parsed.artifact.links
+      .filter((link) =>
+        ["comment.md", "code.md", "reference.md"].includes(link.target),
+      )
+      .map(({ target, location }) => [target, location.line]),
+    [
+      ["comment.md", 6],
+      ["code.md", 12],
+      ["reference.md", 15],
+      ["reference.md", 15],
+    ],
+  );
+});
+
+/**
+ * コメント内のフェンスで後続の本文参照を失わないことを確認する。
+ * @trace RCM-UT-014
+ * @oracle コメント後のリンクと出典行を返し、Checker用の既存リンク集合は変えない。
+ */
+test("コメント内のフェンスは後続の本文を隠さない", () => {
+  const parsed = parseRepositoryProjectContextMarkdown(
+    ["<!--", "```", "-->", "## 本文", "[`表示名`](visible.md)"].join("\n"),
+  );
+  assert.deepEqual(parsed.artifactReferences, [
+    { relativePath: "visible.md", sourceSection: "本文" },
+  ]);
+  assert.equal(parsed.artifact.bodyInlineLinks[0]?.location.line, 5);
+  assert.equal(
+    parsed.artifact.links.some(({ target }) => target === "visible.md"),
+    false,
+  );
+});
+
+/**
  * 固定構造の肯定・否定・境界を検証する。
  *
  * @responsibility 見出し重複・順序・Identity空欄とTemplate別Checklistを確認する。

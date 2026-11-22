@@ -262,10 +262,13 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
       const resolved = resolveLocalSource(current, specifier);
       assert.notEqual(resolved, mcpServer);
       assert.notEqual(resolved, path.join(transport, "api-server.ts"));
+      assert.notEqual(resolved, path.join(transport, "api-http.ts"));
       assert.notEqual(resolved, path.join(transport, "api-document.ts"));
       if (path.dirname(resolved) === transport) lowerTransport.push(resolved);
     }
   }
+  for (const name of ["mcp-http.ts", "mcp-stdio.ts", "mcp-protocol.ts"])
+    assert.ok(visitedTransport.has(path.join(transport, name)), name);
 });
 
 /**

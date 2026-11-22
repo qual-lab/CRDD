@@ -70,11 +70,11 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 | 実装領域 | 判定 | 現在の成立範囲 | 残るGap |
 |---|---|---|---|
-| `src/topic/markdown.ts・meeting/markdown.ts` | Covered | Topic／Meetingの固定Metadata、状態、改訂、要約、Topic昇格時の状態・Relation・終了表の同時変換、Outcome／Action表の同時変換およびpending Outcome Close拒否 | Cross-Repository Relation解決はApplication外の別境界 |
+| `src/topic/parse.ts・meeting/parse.ts` と各 `update.ts` | Covered | `parse.ts` は固定Metadata・状態・改訂・要約とMeeting終結条件を解析する。`update.ts` は昇格またはOutcome処置の本文を構成する | Cross-Repository Relation解決はApplication外の別境界 |
 | `src/storage/topic-meeting-store.ts` | Covered | 固定Pathでの登録・編集・一覧・取得、期待改訂競合、同一Repository一時File置換、Relation影響表示、誤登録理由＋明示確認の対象限定削除 | Cross-Repository Relation Resolverは別境界 |
 | `src/activity/operations.ts` | Covered | Workbench／MCPが共有するCRUD Command、ID Cursor Pagination、取得本文、削除確認、同一Repository内のMeeting Outcome処置、実在CHGへのTopic昇格接続、Topic／Meeting／CHG安定ID Relationの存在解決およびCROSがOwnerを解決するための対象存在確認を一つのApplication契約として提供 | 複数RepositoryのAuthority付きOwner解決はCROS Compositionが所有する |
-| `src/project-context/parse-release.ts` | Covered | Current Release Projectionの固定三表をVersion、期限、Scope、依存および判断のRead Modelへ変換する | Roadmap／CHGの計画値そのものは所有しない |
-| `src/project-context/parse-quality.ts` | Covered | Current Quality Projectionの固定表を状態、Coverage、Gap、Gateおよび人間判断のRead Modelへ変換する | Quality Definition、実行結果およびEvidenceそのものは所有しない |
+| `src/release/parse.ts` | Covered | Current Release Projectionの固定三表をVersion、期限、Scope、依存および判断のRead Modelへ変換する | Roadmap／CHGの計画値そのものは所有しない |
+| `src/quality/parse.ts` | Covered | Quality Centerの完成Parse `parseQualityCenter` が、固定表示表を `result.currentProjection` に保持する | 表の欠測と品質状態・Checklistの局所診断は同じ原文から得るが、成立判定は独立する |
 
 担当責任者: Qual-Lab
 最終更新日: 2026-09-12
@@ -410,7 +410,7 @@ Markdown Linkは表示文字だけを保持し、URLを新しいAuthorityとし�
 
 ### 7.3. Current Quality Projection
 
-`07_Quality/01_Quality_Center.md`は、Quality正本群から導かれた現在状態を固定表で提供する。Project Operationの共通Readerは、全体状態、対象Release、観測済み／未観測、既知Gap、次Gateおよび現在の人間判断を構造化し、Evidenceや検証結果そのものを再定義しない。
+`07_Quality/01_Quality_Center.md`は、Quality正本群から導かれた現在状態を固定表で提供する。Quality Centerの完成Parseは `currentProjection` として全体状態、対象Release、観測済み／未観測、既知Gap、次Gateおよび現在の人間判断を構造化する。表示表を読めない場合は表示結果だけが未取得となり、品質状態やChecklistの局所診断に影響しない。Evidenceや検証結果そのものを再定義しない。
 
 | 原則 | 契約 |
 |---|---|

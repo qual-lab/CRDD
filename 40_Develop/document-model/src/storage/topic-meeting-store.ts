@@ -29,8 +29,8 @@ import type {
   TopicMeetingRepository,
   TopicMeetingWriteResult,
 } from "../activity/types.ts";
-import { parseMeetingMarkdown } from "../meeting/markdown.ts";
-import { parseTopicMarkdown } from "../topic/markdown.ts";
+import { parseMeetingMarkdown } from "../meeting/parse.ts";
+import { parseTopicMarkdown } from "../topic/parse.ts";
 
 const KIND_CONTRACT = Object.freeze({
   topic: Object.freeze({ directory: "22_Topics", prefix: "TOPIC" }),

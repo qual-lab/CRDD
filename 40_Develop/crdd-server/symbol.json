@@ -169,7 +169,7 @@
     {
       "symbolId": "mcp.request.discover",
       "kind": "file",
-      "path": "src/transport/mcp-server.ts",
+      "path": "src/transport/mcp-protocol.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -420,7 +420,7 @@
     {
       "symbolId": "mcp.source.src.protocol.orchestrator.protocol",
       "kind": "file",
-      "path": "src/transport/mcp-server.ts",
+      "path": "src/transport/mcp-protocol.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -436,7 +436,7 @@
     {
       "symbolId": "mcp.source.src.transports.stdio.transport",
       "kind": "file",
-      "path": "src/transport/mcp-server.ts",
+      "path": "src/transport/mcp-stdio.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -444,7 +444,7 @@
     {
       "symbolId": "mcp.source.src.transports.streamable.http.transport",
       "kind": "file",
-      "path": "src/transport/mcp-server.ts",
+      "path": "src/transport/mcp-http.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -452,7 +452,7 @@
     {
       "symbolId": "mcp.source.src.transports.process.signal.shutdown",
       "kind": "file",
-      "path": "src/transport/mcp-server.ts",
+      "path": "src/transport/mcp-http.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -696,7 +696,7 @@
     {
       "symbolId": "workbench.project.access-reader",
       "kind": "file",
-      "path": "src/service/project.ts",
+      "path": "src/service/project-context.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -862,7 +862,7 @@
     {
       "symbolId": "workbench.presentation.portfolio",
       "kind": "file",
-      "path": "src/service/project.ts",
+      "path": "src/service/project-context.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -885,7 +885,7 @@
     {
       "symbolId": "workbench.http.lifecycle",
       "kind": "file",
-      "path": "src/transport/api-server.ts",
+      "path": "src/transport/api-http.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -893,7 +893,7 @@
     {
       "symbolId": "workbench.http.security",
       "kind": "file",
-      "path": "src/transport/api-server.ts",
+      "path": "src/transport/api-http.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -929,7 +929,7 @@
     {
       "symbolId": "workbench.application.project-surface",
       "kind": "file",
-      "path": "src/service/project.ts",
+      "path": "src/service/project-context.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -974,7 +974,7 @@
     {
       "symbolId": "workbench.application.owner-artifact-surface",
       "kind": "file",
-      "path": "src/service/project.ts",
+      "path": "src/service/project-context.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -984,7 +984,7 @@
     {
       "symbolId": "workbench.application.project-plan-surface",
       "kind": "file",
-      "path": "src/service/project.ts",
+      "path": "src/service/project-context.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -993,7 +993,7 @@
     {
       "symbolId": "workbench.application.quality-surface",
       "kind": "file",
-      "path": "src/service/project.ts",
+      "path": "src/service/project-context.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"

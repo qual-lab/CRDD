@@ -6,13 +6,6 @@
  * @trace ARCH-000013
  */
 import type {
-  MeetingRecord,
-  TopicRecord,
-  RepositoryQualityProjection,
-  RepositoryReleaseProjection,
-  RepositoryProjectContext,
-} from "../../../document-model/src/index.ts";
-import type {
   RemoteTarget,
   WorkingChanges,
 } from "../../../version-control/src/index.ts";
@@ -26,11 +19,20 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import {
+  createPortfolioProjection,
   parseMeetingMarkdown,
   parseRepositoryProjectContextMarkdown,
-  parseRepositoryQualityProjectionMarkdown,
+  parseQualityCenter,
   parseRepositoryReleaseProjectionMarkdown,
   parseTopicMarkdown,
+  readRepositoryProjectContext,
+  type MeetingRecord,
+  type PortfolioProjection,
+  type ProjectContextSource,
+  type RepositoryProjectContext,
+  type RepositoryQualityProjection,
+  type RepositoryReleaseProjection,
+  type TopicRecord,
 } from "../../../document-model/src/index.ts";
 import { readRepositoryChangeSet } from "./repository.ts";
 
@@ -38,12 +40,6 @@ import {
   resolveRepositoryAccessCollection,
   type AuthorizedRepository,
 } from "../../../access-management/src/index.ts";
-import {
-  createPortfolioProjection,
-  readRepositoryProjectContext,
-  type ProjectContextSource,
-  type PortfolioProjection,
-} from "../../../document-model/src/index.ts";
 import type { CredentialAdministration } from "./access.ts";
 
 /**
@@ -238,7 +234,19 @@ export async function readOwnerArtifactCatalog(
   repositoryRoot: string,
   projectContextMarkdown: string,
 ): Promise<OwnerArtifactCatalog> {
-  const referenced = extractMarkdownRelations(projectContextMarkdown);
+  const { artifactReferences } = parseRepositoryProjectContextMarkdown(
+    projectContextMarkdown,
+  );
+  return observeOwnerArtifactCatalog(repositoryRoot, artifactReferences);
+}
+
+/** 合成済みの参照候補を現在の実体で照合し、一覧を作る。 @trace ARCH-000005 */
+async function observeOwnerArtifactCatalog(
+  repositoryRoot: string,
+  references: ReturnType<
+    typeof parseRepositoryProjectContextMarkdown
+  >["artifactReferences"],
+): Promise<OwnerArtifactCatalog> {
   const candidates = new Map<
     string,
     Readonly<{
@@ -251,9 +259,12 @@ export async function readOwnerArtifactCatalog(
       relativePath,
       Object.freeze({ origin: "fixed", sourceSection: null }),
     );
-  for (const relation of referenced)
-    if (!candidates.has(relation.relativePath))
-      candidates.set(relation.relativePath, relation);
+  for (const reference of references)
+    if (!candidates.has(reference.relativePath))
+      candidates.set(reference.relativePath, {
+        origin: "project_context",
+        sourceSection: reference.sourceSection,
+      });
   try {
     const artifacts = await Promise.all(
       [...candidates.entries()].sort().map(async ([relativePath, relation]) => {
@@ -352,42 +363,6 @@ export async function readChangeArtifact(
     repositoryRoot,
     `99_Roadmap/Changes/${changeId}/change.md`,
   ).catch(() => null);
-}
-
-/** Markdownの見出しと安全な相対文書リンクからProject Contextの参照関係を抽出する。 */
-function extractMarkdownRelations(markdown: string): readonly Readonly<{
-  relativePath: string;
-  origin: "project_context";
-  sourceSection: string | null;
-}>[] {
-  const results: Readonly<{
-    relativePath: string;
-    origin: "project_context";
-    sourceSection: string | null;
-  }>[] = [];
-  let sourceSection: string | null = null;
-  for (const line of markdown.replace(/\r\n?/gu, "\n").split("\n")) {
-    const heading = /^##\s+(.+)$/u.exec(line)?.[1]?.trim();
-    if (heading !== undefined && heading.length > 0) sourceSection = heading;
-    for (const match of line.matchAll(/\[[^\]]+\]\(([^)]+)\)/gu)) {
-      const target = match[1]?.split("#", 1)[0] ?? "";
-      if (
-        target.endsWith(".md") &&
-        !target.includes("\\") &&
-        !target.startsWith("/") &&
-        !/^[A-Za-z][A-Za-z0-9+.-]*:/u.test(target) &&
-        !target.split("/").includes("..")
-      )
-        results.push(
-          Object.freeze({
-            relativePath: target,
-            origin: "project_context",
-            sourceSection,
-          }),
-        );
-    }
-  }
-  return Object.freeze(results);
 }
 
 /**
@@ -591,24 +566,31 @@ async function readProjectPlan(
 async function readQuality(
   repositoryRoot: string,
 ): Promise<ProjectQualityObservation> {
+  const relativePath = "07_Quality/01_Quality_Center.md";
   try {
     const markdown = await readFile(
-      path.join(repositoryRoot, "07_Quality", "01_Quality_Center.md"),
+      path.join(repositoryRoot, relativePath),
       "utf8",
     );
     try {
-      return Object.freeze({
-        state: "available",
-        projection: parseRepositoryQualityProjectionMarkdown(markdown),
-        reason: null,
-      });
+      const { currentProjection } = parseQualityCenter({
+        path: relativePath,
+        content: markdown,
+      }).result;
+      if (currentProjection.status === "complete")
+        return Object.freeze({
+          state: "available",
+          projection: currentProjection.result,
+          reason: null,
+        });
     } catch {
-      return Object.freeze({
-        state: "unknown",
-        projection: null,
-        reason: "quality_projection_invalid",
-      });
+      // 既読の文書を解釈できない場合は、実体の観測失敗と区別する。
     }
+    return Object.freeze({
+      state: "unknown",
+      projection: null,
+      reason: "quality_projection_invalid",
+    });
   } catch (error) {
     if (
       error instanceof Error &&
@@ -749,10 +731,6 @@ export async function readProjectViewData(
     readProjectPlan(repositoryRoot),
     readQuality(repositoryRoot),
   ]);
-  const ownerArtifacts = await readOwnerArtifactCatalog(
-    repositoryRoot,
-    markdown,
-  );
   const contextIntake = parseRepositoryProjectContextMarkdown(markdown);
   const context = contextIntake.result;
   if (context === null)
@@ -762,6 +740,10 @@ export async function readProjectViewData(
           issue.kind === "artifact.project-context.projection-model-invalid",
       )?.reason ?? "project_context_scene_invalid",
     );
+  const ownerArtifacts = await observeOwnerArtifactCatalog(
+    repositoryRoot,
+    contextIntake.artifactReferences,
+  );
   return Object.freeze({
     context,
     topics,

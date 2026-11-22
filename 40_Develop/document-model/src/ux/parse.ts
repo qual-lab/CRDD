@@ -109,10 +109,10 @@ function captureUxDocument(
  * @concurrency N/A: 共有可変状態を持たない。
  */
 function captureUxProjection(
-  artifact: ArtifactSource,
+  document: UxDocument,
   heading: string,
 ): UxProjectionModel {
-  const captured = { path: artifact.path, content: artifact.content };
+  const captured = document.source;
   const source = omitMarkdownCommentsAndFencedCode(captured.content);
   const start = source.indexOf(heading);
   const tail = start < 0 ? "" : source.slice(start + heading.length);
@@ -123,7 +123,7 @@ function captureUxProjection(
   ].map((match) => match[1] as string);
   const projectedSet = new Set(projectedIds);
   const result = {
-    artifact: parseMarkdownArtifact(captured),
+    artifact: document.artifact,
     source: captured,
     heading,
     selectedSection:
@@ -244,9 +244,6 @@ export function parseUxIndex(
       omitMarkdownCommentsAndFencedCode(captured.content).includes(part),
     ),
     identityDefinitions,
-    artifact: parseMarkdownArtifact(captured),
-    source: captured,
-    tableRows: captureDocumentTableRows(captured),
     entries,
     ids,
     requirementRelations,
@@ -288,10 +285,7 @@ export function parseUxDefinition(
       "## 下流への引き渡し",
       "contract",
     ),
-    artifact: parseMarkdownArtifact(captured),
-    source: captured,
     expectedIdentity: uxId,
-    tableRows: captureDocumentTableRows(captured),
     stateDeclarations: [...definition.matchAll(/^状態:.*$/gmu)].map(
       (match) => ({
         text: match[0],
@@ -637,10 +631,7 @@ export function parseUxAnalysis(
       ),
       formalInput: captureUxFormalInput(analysis, requirementId),
       handoffContract,
-      artifact: parseMarkdownArtifact(captured),
-      source: captured,
       expectedIdentity: requirementId,
-      tableRows: captureDocumentTableRows(captured),
       primary: captureDocumentSections(captured, "1. 要求の一次分析"),
       actors: captureDocumentSections(captured, "2. 利用者・目標・成果"),
       change: captureDocumentSections(captured, "3. 利用者に起きる変化"),
@@ -705,15 +696,13 @@ export function parseUxExperienceMap(
     });
     for (const match of requirementIds) pairs.add(`${match}|${cells[1]}`);
   }
+  const base = captureUxDocument(captured, {
+    kind: "experience_map",
+    mode: options.mode === undefined ? "evaluated" : options.mode,
+  });
   const result: UxExperienceMap = {
-    ...captureUxDocument(captured, {
-      kind: "experience_map",
-      mode: options.mode === undefined ? "evaluated" : options.mode,
-    }),
-    projection: captureUxProjection(captured, "## 3. UX成果との対応"),
-    artifact: parseMarkdownArtifact(captured),
-    source: captured,
-    tableRows: captureDocumentTableRows(captured),
+    ...base,
+    projection: captureUxProjection(base, "## 3. UX成果との対応"),
     entries,
     requirementRelations: pairs,
   };
@@ -730,12 +719,13 @@ export function parseUxPersonas(
   options: Readonly<{ mode?: "template" | "evaluated" }> = {},
 ): ParseResult<UxPersonas> & Readonly<{ result: UxPersonas }> {
   const captured = { path: source.path, content: source.content };
+  const base = captureUxDocument(captured, {
+    kind: "personas",
+    mode: options.mode === undefined ? "evaluated" : options.mode,
+  });
   const result: UxPersonas = {
-    ...captureUxDocument(captured, {
-      kind: "personas",
-      mode: options.mode === undefined ? "evaluated" : options.mode,
-    }),
-    projection: captureUxProjection(captured, "## 3. UX成果との対応"),
+    ...base,
+    projection: captureUxProjection(base, "## 3. UX成果との対応"),
     sections: [
       "想定利用者の関係図",
       "想定利用者一覧",
@@ -756,12 +746,13 @@ export function parseUxServiceBlueprint(
   options: Readonly<{ mode?: "template" | "evaluated" }> = {},
 ): ParseResult<UxServiceBlueprint> & Readonly<{ result: UxServiceBlueprint }> {
   const captured = { path: source.path, content: source.content };
+  const base = captureUxDocument(captured, {
+    kind: "service_blueprint",
+    mode: options.mode === undefined ? "evaluated" : options.mode,
+  });
   const result: UxServiceBlueprint = {
-    ...captureUxDocument(captured, {
-      kind: "service_blueprint",
-      mode: options.mode === undefined ? "evaluated" : options.mode,
-    }),
-    projection: captureUxProjection(captured, "## 3. UX成果への適用"),
+    ...base,
+    projection: captureUxProjection(base, "## 3. UX成果への適用"),
     sections: [
       "製品全体のサービス提供の流れ",
       "区間と責任境界",
@@ -782,12 +773,13 @@ export function parseUxQualityExpectations(
 ): ParseResult<UxQualityExpectations> &
   Readonly<{ result: UxQualityExpectations }> {
   const captured = { path: source.path, content: source.content };
+  const base = captureUxDocument(captured, {
+    kind: "quality_expectations",
+    mode: options.mode === undefined ? "evaluated" : options.mode,
+  });
   const result: UxQualityExpectations = {
-    ...captureUxDocument(captured, {
-      kind: "quality_expectations",
-      mode: options.mode === undefined ? "evaluated" : options.mode,
-    }),
-    projection: captureUxProjection(captured, "## 3. UX成果との対応"),
+    ...base,
+    projection: captureUxProjection(base, "## 3. UX成果との対応"),
     sections: [
       "品質期待の全体像",
       "品質期待台帳",

@@ -97,8 +97,14 @@ export type ChecklistResult = Readonly<{
 export type ArtifactModel = Readonly<{
   source: ArtifactSource;
   anchors: ReadonlySet<string>;
+  bodyInlineLinks: readonly Readonly<{
+    target: string;
+    location: SourceLocation & Readonly<{ line: number }>;
+    precedingHeadings: readonly Readonly<{ level: number; title: string }>[];
+  }>[];
   links: readonly Readonly<{
     target: string;
+    location: SourceLocation & Readonly<{ line: number }>;
     historical: "declared" | "invalid" | null;
     related: boolean;
   }>[];

@@ -5,7 +5,7 @@
  * @trace ARCH-000008
  */
 import crypto from "node:crypto";
-import type { ArchitectureDetailModel } from "../architecture/details.ts";
+import type { ArchitectureDetailModel } from "../architecture/types.ts";
 
 import type { DocumentIssue, DocumentResult } from "../artifact/types.ts";
 

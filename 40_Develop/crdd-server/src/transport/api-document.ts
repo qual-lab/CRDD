@@ -10,7 +10,8 @@ import { readFile } from "node:fs/promises";
 import type { IncomingMessage } from "node:http";
 import type { ServerResponse } from "node:http";
 import { createRequire } from "node:module";
-import { executionHttpPaths, setResponseHeaders } from "./api-server.ts";
+import { executionHttpPaths } from "./api-server.ts";
+import { setResponseHeaders } from "./api-http.ts";
 
 const string = { type: "string" } as const;
 const bearer = [{ bearerAuth: [] }];

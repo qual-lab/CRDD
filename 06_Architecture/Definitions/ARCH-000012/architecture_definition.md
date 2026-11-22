@@ -59,7 +59,7 @@ HTTPとMCPは同じCRDD機能への別の公開入口とする。共通接続だ
 
 製品のコマンド起動は [`bin/crdd-server.ts`](../../../40_Develop/crdd-server/bin/crdd-server.ts) が受け付ける。パッケージのルートに共通処理を再公開しない。MCP固有の公開入口は [`./mcp`](../../../40_Develop/crdd-server/src/transport/mcp-server.ts) とし、実行系Toolは明示された構成でMCPの同じ受付から利用する。実行Toolの内部処理を直接インポートするための公開入口は設けない。
 
-サーバーのSourceは `src/<責務>/<ファイル>` までとする。[共通操作の入口](../../../40_Develop/crdd-server/src/service/entry.ts) は、両通信方式で使う実行・実行定義・認可済みプロジェクト一覧を既存Ownerへ直接つなぐ。起動組立ては `app.ts`、HTTP受付とWorkbench静的配信は `transport/api-server.ts`、開発用のOpenAPIとSwagger UIは `transport/api-document.ts` が所有する。実行系のHTTPメソッドとPathはExpress登録とOpenAPIで共用し、入力検査は生成しない。MCP固有の認証・搬送・Tool受付も `transport/` に置く。Workbenchが受信する応答の検査からServerの起動や保存処理へ実行依存しない。通信方式に固有の認可・取消・応答は各入口に残す。公開Subpathには物理配置を露出しない。
+サーバーのSourceは `src/<責務>/<ファイル>` までとする。[共通操作の入口](../../../40_Develop/crdd-server/src/service/entry.ts) は、両通信方式で使う実行・実行定義・認可済みプロジェクト一覧を既存Ownerへ直接つなぐ。起動組立ては `app.ts`、Expressルート・操作別受付・Workbench静的配信は `transport/api-server.ts`、HTTP接続・取消と共通の応答・Origin・フォーム読取りは `transport/api-http.ts`、開発用のOpenAPIとSwagger UIは `transport/api-document.ts` が所有する。実行系のHTTPメソッドとPathはExpress登録とOpenAPIで共用し、入力検査は生成しない。MCP固有の認証・搬送・Tool受付も `transport/` に置く。Workbenchが受信する応答の検査からServerの起動や保存処理へ実行依存しない。通信方式に固有の認可・取消・応答は各入口に残す。公開Subpathには物理配置を露出しない。
 
 | 共通の内部操作 | 利用側と結果 |
 |---|---|
@@ -74,7 +74,7 @@ HTTPとMCPは同じCRDD機能への別の公開入口とする。共通接続だ
 | 実行定義 | `GET/POST /api/execution/definition` | 定義取得・管理 | `service/execution.ts` |
 | 実行 | 実行状態の取得、Objective起動、判断提出（`/api/execution/` 配下） | 同じ三操作 | `service/execution.ts` |
 | 実行アクティビティ | `GET /api/workbench/view` の `executionActivity` | `crdd.get_execution_activity` | `service/execution.ts` とCoordinator |
-| Project | 認可済み一覧・個別文脈を含むビュー | Project一覧・文脈取得 | `service/project.ts` とDocument Model |
+| Project | 認可済み一覧・個別文脈を含むビュー | Project一覧・文脈取得 | `service/project-context.ts` とDocument Model |
 | Workspace | `POST /api/workspace` | Workspace取得・管理 | `service/workspace.ts` とCoordinator |
 | Topic／Meeting | `POST /api/records`（種別と操作を要求で区別） | Topic・Meetingの個別Tool | `service/topic.ts`／`service/meeting.ts` とDocument Model |
 | アクセス管理 | `GET/POST /api/access` | 現在権限・非鍵管理 | `service/access.ts` とAM |

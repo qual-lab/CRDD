@@ -14,7 +14,7 @@ import {
   inspectQualityLocalItemOwnership,
   parseQualityDefinition,
 } from "../../../src/index.ts";
-import { captureQualityDocument } from "../../../src/quality/readiness.ts";
+import { captureQualityDocument } from "../../../src/quality/parse.ts";
 
 /**
  * 一定義・一項目の完全な本文を構成する。
@@ -79,6 +79,7 @@ test("Quality Definitionは不正本文からも部分関係と独立Local IDを
   const content = createQualityDefinitionSource();
   const artifact = { path: "QA-000001/quality_definition.md", content };
   const model = parseQualityDefinition(artifact, "QA-000001");
+  assert.equal(model.result.assignment.artifact, model.result.artifact);
   assert.equal(model.result.source.content, content);
   assert.notEqual(model.result.source, artifact);
   assert.equal(model.result.expectedIdentity, "QA-000001");

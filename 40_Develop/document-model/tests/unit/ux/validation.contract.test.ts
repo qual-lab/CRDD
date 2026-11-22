@@ -817,6 +817,7 @@ test("UX Journeyは生本文の列位置と集合化を維持する", () => {
     path: "experience.md",
     content: `| Journey | a | b | c | REQ-999999 | d |\n| --- | a | b | c | REQ-999999 | d |\nshort\n\u0060\u0060\u0060text\n${row}\n${row}\n\u0060\u0060\u0060`,
   }).result;
+  assert.equal(pairs.projection.artifact, pairs.artifact);
   assert.deepEqual(
     [...pairs.requirementRelations],
     ["REQ-000001|Start", "REQ-000002|Start"],

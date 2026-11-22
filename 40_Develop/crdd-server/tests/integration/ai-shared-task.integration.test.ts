@@ -30,8 +30,8 @@ import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/inde
 import { startWorkbench } from "../../src/app.ts";
 import { prepareAiRequestStart } from "../../src/service/execution.ts";
 import type { AiRequestSnapshot } from "../../src/app.ts";
-import { readAuthorizedPortfolio } from "../../src/service/project.ts";
-import { readProjectViewData } from "../../src/service/project.ts";
+import { readAuthorizedPortfolio } from "../../src/service/project-context.ts";
+import { readProjectViewData } from "../../src/service/project-context.ts";
 
 /**
  * 共通の開始入力作成で単体と共有の既存差を維持する。

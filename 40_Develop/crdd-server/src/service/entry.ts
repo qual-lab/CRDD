@@ -16,5 +16,5 @@ export {
 } from "./execution.ts";
 export { prepareWorkspaceOperation } from "./workspace.ts";
 export { readAuthorizedRuntimeActivity } from "./execution.ts";
-export { readAuthorizedPortfolio } from "./project.ts";
+export { readAuthorizedPortfolio } from "./project-context.ts";
 export { resolveTopicMeetingAccess } from "./topic.ts";

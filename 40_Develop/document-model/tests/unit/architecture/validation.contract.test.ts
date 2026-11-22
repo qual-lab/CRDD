@@ -60,7 +60,7 @@ test("Architectureの完成Parseは二つの取得断面とReady比較を分離�
 import {
   captureArchitectureDetailTemplate,
   captureArchitectureDocument,
-} from "../../../src/architecture/validation.ts";
+} from "../../../src/architecture/parse.ts";
 import {
   inspectEvaluatedChecklist,
   inspectTemplateChecklist,

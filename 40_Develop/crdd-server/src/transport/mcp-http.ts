@@ -1,0 +1,801 @@
+/**
+ * MCPのStreamable HTTP受付、Bearer照合、要求取消と接続終了を所有する。
+ * @packageDocumentation
+ * @trace ARCH-000012
+ */
+import { timingSafeEqual } from "node:crypto";
+import http, {
+  type IncomingHttpHeaders,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
+import type { Socket } from "node:net";
+import {
+  createMcpHandler,
+  isJsonContentType,
+} from "@modelcontextprotocol/server";
+import { toNodeHandler } from "@modelcontextprotocol/node";
+import { inspectServerPublicOrigin } from "../service/configuration.ts";
+import { parseUnambiguousJsonDocument } from "./parse-json.ts";
+import {
+  MCP_COORDINATOR_PROTOCOL_VERSION,
+  inspectProtocolRequest,
+  protocolError,
+  mcpSdkFailure,
+  finishMcpSdkRequest,
+  createMcpRequestServer,
+} from "./mcp-protocol.ts";
+import type {
+  McpRequestSource,
+  McpResponse,
+  McpAuthenticatedRequestHandlerResolver,
+  McpCoordinatorHttpOptions,
+  McpAuthenticatedHttpOptions,
+  McpHttpServerCloseBoundary,
+  McpProcessSignalSource,
+} from "./mcp-types.ts";
+
+export const MCP_COORDINATOR_STREAMABLE_HTTP_CONTRACT =
+  "crdd-mcp/streamable-http-transport/v1" as const;
+const ENDPOINT = "/mcp";
+const MAXIMUM_HTTP_REQUEST_BYTES = 128 * 1024;
+
+/**
+ * streamable-http-transportをPlain Dataとして検証する。
+ *
+ * @responsibility streamable-http-transportの許可Property、入れ子値、拒否境界を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown
+ * @returns value is Record<string, unknown>を返す。
+ * @precondition 「value: unknown」がisPlainHttpRecordの入力契約を満たす。
+ * @postcondition isPlainHttpRecordの責務を完了した結果だけを返す。
+ * @effect N/A: isPlainHttpRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isPlainHttpRecordは独自の失敗分岐を所有しない。
+ * @invariant isPlainHttpRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: isPlainHttpRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isPlainHttpRecordは共有非同期状態を持たない同期処理である。
+ */
+function isPlainHttpRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.getPrototypeOf(value) === Object.prototype,
+  );
+}
+
+/**
+ * Tokenが有効か判定する。
+ *
+ * @responsibility Tokenの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidTokenの入力契約を満たす。
+ * @postcondition validTokenの責務を完了した結果だけを返す。
+ * @effect N/A: validTokenは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validTokenは独自の失敗分岐を所有しない。
+ * @invariant validTokenは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: validTokenはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validTokenは共有非同期状態を持たない同期処理である。
+ */
+function validToken(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 32 &&
+    value.length <= 512 &&
+    /^[\x21-\x7e]+$/u.test(value)
+  );
+}
+
+/**
+ * authorizedを決定する。
+ *
+ * @responsibility authorizedの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input headers: IncomingHttpHeaders、expected: Buffer
+ * @returns authorizedの計算結果を返す。
+ * @precondition 「headers: IncomingHttpHeaders、expected: Buffer」がauthorizedの入力契約を満たす。
+ * @postcondition authorizedの責務を完了した結果だけを返す。
+ * @effect N/A: authorizedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: authorizedは独自の失敗分岐を所有しない。
+ * @invariant authorizedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: authorizedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: authorizedは共有非同期状態を持たない同期処理である。
+ */
+function authorized(headers: IncomingHttpHeaders, expected: Buffer) {
+  const header = headers.authorization;
+  if (typeof header !== "string" || !header.startsWith("Bearer ")) return false;
+  const candidate = header.slice("Bearer ".length);
+  if (!validToken(candidate)) return false;
+  const bytes = Buffer.from(candidate, "utf8");
+  return (
+    bytes.byteLength === expected.byteLength && timingSafeEqual(bytes, expected)
+  );
+}
+
+/**
+ * JsonをProtocol応答として返す。
+ *
+ * @responsibility Jsonの応答Schema、状態Code、公開結果境界を所有する。
+ * @trace ARCH-000012
+ * @input response: ServerResponse、statusCode: number、body: unknown
+ * @returns N/A: respondJsonは戻り値を返さない。
+ * @precondition 「response: ServerResponse、statusCode: number、body: unknown」がrespondJsonの入力契約を満たす。
+ * @postcondition respondJsonの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: respondJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: respondJsonは独自の失敗分岐を所有しない。
+ * @invariant respondJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: respondJsonはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: respondJsonは共有非同期状態を持たない同期処理である。
+ */
+function respondJson(
+  response: ServerResponse,
+  statusCode: number,
+  body: unknown,
+) {
+  const bytes = Buffer.from(JSON.stringify(body), "utf8");
+  response.writeHead(statusCode, {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": String(bytes.byteLength),
+    "cache-control": "no-store",
+  });
+  response.end(bytes);
+}
+
+/**
+ * Required Representationsを受入れ可能か判定する。
+ *
+ * @responsibility Required Representationsの受入条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000012
+ * @input headers: IncomingHttpHeaders
+ * @returns acceptsRequiredRepresentationsの計算結果を返す。
+ * @precondition 「headers: IncomingHttpHeaders」がacceptsRequiredRepresentationsの入力契約を満たす。
+ * @postcondition acceptsRequiredRepresentationsの責務を完了した結果だけを返す。
+ * @effect N/A: acceptsRequiredRepresentationsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: acceptsRequiredRepresentationsは独自の失敗分岐を所有しない。
+ * @invariant acceptsRequiredRepresentationsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: acceptsRequiredRepresentationsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: acceptsRequiredRepresentationsは共有非同期状態を持たない同期処理である。
+ */
+function acceptsRequiredRepresentations(headers: IncomingHttpHeaders) {
+  const accept = headers.accept;
+  if (typeof accept !== "string") return false;
+  const values = accept
+    .split(",")
+    .map((value) => value.split(";", 1)[0]?.trim().toLowerCase());
+  return (
+    values.includes("application/json") && values.includes("text/event-stream")
+  );
+}
+
+/**
+ * Metadataを要求する。
+ *
+ * @responsibility Metadataの要求条件、受理結果、Effect未成立との分離境界を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown
+ * @returns requestMetadataの計算結果を返す。
+ * @precondition 「value: unknown」がrequestMetadataの入力契約を満たす。
+ * @postcondition requestMetadataの責務を完了した結果だけを返す。
+ * @effect N/A: requestMetadataは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: requestMetadataは独自の失敗分岐を所有しない。
+ * @invariant requestMetadataは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: requestMetadataはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: requestMetadataは共有非同期状態を持たない同期処理である。
+ */
+function requestMetadata(value: unknown) {
+  if (!isPlainHttpRecord(value)) return null;
+  const params = value.params;
+  if (!isPlainHttpRecord(params) || !isPlainHttpRecord(params._meta))
+    return null;
+  const protocol = params._meta["io.modelcontextprotocol/protocolVersion"];
+  const name = typeof params.name === "string" ? params.name : null;
+  return typeof value.method === "string" && typeof protocol === "string"
+    ? Object.freeze({ method: value.method, protocol, name })
+    : null;
+}
+
+/**
+ * MatchのHeader条件が一致するか判定する。
+ *
+ * @responsibility Matchの比較対象、必須Header、一致結果境界を所有する。
+ * @trace ARCH-000012
+ * @input headers: IncomingHttpHeaders、body: unknown
+ * @returns headersMatchの計算結果を返す。
+ * @precondition 「headers: IncomingHttpHeaders、body: unknown」がheadersMatchの入力契約を満たす。
+ * @postcondition headersMatchの責務を完了した結果だけを返す。
+ * @effect N/A: headersMatchは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: headersMatchは独自の失敗分岐を所有しない。
+ * @invariant headersMatchは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: headersMatchはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: headersMatchは共有非同期状態を持たない同期処理である。
+ */
+function headersMatch(headers: IncomingHttpHeaders, body: unknown) {
+  const metadata = requestMetadata(body);
+  if (!metadata) return false;
+  if (
+    headers["mcp-protocol-version"] !== metadata.protocol ||
+    metadata.protocol !== MCP_COORDINATOR_PROTOCOL_VERSION ||
+    headers["mcp-method"] !== metadata.method
+  )
+    return false;
+  const headerName = headers["mcp-name"];
+  return metadata.method === "tools/call"
+    ? typeof headerName === "string" && headerName === metadata.name
+    : headerName === undefined;
+}
+
+/**
+ * Bodyを読み取る。
+ *
+ * @responsibility Bodyの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000012
+ * @input request: IncomingMessage
+ * @returns readBodyの計算結果を返す。
+ * @precondition 「request: IncomingMessage」がreadBodyの入力契約を満たす。
+ * @postcondition readBodyの責務を完了した結果だけを返す。
+ * @effect N/A: readBodyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readBodyは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readBodyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: readBodyはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency readBodyは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
+async function readBody(request: IncomingMessage) {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += bytes.byteLength;
+    if (size > MAXIMUM_HTTP_REQUEST_BYTES) return null;
+    chunks.push(bytes);
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(
+      Buffer.concat(chunks),
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 検査済みHTTP要求を公式SDKの要求別Serverへ一回だけ接続する。
+ * @responsibility CRDDの入口検査・初回保存とSDKのProtocol応答を分離する。
+ * @trace ARCH-000012
+ * @input 同じHTTP要求・応答、検査済みbody、現在認証のHandler、要求取消Signal。
+ * @returns SDK応答の送信と要求別資源回収の完了。
+ * @precondition 認証、本文byte・重複key、Header一致を既存入口が検査済み。
+ * @postcondition 意味操作は高々一回。初回discoverの保存失敗・取消ではSDK呼出し0。
+ * @effect 指定HandlerのEffect、SDKの応答搬送と要求別Serverの終了。
+ * @failure 旧Tool errorをSDK ProtocolErrorへ変換し、内部例外を固定エラーへ閉じる。
+ * @invariant JSON-RPC応答全体をTool結果へ二重格納せず、保存済みを再実行しない。
+ * @boundary CRDDの要求認証・意味Handlerと公式SDK Node HTTPの境界。
+ * @security 要求closureの資格・Ownerを共有せず、SDKの旧規格・未公開操作を有効化しない。
+ * @concurrency HTTP切断・終了Signalを伝播し、開始済み意味操作をjoinしてからSDKを閉じる。
+ */
+async function handleSdkHttpRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  body: unknown,
+  handler: McpRequestSource,
+  signal: AbortSignal,
+): Promise<void> {
+  const validated = inspectProtocolRequest(body);
+  if (!validated) {
+    respondJson(response, 200, protocolError(null, -32600, "Invalid Request"));
+    return;
+  }
+  if (
+    !["server/discover", "tools/list", "tools/call"].includes(validated.method)
+  ) {
+    respondJson(
+      response,
+      404,
+      protocolError(validated.id, -32601, "Method not found"),
+    );
+    return;
+  }
+  if (signal.aborted) return;
+  let pending: Promise<McpResponse> | null = null;
+  let methodNotFound = false;
+  let server: Awaited<ReturnType<typeof createMcpRequestServer>>;
+  try {
+    server = await createMcpRequestServer(
+      handler,
+      body,
+      signal,
+      (operation) => {
+        pending = operation;
+        void operation.then(
+          (result) => {
+            methodNotFound = result.error?.code === -32601;
+          },
+          () => {},
+        );
+      },
+    );
+  } catch (error) {
+    const failure = mcpSdkFailure(validated.id, error);
+    if (!signal.aborted)
+      respondJson(
+        response,
+        failure.error?.code === -32601 ? 404 : 200,
+        failure,
+      );
+    return;
+  }
+  if (signal.aborted) {
+    await server.close();
+    return;
+  }
+  const sdk = createMcpHandler(() => server, {
+    legacy: "reject",
+    maxRequestBodySize: MAXIMUM_HTTP_REQUEST_BYTES,
+  });
+  try {
+    await toNodeHandler(sdk, {
+      maxRequestBodySize: MAXIMUM_HTTP_REQUEST_BYTES,
+    })(
+      {
+        method: request.method ?? "POST",
+        url: request.url ?? ENDPOINT,
+        headers: request.headers,
+        [Symbol.asyncIterator]: () => request[Symbol.asyncIterator](),
+      },
+      {
+        writeHead: (statusCode, headers) => {
+          if (signal.aborted) {
+            response.destroy();
+            return response;
+          }
+          return response.writeHead(
+            statusCode === 200 && methodNotFound ? 404 : statusCode,
+            { ...headers, "cache-control": "no-store" },
+          );
+        },
+        write: (chunk) => {
+          if (signal.aborted) {
+            response.destroy();
+            return true;
+          }
+          return response.write(chunk);
+        },
+        end: (chunk) => {
+          if (signal.aborted) {
+            response.destroy();
+            return response;
+          }
+          return response.end(chunk);
+        },
+        on: (event, listener) => response.on(event, listener),
+        get destroyed() {
+          return response.destroyed;
+        },
+      },
+      body,
+    );
+  } finally {
+    await finishMcpSdkRequest(pending, () => sdk.close());
+  }
+}
+
+/**
+ * MCPの生HTTP要求を公式SDKへ接続する。
+ * @responsibility Origin・Bearer・Protocolを既存順に検査し、RequestをSDKへ搬送する。
+ * @trace ARCH-000012
+ * @boundary 単独または統合Listenerと要求別MCP Server。
+ * @effect 認証済みのSDK要求を実行してHTTP応答を返す。構成時にListenerは作らない。
+ * @security 認証失敗や取消済みの認証結果からToolを開始しない。
+ * @concurrency Listener Ownerが与える要求専用Signalを使い、処理終了まで待つ。
+ */
+export function createMcpHttpRequestHandler(
+  access:
+    | McpAuthenticatedRequestHandlerResolver
+    | Readonly<{ source: McpRequestSource; bearerToken?: string }>,
+  options: Omit<McpAuthenticatedHttpOptions, "port">,
+) {
+  const resolveHandler =
+    typeof access === "function"
+      ? access
+      : createLocalMcpResolver(access.source, access.bearerToken);
+  const publicOrigin = inspectServerPublicOrigin(options.publicOrigin, "mcp");
+  if (
+    (options.allowedOrigins ?? []).some(
+      (origin) =>
+        typeof origin !== "string" ||
+        (publicOrigin
+          ? origin !== publicOrigin.origin
+          : !/^https?:\/\/(?:127\.0\.0\.1|localhost)(?::[0-9]{1,5})?$/u.test(
+              origin,
+            )),
+    )
+  )
+    throw new Error("mcp_http_configuration_invalid");
+  const allowedOrigins = new Set(
+    options.allowedOrigins ?? (publicOrigin ? [publicOrigin.origin] : []),
+  );
+  return Object.freeze({
+    endpoint: ENDPOINT,
+    handle: async (
+      request: IncomingMessage,
+      response: ServerResponse,
+      signal: AbortSignal,
+    ): Promise<void> => {
+      try {
+        if (publicOrigin) {
+          const exactHeaders = [
+            ["host", publicOrigin.host],
+            ["x-forwarded-proto", "https"],
+            ["x-forwarded-host", publicOrigin.host],
+          ];
+          const invalid =
+            exactHeaders.some(
+              ([name, expected]) =>
+                request.headers[name as string] !== expected ||
+                request.rawHeaders.filter(
+                  (value, index) =>
+                    index % 2 === 0 && value.toLowerCase() === name,
+                ).length !== 1,
+            ) ||
+            request.rawHeaders.filter(
+              (value, index) =>
+                index % 2 === 0 && value.toLowerCase() === "origin",
+            ).length > 1;
+          if (invalid) {
+            respondJson(
+              response,
+              421,
+              protocolError(null, -32000, "TLS deployment boundary invalid"),
+            );
+            return;
+          }
+        }
+        const origin = request.headers.origin;
+        if (typeof origin === "string" && !allowedOrigins.has(origin)) {
+          respondJson(
+            response,
+            403,
+            protocolError(null, -32000, "Origin not allowed"),
+          );
+          return;
+        }
+        if (request.url !== ENDPOINT) {
+          respondJson(
+            response,
+            404,
+            protocolError(null, -32601, "Method not found"),
+          );
+          return;
+        }
+        if (request.method !== "POST") {
+          response.setHeader("allow", "POST");
+          respondJson(
+            response,
+            405,
+            protocolError(null, -32600, "POST required"),
+          );
+          return;
+        }
+        const authorization = request.headers.authorization;
+        const token =
+          typeof authorization === "string" &&
+          authorization.startsWith("Bearer ") &&
+          validToken(authorization.slice("Bearer ".length))
+            ? authorization.slice("Bearer ".length)
+            : null;
+        const handler = token === null ? null : await resolveHandler(token);
+        if (signal.aborted || response.destroyed) return;
+        if (handler === null) {
+          response.setHeader("www-authenticate", "Bearer");
+          respondJson(
+            response,
+            401,
+            protocolError(null, -32001, "Authentication required"),
+          );
+          return;
+        }
+        if (
+          !isJsonContentType(request.headers["content-type"]) ||
+          !acceptsRequiredRepresentations(request.headers)
+        ) {
+          respondJson(
+            response,
+            400,
+            protocolError(null, -32600, "Invalid HTTP headers"),
+          );
+          return;
+        }
+        const source = await readBody(request);
+        const body =
+          source === null ? null : parseUnambiguousJsonDocument(source);
+        if (!body) {
+          respondJson(
+            response,
+            400,
+            protocolError(null, -32700, "Parse error"),
+          );
+          return;
+        }
+        if (!headersMatch(request.headers, body)) {
+          respondJson(
+            response,
+            400,
+            protocolError(null, -32020, "Header mismatch"),
+          );
+          return;
+        }
+        await handleSdkHttpRequest(request, response, body, handler, signal);
+      } catch {
+        if (signal.aborted || response.destroyed) response.destroy();
+        else if (!response.headersSent)
+          respondJson(
+            response,
+            500,
+            protocolError(null, -32603, "Internal error"),
+          );
+        else response.destroy();
+      }
+    },
+  });
+}
+
+/**
+ * 既存の単独MCP起動でListenerとSocketを所有する。
+ * @responsibility 共通のMCP要求処理を単独loopback Listenerで運用し、全要求をjoinする。
+ * @trace ARCH-000012
+ * @boundary MCP単独のHTTP接続とProcess内要求処理。
+ */
+async function startMcpStreamableHttpWithHandler(
+  resolveHandler: McpAuthenticatedRequestHandlerResolver,
+  options: McpAuthenticatedHttpOptions,
+) {
+  const { handle } = createMcpHttpRequestHandler(resolveHandler, options);
+  if (
+    !Number.isInteger(options.port) ||
+    options.port < 0 ||
+    options.port > 65_535
+  )
+    throw new Error("mcp_http_configuration_invalid");
+  const active = new Set<Promise<void>>();
+  const controllers = new Set<AbortController>();
+  const requests = new Set<IncomingMessage>();
+  const sockets = new Set<Socket>();
+  let isClosing = false;
+  const server = http.createServer((request, response) => {
+    if (isClosing) {
+      request.destroy();
+      return;
+    }
+    requests.add(request);
+    const controller = new AbortController();
+    controllers.add(controller);
+    const abortOnDisconnect = () => {
+      if (!response.writableFinished) controller.abort();
+    };
+    response.once("close", abortOnDisconnect);
+    const operation = handle(request, response, controller.signal).finally(
+      () => {
+        response.removeListener("close", abortOnDisconnect);
+        requests.delete(request);
+        controllers.delete(controller);
+      },
+    );
+    active.add(operation);
+    operation.finally(() => active.delete(operation)).catch(() => undefined);
+  });
+  server.on("connection", (socket) => {
+    if (isClosing) {
+      socket.destroy();
+      return;
+    }
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+  });
+  await new Promise<void>((resolve, reject) => {
+    const failed = (error: Error) => reject(error);
+    server.once("error", failed);
+    server.listen(options.port, "127.0.0.1", () => {
+      server.removeListener("error", failed);
+      resolve();
+    });
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    server.close();
+    throw new Error("mcp_http_address_unavailable");
+  }
+  let closePromise: Promise<
+    Readonly<{ status: "completed"; cleanupConfirmed: true }>
+  > | null = null;
+  const close = () => {
+    if (closePromise) return closePromise;
+    isClosing = true;
+    closePromise = (async () => {
+      const serverClosed = new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+      server.closeIdleConnections();
+      for (const request of requests) request.destroy();
+      for (const controller of controllers) controller.abort();
+      await Promise.allSettled([...active]);
+      const socketClosures = [...sockets].map(
+        (socket) =>
+          new Promise<void>((resolve) => {
+            if (socket.closed) {
+              sockets.delete(socket);
+              resolve();
+            } else socket.once("close", () => resolve());
+          }),
+      );
+      for (const socket of sockets) if (!socket.destroyed) socket.destroy();
+      await Promise.all(socketClosures);
+      await serverClosed;
+      if (
+        active.size !== 0 ||
+        controllers.size !== 0 ||
+        requests.size !== 0 ||
+        sockets.size !== 0
+      )
+        throw new Error("mcp_http_cleanup_unconfirmed");
+      return Object.freeze({
+        status: "completed" as const,
+        cleanupConfirmed: true as const,
+      });
+    })();
+    return closePromise;
+  };
+  return Object.freeze({
+    contract: MCP_COORDINATOR_STREAMABLE_HTTP_CONTRACT,
+    host: "127.0.0.1" as const,
+    port: address.port,
+    endpoint: ENDPOINT,
+    close,
+  });
+}
+
+/**
+ * Application Handlerを使用してStreamable HTTPを開始する。
+ *
+ * @responsibility HTTP認証・Lifecycleを特定MCP Capabilityから分離する。
+ * @trace ARCH-000012
+ * @input handlerとHTTP optionsを受け取る。
+ * @returns 待受情報と終了操作を持つServer Handleを返す。
+ * @precondition handlerは一Requestを一応答へ収束させる。
+ * @postcondition 127.0.0.1だけで待受け、close時にRequestとSocketを回収する。
+ * @effect localhost listenerを開始し、HTTP応答を返す。
+ * @failure 構成、認証、ProtocolまたはLifecycle失敗を安全に拒否する。
+ * @invariant TransportはTool固有の意味処理を持たない。
+ * @boundary localhost HTTPとMCP Application Handlerの境界。
+ * @security Bearer認証成功後の要求だけをHandlerへ渡す。
+ * @concurrency Requestごとの取消とServer全体のjoinを管理する。
+ */
+export async function startMcpStreamableHttp(
+  handler: McpRequestSource,
+  options: McpCoordinatorHttpOptions,
+) {
+  if (!validToken(options.bearerToken))
+    throw new Error("mcp_http_configuration_invalid");
+  return startMcpStreamableHttpWithHandler(
+    createLocalMcpResolver(handler, options.bearerToken),
+    options,
+  );
+}
+
+/** 固定Bearerの単体MCP認証。未設定ではすべての要求を拒否する。 @trace ARCH-000012 */
+function createLocalMcpResolver(
+  source: McpRequestSource,
+  bearerToken: string | undefined,
+): McpAuthenticatedRequestHandlerResolver {
+  if (bearerToken === undefined) return () => null;
+  if (!validToken(bearerToken))
+    throw new Error("mcp_http_configuration_invalid");
+  const expected = Buffer.from(bearerToken, "utf8");
+  return (token) =>
+    authorized({ authorization: `Bearer ${token}` }, expected) ? source : null;
+}
+
+/**
+ * RequestごとにBearer Credentialを検証するStreamable HTTPを開始する。
+ *
+ * @responsibility 固定Transport TokenではなくApplication CredentialからRequest Handlerを解決する。
+ * @trace ARCH-000012
+ * @input resolverとloopback HTTP構成を受け取る。
+ * @returns 待受情報と終了操作を持つServer Handleを返す。
+ * @precondition resolverは認証失敗をnullで返し、Tokenを保存しない。
+ * @postcondition 認証成功Requestだけが解決済みHandlerへ渡る。
+ * @effect localhost listenerを開始し、HTTP応答を返す。
+ * @failure 不正構成、認証失敗またはProtocol失敗を安全なHTTP結果へ閉じる。
+ * @invariant TransportはWorkspace GrantまたはProject Contextを解釈しない。
+ * @boundary Bearer HTTPとApplication Credential Resolverの境界。
+ * @security 生Tokenを応答、Errorまたは共有状態へ保存しない。
+ * @concurrency Requestごとに独立してresolverを呼び出す。
+ */
+export async function startMcpAuthenticatedStreamableHttp(
+  resolver: McpAuthenticatedRequestHandlerResolver,
+  options: McpAuthenticatedHttpOptions,
+) {
+  return startMcpStreamableHttpWithHandler(resolver, options);
+}
+
+/**
+ * Mcp Coordinator Streamable Http 契約の公開契約を記述する。
+ *
+ * @responsibility Mcp Coordinator Streamable Http 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000012
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeMcpCoordinatorStreamableHttpContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeMcpCoordinatorStreamableHttpContractの入力契約を満たす。
+ * @postcondition describeMcpCoordinatorStreamableHttpContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeMcpCoordinatorStreamableHttpContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeMcpCoordinatorStreamableHttpContractは独自の失敗分岐を所有しない。
+ * @invariant describeMcpCoordinatorStreamableHttpContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: describeMcpCoordinatorStreamableHttpContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeMcpCoordinatorStreamableHttpContractは共有非同期状態を持たない同期処理である。
+ */
+export function describeMcpCoordinatorStreamableHttpContract() {
+  return Object.freeze({
+    contract: MCP_COORDINATOR_STREAMABLE_HTTP_CONTRACT,
+    protocolVersion: MCP_COORDINATOR_PROTOCOL_VERSION,
+    endpoint: ENDPOINT,
+    binding: "127.0.0.1_only",
+    authentication: "mandatory_bearer",
+    origin: "absent_or_explicit_local_allowlist",
+    session: "none_2026_07_28",
+    cancellation: "response_disconnect_aborts_request",
+    transportAuthority: "none",
+  });
+}
+
+/**
+ * 単独MCP HTTPの起動側で、終了が確定するまで二つのProcess Signalを保持する。
+ * @responsibility 最初の通知でHTTPのcloseを一回だけ実行し、確定後に登録を解除する。
+ * @trace ARCH-000012
+ * @input server: McpHttpServerCloseBoundary、signalSource: McpProcessSignalSource
+ * @returns closeMcpHttpOnProcessSignalの計算結果を返す。
+ * @precondition 「server: McpHttpServerCloseBoundary、signalSource: McpProcessSignalSource」がcloseMcpHttpOnProcessSignalの入力契約を満たす。
+ * @postcondition closeMcpHttpOnProcessSignalの責務を完了した結果だけを返す。
+ * @effect Signal listenerを一時登録し、通知でListenerのcloseを発行する。
+ * @failure close失敗を呼出し元へ渡し、登録済みSignalは成功・失敗とも解除する。
+ * @invariant 再通知を終了成功に読み替えず、closeを再発行しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: closeMcpHttpOnProcessSignalはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency closeMcpHttpOnProcessSignalは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
+export async function closeMcpHttpOnProcessSignal(
+  server: McpHttpServerCloseBoundary,
+  signalSource: McpProcessSignalSource = process,
+) {
+  let requestStop: (() => void) | null = null;
+  let isStopRequested = false;
+  const stopRequested = new Promise<void>((resolve) => {
+    requestStop = () => {
+      if (isStopRequested) return;
+      isStopRequested = true;
+      resolve();
+    };
+  });
+  const stop = () => requestStop?.();
+  let isSigintOwned = false;
+  let isSigtermOwned = false;
+  try {
+    signalSource.on("SIGINT", stop);
+    isSigintOwned = true;
+    signalSource.on("SIGTERM", stop);
+    isSigtermOwned = true;
+    await stopRequested;
+    return await server.close();
+  } finally {
+    if (isSigintOwned) signalSource.removeListener("SIGINT", stop);
+    if (isSigtermOwned) signalSource.removeListener("SIGTERM", stop);
+  }
+}

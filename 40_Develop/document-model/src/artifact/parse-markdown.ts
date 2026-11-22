@@ -7,7 +7,11 @@
 import { omitMarkdownFencedCode, parseMarkdownAnchors } from "./anchors.ts";
 import { inspectRelatedOrder } from "./document-header.ts";
 import { captureArtifactIdentity } from "./identity.ts";
-import { parseMarkdownLinkReference, parseMarkdownLinks } from "./links.ts";
+import {
+  captureBodyInlineLinks,
+  parseMarkdownLinkReference,
+  parseMarkdownLinks,
+} from "./links.ts";
 import { isMarkdownTableSeparator, parseMarkdownTableRow } from "./markdown.ts";
 import type {
   ArtifactModel,
@@ -175,10 +179,24 @@ export function parseMarkdownArtifact(source: ArtifactSource): ArtifactModel {
     /(?:^|\/)Evidence\//u.test(source.path) ||
     /(?:^|\/)Changes\/CHG-\d{6}\//u.test(source.path) ||
     /(?:^|\/)CHANGELOG\.md$/u.test(source.path);
-  const links: ArtifactModel["links"] = parsedLinks.map((link) => ({
-    target: link.target,
-    related: link.related,
-    historical: !link.historical
+  const historicalPositions = new Set<string>();
+  const linkContent = omitMarkdownFencedCode(source.content);
+  let linkLine = 1;
+  let lineStart = 0;
+  let nextLineEnd = linkContent.indexOf("\n");
+  const links: ArtifactModel["links"] = parsedLinks.map((link) => {
+    // Inline・参照形式の従来順を維持し、次の走査で位置が戻れば数え直す。
+    if (link.offset < lineStart) {
+      linkLine = 1;
+      lineStart = 0;
+      nextLineEnd = linkContent.indexOf("\n");
+    }
+    while (nextLineEnd >= 0 && nextLineEnd < link.offset) {
+      linkLine++;
+      lineStart = nextLineEnd + 1;
+      nextLineEnd = linkContent.indexOf("\n", lineStart);
+    }
+    const historical = !link.historical
       ? null
       : historicalDocument &&
           !link.related &&
@@ -186,21 +204,16 @@ export function parseMarkdownArtifact(source: ArtifactSource): ArtifactModel {
             parseMarkdownLinkReference(link.target).target,
           )
         ? "declared"
-        : "invalid",
-  }));
-  const historicalPositions = new Set<string>();
-  const linkContent = omitMarkdownFencedCode(source.content);
-  let linkLine = 1;
-  let previousOffset = 0;
-  for (const [index, link] of parsedLinks.entries()) {
-    if (links[index]?.historical !== "declared") continue;
-    linkLine +=
-      linkContent.slice(previousOffset, link.offset).match(/\n/gu)?.length ?? 0;
-    const column =
-      link.offset - linkContent.lastIndexOf("\n", link.offset - 1) - 1;
-    historicalPositions.add(`${linkLine}:${column}`);
-    previousOffset = link.offset;
-  }
+        : "invalid";
+    if (historical === "declared")
+      historicalPositions.add(`${linkLine}:${link.offset - lineStart}`);
+    return {
+      target: link.target,
+      location: { path: source.path, line: linkLine },
+      related: link.related,
+      historical,
+    };
+  });
   const linkIssues = links
     .filter((link) => link.historical === "invalid")
     .map((link) => ({
@@ -312,6 +325,7 @@ export function parseMarkdownArtifact(source: ArtifactSource): ArtifactModel {
     source,
     anchors: parseMarkdownAnchors(source.content),
     links,
+    bodyInlineLinks: captureBodyInlineLinks(source),
     identity: identity.result,
     hasRelated: related.hasRelated,
     localIssues: [...identity.issues, ...related.issues, ...linkIssues],

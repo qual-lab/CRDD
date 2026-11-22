@@ -141,7 +141,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "parseRealitySymbolManifest",
     "parseRealityTestCatalog",
     "parseRepositoryProjectContextMarkdown",
-    "parseRepositoryQualityProjectionMarkdown",
     "parseRepositoryReleaseProjectionMarkdown",
     "parseSpecAnalysis",
     "parseSpecBehavior",
@@ -370,7 +369,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "parseRealitySymbolManifest",
     "parseRealityTestCatalog",
     "parseRepositoryProjectContextMarkdown",
-    "parseRepositoryQualityProjectionMarkdown",
     "parseRepositoryReleaseProjectionMarkdown",
     "parseSpecAnalysis",
     "parseSpecBehavior",
@@ -521,21 +519,44 @@ test("srcのDirectoryはCapability-firstかつ二階層以内に保つ", () => {
     path.join(sourceRoot, "architecture/relations.ts"),
     "utf8",
   );
-  assert.doesNotMatch(architectureRelations, /from\s+["']\.\.\/semantic\//u);
+  assert.doesNotMatch(
+    architectureRelations,
+    /from\s+["'](?:\.\.\/semantic\/|\.\/parse\.ts)/u,
+  );
+  assert.doesNotMatch(
+    fs.readFileSync(path.join(sourceRoot, "architecture/parse.ts"), "utf8"),
+    /from\s+["']\.\/relations\.ts/u,
+  );
   assert.doesNotMatch(
     semanticRelations,
     /case\s+["']architecture_(?:cross_model|detail_map_coverage|readiness|registry_coverage|component_coverage|relations|detail_coverage|inputs)["']/u,
   );
   for (const sourcePath of [
-    "quality/analysis.ts",
-    "quality/definition.ts",
-    "quality/verification-tables.ts",
+    "quality/parse.ts",
+    "quality/validation.ts",
+    "quality/types.ts",
   ]) {
     const qualitySource = fs.readFileSync(
       path.join(sourceRoot, sourcePath),
       "utf8",
     );
     assert.doesNotMatch(qualitySource, /from\s+["']\.\.\/semantic\//u);
+  }
+  assert.doesNotMatch(
+    fs.readFileSync(path.join(sourceRoot, "quality/validation.ts"), "utf8"),
+    /from\s+["']\.\/parse\.ts/u,
+  );
+  for (const block of ["architecture", "quality"]) {
+    assert.doesNotMatch(
+      fs.readFileSync(path.join(sourceRoot, block, "types.ts"), "utf8"),
+      /from\s+["']\.\/(?:parse|validation|relations)\.ts/u,
+    );
+  }
+  for (const block of ["topic", "meeting"]) {
+    assert.doesNotMatch(
+      fs.readFileSync(path.join(sourceRoot, block, "parse.ts"), "utf8"),
+      /from\s+["'](?:\.\/update\.ts|\.\.\/storage\/)/u,
+    );
   }
   assert.doesNotMatch(
     semanticRelations,

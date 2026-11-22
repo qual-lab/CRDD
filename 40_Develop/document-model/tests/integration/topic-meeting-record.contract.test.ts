@@ -11,8 +11,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseTopicMarkdown } from "../../src/topic/markdown.ts";
-import { parseMeetingMarkdown } from "../../src/meeting/markdown.ts";
+import { parseTopicMarkdown } from "../../src/topic/parse.ts";
+import { parseMeetingMarkdown } from "../../src/meeting/parse.ts";
 
 const TOPIC_MARKDOWN = `# 認証方式の選択
 

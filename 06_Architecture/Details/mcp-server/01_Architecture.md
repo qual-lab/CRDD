@@ -82,9 +82,9 @@ SDKとの境界再確認（2026-10-21）: Content-Typeの意味判定はSDK公�
 
 終了では従来の要求Controllerと未終了処理の集合を使い、SDK closeだけから下位Effect終了を推定しない。HTTP切断・Server終了は同じ要求の取消をTool callbackへ伝播し、既存Ownerの完了待ちとSDK資源回収を終えてから終了結果を返す。新しい永続状態、共有Lock、Registry、認証Frameworkは追加しない。
 
-公開 `./mcp`、Tool定義・登録、認証・起動構成、および通信受付は `transport/mcp-server.ts` に置き、共用する型は `transport/mcp-types.ts` に置く。一度受理したTool名・引数を各操作へ渡す。HTTPとstdioは共通のJSON-RPC形式、一要求のSDK接続、開始済みOwnerを待ってからSDKを閉じる処理を共用する。HTTPのBearer／Originと切断時の非開示、stdioの有界逐次処理・EOF取消・出力完了は区別し、継承型のTransportを追加しない。WorkspaceのCoordinator受付、Topic／Meetingの書込み本文検査、活動Readerへの接続は `service/entry.ts` 経由で既存OwnerをHTTPと共用する。
+公開 `./mcp` とTool定義・登録、認証後の要求構成は `transport/mcp-server.ts` に置く。HTTPは `transport/mcp-http.ts`、標準入出力は `transport/mcp-stdio.ts`、共通の要求受付とSDK接続は `transport/mcp-protocol.ts`、共用型は `transport/mcp-types.ts` が所有する。一度受理したTool名・引数を各操作へ渡す。HTTPとstdioは共通のJSON-RPC形式、一要求のSDK接続、開始済みOwnerを待ってからSDKを閉じる処理を共用する。HTTPのBearer／Originと切断時の非開示、stdioの有界逐次処理・EOF取消・出力完了は区別し、継承型のTransportを追加しない。WorkspaceのCoordinator受付、Topic／Meetingの書込み本文検査、活動Readerへの接続は `service/entry.ts` 経由で既存OwnerをHTTPと共用する。
 
-本番の共通境界は`createMcpServerFactory`が返す要求別SDK Server生成とする。HTTP要求とstdioの一要求ごとの内部SDK接続へ、検査済みの元入力・現在取消・開始したOwner Promiseの観測先を結合する。一要求で作ったServerや認可結果を後続要求へ再利用しない。Tool定義とOwnerの対応を要求内の固定構成としてSDKへ登録し、旧`routeMcpRequest`を本番入口に残さない。標準McpServerのTool errorへの変換は既存Protocol errorと異なるため、公式の低水準Server登録を使い、入力拒否と業務上の`isError`を区別する。CRDD固有の通信入力は `transport/mcp-server.ts`、重複キー拒否は `transport/parse-json.ts` で検査する。汎用Protocol補助をPackage Rootから公開しない。直接試験も同じFactoryを公式SDK接続で呼び、試験専用の別dispatchを作らない。
+本番の共通境界は`createMcpServerFactory`が返す要求別SDK Server生成とする。HTTP要求とstdioの一要求ごとの内部SDK接続へ、検査済みの元入力・現在取消・開始したOwner Promiseの観測先を結合する。一要求で作ったServerや認可結果を後続要求へ再利用しない。Tool定義とOwnerの対応を要求内の固定構成としてSDKへ登録し、旧`routeMcpRequest`を本番入口に残さない。標準McpServerのTool errorへの変換は既存Protocol errorと異なるため、公式の低水準Server登録を使い、入力拒否と業務上の`isError`を区別する。CRDD固有の共通通信入力は `transport/mcp-protocol.ts`、重複キー拒否は `transport/parse-json.ts` で検査する。汎用Protocol補助をPackage Rootから公開しない。直接試験も同じFactoryを公式SDK接続で呼び、試験専用の別dispatchを作らない。
 
 Workspace再編のMachine入口は[横断契約](../coordinator/05_Workspace.md)へ接続する。`crdd.get_workspace`は一覧・状態・現在file・固定差分、`crdd.manage_workspace`は作成・選択・改名・保持・固定・別採用・終了を扱う。入力はRepository IDと操作別の閉じたcommandで、Root・認可関数・参照解放の自己申告を受けない。通常Launcherは固定RepositoryのManifest、共有HTTPは要求毎のAM現在development許可から同じCoordinatorのTask／Objective公開Ownerを解決する。内容領域のworkspaceIdsをGit Workspace UUIDへ流用せず、鍵操作非公開・Repository登録Workbench限定の既存境界を変更しない。通常Objectiveには任意の`workspaceId`を搬送できるが、既存Queueの同Project所属・ready・保持なしを実Writerが再確認し、不明時にDirectへfallbackしない。公開接続の実装・検証中であり、実Provider全体の完成主張ではない。
 
@@ -102,7 +102,7 @@ Topic／Meetingの横断Relationでは、構成が認可済み同Project集合�
 | Tool契約 | 各`tools/*.ts`の明示公開定義・処理・結果検査 | 専門Ownerの既存入力・結果を維持。汎用Protocol補助は内部のみ |
 | 配布コマンド | `crdd-server [--port <port>]`、`--shared`、`--mcp-stdio` | HTTPは常にloopback。stdioは単体に限りMCPだけを切替 |
 
-`routeMcpRequest` と `McpRequestRoutingDependencies` は撤去し、互換Routerを残さない。Task／Objective固有Schemaと閉じた通信入力の検査は、`transport/mcp-server.ts` 内で責務を区別する。生JSONの重複キー拒否は維持する。同一プロセスの直接呼び出しはJSON相当の値を渡す契約とし、getter・Proxyを呼ばずに拒否する保証は持たない。待機後まで使う値だけを操作側で確定する。認証結果および下位からの結果の検査は別境界で維持する。
+`routeMcpRequest` と `McpRequestRoutingDependencies` は撤去し、互換Routerを残さない。Task／Objective固有Schemaは `transport/mcp-server.ts`、閉じた共通通信入力の検査は `transport/mcp-protocol.ts` が所有する。生JSONの重複キー拒否は維持する。同一プロセスの直接呼び出しはJSON相当の値を渡す契約とし、getter・Proxyを呼ばずに拒否する保証は持たない。待機後まで使う値だけを操作側で確定する。認証結果および下位からの結果の検査は別境界で維持する。
 
 公式Client `2.3.1`は試験用の開発依存だけに固定する。対応対象はProtocol `2026-07-28`を明示したmodern Clientであり、既定legacy Initializeや購読・汎用pingの互換を新設しない。stdioの取消通知は現在のIDだけへ結合し、不明・完了済みIDを次要求へ流用しない。Owner終了、SDK応答生成、外部出力callback、内部資源回収を分けて確認する。
 

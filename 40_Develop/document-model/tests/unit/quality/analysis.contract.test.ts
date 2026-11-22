@@ -29,9 +29,9 @@ import {
   parseQualityVerificationDesign,
   parseQualityVerificationResult,
 } from "../../../src/index.ts";
-import { collectQualityDefinitionRelations } from "../../../src/quality/definition.ts";
-import { captureQualityDocument } from "../../../src/quality/readiness.ts";
-import { captureQualityTemplate } from "../../../src/quality/templates.ts";
+import { collectQualityDefinitionRelations } from "../../../src/quality/validation.ts";
+import { captureQualityDocument } from "../../../src/quality/parse.ts";
+import { captureQualityTemplate } from "../../../src/quality/parse.ts";
 
 /**
  * Qualityの明示リンクを旧節選択で捕捉する。
@@ -1197,10 +1197,12 @@ test("Quality中央担当モデルは全可視IDと採用行を区別する", ()
   const key = "PRT-000001.spec-000001";
   const row = `| ${key} | BHV-000001 | QA-000001 | Single | Covered |`;
   const content = `${row}\n${row.replace("BHV-000001", "BHV-000002")}\n| SCR-000099 PRT-000099 | BHV-000099 |\n<!-- SCR-999999 -->`;
-  const model = parseQualityDetailAnalysis({
+  const result = parseQualityDetailAnalysis({
     path: "quality-trace.md",
     content,
-  }).result.trace;
+  }).result;
+  const model = result.trace;
+  assert.equal(model.artifact, result.artifact);
   assert.equal(model.relationRows, 2);
   assert.equal(model.relations.get(key)?.bhv, "BHV-000002");
   assert.equal(model.hasDuplicateRelations, true);
