@@ -14,7 +14,7 @@ import { mock } from "node:test";
 import { fileURLToPath } from "node:url";
 import * as actualAccess from "../../../access-management/src/index.ts";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
-import type { McpResponse } from "../../src/mcp/core.ts";
+import type { McpResponse } from "../../src/transport/mcp-server.ts";
 
 const testBase = fileURLToPath(
   new URL("../../../../.crdd/tests", import.meta.url),
@@ -66,7 +66,7 @@ try {
     createAccessMcpResolver,
     MCP_COORDINATOR_PROTOCOL_VERSION,
     MCP_CURRENT_ACCESS_TOOL,
-  } = await import("../../src/mcp/core.ts");
+  } = await import("../../src/transport/mcp-server.ts");
   const { invokeMcpSource } = await import("./sdk-request.ts");
   const handler = await createAccessMcpResolver(root)("fixture-non-secret");
   assert.ok(handler);

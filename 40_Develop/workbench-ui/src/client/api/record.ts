@@ -6,7 +6,7 @@
  * @boundary 同Originの要求・結果。認可と保存はServer Ownerが担当する。
  * @security 資格・物理Root・本文を結果へ追加しない。
  */
-import type { WorkbenchTopicMeetingResultView } from "../../../../crdd-server/src/view/validation.ts";
+import type { RecordActionView } from "./response.ts";
 
 /**
  * 削除済みDetailから一覧への一回遷移をRouterへ渡す。
@@ -21,7 +21,7 @@ import type { WorkbenchTopicMeetingResultView } from "../../../../crdd-server/sr
 export type ReplaceDeletedRecord = (
   target: URL,
   repositoryId: string | null,
-  result: WorkbenchTopicMeetingResultView,
+  result: RecordActionView,
 ) => Promise<void>;
 
 /**
@@ -90,8 +90,7 @@ export function createTopicMeetingActionBody(
 export function inspectTopicMeetingActionResult(
   form: URLSearchParams,
   value: unknown,
-): WorkbenchTopicMeetingResultView &
-  Readonly<{ filesystemEffectCount: 0 | 1 }> {
+): RecordActionView & Readonly<{ filesystemEffectCount: 0 | 1 }> {
   const invalid = "workbench_record_response_invalid";
   if (
     value === null ||
@@ -180,6 +179,5 @@ export function inspectTopicMeetingActionResult(
   ) {
     if (result.relationPaths.length !== 0) throw new Error(invalid);
   }
-  return value as WorkbenchTopicMeetingResultView &
-    Readonly<{ filesystemEffectCount: 0 | 1 }>;
+  return value as RecordActionView & Readonly<{ filesystemEffectCount: 0 | 1 }>;
 }

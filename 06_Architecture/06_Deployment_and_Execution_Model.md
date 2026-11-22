@@ -63,7 +63,7 @@ Canonical責務を実行時に分離する論理単位、Resource、並行性お
 
 Shared Server、CROS REST、Gatewayを独立Runtimeとして残さない。既存の認可・Origin・TLS境界・操作・終了保証をMCPと内部能力へ移管した後に撤去する。共有HostへのRepository自動Deploy／Clone／Backup機能は追加しない。WorkbenchのBrowser向けRESTはこの撤去に含めない。
 
-単体／CROSは起動時に明示選択し、設定済みであることだけで自動切替しない。単体は起動Repository一つ・資格不要、CROSは現在認可された集合を扱う。初回Host設定はローカルHostの明示操作だけで開始し、通常鍵交換と混ぜない。`--cros`や設定Fileの存在を開始許可・Host Authority・自動初期化の根拠にしない。Access Managementは認証・認可の論理Ownerであり、独立Process／Serverの追加を意味しない。保存Root・秘密保護は既存契約を維持する。
+単体／CROSは起動時に明示選択し、設定済みであることだけで自動切替しない。単体は起動Repository一つ。MCPをHTTPで使う場合だけ既存固定Bearerを検証する、CROSは現在認可された集合を扱う。初回Host設定はローカルHostの明示操作だけで開始し、通常鍵交換と混ぜない。`--shared`や設定Fileの存在を開始許可・Host Authority・自動初期化の根拠にしない。Access Managementは認証・認可の論理Ownerであり、独立Process／Serverの追加を意味しない。保存Root・秘密保護は既存契約を維持する。
 
 現行CoordinatorはTask／Objective管理と単発Executionを同じPackageへ統合する。Provider差はAI Adapter、実Docker資源の技術操作・回収はDocker Isolation、OS固有保証はPlatform Accessが所有する。Docker CLIを使うことだけで全処理をNativeへ移管しない。通常実行の署名依存は撤去済みであり、必要な成果物同一性の確認と各Toolの実行・試験環境を区別する。
 

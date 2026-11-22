@@ -9,10 +9,10 @@
 import { type ReactElement, useState } from "react";
 import { EmptyState } from "../components/elements.ts";
 import type {
-  WorkbenchRecordDetailViewModel,
-  WorkbenchTopicMeetingResultView,
-} from "../../../../crdd-server/src/view/validation.ts";
-import { inspectWorkbenchClientModel } from "../../../../crdd-server/src/view/validation.ts";
+  RecordDetailResponse,
+  RecordActionView,
+} from "../api/response.ts";
+import { validateViewResponse } from "../api/response.ts";
 import { createSelectedWorkbenchViewUrl } from "../api/view.ts";
 import { RecordOperationPanel } from "../components/record-operation-panel.tsx";
 import { requestWorkbench } from "../api/connection.ts";
@@ -39,7 +39,7 @@ export function RecordDetail({
   model: initialModel,
   replaceDeletedRecord,
 }: {
-  model: WorkbenchRecordDetailViewModel;
+  model: RecordDetailResponse;
   replaceDeletedRecord: ReplaceDeletedRecord;
 }): ReactElement {
   const [model, setModel] = useState(initialModel);
@@ -61,7 +61,7 @@ export function RecordDetail({
    */
   async function refreshRecord(
     signal: AbortSignal,
-    result: WorkbenchTopicMeetingResultView | null,
+    result: RecordActionView | null,
   ): Promise<void> {
     const originalUrl = window.location.href;
     const target = new URL(originalUrl);
@@ -86,7 +86,7 @@ export function RecordDetail({
         { signal, cache: "no-store" },
       );
       if (!response.ok) throw new Error("workbench_view_unavailable");
-      return inspectWorkbenchClientModel(await response.json());
+      return validateViewResponse(await response.json());
     });
     if (
       signal.aborted ||

@@ -132,7 +132,7 @@ function observeRuntimeSource() {
       sourceRoot,
       "template",
       "tools",
-      "crdd-mcp-server.ts",
+      "crdd-server.ts",
     );
     const entryBefore = fs.lstatSync(entryPath, { bigint: true });
     if (
@@ -143,7 +143,7 @@ function observeRuntimeSource() {
       return null;
     const entry = createFilesystemRepositoryObservationPort(
       verified.capability,
-    ).observeFile("template/tools/crdd-mcp-server.ts");
+    ).observeFile("template/tools/crdd-server.ts");
     const entryAfter = fs.lstatSync(entryPath, { bigint: true });
     if (
       !entryAfter.isFile() ||
@@ -334,10 +334,10 @@ function startPublicMcpProcess(sourceRoot: string, repositoryRoot: string) {
     sourceRoot,
     "template",
     "tools",
-    "crdd-mcp-server.ts",
+    "crdd-server.ts",
   );
   isMcpStartRequested = true;
-  return spawn(process.execPath, [entryPath, "--automation", "--stdio"], {
+  return spawn(process.execPath, [entryPath, "--mcp-stdio"], {
     cwd: repositoryRoot,
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],

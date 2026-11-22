@@ -8,7 +8,7 @@
  */
 import type { ReactElement } from "react";
 import { EmptyState } from "../components/elements.ts";
-import type { WorkbenchProjectDetailViewModel } from "../../../../crdd-server/src/view/validation.ts";
+import type { ProjectDetailResponse } from "../api/response.ts";
 import { ProjectScene } from "../components/project-context.tsx";
 
 /**
@@ -29,7 +29,7 @@ import { ProjectScene } from "../components/project-context.tsx";
 export function ProjectDetail({
   model,
 }: {
-  model: WorkbenchProjectDetailViewModel;
+  model: ProjectDetailResponse;
 }): ReactElement {
   return (
     <main className="record-detail">

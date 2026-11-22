@@ -103,7 +103,11 @@ Windows端末出力の低層二Caseと、固定OS端末の取得・回収の低�
 活動の新Owner接続では、`EST-IT-002`で未知field・不正Cursor・Source相関不正を拒否し、`EST-IT-014`で実Reader開始前の呼出し0、開始後のjoin・取消応答・再実行0を確認する。`EST-IT-010`では同じOrchestrator公開観測をWorkbenchの直接Owner経路と独立MCP Surfaceから取得し、競合・欠測・出所・全体ページングを比較する。Readerの待機を取消できない場合もPromise競争で放棄しない。Workbench直接Owner接続は局所Sourceと実HTTP反例で評価する。同期活動読取り前の切断では履歴読取り0、読取り中の切断では対象二Rootを各一回読んでjoinし、Serverの成功本文0と次要求の正常取得を確認する。既存通信待機をReader前後へ適用し、強制途中取消や全公開Launcherの完成を主張しない。旧CROSの合成Reader試験は移管後の本番成立根拠に流用しない。
 
 
-EST-ST-015は最新MCP詳細の鍵管理・初回設定・状態照会非公開から導出する。初回設定も同じ公開面の負境界のためSame統合し、新しい重複項目を作らない。鍵権限・発行／失効／交換のEffectはQA-000007が所有し、本項目は既存四面非公開に加え、完全HTTP／Protocol検査後の限定discoverと確認Ownerの正規1回／不正0を検証する。確認内部のfresh読取りは公開状態照会ではない。EST-IT-010とEST-ST-015は最新契約についてNot Run。旧結果は新契約の合格根拠にしない。
+共有実行系操作では、`EST-IT-010` の既存Integration SuiteでHTTP APIとMCPの両方から明示Repositoryへの開発権限とAM本人を既存Coordinator操作に渡す。Objective実行・判断送信・実行状態照会の結果を比較し、同一Projectの別Repository、対象省略、Project不一致、開発公開解除を分ける。HTTPの資格なし・操作トークン欠測も拒否する。始まったObjectiveの代役を待機させ、同一要求中に公開を解除した場合は終了を待って結果を非開示とし、再送がないことを確認する。代役や開始前の拒否を実AI・実行成功へ読み替えない。
+
+HTTP実行系の仕様表示では、開発用OpenAPIにGET・POSTだけが現れることと、フォーム搬送を記載することを確認する。実HTTPの必須Query欠測とOrigin欠測がそれぞれ既存の拒否に到達することを照合し、仕様生成を入力検査・認可の代用としない。
+
+EST-ST-015は最新MCP詳細の鍵管理・初回設定・AM管理状態の照会非公開から導出する。初回設定も同じ公開面の負境界のためSame統合し、新しい重複項目を作らない。鍵権限・発行／失効／交換のEffectはQA-000007が所有し、本項目は既存四面非公開に加え、完全HTTP／Protocol検査後の限定discoverと確認Ownerの正規1回／不正0を検証する。確認内部のfresh読取りや認可済みCoordinatorの実行状態は、公開AM管理状態照会ではない。EST-IT-010とEST-ST-015の全体評価は別途行う。旧結果は新契約の合格根拠にしない。
 
 通常7保存操作の固定分担・保存・読戻しはQA-000007／RFD-UT-020・RFD-IT-021・RFD-ST-022が所有し、EST-IT-010は搬送同値だけを検証する。MCP Tool／CLI／APIをこのQuality更新で新規採用しない。非採用経路は非公開を確認する。鍵3操作のMCP非公開とHost交換2操作は同値比較の対象外。Profile管理は現在manager／administratorに確定済みで、内容・Catalog更新の検証はQA-000001が所有する。
 

@@ -9,18 +9,13 @@
  */
 import { createMcpHandler, ProtocolError } from "@modelcontextprotocol/server";
 import {
-  createMcpRequestServer,
   createMcpServerFactory,
+  type McpCoordinatorDependencies,
   type McpServerDependencies,
-} from "../../src/mcp/request-server.ts";
-import {
-  inspectProtocolRequest,
-  protocolError,
   MCP_COORDINATOR_PROTOCOL_VERSION,
   type McpResponse,
-} from "../../src/mcp/request-validation.ts";
-import { snapshotOpenPlainRecord } from "../../src/request/snapshot.ts";
-import type { McpRequestSource } from "../../src/mcp/transport-types.ts";
+} from "../../src/transport/mcp-server.ts";
+import type { McpRequestSource } from "../../src/transport/mcp-types.ts";
 
 /**
  * 構成済み接続を公式SDKで一回処理する。
@@ -38,21 +33,33 @@ export async function invokeMcpSource(
   raw: unknown,
   signal: AbortSignal,
 ): Promise<McpResponse> {
-  const request = inspectProtocolRequest(raw);
+  const request =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  const id =
+    typeof request?.id === "string" || typeof request?.id === "number"
+      ? request.id
+      : null;
+  if (typeof source === "function")
+    throw new Error("sdk_request_fixture_requires_factory");
   const pending: Promise<McpResponse>[] = [];
-  let server: Awaited<ReturnType<typeof createMcpRequestServer>>;
+  let server: Awaited<ReturnType<typeof source.createServer>>;
   try {
-    server = await createMcpRequestServer(source, raw, signal, (operation) => {
+    server = await source.createServer(raw, signal, (operation) => {
       pending.push(operation);
     });
   } catch (error) {
-    return error instanceof ProtocolError
-      ? protocolError(request?.id ?? null, error.code, error.message)
-      : protocolError(request?.id ?? null, -32603, "Internal error");
+    const failure =
+      error instanceof ProtocolError
+        ? { code: error.code, message: error.message }
+        : { code: -32603, message: "Internal error" };
+    return { jsonrpc: "2.0", id, error: failure };
   }
   const sdk = createMcpHandler(() => server, { legacy: "reject" });
   try {
-    const params = snapshotOpenPlainRecord(request?.params);
+    const params =
+      request?.params && typeof request.params === "object"
+        ? (request.params as Record<string, unknown>)
+        : null;
     const body = {
       jsonrpc: "2.0",
       id: request?.id,
@@ -78,7 +85,8 @@ export async function invokeMcpSource(
           "content-type": "application/json",
           accept: "application/json, text/event-stream",
           "mcp-protocol-version": MCP_COORDINATOR_PROTOCOL_VERSION,
-          "mcp-method": request?.method ?? "",
+          "mcp-method":
+            typeof request?.method === "string" ? request.method : "",
           ...(request?.method === "tools/call"
             ? {
                 "mcp-name": typeof params?.name === "string" ? params.name : "",
@@ -112,4 +120,13 @@ export async function invokeMcpRequest(
   signal: AbortSignal = new AbortController().signal,
 ): Promise<McpResponse> {
   return invokeMcpSource(createMcpServerFactory(dependencies), raw, signal);
+}
+
+/** 実行Toolの公開SDK経路へ試験用Coordinatorだけを接続する。 @trace PRL-IT-012 */
+export function invokeMcpCoordinatorRequest(
+  raw: unknown,
+  coordinator: McpCoordinatorDependencies,
+  signal?: AbortSignal,
+): Promise<McpResponse> {
+  return invokeMcpRequest(raw, { coordinator }, signal);
 }

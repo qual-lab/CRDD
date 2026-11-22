@@ -30,7 +30,7 @@ const repositoryRoot = path.resolve(packageRoot, "../..");
  */
 test("Workbench助言の本番入口は署名発行を注入しない", () => {
   const launcher = readFileSync(
-    path.join(packageRoot, "bin/crdd-server.ts"),
+    path.join(packageRoot, "src/cli/command.ts"),
     "utf8",
   );
   const runtime = readFileSync(
@@ -44,9 +44,14 @@ test("Workbench助言の本番入口は署名発行を注入しない", () => {
     launcher,
     /issueRuntimeOwnedVerifiedCoordinatorPackageCapability/,
   );
+  assert.match(launcher, /session:\s*openTaskSession\(context\)/u);
   assert.match(
     launcher,
-    /openTaskSession\(\s*\{\s*rootCapability:\s*verified\.capability,/,
+    /function resolveLocalAiContext[\s\S]*?rootCapability:\s*verified\.capability,/u,
+  );
+  assert.match(
+    launcher,
+    /createAiRequests\(\s*\(\)\s*=>\s*resolveLocalAiContext\(repositoryRoot\)\s*,?\s*\)/u,
   );
   assert.doesNotMatch(
     runtime,
@@ -192,7 +197,8 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
       }
     }
   }
-  assert.ok(visited.has(path.join(packageRoot, "src", "http", "start.ts")));
+  assert.ok(visited.has(path.join(packageRoot, "src", "cli", "command.ts")));
+  assert.ok(visited.has(path.join(packageRoot, "src", "app.ts")));
   assert.equal(
     [...visited].some((value) => {
       const relative = path.relative(repositoryRoot, value).split(path.sep);
@@ -219,20 +225,45 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
     false,
   );
   const eager = new Set<string>();
-  pending.push(entry);
+  // 統合CLIはMCPを所有する。MCPを読み込まない契約は単独の ./api に適用する。
+  const { exports } = JSON.parse(
+    readFileSync(path.join(packageRoot, "package.json"), "utf8"),
+  );
+  pending.push(path.resolve(packageRoot, exports["./api"]));
   while (pending.length > 0) {
     const current = pending.pop();
     assert.ok(current);
     if (eager.has(current)) continue;
     eager.add(current);
     assert.ok(
-      !current.startsWith(path.join(packageRoot, "src/mcp") + path.sep),
+      path.dirname(current) !== path.join(packageRoot, "src", "transport") ||
+        !/^(?:mcp-|tools-)/u.test(path.basename(current)),
       "standalone_http_must_not_eagerly_load_mcp",
     );
     for (const specifier of runtimeSpecifiers(current, false)) {
       if (specifier.startsWith("."))
         pending.push(resolveLocalSource(current, specifier));
       else assert.ok(!specifier.startsWith("@modelcontextprotocol/"));
+    }
+  }
+  const transport = path.join(packageRoot, "src", "transport");
+  const mcpServer = path.join(transport, "mcp-server.ts");
+  const lowerTransport = [mcpServer];
+  const visitedTransport = new Set<string>();
+  for (
+    let current = lowerTransport.pop();
+    current !== undefined;
+    current = lowerTransport.pop()
+  ) {
+    if (visitedTransport.has(current)) continue;
+    visitedTransport.add(current);
+    for (const specifier of runtimeSpecifiers(current)) {
+      if (!specifier.startsWith(".")) continue;
+      const resolved = resolveLocalSource(current, specifier);
+      assert.notEqual(resolved, mcpServer);
+      assert.notEqual(resolved, path.join(transport, "api-server.ts"));
+      assert.notEqual(resolved, path.join(transport, "api-document.ts"));
+      if (path.dirname(resolved) === transport) lowerTransport.push(resolved);
     }
   }
 });
@@ -248,15 +279,10 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
  * @cleanup N/A: Source読取りのみ。Browser・Serverを起動しない。
  * @boundary Browser Build入口からの実行時依存。Canonical型のtype importは維持する。
  */
-test("Workbench BrowserはclientとsharedだけをRuntimeで参照する", () => {
+test("Workbench BrowserはUIパッケージ内だけをRuntimeで参照する", () => {
   const clientRoot = path.join(
     repositoryRoot,
     "40_Develop/workbench-ui/src/client",
-  );
-  const browserContracts = new Set(
-    ["view", "repository", "management"].map((area) =>
-      path.join(packageRoot, "src", area, "validation.ts"),
-    ),
   );
   const pending = [path.join(clientRoot, "main.tsx")];
   const visited = new Set<string>();
@@ -273,8 +299,7 @@ test("Workbench BrowserはclientとsharedだけをRuntimeで参照する", () =>
     if (visited.has(current)) continue;
     visited.add(current);
     assert.ok(
-      current.startsWith(clientRoot + path.sep) ||
-        browserContracts.has(current),
+      current.startsWith(clientRoot + path.sep),
       "browser_runtime_owner",
     );
     for (const specifier of runtimeSpecifiers(current)) {
@@ -287,52 +312,56 @@ test("Workbench BrowserはclientとsharedだけをRuntimeで参照する", () =>
         );
     }
   }
-  assert.ok(
-    visited.has(path.join(packageRoot, "src/repository/validation.ts")),
-  );
+  assert.ok(visited.has(path.join(clientRoot, "api/response.ts")));
+  assert.ok(visited.has(path.join(clientRoot, "api/repository.ts")));
   assert.ok(visited.has(path.join(clientRoot, "api/queries.ts")));
 });
 
 /**
- * Workbench Browser BundleのBuild結果がGit Indexと一致することを検証する。
+ * WorkbenchのHTML・CSS・JS配布物がGit Indexと一致することを検証する。
  *
  * @responsibility Vite生成物が固定Pathの通常Fileであり、Git Indexの追跡Blobと同一であることを保証する。
  * @trace ERB-IT-021
  * @precondition Workbench Buildが固定PathへBrowser Bundleを生成済みである。
  * @stimulus BundleのFile種別、Git Index EntryおよびWorking Tree Blobを観測する。
  * @observation 固定Asset Path、Index mode、Index Blob IDおよびWorking Tree Blob IDを取得する。
- * @oracle dist/client/assets/workbench-client.jsが通常Fileであり、Git Indexの通常Blobと同一である。
+ * @oracle 固定3ファイルが通常Fileであり、それぞれGit Indexの通常Blobと同一である。
  * @cleanup N/A: FilesystemとGit Indexを読取るだけである。
  * @boundary ERB-IT-021=Direct Boundary: Vite Build Artifact→Git Index
  */
-test("Workbench Browser BundleのBuild結果はGit Indexと一致する", () => {
-  const relativeAsset =
-    "40_Develop/workbench-ui/dist/client/assets/workbench-client.js";
-  const assetPath = path.join(repositoryRoot, ...relativeAsset.split("/"));
-  assert.equal(existsSync(assetPath), true);
-  const assetStatus = lstatSync(assetPath);
-  assert.equal(assetStatus.isSymbolicLink(), false);
-  assert.equal(assetStatus.isFile(), true);
-  const indexEntry = execFileSync(
-    "git",
-    [
-      "-C",
-      repositoryRoot,
-      "ls-files",
-      "--stage",
-      "--error-unmatch",
-      "--",
-      relativeAsset,
-    ],
-    { encoding: "utf8", windowsHide: true },
-  ).trim();
-  const match = /^(100644) ([0-9a-f]{40,64}) 0\t(.+)$/u.exec(indexEntry);
-  assert.notEqual(match, null);
-  assert.equal(match?.[3], relativeAsset);
-  const workingBlob = execFileSync(
-    "git",
-    ["-C", repositoryRoot, "hash-object", "--no-filters", "--", assetPath],
-    { encoding: "utf8", windowsHide: true },
-  ).trim();
-  assert.equal(workingBlob, match?.[2]);
+test("WorkbenchのHTML・CSS・JS配布物はGit Indexと一致する", () => {
+  for (const file of [
+    "index.html",
+    "workbench.css",
+    "assets/workbench-client.js",
+  ]) {
+    const relativeAsset = `40_Develop/workbench-ui/dist/client/${file}`;
+    const assetPath = path.join(repositoryRoot, ...relativeAsset.split("/"));
+    assert.equal(existsSync(assetPath), true, relativeAsset);
+    const assetStatus = lstatSync(assetPath);
+    assert.equal(assetStatus.isSymbolicLink(), false, relativeAsset);
+    assert.equal(assetStatus.isFile(), true, relativeAsset);
+    const indexEntry = execFileSync(
+      "git",
+      [
+        "-C",
+        repositoryRoot,
+        "ls-files",
+        "--stage",
+        "--error-unmatch",
+        "--",
+        relativeAsset,
+      ],
+      { encoding: "utf8", windowsHide: true },
+    ).trim();
+    const match = /^(100644) ([0-9a-f]{40,64}) 0\t(.+)$/u.exec(indexEntry);
+    assert.notEqual(match, null);
+    assert.equal(match?.[3], relativeAsset);
+    const workingBlob = execFileSync(
+      "git",
+      ["-C", repositoryRoot, "hash-object", "--no-filters", "--", assetPath],
+      { encoding: "utf8", windowsHide: true },
+    ).trim();
+    assert.equal(workingBlob, match?.[2], relativeAsset);
+  }
 });

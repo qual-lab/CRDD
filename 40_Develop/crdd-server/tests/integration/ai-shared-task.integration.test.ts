@@ -27,10 +27,55 @@ import { deriveRepositoryBindingId } from "../../../access-management/src/reposi
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { executionSelection } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
-import { startWorkbench } from "../../src/http/start.ts";
-import type { WorkbenchAiRequestSnapshot } from "../../src/execution/ai-request-types.ts";
-import { readAuthorizedPortfolio } from "../../src/project/access-reader.ts";
-import { readWorkbenchProjectSurface } from "../../src/project/surface.ts";
+import { startWorkbench } from "../../src/app.ts";
+import { prepareAiRequestStart } from "../../src/service/execution.ts";
+import type { AiRequestSnapshot } from "../../src/app.ts";
+import { readAuthorizedPortfolio } from "../../src/service/project.ts";
+import { readProjectViewData } from "../../src/service/project.ts";
+
+/**
+ * 共通の開始入力作成で単体と共有の既存差を維持する。
+ * @responsibility 正規化と拒否の適用範囲を固定する。
+ * @trace CPR-IT-010
+ * @boundary 値変換のみ。実行・認可・保存は行わない。
+ */
+test("AI開始入力は単体と共有の既存条件を区別する", () => {
+  const input = {
+    mode: "workspace_edit",
+    explicitChoice: undefined,
+    requestId: "fixture",
+    workType: "  feature  ",
+    prompt: "  test request  ",
+    allowedPaths: " src\\child.ts \r\n",
+    workspaceId: "  workspace  ",
+  };
+  const local = prepareAiRequestStart(input, "local");
+  const shared = prepareAiRequestStart(input, "shared");
+  assert.deepEqual(local.allowedPaths, ["src/child.ts"]);
+  assert.deepEqual(shared.allowedPaths, ["src\\child.ts"]);
+  assert.equal(local.prompt, "test request");
+  assert.equal(shared.prompt, input.prompt);
+  assert.equal(local.workType, shared.workType);
+  assert.equal(local.workspaceId, shared.workspaceId);
+  assert.deepEqual(local.contextReferences, shared.contextReferences);
+  assert.ok(Object.isFrozen(local) && Object.isFrozen(local.allowedPaths));
+  assert.equal(Object.isFrozen(shared), false);
+  for (const origin of ["local", "shared"] as const) {
+    assert.throws(
+      () => prepareAiRequestStart({ ...input, explicitChoice: null }, origin),
+      /workbench_ai_request_choice_invalid/u,
+    );
+  }
+  assert.throws(
+    () => prepareAiRequestStart({ ...input, allowedPaths: "" }, "local"),
+    /workbench_ai_request_allowed_paths_invalid/u,
+  );
+  assert.deepEqual(
+    prepareAiRequestStart({ ...input, allowedPaths: "" }, "shared")
+      .allowedPaths,
+    [],
+  );
+});
 
 /**
  * 活動ReaderがCoordinatorの公開Rootへ直接接続することを確認する。
@@ -45,10 +90,13 @@ import { readWorkbenchProjectSurface } from "../../src/project/surface.ts";
  */
 test("Workbenchの活動Readerは業務Ownerへ直接接続する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/activity-observe.ts", import.meta.url),
+    new URL("../../src/service/execution.ts", import.meta.url),
     "utf8",
   );
-  assert.match(source, /coordinator\/src\/index\.ts/);
+  assert.match(
+    source,
+    /export function createRepositoryWorkbenchActivityReader[\s\S]*?const \{ queryActivity \} = await import\(\s*"\.\.\/\.\.\/\.\.\/coordinator\/src\/index\.ts"/u,
+  );
 });
 
 /**
@@ -186,7 +234,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     "completed",
     access.status === "unavailable" ? access.reason : undefined,
   );
-  const fixtureSurface = await readWorkbenchProjectSurface(
+  const fixtureSurface = await readProjectViewData(
     registeredRepositories[0]?.repositoryRoot ?? "invalid_fixture_repository",
   );
   assert.equal(fixtureSurface.context.projectId, "project.fixture");
@@ -213,14 +261,15 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     closed = 0;
   let owners = 0;
   let revokeDuringObserve = false;
-  const saved = new Map<string, WorkbenchAiRequestSnapshot>();
+  let returnOldSnapshotAfterRevocation = false;
+  const saved = new Map<string, AiRequestSnapshot>();
   const configuration: Parameters<typeof startWorkbench>[0] = {
     workingDirectory: repository,
     localAccessRoot: root,
     sharedAiRequestsFactory: (_root, _project, _principal, authorize) => {
       owners++;
       const key = `${resolveVerifiedRepositoryRoot(_root)}:${_principal}`;
-      let snapshot: WorkbenchAiRequestSnapshot | null = null;
+      let snapshot: AiRequestSnapshot | null = null;
       /**
        * 所有を確認できないIDへ内容を開示しないSnapshotを返す。
        * @responsibility 不明IDを既存Taskの状態と混同しない。
@@ -233,7 +282,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
        * @cleanup N/A: 値生成だけ。
        * @boundary 有限Ownerから実HTTP公開値。
        */
-      const unavailable = (requestId: string): WorkbenchAiRequestSnapshot => ({
+      const unavailable = (requestId: string): AiRequestSnapshot => ({
         resultAvailable: false,
         requestId,
         mode: null,
@@ -280,6 +329,8 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
             assert.ok(credential);
             credential.revoked = true;
             fs.writeFileSync(current, JSON.stringify(state));
+            if (returnOldSnapshotAfterRevocation)
+              return saved.get(`${key}:${id}`) ?? unavailable(id);
           }
           return authorize()
             ? (saved.get(`${key}:${id}`) ?? unavailable(id))
@@ -332,11 +383,16 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
    */
   const model = async (index: number, id: string) =>
     (
-      await fetch(`${handle.baseUrl}/api/workbench-view?repositoryId=${id}`, {
+      await fetch(`${handle.baseUrl}/api/workbench/view?repositoryId=${id}`, {
         headers: headers(index),
       })
     ).json();
   const first = await model(0, "repository.a");
+  const currentAi = (actor: number, repositoryId: string) =>
+    fetch(
+      `${handle.baseUrl}/api/ai-request?${new URLSearchParams({ repositoryId })}`,
+      { headers: headers(actor) },
+    );
   let actionToken = first.actionToken;
   /**
    * 現在の画面Tokenを同一Originの操作要求へ渡す。
@@ -355,7 +411,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     repositoryId: string,
     values: Record<string, string>,
   ) =>
-    fetch(`${handle.baseUrl}/ai-request/action`, {
+    fetch(`${handle.baseUrl}/api/ai-request`, {
       method: "POST",
       headers: {
         ...headers(index),
@@ -389,6 +445,15 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     assert.equal(started.status, 200);
     const id = (await started.json()).requestId;
     assert.equal(starts, 1);
+    const progress = await currentAi(0, "repository.a");
+    assert.equal(progress.status, 200);
+    assert.equal(progress.headers.get("cache-control"), "no-store");
+    const snapshot = await progress.json();
+    assert.equal(snapshot.requestId, id);
+    assert.equal("projectData" in snapshot, false);
+    assert.equal("executionActivity" in snapshot, false);
+    assert.equal((await currentAi(1, "repository.a")).status, 403);
+    assert.equal((await currentAi(0, "repository.b")).status, 403);
     assert.equal(
       (await model(0, "repository.a")).aiRequest.snapshot.requestId,
       id,
@@ -454,14 +519,29 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
       await model(0, "repository.a");
       assert.ok(networkReads > 0, "有効設定を開く正対照");
       networkReads = 0;
+      assert.equal((await currentAi(0, "repository.a")).status, 200);
+      assert.equal(networkReads, 0, "進行照会は画面構築を実行しない");
+      revokeDuringObserve = true;
+      returnOldSnapshotAfterRevocation = true;
+      const staleProgress = await currentAi(0, "repository.a");
+      assert.equal(staleProgress.status, 403);
+      assert.equal(await staleProgress.text(), "ai_request_rejected\n");
+      assert.equal(revokeDuringObserve, false, "進行照会のawait中に失効する");
+      returnOldSnapshotAfterRevocation = false;
+      const credential = state.credentials[0];
+      assert.ok(credential);
+      credential.revoked = false;
+      state.revision++;
+      fs.writeFileSync(current, JSON.stringify(state));
       revokeDuringObserve = true;
       const revoked = await fetch(
-        `${handle.baseUrl}/api/workbench-view?repositoryId=repository.a`,
+        `${handle.baseUrl}/api/workbench/view?repositoryId=repository.a`,
         { headers: headers(0) },
       );
       assert.equal(revoked.status, 403);
       assert.equal(revokeDuringObserve, false, "先行await内の失効を実行する");
       assert.equal(networkReads, 0, "失効後は通信設定を開かない");
+      assert.equal((await currentAi(0, "repository.a")).status, 403);
     } finally {
       fs.openSync = originalOpen;
       syncBuiltinESMExports();
@@ -469,7 +549,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     assert.equal(
       (
         await fetch(
-          `${handle.baseUrl}/api/workbench-view?repositoryId=repository.a`,
+          `${handle.baseUrl}/api/workbench/view?repositoryId=repository.a`,
           { headers: headers(0) },
         )
       ).status,
@@ -497,7 +577,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
 test("単体Task入口は再構成後の元IDを観測・取消へ接続する", async (t) => {
   let cancels = 0;
   const id = "request-before-restart";
-  let saved: WorkbenchAiRequestSnapshot = {
+  let saved: AiRequestSnapshot = {
     resultAvailable: false,
     requestId: id,
     mode: "read_only_advice",
@@ -554,7 +634,7 @@ test("単体Task入口は再構成後の元IDを観測・取消へ接続する",
    * @boundary 実HTTPから保存済みOwner参照。
    */
   const model = async () =>
-    (await fetch(`${handle.baseUrl}/api/workbench-view`)).json();
+    (await fetch(`${handle.baseUrl}/api/workbench/view`)).json();
   const actionToken = (await model()).actionToken;
   /**
    * 元Task IDを再構成後の公開操作へ渡す。
@@ -569,7 +649,7 @@ test("単体Task入口は再構成後の元IDを観測・取消へ接続する",
    * @boundary 実HTTPから再構成したTask Owner。
    */
   const action = (operation: string, requestId: string) =>
-    fetch(`${handle.baseUrl}/ai-request/action`, {
+    fetch(`${handle.baseUrl}/api/ai-request`, {
       method: "POST",
       redirect: "manual",
       headers: {
@@ -580,6 +660,13 @@ test("単体Task入口は再構成後の元IDを観測・取消へ接続する",
     });
   assert.equal((await action("observe", id)).status, 303);
   assert.equal((await model()).aiRequest.snapshot.requestId, id);
+  const progress = await fetch(`${handle.baseUrl}/api/ai-request`);
+  assert.equal(progress.status, 200);
+  assert.equal((await progress.json()).requestId, id);
+  assert.equal(
+    (await fetch(`${handle.baseUrl}/api/ai-request?repositoryId=other`)).status,
+    403,
+  );
   assert.equal((await action("cancel", "other-request")).status, 400);
   assert.equal(cancels, 0);
   assert.equal((await action("cancel", id)).status, 303);

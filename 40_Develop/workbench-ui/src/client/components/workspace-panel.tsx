@@ -198,7 +198,7 @@ export function WorkspacePanel({
         repositoryId,
         command: JSON.stringify(command),
       });
-      const response = await requestWorkbenchMutation("/workspace/action", {
+      const response = await requestWorkbenchMutation("/api/workspace", {
         method: "POST",
         body,
         signal: abort.signal,

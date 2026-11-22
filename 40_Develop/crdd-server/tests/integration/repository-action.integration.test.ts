@@ -23,7 +23,7 @@ import { deriveRepositoryBindingId } from "../../../access-management/src/reposi
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { startWorkbench } from "../../src/http/start.ts";
+import { startWorkbench } from "../../src/app.ts";
 
 /**
  * 当該Git切断試験のWorker通知と終了を有限時間で結合する。
@@ -364,7 +364,7 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
   syncBuiltinESMExports();
   try {
     const model = (await (
-      await fetch(`${handle.baseUrl}/api/workbench-view`, {
+      await fetch(`${handle.baseUrl}/api/workbench/view`, {
         headers: { authorization: `Bearer ${material.token}` },
       })
     ).json()) as { actionToken: string };
@@ -403,7 +403,7 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
       body: URLSearchParams,
       headers: Record<string, string> = {},
     ) =>
-      fetch(`${handle.baseUrl}/repository/action`, {
+      fetch(`${handle.baseUrl}/api/repository`, {
         method: "POST",
         headers: {
           authorization: `Bearer ${material.token}`,
@@ -548,7 +548,7 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
     revokeAfterMutation = false;
     fs.writeFileSync(current, JSON.stringify(state));
     await (
-      await fetch(`${handle.baseUrl}/api/workbench-view`, {
+      await fetch(`${handle.baseUrl}/api/workbench/view`, {
         headers: { authorization: `Bearer ${material.token}` },
       })
     ).arrayBuffer();
@@ -622,7 +622,7 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
       {
         eval: true,
         workerData: {
-          url: `${handle.baseUrl}/repository/action`,
+          url: `${handle.baseUrl}/api/repository`,
           marker,
           body: form("create_revision", {
             message: "closed-client-commit",

@@ -8,7 +8,7 @@
  */
 import type { ReactElement } from "react";
 import { EmptyState, WorkbenchPanel } from "./elements.ts";
-import type { WorkbenchMainViewModel } from "../../../../crdd-server/src/view/validation.ts";
+import type { MainViewResponse } from "../api/response.ts";
 
 /**
  * Repository単体またはCROS PortfolioのProject入口を表示する。
@@ -27,8 +27,10 @@ import type { WorkbenchMainViewModel } from "../../../../crdd-server/src/view/va
  */
 export function Portfolio({
   model,
+  query,
 }: {
-  model: WorkbenchMainViewModel;
+  model: MainViewResponse;
+  query: Readonly<{ query: string; state: string }>;
 }): ReactElement {
   const portfolio = model.portfolio;
   const projects = portfolio?.projects ?? [];
@@ -42,10 +44,10 @@ export function Portfolio({
       {portfolio === null ? (
         <ul>
           <li>
-            <strong>{model.surface.context.projectId}</strong>
+            <strong>{model.projectData.context.projectId}</strong>
             <p>
-              {model.surface.context.repositoryId} /{" "}
-              {model.surface.context.repositoryRole}
+              {model.projectData.context.repositoryId} /{" "}
+              {model.projectData.context.repositoryRole}
             </p>
             <small>現在のRepository Contextだけを表示</small>
           </li>
@@ -55,17 +57,11 @@ export function Portfolio({
           <form className="collection-controls" method="get" action="/">
             <label>
               Project検索
-              <input
-                name="portfolioQuery"
-                defaultValue={model.portfolioQuery.query}
-              />
+              <input name="portfolioQuery" defaultValue={query.query} />
             </label>
             <label>
               状態
-              <select
-                name="portfolioState"
-                defaultValue={model.portfolioQuery.state}
-              >
+              <select name="portfolioState" defaultValue={query.state}>
                 <option value="">すべて</option>
                 <option value="complete">complete</option>
                 <option value="partial">partial</option>
@@ -111,7 +107,7 @@ export function Portfolio({
           {model.portfolioPage.nextCursor === null ? null : (
             <a
               className="page-link"
-              href={`/?portfolioQuery=${encodeURIComponent(model.portfolioQuery.query)}&portfolioState=${encodeURIComponent(model.portfolioQuery.state)}&portfolioCursor=${encodeURIComponent(model.portfolioPage.nextCursor)}#portfolio`}
+              href={`/?portfolioQuery=${encodeURIComponent(query.query)}&portfolioState=${encodeURIComponent(query.state)}&portfolioCursor=${encodeURIComponent(model.portfolioPage.nextCursor)}#portfolio`}
             >
               次のProject
             </a>

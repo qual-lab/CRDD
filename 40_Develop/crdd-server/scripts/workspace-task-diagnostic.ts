@@ -16,7 +16,7 @@ import {
 } from "../../coordinator/scripts/task-diagnostic.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/lifecycle/validation.ts";
 import { isPrimaryFailureDiagnostic } from "../../executor/scripts/provider-diagnostic.ts";
-import { parseUnambiguousJsonDocument } from "../src/request/parse-json.ts";
+import { parseUnambiguousJsonDocument } from "../src/transport/parse-json.ts";
 
 type Event = Extract<
   ProviderBoundaryDiagnosticNotice,

@@ -401,7 +401,7 @@ Host Contextは元の借用から明示的に渡し、HTTP／MCP入力、保存J
 
 ## 6. 配置・移行と利用側
 
-Core定義のMCP公開は二Toolに限定する。`crdd.get_runtime_definition`は`plan/objectives/tasks`の用途別照会、`crdd.manage_runtime_definition`は明示初期化・Plan保存・Objective／Taskの作成／更新／削除を受ける。どちらも`repositoryId`と閉じた`command`を必須とする。初期化は既存の不存在条件、それ以外の変更は全体CASを要求し、既存定義の更新・削除では対象定義Hashも照合する。Plan新規保存時の対象定義Hashは既存契約どおりnullであり、作成操作へ架空の旧Hashを要求しない。自動再取得・再適用・実行開始を行わない。判断の承認・Queue投入・Managed Executionの更新は含めない。Domainの結果を`structuredContent`へ搬送し、保存不明とexact回復参照を失敗メッセージへ潰さない。
+Core定義のMCP公開は二Toolに限定する。`crdd.get_execution_definition`は`plan/objectives/tasks`の用途別照会、`crdd.manage_execution_definition`は明示初期化・Plan保存・Objective／Taskの作成／更新／削除を受ける。どちらも`repositoryId`と閉じた`command`を必須とする。初期化は既存の不存在条件、それ以外の変更は全体CASを要求し、既存定義の更新・削除では対象定義Hashも照合する。Plan新規保存時の対象定義Hashは既存契約どおりnullであり、作成操作へ架空の旧Hashを要求しない。自動再取得・再適用・実行開始を行わない。判断の承認・Queue投入・Managed Executionの更新は含めない。Domainの結果を`structuredContent`へ搬送し、保存不明とexact回復参照を失敗メッセージへ潰さない。
 
 共有接続はAMの`resolveRuntimeContentAccess`が通常本人・development許可・Repository登録・公開範囲・同じ管理改訂・Manifest・Rootへ結合する。Domainの`ExecutionModelAccess.revalidate`は処置前と返却前にも同じ条件を検査する。操作Context・Tokenは要求内だけに置き、Store・cache・公開応答へ含めない。これは現在認可の接続であり、新しい権限発行ではない。
 

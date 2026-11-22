@@ -1134,6 +1134,170 @@ UI Buildとブラウザ通信10件、ローカルHTTPの配信・設定・拒否
 
 両Packageの整形・型・Lint、UI Build、公開Module・台帳・退役参照の3試験、同一ポート起動・公開MCP・OpenAPIを含むサーバー限定8試験を確認した。全体回帰・実AI・Docker・過去保持物の操作は対象外。
 
+### CRDD Serverの通信・表示ファイル統合
+
+`transport-api/`・`transport-mcp/`・`presentation/` を責務別の配置名とし、HTTPのExpress構成と終了、OpenAPIと資料配信、設定読取り、MCP初回要求と認証、Project観測型をそれぞれ既存の所有先へ統合した。公開サブパスと起動引数は維持した。成果物本文の読取りと表示投影を単体／共有で共用し、認可・取消・欠測時の応答と表示対象を観測する順序は各HTTP受付に残した。
+
+限定試験19件で公開入口・同一ポート起動・初回接続と取消・開発用API資料・成果物表示・台帳を確認し、UIの再ビルドが追跡Bundleと一致した。大きな本文を拒否していた旧試験期待は既存の容量制限撤去に合わせ、全文一致を確認する期待へ改めた。独立再レビューで必須残指摘なし。全体回帰・実AI・Docker・過去保持物の操作は対象外。
+
+### HTTP／MCPの実行定義操作を一正本化
+
+実行定義の3照会・8保存を `execution/runtime-definition.ts` の閉入力と操作発行に統合した。HTTPの専用Routeファイルを廃止して既存 `server.ts` へ受付を移し、MCPはTool登録・認可・応答だけを各入口に残した。読書きの区分、HTTPの既存認可・Origin・入力制限・処置後の再確認、MCPの開始前取消、Execution ModelのCASと結果を維持した。
+
+HTTP・MCP両入口から実Writerと再読取りへ接続し、CAS、読書きの取違え、余剰入力、開始前取消とCheckerの利用側台帳を限定9試験で確認した。全体回帰・実AI・Docker・過去保持物の操作は対象外。
+
+### Workspace・管理・Topic／Meetingの受付と操作の分離
+
+Workspaceの共有接続はHTTP／MCPで同じ現在認可・Repository実体・管理改訂・Binding・Manifestを照合する。単体は起動RootとManifestを固定する。これらを `execution/workspace.ts` に移管し、HTTP受付だけを `transport-api/server.ts` へ移した。実際のWorkspace操作は従来どおりCoordinatorへ直接委譲する。
+
+非鍵管理の共通6保存は `management/operations.ts` に統合し、Form検査はHTTPへ戻した。Repository登録はHTTP専用のままとする。単体／共有のTopic・Meeting処置は既存 `topic-meeting/action.ts` に一正本化し、単体の303と再投影、共有の再認可とJSON、失敗・取消の扱いを各入口に残した。
+
+限定試験では、HTTP／MCP両入口のWorkspaceと実Git、管理保存・切断、Topic・Meeting処置、移管後のManifest照合および利用側・台帳を確認した。全体回帰・実AI・Docker・過去保持物の操作は対象外。
+
+### HTTP受付の操作別ファイルを統合
+
+残る `routes-*.ts` 七本を、AI選定・依頼の `ai.ts`、単体・共有表示の `view.ts`、RepositoryとTopic／Meetingの変更受付の `repository-actions.ts`、既存の接続・資格・管理の `connection.ts` へ統合した。Route登録は `server.ts` に維持した。成功応答とHEADの本文抑止、共有フォームの前段照合、AI開始の明示選定、管理と鍵操作の切断監視を共用する。各受付が持つ認可、入力制限、Effectから公開までの順序と失敗区分は維持し、機能側の操作を再実装しない。
+
+限定27試験で、Path／Method／HEAD、通常管理・鍵提示と故障、選択RepositoryへのGit操作、AIの代役と設定CAS、Topic／Meeting、表示の現在認可および利用側台帳を確認した。整形・型・警告検査と独立レビューも成立。全体回帰・実AI・Docker・過去保持物の操作は対象外。
+
+### HTTP受付から実行・表示・Git判断を各責務へ戻す
+
+AI選定の対象確定・現在認可は `execution/ai-selection.ts`、AI依頼の観測結果が照会・取消の対象かの判定は `execution/ai-request.ts` に置いた。Project詳細・記録詳細・接続画面の組み立ては `presentation/project.ts` へ集約し、固定Asset URLを入口から渡すことで表示からHTTP配信への逆依存を除いた。作業Tree・差分の重複観測と再観測不能時の表示は `project/surface.ts`、Git公開先の再照合は `repository/action.ts` に置いた。HTTPの入出力、公開前再認可、切断・取消、通知消費と処置前後の失敗区分は従来どおり各受付に残した。
+
+AI開始要求の組み立ても実行側へ統合した。単体のPrompt／Path正規化・受理条件と、共有から既存Ownerへ渡す値の違いは維持する。Topic／Meeting一覧の検索・Cursor・取得順は既存の記録読取りへ集約した。単体操作の種別・参照・改訂・本文検査を操作側へ移し、既存の共有Formと同じID・本文検査を使う。通信の受付、認可、発行後応答と操作結果は変えていない。
+
+### HTTPの受付を既存Serverへ集約する
+
+AI選定・依頼、単体／共有表示、Repository・Topic／MeetingのHTTPハンドラーを既存 `transport-api/server.ts` へ統合し、各機能名の旧HTTPファイル3本を撤去した。ハンドラーの入力、認可、取消、応答、呼出し順は変更せず、実行・表示・Repositoryの操作は先行移管先に残した。物理パスを利用側・試験・Symbol・Architectureへ追従し、公開サブパスを変更しない。
+
+型・整形・Lint、公開Module・台帳・読込み依存とHTTPの代表経路の限定20試験、独立静的レビューを確認した。全体回帰・実AI・Docker・過去保持物の操作は対象外。
+
+### CRDD Serverの起動構成と通信受付を分離
+
+HTTPと同一ポートの任意MCPを組み立てる起動・終了処理を `src/app.ts` に移し、公開 `./http` を接続した。CLI引数・終了値・Signal処理は `src/cli/command.ts` へ移し、既存binは起動入口だけにした。HTTP共通のヘッダー・Origin・フォーム処理は `transport-api/http.ts`、HTTP固有の接続・資格・管理受付は `transport-api/access.ts` に置いた。共通の非鍵管理操作は引き続き `management/operations.ts`、認証・認可判断はAccess Managementを正本とする。起動引数、公開契約、観測・認可・取消・終了の順序は変更しない。
+
+同一ポート・Signal終了・初回接続・通常管理等の限定28試験、依存経路・JSON-RPC所有の5試験、Checkerの公開接続・VC参照の4試験が成功した。型・整形・Lintと独立静的再レビュー（必須残指摘なし）を確認した。全体回帰・実AI・Docker・過去保持物の操作は対象外。
+
+### HTTPの接続・管理・鍵操作の受付を統合
+
+接続確認・通常管理・鍵操作のHTTP受付を `transport-api/server.ts` に統合し、直前の配置で使っていた `access.ts` を撤去した。鍵の一度限りの提示と確認記録は既存 `management/credential-administration.ts`、HTTP共通処理は既存 `transport-api/http.ts` に維持した。公開契約、通常認証より前の接続確認、管理・鍵操作の取消と終了待ち、応答・保存形式は変更しない。
+
+接続・通常管理・依存経路の14試験、管理HEAD拒否・鍵専用応答と故障注入の10報告項目（子試験を含む）、Checkerの公開接続・台帳の2試験が成功した。パッケージの整形・型・Lint、差分整合、独立レビューを確認した。全体回帰・実AI・Docker・過去保持物の操作は実施していない。
+
+### Workbench UIの固定配布物をUIパッケージへ統合
+
+起動HTMLとCSSを旧Server内文字列と同じバイト列で `workbench-ui/public` へ移し、Vite Buildで既存JSとともに `dist/client` に揃える。`app.ts` は固定3点と従来のロゴを起動時に読み、配布物の読取り不能ではListen前に停止する。`transport-api/assets.ts` は既存URLに対する配信内容の選択だけを所有する。`/index.html` を含む既存画面URL、CSS・JS・ロゴのURL、HEADと未知Path拒否、同一Originの認可・取消を変えない。Swagger配信は対象外。
+
+Vite Buildと両パッケージの静的検査、限定24報告項目（HTTP・CLIの8件、依存・配布の4件、Checkerの2件、UIの10件）を確認した。固定3点は一時Git Indexで照合し、実Indexや固定候補Commit・配布集合には反映していない。実Browserの画面比較、全体回帰、実AI、Docker、過去保持物の操作は未実施。
+
+### MCP実行系処理の直接公開を撤去
+
+CRDD Serverの公開サブパス `./automation` を削除した。直接参照していた試験はパッケージ内部の処理または既存の `./mcp` 側の型の宣言へ接続し、旧サブパスの解決拒否を確認する。CLI `--automation`、実行系Toolの一覧・実行、Coordinatorの遅延読込み、既存の入力・結果・取消は変更しない。互換サブパスは設けない。
+
+パッケージ静的検査と限定39件（MCP Adapter 27件、HTTP／stdio／公開入口等10件、Checker 2件）が成功した。全体回帰・実AI・Docker・過去保持物の操作は未実施。
+
+### 単体MCPで実行系Toolを通常提供
+
+単体のstdio／HTTPでObjective実行・判断送信・実行状態照会を通常のTool一覧へ載せ、旧 `--automation` を撤去した。配布ランチャーの入力・主体・対象Repositoryを維持し、対象Toolの入力を独立捕捉してからCoordinatorを遅延読込みする。欠測や取消は当該呼出しを停止し、実行せず他Toolの利用を妨げない。実Provider用検証スクリプトは通常の `--stdio` 入口に追従した。共有CROS・Workbenchの操作・認可は変更していない。
+
+限定41件（Adapter 28件、重複しないMCP・配布入口11件、Checker 2件）、型・整形・Lint、独立静的レビューを確認した。全体回帰・実AI・Docker・過去保持物の操作は未実施。
+
+### 共有MCPを単体と同じ実行系Toolへ接続
+
+Objective実行・判断送信・実行状態照会を通常認証後の共有MCPでも提供する。単体は起動Repository、共有は明示 `repositoryId` を採用し、AMの開発権限と認証主体、Project・改訂・Binding・Manifest・登録実体を照合して同じCoordinator公開操作へ渡す。結果の公開も同じ権限で再確認し、開始済みの処理を巻き戻したとは扱わない。共有Workspaceの対象確認を同じ開発Repository確認へ接続した。共有初回接続、Workbenchの操作、鍵管理の境界、共有の未知Tool応答は維持する。
+
+限定14報告項目（単体・共有と配布入口10件、Checker 4件）、型・整形・Lintと独立再レビューを確認した。二つの自己生成Repository、公開解除前後、有限代役の一回処置・応答非開示・再送なしを観測した。全体回帰・実AI・Docker・過去保持物の操作は未実施。
+
+### HTTP APIとMCPの実行系・プロジェクト一覧の接続を共用
+
+Objective実行・判断送信・実行状態照会をHTTPの `/api/execution` に接続し、対象と主体の確認、Coordinator操作、結果検査・公開前再認可をMCPと共用した。単体は起動Repository、共有は明示RepositoryとAM開発権限で対象を決める。共有のプロジェクト一覧は同じ認可済み本文の読取りと投影を利用する。両入口の入力検査、応答形式、鍵・AM管理の範囲は維持する。
+
+この接続ではMCPにGitの直接操作・Workbenchの単発Task操作を追加していない。全体回帰、実AI、Docker、過去保持物の操作は対象外。
+
+### CRDD Serverの操作入口と通信方式別の受付を分離
+
+HTTPとMCPで共用する実行・実行定義・認可済みプロジェクト一覧・Topic／Meeting接続を `api/entry.ts` に揃え、既存Ownerへの直接接続を維持した。通信実装は `transport/` に並べ、Workbenchの静的配信はHTTP受付に統合した。OpenAPIとSwagger UIは `transport/api-document.ts` に置き、実行系のPathとメソッドをExpressと仕様で共用する。公開Subpath、URL、Tool、入力検査、認可・取消規則は変更しない。MCP Inspectorは既存の外部クライアントとして扱い、MCP Appsの配信は追加しない。
+
+限定57報告項目、型・整形・Lint、差分の空白検査を確認した。独立レビューで指摘された現行設計の旧Path参照2箇所を是正し、再確認で追加の必須指摘なし。全体回帰・実AI・Docker・過去保持物の操作は行っていない。
+
+### MCPの共通受付・終了と機能Ownerへの接続を整理
+
+共通パラメーターとdiscover・応答を `mcp-protocol.ts` に揃え、単独HTTPの終了待機を `mcp-http.ts` に統合した。Topic／Meetingは既存の書込み本文検査をHTTP／MCPで共有し、共有MCPの対象指定を分離した後にJSON-RPCを再解析しない。活動では同Projectの認可済み対象を現在認可確認後に既存Coordinator Readerへ搬送する経路を共用する。Transport固有の入力、拒否コード、取消、公開範囲は維持する。
+
+初回接続試験は、先に追加済みの共有実行三操作を反映して通常Toolの期待集合を更新した。限定53報告項目、型・整形・Lintを確認し、独立レビューの旧終了Path指摘を是正した。全体回帰・実AI・Docker・過去保持物の操作は行っていない。
+
+### MCPの公開口とServer組立てを統合
+
+公開 `./mcp` を `mcp-server.ts` に直接接続し、Tool登録、現在資格による要求構成と限定起動の組立てを同じOwnerへ揃えた。HTTP・stdioの受信と終了は既存Transportに残し、一要求のSDK接続だけを `mcp-protocol.ts` で共用する。公開関数・型、Tool、認証・取消の境界を維持し、通信実装からServerへ逆依存させない。
+
+旧入口と認証接続の二Fileを撤去し、利用側・台帳の参照を更新した。限定50報告項目、公開Subpathの読込み、型・整形・Lint、独立レビューを確認した。全体回帰・実AI・Docker・過去保持物の操作は行っていない。
+
+### Tool別ファイルの撤去と共通操作の接続
+
+七つのTool別Sourceを撤去し、Toolの公開定義と搬送を `mcp-server.ts` に集約した。SDKへの登録後は受理済みのTool名・引数を使い、個別操作でJSON-RPCを再検査しない。WorkspaceのCoordinator受付は `api/entry.ts` 経由でHTTPと共用し、Topic／Meetingの作成・更新は本文検査後の対象解決と応答を共用する。公開Tool・認可・取消、各操作の受理条件は維持する。
+
+旧内部ハンドラーを直接呼んでいた実行系の試験は本番Factoryと公式SDKを使う結合試験で確認する。Transportが生成する合成Signalの取消伝播と、Coordinator読込み時点での元入力変更を観測し、JSON受信後の可変性とComposer内の凍結を区別する。
+
+限定74報告項目（再実行の重複を除く）と型・整形・Lintを確認した。独立レビューで検出した公開の直接呼出しの入力形状差は従来の受理・拒否条件に戻し、対照試験と再確認を行った。全体回帰・実AI・Docker・過去保持物の操作は行っていない。
+
+### Serverの通信受付を五つのSourceへ統合
+
+HTTP共通処理を `api-server.ts` へ統合し、起動・終了の型を `api-types.ts` へ移した。MCPのHTTP・stdio受付と共通Protocolは `mcp-server.ts` へ、共有型は `mcp-types.ts` へ揃えた。MCPのSDK生成時エラーと開始済み処理を待った後のSDK終了は一つにし、HTTP固有の認証・切断とstdio固有のEOF・出力完了は既存手順を維持する。継承階層や旧Path転送は作らない。
+
+同一ポートの組立ては既存の `createMcpHttpRequestHandler` に直接接続する。この接続関数は統合後の `./mcp` からも見えるが、新しいHTTP経路・MCP Tool・操作権限は追加しない。
+
+REST APIの起動・読取り用パッケージ入口は `./http` から `./api` へ改名し、旧名の別名は残さない。接続先 `src/app.ts`、既存関数・型、URL、CLIおよび同一ポートのMCP接続は変更しない。
+
+RESTとMCPで共用するJSON文字列の受付検査を `transport/parse-json.ts` に移した。通信外の実行操作でも使う入力捕捉は `request/snapshot.ts` に残す。JSONの受理・拒否条件と公開入口は変更しない。
+
+HTTPの実行操作では、フォームのJSONから得た値を再コピーせず、オブジェクトの形と本文の `repositoryId` 禁止だけを受付で確認する。共有実行では捕捉済みの値から対象を取り出し、再捕捉しない。実行定義は操作を選んでから、その操作に必要な項目を一度照合する。公開MCP関数へJavaScriptの値を直接渡す境界の拒否契約、認可、待機前の入力確定、保存の検査はこの変更で撤去しない。
+
+続く承認で `request/snapshot.ts` を撤去した。生JSONの重複キー、通信および操作ごとの必須・余剰項目を引き続き検査する。同一プロセスの直接呼び出しはJSON相当の入力を前提とし、getter・Proxyを発火させず拒否する保証は外す。対象・選択・照会条件など待機後に使う値は引き続き操作側で確定し、認証結果の受理、認可・取消・保存条件、下位結果の検査は変更しない。
+
+アクセス管理の操作接続・接続資格・応答検査を、同じ責務名の `access/` へ移した。RESTとMCPは引き続き同じ非鍵管理操作を利用し、鍵提示やブラウザ接続をMCPへ増やさない。実行ごとの現在Repository認可は `execution/access.ts` に残す。旧フォルダの転送は置かず、公開URL、Tool名、パッケージの公開入口および認可・保存契約は変更しない。
+
+実行系HTTPは `GET /api/execution/state`、`POST /api/objectives/run`、`POST /api/decisions/submit` に分け、対応するMCP Tool名を `crdd.get_execution_state`、`crdd.run_objective`、`crdd.submit_decision` とする。POSTの外側の操作選択項目は撤去し、command内の既存操作・JSON形式を維持した。実行定義は `/api/execution-definition` と `crdd.get_execution_definition`／`crdd.manage_execution_definition` に揃え、取得・変更の粒度とDomainへの接続は変えない。旧名の転送は設けず、認可・取消・保存と実行状況照会の契約を維持する。
+
+RESTとMCPが共用するWorkspaceの操作準備と、Workbench単体用のRepository照合を `workspace/operations.ts` に分離した。Workspaceと実行が共用する共有Repositoryの現在認可・実体照合は `access/repository.ts` へ移し、実行主体との結合は `execution/access.ts` に残した。公開ルート・Tool名・配布ランチャー・検証スクリプトの期限、取消・結果公開順序、Coordinatorの意味検査と処置は変更しない。
+
+Server接続設定と専用領域の観測を `api/configuration.ts` にまとめ、領域観測を非公開にした。実行主体との結合を `api/execution.ts` の既存実行処理へ統合し、実行定義、AI選定、認可済みProject取得をそれぞれ `api/` の操作に配置した。画面用Portfolioページ化は `presentation/` へ移した。Project Contextと成果物一覧は同じ本文を使う契約があるため、本文を返さないDocument Model Readerへの単純置換は行わない。公開入口、設定の拒否条件、動的読込み、認可・取消・保存・表示結果を変更しない。
+
+TopicとMeetingは別の書込み入口を `api/topic.ts` と `api/meeting.ts` に置き、認可済み同Projectの関連文書構成は `api/topic-meeting.ts` で共用する。フォームと画面投影を別Ownerへ移し、製品未参照の認可アダプターを撤去した。RepositoryのGit操作を `api/repository.ts`、ブラウザ共用検査を `presentation/repository.ts` に配置した。既存URL・Tool名、認可と取消、期待改訂およびGit公開先の再照合は維持する。
+
+Workspaceを `api/workspace.ts` に畳んだ。Topic／Meeting共通の関連文書構成は `api/topic.ts` に一つだけ残し、`api/meeting.ts` はMeeting固有の処置を所有する。本文検査は両通信受付で既存Domain Parserを直接呼ぶ。AI選定の表示投影は `presentation/project.ts`、対象と現在認可の照合は `access/repository.ts` へ配分した。実行定義は `api/execution.ts` へ統合し、通信側で必要な閉入力と操作対応だけを残す。定義の値検査・保存・CASは引き続きExecution Modelが所有する。旧ファイルの転送を残さず、公開名と認可・取消・保存契約を変更しない。
+
+Project本文・成果物・構成状態の取得を `api/project.ts`、Git作業差分とツリー観測を `api/repository.ts`、活動照会とAI依頼の準備を `api/execution.ts` に統合した。表示用の投影と型は `presentation/` に分け、旧 `project/` と `execution/` のSourceを撤去した。REST／MCP・起動・ブラウザーの公開契約を維持し、同じ読取り順序、遅延読込み後の認可・取消、未構成・観測不能・部分結果の扱いを変えない。
+
+Workbench UIの実行中AI依頼の定期照会を `GET /api/ai-request` へ切り替えた。Serverは現在の依頼の観測結果だけを返し、UIは同じ依頼へ反映する。終了・依頼IDの切替を観測したときにだけ既存画面を再取得し、古い応答で新しい操作の表示を上書きしない。既存単体・共有Session、現在の認可と失効、取消、開始操作を維持し、Store監視と新しい通知機構は追加しない。その他の画面の取得単位と `presentation/` の責務分離は別工程に残る。
+
+Workbench画面の取得元を整理した。Portfolioの検索・ページングと成果物の選択・読取りは `api/project.ts`、Topic／Meetingの一覧・本文・関係の取得は `api/topic.ts`、AI設定と技術カタログの取得は `api/configuration.ts`、資格管理状態の取得は `access/credential-administration.ts` に置く。旧表示用2ファイルを撤去し、画面応答の組み立て、読取り順序・件数・Cursor、認可・取消、公開IFは維持する。
+
+Serverの旧 `access/` 四ファイルを撤去した。REST／MCP共通の管理保存の接続、共有Repositoryの再照合、非秘密の資格管理状態取得は `api/access.ts` に統合した。初回接続と用途限定の鍵提示は `transport/api-credentials.ts`、AI設定専用の対象照合は `api/configuration.ts`、管理応答の描画前検査は既存の `presentation/validation.ts` が担当する。AMの認可・保存、鍵提示と提示後記録の順序、公開名・型・通信契約は変更しない。
+
+Workbench UIだけが必要とするAI選定保存の送信内容と応答の照合を `workbench-ui/src/client/api/ai-selection.ts` へ移した。共通の設定Snapshot／読取り検査はServerのブラウザー契約に維持し、保存結果照合は旧公開元に転送を残さない。設定の保存、HTTP応答、再送なし、既知成功と競合・不明の区別は維持し、対応する描画前契約試験と台帳をUI Ownerへ移した。
+
+Workbenchのブランド画像・文書検索欄・Portfolio検索欄の組み立てをUIへ移した。ビュー応答から `logoPath`・`documentQuery`・`portfolioQuery` を撤去し、UIは現在URLと同一Originの固定資産を使う。文書検索は開示済み一覧をUIで絞り、Portfolioの検索条件・Cursorは引き続きServerへ渡す。固定資産の配信、認可、観測失敗、データと結果の搬送は変更しない。
+
+主画面のTopic／Meeting構成状態の重複を撤去し、HTTPは `surface` の構成状態と取得済みページ・適用済み検索条件を返す。Workbench UIがこれらを一覧と件数表示へ組み立てる。旧 `presentation/project.ts` は撤去し、公開データの取得・応答は `api/view.ts`、活動・Repository状態・記録結果の公開投影は対応する既存APIへ移した。本文→資格管理状態の読取り順、許可の再確認、Cursor、未構成・不明の区別を維持する。
+
+Serverの旧 `presentation/` を撤去した。公開ビュー応答型は `api/view.ts`、個別のデータ型はProject・実行・記録・アクセスの実Owner、起動中の共有状態型は `transport/api-types.ts` が所有する。共通Repositoryの受付・結果検査は実行を持たない契約へ、既存の `./browser` 公開入口は `browser.ts` へ移した。ブラウザーがNodeの起動・保存・資格処理へ実行依存しないこと、既存の公開名・通信Schema・拒否条件・状態寿命を維持する。
+
+Serverの `api/view.ts` を撤去した。Project・成果物、記録詳細、接続の公開投影は既存の `api/project.ts`、`api/topic.ts`、`api/access.ts` に置く。HTTP固有の主画面応答は `transport/api-server.ts` の内部処理、ビューの共通応答型は `transport/api-types.ts` に統合した。現役の `/api/workbench-view`、公開応答、本文→資格管理状態の読取り順と認可・取消を維持し、UI側の画面組み立ては動かさない。
+
+RepositoryのHTTP操作入力と公開結果の検査を `api/repository.ts` に統合し、旧 `repository-contract.ts` を撤去した。UIは現在画面の送信対象と応答の表示・相関だけを所有し、Gitの判定を再実装しない。Serverの認可・入力・処置結果およびHTTP応答は維持する。`/api/workbench-view` は用途別取得への切替が済むまで残し、最終的なCRDD操作の公開単位とはしない。
+
+CRDD Serverの旧 `src/api/` を `src/service/` へ移した。HTTPとMCPが共有する機能別の接続は後者、通信固有の受付と配信は `transport/`、Workbenchが受け取るHTTP応答の契約は従来どおり `browser.ts` が所有する。公開 `./api`・`./mcp`・`./browser`、HTTP URL・Tool名は変更しない。画面単位の取得の撤去は用途別APIへの接続後とする。
+
+CRDD Serverの `src/index.ts` とパッケージルートの再公開を撤去し、コマンド起動と用途別の公開入口は変更しない。Topic／MeetingのHTTPフォーム処理を `transport/api-server.ts` に統合した。単体・共有の入力検査、認可・配送・取消・公開順を維持し、MCPは各サービスを引き続き直接使用する。ブラウザー向けの `./browser` は公開名を維持し、非秘密のHTTP応答契約の実装を `transport/api-response.ts` へ移した。UIの描画・表示判断や固定UI配信の処理は含めない。
+
+鍵管理の専用Sourceを撤去し、HTTPフォーム受付と一度限りの応答・送信完了観測を `transport/api-server.ts`、初回資格確認と鍵の発行・失効・交換・提示記録の調停を `service/access.ts` にまとめた。送信完了を観測できない場合は提示を確定せず、利用者本人の受領とも扱わない。AMの認可と保存契約、HTTP応答契約、MCPへの鍵管理非公開を維持した。
+
+Workbenchの受信検査を `workbench-ui/src/client/api/response.ts` へ移し、Serverの `transport/api-response.ts` と `./browser` を撤去した。Server本体からUIへの実行依存や互換公開は追加しない。HTTP・MCPの同じ操作は専門Ownerへの既存接続を使い、Repository操作フォームはHTTP受付へ移した。実行定義・表示応答・アクセス管理などのコード上の名称を責務に合わせた。HTTPのURL・メソッド・JSONキー、MCPのTool名・Schemaと認可・取消の条件は変更しない。
+
+公開命名の追従では、業務用HTTP受付を `/api/` 配下へ揃え、同じ対象の読取りと更新をGET／POSTで区別した。実行アクティビティのMCP Tool名を `crdd.get_execution_activity` に揃え、状態照会とは区別する。Workbenchのビュー契約識別子を `crdd/workbench/view/v1` とし、`projectData`・`executionActivity`・`recordActionResult` および活動継続位置 `activityCursor` を公開名とした。UI配布物、OpenAPI、試験と既知の現行利用側を一緒に切り替え、旧名の互換口は残さない。永続データ・下位パッケージの型契約と、認可・取消・保存の条件は変更しない。
+
+製品起動を `template/tools/crdd-server.ts` に統合し、旧MCP単独ランチャーと旧フラグの互換入口を廃止した。HTTPは全モードで `127.0.0.1` 固定。単体HTTPのMCPは既存の固定Bearerが未設定なら認証を拒否し、共有はAMと両公開Originの照合を維持する。stdio指定でもHTTP APIとUIは残し、stdoutをMCP専用にしてEOF・失敗・終了Signalで所有する待受を閉じる。起動入口はHTTPとstdioの終了確認を待ち、重複通知で別の終了を発行しない。採用Repositoryの旧MCPコマンド・Inspector設定は新入口へ切り替え、公式配布物のUI資産を用意する。OpenAPIは単体loopbackの契約を記載し、管理APIは現在認可から応答公開まで非同期の待機を挟まない。起動のみではAI Sessionを開かない。外部公開、保存形式、実AI・Dockerの実行は変更・検証対象外とする。
+
 ### Provider計測を用途の最終結果へ一本化 — 2026-11-21
 
 TaskとAdviceが必ず渡していた記録集合を内部の必須引数とし、技術完了だけで計測を確定する未接続の別経路を撤去した。両用途の記録集合は同じ確定処理が一度消費し、技術結果と上位最終結果を区別して保存する。観測欠測の試行を未完了のまま残し、後続の観測済み試行の確定は妨げない。公開API、保存形式、実行・回収の判定は変更しない。

@@ -10,6 +10,9 @@
  */
 import { createElement, type ReactElement, type ReactNode } from "react";
 
+/** Workbenchの固定ブランド画像。HTTPは同一Originの固定資産として配信する。 */
+export const WORKBENCH_LOGO_PATH = "/assets/crdd-brand-icon.jpg";
+
 /**
  * Workbench Shellが表示するServer確定済み値を表す。
  *
@@ -35,7 +38,6 @@ export type WorkbenchShellProps = Readonly<{
   topicsDetail: string;
   meetingsLabel: string;
   meetingsDetail: string;
-  logoPath: string;
   refresh: ReactNode;
   content: ReactNode;
   activeSection?: string;
@@ -133,7 +135,7 @@ export function WorkbenchShell(props: WorkbenchShellProps): ReactElement {
       "data-topics-detail": props.topicsDetail,
       "data-meetings-label": props.meetingsLabel,
       "data-meetings-detail": props.meetingsDetail,
-      "data-logo-path": props.logoPath,
+      "data-logo-path": WORKBENCH_LOGO_PATH,
     },
     createElement(
       "header",
@@ -142,7 +144,7 @@ export function WorkbenchShell(props: WorkbenchShellProps): ReactElement {
         "a",
         { className: "brand", href: "/", "aria-label": "CROS Workbench home" },
         createElement("img", {
-          src: props.logoPath,
+          src: WORKBENCH_LOGO_PATH,
           alt: "CRDD",
           width: 36,
           height: 36,

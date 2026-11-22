@@ -18,7 +18,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { createReadonlyVerificationTiming } from "../../scripts/ai-verification-timing.ts";
-import { parseUnambiguousJsonDocument } from "../../src/request/parse-json.ts";
+import { parseUnambiguousJsonDocument } from "../../src/transport/parse-json.ts";
 import {
   type VerificationHttpTiming,
   projectVerificationTransportFailure,
@@ -48,7 +48,7 @@ test("IPC子は不正入力でもchannelを残さず終了する", async () => {
     assert.ok(address && typeof address === "object");
     const input = {
       baseUrl: `http://127.0.0.1:${address.port}`,
-      route: "/api/workbench-view?route=%2F",
+      route: "/api/workbench/view?route=%2F",
       form: null,
     };
     for (const message of [
@@ -197,7 +197,7 @@ test("IPC子は二件目を実行せず拒否経路でも購読を解除する",
             ? '{"route":"a","route":"b"}'
             : JSON.stringify({
                 baseUrl: "http://127.0.0.1:12345",
-                route: "/api/workbench-view?route=%2F",
+                route: "/api/workbench/view?route=%2F",
                 form: null,
               });
       fake.emit("message", message);
@@ -247,7 +247,7 @@ test("HTTP送出時計はServer受信前のevent loop待ちを区別する", asy
   try {
     const pending = requestInChild(
       base,
-      "/api/workbench-view?route=%2F",
+      "/api/workbench/view?route=%2F",
       undefined,
       timing.client,
     );
@@ -342,7 +342,7 @@ test("IPC入力は親22秒停止中にも子のHTTP完了を妨げない", async
     const timings: { startedAt: number; completedAt: number }[] = [];
     const result = await requestInChild(
       `http://127.0.0.1:${port}`,
-      "/api/workbench-view?route=%2F",
+      "/api/workbench/view?route=%2F",
       undefined,
       (t) => timings.push(t),
     );
@@ -431,9 +431,9 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
     "response-before-send",
   ] as const;
   for (const { route, scenario } of [
-    "/workspace/action",
-    "/ai-request/action",
-    "/api/workbench-view?route=%2F",
+    "/api/workspace",
+    "/api/ai-request",
+    "/api/workbench/view?route=%2F",
   ].flatMap((route) => scenarios.map((scenario) => ({ route, scenario })))) {
     const child = new EventEmitter() as EventEmitter & {
       send: (input: string, callback: (error: Error | null) => void) => boolean;
@@ -554,7 +554,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
             }
             callback(null);
             if (scenario === "send-undelivered") {
-              timers.get(route === "/workspace/action" ? 65_000 : 20_000)?.();
+              timers.get(route === "/api/workspace" ? 65_000 : 20_000)?.();
               return;
             }
             if (scenario === "spawn-error")
@@ -623,7 +623,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
                 scenario === "late-close-unknown"
               ) {
                 const deadline = timers.get(
-                  route === "/workspace/action" ? 65_000 : 20_000,
+                  route === "/api/workspace" ? 65_000 : 20_000,
                 );
                 assert.ok(deadline);
                 deadline();
@@ -683,9 +683,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
       }
     }
     assert.equal(
-      scheduledDeadlines.includes(
-        route === "/workspace/action" ? 65_000 : 20_000,
-      ),
+      scheduledDeadlines.includes(route === "/api/workspace" ? 65_000 : 20_000),
       scenario !== "spawn-throw",
     );
     if (
@@ -745,7 +743,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
         const timing = createReadonlyVerificationTiming();
         try {
           timing.client(observations[0].timing);
-          if (route === "/workspace/action") {
+          if (route === "/api/workspace") {
             // 読取りsummaryの対象外経路を新たに収集しない。
             assert.deepEqual(timing.snapshot().clients, []);
           } else {
@@ -799,13 +797,13 @@ test("実HTTP子は通常・切断・15秒期限を区別して終了する", as
     assert.ok(address && typeof address === "object");
     const url = `http://127.0.0.1:${address.port}/`;
     assert.equal(
-      (await requestInChild(url, "/api/workbench-view?route=%2F")).body,
+      (await requestInChild(url, "/api/workbench/view?route=%2F")).body,
       "synthetic",
     );
     for (const next of ["disconnect", "timeout"]) {
       mode = next;
       await assert.rejects(
-        requestInChild(url, "/api/workbench-view?route=%2F"),
+        requestInChild(url, "/api/workbench/view?route=%2F"),
         (error: unknown) => {
           const failure = projectVerificationTransportFailure(error);
           assert.equal(
@@ -824,7 +822,7 @@ test("実HTTP子は通常・切断・15秒期限を区別して終了する", as
       (
         await requestInChild(
           url,
-          "/workspace/action",
+          "/api/workspace",
           new URLSearchParams({ operation: "synthetic" }),
           (timing) => {
             timings.push(timing.completedAt - timing.startedAt);

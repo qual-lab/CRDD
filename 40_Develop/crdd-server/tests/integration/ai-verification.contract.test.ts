@@ -270,14 +270,8 @@ import {
 } from "../../scripts/ai-verification-http.ts";
 import { createReadonlyVerificationTiming } from "../../scripts/ai-verification-timing.ts";
 import { verifyWorkspaceOutputBytes } from "../../scripts/workspace-output-verification.ts";
-import {
-  readWorkbenchProjectSurface,
-  startWorkbench,
-} from "../../src/http/start.ts";
-import type {
-  WorkbenchAiRequestSnapshot,
-  WorkbenchAiRequestStartResult,
-} from "../../src/execution/ai-request-types.ts";
+import { readProjectViewData, startWorkbench } from "../../src/app.ts";
+import type { AiRequestSnapshot, AiRequestStartResult } from "../../src/app.ts";
 
 /**
  * 正式summaryの計測fieldを閉じた形で検査する。
@@ -338,8 +332,8 @@ function assertReadonlyTiming(input: unknown) {
         assert.equal(
           r.route,
           r.routeKind === "view"
-            ? "/api/workbench-view?route=%2F"
-            : "/ai-request/action",
+            ? "/api/workbench/view?route=%2F"
+            : "/api/ai-request",
         );
         const start = integer(r.startedAt, 1);
         const completed = integer(r.completedAt, start);
@@ -388,7 +382,7 @@ test("読取り計測summaryは閉じた型と欠測を検査し容量で拒否�
         stage: "observe",
         routeKind: "view",
         method: "GET",
-        route: "/api/workbench-view?route=%2F",
+        route: "/api/workbench/view?route=%2F",
         startedAt: 1,
         requestCreatedAt: null,
         headersSendingAt: null,
@@ -851,10 +845,10 @@ test("HTTP試験器は期限超過と本文清掃のabortを区別する", async
     "reader-cleanup-failed",
   ];
   for (const { route, scenario } of [
-    "/workspace/action",
-    "/ai-request/action",
-    "/api/workbench-view?route=%2F",
-    "/workspace/action/",
+    "/api/workspace",
+    "/api/ai-request",
+    "/api/workbench/view?route=%2F",
+    "/api/workspace/",
   ].flatMap((route) => scenarios.map((scenario) => ({ route, scenario })))) {
     let expire!: () => void;
     let releases = 0;
@@ -869,7 +863,7 @@ test("HTTP試験器は期限超過と本文清掃のabortを区別する", async
       Buffer,
       Object,
       setTimeout: (callback: () => void, ms: number) => {
-        if (ms === (route === "/workspace/action" ? 60_000 : 15_000))
+        if (ms === (route === "/api/workspace" ? 60_000 : 15_000))
           expire = callback;
         return 1;
       },
@@ -2179,7 +2173,7 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
                 const before = timing.snapshot();
                 channel("http.server.request.start").publish({
                   request: {
-                    url: "/api/workbench-view?route=%2F",
+                    url: "/api/workbench/view?route=%2F",
                     socket: { localPort: 1, localAddress: "127.0.0.1" },
                   },
                   response: {},
@@ -2350,7 +2344,7 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
  */
 test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測を分ける", async () => {
   const root = fileURLToPath(new URL("../../../../", import.meta.url));
-  const surface = await readWorkbenchProjectSurface(root);
+  const surface = await readProjectViewData(root);
   const source = fs.readFileSync(
     new URL("../../scripts/verify-readonly-ai.ts", import.meta.url),
     "utf8",
@@ -2480,7 +2474,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
           reason: null,
           snapshot: selection,
         }),
-        readWorkbenchProjectSurface: async () => surface,
+        readProjectViewData: async () => surface,
         openTaskSession: () => fakeOwner,
         startWorkbench: async (input: Parameters<typeof startWorkbench>[0]) => {
           const handle = await startWorkbench(input);
@@ -2677,7 +2671,7 @@ for (const transport of ["tool-child-process"] as const) {
       };
       if (
         request.method !== "POST" ||
-        request.url !== "/ai-request/action" ||
+        request.url !== "/api/ai-request" ||
         request.headers.host !==
           new URL(handle?.baseUrl ?? "http://127.0.0.1").host
       )
@@ -2930,7 +2924,7 @@ for (const transport of ["tool-child-process"] as const) {
       const started = new Promise<void>((resolve) => {
         observedStarted = resolve;
       });
-      const accepted: WorkbenchAiRequestStartResult = await client.start(input);
+      const accepted: AiRequestStartResult = await client.start(input);
       assert.equal(accepted.status, "accepted");
       assert.ok(accepted.requestId);
       await started;
@@ -2942,8 +2936,9 @@ for (const transport of ["tool-child-process"] as const) {
       if (mode === "normal") {
         const complete = release as (() => void) | null;
         assert.ok(complete);
-        const duringSettlement: Promise<WorkbenchAiRequestSnapshot> =
-          client.observe(accepted.requestId);
+        const duringSettlement: Promise<AiRequestSnapshot> = client.observe(
+          accepted.requestId,
+        );
         complete();
         const [, observedDuringSettlement] = await Promise.all([
           taskOwner.wait(accepted.requestId),
@@ -2955,7 +2950,7 @@ for (const transport of ["tool-child-process"] as const) {
         );
       }
       boundaryTiming.setStage(mode === "normal" ? "observe" : "cancel");
-      const result: WorkbenchAiRequestSnapshot =
+      const result: AiRequestSnapshot =
         mode === "normal"
           ? await client.observe(accepted.requestId)
           : await client.cancel(accepted.requestId);
@@ -2985,7 +2980,7 @@ for (const transport of ["tool-child-process"] as const) {
     boundaryTiming.setStage("start");
     await new Promise<void>((resolve, reject) => {
       disconnectedRequest = request(
-        new URL("/ai-request/action", baseUrl),
+        new URL("/api/ai-request", baseUrl),
         {
           method: "POST",
           headers: {

@@ -7,7 +7,7 @@
  * @security Reactのtext escapingと既存の資格非永続化を維持する。
  */
 import type { ReactElement } from "react";
-import type { WorkbenchMainViewModel } from "../../../../crdd-server/src/view/validation.ts";
+import type { MainViewResponse } from "../api/response.ts";
 import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
 
 /**
@@ -28,9 +28,9 @@ import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
 export function Repository({
   model,
 }: {
-  model: WorkbenchMainViewModel;
+  model: MainViewResponse;
 }): ReactElement {
-  const repository = model.surface.repository;
+  const repository = model.projectData.repository;
   if (repository.state === "unknown" || repository.changeSet === null)
     return (
       <WorkbenchPanel
@@ -165,7 +165,7 @@ export function Repository({
               {paths.map((entry) => (
                 <li key={entry}>
                   <code>{entry}</code>
-                  <form method="post" action="/repository/action">
+                  <form method="post" action="/api/repository">
                     <ActionTokenInput value={model.actionToken} />
                     {model.selectedRepositoryId === null ? null : (
                       <input
@@ -186,7 +186,7 @@ export function Repository({
           )}
         </section>
       ))}
-      <form method="post" action="/repository/action">
+      <form method="post" action="/api/repository">
         <ActionTokenInput value={model.actionToken} />
         {model.selectedRepositoryId === null ? null : (
           <input
@@ -206,7 +206,7 @@ export function Repository({
       target.destination !== null &&
       target.branch !== null &&
       target.revisionIdentity !== null ? (
-        <form method="post" action="/repository/action">
+        <form method="post" action="/api/repository">
           <ActionTokenInput value={model.actionToken} />
           {model.selectedRepositoryId === null ? null : (
             <input

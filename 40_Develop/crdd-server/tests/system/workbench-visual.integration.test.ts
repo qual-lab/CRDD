@@ -29,7 +29,7 @@ import {
   observeLocalListener,
   verifyLocalWebApplicationVisual,
 } from "../../../visual-preview/src/index.ts";
-import { startWorkbench } from "../../src/http/start.ts";
+import { startWorkbench } from "../../src/app.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,

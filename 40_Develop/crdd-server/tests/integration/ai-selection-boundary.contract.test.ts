@@ -10,9 +10,9 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as api from "../../src/mcp/core.ts";
+import * as api from "../../src/transport/mcp-server.ts";
 import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
-import type { McpServerDependencies } from "../../src/mcp/request-server.ts";
+import type { McpServerDependencies } from "../../src/transport/mcp-server.ts";
 
 const retiredTools = [
   "crdd.list_ai_profiles",

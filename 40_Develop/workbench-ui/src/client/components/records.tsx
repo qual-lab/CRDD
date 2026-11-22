@@ -8,10 +8,8 @@
  */
 import type { ReactElement, ReactNode } from "react";
 import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
-import type {
-  WorkbenchMainViewModel,
-  WorkbenchRecordDocumentView,
-} from "../../../../crdd-server/src/view/validation.ts";
+import { composeWorkbenchRecordDisplay } from "../api/view.ts";
+import type { MainViewResponse, RecordDocumentView } from "../api/response.ts";
 
 /**
  * Topic／Meeting Formが共有する固定Hidden Fieldを返す。
@@ -36,7 +34,7 @@ export function RecordOperationFields({
 }: Readonly<{
   actionToken: string;
   repositoryId: string | null;
-  document: WorkbenchRecordDocumentView;
+  document: RecordDocumentView;
   operation: string;
 }>): ReactElement {
   return (
@@ -79,13 +77,13 @@ export function RecordActions({
 }: Readonly<{
   actionToken: string;
   repositoryId: string | null;
-  document: WorkbenchRecordDocumentView;
+  document: RecordDocumentView;
 }>): ReactElement {
   return (
     <details className="record-editor">
       <summary>処置・編集・削除</summary>
       {document.kind === "meeting" ? (
-        <form method="post" action="/topic-meeting/action">
+        <form method="post" action="/api/records">
           <RecordOperationFields
             actionToken={actionToken}
             repositoryId={repositoryId}
@@ -146,7 +144,7 @@ export function RecordActions({
           <button type="submit">Outcomeを処置</button>
         </form>
       ) : (
-        <form method="post" action="/topic-meeting/action">
+        <form method="post" action="/api/records">
           <RecordOperationFields
             actionToken={actionToken}
             repositoryId={repositoryId}
@@ -169,7 +167,7 @@ export function RecordActions({
           <button type="submit">実在CHGを確認して昇格</button>
         </form>
       )}
-      <form method="post" action="/topic-meeting/action">
+      <form method="post" action="/api/records">
         <RecordOperationFields
           actionToken={actionToken}
           repositoryId={repositoryId}
@@ -187,7 +185,7 @@ export function RecordActions({
         </label>
         <button type="submit">更新</button>
       </form>
-      <form method="post" action="/topic-meeting/action">
+      <form method="post" action="/api/records">
         <RecordOperationFields
           actionToken={actionToken}
           repositoryId={repositoryId}
@@ -223,10 +221,10 @@ export function RecordCollection({
   model,
   kind,
 }: Readonly<{
-  model: WorkbenchMainViewModel;
+  model: MainViewResponse;
   kind: "topic" | "meeting";
 }>): ReactElement {
-  const source = kind === "topic" ? model.topic : model.meeting;
+  const source = composeWorkbenchRecordDisplay(model, kind);
   const collection = source.collection;
   const records = source.page.records;
   const label = kind === "topic" ? "Topic" : "Meeting";
@@ -411,14 +409,14 @@ export function RecordCollection({
         </label>
         <button type="submit">絞り込む</button>
       </form>
-      {model.topicMeetingResult === null ||
-      (model.topicMeetingResult.recordKind !== null &&
-        model.topicMeetingResult.recordKind !== kind) ? null : (
+      {model.recordActionResult === null ||
+      (model.recordActionResult.recordKind !== null &&
+        model.recordActionResult.recordKind !== kind) ? null : (
         <div
           className="operation-result"
-          data-status={model.topicMeetingResult.status}
+          data-status={model.recordActionResult.status}
         >
-          <strong>{model.topicMeetingResult.reason}</strong>
+          <strong>{model.recordActionResult.reason}</strong>
         </div>
       )}
       {content}
@@ -432,7 +430,7 @@ export function RecordCollection({
       )}
       <details className="record-editor">
         <summary>{label}を登録</summary>
-        <form method="post" action="/topic-meeting/action">
+        <form method="post" action="/api/records">
           <ActionTokenInput value={model.actionToken} />
           {model.selectedRepositoryId === null ? null : (
             <input
@@ -471,11 +469,13 @@ export function RecordCollection({
  */
 export function OwnerArtifacts({
   model,
+  query,
 }: {
-  model: WorkbenchMainViewModel;
+  model: MainViewResponse;
+  query: string;
 }): ReactElement {
-  const catalog = model.surface.ownerArtifacts;
-  const normalizedQuery = model.documentQuery.toLocaleLowerCase("ja-JP");
+  const catalog = model.projectData.ownerArtifacts;
+  const normalizedQuery = query.toLocaleLowerCase("ja-JP");
   const artifacts = catalog.artifacts.filter(
     (artifact) =>
       normalizedQuery.length === 0 ||
@@ -496,7 +496,7 @@ export function OwnerArtifacts({
       <form className="document-search" method="get" action="/">
         <label>
           TitleまたはPathで検索
-          <input name="documentQuery" defaultValue={model.documentQuery} />
+          <input name="documentQuery" defaultValue={query} />
         </label>
         <button type="submit">検索</button>
       </form>

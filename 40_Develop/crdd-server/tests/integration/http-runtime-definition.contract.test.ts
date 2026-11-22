@@ -11,7 +11,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { resolveRuntimeContentAccess } from "../../../access-management/src/index.ts";
@@ -78,7 +77,7 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
   );
   git("add", ".");
   git("commit", "--quiet", "-m", "fixture");
-  const module = new URL("../../src/http/start.ts", import.meta.url).href;
+  const module = new URL("../../src/app.ts", import.meta.url).href;
   const output = execFileSync(
     process.execPath,
     [
@@ -86,19 +85,21 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
       `
     import assert from 'node:assert/strict';
     import {registerHooks} from 'node:module';
-      registerHooks({resolve(s,c,n){if(s.includes('coordinator/')||s.includes('executor/')||s.includes('mcp/')||s.startsWith('@modelcontextprotocol/'))throw new Error('optional_runtime_unavailable');return n(s,c);}});
+      registerHooks({resolve(s,c,n){if(s.includes('coordinator/')||s.includes('executor/')||/^(?:mcp-|tools-)/.test(s.split('/').at(-1))||s.startsWith('@modelcontextprotocol/'))throw new Error('optional_runtime_unavailable');return n(s,c);}});
     const {startWorkbench}=await import(${JSON.stringify(module)});
     let server=await startWorkbench({workingDirectory:${JSON.stringify(root)}});
     const target={projectId:'project.fixture',milestoneId:'milestone'};
     const write=async(command,token)=>{
-      const response=await fetch(server.baseUrl+'/api/runtime-definition',{method:'POST',headers:{origin:server.baseUrl,'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({actionToken:token,command:JSON.stringify({...target,...command})})});
+      const response=await fetch(server.baseUrl+'/api/execution/definition',{method:'POST',headers:{origin:server.baseUrl,'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({actionToken:token,command:JSON.stringify({...target,...command})})});
       return {status:response.status,value:response.headers.get('content-type')?.includes('application/json')?await response.json():await response.text()};
     };
-    const query=async()=>{const r=await fetch(server.baseUrl+'/api/runtime-definition?'+new URLSearchParams({...target,operation:'plan'}));assert.equal(r.status,200);return r.json();};
+    const query=async()=>{const r=await fetch(server.baseUrl+'/api/execution/definition?'+new URLSearchParams({...target,operation:'plan'}));assert.equal(r.status,200);return r.json();};
     try{
-      const view=await(await fetch(server.baseUrl+'/api/workbench-view')).json();
+      const view=await(await fetch(server.baseUrl+'/api/workbench/view')).json();
       const token=view.actionToken;assert.equal(typeof token,'string');
       assert.equal((await write({operation:'initialize',expectedAbsence:true},'wrong')).status,400);
+      assert.equal((await write({operation:'plan'},token)).status,400);
+      assert.equal((await write({operation:'initialize',expectedAbsence:true,unknown:true},token)).status,400);
       const initial=(await write({operation:'initialize',expectedAbsence:true},token)).value;assert.equal(initial.status,'saved',JSON.stringify(initial));
       const plan={milestoneAcceptanceCriteria:['確認'],objectives:[{id:'objective',acceptanceCriteria:['確認']}],tasks:[{id:'task',objectiveId:'objective',dependencies:[],allowedPaths:['code.ts'],conflictKeys:[]}]};
       const saved=(await write({operation:'plan.save',expected:initial.version,expectedDefinitionHash:null,definition:plan},token)).value;assert.equal(saved.status,'saved',JSON.stringify(saved));
@@ -111,7 +112,7 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
       assert.equal(largeSaved.status,'saved',JSON.stringify(largeSaved));
       const before=await query();assert.equal(before.status,'available');
       const {request}=await import('node:http');
-      const rejected=await new Promise((resolve,reject)=>{const r=request(server.baseUrl+'/api/runtime-definition',{method:'POST',headers:{origin:server.baseUrl,'content-type':'application/x-www-form-urlencoded','content-length':3*16777216+16385}},response=>{response.resume();response.on('end',()=>resolve(response.statusCode));});r.on('error',reject);r.end();});
+      const rejected=await new Promise((resolve,reject)=>{const r=request(server.baseUrl+'/api/execution/definition',{method:'POST',headers:{origin:server.baseUrl,'content-type':'application/x-www-form-urlencoded','content-length':3*16777216+16385}},response=>{response.resume();response.on('end',()=>resolve(response.statusCode));});r.on('error',reject);r.end();});
       assert.equal(rejected,403);assert.deepEqual(await query(),before);
       await server.close();server=await startWorkbench({workingDirectory:${JSON.stringify(root)}});
       assert.deepEqual(await query(),before);
@@ -141,15 +142,14 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
  * @boundary 固定動的import後の利用側。代役から実認可の成立を推定しない。
  */
 test("任意Owner待機後の失効・取消は設定Readerを発行しない", async () => {
+  const viewSource = fs.readFileSync(
+    new URL("../../src/transport/api-server.ts", import.meta.url),
+    "utf8",
+  );
   for (const shared of [false, true]) {
-    const source = fs.readFileSync(
-      new URL(
-        shared
-          ? "../../src/http/routes-shared-view.ts"
-          : "../../src/http/routes-repository-view.ts",
-        import.meta.url,
-      ),
-      "utf8",
+    const source = sourceDeclaration(
+      viewSource,
+      shared ? "handleSharedView" : "handleRepositoryView",
     );
     const start = source.indexOf("const owner = await import(");
     const end = source.indexOf(
@@ -228,26 +228,21 @@ test("任意Owner待機後の失効・取消は設定Readerを発行しない", 
  * @boundary 製品の再認可Closure。代役から実AM認可・File安定性の成立を推定しない。
  */
 test("WBと配布MCPはManifestを毎回再読取りしIdentity差を拒否する", async () => {
-  const wbSource = stripTypeScriptTypes(
-    fs.readFileSync(
-      new URL("../../src/http/routes-workspace.ts", import.meta.url),
-      "utf8",
-    ),
+  const workspaceSource = fs.readFileSync(
+    new URL("../../src/service/workspace.ts", import.meta.url),
+    "utf8",
   );
-  const wbInitial = wbSource.indexOf(
-    "const initial = readRepositoryManifest(verified.capability);",
+  const localWorkspaceDeclaration = sourceDeclaration(
+    workspaceSource,
+    "resolveLocalWorkspaceAccess",
   );
-  const wbStart = wbSource.indexOf("authorize = () => {", wbInitial);
-  const wbEnd = wbSource.indexOf("\n      };", wbStart);
-  assert.ok(wbInitial > 0 && wbStart > wbInitial && wbEnd > wbStart);
-  const wbClosure = wbSource.slice(wbStart, wbEnd + "\n      };".length);
   const templateSource = fs.readFileSync(
-    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
+    new URL("../../src/cli/command.ts", import.meta.url),
     "utf8",
   );
   const routingDeclaration = sourceDeclaration(
     templateSource,
-    "createRequestRoutingDependencies",
+    "createLocalMcpDependencies",
   );
   const capability = {};
   const root = "fixture-root";
@@ -267,7 +262,6 @@ test("WBと配布MCPはManifestを毎回再読取りしIdentity差を拒否す�
         identity: "original-bytes-hash",
         manifest: { repositoryId: "repository.fixture", projectId: "project" },
       };
-      const initial = current;
       const signal = { aborted: false };
       const read = () => {
         reads++;
@@ -275,15 +269,20 @@ test("WBと配布MCPはManifestを毎回再読取りしIdentity差を拒否す�
       };
       let authorize: () => boolean;
       if (owner === "workbench") {
-        authorize = new Function(
+        const resolveAccess = new Function(
+          "getRepository",
           "readRepositoryManifest",
-          "verified",
-          "requestSignal",
           "resolveVerifiedRepositoryRoot",
-          "ownerRoot",
-          "initial",
-          `let authorize;${wbClosure};return authorize;`,
-        )(read, { capability }, signal, () => currentRoot, root, initial);
+          `${localWorkspaceDeclaration};return resolveLocalWorkspaceAccess;`,
+        )(
+          () => ({ status: "completed", capability }),
+          read,
+          () => currentRoot,
+        );
+        const context = resolveAccess(root, "repository.fixture", signal);
+        assert.ok(context);
+        assert.equal(reads, 1, "Workbenchは初回に対象Manifestを読む");
+        authorize = context.authorize;
       } else {
         const makeRouting = new Function(
           "getRepository",
@@ -294,7 +293,7 @@ test("WBと配布MCPはManifestを毎回再読取りしIdentity差を拒否す�
           "createMeetingOperations",
           "readGitUser",
           "createLocalPrincipalId",
-          `${routingDeclaration};return createRequestRoutingDependencies;`,
+          `${routingDeclaration};return createLocalMcpDependencies;`,
         )(
           () => ({ status: "completed", capability }),
           read,
@@ -305,7 +304,7 @@ test("WBと配布MCPはManifestを毎回再読取りしIdentity差を拒否す�
           () => ({ status: "completed", email: "test@example.invalid" }),
           () => "local-principal",
         );
-        const routing = await makeRouting(false);
+        const routing = makeRouting(root);
         const context = routing.runtimeDefinition("repository.fixture", signal);
         assert.ok(context);
         assert.equal(reads, 1, "MCPの初回Contextは実workspace Closureで読む");
@@ -351,8 +350,9 @@ test("WBと配布MCPはManifestを毎回再読取りしIdentity差を拒否す�
  * @cleanup 子Process終了をjoinする。Filesystem生成なし。
  * @boundary binの構成だけ。代役からAI・AM・保存の成立を推定しない。
  */
-test("Workbench binは既定Coreだけを構成しAutomationを明示時だけ読む", () => {
+test("Server binは既定で統合しAI Sessionを起動だけでは作らない", async () => {
   const entry = new URL("../../bin/crdd-server.ts", import.meta.url).href;
+  const command = new URL("../../src/cli/command.ts", import.meta.url).href;
   const run = (args: string[]) => {
     try {
       return {
@@ -364,11 +364,12 @@ test("Workbench binは既定Coreだけを構成しAutomationを明示時だけ�
             `
       import {registerHooks} from 'node:module';
       const entry=${JSON.stringify(entry)};
+      const command=${JSON.stringify(command)};
       const moduleUrl=s=>'data:text/javascript,'+encodeURIComponent(s);
       registerHooks({resolve(s,c,n){
-        if(s.includes('mcp/')||s.startsWith('@modelcontextprotocol/'))throw Error('mcp_read_without_explicit_mode');
-        if(c.parentURL===entry&&s==='../src/http/start.ts')return {shortCircuit:true,url:moduleUrl("export async function readWorkbenchProjectSurface(){return {context:{projectId:'fixture'}}};export async function readWorkbenchServerConfiguration(){return {}};export async function startWorkbench(input){if(input.sharedAiRequestsFactory)input.sharedAiRequestsFactory({},'fixture','host',()=>true);process.stdout.write('CORE_STARTED|');return {publicUrl:'http://127.0.0.1:1',close:async()=>{}}}")};
-        if(c.parentURL===entry&&s.includes('access-management/src/index.ts'))return {shortCircuit:true,url:moduleUrl("export const resolveHostRootInput=()=>({});export const readExistingHostRoot=()=>({});export const readHostInitializationState=()=>({status:'completed'});")};
+        if(c.parentURL===command&&s==='../transport/mcp-server.ts')return {shortCircuit:true,url:moduleUrl("export const createMcpServerFactory=()=>({});export const readMcpServerConfiguration=async()=>({});export const runMcpStdio=async()=>({status:'completed',cleanupConfirmed:true})")};
+        if(c.parentURL===command&&s==='../app.ts')return {shortCircuit:true,url:moduleUrl("export async function readProjectViewData(){return {context:{projectId:'fixture'}}};export async function readWorkbenchServerConfiguration(){return {}};export async function startWorkbench(input){if(input.aiRequests)throw Error('docs_ai');process.stdout.write('DOCS_STARTED|');return {publicUrl:'http://127.0.0.1:1',close:async()=>{}}};export async function startCrddServer(input){if(!input.localMcp&&!input.localAccessRoot)throw Error('mcp_missing');if(input.sharedAiRequestsFactory)input.sharedAiRequestsFactory({},'fixture','host',()=>true);process.stdout.write('CORE_STARTED|');setImmediate(()=>process.emit('SIGTERM'));return {publicUrl:'http://127.0.0.1:1',close:async()=>{}}}")};
+        if(c.parentURL===command&&s.includes('access-management/src/index.ts'))return {shortCircuit:true,url:moduleUrl("export const resolveHostRootInput=()=>({});export const readExistingHostRoot=()=>({});export const readHostInitializationState=()=>({status:'completed'});")};
         if(s.includes('coordinator/src/index.ts'))return {shortCircuit:true,url:moduleUrl("process.stdout.write('AUTOMATION_LOADED|');export function openTaskSession(input){if(!input.rootCapability||!input.authorize())throw Error('binding');process.stdout.write('SESSION_CREATED|');return {}}")};
         return n(s,c);
       }});
@@ -394,27 +395,110 @@ test("Workbench binは既定Coreだけを構成しAutomationを明示時だけ�
       };
     }
   };
-  for (const args of [[], ["--cros"]]) {
+  for (const args of [[], ["--shared"]]) {
     const result = run(args);
     assert.equal(result.status, 0, JSON.stringify(result));
     assert.match(result.output, /CORE_STARTED/u);
     assert.doesNotMatch(result.output, /AUTOMATION_LOADED|SESSION_CREATED/u);
   }
-  for (const args of [["--automation"], ["--cros", "--automation"]]) {
-    const result = run(args);
-    assert.equal(result.status, 0);
-    assert.equal(result.output.match(/AUTOMATION_LOADED/gu)?.length, 1);
-    assert.equal(result.output.match(/SESSION_CREATED/gu)?.length, 1);
-  }
-  assert.equal(run(["--automation", "--automation"]).status, 64);
-  assert.equal(run(["--port", "0", "--cros"]).status, 64);
+  assert.equal(run(["--automation"]).status, 64);
+  assert.equal(run(["--cros"]).status, 64);
+  assert.equal(run(["--port", "0", "--shared", "--docs"]).status, 64);
+  const docs = run(["--docs", "--mcp-stdio"]);
+  assert.equal(docs.status, 0);
+  assert.doesNotMatch(docs.output, /AUTOMATION_LOADED|SESSION_CREATED/u);
   const help = run(["--help"]);
   assert.equal(help.status, 0);
-  assert.match(
-    help.output,
-    /crdd-server \[--cros\] \[--automation\] \[--port <port>\]/u,
-  );
+  assert.match(help.output, /crdd-server \[--shared \| --mcp-stdio\]/u);
   assert.doesNotMatch(help.output, /AUTOMATION_LOADED|CORE_STARTED/u);
+
+  const declaration = sourceDeclaration(
+    fs.readFileSync(
+      new URL("../../src/cli/command.ts", import.meta.url),
+      "utf8",
+    ),
+    "createAiRequests",
+  ).replace(
+    /await import\(\s*"[^"]+coordinator\/src\/index\.ts"\s*,?\s*\)/u,
+    "await loadCoordinator()",
+  );
+  assert.ok(declaration.includes("await loadCoordinator()"));
+  const createAiRequests = new Function(
+    "loadCoordinator",
+    `${declaration};return createAiRequests;`,
+  );
+  let releaseLoad!: () => void;
+  let reportLoad!: () => void;
+  const seenLoad = new Promise<void>((resolve) => {
+    reportLoad = resolve;
+  });
+  const allowLoad = new Promise<void>((resolve) => {
+    releaseLoad = resolve;
+  });
+  let initializations = 0;
+  const received: (AbortSignal | undefined)[] = [];
+  const recovered: string[] = [];
+  const create = createAiRequests(async () => {
+    reportLoad();
+    await allowLoad;
+    return {
+      openTaskSession() {
+        initializations++;
+        return {
+          start(_request: unknown, signal?: AbortSignal) {
+            received.push(signal);
+            return { status: "accepted", requestId: "fixture", reason: null };
+          },
+          observe(requestId: string) {
+            assert.equal(requestId, "saved-before-restart");
+            recovered.push("observe");
+            return { requestId, status: "running" };
+          },
+          cancel(requestId: string) {
+            assert.equal(requestId, "saved-before-restart");
+            recovered.push("cancel");
+            return { requestId, status: "cancelled" };
+          },
+          async close() {},
+        };
+      },
+    };
+  });
+  const requests = create(() => ({
+    principalId: "fixture",
+    authorize: () => true,
+  }));
+  const cancelled = new AbortController();
+  const pending = requests.start({}, cancelled.signal);
+  await seenLoad;
+  cancelled.abort();
+  releaseLoad();
+  assert.equal((await pending).status, "blocked");
+  assert.equal(initializations, 0);
+  const live = new AbortController();
+  const next = new AbortController();
+  assert.equal((await requests.start({}, live.signal)).status, "accepted");
+  assert.equal((await requests.start({}, next.signal)).status, "accepted");
+  assert.equal(initializations, 1);
+  assert.equal(received.length, 2);
+  assert.equal(received[0], live.signal);
+  assert.equal(received[1], next.signal);
+  await requests.close();
+  for (const operation of ["observe", "cancel"] as const) {
+    const reopened = create(() => ({
+      principalId: "fixture",
+      authorize: () => true,
+    }));
+    const result = await reopened[operation](
+      "saved-before-restart",
+      live.signal,
+    );
+    assert.equal(result.requestId, "saved-before-restart");
+    await reopened.close();
+  }
+  assert.equal(initializations, 3);
+  assert.deepEqual(recovered, ["observe", "cancel"]);
+  assert.equal(received.length, 2);
 });
 
 /**

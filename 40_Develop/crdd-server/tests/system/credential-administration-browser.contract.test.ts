@@ -41,7 +41,7 @@ import {
   closeOwnedBrowserProcessTree,
   observeLocalListener,
 } from "../../../visual-preview/src/index.ts";
-import { startWorkbench } from "../../src/http/start.ts";
+import { startWorkbench } from "../../src/app.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -620,7 +620,7 @@ function credentialBrowserExpression(mode: "issue" | "self" | "all"): string {
     let posts = 0, deliveredKey = '', failNext = false;
     window.fetch = async (...args) => {
       const requestUrl = new URL(String(args[0]), location.href);
-      if(requestUrl.origin === location.origin && requestUrl.pathname === '/connection-credentials/action') {
+      if(requestUrl.origin === location.origin && requestUrl.pathname === '/api/access/credentials') {
         posts++;
         if(failNext) throw new Error('synthetic_connection_failure');
         const response = await originalFetch(...args);
@@ -649,7 +649,7 @@ function credentialBrowserExpression(mode: "issue" | "self" | "all"): string {
     form.requestSubmit(); form.requestSubmit();
     const shown = await waitFor(() => deliveredKey && document.querySelector('.one-time-token code')?.textContent === deliveredKey);
     const firstPostOnce = posts === 1;
-    const model = await (await originalFetch('/api/workbench-view', { cache:'no-store' })).json();
+    const model = await (await originalFetch('/api/workbench/view', { cache:'no-store' })).json();
     const getSecretAbsent = deliveredKey !== '' && !JSON.stringify(model).includes(deliveredKey);
     const urlSecretAbsent = deliveredKey !== '' && !location.href.includes(deliveredKey);
     const storageSecretAbsent = localStorage.length === 0 && sessionStorage.length === 0;
@@ -738,7 +738,7 @@ function managementBrowserExpression(
     const originalFetch = window.fetch.bind(window); let postCount=0, injected=null, stage='register-user';
     window.fetch = (...args) => {
       const requestUrl = new URL(String(args[0]), location.href);
-      if(requestUrl.origin === location.origin && requestUrl.pathname === '/access-management/action') {
+      if(requestUrl.origin === location.origin && requestUrl.pathname === '/api/access') {
         postCount++;
         if(injected) {
           const selected=injected; injected=null;
@@ -783,7 +783,7 @@ function managementBrowserExpression(
         exposureChanged=await waitFor(()=>panel().querySelector('[role=status]')?.textContent.includes('改訂 7。') && formFor('updateExposure','repositoryId','repository.browser-registration')?.querySelector('input[value=development]')?.checked && !formFor('registerUser').querySelector('button').disabled);
         if(exerciseFailures) {
           const key=${JSON.stringify(reconnectionToken)};
-          const denied=await originalFetch('/api/workbench-view?repositoryId=repository.browser-registration',{headers:{authorization:'Bearer '+key}});
+          const denied=await originalFetch('/api/workbench/view?repositoryId=repository.browser-registration',{headers:{authorization:'Bearer '+key}});
           selfContentRejected=denied.status===403 && await denied.text()==='local_repository_access_unavailable'+String.fromCharCode(10);
         }
         stage='unregister-repository';
@@ -807,9 +807,9 @@ function managementBrowserExpression(
       const beforeRetiredHeader=postCount;
       window.fetch=async (...args)=>{
         const url=new URL(String(args[0]),location.href);
-        if(url.pathname==='/access-management/action')postCount++;
+        if(url.pathname==='/api/access')postCount++;
         const reply=await originalFetch(...args);
-        if(url.pathname==='/api/access-management'&&url.searchParams.get('view')==='current'){
+        if(url.pathname==='/api/access'&&url.searchParams.get('view')==='current'){
           const headers=new Headers(reply.headers);headers.set('x-crdd-management-mode','remote');
           return new Response(await reply.text(),{status:reply.status,headers});
         }
@@ -1348,7 +1348,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           {
             expression: `(async()=>{
             const key=${JSON.stringify(material.token)}, originalFetch=window.fetch;let posts=0,authenticated=true,stage='connect';
-            window.fetch=(input,options)=>{if(new URL(String(input),location.href).pathname==='/repository/action'){posts++;authenticated=authenticated&&new Headers(options?.headers).get('authorization')==='Bearer '+key;}return originalFetch(input,options);};
+            window.fetch=(input,options)=>{if(new URL(String(input),location.href).pathname==='/api/repository'){posts++;authenticated=authenticated&&new Headers(options?.headers).get('authorization')==='Bearer '+key;}return originalFetch(input,options);};
             /**
              * Git操作の描画と結果確定を期限内で待つ。
              * @responsibility Git操作の描画と結果確定を期限内で待つ。
@@ -1474,7 +1474,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
              */
             const panel=()=>document.querySelector('#workspaces'), button=(text)=>[...panel().querySelectorAll('button')].find(b=>b.textContent===text), notice=()=>panel().querySelector('[role=status]')?.textContent;
             const originalFetch=window.fetch;let creates=0,renames=0,corrupt=false,stage='queue',lastResult=null;
-            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;const command=route==='/workspace/action'?JSON.parse(new URLSearchParams(String(options.body)).get('command')):null;if(command?.operation==='create')creates++;if(command?.operation==='rename')renames++;const response=await originalFetch(input,options);if(command?.operation==='create'){lastResult={httpStatus:response.status};try{const value=await response.clone().json();lastResult={...lastResult,status:value.status,reason:/^[a-z_]+$/.test(value.data?.reason??'')?value.data.reason:null};}catch{lastResult={...lastResult,json:false};}}if(corrupt===true&&command?.operation==='rename'){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(typeof corrupt==='string'&&command?.operation==='get'){const result=await response.json();if(corrupt==='wrong-id')result.data.workspace.workspaceId='00000000-0000-4000-8000-000000000099';if(corrupt==='bad-paths')result.data.changedPaths=[{}];if(corrupt==='fixture-paths')result.data.changedPaths=['synthetic-changed.txt'];return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}if(corrupt==='bad-status'&&command?.operation==='rename'){const result=await response.json();result.data.status='made-up';return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}return response;};
+            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;const command=route==='/api/workspace'?JSON.parse(new URLSearchParams(String(options.body)).get('command')):null;if(command?.operation==='create')creates++;if(command?.operation==='rename')renames++;const response=await originalFetch(input,options);if(command?.operation==='create'){lastResult={httpStatus:response.status};try{const value=await response.clone().json();lastResult={...lastResult,status:value.status,reason:/^[a-z_]+$/.test(value.data?.reason??'')?value.data.reason:null};}catch{lastResult={...lastResult,json:false};}}if(corrupt===true&&command?.operation==='rename'){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(typeof corrupt==='string'&&command?.operation==='get'){const result=await response.json();if(corrupt==='wrong-id')result.data.workspace.workspaceId='00000000-0000-4000-8000-000000000099';if(corrupt==='bad-paths')result.data.changedPaths=[{}];if(corrupt==='fixture-paths')result.data.changedPaths=['synthetic-changed.txt'];return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}if(corrupt==='bad-status'&&command?.operation==='rename'){const result=await response.json();result.data.status='made-up';return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}return response;};
             try{
               button('受付一覧を再取得').click();await wait(()=>panel().querySelector('select')?.options.length===3);
               const queue=panel().querySelector('select');queue.value='queue-a';queue.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(resolve=>requestAnimationFrame(resolve));
@@ -1536,7 +1536,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           {
             expression: `(async()=>{
             const originalFetch=window.fetch;let posts=0,failRead=false,corrupt=false,hold=false,release=null,signal=null,stage='saved-read-failure';
-            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;if(route==='/api/workbench-view'&&failRead)throw new Error('fixture_read_failure');if(route==='/repository/action')posts++;const response=await originalFetch(input,options);if(route==='/repository/action'&&corrupt){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(route==='/repository/action'&&hold){signal=options.signal;return new Promise(resolve=>{release=()=>resolve(response);});}return response;};
+            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;if(route==='/api/workbench/view'&&failRead)throw new Error('fixture_read_failure');if(route==='/api/repository')posts++;const response=await originalFetch(input,options);if(route==='/api/repository'&&corrupt){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(route==='/api/repository'&&hold){signal=options.signal;return new Promise(resolve=>{release=()=>resolve(response);});}return response;};
             /**
              * Git応答故障後の拒否・不明表示を待つ。
              * @responsibility Git応答故障後の拒否・不明表示を待つ。
@@ -1641,7 +1641,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
         const observed = await requestBrowser(pageUrl, "Runtime.evaluate", {
           expression: `(async()=>{
             const key=${JSON.stringify(material.token)}, originalFetch=window.fetch;let authenticated=0,reads=0,stage='connect';
-            window.fetch=(input,options)=>{if(new URL(String(input),location.href).pathname==='/api/workbench-view'){reads++;if(new Headers(options.headers).get('authorization')==='Bearer '+key)authenticated++;}return originalFetch(input,options);};
+            window.fetch=(input,options)=>{if(new URL(String(input),location.href).pathname==='/api/workbench/view'){reads++;if(new Headers(options.headers).get('authorization')==='Bearer '+key)authenticated++;}return originalFetch(input,options);};
             /**
              * 成果物の対象切替後の本文描画を待つ。
              * @responsibility 成果物の対象切替後の本文描画を待つ。
@@ -1721,9 +1721,9 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             const originalFetch=window.fetch;let release=null,signal=null,corrupt=false,selectionNull=false,standaloneMismatch=false,lastModel=null,stage='pending';
             window.fetch=async(input,options)=>{
               const url=new URL(String(input),location.href);
-              if(standaloneMismatch&&url.pathname==='/api/workbench-view'&&url.searchParams.get('route')==='/change'&&!url.searchParams.has('repositoryId'))return new Response(JSON.stringify(lastModel),{headers:{'content-type':'application/json'}});
+              if(standaloneMismatch&&url.pathname==='/api/workbench/view'&&url.searchParams.get('route')==='/change'&&!url.searchParams.has('repositoryId'))return new Response(JSON.stringify(lastModel),{headers:{'content-type':'application/json'}});
               const response=await originalFetch(input,options);
-              if(url.pathname==='/api/workbench-view'&&url.searchParams.get('route')==='/change'&&url.searchParams.get('repositoryId')==='repository.next'){
+              if(url.pathname==='/api/workbench/view'&&url.searchParams.get('route')==='/change'&&url.searchParams.get('repositoryId')==='repository.next'){
                 const model=await response.json();
                 lastModel=structuredClone(model);
                 if(selectionNull){model.selectedRepositoryId=null;return new Response(JSON.stringify(model),{headers:{'content-type':'application/json'}});}
@@ -1859,7 +1859,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             "denied_reader_observer_positive_control",
           );
           const beforeTimeOnly = await readFile(current);
-          const contentRequest = `(async()=>{const reply=await fetch('/api/workbench-view?repositoryId=repository.next',{headers:{authorization:'Bearer '+${JSON.stringify(material.token)}}});return{status:reply.status,model:await reply.json()};})()`;
+          const contentRequest = `(async()=>{const reply=await fetch('/api/workbench/view?repositoryId=repository.next',{headers:{authorization:'Bearer '+${JSON.stringify(material.token)}}});return{status:reply.status,model:await reply.json()};})()`;
           deniedReads = 0;
           const initialContent = await requestBrowser(
             pageUrl,
@@ -1938,7 +1938,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             const beforeRequest = await readFile(current);
             deniedReads = 0;
             const rejected = await requestBrowser(pageUrl, "Runtime.evaluate", {
-              expression: `(async()=>{const reply=await fetch('/api/workbench-view?repositoryId=repository.next',{headers:{authorization:'Bearer '+${JSON.stringify(material.token)}}});return{status:reply.status,closedBody:await reply.text()==='local_repository_access_unavailable'+String.fromCharCode(10)};})()`,
+              expression: `(async()=>{const reply=await fetch('/api/workbench/view?repositoryId=repository.next',{headers:{authorization:'Bearer '+${JSON.stringify(material.token)}}});return{status:reply.status,closedBody:await reply.text()==='local_repository_access_unavailable'+String.fromCharCode(10)};})()`,
               awaitPromise: true,
               returnByValue: true,
             });
@@ -1987,11 +1987,11 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             let posts=0, reads=0, failRead=false, corruptResponse=false, lastBody=null, stage='connect';
             window.fetch=async(input, options)=>{
               const url=new URL(String(input),location.href);
-              if(url.pathname==='/api/workbench-view') reads++;
-              if(url.pathname==='/api/workbench-view' && failRead) throw new Error('fixture_read_failure');
-              if(url.pathname==='/topic-meeting/action') { posts++; lastBody=String(options.body); }
+              if(url.pathname==='/api/workbench/view') reads++;
+              if(url.pathname==='/api/workbench/view' && failRead) throw new Error('fixture_read_failure');
+              if(url.pathname==='/api/records') { posts++; lastBody=String(options.body); }
               const response=await originalFetch(input, options);
-              if(url.pathname==='/topic-meeting/action' && corruptResponse) { await response.arrayBuffer(); return new Response('{',{headers:{'content-type':'application/json'}}); }
+              if(url.pathname==='/api/records' && corruptResponse) { await response.arrayBuffer(); return new Response('{',{headers:{'content-type':'application/json'}}); }
               return response;
             };
             /**
@@ -2041,7 +2041,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
              * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
              * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
              */
-            const createForm=()=>document.querySelector('#topics form[action="/topic-meeting/action"]:has([name=operation][value=create])');
+            const createForm=()=>document.querySelector('#topics form[action="/api/records"]:has([name=operation][value=create])');
             /**
              * 同Projectの合成Topic本文をBrowser内で組み立てる。
              * @responsibility 同Projectの合成Topic本文をBrowser内で組み立てる。
@@ -2101,10 +2101,10 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             const originalFetch=window.fetch;let posts=0,failRead=false,corruptResponse=false,lastBody=null,stage='read-failure';
             window.fetch=async(input,options)=>{
               const route=new URL(String(input),location.href).pathname;
-              if(route==='/api/workbench-view' && failRead) throw new Error('fixture_read_failure');
-              if(route==='/topic-meeting/action'){posts++;lastBody=String(options.body);}
+              if(route==='/api/workbench/view' && failRead) throw new Error('fixture_read_failure');
+              if(route==='/api/records'){posts++;lastBody=String(options.body);}
               const response=await originalFetch(input,options);
-              if(route==='/topic-meeting/action' && corruptResponse){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}
+              if(route==='/api/records' && corruptResponse){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}
               return response;
             };
             /**
@@ -2181,7 +2181,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           {
             expression: `(async()=>{
             const originalFetch=window.fetch; let posts=0, lastBody=null, stage='promotion-create', lastReadStatus=null;
-            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;if(route==='/topic-meeting/action'){posts++;lastBody=new URLSearchParams(options.body);}const response=await originalFetch(input,options);if(route==='/api/workbench-view')lastReadStatus=response.status;return response;};
+            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;if(route==='/api/records'){posts++;lastBody=new URLSearchParams(options.body);}const response=await originalFetch(input,options);if(route==='/api/workbench/view')lastReadStatus=response.status;return response;};
             /**
              * Topic昇格とMeeting処置の表示を待つ。
              * @responsibility Topic昇格とMeeting処置の表示を待つ。
@@ -2285,10 +2285,10 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             const originalFetch=window.fetch; let posts=0, failRead=false, holdPost=false, releaseLate=null, lateSignal=null, stage='detail-select';
             window.fetch=async(input,options)=>{
               const route=new URL(String(input),location.href).pathname;
-              if(route==='/api/workbench-view' && failRead) throw new Error('fixture_read_failure');
-              if(route==='/topic-meeting/action') posts++;
+              if(route==='/api/workbench/view' && failRead) throw new Error('fixture_read_failure');
+              if(route==='/api/records') posts++;
               const response=await originalFetch(input,options);
-              if(route==='/topic-meeting/action' && holdPost) {lateSignal=options.signal;return new Promise(resolve=>{releaseLate=()=>resolve(response);});}
+              if(route==='/api/records' && holdPost) {lateSignal=options.signal;return new Promise(resolve=>{releaseLate=()=>resolve(response);});}
               return response;
             };
             /**
@@ -2408,10 +2408,10 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             const original=window.fetch; let posts=0, corrupt=false, failView=false, held=null, heldSignal=null, stage='connect';
             window.fetch=async(input,options)=>{
               const route=new URL(String(input),location.href).pathname;
-              if(route==='/ai-selection/action')posts++;
-              if(route==='/api/workbench-view'&&failView)throw Error('fixture_read_unavailable');
+              if(route==='/api/ai-selection')posts++;
+              if(route==='/api/workbench/view'&&failView)throw Error('fixture_read_unavailable');
               const reply=await original(input,options);
-              if(route==='/ai-selection/action'&&corrupt){await reply.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}
+              if(route==='/api/ai-selection'&&corrupt){await reply.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}
               if(route==='/api/ai-selection'&&held===true){heldSignal=options.signal;return new Promise(resolve=>{held=()=>resolve(reply);});}
               return reply;
             };
@@ -2704,7 +2704,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               expression: `(async()=>{
               const originalFetch=window.fetch;let posts=0,nextViewAuthenticated=false;
               const key=${JSON.stringify(material.token)};
-              window.fetch=(input,options)=>{const pathname=new URL(String(input),location.href).pathname;if(pathname==='/local-connection/action')posts++;if(pathname==='/api/workbench-view'&&new Headers(options?.headers).get('authorization')==='Bearer '+key)nextViewAuthenticated=true;return originalFetch(input,options);};
+              window.fetch=(input,options)=>{const pathname=new URL(String(input),location.href).pathname;if(pathname==='/api/access/connection')posts++;if(pathname==='/api/workbench/view'&&new Headers(options?.headers).get('authorization')==='Bearer '+key)nextViewAuthenticated=true;return originalFetch(input,options);};
               try{
                 document.querySelector('#connection input[name=token]').value=${JSON.stringify(material.token)};
                 const form=document.querySelector('#connection form');form.requestSubmit();form.requestSubmit();
@@ -2737,8 +2737,8 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             let posts=${JSON.stringify(connectionSetup?.posts ?? 0)}, authenticatedReads=0, modelReads=0, waitNumber=0;
             window.fetch=async (input, options) => {
               const pathname=new URL(String(input),location.href).pathname;
-              if(String(input).endsWith('/local-connection/action')) posts++;
-              if(new URL(String(input),location.href).pathname==='/api/workbench-view') modelReads++;
+              if(String(input).endsWith('/api/access/connection')) posts++;
+              if(new URL(String(input),location.href).pathname==='/api/workbench/view') modelReads++;
               if(new Headers(options?.headers).get('authorization')==='Bearer '+key) authenticatedReads++;
               const response=await originalFetch(input, options);
               return response;
@@ -2817,7 +2817,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               const searched=await wait(()=>location.search.includes('repositoryId=repository.next') && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
               history.back();
               const returned=await wait(()=>location.search.includes('repositoryId=repository.unavailable') && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
-              const lateModel=await (await originalFetch('/api/workbench-view', {headers:{authorization:'Bearer '+key}})).json();
+              const lateModel=await (await originalFetch('/api/workbench/view', {headers:{authorization:'Bearer '+key}})).json();
               const measuredFetch=window.fetch; let releaseLate;
               window.fetch=(input, options)=>new URL(String(input),location.href).searchParams.get('navigationDelay')==='true'
                 ? new Promise(resolve=>{releaseLate=resolve;}) : measuredFetch(input,options);

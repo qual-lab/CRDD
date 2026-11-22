@@ -16,11 +16,17 @@ import {
   type FormEvent,
 } from "react";
 import { renderWorkbenchAiRequest } from "../components/ai-request-panel.tsx";
+import { useLocation } from "react-router";
 import { WorkbenchShell } from "../components/shell.ts";
 import { WorkbenchPanel } from "../components/elements.ts";
-import type { WorkbenchMainViewModel } from "../../../../crdd-server/src/view/validation.ts";
-import { inspectWorkbenchClientModel } from "../../../../crdd-server/src/view/validation.ts";
-import { createSelectedWorkbenchViewUrl } from "../api/view.ts";
+import type { AiRequestSnapshot, MainViewResponse } from "../api/response.ts";
+import { validateViewResponse } from "../api/response.ts";
+import {
+  createSelectedWorkbenchViewUrl,
+  composeWorkbenchRecordDisplay,
+  readCurrentAiRequest,
+  readWorkbenchDisplayQuery,
+} from "../api/view.ts";
 import { readWorkbenchQuery } from "../api/queries.ts";
 import { requestWorkbenchMutation } from "../api/mutations.ts";
 import { ManagementPanel } from "../components/management-panel.tsx";
@@ -61,11 +67,13 @@ import { AiSelection } from "../components/ai-selection.tsx";
 export function MainWorkbench({
   model: initialModel,
 }: {
-  model: WorkbenchMainViewModel;
+  model: MainViewResponse;
 }): ReactElement {
   const [model, setModel] = useState(initialModel);
+  const displayQuery = readWorkbenchDisplayQuery(useLocation().search);
   const [aiActionNotice, setAiActionNotice] = useState("");
   const aiActionPending = useRef(false);
+  const aiActionGeneration = useRef(0);
   /**
    * 管理更新後に画面全体の現在Read Modelを取り直す。
    * @responsibility 鍵管理を含む過去の投影を新しい管理改訂へ更新する。
@@ -82,7 +90,14 @@ export function MainWorkbench({
    * @concurrency 完全main Modelを取得した場合だけ置換する。
    */
   const refreshReadModel = useCallback(
-    async (signal: AbortSignal): Promise<void> => {
+    async (
+      signal: AbortSignal,
+      progress?: {
+        requestId: string;
+        snapshot: AiRequestSnapshot;
+        generation: number;
+      },
+    ): Promise<void> => {
       const selectedId = model.selectedRepositoryId;
       const currentUrl = window.location.href;
       const target = createSelectedWorkbenchViewUrl(
@@ -96,7 +111,7 @@ export function MainWorkbench({
           signal,
         });
         if (!response.ok) throw new Error("workbench_view_unavailable");
-        return inspectWorkbenchClientModel(await response.json());
+        return validateViewResponse(await response.json());
       });
       if (
         next.view !== "main" ||
@@ -105,7 +120,29 @@ export function MainWorkbench({
         window.location.href !== currentUrl
       )
         throw new Error("workbench_view_unavailable");
-      setModel(next);
+      if (progress === undefined) {
+        setModel(next);
+        return;
+      }
+      if (next.aiRequest.snapshot === null)
+        throw new Error("workbench_view_selection_changed");
+      setModel((current) =>
+        !signal.aborted &&
+        window.location.href === currentUrl &&
+        !aiActionPending.current &&
+        aiActionGeneration.current === progress.generation &&
+        current.selectedRepositoryId === selectedId &&
+        current.aiRequest.snapshot?.requestId === progress.requestId &&
+        ["accepted", "running"].includes(current.aiRequest.snapshot.status)
+          ? progress.snapshot.requestId === progress.requestId &&
+            next.aiRequest.snapshot?.requestId === progress.requestId
+            ? {
+                ...next,
+                aiRequest: { ...next.aiRequest, snapshot: progress.snapshot },
+              }
+            : next
+          : current,
+      );
     },
     [model.selectedRepositoryId],
   );
@@ -119,19 +156,62 @@ export function MainWorkbench({
     return () =>
       window.removeEventListener("hashchange", synchronizeActiveSection);
   }, []);
-  const context = model.surface.context;
+  const context = model.projectData.context;
+  const topics = composeWorkbenchRecordDisplay(model, "topic");
+  const meetings = composeWorkbenchRecordDisplay(model, "meeting");
   useEffect(() => {
+    const requestId = model.aiRequest.snapshot?.requestId;
+    const repositoryId = model.selectedRepositoryId;
     if (
-      !model.aiRequest.snapshot?.requestId ||
+      !requestId ||
       !["accepted", "running"].includes(model.aiRequest.snapshot?.status ?? "")
     )
       return;
     const controller = new AbortController();
     let reading = false;
     const timer = window.setInterval(() => {
-      if (reading) return;
+      if (reading || aiActionPending.current) return;
       reading = true;
-      void refreshReadModel(controller.signal)
+      const requestedLocation = window.location.href;
+      const generation = aiActionGeneration.current;
+      void readCurrentAiRequest(repositoryId, controller.signal)
+        .then(async (snapshot) => {
+          if (
+            controller.signal.aborted ||
+            aiActionPending.current ||
+            aiActionGeneration.current !== generation ||
+            window.location.href !== requestedLocation
+          )
+            return;
+          if (
+            snapshot.requestId !== requestId ||
+            ["completed", "blocked", "cancelled"].includes(snapshot.status)
+          ) {
+            // 終了結果や別タブで始まった依頼は現在の画面データと同期する。
+            try {
+              await refreshReadModel(controller.signal, {
+                snapshot,
+                generation,
+                requestId,
+              });
+              return;
+            } catch {
+              // 画面の再観測失敗で、取得済みの依頼結果を捨てない。
+              if (snapshot.requestId !== requestId) return;
+            }
+          }
+          setModel((current) =>
+            !controller.signal.aborted &&
+            !aiActionPending.current &&
+            aiActionGeneration.current === generation &&
+            window.location.href === requestedLocation &&
+            current.selectedRepositoryId === repositoryId &&
+            current.aiRequest.snapshot?.requestId === requestId &&
+            ["accepted", "running"].includes(current.aiRequest.snapshot.status)
+              ? { ...current, aiRequest: { ...current.aiRequest, snapshot } }
+              : current,
+          );
+        })
         .catch(() => {})
         .finally(() => {
           reading = false;
@@ -144,6 +224,7 @@ export function MainWorkbench({
   }, [
     model.aiRequest.snapshot?.requestId,
     model.aiRequest.snapshot?.status,
+    model.selectedRepositoryId,
     refreshReadModel,
   ]);
   const capabilityLabel = (
@@ -171,22 +252,21 @@ export function MainWorkbench({
           : "CROS connected"
       }
       topicsLabel={capabilityLabel(
-        model.topic.collection.state,
-        model.topic.page.records.length,
+        topics.collection.state,
+        topics.page.records.length,
       )}
       topicsDetail={model.selectedRepositoryId ?? "未構成と0件を区別します"}
       meetingsLabel={capabilityLabel(
-        model.meeting.collection.state,
-        model.meeting.page.records.length,
+        meetings.collection.state,
+        meetings.page.records.length,
       )}
       meetingsDetail={model.selectedRepositoryId ?? "未構成と0件を区別します"}
-      logoPath={model.logoPath}
       activeSection={activeSection}
       clientReady={true}
       refresh={refresh}
       content={
         <Fragment>
-          <Portfolio model={model} />
+          <Portfolio model={model} query={displayQuery.portfolio} />
           {context.scenes.map((scene) => (
             <ProjectScene key={scene.key} scene={scene} />
           ))}
@@ -201,7 +281,7 @@ export function MainWorkbench({
               key={`${model.selectedRepositoryId}:${model.actionToken}`}
               repositoryId={model.selectedRepositoryId}
               actionToken={model.actionToken}
-              refresh={refreshReadModel}
+              refresh={(signal) => refreshReadModel(signal)}
             >
               <RecordCollection model={model} kind="topic" />
               <RecordCollection model={model} kind="meeting" />
@@ -216,27 +296,29 @@ export function MainWorkbench({
             </fieldset>
           )}
           {renderWorkbenchProjectPlan(
-            model.surface.plan,
-            model.surface.ownerArtifacts,
+            model.projectData.plan,
+            model.projectData.ownerArtifacts,
           )}
           {renderWorkbenchQuality(
-            model.surface.quality,
-            model.surface.ownerArtifacts,
+            model.projectData.quality,
+            model.projectData.ownerArtifacts,
           )}
-          <OwnerArtifacts model={model} />
+          <OwnerArtifacts model={model} query={displayQuery.document} />
           <RuntimeActivity model={model} />
           <WorkspacePanel
             key={`workspace:${model.selectedRepositoryId}:${model.actionToken}`}
             repositoryId={
-              model.selectedRepositoryId ?? model.surface.context.repositoryId
+              model.selectedRepositoryId ??
+              model.projectData.context.repositoryId
             }
-            projectId={model.surface.context.projectId}
+            projectId={model.projectData.context.projectId}
             actionToken={model.actionToken}
             initialHead={
-              model.surface.repository.publicationTarget?.revisionIdentity ?? ""
+              model.projectData.repository.publicationTarget
+                ?.revisionIdentity ?? ""
             }
             initialBranch={
-              model.surface.repository.publicationTarget?.branch ?? ""
+              model.projectData.repository.publicationTarget?.branch ?? ""
             }
           />
           {model.connection.state === "repository" ? (
@@ -301,14 +383,15 @@ export function MainWorkbench({
                     form.set(
                       "repositoryId",
                       model.selectedRepositoryId ??
-                        model.surface.context.repositoryId,
+                        model.projectData.context.repositoryId,
                     );
                     const selectedUrl = window.location.href;
+                    aiActionGeneration.current++;
                     aiActionPending.current = true;
                     void (async () => {
                       try {
                         const response = await requestWorkbenchMutation(
-                          "/ai-request/action",
+                          "/api/ai-request",
                           {
                             method: "POST",
                             headers: {

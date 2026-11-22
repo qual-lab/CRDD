@@ -14,11 +14,11 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import type { ChangesResult } from "../../../../version-control/src/index.ts";
 import {
-  validateRepositoryActionForm,
-  inspectRepositoryActionResult,
-} from "../../../../crdd-server/src/view/validation.ts";
+  readRepositorySubmission,
+  readRepositoryOperationDisplay,
+  type RepositoryOperationDisplay,
+} from "../api/repository.ts";
 import { requestWorkbenchMutation } from "../api/mutations.ts";
 
 /**
@@ -51,7 +51,7 @@ export function RepositoryOperationPanel({
   const [busy, setBusy] = useState(false),
     [current, setCurrent] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
-  const [result, setResult] = useState<ChangesResult | null>(null);
+  const [result, setResult] = useState<RepositoryOperationDisplay | null>(null);
   const pending = useRef(false),
     generation = useRef(0),
     mounted = useRef(false);
@@ -94,23 +94,20 @@ export function RepositoryOperationPanel({
     const element = event.target;
     if (
       !(element instanceof HTMLFormElement) ||
-      element.getAttribute("action") !== "/repository/action"
+      element.getAttribute("action") !== "/api/repository"
     )
       return;
     event.preventDefault();
     if (pending.current || !current) return;
     const form = new URLSearchParams();
-    let request: ReturnType<typeof validateRepositoryActionForm>["request"];
+    let submission: ReturnType<typeof readRepositorySubmission>;
     try {
       for (const [key, value] of new FormData(element)) {
         if (typeof value !== "string")
           throw new Error("repository_form_file_invalid");
         form.append(key, value);
       }
-      const validated = validateRepositoryActionForm(form, actionToken, true);
-      if (validated.repositoryId !== repositoryId)
-        throw new Error("repository_form_selection_invalid");
-      request = validated.request;
+      submission = readRepositorySubmission(form, repositoryId, actionToken);
     } catch {
       setNotice("入力と選択対象を確認してください。送信していません。");
       return;
@@ -123,16 +120,16 @@ export function RepositoryOperationPanel({
     setBusy(true);
     setNotice(null);
     setResult(null);
-    let known: ChangesResult | null = null;
+    let known: RepositoryOperationDisplay | null = null;
     try {
-      const response = await requestWorkbenchMutation("/repository/action", {
+      const response = await requestWorkbenchMutation("/api/repository", {
         method: "POST",
         body: form,
         signal: owned.signal,
         headers: { "content-type": "application/x-www-form-urlencoded" },
       });
       if (!response.ok) throw new Error("repository_outcome_unconfirmed");
-      known = inspectRepositoryActionResult(request, await response.json());
+      known = readRepositoryOperationDisplay(submission, await response.json());
       if (
         !mounted.current ||
         owned.signal.aborted ||

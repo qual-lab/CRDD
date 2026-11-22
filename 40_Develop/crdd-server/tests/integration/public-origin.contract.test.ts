@@ -18,12 +18,12 @@ import path from "node:path";
 import test from "node:test";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
-import * as crddServer from "../../src/index.ts";
+import { readServerConnectionConfiguration } from "../../src/service/configuration.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   readWorkbenchServerConfiguration,
   startWorkbench,
-} from "../../src/http/start.ts";
+} from "../../src/app.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -62,12 +62,13 @@ test("Workbench設定Readerは当該Repositoryの閉設定だけを受理する"
       publicOrigin: "https://workbench.example",
     });
     const mcpFile = path.join(config, "mcp-server.json");
-    const { readServerConnectionConfiguration } = crddServer;
-    assert.deepEqual(Object.keys(crddServer).sort(), [
-      "composeAuthorizedTopicMeeting",
-      "inspectServerPublicOrigin",
-      "readServerConnectionConfiguration",
-    ]);
+    const packageName = "@qual-lab/crdd-server";
+    await assert.rejects(import(packageName), {
+      code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
+    });
+    await assert.rejects(import(`${packageName}/browser`), {
+      code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
+    });
     await assert.rejects(
       Reflect.apply(readServerConnectionConfiguration, null, [
         fixture,
@@ -315,7 +316,7 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
         opens++;
       return originalOpen(...args);
     }) as typeof fs.openSync;
-    const url = `${handle.baseUrl}/api/workbench-view`;
+    const url = `${handle.baseUrl}/api/workbench/view`;
     const valid: Record<string, string | string[]> = {
       host: "workbench.example",
       "x-forwarded-proto": "https",
@@ -335,7 +336,7 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
     const send = (
       headers: Record<string, string | string[]>,
       method = "GET",
-      requestPath = "/api/workbench-view",
+      requestPath = "/api/workbench/view",
     ) =>
       new Promise<{ status: number; body: string }>((resolve, reject) => {
         const request = httpRequest(
@@ -394,7 +395,7 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
     assert.equal(invalidUrl.status, 500);
     assert.equal(invalidUrl.body, "workbench_request_failed\n");
     assert.equal(opens, 0);
-    const normalized = await send(valid, "GET", "/x/../api/workbench-view");
+    const normalized = await send(valid, "GET", "/x/../api/workbench/view");
     assert.equal(normalized.status, 200);
     assert.equal(JSON.parse(normalized.body).authenticated, false);
     assert.equal(opens, 0);

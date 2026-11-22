@@ -179,7 +179,7 @@ test("fresh表示URLは選択と検索条件を落とさない", () => {
     createSelectedWorkbenchViewUrl(current, "repo-a"),
     current,
   );
-  assert.equal(next.pathname, "/api/workbench-view");
+  assert.equal(next.pathname, "/api/workbench/view");
   assert.equal(next.searchParams.get("repositoryId"), "repo-a");
   assert.equal(next.searchParams.get("route"), "/topic");
   assert.equal(next.searchParams.get("id"), "TOPIC-000001");

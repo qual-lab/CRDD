@@ -15,10 +15,10 @@ import {
 } from "react";
 import { WorkbenchPanel, ActionTokenInput, EmptyState } from "./elements.ts";
 import {
-  inspectManagementResult,
+  validateManagementResponse,
   type ManagementView,
-  type WorkbenchManagementResult,
-} from "../../../../crdd-server/src/view/validation.ts";
+  type ManagementResult,
+} from "../api/response.ts";
 import { requestWorkbench } from "../api/connection.ts";
 import { requestWorkbenchMutation } from "../api/mutations.ts";
 import { readWorkbenchQuery } from "../api/queries.ts";
@@ -53,7 +53,7 @@ export function ManagementPanel({
   refreshReadModel: (signal: AbortSignal) => Promise<void>;
 }): ReactElement {
   const [data, setData] = useState<
-    Partial<Record<ManagementView, WorkbenchManagementResult>>
+    Partial<Record<ManagementView, ManagementResult>>
   >({});
   const [mode, setMode] = useState<"local" | "none">("none");
   const [notice, setNotice] = useState("現在の接続を確認しています。");
@@ -86,18 +86,17 @@ export function ManagementPanel({
         "management",
         signal,
         async (signal) => {
-          const response = await requestWorkbench(
-            "/api/access-management?view=current",
-            { cache: "no-store", credentials: "same-origin", signal },
-          );
+          const response = await requestWorkbench("/api/access?view=current", {
+            cache: "no-store",
+            credentials: "same-origin",
+            signal,
+          });
           if (!response.ok) throw new Error("management_unavailable");
-          const current = inspectManagementResult(
+          const current = validateManagementResponse(
             await response.json(),
             "current",
           );
-          const next: Partial<
-            Record<ManagementView, WorkbenchManagementResult>
-          > = {
+          const next: Partial<Record<ManagementView, ManagementResult>> = {
             current,
           };
           const nextMode = response.headers.get("x-crdd-management-mode");
@@ -111,7 +110,7 @@ export function ManagementPanel({
             const reads = await Promise.allSettled(
               VIEWS.map(async (view) => {
                 const reply = await requestWorkbench(
-                  `/api/access-management?view=${view}`,
+                  `/api/access?view=${view}`,
                   { cache: "no-store", credentials: "same-origin", signal },
                 );
                 if (
@@ -121,7 +120,7 @@ export function ManagementPanel({
                   throw new Error("management_unavailable");
                 return {
                   view,
-                  result: inspectManagementResult(await reply.json(), view),
+                  result: validateManagementResponse(await reply.json(), view),
                 };
               }),
             );
@@ -196,22 +195,22 @@ export function ManagementPanel({
     let resultNotice =
       "操作結果を確認できません。保存されていないとは判断せず、自動再送しません。";
     try {
-      const response = await requestWorkbenchMutation(
-        "/access-management/action",
-        {
-          method: "POST",
-          body,
-          credentials: "same-origin",
-          cache: "no-store",
-          signal: active.signal,
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            accept: "application/json",
-          },
+      const response = await requestWorkbenchMutation("/api/access", {
+        method: "POST",
+        body,
+        credentials: "same-origin",
+        cache: "no-store",
+        signal: active.signal,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          accept: "application/json",
         },
-      );
+      });
       if (!response.ok) throw new Error("management_unavailable");
-      const result = inspectManagementResult(await response.json(), "mutation");
+      const result = validateManagementResponse(
+        await response.json(),
+        "mutation",
+      );
       resultNotice =
         result.status === "completed"
           ? `変更を保存しました。改訂 ${result.revision}。内容へのアクセスや開始済み処理の終了を保証するものではありません。`

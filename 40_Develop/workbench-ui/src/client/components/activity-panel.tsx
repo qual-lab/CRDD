@@ -8,7 +8,7 @@
  */
 import type { ReactElement } from "react";
 import { EmptyState, WorkbenchPanel } from "./elements.ts";
-import type { WorkbenchMainViewModel } from "../../../../crdd-server/src/view/validation.ts";
+import type { MainViewResponse } from "../api/response.ts";
 
 /**
  * Coordinatorの現在状態とEventを成功・不在・不明の区別付きで表示する。
@@ -28,9 +28,9 @@ import type { WorkbenchMainViewModel } from "../../../../crdd-server/src/view/va
 export function RuntimeActivity({
   model,
 }: {
-  model: WorkbenchMainViewModel;
+  model: MainViewResponse;
 }): ReactElement {
-  const observation = model.runtimeActivity;
+  const observation = model.executionActivity;
   return (
     <WorkbenchPanel
       id="runtime-activity"
@@ -99,7 +99,7 @@ export function RuntimeActivity({
           {observation.eventContinuation === null ? null : (
             <a
               className="page-link"
-              href={`/?runtimeCursor=${encodeURIComponent(observation.eventContinuation)}#runtime-activity`}
+              href={`/?activityCursor=${encodeURIComponent(observation.eventContinuation)}#runtime-activity`}
             >
               次の実行履歴
             </a>

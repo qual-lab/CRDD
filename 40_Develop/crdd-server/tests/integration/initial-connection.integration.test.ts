@@ -9,7 +9,7 @@
  * @boundary loopback HTTPと自己生成Store。公開Launcher／Workbench／Host TTYは未接続。
  */
 import assert from "node:assert/strict";
-import { invokeMcpSource } from "../fixtures/sdk-request.ts";
+import { invokeMcpRequest, invokeMcpSource } from "../fixtures/sdk-request.ts";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { request as httpRequest } from "node:http";
@@ -27,8 +27,7 @@ import {
   createAccessMcpResolver,
   MCP_COORDINATOR_PROTOCOL_VERSION,
   startMcpAuthenticatedStreamableHttp,
-} from "../../src/mcp/core.ts";
-import { handleMcpDiscoverRequest } from "../../src/mcp/request-discover.ts";
+} from "../../src/transport/mcp-server.ts";
 
 /**
  * 実Hostと分離した提示確認済み初回資格を作る。
@@ -192,7 +191,7 @@ test("初回HTTPは完全discover一回だけ出版して次要求を通常へ�
     });
     const value = await response.json();
     assert.equal(response.status, 200);
-    assert.deepEqual(value, handleMcpDiscoverRequest(packet()));
+    assert.deepEqual(value, await invokeMcpRequest(packet(), {}));
     assert.equal(kdfs, 2); // Header用途判定とfresh初回確認だけ。
     assert.equal(publications, 1);
     const state = JSON.parse(
@@ -222,8 +221,19 @@ test("初回HTTPは完全discover一回だけ出版して次要求を通常へ�
     });
     const listed = await next.json();
     assert.ok(Array.isArray(listed.result.tools));
-    // 通常十八操作とCore定義二操作、管理十操作。登録と旧Profile操作は公開しない。
-    assert.equal(listed.result.tools.length, 30);
+    // 通常十八操作、Core定義二操作、実行三操作と管理十操作。
+    assert.equal(listed.result.tools.length, 33);
+    for (const name of [
+      "crdd.run_objective",
+      "crdd.submit_decision",
+      "crdd.get_execution_state",
+    ]) {
+      assert.ok(
+        listed.result.tools.some(
+          (tool: { name: string }) => tool.name === name,
+        ),
+      );
+    }
     assert.equal(
       listed.result.tools.some((tool: { name: string }) =>
         tool.name.includes("ai_profile"),
@@ -778,7 +788,7 @@ test("同Bindingの並行HTTPは一出版して同じdiscover成功を返す", a
       assert.ok(result.status === "fulfilled");
       assert.deepEqual(
         JSON.parse(result.value),
-        handleMcpDiscoverRequest(packet()),
+        await invokeMcpRequest(packet(), {}),
       );
     }
     assert.equal(publications, 1);

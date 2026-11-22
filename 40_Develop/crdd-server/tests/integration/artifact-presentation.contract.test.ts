@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inspectWorkbenchClientModel } from "../../src/view/validation.ts";
+import { validateViewResponse } from "../../../workbench-ui/src/client/api/response.ts";
 
 /**
  * 同じRepositoryの原文だけを閉Modelへ受理する。
@@ -26,9 +26,8 @@ import { inspectWorkbenchClientModel } from "../../src/view/validation.ts";
  */
 test("artifact Modelは出所・kind・原文容量を閉検査する", () => {
   const valid = {
-    contract: "crdd/workbench/client-model/v1",
+    contract: "crdd/workbench/view/v1",
     view: "artifact",
-    logoPath: "/assets/crdd-brand-icon.jpg",
     repositoryId: "repo.a",
     selectedRepositoryId: "repo.a",
     artifact: {
@@ -37,9 +36,9 @@ test("artifact Modelは出所・kind・原文容量を閉検査する", () => {
       markdown: "# 原文\n<script>not executed</script>\n",
     },
   };
-  assert.deepEqual(inspectWorkbenchClientModel(valid), valid);
+  assert.deepEqual(validateViewResponse(valid), valid);
   assert.equal(
-    inspectWorkbenchClientModel({ ...valid, selectedRepositoryId: null }).view,
+    validateViewResponse({ ...valid, selectedRepositoryId: null }).view,
     "artifact",
   );
   for (const extra of [
@@ -48,7 +47,7 @@ test("artifact Modelは出所・kind・原文容量を閉検査する", () => {
     { selectedRepositoryId: "repo.b" },
     { selectedRepositoryId: undefined },
   ])
-    assert.throws(() => inspectWorkbenchClientModel({ ...valid, ...extra }));
+    assert.throws(() => validateViewResponse({ ...valid, ...extra }));
   for (const extra of [
     { kind: "unknown" },
     { identity: "99_Roadmap/01_Roadmap.md" },
@@ -56,13 +55,13 @@ test("artifact Modelは出所・kind・原文容量を閉検査する", () => {
     { root: "hidden" },
   ])
     assert.throws(() =>
-      inspectWorkbenchClientModel({
+      validateViewResponse({
         ...valid,
         artifact: { ...valid.artifact, ...extra },
       }),
     );
   const largeMarkdown = "あ".repeat(174763);
-  const large = inspectWorkbenchClientModel({
+  const large = validateViewResponse({
     ...valid,
     artifact: { ...valid.artifact, markdown: largeMarkdown },
   });
@@ -77,7 +76,7 @@ test("artifact Modelは出所・kind・原文容量を閉検査する", () => {
       markdown: "# 原文",
     },
   };
-  assert.deepEqual(inspectWorkbenchClientModel(owner), owner);
+  assert.deepEqual(validateViewResponse(owner), owner);
   for (const identity of [
     "../outside.md",
     "/outside.md",
@@ -89,7 +88,7 @@ test("artifact Modelは出所・kind・原文容量を閉検査する", () => {
     "",
   ])
     assert.throws(() =>
-      inspectWorkbenchClientModel({
+      validateViewResponse({
         ...owner,
         artifact: { ...owner.artifact, identity },
       }),

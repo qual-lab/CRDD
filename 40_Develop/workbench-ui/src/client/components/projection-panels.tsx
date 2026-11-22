@@ -11,9 +11,9 @@
  */
 import { createElement, type ReactElement } from "react";
 
-import type { WorkbenchOwnerArtifactCatalog } from "../../../../crdd-server/src/view/validation.ts";
-import type { WorkbenchProjectPlanObservation } from "../../../../crdd-server/src/view/validation.ts";
-import type { WorkbenchQualityObservation } from "../../../../crdd-server/src/view/validation.ts";
+import type { OwnerArtifactCatalog } from "../api/response.ts";
+import type { ProjectPlanObservation } from "../api/response.ts";
+import type { ProjectQualityObservation } from "../api/response.ts";
 
 /**
  * Current Release Projectionを構造化Project Planとして描画する。
@@ -33,8 +33,8 @@ import type { WorkbenchQualityObservation } from "../../../../crdd-server/src/vi
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 export function renderWorkbenchProjectPlan(
-  observation: WorkbenchProjectPlanObservation,
-  ownerArtifacts: WorkbenchOwnerArtifactCatalog,
+  observation: ProjectPlanObservation,
+  ownerArtifacts: OwnerArtifactCatalog,
 ): ReactElement {
   if (observation.state !== "available" || observation.projection === null) {
     const label =
@@ -224,8 +224,8 @@ export function renderWorkbenchProjectPlan(
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 export function renderWorkbenchQuality(
-  observation: WorkbenchQualityObservation,
-  ownerArtifacts: WorkbenchOwnerArtifactCatalog,
+  observation: ProjectQualityObservation,
+  ownerArtifacts: OwnerArtifactCatalog,
 ): ReactElement {
   if (observation.state !== "available" || observation.projection === null) {
     const label =

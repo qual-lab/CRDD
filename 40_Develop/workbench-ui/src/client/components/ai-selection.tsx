@@ -7,7 +7,7 @@
  */
 import type { ReactElement } from "react";
 import { EmptyState, WorkbenchPanel } from "./elements.ts";
-import type { WorkbenchMainViewModel } from "../../../../crdd-server/src/view/validation.ts";
+import type { MainViewResponse } from "../api/response.ts";
 
 /**
  * 五役割の設定と同梱モデル対応表を描画する。
@@ -27,7 +27,7 @@ import type { WorkbenchMainViewModel } from "../../../../crdd-server/src/view/va
 export function AiSelection({
   model,
 }: {
-  model: WorkbenchMainViewModel;
+  model: MainViewResponse;
 }): ReactElement {
   const surface = model.aiSelection;
   if (!surface)

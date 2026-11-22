@@ -100,7 +100,7 @@ const SEMANTIC_ROOT_LITERAL_OWNERS = new Set([
   "40_Develop/coordinator/src/lifecycle/host.ts",
   "40_Develop/executor/scripts/runtime-data.ts",
   "40_Develop/crdd-server/scripts/runtime-data.ts",
-  "40_Develop/crdd-server/src/configuration/area.ts",
+  "40_Develop/crdd-server/src/service/configuration.ts",
   "40_Develop/visual-preview/src/browser/temporary.ts",
 ]);
 const ALLOWED_TOP_LEVEL_AREAS = new Set([

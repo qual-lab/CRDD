@@ -44,11 +44,11 @@ test("Browser接続は同Originと要求世代を守り資格を応答へ含め�
   };
   try {
     clearWorkbenchCredential();
-    const without = await requestWorkbench("/api/workbench-view");
+    const without = await requestWorkbench("/api/workbench/view");
     assert.equal(new Headers(observed?.headers).has("authorization"), false);
     assert.equal((await without.json()).status, "completed");
     setWorkbenchCredential("fixture-first-key");
-    const withKey = await requestWorkbench("/api/workbench-view");
+    const withKey = await requestWorkbench("/api/workbench/view");
     assert.equal(
       new Headers(observed?.headers).get("authorization"),
       "Bearer fixture-first-key",
@@ -60,11 +60,11 @@ test("Browser接続は同Originと要求世代を守り資格を応答へ含め�
     assert.equal((await withKey.text()).includes("fixture-first-key"), false);
     const beforeRejected = calls;
     await assert.rejects(
-      requestWorkbench("https://example.invalid/api/workbench-view"),
+      requestWorkbench("https://example.invalid/api/workbench/view"),
       { message: "workbench_request_rejected" },
     );
     await assert.rejects(
-      requestWorkbench("/api/workbench-view", {
+      requestWorkbench("/api/workbench/view", {
         headers: { authorization: "Bearer other" },
       }),
       { message: "workbench_request_rejected" },
@@ -72,7 +72,7 @@ test("Browser接続は同Originと要求世代を守り資格を応答へ含め�
     const cancelled = new AbortController();
     cancelled.abort();
     await assert.rejects(
-      requestWorkbench("/api/workbench-view", { signal: cancelled.signal }),
+      requestWorkbench("/api/workbench/view", { signal: cancelled.signal }),
       { message: "workbench_request_rejected" },
     );
     assert.equal(calls, beforeRejected);
@@ -90,7 +90,7 @@ test("Browser接続は同Originと要求世代を守り資格を応答へ含め�
       new Promise<Response>((resolve) => {
         release = resolve;
       });
-    const late = requestWorkbench("/api/workbench-view");
+    const late = requestWorkbench("/api/workbench/view");
     assert.ok(release);
     setWorkbenchCredential("fixture-second-key");
     release(new Response("old user result"));
@@ -106,7 +106,7 @@ test("Browser接続は同Originと要求世代を守り資格を応答へ含め�
       },
     });
     globalThis.fetch = async () => new Response(stream);
-    const large = await requestWorkbench("/api/workbench-view");
+    const large = await requestWorkbench("/api/workbench/view");
     assert.equal((await large.arrayBuffer()).byteLength, 16777217);
     assert.equal(cancelledReader, false);
     assert.equal(stream.locked, false);
@@ -115,7 +115,7 @@ test("Browser接続は同Originと要求世代を守り資格を応答へ含め�
       observed = options;
       return new Response(null, { status: 204 });
     };
-    assert.equal((await requestWorkbench("/api/workbench-view")).status, 204);
+    assert.equal((await requestWorkbench("/api/workbench/view")).status, 204);
     assert.equal(new Headers(observed?.headers).has("authorization"), false);
   } finally {
     clearWorkbenchCredential();
@@ -171,7 +171,7 @@ test("Browser要求の開始後取消は再送せず応答Readerを解放する"
       observedSignal = options?.signal;
       return new Response(stream);
     };
-    const reading = requestWorkbench("/api/workbench-view", {
+    const reading = requestWorkbench("/api/workbench/view", {
       signal: cancellation.signal,
     });
     await started;
@@ -197,7 +197,7 @@ test("Browser要求の開始後取消は再送せず応答Readerを解放する"
         );
       });
     };
-    const waiting = requestWorkbench("/api/workbench-view", {
+    const waiting = requestWorkbench("/api/workbench/view", {
       signal: waitingCancellation.signal,
     });
     waitingCancellation.abort();
@@ -212,7 +212,7 @@ test("Browser要求の開始後取消は再送せず応答Readerを解放する"
       throw networkFailure;
     };
     await assert.rejects(
-      requestWorkbench("/api/workbench-view"),
+      requestWorkbench("/api/workbench/view"),
       (error) => error === networkFailure,
     );
     assert.equal(calls, 3);

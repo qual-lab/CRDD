@@ -8,6 +8,22 @@
  * @security 資格・認可Authorityを新設せず、既存の秘密非搬送と受理条件を維持する。
  */
 /**
+ * 現在の画面URLから検索欄・継続導線の表示値を組み立てる。
+ * @trace ARCH-000012
+ * @boundary URLの表示値。実際のPortfolio検索とCursorの検証はServerが所有する。
+ */
+export function readWorkbenchDisplayQuery(search: string) {
+  const query = new URLSearchParams(search);
+  return {
+    document: query.get("documentQuery") ?? "",
+    portfolio: {
+      query: query.get("portfolioQuery") ?? "",
+      state: query.get("portfolioState") ?? "",
+    },
+  };
+}
+
+/**
  * 現在画面と同じ選択条件のRead Model URLを作る。
  * @responsibility 管理・内容操作後の再取得で選択Repositoryを失わない。
  * @trace ARCH-000012
@@ -32,14 +48,63 @@ export function createSelectedWorkbenchViewUrl(
     (parameters.get("repositoryId") || null) !== repositoryId
   )
     throw new Error("workbench_view_selection_changed");
+  if (current.pathname === "/" || current.pathname === "/index.html")
+    parameters.delete("documentQuery");
   parameters.set("route", current.pathname);
-  return `/api/workbench-view?${parameters}`;
+  return `/api/workbench/view?${parameters}`;
 }
 
-import { inspectWorkbenchClientModel } from "../../../../crdd-server/src/view/validation.ts";
-import type { WorkbenchClientModel } from "../../../../crdd-server/src/view/validation.ts";
+import { validateAiRequestSnapshot, validateViewResponse } from "./response.ts";
+import type { ViewResponse, MainViewResponse } from "./response.ts";
 import { requestWorkbench } from "./connection.ts";
 import { readWorkbenchQuery } from "./queries.ts";
+
+/**
+ * 取得した一覧と構成状態を記録画面の表示用に組み合わせる。
+ * @trace ARCH-000012
+ * @boundary 開示済みの同じビュー応答とWorkbenchの一覧表示。
+ */
+export function composeWorkbenchRecordDisplay(
+  model: Pick<
+    MainViewResponse,
+    "topicPage" | "topicQuery" | "meetingPage" | "meetingQuery"
+  > & {
+    projectData: Pick<MainViewResponse["projectData"], "topics" | "meetings">;
+  },
+  kind: "topic" | "meeting",
+) {
+  return kind === "topic"
+    ? {
+        collection: model.projectData.topics,
+        page: model.topicPage,
+        query: model.topicQuery,
+      }
+    : {
+        collection: model.projectData.meetings,
+        page: model.meetingPage,
+        query: model.meetingQuery,
+      };
+}
+
+/**
+ * 現在のAI依頼だけを読み、画面全体の取得と分離する。
+ * @trace ARCH-000015
+ * @security 対象URLには選択Repositoryだけを載せ、依頼IDの相関は画面で行う。
+ */
+export async function readCurrentAiRequest(
+  repositoryId: string | null,
+  signal: AbortSignal,
+) {
+  const query =
+    repositoryId === null ? "" : `?${new URLSearchParams({ repositoryId })}`;
+  const response = await requestWorkbench(`/api/ai-request${query}`, {
+    signal,
+  });
+  if (!response.ok) throw new Error("workbench_ai_request_unavailable");
+  const snapshot = validateAiRequestSnapshot(await response.json());
+  if (signal.aborted) throw new Error("workbench_ai_request_unavailable");
+  return snapshot;
+}
 
 /**
  * Workbench Client Model APIから現在の表示Snapshotを取得する。
@@ -49,22 +114,24 @@ import { readWorkbenchQuery } from "./queries.ts";
  * @returns 検査済みWorkbench Client Model。
  * @precondition Workbenchが同一Originで起動している。
  * @postcondition 不正JSONをReactへ渡さない。
- * @effect GET /api/workbench-viewを一回発行する。
+ * @effect GET /api/workbench/viewを一回発行する。
  * @failure HTTPまたは契約不一致で例外を送出する。
  * @invariant Browser側で業務状態を補完しない。
  * @boundary Workbench JSON APIとBrowser Reactの境界。
  * @security 同Originだけへ当該タブの資格を送る。初回は資格なしで接続画面を取得する。
  * @concurrency 表示要求ごとに一回だけ取得し、旧要求は所有Signalで取消する。
  */
-export async function readWorkbenchClientModel(
+export async function readViewResponse(
   url: URL,
   signal: AbortSignal,
-): Promise<WorkbenchClientModel> {
+): Promise<ViewResponse> {
   return readWorkbenchQuery("view", signal, async (signal) => {
     const parameters = new URLSearchParams(url.search);
+    if (url.pathname === "/" || url.pathname === "/index.html")
+      parameters.delete("documentQuery");
     parameters.set("route", url.pathname);
     const response = await requestWorkbench(
-      `/api/workbench-view?${parameters.toString()}`,
+      `/api/workbench/view?${parameters.toString()}`,
       {
         credentials: "same-origin",
         signal,
@@ -72,7 +139,7 @@ export async function readWorkbenchClientModel(
       },
     );
     if (!response.ok) throw new Error("workbench_client_model_unavailable");
-    const model = inspectWorkbenchClientModel(await response.json());
+    const model = validateViewResponse(await response.json());
     if (url.pathname === "/change" || url.pathname === "/owner-artifact") {
       if (model.view === "access" && model.authenticated === false)
         return model;

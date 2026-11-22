@@ -28,6 +28,6 @@ import { requestInChild } from "../../scripts/ai-verification-http.ts";
  */
 test("Host Windows: 正常Owner3回から実Home解放・Host清掃・結果保存まで結合する", async (t) => {
   await verifyNormalOwnerLifecycle(t, 3, false, (url, observe) =>
-    requestInChild(url, "/api/workbench-view?route=%2F", undefined, observe),
+    requestInChild(url, "/api/workbench/view?route=%2F", undefined, observe),
   );
 });

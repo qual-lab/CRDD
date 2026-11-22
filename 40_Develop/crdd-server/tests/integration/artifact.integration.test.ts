@@ -23,8 +23,8 @@ import { deriveRepositoryBindingId } from "../../../access-management/src/reposi
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { inspectWorkbenchClientModel } from "../../src/view/validation.ts";
-import { startWorkbench } from "../../src/http/start.ts";
+import { validateViewResponse } from "../../../workbench-ui/src/client/api/response.ts";
+import { startWorkbench } from "../../src/app.ts";
 
 /**
  * 同名本文の選択、閉Queryと読取り後の失効／取消を反証する。
@@ -165,12 +165,12 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
    * @precondition Caseが起動したServerと自己生成二Repository。
    * @stimulus id・route・identityを既存HTTP要求へ渡す。
    * @observation 認証結果、本文状態と対象Artifact。
-   * @oracle 別Repository/主体への配送や上限拒否を正常表示に畳まない。
+   * @oracle 別Repository・主体への配送を拒否し、認可済みの本文は容量だけで拒否・切詰めしない。
    * @cleanup Serverと所有fixtureの終了はCaseのfinallyで確認する。
    * @boundary 実HTTP→Artifact Reader。外部AIなし。
    */
   const query = (id: string, route: string, identity: string) =>
-    `/api/workbench-view?${new URLSearchParams({ repositoryId: id, route, [route === "/change" ? "id" : "path"]: identity })}`;
+    `/api/workbench/view?${new URLSearchParams({ repositoryId: id, route, [route === "/change" ? "id" : "path"]: identity })}`;
   try {
     for (const suffix of ["a", "b"])
       for (const [route, identity] of [
@@ -182,7 +182,7 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
           { headers },
         );
         assert.equal(response.status, 200);
-        const model = inspectWorkbenchClientModel(await response.json());
+        const model = validateViewResponse(await response.json());
         assert.equal(model.view, "artifact");
         if (model.view === "artifact") {
           assert.equal(model.repositoryId, `repo.${suffix}`);
@@ -194,10 +194,8 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
         }
       }
     const largeRelative = "99_Roadmap/large.md";
-    fs.writeFileSync(
-      path.join(fixture, "a", largeRelative),
-      `# 大きい変更計画\n${"x".repeat(524289)}`,
-    );
+    const largeMarkdown = `# 大きい変更計画\n${"x".repeat(524289)}`;
+    fs.writeFileSync(path.join(fixture, "a", largeRelative), largeMarkdown);
     fs.appendFileSync(
       path.join(fixture, "a", "PROJECT_CONTEXT.md"),
       `\n[変更計画](${largeRelative})\n`,
@@ -207,30 +205,33 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
       path.join(fixture, "a", "99_Roadmap", "03_Releases.md"),
     );
     const main = await (
-      await fetch(`${handle.baseUrl}/api/workbench-view?repositoryId=repo.a`, {
+      await fetch(`${handle.baseUrl}/api/workbench/view?repositoryId=repo.a`, {
         headers,
       })
     ).json();
     assert.equal(main.view, "main");
-    assert.equal(main.surface.ownerArtifacts.state, "available");
-    assert.equal(main.surface.plan.state, "available");
-    assert.equal(main.surface.plan.projection.targetVersion, "v0.22.0");
+    assert.equal(main.projectData.ownerArtifacts.state, "available");
+    assert.equal(main.projectData.plan.state, "available");
+    assert.equal(main.projectData.plan.projection.targetVersion, "v0.22.0");
     assert.equal(
-      main.surface.ownerArtifacts.artifacts.find(
+      main.projectData.ownerArtifacts.artifacts.find(
         (entry: { relativePath: string }) =>
           entry.relativePath === largeRelative,
       )?.title,
       "大きい変更計画",
     );
-    assert.equal(
-      (
-        await fetch(
-          handle.baseUrl + query("repo.a", "/owner-artifact", largeRelative),
-          { headers },
-        )
-      ).status,
-      403,
+    const largeResponse = await fetch(
+      handle.baseUrl + query("repo.a", "/owner-artifact", largeRelative),
+      { headers },
     );
+    assert.equal(largeResponse.status, 200);
+    const largeModel = validateViewResponse(await largeResponse.json());
+    assert.equal(largeModel.view, "artifact");
+    if (largeModel.view === "artifact") {
+      assert.equal(largeModel.repositoryId, "repo.a");
+      assert.equal(largeModel.selectedRepositoryId, "repo.a");
+      assert.equal(largeModel.artifact.markdown, largeMarkdown);
+    }
     const anonymous = await fetch(
       handle.baseUrl + query("repo.a", "/change", "CHG-000301"),
     );
@@ -334,17 +335,21 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
         "change.md",
       ),
       savedBody = fs.readFileSync(file, "utf8");
-    fs.writeFileSync(file, "x".repeat(524289));
-    try {
-      assert.equal(
-        (
-          await fetch(
-            handle.baseUrl + query("repo.a", "/change", "CHG-000301"),
-            { headers },
-          )
-        ).status,
-        403,
+    const largeChange = "x".repeat(524289);
+    const assertLargeChangeBody = async () => {
+      const response = await fetch(
+        handle.baseUrl + query("repo.a", "/change", "CHG-000301"),
+        { headers },
       );
+      assert.equal(response.status, 200);
+      const model = validateViewResponse(await response.json());
+      assert.equal(model.view, "artifact");
+      if (model.view === "artifact")
+        assert.equal(model.artifact.markdown, largeChange);
+    };
+    fs.writeFileSync(file, largeChange);
+    try {
+      await assertLargeChangeBody();
     } finally {
       fs.writeFileSync(file, savedBody);
     }
@@ -355,21 +360,13 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
         const value = await originalRead(...args);
         return path.resolve(String(args[0])).toLowerCase() ===
           file.toLowerCase()
-          ? "x".repeat(524289)
+          ? largeChange
           : value;
       },
     );
     syncBuiltinESMExports();
     try {
-      assert.equal(
-        (
-          await fetch(
-            handle.baseUrl + query("repo.a", "/change", "CHG-000301"),
-            { headers },
-          )
-        ).status,
-        403,
-      );
+      await assertLargeChangeBody();
     } finally {
       expanded.mock.restore();
       syncBuiltinESMExports();

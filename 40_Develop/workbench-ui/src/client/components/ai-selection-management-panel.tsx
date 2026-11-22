@@ -23,10 +23,8 @@ import { WorkbenchPanel, ActionTokenInput } from "./elements.ts";
 import { requestWorkbench } from "../api/connection.ts";
 import { requestWorkbenchMutation } from "../api/mutations.ts";
 import { readWorkbenchQuery } from "../api/queries.ts";
-import {
-  inspectWorkbenchSelectionRead,
-  inspectWorkbenchSelectionResult,
-} from "../../../../crdd-server/src/view/validation.ts";
+import { validateAiSelectionResponse } from "../api/response.ts";
+import { inspectWorkbenchSelectionResult } from "../api/ai-selection.ts";
 
 const roles = [
   "coordinator",
@@ -188,15 +186,12 @@ export function AiSelectionManagementPanel({
     let known: AiSelectionSaveResult | null = null;
     try {
       if (form) {
-        const response = await requestWorkbenchMutation(
-          "/ai-selection/action",
-          {
-            method: "POST",
-            body: form,
-            signal: controller.signal,
-            headers: { "content-type": "application/x-www-form-urlencoded" },
-          },
-        );
+        const response = await requestWorkbenchMutation("/api/ai-selection", {
+          method: "POST",
+          body: form,
+          signal: controller.signal,
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+        });
         if (!response.ok) throw new Error("ai_selection_outcome_unconfirmed");
         known = inspectWorkbenchSelectionResult(form, await response.json());
         if (!active()) return;
@@ -228,7 +223,7 @@ export function AiSelectionManagementPanel({
               { signal },
             );
             if (!response.ok) throw new Error("ai_selection_unavailable");
-            return inspectWorkbenchSelectionRead(await response.json());
+            return validateAiSelectionResponse(await response.json());
           },
         );
         if (!active()) return;

@@ -12,8 +12,8 @@ import {
   EmptyState,
   WorkbenchPanel,
 } from "../components/elements.ts";
-import type { WorkbenchAccessViewModel } from "../../../../crdd-server/src/view/validation.ts";
-import { inspectWorkbenchClientModel } from "../../../../crdd-server/src/view/validation.ts";
+import type { AccessViewResponse } from "../api/response.ts";
+import { validateViewResponse } from "../api/response.ts";
 import { ManagementPanel } from "../components/management-panel.tsx";
 import {
   requestWorkbench,
@@ -22,6 +22,7 @@ import {
 } from "../api/connection.ts";
 import { Credentials } from "../components/credentials.tsx";
 import { readWorkbenchQuery } from "../api/queries.ts";
+import { WORKBENCH_LOGO_PATH } from "../components/shell.ts";
 
 /**
  * 内容未選択のLocal CROS接続と既存管理Panelを描画する。
@@ -42,7 +43,7 @@ import { readWorkbenchQuery } from "../api/queries.ts";
 export function AccessWorkbench({
   initialModel,
 }: {
-  initialModel: WorkbenchAccessViewModel;
+  initialModel: AccessViewResponse;
 }): ReactElement {
   const [model, setModel] = useState(initialModel);
   const [unknown, setUnknown] = useState(false);
@@ -67,11 +68,11 @@ export function AccessWorkbench({
   const refreshReadModel = async (signal: AbortSignal): Promise<void> => {
     try {
       const next = await readWorkbenchQuery("view", signal, async (signal) => {
-        const response = await requestWorkbench("/api/workbench-view", {
+        const response = await requestWorkbench("/api/workbench/view", {
           signal,
         });
         if (!response.ok) throw new Error("workbench_access_unavailable");
-        return inspectWorkbenchClientModel(await response.json());
+        return validateViewResponse(await response.json());
       });
       if (signal.aborted || next.view !== "access")
         throw new Error("workbench_access_unavailable");
@@ -121,7 +122,7 @@ export function AccessWorkbench({
           notice: null,
         });
       }
-      const response = await requestWorkbench("/local-connection/action", {
+      const response = await requestWorkbench("/api/access/connection", {
         method: "POST",
         body: form,
         headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -164,7 +165,7 @@ export function AccessWorkbench({
     <div className="app-shell">
       <header className="topbar">
         <a className="brand" href="/">
-          <img src={model.logoPath} width="36" height="36" alt="CRDD" />
+          <img src={WORKBENCH_LOGO_PATH} width="36" height="36" alt="CRDD" />
           <span>
             CROS Workbench<small>接続と管理</small>
           </span>
@@ -182,7 +183,7 @@ export function AccessWorkbench({
           )}
           <form
             method="post"
-            action="/local-connection/action"
+            action="/api/access/connection"
             autoComplete="off"
             onSubmit={submitConnection}
           >

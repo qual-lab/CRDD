@@ -1,0 +1,430 @@
+/**
+ * CRDD Serverの非秘密公開配置設定を所有する。
+ * @responsibility HTTPS Originの検査と当該Server設定読取りを同じ責務で扱う。
+ * @trace ARCH-000012
+ */
+
+import {
+  evaluateAiProfileManagementPermission,
+  resolveRepositoryAccess,
+  type FilesystemStoreRoot,
+} from "../../../access-management/src/index.ts";
+import type { CredentialAdministration } from "./access.ts";
+import {
+  getModelCatalog,
+  type ModelCatalog,
+} from "../../../ai-adapter/src/index.ts";
+import {
+  readRepositoryAiSelection,
+  type AiSelectionReadResult,
+} from "../../../configuration-model/src/index.ts";
+import { createHash } from "node:crypto";
+import fs, { type Stats } from "node:fs";
+import * as asyncFs from "node:fs/promises";
+import path from "node:path";
+import {
+  getRepositoryFromWorkingDirectory,
+  resolveVerifiedRepositoryRoot,
+  type Repository,
+} from "../../../version-control/src/index.ts";
+
+type ServerConnection = "workbench" | "mcp";
+
+/**
+ * 共有TLS終端の公開Originを閉じたHTTPS値として検査する。
+ * @responsibility 外部Bindや資格を生成せず、配置用OriginとHostだけを固定する。
+ * @trace ARCH-000012
+ * @input 明示された非秘密の公開Origin、既存の接続種別。
+ * @returns 検査済みURL、未指定時null。
+ * @precondition TLS終端と内部Listener到達範囲は配置Ownerが管理する。
+ * @postcondition userinfo・path・query・hash・HTTPを受理しない。
+ * @effect N/A: URLの純粋検査だけ。
+ * @failure 不正値は固定構成例外でListener開始前に拒否する。
+ * @invariant Header一致は実TLS通信や認証の証明ではない。
+ * @boundary 非秘密Server構成とHTTP Transport。
+ * @security 公開OriginをClient要求から選ばない。
+ * @concurrency 起動時に一つの値を固定する。
+ */
+export function inspectServerPublicOrigin(
+  value: string | undefined,
+  connection: ServerConnection,
+): URL | null {
+  if (value === undefined) return null;
+  try {
+    if (
+      typeof value !== "string" ||
+      !/^https:\/\/[^/\\\s@?#\u0000-\u0020\u007f]+\/?$/u.test(value)
+    )
+      throw new Error("invalid");
+    const parsed = new URL(value);
+    if (
+      parsed.protocol !== "https:" ||
+      parsed.username ||
+      parsed.password ||
+      parsed.pathname !== "/" ||
+      parsed.search ||
+      parsed.hash
+    )
+      throw new Error("invalid");
+    return parsed;
+  } catch {
+    throw new Error(
+      connection === "mcp"
+        ? "mcp_http_configuration_invalid"
+        : "workbench_public_origin_invalid",
+    );
+  }
+}
+
+/**
+ * 起動Repositoryの当該Server設定だけを読取り、公開Originを検査する。
+ * @responsibility Tool単位の非秘密設定を明示CROS modeへ渡し、設定不存在はlocalhost既定とする。
+ * @trace ARCH-000012
+ * @input 起動時に選択したRepository内のworkingDirectory、既存の接続種別。
+ * @returns 公開Originだけの閉じた非秘密構成。
+ * @precondition CLIが共有起動を明示した後だけ呼ぶ。資格やHost管理Rootを読まない。
+ * @postcondition 不存在以外の観測不能・余剰・重複field・不正Originを拒否する。
+ * @effect 検証済みRoot内の固定設定Fileを全量読み、所有Descriptorを閉じる。
+ * @failure 固定設定例外で停止し、単体fallbackや設定修復をしない。
+ * @invariant 設定の存在は利用mode・認証・外部Bindを変更しない。
+ * @boundary Repository-local非秘密設定とServer起動構成。
+ * @security 観測時のDirectory/File linkと取得時のFile Identity不一致を拒否し、本文やPathを例外へ含めない。
+ * @concurrency 取得済みDescriptorの長さ・mtime相関を検査する。取得後のPath／Directory不変は保証しない。
+ */
+export async function readServerConnectionConfiguration(
+  workingDirectory: string,
+  connection: ServerConnection,
+): Promise<Readonly<{ publicOrigin?: string }>> {
+  const fileName =
+    connection === "mcp"
+      ? "mcp-server.json"
+      : connection === "workbench"
+        ? "workbench-server.json"
+        : null;
+  if (fileName === null) throw new Error("crdd_server_connection_invalid");
+  try {
+    const verified = getRepositoryFromWorkingDirectory(workingDirectory);
+    if (verified.status !== "completed") throw new Error("invalid");
+    const area = observeRepositoryRuntimeDataArea(
+      verified.capability,
+      "config",
+    );
+    if (area.status === "not_observed") return Object.freeze({});
+    if (area.status !== "ready") throw new Error("invalid");
+    const config = area.directory;
+    const file = path.join(config, fileName);
+    let before: Stats;
+    try {
+      before = await asyncFs.lstat(file);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        const currentArea = observeRepositoryRuntimeDataArea(
+          verified.capability,
+          "config",
+        );
+        if (
+          currentArea.status !== "ready" ||
+          currentArea.boundaryIdentity !== area.boundaryIdentity
+        )
+          throw new Error("invalid");
+        return Object.freeze({});
+      }
+      throw error;
+    }
+    if (!before.isFile() || before.isSymbolicLink()) throw new Error("invalid");
+    const handle = await asyncFs.open(file, "r");
+    try {
+      const opened = await handle.stat();
+      if (
+        opened.dev !== before.dev ||
+        opened.ino !== before.ino ||
+        opened.size !== before.size ||
+        opened.mtimeMs !== before.mtimeMs
+      )
+        throw new Error("invalid");
+      const buffer = Buffer.alloc(opened.size);
+      let bytesRead = 0;
+      while (bytesRead < buffer.length) {
+        const chunk = await handle.read(
+          buffer,
+          bytesRead,
+          buffer.length - bytesRead,
+          bytesRead,
+        );
+        if (chunk.bytesRead === 0) throw new Error("invalid");
+        bytesRead += chunk.bytesRead;
+      }
+      const after = await handle.stat();
+      if (
+        bytesRead !== opened.size ||
+        after.size !== opened.size ||
+        after.mtimeMs !== opened.mtimeMs
+      )
+        throw new Error("invalid");
+      const text = new TextDecoder("utf-8", { fatal: true }).decode(
+        buffer.subarray(0, bytesRead),
+      );
+      if (
+        !/^\s*\{\s*(?:"publicOrigin"\s*:\s*"(?:[^"\\]|\\.)*"\s*)?\}\s*$/u.test(
+          text,
+        )
+      )
+        throw new Error("invalid");
+      const value = JSON.parse(text) as { publicOrigin?: string };
+      const origin = inspectServerPublicOrigin(value.publicOrigin, connection);
+      const currentArea = observeRepositoryRuntimeDataArea(
+        verified.capability,
+        "config",
+      );
+      if (
+        currentArea.status !== "ready" ||
+        currentArea.boundaryIdentity !== area.boundaryIdentity
+      )
+        throw new Error("invalid");
+      return Object.freeze(origin ? { publicOrigin: origin.origin } : {});
+    } finally {
+      await handle.close();
+    }
+  } catch {
+    throw new Error(`${connection}_server_configuration_invalid`);
+  }
+}
+
+/** 明示CROS起動時に既存の非秘密設定を一回読む。 @trace ARCH-000012 */
+export function readWorkbenchServerConfiguration(workingDirectory: string) {
+  return readServerConnectionConfiguration(workingDirectory, "workbench");
+}
+
+/**
+ * 既存Runtime領域の読取り専用観測結果を定義する。
+ * @responsibility 不存在、境界不正、観測不能、検証済み既存領域を区別する。
+ * @trace ARCH-000011
+ * @shape readyは名前付きareaと不透明な境界Identity、他状態は閉じたreasonを持つ。
+ * @invariant private Runtime RootのPathや書込みAuthorityを公開しない。
+ * @boundary Runtime Data Ownerと名前付き領域の利用側。
+ * @security boundaryIdentityは置換検知用の非Authority参照である。
+ * @compatibility areaの作成入口とは独立した読取り専用APIである。
+ */
+type RepositoryRuntimeDataAreaObservation =
+  | Readonly<{
+      status: "ready";
+      repositoryRoot: string;
+      directory: string;
+      boundaryIdentity: string;
+      effectIssued: false;
+    }>
+  | Readonly<{
+      status: "not_observed";
+      reason: "repository_runtime_data_area_absent";
+      effectIssued: false;
+    }>
+  | Readonly<{
+      status: "blocked";
+      reason:
+        | "repository_runtime_data_root_capability_invalid"
+        | "repository_runtime_data_area_boundary_invalid"
+        | "repository_runtime_data_area_observation_failed";
+      effectIssued: false;
+    }>;
+
+/**
+ * private Rootと名前付き領域の既存境界をOwner内で観測する。
+ * @responsibility 利用側によるParent Rootの復元を不要にし、真正不存在と観測障害を分ける。
+ * @trace ARCH-000011
+ * @input capability: 検証済みRepository Root能力、area: 宣言済み領域名。
+ * @returns ready、not_observed、blockedの閉じた観測結果。
+ * @precondition Callerは公開されたRepository Root能力を渡す。
+ * @postcondition readyではRootとareaのlstat/realpath相関を確認済みである。
+ * @effect Filesystem metadataとVCS境界を読む。Ignore登録、mkdir、Lock、書込みは0。
+ * @failure 無効能力、link/type不正、観測障害を閉じたreasonで返す。
+ * @invariant ENOENTだけをnot_observedとし、時刻やmtimeをIdentityに使わない。
+ * @boundary private Runtime Rootと公開された名前付きareaの観測境界。
+ * @security raw Root、秘密値、回復Authorityを公開しない。
+ * @concurrency 開始・終了の不透明Identity比較で境界置換を検出できる。将来の状態を保証しない。
+ */
+function observeRepositoryRuntimeDataArea(
+  capability: Repository,
+  area: "config",
+): RepositoryRuntimeDataAreaObservation {
+  try {
+    const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
+    const paths =
+      repositoryRoot === null
+        ? null
+        : { repositoryRoot, root: path.join(repositoryRoot, ".crdd") };
+    if (!paths || area !== "config")
+      return Object.freeze({
+        status: "blocked",
+        reason: "repository_runtime_data_root_capability_invalid",
+        effectIssued: false,
+      });
+    const directory = path.join(paths.root, "config");
+    const identities: string[] = [];
+    for (const target of [paths.root, directory]) {
+      let metadata: fs.BigIntStats;
+      try {
+        metadata = fs.lstatSync(target, { bigint: true });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT")
+          return Object.freeze({
+            status: "not_observed",
+            reason: "repository_runtime_data_area_absent",
+            effectIssued: false,
+          });
+        throw error;
+      }
+      if (
+        !metadata.isDirectory() ||
+        metadata.isSymbolicLink() ||
+        fs.realpathSync.native(target) !== target
+      )
+        return Object.freeze({
+          status: "blocked",
+          reason: "repository_runtime_data_area_boundary_invalid",
+          effectIssued: false,
+        });
+      const canonical = fs.lstatSync(fs.realpathSync.native(target), {
+        bigint: true,
+      });
+      if (canonical.dev !== metadata.dev || canonical.ino !== metadata.ino)
+        return Object.freeze({
+          status: "blocked",
+          reason: "repository_runtime_data_area_boundary_invalid",
+          effectIssued: false,
+        });
+      identities.push(metadata.dev.toString(), metadata.ino.toString());
+    }
+    const boundaryIdentity = createHash("sha256")
+      .update(identities.join("\0"))
+      .digest("hex");
+    return Object.freeze({
+      status: "ready",
+      repositoryRoot: paths.repositoryRoot,
+      directory,
+      boundaryIdentity,
+      effectIssued: false,
+    });
+  } catch {
+    return Object.freeze({
+      status: "blocked",
+      reason: "repository_runtime_data_area_observation_failed",
+      effectIssued: false,
+    });
+  }
+}
+
+/**
+ * 技術Catalogと当該Repositoryの設定観測を保持する。
+ * @responsibility 未設定を既定Modelで補完しない。
+ * @trace ARCH-000012
+ * @shape catalogとselection。
+ * @invariant 技術対応は現在認証又はAuthorityの証明ではない。
+ * @boundary ServerからBrowserへの表示値。
+ * @security 秘密・絶対Pathなし。
+ * @compatibility 新形式専用。
+ */
+export type AiSelectionView = Readonly<{
+  catalog: ModelCatalog;
+  selection: AiSelectionReadResult;
+}>;
+
+/**
+ * 現在RepositoryのAI設定を再観測する。
+ * @responsibility 選択Rootの設定だけを技術Catalogとともに返す。
+ * @trace ARCH-000012
+ * @input root: 検証済みRepository能力。
+ * @returns 設定観測と同梱技術Catalog。
+ * @precondition 共有利用時は呼出し元が現在認可を確認済み。
+ * @postcondition File不存在を保持する。
+ * @effect 一つの設定Fileの読取りのみ。
+ * @failure 不明はblockedのまま返す。
+ * @invariant Host Catalogへfallbackしない。
+ * @boundary 専門OwnerとWorkbench投影。
+ * @security 認証状態を推定しない。
+ * @concurrency 一回の読取りSnapshotを利用する。
+ */
+export function readAiSelectionView(root: Repository): AiSelectionView {
+  const catalog = getModelCatalog();
+  return Object.freeze({
+    catalog,
+    selection: readRepositoryAiSelection(root, catalog.catalog),
+  });
+}
+
+/**
+ * 一要求の選択Repositoryと管理権限を固定する。
+ * @responsibility 待機後にも同じBindingと現在許可へ再照合する。
+ * @trace ARCH-000012
+ * @input Root、接続資格、表示Repository ID、要求Signal。
+ * @returns 検証済みRootと再照合関数。
+ * @precondition 共有資格は呼出し元の入口で検査済み。
+ * @postcondition 共有起動Repositoryへの暗黙fallbackなし。
+ * @effect AMとRepository境界の読取りだけ。
+ * @failure 未選択・不明・権限不足は例外。
+ * @invariant Scope変更後は保存も公開も拒否する。
+ * @boundary 現在アクセスと設定処理。
+ * @security PathをClient入力に持たせない。
+ * @concurrency 認可関数を保存Ownerへ渡す。
+ */
+export function resolveAiSelectionAccess(
+  capability: Repository,
+  accessRoot: FilesystemStoreRoot | undefined,
+  administration: CredentialAdministration | undefined,
+  repositoryId: string | null,
+  signal: AbortSignal,
+): Readonly<{ root: Repository; authorize: () => boolean }> {
+  if (!accessRoot) {
+    if (repositoryId !== null) throw new Error("ai_selection_input_invalid");
+    const initial = resolveVerifiedRepositoryRoot(capability);
+    if (!initial) throw new Error("ai_selection_access_unavailable");
+    return {
+      root: capability,
+      authorize: () =>
+        !signal.aborted &&
+        resolveVerifiedRepositoryRoot(capability) === initial,
+    };
+  }
+  if (
+    !administration ||
+    !repositoryId ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(repositoryId)
+  )
+    throw new Error("ai_selection_access_unavailable");
+  const permission = () =>
+    evaluateAiProfileManagementPermission(
+      administration.root,
+      administration.token,
+    ) === "allowed";
+  if (!permission()) throw new Error("ai_selection_access_unavailable");
+  const initial = resolveRepositoryAccess(
+    administration.root,
+    administration.token,
+    repositoryId,
+    "development",
+  );
+  if (initial.status !== "completed")
+    throw new Error("ai_selection_access_unavailable");
+  const initialPath = resolveVerifiedRepositoryRoot(initial.access.root);
+  if (!initialPath) throw new Error("ai_selection_access_unavailable");
+  return {
+    root: initial.access.root,
+    authorize: () => {
+      if (signal.aborted || !permission()) return false;
+      const fresh = resolveRepositoryAccess(
+        administration.root,
+        administration.token,
+        repositoryId,
+        "development",
+      );
+      return (
+        fresh.status === "completed" &&
+        fresh.access.revision === initial.access.revision &&
+        fresh.access.bindingId === initial.access.bindingId &&
+        JSON.stringify(fresh.access.manifest) ===
+          JSON.stringify(initial.access.manifest) &&
+        resolveVerifiedRepositoryRoot(initial.access.root) === initialPath &&
+        resolveVerifiedRepositoryRoot(fresh.access.root) === initialPath
+      );
+    },
+  };
+}

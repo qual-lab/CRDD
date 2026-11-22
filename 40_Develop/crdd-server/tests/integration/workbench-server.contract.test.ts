@@ -60,14 +60,14 @@ import {
 import { createWorkbenchAiVerificationHttpClient } from "../../scripts/ai-verification-http.ts";
 import {
   createRepositoryWorkbenchActivityReader,
-  readWorkbenchProjectSurface,
+  readProjectViewData,
   startWorkbench,
   type WorkbenchActivityReader,
-  type WorkbenchAiRequestCommand,
-  type WorkbenchAiRequests,
-} from "../../src/http/start.ts";
-import type { WorkbenchClientModel } from "../../src/view/types.ts";
-import { inspectWorkbenchClientModel } from "../../src/view/validation.ts";
+  type AiRequestCommand,
+  type AiRequests,
+} from "../../src/app.ts";
+import type { ViewResponse } from "../../src/transport/api-types.ts";
+import { validateViewResponse } from "../../../workbench-ui/src/client/api/response.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -116,19 +116,18 @@ test("廃止したRemote起動構成は外部通信せず拒否する", async (t
  */
 test("Local CROS Client Modelは接続専用の閉集合と未認証境界を守る", () => {
   const model = {
-    contract: "crdd/workbench/client-model/v1",
+    contract: "crdd/workbench/view/v1",
     view: "access",
     actionToken: "a".repeat(43),
-    logoPath: "/assets/crdd-brand-icon.jpg",
     authenticated: false,
     notice: null,
     portfolio: null,
     credentials: { state: "not_configured", snapshot: null },
   };
-  assert.equal(inspectWorkbenchClientModel(model).view, "access");
+  assert.equal(validateViewResponse(model).view, "access");
   const empty = { projects: [], retainedAsSourceOfTruth: false };
   assert.equal(
-    inspectWorkbenchClientModel({
+    validateViewResponse({
       ...model,
       authenticated: true,
       portfolio: empty,
@@ -148,7 +147,7 @@ test("Local CROS Client Modelは接続専用の閉集合と未認証境界を守
       portfolio: { projects: [], retainedAsSourceOfTruth: true },
     },
   ])
-    assert.throws(() => inspectWorkbenchClientModel(value), {
+    assert.throws(() => validateViewResponse(value), {
       message: "workbench_client_model_invalid",
     });
 });
@@ -169,30 +168,29 @@ test("Workbench Clientは契約不正JSONを描画前に拒否する", () => {
   for (const value of [
     null,
     { contract: "invalid", view: "main" },
-    { contract: "crdd/workbench/client-model/v1", view: "unknown" },
-    { contract: "crdd/workbench/client-model/v1", view: "main" },
+    { contract: "crdd/workbench/view/v1", view: "unknown" },
+    { contract: "crdd/workbench/view/v1", view: "main" },
     {
-      contract: "crdd/workbench/client-model/v1",
+      contract: "crdd/workbench/view/v1",
       view: "main",
       actionToken: "action-token",
-      logoPath: "/assets/crdd-brand-icon.jpg",
-      surface: {},
+      projectData: {},
       connection: {},
-      topic: {},
-      meeting: {},
+      topicPage: {},
+      topicQuery: {},
+      meetingPage: {},
+      meetingQuery: {},
       credentials: {},
       aiRequest: {},
     },
     {
-      contract: "crdd/workbench/client-model/v1",
+      contract: "crdd/workbench/view/v1",
       view: "project-detail",
-      logoPath: "/assets/crdd-brand-icon.jpg",
       project: { projectId: "PRJ-001", state: "complete", sources: {} },
     },
     {
-      contract: "crdd/workbench/client-model/v1",
+      contract: "crdd/workbench/view/v1",
       view: "record-detail",
-      logoPath: "/assets/crdd-brand-icon.jpg",
       actionToken: "action-token",
       repositoryId: null,
       record: {
@@ -215,7 +213,7 @@ test("Workbench Clientは契約不正JSONを描画前に拒否する", () => {
     },
   ])
     assert.throws(
-      () => inspectWorkbenchClientModel(value),
+      () => validateViewResponse(value),
       /workbench_client_model_invalid/u,
     );
 });
@@ -295,7 +293,7 @@ async function requestTransport(
  * @precondition baseUrlが起動済みWorkbenchを指す。
  * @stimulus UI RouteをJSON API Routeへ変換してGETする。
  * @observation StatusとJSON本文を取得する。
- * @oracle HTTP 200のWorkbenchClientModelを返す。
+ * @oracle HTTP 200の表示応答を返す。
  * @cleanup Request SocketはResponse完了時に閉じる。
  * @boundary ERB-IT-021=Direct Boundary: Browser Route Query→JSON Read Model API
  * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
@@ -303,7 +301,7 @@ async function requestTransport(
 async function requestClientModel(
   baseUrl: string,
   requestPath = "/",
-): Promise<WorkbenchClientModel> {
+): Promise<ViewResponse> {
   const requested = new URL(requestPath, baseUrl);
   const parameters = new URLSearchParams(requested.search);
   parameters.set(
@@ -312,12 +310,10 @@ async function requestClientModel(
   );
   const response = await requestTransport(
     baseUrl,
-    `/api/workbench-view?${parameters.toString()}`,
+    `/api/workbench/view?${parameters.toString()}`,
   );
   assert.equal(response.status, 200);
-  return inspectWorkbenchClientModel(
-    JSON.parse(response.body.toString("utf8")),
-  );
+  return validateViewResponse(JSON.parse(response.body.toString("utf8")));
 }
 
 /**
@@ -327,18 +323,18 @@ async function requestClientModel(
  * @trace ERB-IT-021
  * @trace CPR-IT-012
  * @trace CPR-IT-010
- * @precondition requestClientModelがWorkbenchClientModelを返す。
+ * @precondition requestClientModelが表示応答を返す。
  * @stimulus 指定RouteのJSON Read Modelを取得する。
  * @observation view Discriminantを確認する。
  * @oracle main以外を固定Errorで拒否し、main Modelを返す。
  * @cleanup N/A: requestClientModelの資源契約を継承する。
- * @boundary ERB-IT-021=Direct Boundary: WorkbenchClientModel→Main View Model
+ * @boundary ERB-IT-021=Direct Boundary: ViewResponse→Main View Model
  * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
  */
 async function requestMainModel(
   baseUrl: string,
   requestPath = "/",
-): Promise<Extract<WorkbenchClientModel, { view: "main" }>> {
+): Promise<Extract<ViewResponse, { view: "main" }>> {
   const model = await requestClientModel(baseUrl, requestPath);
   assert.equal(model.view, "main");
   if (model.view !== "main") throw new Error("workbench_main_model_required");
@@ -418,7 +414,44 @@ function git(cwd: string, ...args: readonly string[]): string {
  * @cleanup Workbench Handleを閉じる。
  * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
  */
-test("Direction A Shellと公式ロゴをloopback限定で配信する", async () => {
+test("Direction A Shellと公式ロゴをloopback限定で配信する", async (t) => {
+  const distribution = path.join(
+    repositoryRoot,
+    "40_Develop",
+    "workbench-ui",
+    "dist",
+    "client",
+  );
+  for (const file of [
+    "index.html",
+    "workbench.css",
+    "assets/workbench-client.js",
+  ]) {
+    await t.test(`UI配布物欠落で起動しない: ${file}`, async (context) => {
+      const unavailable = path.join(distribution, file);
+      const originalRead = fs.promises.readFile;
+      const read = context.mock.method(
+        fs.promises,
+        "readFile",
+        async (...args: Parameters<typeof originalRead>) => {
+          if (args[0] === unavailable) throw new Error("fixture_asset_missing");
+          return originalRead(...args);
+        },
+      );
+      syncBuiltinESMExports();
+      try {
+        await assert.rejects(
+          startWorkbench({ workingDirectory: repositoryRoot }),
+          {
+            message: "workbench_client_asset_unavailable",
+          },
+        );
+      } finally {
+        read.mock.restore();
+        syncBuiltinESMExports();
+      }
+    });
+  }
   const handle = await startWorkbench({ workingDirectory: repositoryRoot });
   try {
     assert.match(handle.baseUrl, /^http:\/\/127\.0\.0\.1:\d+$/u);
@@ -432,9 +465,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       { ...model.connection, notice: null },
       { state: "cros_unavailable" },
     ])
-      assert.throws(() =>
-        inspectWorkbenchClientModel({ ...model, connection }),
-      );
+      assert.throws(() => validateViewResponse({ ...model, connection }));
     for (const operation of ["connect", "refresh", "disconnect"]) {
       const retired = await requestRaw(
         handle.baseUrl,
@@ -452,44 +483,61 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     assert.ok(model.aiSelection);
     const serializedModel = JSON.stringify(model);
     assert.equal(shell.status, 200);
+    assert.deepEqual(
+      shell.body,
+      await readFile(path.join(distribution, "index.html")),
+    );
     assert.match(shell.body.toString("utf8"), /CROS Workbench/u);
     assert.ok(
       model.aiSelection.catalog.catalog.models.some(
         (model) => model.modelIdentifier === "gpt-5.5",
       ),
     );
-    assert.equal(model.logoPath, "/assets/crdd-brand-icon.jpg");
-    assert.equal(model.surface.context.repositoryId, "qual-lab.crdd-standard");
+    assert.equal(Object.hasOwn(model, "logoPath"), false);
+    assert.equal(
+      model.projectData.context.repositoryId,
+      "qual-lab.crdd-standard",
+    );
     assert.match(serializedModel, /今どうなっているか/u);
     assert.match(serializedModel, /何が危ない、または止まっているか/u);
-    assert.notEqual(model.runtimeActivity, undefined);
-    assert.equal(model.surface.plan.projection?.targetVersion, "v0.22.0");
+    assert.notEqual(model.executionActivity, undefined);
+    assert.equal(model.projectData.plan.projection?.targetVersion, "v0.22.0");
     assert.equal(
-      model.surface.plan.projection?.targetReleaseDate,
+      model.projectData.plan.projection?.targetReleaseDate,
       "2026-10-03",
     );
     assert.match(serializedModel, /Group B/u);
-    const ownerSurface = await readWorkbenchProjectSurface(repositoryRoot);
-    assert.equal(model.surface.plan.state, "available");
+    const ownerSurface = await readProjectViewData(repositoryRoot);
+    assert.equal(model.projectData.plan.state, "available");
     assert.equal(ownerSurface.plan.state, "available");
-    assert.ok(model.surface.plan.projection?.scheduleRisk);
+    assert.ok(model.projectData.plan.projection?.scheduleRisk);
     assert.equal(
-      model.surface.plan.projection?.scheduleRisk,
+      model.projectData.plan.projection?.scheduleRisk,
       ownerSurface.plan.projection?.scheduleRisk,
     );
     assert.notEqual(ownerSurface.quality.projection, null);
     assert.equal(
-      model.surface.quality.projection?.unobserved,
+      model.projectData.quality.projection?.unobserved,
       ownerSurface.quality.projection?.unobserved,
     );
     assert.equal(
-      model.surface.quality.projection?.nextGate,
+      model.projectData.quality.projection?.nextGate,
       ownerSurface.quality.projection?.nextGate,
     );
-    assert.ok(model.surface.ownerArtifacts.artifacts.length > 0);
+    assert.ok(model.projectData.ownerArtifacts.artifacts.length > 0);
 
-    assert.doesNotThrow(() =>
-      inspectWorkbenchClientModel(structuredClone(model)),
+    assert.doesNotThrow(() => validateViewResponse(structuredClone(model)));
+    assert.equal(model.contract, "crdd/workbench/view/v1");
+    for (const retiredKey of [
+      "surface",
+      "runtimeActivity",
+      "topicMeetingResult",
+    ])
+      assert.equal(Object.hasOwn(model, retiredKey), false);
+    const { projectData, ...rest } = model;
+    assert.throws(
+      () => validateViewResponse({ ...rest, surface: projectData }),
+      /workbench_client_model_invalid/u,
     );
     const invalidSelection = structuredClone(model);
     assert.ok(invalidSelection.aiSelection);
@@ -501,52 +549,52 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       },
     });
     assert.throws(
-      () => inspectWorkbenchClientModel(invalidSelection),
+      () => validateViewResponse(invalidSelection),
       /workbench_client_model_invalid/u,
     );
 
     const invalidQuality = structuredClone(model) as unknown as {
-      surface: {
+      projectData: {
         quality: {
           projection: { rationale: Record<string, unknown> } | null;
         };
       };
     };
-    assert.notEqual(invalidQuality.surface.quality.projection, null);
-    if (invalidQuality.surface.quality.projection !== null) {
-      invalidQuality.surface.quality.projection.rationale.既知Gap = {
+    assert.notEqual(invalidQuality.projectData.quality.projection, null);
+    if (invalidQuality.projectData.quality.projection !== null) {
+      invalidQuality.projectData.quality.projection.rationale.既知Gap = {
         unsafe: true,
       };
     }
     assert.throws(
-      () => inspectWorkbenchClientModel(invalidQuality),
+      () => validateViewResponse(invalidQuality),
       /workbench_client_model_invalid/u,
     );
 
     const invalidPlan = structuredClone(model) as unknown as {
-      surface: {
+      projectData: {
         plan: {
           projection: { scope: unknown[] } | null;
         };
       };
     };
-    assert.notEqual(invalidPlan.surface.plan.projection, null);
-    if (invalidPlan.surface.plan.projection !== null) {
-      invalidPlan.surface.plan.projection.scope = [
+    assert.notEqual(invalidPlan.projectData.plan.projection, null);
+    if (invalidPlan.projectData.plan.projection !== null) {
+      invalidPlan.projectData.plan.projection.scope = [
         { item: { unsafe: true }, disposition: "in_scope", rationale: "x" },
       ];
     }
     assert.throws(
-      () => inspectWorkbenchClientModel(invalidPlan),
+      () => validateViewResponse(invalidPlan),
       /workbench_client_model_invalid/u,
     );
 
     const invalidPlanReason = structuredClone(model) as unknown as {
-      surface: { plan: { reason: unknown } };
+      projectData: { plan: { reason: unknown } };
     };
-    invalidPlanReason.surface.plan.reason = { unsafe: true };
+    invalidPlanReason.projectData.plan.reason = { unsafe: true };
     assert.throws(
-      () => inspectWorkbenchClientModel(invalidPlanReason),
+      () => validateViewResponse(invalidPlanReason),
       /workbench_client_model_invalid/u,
     );
 
@@ -556,28 +604,28 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       ["risk", "current", "decision", "reason", "next"],
     ]) {
       const invalidScenes = structuredClone(model) as unknown as {
-        surface: {
+        projectData: {
           context: {
             scenes: Array<Record<string, unknown>>;
           };
         };
       };
-      invalidScenes.surface.context.scenes = invalidSceneKeys.map(
+      invalidScenes.projectData.context.scenes = invalidSceneKeys.map(
         (key, index) => ({
-          ...invalidScenes.surface.context.scenes[index],
+          ...invalidScenes.projectData.context.scenes[index],
           key,
         }),
       );
       assert.throws(
-        () => inspectWorkbenchClientModel(invalidScenes),
+        () => validateViewResponse(invalidScenes),
         /workbench_client_model_invalid/u,
       );
     }
 
     const invalidOperationRecord = structuredClone(model) as unknown as {
-      topic: { page: { records: unknown[] } };
+      topicPage: { records: unknown[] };
     };
-    invalidOperationRecord.topic.page.records = [
+    invalidOperationRecord.topicPage.records = [
       {
         kind: "meeting",
         topicId: "TOPIC-UNSAFE",
@@ -593,7 +641,19 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       },
     ];
     assert.throws(
-      () => inspectWorkbenchClientModel(invalidOperationRecord),
+      () => validateViewResponse(invalidOperationRecord),
+      /workbench_client_model_invalid/u,
+    );
+
+    assert.equal(Object.hasOwn(model, "topic"), false);
+    assert.equal(Object.hasOwn(model, "meeting"), false);
+    const invalidSurfaceRecord = structuredClone(model) as unknown as {
+      projectData: { topics: { items: unknown[] } };
+    };
+    invalidSurfaceRecord.projectData.topics.items =
+      invalidOperationRecord.topicPage.records;
+    assert.throws(
+      () => validateViewResponse(invalidSurfaceRecord),
       /workbench_client_model_invalid/u,
     );
 
@@ -620,7 +680,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       },
     ];
     assert.throws(
-      () => inspectWorkbenchClientModel(invalidRecordIdentity),
+      () => validateViewResponse(invalidRecordIdentity),
       /workbench_client_model_invalid/u,
     );
 
@@ -631,7 +691,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       retainedAsSourceOfTruth: false,
       projects: [
         {
-          projectId: model.surface.context.projectId,
+          projectId: model.projectData.context.projectId,
           state: "complete",
           sources: [
             {
@@ -646,7 +706,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       ],
     };
     assert.throws(
-      () => inspectWorkbenchClientModel(invalidFederation),
+      () => validateViewResponse(invalidFederation),
       /workbench_client_model_invalid/u,
     );
 
@@ -654,15 +714,15 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       retainedAsSourceOfTruth: false,
       projects: [
         {
-          projectId: model.surface.context.projectId,
+          projectId: model.projectData.context.projectId,
           state: "complete",
           sources: [
             {
-              repositoryId: model.surface.context.repositoryId,
+              repositoryId: model.projectData.context.repositoryId,
               revision: "1",
               state: "complete",
-              repositoryRole: model.surface.context.repositoryRole,
-              context: model.surface.context,
+              repositoryRole: model.projectData.context.repositoryRole,
+              context: model.projectData.context,
             },
           ],
         },
@@ -674,7 +734,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       ?.sources.at(0);
     assert.ok(projectContextSource);
     projectContextSource.context = {
-      ...model.surface.context,
+      ...model.projectData.context,
       projectId: "PRJ-OTHER",
     };
     const mismatchedRepositoryContext = structuredClone(validFederatedProject);
@@ -683,7 +743,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       ?.sources.at(0);
     assert.ok(repositoryContextSource);
     repositoryContextSource.context = {
-      ...model.surface.context,
+      ...model.projectData.context,
       repositoryId: "other.repository",
     };
     const mismatchedRoleContext = structuredClone(validFederatedProject);
@@ -696,7 +756,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       retainedAsSourceOfTruth: false,
       projects: [
         {
-          projectId: model.surface.context.projectId,
+          projectId: model.projectData.context.projectId,
           state: "partial",
           sources: [
             {
@@ -725,15 +785,15 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       retainedAsSourceOfTruth: false,
       projects: [
         {
-          projectId: model.surface.context.projectId,
+          projectId: model.projectData.context.projectId,
           state: "partial",
           sources: [
             {
-              repositoryId: model.surface.context.repositoryId,
+              repositoryId: model.projectData.context.repositoryId,
               revision: "1",
               state: "missing",
-              repositoryRole: model.surface.context.repositoryRole,
-              context: model.surface.context,
+              repositoryRole: model.projectData.context.repositoryRole,
+              context: model.projectData.context,
             },
           ],
         },
@@ -752,7 +812,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       };
       invalidPortfolioModel.portfolio = invalidPortfolio;
       assert.throws(
-        () => inspectWorkbenchClientModel(invalidPortfolioModel),
+        () => validateViewResponse(invalidPortfolioModel),
         /workbench_client_model_invalid/u,
       );
     }
@@ -778,7 +838,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       Object.assign(project, {
         state: sourceState === "conflicting" ? "conflicting" : "partial",
       });
-      assert.doesNotThrow(() => inspectWorkbenchClientModel(partialModel));
+      assert.doesNotThrow(() => validateViewResponse(partialModel));
       for (const field of [
         "revision",
         "context",
@@ -789,16 +849,16 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
         const invalidSource = invalid.portfolio?.projects[0]?.sources[0];
         assert.ok(invalidSource);
         Object.assign(invalidSource, {
-          [field]: field === "context" ? model.surface.context : "invalid",
+          [field]: field === "context" ? model.projectData.context : "invalid",
         });
         assert.throws(
-          () => inspectWorkbenchClientModel(invalid),
+          () => validateViewResponse(invalid),
           /workbench_client_model_invalid/u,
         );
       }
       Object.assign(project, { state: "complete" });
       assert.throws(
-        () => inspectWorkbenchClientModel(partialModel),
+        () => validateViewResponse(partialModel),
         /workbench_client_model_invalid/u,
       );
     }
@@ -814,12 +874,12 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       repositoryRole: null,
     });
     assert.throws(
-      () => inspectWorkbenchClientModel(nullComplete),
+      () => validateViewResponse(nullComplete),
       /workbench_client_model_invalid/u,
     );
 
     const invalidQualityState = structuredClone(model) as unknown as {
-      surface: {
+      projectData: {
         quality: {
           state: string;
           projection: unknown;
@@ -827,44 +887,44 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
         };
       };
     };
-    invalidQualityState.surface.quality.state = "unknown";
-    invalidQualityState.surface.quality.reason = "observation_failed";
+    invalidQualityState.projectData.quality.state = "unknown";
+    invalidQualityState.projectData.quality.reason = "observation_failed";
     assert.throws(
-      () => inspectWorkbenchClientModel(invalidQualityState),
+      () => validateViewResponse(invalidQualityState),
       /workbench_client_model_invalid/u,
     );
 
     const invalidOwnerState = structuredClone(model) as unknown as {
-      surface: {
+      projectData: {
         ownerArtifacts: { state: string; reason: unknown };
       };
     };
-    invalidOwnerState.surface.ownerArtifacts.state = "unknown";
-    invalidOwnerState.surface.ownerArtifacts.reason =
+    invalidOwnerState.projectData.ownerArtifacts.state = "unknown";
+    invalidOwnerState.projectData.ownerArtifacts.reason =
       "owner_artifact_observation_failed";
     assert.throws(
-      () => inspectWorkbenchClientModel(invalidOwnerState),
+      () => validateViewResponse(invalidOwnerState),
       /workbench_client_model_invalid/u,
     );
 
     const invalidRepositoryState = structuredClone(model) as unknown as {
-      surface: {
+      projectData: {
         repository: { state: string; reason: unknown };
       };
     };
-    invalidRepositoryState.surface.repository.state = "unknown";
-    invalidRepositoryState.surface.repository.reason = "observation_failed";
+    invalidRepositoryState.projectData.repository.state = "unknown";
+    invalidRepositoryState.projectData.repository.reason = "observation_failed";
     assert.throws(
-      () => inspectWorkbenchClientModel(invalidRepositoryState),
+      () => validateViewResponse(invalidRepositoryState),
       /workbench_client_model_invalid/u,
     );
 
     const invalidCollectionState = structuredClone(model) as unknown as {
-      surface: {
+      projectData: {
         topics: { state: string; items: unknown[]; reason: unknown };
       };
     };
-    invalidCollectionState.surface.topics = {
+    invalidCollectionState.projectData.topics = {
       state: "unknown",
       items: [
         {
@@ -880,7 +940,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       reason: null,
     };
     assert.throws(
-      () => inspectWorkbenchClientModel(invalidCollectionState),
+      () => validateViewResponse(invalidCollectionState),
       /workbench_client_model_invalid/u,
     );
 
@@ -897,14 +957,14 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       reason: null,
     };
     assert.throws(
-      () => inspectWorkbenchClientModel(invalidWorktree),
+      () => validateViewResponse(invalidWorktree),
       /workbench_client_model_invalid/u,
     );
 
     const invalidRuntime = structuredClone(model) as unknown as {
-      runtimeActivity: Record<string, unknown> | null;
+      executionActivity: Record<string, unknown> | null;
     };
-    invalidRuntime.runtimeActivity = {
+    invalidRuntime.executionActivity = {
       state: "available",
       reason: "observed",
       eventState: "observed",
@@ -926,7 +986,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       ],
     };
     assert.throws(
-      () => inspectWorkbenchClientModel(invalidRuntime),
+      () => validateViewResponse(invalidRuntime),
       /workbench_client_model_invalid/u,
     );
 
@@ -945,9 +1005,9 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       nextAction: "継続",
     };
     const observedWithoutProjection = structuredClone(model) as unknown as {
-      runtimeActivity: Record<string, unknown> | null;
+      executionActivity: Record<string, unknown> | null;
     };
-    observedWithoutProjection.runtimeActivity = {
+    observedWithoutProjection.executionActivity = {
       state: "observed",
       reason: "observed",
       projection: null,
@@ -957,9 +1017,9 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       eventContinuation: null,
     };
     const absentWithProjection = structuredClone(model) as unknown as {
-      runtimeActivity: Record<string, unknown> | null;
+      executionActivity: Record<string, unknown> | null;
     };
-    absentWithProjection.runtimeActivity = {
+    absentWithProjection.executionActivity = {
       state: "absent",
       reason: "not_found",
       projection: runtimeProjection,
@@ -969,9 +1029,9 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       eventContinuation: null,
     };
     const unknownEventsWithPayload = structuredClone(model) as unknown as {
-      runtimeActivity: Record<string, unknown> | null;
+      executionActivity: Record<string, unknown> | null;
     };
-    unknownEventsWithPayload.runtimeActivity = {
+    unknownEventsWithPayload.executionActivity = {
       state: "unknown",
       reason: "observation_failed",
       projection: null,
@@ -998,7 +1058,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       unknownEventsWithPayload,
     ])
       assert.throws(
-        () => inspectWorkbenchClientModel(invalidRuntimeCorrelation),
+        () => validateViewResponse(invalidRuntimeCorrelation),
         /workbench_client_model_invalid/u,
       );
 
@@ -1034,9 +1094,21 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       "/assets/other-client.js",
     );
     assert.equal(unlistedClientAsset.status, 404);
+    const index = await requestRaw(handle.baseUrl, "/index.html");
+    assert.equal(index.status, 200);
+    assert.deepEqual(index.body, shell.body);
 
     const css = await requestRaw(handle.baseUrl, "/workbench.css");
     assert.equal(css.status, 200);
+    assert.equal(css.headers["content-type"], "text/css; charset=utf-8");
+    assert.deepEqual(
+      css.body,
+      await readFile(path.join(distribution, "workbench.css")),
+    );
+    const cssHead = await requestRaw(handle.baseUrl, "/workbench.css", "HEAD");
+    assert.equal(cssHead.status, 200);
+    assert.equal(cssHead.headers["content-length"], String(css.body.length));
+    assert.equal(cssHead.body.length, 0);
     assert.match(css.body.toString("utf8"), /Noto Sans CJK JP/u);
 
     const logo = await requestRaw(
@@ -1068,9 +1140,10 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     );
     assert.equal(filteredDocuments.view, "main");
     if (filteredDocuments.view === "main") {
-      assert.equal(filteredDocuments.documentQuery, "Roadmap");
+      assert.equal(Object.hasOwn(filteredDocuments, "documentQuery"), false);
+      assert.equal(Object.hasOwn(filteredDocuments, "portfolioQuery"), false);
       assert.ok(
-        filteredDocuments.surface.ownerArtifacts.artifacts.some(
+        filteredDocuments.projectData.ownerArtifacts.artifacts.some(
           (artifact) => artifact.relativePath === "99_Roadmap/01_Roadmap.md",
         ),
       );
@@ -1091,13 +1164,13 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
 
     const arbitraryDocument = await requestRaw(
       handle.baseUrl,
-      "/api/workbench-view?route=%2Fowner-artifact&path=package.json",
+      "/api/workbench/view?route=%2Fowner-artifact&path=package.json",
     );
     assert.equal(arbitraryDocument.status, 400);
 
     const traversal = await requestRaw(
       handle.baseUrl,
-      "/api/workbench-view?route=%2Fowner-artifact&path=..%2Foutside.md",
+      "/api/workbench/view?route=%2Fowner-artifact&path=..%2Foutside.md",
     );
     assert.equal(traversal.status, 400);
 
@@ -1178,24 +1251,114 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
     assert.match(String(spec.headers["content-type"]), /^application\/json/u);
     const doc = JSON.parse(spec.body.toString("utf8"));
     assert.equal(doc.openapi, "3.1.1");
+    assert.deepEqual(doc.servers, [
+      { url: "/", description: "単体loopback配置（--docs）" },
+    ]);
+    assert.deepEqual(doc.paths["/api/workspace"].post.security, []);
+    assert.deepEqual(doc.paths["/api/repository"].post.security, []);
+    assert.deepEqual(doc.paths["/api/records"].post.security, []);
+    assert.deepEqual(doc.paths["/api/access"].get.security, [
+      { bearerAuth: [] },
+    ]);
+    for (const pathname of [
+      "/api/ai-request",
+      "/api/ai-selection",
+      "/api/execution/definition",
+      "/api/execution/state",
+      "/api/execution/objectives/run",
+      "/api/execution/decisions/submit",
+    ]) {
+      const { get, post } = doc.paths[pathname];
+      for (const parameter of get?.parameters ?? [])
+        assert.notEqual(parameter.name, "repositoryId");
+      if (post)
+        assert.ok(
+          !Object.hasOwn(
+            post.requestBody.content["application/x-www-form-urlencoded"].schema
+              .properties,
+            "repositoryId",
+          ),
+        );
+    }
     assert.deepEqual(Object.keys(doc.paths).sort(), [
       "/.well-known/crdd-workbench-health",
-      "/access-management/action",
-      "/ai-request/action",
-      "/ai-selection/action",
-      "/api/access-management",
+      "/api/access",
+      "/api/access/connection",
+      "/api/access/credentials",
+      "/api/ai-request",
       "/api/ai-selection",
-      "/api/runtime-definition",
-      "/api/workbench-view",
-      "/connection-credentials/action",
-      "/local-connection/action",
-      "/repository/action",
-      "/topic-meeting/action",
-      "/workspace/action",
+      "/api/execution/decisions/submit",
+      "/api/execution/definition",
+      "/api/execution/objectives/run",
+      "/api/execution/state",
+      "/api/records",
+      "/api/repository",
+      "/api/workbench/view",
+      "/api/workspace",
     ]);
-    assert.ok(doc.paths["/api/runtime-definition"].get);
+    for (const pathname of [
+      "/api/access",
+      "/api/ai-request",
+      "/api/ai-selection",
+    ])
+      assert.deepEqual(Object.keys(doc.paths[pathname]).sort(), [
+        "get",
+        "post",
+      ]);
+    const viewResponse = doc.paths["/api/workbench/view"].get.responses["200"];
+    for (const name of [
+      "crdd/workbench/view/v1",
+      "projectData",
+      "executionActivity",
+      "recordActionResult",
+    ])
+      assert.ok(viewResponse.description.includes(name), name);
+    assert.deepEqual(Object.keys(doc.paths["/api/execution/state"]), ["get"]);
+    assert.equal(
+      doc.paths["/api/execution/state"].get.operationId,
+      "getExecutionState",
+    );
+    for (const [pathname, operationId] of [
+      ["/api/execution/objectives/run", "runObjective"],
+      ["/api/execution/decisions/submit", "submitDecision"],
+    ] as const) {
+      const route = doc.paths[pathname];
+      assert.deepEqual(Object.keys(route), ["post"]);
+      assert.equal(route.post.operationId, operationId);
+      const schema =
+        route.post.requestBody.content["application/x-www-form-urlencoded"]
+          .schema;
+      assert.ok(!Object.hasOwn(schema.properties, "operation"));
+      assert.equal(
+        (await requestRaw(handle.baseUrl, pathname, "POST")).status,
+        403,
+      );
+    }
+    assert.equal(
+      (await requestRaw(handle.baseUrl, "/api/execution/state", "GET")).status,
+      400,
+    );
+    assert.equal(
+      (await requestRaw(handle.baseUrl, "/api/execution", "POST")).status,
+      405,
+    );
+    assert.equal(
+      (await requestRaw(handle.baseUrl, "/api/runtime-definition", "POST"))
+        .status,
+      405,
+    );
+    for (const legacy of [
+      "/workspace/action",
+      "/ai-selection/action",
+      "/api/execution-definition",
+    ])
+      assert.equal(
+        (await requestRaw(handle.baseUrl, legacy, "POST")).status,
+        405,
+      );
+    assert.ok(doc.paths["/api/execution/definition"].get);
     assert.ok(
-      doc.paths["/api/runtime-definition"].post.requestBody.content[
+      doc.paths["/api/execution/definition"].post.requestBody.content[
         "application/x-www-form-urlencoded"
       ],
     );
@@ -1276,7 +1439,7 @@ test("Express受付は現行のPath・Method・HEAD・固定拒否を維持す�
       ["POST", "/unknown", 405, "method_not_allowed\n"],
       ["OPTIONS", "/", 405, "method_not_allowed\n"],
       ["PUT", "/", 405, "method_not_allowed\n"],
-      ["POST", "/workspace/action/", 405, "method_not_allowed\n"],
+      ["POST", "/api/workspace/", 405, "method_not_allowed\n"],
       [
         "POST",
         "/candidate/action",
@@ -1336,13 +1499,13 @@ test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", asyn
     const model = await requestMainModel(handle.baseUrl);
     const form = new URLSearchParams({
       actionToken: model.actionToken,
-      repositoryId: model.surface.context.repositoryId,
+      repositoryId: model.projectData.context.repositoryId,
       command: "null",
     }).toString();
     for (const requestPath of [
-      "/x/../workspace/action",
-      "/x/%2e%2e/workspace/action",
-      "http://workbench.invalid/x/../workspace/action",
+      "/x/../api/workspace",
+      "/x/%2e%2e/api/workspace",
+      "http://workbench.invalid/x/../api/workspace",
     ]) {
       const result = await requestTransport(
         handle.baseUrl,
@@ -1359,7 +1522,7 @@ test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", asyn
     }
     const current = await requestRaw(
       handle.baseUrl,
-      "/x/../api/access-management?view=current",
+      "/x/../api/access?view=current",
     );
     assert.equal(current.status, 200);
     assert.deepEqual(JSON.parse(current.body.toString("utf8")), {
@@ -1368,7 +1531,7 @@ test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", asyn
     });
     const head = await requestRaw(
       handle.baseUrl,
-      "/x/../api/access-management?view=current",
+      "/x/../api/access?view=current",
       "HEAD",
     );
     assert.equal(head.status, 404);
@@ -1385,8 +1548,8 @@ test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", asyn
     );
     for (const path of [
       ".well-known/crdd-workbench-health",
-      "api/workbench-view",
-      "api/access-management",
+      "api/workbench/view",
+      "api/access",
     ]) {
       const result = await requestRaw(
         handle.baseUrl,
@@ -1395,34 +1558,34 @@ test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", asyn
       assert.equal(result.status, 404, path);
     }
     for (const operation of [
-      "workspace",
-      "repository",
-      "topic-meeting",
-      "ai-selection",
-      "ai-request",
+      "api/workspace",
+      "api/repository",
+      "api/records",
+      "api/ai-selection",
+      "api/ai-request",
     ]) {
       const shadow = await requestRaw(
         handle.baseUrl,
-        `http://synthetic.invalid//shadow/${operation}/action`,
+        `http://synthetic.invalid//shadow/${operation}`,
         "POST",
       );
       assert.equal(shadow.status, 405, operation);
       const trailing = await requestRaw(
         handle.baseUrl,
-        `/${operation}/action/`,
+        `/${operation}/`,
         "POST",
       );
       assert.equal(trailing.status, 405, operation);
     }
     for (const [operation, reason] of [
       ["repository", "repository_action_rejected"],
-      ["topic-meeting", "topic_meeting_action_rejected"],
+      ["records", "topic_meeting_action_rejected"],
       ["ai-selection", "ai_selection_request_rejected"],
       ["ai-request", "ai_request_action_rejected"],
     ]) {
       const normalized = await requestRaw(
         handle.baseUrl,
-        `http://synthetic.invalid/x/../${operation}/action`,
+        `http://synthetic.invalid/x/../api/${operation}`,
         "POST",
       );
       assert.equal(normalized.status, 400, operation);
@@ -1447,7 +1610,7 @@ test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", asyn
  * @boundary PPR-IT-002=Direct Boundary: workbench Test Source→対象契約
  */
 test("許可済みPortfolioをSource Coverage付きで表示する", async () => {
-  const surface = await readWorkbenchProjectSurface(repositoryRoot);
+  const surface = await readProjectViewData(repositoryRoot);
   const handle = await startWorkbench({
     workingDirectory: repositoryRoot,
     portfolio: {
@@ -1539,7 +1702,7 @@ test("許可済みPortfolioをSource Coverage付きで表示する", async () =>
     }
     const undisclosed = await requestRaw(
       handle.baseUrl,
-      "/api/workbench-view?route=%2Fproject&id=PRJ-UNDISCLOSED",
+      "/api/workbench/view?route=%2Fproject&id=PRJ-UNDISCLOSED",
     );
     assert.equal(undisclosed.status, 404);
   } finally {
@@ -1630,7 +1793,7 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
       (
         await requestRaw(
           repositoryOnly.baseUrl,
-          "/connection-credentials/action",
+          "/api/access/credentials",
           "POST",
           "operation=issue&profile=developer",
         )
@@ -1665,7 +1828,7 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
     ]) {
       const denied = await requestTransport(
         handle.baseUrl,
-        "/connection-credentials/action",
+        "/api/access/credentials",
         "POST",
         validIssue,
         headers,
@@ -1686,7 +1849,7 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
     ]) {
       const denied = await requestRaw(
         handle.baseUrl,
-        "/connection-credentials/action",
+        "/api/access/credentials",
         "POST",
         body,
       );
@@ -1720,7 +1883,7 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
         (
           await requestRaw(
             handle.baseUrl,
-            "/connection-credentials/action",
+            "/api/access/credentials",
             "POST",
             new URLSearchParams(invalid).toString(),
           )
@@ -1730,7 +1893,7 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
     assert.equal(JSON.parse(await readFile(current, "utf8")).revision, 1);
     const issued = await requestRaw(
       handle.baseUrl,
-      "/connection-credentials/action",
+      "/api/access/credentials",
       "POST",
       new URLSearchParams({
         actionToken: initial.actionToken,
@@ -1765,7 +1928,7 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
     if (fresh.view !== "main" || !fresh.credentials.snapshot) return;
     const revoked = await requestRaw(
       handle.baseUrl,
-      "/connection-credentials/action",
+      "/api/access/credentials",
       "POST",
       new URLSearchParams({
         actionToken: initial.actionToken,
@@ -1789,7 +1952,7 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
     assert.equal(last.unresolvedKeyExchanges.length, 0);
     const targeted = await requestRaw(
       handle.baseUrl,
-      "/connection-credentials/action",
+      "/api/access/credentials",
       "POST",
       new URLSearchParams({
         actionToken: initial.actionToken,
@@ -1827,7 +1990,7 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
       (
         await requestRaw(
           handle.baseUrl,
-          "/connection-credentials/action",
+          "/api/access/credentials",
           "POST",
           allForm.toString(),
         )
@@ -1837,7 +2000,7 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
     allForm.set("confirmed", "true");
     const all = await requestRaw(
       handle.baseUrl,
-      "/connection-credentials/action",
+      "/api/access/credentials",
       "POST",
       allForm.toString(),
     );
@@ -1872,7 +2035,7 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
         .map((credential) => credential.credentialId);
       const self = await requestRaw(
         reconnected.baseUrl,
-        "/connection-credentials/action",
+        "/api/access/credentials",
         "POST",
         new URLSearchParams({
           actionToken: model.actionToken,
@@ -1939,7 +2102,7 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
           };
           const reply = await requestRaw(
             faultHandle.baseUrl,
-            "/connection-credentials/action",
+            "/api/access/credentials",
             "POST",
             new URLSearchParams({
               actionToken: model.actionToken,
@@ -2045,7 +2208,7 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
           await assert.rejects(
             requestRaw(
               faultHandle.baseUrl,
-              "/connection-credentials/action",
+              "/api/access/credentials",
               "POST",
               new URLSearchParams({
                 actionToken: model.actionToken,
@@ -2145,7 +2308,9 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
     const diff = await requestMainModel(handle.baseUrl, "/?diffPath=work.txt");
     assert.match(diff.worktree.diff?.workingPatch ?? "", /\+changed/u);
     assert.ok(
-      diff.surface.repository.changeSet?.workingChanges.includes("work.txt"),
+      diff.projectData.repository.changeSet?.workingChanges.includes(
+        "work.txt",
+      ),
     );
     const invalidTree = await requestMainModel(
       handle.baseUrl,
@@ -2154,7 +2319,7 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
     assert.equal(invalidTree.worktree.state, "unknown");
     const rejected = await requestRaw(
       handle.baseUrl,
-      "/repository/action",
+      "/api/repository",
       "POST",
       "actionToken=wrong&operation=prepare&path=work.txt",
     );
@@ -2162,7 +2327,7 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
 
     const staged = await requestRaw(
       handle.baseUrl,
-      "/repository/action",
+      "/api/repository",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -2172,13 +2337,14 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
     );
     assert.equal(staged.status, 303);
     const afterStage = await requestMainModel(handle.baseUrl);
-    assert.deepEqual(afterStage.surface.repository.changeSet?.preparedChanges, [
-      "work.txt",
-    ]);
+    assert.deepEqual(
+      afterStage.projectData.repository.changeSet?.preparedChanges,
+      ["work.txt"],
+    );
 
     const committed = await requestRaw(
       handle.baseUrl,
-      "/repository/action",
+      "/api/repository",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -2192,7 +2358,7 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
     const revisionIdentity = git(fixture, "rev-parse", "HEAD");
     const published = await requestRaw(
       handle.baseUrl,
-      "/repository/action",
+      "/api/repository",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -2219,7 +2385,7 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
     await unlink(path.join(fixture, "PROJECT_CONTEXT.md"));
     const completedWithRefreshFailure = await requestRaw(
       handle.baseUrl,
-      "/repository/action",
+      "/api/repository",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -2237,7 +2403,7 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
       afterRefreshFailure.repositoryResult?.reason,
       "prepare_completed",
     );
-    assert.equal(afterRefreshFailure.surface.repository.state, "unknown");
+    assert.equal(afterRefreshFailure.projectData.repository.state, "unknown");
   } finally {
     if (handle !== null) await handle.close();
     await rm(fixture, { recursive: true, force: true });
@@ -2329,7 +2495,7 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     const token = initial.actionToken;
     const create = await requestRaw(
       handle.baseUrl,
-      "/topic-meeting/action",
+      "/api/records",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -2341,11 +2507,11 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     assert.equal(create.status, 303);
     const created = await requestMainModel(handle.baseUrl);
     assert.match(
-      JSON.stringify(created.topic.page.records[0]),
+      JSON.stringify(created.topicPage.records[0]),
       /"topicId":"TOPIC-000042"/u,
     );
     assert.equal(
-      created.topic.page.records[0]?.summary,
+      created.topicPage.records[0]?.summary,
       "Workbench CRUDを確認する。",
     );
     assert.equal(created.recordDocuments[0]?.id, "TOPIC-000042");
@@ -2353,9 +2519,9 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
       handle.baseUrl,
       "/?topicQuery=Workbench&topicState=open&topicOwner=Project%20Operator&topicSort=title_asc",
     );
-    assert.equal(filtered.topic.query.query, "Workbench");
+    assert.equal(filtered.topicQuery.query, "Workbench");
     assert.match(
-      JSON.stringify(filtered.topic.page.records[0]),
+      JSON.stringify(filtered.topicPage.records[0]),
       /"topicId":"TOPIC-000042"/u,
     );
     const detail = await requestClientModel(
@@ -2381,17 +2547,17 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
       assert.match(changeModel.artifact.markdown, /Workbench Relation Change/u);
     const missingChange = await requestRaw(
       handle.baseUrl,
-      "/api/workbench-view?route=%2Fchange&id=CHG-999999",
+      "/api/workbench/view?route=%2Fchange&id=CHG-999999",
     );
     assert.equal(missingChange.status, 404);
     const missingDetail = await requestRaw(
       handle.baseUrl,
-      "/api/workbench-view?route=%2Ftopic&id=TOPIC-999999",
+      "/api/workbench/view?route=%2Ftopic&id=TOPIC-999999",
     );
     assert.equal(missingDetail.status, 404);
     const update = await requestRaw(
       handle.baseUrl,
-      "/topic-meeting/action",
+      "/api/records",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -2404,10 +2570,10 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     );
     assert.equal(update.status, 303);
     const updated = await requestMainModel(handle.baseUrl);
-    assert.equal(updated.topic.page.records[0]?.state, "waiting");
+    assert.equal(updated.topicPage.records[0]?.state, "waiting");
     const conflict = await requestRaw(
       handle.baseUrl,
-      "/topic-meeting/action",
+      "/api/records",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -2421,13 +2587,13 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     assert.equal(conflict.status, 303);
     const conflicted = await requestMainModel(handle.baseUrl);
     assert.equal(
-      conflicted.topicMeetingResult?.reason,
+      conflicted.recordActionResult?.reason,
       "record_revision_conflict",
     );
-    assert.equal(conflicted.topic.page.records[0]?.revision, 2);
+    assert.equal(conflicted.topicPage.records[0]?.revision, 2);
     const promote = await requestRaw(
       handle.baseUrl,
-      "/topic-meeting/action",
+      "/api/records",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -2456,7 +2622,7 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     }
     const unconfirmedDelete = await requestRaw(
       handle.baseUrl,
-      "/topic-meeting/action",
+      "/api/records",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -2470,13 +2636,13 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     assert.equal(unconfirmedDelete.status, 303);
     const unconfirmed = await requestMainModel(handle.baseUrl);
     assert.equal(
-      unconfirmed.topicMeetingResult?.reason,
+      unconfirmed.recordActionResult?.reason,
       "record_delete_confirmation_required",
     );
-    assert.equal(unconfirmed.topic.page.records[0]?.revision, 3);
+    assert.equal(unconfirmed.topicPage.records[0]?.revision, 3);
     const remove = await requestRaw(
       handle.baseUrl,
-      "/topic-meeting/action",
+      "/api/records",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -2490,7 +2656,7 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     assert.equal(remove.status, 303);
     const deleted = await requestMainModel(handle.baseUrl);
     assert.ok(
-      deleted.topic.page.records.every(
+      deleted.topicPage.records.every(
         (record) => !("topicId" in record) || record.topicId !== "TOPIC-000042",
       ),
     );
@@ -2569,7 +2735,7 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     ]) {
       const rejected = await requestRaw(
         handle.baseUrl,
-        "/topic-meeting/action",
+        "/api/records",
         "POST",
         new URLSearchParams(invalid).toString(),
       );
@@ -2582,7 +2748,7 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     }
     const failed = await requestRaw(
       handle.baseUrl,
-      "/topic-meeting/action",
+      "/api/records",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -2601,7 +2767,7 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     assert.equal(healthy.status, 200);
     await unlink(topicDirectory);
     const recoveredView = await requestMainModel(handle.baseUrl);
-    assert.equal(recoveredView.topic.page.records.length, 0);
+    assert.equal(recoveredView.topicPage.records.length, 0);
   } finally {
     try {
       if (handle !== null) {
@@ -2714,10 +2880,10 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
         request.once("end", () => {
           const form = new URLSearchParams(body);
           assert.equal(form.get("actionToken"), initial.actionToken);
+          assert.equal(form.get("requestId"), "AIREQ-FAULT-001");
           if (form.get("operation") === "cancel") {
             cancels += 1;
             cancelled = true;
-            assert.equal(form.get("requestId"), "AIREQ-FAULT-001");
             response.writeHead(303, { Location: "/#ai-request" }).end();
             return;
           }
@@ -2763,7 +2929,7 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
         let diagnostic: unknown;
         try {
           await application.start({
-            requestId: "request-fixture-89562",
+            requestId: "AIREQ-FAULT-001",
             mode: "read_only_advice",
             workType: null,
             prompt: "固定故障検証",
@@ -2888,7 +3054,7 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
     const token = initial.actionToken;
     const create = await requestRaw(
       handle.baseUrl,
-      "/topic-meeting/action",
+      "/api/records",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -2900,7 +3066,7 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
     assert.equal(create.status, 303);
     const treat = await requestRaw(
       handle.baseUrl,
-      "/topic-meeting/action",
+      "/api/records",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -2923,21 +3089,21 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
     assert.equal(treat.status, 303);
     const completed = await requestMainModel(handle.baseUrl);
     assert.equal(
-      completed.topicMeetingResult?.reason,
+      completed.recordActionResult?.reason,
       "meeting_outcome_treated",
     );
-    assert.equal(completed.meeting.page.records[0]?.state, "closed");
+    assert.equal(completed.meetingPage.records[0]?.state, "closed");
     assert.match(
-      JSON.stringify(completed.meeting.page.records[0]),
+      JSON.stringify(completed.meetingPage.records[0]),
       /"pendingOutcomeCount":0/u,
     );
     const filtered = await requestMainModel(
       handle.baseUrl,
       "/?meetingFrom=2026-09-27&meetingTo=2026-09-27&meetingState=closed&meetingSort=occurred_desc",
     );
-    assert.equal(filtered.meeting.query.occurredFrom, "2026-09-27");
+    assert.equal(filtered.meetingQuery.occurredFrom, "2026-09-27");
     assert.match(
-      JSON.stringify(filtered.meeting.page.records[0]),
+      JSON.stringify(filtered.meetingPage.records[0]),
       /"meetingId":"MTG-000042"/u,
     );
     const detail = await requestClientModel(
@@ -2974,10 +3140,10 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
  * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
  */
 test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bundleを公開しない", async () => {
-  let received: WorkbenchAiRequestCommand | null = null;
+  let received: AiRequestCommand | null = null;
   let calls = 0;
   let closed = false;
-  const application: WorkbenchAiRequests = {
+  const application: AiRequests = {
     start: async (command) => {
       received = command;
       calls++;
@@ -3027,7 +3193,7 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
     for (const mode of ["read_only_advice", "workspace_edit"]) {
       const started = await requestRaw(
         handle.baseUrl,
-        "/ai-request/action",
+        "/api/ai-request",
         "POST",
         new URLSearchParams({
           actionToken: token,
@@ -3060,7 +3226,7 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
     assert.equal(legacy.status, 410);
     const oldMode = await requestRaw(
       handle.baseUrl,
-      "/ai-request/action",
+      "/api/ai-request",
       "POST",
       new URLSearchParams({
         actionToken: token,
@@ -3142,23 +3308,24 @@ test("WorkbenchはOrchestratorの現在投影を実行状況として表示す�
   try {
     const model = await requestMainModel(handle.baseUrl);
     assert.equal(
-      model.runtimeActivity?.projection?.milestoneId,
+      model.executionActivity?.projection?.milestoneId,
       "MILESTONE-000001",
     );
     assert.equal(
-      model.runtimeActivity?.projection?.objectiveTaskSummaries[0]?.objectiveId,
+      model.executionActivity?.projection?.objectiveTaskSummaries[0]
+        ?.objectiveId,
       "OBJ-000003",
     );
     assert.equal(
-      model.runtimeActivity?.projection?.nextAction,
+      model.executionActivity?.projection?.nextAction,
       "human_decision",
     );
     assert.equal(
-      model.runtimeActivity?.projection?.humanDecisionRequired,
+      model.executionActivity?.projection?.humanDecisionRequired,
       true,
     );
-    assert.equal(model.runtimeActivity?.events[0]?.taskId, "TASK-000004");
-    assert.equal(model.runtimeActivity?.events[0]?.reason, "task_completed");
+    assert.equal(model.executionActivity?.events[0]?.taskId, "TASK-000004");
+    assert.equal(model.executionActivity?.events[0]?.reason, "task_completed");
   } finally {
     await handle.close();
   }
@@ -3491,15 +3658,9 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
      * @boundary 自己生成設定と本番HTTP。実AIなし。
      */
     const post = (input: URLSearchParams) =>
-      requestTransport(
-        baseUrl,
-        "/ai-selection/action",
-        "POST",
-        input.toString(),
-        {
-          Origin: baseUrl,
-        },
-      );
+      requestTransport(baseUrl, "/api/ai-selection", "POST", input.toString(), {
+        Origin: baseUrl,
+      });
     const invalid = new URLSearchParams(form);
     invalid.set("actionToken", "wrong");
     assert.equal((await post(invalid)).status, 400);
@@ -3624,9 +3785,9 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
 test("実Provider検証のHTTP接続部は認可済み依頼Identityを公開境界で照合する", async () => {
   let starts = 0;
   let cancels = 0;
-  let received: WorkbenchAiRequestCommand | null = null;
+  let received: AiRequestCommand | null = null;
   let status: "running" | "cancelled" = "running";
-  const application: WorkbenchAiRequests = {
+  const application: AiRequests = {
     start: async (request) => {
       starts += 1;
       received = request;
@@ -3666,7 +3827,7 @@ test("実Provider検証のHTTP接続部は認可済み依頼Identityを公開境
     const transport = await createWorkbenchAiVerificationHttpClient(
       handle.baseUrl,
     );
-    const command: WorkbenchAiRequestCommand = {
+    const command: AiRequestCommand = {
       requestId: "AIREQ-HTTP-001",
       mode: "read_only_advice",
       workType: null,
@@ -3678,7 +3839,7 @@ test("実Provider検証のHTTP接続部は認可済み依頼Identityを公開境
     const initial = await requestMainModel(handle.baseUrl);
     const wrongToken = await requestRaw(
       handle.baseUrl,
-      "/ai-request/action",
+      "/api/ai-request",
       "POST",
       new URLSearchParams({
         actionToken: "wrong",
@@ -3703,7 +3864,7 @@ test("実Provider検証のHTTP接続部は認可済み依頼Identityを公開境
     assert.equal(observed.facts[0]?.text, "公開結果");
     const wrongId = await requestRaw(
       handle.baseUrl,
-      "/ai-request/action",
+      "/api/ai-request",
       "POST",
       new URLSearchParams({
         actionToken: initial.actionToken,

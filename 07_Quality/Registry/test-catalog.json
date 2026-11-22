@@ -808,7 +808,7 @@
       "lifecycleProfile": "pure_component",
       "testIds": [
         "mcp:unit:project-context",
-        "mcp:unit:orchestrator",
+        "mcp:integration:execution-tools",
         "mcp:integration:access-capabilities",
         "mcp:integration:ai-profile-adapter",
         "mcp:integration:runtime-activity-adapter",
@@ -1516,7 +1516,7 @@
       "consumerOwner": "crdd-server",
       "consumerStatic": true,
       "testIds": [
-        "mcp:unit:orchestrator",
+        "mcp:integration:execution-tools",
         "mcp:system:stdio",
         "mcp:system:streamable-http"
       ]
@@ -1701,8 +1701,18 @@
       "consumerOwner": "crdd-server",
       "consumerStatic": true,
       "testIds": [
-        "workbench:integration:profile-presentation",
         "workbench:integration:production-shell"
+      ]
+    },
+    {
+      "producerOwner": "configuration-model",
+      "producerPaths": [
+        "40_Develop/configuration-model/src"
+      ],
+      "consumerOwner": "workbench-ui",
+      "consumerStatic": true,
+      "testIds": [
+        "workbench:integration:profile-presentation"
       ]
     }
   ],
@@ -6116,6 +6126,9 @@
         "partial_exposure_reflected",
         "nonkey_management_current_role",
         "nonkey_management_six_mutations_confirmed",
+        "shared_execution_target_and_principal_bound",
+        "shared_execution_result_withheld_after_access_loss",
+        "http_mcp_execution_outcomes_equivalent",
         "management_binding_and_secret_not_disclosed",
         "unregister_preserves_repository_body",
         "pending_remote_registration_not_exposed",
@@ -6926,10 +6939,10 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "mcp:unit:orchestrator",
+      "id": "mcp:integration:execution-tools",
       "owner": "crdd-server",
-      "path": "40_Develop/crdd-server/tests/unit/task-adapter.contract.test.ts",
-      "level": "unit",
+      "path": "40_Develop/crdd-server/tests/integration/task-adapter.contract.test.ts",
+      "level": "integration",
       "kind": "contract",
       "semanticTags": [
         "mcp",
@@ -7830,8 +7843,8 @@
     },
     {
       "id": "workbench:integration:profile-presentation",
-      "owner": "crdd-server",
-      "path": "40_Develop/crdd-server/tests/integration/ai-selection-presentation.contract.test.ts",
+      "owner": "workbench-ui",
+      "path": "40_Develop/workbench-ui/tests/integration/ai-selection-presentation.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [

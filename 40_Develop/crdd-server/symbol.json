@@ -4,18 +4,9 @@
   "subsystem": "crdd-server",
   "symbols": [
     {
-      "symbolId": "crdd-server.source.index",
-      "kind": "file",
-      "path": "src/index.ts",
-      "archIds": [
-        "ARCH-000012",
-        "ARCH-000013"
-      ]
-    },
-    {
       "symbolId": "crdd-server.configuration.area",
       "kind": "file",
-      "path": "src/configuration/area.ts",
+      "path": "src/service/configuration.ts",
       "archIds": [
         "ARCH-000011"
       ]
@@ -23,7 +14,7 @@
     {
       "symbolId": "crdd-server.configuration.read",
       "kind": "file",
-      "path": "src/configuration/read.ts",
+      "path": "src/service/configuration.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -31,7 +22,7 @@
     {
       "symbolId": "crdd-server.operations.topic-meeting",
       "kind": "file",
-      "path": "src/topic-meeting/operations.ts",
+      "path": "src/service/topic.ts",
       "archIds": [
         "ARCH-000006",
         "ARCH-000012",
@@ -39,21 +30,39 @@
       ]
     },
     {
+      "symbolId": "crdd-server.operations.topic",
+      "kind": "file",
+      "path": "src/service/topic.ts",
+      "archIds": ["ARCH-000006", "ARCH-000012"]
+    },
+    {
+      "symbolId": "crdd-server.operations.meeting",
+      "kind": "file",
+      "path": "src/service/meeting.ts",
+      "archIds": ["ARCH-000006", "ARCH-000012"]
+    },
+    {
       "symbolId": "crdd-server.api.openapi",
       "kind": "file",
-      "path": "src/http/openapi.ts",
+      "path": "src/transport/api-document.ts",
       "archIds": ["ARCH-000012"]
     },
     {
       "symbolId": "crdd-server.api.swagger",
       "kind": "file",
-      "path": "src/http/swagger.ts",
+      "path": "src/transport/api-document.ts",
       "archIds": ["ARCH-000012"]
+    },
+    {
+      "symbolId": "crdd-server.execution.runtime-definition",
+      "kind": "file",
+      "path": "src/service/execution.ts",
+      "archIds": ["ARCH-000008", "ARCH-000012", "ARCH-000013"]
     },
     {
       "symbolId": "mcp.runtime-definition",
       "kind": "file",
-      "path": "src/mcp/tools-runtime.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000012",
@@ -72,13 +81,14 @@
       ],
       "verifies": [
         "mcp.runtime-definition",
+        "crdd-server.execution.runtime-definition",
         "access-management.repository-access"
       ]
     },
     {
       "symbolId": "mcp.workspace.adapter",
       "kind": "file",
-      "path": "src/mcp/tools-workspace.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -124,7 +134,7 @@
     {
       "symbolId": "mcp.configuration.server",
       "kind": "file",
-      "path": "src/mcp/core.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -150,7 +160,7 @@
     {
       "symbolId": "mcp.access-management.adapter",
       "kind": "file",
-      "path": "src/mcp/tools-access-management.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -159,7 +169,7 @@
     {
       "symbolId": "mcp.request.discover",
       "kind": "file",
-      "path": "src/mcp/request-discover.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -168,7 +178,7 @@
     {
       "symbolId": "mcp.request.initial-connection",
       "kind": "file",
-      "path": "src/mcp/request-initial-connection.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -196,7 +206,7 @@
     {
       "symbolId": "mcp.request.access-resolver",
       "kind": "file",
-      "path": "src/mcp/request-authentication.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000006",
@@ -232,18 +242,25 @@
       ],
       "verifies": [
         "mcp.workspace.adapter",
+        "mcp.source.src.adapters.orchestrator.adapter",
+        "crdd-server.execution.workspace-access",
+        "crdd-server.access.repository",
+        "crdd-server.execution.access",
+        "crdd-server.execution.operations",
+        "crdd-server.api.entry",
         "orchestrator.workspace.commands",
         "workbench.server",
         "mcp.request.access-resolver",
         "mcp.runtime-activity-adapter",
         "mcp.access-management.adapter",
+        "workbench.management.operations",
         "mcp.source.src.transports.streamable.http.transport"
       ]
     },
     {
       "symbolId": "mcp.runtime-activity-adapter",
       "kind": "file",
-      "path": "src/mcp/tools-execution-status.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000007",
@@ -253,7 +270,7 @@
     {
       "symbolId": "mcp.public-api",
       "kind": "module",
-      "path": "src/mcp/core.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -351,14 +368,14 @@
     {
       "symbolId": "mcp.test.unit.orchestrator",
       "kind": "test-suite",
-      "path": "tests/unit/task-adapter.contract.test.ts",
+      "path": "tests/integration/task-adapter.contract.test.ts",
       "qaIds": [
         "QA-000003",
         "QA-000004"
       ],
       "localTestIds": [
-        "PPR-UT-006",
-        "PRL-UT-014"
+        "PPR-IT-002",
+        "PRL-IT-012"
       ],
       "verifies": [
         "mcp.source.src.adapters.orchestrator.adapter",
@@ -368,7 +385,7 @@
     {
       "symbolId": "mcp.source.src.adapters.application.adapter",
       "kind": "file",
-      "path": "src/mcp/request-server.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -377,7 +394,7 @@
     {
       "symbolId": "mcp.source.src.adapters.project.context.adapter",
       "kind": "file",
-      "path": "src/mcp/tools-project-context.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -386,7 +403,7 @@
     {
       "symbolId": "mcp.source.src.adapters.orchestrator.adapter",
       "kind": "file",
-      "path": "src/mcp/tools-task.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -394,7 +411,7 @@
     {
       "symbolId": "mcp.source.src.adapters.topic.meeting.adapter",
       "kind": "file",
-      "path": "src/mcp/tools-topic-meeting.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000006",
         "ARCH-000012"
@@ -403,7 +420,7 @@
     {
       "symbolId": "mcp.source.src.protocol.orchestrator.protocol",
       "kind": "file",
-      "path": "src/mcp/request-validation.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -411,7 +428,7 @@
     {
       "symbolId": "mcp.source.src.transports.request.handler",
       "kind": "file",
-      "path": "src/mcp/transport-types.ts",
+      "path": "src/transport/mcp-types.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -419,7 +436,7 @@
     {
       "symbolId": "mcp.source.src.transports.stdio.transport",
       "kind": "file",
-      "path": "src/mcp/transport-stdio.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -427,7 +444,7 @@
     {
       "symbolId": "mcp.source.src.transports.streamable.http.transport",
       "kind": "file",
-      "path": "src/mcp/transport-http.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -435,7 +452,7 @@
     {
       "symbolId": "mcp.source.src.transports.process.signal.shutdown",
       "kind": "file",
-      "path": "src/mcp/transport-shutdown.ts",
+      "path": "src/transport/mcp-server.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -492,7 +509,7 @@
     {
       "symbolId": "workbench.shared.repository.types",
       "kind": "file",
-      "path": "src/repository/types.ts",
+      "path": "src/service/repository.ts",
       "archIds": [
         "ARCH-000009",
         "ARCH-000012"
@@ -532,7 +549,7 @@
     {
       "symbolId": "workbench.configuration.server",
       "kind": "file",
-      "path": "src/http/connection-configuration.ts",
+      "path": "src/service/configuration.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -552,7 +569,6 @@
       "verifies": [
         "workbench.server",
         "workbench.configuration.server",
-        "crdd-server.source.index",
         "crdd-server.configuration.area",
         "crdd-server.configuration.read",
         "workbench.http.application",
@@ -573,6 +589,7 @@
       ],
       "verifies": [
         "workbench.cli",
+        "workbench.cli.command",
         "workbench.server"
       ]
     },
@@ -600,7 +617,7 @@
     {
       "symbolId": "workbench.project.repository-action",
       "kind": "file",
-      "path": "src/repository/action.ts",
+      "path": "src/service/repository.ts",
       "archIds": [
         "ARCH-000009",
         "ARCH-000012"
@@ -670,45 +687,16 @@
     {
       "symbolId": "workbench.topic-meeting.action",
       "kind": "file",
-      "path": "src/topic-meeting/action.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000006",
         "ARCH-000012"
       ]
     },
     {
-      "symbolId": "workbench.test.integration.profile-presentation",
-      "kind": "test-suite",
-      "path": "tests/integration/ai-selection-presentation.contract.test.ts",
-      "qaIds": [
-        "QA-000001",
-        "QA-000009"
-      ],
-      "localTestIds": [
-        "EST-IT-002",
-        "RCM-IT-005"
-      ],
-      "verifies": [
-        "workbench.presentation.client-model",
-        "workbench.presentation.profile-management-panel",
-        "workbench.presentation.view-validation",
-        "workbench.presentation.view-url"
-      ]
-    },
-    {
-      "symbolId": "workbench.topic-meeting.access-resolver",
-      "kind": "file",
-      "path": "src/topic-meeting/access-resolver.ts",
-      "archIds": [
-        "ARCH-000006",
-        "ARCH-000012",
-        "ARCH-000013"
-      ]
-    },
-    {
       "symbolId": "workbench.project.access-reader",
       "kind": "file",
-      "path": "src/project/access-reader.ts",
+      "path": "src/service/project.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -718,15 +706,7 @@
     {
       "symbolId": "workbench.management.operations",
       "kind": "file",
-      "path": "src/management/operations.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "workbench.management.contract",
-      "kind": "file",
-      "path": "src/management/validation.ts",
+      "path": "src/service/access.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -761,8 +741,9 @@
         "workbench.http.management",
         "workbench.http.connection",
         "workbench.project.access-reader",
-        "workbench.topic-meeting.access-resolver",
         "crdd-server.operations.topic-meeting",
+        "crdd-server.operations.topic",
+        "crdd-server.operations.meeting",
         "workbench.topic-meeting.action",
         "workbench.presentation.client-model",
         "workbench.application.runtime-activity",
@@ -796,16 +777,19 @@
       ],
       "verifies": [
         "workbench.cli",
+        "workbench.cli.command",
         "coordinator.source.src.security.workbench.ai.advice.production.runtime",
         "workbench.server",
         "workbench.presentation.react-shell",
+        "workbench.presentation.start-document",
+        "workbench.presentation.stylesheet",
         "workbench.presentation.browser-client"
       ]
     },
     {
       "symbolId": "workbench.public-api",
       "kind": "module",
-      "path": "src/http/start.ts",
+      "path": "src/app.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -813,15 +797,45 @@
     {
       "symbolId": "workbench.http.application",
       "kind": "file",
-      "path": "src/http/app.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000012"
       ]
     },
     {
+      "symbolId": "crdd-server.execution.workspace-access",
+      "kind": "file",
+      "path": "src/service/workspace.ts",
+      "archIds": ["ARCH-000012", "ARCH-000017"]
+    },
+    {
+      "symbolId": "crdd-server.access.repository",
+      "kind": "file",
+      "path": "src/service/access.ts",
+      "archIds": ["ARCH-000012", "ARCH-000017"]
+    },
+    {
+      "symbolId": "crdd-server.execution.access",
+      "kind": "file",
+      "path": "src/service/execution.ts",
+      "archIds": ["ARCH-000012", "ARCH-000013", "ARCH-000017"]
+    },
+    {
+      "symbolId": "crdd-server.api.entry",
+      "kind": "file",
+      "path": "src/service/entry.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
+      "symbolId": "crdd-server.execution.operations",
+      "kind": "file",
+      "path": "src/service/execution.ts",
+      "archIds": ["ARCH-000012", "ARCH-000013"]
+    },
+    {
       "symbolId": "workbench.http.workspace",
       "kind": "file",
-      "path": "src/http/routes-workspace.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000017"
@@ -830,7 +844,7 @@
     {
       "symbolId": "workbench.http.management",
       "kind": "file",
-      "path": "src/http/routes-management.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -839,7 +853,7 @@
     {
       "symbolId": "workbench.http.connection",
       "kind": "file",
-      "path": "src/http/connection.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -848,7 +862,7 @@
     {
       "symbolId": "workbench.presentation.portfolio",
       "kind": "file",
-      "path": "src/project/portfolio.ts",
+      "path": "src/service/project.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -856,16 +870,22 @@
     {
       "symbolId": "workbench.presentation.record",
       "kind": "file",
-      "path": "src/topic-meeting/record.ts",
+      "path": "src/service/topic.ts",
       "archIds": [
         "ARCH-000006",
         "ARCH-000012"
       ]
     },
     {
+      "symbolId": "workbench.http.types",
+      "kind": "file",
+      "path": "src/transport/api-types.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
       "symbolId": "workbench.http.lifecycle",
       "kind": "file",
-      "path": "src/http/http.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -873,7 +893,7 @@
     {
       "symbolId": "workbench.http.security",
       "kind": "file",
-      "path": "src/http/security.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -881,7 +901,7 @@
     {
       "symbolId": "workbench.server",
       "kind": "file",
-      "path": "src/http/start.ts",
+      "path": "src/app.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000005",
@@ -896,7 +916,7 @@
     {
       "symbolId": "workbench.presentation.client-model",
       "kind": "file",
-      "path": "src/view/types.ts",
+      "path": "src/transport/api-types.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000009",
@@ -909,7 +929,7 @@
     {
       "symbolId": "workbench.application.project-surface",
       "kind": "file",
-      "path": "src/project/surface.ts",
+      "path": "src/service/project.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -918,7 +938,7 @@
     {
       "symbolId": "workbench.application.credential-administration",
       "kind": "file",
-      "path": "src/management/credential-administration.ts",
+      "path": "src/service/access.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -926,7 +946,7 @@
     {
       "symbolId": "workbench.application.ai-profile-surface",
       "kind": "file",
-      "path": "src/execution/ai-selection-projection.ts",
+      "path": "src/service/configuration.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000012"
@@ -935,7 +955,7 @@
     {
       "symbolId": "workbench.application.ai-request",
       "kind": "file",
-      "path": "src/execution/ai-request-types.ts",
+      "path": "src/service/execution.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -944,7 +964,7 @@
     {
       "symbolId": "workbench.application.runtime-activity",
       "kind": "file",
-      "path": "src/execution/activity-observe.ts",
+      "path": "src/service/execution.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007",
@@ -954,7 +974,7 @@
     {
       "symbolId": "workbench.application.owner-artifact-surface",
       "kind": "file",
-      "path": "src/project/artifact-read.ts",
+      "path": "src/service/project.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -964,7 +984,7 @@
     {
       "symbolId": "workbench.application.project-plan-surface",
       "kind": "file",
-      "path": "src/project/plan-types.ts",
+      "path": "src/service/project.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -973,7 +993,7 @@
     {
       "symbolId": "workbench.application.quality-surface",
       "kind": "file",
-      "path": "src/project/quality-types.ts",
+      "path": "src/service/project.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -987,6 +1007,12 @@
         "ARCH-000012",
         "ARCH-000013"
       ]
+    },
+    {
+      "symbolId": "workbench.cli.command",
+      "kind": "file",
+      "path": "src/cli/command.ts",
+      "archIds": ["ARCH-000012", "ARCH-000013"]
     },
     {
       "symbolId": "workbench.test.integration.production-shell",
@@ -1017,6 +1043,7 @@
         "workbench.presentation.react-shell",
         "workbench.http.security",
         "workbench.http.lifecycle",
+        "workbench.http.types",
         "workbench.http.workspace",
         "workbench.http.application",
         "workbench.http.management",
@@ -1171,7 +1198,7 @@
     {
       "symbolId": "workbench.http.repository",
       "kind": "file",
-      "path": "src/http/routes-repository.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000009",
         "ARCH-000012"
@@ -1180,7 +1207,7 @@
     {
       "symbolId": "workbench.http.record",
       "kind": "file",
-      "path": "src/http/routes-record.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000006",
         "ARCH-000012"
@@ -1189,7 +1216,7 @@
     {
       "symbolId": "workbench.http.ai-selection",
       "kind": "file",
-      "path": "src/http/routes-ai-selection.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000012"
@@ -1198,7 +1225,7 @@
     {
       "symbolId": "workbench.http.ai",
       "kind": "file",
-      "path": "src/http/routes-ai.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000012",
@@ -1208,7 +1235,7 @@
     {
       "symbolId": "workbench.presentation.state",
       "kind": "file",
-      "path": "src/view/presentation-types.ts",
+      "path": "src/transport/api-types.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -1216,7 +1243,7 @@
     {
       "symbolId": "workbench.presentation.project",
       "kind": "file",
-      "path": "src/view/project.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -1225,7 +1252,7 @@
     {
       "symbolId": "workbench.http.assets",
       "kind": "file",
-      "path": "src/http/assets.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -1233,7 +1260,7 @@
     {
       "symbolId": "workbench.http.repository-view",
       "kind": "file",
-      "path": "src/http/routes-repository-view.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000015"
@@ -1242,7 +1269,7 @@
     {
       "symbolId": "workbench.http.shared-view",
       "kind": "file",
-      "path": "src/http/routes-shared-view.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013",
@@ -1250,18 +1277,9 @@
       ]
     },
     {
-      "symbolId": "workbench.presentation.view-validation",
-      "kind": "file",
-      "path": "src/view/validation.ts",
-      "archIds": [
-        "ARCH-000005",
-        "ARCH-000012"
-      ]
-    },
-    {
       "symbolId": "workbench.shared.repository-validation",
       "kind": "file",
-      "path": "src/repository/validation.ts",
+      "path": "src/service/repository.ts",
       "archIds": [
         "ARCH-000009",
         "ARCH-000012"
@@ -1270,7 +1288,7 @@
     {
       "symbolId": "workbench.runtime-definition",
       "kind": "file",
-      "path": "src/http/routes-runtime-definition.ts",
+      "path": "src/transport/api-server.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000012",
@@ -1291,6 +1309,7 @@
       ],
       "verifies": [
         "workbench.runtime-definition",
+        "crdd-server.execution.runtime-definition",
         "workbench.http.workspace",
         "access-management.repository-access",
         "execution-model.public-api"
@@ -1392,17 +1411,9 @@
     {
       "symbolId": "workbench-server.source.src.server.request.parse-json",
       "kind": "file",
-      "path": "src/request/parse-json.ts",
+      "path": "src/transport/parse-json.ts",
       "archIds": [
         "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "workbench-server.source.src.server.request.snapshot",
-      "kind": "file",
-      "path": "src/request/snapshot.ts",
-      "archIds": [
-        "ARCH-000014"
       ]
     },
     {

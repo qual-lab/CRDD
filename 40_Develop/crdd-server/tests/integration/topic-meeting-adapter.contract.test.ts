@@ -30,7 +30,7 @@ import {
 } from "../../../document-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
-  getMcpTopicMeetingToolDefinitions,
+  getTopicMeetingToolDefinitions,
   handleMcpTopicMeetingRequest,
   MCP_COORDINATOR_PROTOCOL_VERSION,
   MCP_MEETING_CREATE_TOOL,
@@ -42,7 +42,7 @@ import {
   MCP_TOPIC_MEETING_TOOLS,
   MCP_TOPIC_PROMOTE_TOOL,
   MCP_TOPIC_UPDATE_TOOL,
-} from "../../src/mcp/core.ts";
+} from "../../src/transport/mcp-server.ts";
 import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
 
 const META = Object.freeze({
@@ -623,7 +623,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
       id: 1,
       error: { code: -32603, message: "Internal error" },
     });
-    for (const definition of getMcpTopicMeetingToolDefinitions()) {
+    for (const definition of getTopicMeetingToolDefinitions()) {
       const properties = definition.inputSchema.properties;
       if ("id" in properties) {
         const schema = properties.id as { pattern: string };

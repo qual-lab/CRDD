@@ -218,7 +218,7 @@ test("変更した意味に対応する試験を選び、未分類の実装変�
       ["unit", "integration", "system"].includes(entry.level),
   );
   const consumerIds = [
-    "mcp:unit:orchestrator",
+    "mcp:integration:execution-tools",
     "mcp:system:stdio",
     "mcp:system:streamable-http",
   ];
@@ -468,7 +468,7 @@ test("production・support・fixture変更はownerのUT／IT／ST全件へ閉じ
     )
     .map((entry) => entry.id)
     .concat([
-      "mcp:unit:orchestrator",
+      "mcp:integration:execution-tools",
       "mcp:system:stdio",
       "mcp:system:streamable-http",
     ])

@@ -14,8 +14,8 @@ import {
   type FormEvent,
 } from "react";
 import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
-import type { WorkbenchMainViewModel } from "../../../../crdd-server/src/view/validation.ts";
-import { inspectWorkbenchClientModel } from "../../../../crdd-server/src/view/validation.ts";
+import type { MainViewResponse } from "../api/response.ts";
+import { validateViewResponse } from "../api/response.ts";
 import { requestWorkbench } from "../api/connection.ts";
 import { readWorkbenchQuery } from "../api/queries.ts";
 
@@ -67,7 +67,7 @@ export function Connection(): ReactElement {
 export function Credentials({
   model,
 }: {
-  model: Pick<WorkbenchMainViewModel, "actionToken" | "credentials">;
+  model: Pick<MainViewResponse, "actionToken" | "credentials">;
 }): ReactElement {
   const [view, setView] = useState(model.credentials);
   const [secret, setSecret] = useState<string | null>(null);
@@ -114,19 +114,16 @@ export function Credentials({
       body.append(key, value);
     }
     try {
-      const response = await requestWorkbench(
-        "/connection-credentials/action",
-        {
-          method: "POST",
-          body,
-          credentials: "same-origin",
-          cache: "no-store",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            accept: "application/json",
-          },
+      const response = await requestWorkbench("/api/access/credentials", {
+        method: "POST",
+        body,
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          accept: "application/json",
         },
-      );
+      });
       const value: unknown = await response.json();
       if (!value || typeof value !== "object" || Array.isArray(value))
         throw new Error("credential_response_invalid");
@@ -187,7 +184,7 @@ export function Credentials({
         "credentials-view",
         new AbortController().signal,
         async (signal) => {
-          const refreshed = await requestWorkbench("/api/workbench-view", {
+          const refreshed = await requestWorkbench("/api/workbench/view", {
             cache: "no-store",
             credentials: "same-origin",
             headers: { accept: "application/json" },
@@ -195,7 +192,7 @@ export function Credentials({
           });
           if (!refreshed.ok)
             throw new Error("credential_projection_unavailable");
-          return inspectWorkbenchClientModel(await refreshed.json());
+          return validateViewResponse(await refreshed.json());
         },
       );
       if (nextModel.view === "main") {

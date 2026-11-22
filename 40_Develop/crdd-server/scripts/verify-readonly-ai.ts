@@ -21,14 +21,8 @@ import {
   readRepositoryRevision,
   getRepository,
 } from "../../version-control/src/index.ts";
-import {
-  readWorkbenchProjectSurface,
-  startWorkbench,
-} from "../src/http/start.ts";
-import type {
-  WorkbenchAiRequestSnapshot,
-  WorkbenchAiRequests,
-} from "../src/execution/ai-request-types.ts";
+import { readProjectViewData, startWorkbench } from "../src/app.ts";
+import type { AiRequestSnapshot, AiRequests } from "../src/app.ts";
 import {
   assessVerificationDockerInventory,
   createWorkbenchAiVerificationHttpClient,
@@ -98,7 +92,7 @@ async function main() {
     hash(JSON.stringify(canonical())) === hash(JSON.stringify(before)) &&
     readRepositoryAiSelection(verified.capability, getModelCatalog().catalog)
       .snapshot?.identity === configHash;
-  const surface = await readWorkbenchProjectSurface(root);
+  const surface = await readProjectViewData(root);
   const gitUser = readGitUser(verified.capability);
   const principalId =
     gitUser.status === "completed"
@@ -126,9 +120,9 @@ async function main() {
   let clientCloseFailure: string | null = null;
   let closeConfirmed = false;
   let timedOut = false;
-  let result: WorkbenchAiRequestSnapshot | null = null;
+  let result: AiRequestSnapshot | null = null;
   let acceptedRequestId: string | null = null;
-  let client: WorkbenchAiRequests | null = null;
+  let client: AiRequests | null = null;
   let clientCleanupUnconfirmed = false;
   let failureStep: "start" | "observe" | "cancel" = "start";
   let transportFailure: ReturnType<typeof projectVerificationTransportFailure> =

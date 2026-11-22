@@ -19,7 +19,7 @@
 
 本書はv0.22 Featureの現在のCLI・MCP・Workbenchの操作・表示参照である。Sourceから確認した受付・結果搬送と、UIとして維持する表示要求・未評価の利用品質を区別する。過去の端末確認・署名版E2Eは当時のEvidenceとGit履歴に残し、現在の表示成立へ転用しない。
 
-現在の接続は[配布Coordinator入口](../template/tools/crdd-coordinator.ts)→[CLI起動](../40_Develop/coordinator/bin/coordinator.ts)→[対象・操作の受付](../40_Develop/coordinator/src/cli/command.ts)→用途別APIである。[MCP入口](../template/tools/crdd-mcp-server.ts)と[Workbench](../06_Architecture/Details/workbench-server/01_Architecture.md)は各Transport・認証の境界を保持する。CLIの利用条件を、そのままMCP／HTTPの認証済み主体や認可へ流用しない。
+現在の接続は[配布Coordinator入口](../template/tools/crdd-coordinator.ts)→[CLI起動](../40_Develop/coordinator/bin/coordinator.ts)→[対象・操作の受付](../40_Develop/coordinator/src/cli/command.ts)→用途別APIである。[CRDD Server配布入口](../template/tools/crdd-server.ts)と[Workbench](../06_Architecture/Details/workbench-server/01_Architecture.md)は各Transport・認証の境界を保持する。CLIの利用条件を、そのままMCP／HTTPの認証済み主体や認可へ流用しない。
 
 ## 2. 操作接点と表示構造
 

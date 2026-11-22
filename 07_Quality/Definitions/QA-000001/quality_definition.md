@@ -216,7 +216,7 @@ v0.22のWorkbench AI Profile Catalogでは、`RCM-IT-005`により、永続Snaps
 
 Browserは五役割の既定値・作業分類・分類別上書きをRepositoryごとに表示する。任意の明示選択と設定由来の選定を区別し、技術カタログから認証・Quota・現在の利用可能性を推定しない。Workbenchの設定変更はmanager／administratorかつ選択Repositoryのdevelopment認可を必要とする。Localは検証済みRootへ固定し、Host共通Catalogへ保存しない。
 
-`RCM-IT-005`は `/api/ai-selection` と `/ai-selection/action` の閉入力、期待IdentityによるCAS、競合時保存0、saved／conflict／blocked／unknown、読取り後と保存後の現在認可、応答喪失と既知保存後のGET故障の分離を確認する。共通16KiB制限は維持し、AI設定だけは正式1MiBとForm encodingを収容する有界入力を使う。Body超過とStore容量超過で保存しない。大きな設定の通常保存・読戻しも同じ既存Storeで確認する。
+`RCM-IT-005`は `/api/ai-selection` と `/api/ai-selection` の閉入力、期待IdentityによるCAS、競合時保存0、saved／conflict／blocked／unknown、読取り後と保存後の現在認可、応答喪失と既知保存後のGET故障の分離を確認する。共通16KiB制限は維持し、AI設定だけは正式1MiBとForm encodingを収容する有界入力を使う。Body超過とStore容量超過で保存しない。大きな設定の通常保存・読戻しも同じ既存Storeで確認する。
 
 Browserは二重submitのPOST一回・自動再送0・fresh GET、同じ対象の全体更新中のdraftと保留要求の維持、対象変更／unmountの取消と遅延応答非採用を確認する。旧Host設定画面とMCP設定CRUDは提供しない。実AI・実認証・人間確認と本体設定移行は別の未完了Gateとして残し、局所確認を全体完成へ換算しない。AM現在認可はQA-000007の`RFD-IT-013`へ接続する。
 

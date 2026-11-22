@@ -7,7 +7,7 @@
  * @security Reactのtext escapingと既存の資格非永続化を維持する。
  */
 import type { ReactElement } from "react";
-import type { WorkbenchMainViewModel } from "../../../../crdd-server/src/view/validation.ts";
+import type { MainViewResponse } from "../api/response.ts";
 
 /**
  * Project Contextの一場面を表示する。
@@ -27,7 +27,7 @@ import type { WorkbenchMainViewModel } from "../../../../crdd-server/src/view/va
 export function ProjectScene({
   scene,
 }: Readonly<{
-  scene: WorkbenchMainViewModel["surface"]["context"]["scenes"][number];
+  scene: MainViewResponse["projectData"]["context"]["scenes"][number];
 }>): ReactElement {
   const rowOccurrences = new Map<string, number>();
   return (

@@ -19,7 +19,7 @@ import {
   createTopicMeetingActionBody,
   inspectTopicMeetingActionResult,
 } from "../api/record.ts";
-import type { WorkbenchTopicMeetingResultView } from "../../../../crdd-server/src/view/validation.ts";
+import type { RecordActionView } from "../api/response.ts";
 
 /**
  * 既存Formの一回送信・結果通知・fresh表示を共用する。
@@ -48,15 +48,13 @@ export function RecordOperationPanel({
   children: ReactNode;
   refresh: (
     signal: AbortSignal,
-    result: WorkbenchTopicMeetingResultView | null,
+    result: RecordActionView | null,
   ) => Promise<void>;
 }): ReactElement {
   const [busy, setBusy] = useState(false);
   const [current, setCurrent] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
-  const [result, setResult] = useState<WorkbenchTopicMeetingResultView | null>(
-    null,
-  );
+  const [result, setResult] = useState<RecordActionView | null>(null);
   const pending = useRef(false);
   const generation = useRef(0);
   const controller = useRef<AbortController | null>(null);
@@ -100,7 +98,7 @@ export function RecordOperationPanel({
     if (
       !(element instanceof HTMLFormElement) ||
       element.method !== "post" ||
-      new URL(element.action).pathname !== "/topic-meeting/action"
+      new URL(element.action).pathname !== "/api/records"
     )
       return;
     event.preventDefault();
@@ -124,9 +122,9 @@ export function RecordOperationPanel({
     setBusy(true);
     setResult(null);
     setNotice(null);
-    let known: WorkbenchTopicMeetingResultView | null = null;
+    let known: RecordActionView | null = null;
     try {
-      const response = await requestWorkbenchMutation("/topic-meeting/action", {
+      const response = await requestWorkbenchMutation("/api/records", {
         method: "POST",
         body: form,
         signal: owned.signal,

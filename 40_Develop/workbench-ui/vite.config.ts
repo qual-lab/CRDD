@@ -1,10 +1,10 @@
 /**
  * Workbench Browser ClientのVite Buildを定義する。
  *
- * @responsibility React ClientをNode Workbench Serverが固定Pathで配信できる単一Bundleへ変換する。
+ * @responsibility React Clientを単一Bundleにし、起動HTMLとCSSを同じ配布Directoryに含める。
  * @trace ARCH-000012
- * @input src/client/main.tsxとその依存Moduleを受け取る。
- * @returns dist/client/assets/workbench-client.jsを生成するVite設定を返す。
+ * @input src/client/main.tsxとその依存Module、publicの固定HTML・CSS。
+ * @returns dist/clientに固定名のHTML・CSS・JSを用意するVite設定。
  * @precondition Node.jsとpackage-lock.jsonで固定したVite Toolchainが利用可能である。
  * @postcondition Serverがallowlist配信できる固定名のES Moduleが生成される。
  * @effect 40_Develop/workbench-ui/dist/clientだけを生成または置換する。

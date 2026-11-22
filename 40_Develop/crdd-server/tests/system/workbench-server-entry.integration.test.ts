@@ -46,11 +46,11 @@ import {
   type FilesystemStoreRoot,
 } from "../../../access-management/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { startCrddServer } from "../../src/http/start.ts";
+import { startCrddServer } from "../../src/app.ts";
 import {
   MCP_COORDINATOR_PROTOCOL_VERSION,
   type McpAuthenticatedRequestHandlerResolver,
-} from "../../src/mcp/core.ts";
+} from "../../src/transport/mcp-server.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -88,16 +88,18 @@ async function verifyUnifiedMcpJoin(
     };
   const name = "crdd.test.unified-mcp-resolver";
   const key = Symbol.for(name);
+  const realMcp = new URL("../../src/transport/mcp-server.ts", import.meta.url);
   const stub =
     "data:text/javascript," +
     encodeURIComponent(
-      `export const createAccessMcpResolver = () => Reflect.get(globalThis, Symbol.for(${JSON.stringify(name)}));`,
+      `export { createMcpHttpRequestHandler } from ${JSON.stringify(realMcp.href)};
+      export const createAccessMcpResolver = () => Reflect.get(globalThis, Symbol.for(${JSON.stringify(name)}));`,
     );
   Reflect.set(globalThis, key, accept);
   const hooks = registerHooks({
     resolve(specifier, context, next) {
-      return specifier === "../mcp/request-authentication.ts" &&
-        context.parentURL?.endsWith("/src/http/start.ts")
+      return specifier === "./transport/mcp-server.ts" &&
+        context.parentURL?.endsWith("/src/app.ts")
         ? { url: stub, shortCircuit: true }
         : next(specifier, context);
     },
@@ -655,26 +657,90 @@ function runRejectedEntry(
 test("Workbench CLIはHelpと不正引数を起動前に処置する", () => {
   const help = runRejectedEntry(["--help"]);
   assert.equal(help.status, 0);
-  assert.match(help.stdout, /crdd-server \[--cros\]/u);
+  assert.match(help.stdout, /crdd-server \[--shared \| --mcp-stdio\]/u);
   assert.equal(help.stderr, "");
   for (const args of [
     ["--unknown"],
-    ["--cros", "--cros"],
+    ["--shared", "--shared"],
     ["--port"],
     ["--port", "-1"],
     ["--port", "65536"],
     ["--port", "NaN"],
+    ["--port", ""],
+    ["--port", "0x10"],
     ["--port", "0", "--port", "1"],
     ["--mcp"],
-    ["--cros", "--mcp", "--mcp"],
+    ["--shared", "--mcp-stdio"],
+    ["--mcp-stdio", "--mcp-stdio"],
     ["--docs", "--docs"],
-    ["--cros", "--docs"],
+    ["--shared", "--docs"],
     ["--automation", "--docs"],
   ]) {
     const rejected = runRejectedEntry(args);
     assert.equal(rejected.status, 64);
     assert.equal(rejected.stdout, "");
     assert.match(rejected.stderr, /^使い方:/u);
+  }
+});
+
+/**
+ * 公開CLIが終了中のOwnerを、残存Listenerなしでもjoinすることを確認する。
+ * @trace ERB-ST-022
+ * @stimulus 代役Ownerを接続し、Node.jsの終了eventを二重配送する。
+ * @oracle closeは一回で、Owner完了を待ってから終了する。拒否はExit 2。
+ * @cleanup 有限の同期子Processを使用し、外部Effectを発行しない。
+ */
+test("CRDD Server CLIは終了eventの重複後もOwnerの確定を待つ", () => {
+  for (const fail of [false, true]) {
+    const program = `
+      import { registerHooks } from 'node:module';
+      import { pathToFileURL } from 'node:url';
+      const entry = pathToFileURL(process.argv[1]).href;
+      const complete = ${!fail};
+      const app = \`
+        export const readProjectViewData = () => {};
+        export const readWorkbenchServerConfiguration = () => {};
+        export const startWorkbench = () => { throw new Error('unexpected mode'); };
+        export async function startCrddServer() {
+          setImmediate(() => {
+            process.emit('SIGTERM');
+            process.emit('SIGINT');
+          });
+          return { publicUrl: 'http://127.0.0.1:1', close() {
+            process.stderr.write('close_started\\\\n');
+            return new Promise((resolve, reject) => {
+              setTimeout(() => {
+                process.stderr.write('owner_settled\\\\n');
+                \${complete ? 'resolve()' : 'reject(new Error("close_failed"))'};
+              }, 50).unref();
+            });
+          }};
+        }
+      \`;
+      registerHooks({ resolve(specifier, context, next) {
+        if (specifier === '../app.ts' && context.parentURL?.endsWith('/crdd-server/src/cli/command.ts')) {
+          return { url: 'data:text/javascript,' + encodeURIComponent(app), shortCircuit: true };
+        }
+        return next(specifier, context);
+      }});
+      process.argv = [process.execPath, process.argv[1]];
+      await import(entry);
+    `;
+    const child = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", program, entry],
+      {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+        timeout: 20_000,
+        windowsHide: true,
+      },
+    );
+    assert.equal(child.error, undefined);
+    assert.equal(child.signal, null);
+    assert.equal(child.status, fail ? 2 : 0, child.stderr);
+    assert.match(child.stderr, /^close_started\r?\nowner_settled\r?\n/u);
+    assert.equal(child.stderr.match(/close_started/gu)?.length, 1);
   }
 });
 
@@ -690,14 +756,13 @@ for (const mode of [
    * @responsibility 実ListenerとCLI終了処理を同じChildで確認する。
    * @trace ERB-ST-022
    * @precondition 資格Verifierだけを持つ自己生成Hostが初期化済みである。
-   * @stimulus 最小自己生成Repositoryの--cros起動、公開設定あり／なし、統合時のMCP、鍵接続、IPC合成SIGTERM。
+   * @stimulus 最小自己生成Repositoryの--shared起動、公開設定あり／なし、統合時のMCP、鍵接続、IPC合成SIGTERM。
    * @observation 公開案内URLと内部URLの分離、HTTP拒否と認証、Child正常終了、終了後接続拒否。
    * @oracle 起動だけでRepository情報を開示せず、Signal handlerによるcloseがProcess終了を妨げない。
    * @cleanup Child終了後だけ自己生成Hostを削除する。不明時は削除しない。
    * @boundary Signal通知は試験用合成であり、Windows OS Signal搬送の証明ではない。Provider要求0。
    */
   test(`Workbench CLI ${mode}設定は正常Hostで接続し合成Signalで終了する`, async () => {
-    const unified = mode === "unified" || mode === "unified-tls";
     const testRoot = path.join(repositoryRoot, ".crdd", "tests");
     await mkdir(testRoot, { recursive: true });
     const fixture = await mkdtemp(path.join(testRoot, "workbench-entry-live-"));
@@ -740,11 +805,10 @@ for (const mode of [
           path.join(config, "workbench-server.json"),
           JSON.stringify({ publicOrigin }),
         );
-        if (unified)
-          await writeFile(
-            path.join(config, "mcp-server.json"),
-            JSON.stringify({ publicOrigin }),
-          );
+        await writeFile(
+          path.join(config, "mcp-server.json"),
+          JSON.stringify({ publicOrigin }),
+        );
       }
       const requestHeaders: Record<string, string> =
         mode === "public"
@@ -833,15 +897,7 @@ for (const mode of [
         "const {pathToFileURL}=require('node:url');process.once('message',()=>{process.emit('SIGTERM');process.disconnect();});void import(pathToFileURL(process.argv[1]).href);";
       child = spawn(
         process.execPath,
-        [
-          "--eval",
-          driver,
-          entry,
-          "--cros",
-          ...(unified ? ["--mcp"] : []),
-          "--port",
-          String(port),
-        ],
+        ["--eval", driver, entry, "--shared", "--port", String(port)],
         {
           cwd: startup,
           env: environment,
@@ -876,9 +932,7 @@ for (const mode of [
           output += chunk.toString();
           if (output.length > 65536)
             return finish(new Error("entry_output_limit"));
-          const match = /^CROS Workbench: (https?:\/\/[^\s]+)\r?\n$/u.exec(
-            output,
-          );
+          const match = /^CRDD Server: (https?:\/\/[^\s]+)\r?\n$/u.exec(output);
           if (match?.[1]) finish(null, match[1]);
         };
         /**
@@ -939,7 +993,7 @@ for (const mode of [
       const url = tls?.origin ?? internalUrl;
       assert.equal(announced, publicOrigin ?? internalUrl);
       listeningUrl = internalUrl;
-      const response = await requestEntry(`${url}/api/workbench-view`, {
+      const response = await requestEntry(`${url}/api/workbench/view`, {
         ca: tls?.ca,
         headers: requestHeaders,
         signal: AbortSignal.timeout(5000),
@@ -952,7 +1006,7 @@ for (const mode of [
       assert.equal("project" in model, false);
       if (tls) {
         await assert.rejects(
-          requestEntry(`${url}/api/workbench-view`, {
+          requestEntry(`${url}/api/workbench/view`, {
             ca: Buffer.alloc(0),
             signal: AbortSignal.timeout(5000),
           }),
@@ -962,7 +1016,7 @@ for (const mode of [
               "SELF_SIGNED_CERT_IN_CHAIN",
             ].includes((error as NodeJS.ErrnoException).code ?? ""),
         );
-        const overwritten = await requestEntry(`${url}/api/workbench-view`, {
+        const overwritten = await requestEntry(`${url}/api/workbench/view`, {
           ca: tls.ca,
           headers: {
             "x-forwarded-proto": "http",
@@ -975,7 +1029,7 @@ for (const mode of [
         assert.equal((await overwritten.json()).authenticated, false);
       }
       const selected = await requestEntry(
-        `${url}/api/workbench-view?repositoryId=repository.unavailable`,
+        `${url}/api/workbench/view?repositoryId=repository.unavailable`,
         {
           ca: tls?.ca,
           headers: requestHeaders,
@@ -987,7 +1041,7 @@ for (const mode of [
         await selected.text(),
         "local_repository_access_unavailable\n",
       );
-      const connected = await requestEntry(`${url}/local-connection/action`, {
+      const connected = await requestEntry(`${url}/api/access/connection`, {
         ca: tls?.ca,
         method: "POST",
         headers: {
@@ -1008,7 +1062,7 @@ for (const mode of [
         ...requestHeaders,
         authorization: `Bearer ${material.token}`,
       };
-      const authenticated = await requestEntry(`${url}/api/workbench-view`, {
+      const authenticated = await requestEntry(`${url}/api/workbench/view`, {
         ca: tls?.ca,
         headers,
         signal: AbortSignal.timeout(5000),
@@ -1113,10 +1167,11 @@ for (const mode of [
           ),
         );
       }
-      const management = await requestEntry(
-        `${url}/api/access-management?view=current`,
-        { ca: tls?.ca, headers, signal: AbortSignal.timeout(5000) },
-      );
+      const management = await requestEntry(`${url}/api/access?view=current`, {
+        ca: tls?.ca,
+        headers,
+        signal: AbortSignal.timeout(5000),
+      });
       assert.equal(management.status, 200);
       assert.equal((await management.json()).status, "completed");
       const profiles = await requestEntry(`${url}/api/ai-selection`, {
@@ -1126,7 +1181,7 @@ for (const mode of [
       });
       assert.equal(profiles.status, 403);
       // 未選択の共有接続は起動Rootや旧Host Catalogへfallbackしない。
-      const unrelated = await requestEntry(`${url}/api/workbench-view`, {
+      const unrelated = await requestEntry(`${url}/api/workbench/view`, {
         ca: tls?.ca,
         headers: requestHeaders,
         signal: AbortSignal.timeout(5000),
@@ -1142,7 +1197,7 @@ for (const mode of [
       assert.deepEqual(result, { kind: "exit", status: 0, signal: null });
       assert.equal(diagnostic, "");
       await assert.rejects(
-        fetch(`${internalUrl}/api/workbench-view`, {
+        fetch(`${internalUrl}/api/workbench/view`, {
           signal: AbortSignal.timeout(2000),
         }),
       );
@@ -1172,7 +1227,7 @@ for (const mode of [
       ) {
         if (listeningUrl)
           await assert.rejects(
-            fetch(`${listeningUrl}/api/workbench-view`, {
+            fetch(`${listeningUrl}/api/workbench/view`, {
               signal: AbortSignal.timeout(2000),
             }),
           );
@@ -1191,14 +1246,14 @@ for (const mode of [
  * @responsibility Host設定の有無から利用modeを推測・補完しない。
  * @trace ERB-ST-022
  * @precondition Trust Domain環境を空にし、実Host設定へ到達させない。
- * @stimulus --cros --port 0を実CLIへ渡す。
+ * @stimulus --shared --port 0を実CLIへ渡す。
  * @observation Exit2、固定診断、Listenerの起動通知なし。
  * @oracle 単体Repositoryの内容を返すServerを暗黙起動しない。
  * @cleanup Processの同期終了を確認する。Host Rootは作成しない。
  * @boundary Host Root不存在／破損と正常構成は別Caseで検証する。
  */
 test("Workbench CLIはCROS環境不足を単体fallbackせず拒否する", () => {
-  const result = runRejectedEntry(["--cros", "--port", "0"]);
+  const result = runRejectedEntry(["--shared", "--port", "0"]);
   assert.equal(result.status, 2);
   assert.equal(result.stdout, "");
   assert.match(result.stderr, /単体へ切り替えず停止しました/u);
@@ -1233,7 +1288,7 @@ test("Workbench CLIは不存在・未初期化・破損Hostを変更せず停止
     };
     const input = resolveHostRootInput(environment);
     assert.ok(input, "test_platform_requires_host_root_input");
-    const absent = runRejectedEntry(["--cros", "--port", "0"], environment);
+    const absent = runRejectedEntry(["--shared", "--port", "0"], environment);
     assert.equal(absent.status, 2);
     assert.equal(absent.stdout, "");
     assert.match(absent.stderr, /単体へ切り替えず停止しました/u);
@@ -1243,7 +1298,7 @@ test("Workbench CLIは不存在・未初期化・破損Hostを変更せず停止
     assert.equal(prepared.status, "ready");
     if (prepared.status !== "ready")
       throw new Error("test_host_preparation_failed");
-    const fresh = runRejectedEntry(["--cros", "--port", "0"], environment);
+    const fresh = runRejectedEntry(["--shared", "--port", "0"], environment);
     assert.equal(fresh.status, 2);
     assert.equal(fresh.stdout, "");
     assert.match(fresh.stderr, /単体へ切り替えず停止しました/u);
@@ -1252,7 +1307,7 @@ test("Workbench CLIは不存在・未初期化・破損Hostを変更せず停止
     const state = path.join(prepared.root.root, "access-management.json");
     const invalid = '{"contract":"invalid-fixture"}\n';
     await writeFile(state, invalid, "utf8");
-    const corrupt = runRejectedEntry(["--cros", "--port", "0"], environment);
+    const corrupt = runRejectedEntry(["--shared", "--port", "0"], environment);
     assert.equal(corrupt.status, 2);
     assert.equal(corrupt.stdout, "");
     assert.match(corrupt.stderr, /単体へ切り替えず停止しました/u);

@@ -15,12 +15,9 @@ import {
   useLocation,
   useNavigation,
 } from "react-router";
-import type {
-  WorkbenchClientModel,
-  WorkbenchTopicMeetingResultView,
-} from "../../../crdd-server/src/view/validation.ts";
+import type { ViewResponse, RecordActionView } from "./api/response.ts";
 import { WorkbenchApp } from "./app.tsx";
-import { readWorkbenchClientModel } from "./api/view.ts";
+import { readViewResponse } from "./api/view.ts";
 import { readWorkbenchConnectionGeneration } from "./api/connection.ts";
 
 const modelRoutes = new Set([
@@ -71,7 +68,7 @@ export function createWorkbenchRouter(root: HTMLElement) {
   let deletion: Readonly<{
     target: string;
     repositoryId: string | null;
-    result: WorkbenchTopicMeetingResultView;
+    result: RecordActionView;
     generation: number;
   }> | null = null;
 
@@ -93,7 +90,7 @@ export function createWorkbenchRouter(root: HTMLElement) {
   async function replaceDeletedRecord(
     target: URL,
     repositoryId: string | null,
-    result: WorkbenchTopicMeetingResultView,
+    result: RecordActionView,
   ): Promise<void> {
     if (target.origin !== location.origin || target.pathname !== "/")
       throw new Error("workbench_view_unavailable");
@@ -178,7 +175,7 @@ export function createWorkbenchRouter(root: HTMLElement) {
    * @concurrency 通常の取得ではpendingで再生成し、hash-onlyでは画面内入力を維持する。
    */
   function CurrentView(): ReactElement {
-    const model = useLoaderData<WorkbenchClientModel>();
+    const model = useLoaderData<ViewResponse>();
     const location = useLocation();
     useLayoutEffect(() => {
       root.dataset.workbenchClient = "ready";
@@ -231,7 +228,7 @@ export function createWorkbenchRouter(root: HTMLElement) {
           )
             deletion = null;
           try {
-            const model = await readWorkbenchClientModel(url, request.signal);
+            const model = await readViewResponse(url, request.signal);
             if (notice && deletion === notice) {
               deletion = null;
               if (
@@ -240,7 +237,7 @@ export function createWorkbenchRouter(root: HTMLElement) {
                 notice.generation === readWorkbenchConnectionGeneration() &&
                 model.selectedRepositoryId === notice.repositoryId
               )
-                return { ...model, topicMeetingResult: notice.result };
+                return { ...model, recordActionResult: notice.result };
             }
             return model;
           } catch (error) {

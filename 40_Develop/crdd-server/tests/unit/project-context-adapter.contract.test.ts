@@ -10,8 +10,8 @@
  */
 import assert from "node:assert/strict";
 import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
-import type { McpServerDependencies } from "../../src/mcp/request-server.ts";
-import { createMcpServerFactory } from "../../src/mcp/request-server.ts";
+import type { McpServerDependencies } from "../../src/transport/mcp-server.ts";
+import { createMcpServerFactory } from "../../src/transport/mcp-server.ts";
 import test from "node:test";
 
 import type { PortfolioProjection } from "../../../document-model/src/index.ts";
@@ -20,11 +20,39 @@ import {
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
   MCP_COORDINATOR_PROTOCOL_VERSION,
-} from "../../src/mcp/core.ts";
+} from "../../src/transport/mcp-server.ts";
 
 const META = Object.freeze({
   "io.modelcontextprotocol/protocolVersion": MCP_COORDINATOR_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
+});
+
+/** 公開の直接呼出しが従来の引数オブジェクト境界を維持する。 @trace PPR-UT-006 */
+test("Project Contextは公開直接呼出しの引数形を維持する", async () => {
+  const raw = call(MCP_PROJECT_CONTEXT_LIST_TOOL, {});
+  let reads = 0;
+  const dependencies = {
+    readPortfolio: async () => {
+      reads++;
+      return portfolio();
+    },
+  };
+  const invalid = {
+    ...raw,
+    params: Object.assign(Object.create(null), raw.params),
+  };
+  const result = await handleMcpProjectContextRequest(invalid, dependencies);
+  assert.equal(result.error?.code, -32602);
+  assert.equal(reads, 0);
+
+  const params = { ...raw.params };
+  Object.defineProperty(params, "arguments", { enumerable: false });
+  const accepted = await handleMcpProjectContextRequest(
+    { ...raw, params },
+    dependencies,
+  );
+  assert.equal(accepted.error, undefined);
+  assert.equal(reads, 1);
 });
 
 /**
@@ -247,7 +275,7 @@ test("MCP application publishes runtime and context tools without conflating the
   assert.ok(tools.some(({ name }) => name === MCP_PROJECT_CONTEXT_LIST_TOOL));
   assert.ok(tools.some(({ name }) => name === MCP_PROJECT_CONTEXT_GET_TOOL));
   assert.equal(
-    tools.filter(({ name }) => name === "crdd.get_coordinator_state").length,
+    tools.filter(({ name }) => name === "crdd.get_execution_state").length,
     1,
   );
   assert.equal(

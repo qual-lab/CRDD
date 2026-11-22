@@ -11,12 +11,12 @@ import { requestWorkbench } from "./connection.ts";
 
 const client = new QueryClient();
 const routes = new Set([
-  "/access-management/action",
-  "/ai-selection/action",
-  "/topic-meeting/action",
-  "/repository/action",
-  "/workspace/action",
-  "/ai-request/action",
+  "/api/access",
+  "/api/ai-selection",
+  "/api/records",
+  "/api/repository",
+  "/api/workspace",
+  "/api/ai-request",
 ]);
 
 /**

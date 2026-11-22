@@ -27,29 +27,50 @@ import {
 import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
-  getMcpExecutionStatusToolDefinitions,
+  getExecutionActivityToolDefinitions,
   MCP_COORDINATOR_PROTOCOL_VERSION,
-  MCP_EXECUTION_STATUS_TOOL,
-} from "../../src/mcp/core.ts";
+  EXECUTION_ACTIVITY_TOOL,
+} from "../../src/transport/mcp-server.ts";
 import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
 
 /**
- * 配布MCP入口がCoordinatorの公開Rootへ直接接続することを確認する。
+ * 配布MCPが統合Serverを経由してCoordinatorの公開Rootへ接続することを確認する。
  * @responsibility 呼出し先のOwner迂回を検出する。
  * @trace PRL-IT-012
  * @precondition Repository内の現行Sourceが読取り可能である。
- * @stimulus 配布MCP入口のSourceを読み取る。
- * @observation CoordinatorのModule specifierを取得する。
+ * @stimulus 配布MCP入口、Serverの活動Tool、共通の活動照会のSourceを読み取る。
+ * @observation 統合Serverへの接続、共通の活動照会の呼出し、CoordinatorのModule specifierを照合する。
  * @oracle 統合Rootへの接続を維持する。
  * @cleanup N/A: Sourceの読取りのみ。
  * @boundary 配布MCP入口→Coordinator公開入口のSource配線。
  */
-test("配布MCP入口は業務Ownerへ直接接続する", () => {
-  const source = fs.readFileSync(
-    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
+test("配布MCPの活動照会は統合Server経由で業務Ownerへ接続する", () => {
+  const launcher = fs.readFileSync(
+    new URL("../../../../template/tools/crdd-server.ts", import.meta.url),
     "utf8",
   );
-  assert.match(source, /coordinator\/src\/index\.ts/);
+  assert.match(launcher, /crdd-server\/bin\/crdd-server\.ts/u);
+  const command = fs.readFileSync(
+    new URL("../../src/cli/command.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    command,
+    /createMcpServerFactory\(createLocalMcpDependencies\(repositoryRoot\)\)/u,
+  );
+  const server = fs.readFileSync(
+    new URL("../../src/transport/mcp-server.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(server, /return readAuthorizedRuntimeActivity\(/u);
+  const activity = fs.readFileSync(
+    new URL("../../src/service/execution.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    activity,
+    /export async function readAuthorizedRuntimeActivity[\s\S]*?const \{ queryActivity \} = await import\(\s*"\.\.\/\.\.\/\.\.\/coordinator\/src\/index\.ts"/u,
+  );
 });
 
 /**
@@ -57,17 +78,17 @@ test("配布MCP入口は業務Ownerへ直接接続する", () => {
  * @responsibility 通信名の変更と旧名でのReader非実行を確認する。
  * @trace EST-IT-014
  * @precondition 認可済み読取り依存と有効なMCP metadataを用意する。
- * @stimulus 一覧を取得し、旧名と新名で同じ引数を送る。
+ * @stimulus 一覧と新旧Tool名を確認し、読取り中に元のProject IDを書き換える。
  * @observation 公開名、旧名拒否、Reader呼出し数と新名の結果を観測する。
- * @oracle 新名だけを公開し、旧名は-32601かつReader零回、新名は一回呼ぶ。
+ * @oracle 旧名は-32601でReader零回、新名の結果は受付時のProject IDと照合する。
  * @cleanup N/A: 永続状態・外部資源を生成しない。
  * @boundary MCP公開名とCoordinator Readerの境界。
  */
 test("実行状況MCPは新Tool名だけを公開・受付する", async () => {
-  assert.equal(MCP_EXECUTION_STATUS_TOOL, "crdd.get_execution_status");
+  assert.equal(EXECUTION_ACTIVITY_TOOL, "crdd.get_execution_activity");
   assert.deepEqual(
-    getMcpExecutionStatusToolDefinitions().map((tool) => tool.name),
-    ["crdd.get_execution_status"],
+    getExecutionActivityToolDefinitions().map((tool) => tool.name),
+    ["crdd.get_execution_activity"],
   );
   let reads = 0;
   const dependencies = {
@@ -77,7 +98,7 @@ test("実行状況MCPは新Tool名だけを公開・受付する", async () => {
         retainedAsSourceOfTruth: false as const,
       }),
     },
-    runtimeActivity: {
+    executionActivity: {
       read: async () => {
         reads += 1;
         return null;
@@ -110,21 +131,63 @@ test("実行状況MCPは新Tool名だけを公開・受付する", async () => {
     },
   });
   const signal = new AbortController().signal;
-  const old = await invokeMcpRequest(
-    request("crdd.get_runtime_activity"),
-    dependencies,
-    signal,
-  );
-  assert.ok("error" in old);
-  assert.equal(old.error.code, -32601);
-  assert.equal(reads, 0);
+  for (const oldName of [
+    "crdd.get_runtime_activity",
+    "crdd.get_execution_status",
+  ]) {
+    const old = await invokeMcpRequest(request(oldName), dependencies, signal);
+    assert.ok("error" in old);
+    assert.equal(old.error.code, -32601);
+    assert.equal(reads, 0);
+  }
   const current = await invokeMcpRequest(
-    request("crdd.get_execution_status"),
+    request("crdd.get_execution_activity"),
     dependencies,
     signal,
   );
   assert.ok("result" in current);
   assert.equal(reads, 1);
+
+  for (const returnedProjectId of ["PRJ-MCP", "other-project"]) {
+    const input = request(EXECUTION_ACTIVITY_TOOL);
+    let requested: string | undefined;
+    const result = await invokeMcpRequest(
+      input,
+      {
+        executionActivity: {
+          read: async ({ projectId }) => {
+            requested = projectId;
+            input.params.arguments.projectId = "other-project";
+            return {
+              projectId: returnedProjectId,
+              state: "absent",
+              reason: "runtime_activity_state_absent",
+              projection: null,
+              eventState: "observed",
+              eventReason: "runtime_activity_events_observed",
+              events: [],
+              eventContinuation: null,
+              sources: [{ repositoryId: "fixture-repository", revision: null }],
+              currentSourceRepositoryId: null,
+            };
+          },
+        },
+      },
+      signal,
+    );
+    assert.equal(requested, "PRJ-MCP");
+    if (returnedProjectId === "PRJ-MCP") {
+      assert.ok("result" in result);
+      assert.deepEqual(
+        (result.result as { structuredContent: { projectId: string } })
+          .structuredContent.projectId,
+        "PRJ-MCP",
+      );
+    } else {
+      assert.ok("error" in result);
+      assert.equal(result.error.code, -32603);
+    }
+  }
 });
 
 /**
@@ -157,7 +220,7 @@ test("Runtime活動MCPは開始済みReaderをjoinしてから取消を返す", 
     id: 1,
     method: "tools/call",
     params: {
-      name: MCP_EXECUTION_STATUS_TOOL,
+      name: EXECUTION_ACTIVITY_TOOL,
       arguments: { projectId: "PRJ-MCP" },
       _meta: {
         "io.modelcontextprotocol/protocolVersion":
@@ -178,7 +241,7 @@ test("Runtime活動MCPは開始済みReaderをjoinしてから取消を返す", 
           retainedAsSourceOfTruth: false,
         }),
       },
-      runtimeActivity: {
+      executionActivity: {
         read: async () => {
           cancelledReadCount += 1;
           return null;
@@ -199,7 +262,7 @@ test("Runtime活動MCPは開始済みReaderをjoinしてから取消を返す", 
           retainedAsSourceOfTruth: false,
         }),
       },
-      runtimeActivity: {
+      executionActivity: {
         read: async () => {
           readStarted = true;
           markStarted();

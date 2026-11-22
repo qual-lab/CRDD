@@ -67,9 +67,9 @@ export function createReadonlyVerificationTiming() {
   }[] = [];
   const responses = new WeakMap<ServerResponse, ServerTiming>();
   const routeOf = (route: string): Route | null =>
-    route === "/api/workbench-view?route=%2F"
+    route === "/api/workbench/view?route=%2F"
       ? "view"
-      : route === "/ai-request/action"
+      : route === "/api/ai-request"
         ? "action"
         : null;
   /**
@@ -181,8 +181,8 @@ export function createReadonlyVerificationTiming() {
           method: timing.method,
           route:
             routeKind === "view"
-              ? "/api/workbench-view?route=%2F"
-              : "/ai-request/action",
+              ? "/api/workbench/view?route=%2F"
+              : "/api/ai-request",
           startedAt: timing.startedAt,
           requestCreatedAt: timing.requestCreatedAt,
           headersSendingAt: timing.headersSendingAt,

@@ -426,7 +426,7 @@ Hostから渡すSeccompはImageの外なので、実行時の実体・容量・H
 
 ## Workspace方式の追加検証条件（2026-10-17）
 
-検証HTTP Clientの期限は`ERB-IT-021`でRoute別に反証する。exact `/workspace/action`はget等を含む全操作でHTTP60秒・親65秒、AI受付・取消の `/ai-request/action` とAI状態観測を含むWorkbench viewの `/api/workbench-view?route=%2F` はHTTP15秒・親20秒、共通の終了確認2秒とする。有限時計で設定値・期限超過・一回abort・Reader回収・子の終了未確認・late frame／close・再送零を確認し、実loopbackでは15秒超かつ60秒内のWorkspace応答と、他Routeの15秒拒否を別々に確認する。時刻observerの例外で一次結果を変更しない。これは検証Toolの有限待機であり、製品性能や任意Repositoryでの完了保証ではない。
+検証HTTP Clientの期限は`ERB-IT-021`でRoute別に反証する。exact `/api/workspace`はget等を含む全操作でHTTP60秒・親65秒、AI受付・取消の `/api/ai-request` とAI状態観測を含むWorkbench viewの `/api/workbench/view?route=%2F` はHTTP15秒・親20秒、共通の終了確認2秒とする。有限時計で設定値・期限超過・一回abort・Reader回収・子の終了未確認・late frame／close・再送零を確認し、実loopbackでは15秒超かつ60秒内のWorkspace応答と、他Routeの15秒拒否を別々に確認する。時刻observerの例外で一次結果を変更しない。これは検証Toolの有限待機であり、製品性能や任意Repositoryでの完了保証ではない。
 
 Coordinator借用接続の追加断面は、`ERB-IT-006`の通常二役割・一回是正・範囲逸脱停止・取消、`RFD-IT-013`／`PRL-IT-013`の実GitでのDirect／Isolated入力搬送・開始dirty基準・二Task継続・元Tree／Branch保全、`ERB-UT-023`の三Mount計画と回収観測照合に割り当てる。旧Bundle準備／保存へ進まないこと、Reader拒否でfallbackしないこと、欠測を変更なしやTree保持済みへ補完しないことを確認する。局所代役の成功を実Provider・公開E2EのPassへ拡張しない。
 
@@ -758,14 +758,14 @@ Provider差の純粋検証は、`ARCH-000004`／`ARCH-000015`の結果変換と`
 
 `ERB-IT-021`のNode実行閉包ケースでは、Workbench CLI入口とRuntime value import／re-export／literal dynamic import Graphを固定入力とし、type-only参照を実行依存へ数えず再帰走査する。到達Source、外部module specifier、`.tsx`および`client/`到達を観測し、Serverへ到達する一方でBrowser描画Module、`.tsx`、`client/`および`react`／`react/*`への到達が0であることをOracleとする。Evidenceには固定Tree、入口、到達Source集合Hash、外部module集合、除外したtype-only宣言数、禁止到達件数およびOracle判定を保存し、Source本文と絶対Pathは保存しない。
 
-`ERB-IT-021`のBrowser Bundle配布閉包ケースでは、再編後の`40_Develop/workbench-ui/dist/client/assets/workbench-client.js`を固定Pathとし、次の段階を分けて確認する。BundleはWorkbench配布物の入力であり、Coordinatorの署名実行閉包へ無条件に含めない。以下は新配置に対する検証計画である。旧配置でのBuild成功は過去の根拠として保持するが、新配置の成功へ流用しない。
+`ERB-IT-021`のUI配布閉包ケースでは、`40_Develop/workbench-ui/dist/client` の `index.html`、`workbench.css`、`assets/workbench-client.js` を固定Pathとし、次の段階を分けて確認する。3点はWorkbench配布物の入力であり、Coordinatorの署名実行閉包へ無条件に含めない。`/index.html` を含む既存画面URLとCSS・JSの固定URLを維持し、許可対象外の配信や配布物欠落時の起動を拒否する。旧配置でのBuild成功は過去の根拠として保持するが、新配置の成功へ流用しない。
 
 | 段階 | 条件・操作 | 観測 | Oracle | 現在状態 |
 |---|---|---|---|---|
-| 1. Build／Git追跡 | Vite Buildを実行し、固定Pathの生成物とGit追跡集合を確認する | Build結果、固定Pathの存在、`git ls-files`の収載、追跡Bundle差分 | Build成功、固定Pathが通常Fileとして存在し、同じPathがGit追跡対象であり、再Build後に意図しない差分がない | OPEN — 新配置への移管後に確認 |
+| 1. Build／Git追跡 | Vite Buildを実行し、固定Pathの生成物とGit追跡集合を確認する | Build結果、固定3点の存在、`git ls-files`の収載、追跡配布物の差分 | Build成功、固定3点が通常Fileとして存在し、同じPathがGit追跡対象であり、再Build後に意図しない差分がない | OPEN — 固定候補で確認 |
 | 2. Source Commit収載 | 固定候補CommitのTreeを確認する | Commit、Tree、固定PathのBlob | 固定Pathが配布元のSource Commitへ収載されている | OPEN — 移管Commit後に確認 |
-| 3. Workbench配布物収載 | 固定Source Commitから提供するWorkbench配布集合を確認する | Source Commit、固定Path、Asset Hash、配布集合 | 配布集合にSource Commitと同一の固定Bundleが存在し、起動時Buildや未追跡追加を必要としない | OPEN — 新配布集合で確認 |
-| 4. 配布Runtime直接起動 | Build Toolchainを持ち込まず、Workbench配布入口を起動する | Runtime import Graph、HTTP起動、Shell／Asset応答、終了後Listener | Node RuntimeがReact／Viteへ依存せず、固定Bundleを配信して直接起動でき、終了後Listenerが残らない | OPEN — 新配布入口の直接起動で確認 |
+| 3. Workbench配布物収載 | 固定Source Commitから提供するWorkbench配布集合を確認する | Source Commit、固定Path、Asset Hash、配布集合 | 配布集合にSource Commitと同一の固定3点が存在し、起動時Buildや未追跡追加を必要としない | OPEN — 新配布集合で確認 |
+| 4. 配布Runtime直接起動 | Build Toolchainを持ち込まず、Workbench配布入口を起動する | Runtime import Graph、HTTP起動、Shell／Asset応答、終了後Listener | Node RuntimeがReact／Viteへ依存せず、固定配布物を既存URLで配信して直接起動でき、終了後Listenerが残らない | OPEN — 新配布入口の直接起動で確認 |
 
 Evidenceには各段階のCommit／Tree、固定Path、Asset Hash、Git追跡判定、Runtime外部module集合、HTTP応答、終了後状態およびOracle判定を保存する。Source本文、絶対PathおよびBundle本文全量は保存しない。前段Passから後段成立を推定せず、旧署名候補を新しい配布閉包の根拠へ流用しない。
 

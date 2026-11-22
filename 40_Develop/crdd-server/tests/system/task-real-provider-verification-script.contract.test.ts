@@ -27,11 +27,8 @@ import { PassThrough } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import {
-  handleMcpCoordinatorRequest,
-  MCP_COORDINATOR_STATE_TOOL,
-} from "@qual-lab/crdd-server/automation";
-import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/mcp/core.ts";
+import { invokeMcpCoordinatorRequest } from "../fixtures/sdk-request.ts";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-server.ts";
 import { inspectTaskStageDiagnostic } from "../../../coordinator/scripts/task-diagnostic.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 
@@ -44,6 +41,7 @@ import {
 const fixture = fileURLToPath(
   new URL("../fixtures/task-public-process-probe.ts", import.meta.url),
 );
+const MCP_COORDINATOR_STATE_TOOL = "crdd.get_execution_state";
 const verificationScriptSource = fs.readFileSync(
   fileURLToPath(
     new URL("../../scripts/verify-task-real-providers.ts", import.meta.url),
@@ -102,9 +100,14 @@ test("起動設定はDesktop所在を任意搬送し操作中に環境を再取�
     ),
     "utf8",
   );
-  const body = stripTypeScriptTypes(
-    source.slice(source.indexOf("const isolationSettings =")),
-  ).replace("export function", "function");
+  const start = source.indexOf("const isolationSettings =");
+  const reader = source.indexOf("export function getIsolationSettings(", start);
+  const end = source.indexOf("\n}", reader);
+  assert.ok(start >= 0 && reader > start && end > reader);
+  const body = stripTypeScriptTypes(source.slice(start, end + 2)).replace(
+    "export function",
+    "function",
+  );
   for (const local of [undefined, "C:\\Users\\fixture\\AppData\\Local"]) {
     const env = { SystemRoot: "C:\\Windows", LOCALAPPDATA: local };
     let calls = 0;
@@ -442,7 +445,14 @@ test("回復Matrixは親kill失敗・close欠落で回復を発行せず元IDを
           manualRecoveryRequired: true,
           operationRoot: "fixed-root",
         }),
-        recoverDockerIsolationProbe: () => {
+        getRepositoryFromWorkingDirectory: () => ({
+          status: "completed",
+          capability: "fixed-repository",
+        }),
+        resolveVerifiedRepositoryRoot: () => "fixed-root",
+        recoverDockerIsolationProbe: (id: string, repository: string) => {
+          assert.equal(id, "fixed-recovery");
+          assert.equal(repository, "fixed-repository");
           recoveries++;
           return {};
         },
@@ -593,7 +603,14 @@ test("回復Matrixの両子はready前失敗でも停止後closeを確認し一�
           });
           return child;
         },
-        recoverDockerIsolationProbe: () => {
+        getRepositoryFromWorkingDirectory: () => ({
+          status: "completed",
+          capability: "fixed-repository",
+        }),
+        resolveVerifiedRepositoryRoot: () => "fixed-root",
+        recoverDockerIsolationProbe: (id: string, repository: string) => {
+          assert.equal(id, "fixed-recovery");
+          assert.equal(repository, "fixed-repository");
           recoveries++;
           throw Error("synthetic_recovery_failed");
         },
@@ -1034,7 +1051,7 @@ test("実Provider E2Eは分離後の公開MCP入口だけを起動する", () =>
   );
   assert.match(
     verificationScriptSource,
-    /"template",\s*"tools",\s*"crdd-mcp-server\.ts"/u,
+    /"template",\s*"tools",\s*"crdd-server\.ts"/u,
   );
   assert.doesNotMatch(
     verificationScriptSource,
@@ -1048,7 +1065,7 @@ test("実Provider E2Eは分離後の公開MCP入口だけを起動する", () =>
   );
   assert.match(
     verificationScriptSource,
-    /spawn\(process\.execPath,\s*\[entryPath,\s*"--automation",\s*"--stdio"\]/u,
+    /spawn\(process\.execPath,\s*\[entryPath,\s*"--mcp-stdio"\]/u,
   );
 });
 /**
@@ -1341,7 +1358,7 @@ test("公開状態照会は世代取得なしで現行DTOと旧形式拒否を�
       arguments: input,
     },
   };
-  const good = await handleMcpCoordinatorRequest(request, dependencies);
+  const good = await invokeMcpCoordinatorRequest(request, dependencies);
   assert.deepEqual(
     (good.result as { structuredContent?: unknown })?.structuredContent,
     state,
@@ -1358,7 +1375,7 @@ test("公開状態照会は世代取得なしで現行DTOと旧形式拒否を�
     null,
   ]) {
     returned = invalid;
-    const response = await handleMcpCoordinatorRequest(request, dependencies);
+    const response = await invokeMcpCoordinatorRequest(request, dependencies);
     assert.equal((response.result as { isError?: boolean })?.isError, true);
     assert.equal(
       (
@@ -1375,7 +1392,7 @@ test("公開状態照会は世代取得なしで現行DTOと旧形式拒否を�
     {},
   ]) {
     const before = reads;
-    const response = await handleMcpCoordinatorRequest(
+    const response = await invokeMcpCoordinatorRequest(
       { ...request, params: { ...request.params, arguments: invalid } },
       dependencies,
     );
@@ -1738,7 +1755,7 @@ test("Orchestrator検証の固定Source観測は入口欠測と途中差を拒�
       fs: {
         lstatSync: (entry: string, options: { bigint: boolean }) => {
           calls.push(entry);
-          assert.equal(entry, "source/template/tools/crdd-mcp-server.ts");
+          assert.equal(entry, "source/template/tools/crdd-server.ts");
           assert.equal(options.bigint, true);
           if (scenario === "entry_throw") throw new Error("unavailable");
           return {
@@ -1759,7 +1776,7 @@ test("Orchestrator検証の固定Source観測は入口欠測と途中差を拒�
         assert.deepEqual(Array.from(args), ["root-capability"]);
         return {
           observeFile: (relative: string) => {
-            assert.equal(relative, "template/tools/crdd-mcp-server.ts");
+            assert.equal(relative, "template/tools/crdd-server.ts");
             return scenario === "entry_unavailable"
               ? { status: "unobservable" }
               : { status: "resolved", source: "MCP入口" };

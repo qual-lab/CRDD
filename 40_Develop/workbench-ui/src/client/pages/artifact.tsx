@@ -7,7 +7,7 @@
  * @security Reactのtext escapingと既存の資格非永続化を維持する。
  */
 import type { ReactElement } from "react";
-import type { WorkbenchArtifactViewModel } from "../../../../crdd-server/src/view/validation.ts";
+import type { ArtifactViewResponse } from "../api/response.ts";
 
 /**
  * 選択Repositoryの成果物原文をtextとして表示する。
@@ -28,7 +28,7 @@ import type { WorkbenchArtifactViewModel } from "../../../../crdd-server/src/vie
 export function ArtifactDocument({
   model,
 }: {
-  model: WorkbenchArtifactViewModel;
+  model: ArtifactViewResponse;
 }): ReactElement {
   return (
     <main

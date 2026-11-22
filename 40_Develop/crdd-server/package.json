@@ -7,18 +7,15 @@
     "enabled": false
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./mcp": "./src/mcp/core.ts",
-    "./automation": "./src/mcp/tools-task.ts",
-    "./http": "./src/http/start.ts",
-    "./browser": "./src/view/validation.ts"
+    "./mcp": "./src/transport/mcp-server.ts",
+    "./api": "./src/app.ts"
   },
   "scripts": {
     "check": "npm run format:check && npm run typecheck && npm run lint",
-    "format:check": "biome format . ../../template/tools/crdd-mcp-server.ts",
-    "lint": "biome lint . ../../template/tools/crdd-mcp-server.ts --error-on-warnings",
+    "format:check": "biome format . ../../template/tools/crdd-server.ts",
+    "lint": "biome lint . ../../template/tools/crdd-server.ts --error-on-warnings",
     "test": "npm run check && npm run test:run",
-    "test:run": "node --test --test-concurrency=1 \"--test-skip-pattern=^Host Windows:\" ./tests/unit/**/*.test.ts ./tests/integration/*.test.ts ./tests/system/*.test.ts",
+    "test:run": "node --experimental-test-module-mocks --test --test-concurrency=1 \"--test-skip-pattern=^Host Windows:\" ./tests/unit/**/*.test.ts ./tests/integration/*.test.ts ./tests/system/*.test.ts",
     "typecheck": "tsc -p ./tsconfig.json && tsc -p ./tsconfig-launcher.json",
     "build:ui": "npm --prefix ../workbench-ui run build",
     "prestart": "npm run build:ui",

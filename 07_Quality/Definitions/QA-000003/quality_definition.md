@@ -102,7 +102,7 @@ PRL-UT-006の生存依存Taskによる部分再計画拒否、再試行回数と
 
 列挙値・契約名・回復kind・判断結果のEffect状態・Candidate終了区分は、文字列型を先行確認する。PRL-UT-006／PRL-UT-014の既存試験で、toString・valueOf・Symbol.toPrimitiveとProxyを持つObjectを渡し、正常文字列の維持、不正値のnull拒否、変換hook実行0と例外非漏出を確認する。内部添字や安全整数確認済みの変換を未知入力と混同しない。
 
-PPR-UT-006／PRL-UT-006の状態照会試験で、実Producerの差戻し・回復必要を共通Parser、Objective結果、状態照会へ搬送する。PRL-UT-014のMCP試験は同じProducerの結果を両Toolへ接続し、既存のGetter／Proxy拒否、独立捕捉、回復ID／義務、Workspace相関、取消・不明・終了条件を維持する。PRL-IT-008の明示受入は公開名の本体で認証・世代・根拠・再送と保存bytes／履歴不変を確認する。新しい検証ID・試験File・保存形式は追加しない。
+PPR-UT-006／PRL-UT-006の状態照会試験で、実Producerの差戻し・回復必要を共通Parser、Objective結果、状態照会へ搬送する。PRL-IT-012のMCP試験は本番Factoryと公式SDKを使い、同じProducerの結果を両Toolへ接続し、既存のGetter／Proxy拒否、独立捕捉、回復ID／義務、Workspace相関、取消・不明・終了条件を維持する。PRL-IT-008の明示受入は公開名の本体で認証・世代・根拠・再送と保存bytes／履歴不変を確認する。新しい検証ID・試験File・保存形式は追加しない。
 
 ## Coordinator Rootの完成操作と独立受付
 
@@ -116,7 +116,7 @@ PRL-IT-012の公開Root固定集合は26値・27型の境界を確認する。�
 
 ## MCP Coreと任意実行入口の分離
 
-PRL-IT-012のruntime-definition試験は、Coordinator／Executorの読込みを拒否した子で公開Root・配布CLIの一般CRUD、再読取り、stale CAS、現在認可を維持する。任意構成の読込み失敗はCoreへfallbackせず、読込み中の取消は実行零回とする。Workspaceは待機前に元入力・配列・行を独立捕捉し、待機中の変更、Getter／Proxy、読込み失敗と取消の同時発生を有限子で反証する。PRL-UT-014の既存Adapter試験は正式automation入口の7値とCoordinator完成受付による同期結果検査を固定し、従来の入力拒否・結果相関・回復ID搬送を維持する。既存Transportの取消・Owner joinと活動Readerの終了確認は継続する。PRL-ST-001のSource試験は実Provider検証Toolの明示automation構成を固定し、撤去済みの世代取得Processを現役の終了確認へ数えない。入口分離の成功を実AI・Docker・全体回帰の成立へ一般化しない。
+PRL-IT-012のruntime-definition試験は、Coordinator／Executorの読込みを拒否した子で配布CLIのTool一覧・一般CRUD・再読取り・stale CAS・現在認可を維持する。実行系Toolの読込み失敗は当該呼出しだけを止め、読込み中の取消では実行しない。Workspaceは待機前に必要な元入力・配列・行を捕捉し、閉入力違反、待機中の元参照変更、読込み失敗と取消の同時発生を有限子で反証する。PRL-IT-012のSDK結合試験は旧Subpathの非公開、公開SDKのTool一覧、読込み待ちの元入力変更の遮断、Coordinator完成受付による同期結果検査を確認し、従来の入力拒否・結果相関・回復ID搬送を維持する。既存Transportの取消・Owner joinと活動Readerの終了確認は継続する。PRL-ST-001のSource試験は実Provider検証Toolが通常の `--mcp-stdio` を使うことを固定し、撤去済みの世代取得Processを現役の終了確認へ数えない。限定試験の成功を実AI・Docker・全体回帰の成立へ一般化しない。
 
 ## Task参照検査の局所化
 
@@ -256,11 +256,13 @@ PRL-IT-012の既存取得・解放・Owner喪失回復に、wx Fileへの接続�
 
 `PRL-IT-012`ではCoordinator／ExecutorのModule解決を拒否した実子ProcessからMCPとWorkbenchのPackage Rootを読み、正式Factory／HTTPを通して初期化・定義CRUD・保存・再読取り・古いCAS拒否を確認する。MCPの既存同期結果Inspectorも同条件で同期呼出しし、単体Toolだけの読込み成功で上位入口の成立を代用しない。Automation区画の非対象保全と保存不明は既存Domain実保存シナリオで別に確認する。
 
-Workbenchの公開binでは既定Coreと明示`--automation`を分け、前者は実行Owner読込み零、後者だけ同じ既存Task Sessionを構成する。有限代役を使うbin構成試験と、実HTTP／実保存試験を別の根拠とする。共有接続の動的読込み待機中の失効・Root差・取消では、Policy又はWorkspaceの実観測前に停止する。定義POSTの有限搬送上限は既存48MiB＋16KiBを維持し、Domain内部保存上限とは独立させる。HTTP上限超・不正Token・閉入力違反では保存Effect零を確認する。
+公開CLIの起動だけでは実行Ownerを読み込まず、認可済みの明示開始・照会・取消で既存Task Sessionへ接続する。初回読込み中の取消ではSessionを構成せず、再起動後の照会・取消は元の保存済み依頼IDを渡す。`--docs` ではWorkbenchのAI実行を構成しない。有限代役を使うbin構成試験と、実HTTP／実保存試験を別の根拠とする。共有接続の動的読込み待機中の失効・Root差・取消では、Policy又はWorkspaceの実観測前に停止する。定義POSTの有限搬送上限は既存48MiB＋16KiBを維持し、Domain内部保存上限とは独立させる。HTTP上限超・不正Token・閉入力違反では保存Effect零を確認する。
 
 これらの結果は変更計画へ記録し、Executor単独・全結合実AI・保存先の実データ移行又はQA項目全体の合格へ拡張しない。
 
-MCPの配布Launcherも同じModule拒否条件で実起動し、既定stdioでCore Toolの列挙・保存・再読取り・CASと対象ID不一致を確認する。HTTP入口は拒否hook下の実ListenerでdiscoverとCore Tool集合を確認する。明示AutomationのOwner欠測は起動失敗であり、Core-onlyへのfallbackは禁止する。不正なNode版、Automationの位置・重複・CROS併用は起動前拒否として反証する。Transportの合成Tokenは本番Credentialではなく、Domainの認可・OS本人証明と同一視しない。
+MCPの配布Launcherも同じModule拒否条件で実起動し、単体stdioで実行系Toolの列挙と一般定義の保存・再読取り・CAS・対象ID不一致を確認する。単体HTTP入口は拒否hook下の実ListenerでdiscoverとTool集合を確認する。実行Ownerの欠測は当該Toolの固定エラーであり、待受けや一般定義の操作は停止させない。不正なNode版と旧MCPフラグは起動前拒否として反証する。Transportの合成Tokenは本番Credentialではなく、Domainの認可・OS本人証明と同一視しない。
+
+共有MCPの実行対象・本人・公開前認可の照合は、QA-000009の `EST-IT-010` で確認する。
 
 ## Runtime Domainの追加シナリオ — 2026-10-27
 

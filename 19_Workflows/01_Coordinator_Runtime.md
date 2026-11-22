@@ -28,7 +28,7 @@ Coordinatorは現在Operation、完全選定・役割・試行、Packetと観測
 
 フロントAIが検証用Repositoryを`git init --template=`で新規作成する場合、空templateでは`.git/info`も生成されない。検証入口自身が所有する新品fixtureに限り、`.git/info/`と空の`exclude`を明示準備してから正式な設定保存APIを呼ぶ。既存の`verify-workspace-ai.ts`のfixtureもこの準備を行っている。製品の保存処理へGit管理領域の自動補修や除外登録の迂回を追加しない。
 
-Workbench経由の合成Contextは、Metadataと見出しだけでなく、現行Project Context Readerが要求する各節の表も用意する。実AIの入口を開く前に`readWorkbenchProjectSurface`で同じ合成Project IDを読めることを非AIで確認する。`project_context_table_missing`をProvider失敗と扱わず、Readerの条件を緩めて代替しない。
+Workbench経由の合成Contextは、Metadataと見出しだけでなく、現行Project Context Readerが要求する各節の表も用意する。実AIの入口を開く前に`readProjectViewData`で同じ合成Project IDを読めることを非AIで確認する。`project_context_table_missing`をProvider失敗と扱わず、Readerの条件を緩めて代替しない。
 
 - 準備不足で保存が拒否された場合は、固定語彙の`status`・`reason`と既存の`setupFailure`によるEffect・回収状態を区別する。成功値だけをassertして元の拒否理由を失わない。
 - `.gitignore`への`.crdd/`記述だけを、正式なRepository-local除外登録の成立と扱わない。
@@ -82,7 +82,7 @@ PA専用のビルド・Clippy・coverage手順は退役した。旧参照Anchor�
 
 ローカル要求主体はGitメール由来の`local.email.<user.email>`であり、本人認証の証明ではない。フロントAIが対象Repositoryを現在Directoryにして、VCの読取り専用binからメールを取得する。Coordinatorは自動取得・補完せず、未設定・不正なら停止する。メールを変更すると別主体になり、既存記録へ自動再帰属しない。名前は表示用でIDには使わない。AM接続ではこのローカル方式へfallbackせず、認証済みAMユーザーIDを入口から渡す。
 
-通常操作は、検証済みNodeから同じ配布物の`template/tools/crdd-coordinator.ts`を起動する。MCP Clientの接続は別の公開入口`template/tools/crdd-mcp-server.ts`と[MCP Serverの利用手順](04_MCP_Server.md)を使う。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般TaskはCoordinatorの第一級の`run task`入口を使う。利用可能なCoordinator入口は`capabilities --json`から取得し、MCPや準備commandをCoordinatorのsubcommandとして推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
+通常操作は、検証済みNodeから同じ配布物の`template/tools/crdd-coordinator.ts`を起動する。MCP Clientの接続は別の公開入口`template/tools/crdd-server.ts`と[MCP Serverの利用手順](04_MCP_Server.md)を使う。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般TaskはCoordinatorの第一級の`run task`入口を使う。利用可能なCoordinator入口は`capabilities --json`から取得し、MCPや準備commandをCoordinatorのsubcommandとして推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
 
 ```powershell
 $gitUser = & "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\version-control\bin\version-control.ts" read-git-user --json | ConvertFrom-Json

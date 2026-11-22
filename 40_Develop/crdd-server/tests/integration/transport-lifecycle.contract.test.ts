@@ -15,25 +15,31 @@ import { request as httpRequest } from "node:http";
 import { createConnection } from "node:net";
 import { PassThrough, Readable, Writable } from "node:stream";
 import test from "node:test";
+import { Server } from "@modelcontextprotocol/server";
 
 import {
   runMcpCoordinatorStdio,
   runMcpStdio,
   createMcpServerFactory,
+  type McpCoordinatorDependencies,
   startMcpCoordinatorStreamableHttp,
   startMcpStreamableHttp,
-} from "../../src/mcp/core.ts";
-import type { McpCoordinatorDependencies } from "@qual-lab/crdd-server/automation";
-import {
-  protocolComplete,
-  protocolError,
-} from "../../src/mcp/request-validation.ts";
-import { createMcpRequestServer } from "../../src/mcp/request-server.ts";
-
+} from "../../src/transport/mcp-server.ts";
 const SDK_META = {
   "io.modelcontextprotocol/protocolVersion": "2026-07-28",
   "io.modelcontextprotocol/clientCapabilities": {},
 };
+
+function protocolComplete<T extends Readonly<Record<string, unknown>>>(
+  id: number,
+  result: T,
+) {
+  return {
+    jsonrpc: "2.0" as const,
+    id,
+    result: { ...result, resultType: "complete" },
+  };
+}
 
 /**
  * Factory拒否でも後続frameを壊さずJSON-lines応答を完了する。
@@ -88,8 +94,11 @@ test("SDK stdioはFactory拒否と初回失敗を改行終端し次要求を維�
   const failed = output();
   await runMcpStdio(
     createMcpServerFactory({
-      initialConnection: async () =>
-        protocolError(3, -32603, "Initial connection unavailable"),
+      initialConnection: async () => ({
+        jsonrpc: "2.0",
+        id: 3,
+        error: { code: -32603, message: "Initial connection unavailable" },
+      }),
     }),
     Readable.from([
       `${JSON.stringify({ jsonrpc: "2.0", id: 3, method: "server/discover", params: { _meta: SDK_META } })}\n`,
@@ -150,9 +159,14 @@ test("SDK stdioはFactory生成中の取消を保持し次IDへ流用しない",
           entered();
           await factoryGate;
         }
-        return createMcpRequestServer(
-          async (request, current) => {
-            const id = (request as { id: number }).id;
+        const server = new Server(
+          { name: "fixture", version: "1" },
+          { capabilities: { tools: {} } },
+        );
+        server.setRequestHandler("tools/call", async (_request, context) => {
+          const current = AbortSignal.any([signal, context.mcpReq.signal]);
+          const pending = (async () => {
+            const id = (raw as { id: number }).id;
             if (id === 1) {
               if (!current.aborted)
                 await new Promise<void>((resolve) =>
@@ -166,11 +180,11 @@ test("SDK stdioはFactory生成中の取消を保持し次IDへ流用しない",
               nextAborted = current.aborted;
             }
             return protocolComplete(id, { content: [] });
-          },
-          raw,
-          signal,
-          observe ?? (() => {}),
-        );
+          })();
+          observe?.(pending, context.mcpReq.signal);
+          return (await pending).result;
+        });
+        return server;
       },
     },
     input,

@@ -10,10 +10,8 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  validateRepositoryActionForm,
-  inspectRepositoryActionResult,
-} from "../../src/repository/validation.ts";
+import { inspectRepositoryActionResult } from "../../src/service/repository.ts";
+import { readRepositoryActionForm } from "../../src/transport/api-server.ts";
 
 /**
  * 対象と確認を閉Formから一意に確定する。
@@ -51,28 +49,26 @@ test("Repository操作Formは対象と操作ごとの閉集合を保持する", 
       repositoryId: "repo.a",
       ...fields,
     });
-    const observed = validateRepositoryActionForm(form, "token", true);
+    const observed = readRepositoryActionForm(form, "token", true);
     assert.equal(observed.repositoryId, "repo.a");
     assert.equal(observed.request.operation, operation);
-    assert.throws(() => validateRepositoryActionForm(form, "other", true));
+    assert.throws(() => readRepositoryActionForm(form, "other", true));
     for (const key of [...form.keys()]) {
       const duplicate = new URLSearchParams(form);
       duplicate.append(key, form.get(key) ?? "");
-      assert.throws(() =>
-        validateRepositoryActionForm(duplicate, "token", true),
-      );
+      assert.throws(() => readRepositoryActionForm(duplicate, "token", true));
       const missing = new URLSearchParams(form);
       missing.delete(key);
-      assert.throws(() => validateRepositoryActionForm(missing, "token", true));
+      assert.throws(() => readRepositoryActionForm(missing, "token", true));
     }
     const extra = new URLSearchParams(form);
     extra.set("force", "true");
-    assert.throws(() => validateRepositoryActionForm(extra, "token", true));
-    assert.throws(() => validateRepositoryActionForm(form, "token", false));
+    assert.throws(() => readRepositoryActionForm(extra, "token", true));
+    assert.throws(() => readRepositoryActionForm(form, "token", false));
     const standalone = new URLSearchParams(form);
     standalone.delete("repositoryId");
     assert.equal(
-      validateRepositoryActionForm(standalone, "token", false).repositoryId,
+      readRepositoryActionForm(standalone, "token", false).repositoryId,
       null,
     );
   }
@@ -87,7 +83,7 @@ test("Repository操作Formは対象と操作ごとの閉集合を保持する", 
     "",
   ]) {
     assert.throws(() =>
-      validateRepositoryActionForm(
+      readRepositoryActionForm(
         new URLSearchParams({
           operation: "prepare",
           actionToken: "token",
@@ -101,7 +97,7 @@ test("Repository操作Formは対象と操作ごとの閉集合を保持する", 
   }
   for (const humanConfirmed of ["false", "on", ""]) {
     assert.throws(() =>
-      validateRepositoryActionForm(
+      readRepositoryActionForm(
         new URLSearchParams({
           operation: "publish_revision",
           actionToken: "token",
@@ -238,7 +234,7 @@ test("Repository操作結果は理由とEffectを操作へ相関する", () => {
               humanConfirmed: "true",
             }),
     });
-    const { request } = validateRepositoryActionForm(form, "token", true);
+    const { request } = readRepositoryActionForm(form, "token", true);
     const value = {
       status,
       reason,

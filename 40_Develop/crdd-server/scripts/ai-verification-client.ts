@@ -8,7 +8,7 @@
  * @level IT
  * @scope 検証専用のHTTP搬送・子Process又は受動診断。実Provider／Dockerの成功は主張しない。
  */
-import { parseUnambiguousJsonDocument } from "../src/request/parse-json.ts";
+import { parseUnambiguousJsonDocument } from "../src/transport/parse-json.ts";
 import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import {
   projectVerificationTransportFailure,
@@ -133,9 +133,9 @@ try {
     url.search ||
     url.hash ||
     ![
-      "/api/workbench-view?route=%2F",
-      "/ai-request/action",
-      "/workspace/action",
+      "/api/workbench/view?route=%2F",
+      "/api/ai-request",
+      "/api/workspace",
     ].includes(value.route)
   )
     throw Error("input_invalid");

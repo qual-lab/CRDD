@@ -24,6 +24,7 @@ import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { request as httpRequest, ServerResponse } from "node:http";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import {
@@ -58,23 +59,345 @@ import {
 import {
   initialExecutionInput,
   projectExecutionFixture,
+  withCallerPlan,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
-import { startWorkbench } from "../../src/http/start.ts";
+import {
+  getRepository,
+  readRepositorySnapshot,
+} from "../../../version-control/src/index.ts";
+import { startCrddServer, startWorkbench } from "../../src/app.ts";
 import {
   createAccessMcpResolver,
   MCP_COORDINATOR_PROTOCOL_VERSION,
   MCP_CURRENT_ACCESS_TOOL,
-  MCP_EXECUTION_STATUS_TOOL,
+  EXECUTION_ACTIVITY_TOOL,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
-  MCP_RUNTIME_MANAGE_TOOL,
-  MCP_RUNTIME_READ_TOOL,
+  MANAGE_EXECUTION_DEFINITION_TOOL,
+  GET_EXECUTION_DEFINITION_TOOL,
   MCP_TOPIC_MEETING_TOOLS,
   type McpResponse,
   startMcpAuthenticatedStreamableHttp,
-} from "../../src/mcp/core.ts";
+} from "../../src/transport/mcp-server.ts";
 import { invokeMcpSource } from "../fixtures/sdk-request.ts";
+
+const sharedExecutionToolNames = [
+  "crdd.get_execution_state",
+  "crdd.run_objective",
+  "crdd.submit_decision",
+];
+
+/**
+ * 共有の実行系Toolを現在の開発Repositoryと認証済みの本人へ結び付ける。
+ * @trace EST-IT-010
+ * @level IT
+ * @boundary 実HTTPから一時AM・二つのGit Repository・Coordinatorの既存受付まで。
+ * @oracle 選んだRepositoryだけを読み、開発権限なし・Project相違・暗黙対象を拒否する。
+ */
+test("共有MCPの実行系Toolは指定Repositoryの開発権限へ結び付く", async (t) => {
+  const f = fixture(t);
+  const [a, b] = f.targets;
+  assert.ok(a && b);
+  for (const target of f.targets) {
+    const commit = spawnSync(
+      "git",
+      [
+        "-C",
+        target.target,
+        "-c",
+        "core.hooksPath=NUL",
+        "-c",
+        "commit.gpgSign=false",
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "--allow-empty",
+        "-m",
+        target.id,
+      ],
+      { encoding: "utf8", windowsHide: true, timeout: 10000 },
+    );
+    assert.equal(commit.status, 0, commit.stderr);
+  }
+  const repository = getRepository(a.target);
+  assert.equal(repository.status, "completed");
+  if (repository.status !== "completed") return;
+  const revision = readRepositorySnapshot(repository.capability);
+  assert.equal(revision?.status, "observed");
+  if (revision?.status !== "observed") return;
+  const query = {
+    requestId: "state.fixture",
+    projectId: "project.fixture",
+    repositoryRevision: revision.revisionIdentity,
+  };
+  const queryTool = "crdd.get_execution_state";
+  await t.test("単体HTTPは起動RepositoryとそのGit主体を使う", async () => {
+    const localEmail = spawnSync(
+      "git",
+      [
+        "-C",
+        a.target,
+        "config",
+        "--local",
+        "user.email",
+        "local@example.invalid",
+      ],
+      { encoding: "utf8", windowsHide: true, timeout: 10000 },
+    );
+    assert.equal(localEmail.status, 0, localEmail.stderr);
+    const logo = "04_UI/assets/brand/crdd-brand-icon-512x512.jpg";
+    fs.mkdirSync(path.dirname(path.join(a.target, logo)), { recursive: true });
+    fs.copyFileSync(
+      path.resolve(import.meta.dirname, "../../../..", logo),
+      path.join(a.target, logo),
+    );
+    const local = await startWorkbench({ workingDirectory: a.target });
+    try {
+      const url = `${local.baseUrl}/api/execution/state`;
+      const state = await fetch(`${url}?${new URLSearchParams(query)}`);
+      assert.equal(state.status, 200);
+      assert.equal(
+        (await state.json()).reason,
+        "orchestrator_snapshot_not_initialized",
+      );
+      const requested = new URLSearchParams({ ...query, repositoryId: b.id });
+      assert.equal((await fetch(`${url}?${requested}`)).status, 400);
+    } finally {
+      await local.close();
+    }
+  });
+  const server = await startCrddServer({
+    workingDirectory: path.resolve(import.meta.dirname, "../../../.."),
+    localAccessRoot: f.root,
+  });
+  try {
+    const base = server.baseUrl;
+    const invoke = async (name: string, args: Record<string, unknown>) => {
+      const response = await call(base, f.token, name, args);
+      const payload = await response.text();
+      for (const target of f.targets)
+        assert.equal(payload.includes(target.target), false);
+      assert.equal(payload.includes(f.token), false);
+      return JSON.parse(payload);
+    };
+    const authHeaders = { authorization: `Bearer ${f.token}` };
+    const selectedState = { ...query, repositoryId: a.id };
+    const stateUrl = `${base}/api/execution/state?${new URLSearchParams(selectedState)}`;
+    assert.equal((await fetch(stateUrl)).status, 403);
+    const read = await fetch(stateUrl, { headers: authHeaders });
+    assert.equal(read.status, 200);
+    assert.deepEqual(
+      await read.json(),
+      (await invoke(queryTool, selectedState)).result.structuredContent,
+    );
+    assert.equal((await invoke(queryTool, query)).error?.code, -32602);
+    assert.equal(
+      (await invoke(queryTool, { ...query, repositoryId: a.id })).result
+        .structuredContent.reason,
+      "orchestrator_snapshot_not_initialized",
+    );
+    assert.equal(
+      (await invoke(queryTool, { ...query, repositoryId: b.id })).result
+        .structuredContent.reason,
+      "orchestrator_state_revision_mismatch",
+    );
+    for (const args of [
+      { ...query, repositoryId: "repository.unknown" },
+      { ...query, repositoryId: a.id, projectId: "project.other" },
+    ]) {
+      const denied = (await invoke(queryTool, args)).result.structuredContent;
+      assert.equal(denied.reason, "mcp_execution_access_unavailable");
+      assert.equal(denied.effectState, "no_effect");
+    }
+    const decision = {
+      repositoryId: a.id,
+      projectId: query.projectId,
+      repositoryRevision: query.repositoryRevision,
+      operation: "answer",
+      decisionId: "decision.absent",
+      milestoneId: "milestone.fixture",
+      generation: 1,
+      selectedOption: "cancel",
+    };
+    assert.equal(
+      (await invoke("crdd.submit_decision", decision)).result.structuredContent
+        .reason,
+      "orchestrator_snapshot_absent",
+    );
+    const objective = {
+      repositoryId: a.id,
+      ...withCallerPlan({
+        operation: "start" as const,
+        requestId: "objective.fixture",
+        projectId: query.projectId,
+        milestoneId: "milestone.fixture",
+        repositoryRevision: query.repositoryRevision,
+        objective: "Fixture; no AI start",
+        acceptanceCriteria: ["confirmed"],
+        allowedPaths: ["fixture.txt"],
+        readPaths: ["README.md"],
+        maximumConcurrency: 1,
+        maximumReplans: 0,
+        originLane: "interactive",
+        adoptResult: true,
+      }),
+    };
+    assert.equal(
+      (await invoke("crdd.run_objective", objective)).result.structuredContent
+        .reason,
+      "orchestrator_explicit_workspace_adoption_required",
+    );
+    const view = await fetch(`${base}/api/workbench/view`, {
+      headers: authHeaders,
+    });
+    const { actionToken } = await view.json();
+    const httpWrite = (
+      operation: "objective" | "decision",
+      input: Record<string, unknown>,
+      token: string = actionToken,
+      legacyOperation?: string,
+    ) => {
+      const { repositoryId, ...command } = input;
+      const pathname =
+        operation === "objective"
+          ? "/api/execution/objectives/run"
+          : "/api/execution/decisions/submit";
+      return fetch(`${base}${pathname}`, {
+        method: "POST",
+        headers: { ...authHeaders, origin: base },
+        body: new URLSearchParams({
+          actionToken: token,
+          repositoryId: String(repositoryId),
+          command: JSON.stringify(command),
+          ...(legacyOperation ? { operation: legacyOperation } : {}),
+        }),
+      });
+    };
+    assert.equal(
+      (await httpWrite("objective", objective, "not-the-action-token")).status,
+      403,
+    );
+    assert.equal(
+      (await httpWrite("objective", objective, actionToken, "decision")).status,
+      400,
+    );
+    for (const [operation, tool, input] of [
+      ["objective", "crdd.run_objective", objective],
+      ["decision", "crdd.submit_decision", decision],
+    ] as const) {
+      const http = await httpWrite(operation, input);
+      assert.equal(http.status, 200);
+      assert.deepEqual(
+        await http.json(),
+        (await invoke(tool, input)).result.structuredContent,
+      );
+    }
+    const state = JSON.parse(
+      fs.readFileSync(f.current, "utf8"),
+    ) as AccessManagementState;
+    await t.test(
+      "開始済みの同じ要求は終了を待ち、公開解除後は結果を返さない",
+      async () => {
+        const actor = state.users[0];
+        assert.ok(actor);
+        const saved = fs.readFileSync(f.current);
+        let started = () => {};
+        let finished = () => {};
+        const start = new Promise<void>((resolve) => {
+          started = resolve;
+        });
+        const finish = new Promise<void>((resolve) => {
+          finished = resolve;
+        });
+        const key = `mcp-objective-fixture-${randomUUID()}`;
+        const real = new URL(
+          "../../../coordinator/src/index.ts",
+          import.meta.url,
+        ).href;
+        const fixtureSource = `export {inspectCoordinatorDecisionRequest,inspectCoordinatorDecisionResult,inspectCoordinatorObjectiveRequest,inspectCoordinatorObjectiveResult,inspectCoordinatorStateQuery,inspectCoordinatorStateQueryResult,submitDecision,queryState} from ${JSON.stringify(real)}; export const runObjective = globalThis[${JSON.stringify(key)}];`;
+        const fixtureUrl = `data:text/javascript,${encodeURIComponent(fixtureSource)}`;
+        const calls: { ownerRoot: string; principalId: string }[] = [];
+        Reflect.set(
+          globalThis,
+          key,
+          async (
+            _input: unknown,
+            _signal: AbortSignal,
+            ownerRoot: string,
+            authentication: { principalId: string },
+          ) => {
+            calls.push({ ownerRoot, principalId: authentication.principalId });
+            started();
+            await finish;
+            return null;
+          },
+        );
+        const hook = registerHooks({
+          resolve(specifier, context, next) {
+            if (
+              specifier === "../../../coordinator/src/index.ts" &&
+              context.parentURL?.endsWith("/src/service/execution.ts")
+            )
+              return { url: fixtureUrl, shortCircuit: true };
+            return next(specifier, context);
+          },
+        });
+        const pending = invoke("crdd.run_objective", objective);
+        try {
+          await Promise.race([
+            start,
+            pending.then(() => assert.fail("Owner was not started")),
+          ]);
+          assert.deepEqual(calls, [
+            { ownerRoot: a.target, principalId: actor.userId },
+          ]);
+          const updated = JSON.parse(saved.toString()) as AccessManagementState;
+          updated.exposure = updated.exposure.filter(
+            (entry) => entry.repositoryId !== a.id,
+          );
+          fs.writeFileSync(f.current, JSON.stringify(updated));
+          finished();
+          const response = await pending;
+          assert.deepEqual(response.error, {
+            code: -32603,
+            message: "Coordinator target unavailable",
+          });
+          assert.equal(response.result, undefined);
+          assert.equal(calls.length, 1);
+        } finally {
+          finished();
+          await pending.catch(() => {});
+          hook.deregister();
+          Reflect.deleteProperty(globalThis, key);
+          fs.writeFileSync(f.current, saved);
+        }
+      },
+    );
+    state.exposure = state.exposure.filter(
+      (entry) => entry.repositoryId !== a.id,
+    );
+    fs.writeFileSync(f.current, JSON.stringify(state));
+    assert.equal((await fetch(stateUrl, { headers: authHeaders })).status, 403);
+    assert.equal((await httpWrite("decision", decision)).status, 403);
+    for (const [name, args] of [
+      [queryTool, { ...query, repositoryId: a.id }],
+      ["crdd.submit_decision", decision],
+      ["crdd.run_objective", objective],
+    ] as const) {
+      const denied = (await invoke(name, args)).result.structuredContent;
+      assert.equal(denied.reason, "mcp_execution_access_unavailable");
+      assert.equal(denied.effectState, "no_effect");
+    }
+    assert.equal(
+      fs.existsSync(path.join(a.target, ".crdd", "domain-model", "state.json")),
+      false,
+    );
+  } finally {
+    await server.close();
+  }
+});
 
 /**
  * 通常三Roleの本人を他Userから推定せず実HTTPで取得する。
@@ -137,9 +460,13 @@ test("MCP本人readは三Roleの現在本人だけを実HTTPへ返す", async (t
         required: [],
         properties: {},
       });
-      assert.equal(tools.length, role === "developer" ? 20 : 30);
-      assert.ok(tools.some((tool) => tool.name === MCP_RUNTIME_READ_TOOL));
-      assert.ok(tools.some((tool) => tool.name === MCP_RUNTIME_MANAGE_TOOL));
+      assert.equal(tools.length, role === "developer" ? 23 : 33);
+      assert.ok(
+        tools.some((tool) => tool.name === GET_EXECUTION_DEFINITION_TOOL),
+      );
+      assert.ok(
+        tools.some((tool) => tool.name === MANAGE_EXECUTION_DEFINITION_TOOL),
+      );
       assert.equal(
         tools.some((tool) => tool.name === "crdd.register_repository"),
         false,
@@ -280,7 +607,7 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
       listRequest,
       new AbortController().signal,
     );
-    assert.equal((deniedList.result as { tools: unknown[] }).tools.length, 20);
+    assert.equal((deniedList.result as { tools: unknown[] }).tools.length, 23);
     const before = fs.readFileSync(f.current);
     const deniedRead = await (
       await call(base, f.token, "crdd.list_access_users", {})
@@ -312,8 +639,8 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
         }[];
       }
     ).tools;
-    assert.equal(tools.length, 30);
-    assert.equal(new Set(tools.map((tool) => tool.name)).size, 30);
+    assert.equal(tools.length, 33);
+    assert.equal(new Set(tools.map((tool) => tool.name)).size, tools.length);
     assert.equal(
       tools.some((tool) => tool.name === "crdd.update_user_role"),
       true,
@@ -884,7 +1211,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
   );
   const base = `http://${server.host}:${server.port}`;
   try {
-    const response = await call(base, f.token, MCP_EXECUTION_STATUS_TOOL, {
+    const response = await call(base, f.token, EXECUTION_ACTIVITY_TOOL, {
       projectId: "project.fixture",
     });
     assert.equal(response.status, 200);
@@ -900,7 +1227,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     assert.equal(text.includes(f.token), false);
     for (const target of f.targets)
       assert.equal(text.includes(target.target), false);
-    const foreign = await call(base, f.token, MCP_EXECUTION_STATUS_TOOL, {
+    const foreign = await call(base, f.token, EXECUTION_ACTIVITY_TOOL, {
       projectId: "project.other",
     });
     assert.equal((await foreign.json()).result.isError, true);
@@ -1036,12 +1363,9 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
       storeFixtureExecution(ei.capability, history).status,
       "completed",
     );
-    const presentResponse = await call(
-      base,
-      f.token,
-      MCP_EXECUTION_STATUS_TOOL,
-      { projectId: "project.fixture" },
-    );
+    const presentResponse = await call(base, f.token, EXECUTION_ACTIVITY_TOOL, {
+      projectId: "project.fixture",
+    });
     const presentText = await presentResponse.text();
     const present = JSON.parse(presentText).result.structuredContent;
     assert.equal(present.state, "observed");
@@ -1074,7 +1398,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
       (entry) => entry.repositoryId !== a.id,
     );
     fs.writeFileSync(f.current, JSON.stringify(state));
-    const partial = await call(base, f.token, MCP_EXECUTION_STATUS_TOOL, {
+    const partial = await call(base, f.token, EXECUTION_ACTIVITY_TOOL, {
       projectId: "project.fixture",
     });
     const partialText = await partial.text();
@@ -1088,7 +1412,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     assert.equal(partialText.includes("milestone.fixture"), false);
     state.exposure = [];
     fs.writeFileSync(f.current, JSON.stringify(state));
-    const denied = await call(base, f.token, MCP_EXECUTION_STATUS_TOOL, {
+    const denied = await call(base, f.token, EXECUTION_ACTIVITY_TOOL, {
       projectId: "project.fixture",
     });
     const deniedBody = await denied.text();
@@ -1101,7 +1425,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     fs.writeFileSync(f.current, JSON.stringify(state));
     assert.equal(
       (
-        await call(base, f.token, MCP_EXECUTION_STATUS_TOOL, {
+        await call(base, f.token, EXECUTION_ACTIVITY_TOOL, {
           projectId: "project.fixture",
         })
       ).status,
@@ -1201,7 +1525,7 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
   try {
     const mcpBase = `http://${mcp.host}:${mcp.port}`;
     const model = (await (
-      await fetch(`${wb.baseUrl}/api/workbench-view`, {
+      await fetch(`${wb.baseUrl}/api/workbench/view`, {
         headers: { authorization: `Bearer ${f.token}` },
       })
     ).json()) as { actionToken: string };
@@ -1249,7 +1573,7 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
       command: Record<string, unknown>,
       extra: Record<string, string> = {},
     ) =>
-      fetch(`${wb.baseUrl}/workspace/action`, {
+      fetch(`${wb.baseUrl}/api/workspace`, {
         method: "POST",
         headers: {
           authorization: `Bearer ${f.token}`,
@@ -1534,7 +1858,7 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
     assert.equal(fs.existsSync(tree), false);
     const entry = path.resolve(
       import.meta.dirname,
-      "../../../../template/tools/crdd-mcp-server.ts",
+      "../../../../template/tools/crdd-server.ts",
     );
     const localCommand = {
       operation: "list",
@@ -1542,7 +1866,7 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
       cursor: null,
       limit: 20,
     };
-    const localMcp = spawnSync(process.execPath, [entry, "--stdio"], {
+    const localMcp = spawnSync(process.execPath, [entry, "--mcp-stdio"], {
       cwd: target.target,
       input: `${JSON.stringify(packet("crdd.get_workspace", { repositoryId: target.id, command: localCommand }))}\n`,
       encoding: "utf8",
@@ -1566,9 +1890,9 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
     const localWb = await startWorkbench({ workingDirectory: target.target });
     try {
       const localModel = (await (
-        await fetch(`${localWb.baseUrl}/api/workbench-view`)
+        await fetch(`${localWb.baseUrl}/api/workbench/view`)
       ).json()) as { actionToken: string };
-      const observed = await fetch(`${localWb.baseUrl}/workspace/action`, {
+      const observed = await fetch(`${localWb.baseUrl}/api/workspace`, {
         method: "POST",
         headers: {
           origin: localWb.baseUrl,
@@ -1996,30 +2320,32 @@ test("AM内容MCPの全12操作は指定Repositoryの実保存へ到達する", 
         "crdd.manage_workspace",
         MCP_PROJECT_CONTEXT_GET_TOOL,
         MCP_PROJECT_CONTEXT_LIST_TOOL,
-        MCP_EXECUTION_STATUS_TOOL,
+        EXECUTION_ACTIVITY_TOOL,
         MCP_CURRENT_ACCESS_TOOL,
         ...MCP_TOPIC_MEETING_TOOLS,
-        MCP_RUNTIME_READ_TOOL,
-        MCP_RUNTIME_MANAGE_TOOL,
+        GET_EXECUTION_DEFINITION_TOOL,
+        MANAGE_EXECUTION_DEFINITION_TOOL,
+        ...sharedExecutionToolNames,
       ].sort(),
     );
     for (const tool of tools) {
-      const topicMeeting =
+      const requiresRepositoryId =
         MCP_TOPIC_MEETING_TOOLS.includes(tool.name as never) ||
         [
           "crdd.get_workspace",
           "crdd.manage_workspace",
-          MCP_RUNTIME_READ_TOOL,
-          MCP_RUNTIME_MANAGE_TOOL,
+          GET_EXECUTION_DEFINITION_TOOL,
+          MANAGE_EXECUTION_DEFINITION_TOOL,
+          ...sharedExecutionToolNames,
         ].includes(tool.name);
       assert.equal(
         Object.hasOwn(tool.inputSchema.properties, "repositoryId"),
-        topicMeeting,
+        requiresRepositoryId,
         tool.name,
       );
       assert.equal(
         tool.inputSchema.required?.includes("repositoryId") ?? false,
-        topicMeeting,
+        requiresRepositoryId,
         tool.name,
       );
       assert.equal(tool.inputSchema.additionalProperties, false, tool.name);
@@ -2120,11 +2446,12 @@ test("未完了資格はHandlerなし、開始前取消は対象読取りなし"
         "crdd.manage_workspace",
         MCP_PROJECT_CONTEXT_GET_TOOL,
         MCP_PROJECT_CONTEXT_LIST_TOOL,
-        MCP_EXECUTION_STATUS_TOOL,
+        EXECUTION_ACTIVITY_TOOL,
         MCP_CURRENT_ACCESS_TOOL,
         ...MCP_TOPIC_MEETING_TOOLS,
-        MCP_RUNTIME_READ_TOOL,
-        MCP_RUNTIME_MANAGE_TOOL,
+        GET_EXECUTION_DEFINITION_TOOL,
+        MANAGE_EXECUTION_DEFINITION_TOOL,
+        ...sharedExecutionToolNames,
       ].sort(),
     );
     const controller = new AbortController();

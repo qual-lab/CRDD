@@ -16,7 +16,7 @@ import { PassThrough, Readable, Writable } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { runMcpCoordinatorStdio } from "../../src/mcp/core.ts";
+import { runMcpCoordinatorStdio } from "../../src/transport/mcp-server.ts";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
@@ -39,7 +39,7 @@ test("公式SDK Clientは公開stdioのdiscover・一覧・実行を利用でき
   );
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [path.join(root, "template/tools/crdd-mcp-server.ts"), "--stdio"],
+    args: [path.join(root, "template/tools/crdd-server.ts"), "--mcp-stdio"],
     cwd: root,
     stderr: "pipe",
   });
@@ -71,12 +71,13 @@ test("公式SDK Clientは公開stdioのdiscover・一覧・実行を利用でき
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary EST-ST-012=Direct Boundary: mcp Test Source→対象契約
  */
-function output() {
+function output(afterWrite?: () => void) {
   let content = "";
   const stream = new Writable({
     write(chunk, _encoding, callback) {
       content += String(chunk);
       callback();
+      afterWrite?.();
     },
   });
   return { stream, read: () => content };
@@ -95,7 +96,8 @@ function output() {
  * @boundary EST-ST-012=Direct Boundary: mcp Test Source→対象契約
  */
 test("stdio process transports one bounded MCP request and closes on parent EOF", async () => {
-  const sink = output();
+  const input = new PassThrough();
+  const sink = output(() => input.end());
   const request = {
     jsonrpc: "2.0",
     id: 1,
@@ -107,7 +109,7 @@ test("stdio process transports one bounded MCP request and closes on parent EOF"
       },
     },
   };
-  const result = await runMcpCoordinatorStdio(
+  const pending = runMcpCoordinatorStdio(
     {
       authenticateClient: () => ({
         status: "verified",
@@ -117,9 +119,11 @@ test("stdio process transports one bounded MCP request and closes on parent EOF"
       submitDecision: async () => assert.fail("decision not expected"),
       getProjectState: async () => assert.fail("state query not expected"),
     },
-    Readable.from([`${JSON.stringify(request)}\n`]),
+    input,
     sink.stream,
   );
+  input.write(`${JSON.stringify(request)}\n`);
+  const result = await pending;
   assert.equal(result.status, "completed");
   assert.equal(result.reason, "mcp_stdio_closed");
   const response = JSON.parse(sink.read());
@@ -140,7 +144,7 @@ test("stdio process transports one bounded MCP request and closes on parent EOF"
  */
 test("通常MCP LauncherはWorkspaceの読取りと明示操作を公開する", () => {
   const entry = fileURLToPath(
-    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
+    new URL("../../../../template/tools/crdd-server.ts", import.meta.url),
   );
   const request = {
     jsonrpc: "2.0",
@@ -153,7 +157,7 @@ test("通常MCP LauncherはWorkspaceの読取りと明示操作を公開する",
       },
     },
   };
-  const result = spawnSync(process.execPath, [entry, "--stdio"], {
+  const result = spawnSync(process.execPath, [entry, "--mcp-stdio"], {
     cwd: path.dirname(entry),
     input: `${JSON.stringify(request)}\n`,
     encoding: "utf8",
@@ -236,7 +240,7 @@ test("stdio process rejects trailing and oversized frames without semantic effec
  */
 test("template toolsの公開入口はbounded MCP stdio processを提供する", () => {
   const entry = fileURLToPath(
-    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
+    new URL("../../../../template/tools/crdd-server.ts", import.meta.url),
   );
   const request = JSON.stringify({
     jsonrpc: "2.0",
@@ -249,7 +253,7 @@ test("template toolsの公開入口はbounded MCP stdio processを提供する",
       },
     },
   });
-  const result = spawnSync(process.execPath, [entry, "--stdio"], {
+  const result = spawnSync(process.execPath, [entry, "--mcp-stdio"], {
     cwd: path.dirname(entry),
     input: `${request}\n`,
     encoding: "utf8",
@@ -268,15 +272,15 @@ test("template toolsの公開入口はbounded MCP stdio processを提供する",
  * @responsibility Repository単体利用でCredentialなしのProject Context取得を検証する。
  * @trace EST-ST-012
  * @precondition Repository Rootに現行PROJECT_CONTEXT.mdが存在する。
- * @stimulus crdd-mcp --stdioへcrdd.get_project_contextを送る。
+ * @stimulus crdd-mcp --mcp-stdioへcrdd.get_project_contextを送る。
  * @observation structuredContent内のProject、Sourceおよび五場面を取得する。
  * @oracle qual-lab.crddの五場面が固定順で返り、Runtime状態DTOへ変換されない。
  * @cleanup 子Processはstdin EOF後に終了し、一時資源を残さない。
  * @boundary EST-ST-012=Direct Boundary: mcp Test Source→対象契約
  */
-test("template toolsの公開入口はRepository Project Contextを取得する", async () => {
+test("template toolsの公開入口はRepository Project Contextを取得する", async (t) => {
   const entry = fileURLToPath(
-    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
+    new URL("../../../../template/tools/crdd-server.ts", import.meta.url),
   );
   const request = JSON.stringify({
     jsonrpc: "2.0",
@@ -291,10 +295,21 @@ test("template toolsの公開入口はRepository Project Contextを取得する"
       arguments: { projectId: "qual-lab.crdd" },
     },
   });
-  const child = spawn(process.execPath, [entry, "--stdio"], {
-    cwd: path.dirname(entry),
-    windowsHide: true,
-    stdio: ["pipe", "pipe", "pipe"],
+  const child = spawn(
+    process.execPath,
+    [entry, "--mcp-stdio", "--port", "0", "--docs"],
+    {
+      cwd: path.dirname(entry),
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
+  const exited = new Promise<number | null>((resolve) =>
+    child.once("close", resolve),
+  );
+  t.after(async () => {
+    if (child.exitCode === null && child.signalCode === null) child.kill();
+    await exited;
   });
   let stderr = "";
   child.stderr.setEncoding("utf8");
@@ -336,10 +351,26 @@ test("template toolsの公開入口はRepository Project Contextを取得する"
     });
     child.stdin.write(`${request}\n`);
   });
+  const address = /^CRDD Server: (http:\/\/127\.0\.0\.1:\d+)\r?$/mu.exec(
+    stderr,
+  )?.[1];
+  assert.ok(address, "stdio mode announces the HTTP address to stderr");
+  const view = await fetch(`${address}/api/workbench/view`);
+  assert.equal(view.status, 200);
+  assert.equal((await view.json()).contract, "crdd/workbench/view/v1");
+  const docs = await fetch(`${address}/openapi.json`);
+  assert.equal(docs.status, 200);
+  await docs.body?.cancel();
+  const inactiveMcp = await fetch(`${address}/mcp`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: request,
+  });
+  assert.equal(inactiveMcp.status, 405);
+  await inactiveMcp.body?.cancel();
   child.stdin.end();
-  const status = await new Promise<number | null>((resolve) =>
-    child.once("close", resolve),
-  );
+  const status = await exited;
+  await assert.rejects(fetch(`${address}/.well-known/crdd-workbench-health`));
   assert.equal(status, 0, stderr);
   const project = response.result.structuredContent.project;
   assert.equal(project.projectId, "qual-lab.crdd");
@@ -369,7 +400,7 @@ test("template toolsの公開入口はRepository Project Contextを取得する"
  */
 test("MCP公開Launcherは未知の起動形式を意味処理前に拒否する", () => {
   const entry = fileURLToPath(
-    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
+    new URL("../../../../template/tools/crdd-server.ts", import.meta.url),
   );
   const result = spawnSync(process.execPath, [entry, "--unknown"], {
     encoding: "utf8",
@@ -495,7 +526,8 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
  * @boundary EST-ST-012=Direct Boundary: mcp Test Source→対象契約
  */
 test("stdio preserves semantic cleanup uncertainty after transport cleanup", async () => {
-  const sink = output();
+  const input = new PassThrough();
+  const sink = output(() => input.end());
   const objectiveRequest = {
     jsonrpc: "2.0",
     id: "objective-recovery",
@@ -523,7 +555,7 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
       }),
     },
   };
-  const result = await runMcpCoordinatorStdio(
+  const pending = runMcpCoordinatorStdio(
     {
       authenticateClient: () => ({
         status: "verified",
@@ -540,9 +572,11 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
       submitDecision: async () => assert.fail("decision not expected"),
       getProjectState: async () => assert.fail("state query not expected"),
     },
-    Readable.from([`${JSON.stringify(objectiveRequest)}\n`]),
+    input,
     sink.stream,
   );
+  input.write(`${JSON.stringify(objectiveRequest)}\n`);
+  const result = await pending;
   assert.equal(result.status, "completed");
   assert.equal(result.transportCleanupConfirmed, true);
   assert.equal(result.semanticResultObserved, true);

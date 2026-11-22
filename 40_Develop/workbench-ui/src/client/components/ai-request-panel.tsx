@@ -10,11 +10,8 @@
  * @security ReactのText escapingを使用し、秘密値・Host Path・Credentialを表示しない。
  */
 import { createElement, useState, type ReactElement } from "react";
-import type { WorkbenchAiSelectionSurface } from "../../../../crdd-server/src/view/validation.ts";
-import type {
-  WorkbenchAiRequestSnapshot,
-  WorkbenchAiResultItem,
-} from "../../../../crdd-server/src/view/validation.ts";
+import type { AiSelectionView } from "../api/response.ts";
+import type { AiRequestSnapshot, AiResultItem } from "../api/response.ts";
 import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
 
 /**
@@ -37,7 +34,7 @@ function AiRequestSelection({
   disabled,
   additionalHosts,
 }: {
-  selection: WorkbenchAiSelectionSurface | null;
+  selection: AiSelectionView | null;
   disabled: boolean;
   additionalHosts: readonly string[] | null;
 }): ReactElement {
@@ -230,9 +227,9 @@ function AiRequestIdentity({
  */
 export function renderWorkbenchAiRequest(
   actionToken: string,
-  selection: WorkbenchAiSelectionSurface | null,
+  selection: AiSelectionView | null,
   applicationConfigured: boolean,
-  snapshot: WorkbenchAiRequestSnapshot | null,
+  snapshot: AiRequestSnapshot | null,
   notice: string | null = null,
   additionalHosts: readonly string[] | null = null,
 ): ReactElement {
@@ -260,7 +257,7 @@ export function renderWorkbenchAiRequest(
       {
         className: "ai-request-form",
         method: "post",
-        action: "/ai-request/action",
+        action: "/api/ai-request",
       },
       createElement(ActionTokenInput, { value: actionToken }),
       createElement(AiRequestIdentity, {
@@ -319,7 +316,7 @@ export function renderWorkbenchAiRequest(
       {
         className: "ai-request-form",
         method: "post",
-        action: "/ai-request/action",
+        action: "/api/ai-request",
       },
       createElement(ActionTokenInput, { value: actionToken }),
       createElement(
@@ -381,12 +378,12 @@ export function renderWorkbenchAiRequest(
  * @concurrency Snapshotに記録された一時点だけを表示する。
  */
 function renderSnapshot(
-  snapshot: WorkbenchAiRequestSnapshot,
+  snapshot: AiRequestSnapshot,
   actionToken: string,
 ): ReactElement {
   const section = (
     title: string,
-    values: readonly WorkbenchAiResultItem[],
+    values: readonly AiResultItem[],
   ): ReactElement =>
     createElement(
       "section",
@@ -467,7 +464,7 @@ function renderSnapshot(
     cancellable
       ? createElement(
           "form",
-          { method: "post", action: "/ai-request/action" },
+          { method: "post", action: "/api/ai-request" },
           createElement(ActionTokenInput, { value: actionToken }),
           createElement("input", {
             type: "hidden",

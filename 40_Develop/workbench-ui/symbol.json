@@ -4,6 +4,18 @@
   "subsystem": "workbench-ui",
   "symbols": [
     {
+      "symbolId": "workbench.management.contract",
+      "kind": "file",
+      "path": "src/client/api/response.ts",
+      "archIds": ["ARCH-000013"]
+    },
+    {
+      "symbolId": "workbench.presentation.view-validation",
+      "kind": "file",
+      "path": "src/client/api/response.ts",
+      "archIds": ["ARCH-000005", "ARCH-000012"]
+    },
+    {
       "symbolId": "workbench.presentation.workspace-panel",
       "kind": "file",
       "path": "src/client/components/workspace-panel.tsx",
@@ -20,6 +32,12 @@
         "ARCH-000009",
         "ARCH-000012"
       ]
+    },
+    {
+      "symbolId": "workbench.presentation.repository-operation",
+      "kind": "file",
+      "path": "src/client/api/repository.ts",
+      "archIds": ["ARCH-000009", "ARCH-000012"]
     },
     {
       "symbolId": "workbench.presentation.record-operation-panel",
@@ -107,6 +125,18 @@
         "ARCH-000012",
         "ARCH-000017"
       ]
+    },
+    {
+      "symbolId": "workbench.presentation.start-document",
+      "kind": "file",
+      "path": "public/index.html",
+      "archIds": ["ARCH-000012"]
+    },
+    {
+      "symbolId": "workbench.presentation.stylesheet",
+      "kind": "file",
+      "path": "public/workbench.css",
+      "archIds": ["ARCH-000012"]
     },
     {
       "symbolId": "workbench.presentation.browser-client",
@@ -270,6 +300,32 @@
       ]
     },
     {
+      "symbolId": "workbench.presentation.ai-selection-response",
+      "kind": "file",
+      "path": "src/client/api/ai-selection.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
+      "symbolId": "workbench.test.integration.profile-presentation",
+      "kind": "test-suite",
+      "path": "tests/integration/ai-selection-presentation.contract.test.ts",
+      "qaIds": [
+        "QA-000001",
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-IT-002",
+        "RCM-IT-005"
+      ],
+      "verifies": [
+        "workbench.presentation.client-model",
+        "workbench.presentation.profile-management-panel",
+        "workbench.presentation.ai-selection-response",
+        "workbench.presentation.view-validation",
+        "workbench.presentation.view-url"
+      ]
+    },
+    {
       "symbolId": "workbench.test.integration.browser-query",
       "kind": "test-suite",
       "path": "tests/integration/browser-query.contract.test.ts",
@@ -281,7 +337,8 @@
       ],
       "verifies": [
         "workbench.presentation.queries",
-        "workbench.presentation.mutations"
+        "workbench.presentation.mutations",
+        "workbench.presentation.repository-operation"
       ]
     }
   ]

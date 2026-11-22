@@ -14,12 +14,9 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { parseUnambiguousJsonDocument } from "../src/request/parse-json.ts";
-import type {
-  WorkbenchAiRequestCommand,
-  WorkbenchAiRequests,
-} from "../src/execution/ai-request-types.ts";
-import { inspectWorkbenchClientModel } from "../src/view/validation.ts";
+import { parseUnambiguousJsonDocument } from "../src/transport/parse-json.ts";
+import type { AiRequestCommand, AiRequests } from "../src/app.ts";
+import { validateViewResponse } from "../../workbench-ui/src/client/api/response.ts";
 
 /** 検証通信だけの有限時計。本文・Token・Task状態は含めない。 */
 export type VerificationHttpTiming = Readonly<{
@@ -75,9 +72,9 @@ export async function requestInChild(
     url.search ||
     url.hash ||
     ![
-      "/api/workbench-view?route=%2F",
-      "/ai-request/action",
-      "/workspace/action",
+      "/api/workbench/view?route=%2F",
+      "/api/ai-request",
+      "/api/workspace",
     ].includes(route)
   )
     throw new Error("workbench_verification_loopback_required");
@@ -167,7 +164,7 @@ export async function requestInChild(
         firstFailureStage ??= "deadline";
         terminate();
       },
-      route === "/workspace/action" ? 65_000 : CLIENT_PROCESS_TIMEOUT_MS,
+      route === "/api/workspace" ? 65_000 : CLIENT_PROCESS_TIMEOUT_MS,
     );
     /**
      * pipeFailureで検証用の要求・観測を搬送する。
@@ -808,7 +805,7 @@ export async function requestBounded(
       timedOut = true;
       controller.abort();
     },
-    route === "/workspace/action" ? 60_000 : 15_000,
+    route === "/api/workspace" ? 60_000 : 15_000,
   );
   try {
     try {
@@ -1059,12 +1056,12 @@ export async function readMain(
 ) {
   const response = await requestInChild(
     baseUrl,
-    "/api/workbench-view?route=%2F",
+    "/api/workbench/view?route=%2F",
     undefined,
     observe,
   );
   assert.equal(response.status, 200, "workbench_verification_model_status");
-  const model = inspectWorkbenchClientModel(JSON.parse(response.body));
+  const model = validateViewResponse(JSON.parse(response.body));
   if (model.view !== "main")
     throw new Error("workbench_verification_main_required");
   return model;
@@ -1093,7 +1090,7 @@ export async function readMain(
 export async function createWorkbenchAiVerificationHttpClient(
   baseUrl: string,
   observe?: (timing: VerificationHttpTiming) => void,
-): Promise<WorkbenchAiRequests> {
+): Promise<AiRequests> {
   const url = new URL(baseUrl);
   if (
     url.protocol !== "http:" ||
@@ -1107,7 +1104,7 @@ export async function createWorkbenchAiVerificationHttpClient(
     throw new Error("workbench_verification_loopback_required");
   const initial = await readMain(baseUrl, observe);
   const token = initial.actionToken;
-  const accepted = new Map<string, WorkbenchAiRequestCommand>();
+  const accepted = new Map<string, AiRequestCommand>();
   const pending = new Set<Promise<unknown>>();
   let closing = false;
   let cleanupUnconfirmed = false;
@@ -1143,7 +1140,7 @@ export async function createWorkbenchAiVerificationHttpClient(
    * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
    */
   const read = () => run(() => readMain(baseUrl, observe));
-  return Object.freeze<WorkbenchAiRequests>({
+  return Object.freeze<AiRequests>({
     start: async (request) => {
       if (
         request.contextReferences.length !== 1 ||
@@ -1154,7 +1151,7 @@ export async function createWorkbenchAiVerificationHttpClient(
         const response = await run(() =>
           requestInChild(
             baseUrl,
-            "/ai-request/action",
+            "/api/ai-request",
             new URLSearchParams({
               actionToken: token,
               operation: "start",
@@ -1255,7 +1252,7 @@ export async function createWorkbenchAiVerificationHttpClient(
       const response = await run(() =>
         requestInChild(
           baseUrl,
-          "/ai-request/action",
+          "/api/ai-request",
           new URLSearchParams({
             actionToken: token,
             operation: "cancel",

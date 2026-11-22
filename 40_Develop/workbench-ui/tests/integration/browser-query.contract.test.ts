@@ -24,6 +24,120 @@ import {
 } from "../../src/client/api/queries.ts";
 import { requestWorkbenchMutation } from "../../src/client/api/mutations.ts";
 import { clearWorkbenchCredential } from "../../src/client/api/connection.ts";
+import {
+  readRepositoryOperationDisplay,
+  readRepositorySubmission,
+} from "../../src/client/api/repository.ts";
+import {
+  composeWorkbenchRecordDisplay,
+  createSelectedWorkbenchViewUrl,
+  readWorkbenchDisplayQuery,
+} from "../../src/client/api/view.ts";
+
+/**
+ * Git操作の送信先・応答の表示を、同じ画面の明示操作に限定する。
+ * @trace ERB-IT-021
+ * @boundary ブラウザーの要求・応答。処置の意味検査はServerの試験で確認する。
+ */
+test("Repository画面は別対象を送信せず別Revisionを成功表示しない", () => {
+  const revisionIdentity = "a".repeat(40);
+  const form = new URLSearchParams({
+    operation: "publish_revision",
+    actionToken: "fixture",
+    repositoryId: "repo.a",
+    destination: "origin",
+    branch: "main",
+    revisionIdentity,
+    humanConfirmed: "true",
+  });
+  assert.throws(() => readRepositorySubmission(form, "repo.b", "fixture"));
+  assert.throws(() => readRepositorySubmission(form, "repo.a", "other"));
+  const duplicate = new URLSearchParams(form);
+  duplicate.append("repositoryId", "repo.a");
+  assert.throws(() => readRepositorySubmission(duplicate, "repo.a", "fixture"));
+  const unrelated = new URLSearchParams(form);
+  unrelated.append("credential", "unexpected");
+  assert.throws(() => readRepositorySubmission(unrelated, "repo.a", "fixture"));
+  const submission = readRepositorySubmission(form, "repo.a", "fixture");
+  const response = {
+    status: "completed",
+    reason: "publication_confirmed",
+    effectIssued: true,
+    effectConfirmed: true,
+    revisionIdentity,
+    automaticRetryIssued: false,
+    forcePublicationIssued: false,
+  };
+  assert.deepEqual(readRepositoryOperationDisplay(submission, response), {
+    status: "completed",
+    reason: "publication_confirmed",
+  });
+  for (const invalid of [
+    { ...response, revisionIdentity: "b".repeat(40) },
+    { ...response, effectConfirmed: false },
+    { ...response, reason: "publication_result_unknown" },
+    { ...response, reason: "revision_created" },
+    { ...response, reason: "unexpected free text" },
+    { ...response, extra: "unknown" },
+  ])
+    assert.throws(() => readRepositoryOperationDisplay(submission, invalid));
+});
+
+/**
+ * 記録の構成状態と検索済みページをBrowserで対応付ける。
+ * @trace ERB-IT-021
+ * @boundary 同じビュー応答と記録一覧。未構成と観測不能は合成しない。
+ */
+test("TopicとMeetingの表示は同種の構成状態・ページ・検索条件を結ぶ", () => {
+  const data = {
+    projectData: {
+      topics: { state: "not_configured", items: [], reason: null },
+      meetings: { state: "unknown", items: [], reason: "observation_failed" },
+    },
+    topicPage: { status: "not_configured", records: [], nextCursor: null },
+    topicQuery: { query: "Topic" },
+    meetingPage: { status: "available", records: [], nextCursor: "next" },
+    meetingQuery: { pendingOnly: true },
+  } as const;
+  assert.deepEqual(composeWorkbenchRecordDisplay(data, "topic"), {
+    collection: data.projectData.topics,
+    page: data.topicPage,
+    query: data.topicQuery,
+  });
+  assert.deepEqual(composeWorkbenchRecordDisplay(data, "meeting"), {
+    collection: data.projectData.meetings,
+    page: data.meetingPage,
+    query: data.meetingQuery,
+  });
+});
+
+/**
+ * 画面専用の検索状態とServerの取得条件を分ける。
+ * @trace ERB-IT-021
+ * @boundary Browser URLとビューData要求。ServerのCursorの意味は変更しない。
+ */
+test("ビューの検索欄は現在URLから組み立て文書検索だけをServerへ送らない", () => {
+  const url = new URL(
+    "http://workbench.invalid/?repositoryId=repo.a&documentQuery=Roadmap&portfolioQuery=CRDD&portfolioState=partial&portfolioCursor=next",
+  );
+  assert.deepEqual(readWorkbenchDisplayQuery(url.search), {
+    document: "Roadmap",
+    portfolio: { query: "CRDD", state: "partial" },
+  });
+  assert.deepEqual(readWorkbenchDisplayQuery(""), {
+    document: "",
+    portfolio: { query: "", state: "" },
+  });
+  const request = new URL(
+    createSelectedWorkbenchViewUrl(url, "repo.a"),
+    url.origin,
+  );
+  assert.equal(request.searchParams.has("documentQuery"), false);
+  assert.equal(request.searchParams.get("repositoryId"), "repo.a");
+  assert.equal(request.searchParams.get("portfolioQuery"), "CRDD");
+  assert.equal(request.searchParams.get("portfolioState"), "partial");
+  assert.equal(request.searchParams.get("portfolioCursor"), "next");
+});
 
 /**
  * 通信条件は参考表示とし、要求へ表示時Hashを含めない構成を確認する。
@@ -157,7 +271,7 @@ test("設定Panelは同じ対象の再取得でdraftと保留POSTを失わない
     const pending=async(_path,options)=>{calls++;signal=options.signal;return new Promise(resolve=>{finish=resolve;});};
     const module=new vm.SourceTextModule(source);
     await module.link(specifier=>{
-      const values=specifier==='react'?hooks:specifier.endsWith('mutations.ts')?{requestWorkbenchMutation:pending}:specifier.endsWith('connection.ts')?{requestWorkbench:pending}:specifier.endsWith('queries.ts')?{readWorkbenchQuery:(_purpose,signal,read)=>read(signal)}:specifier.endsWith('validation.ts')?{inspectWorkbenchSelectionRead:value=>value,inspectWorkbenchSelectionResult:(_form,value)=>value}:{WorkbenchPanel:()=>null,ActionTokenInput:()=>null};
+      const values=specifier==='react'?hooks:specifier.endsWith('mutations.ts')?{requestWorkbenchMutation:pending}:specifier.endsWith('connection.ts')?{requestWorkbench:pending}:specifier.endsWith('queries.ts')?{readWorkbenchQuery:(_purpose,signal,read)=>read(signal)}:specifier.endsWith('response.ts')?{validateAiSelectionResponse:value=>value}:specifier.endsWith('ai-selection.ts')?{inspectWorkbenchSelectionResult:(_form,value)=>value}:{WorkbenchPanel:()=>null,ActionTokenInput:()=>null};
       return new vm.SyntheticModule(Object.keys(values),function(){for(const[key,value]of Object.entries(values))this.setExport(key,value);});
     });
     await module.evaluate();
@@ -368,18 +482,18 @@ test("Mutationは非鍵操作だけを一回送りCacheを回収する", async (
     return new Response("{}");
   };
   try {
-    const response = await requestWorkbenchMutation("/workspace/action", {
+    const response = await requestWorkbenchMutation("/api/workspace", {
       method: "POST",
       body: "operation=list",
     });
     assert.equal(await response.text(), "{}");
     assert.equal(cache?.getAll().length, 0);
     await assert.rejects(
-      requestWorkbenchMutation("/workspace/action", { method: "POST" }),
+      requestWorkbenchMutation("/api/workspace", { method: "POST" }),
       { message: "workbench_mutation_unavailable" },
     );
     await assert.rejects(
-      requestWorkbenchMutation("/connection-credentials/action", {
+      requestWorkbenchMutation("/api/access/credentials", {
         method: "POST",
       }),
       { message: "workbench_mutation_rejected" },

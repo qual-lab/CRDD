@@ -22,13 +22,13 @@ import {
 } from "../../../document-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
-  readWorkbenchOwnerArtifact,
-  readWorkbenchOwnerArtifactCatalog,
-  readWorkbenchProjectSurface,
-  type WorkbenchOwnerArtifactCatalog,
-} from "../../src/http/start.ts";
-import { readWorkbenchArtifactSelection } from "../../src/view/project.ts";
-import { inspectWorkbenchArtifactModel } from "../../src/view/validation.ts";
+  readOwnerArtifact,
+  readOwnerArtifactCatalog,
+  readProjectViewData,
+  type OwnerArtifactCatalog,
+} from "../../src/app.ts";
+import { readArtifactSelection } from "../../src/service/project.ts";
+import { validateArtifactResponse } from "../../../workbench-ui/src/client/api/response.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -47,7 +47,7 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  * @boundary PPR-IT-019=Direct Boundary: workbench Test Source→対象契約
  */
 test("共通Project Contextを読み未構成Capabilityを明示する", async () => {
-  const surface = await readWorkbenchProjectSurface(repositoryRoot);
+  const surface = await readProjectViewData(repositoryRoot);
 
   assert.equal(surface.context.projectId, "qual-lab.crdd");
   assert.deepEqual(
@@ -166,7 +166,7 @@ test("Owner文書は旧容量境界を超えて見出しと本文を返し終了
     relative = `${"segment/".repeat(80)}long.md`;
     assert.ok(relative.length > 512);
     assert.equal(
-      readWorkbenchArtifactSelection(
+      readArtifactSelection(
         new URLSearchParams({ route: "/owner-artifact", path: relative }),
         false,
       )?.identity,
@@ -176,7 +176,7 @@ test("Owner文書は旧容量境界を超えて見出しと本文を返し終了
     await mkdir(path.dirname(file), { recursive: true });
     const longBody = "# long path\ncomplete body\n";
     await writeFile(file, longBody);
-    const longCatalog = await readWorkbenchOwnerArtifactCatalog(
+    const longCatalog = await readOwnerArtifactCatalog(
       root,
       `[long](${relative})`,
     );
@@ -187,11 +187,11 @@ test("Owner文書は旧容量境界を超えて見出しと本文を返し終了
       "long path",
     );
     assert.equal(
-      await readWorkbenchOwnerArtifact(root, longCatalog, relative),
+      await readOwnerArtifact(root, longCatalog, relative),
       longBody,
     );
     assert.equal(
-      await readWorkbenchOwnerArtifact(root, longCatalog, `${relative}.md`),
+      await readOwnerArtifact(root, longCatalog, `${relative}.md`),
       null,
     );
     const firstArtifact = longCatalog.artifacts[0];
@@ -203,12 +203,12 @@ test("Owner文書は旧容量境界を超えて見出しと本文を返し終了
       "not-markdown.txt",
       "a//b.md",
     ]) {
-      const invalidCatalog: WorkbenchOwnerArtifactCatalog = {
+      const invalidCatalog: OwnerArtifactCatalog = {
         ...longCatalog,
         artifacts: [{ ...firstArtifact, relativePath: invalid }],
       };
       assert.equal(
-        await readWorkbenchOwnerArtifact(root, invalidCatalog, invalid),
+        await readOwnerArtifact(root, invalidCatalog, invalid),
         null,
         invalid,
       );
@@ -225,7 +225,7 @@ test("Owner文書は旧容量境界を超えて見出しと本文を返し終了
     ] as const) {
       await writeFile(file, body);
       reads = closes = 0;
-      const catalog = await readWorkbenchOwnerArtifactCatalog(
+      const catalog = await readOwnerArtifactCatalog(
         root,
         `[case](${relative})`,
       );
@@ -238,28 +238,23 @@ test("Owner文書は旧容量境界を超えて見出しと本文を返し終了
       assert.equal(reads, Buffer.byteLength(body));
       assert.equal(closes, 1);
       assert.equal(
-        (await readWorkbenchOwnerArtifact(root, catalog, relative)) !== null,
+        (await readOwnerArtifact(root, catalog, relative)) !== null,
         bodyAllowed,
       );
       const model = {
-        contract: "crdd/workbench/client-model/v1",
+        contract: "crdd/workbench/view/v1",
         view: "artifact",
-        logoPath: "/brand/logo.jpg",
         repositoryId: "repository-a",
         selectedRepositoryId: null,
         artifact: { kind: "owner", identity: relative, markdown: body },
       };
-      assert.equal(
-        inspectWorkbenchArtifactModel(model).artifact.markdown,
-        body,
-      );
+      assert.equal(validateArtifactResponse(model).artifact.markdown, body);
     }
     for (fault of ["read", "close", "replace"]) {
       await writeFile(file, "# original\n");
       closes = 0;
       assert.equal(
-        (await readWorkbenchOwnerArtifactCatalog(root, `[case](${relative})`))
-          .state,
+        (await readOwnerArtifactCatalog(root, `[case](${relative})`)).state,
         "unknown",
         fault,
       );
@@ -269,14 +264,12 @@ test("Owner文書は旧容量境界を超えて見出しと本文を返し終了
     fault = "";
     await rm(file);
     assert.equal(
-      (await readWorkbenchOwnerArtifactCatalog(root, `[case](${relative})`))
-        .state,
+      (await readOwnerArtifactCatalog(root, `[case](${relative})`)).state,
       "unknown",
     );
     await mkdir(file);
     assert.equal(
-      (await readWorkbenchOwnerArtifactCatalog(root, `[case](${relative})`))
-        .state,
+      (await readOwnerArtifactCatalog(root, `[case](${relative})`)).state,
       "unknown",
     );
     const outside = path.join(fixtureRoot, "outside");
@@ -289,8 +282,7 @@ test("Owner文書は旧容量境界を超えて見出しと本文を返し終了
       "file",
     );
     assert.equal(
-      (await readWorkbenchOwnerArtifactCatalog(root, "[linked](linked.md)"))
-        .state,
+      (await readOwnerArtifactCatalog(root, "[linked](linked.md)")).state,
       "unknown",
     );
     await fs.promises.symlink(
@@ -299,12 +291,8 @@ test("Owner文書は旧容量境界を超えて見出しと本文を返し終了
       process.platform === "win32" ? "junction" : "dir",
     );
     assert.equal(
-      (
-        await readWorkbenchOwnerArtifactCatalog(
-          root,
-          "[external](external/outside.md)",
-        )
-      ).state,
+      (await readOwnerArtifactCatalog(root, "[external](external/outside.md)"))
+        .state,
       "unknown",
     );
   } finally {
@@ -370,7 +358,7 @@ test("TopicとMeetingの正本を検証済み一覧へ投影する", async () =>
       "utf8",
     );
 
-    const surface = await readWorkbenchProjectSurface(fixtureRoot);
+    const surface = await readProjectViewData(fixtureRoot);
     assert.deepEqual(surface.context, intake.result);
     assert.equal(
       await readFile(path.join(fixtureRoot, "PROJECT_CONTEXT.md"), "utf8"),

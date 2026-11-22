@@ -84,7 +84,7 @@ export function clearWorkbenchCredential(): void {
  * @precondition Browserの現在OriginがWorkbench配置先である。
  * @postcondition Header資格をURL・応答・例外へ複製しない。
  * @effect 一回のfetchと応答本文読取り。再送なし。
- * @failure Origin差・Caller資格指定・容量超過・取消・接続世代差は固定例外。
+ * @failure Origin差・Caller資格指定・取消・接続世代差は固定例外。
  * @invariant 接続材料は認可結果ではなく、Serverが毎要求認可する。
  * @boundary Browser HTTPと現在表示の間。
  * @security same-origin限定、redirect追従0、Cookie資格の新設0、no-store。

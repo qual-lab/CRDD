@@ -54,17 +54,17 @@ import {
   MCP_COORDINATOR_PROTOCOL_VERSION,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
-  MCP_EXECUTION_STATUS_TOOL,
+  EXECUTION_ACTIVITY_TOOL,
   MCP_TOPIC_MEETING_TOOLS,
-  MCP_RUNTIME_READ_TOOL,
-  MCP_RUNTIME_MANAGE_TOOL,
-} from "../../src/mcp/core.ts";
-import type { McpCoordinatorDependencies } from "@qual-lab/crdd-server/automation";
+  GET_EXECUTION_DEFINITION_TOOL,
+  MANAGE_EXECUTION_DEFINITION_TOOL,
+} from "../../src/transport/mcp-server.ts";
 import {
+  type McpCoordinatorDependencies,
   readMcpServerConfiguration,
   startMcpAuthenticatedStreamableHttp,
   startMcpCoordinatorStreamableHttp,
-} from "../../src/mcp/core.ts";
+} from "../../src/transport/mcp-server.ts";
 
 const TOKEN = "local-development-token-0123456789abcdef";
 const revision = "a".repeat(40);
@@ -326,7 +326,7 @@ test("共有MCP設定Readerは当該Repositoryの閉設定だけを受理する"
  */
 test("共有MCPはHTTPS Origin以外の構成を拒否する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/mcp/transport-http.ts", import.meta.url),
+    new URL("../../src/transport/mcp-server.ts", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(source, /orchestrator_mcp_http_/u);
@@ -555,10 +555,10 @@ function waitForListeningPort(
   deployment?: Readonly<{ origin: string; port: number }>,
 ) {
   return new Promise<number>((resolve, reject) => {
-    let stderr = "";
-    const stderrStream = child.stderr;
-    if (!stderrStream) {
-      reject(new Error("crdd_mcp_http_stderr_unavailable"));
+    let stdout = "";
+    const stdoutStream = child.stdout;
+    if (!stdoutStream) {
+      reject(new Error("crdd_mcp_http_stdout_unavailable"));
       return;
     }
     const timeout = setTimeout(
@@ -569,25 +569,20 @@ function waitForListeningPort(
      * 起動案内を有限の出力から読み取る。
      * @responsibility 実Listenerの案内と出力上限を照合する。
      * @trace EST-ST-003
-     * @precondition 所有Childのstderrを購読している。
-     * @stimulus stderrのBuffer受信。
+     * @precondition 所有Childのstdoutを購読している。
+     * @stimulus stdoutのBuffer受信。
      * @observation 固定案内のportまたは容量超過。
      * @oracle 案内未到達を起動成功にしない。
      * @cleanup 終了判定をfinishへ委譲する。
      * @boundary 所有CLIの起動出力。
      */
     const data = (chunk: Buffer) => {
-      stderr += String(chunk);
-      if (stderr.length > 65536)
+      stdout += String(chunk);
+      if (stdout.length > 65536)
         return finish(new Error("crdd_mcp_http_output_limit"));
-      if (
-        deployment &&
-        stderr.includes(`CRDD MCP is listening on ${deployment.origin}/mcp\n`)
-      )
+      if (deployment && stdout.includes(`CRDD Server: ${deployment.origin}\n`))
         return finish(null, deployment.port);
-      const match = stderr.match(
-        /CRDD MCP is listening on http:\/\/127\.0\.0\.1:(\d+)\/mcp/u,
-      );
+      const match = stdout.match(/CRDD Server: http:\/\/127\.0\.0\.1:(\d+)/u);
       if (!match?.[1]) return;
       if (!deployment) finish(null, Number(match[1]));
     };
@@ -629,13 +624,13 @@ function waitForListeningPort(
      */
     const finish = (error: Error | null, port?: number) => {
       clearTimeout(timeout);
-      stderrStream.off("data", data);
+      stdoutStream.off("data", data);
       child.off("exit", exited);
       child.off("error", failed);
       if (error) reject(error);
       else resolve(port as number);
     };
-    stderrStream.on("data", data);
+    stdoutStream.on("data", data);
     child.once("exit", exited);
     child.once("error", failed);
   });
@@ -680,7 +675,7 @@ async function availableMcpEntryPort(): Promise<number> {
  */
 test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", async () => {
   const entry = fileURLToPath(
-    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
+    new URL("../../../../template/tools/crdd-server.ts", import.meta.url),
   );
   const hook =
     "data:text/javascript," +
@@ -689,7 +684,7 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
     );
   const child = spawn(
     process.execPath,
-    ["--import", hook, entry, "--http", "--port", "0"],
+    ["--import", hook, entry, "--port", "0"],
     {
       cwd: path.dirname(entry),
       env: { ...process.env, CRDD_MCP_HTTP_BEARER_TOKEN: TOKEN },
@@ -738,9 +733,11 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
     const names = (
       (await listed.json()) as { result: { tools: { name: string }[] } }
     ).result.tools.map((tool) => tool.name);
-    assert.ok(names.includes("crdd.get_runtime_definition"));
-    assert.ok(names.includes("crdd.manage_runtime_definition"));
-    assert.equal(names.includes("crdd.get_coordinator_state"), false);
+    assert.ok(names.includes("crdd.get_execution_definition"));
+    assert.ok(names.includes("crdd.manage_execution_definition"));
+    assert.ok(names.includes("crdd.run_objective"));
+    assert.ok(names.includes("crdd.submit_decision"));
+    assert.ok(names.includes("crdd.get_execution_state"));
   } finally {
     if (child.exitCode === null) child.kill();
     await new Promise<void>((resolve) => {
@@ -763,7 +760,7 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
  */
 test("公開CROS入口は未設定Rootと不正TransportをEffect前拒否する", () => {
   const entry = fileURLToPath(
-    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
+    new URL("../../../../template/tools/crdd-server.ts", import.meta.url),
   );
   const missing = path.resolve(
     import.meta.dirname,
@@ -780,11 +777,11 @@ test("公開CROS入口は未設定Rootと不正TransportをEffect前拒否する
   };
   delete environment.CRDD_MCP_HTTP_BEARER_TOKEN;
   const cases = [
-    { args: ["--cros", "--stdio"], token: undefined, exit: 64 },
-    { args: ["--cros", "--http", "--port", "0"], token: TOKEN, exit: 64 },
-    { args: ["--cros", "--http", "--port", "0"], token: undefined, exit: 2 },
-    { args: ["--cros", "--http", "--port", "-1"], token: undefined, exit: 64 },
-    { args: ["--http", "--port", "0", "--cros"], token: undefined, exit: 64 },
+    { args: ["--shared", "--mcp-stdio"], token: undefined, exit: 64 },
+    { args: ["--shared", "--port", "0"], token: TOKEN, exit: 64 },
+    { args: ["--shared", "--port", "0"], token: undefined, exit: 2 },
+    { args: ["--shared", "--port", "-1"], token: undefined, exit: 64 },
+    { args: ["--port", "0", "--shared", "--docs"], token: undefined, exit: 64 },
   ];
   for (const item of cases) {
     const result = spawnSync(process.execPath, [entry, ...item.args], {
@@ -826,7 +823,7 @@ test("公開CROS入口は既存Rootの未設定と不正材料を変更せず拒
   fs.mkdirSync(parent, { recursive: true });
   assert.equal(fs.realpathSync.native(parent), parent);
   const entry = fileURLToPath(
-    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
+    new URL("../../../../template/tools/crdd-server.ts", import.meta.url),
   );
   for (const mode of ["fresh", "corrupt", "pending", "replace"] as const) {
     const directory = fs.mkdtempSync(
@@ -879,7 +876,7 @@ test("公開CROS入口は既存Rootの未設定と不正材料を変更せず拒
     delete environment.CRDD_MCP_HTTP_BEARER_TOKEN;
     const result = spawnSync(
       process.execPath,
-      [entry, "--cros", "--http", "--port", "0"],
+      [entry, "--shared", "--port", "0"],
       {
         cwd: path.dirname(entry),
         env: environment,
@@ -1097,6 +1094,10 @@ for (const mode of [
               path.join(config, "mcp-server.json"),
               JSON.stringify({ publicOrigin }),
             );
+            fs.writeFileSync(
+              path.join(config, "workbench-server.json"),
+              JSON.stringify({ publicOrigin }),
+            );
           }
           const input =
             process.platform === "win32"
@@ -1153,7 +1154,7 @@ for (const mode of [
           );
           const entry = fileURLToPath(
             new URL(
-              "../../../../template/tools/crdd-mcp-server.ts",
+              "../../../../template/tools/crdd-server.ts",
               import.meta.url,
             ),
           );
@@ -1172,8 +1173,7 @@ for (const mode of [
               "--eval",
               "const {pathToFileURL}=require('node:url');process.once('message',()=>{process.emit('SIGTERM');process.disconnect();});void import(pathToFileURL(process.argv[1]).href);",
               entry,
-              "--cros",
-              "--http",
+              "--shared",
               "--port",
               String(selectedPort),
             ],
@@ -1385,11 +1385,14 @@ for (const mode of [
               MCP_CURRENT_ACCESS_TOOL,
               ...Object.values(MCP_ACCESS_MANAGEMENT_TOOLS),
               ...MCP_TOPIC_MEETING_TOOLS,
-              MCP_RUNTIME_READ_TOOL,
-              MCP_RUNTIME_MANAGE_TOOL,
+              GET_EXECUTION_DEFINITION_TOOL,
+              MANAGE_EXECUTION_DEFINITION_TOOL,
               MCP_PROJECT_CONTEXT_LIST_TOOL,
               MCP_PROJECT_CONTEXT_GET_TOOL,
-              MCP_EXECUTION_STATUS_TOOL,
+              EXECUTION_ACTIVITY_TOOL,
+              "crdd.run_objective",
+              "crdd.submit_decision",
+              "crdd.get_execution_state",
               "crdd.get_workspace",
               "crdd.manage_workspace",
             ].sort(),
@@ -1536,7 +1539,7 @@ test("localhost HTTPは認証済み状態参照を同じ公開契約へ搬送す
       method: "tools/call",
       params: {
         _meta: META,
-        name: "crdd.get_coordinator_state",
+        name: "crdd.get_execution_state",
         arguments: {
           requestId: "query-a",
           projectId: "project-a",
@@ -1662,7 +1665,7 @@ test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否�
     method: "tools/call",
     params: {
       _meta: META,
-      name: "crdd.get_coordinator_state",
+      name: "crdd.get_execution_state",
       arguments: {
         requestId: "query-a",
         projectId: "project-a",
@@ -1726,14 +1729,14 @@ test("HTTPは不正UTF-8・重複key・容量超過を意味処理前に拒否�
     { port: 0, bearerToken: TOKEN },
   );
   const url = new URL(`http://${server.host}:${server.port}${server.endpoint}`);
-  const requestHeaders = headers("tools/call", "crdd.get_coordinator_state");
+  const requestHeaders = headers("tools/call", "crdd.get_execution_state");
   try {
     assert.equal(
       await sendRaw(url, requestHeaders, Buffer.from([0xc3, 0x28])),
       400,
     );
     const duplicate = Buffer.from(
-      `{"jsonrpc":"2.0","id":1,"id":2,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"${MCP_COORDINATOR_PROTOCOL_VERSION}","io.modelcontextprotocol/clientCapabilities":{}},"name":"crdd.get_coordinator_state","arguments":{}}}`,
+      `{"jsonrpc":"2.0","id":1,"id":2,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"${MCP_COORDINATOR_PROTOCOL_VERSION}","io.modelcontextprotocol/clientCapabilities":{}},"name":"crdd.get_execution_state","arguments":{}}}`,
       "utf8",
     );
     assert.equal(await sendRaw(url, requestHeaders, duplicate), 400);
