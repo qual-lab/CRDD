@@ -1306,6 +1306,10 @@ Document Modelの完成Parseを文書Ownerの `parse.ts` に揃えた。Architec
 
 Quality Centerの公開Parseを `parseQualityCenter` に統一した。同一原文の表示表を `currentProjection` として保持し、その欠測をCheckerの状態・Checklist診断へ混ぜない。Workbenchは既存の表示結果と観測不明を維持する。専用の公開Parseを撤去したため、Document Model Rootは226項目（値102・型124）となる。保存形式、Release投影およびRepository実体の観測順は変更しない。
 
+Workbench UIの配置・ビルドを基準改訂版 `95b7b915f` から整理する。Viteの入口を `workbench-ui/src/index.html` とし、ReactとCSSも同じ `src` に収める。旧Source・公開素材ディレクトリの互換入口は残さず、固定の3配布物・既存URL、読み込み中表示とアクセシビリティ属性を維持する。UIの受信検査・表示動作、Server本体、HTTP契約およびBrand素材の所有先は変更しない。既存のSymbol台帳、利用側の参照と限定試験・文書を追従させ、独立レビューで配布境界を確認する。工程・準拠契約は変更せず、全体回帰・実AI・Dockerはこの単位の検証に含めない。
+
+Workbench UIの応答型参照を既存の公開HTTP入口 `./api` に揃え、型だけの公開を追加した。各画面の型は既存の公開応答から導出し、型の複製やServer内部ファイルへの直接参照を残さない。HTTPの入出力・既存の受信検査・実行時依存は変えない。
+
 ### Provider計測を用途の最終結果へ一本化 — 2026-11-21
 
 TaskとAdviceが必ず渡していた記録集合を内部の必須引数とし、技術完了だけで計測を確定する未接続の別経路を撤去した。両用途の記録集合は同じ確定処理が一度消費し、技術結果と上位最終結果を区別して保存する。観測欠測の試行を未完了のまま残し、後続の観測済み試行の確定は妨げない。公開API、保存形式、実行・回収の判定は変更しない。

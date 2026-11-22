@@ -67,7 +67,7 @@ import {
   type AiRequests,
 } from "../../src/app.ts";
 import type { ViewResponse } from "../../src/transport/api-types.ts";
-import { validateViewResponse } from "../../../workbench-ui/src/client/api/response.ts";
+import { validateViewResponse } from "../../../workbench-ui/src/api/response.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -1065,8 +1065,14 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     assert.match(shell.body.toString("utf8"), /data-workbench-react-root/u);
     assert.match(
       shell.body.toString("utf8"),
-      /<script type="module" src="\/assets\/workbench-client\.js"><\/script>/u,
+      /<script\b(?=[^>]*\btype="module")[^>]*\bsrc="\/assets\/workbench-client\.js"[^>]*><\/script>/u,
     );
+    assert.match(
+      shell.body.toString("utf8"),
+      /<link\b(?=[^>]*\brel="stylesheet")[^>]*\bhref="\/workbench\.css"[^>]*>/u,
+    );
+    assert.match(shell.body.toString("utf8"), /aria-live="polite"/u);
+    assert.match(shell.body.toString("utf8"), /Workbenchを読み込んでいます。/u);
     assert.equal(shell.headers["content-type"], "text/html; charset=utf-8");
     assert.match(
       String(shell.headers["content-security-policy"]),

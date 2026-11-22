@@ -13,7 +13,7 @@ import {
   clearWorkbenchCredential,
   requestWorkbench,
   setWorkbenchCredential,
-} from "../../src/client/api/connection.ts";
+} from "../../src/api/connection.ts";
 
 /**
  * 接続資格の搬送と切替前後の応答非混同を検証する。

@@ -107,7 +107,7 @@ AI依頼は旧Profile IDでなく作業分類と任意の明示Provider／Model�
 
 ### Framework移行の採用境界 — 2026-10-20
 
-Workbenchは `workbench-ui/src/client` と `crdd-server` に分け、Expressルートと操作別受付を `src/transport/api-server.ts`、HTTP共通処理を `src/transport/api-http.ts`、表示・リポジトリ・管理の通信契約を各責務フォルダに置く。React＋ViteのCSRを唯一の画面Rendering方式として維持し、ServerのHTTP RoutingをExpress 5、ClientのNavigationをReact Router、Serverデータ取得をTanStack Queryへ移す。Domain・認証認可・実行状態・Git操作の正本は既存専門Packageに維持し、WorkbenchからMCPへ依存しない。UX／IA・Visual再設計はこの移行へ含めない。
+Workbenchは `workbench-ui/src` と `crdd-server` に分け、Expressルートと操作別受付を `src/transport/api-server.ts`、HTTP共通処理を `src/transport/api-http.ts`、表示・リポジトリ・管理の通信契約を各責務フォルダに置く。React＋ViteのCSRを唯一の画面Rendering方式として維持し、ServerのHTTP RoutingをExpress 5、ClientのNavigationをReact Router、Serverデータ取得をTanStack Queryへ移す。Domain・認証認可・実行状態・Git操作の正本は既存専門Packageに維持し、WorkbenchからMCPへ依存しない。UX／IA・Visual再設計はこの移行へ含めない。
 
 Frameworkの既定動作を既存保証の代替と推定しない。HTTPの大小文字・末尾slash・HEAD・未知Method、raw Header・Host／Origin、Bodyの形式・容量・圧縮、固定拒否・静的配信、取消・要求join・Owner closeを基準契約へ照合する。認証前のBody読取りや静的fallbackを追加しない。巨大な旧分岐へのcatch-all接続は中間状態であり、移行完了ではない。
 
@@ -127,7 +127,7 @@ Workspace専用の操作準備と単体Repositoryの照合は `service/workspace
 
 `transport/api-server.ts`は管理GET／POST、初回接続、鍵操作、WorkspaceのHTTP受付を扱う。管理フォームの検査はHTTPの受付に置き、既存AMの非鍵保存への操作対応はMCPと共用する。一度限りの鍵応答・送信完了の観測はHTTP受付に置き、鍵操作・提示前後の記録・交換終了は `service/access.ts` からAMへ接続する。切断監視を共用しつつ、通常管理と鍵操作の開始時点・終了待ちは区別する。Repository登録はHTTPだけに残す。Workspaceの共有認可はMCPと同じRepository・改訂・Binding・Manifest・実体照合を使い、単体接続は起動Repositoryに固定する。処置後再確認と配送前400／配送後503、管理・鍵処理の内側取消と終了待ちを保持する。接続専用確認は通常認証の後ろへ移動しない。
 
-Portfolioの検索・20件ページ・条件結合Cursorは `service/project-context.ts`、認可済みのTopic／Meeting一覧と本文／Relationの取得は `service/topic.ts` に置く。本文欠測とReader例外の既存処置を維持する。操作結果を公開可能な欄へ絞る処理は `service/topic.ts` が所有する。構成状態を `surface` に一度だけ含め、検索済みページと適用条件を別に返す。Workbench UIの `src/client/api/view.ts` が同種の状態とページを記録一覧へ結び付ける。Serverの表示状態・通知消費・AI結果の所有先はこの単位では変更しない。
+Portfolioの検索・20件ページ・条件結合Cursorは `service/project-context.ts`、認可済みのTopic／Meeting一覧と本文／Relationの取得は `service/topic.ts` に置く。本文欠測とReader例外の既存処置を維持する。操作結果を公開可能な欄へ絞る処理は `service/topic.ts` が所有する。構成状態を `surface` に一度だけ含め、検索済みページと適用条件を別に返す。Workbench UIの `src/api/view.ts` が同種の状態とページを記録一覧へ結び付ける。Serverの表示状態・通知消費・AI結果の所有先はこの単位では変更しない。
 
 #### Repository・Record・AIの操作受付
 
@@ -141,7 +141,7 @@ Repository・Topic／Meetingの変更と、AI選定・依頼のHTTP受付は `tr
 
 `/api/workbench/view` の主画面応答は `transport/api-server.ts`、成果物本文の選択は `service/project-context.ts`、資格管理状態の取得は `service/access.ts`、記録の検索条件は `service/topic.ts` に置く。公開データ取得は純粋変換ではなく、記録本文／Relation Readerの後に資格管理Readerを呼ぶ。既存の呼出し位置・順序・例外を保ち、資格観測を先行引数・Cacheへ変換しない。
 
-`workbench-ui/public` が固定の起動HTMLとCSSを所有し、Vite Buildがブラウザ用JSとともに `workbench-ui/dist/client` へ揃える。`app.ts` は検証済みRepositoryのロゴとUI配布物3点を起動時に読み、読取り不能ならListen前に停止する。`transport/api-server.ts` は固定のCSS・ロゴ・JS URLからメモリ内の配信内容を選ぶ。HTMLは `/index.html` を含む既存の画面Routeだけで使い、任意の静的Rootやリクエストごとのファイル読取りは追加しない。healthはAsset選択から分離し、既存応答を維持する。
+`workbench-ui/src/index.html` をViteの入口とし、Reactと `src/styles/workbench.css` を同じBuildで処理する。公開素材のコピー元は設けず、固定名のHTML・CSS・JSを `workbench-ui/dist/client` へ生成し、Git管理する。`app.ts` は検証済みRepositoryのロゴとUI配布物3点を起動時に読み、読取り不能ならListen前に停止する。`transport/api-server.ts` は固定のCSS・ロゴ・JS URLからメモリ内の配信内容を選ぶ。HTMLは `/index.html` を含む既存の画面Routeだけで使い、任意の静的Rootやリクエストごとのファイル読取りは追加しない。healthはAsset選択から分離し、既存応答を維持する。
 
 成果物一覧の参照候補と出典節はDocument Modelの共通ArtifactとProject Context Parseが所有する。`service/project-context.ts` は固定文書の追加・重複排除・表示名と現在の実体の確認を担当し、Markdownのリンクは再解析しない。本文は作業ツリーの成果物を既存の実体境界で読み、Gitの比較基準や追跡状態を受付条件に追加しない。Quality／Release・Topic／Meetingの正式な文書解析も既存のDocument Model APIに委譲する。
 
@@ -153,29 +153,29 @@ HTTPフォーム内のJSON、MCPのHTTP本文・stdioフレームのJSON構文�
 
 ### Client配置と共有表示契約
 
-Browser Build入口は`client/main.tsx`、画面選択は`client/app.tsx`、画面本体は`client/pages/`、独立PanelとShellは`client/components/`とする。小さな共通表示要素は`elements.ts`へ同居させる。接続資格を非永続に保持する既存通信境界は`client/api/connection.ts`、RecordのForm・応答相関は`record.ts`、選択条件を維持するURL生成は`view.ts`が所有する。旧`browser/`への転送は残さない。
+Browser Build入口は`src/main.tsx`、画面選択は`src/app.tsx`、画面本体は`src/pages/`、独立PanelとShellは`src/components/`とする。小さな共通表示要素は`elements.ts`へ同居させる。接続資格を非永続に保持する既存通信境界は`src/api/connection.ts`、RecordのForm・応答相関は`record.ts`、選択条件を維持するURL生成は`view.ts`が所有する。旧`browser/`への転送は残さない。
 
-HTTP共通のビュー応答型は `transport/api-types.ts`、Project・実行・記録・アクセスの型は各APIへ置く。Domain等の正本型をtype importで参照する。表示JSON・AI選択設定・Portfolioの受信検査は `workbench-ui/src/client/api/response.ts` に置く。実行検証スクリプトと接続試験は、クライアントとして同じ受理条件を利用する。送信済みAI選定設定と保存応答の照合はWorkbench UIの `src/client/api/ai-selection.ts` が所有し、共通の設定Snapshot検査だけを再利用する。Serverは共有型へ直接接続し、React・Client通信・資格memoryへ依存しない。HTTPの公開操作・通信Schemaは維持する。
+HTTPの応答型はServerの各Ownerで定義し、Workbench UIは公開 `./api` にある表示応答と管理応答の型だけを参照する。Domain等の正本型をtype importで参照する。表示JSON・AI選択設定・Portfolioの受信検査は `workbench-ui/src/api/response.ts` に置く。実行検証スクリプトと接続試験は、クライアントとして同じ受理条件を利用する。送信済みAI選定設定と保存応答の照合はWorkbench UIの `src/api/ai-selection.ts` が所有し、共通の設定Snapshot検査だけを再利用する。Serverは共有型へ直接接続し、React・Client通信・資格memoryへ依存しない。HTTPの公開操作・通信Schemaは維持する。
 
-ClientのNavigationは次節のRouterへ接続する。`client/app.tsx`は検査済みviewの選択だけを行い、概要・接続管理・Project詳細・Record詳細・原文表示を`client/pages/`へ分ける。共有表示部品は`client/components/`へ置き、移管だけで状態の寿命・Form受付・失敗時の表示条件を変えない。ディレクトリの追加階層は、Node Runtime／Browser Build／純粋共有契約を分けたうえで、API・表示・HTTP受付の独立した利用・試験境界を識別するために採用する。
+ClientのNavigationは次節のRouterへ接続する。`src/app.tsx`は検査済みviewの選択だけを行い、概要・接続管理・Project詳細・Record詳細・原文表示を`src/pages/`へ分ける。共有表示部品は`src/components/`へ置き、移管だけで状態の寿命・Form受付・失敗時の表示条件を変えない。ディレクトリの追加階層は、Node Runtime／Browser Build／純粋共有契約を分けたうえで、API・表示・HTTP受付の独立した利用・試験境界を識別するために採用する。
 
 ### React Routerの履歴・取消・Document終了
 
-`client/router.tsx`はReact Router 8.5.0のcreateBrowserRouterを既知7Pathへ接続する。Loaderは`client/api/view.ts`の既存表示取得をRouterのSignalで一回呼び、独自Cacheを持たない。共通親はpending時に旧Outletを描画せず、エラー時は自由な例外本文や旧Modelを使用しない。人間判断により、リンク／GET検索が取得に失敗した場合も遷移先URLを保持して固定エラーを表示する。旧URLへの復元制御は追加しない。
+`src/router.tsx`はReact Router 8.5.0のcreateBrowserRouterを既知7Pathへ接続する。Loaderは`src/api/view.ts`の既存表示取得をRouterのSignalで一回呼び、独自Cacheを持たない。共通親はpending時に旧Outletを描画せず、エラー時は自由な例外本文や旧Modelを使用しない。人間判断により、リンク／GET検索が取得に失敗した場合も遷移先URLを保持して固定エラーを表示する。旧URLへの復元制御は追加しない。
 
-`client/main.tsx`はReact RootとDocument寿命、既知の通常リンク／GET Formの対象判定とRepository選択補正だけを担う。POST・外部・修飾クリック・download・hash-onlyリンクは横取りしない。履歴とPOPをRouterへ委譲し、独自pushState・popstate監視・Navigation世代を撤去する。接続資格の世代は既存通信境界が維持し、画面遷移世代と混同しない。同一URLとhash-only以外のPOPはfresh取得し、hash-onlyは取得しない。Transitionsを無効にしてpendingを旧画面の維持に使用しない。
+`src/main.tsx`はReact RootとDocument寿命、既知の通常リンク／GET Formの対象判定とRepository選択補正だけを担う。POST・外部・修飾クリック・download・hash-onlyリンクは横取りしない。履歴とPOPをRouterへ委譲し、独自pushState・popstate監視・Navigation世代を撤去する。接続資格の世代は既存通信境界が維持し、画面遷移世代と混同しない。同一URLとhash-only以外のPOPはfresh取得し、hash-onlyは取得しない。Transitionsを無効にしてpendingを旧画面の維持に使用しない。
 
 pagehideはRouter dispose、Root unmount、所有DOM監視の解除と資格参照解放を行い、再入場は新Router／Rootで資格なしのfresh取得とする。Loader取消を外部Effectのrollbackへ換算しない。LoaderとQueryは次節の一本の取得経路とし、画面側の別useQueryによる二重取得を作らない。実装接続とFramework全体の完成評価は区別する。
 
 ### Query・画面・共有境界の最終配置
 
-`client/api/queries.ts`はTanStack Query 5.104.5の明示取得だけを利用する。用途は表示・管理・AI選択設定・鍵操作後の非秘密表示に限定する。staleTimeとgcTimeは0、retry・focus／reconnect／mount再取得は無効、networkModeはalwaysとし、既存通信と異なるoffline保留・復帰時再送を追加しない。要求ごとのUUIDで同用途の独立取得を分離し、Router／ComponentとQuery双方のSignalを既存通信へ渡す。成功・失敗とも当該Queryだけを除去し、旧finallyから新Queryを消さない。資格変更・解放では既存世代更新と同時にQueryを破棄する。gcTimeだけを主体分離や実通信終了の証明にしない。
+`src/api/queries.ts`はTanStack Query 5.104.5の明示取得だけを利用する。用途は表示・管理・AI選択設定・鍵操作後の非秘密表示に限定する。staleTimeとgcTimeは0、retry・focus／reconnect／mount再取得は無効、networkModeはalwaysとし、既存通信と異なるoffline保留・復帰時再送を追加しない。要求ごとのUUIDで同用途の独立取得を分離し、Router／ComponentとQuery双方のSignalを既存通信へ渡す。成功・失敗とも当該Queryだけを除去し、旧finallyから新Queryを消さない。資格変更・解放では既存世代更新と同時にQueryを破棄する。gcTimeだけを主体分離や実通信終了の証明にしない。
 
 2026-10-21の再評価では、この方式を維持する。Repository／Task単位の安定keyなら同時取得共有と選択的invalidateに利点があるが、現行GETには通知消費があり、Caller別の取消と明示取得の分離も必要である。安定keyだけを導入すると取消済みPromiseの共有や取得省略で既存の振る舞いが変わる。現在は共有Cacheを最適化するより、一回取得・主体切替時の取消・非保持をQueryへ集約する利点を優先する。通知消費を分離し、読取りの副作用・接続世代・認可範囲を安定keyへ結合できる段階で再評価する。資格をkeyへ入れる方法や新しい要求Registryは採用しない。
 
 Repository操作の入力規則と処置結果の意味検査はGit操作を担当する `service/repository.ts` に置く。Workbench UIは選択中の画面のフォームだけを送り、HTTP応答を同じ送信と照合して非秘密の状態・理由だけを表示する。Gitの入力制約と処置結果の規則はUIで再実装しない。Record削除後の移動はRouterが所有し、同じ接続世代・Repository・移動先に限定した短命の通知を新しいLoader結果へ渡す。手動History更新、二重GET、永続通知Storeは追加しない。
 
-`client/api/mutations.ts`は既存六業務POSTを一回実行する。Mutationはretryなし・always・gcTime0で、variables／data／metaへForm・HTTP応答を保存せず、応答を既存の操作別検査へ返した後に記録を除去する。接続専用POSTと発行・失効・交換の鍵専用POSTはMutationへ入れない。二重送信拒否、Signal、処置後観測と保存結果保持は既存Componentが所有し、新しい業務Stateや共通Recoveryを追加しない。
+`src/api/mutations.ts`は既存六業務POSTを一回実行する。Mutationはretryなし・always・gcTime0で、variables／data／metaへForm・HTTP応答を保存せず、応答を既存の操作別検査へ返した後に記録を除去する。接続専用POSTと発行・失効・交換の鍵専用POSTはMutationへ入れない。二重送信拒否、Signal、処置後観測と保存結果保持は既存Componentが所有し、新しい業務Stateや共通Recoveryを追加しない。
 
 初回接続・鍵管理のフォーム受付と一度限りの鍵応答は `transport/api-server.ts`、初回接続の確認保存・通常のアクセス管理・鍵操作と提示記録は `service/access.ts` からAMへ接続する。管理応答の描画前検査はWorkbench UIが所有する。AM・Domain等のCanonical型はtype importで参照し、Workbenchで複製しない。共有Repositoryの照合は `service/access.ts`、実行主体との結合・実行定義・活動照会・AI依頼の準備は `service/execution.ts` が担当する。Projectと成果物の読取りは `service/project-context.ts`、Gitの観測は `service/repository.ts`、ビューのHTTP応答は `transport/api-server.ts` が担当する。Server接続設定と専用設定領域の検査は `service/configuration.ts` に置き、HTTPで設定読取りを公開しない。用途別の公開 `./api` は既存の起動・Reader・型の集合を維持する。
 
@@ -230,7 +230,7 @@ Local接続の完全Formは同Origin・Host・Content-Type・Body容量をHTTP O
 
 `workspaceIds`はRepository全体の公開先利用範囲であり、Role範囲とExposureの交差が非空のRepositoryを選ぶ。同一Repository内のPath・ファイル・Context Surface別ACLは提供しない。情報境界が必要な内容はRepositoryを分離する。この意味は[REQ-000041](../../../01_Discovery/Definitions/REQ-000041/requirement.md)の既存採用であり、Root検証だけで現在認可を省略する許可ではない。
 
-`client/api/connection.ts`は当該タブmemoryの鍵参照と要求世代を所有する。接続確認POSTの200・閉JSONを確認してから鍵を保持し、次のAPI要求だけにAuthorization Headerを添える。Serverは毎要求の現在認証・認可を所有する。切断・画面終了でmemory参照を解放し、URL、Web Storage、Cookie、通常Model、logへ鍵を保存しない。物理的なstring消去や外部Effectの取消は保証しない。
+`src/api/connection.ts`は当該タブmemoryの鍵参照と要求世代を所有する。接続確認POSTの200・閉JSONを確認してから鍵を保持し、次のAPI要求だけにAuthorization Headerを添える。Serverは毎要求の現在認証・認可を所有する。切断・画面終了でmemory参照を解放し、URL、Web Storage、Cookie、通常Model、logへ鍵を保存しない。物理的なstring消去や外部Effectの取消は保証しない。
 
 同Origin以外への送信とCaller指定のAuthorizationは拒否し、redirectを追従しない。内部結果の応答本文は16MiBを超えても容量だけで拒否せず、読取り終了時にReaderを解放する。応答待機後にも要求世代と取消を確認し、旧接続の応答を次の主体へ渡さない。自動再送はしない。接続POSTの失敗・不明では資格参照と旧表示を破棄し、既知保存をrollbackしない。HTTP要求の受信上限は今回変更しない。
 
@@ -240,7 +240,7 @@ Browserのmanual redirect応答はstatus・Header・本文を隠すため、303�
 
 選択RepositoryのGET接続では、今回AMが確認した一つの短命許可集合から選択Root・Portfolio・同ProjectのTopic／Meetingを構成し、ContextのRepository／Project IDとmanifestを相関する。Surface・本文・一覧・Relation・Git観測とModel構築後の公開直前に、既存AMで全Rootを再観測し、管理改訂とRepository ID／Binding／manifest全契約field／workspaceIdsの正規化全集合がexact一致する場合だけ応答する。差異・不明・取消は旧内容を部分公開せず固定拒否とし、その照合後に外部I/Oを追加しない。repositoryIdは0件またはexact1件だけ受け、空1件は選択解除、重複は認証・AM・Root本文観測前に拒否する。新Session／Lock／Cacheは追加しない。起動Rootや前要求の結果へfallbackせず、直前操作・AI／Candidate結果は要求専用のnullとする。共有側Profile情報の`aiProfiles: null`は未取得を表し、0件・不存在・利用不可を意味しない。Inspector、一覧表示とAI依頼入力は同じnull意味を保持し、単体の既定Catalogを維持する。内容POST接続まで共有側の内容保存Formを無効化する。この途中GET接続は保存・本文リンク・共有配置の完成ではない。
 
-`client/main.tsx`は既知のMain／Project／Topic／MeetingリンクとGET検索を同OriginのModel取得へ接続する。外部リンク、別タブ・修飾クリック、download、POSTを一律に横取りしない。明示Repository IDを検索・内部移動で落とさず、Serverの現在認可で再解決する。URLのIDを認可証明や物理Rootとして使わない。
+`src/main.tsx`は既知のMain／Project／Topic／MeetingリンクとGET検索を同OriginのModel取得へ接続する。外部リンク、別タブ・修飾クリック、download、POSTを一律に横取りしない。明示Repository IDを検索・内部移動で落とさず、Serverの現在認可で再解決する。URLのIDを認可証明や物理Rootとして使わない。
 
 表示要求の取消・採用は標準RouterのSignalと遷移へ委譲する。通信境界は待機後にも接続資格の世代を照合する。historyへ資格や業務Snapshotを保存しない。戻る操作はfresh取得を行う。失敗時は遷移先URLで固定blocked表示とし、古い内容を保持せず自動再送しない。画面移動でタブの資格を永続化せずに維持する。
 
@@ -284,7 +284,7 @@ Queryは本文種別ごとのroute／repositoryId／idまたはpathだけをexac
 
 ### 共有Record FormのBrowser搬送 — 2026-10-13
 
-Main／Record Detailの既存Topic・Meeting Formは`client/components/record-operation-panel.tsx`の同じ要求専用搬送を使用する。`recordActionsConfigured`は直接Ownerへ接続したModelの表示可能性を表すbooleanであり、認可ではない。単体は既存native Form、新同Host CROSは現在資格付きJSON POST、旧Remoteの表示・操作は持たない。同じ`cros_available`表示から操作可否を推定しない。
+Main／Record Detailの既存Topic・Meeting Formは`src/components/record-operation-panel.tsx`の同じ要求専用搬送を使用する。`recordActionsConfigured`は直接Ownerへ接続したModelの表示可能性を表すbooleanであり、認可ではない。単体は既存native Form、新同Host CROSは現在資格付きJSON POST、旧Remoteの表示・操作は持たない。同じ`cros_available`表示から操作可否を推定しない。
 
 送信前にFormのRepository ID／Action Tokenを現在Modelへ照合し、File・重複を拒否する。未選択のcloseMeeting／confirmedは一件のfalseへ変換し、hidden false＋checkbox trueの二重値や暗黙trueを作らない。同期pending guardで一回送信し、所有Signal・画面世代で終了後採用を拒否する。結果は同じ要求の閉じた五fieldから操作・種別・理由・Effectを確認する。結果にRecord IDは含まれないため、別要求・別対象の実測証明へ転用しない。
 
@@ -423,7 +423,7 @@ Browser
 
 ### 3.1. Packageと公開入口
 
-`crdd-server/src/transport/api-server.ts` はHTTP受付、`service/` は公開データと専門Ownerへの接続、`workbench-ui/src/client` はCSR描画と同Origin資格搬送を所有する。Workbench UIの[応答検査](../../../40_Develop/workbench-ui/src/client/api/response.ts)はServerの応答型を型として参照する。Serverの実行モジュールはブラウザーに混ぜない。`./api` は既存の起動・Reader・注入型を公開し、Express内部は公開しない。起動入口は `crdd-server/bin/crdd-server.ts`、Bundleの固定配信URLは `/assets/workbench-client.js` とする。
+`crdd-server/src/transport/api-server.ts` はHTTP受付、`service/` は公開データと専門Ownerへの接続、`workbench-ui/src` はCSR描画と同Origin資格搬送を所有する。Workbench UIの[応答検査](../../../40_Develop/workbench-ui/src/api/response.ts)はServerの公開 `./api` からだけ応答型を参照し、各画面の型は公開応答から取り出す。Serverの実行モジュールはブラウザーに混ぜない。`./api` は既存の起動・Reader・注入型とUI向けの応答型を公開し、Express内部は公開しない。起動入口は `crdd-server/bin/crdd-server.ts`、Bundleの固定配信URLは `/assets/workbench-client.js` とする。
 
 単体・共有の成果物本文は `service/project-context.ts` の共通の読取り・公開投影を利用する。記録詳細と接続の公開投影は `service/topic.ts` と `service/access.ts` に置く。対象選択・再認可・取消・本文欠測時のHTTP応答は各受付が所有する。
 

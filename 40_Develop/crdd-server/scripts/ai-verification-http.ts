@@ -16,7 +16,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { parseUnambiguousJsonDocument } from "../src/transport/parse-json.ts";
 import type { AiRequestCommand, AiRequests } from "../src/app.ts";
-import { validateViewResponse } from "../../workbench-ui/src/client/api/response.ts";
+import { validateViewResponse } from "../../workbench-ui/src/api/response.ts";
 
 /** 検証通信だけの有限時計。本文・Token・Task状態は含めない。 */
 export type VerificationHttpTiming = Readonly<{

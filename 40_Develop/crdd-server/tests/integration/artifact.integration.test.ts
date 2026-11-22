@@ -23,7 +23,7 @@ import { deriveRepositoryBindingId } from "../../../access-management/src/reposi
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { validateViewResponse } from "../../../workbench-ui/src/client/api/response.ts";
+import { validateViewResponse } from "../../../workbench-ui/src/api/response.ts";
 import { startWorkbench } from "../../src/app.ts";
 
 /**

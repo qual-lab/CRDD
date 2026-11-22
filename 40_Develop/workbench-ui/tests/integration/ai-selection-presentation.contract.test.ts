@@ -14,8 +14,8 @@ import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selectio
 import {
   validateAiSelectionSnapshot,
   validateAiSelectionResponse,
-} from "../../src/client/api/response.ts";
-import { inspectWorkbenchSelectionResult } from "../../src/client/api/ai-selection.ts";
+} from "../../src/api/response.ts";
+import { inspectWorkbenchSelectionResult } from "../../src/api/ai-selection.ts";
 
 /**
  * 設定Snapshotと不正外形を分離する。

@@ -85,7 +85,11 @@ export type {
   AiRequests,
 } from "./service/execution.ts";
 export { readWorkbenchServerConfiguration } from "./service/configuration.ts";
-export type { CredentialAdministration } from "./service/access.ts";
+export type {
+  CredentialAdministration,
+  ManagementResult,
+  ManagementView,
+} from "./service/access.ts";
 export type { CredentialAdministrationResult } from "./transport/api-server.ts";
 export {
   readOwnerArtifact,
@@ -116,6 +120,7 @@ const HEALTH_PATH = "/.well-known/crdd-workbench-health";
 
 export type {
   CrddServerStartRequest,
+  ViewResponse,
   WorkbenchHandle,
   WorkbenchStartRequest,
 } from "./transport/api-types.ts";

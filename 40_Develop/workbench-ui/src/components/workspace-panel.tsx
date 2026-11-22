@@ -10,9 +10,9 @@ import { type ReactElement, useEffect, useRef, useState } from "react";
 import type {
   WorkspaceCommand,
   WorkspaceView,
-} from "../../../../coordinator/src/index.ts";
+} from "../../../coordinator/src/index.ts";
 
-import type { CommitSelection } from "../../../../version-control/src/index.ts";
+import type { CommitSelection } from "../../../version-control/src/index.ts";
 import { requestWorkbenchMutation } from "../api/mutations.ts";
 import { WorkbenchPanel } from "./elements.ts";
 

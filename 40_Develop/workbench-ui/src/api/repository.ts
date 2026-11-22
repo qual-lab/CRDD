@@ -6,7 +6,7 @@
  * @trace ARCH-000012
  * @boundary 同一Origin HTTPとWorkbenchの表示。Gitの許可・結果の意味判定はServerが所有する。
  */
-import type { ChangesResult } from "../../../../version-control/src/index.ts";
+import type { ChangesResult } from "../../../version-control/src/index.ts";
 
 export type RepositoryOperationDisplay = Pick<
   ChangesResult,

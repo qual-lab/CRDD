@@ -213,11 +213,7 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
     "server_has_no_retired_server_or_ui_runtime_dependency",
   );
   assert.equal(
-    [...visited].some(
-      (value) =>
-        value.endsWith(".tsx") ||
-        path.relative(packageRoot, value).split(path.sep).includes("client"),
-    ),
+    [...visited].some((value) => value.endsWith(".tsx")),
     false,
   );
   assert.equal(
@@ -277,16 +273,17 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
  * @trace ERB-IT-021
  * @precondition 現在Client入口と相対Sourceが存在する。
  * @stimulus 既存のRuntime specifier抽出でClientから再帰走査する。
- * @observation Local Sourceの所有Folderと外部Package集合。
- * @oracle client／sharedと明示したBrowser依存以外のRuntime参照を拒否する。
+ * @observation Local Sourceの所有Folder、外部Package集合とServer型の参照先。
+ * @oracle RuntimeをUI内に閉じ、Server型は公開HTTP入口からのみ参照する。
  * @cleanup N/A: Source読取りのみ。Browser・Serverを起動しない。
  * @boundary Browser Build入口からの実行時依存。Canonical型のtype importは維持する。
  */
 test("Workbench BrowserはUIパッケージ内だけをRuntimeで参照する", () => {
-  const clientRoot = path.join(
-    repositoryRoot,
-    "40_Develop/workbench-ui/src/client",
+  const clientRoot = path.join(repositoryRoot, "40_Develop/workbench-ui/src");
+  const { exports } = JSON.parse(
+    readFileSync(path.join(packageRoot, "package.json"), "utf8"),
   );
+  const publicHttpEntry = path.resolve(packageRoot, exports["./api"]);
   const pending = [path.join(clientRoot, "main.tsx")];
   const visited = new Set<string>();
   const external = new Set([
@@ -305,6 +302,18 @@ test("Workbench BrowserはUIパッケージ内だけをRuntimeで参照する", 
       current.startsWith(clientRoot + path.sep),
       "browser_runtime_owner",
     );
+    for (const [, specifier] of readFileSync(current, "utf8").matchAll(
+      /\bfrom\s+["'](\.[^"']+)["']/gu,
+    )) {
+      assert.ok(specifier);
+      const target = resolveLocalSource(current, specifier);
+      if (target.startsWith(packageRoot + path.sep))
+        assert.equal(
+          target,
+          publicHttpEntry,
+          "browser_server_type_public_entry",
+        );
+    }
     for (const specifier of runtimeSpecifiers(current)) {
       if (specifier.startsWith("."))
         pending.push(resolveLocalSource(current, specifier));

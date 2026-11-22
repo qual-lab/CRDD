@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validateViewResponse } from "../../../workbench-ui/src/client/api/response.ts";
+import { validateViewResponse } from "../../../workbench-ui/src/api/response.ts";
 
 /**
  * 同じRepositoryの原文だけを閉Modelへ受理する。

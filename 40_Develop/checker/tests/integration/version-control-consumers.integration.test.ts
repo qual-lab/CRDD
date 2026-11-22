@@ -540,7 +540,7 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
     "40_Develop/coordinator/src/lifecycle/host.ts",
     "40_Develop/coordinator/src/lifecycle/workspace.ts",
     "40_Develop/execution-model/src/workspace/types.ts",
-    "40_Develop/workbench-ui/src/client/components/workspace-panel.tsx",
+    "40_Develop/workbench-ui/src/components/workspace-panel.tsx",
   ]);
 });
 
@@ -862,7 +862,6 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/crdd-server/src/transport/api-server.ts",
       "40_Develop/crdd-server/src/transport/api-types.ts",
       "40_Develop/crdd-server/src/app.ts",
-      "template/tools/crdd-server.ts",
     ].sort(),
   );
   const candidateConsumers = sources

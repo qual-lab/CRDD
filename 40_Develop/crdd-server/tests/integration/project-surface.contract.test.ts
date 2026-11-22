@@ -28,7 +28,7 @@ import {
   type OwnerArtifactCatalog,
 } from "../../src/app.ts";
 import { readArtifactSelection } from "../../src/service/project-context.ts";
-import { validateArtifactResponse } from "../../../workbench-ui/src/client/api/response.ts";
+import { validateArtifactResponse } from "../../../workbench-ui/src/api/response.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,

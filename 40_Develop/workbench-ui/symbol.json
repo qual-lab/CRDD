@@ -6,19 +6,19 @@
     {
       "symbolId": "workbench.management.contract",
       "kind": "file",
-      "path": "src/client/api/response.ts",
+      "path": "src/api/response.ts",
       "archIds": ["ARCH-000013"]
     },
     {
       "symbolId": "workbench.presentation.view-validation",
       "kind": "file",
-      "path": "src/client/api/response.ts",
+      "path": "src/api/response.ts",
       "archIds": ["ARCH-000005", "ARCH-000012"]
     },
     {
       "symbolId": "workbench.presentation.workspace-panel",
       "kind": "file",
-      "path": "src/client/components/workspace-panel.tsx",
+      "path": "src/components/workspace-panel.tsx",
       "archIds": [
         "ARCH-000012",
         "ARCH-000015"
@@ -27,7 +27,7 @@
     {
       "symbolId": "workbench.presentation.repository-operation-panel",
       "kind": "file",
-      "path": "src/client/components/repository-operation-panel.tsx",
+      "path": "src/components/repository-operation-panel.tsx",
       "archIds": [
         "ARCH-000009",
         "ARCH-000012"
@@ -36,13 +36,13 @@
     {
       "symbolId": "workbench.presentation.repository-operation",
       "kind": "file",
-      "path": "src/client/api/repository.ts",
+      "path": "src/api/repository.ts",
       "archIds": ["ARCH-000009", "ARCH-000012"]
     },
     {
       "symbolId": "workbench.presentation.record-operation-panel",
       "kind": "file",
-      "path": "src/client/components/record-operation-panel.tsx",
+      "path": "src/components/record-operation-panel.tsx",
       "archIds": [
         "ARCH-000006",
         "ARCH-000012"
@@ -51,7 +51,7 @@
     {
       "symbolId": "workbench.presentation.topic-meeting",
       "kind": "file",
-      "path": "src/client/api/record.ts",
+      "path": "src/api/record.ts",
       "archIds": [
         "ARCH-000006",
         "ARCH-000012"
@@ -78,7 +78,7 @@
     {
       "symbolId": "workbench.presentation.profile-management-panel",
       "kind": "file",
-      "path": "src/client/components/ai-selection-management-panel.tsx",
+      "path": "src/components/ai-selection-management-panel.tsx",
       "archIds": [
         "ARCH-000010",
         "ARCH-000012",
@@ -88,7 +88,7 @@
     {
       "symbolId": "workbench.presentation.connection",
       "kind": "file",
-      "path": "src/client/api/connection.ts",
+      "path": "src/api/connection.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -111,7 +111,7 @@
     {
       "symbolId": "workbench.presentation.management-panel",
       "kind": "file",
-      "path": "src/client/components/management-panel.tsx",
+      "path": "src/components/management-panel.tsx",
       "archIds": [
         "ARCH-000013"
       ]
@@ -119,7 +119,7 @@
     {
       "symbolId": "workbench.presentation.react-shell",
       "kind": "file",
-      "path": "src/client/components/shell.ts",
+      "path": "src/components/shell.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -129,19 +129,19 @@
     {
       "symbolId": "workbench.presentation.start-document",
       "kind": "file",
-      "path": "public/index.html",
+      "path": "src/index.html",
       "archIds": ["ARCH-000012"]
     },
     {
       "symbolId": "workbench.presentation.stylesheet",
       "kind": "file",
-      "path": "public/workbench.css",
+      "path": "src/styles/workbench.css",
       "archIds": ["ARCH-000012"]
     },
     {
       "symbolId": "workbench.presentation.browser-client",
       "kind": "file",
-      "path": "src/client/main.tsx",
+      "path": "src/main.tsx",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -150,7 +150,7 @@
     {
       "symbolId": "workbench.presentation.browser-application",
       "kind": "file",
-      "path": "src/client/app.tsx",
+      "path": "src/app.tsx",
       "archIds": [
         "ARCH-000005",
         "ARCH-000009",
@@ -163,7 +163,7 @@
     {
       "symbolId": "workbench.presentation.components",
       "kind": "file",
-      "path": "src/client/components/elements.ts",
+      "path": "src/components/elements.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000017"
@@ -172,7 +172,7 @@
     {
       "symbolId": "workbench.presentation.view-url",
       "kind": "file",
-      "path": "src/client/api/view.ts",
+      "path": "src/api/view.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -180,7 +180,7 @@
     {
       "symbolId": "workbench.presentation.router",
       "kind": "file",
-      "path": "src/client/router.tsx",
+      "path": "src/router.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -188,7 +188,7 @@
     {
       "symbolId": "workbench.presentation.components.project-context",
       "kind": "file",
-      "path": "src/client/components/project-context.tsx",
+      "path": "src/components/project-context.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -196,7 +196,7 @@
     {
       "symbolId": "workbench.presentation.components.records",
       "kind": "file",
-      "path": "src/client/components/records.tsx",
+      "path": "src/components/records.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -204,7 +204,7 @@
     {
       "symbolId": "workbench.presentation.components.credentials",
       "kind": "file",
-      "path": "src/client/components/credentials.tsx",
+      "path": "src/components/credentials.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -212,7 +212,7 @@
     {
       "symbolId": "workbench.presentation.components.portfolio-panel",
       "kind": "file",
-      "path": "src/client/components/portfolio-panel.tsx",
+      "path": "src/components/portfolio-panel.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -220,7 +220,7 @@
     {
       "symbolId": "workbench.presentation.components.repository-panel",
       "kind": "file",
-      "path": "src/client/components/repository-panel.tsx",
+      "path": "src/components/repository-panel.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -228,7 +228,7 @@
     {
       "symbolId": "workbench.presentation.components.activity-panel",
       "kind": "file",
-      "path": "src/client/components/activity-panel.tsx",
+      "path": "src/components/activity-panel.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -236,7 +236,7 @@
     {
       "symbolId": "workbench.presentation.components.ai-profiles",
       "kind": "file",
-      "path": "src/client/components/ai-selection.tsx",
+      "path": "src/components/ai-selection.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -244,7 +244,7 @@
     {
       "symbolId": "workbench.presentation.pages.overview",
       "kind": "file",
-      "path": "src/client/pages/overview.tsx",
+      "path": "src/pages/overview.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -252,7 +252,7 @@
     {
       "symbolId": "workbench.presentation.pages.project",
       "kind": "file",
-      "path": "src/client/pages/project.tsx",
+      "path": "src/pages/project.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -260,7 +260,7 @@
     {
       "symbolId": "workbench.presentation.pages.record",
       "kind": "file",
-      "path": "src/client/pages/record.tsx",
+      "path": "src/pages/record.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -268,7 +268,7 @@
     {
       "symbolId": "workbench.presentation.pages.artifact",
       "kind": "file",
-      "path": "src/client/pages/artifact.tsx",
+      "path": "src/pages/artifact.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -276,7 +276,7 @@
     {
       "symbolId": "workbench.presentation.pages.access",
       "kind": "file",
-      "path": "src/client/pages/access.tsx",
+      "path": "src/pages/access.tsx",
       "archIds": [
         "ARCH-000012"
       ]
@@ -284,7 +284,7 @@
     {
       "symbolId": "workbench.presentation.queries",
       "kind": "file",
-      "path": "src/client/api/queries.ts",
+      "path": "src/api/queries.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -293,7 +293,7 @@
     {
       "symbolId": "workbench.presentation.mutations",
       "kind": "file",
-      "path": "src/client/api/mutations.ts",
+      "path": "src/api/mutations.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -302,7 +302,7 @@
     {
       "symbolId": "workbench.presentation.ai-selection-response",
       "kind": "file",
-      "path": "src/client/api/ai-selection.ts",
+      "path": "src/api/ai-selection.ts",
       "archIds": ["ARCH-000012"]
     },
     {

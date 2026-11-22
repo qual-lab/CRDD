@@ -8,53 +8,46 @@
  * @security 資格・認可Authorityを新設せず、既存の秘密非搬送と受理条件を維持する。
  */
 import type {
-  ManagementView,
-  ManagementResult,
-} from "../../../../crdd-server/src/service/access.ts";
-import type {
   AiSelectionReadResult,
   AiSelectionSnapshot,
-} from "../../../../configuration-model/src/index.ts";
-import type { FederatedProjectProjection } from "../../../../document-model/src/index.ts";
-import type { AccessViewResponse } from "../../../../crdd-server/src/service/access.ts";
+} from "../../../configuration-model/src/index.ts";
 import type {
-  ArtifactViewResponse,
-  ProjectDetailResponse,
-} from "../../../../crdd-server/src/service/project-context.ts";
-import type { RecordDetailResponse } from "../../../../crdd-server/src/service/topic.ts";
-import type {
-  ViewResponse,
-  MainViewResponse,
-} from "../../../../crdd-server/src/transport/api-types.ts";
-
-export type { AiRequestMode } from "../../../../crdd-server/src/service/execution.ts";
-export type {
-  ManagementView,
+  AiRequestSnapshot,
   ManagementResult,
-} from "../../../../crdd-server/src/service/access.ts";
-export type { AccessViewResponse } from "../../../../crdd-server/src/service/access.ts";
-export type {
-  ArtifactViewResponse,
-  ProjectDetailResponse,
-} from "../../../../crdd-server/src/service/project-context.ts";
-export type { RecordDetailResponse } from "../../../../crdd-server/src/service/topic.ts";
-export type {
+  ManagementView,
   ViewResponse,
-  MainViewResponse,
-} from "../../../../crdd-server/src/transport/api-types.ts";
+} from "../../../crdd-server/src/app.ts";
+import type { FederatedProjectProjection } from "../../../document-model/src/index.ts";
+
 export type {
-  RecordDocumentView,
-  RecordActionView,
-} from "../../../../crdd-server/src/service/topic.ts";
-export type { AiSelectionView } from "../../../../crdd-server/src/service/configuration.ts";
-export type {
+  AiRequestMode,
   AiRequestSnapshot,
   AiResultItem,
-} from "../../../../crdd-server/src/service/execution.ts";
-export type { OwnerArtifactCatalog } from "../../../../crdd-server/src/service/project-context.ts";
-export type { ProjectPlanObservation } from "../../../../crdd-server/src/service/project-context.ts";
-export type { ProjectQualityObservation } from "../../../../crdd-server/src/service/project-context.ts";
-import type { AiRequestSnapshot } from "../../../../crdd-server/src/service/execution.ts";
+  AiSelectionView,
+  ManagementResult,
+  ManagementView,
+  OwnerArtifactCatalog,
+  ProjectPlanObservation,
+  ProjectQualityObservation,
+  ViewResponse,
+} from "../../../crdd-server/src/app.ts";
+
+// 各画面の型は公開された応答から取り出し、別の通信仕様を定義しない。
+export type AccessViewResponse = Extract<ViewResponse, { view: "access" }>;
+export type ArtifactViewResponse = Extract<ViewResponse, { view: "artifact" }>;
+export type MainViewResponse = Extract<ViewResponse, { view: "main" }>;
+export type ProjectDetailResponse = Extract<
+  ViewResponse,
+  { view: "project-detail" }
+>;
+export type RecordDetailResponse = Extract<
+  ViewResponse,
+  { view: "record-detail" }
+>;
+export type RecordDocumentView = RecordDetailResponse["record"];
+export type RecordActionView = NonNullable<
+  MainViewResponse["recordActionResult"]
+>;
 
 const aiResultItemsAreValid = (candidate: unknown): boolean =>
   Array.isArray(candidate) &&

@@ -83,7 +83,7 @@ HTTPのAI依頼とAI選定はそれぞれ `/api/ai-request`、`/api/ai-selection
 
 画面応答の契約識別子は `crdd/workbench/view/v1` とし、Projectの表示データは `projectData`、記録操作の結果は `recordActionResult`、実行の進行と履歴は `executionActivity` を使用する。活動の継続位置は `activityCursor` で指定する。画面ビューは既存どおり未知のクエリー項目を解釈しない。旧カーソル名を送っても継続位置にはならない。改名前の入口やJSON形式に対する互換受付は設けない。保存形式・認可・取消の意味は変更しない。
 
-設定領域の実体観測とHTTP／MCPの内部受付は公開しない。既存MCPランチャーは上記MCP入口に接続する。HTTPの起動・読取り操作は正式な [`./api`](../../../40_Develop/crdd-server/src/app.ts) を使う。Workbenchの表示前検査は [UIの応答検査](../../../40_Develop/workbench-ui/src/client/api/response.ts) が所有し、Serverの `./browser` 公開は設けない。ReactとViteは `workbench-ui` が所有し、Serverは生成済みBundleのみ固定URLで配信する。
+設定領域の実体観測とHTTP／MCPの内部受付は公開しない。既存MCPランチャーは上記MCP入口に接続する。HTTPの起動・読取り操作は正式な [`./api`](../../../40_Develop/crdd-server/src/app.ts) を使う。Workbenchの表示前検査は [UIの応答検査](../../../40_Develop/workbench-ui/src/api/response.ts) が所有し、応答型は公開 `./api` からだけ参照する。Serverの `./browser` 公開は設けない。ReactとViteは `workbench-ui` が所有し、Serverは生成済みBundleのみ固定URLで配信する。
 
 配布入口は [crdd-server](../../../template/tools/crdd-server.ts) に一本化する。既定と `--shared` は `./api` の `startCrddServer` から一つの `127.0.0.1` 待受へHTTP API・Workbench・MCPを接続する。生の要求Pathが `/mcp` と一致した場合だけ、MCPの既存Origin・Bearer・公式SDK受付へ流す。単体は既存固定Bearer、共有はAMの現在資格を使う。共有の公開Originは両方未指定または同じHTTPS Originの場合だけ起動する。他のInterfaceを直接bindしない。
 

@@ -756,9 +756,11 @@ Provider差の純粋検証は、`ARCH-000004`／`ARCH-000015`の結果変換と`
 
 `ERB-UT-023`の助言初期化失敗では、下位作成境界の清掃確認true／false、分類のない例外および取得済み参照あり／なしを分ける。Operation未返却だけで清掃未確認へ読み替えず、既知trueは維持、false／未知は停止とする。初回Runtime結果の私有分類、元結果Objectへの結合、copy後の非結合、公開JSONへの参照非漏えい、Provider開始0およびpoison要否を観測する。これは現在Process内の初回結果までの契約であり、後段投影・Request Owner・fresh Process再入場、実資源不存在または実清掃成功の証明にはしない。
 
-`ERB-IT-021`のNode実行閉包ケースでは、Workbench CLI入口とRuntime value import／re-export／literal dynamic import Graphを固定入力とし、type-only参照を実行依存へ数えず再帰走査する。到達Source、外部module specifier、`.tsx`および`client/`到達を観測し、Serverへ到達する一方でBrowser描画Module、`.tsx`、`client/`および`react`／`react/*`への到達が0であることをOracleとする。Evidenceには固定Tree、入口、到達Source集合Hash、外部module集合、除外したtype-only宣言数、禁止到達件数およびOracle判定を保存し、Source本文と絶対Pathは保存しない。
+`ERB-IT-021`のNode実行閉包ケースでは、Workbench CLI入口とRuntime value import／re-export／literal dynamic import Graphを固定入力とし、type-only参照を実行依存へ数えず再帰走査する。到達Source、外部module specifier、`.tsx`および`workbench-ui` Package到達を観測し、Serverへ到達する一方でBrowser描画Module、`.tsx`、`workbench-ui` Packageおよび`react`／`react/*`への到達が0であることをOracleとする。Evidenceには固定Tree、入口、到達Source集合Hash、外部module集合、除外したtype-only宣言数、禁止到達件数およびOracle判定を保存し、Source本文と絶対Pathは保存しない。
 
-`ERB-IT-021`のUI配布閉包ケースでは、`40_Develop/workbench-ui/dist/client` の `index.html`、`workbench.css`、`assets/workbench-client.js` を固定Pathとし、次の段階を分けて確認する。3点はWorkbench配布物の入力であり、Coordinatorの署名実行閉包へ無条件に含めない。`/index.html` を含む既存画面URLとCSS・JSの固定URLを維持し、許可対象外の配信や配布物欠落時の起動を拒否する。旧配置でのBuild成功は過去の根拠として保持するが、新配置の成功へ流用しない。
+同じ依存境界試験で、Workbench UI自身の実行依存を辿り、Server型を参照する場合も公開HTTP入口 `./api` だけを許す。Server内の操作・通信ファイルへの型参照は許さず、公開入口への実行時参照も従来どおり拒否する。
+
+`ERB-IT-021`のUI配布閉包ケースでは、`40_Develop/workbench-ui/dist/client` の `index.html`、`workbench.css`、`assets/workbench-client.js` を固定Pathとし、次の段階を分けて確認する。Viteは `workbench-ui/src/index.html` を入口として3点を生成し、配信されたHTMLが固定のCSS・JS URLを参照することを確認する。3点はWorkbench配布物の入力であり、Coordinatorの署名実行閉包へ無条件に含めない。`/index.html` を含む既存画面URLとCSS・JSの固定URLを維持し、許可対象外の配信や配布物欠落時の起動を拒否する。旧配置でのBuild成功は過去の根拠として保持するが、新配置の成功へ流用しない。
 
 | 段階 | 条件・操作 | 観測 | Oracle | 現在状態 |
 |---|---|---|---|---|

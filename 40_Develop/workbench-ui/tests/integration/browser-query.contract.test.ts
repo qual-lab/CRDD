@@ -21,18 +21,18 @@ import {
 import {
   clearWorkbenchQueries,
   readWorkbenchQuery,
-} from "../../src/client/api/queries.ts";
-import { requestWorkbenchMutation } from "../../src/client/api/mutations.ts";
-import { clearWorkbenchCredential } from "../../src/client/api/connection.ts";
+} from "../../src/api/queries.ts";
+import { requestWorkbenchMutation } from "../../src/api/mutations.ts";
+import { clearWorkbenchCredential } from "../../src/api/connection.ts";
 import {
   readRepositoryOperationDisplay,
   readRepositorySubmission,
-} from "../../src/client/api/repository.ts";
+} from "../../src/api/repository.ts";
 import {
   composeWorkbenchRecordDisplay,
   createSelectedWorkbenchViewUrl,
   readWorkbenchDisplayQuery,
-} from "../../src/client/api/view.ts";
+} from "../../src/api/view.ts";
 
 /**
  * Git操作の送信先・応答の表示を、同じ画面の明示操作に限定する。
@@ -153,7 +153,7 @@ test("ビューの検索欄は現在URLから組み立て文書検索だけをSe
 test("通信設定は参考表示とし表示時Hashを要求へ搬送しない", () => {
   const component = path.resolve(
     import.meta.dirname,
-    "../../src/client/components/ai-request-panel.tsx",
+    "../../src/components/ai-request-panel.tsx",
   );
   const script = `
     import assert from 'node:assert/strict';
@@ -223,7 +223,7 @@ test("通信設定は参考表示とし表示時Hashを要求へ搬送しない"
   assert.equal(result.error, undefined);
   assert.equal(result.status, 0, result.stderr);
   const overview = fs.readFileSync(
-    path.resolve(import.meta.dirname, "../../src/client/pages/overview.tsx"),
+    path.resolve(import.meta.dirname, "../../src/pages/overview.tsx"),
     "utf8",
   );
   assert.match(
@@ -246,7 +246,7 @@ test("通信設定は参考表示とし表示時Hashを要求へ搬送しない"
 test("設定Panelは同じ対象の再取得でdraftと保留POSTを失わない", () => {
   const component = path.resolve(
     import.meta.dirname,
-    "../../src/client/components/ai-selection-management-panel.tsx",
+    "../../src/components/ai-selection-management-panel.tsx",
   );
   const script = `
     import assert from 'node:assert/strict';

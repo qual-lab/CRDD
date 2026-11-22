@@ -3,7 +3,7 @@
  *
  * @responsibility React Clientを単一Bundleにし、起動HTMLとCSSを同じ配布Directoryに含める。
  * @trace ARCH-000012
- * @input src/client/main.tsxとその依存Module、publicの固定HTML・CSS。
+ * @input src/index.htmlと、そこから参照するReact入口・CSS。
  * @returns dist/clientに固定名のHTML・CSS・JSを用意するVite設定。
  * @precondition Node.jsとpackage-lock.jsonで固定したVite Toolchainが利用可能である。
  * @postcondition Serverがallowlist配信できる固定名のES Moduleが生成される。
@@ -18,16 +18,22 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  root: "src",
+  publicDir: false,
   plugins: [react()],
   build: {
     emptyOutDir: true,
-    outDir: "dist/client",
+    outDir: "../dist/client",
+    modulePreload: false,
+    cssMinify: false,
     rollupOptions: {
-      input: "src/client/main.tsx",
       output: {
         entryFileNames: "assets/workbench-client.js",
         chunkFileNames: "assets/workbench-[name].js",
-        assetFileNames: "assets/workbench-[name][extname]",
+        assetFileNames: (asset) =>
+          asset.names.some((name) => name.endsWith(".css"))
+            ? "workbench.css"
+            : "assets/workbench-[name][extname]",
       },
     },
   },

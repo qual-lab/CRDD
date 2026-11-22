@@ -53,8 +53,8 @@ import {
 } from "../../src/service/project-context.ts";
 import { resolveTopicMeetingAccess } from "../../src/service/topic.ts";
 import { validateTopicMeetingActionForm } from "../../src/transport/api-server.ts";
-import { validateManagementResponse } from "../../../workbench-ui/src/client/api/response.ts";
-import { validateViewResponse } from "../../../workbench-ui/src/client/api/response.ts";
+import { validateManagementResponse } from "../../../workbench-ui/src/api/response.ts";
+import { validateViewResponse } from "../../../workbench-ui/src/api/response.ts";
 
 /**
  * 自己生成Repositoryへ非秘密の活動履歴を準備する。
