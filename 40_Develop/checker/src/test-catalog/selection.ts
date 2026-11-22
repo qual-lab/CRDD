@@ -110,11 +110,10 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
     return "execution-intelligence";
   if (changedPath.startsWith("40_Develop/executor/")) return "executor";
   if (changedPath.startsWith("40_Develop/lock/")) return "lock";
-  if (changedPath.startsWith("40_Develop/mcp-server/")) return "mcp-server";
+  if (changedPath.startsWith("40_Develop/crdd-server/")) return "crdd-server";
   if (changedPath.startsWith("40_Develop/version-control/"))
     return "version-control";
-  if (changedPath.startsWith("40_Develop/workbench-server/"))
-    return "workbench-server";
+  if (changedPath.startsWith("40_Develop/workbench-ui/")) return "workbench-ui";
   return null;
 }
 

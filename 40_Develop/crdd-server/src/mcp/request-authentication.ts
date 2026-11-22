@@ -1,0 +1,271 @@
+/**
+ * 現在のAccess Managementから内容操作のMCPを構成する。
+ * @packageDocumentation
+ * @responsibility 要求内用途判定・初回限定確認と通常内容認可を別Handlerへ閉じる。
+ * @trace ARCH-000005
+ * @trace ARCH-000006
+ * @trace ARCH-000012
+ * @trace ARCH-000013
+ * @boundary 通常認証→現在許可集合→Domain本文→MCP応答。
+ * @security Bearerは要求専用closure内だけに保持し、永続化・共有・応答・Errorへ渡さない。
+ */
+import {
+  resolveConnectionAuthentication,
+  resolveRepositoryAccessCollection,
+  sameAccessCollection,
+  resolveRepositoryAccess,
+  resolveRuntimeContentAccess,
+} from "../../../access-management/src/index.ts";
+import {
+  createPortfolioProjection,
+  readRepositoryProjectContext,
+  type ProjectContextSource,
+} from "../../../document-model/src/index.ts";
+import type { FilesystemStoreRoot } from "../../../access-management/src/index.ts";
+import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import { composeAuthorizedTopicMeeting } from "../index.ts";
+import { createMcpServerFactory } from "./request-server.ts";
+import { createInitialConnectionHandler } from "./request-initial-connection.ts";
+import type { McpAuthenticatedRequestHandlerResolver } from "./transport-types.ts";
+
+/**
+ * 現在資格から初回限定または通常内容の要求専用Handlerを作る。
+ * @responsibility 管理能力から内容を生成せず、公開Callで現在集合を取り直す。
+ * @trace ARCH-000005
+ * @trace ARCH-000006
+ * @trace ARCH-000012
+ * @trace ARCH-000013
+ * @input 内部構成が検証した管理Root。
+ * @returns 初回候補はdiscover専用Handler、通常本人は内容Handler、拒否はnull。
+ * @precondition HTTP Transportは要求毎にResolverを呼び、Handlerを要求終了後に共有しない。
+ * @postcondition Portfolioは現在集合を公開前に再確認し文書不完全性を保持する。Topic／Meetingは現在許可対象だけを操作する。
+ * @effect 既存AM認証とLock、許可後のDomain読取りと明示CRUD。新StoreやSessionは作らない。
+ * @failure 認証不成立はnull、内容認可・本文取得不成立は既存の固定MCPエラー。
+ * @invariant 空認可だけ正常空集合。文書不明はunavailableとnull本文／版で示し、完全成功やmissingにしない。
+ * @boundary AM内部RootからProject ContextとTopic／MeetingのMCP構成へ渡す。
+ * @security Bearerを要求closureにだけ保持し、Root・Path・Binding・管理改訂を返さない。文字列消去は保証しない。
+ * @concurrency 各HTTP要求が再認証・再認可する。同期Reader開始後は終了を待って取消結果の公開を止める。
+ */
+export function createAccessMcpResolver(
+  root: FilesystemStoreRoot,
+): McpAuthenticatedRequestHandlerResolver {
+  return (token) => {
+    const authentication = resolveConnectionAuthentication(root, token);
+    if (authentication.status === "unavailable") return null;
+    if (authentication.status === "initial")
+      return createMcpServerFactory({
+        initialConnection: createInitialConnectionHandler(
+          root,
+          token,
+          authentication.binding,
+        ),
+      });
+    return {
+      async createServer(request, signal, observe) {
+        return createMcpServerFactory({
+          accessManagement: { root, token },
+          runtimeDefinition: (repositoryId, currentSignal) =>
+            resolveRuntimeContentAccess(
+              root,
+              token,
+              repositoryId,
+              currentSignal,
+            ),
+          workspace: (repositoryId) => {
+            const initial = resolveRepositoryAccess(
+              root,
+              token,
+              repositoryId,
+              "development",
+            );
+            if (initial.status !== "completed") return null;
+            const ownerRoot = resolveVerifiedRepositoryRoot(
+              initial.access.root,
+            );
+            if (ownerRoot === null) return null;
+            return {
+              ownerRoot,
+              projectId: initial.access.manifest.projectId,
+              authorize: () => {
+                const fresh = resolveRepositoryAccess(
+                  root,
+                  token,
+                  repositoryId,
+                  "development",
+                );
+                return (
+                  !signal.aborted &&
+                  fresh.status === "completed" &&
+                  fresh.access.revision === initial.access.revision &&
+                  fresh.access.bindingId === initial.access.bindingId &&
+                  JSON.stringify(fresh.access.manifest) ===
+                    JSON.stringify(initial.access.manifest) &&
+                  resolveVerifiedRepositoryRoot(initial.access.root) ===
+                    ownerRoot &&
+                  resolveVerifiedRepositoryRoot(fresh.access.root) === ownerRoot
+                );
+              },
+            };
+          },
+          runtimeActivity: {
+            /**
+             * 現在許可された同Projectの実保存活動を読む。
+             * @responsibility 各Callの現在認可を活動Ownerへ最小入力で接続する。
+             * @trace ARCH-000005
+             * @trace ARCH-000012
+             * @trace ARCH-000013
+             * @input Projectとページ要求。
+             * @returns 同Projectの観測、許可対象がない場合だけnull。
+             * @precondition 入力検査と開始前取消確認が完了している。
+             * @postcondition 許可対象全件を渡し、部分集合へ後退しない。
+             * @effect 現在認可、Root観測、実保存読取り。書込みは行わない。
+             * @failure 集合・Root不明は固定例外、Owner故障はAdapterが非開示にする。
+             * @invariant 各Callで再認可し、認証を観測型の正しさで代替しない。
+             * @boundary AM現在集合からCoordinator活動Owner。
+             * @security Token・AM Binding・RoleをOwnerや応答へ渡さない。
+             * @concurrency 開始したReaderを待ち、Adapterが取消後の公開を止める。
+             */
+            read: async (query) => {
+              if (signal.aborted)
+                throw new Error("runtime_activity_unavailable");
+              const collection = resolveRepositoryAccessCollection(root, token);
+              if (collection.status !== "completed")
+                throw new Error("runtime_activity_unavailable");
+              const selected = collection.repositories.filter(
+                (repository) =>
+                  repository.manifest.projectId === query.projectId,
+              );
+              if (selected.length === 0) return null;
+              const repositories = selected.map((repository) => {
+                if (signal.aborted)
+                  throw new Error("runtime_activity_unavailable");
+                const verifiedRoot = resolveVerifiedRepositoryRoot(
+                  repository.root,
+                );
+                if (verifiedRoot === null)
+                  throw new Error("runtime_activity_unavailable");
+                return {
+                  projectId: repository.manifest.projectId,
+                  repositoryId: repository.repositoryId,
+                  root: repository.root,
+                };
+              });
+              if (signal.aborted)
+                throw new Error("runtime_activity_unavailable");
+              const { queryActivity: queryActivity } = await import(
+                "../../../coordinator/src/index.ts"
+              );
+              if (
+                signal.aborted ||
+                !sameAccessCollection(
+                  collection,
+                  resolveRepositoryAccessCollection(root, token),
+                )
+              )
+                throw new Error("runtime_activity_unavailable");
+              return queryActivity({ ...query, repositories }, signal);
+            },
+          },
+          /**
+           * 現在許可対象の操作と同ProjectのRelation集合を構成する。
+           * @responsibility 未許可対象・異Project探索・部分集合への後退を防ぐ。
+           * @trace ARCH-000006
+           * @trace ARCH-000013
+           * @input 完全Schema検査後の明示Repository ID。
+           * @returns 指定対象のDomain操作、非許可時はnull。
+           * @precondition 通常認証済みで、入力検査と開始前取消確認が完了している。
+           * @postcondition 同Project全対象を検証し、書込み先は指定Repositoryだけに固定する。
+           * @effect 現在AM集合とRootを観測し、Domain操作を構成する。構成時の保存はない。
+           * @failure 集合・Root・構成不明は固定例外で全体停止する。
+           * @invariant 各Tool Callで再認可し、他要求へ操作や集合を共有しない。
+           * @boundary AM現在認可→Version Control Root→Domain操作／Relation。
+           * @security Bearer、Root、Bindingを公開結果へ渡さない。
+           * @concurrency 同期構成後に既存Adapterが取消を再確認する。保存開始後のrollbackは保証しない。
+           */
+          topicMeetingRepositoryResolver: (repositoryId) => {
+            if (signal.aborted)
+              throw new Error("topic_meeting_access_unavailable");
+            const collection = resolveRepositoryAccessCollection(root, token);
+            if (collection.status !== "completed")
+              throw new Error("topic_meeting_access_unavailable");
+            return composeAuthorizedTopicMeeting(
+              collection.repositories,
+              repositoryId,
+              signal,
+              "topic_meeting_access_unavailable",
+            );
+          },
+          projectContext: {
+            /**
+             * 内容Callの現在認可と実本文を一つのPortfolioへ閉じる。
+             * @responsibility 非許可読取りを防ぎ、文書未確認・競合を認可済みSourceへ限定して表示する。
+             * @trace ARCH-000005
+             * @trace ARCH-000013
+             * @input N/A: 当該要求のBearerと取消Signalだけを使用する。
+             * @returns Domainが集約した非秘密Portfolio。
+             * @precondition 通常Header認証が完了し、Tool入力は既存Adapterが検査済み。
+             * @postcondition 認可・実体・全集合の再確認が成功した場合だけ、不完全性を保持した結果を返す。
+             * @effect 現在許可集合の再取得と各固定本文の同期読取り。
+             * @failure 取消・集合不明・Root不成立・公開前集合差は全体拒否。本文不成立はSourceの未確認・競合。
+             * @invariant SourceはProject・Repository・読取り状態・本文版・解析Contextの5項目だけ。非completeは本文・版なし。
+             * @boundary AM現在認可→Domain本文／集約→既存MCP Adapter。
+             * @security Token・技術的Root・下位例外を結果へ透過しない。
+             * @concurrency cacheせず呼出し毎に現在認可する。同期I/Oの中断保証はしない。
+             */
+            readPortfolio: async () => {
+              if (signal.aborted)
+                throw new Error("project_context_unavailable");
+              const collection = resolveRepositoryAccessCollection(root, token);
+              if (collection.status !== "completed")
+                throw new Error("project_context_unavailable");
+              const sources: ProjectContextSource[] = [];
+              for (const repository of collection.repositories) {
+                if (signal.aborted)
+                  throw new Error("project_context_unavailable");
+                const read = readRepositoryProjectContext(repository.root, {
+                  projectId: repository.manifest.projectId,
+                  repositoryId: repository.manifest.repositoryId,
+                  repositoryRole: repository.manifest.repositoryRole,
+                });
+                if (read.status === "blocked")
+                  throw new Error("project_context_unavailable");
+                sources.push(
+                  read.status === "completed"
+                    ? {
+                        projectId: repository.manifest.projectId,
+                        repositoryId: repository.repositoryId,
+                        state: "complete",
+                        revision: read.revision,
+                        context: read.context,
+                      }
+                    : {
+                        projectId: repository.manifest.projectId,
+                        repositoryId: repository.repositoryId,
+                        state:
+                          read.status === "conflicting"
+                            ? "conflicting"
+                            : "unavailable",
+                        revision: null,
+                        context: null,
+                      },
+                );
+              }
+              if (signal.aborted)
+                throw new Error("project_context_unavailable");
+              const portfolio = createPortfolioProjection(sources);
+              if (
+                !sameAccessCollection(
+                  collection,
+                  resolveRepositoryAccessCollection(root, token),
+                ) ||
+                signal.aborted
+              )
+                throw new Error("project_context_unavailable");
+              return portfolio;
+            },
+          },
+        }).createServer(request, signal, observe);
+      },
+    };
+  };
+}

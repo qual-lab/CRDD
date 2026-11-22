@@ -51,10 +51,10 @@ Workbench実行コマンドは`node --test --test-concurrency=1 ./tests/integrat
 
 - [旧参照][AM保存IT](../../../../40_Develop/access-management/tests/integration/state/file-store.contract.test.ts)
 - [旧参照][AM初回接続IT](../../../../40_Develop/access-management/tests/integration/credential/initial-connection.contract.test.ts)
-- [MCP能力IT](../../../../40_Develop/mcp-server/tests/integration/access-capabilities.integration.test.ts)
-- [Workbench管理IT](../../../../40_Develop/workbench-server/tests/integration/management.integration.test.ts)
-- [Workbench Browser ST](../../../../40_Develop/workbench-server/tests/system/credential-administration-browser.contract.test.ts)
-- [MCP公開CLI ST](../../../../40_Develop/mcp-server/tests/system/streamable-http-transport.integration.test.ts)
+- [旧参照][MCP能力IT](../../../../40_Develop/mcp-server/tests/integration/access-capabilities.integration.test.ts)
+- [旧参照][Workbench管理IT](../../../../40_Develop/workbench-server/tests/integration/management.integration.test.ts)
+- [旧参照][Workbench Browser ST](../../../../40_Develop/workbench-server/tests/system/credential-administration-browser.contract.test.ts)
+- [旧参照][MCP公開CLI ST](../../../../40_Develop/mcp-server/tests/system/streamable-http-transport.integration.test.ts)
 
 | Local Item | 評価 | exact試験・Case | 成立を確認したOracle | 未観測・残る照合 |
 |---|---|---|---|---|

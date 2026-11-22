@@ -855,7 +855,7 @@ test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体
     "checker",
     "coordinator",
     "execution-intelligence",
-    "mcp-server",
+    "crdd-server",
     "version-control",
   ];
   for (const packageRoot of packageRoots) {

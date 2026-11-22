@@ -1098,6 +1098,42 @@ Mountの所在返却・管理参照作成・Docker用Path借用では、同じ�
 
 同じ実保存の構成でまだ確認できていない対象なし・観測不能・矛盾した再試行待ちの反証は局所試験に残し、検証義務を削らない。
 
+### CRDD Server再編の先行接続 — 2026-11-22
+
+[CRDD Server共通実装](../../../40_Develop/crdd-server/symbol.json)へ、Workbench／MCPの非秘密配置設定Readerと許可済みTopic／Meeting操作の構成を統合した。それぞれのファイル名、例外、現時点の許可集合、公開前再確認を維持する。HTTPとMCPは既存の起動方式・公開契約を維持し、業務規則と保存は既存のモデルが所有する。本番共通入口への先行接続であり、Serverの全移管・UI分離・OpenAPI等は未実施。
+
+標準入口と公開する3操作は[CRDD Server共通入口の公開契約](../../../06_Architecture/Definitions/ARCH-000012/architecture_definition.md#crdd-server共通入口の公開契約)を正本とする。
+
+### MCP実装をCRDD Serverへ移管 — 2026-11-22
+
+MCPのTool・受付・Transportを `crdd-server/src/mcp` へ移し、既存の配布ランチャーを同PackageのMCP入口へ接続する。SDKの版、stdio／HTTPの起動引数、設定ファイル、Coreと任意実行の分離は維持する。旧独立PackageのSource・Package設定は残さない。試験・検証Scriptも同Ownerへ移し、試験IDは維持した。Workbench HTTPとUIはこの移管に含めない。
+
+限定確認はMCPの単体・結合39件、stdio公開入口4件、HTTP配布入口・設定・Origin／TLSの5件、台帳の段階・Owner等11件。型・整形・警告検査、独立再レビューで必須残指摘0を確認した。旧パスを指すEvidenceの2リンクには既存の `[旧参照]` だけを付け、リンク先・検証事実は変更していない。全体回帰・実AI・Dockerは対象外。
+
+### HTTP本体の集約とWorkbench UIの分離
+
+既存のExpress 5入口は `crdd-server/src/api` へ移し、React／Viteは `workbench-ui` へ分離した。両公開方式で同じJSON構文検査と閉じたレコードの捕捉をServer内部へ統合する。資格・認可、入力の受付順、起動引数、既存ルート、UI配信URLと保存形式は維持する。通常HTTP起動でCoordinatorを読み込まず、Workspace操作に限って読込み、待機で取消を再確認する。公開契約と起動方法は[Workbench詳細](../../../06_Architecture/Details/workbench-server/01_Architecture.md#workbench-ui-http-contract)を正本とする。
+
+UI Buildとブラウザ通信10件、ローカルHTTPの配信・設定・拒否7件、CoordinatorなしのCore保存／再読取りと依存境界、配布MCP stdio代表経路を確認した。新規BundleのGit Index照合、MCPとHTTPの起動集約、評価用OpenAPI・Swagger UI・MCP Inspectorはこの段階では未完了。全体回帰・実AI・Docker・過去保持物は対象外。
+
+### HTTPとMCPの同一Listener接続
+
+既存の個別起動に加え、共有Hostで `--cros --mcp` を明示した場合だけ同一ポートに接続する。既存の設定から公開Originを照合し、相違・片側だけの指定・固定Bearerとの混在を拒否する。生Path `/mcp` は既存MCP受付に、その他はExpressに排他的に渡す。Protocolの認証・認可は共用せず、Listenerと要求終了の所有だけを統合する。利用手順は[共有Host上のMCP設定](../../../19_Workflows/04_MCP_Server.md#共有host上のmcp設定)を参照する。
+
+試験用Host上で同一ポートのHTTP応答、公式SDKのMCPツール呼出し、TLS終端の有無による違い、開始前拒否、保留中MCP要求への取消通知と処理完了待ちを確認した。通常のHTTPと配布MCPの起動を維持し、全体回帰・実AI・Dockerは対象外。OpenAPI・Swagger UI・MCP Inspectorの接続は次段階とする。
+
+### 開発用OpenAPI・Swagger UI・MCP Inspector
+
+単体開発起動 `--docs` に、OpenAPI 3.1.1 と固定版Swagger UI 5.35.1を接続した。通常／共有起動の公開面を広げず、Swagger UIからの外部検証・操作送信・資格保持を無効にした。既存HTTP受付は業務判定・認可の正本として維持する。実HTTPの固定資産、配置／Method拒否、実Chromeの操作一覧描画を確認した。
+
+公式MCP Inspector 2.16.0のmodern stdioで、配布CLIの公開18 Toolを実取得した。標準任意 `logLevel` は規格値だけを受理し、ログ出力機能や権限を追加しない。nullableのスキーマ警告8件は、受理集合・必須・patternを保った等価な表現で解消し、Inspectorの厳格モードでエラー・警告0を確認した。手順は[開発確認](../../../19_Workflows/04_MCP_Server.md#開発確認)を参照する。全体回帰、実AI、Docker、実資格、過去保持物は対象外。
+
+### CRDD Serverの責務別配置と旧参照の整理
+
+サーバーのSourceを `src/<責務>/<ファイル>` に揃え、旧 `api/`・`shared/`・`operations/` を撤去した。HTTP／MCPの公開入口・認証条件・通信形式は変更せず、表示・実行・管理・プロジェクト・リポジトリ・話題／会議の実装は各責務へ配置した。UI参照、試験差し替え先、公開Moduleの許可リスト、台帳、現行案内も追従した。旧パッケージへの現行物理参照を除去し、既存の設定ファイル名・試験ID・履歴参照は保持した。
+
+両Packageの整形・型・Lint、UI Build、公開Module・台帳・退役参照の3試験、同一ポート起動・公開MCP・OpenAPIを含むサーバー限定8試験を確認した。全体回帰・実AI・Docker・過去保持物の操作は対象外。
+
 ### Provider計測を用途の最終結果へ一本化 — 2026-11-21
 
 TaskとAdviceが必ず渡していた記録集合を内部の必須引数とし、技術完了だけで計測を確定する未接続の別経路を撤去した。両用途の記録集合は同じ確定処理が一度消費し、技術結果と上位最終結果を区別して保存する。観測欠測の試行を未完了のまま残し、後続の観測済み試行の確定は妨げない。公開API、保存形式、実行・回収の判定は変更しない。
@@ -2257,7 +2293,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 
 ## 実装の参照
 
-- [`40_Develop/workbench-server`](../../../40_Develop/workbench-server)
+- [旧参照][`40_Develop/workbench-server`](../../../40_Develop/workbench-server)
 - 公開API: `startWorkbench`
 - CLI: `node 40_Develop/workbench-server/bin/workbench-server.ts`
 

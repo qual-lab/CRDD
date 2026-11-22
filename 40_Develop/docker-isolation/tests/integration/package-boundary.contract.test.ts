@@ -53,8 +53,8 @@ test("DIは上位Packageなしで公開Rootを開始する", () => {
     "configuration-model",
     "coordinator",
     "executor",
-    "workbench-server",
-    "mcp-server",
+    "workbench-ui",
+    "crdd-server",
   ];
   const code = `import {registerHooks} from "node:module";
  const blocked=${JSON.stringify(blocked)};
@@ -183,8 +183,8 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
     "configuration-model",
     "orchestrator",
     "ai-adapter",
-    "workbench-server",
-    "mcp-server",
+    "workbench-ui",
+    "crdd-server",
     "platform-access",
   ]) {
     const target = `../../${owner}/src/index.ts`;

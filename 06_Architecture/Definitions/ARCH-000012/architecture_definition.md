@@ -16,7 +16,7 @@ Architecture ID: `ARCH-000012`
 | 所有しない責務 | Orchestratorの意味契約、Authority追加、Provider実行 |
 | 主な外部境界 | CLI、MCP stdio、localhost HTTP、Workbench表示API |
 
-SPEC-000011のstdio／localhost HTTPという正式入力を維持する。共有Remote MCPの認可・Exposure・TLS／OriginはARCH-000013との共同成立条件として扱い、localhostの意味を無断でRemote全域へ拡張しない。MCPはMachine向けの独立公開入口である。Workbench ServerとMCP Serverは対等な入口として、各専門Packageの共通APIへ直接接続する。WorkbenchはLocal／共有Host配置のいずれでもMCP Package・Protocol・Serverに依存しない。共有利用ではBrowserが配置先Workbench Serverへ直接アクセスし、そのHostの専門PackageとRepository群を利用する。Workbench backendから別HostのMCP／CROSへ接続する経路は持たない。Browser向けWorkbench APIは残し、独立CROS REST／Gatewayは既存能力を直接APIへ移管・確認した後に撤去する。新しいGatewayや代替RESTを追加しない。この境界は2026-10-13の人間判断を反映した目標であり、現SourceのMCP依存全撤去は未完了である。
+SPEC-000011のstdio／localhost HTTPという正式入力を維持する。共有Remote MCPの認可・Exposure・TLS／OriginはARCH-000013との共同成立条件として扱い、localhostの意味を無断でRemote全域へ拡張しない。CRDD ServerのHTTPとMCPは対等な公開入口で、各専門Packageの既存APIを利用する。Workbench UIは配置先ServerのHTTP入口だけへ接続し、NodeのHTTP実装からMCPへの実行時依存は持たない。独立CROS REST／Gatewayの代替を追加せず、HTTPおよびMCPの既存用途と認可境界を保つ。
 
 ## 2. UI観点の入力
 
@@ -50,6 +50,26 @@ SPEC-000011のstdio／localhost HTTPという正式入力を維持する。共�
 ```
 
 各入力はSibling contractであり、前の入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。UI契約は利用者へ認識・操作・Feedbackを提供するが、AuthorityやEffectを発行しない。
+
+### CRDD Server共通入口の公開契約
+
+HTTPとMCPは同じCRDD機能への別の公開入口とする。共通接続だけをCRDD Serverが所有し、認証・認可と業務規則・保存の正本は既存パッケージに残す。先行接続中の起動方式と公開経路は、既存の[Workbench](../../Details/workbench-server/01_Architecture.md)と[MCP](../../Details/mcp-server/01_Architecture.md)の契約を維持する。
+
+共通操作の標準入口は [src/index.ts](../../../40_Develop/crdd-server/src/index.ts) とし、既存HTTP／MCP入口が使う次の3操作を公開する。MCP固有の [`./mcp`入口](../../../40_Develop/crdd-server/src/mcp/core.ts) と任意実行用の [`./automation`入口](../../../40_Develop/crdd-server/src/mcp/tools-task.ts) は別の正式なSubpathとする。
+
+サーバーのSourceは `src/<責務>/<ファイル>` までとし、HTTPのルート、MCPの受付・Tool・通信、ブラウザー共有契約はそれぞれの責務フォルダ内でファイル名により区別する。公開Subpathには物理配置を露出しない。
+
+| 公開操作 | 利用側と結果 |
+|---|---|
+| `inspectServerPublicOrigin` | 起動時の非秘密な公開Originを検査する。未指定はなし、不正は既存入口ごとの固定拒否。 |
+| `readServerConnectionConfiguration` | 起動Repositoryの固定設定ファイルだけを読み取る。明示不存在と境界不正・観測不能を区別する。 |
+| `composeAuthorizedTopicMeeting` | 要求時の許可集合と指定Repositoryから、同じProjectの既存Topic／Meeting操作を構成する。新しい認可を発行せず、操作の構成時に保存しない。 |
+
+設定領域の実体観測とHTTP／MCPの内部受付は公開しない。既存MCPランチャーは上記MCP入口に接続する。HTTPの起動・読取り操作は正式な [`./http`](../../../40_Develop/crdd-server/src/http/start.ts)、ブラウザが使うHTTP入出力の型・純粋検査は [`./browser`](../../../40_Develop/crdd-server/src/view/validation.ts) を経由する。ReactとViteは `workbench-ui` が所有し、Serverは生成済みBundleのみ固定URLで配信する。
+
+`./http` の `startCrddServer` は `CrddServerStartRequest` で既存Hostを指定し、一つのloopback ListenerにHTTPとMCPを接続する。生の要求Pathが `/mcp` と一致した場合だけMCPの既存Origin・Bearer・公式SDK受付へ流し、それ以外は既存Expressへ渡す。両入口の公開Originは両方未指定、または同じHTTPS Originの場合だけ起動する。認証・認可はProtocol別、接続・取消・処理完了待ちはListener単位で所有する。既存の個別起動は維持する。
+
+[開発確認](../../../19_Workflows/04_MCP_Server.md#開発確認)では、単体localhost起動で明示した場合だけHTTPのOpenAPIとSwagger UIを公開する。通常・統合起動は既存の公開面を維持し、仕様書は実行・認可の正本にならない。固定Pathと同一Originの資産だけを返し、Swagger UIに操作送信・外部検証・資格保持を許可しない。MCP Inspectorは外部開発クライアントであり、製品の実行依存には含めない。
 
 ## 6. データ・状態・Interface
 

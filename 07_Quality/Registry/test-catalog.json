@@ -26,10 +26,10 @@
     "execution-intelligence": "node_test",
     "executor": "node_test",
     "lock": "node_test",
-    "mcp-server": "node_test",
+    "crdd-server": "node_test",
     "version-control": "node_test",
     "visual-preview": "node_test",
-    "workbench-server": "node_test"
+    "workbench-ui": "node_test"
   },
   "integrationBlocks": [
     {
@@ -472,8 +472,33 @@
       ]
     },
     {
+      "id": "workbench:browser-client",
+      "owner": "workbench-ui",
+      "architectureAnchor": "06_Architecture/Details/workbench-server/01_Architecture.md#ブラウザとhttpの接続",
+      "responsibilities": [
+        "browser_connection_generation",
+        "fresh_query",
+        "explicit_mutation"
+      ],
+      "externalBoundaries": [
+        "same_origin_http",
+        "browser_document"
+      ],
+      "lifecycleProfile": "transport_session",
+      "testIds": [
+        "workbench:integration:browser-connection",
+        "workbench:integration:browser-query",
+        "workbench:integration:topic-meeting-presentation"
+      ],
+      "postconditions": [
+        "previous_connection_result_not_adopted",
+        "cancelled_read_not_replayed",
+        "operation_result_correlated"
+      ]
+    },
+    {
       "id": "workbench:production-shell",
-      "owner": "workbench-server",
+      "owner": "crdd-server",
       "architectureAnchor": "06_Architecture/Details/workbench-server/01_Architecture.md#6-interfaceとinteraction境界",
       "responsibilities": [
         "loopback_shell_delivery",
@@ -766,7 +791,7 @@
     },
     {
       "id": "mcp:public-contract-adapter",
-      "owner": "mcp-server",
+      "owner": "crdd-server",
       "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#3-依存と所有権",
       "responsibilities": [
         "transport_decode_encode",
@@ -799,7 +824,7 @@
     },
     {
       "id": "mcp:transport-session",
-      "owner": "mcp-server",
+      "owner": "crdd-server",
       "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#5-transport-lifecycle",
       "responsibilities": [
         "stdio_session",
@@ -881,6 +906,23 @@
     }
   ],
   "integrationCorridors": [
+    {
+      "id": "workbench:browser-to-http",
+      "architectureAnchor": "06_Architecture/Details/workbench-server/01_Architecture.md#ブラウザとhttpの接続",
+      "blockPath": [
+        "workbench:browser-client",
+        "workbench:production-shell"
+      ],
+      "testIds": [
+        "workbench:integration:browser-query",
+        "workbench:integration:production-shell"
+      ],
+      "postconditions": [
+        "browser_dependencies_separated",
+        "browser_bundle_served_at_fixed_path",
+        "same_origin_request_contract_preserved"
+      ]
+    },
     {
       "id": "version-control:revision-to-fixed-snapshot",
       "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#6-段階移行",
@@ -1436,7 +1478,7 @@
       "producerPaths": [
         "40_Develop/document-model/src"
       ],
-      "consumerOwner": "mcp-server",
+      "consumerOwner": "crdd-server",
       "consumerStatic": true,
       "testIds": [
         "mcp:unit:project-context",
@@ -1448,7 +1490,7 @@
       "producerPaths": [
         "40_Develop/execution-model/src"
       ],
-      "consumerOwner": "mcp-server",
+      "consumerOwner": "crdd-server",
       "consumerStatic": true,
       "testIds": [
         "mcp:unit:project-context",
@@ -1460,7 +1502,7 @@
       "producerPaths": [
         "40_Develop/document-model/src/project-context/portfolio.ts"
       ],
-      "consumerOwner": "mcp-server",
+      "consumerOwner": "crdd-server",
       "consumerStatic": true,
       "testIds": [
         "mcp:unit:project-context"
@@ -1471,7 +1513,7 @@
       "producerPaths": [
         "40_Develop/coordinator/src"
       ],
-      "consumerOwner": "mcp-server",
+      "consumerOwner": "crdd-server",
       "consumerStatic": true,
       "testIds": [
         "mcp:unit:orchestrator",
@@ -1632,7 +1674,7 @@
       "producerPaths": [
         "40_Develop/document-model/src"
       ],
-      "consumerOwner": "workbench-server",
+      "consumerOwner": "crdd-server",
       "consumerStatic": true,
       "testIds": [
         "workbench:integration:project-surface",
@@ -1644,7 +1686,7 @@
       "producerPaths": [
         "40_Develop/execution-model/src"
       ],
-      "consumerOwner": "workbench-server",
+      "consumerOwner": "crdd-server",
       "consumerStatic": true,
       "testIds": [
         "workbench:integration:runtime-definition",
@@ -1656,7 +1698,7 @@
       "producerPaths": [
         "40_Develop/configuration-model/src"
       ],
-      "consumerOwner": "workbench-server",
+      "consumerOwner": "crdd-server",
       "consumerStatic": true,
       "testIds": [
         "workbench:integration:profile-presentation",
@@ -2140,8 +2182,8 @@
     },
     {
       "id": "mcp:integration:runtime-definition",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/integration/runtime-definition.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/runtime-definition.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2364,8 +2406,8 @@
     },
     {
       "id": "workbench-server:integration:ai-shared-task",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/ai-shared-task.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/ai-shared-task.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -2385,8 +2427,8 @@
     },
     {
       "id": "workbench-server:integration:ai-verification",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/ai-verification.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/ai-verification.contract.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -3001,8 +3043,8 @@
     },
     {
       "id": "mcp:integration:ai-profile-adapter",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/integration/ai-selection-boundary.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/ai-selection-boundary.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3023,8 +3065,8 @@
     },
     {
       "id": "mcp:integration:runtime-activity-adapter",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/integration/runtime-activity-adapter.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/runtime-activity-adapter.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3046,8 +3088,8 @@
     },
     {
       "id": "workbench:integration:public-origin",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/public-origin.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/public-origin.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3073,8 +3115,8 @@
     },
     {
       "id": "workbench:system:public-entry",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/system/workbench-server-entry.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/system/workbench-server-entry.integration.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -3085,6 +3127,7 @@
         "host-missing-fresh-corrupt",
         "no-implicit-repository-fallback",
         "real-localhost-tls",
+        "same-listener-http-and-mcp",
         "public-test-certificate"
       ],
       "environment": "node_process",
@@ -3097,6 +3140,10 @@
         "missing_fresh_corrupt_host_unchanged",
         "rejected_entry_no_listener_announcement",
         "initialized_host_listener_started",
+        "unified_origin_mismatch_rejected",
+        "unified_mcp_rejects_unauthenticated_and_foreign_origin",
+        "unified_mcp_sdk_and_https_proxy_reach_same_listener",
+        "unified_close_cancels_and_joins_pending_mcp",
         "explicit_public_configuration_read_by_cli",
         "public_announcement_and_loopback_observation_separated",
         "unauthenticated_portfolio_not_disclosed",
@@ -3114,8 +3161,8 @@
     },
     {
       "id": "workbench:integration:browser-connection",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/browser-connection.contract.test.ts",
+      "owner": "workbench-ui",
+      "path": "40_Develop/workbench-ui/tests/integration/browser-connection.contract.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -3141,8 +3188,8 @@
     },
     {
       "id": "workbench:integration:browser-query",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/browser-query.contract.test.ts",
+      "owner": "workbench-ui",
+      "path": "40_Develop/workbench-ui/tests/integration/browser-query.contract.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -3164,8 +3211,8 @@
     },
     {
       "id": "workbench:integration:management",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/management.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/management.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -4881,8 +4928,8 @@
     },
     {
       "id": "mcp:integration:transport-lifecycle",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/integration/transport-lifecycle.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/transport-lifecycle.contract.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -5953,8 +6000,8 @@
     },
     {
       "id": "mcp:system:stdio",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/system/stdio-transport.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/system/stdio-transport.integration.test.ts",
       "level": "system",
       "kind": "integration",
       "semanticTags": [
@@ -5976,8 +6023,8 @@
     },
     {
       "id": "mcp:integration:initial-connection",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/integration/initial-connection.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/initial-connection.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -6010,8 +6057,8 @@
     },
     {
       "id": "mcp:integration:access-management-results",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/integration/access-management-results.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/access-management-results.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -6041,8 +6088,8 @@
     },
     {
       "id": "mcp:integration:access-capabilities",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/integration/access-capabilities.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/access-capabilities.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -6130,8 +6177,8 @@
     },
     {
       "id": "coordinator:system:orchestrator-real-provider-verification-script",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/system/task-real-provider-verification-script.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/system/task-real-provider-verification-script.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -6486,8 +6533,8 @@
     },
     {
       "id": "mcp:system:streamable-http",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/system/streamable-http-transport.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/system/streamable-http-transport.integration.test.ts",
       "level": "system",
       "kind": "integration",
       "semanticTags": [
@@ -6857,8 +6904,8 @@
     },
     {
       "id": "mcp:unit:project-context",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/unit/project-context-adapter.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/unit/project-context-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6880,8 +6927,8 @@
     },
     {
       "id": "mcp:unit:orchestrator",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/unit/task-adapter.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/unit/task-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6897,14 +6944,15 @@
       "humanInput": false,
       "postconditions": [
         "public_server_identity_crdd_mcp",
+        "modern_log_level_exact_and_other_metadata_rejected",
         "result_observed"
       ],
       "mandatoryByDefault": true
     },
     {
       "id": "mcp:integration:topic-meeting",
-      "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/integration/topic-meeting-adapter.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/topic-meeting-adapter.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -7547,8 +7595,8 @@
     },
     {
       "id": "workbench:integration:production-shell",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/workbench-server.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/workbench-server.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -7586,6 +7634,7 @@
         "meeting-outcome-treatment",
         "retired-remote-configuration-rejected",
         "route-allowlist",
+        "openapi-and-swagger-local-opt-in",
         "cleanup"
       ],
       "environment": "local_component_boundary",
@@ -7624,6 +7673,8 @@
         "meeting_outcome_treatment_shared_contract",
         "pending_outcome_close_effect_zero",
         "related_delete_effect_zero",
+        "development_docs_default_absent",
+        "development_docs_exact_local_assets_without_execution",
         "listener_absent",
         "connection_absent"
       ],
@@ -7631,8 +7682,8 @@
     },
     {
       "id": "workbench:integration:topic-meeting-presentation",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/topic-meeting-presentation.contract.test.ts",
+      "owner": "workbench-ui",
+      "path": "40_Develop/workbench-ui/tests/integration/topic-meeting-presentation.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -7660,8 +7711,8 @@
     },
     {
       "id": "workbench:integration:artifact-presentation",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/artifact-presentation.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/artifact-presentation.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -7685,8 +7736,8 @@
     },
     {
       "id": "workbench:integration:repository-action",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/repository-action.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/repository-action.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -7714,8 +7765,8 @@
     },
     {
       "id": "workbench:integration:repository-action-http",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/repository-action.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/repository-action.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -7746,8 +7797,8 @@
     },
     {
       "id": "workbench:integration:artifact-http",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/artifact.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/artifact.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -7779,8 +7830,8 @@
     },
     {
       "id": "workbench:integration:profile-presentation",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/ai-selection-presentation.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/ai-selection-presentation.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -7807,8 +7858,8 @@
     },
     {
       "id": "workbench:system:credential-browser",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/system/credential-administration-browser.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/system/credential-administration-browser.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -7899,8 +7950,8 @@
     },
     {
       "id": "workbench:system:actual-browser-visual",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/system/workbench-visual.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/system/workbench-visual.integration.test.ts",
       "level": "system",
       "kind": "integration",
       "semanticTags": [
@@ -8188,8 +8239,8 @@
     },
     {
       "id": "workbench:integration:node-dependency-closure",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/workbench-node-dependency-closure.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/workbench-node-dependency-closure.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -8210,8 +8261,8 @@
     },
     {
       "id": "workbench:integration:project-surface",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/project-surface.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/project-surface.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10057,8 +10108,8 @@
     },
     {
       "id": "workbench-server:integration:ai-verification-client",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/ai-verification-client.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/ai-verification-client.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10075,8 +10126,8 @@
     },
     {
       "id": "workbench-server:integration:ai-verification-timing",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/ai-verification-timing.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/ai-verification-timing.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10093,8 +10144,8 @@
     },
     {
       "id": "workbench-server:integration:workspace-task-diagnostic",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/workspace-task-diagnostic.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/workspace-task-diagnostic.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10323,8 +10374,8 @@
     },
     {
       "id": "workbench:integration:runtime-definition",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/runtime-definition.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/http-runtime-definition.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10645,8 +10696,8 @@
     },
     {
       "id": "executor:integration:task-summary-observation",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/task-summary-observation.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/task-summary-observation.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10891,8 +10942,8 @@
     },
     {
       "id": "workbench-server:integration:recovery-http-owner",
-      "owner": "workbench-server",
-      "path": "40_Develop/workbench-server/tests/integration/recovery-http-owner.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/recovery-http-owner.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [

@@ -31,8 +31,8 @@ import {
   runMcpStdio,
   startMcpAuthenticatedStreamableHttp,
   startMcpStreamableHttp,
-} from "../../40_Develop/mcp-server/src/index.ts";
-import type { McpCoordinatorDependencies } from "../../40_Develop/mcp-server/src/tools/task.ts";
+} from "../../40_Develop/crdd-server/src/mcp/core.ts";
+import type { McpCoordinatorDependencies } from "../../40_Develop/crdd-server/src/mcp/core.ts";
 import {
   getRepository,
   readGitUser,

@@ -55,7 +55,7 @@ export function withUnsignedRuntimeFixture<T>(verify: (root: string) => T): T {
       "execution-model",
       "configuration-model",
       "access-management",
-      "mcp-server",
+      "crdd-server",
       "execution-intelligence",
       "version-control",
     ]);

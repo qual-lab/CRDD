@@ -72,10 +72,10 @@ export type TestCatalogEntry = Readonly<{
     | "execution-intelligence"
     | "executor"
     | "lock"
-    | "mcp-server"
+    | "crdd-server"
     | "version-control"
     | "visual-preview"
-    | "workbench-server";
+    | "workbench-ui";
   path: string;
   level: TestLevel;
   kind: (typeof testKinds)[number];
@@ -117,10 +117,10 @@ export type TestCatalog = Readonly<{
     "execution-intelligence": "node_test";
     executor: "node_test";
     lock: "node_test";
-    "mcp-server": "node_test";
+    "crdd-server": "node_test";
     "version-control": "node_test";
     "visual-preview": "node_test";
-    "workbench-server": "node_test";
+    "workbench-ui": "node_test";
   }>;
   integrationBlocks: readonly Readonly<{
     id: string;
@@ -165,10 +165,10 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "execution-intelligence",
   "executor",
   "lock",
-  "mcp-server",
+  "crdd-server",
   "version-control",
   "visual-preview",
-  "workbench-server",
+  "workbench-ui",
 ]);
 const RUNNER_PROFILES = Object.freeze({
   "access-management": "node_test",
@@ -182,10 +182,10 @@ const RUNNER_PROFILES = Object.freeze({
   "execution-intelligence": "node_test",
   executor: "node_test",
   lock: "node_test",
-  "mcp-server": "node_test",
+  "crdd-server": "node_test",
   "version-control": "node_test",
   "visual-preview": "node_test",
-  "workbench-server": "node_test",
+  "workbench-ui": "node_test",
 });
 const validExecutionProfiles = new Set(executionProfiles);
 const validIntegrationLifecycleProfiles = new Set(integrationLifecycleProfiles);
@@ -348,21 +348,17 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
     "execution-intelligence",
     "executor",
     "lock",
-    "mcp-server",
+    "crdd-server",
     "version-control",
     "visual-preview",
-    "workbench-server",
+    "workbench-ui",
   ].flatMap((owner) =>
     walkFiles(
       repositoryRoot,
       path.join(
         repositoryRoot,
         "40_Develop",
-        owner === "mcp-server"
-          ? "mcp-server"
-          : owner === "workbench-server"
-            ? "workbench-server"
-            : owner,
+        owner,
         "tests",
       ),
     )
@@ -411,7 +407,7 @@ function isTestLevel(value: unknown): value is TestLevel {
 function expectedNodeLevel(entryPath: string): string | null {
   if (!entryPath.endsWith(".test.ts")) return null;
   return (
-    /^40_Develop\/(?:access-management|ai-adapter|checker|coordinator|docker-isolation|document-model|execution-model|configuration-model|execution-intelligence|executor|lock|mcp-server|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:access-management|ai-adapter|checker|coordinator|crdd-server|docker-isolation|document-model|execution-model|configuration-model|execution-intelligence|executor|lock|version-control|visual-preview|workbench-ui)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -766,7 +762,7 @@ export function inspectTestCatalog(
         (entry) =>
           !isSafeRepositoryPath(entry) ||
           !entry.startsWith(
-            `40_Develop/${binding.producerOwner === "mcp-server" ? "mcp-server" : binding.producerOwner === "workbench-server" ? "workbench-server" : binding.producerOwner}/`,
+            `40_Develop/${binding.producerOwner}/`,
           ),
       )
     )

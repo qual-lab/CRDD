@@ -177,7 +177,7 @@ async function createSourceObservationFixture(readMutation = "") {
       "executor",
       "execution-intelligence",
       "lock",
-      "mcp-server",
+      "crdd-server",
       "orchestrator",
       "version-control",
     ];

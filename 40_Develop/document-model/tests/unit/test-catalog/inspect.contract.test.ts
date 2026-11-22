@@ -45,7 +45,7 @@ const catalog = loadedCatalog as TestCatalog;
  */
 test("改名後のServer配下でも試験段階の不一致を拒否する", () => {
   assert.deepEqual(inspectTestCatalog(repositoryRoot, catalog).failures, []);
-  for (const parent of ["mcp-server", "workbench-server"]) {
+  for (const parent of ["crdd-server", "workbench-ui"]) {
     const target = catalog.tests.find((entry) =>
       entry.path.startsWith(`40_Develop/${parent}/tests/integration/`),
     );
@@ -86,16 +86,16 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
       "checker",
       "configuration-model",
       "coordinator",
+      "crdd-server",
       "docker-isolation",
       "document-model",
       "execution-intelligence",
       "execution-model",
       "executor",
       "lock",
-      "mcp-server",
       "version-control",
       "visual-preview",
-      "workbench-server",
+      "workbench-ui",
     ],
   );
   for (const block of catalog.integrationBlocks) {

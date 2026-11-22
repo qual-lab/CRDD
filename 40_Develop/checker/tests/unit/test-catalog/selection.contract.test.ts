@@ -171,9 +171,9 @@ test("AM試験を収集しMCP内のAM名を持つ試験のOwnerを混同しな�
     ["access-management"],
   );
   const mcpPath =
-    "40_Develop/mcp-server/tests/integration/access-management-results.integration.test.ts";
+    "40_Develop/crdd-server/tests/integration/access-management-results.integration.test.ts";
   const mcp = catalog.tests.find((entry) => entry.path === mcpPath);
-  assert.equal(mcp?.owner, "mcp-server");
+  assert.equal(mcp?.owner, "crdd-server");
   assert.deepEqual(
     selectRegressionTests(catalog, [mcpPath]).map((entry) => entry.path),
     [mcpPath],
@@ -184,7 +184,7 @@ test("AM試験を収集しMCP内のAM名を持つ試験のOwnerを混同しな�
       [mcpPath],
       selectRegressionTests(catalog, [mcpPath]),
     ),
-    ["mcp-server"],
+    ["crdd-server"],
   );
   assert.equal(
     catalogIntake.failures.some(

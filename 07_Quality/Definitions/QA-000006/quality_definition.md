@@ -369,7 +369,7 @@ Task／Adviceの応答内容正規化はAI Adapterが一実体で所有する。
 | Home事前確認の観測不能・元Lock・既存名導出 | executor/tests/integration/provider-home-boundary.contract.test.ts | 模擬サービス上の有限取得・解放と不明保持。実Homeには触れない |
 | 単段検証CLIの非対話実行、IPC、異常close、取消、親切断、診断、保持・清掃 | coordinator/tests/integration/provider-real-cli.contract.test.ts | 事前の人間承認を前提とし、非TTY・確認入力禁止の代役でも同じ有限試験が成立。子closeと技術終了と物理削除を別判定。試験代役以外は起動しない |
 | 単段Taskの編集・投影レビュー・開始後取消 | 同上。入力・物理Oracleはexecutor/scripts/task-trial.ts | TaskのModel・役割・三Mount・単一File・内容Hash・Directory Identityを照合。通常／cancelの終端相互取違え、未知生成物・partial・実体変更は保持。両Providerのreviewerを通常APIへ接続。Tool件数は診断に限定し、正規review結果・物理Oracleが成立する反例では件数だけで拒否しない。全Tool禁止証明は追加の完成条件にしない |
-| 診断表示の元結果保全・参照URL・非表示条件・専用Process終了 | workbench-server/tests/integration/task-summary-observation.contract.test.ts | 本文を保存せず、不成立を非表示にする |
+| 診断表示の元結果保全・参照URL・非表示条件・専用Process終了 | crdd-server/tests/integration/task-summary-observation.contract.test.ts | 本文を保存せず、不成立を非表示にする |
 
 全件成功は、この表の非AI境界に対する結果であり、あらゆるOS故障・Docker故障・Provider障害を網羅したとの表明ではない。本番Factory試験は固定Docker Isolation Factoryのみを有限代役へ置き換える。実Engine、実Home排他、認証、実Container回収、Host喪失の実境界は模擬結果から成立としない。既存のCodex／Claude単段実試験とDirect／Isolated実試験はCHGの対象改訂版付き結果を参照し、今回の等価な配置整理で新たに再送しない。
 
@@ -758,7 +758,7 @@ Provider差の純粋検証は、`ARCH-000004`／`ARCH-000015`の結果変換と`
 
 `ERB-IT-021`のNode実行閉包ケースでは、Workbench CLI入口とRuntime value import／re-export／literal dynamic import Graphを固定入力とし、type-only参照を実行依存へ数えず再帰走査する。到達Source、外部module specifier、`.tsx`および`client/`到達を観測し、Serverへ到達する一方でBrowser描画Module、`.tsx`、`client/`および`react`／`react/*`への到達が0であることをOracleとする。Evidenceには固定Tree、入口、到達Source集合Hash、外部module集合、除外したtype-only宣言数、禁止到達件数およびOracle判定を保存し、Source本文と絶対Pathは保存しない。
 
-`ERB-IT-021`のBrowser Bundle配布閉包ケースでは、再編後の`40_Develop/workbench-server/dist/client/assets/workbench-client.js`を固定Pathとし、次の段階を分けて確認する。BundleはWorkbench配布物の入力であり、Coordinatorの署名実行閉包へ無条件に含めない。以下は新配置に対する検証計画である。旧配置でのBuild成功は過去の根拠として保持するが、新配置の成功へ流用しない。
+`ERB-IT-021`のBrowser Bundle配布閉包ケースでは、再編後の`40_Develop/workbench-ui/dist/client/assets/workbench-client.js`を固定Pathとし、次の段階を分けて確認する。BundleはWorkbench配布物の入力であり、Coordinatorの署名実行閉包へ無条件に含めない。以下は新配置に対する検証計画である。旧配置でのBuild成功は過去の根拠として保持するが、新配置の成功へ流用しない。
 
 | 段階 | 条件・操作 | 観測 | Oracle | 現在状態 |
 |---|---|---|---|---|

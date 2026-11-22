@@ -35,7 +35,7 @@ const RUNTIME_STORAGE_OWNERS = new Set([
   "40_Develop/execution-model/src/storage/lock.ts",
   "40_Develop/coordinator/src/lifecycle/host.ts",
   "40_Develop/executor/scripts/runtime-data.ts",
-  "40_Develop/workbench-server/scripts/runtime-data.ts",
+  "40_Develop/crdd-server/scripts/runtime-data.ts",
 ]);
 const runtimePublicEntries = [
   "40_Develop/document-model/src/index.ts",
@@ -93,15 +93,14 @@ const blockedMeaningFields = [
 const SEMANTIC_ROOT_LITERAL_OWNERS = new Set([
   RESOLVER_PATH,
   "40_Develop/execution-model/src/storage/lock.ts",
-  "40_Develop/mcp-server/scripts/task-real-provider-contract.ts",
+  "40_Develop/crdd-server/scripts/task-real-provider-contract.ts",
   "40_Develop/execution-model/src/storage/store.ts",
   "40_Develop/configuration-model/src/storage/store.ts",
   "40_Develop/configuration-model/src/storage/lock.ts",
   "40_Develop/coordinator/src/lifecycle/host.ts",
   "40_Develop/executor/scripts/runtime-data.ts",
-  "40_Develop/workbench-server/scripts/runtime-data.ts",
-  "40_Develop/workbench-server/src/server/connection/configuration-area.ts",
-  "40_Develop/mcp-server/src/transport/configuration-area.ts",
+  "40_Develop/crdd-server/scripts/runtime-data.ts",
+  "40_Develop/crdd-server/src/configuration/area.ts",
   "40_Develop/visual-preview/src/browser/temporary.ts",
 ]);
 const ALLOWED_TOP_LEVEL_AREAS = new Set([

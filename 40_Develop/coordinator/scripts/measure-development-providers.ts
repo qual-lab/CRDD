@@ -342,7 +342,7 @@ const PACKAGES = [
   "executor",
   "execution-intelligence",
   "lock",
-  "mcp-server",
+  "crdd-server",
   "version-control",
 ] as const;
 
