@@ -391,7 +391,9 @@ test("共有MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
       assert.equal(denied.effectState, "no_effect");
     }
     assert.equal(
-      fs.existsSync(path.join(a.target, ".crdd", "domain-model", "state.json")),
+      fs.existsSync(
+        path.join(a.target, ".crdd", "execution-model", "state.json"),
+      ),
       false,
     );
   } finally {

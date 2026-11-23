@@ -76,7 +76,7 @@ const repository = { ...observed, root: verified.capability, operationId };
 const stateFile = path.join(
   repositoryRoot,
   ".crdd",
-  "domain-model",
+  "execution-model",
   "state.json",
 );
 const before: Buffer = fs.readFileSync(stateFile);

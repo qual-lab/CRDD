@@ -191,7 +191,7 @@ export async function simulateAuthCreateClosure(
   const distribution = fileURLToPath(new URL("../../../..", fixtureUrl));
   const area = path.join(distribution, ".crdd", "tests");
   const root = path.join(area, "auth-create-closure");
-  const statePath = path.join(root, ".crdd", "domain-model", "state.json");
+  const statePath = path.join(root, ".crdd", "execution-model", "state.json");
   const operationId = "OP-123";
   const hostRoot = path.join(root, ".crdd", "operations", operationId);
   const image =
@@ -501,7 +501,7 @@ export async function simulateAuthCreateClosure(
       assert.equal(options.timeout, 90_000);
       for (const directory of [
         path.join(root, ".crdd"),
-        path.join(root, ".crdd", "domain-model"),
+        path.join(root, ".crdd", "execution-model"),
         path.join(root, ".crdd", "operations"),
         hostRoot,
       ])

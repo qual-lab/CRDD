@@ -125,7 +125,7 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
   );
   assert.equal(output, "workbench_core_crud_passed");
   assert.equal(
-    fs.existsSync(path.join(root, ".crdd", "domain-model", "state.json")),
+    fs.existsSync(path.join(root, ".crdd", "execution-model", "state.json")),
     true,
   );
 });

@@ -85,7 +85,7 @@ function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
     repositoryRoot,
     root,
     config: path.join(root, "config"),
-    domainModel: path.join(root, "domain-model"),
+    executionModel: path.join(root, "execution-model"),
     workspaces: path.join(root, "workspaces"),
     tests: path.join(root, "tests"),
     temporary: path.join(root, "tmp"),

@@ -588,7 +588,7 @@ function fixture(t: test.TestContext) {
   });
   const initialized = initializeExecutionStore(verifiedRoot(root), "binding-a");
   assert.equal(initialized.status, "completed", initialized.reason);
-  const directory = path.join(root, ".crdd", "domain-model");
+  const directory = path.join(root, ".crdd", "execution-model");
   return {
     root,
     directory,

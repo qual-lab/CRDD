@@ -40,7 +40,7 @@ export const hostFixtureProcessBoundarySource = `
       assert.equal(input,own.currentHostTransitionWorkerSource);
     }
     const id=argv[argv.length===3?2:1];
-    const state=JSON.parse(fs.readFileSync(path.join(boundaryRoot,'.crdd','domain-model','state.json')));
+    const state=JSON.parse(fs.readFileSync(path.join(boundaryRoot,'.crdd','execution-model','state.json')));
     const target=state.operations.find(operation=>operation.recoveryId===id);assert.ok(target);
     if(argv.length===5)assert.deepEqual(JSON.parse(argv[4]),target.resources);
     return boundaryOriginal.spawnSync(process.execPath,argv,{input,cwd:boundaryRoot,encoding:'utf8',timeout,windowsHide:true});
@@ -67,7 +67,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
   const id = process.argv[2];
   const cliUrl = ${JSON.stringify(new URL("../../bin/coordinator.ts", import.meta.url).href)};
   const cli = fileURLToPath(cliUrl);
-  const statePath = path.join(process.cwd(),'.crdd',"domain-model",'state.json');
+  const statePath = path.join(process.cwd(),'.crdd',"execution-model",'state.json');
   const initialBytes = fs.readFileSync(statePath), initial = JSON.parse(initialBytes);
   const target = initial.operations.find(item => item.recoveryId === id);
   assert.ok(target && target.kind === 'docker_task');
@@ -289,7 +289,7 @@ export const savedAbsenceProcessProfileSource = `(async()=>{
   const {PassThrough}=await import('node:stream');
   const children=[];
     const id=process.argv[2];
-    const state=JSON.parse(fs.readFileSync(path.join(process.cwd(),'.crdd','domain-model','state.json')));
+    const state=JSON.parse(fs.readFileSync(path.join(process.cwd(),'.crdd','execution-model','state.json')));
     const target=state.operations.find(operation=>operation.recoveryId===id);assert.ok(target);
     const identity=JSON.parse(target.identityJson);
     const requested=target.resources.snapshot.resources.filter(resource=>resource.request!=='not_issued');

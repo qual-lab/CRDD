@@ -718,7 +718,12 @@ for (const producerMode of [
           { code: "ENOENT" },
         );
       }
-      const statePath = path.join(root, ".crdd", "domain-model", "state.json");
+      const statePath = path.join(
+        root,
+        ".crdd",
+        "execution-model",
+        "state.json",
+      );
       const before = JSON.parse(fs.readFileSync(statePath, "utf8"));
       const target = before.operations.find(
         (item: { recoveryId: string }) =>
@@ -1207,7 +1212,12 @@ for (const fault of [
         report.dockerCalls,
         fault === "image" ? ["image"] : ["image", "create", "inspect"],
       );
-      const statePath = path.join(root, ".crdd", "domain-model", "state.json");
+      const statePath = path.join(
+        root,
+        ".crdd",
+        "execution-model",
+        "state.json",
+      );
       const bytes = fs.readFileSync(statePath);
       assert.equal(
         createHash("sha256").update(bytes).digest("hex"),
@@ -1253,8 +1263,8 @@ for (const fault of [
         assert.equal(fs.lstatSync(location).isSymbolicLink(), false);
       for (const name of [
         "unexpected-finally",
-        ".crdd/domain-model/state.lock",
-        ".crdd/domain-model/state.pending.json",
+        ".crdd/execution-model/state.lock",
+        ".crdd/execution-model/state.pending.json",
       ])
         assert.throws(() => fs.lstatSync(path.join(root, name)), {
           code: "ENOENT",

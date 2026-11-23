@@ -457,7 +457,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   const stateArea = areaRequirement.requireReadyRepositoryExecutionDataArea(
     areaInitialization.ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       root,
-      "domain-model",
+      "execution-model",
     ),
     "repair_storage_fixture",
   );
@@ -2428,7 +2428,10 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     ).filesystemEffectIssued,
     false,
   );
-  assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model")), false);
+  assert.equal(
+    fs.existsSync(path.join(root, ".crdd", "execution-model")),
+    false,
+  );
   const saved = stateStore.saveRepairRecord(
     verified.capability,
     recoveryId,
@@ -2464,7 +2467,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   if (observedState?.kind !== "runtime_repair")
     throw Error("wrong_operation_kind");
   assert.equal(observedState.disposalSettled, false);
-  const directory = path.join(root, ".crdd", "domain-model");
+  const directory = path.join(root, ".crdd", "execution-model");
   const state = path.join(directory, "state.json");
   assert.ok(fs.readFileSync(state).equals(first));
   assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
@@ -2841,7 +2844,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   );
   const failedId = failedValue?.snapshot.operations[0]?.recoveryId;
   assert.ok(failedId);
-  const failedDirectory = path.join(failedRoot, ".crdd", "domain-model");
+  const failedDirectory = path.join(failedRoot, ".crdd", "execution-model");
   let sawCreatedArea = false;
   const lost = stateStore.saveRepairRecord(
     failedVerified.capability,

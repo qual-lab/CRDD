@@ -74,7 +74,7 @@ const repository = located.capability;
 let current = true;
 const input = { root: repository, purpose: scenario === "probe" ? "isolation_probe" : "task",
   recordingCurrent: () => current && resolveVerifiedRepositoryRoot(repository) === root };
-const stateFile = path.join(root, ".crdd", "domain-model", "state.json");
+const stateFile = path.join(root, ".crdd", "execution-model", "state.json");
 const read = () => {
   const value = readState(repository, { scope: "recovery" });
   assert.equal(value.status, "completed", JSON.stringify(value));

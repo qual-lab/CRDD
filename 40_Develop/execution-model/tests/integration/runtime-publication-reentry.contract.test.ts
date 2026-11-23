@@ -128,7 +128,7 @@ test("Host Windows: markerなしの読取り・残存保全と同Owner借用", {
     const storage = requireReadyRepositoryExecutionDataArea(
       ensureRepositoryExecutionDataAreaFromWorkingDirectory(
         root,
-        "domain-model",
+        "execution-model",
       ),
       "marker_storage",
     );

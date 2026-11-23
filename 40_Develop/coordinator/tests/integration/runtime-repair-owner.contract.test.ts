@@ -467,7 +467,7 @@ function prepareRepairOwnerFixture(t: TestContext) {
   const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw new Error("root_unavailable");
-  stateFile = path.join(root, ".crdd", "domain-model", "state.json");
+  stateFile = path.join(root, ".crdd", "execution-model", "state.json");
   acquireCount = 0;
   runtimeEntries = 0;
   observeCount = 0;

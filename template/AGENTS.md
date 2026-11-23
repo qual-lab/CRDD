@@ -153,6 +153,19 @@ CRDDのタグ、コミット、サブモジュール参照、`00_CRDD/`の配布
 
 Repositoryに固有の非秘密設定は`.crdd/config/`へTool別のファイルとして置く。設定例はCRDD配布物の`template/.crdd/config/*.example.json`を参照し、例そのものを実設定や実行許可として読み込まない。`execution-intelligence.json`と`coordinator.json`は独立したTool設定であり、それぞれ`schemaRevision`と`historyRetentionDays`を保持する。Taskと技術実行の履歴はCoordinatorの同じ設定を使い、旧`orchestrator.json`は読まない。設定ファイルの不存在だけ各30日となり、不正な設定は当該Toolの整理を止める。保持期間を未解決回復・未受理結果やCandidateの自動削除へ適用しない。
 
+`template/.crdd/`の`.gitkeep`は、フォルダの用途を配布時に明示するためのものであり、保存済み状態や初期化の証拠ではない。
+
+| 領域 | 用途 |
+|---|---|
+| `config/` | 非秘密の設定例。実設定へ自動採用しない |
+| `execution-model/` | 実行モデルの現在状態・判断・終了履歴。必要時に実行モデルが作るため、ひな型に空領域を配らない |
+| `execution-intelligence/` | 実行計測の履歴。ひな型に履歴本体を置かない |
+| `lock/`、`operations/`、`workspaces/` | 保護対象の排他、個別操作の作業資源、作業領域 |
+| `tests/`、`tmp/` | 試験用・一時作業用。ひな型に生成物を置かない |
+| `candidates/`、`release/`、`communication/` | ひな型に残す用途別の予約領域。空フォルダは現行製品による保存・利用を意味しない |
+
+旧`.crdd/coordinator/`・旧`.crdd/domain-model/`は新しい保存先の別名ではない。既存データを初期化で覆わず、移行・保持・清掃は明示した範囲で個別に判断する。
+
 Manifest、外部送信Policyおよび上記二つのTool設定は非秘密の共有設定として、`.gitignore`の明示allowlistでGit管理できる。`.crdd`全体を追跡対象にせず、Runtime状態、履歴、Lock、一時物、候補および秘密は管理外を維持する。既存の親Directory除外が設定を隠す場合は、`.crdd/`と`config/`の再包含も設定する。CROSのHost共通設定はOS管理の設定Root、固定Runtime設定と既定Catalogは所有Subsystem、Schemaは配布物の`template/tools/schemas/`へ置き、Repository設定へ混在させない。
 
 ## 工程実行と引き渡し

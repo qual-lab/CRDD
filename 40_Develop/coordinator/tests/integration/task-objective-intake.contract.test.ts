@@ -728,7 +728,7 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
 test("public Objective re-entry preserves malformed snapshot without inventing a recovery identity", async (t) => {
   for (const count of [1, 2]) {
     const workingDirectory = root(t);
-    const locks = path.join(workingDirectory, ".crdd", "domain-model");
+    const locks = path.join(workingDirectory, ".crdd", "execution-model");
     fs.mkdirSync(locks, { recursive: true });
     const createdItems = Array.from({ length: count }, (_unused, index) =>
       path.join(locks, index === 0 ? "state.json" : "state.pending.json"),
@@ -818,7 +818,7 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
       const record = path.join(
         workingDirectory,
         ".crdd",
-        "domain-model",
+        "execution-model",
         "state.json",
       );
       const envelope = JSON.parse(fs.readFileSync(record, "utf8"));
@@ -1406,7 +1406,12 @@ test("async recovery interruption preserves technical and Task settlement bounda
         assert.equal(Object.hasOwn(remaining ?? {}, "acknowledgement"), false);
         const physical = JSON.parse(
           fs.readFileSync(
-            path.join(workingDirectory, ".crdd", "domain-model", "state.json"),
+            path.join(
+              workingDirectory,
+              ".crdd",
+              "execution-model",
+              "state.json",
+            ),
             "utf8",
           ),
         );

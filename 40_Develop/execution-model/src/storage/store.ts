@@ -99,13 +99,13 @@ export function requireReadyRepositoryExecutionDataArea(
 
 /** 保存先はPackage名でなく既存永続所在の契約。 */
 export const REPOSITORY_AREAS = Object.freeze([
-  "domain-model",
+  "execution-model",
   "tmp",
   "lock",
 ] as const);
 
 export const AREA_PATH_KEYS = Object.freeze({
-  "domain-model": "domainModel",
+  "execution-model": "executionModel",
   tmp: "temporary",
   lock: "locks",
 } as const);
@@ -138,7 +138,7 @@ function resolveRepositoryExecutionDataPathsFromValidatedRoot(
   return Object.freeze({
     repositoryRoot,
     root,
-    domainModel: path.join(root, "domain-model"),
+    executionModel: path.join(root, "execution-model"),
     temporary: path.join(root, "tmp"),
     locks: path.join(root, "lock"),
     allowedTopLevelAreas: REPOSITORY_AREAS,
@@ -304,7 +304,7 @@ export function resolveRepositoryExecutionDataPathsFromWorkingDirectory(
     : null;
 }
 
-export type RepositoryExecutionArea = "domain-model" | "tmp" | "lock";
+export type RepositoryExecutionArea = "execution-model" | "tmp" | "lock";
 
 export type RepositoryExecutionDataAreaObservation =
   | Readonly<{
@@ -367,7 +367,7 @@ function ensureCanonicalDirectory(target: string): void {
  * @returns 新規領域の境界観測とEffect情報、または停止。
  * @precondition Repository-localの.crdd親が既に正規配置で存在する。
  * @postcondition 既存ready領域を新品として返さない。
- * @effect 固定domain-model領域だけを排他的に作成する。
+ * @effect 固定execution-model領域だけを排他的に作成する。
  * @failure 既存領域、alias、親置換、観測不能では停止し、自動削除しない。
  * @invariant 空観測やensureによる再利用を初期化証拠にしない。
  * @boundary Runtime Dataの領域作成からCoordinator初期化Owner。
@@ -388,26 +388,26 @@ export function createExecutionDataArea(capability: Repository) {
       throw new Error("parent");
     assertExecutionStateInitializationBoundary(capability);
     if (
-      observeRepositoryExecutionDataArea(capability, "domain-model").status !==
-      "not_observed"
+      observeRepositoryExecutionDataArea(capability, "execution-model")
+        .status !== "not_observed"
     )
       throw new Error("existing");
     const before = fs.lstatSync(paths.root, { bigint: true });
     if (root.dev !== before.dev || root.ino !== before.ino)
       throw new Error("parent_changed");
     effectIssued = true;
-    fs.mkdirSync(paths.domainModel, { mode: 0o700 });
+    fs.mkdirSync(paths.executionModel, { mode: 0o700 });
     assertExecutionStateInitializationBoundary(capability);
     const after = fs.lstatSync(paths.root, { bigint: true });
     const observation = observeRepositoryExecutionDataArea(
       capability,
-      "domain-model",
+      "execution-model",
     );
     if (
       root.dev !== after.dev ||
       root.ino !== after.ino ||
       observation.status !== "ready" ||
-      fs.readdirSync(paths.domainModel).length !== 0
+      fs.readdirSync(paths.executionModel).length !== 0
     )
       throw new Error("changed");
     return Object.freeze({
@@ -457,11 +457,13 @@ export function assertExecutionStateInitializationBoundary(
       fs.realpathSync.native(paths.root) !== paths.root)
   )
     throw new Error("runtime_initialization_boundary_unavailable");
-  try {
-    fs.lstatSync(path.join(paths.root, "coordinator"));
-    throw new Error("runtime_initialization_boundary_unavailable");
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  for (const previousArea of ["coordinator", "domain-model"]) {
+    try {
+      fs.lstatSync(path.join(paths.root, previousArea));
+      throw new Error("runtime_initialization_boundary_unavailable");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
   }
   let after: fs.BigIntStats | null = null;
   try {
@@ -800,7 +802,7 @@ export function updateHistoryOwned(
     if (root.status !== "completed") return blocked;
     const area = observeRepositoryExecutionDataArea(
       root.capability,
-      "domain-model",
+      "execution-model",
     );
     const policy = readHistoryRetentionDays(
       readStorageOwnerBinding(owner)?.repository,
@@ -828,7 +830,7 @@ export function updateHistoryOwned(
     const assertOwner = () => {
       const fresh = observeRepositoryExecutionDataArea(
         root.capability,
-        "domain-model",
+        "execution-model",
       );
       const config = readHistoryRetentionDays(
         readStorageOwnerBinding(owner)?.repository,
@@ -978,7 +980,7 @@ export function inspectHistorySettlement(
     if (root.status !== "completed") return null;
     const area = observeRepositoryExecutionDataArea(
       root.capability,
-      "domain-model",
+      "execution-model",
     );
     const policy = readHistoryRetentionDays(
       readStorageOwnerBinding(owner)?.repository,
@@ -1002,7 +1004,7 @@ export function inspectHistorySettlement(
     );
     const final = observeRepositoryExecutionDataArea(
       root.capability,
-      "domain-model",
+      "execution-model",
     );
     const finalPolicy = readHistoryRetentionDays(
       readStorageOwnerBinding(owner)?.repository,
@@ -1086,7 +1088,7 @@ export function readDecisionHistoryOwned(
     if (root.status !== "completed") return null;
     const area = observeRepositoryExecutionDataArea(
       root.capability,
-      "domain-model",
+      "execution-model",
     );
     if (
       area.status !== "ready" ||
@@ -1111,7 +1113,7 @@ export function readDecisionHistoryOwned(
     }
     const final = observeRepositoryExecutionDataArea(
       root.capability,
-      "domain-model",
+      "execution-model",
     );
     return final.status === "ready" &&
       final.boundaryIdentity === area.boundaryIdentity &&
@@ -1210,7 +1212,7 @@ export function resolveNamedPaths(workingDirectory: string) {
  */
 export function observeArea(
   repositoryRoot: string,
-  area: "domain-model" | "tmp" | "lock",
+  area: "execution-model" | "tmp" | "lock",
 ) {
   const verified = getRepository(repositoryRoot);
   if (verified.status !== "completed")
@@ -1245,7 +1247,7 @@ export function observeArea(
  */
 export function assertArea(
   repositoryRoot: string,
-  area: "domain-model" | "tmp" | "lock",
+  area: "execution-model" | "tmp" | "lock",
   directory: string,
 ) {
   const observation = observeArea(repositoryRoot, area);
@@ -1271,7 +1273,7 @@ export function assertArea(
  */
 export function assertAreaUnchanged(
   repositoryRoot: string,
-  area: "domain-model" | "tmp" | "lock",
+  area: "execution-model" | "tmp" | "lock",
   initial: Exclude<
     RepositoryExecutionDataAreaObservation,
     { status: "blocked" }
@@ -1730,12 +1732,13 @@ export function readStateSnapshot(
       throw new Error("owner");
     const initial = observeRepositoryExecutionDataArea(
       verified.capability,
-      "domain-model",
+      "execution-model",
     );
     if (allowUninitialized && initial.status === "not_observed") {
+      assertExecutionStateInitializationBoundary(verified.capability);
       const fresh = observeRepositoryExecutionDataArea(
         verified.capability,
-        "domain-model",
+        "execution-model",
       );
       if (
         fresh.status === "not_observed" &&
@@ -2232,7 +2235,7 @@ export function readStateSnapshot(
     if (freshRoot.status !== "completed") throw new Error("root");
     const fresh = observeRepositoryExecutionDataArea(
       freshRoot.capability,
-      "domain-model",
+      "execution-model",
     );
     if (
       !repository.revalidate() ||

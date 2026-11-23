@@ -1158,7 +1158,7 @@ test("現在回復rendererは操作除去とTask保存待ちを区別する", ()
 function invokeCli(isJson: boolean) {
   const stateFile = path.resolve(
     import.meta.dirname,
-    "../../../../.crdd/domain-model/state.json",
+    "../../../../.crdd/execution-model/state.json",
   );
   const before = fs.existsSync(stateFile)
     ? createHash("sha256").update(fs.readFileSync(stateFile)).digest("hex")

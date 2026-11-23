@@ -255,7 +255,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     { windowsHide: true },
   );
   assert.equal((await failTask(root)).reason, "orchestrator_replan_required");
-  const stateFile = path.join(root, ".crdd/domain-model/state.json");
+  const stateFile = path.join(root, ".crdd/execution-model/state.json");
   const beforeBytes = fs.readFileSync(stateFile);
   const capability = verifyRuntimePersistenceRepository(root);
   const beforeRead = readState(capability, { scope: "recovery" });
@@ -478,7 +478,7 @@ test("maintaining the plan creates a fresh attempt and enforces the retry limit"
     1,
   );
   assert.ok(beforeRetry.status === "completed" && beforeRetry.value);
-  const stateFile = path.join(root, ".crdd/domain-model/state.json");
+  const stateFile = path.join(root, ".crdd/execution-model/state.json");
   const replayBytes = fs.readFileSync(stateFile);
   const request = {
     kind: "task_retry",

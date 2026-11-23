@@ -59,7 +59,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.equal(++restartCalls, 1);
           assert.equal(input.signal.aborted, false);
           assert.equal(input.verifyBoundary(), true);
-          const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
+          const statePath = path.join(process.cwd(), '.crdd', "execution-model", 'state.json');
           const before = fs.readFileSync(statePath), snapshot = JSON.parse(before);
           const target = snapshot.operations.find(item => item.recoveryId === process.argv[2]);
           assert.ok(target && target.dockerRestart === null);
@@ -119,7 +119,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
        * @boundary 完成Readerと今回Rootの実保存物。
        */
       function readConfirmedHistoryFixture() {
-        const statePath=path.join(process.cwd(),'.crdd','domain-model','state.json');
+        const statePath=path.join(process.cwd(),'.crdd','execution-model','state.json');
         const before=fs.readFileSync(statePath);
         const observed=store.readState(historyInputs.historyRepositoryInput(verified.capability),{scope:'recovery',input:{kind:'execution_history',recoveryId:id}});
         assert.equal(observed.status,'completed');assert.equal(observed.lockReleased,true);
@@ -141,7 +141,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       assert.equal(verified.status, 'completed'); assert.ok(verified.capability);
       if(restartEntry) {
         const restart = await import(${JSON.stringify(new URL("../../src/lifecycle/environment.ts", import.meta.url).href)});
-        const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
+        const statePath = path.join(process.cwd(), '.crdd', "execution-model", 'state.json');
         const before = fs.readFileSync(statePath), snapshot = JSON.parse(before);
         const target = snapshot.operations.find(item => item.recoveryId === id);
         const initialResources=structuredClone(target.resources);
@@ -231,7 +231,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         if(correlatedConsumer) {
           assert.equal(identity.recoveryCorrelationId, 'upper-current-host');
           assert.notEqual(identity.recoveryCorrelationId, identity.operationId);
-          const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
+          const statePath = path.join(process.cwd(), '.crdd', "execution-model", 'state.json');
           const bytes = fs.readFileSync(statePath);
           const refused = recovery.resolveRuntimeOwnedDockerTaskCurrentCorrelations(['upper-current-host', 'explicit-absent'], {...verified.capability});
           assert.equal(refused.status, 'blocked');
@@ -336,7 +336,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
                   Mounts:[{Type:'bind',Destination:'/provider-home',RW:true,Propagation:'rprivate'},{Type:'bind',Destination:'/tmp',RW:true,Propagation:'rprivate'},{Type:'bind',Destination:'/work',RW:identity.workspaceMountMode !== 'read_only',Propagation:'rprivate'}],
                 }]);
                 if(calls === 2) {
-                  const fresh = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.crdd',"domain-model",'state.json')));
+                  const fresh = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.crdd',"execution-model",'state.json')));
                   const freshBook = fresh.operations.find(item => item.recoveryId === resolvedId).resources;
                   const freshResource = freshBook.snapshot.resources.find(item => item.key === 'create_provider');
                   const freshCheckpoint = freshBook.checkpoints.find(item => item.key === 'create_provider');
@@ -360,7 +360,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
             return child;
           };
           syncBuiltinESMExports();
-          const observedStatePath = path.join(process.cwd(), '.crdd', 'domain-model', 'state.json');
+          const observedStatePath = path.join(process.cwd(), '.crdd', 'execution-model', 'state.json');
           const originalRename = fs.renameSync;
           let lastResourceBook;
           fs.renameSync = (from, to) => {
@@ -410,7 +410,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(report.locksReleased, true); assert.equal(report.historyConfirmed, true);
         assert.deepEqual(Object.keys(report).sort(), ['contract','status','reason','recoveryId','dockerCleanupConfirmed','hostCleanupConfirmed','locksReleased','historyConfirmed','operationRetained','operationRemovalConfirmed','taskRecoveryCompleted','cleanupReason',...(!identifiedProvider ? ['cliCleanupConfirmed','cliCleanupReason'] : [])].sort());
         if(correlatedConsumer) {
-          const statePath = path.join(process.cwd(), '.crdd', 'domain-model', 'state.json');
+          const statePath = path.join(process.cwd(), '.crdd', 'execution-model', 'state.json');
           const bytes = fs.readFileSync(statePath), state = JSON.parse(bytes);
           assert.equal(state.operations.some(item => item.recoveryId === resolvedId), false);
           assert.equal(Object.hasOwn(state, 'pendingDeliveries'), false);
@@ -424,7 +424,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         if(handoffFailure) {
           assert.equal(failureReached, 1); assert.equal(handoffWrites, 0);
           for(const file of [path.join(process.cwd(),'.crdd','operations',identity.operationId)]) assert.throws(() => fs.lstatSync(file), {code: 'ENOENT'});
-          for(const file of ['state.pending.json', 'state.lock', 'history.pending.jsonl']) assert.throws(() => fs.lstatSync(path.join(process.cwd(), '.crdd', "domain-model", file)), {code: 'ENOENT'});
+          for(const file of ['state.pending.json', 'state.lock', 'history.pending.jsonl']) assert.throws(() => fs.lstatSync(path.join(process.cwd(), '.crdd', "execution-model", file)), {code: 'ENOENT'});
           const saved = store.readState(verified.capability,{scope:'recovery',input:{kind:'history'}});
           assert.equal(saved.status, 'completed');assert.equal(saved.lockReleased,true);assert.ok(saved.value&&saved.historyRows);
           const unrelated=item=>item.recoveryId!==id && !(item.kind==='host_operation' && item.operationId===identity.operationId);
@@ -444,7 +444,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         process.stdout.write('current_host_storage_verified'); return;
       }
       if(process.argv[3] === 'recover_history') {
-        const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
+        const statePath = path.join(process.cwd(), '.crdd', "execution-model", 'state.json');
         const hasTemporary = ['state.lock', 'state.pending.json', 'history.pending.jsonl'].some(name => fs.existsSync(path.join(path.dirname(statePath), name)));
         assert.equal(store.readState(verified.capability,{scope:'recovery'}).status, hasTemporary ? 'blocked' : 'completed');
         const observed = store.readState(historyInputs.historyRepositoryInput(verified.capability),{scope:'recovery',input:{kind:"execution_history",recoveryId:id}});
@@ -529,7 +529,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(result.recoveryId, id); assert.equal(result.dockerCleanupConfirmed, true); assert.equal(result.hostCleanupConfirmed, true);
         assert.equal(result.locksReleased, true); assert.equal(result.historyConfirmed, true); assert.equal(Object.hasOwn(result, 'deliveryPending'), false);
         assert.equal(result.operationRetained, true); assert.equal(result.taskRecoveryCompleted, false); assert.ok(result.preparation);
-        const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json'), before = fs.readFileSync(statePath);
+        const statePath = path.join(process.cwd(), '.crdd', "execution-model", 'state.json'), before = fs.readFileSync(statePath);
         const historyPath = path.join(path.dirname(statePath), 'history.jsonl'), historyBefore = fs.readFileSync(historyPath);
         const protectedPaths = new Set([...['state.json', 'history.jsonl', 'state.pending.json', 'state.lock', 'history.pending.jsonl'].map(name => path.join(path.dirname(statePath), name)), hostRoot]);
         const originals = { openSync: fs.openSync, closeSync: fs.closeSync, writeFileSync: fs.writeFileSync, appendFileSync: fs.appendFileSync, writeSync: fs.writeSync, renameSync: fs.renameSync, unlinkSync: fs.unlinkSync, truncateSync: fs.truncateSync, mkdirSync: fs.mkdirSync, rmdirSync: fs.rmdirSync, rmSync: fs.rmSync };
@@ -613,7 +613,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const targetHost = before.value.snapshot.operations.find(item=>item.kind==='host_operation' && item.operationId===identity.operationId);
       assert.ok(targetHost); assert.equal(targetHost.cleanup,'not_requested');
       const hostRoot=path.join(process.cwd(),'.crdd','operations',identity.operationId);
-      const statePath=path.join(process.cwd(),'.crdd','domain-model','state.json');
+      const statePath=path.join(process.cwd(),'.crdd','execution-model','state.json');
       const versions=[],rename=fs.renameSync;
       let capability=null,capabilityReleased=false;
       let expectedStateBytes=Buffer.from(before.value.sourceText,'utf8');

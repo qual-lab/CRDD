@@ -404,7 +404,7 @@ export function resumeRepairRecordSave(
       throw new Error("owner");
     const area = observeRepositoryExecutionDataArea(
       verified.capability,
-      "domain-model",
+      "execution-model",
     );
     if (
       area.status !== "ready" ||
@@ -467,7 +467,7 @@ export function resumeRepairRecordSave(
     }
     const final = observeRepositoryExecutionDataArea(
       verified.capability,
-      "domain-model",
+      "execution-model",
     );
     if (
       !assertOwner() ||
@@ -776,7 +776,7 @@ function commitStateSnapshotOwned(
     if (verified.status !== "completed") throw new Error("root");
     const initial = observeRepositoryExecutionDataArea(
       verified.capability,
-      "domain-model",
+      "execution-model",
     );
     if (
       initial.status !== "ready" ||
@@ -822,7 +822,7 @@ function commitStateSnapshotOwned(
         assertExecutionStateInitializationBoundary(fresh.capability);
       const observed = observeRepositoryExecutionDataArea(
         fresh.capability,
-        "domain-model",
+        "execution-model",
       );
       if (
         observed.status !== "ready" ||

@@ -252,7 +252,7 @@ Queueは受付と実行状態の正本であり、終了履歴が確定しただ
 
 | 項目 | 現行契約 |
 |---|---|
-| 保存先 | Repository直下の`.crdd/domain-model/`。Package改名と保存Identityを連動変更しない |
+| 保存先 | Repository直下の`.crdd/execution-model/`。保存先の名前を揃え、保存内容のIdentityは変更しない |
 | 正本と途中候補 | `state.json`／`history.jsonl`と`state.pending.json`／`history.pending.jsonl` |
 | 排他 | 共通Lockの`.crdd/lock/execution-model.state.lock`。pendingは排他ではない |
 | 保存値 | `ExecutionStateSnapshot`の19field明示定義が唯一の保存正本。Overview等は投影であり別保存しない |

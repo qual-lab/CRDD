@@ -4,7 +4,7 @@
  * @responsibility 対象・世代・主体・一回適用を実Stateで確認する。
  * @trace PRL-IT-008
  * @level IT
- * @scope coordinator、domain-model、version-control
+ * @scope coordinator、execution-model、version-control
  * @boundary PRL-IT-008=Adjacent Blocks: 公開受入→State Writer→History
  */
 import assert from "node:assert/strict";
@@ -120,11 +120,11 @@ test("公開受入は対象・世代・主体・根拠を検査し同一回答�
     criterionEvidenceIds: ["objective-criterion"],
     principalId: "operator-a",
   };
-  const file = path.join(root, ".crdd", "domain-model", "state.json");
+  const file = path.join(root, ".crdd", "execution-model", "state.json");
   const readHistory = () => {
     try {
       return fs.readFileSync(
-        path.join(root, ".crdd", "domain-model", "history.jsonl"),
+        path.join(root, ".crdd", "execution-model", "history.jsonl"),
       );
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;

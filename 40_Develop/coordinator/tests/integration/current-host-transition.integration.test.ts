@@ -1877,7 +1877,7 @@ for (const publicationFault of [
         const statePath = path.join(
           root,
           ".crdd",
-          "domain-model",
+          "execution-model",
           "state.json",
         );
         const events =
@@ -1940,7 +1940,7 @@ for (const publicationFault of [
         const statePath = path.join(
           root,
           ".crdd",
-          "domain-model",
+          "execution-model",
           "state.json",
         );
         for (const event of ["submission", "identified", "cleanup"] as const) {
@@ -2196,12 +2196,12 @@ for (const publicationFault of [
         "history.pending.jsonl",
       ])
         assert.throws(
-          () => fs.lstatSync(path.join(root, ".crdd", "domain-model", file)),
+          () => fs.lstatSync(path.join(root, ".crdd", "execution-model", file)),
           { code: "ENOENT" },
         );
       const finalState = JSON.parse(
         fs.readFileSync(
-          path.join(root, ".crdd", "domain-model", "state.json"),
+          path.join(root, ".crdd", "execution-model", "state.json"),
           "utf8",
         ),
       );
@@ -2257,7 +2257,7 @@ for (const publicationFault of [
         );
         const rows = fs
           .readFileSync(
-            path.join(root, ".crdd", "domain-model", "history.jsonl"),
+            path.join(root, ".crdd", "execution-model", "history.jsonl"),
             "utf8",
           )
           .trim()

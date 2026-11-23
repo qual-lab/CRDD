@@ -219,7 +219,7 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 履歴保存先は`lifecycle/host.ts`、開始・終了の個別実行記録と任意の記録診断は`lifecycle/environment.ts`が所有する。Group開始は`lifecycle/execution.ts`、終結は`lifecycle/execution.ts`が担当する。認証済みPrincipalと受入要求の一致検査は`lifecycle/decision.ts`が所有し、本番組立ては同じ公開入口を利用する。物理親Directoryは`40_Develop/coordinator`、Package名は`@qual-lab/crdd-coordinator`である。共通実行・通知と全利用側の接続確認が未完了であるという判定は、このOwner案内だけでは変更しない。共通Operation記録と上位Attempt記録を重複発行しない責務は維持する。
 
-旧State／Queue／Leaseの移行入力Readerは本番へ残さず、移行はフロントAIの明示手順が所有する。現在Readerは不存在・観測不能・Root置換を区別し、既存意図・証拠とexact参照を保全する。保存先は`.crdd/domain-model/state.json`、通常終了要約は同領域の`history.jsonl`、保持設定は`.crdd/config/coordinator.json`へ統一する。保存形式の変更で業務進行・判断・終了条件を緩めない。保持②は移行・清掃の対象にしない。
+旧State／Queue／Leaseの移行入力Readerは本番へ残さず、移行はフロントAIの明示手順が所有する。現在Readerは不存在・観測不能・Root置換を区別し、既存意図・証拠とexact参照を保全する。保存先は`.crdd/execution-model/state.json`、通常終了要約は同領域の`history.jsonl`、保持設定は`.crdd/config/coordinator.json`へ統一する。保存形式の変更で業務進行・判断・終了条件を緩めない。保持②は移行・清掃の対象にしない。
 
 本番の上位組立ては`src/lifecycle/execution.ts`、`src/lifecycle/decision.ts`、`src/lifecycle/query.ts`、公開業務操作は`src/index.ts`、受付と現在保存の接続も`src/lifecycle/execution.ts`が所有する。認証済みPrincipalの搬送は`src/lifecycle/decision.ts`、Workspace利用・固定・採否は`src/lifecycle/workspace.ts`、判断・回答・適用・閉鎖の保存はDomainの既存State Writerへ接続する。Coordinatorには同じ業務Sourceを残さず、個別実行・検証済みRepository等の下位能力を呼ぶ。Coordinator Rootによる上位操作の再公開は撤去済みで、MCP配布入口・Workbench状態観測を本領域へ直接接続した。CLI内部の上位呼出しは撤去済みで、全公開利用側と旧実Runtime Rootの処置は後続確認の対象であり、File移管だけを依存方向の最終完成としない。
 

@@ -176,7 +176,10 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   assert.equal(result.snapshotConfirmed, true);
   assert.equal(result.lockReleased, true);
   const area = requireReadyRepositoryExecutionDataArea(
-    ensureRepositoryExecutionDataAreaFromWorkingDirectory(root, "domain-model"),
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
+      root,
+      "execution-model",
+    ),
     "state_root",
   );
   assert.equal(
@@ -260,7 +263,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   );
   const verifiedOtherRoot = getRepository(otherRoot);
   assert.ok(verifiedOtherRoot.capability);
-  const otherArea = path.join(otherRoot, ".crdd", "domain-model");
+  const otherArea = path.join(otherRoot, ".crdd", "execution-model");
   fs.mkdirSync(otherArea, { recursive: true });
   fs.writeFileSync(path.join(otherArea, "state.json"), firstBytes, {
     flag: "wx",
@@ -497,7 +500,12 @@ test("Host Intentは既存Writerの最初の一出版から記録し保存不明
         childIdentities: {},
         cleanup: "not_requested",
       } as const;
-      const stateFile = path.join(root, ".crdd", "domain-model", "state.json");
+      const stateFile = path.join(
+        root,
+        ".crdd",
+        "execution-model",
+        "state.json",
+      );
       const pendingFile = path.join(
         path.dirname(stateFile),
         "state.pending.json",
@@ -954,7 +962,7 @@ test("Host Intentは既存Writerの最初の一出版から記録し保存不明
  * @boundary 公開Core APIと実Filesystem。過去保持物は使わない。
  */
 test("保存先切替は旧領域の存在と観測不能を空初期化へ変換しない", async (t) => {
-  for (const kind of [
+  const scenarios = [
     "directory",
     "file",
     "link",
@@ -962,8 +970,11 @@ test("保存先切替は旧領域の存在と観測不能を空初期化へ変�
     "parent_changed",
     "appears_before_publish",
     "absent",
-  ])
-    await t.test(kind, () => {
+  ];
+  for (const { area, kind } of ["coordinator", "domain-model"].flatMap((area) =>
+    scenarios.map((kind) => ({ area, kind })),
+  ))
+    await t.test(`${area}: ${kind}`, () => {
       const directory = createRepositoryTestDirectory("runtime-area-switch-");
       try {
         const root = directory.path;
@@ -988,8 +999,8 @@ test("保存先切替は旧領域の存在と観測不能を空初期化へ変�
           `${"1".repeat(40)}\n`,
         );
         fs.mkdirSync(path.join(root, ".crdd"));
-        const legacy = path.join(root, ".crdd", "coordinator");
-        const current = path.join(root, ".crdd", "domain-model");
+        const legacy = path.join(root, ".crdd", area);
+        const current = path.join(root, ".crdd", "execution-model");
         if (kind === "directory") fs.mkdirSync(legacy);
         if (kind === "file") fs.writeFileSync(legacy, "synthetic old state");
         if (kind === "link") {
@@ -1276,7 +1287,7 @@ test("Coreだけで初期化・一般CRUD・現在認可とCASを同じ実Store�
     expectedDefinitionHash: changed.value.definitionHash,
   });
   assert.equal(removed.status, "saved", JSON.stringify(removed));
-  const file = path.join(root, ".crdd", "domain-model", "state.json");
+  const file = path.join(root, ".crdd", "execution-model", "state.json");
   const before = fs.readFileSync(file);
   const state = JSON.parse(before.toString("utf8"));
   assert.equal(state.schema, "crdd-execution-model/state/v7");
@@ -1371,12 +1382,12 @@ test("一般CRUDは既存Writerの失敗・再入場・解放不明をそのま�
           },
         ],
       };
-      const file = path.join(root, ".crdd", "domain-model", "state.json");
+      const file = path.join(root, ".crdd", "execution-model", "state.json");
       const before = fs.readFileSync(file);
       const pending = path.join(
         root,
         ".crdd",
-        "domain-model",
+        "execution-model",
         "state.pending.json",
       );
       let injected = 0,
@@ -1514,7 +1525,7 @@ test("初期化途中の出版不明を保持し二重初期化を拒否する",
         principalId: "test-principal",
         revalidate: () => true,
       };
-      const file = path.join(root, ".crdd", "domain-model", "state.json");
+      const file = path.join(root, ".crdd", "execution-model", "state.json");
       let injected = 0;
       const fixture = createRuntimeStorageSourceFixture(undefined, {
         fs: {
@@ -1538,7 +1549,7 @@ test("初期化途中の出版不明を保持し二重初期化を拒否する",
       assert.equal(fs.existsSync(file), after);
       assert.equal(
         fs.existsSync(
-          path.join(root, ".crdd", "domain-model", "state.pending.json"),
+          path.join(root, ".crdd", "execution-model", "state.pending.json"),
         ),
         !after,
       );

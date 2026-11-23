@@ -90,7 +90,7 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
     },
   );
   assert.equal(prior.status, "completed", prior.reason);
-  const file = path.join(root, ".crdd", "domain-model", "state.json");
+  const file = path.join(root, ".crdd", "execution-model", "state.json");
   const before = fs.readFileSync(file);
   const previous = readState(
     verifyRuntimePersistenceRepository(root),

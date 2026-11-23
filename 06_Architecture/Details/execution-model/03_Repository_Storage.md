@@ -11,9 +11,9 @@
 
 ## 共通状態保存の配置切替 — 2026-10-28
 
-[Runtime Domain保存契約](05_Runtime_Domain.md#runtime-domain-storage)が、単一Snapshot／CAS、局所定義と管理実行記録の分離、現在認可との結合、五種一回使用Context・初期化・履歴出版の物理順序を所有する。本書は名前付きRoot・配置・保持・清掃を継続して所有し、同じAPIや状態遷移を複製しない。人間承認により共通保存先を`.crdd/domain-model/`へ統一する。製品は新配置だけを読み書きし、実データの移行・切戻しは[フロントAI手順](../../../19_Workflows/01_Coordinator_Runtime.md#runtime-domain-storage-migration)へ分離する。今回のSource切替は実データ移行済みを意味しない。
+[Runtime Domain保存契約](05_Runtime_Domain.md#runtime-domain-storage)が、単一Snapshot／CAS、局所定義と管理実行記録の分離、現在認可との結合、五種一回使用Context・初期化・履歴出版の物理順序を所有する。本書は名前付きRoot・配置・保持・清掃を継続して所有し、同じAPIや状態遷移を複製しない。人間承認により共通保存先を`.crdd/execution-model/`へ統一する。製品は新配置だけを読み書きし、実データの移行・切戻しは[フロントAI手順](../../../19_Workflows/01_Coordinator_Runtime.md#runtime-domain-storage-migration)へ分離する。今回のSource切替は実データ移行済みを意味しない。
 
-保存配置は固定`.crdd/domain-model`のままとし、全Runtime Path集合・Area enumの公開は撤去する。旧`coordinator`のaliasは持たない。空初期化では旧固定Pathのmetadataだけを検査し、ENOENTだけを許可する。旧領域の存在・観測不能・親置換は新規作成を拒否する。内容、旧codec、Fallback、移動・清掃は製品へ追加しない。移行済みの新しい正本が存在する場合、その読取りを旧領域探索へ結合しない。
+保存配置は固定`.crdd/execution-model`へ切り替える。全Runtime Path集合・Area enumは公開せず、旧`coordinator`・`domain-model`のaliasは持たない。空初期化では両方の旧固定Pathのmetadataだけを検査し、ENOENTだけを許可する。旧領域の存在・観測不能・親置換は新規作成を拒否する。内容、旧codec、Fallback、移動・清掃は製品へ追加しない。移行済みの新しい正本が存在する場合、その読取りを旧領域探索へ結合しない。
 
 旧`domain-model/state.lock`は廃止した。排他配置は共通Lock設計へ従い、pendingの元版と現在値・履歴を照合して再入場する。旧markerの自動清掃や互換読取りはしない。保持設定は上位が構成モデルから取得し、履歴処理のInputと既存再検証へ結合する。通常Queryへ設定要件を広げない。
 
@@ -134,12 +134,15 @@ Related:
    │  ├─ repository-manifest.json             Project Identity、役割、Capability宣言
    │  └─ external-send-policy.json            外部送信の情報分類、送信先、条件
    │
-   ├─ domain-model/                        [D/W] 共通定義・Task進行・技術実行の現在状態
+   ├─ execution-model/                        [D/W] 共通定義・Task進行・技術実行の現在状態
    │  ├─ state.json                           単一改訂の現在状態
    │  ├─ state.pending.json                   保存中の候補
    │  ├─ history.jsonl                        種別を持つ終了要約
    │  ├─ history.pending.jsonl                履歴保存中の候補
    │  └─ recovery/host-terminal/               同じ非Authority参照と完全intentの再入場情報
+   │
+   ├─ operations/                         [W] Coordinatorが所有する実行ごとの作業資源
+   │  └─ <operation-id>/                     対象の操作記録に結び付く作業領域
    │
    ├─ execution-intelligence/              [D] Execution Intelligence
    │  ├─ history.jsonl                       不変Eventを1行ずつ保持する履歴
@@ -171,11 +174,7 @@ Related:
    │     └─ diagnostics/                     必要な診断情報
    │
    └─ tmp/                                 [T] Operation所有の短期一時物
-      ├─ .operations/                         Workspace清掃から分離したLifecycle制御面
-      │  ├─ <operation-id>.json               Identity、Owner Process、世代、直前世代、状態、用途、清掃契機
-      │  ├─ <operation-id>.lock               完全なOwner文書を排他的linkで公開する短期Lock
-      │  └─ .staging/                         caller-known Identityへ結合した初回文書・Lock・状態更新の公開前領域
-      └─ <operation-id>/                       削除可能なWorkspace
+      └─ <operation-id>/                       操作が所有する一時作業領域
          └─ work/                             再生成可能な中間file
 ```
 
@@ -190,7 +189,7 @@ Related:
 | `.crdd/orchestrator/` | `.crdd/coordinator/` | フロントAIが旧受付・資源・未解決参照を確認し、新受付世代で初期化する。Runtimeへ旧Path探索を残さず、現在状態・要約履歴・短命保存物の再入場保証を維持する。 |
 | `.crdd/config/orchestrator.json` | `.crdd/config/coordinator.json` | フロントAIが保持日数を照合して引き継ぐ。両設定の値が異なる場合は人間判断へ戻し、Runtimeによる旧設定探索は行わない。 |
 | orchestrator設定例・Schema | coordinator設定例・Schema | Taskと技術履歴の同一Owner化へ追従し、旧Reader・配布例・Schemaを撤去する。Execution Intelligenceとは統合しない。 |
-| `.crdd/coordinator/` | `.crdd/domain-model/` | 共通保存をDomainへ移す。上節とフロントAI移行手順に従い、過去状態を空初期化又は自動変換しない。 |
+| `.crdd/coordinator/`・`.crdd/domain-model/` | `.crdd/execution-model/` | 共通保存を実行モデルへ移す。上節とフロントAI移行手順に従い、過去状態を空初期化又は自動変換しない。 |
 | `.crdd/execution-intelligence/` | 同名を維持 | 非Authorityの分析履歴Ownerとし、共通の現在状態を複製しない。 |
 
 共通保存の配置・公開契約は[Runtime Domain](05_Runtime_Domain.md)、Task側の論理Lifecycleは[詳細設計](../coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)が所有する。移行前の基準ツリーと旧設定名を新構成の配置指示として使用しない。旧設定Reader・配布例・Schemaは撤去し、実設定は値の一致を確認してCoordinator設定へ一本化する。未解決の旧実行記録は設定整理に巻き込まない。
@@ -199,7 +198,7 @@ Related:
 
 ```text
 .crdd/
-├ domain-model/
+├ execution-model/
 │  ├ state.json
 │  ├ state.pending.json
 │  ├ history.jsonl
@@ -208,7 +207,7 @@ Related:
 └ tmp/<operation-id>/work/    再生成可能な一時作業
 ```
 
-`state.pending.json`は保存更新中だけ必要な短命ファイル、`tmp/.../work/`は処理の中間物であり、用途と再入場Ownerを混同しない。新しい保存用子フォルダは作らない。Coordinator固有署名方式の撤去に伴い、署名専用の`tmp/signature/`プロファイルをSourceから除去した。通常の一時操作v3は維持する。旧入力拒否・通常保存・再入場を含むDomain全122件と限定独立確認を通過した。初回の競合試験1件Timeoutは原因未確定として変更計画に保持し、再実行成功で初回記録を置換しない。Docker現在状態の切替は別に処置する。
+`state.pending.json`は保存更新中だけ必要な短命ファイル、`tmp/.../work/`は再生成できる作業中間物であり、用途と再入場の責任を混同しない。一時物のために共通の状態保存領域を作らない。
 
 状態のSchema・物理保存は[Runtime Domain](05_Runtime_Domain.md)、Taskの進行・履歴条件は[Coordinator詳細設計](../coordinator/04_Task_Detailed_Design.md#compact-runtime-storage)および[Coordinator縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)が所有する。判断は承認済みの統合方針に従い、非秘密の要求・回答・適用事実をRepository-local Stateへ保存する。秘密・署名鍵・Provider Homeを同じJSONへ統合する許可ではない。既存のRepository外Candidate Storeも、Identity・保護・全利用側の移行確認前に移動・回収しない。
 
@@ -217,7 +216,8 @@ Related:
 | 領域 | 所有する情報 | 主な終了条件 |
 |---|---|---|
 | `config/` | Commit固定する非秘密のRepository宣言とPolicy | Repository設定の変更・削除がGitで確定する |
-| `domain-model/` | Task・Queue・Workspace、技術Operation、未解決義務、未受領結果、判断・統合の参照と終了要約 | Domainが物理保存を所有し、[単一保存Lifecycle](../coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)に従い、実終端・受領・履歴の確認後に現在項目を除く。通常Recoveryは[対象相関と排他](../coordinator/01_Architecture.md#通常回復の対象相関と排他)を維持し、元の参照が不明なHost残存を推測回収しない |
+| `execution-model/` | Task・Queue・Workspace、技術Operation、未解決義務、未受領結果、判断・統合の参照と終了要約 | 実行モデルが物理保存を所有し、[単一保存Lifecycle](../coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)に従い、実終端・受領・履歴の確認後に現在項目を除く。通常Recoveryは[対象相関と排他](../coordinator/01_Architecture.md#通常回復の対象相関と排他)を維持し、元の参照が不明なHost残存を推測回収しない |
+| `operations/` | Coordinatorが所有する実行ごとの作業資源 | [対象相関と排他](../coordinator/01_Architecture.md#通常回復の対象相関と排他)に従い、元の操作と資源の終端を確認して回収する。未確認の回収義務は実行モデルの記録に残す |
 | `execution-intelligence/` | 実行履歴、測定値、相関可能な診断情報 | 保持期間と未解決参照を確認して清掃できる。旧`execution/`の移行はフロントAIが行い、Runtime互換Readerを残さない |
 | `candidates/` | 未採用成果物、由来、現在の処置、Candidate固有Recovery | 採用、破棄または期限切れ処置とRecoveryが確定する |
 | `release/` | Release候補、Manifest、Gate Evidence、staging、Release固有Recovery | Promotion、破棄またはRecoveryが完了する |
@@ -288,7 +288,7 @@ OPEN: 自動処置、保持延長の上限、保護参照の全利用側照合�
 
 ### 4.2. Operation所有契約
 
-`tmp/<operation-id>/`を作る処理は、作成前に次を確定する。IdentityはRuntime内部でEffect後に生成せず、呼出し側が作成開始前に確定し、初回Capability返却前のProcess喪失でも同じexact Recovery参照を再構成できるようにする。
+`tmp/<operation-id>/`を作る処理は、作成前に次を確定する。作業領域の識別子は作成前に確定する。再入場が必要な処理では、作業領域の探索に頼らず、回復を担当するコンポーネントが元の処理を特定できるようにする。
 
 | 必須情報 | 意味 |
 |---|---|
@@ -296,71 +296,23 @@ OPEN: 自動処置、保持延長の上限、保護参照の全利用側照合�
 | Owner | 作成、利用、清掃を担当するComponentまたはProcess |
 | Purpose | 中間物が必要な処理と再生成元 |
 | Allowed content | 作成できるfile種別と最大範囲 |
-| Evidence promotion | 判断根拠として残す情報がある場合だけ`required`とする。検証済みRepository内の`99_Roadmap/Changes/CHG-<6桁>/Evidence/`または`99_Roadmap/Releases/v<版>/Evidence/`のexactな相対Pathに存在するbyteとHashを独立検証したReceiptをOperation Identity・Owner世代へ結合する。一時的な`tests/`の複製やcallerのboolean自己申告では削除を許可しない |
+| Evidence promotion | 正式な根拠が必要な場合だけ、指定した保存先で実物と対象処理の対応を確認する。一時的な複製や呼出し側の自己申告だけでは削除を許可しない |
 | Terminal paths | 正常、失敗、取消、Timeout、親Process喪失 |
 | Promotion | 残す必要が生じた情報の正式な移動先 |
 | Cleanup trigger | 各終端経路と次回の安全な再入場 |
 | Completion evidence | 削除要求ではなく、対象不存在の観測 |
 
-`.operations/<operation-id>.json`は状態とOwner世代をWorkspaceの外で耐久化する。少なくとも上表を追跡できない実装は、`tmp/`への書込みCapabilityを取得できない。最初のFilesystem Effectからcaller-known Identityへ結合した`.staging/`のexact Pathを用い、完全な`preparing`文書だけをCanonical文書へ排他的にlinkしてからWorkspaceを作る。Process再起動後はDirectoryを推測探索せず、初回公開前ならexact stagingを回復または安全に不存在へ収束し、公開後ならexact Recovery参照から再入場する。既存Workspaceとの衝突時は所有権を推定せず、そのDirectoryを変更または削除しない。
+既存の作業領域と衝突した場合は、所有権を推定せず変更・削除しない。
 
-| 状態または境界 | 必須処置 |
-|---|---|
-| `preparing`かつOwner Process消失 | 呼出し前に確定したIdentityと世代が一致する場合だけWorkspaceを再構成し、新世代へ再入場する |
-| `active`かつOwner Process生存 | 二つ目の再入場をEffect 0で拒否する |
-| `active`かつOwner Process消失 | 同じIdentityの`recovery_required`へ耐久遷移してから再入場する |
-| `recovery_required` | exact Identityと現在世代が一致し、次世代用のcaller-known Identityが現世代と異なる場合だけ新世代を発行する |
-| 新世代を公開後、Capability返却前にProcess消失 | 呼出し側が事前に確定した次世代Identityと`current generation + 1`から新しいexact参照を再構成する。旧世代参照は受理しない |
-| 初回制御文書またはLockのCanonical公開前にProcess消失 | caller-known Identityからexact stagingを解決し、完全な文書なら公開を継続し、不完全ならそのexact stagingだけを不存在へ収束する |
-| 初回制御文書のCanonical公開直後にProcess消失 | Canonicalとexact stagingが同じfile objectかつ同じ完全な`preparing`文書であることを確認した場合だけstaging側のlinkを削除する。不一致または観測不能なら変更せず停止する |
-| Lock解放要求後に物理削除失敗 | Lockを`released`へ耐久遷移し、次回取得者が安全に回収する |
-| 清掃失敗 | Capabilityを失効させる前に`recovery_required`を公開し、利用可能なexact Recovery参照を返す |
-| Workspaceの部分削除後に清掃失敗 | 外部の制御文書を保持し、再入場時にWorkspaceを再構成する。制御文書をWorkspaceより先に削除しない |
+### 4.3. 旧制御領域の扱い
 
-制御文書とLockは、caller-known Identityから決定できる`.operations/.staging/`内のexact fileへ書込み、fileのflush、排他的linkまたはatomic renameおよびread-backを順に確認する。初回文書とLockのCanonical公開は既存対象を置換しない排他的linkで行い、Lock Directory作成後にOwnerが未公開になる窓を作らない。Canonical公開後に残った初回stagingは、Canonicalと同じfile objectかつ同じbyteであることを確認した場合だけ削除し、Operation settlementはWorkspace、Canonical文書およびそのexact stagingの不存在を共同で確認する。WindowsでDirectory自身を`fsync`できないことを成功へ読み替えず、公開前、公開直後およびread-back後のProcess消失を反証する。一度利用した旧Recovery参照、旧Capability、Identity不一致および並行する再入場はEffect 0で拒否する。
-
-署名専用の`storage=signature`、固定Owner、制御文書v4と`preparation.*`配置は退役する。通常v3・公開四API・既存`.operations`配置と保存・再入場・清掃順序は変更しない。旧storageを持つ入力と回復参照は作成・処置前に拒否し、v4やstorage付き文書を通常v3として受理しない。型からfieldを消すだけで、旧JavaScript入力を通常経路へ流してはならない。
-
-旧署名領域の再入場・清掃を共通APIへ残さず、フロントAIがexact Root・現在参照・使用状況・所有実体を確認して移行する。秘密鍵・Local秘密設定・歴史Evidenceを機械的な削除対象へ含めない。共通の再入場公開前・公開後・読戻し失敗三反例は通常経路で保全し、署名専用のRoot削除や保存失敗時の特例を共通保証へ一般化しない。新しい互換経路・State・Lock・回復Frameworkは追加しない。
-
-### 4.3. Owner Process観測の既知制約
-
-| 項目 | 現在の境界 |
-|---|---|
-| 現在の観測 | 保存したPIDに対する生存確認。PIDが別Processへ再利用されたことは識別できない |
-| 安全側の影響 | PID再利用時は自動回復を開始せず、実際には失効したOperationがbusyとして残り得る |
-| 担当責任者 | Runtime Data／Platform Accessの保守担当 |
-| 再評価契機 | 長期保持するOperationまたはLockの導入前、自動回復の時間保証を設ける前、Linux／Remote Runtime実装時 |
-| 後続候補 | Process開始IdentityまたはHost boot IdentityをPIDと結合し、同一Processの生存を観測する |
-
-本制約から資源を削除したり別Processを失効Ownerとして扱ったりしない。現在版では可用性上の保留として保持し、Authorityまたはcleanup成立へ読み替えない。
+旧 `tmp/.operations/` は[一時操作機能の退役](../../../99_Roadmap/Changes/CHG-000082/change.md#未接続temporary-operationの退役--2026-11-12)により現行の配置に含めない。製品はその領域を作成・読取りせず、自動回復や自動清掃もしない。現行の `.crdd/operations/` はCoordinatorが実行単位の作業資源を置く別の領域であり、旧制御領域の移行先ではない。
 
 ### 4.4. Lifecycle
 
-```text
-Operationを開始
-  ↓
-Identityを呼出し側で確定
-  ↓
-.operations/.staging/へIdentity結合済み文書をflush
-  ↓
-.operations/<operation-id>.jsonをpreparingで排他的に公開
-  ↓
-tmp/<operation-id>/を排他的に作成
-  ↓
-再生成可能な中間物だけを書き込む
-  ↓
-正常 ─┬─ 必要Evidenceを正式領域へ昇格 ─┐
-失敗 ─┤                                 │
-取消 ─┤                                 ├→ tmpを削除 → 不存在を観測 → 完了
-期限 ─┘                                 │
-                                      │
-親Process喪失／清掃不明 ─→ 次世代Identityを先に確定してexact参照で再入場
-                                      ↓
-                         Workspace再構成・清掃・不存在確認
-```
+用途と所有者を確定して、一時領域には再生成できる中間物だけを置く。終了時には正式な保存が必要な根拠を先に正本へ移し、対象の所有・参照終了を確認してから一時物を削除し、不存在を確認する。
 
-清掃不能な`tmp`残存を成功へ畳まない。ただし、一時物自体を耐久Evidenceへ昇格して残し続けるのではなく、再入場に必要な状態は回復を所有するComponentへ、正式な根拠は対象CHG／Releaseの`Evidence/`へ保存し、物理残存には削除義務を与える。Evidenceを生成しないOperationは、作成時に`not_required`を明示すれば昇格なしで清掃できる。Evidence必須時は、`allowedContent`に含まれる`work/`内のexact source、正式な昇格先、両者のbyte Hash、Operation Identityおよび現Owner世代が一致するReceiptだけを受理する。昇格先の同じHashだけ、または別のsourceから偶然得た同じ名前だけでは清掃を許可しない。
+中断や清掃失敗で残った物は、成功や清掃済みとして扱わない。処理の再入場に必要な記録は回復を担当するコンポーネントに残し、不明な残存物を名前や経過時間だけで削除しない。
 
 ### 4.5. Recoveryの所有
 
@@ -368,7 +320,7 @@ Recovery記録は、状態遷移、再入場および解消を所有するCompon
 
 | Recovery対象 | 保存先 |
 |---|---|
-| Queue、Decision、Integration、Project State | `domain-model/state.json`内の既存の未解決区画・参照。専用Directoryを追加しない |
+| Queue、Decision、Integration、Project State | `execution-model/state.json`内の既存の未解決区画・参照。専用Directoryを追加しない |
 | Candidate適用・rollback | `candidates/<candidate-id>/recovery/` |
 | Release staging、署名、Promotion | `release/<candidate-id>/recovery/` |
 | Docker、子Process、Host Resource | 対象を所有するPlatform／Runtimeの保護領域 |

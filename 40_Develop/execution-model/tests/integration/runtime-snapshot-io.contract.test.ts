@@ -455,7 +455,7 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
   const queued = readSnapshot(root, "binding-a").value;
   assert.ok(queued);
   const canonicalEvidence = queued.leaseEvidence;
-  const file = path.join(root, ".crdd/domain-model/state.json"),
+  const file = path.join(root, ".crdd/execution-model/state.json"),
     before = fs.readFileSync(file, "utf8");
   assert.equal(
     writeSnapshot(
@@ -536,7 +536,10 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
     false,
   );
   const rows = fs
-    .readFileSync(path.join(root, ".crdd/domain-model/history.jsonl"), "utf8")
+    .readFileSync(
+      path.join(root, ".crdd/execution-model/history.jsonl"),
+      "utf8",
+    )
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line));
@@ -590,7 +593,7 @@ test("PR-D-A-01 rejects corrupt or semantically invalid durable state", (t) => {
     domain.readProjectExecutionState(cap, "binding-a", state.projectId).value,
     state,
   );
-  const record = path.join(root, ".crdd", "domain-model", "state.json");
+  const record = path.join(root, ".crdd", "execution-model", "state.json");
   const original = JSON.parse(fs.readFileSync(record, "utf8")) as Record<
     string,
     unknown
@@ -695,7 +698,7 @@ test("PR-D-A-01 rejects impossible Task state and identity tuples", (t) => {
       domain.readProjectExecutionState(cap, "binding-a", state.projectId).value,
       state,
     );
-    const location = path.join(root, ".crdd", "domain-model", "state.json");
+    const location = path.join(root, ".crdd", "execution-model", "state.json");
     const envelope = JSON.parse(fs.readFileSync(location, "utf8")) as {
       projects: { tasks: Record<string, unknown>[] }[];
       contentHash: string;
@@ -774,7 +777,7 @@ test("PR-D-A-01 現行Envelope破損と未確定pendingを拒否して保全す�
       domain.readProjectExecutionState(cap, "binding-a", state.projectId).value,
       state,
     );
-    const directory = path.join(root, ".crdd", "domain-model");
+    const directory = path.join(root, ".crdd", "execution-model");
     const location = path.join(directory, "state.json");
     const pending = path.join(directory, "state.pending.json");
     const envelope = JSON.parse(fs.readFileSync(location, "utf8"));
@@ -1036,7 +1039,7 @@ test("回復phaseの有限保存は同一再送とCleanup未確認の停止を�
   assert.equal(terminal.status, "completed", terminal.reason);
   if (terminal.status !== "completed") throw Error("fixture_terminal_failed");
   let current = terminal.value;
-  const file = path.join(root, ".crdd/domain-model/state.json");
+  const file = path.join(root, ".crdd/execution-model/state.json");
   for (const kind of ["task_recovery_start", "task_recovery_settle"] as const) {
     const command = {
       kind,
@@ -1367,8 +1370,13 @@ test("複合State取得は実保存の不存在・同版・破損を区別する
   assert.deepEqual(execution.value.projects, workspace.value.projects);
   assert.deepEqual(execution.value.queueEntries, workspace.value.queueEntries);
   assert.equal(workspace.value.snapshotRevision, 1);
-  const file = path.join(root, ".crdd", "domain-model", "state.json");
-  const marker = path.join(root, ".crdd", "domain-model", "state.pending.json");
+  const file = path.join(root, ".crdd", "execution-model", "state.json");
+  const marker = path.join(
+    root,
+    ".crdd",
+    "execution-model",
+    "state.pending.json",
+  );
   fs.writeFileSync(marker, fs.readFileSync(file));
   try {
     assert.deepEqual(
@@ -1528,7 +1536,7 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
       assert.equal(releases, beforeReleases + 1);
       assert.equal(areaCreations, 0);
       assert.equal(
-        fs.existsSync(path.join(root, ".crdd", "domain-model")),
+        fs.existsSync(path.join(root, ".crdd", "execution-model")),
         false,
       );
       assert.equal(
@@ -1568,7 +1576,7 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
         { scope: "recovery", input: { kind: "admission" } },
       );
     };
-    const current = path.join(root, ".crdd", "domain-model");
+    const current = path.join(root, ".crdd", "execution-model");
     assert.equal(
       store.readState(verified.capability, { scope: "recovery" }).status,
       "blocked",
@@ -1974,7 +1982,7 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
   assert.equal(reserved.value?.identity, identity);
   assert.deepEqual(reserved.value?.intent, intent);
   assert.deepEqual(reservationCalls, ["absent", "root", "mark"]);
-  const current = path.join(root, ".crdd", "domain-model", "state.json");
+  const current = path.join(root, ".crdd", "execution-model", "state.json");
   const leaseSnapshot = readSnapshot(root, "binding-a").value;
   assert.ok(leaseSnapshot);
   {
@@ -2019,7 +2027,7 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
     const pendingPath = path.join(
       root,
       ".crdd",
-      "domain-model",
+      "execution-model",
       "state.pending.json",
     );
     const pendingBytes = `${JSON.stringify({
@@ -2108,7 +2116,7 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
     const pendingPath = path.join(
       root,
       ".crdd",
-      "domain-model",
+      "execution-model",
       "state.pending.json",
     );
     const pending: string = `${JSON.stringify({ payload: invalid, contentHash: createHash("sha256").update(JSON.stringify(invalid)).digest("hex"), baseRevision: payload.snapshotRevision, baseHash: createHash("sha256").update(before).digest("hex") })}\n`;
@@ -2131,7 +2139,7 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
   const pendingPath = path.join(
     root,
     ".crdd",
-    "domain-model",
+    "execution-model",
     "state.pending.json",
   );
   fs.writeFileSync(pendingPath, pending);
@@ -2370,7 +2378,7 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
   });
   const firstTask = initialization.tasks[0];
   assert.ok(firstTask);
-  const statePath = path.join(root, ".crdd", "domain-model", "state.json");
+  const statePath = path.join(root, ".crdd", "execution-model", "state.json");
   for (const input of [
     state,
     accessor,
@@ -2418,12 +2426,12 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
     );
     assert.equal(rejected.status, "blocked");
     assert.equal(
-      fs.existsSync(path.join(isolated.root, ".crdd", "domain-model")),
+      fs.existsSync(path.join(isolated.root, ".crdd", "execution-model")),
       false,
     );
     assert.equal(
       fs.existsSync(
-        path.join(isolated.root, ".crdd", "domain-model", "state.json"),
+        path.join(isolated.root, ".crdd", "execution-model", "state.json"),
       ),
       false,
     );
@@ -2778,7 +2786,7 @@ test("開始前終端の有限保存は内部結果事実と三結果の再送�
         recoveryObligations: [],
         recoveryUnresolved: outcome === "recovery_required",
       };
-      const file = path.join(root, ".crdd/domain-model/state.json");
+      const file = path.join(root, ".crdd/execution-model/state.json");
       const before = fs.readFileSync(file);
       assert.equal(
         Reflect.apply(domain.saveProjectExecutionState, undefined, [
@@ -3055,7 +3063,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     requestedAt,
   };
   const pristineState = fs.readFileSync(
-    path.join(root, ".crdd", "domain-model", "state.json"),
+    path.join(root, ".crdd", "execution-model", "state.json"),
   );
   let evaluated = 0;
   const accessorRequest = { ...request };
@@ -3081,12 +3089,16 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     assert.equal(rejected.status, "blocked");
     assert.equal(rejected.reason, "decision_input_invalid");
     assert.deepEqual(
-      fs.readFileSync(path.join(root, ".crdd", "domain-model", "state.json")),
+      fs.readFileSync(
+        path.join(root, ".crdd", "execution-model", "state.json"),
+      ),
       pristineState,
     );
     assert.throws(
       () =>
-        fs.lstatSync(path.join(root, ".crdd", "domain-model", "history.jsonl")),
+        fs.lstatSync(
+          path.join(root, ".crdd", "execution-model", "history.jsonl"),
+        ),
       { code: "ENOENT" },
     );
   }
@@ -3136,7 +3148,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     })),
   };
   const sourceWithBlocker = fs.readFileSync(
-    path.join(root, ".crdd", "domain-model", "state.json"),
+    path.join(root, ".crdd", "execution-model", "state.json"),
   );
   const physicalBinding = JSON.parse(
     sourceWithBlocker.toString("utf8"),
@@ -3262,7 +3274,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     reason: "根拠を確認した",
     evidenceIds: ["evidence-a"],
   };
-  const directory = path.join(root, ".crdd", "domain-model");
+  const directory = path.join(root, ".crdd", "execution-model");
   const historyFile = path.join(directory, "history.jsonl");
   const historyPending = path.join(directory, "history.pending.jsonl");
   const originalState = fs.readFileSync(path.join(directory, "state.json"));
@@ -3360,7 +3372,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   assert.equal(after.value.decisions[0]?.status, "applied");
   assert.equal(after.value.blockers[0]?.status, "resolved");
   assert.equal(after.value.projects[0]?.objectives[0]?.state, "accepted");
-  const file = path.join(root, ".crdd", "domain-model", "state.json");
+  const file = path.join(root, ".crdd", "execution-model", "state.json");
   const bytes = fs.readFileSync(file);
   const history = fs.readFileSync(historyFile);
   const allEvents = history
@@ -3744,7 +3756,7 @@ test("Task保存のpending故障は現在値と未確定物を保全する", asy
         attemptId: "attempt-a",
         authorityBindingId: "authority-a",
       };
-      const directory = path.join(root, ".crdd", "domain-model"),
+      const directory = path.join(root, ".crdd", "execution-model"),
         current = path.join(directory, "state.json"),
         pending = path.join(directory, "state.pending.json"),
         history = path.join(directory, "history.pending.jsonl");
@@ -3857,7 +3869,10 @@ test("名前付き保存領域の不存在はwx所在だけを準備しDomain状
     fs.readdirSync(root).filter((name) => name !== ".crdd"),
     rootNames.filter((name) => name !== ".crdd"),
   );
-  assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model")), false);
+  assert.equal(
+    fs.existsSync(path.join(root, ".crdd", "execution-model")),
+    false,
+  );
   assert.deepEqual(fs.readFileSync(excludePath), excludeBytes);
 });
 
@@ -3875,7 +3890,7 @@ test("名前付き保存領域の不存在はwx所在だけを準備しDomain状
 test("名前付きareaの観測不能は現行Snapshot Readerを停止する", (t) => {
   const { root } = fixture(t);
   assert.equal(initializeExecutionStore(root, "binding-a").status, "completed");
-  const runtime = path.join(root, ".crdd", "domain-model");
+  const runtime = path.join(root, ".crdd", "execution-model");
   const location = path.join(runtime, "state.json");
   const beforeBytes = fs.readFileSync(location);
   const original = fs.lstatSync;
@@ -3908,7 +3923,10 @@ test("名前付きareaの観測不能は現行Snapshot Readerを停止する", (
 test("名前付き空areaの途中置換はSnapshot Readerを停止する", (t) => {
   const { root } = fixture(t);
   const runtime = requireReadyRepositoryExecutionDataArea(
-    ensureRepositoryExecutionDataAreaFromWorkingDirectory(root, "domain-model"),
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
+      root,
+      "execution-model",
+    ),
     "fixture_area_invalid",
   ).directory;
   const prior = path.join(root, "prior-runtime-area");
@@ -3975,7 +3993,7 @@ test("Snapshot排他は不正Hashと未確定Rootを取得前に拒否する", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: domain-model Test Source→対象契約
+ * @boundary PRL-IT-012=Direct Boundary: execution-model Test Source→対象契約
  */
 test("describes the durable foundation without claiming the upper Runtime complete", () => {
   const contract = describeDurableFoundation();
@@ -4074,7 +4092,10 @@ test("Host Windows: 統合Snapshot読取りは不存在と未確定を区別す�
   const empty = readSnapshot(root, "binding-a");
   assert.equal(empty.status, "completed");
   assert.equal(empty.value, null);
-  assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model")), false);
+  assert.equal(
+    fs.existsSync(path.join(root, ".crdd", "execution-model")),
+    false,
+  );
   for (const generation of [-1, Number.NaN, Number.MAX_SAFE_INTEGER + 1]) {
     assert.equal(
       writeSnapshotState(
@@ -4112,7 +4133,10 @@ test("Host Windows: 統合Snapshot読取りは不存在と未確定を区別す�
     ).status,
     "blocked",
   );
-  assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model")), false);
+  assert.equal(
+    fs.existsSync(path.join(root, ".crdd", "execution-model")),
+    false,
+  );
   const held = acquireSnapshotPilotLock(root);
   assert.equal(held.status, "completed");
   if (held.status !== "completed") throw new Error("lock_fixture_failed");
@@ -4136,7 +4160,7 @@ test("Host Windows: 統合Snapshot読取りは不存在と未確定を区別す�
   };
   assert.equal(seedSnapshot(root, payload).status, "completed");
   assert.deepEqual(readSnapshot(root, "binding-a").value, payload);
-  const directory = path.join(root, ".crdd", "domain-model");
+  const directory = path.join(root, ".crdd", "execution-model");
   const current = path.join(directory, "state.json");
   const before = fs.readFileSync(current, "utf8");
   assert.equal(readSnapshot(root, "binding-b").status, "blocked");
@@ -4240,11 +4264,11 @@ test("Host Windows: 統合Snapshotは固定pendingから一重確定する", {
     decisions: [],
     blockers: [],
   };
-  const current = path.join(root, ".crdd", "domain-model", "state.json");
+  const current = path.join(root, ".crdd", "execution-model", "state.json");
   const pending = path.join(
     root,
     ".crdd",
-    "domain-model",
+    "execution-model",
     "state.pending.json",
   );
   assert.equal(seedSnapshot(root, payload).status, "completed");
@@ -4375,7 +4399,7 @@ test("Host Windows: 統合Snapshotは部分形式と結合不明を保存しな�
       "blocked",
     );
     assert.equal(
-      fs.existsSync(path.join(root, ".crdd", "domain-model", "state.json")),
+      fs.existsSync(path.join(root, ".crdd", "execution-model", "state.json")),
       false,
     );
   }
@@ -4418,7 +4442,7 @@ test("Host Windows: 統合Snapshotは部分形式と結合不明を保存しな�
   assert.equal(fs.existsSync(otherRuntime), false);
   for (const name of ["state.json", "state.pending.json", "state.lock"])
     assert.equal(
-      fs.existsSync(path.join(root, ".crdd", "domain-model", name)),
+      fs.existsSync(path.join(root, ".crdd", "execution-model", name)),
       false,
     );
 });
@@ -4538,7 +4562,7 @@ function stateWithStoredBytes(
 }
 
 function stateDirectory(root: string) {
-  return path.join(root, ".crdd", "domain-model", "state", "project-a");
+  return path.join(root, ".crdd", "execution-model", "state", "project-a");
 }
 
 /**
@@ -4551,7 +4575,7 @@ function stateDirectory(root: string) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: domain-model Test Source→対象契約
+ * @boundary PRL-IT-012=Direct Boundary: execution-model Test Source→対象契約
  */
 test("PR-D-A-01 accepts valid records across the former byte boundary", (t) => {
   for (const snapshotBytes of [
@@ -4564,7 +4588,7 @@ test("PR-D-A-01 accepts valid records across the former byte boundary", (t) => {
       initializeExecutionStore(root, "binding-a").status,
       "completed",
     );
-    const location = path.join(root, ".crdd", "domain-model", "state.json");
+    const location = path.join(root, ".crdd", "execution-model", "state.json");
     const baseJson = fs.readFileSync(location, "utf8");
     const repository = getRepository(root);
     assert.equal(repository.status, "completed");
@@ -4611,7 +4635,7 @@ test("PR-D-A-01 accepts valid records across the former byte boundary", (t) => {
   const { root, state } = fixture(t);
   assert.equal(initializeExecutionStore(root, "binding-a").status, "completed");
   const baseJson = fs.readFileSync(
-    path.join(root, ".crdd", "domain-model", "state.json"),
+    path.join(root, ".crdd", "execution-model", "state.json"),
     "utf8",
   );
   const binding = JSON.parse(baseJson).repositoryBinding as string;
@@ -5720,7 +5744,7 @@ test("全履歴Readerは全件検査・明示不存在・実体変化・解放�
     domain.initializeExecutionStore(cap, "binding-a").status,
     "completed",
   );
-  const area = path.join(root, ".crdd", "domain-model"),
+  const area = path.join(root, ".crdd", "execution-model"),
     file = path.join(area, "history.jsonl");
   const stateFile = path.join(area, "state.json");
   const initialized = JSON.parse(fs.readFileSync(stateFile, "utf8"));
@@ -6217,7 +6241,7 @@ test("Owner喪失の有限保存は明示不存在だけをreadyへ戻す", (t) 
       },
     ],
   };
-  const file = path.join(root, ".crdd/domain-model/state.json");
+  const file = path.join(root, ".crdd/execution-model/state.json");
   const before = fs.readFileSync(file);
   for (const bindings of [
     [],

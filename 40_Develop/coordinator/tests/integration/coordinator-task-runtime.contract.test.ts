@@ -1810,7 +1810,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
     assert.equal(initial.status, "completed", initial.reason);
     assert.ok(initial.value && initial.lockReleased);
     const binding = initial.value.snapshot.repositoryBinding;
-    const file = path.join(root, ".crdd", "domain-model", "state.json");
+    const file = path.join(root, ".crdd", "execution-model", "state.json");
     const canonical = createResourceOperationFixture();
     const canonicalHost = JSON.parse(
       canonical.bytes.toString("utf8"),

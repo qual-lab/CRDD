@@ -594,12 +594,12 @@ export function settleCoordinatorSnapshotQueueLeaseRelease(
           if (!paths) throw new Error("orchestrator_repository_root_invalid");
           const boundary = assertArea(
             repositoryRoot,
-            "domain-model",
-            paths.domainModel,
+            "execution-model",
+            paths.executionModel,
           );
           if (!snapshotLeaseResourcesAbsent(repositoryRoot, identity))
             return false;
-          assertAreaUnchanged(repositoryRoot, "domain-model", boundary);
+          assertAreaUnchanged(repositoryRoot, "execution-model", boundary);
           return true;
         },
       },
@@ -1472,7 +1472,7 @@ export function resolveNamedPaths(workingDirectory: string) {
  */
 function observeArea(
   repositoryRoot: string,
-  area: "domain-model" | "tmp" | "lock",
+  area: "execution-model" | "tmp" | "lock",
 ) {
   const verified = getRepository(repositoryRoot);
   if (verified.status !== "completed")
@@ -1507,7 +1507,7 @@ function observeArea(
  */
 export function assertArea(
   repositoryRoot: string,
-  area: "domain-model" | "tmp" | "lock",
+  area: "execution-model" | "tmp" | "lock",
   directory: string,
 ) {
   const observation = observeArea(repositoryRoot, area);
@@ -1533,7 +1533,7 @@ export function assertArea(
  */
 export function assertAreaUnchanged(
   repositoryRoot: string,
-  area: "domain-model" | "tmp" | "lock",
+  area: "execution-model" | "tmp" | "lock",
   initial: Exclude<
     RepositoryExecutionDataAreaObservation,
     { status: "blocked" }
@@ -1775,7 +1775,7 @@ export function withHistoryRetention<
 
 export const REPOSITORY_AREAS = Object.freeze([
   "config",
-  "domain-model",
+  "execution-model",
   "execution-intelligence",
   "candidates",
   "workspaces",
@@ -1789,7 +1789,7 @@ export const REPOSITORY_AREAS = Object.freeze([
 
 export const AREA_PATH_KEYS = Object.freeze({
   config: "config",
-  "domain-model": "domainModel",
+  "execution-model": "executionModel",
   "execution-intelligence": "executionIntelligence",
   candidates: "candidates",
   workspaces: "workspaces",
@@ -1877,7 +1877,7 @@ function resolveRepositoryExecutionDataPathsFromValidatedRoot(
     config: path.join(root, "config"),
     repositoryManifest: path.join(root, "config", "repository-manifest.json"),
     externalSendPolicy: path.join(root, "config", "external-send-policy.json"),
-    domainModel: path.join(root, "domain-model"),
+    executionModel: path.join(root, "execution-model"),
     executionIntelligence: path.join(root, "execution-intelligence"),
     candidates: path.join(root, "candidates"),
     workspaces: path.join(root, "workspaces"),

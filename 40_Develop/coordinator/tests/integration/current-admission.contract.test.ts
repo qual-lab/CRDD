@@ -78,7 +78,7 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     const { inspectRuntimeOwnedDockerTaskAdmission: inspect } = await import(
       "../../src/lifecycle/environment.ts"
     );
-    const current = path.join(root, ".crdd", "domain-model");
+    const current = path.join(root, ".crdd", "execution-model");
     const available = {
       status: "available",
       reason: "coordinator_current_admission_available",
@@ -86,6 +86,16 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     };
     assert.deepEqual(inspect(root), available);
     assert.equal(fs.existsSync(current), false);
+    for (const oldArea of ["coordinator", "domain-model"]) {
+      const old = path.join(root, ".crdd", oldArea);
+      fs.mkdirSync(old, { recursive: true });
+      try {
+        assert.equal(inspect(root).status, "blocked", oldArea);
+        assert.equal(fs.existsSync(current), false, oldArea);
+      } finally {
+        fs.rmdirSync(old);
+      }
+    }
     assert.equal(
       domain.readState({}, { scope: "recovery", input: { kind: "admission" } })
         .status,

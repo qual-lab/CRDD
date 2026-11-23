@@ -356,7 +356,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
   const area = areaRequirement.requireReadyRepositoryExecutionDataArea(
     areaInitialization.ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       root,
-      "domain-model",
+      "execution-model",
     ),
     "settlement_fixture",
   );
@@ -1730,7 +1730,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     const area = areaRequirement.requireReadyRepositoryExecutionDataArea(
       areaInitialization.ensureRepositoryExecutionDataAreaFromWorkingDirectory(
         root,
-        "domain-model",
+        "execution-model",
       ),
       "auth_owner_fixture",
     );

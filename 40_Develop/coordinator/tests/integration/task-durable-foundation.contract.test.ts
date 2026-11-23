@@ -88,7 +88,7 @@ function seedSnapshot(
   const verified = verifyRuntimePersistenceRepository(root);
   const initialized = initializeExecutionStore(verified, "binding-a");
   assert.equal(initialized.status, "completed");
-  const file = path.join(root, ".crdd", "domain-model", "state.json");
+  const file = path.join(root, ".crdd", "execution-model", "state.json");
   for (const state of payload.projects as readonly ProjectExecutionState[]) {
     const queue = (
       payload.queueEntries as readonly { queueId: string; projectId: string }[]
@@ -205,7 +205,7 @@ function readFixtureSnapshot(root: string, binding: string) {
   if (observed.status !== "completed" || observed.value === null)
     return { ...observed, value: null };
   const bytes = fs.readFileSync(
-    path.join(root, ".crdd", "domain-model", "state.json"),
+    path.join(root, ".crdd", "execution-model", "state.json"),
     "utf8",
   );
   const projected = taskView(root, bytes);
@@ -301,7 +301,7 @@ for (const fault of ["unobservable", "alias"] as const) {
     assert.ok(lockName);
     const lockPath = path.join(locks, lockName);
     const lockMetadata = fs.lstatSync(lockPath);
-    const statePath = path.join(root, ".crdd", "domain-model", "state.json");
+    const statePath = path.join(root, ".crdd", "execution-model", "state.json");
     const beforeBytes = fs.readFileSync(statePath);
     const original = fs.lstatSync;
     if (fault === "alias") {
@@ -411,7 +411,7 @@ test("snapshot production: removed initialization command cannot create state", 
   assert.equal(second.stderr, first.stderr);
   assert.equal(first.stdout, "");
   assert.equal(
-    fs.existsSync(path.join(root, ".crdd", "domain-model", "state.json")),
+    fs.existsSync(path.join(root, ".crdd", "execution-model", "state.json")),
     false,
   );
   assert.equal(fs.existsSync(path.join(root, ".crdd", "orchestrator")), false);
@@ -469,7 +469,7 @@ test("初回StateとQueueの受付は二Processの古い観測でも一組だけ
       scopeHash: "c".repeat(64),
     };
     const beforeAcceptance = fs.readFileSync(
-      path.join(root, ".crdd", "domain-model", "state.json"),
+      path.join(root, ".crdd", "execution-model", "state.json"),
       "utf8",
     );
     let stateHooks = 0;
@@ -506,7 +506,7 @@ test("初回StateとQueueの受付は二Processの古い観測でも一組だけ
       assert.equal(rejected.status, "blocked");
       assert.equal(
         fs.readFileSync(
-          path.join(root, ".crdd", "domain-model", "state.json"),
+          path.join(root, ".crdd", "execution-model", "state.json"),
           "utf8",
         ),
         beforeAcceptance,
@@ -612,7 +612,7 @@ test("snapshot production: fresh bootstrap and independent adoption", (t) => {
   );
   assert.equal(initialized.status, "completed");
   const beforeInitialization = fs.readFileSync(
-    path.join(root, ".crdd", "domain-model", "state.json"),
+    path.join(root, ".crdd", "execution-model", "state.json"),
     "utf8",
   );
   const beforeRevision = readFixtureSnapshot(root, "binding-a").value
@@ -626,7 +626,7 @@ test("snapshot production: fresh bootstrap and independent adoption", (t) => {
   );
   assert.equal(
     fs.readFileSync(
-      path.join(root, ".crdd", "domain-model", "state.json"),
+      path.join(root, ".crdd", "execution-model", "state.json"),
       "utf8",
     ),
     beforeInitialization,
@@ -804,7 +804,7 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
       }).status,
       "completed",
     );
-    const current = path.join(root, ".crdd", "domain-model", "state.json");
+    const current = path.join(root, ".crdd", "execution-model", "state.json");
     if (mode === "never_acquired") {
       const bytes = fs.readFileSync(current, "utf8");
       const absent = reconcileCoordinatorSnapshotLeaseOwnerLoss(
@@ -866,10 +866,12 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
       assert.equal(acquired.status, "blocked");
       // 本試験が所有する失敗候補を戻し、回収入口の現在状態からの処置だけを評価する。
       fs.unlinkSync(
-        path.join(root, ".crdd", "domain-model", "state.pending.json"),
+        path.join(root, ".crdd", "execution-model", "state.pending.json"),
       );
       assert.equal(
-        fs.existsSync(path.join(root, ".crdd", "domain-model", "state.lock")),
+        fs.existsSync(
+          path.join(root, ".crdd", "execution-model", "state.lock"),
+        ),
         false,
       );
     } else assert.equal(acquired.status, "completed");
@@ -1007,7 +1009,7 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
       if (mode === "save_failure") {
         const stateBytes = fs.readFileSync(current, "utf8");
         const pending = fs.readFileSync(
-          path.join(root, ".crdd", "domain-model", "state.pending.json"),
+          path.join(root, ".crdd", "execution-model", "state.pending.json"),
           "utf8",
         );
         let pendingCallbackCalls = 0;
@@ -1029,7 +1031,7 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
         assert.equal(fs.readFileSync(current, "utf8"), stateBytes);
         assert.equal(
           fs.readFileSync(
-            path.join(root, ".crdd", "domain-model", "state.pending.json"),
+            path.join(root, ".crdd", "execution-model", "state.pending.json"),
             "utf8",
           ),
           pending,
@@ -1039,13 +1041,13 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
         const fixtureBytes = Buffer.from(pending);
         fs.writeFileSync(current, fixtureBytes);
         fs.unlinkSync(
-          path.join(root, ".crdd", "domain-model", "state.pending.json"),
+          path.join(root, ".crdd", "execution-model", "state.pending.json"),
         );
         assert.deepEqual(fs.readFileSync(current), fixtureBytes);
         assert.throws(
           () =>
             fs.lstatSync(
-              path.join(root, ".crdd", "domain-model", "state.pending.json"),
+              path.join(root, ".crdd", "execution-model", "state.pending.json"),
             ),
           { code: "ENOENT" },
         );
@@ -1142,7 +1144,7 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
       blockers: [],
     };
     assert.equal(seedSnapshot(root, payload).status, "completed");
-    const directory = path.join(root, ".crdd", "domain-model");
+    const directory = path.join(root, ".crdd", "execution-model");
     const current = path.join(directory, "state.json");
     if (failure === "intent_release_confirmation") {
       const original = fs.rmSync;
@@ -1228,7 +1230,7 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
           failed.recoveryId,
           JSON.parse(
             fs.readFileSync(
-              path.join(oldRoot, ".crdd", "domain-model", "state.json"),
+              path.join(oldRoot, ".crdd", "execution-model", "state.json"),
               "utf8",
             ),
           ).leaseIntents[0].recoveryId,
@@ -1398,7 +1400,7 @@ test("Host Windows: 統合結果記録とLease終了を同じStateへ保存す�
     blockers: [],
   };
   assert.equal(seedSnapshot(root, payload).status, "completed");
-  const file = path.join(root, ".crdd", "domain-model", "state.json");
+  const file = path.join(root, ".crdd", "execution-model", "state.json");
   const resultsBinding = {
     repositoryBindingId: "binding-a",
     projectId: "project-a",
@@ -1456,7 +1458,7 @@ test("Host Windows: 統合結果記録とLease終了を同じStateへ保存す�
     "blocked",
   );
   assert.equal(
-    fs.existsSync(path.join(root, ".crdd", "domain-model", "results")),
+    fs.existsSync(path.join(root, ".crdd", "execution-model", "results")),
     false,
   );
   const ports = Object.freeze({
@@ -1636,7 +1638,7 @@ test("Host Windows: 統合結果記録とLease終了を同じStateへ保存す�
   assert.deepEqual(fs.readFileSync(file), settledBytes);
   assert.deepEqual(fs.readdirSync(path.join(root, ".crdd", "lock")), []);
   assert.deepEqual(
-    fs.readdirSync(path.join(root, ".crdd", "domain-model")).sort(),
+    fs.readdirSync(path.join(root, ".crdd", "execution-model")).sort(),
     ["state.json"],
   );
 });
@@ -1732,7 +1734,7 @@ test("Host Windows: 通常Task終端を保存し旧受領fieldを拒否する", 
     resultId: "b".repeat(64),
     consumer: "orchestrator" as const,
   };
-  const file = path.join(root, ".crdd", "domain-model", "state.json");
+  const file = path.join(root, ".crdd", "execution-model", "state.json");
   const bytes = fs.readFileSync(file);
   for (const resultAcceptances of [
     [acceptance],
@@ -1870,7 +1872,7 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
     }).status,
     "completed",
   );
-  const current = path.join(root, ".crdd", "domain-model", "state.json");
+  const current = path.join(root, ".crdd", "execution-model", "state.json");
   const before = fs.readFileSync(current, "utf8");
   assert.equal(
     createQueue(port.repository, port.repositoryBindingId, {
@@ -2144,7 +2146,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
       ).status,
       "completed",
     );
-    const current = path.join(root, ".crdd", "domain-model", "state.json");
+    const current = path.join(root, ".crdd", "execution-model", "state.json");
     const before = fs.readFileSync(current, "utf8");
     assert.deepEqual(readFixtureSnapshot(root, "binding-a").value, payload);
     const next = { ...payload, snapshotRevision: payload.snapshotRevision + 1 };
@@ -2153,7 +2155,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
     const pendingPath = path.join(
       root,
       ".crdd",
-      "domain-model",
+      "execution-model",
       "state.pending.json",
     );
     fs.writeFileSync(pendingPath, pending);
@@ -2274,11 +2276,11 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
     const pending = path.join(
       root,
       ".crdd",
-      "domain-model",
+      "execution-model",
       "state.pending.json",
     );
     if (fs.existsSync(pending)) fs.unlinkSync(pending);
-    const marker = path.join(root, ".crdd", "domain-model", "state.lock");
+    const marker = path.join(root, ".crdd", "execution-model", "state.lock");
     if (fs.existsSync(marker)) fs.unlinkSync(marker);
     assert.equal(lease.value.release().status, "completed");
   }
@@ -2297,7 +2299,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 function stateDirectory(root: string) {
-  return path.join(root, ".crdd", "domain-model", "state", "project-a");
+  return path.join(root, ".crdd", "execution-model", "state", "project-a");
 }
 
 /**
@@ -2313,7 +2315,7 @@ function stateDirectory(root: string) {
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 function queueDirectory(root: string) {
-  return path.join(root, ".crdd", "domain-model", "queues", "queue-a");
+  return path.join(root, ".crdd", "execution-model", "queues", "queue-a");
 }
 
 /**
@@ -2487,11 +2489,11 @@ test("一般CRUDは既存の管理実行・待機受付・技術区画を保全�
   if (observed.status !== "available" && observed.status !== "absent") return;
   assert.ok(observed.version);
   if (!observed.version) throw new Error("fixture_state_version_missing");
-  const file = path.join(root, ".crdd", "domain-model", "state.json");
+  const file = path.join(root, ".crdd", "execution-model", "state.json");
   const before = JSON.parse(fs.readFileSync(file, "utf8"));
   assert.equal(before.managedExecutions.length, 1);
   assert.equal(before.queueEntries.length, 1);
-  const history = path.join(root, ".crdd", "domain-model", "history.jsonl");
+  const history = path.join(root, ".crdd", "execution-model", "history.jsonl");
   const occurredAt = "2026-10-28T00:00:00.000Z";
   const historyBytes = Buffer.from(
     `${canonicalJson({ schema: "crdd-coordinator/history-row/v2", occurredAt, summary: { schema: "crdd-coordinator/task-summary/v1", record: { id: "synthetic-history", occurredAt, outcome: "completed", primaryFailure: null, cleanup: "confirmed" } } })}\n`,
@@ -2584,7 +2586,7 @@ test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) =
   assert.equal(read.status, "completed");
   assert.deepEqual(read.value, write.value);
 
-  const target = path.join(root, ".crdd", "domain-model", "state.json");
+  const target = path.join(root, ".crdd", "execution-model", "state.json");
   const before = fs.readFileSync(target);
   const replay = saveProjectExecutionState(
     ports.repository,
@@ -2722,7 +2724,7 @@ test("PR-D-A-01 rejects an unknown queue record kind on exact retry", (t) => {
     }).status,
     "completed",
   );
-  const location = path.join(root, ".crdd", "domain-model", "state.json");
+  const location = path.join(root, ".crdd", "execution-model", "state.json");
   const record = JSON.parse(fs.readFileSync(location, "utf8")) as Record<
     string,
     unknown
@@ -2787,7 +2789,7 @@ test("PR-D-Q-00 selects only queues owned by the requested Project binding", (t)
     }).status,
     "completed",
   );
-  const location = path.join(root, ".crdd", "domain-model", "state.json");
+  const location = path.join(root, ".crdd", "execution-model", "state.json");
   const before = fs.readFileSync(location);
   const selectedA = selectQueueEntry(
     ports.repository,
@@ -2978,7 +2980,12 @@ test("PR-D-A-01 現行QueueのIdentity変更を再送・更新で拒否する", 
       );
       assert.equal(lease.status, "completed");
       if (lease.status !== "completed") throw new Error("lease_fixture_failed");
-      const location = path.join(root, ".crdd", "domain-model", "state.json");
+      const location = path.join(
+        root,
+        ".crdd",
+        "execution-model",
+        "state.json",
+      );
       let original: Buffer | null = null;
       try {
         assert.equal(
@@ -3174,7 +3181,7 @@ test("PR-D-A-01 Lease終了保存失敗は回復参照を保全して再取得�
   );
   assert.equal(acquired.status, "completed");
   if (acquired.status !== "completed") throw new Error("lease_fixture_failed");
-  const directory = path.join(root, ".crdd", "domain-model");
+  const directory = path.join(root, ".crdd", "execution-model");
   const current = path.join(directory, "state.json");
   const pending = path.join(directory, "state.pending.json");
   const before = JSON.parse(fs.readFileSync(current, "utf8"));
@@ -3346,7 +3353,7 @@ if (lease.status !== "completed") { process.stdout.write(JSON.stringify({status:
     ],
     { windowsHide: true, encoding: "utf8" },
   );
-  const current = path.join(root, ".crdd", "domain-model", "state.json");
+  const current = path.join(root, ".crdd", "execution-model", "state.json");
   const acquiredSnapshot = JSON.parse(fs.readFileSync(current, "utf8"));
   const recoveryId = acquiredSnapshot.leaseIntents[0].recoveryId;
   const locks = path.join(root, ".crdd", "lock");
@@ -3443,7 +3450,7 @@ if (lease.status !== "completed") { process.stdout.write(JSON.stringify({status:
     ],
     { windowsHide: true, encoding: "utf8" },
   );
-  const current = path.join(root, ".crdd", "domain-model", "state.json");
+  const current = path.join(root, ".crdd", "execution-model", "state.json");
   const before = JSON.parse(fs.readFileSync(current, "utf8"));
   const recoveryId = before.leaseIntents[0].recoveryId;
   const blockedAcquire = acquireCoordinatorSnapshotLease(
@@ -3529,7 +3536,7 @@ test("PR-A-04 classifies a late contender against a live owner as unavailable", 
     while (!fs.existsSync(signal) && Date.now() < deadline)
       await new Promise((resolve) => setTimeout(resolve, 5));
     assert.equal(fs.existsSync(signal), true);
-    const statePath = path.join(root, ".crdd", "domain-model", "state.json");
+    const statePath = path.join(root, ".crdd", "execution-model", "state.json");
     const before = fs.readFileSync(statePath);
     const contender = acquireCoordinatorSnapshotLease(
       ports.workingDirectory,
@@ -3595,7 +3602,7 @@ test("PR-A-04 keeps pre-publication contention effect-free and recovers only aft
     while (!fs.existsSync(signal) && Date.now() < deadline)
       await new Promise((resolve) => setTimeout(resolve, 5));
     assert.equal(fs.existsSync(signal), true);
-    const statePath = path.join(root, ".crdd", "domain-model", "state.json");
+    const statePath = path.join(root, ".crdd", "execution-model", "state.json");
     const before = fs.readFileSync(statePath);
     const snapshot = readFixtureSnapshot(root, "binding-a");
     assert.equal(snapshot.status, "completed");
@@ -3900,7 +3907,7 @@ test("PR-A-04 leaves mismatched acquisition and release identities unchanged", (
     );
     assert.equal(lease.status, "completed");
     if (lease.status !== "completed") throw new Error("lease_fixture_failed");
-    const location = path.join(root, ".crdd", "domain-model", "state.json");
+    const location = path.join(root, ".crdd", "execution-model", "state.json");
     const originalBytes = fs.readFileSync(location);
     const record = JSON.parse(originalBytes.toString("utf8"));
     const owned = record.leaseIntents.at(-1);
@@ -3970,7 +3977,7 @@ test("PR-D-A-01 現行取得前の破損・未確定保存・既存排他を保�
     const lockName = fs.readdirSync(locks)[0];
     if (lockName === undefined) throw new Error("lease_resource_missing");
     assert.equal(initial.value.release().status, "completed");
-    const directory = path.join(root, ".crdd", "domain-model");
+    const directory = path.join(root, ".crdd", "execution-model");
     const location = path.join(directory, "state.json");
     const pending = path.join(directory, "state.pending.json");
     if (scenario === "malformed-state")
@@ -4078,7 +4085,7 @@ test("PR-A-04 clears Queue ownership only after exact lease release settlement",
       terminalIntent.value.ownerGeneration,
     lease.value.ownerGeneration,
   );
-  const location = path.join(root, ".crdd", "domain-model", "state.json");
+  const location = path.join(root, ".crdd", "execution-model", "state.json");
   const before = fs.readFileSync(location);
   assert.equal(
     settleCoordinatorSnapshotQueueLeaseRelease(
@@ -4337,7 +4344,7 @@ test("PR-A-04 requires exact Queue-bound lease evidence before clearing ownershi
     generation += 1;
   }
   assert.equal(lease.value.release().status, "completed");
-  const location = path.join(root, ".crdd", "domain-model", "state.json");
+  const location = path.join(root, ".crdd", "execution-model", "state.json");
   const originalBytes = fs.readFileSync(location);
   const snapshot = JSON.parse(originalBytes.toString("utf8"));
   const released = snapshot.leaseEvidence.find(
@@ -4455,7 +4462,7 @@ test("PR-A-04 rejects malformed pre-existing recovered evidence", (t) => {
     }).status,
     "completed",
   );
-  const location = path.join(root, ".crdd", "domain-model", "state.json");
+  const location = path.join(root, ".crdd", "execution-model", "state.json");
   const originalBytes = fs.readFileSync(location);
   const record = JSON.parse(originalBytes.toString("utf8"));
   const acquired = record.leaseEvidence[0];
@@ -4494,7 +4501,7 @@ test("PR-A-04 rejects malformed pre-existing recovered evidence", (t) => {
  */
 test("PR-A-04 does not steal a lease from a live or unobservable owner", (t) => {
   const { root, ports } = currentQueueFixture(t);
-  const location = path.join(root, ".crdd", "domain-model", "state.json");
+  const location = path.join(root, ".crdd", "execution-model", "state.json");
   assert.equal(
     createQueue(ports.repository, ports.repositoryBindingId, {
       kind: "scheduled",
@@ -4876,7 +4883,7 @@ test("長期Lease回復は同期処置と明示不存在の両方を要求する
       }).status,
       "completed",
     );
-    const stateFile = path.join(root, ".crdd", "domain-model", "state.json"),
+    const stateFile = path.join(root, ".crdd", "execution-model", "state.json"),
       before = fs.readFileSync(stateFile),
       physical = fs.readFileSync(active.lock);
     let calls = 0;

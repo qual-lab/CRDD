@@ -170,7 +170,7 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
     const stateFile = path.join(
       repository.root,
       ".crdd",
-      "domain-model",
+      "execution-model",
       "state.json",
     );
     const beforeResend = fs.readFileSync(stateFile);

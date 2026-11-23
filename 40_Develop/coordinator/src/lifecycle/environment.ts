@@ -973,7 +973,7 @@ export async function repairRuntimeOwnedDockerRuntime(
       return stopped("runtime_repair_boundary_unavailable");
     const area = observeRepositoryExecutionDataArea(
       verified.capability,
-      "domain-model",
+      "execution-model",
     );
     if (area.status === "ready") {
       if (!currentOwner()) return stopped();

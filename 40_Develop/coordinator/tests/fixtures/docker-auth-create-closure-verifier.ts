@@ -660,7 +660,7 @@ async function executeApprovedAuthCreateClosure() {
     assert.ok(saved.value);
     const target = selectAuthCreateTarget(saved.value.snapshot);
     recoveryId = target.recoveryId;
-    const statePath = path.join(root, ".crdd", "domain-model", "state.json");
+    const statePath = path.join(root, ".crdd", "execution-model", "state.json");
     const dockerId = verifyAuthCreateProducer(
       child,
       target,

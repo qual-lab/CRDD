@@ -83,7 +83,7 @@ const verified = vc.getRepository(root);
 assert.equal(verified.status, "completed");
 assert.ok(verified.capability);
 assert.equal(vc.resolveVerifiedRepositoryRoot(verified.capability), root);
-const statePath = path.join(root, ".crdd", "domain-model", "state.json");
+const statePath = path.join(root, ".crdd", "execution-model", "state.json");
 // この有限な親子試験だけで共有する所在。実ユーザーHomeと保護Policyは触らない。
 const environment =
   mode === "auth_create_unknown"

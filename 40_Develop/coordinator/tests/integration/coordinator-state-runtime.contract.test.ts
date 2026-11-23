@@ -255,7 +255,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.ok(initialHostState.value);
   const first = initialHostState.value.snapshot;
   const area = requireReadyRepositoryExecutionDataArea(
-    ensureRepositoryExecutionDataAreaFromWorkingDirectory(root, "domain-model"),
+    ensureRepositoryExecutionDataAreaFromWorkingDirectory(
+      root,
+      "execution-model",
+    ),
     "state_root",
   );
   const second = {
@@ -435,7 +438,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     const cliState = path.join(
       workingDirectory,
       ".crdd",
-      "domain-model",
+      "execution-model",
       "state.json",
     );
     if (workingDirectory === otherRoot)
@@ -2316,7 +2319,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     const freshArea = requireReadyRepositoryExecutionDataArea(
       ensureRepositoryExecutionDataAreaFromWorkingDirectory(
         freshRoot,
-        "domain-model",
+        "execution-model",
       ),
       "fresh_state_root",
     );
@@ -2403,7 +2406,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   } finally {
     if (freshValidBytes)
       fs.writeFileSync(
-        path.join(freshRoot, ".crdd", "domain-model", "state.json"),
+        path.join(freshRoot, ".crdd", "execution-model", "state.json"),
         freshValidBytes,
       );
     // 全Effectが代役のこの区間だけ、正常な未発行断面を復元して閉じる。
@@ -2441,7 +2444,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     recordingCurrent: () => true,
   });
   const originalFailedRename = fs.renameSync;
-  const failedArea = path.join(failedRoot, ".crdd", "domain-model");
+  const failedArea = path.join(failedRoot, ".crdd", "execution-model");
   const failedStateFile = path.join(failedArea, "state.json");
   const failedHostBytes = fs.readFileSync(failedStateFile);
   let failedPendingBytes: Buffer | null = null;
@@ -2743,7 +2746,7 @@ for (const issuedFailure of [false, true]) {
         );
       }
       const beforeRelease = fs.readFileSync(
-        path.join(root, ".crdd", "domain-model", "state.json"),
+        path.join(root, ".crdd", "execution-model", "state.json"),
       );
       assert.equal(
         finalizeRuntimeOwnedDockerRestartPreparation(
@@ -2753,7 +2756,9 @@ for (const issuedFailure of [false, true]) {
         "blocked",
       );
       assert.deepEqual(
-        fs.readFileSync(path.join(root, ".crdd", "domain-model", "state.json")),
+        fs.readFileSync(
+          path.join(root, ".crdd", "execution-model", "state.json"),
+        ),
         beforeRelease,
       );
       assert.equal(
@@ -2770,7 +2775,7 @@ for (const issuedFailure of [false, true]) {
       assert.equal(finalized.lockReleased, true);
       assert.equal(finalized.cleanupConfirmed, true);
       const terminalBytes = fs.readFileSync(
-        path.join(root, ".crdd", "domain-model", "state.json"),
+        path.join(root, ".crdd", "execution-model", "state.json"),
       );
       assert.equal(
         finalizeRuntimeOwnedDockerRestartPreparation(
@@ -2780,7 +2785,9 @@ for (const issuedFailure of [false, true]) {
         "blocked",
       );
       assert.deepEqual(
-        fs.readFileSync(path.join(root, ".crdd", "domain-model", "state.json")),
+        fs.readFileSync(
+          path.join(root, ".crdd", "execution-model", "state.json"),
+        ),
         terminalBytes,
       );
     } finally {
@@ -2819,7 +2826,9 @@ for (const issuedFailure of [false, true]) {
       assert.equal(repeated.requestId, preparation.requestId);
       assert.equal(repeated.scopeSha256, preparation.scopeSha256);
       assert.deepEqual(
-        fs.readFileSync(path.join(root, ".crdd", "domain-model", "state.json")),
+        fs.readFileSync(
+          path.join(root, ".crdd", "execution-model", "state.json"),
+        ),
         Buffer.from(saved.value.sourceText, "utf8"),
       );
     } finally {
@@ -2858,7 +2867,7 @@ for (const issuedFailure of [false, true]) {
     );
     const rows = fs
       .readFileSync(
-        path.join(root, ".crdd", "domain-model", "history.jsonl"),
+        path.join(root, ".crdd", "execution-model", "history.jsonl"),
         "utf8",
       )
       .trim()
@@ -3090,7 +3099,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       ).toString("utf8"),
     };
     assert.ok(decodedBefore);
-    const directory = path.join(root, ".crdd", "domain-model");
+    const directory = path.join(root, ".crdd", "execution-model");
     fs.mkdirSync(directory, { recursive: true });
     const file = path.join(directory, "state.json");
     fs.writeFileSync(file, before);

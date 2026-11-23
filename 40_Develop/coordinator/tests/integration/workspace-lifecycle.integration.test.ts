@@ -1724,7 +1724,7 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
     `${canonicalJson({ ...physical.value.snapshot, revision: physical.value.snapshot.revision + 1, previous: { revision: physical.value.snapshot.revision, payloadSha256: physical.value.payloadSha256 }, queueEntries: [...prior.queueEntries, ...terminalQueues] })}\n`,
   );
   fs.writeFileSync(
-    path.join(f.root, ".crdd", "domain-model", "state.json"),
+    path.join(f.root, ".crdd", "execution-model", "state.json"),
     fixtureBytes,
   );
   assert.equal(readFixtureSnapshot(f.root, f.binding).status, "completed");

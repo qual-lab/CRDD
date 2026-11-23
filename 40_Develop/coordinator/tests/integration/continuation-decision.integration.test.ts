@@ -4,7 +4,7 @@
  * @responsibility 認証主体・Queue・State・Historyを実保存で結合する。
  * @trace PRL-IT-005、PRL-IT-014
  * @level IT
- * @scope coordinator、domain-model、version-control
+ * @scope coordinator、execution-model、version-control
  * @boundary PRL-IT-014=Adjacent Blocks: 公開判断→State Writer→History
  */
 import assert from "node:assert/strict";
@@ -66,7 +66,7 @@ test("継続要求から再計画待ち又は取消へ一回適用し履歴だ�
     const requested = submitDecision(request, root, auth);
     assert.equal(requested.status, "completed", requested.reason);
     assert.equal(requested.decision?.status, "pending");
-    const file = path.join(root, ".crdd", "domain-model", "state.json");
+    const file = path.join(root, ".crdd", "execution-model", "state.json");
     const pending = fs.readFileSync(file, "utf8");
     assert.equal(submitDecision(request, root, auth).status, "completed");
     assert.equal(fs.readFileSync(file, "utf8"), pending);
@@ -252,7 +252,7 @@ test("明示無効化は判断を閉じるだけでBlockerとQueueを保持す�
   const requested = withHistoryFailure(request);
   assert.equal(requested.status, "completed", requested.reason);
   assert.equal(requested.history?.status, "unconfirmed");
-  const file = path.join(root, ".crdd", "domain-model", "state.json");
+  const file = path.join(root, ".crdd", "execution-model", "state.json");
   const pending = fs.readFileSync(file, "utf8");
   const reentered = submitDecision(request, root, auth);
   assert.equal(reentered.history?.status, "confirmed", reentered.reason);
@@ -347,7 +347,7 @@ test("明示無効化は判断を閉じるだけでBlockerとQueueを保持す�
   );
   assert.equal(after.queueEntries[0].state, "cancelled");
   const history = fs.readFileSync(
-    path.join(root, ".crdd", "domain-model", "history.jsonl"),
+    path.join(root, ".crdd", "execution-model", "history.jsonl"),
     "utf8",
   );
   assert.ok(history.includes('"blockerId":"blocker-closing"'));
@@ -404,7 +404,7 @@ test("Lease競合で保持した回答を解放後に明示適用し履歴だけ
   assert.equal(acquired.status, "completed", acquired.reason);
   assert.ok(acquired.value);
   let answered: ReturnType<typeof submitDecision>;
-  const file = path.join(root, ".crdd", "domain-model", "state.json");
+  const file = path.join(root, ".crdd", "execution-model", "state.json");
   try {
     answered = submitDecision(
       {

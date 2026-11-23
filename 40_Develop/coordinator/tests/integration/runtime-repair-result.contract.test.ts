@@ -270,7 +270,7 @@ function fixture(
     root = base.root;
     revision = base.revision;
     assert.throws(
-      () => fs.lstatSync(path.join(created.root, ".crdd", "domain-model")),
+      () => fs.lstatSync(path.join(created.root, ".crdd", "execution-model")),
       { code: "ENOENT" },
     );
   } else {
@@ -323,20 +323,20 @@ function fixture(
   );
   assert.equal(
     fs.existsSync(
-      path.join(created.root, ".crdd", "domain-model", "state.json"),
+      path.join(created.root, ".crdd", "execution-model", "state.json"),
     ),
     false,
   );
   const stateFile = path.join(
     created.root,
     ".crdd",
-    "domain-model",
+    "execution-model",
     "state.json",
   );
   const historyFile = path.join(
     created.root,
     ".crdd",
-    "domain-model",
+    "execution-model",
     "history.jsonl",
   );
   const binding = repository.repositoryBinding;
@@ -1095,7 +1095,7 @@ function fixture(
       // closeの呼出しを確認するだけ。注入したunknownの成功化ではない。
       assert.equal(state.joined, state.acquired, "finite_session_not_joined");
       assert.equal(fs.realpathSync.native(created.root), created.root);
-      const area = path.join(created.root, ".crdd", "domain-model");
+      const area = path.join(created.root, ".crdd", "execution-model");
       for (const file of [
         path.join(created.root, ".crdd", "lock", "execution-model.state.lock"),
         path.join(area, "state.pending.json"),

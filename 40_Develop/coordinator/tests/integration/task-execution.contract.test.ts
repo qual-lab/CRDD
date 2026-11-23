@@ -110,7 +110,7 @@ for (const mode of [
                   throw error;
                 }
               }
-              const area = path.join(root, ".crdd", "domain-model");
+              const area = path.join(root, ".crdd", "execution-model");
               const history = path.join(area, "history.jsonl");
               if (mode === "history_missing") fs.unlinkSync(history);
               if (mode === "history_duplicate") {
@@ -172,7 +172,7 @@ for (const mode of [
     );
     const snapshot = JSON.parse(
       fs.readFileSync(
-        path.join(root, ".crdd", "domain-model", "state.json"),
+        path.join(root, ".crdd", "execution-model", "state.json"),
         "utf8",
       ),
     );
@@ -1442,7 +1442,7 @@ test("下位実行へ委譲後のthrowは開始観測の有無にかかわらず
  */
 test("PR-A-04 releases the physical lease when a post-acquire Queue write becomes unobservable", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
-  const location = path.join(root, ".crdd", "domain-model", "state.json");
+  const location = path.join(root, ".crdd", "execution-model", "state.json");
   const original = fs.openSync;
   let isInjected = false;
   let outcome: Awaited<ReturnType<typeof runCoordinatorOperation>>;
@@ -2053,7 +2053,7 @@ test("開始前終端の保存不明は元回復IDを保持する", async (t) =>
 test("開始前終端は実在する関連OperationをTaskと同一改訂で整理する", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
   const persistence = createTestPersistence(root, "binding-a");
-  const file = path.join(root, ".crdd/domain-model/state.json");
+  const file = path.join(root, ".crdd/execution-model/state.json");
   let exactRecoveryId: string | null = null;
   let settlements = 0;
   const outcome = await withExecutionStateSave(

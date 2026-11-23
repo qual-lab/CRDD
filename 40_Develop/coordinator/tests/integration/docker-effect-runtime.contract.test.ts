@@ -765,7 +765,7 @@ test("Host Windows: 世代失効は上位で拒否し固定値から上位を再
       const statePath = path.join(
         parent,
         ".crdd",
-        "domain-model",
+        "execution-model",
         "state.json",
       );
       const stateBytes = fs.readFileSync(statePath);

@@ -98,7 +98,7 @@ const SEMANTIC_ROOT_LITERAL_OWNERS = new Set([
 ]);
 const ALLOWED_TOP_LEVEL_AREAS = new Set([
   "config",
-  "domain-model",
+  "execution-model",
   "execution-intelligence",
   "candidates",
   "workspaces",
@@ -110,6 +110,7 @@ const ALLOWED_TOP_LEVEL_AREAS = new Set([
 ]);
 const retiredTopLevelAreas = [
   "coordinator",
+  "domain-model",
   "orchestrator",
   "dogfooding",
   "native-fixture",
@@ -300,7 +301,7 @@ function violations(rawSources: SourceSet): string[] {
       ),
     ].flatMap((match) => (match[1] ? [match[1]] : []));
     const properties =
-      "config|orchestrator|coordinator|domainModel|executionIntelligence|verification|candidates|workspaces|operations|release|communication|tests|temporary|locks";
+      "config|orchestrator|coordinator|domainModel|executionModel|executionIntelligence|verification|candidates|workspaces|operations|release|communication|tests|temporary|locks";
     if (
       pathSets.some((name) =>
         new RegExp(
@@ -620,7 +621,7 @@ test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒�
     "40_Develop/future-tool/src/consumer.ts",
     [
       "const paths = resolveRepositoryExecutionDataPaths(capability);",
-      "const parent = path.dirname(paths.domainModel);",
+      "const parent = path.dirname(paths.executionModel);",
     ].join("\n"),
   );
   assert.ok(

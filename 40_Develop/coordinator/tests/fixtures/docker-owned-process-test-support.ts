@@ -289,7 +289,7 @@ export async function verifyNormalOwnerLifecycle(
     if (!repairHistory) return;
     const original = repairHistoryRows;
     assert.ok(original?.length === 1 && original[0]);
-    const stateFile = path.join(root, ".crdd", "domain-model", "state.json");
+    const stateFile = path.join(root, ".crdd", "execution-model", "state.json");
     const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
     assert.deepEqual(bytes, fs.readFileSync(historyFile));
     const before = fs.readFileSync(stateFile);
@@ -372,7 +372,7 @@ export async function verifyNormalOwnerLifecycle(
       const repairStatePath = path.join(
         root,
         ".crdd",
-        "domain-model",
+        "execution-model",
         "state.json",
       );
       let writerFault: ReturnType<typeof mock.module> | null = retained
@@ -843,7 +843,12 @@ export async function verifyNormalOwnerLifecycle(
         "workbench",
       );
     assert.ok(otherIdentity);
-    const currentFile = path.join(root, ".crdd", "domain-model", "state.json");
+    const currentFile = path.join(
+      root,
+      ".crdd",
+      "execution-model",
+      "state.json",
+    );
     const beforeStart = fs.readFileSync(currentFile);
     assert.equal(beforeStart.toString("utf8"), initialized.value.sourceText);
     if (repairActiveState) {
@@ -914,7 +919,7 @@ export async function verifyNormalOwnerLifecycle(
     if (repairHistory)
       assertRepairHistory(
         fs.readFileSync(
-          path.join(root, ".crdd", "domain-model", "history.jsonl"),
+          path.join(root, ".crdd", "execution-model", "history.jsonl"),
         ),
       );
     if (repairCompletedState) {
@@ -1051,7 +1056,7 @@ export async function verifyNormalOwnerLifecycle(
       )
     );
     assert.ok(ownerRuntime);
-    const statePath = path.join(root, ".crdd", "domain-model", "state.json");
+    const statePath = path.join(root, ".crdd", "execution-model", "state.json");
     const completedOperations = new Map<string, unknown>();
     const nonces = new Set<string>();
     for (let round = 0; round < repeatCount; round++) {
@@ -1068,7 +1073,7 @@ export async function verifyNormalOwnerLifecycle(
       if (repairHistory)
         assertRepairHistory(
           fs.readFileSync(
-            path.join(root, ".crdd", "domain-model", "history.jsonl"),
+            path.join(root, ".crdd", "execution-model", "history.jsonl"),
           ),
         );
       const capability: object = begun.recoveryCapability;
@@ -1388,7 +1393,7 @@ export async function verifyNormalOwnerLifecycle(
     if (repairHistory)
       assertRepairHistory(
         fs.readFileSync(
-          path.join(root, ".crdd", "domain-model", "history.jsonl"),
+          path.join(root, ".crdd", "execution-model", "history.jsonl"),
         ),
       );
     assert.equal(fs.existsSync(owned.root), false);
