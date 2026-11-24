@@ -16,6 +16,7 @@ import {
   type SemanticIr,
 } from "../../../document-model/src/index.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
+import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import { mapSemanticDomainIssueToDiagnostic } from "../report/semantic.ts";
 import type { SemanticCoverageDiagnostic } from "../report/types.ts";
 
@@ -55,7 +56,9 @@ function observeDocuments(
   documents: readonly SemanticSourceDocument[];
   findings: readonly SemanticCoverageDiagnostic[];
 }> {
-  const repository = createFilesystemRepositoryObservationPort(capability);
+  const repository = createFilesystemRepositoryObservationPort(
+    resolveVerifiedRepositoryRoot(capability),
+  );
   const documents: SemanticSourceDocument[] = [];
   const findings: SemanticCoverageDiagnostic[] = [];
   for (const path of paths) {

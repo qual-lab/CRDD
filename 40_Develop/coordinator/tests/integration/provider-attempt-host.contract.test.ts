@@ -44,7 +44,7 @@ test("単独Hostは公開Executorで実行し必要な保存とHome終了を接�
       readReport:(...args)=>{if(mode==='read_after_write')throw Error('synthetic_read_refusal');return report.readReport(...args);}
     }});
     const {createStandaloneProviderAttemptHost}=await import(${JSON.stringify(url("../support/provider-attempt-host.ts"))});
-    const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../support/provider-attempt-host.ts"))}));
+    const repository=fileURLToPath(new URL('../../../../',${JSON.stringify(url("../support/provider-attempt-host.ts"))}));
     const parent=path.join(repository,'.crdd','tests');
     for(mode of ['normal','receipt_crlf','receipt_bare','receipt_invalid_short','receipt_invalid_multiple','receipt_invalid_embedded','receipt_invalid_character','receipt_invalid_uppercase','receipt_invalid_empty','cancel','process_unknown','cleanup_unknown','home_changed','home_unavailable','lock_denied','release_false','release_throw','lease_lost_observation','lease_lost_provider','lease_assert_throw','cancel_notice','cancel_diagnostic','recovery_opened','read_after_write','submission_planned','receipt_recorded','provider_submission','absence_observed','terminal_received','execution_settled']){
       live=false;releases=0;observations=0;failKind=mode;cancelPromise=null;f.calls.length=0;f.processTermination=true;f.pendingRun=false;

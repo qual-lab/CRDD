@@ -26,8 +26,8 @@ import {
 
 const { executeAdviceRequest } = await loadAdviceDispatchFixture();
 import {
-  issueRuntimeOwnedProviderAdvicePacket,
-  revokeRuntimeOwnedProviderAdvicePacket,
+  issueProviderAdvicePacket,
+  revokeProviderAdvicePacket,
   prepareAdviceTask,
   PROVIDER_ADVICE_TASK_CONTRACT,
 } from "../../../src/lifecycle/selection.ts";
@@ -187,7 +187,7 @@ test("助言準備は旧容量超過の正常なPromptと投影を全量保持�
   );
   assert.equal(prepared.providerEffectIssued, false);
   assert.equal(prepared.filesystemEffectIssued, false);
-  const issued = issueRuntimeOwnedProviderAdvicePacket({
+  const issued = issueProviderAdvicePacket({
     operationId: "OP-000999",
     executionSelection: executionSelection("advice"),
     provider: "codex",
@@ -198,10 +198,7 @@ test("助言準備は旧容量超過の正常なPromptと投影を全量保持�
     additionalHosts: Object.freeze([]),
   });
   assert.equal(issued.status, "issued");
-  assert.equal(
-    revokeRuntimeOwnedProviderAdvicePacket(issued.ownerCapability),
-    true,
-  );
+  assert.equal(revokeProviderAdvicePacket(issued.ownerCapability), true);
   for (const field of [
     "maximumPromptBytes",
     "maximumProjectionItemBytes",

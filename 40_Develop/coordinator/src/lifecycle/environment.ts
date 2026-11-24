@@ -43,6 +43,7 @@ import {
   type RepairCheckpoint,
   type RepairOperationRecord,
   type RepairSaveRequest,
+  readExecutionStorageBinding,
   readState,
   resumeRepairRecordSave,
   type StateVersion,
@@ -72,6 +73,7 @@ import {
 import {
   getRepository,
   getRepositoryFromWorkingDirectory,
+  readRepositoryRevision,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRoot,
   type Repository,
@@ -99,28 +101,28 @@ import {
   observeRepositoryExecutionDataArea,
   RepositoryDataBlockedError,
   withHistoryRetention,
-  poisonRuntimeProcessAfterCleanupUnknown,
+  poisonExecutionProcessAfterCleanupUnknown,
   acquireHostOperationRecoveryGeneration,
-  acquireExecutionStateLock,
   acquireHostOperationLock,
   acquireProviderHomeLock,
   abandonOwnedHostOperationGenerationLock,
-  borrowRuntimeOwnedCoordinatorStateRepository,
+  borrowCoordinatorStateRepository,
   operationStartInput,
   operationStateInput,
   verifyOwnedOperationManagementCapability,
   verifyOwnedOperationCleanupOutcome,
   isHostOperationRootAbsent,
-  resolveRepositoryExecutionDataPaths,
+  resolveRecoveryHostRoot,
   verifyHostOperationRecoveryGeneration,
   borrowHostRecoveryManagementDirectory,
-  borrowRuntimeOwnedCoordinatorRecoveryRepository,
+  borrowCoordinatorRecoveryRepository,
+  recoveryStorageInput,
   classifyOwnedCoordinatorOperationCreationFailure,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationManagementCapability,
-  createRuntimeOwnedCoordinatorOperation,
+  createCoordinatorOperation,
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
   getOwnedHostRecoveryId,
@@ -165,16 +167,16 @@ const LIFECYCLE_NOTICE_TIMEOUT_MS = 5_000;
  * @trace ARCH-000008
  * @input stream: Writable、prefix: Lifecycle／選定／送信案内の固定表示prefix。
  * @returns write完了でresolve、error／close／既存期限でrejectする通知関数。
- * @precondition 「stream: Writable」がcreateRuntimeOwnedLifecycleNoticeReporterの入力契約を満たす。
- * @postcondition createRuntimeOwnedLifecycleNoticeReporterの責務を完了した結果だけを返す。
+ * @precondition 「stream: Writable」がcreateLifecycleNoticeReporterの入力契約を満たす。
+ * @postcondition createLifecycleNoticeReporterの責務を完了した結果だけを返す。
  * @effect 呼出し時だけ既存streamへ非秘密通知を書き、同じ要求のListener／Timerを解除する。
- * @failure createRuntimeOwnedLifecycleNoticeReporterは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant createRuntimeOwnedLifecycleNoticeReporterは入力から導いた結果以外の共有状態を変更しない。
+ * @failure createLifecycleNoticeReporterは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createLifecycleNoticeReporterは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security createRuntimeOwnedLifecycleNoticeReporterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency createRuntimeOwnedLifecycleNoticeReporterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @security createLifecycleNoticeReporterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency createLifecycleNoticeReporterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
-export function createRuntimeOwnedLifecycleNoticeReporter(
+export function createLifecycleNoticeReporter(
   stream: Writable,
   prefix:
     | "[Coordinator lifecycle]"
@@ -333,7 +335,7 @@ export async function openExecutionHost(
     try {
       return {
         status: "opened" as const,
-        operation: createRuntimeOwnedCoordinatorOperation({
+        operation: createCoordinatorOperation({
           root: input.root,
           purpose: input.purpose,
           recordingCurrent: input.recordingCurrent,
@@ -345,7 +347,8 @@ export async function openExecutionHost(
     } catch (error) {
       const failure = classifyOwnedCoordinatorOperationCreationFailure(error);
       if (!failure && input.purpose === "task") throw error;
-      if (!failure?.cleanupConfirmed) poisonRuntimeProcessAfterCleanupUnknown();
+      if (!failure?.cleanupConfirmed)
+        poisonExecutionProcessAfterCleanupUnknown();
       return { status: "creation_failed" as const, failure };
     }
   }
@@ -366,7 +369,7 @@ export async function openExecutionHost(
 
 type RepairOperationState = Extract<
   NonNullable<ReturnType<typeof readState>["value"]>["operationStates"][number],
-  { kind: "runtime_repair" }
+  { kind: "docker_repair" }
 >;
 
 /**
@@ -384,11 +387,12 @@ type RepairOperationState = Extract<
  * @security 任意Path・Command・OS種別・署名を入力に持たない。
  * @concurrency 短期保存排他は既存Writer、技術排他はDIが所有する。
  */
-export async function repairRuntimeOwnedDockerRuntime(
+export async function executeDockerRepair(
   rootCapability: unknown,
   signal: AbortSignal,
   requestedRecoveryId: string | null = null,
   purpose: "repair" | "retain" = "repair",
+  confirmedDirectory?: string,
 ) {
   let recoveryId: string | null = requestedRecoveryId;
   let ownerAlive = true;
@@ -411,8 +415,10 @@ export async function repairRuntimeOwnedDockerRuntime(
   let completionEffectIssued: boolean | null = false;
   let completionLockReleased: boolean | null = null;
   let statePublication: ReturnType<typeof resumeRepairRecordSave> | null = null;
-  const repository =
-    borrowRuntimeOwnedCoordinatorRecoveryRepository(rootCapability);
+  const repository = borrowCoordinatorRecoveryRepository(
+    rootCapability,
+    confirmedDirectory,
+  );
   /**
    * 保存不成立を技術成功と分けて返す。
    * @responsibility exact参照とNative回収事実を保持する。
@@ -432,7 +438,7 @@ export async function repairRuntimeOwnedDockerRuntime(
     reason = target?.primaryFailure?.reason ??
       (target?.outcome && target.outcome.status !== "recovered"
         ? target.outcome.reason
-        : "runtime_repair_state_unavailable"),
+        : "docker_repair_state_unavailable"),
   ) =>
     Object.freeze({
       status: "blocked" as const,
@@ -455,11 +461,11 @@ export async function repairRuntimeOwnedDockerRuntime(
    * 同じ私有呼出しと現在Repository結合を確認する。
    * @responsibility 取消と保存Owner失効を区別する。
    * @trace ARCH-000008
-   * @input N/A: 捕捉済みRoot・Revision・生存・保存状態。
+   * @input N/A: 捕捉済み保存先・生存・保存状態。
    * @returns 生存する同じOwnerだけtrue。
    * @precondition 呼出し開始時に既存Root Ownerへ借用済み。
    * @postcondition 保存失敗後やfinally後にはfalse。
-   * @effect RootとGitの現在観測だけ。
+   * @effect 保存先の物理実体を観測する。Gitは読まない。
    * @failure 例外と観測不能はfalse。
    * @invariant signal取消だけでは既発生事実の保存資格を失わない。
    * @boundary 呼出しと既存Root Owner。
@@ -477,7 +483,7 @@ export async function repairRuntimeOwnedDockerRuntime(
    * 修復の論理更新をモデルへ渡して確定結果を受け取る。
    * @responsibility Snapshotを構築せず、保存確認済みの改訂だけを次のCAS元版へ進める。
    * @trace ARCH-000008
-   * @input change: 技術観測または保持・廃棄判断に基づく固定更新。
+   * @input change: 固定更新。observedAfterExecution: DI終了後に観測した事実の記録だけ。
    * @returns 保存確認と排他解放が共同成立した場合だけtrue。
    * @precondition 同exact回復参照と現在Ownerが確定済み。
    * @postcondition 不明保存後のcallback再利用を拒否する。
@@ -488,17 +494,32 @@ export async function repairRuntimeOwnedDockerRuntime(
    * @security 新Store・Lock・Pathを作らない。
    * @concurrency 元版全文のCASは既存Writerへ委譲する。
    */
-  const save = (change: RepairSaveRequest["change"]) => {
-    if (!repository || !recoveryId || !currentOwner()) {
+  const save = (
+    change: RepairSaveRequest["change"],
+    observedAfterExecution = false,
+  ) => {
+    const revalidate = () =>
+      ownerAlive &&
+      !storageFailed &&
+      (observedAfterExecution
+        ? repository !== null &&
+          readExecutionStorageBinding(repository.repositoryRoot) ===
+            repository.repositoryBinding
+        : currentOwner());
+    if (!repository || !recoveryId || !revalidate()) {
       storageFailed = true;
       return false;
     }
     try {
       const result = saveRepairRecord(
-        rootCapability,
+        {
+          purpose: "recovery",
+          root: { directory: repository.repositoryRoot },
+          revalidate,
+        },
         recoveryId,
         { expected: version, change },
-        currentOwner,
+        () => ownerAlive && !storageFailed,
       );
       if (
         result.status !== "completed" ||
@@ -523,7 +544,7 @@ export async function repairRuntimeOwnedDockerRuntime(
    * 技術checkpointだけを対象修復の次版へ結合する。
    * @responsibility 保持物とdispositionの相関を維持する。
    * @trace ARCH-000008
-   * @input checkpoint: 同じDIからの技術値。
+   * @input value: 同じDIからの技術値。primaryFailure: 一次失敗。observedAfterExecution: DI終了後の最終観測。
    * @returns 同じWriterの確認結果。
    * @precondition 初回Identityと準備checkpointを保存済み。
    * @postcondition 他操作・一次失敗・outcomeを変更しない。
@@ -537,23 +558,27 @@ export async function repairRuntimeOwnedDockerRuntime(
   const checkpoint = (
     value: RepairCheckpoint,
     primaryFailure: RepairOperationRecord["primaryFailure"] = null,
+    observedAfterExecution = false,
   ) => {
     if (!prepared || !target || !repository) return false;
-    return save({
-      kind: "checkpoint",
-      update: {
-        phase: target.phase,
-        checkpoint: value,
-        disposition:
-          value.stale === "retained"
-            ? target.disposition === "retained_by_human_decision"
-              ? target.disposition
-              : "pending_human_decision"
-            : "not_applicable",
-        primaryFailure: target.primaryFailure ?? primaryFailure,
-        outcome: target.outcome,
+    return save(
+      {
+        kind: "checkpoint",
+        update: {
+          phase: target.phase,
+          checkpoint: value,
+          disposition:
+            value.stale === "retained"
+              ? target.disposition === "retained_by_human_decision"
+                ? target.disposition
+                : "pending_human_decision"
+              : "not_applicable",
+          primaryFailure: target.primaryFailure ?? primaryFailure,
+          outcome: target.outcome,
+        },
       },
-    });
+      observedAfterExecution,
+    );
   };
   /**
    * 元修復を変えず、固定三用途を意図保存と実回収へ直列接続する。
@@ -656,7 +681,9 @@ export async function repairRuntimeOwnedDockerRuntime(
        */
       const canDispose = () => {
         if (signal.aborted || !currentOwner()) return false;
-        const read = readState(rootCapability, { scope: "recovery" });
+        const read = readState(recoveryStorageInput(repository), {
+          scope: "recovery",
+        });
         if (
           read.status !== "completed" ||
           !read.lockReleased ||
@@ -669,7 +696,7 @@ export async function repairRuntimeOwnedDockerRuntime(
           return false;
         const matches = read.value.snapshot.operations.filter(
           (operation): operation is RepairOperationRecord =>
-            operation.kind === "runtime_repair" &&
+            operation.kind === "docker_repair" &&
             operation.recoveryId === recoveryId,
         );
         return (
@@ -747,7 +774,7 @@ export async function repairRuntimeOwnedDockerRuntime(
       const publication = read.currentHistoryPublication;
       const operation = read.value?.snapshot.operations.find(
         (item): item is RepairOperationRecord =>
-          item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+          item.kind === "docker_repair" && item.recoveryId === recoveryId,
       );
       if (
         read.status !== "completed" ||
@@ -774,7 +801,7 @@ export async function repairRuntimeOwnedDockerRuntime(
       disposalSettled =
         read.value.operationStates.find(
           (state): state is RepairOperationState =>
-            state.kind === "runtime_repair" && state.operation === operation,
+            state.kind === "docker_repair" && state.operation === operation,
         )?.disposalSettled === true;
       retentionConfirmed =
         operation.disposition === "retained_by_human_decision" &&
@@ -797,10 +824,16 @@ export async function repairRuntimeOwnedDockerRuntime(
     };
     const observe = () => {
       historyLockReleased = null;
-      return readState(historyRepositoryInput(rootCapability), {
-        scope: "recovery",
-        input: { kind: "repair_history", recoveryId },
-      });
+      return readState(
+        recoveryStorageInput(
+          repository,
+          historyRepositoryInput(rootCapability, repository?.repositoryRoot),
+        ),
+        {
+          scope: "recovery",
+          input: { kind: "repair_history", recoveryId },
+        },
+      );
     };
     try {
       if (!repository || !recoveryId || !currentOwner())
@@ -812,12 +845,16 @@ export async function repairRuntimeOwnedDockerRuntime(
       const saved = saveRecoveryHistory(
         {
           ...repository,
-          ...withHistoryRetention(repository, rootCapability),
+          ...withHistoryRetention(
+            repository,
+            rootCapability,
+            repository?.repositoryRoot,
+          ),
           operationId: JSON.parse(target.identityJson).operationId,
         },
         recoveryId,
         currentOwner,
-        "runtime_repair",
+        "docker_repair",
       );
       writing = false;
       historyLockReleased = saved.lockReleased;
@@ -867,7 +904,7 @@ export async function repairRuntimeOwnedDockerRuntime(
       completionLockReleased = null;
       const observed =
         initial ??
-        readState(rootCapability, {
+        readState(recoveryStorageInput(repository), {
           scope: "recovery",
           input: {
             kind: "repair_completion",
@@ -890,7 +927,7 @@ export async function repairRuntimeOwnedDockerRuntime(
       if (!observed.repairCompletionAbsent) {
         const operation = observed.value?.snapshot.operations.find(
           (item): item is RepairOperationRecord =>
-            item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+            item.kind === "docker_repair" && item.recoveryId === recoveryId,
         );
         if (
           !observed.currentCompletionPublication ||
@@ -900,7 +937,7 @@ export async function repairRuntimeOwnedDockerRuntime(
             (operation.disposition === "discard" &&
               observed.value?.operationStates.find(
                 (state): state is RepairOperationState =>
-                  state.kind === "runtime_repair" &&
+                  state.kind === "docker_repair" &&
                   state.operation === operation,
               )?.disposalSettled === true) ||
             (operation.disposition === "retained_by_human_decision" &&
@@ -917,10 +954,10 @@ export async function repairRuntimeOwnedDockerRuntime(
         writing = true;
         completionLockReleased = null;
         const saved = completeRecovery(
-          rootCapability,
+          recoveryStorageInput(repository),
           recoveryId,
           currentOwner,
-          "runtime_repair",
+          "docker_repair",
         );
         writing = false;
         completionLockReleased = saved.lockReleased;
@@ -934,7 +971,7 @@ export async function repairRuntimeOwnedDockerRuntime(
           throw new Error("completion_save");
       }
       completionLockReleased = null;
-      const fresh = readState(rootCapability, {
+      const fresh = readState(recoveryStorageInput(repository), {
         scope: "recovery",
         input: {
           kind: "repair_completion",
@@ -965,21 +1002,19 @@ export async function repairRuntimeOwnedDockerRuntime(
       (purpose !== "repair" && purpose !== "retain") ||
       (purpose === "retain" && requestedRecoveryId === null)
     )
-      return stopped("runtime_repair_boundary_unavailable");
+      return stopped("docker_repair_boundary_unavailable");
     if (!repository || !currentOwner())
-      return stopped("runtime_repair_boundary_unavailable");
-    const verified = getRepository(repository.repositoryRoot);
-    if (verified.status !== "completed" || !currentOwner())
-      return stopped("runtime_repair_boundary_unavailable");
+      return stopped("docker_repair_boundary_unavailable");
     const area = observeRepositoryExecutionDataArea(
-      verified.capability,
+      repository.root,
       "execution-model",
+      repository.repositoryRoot,
     );
     if (area.status === "ready") {
       if (!currentOwner()) return stopped();
       if (requestedRecoveryId !== null) {
         {
-          const completion = readState(rootCapability, {
+          const completion = readState(recoveryStorageInput(repository), {
             scope: "recovery",
             input: {
               kind: "repair_completion",
@@ -1002,24 +1037,39 @@ export async function repairRuntimeOwnedDockerRuntime(
             return Object.freeze({
               ...stopped(),
               status: "observed" as const,
-              reason: "runtime_repair_recovered",
+              reason: "docker_repair_recovered",
               technicalStatus: null,
             });
           }
           {
-            let history = readState(historyRepositoryInput(rootCapability), {
-              scope: "recovery",
-              input: {
-                kind: "repair_history",
-                recoveryId: requestedRecoveryId,
+            let history = readState(
+              recoveryStorageInput(
+                repository,
+                historyRepositoryInput(
+                  rootCapability,
+                  repository?.repositoryRoot,
+                ),
+              ),
+              {
+                scope: "recovery",
+                input: {
+                  kind: "repair_history",
+                  recoveryId: requestedRecoveryId,
+                },
               },
-            });
+            );
             historyLockReleased = history.lockReleased;
             if (!history.lockReleased || !currentOwner()) return stopped();
             if (history.status !== "completed") {
               // 技術fallbackではなく、既存の有限metadata出版だけを一度試す。
               statePublication = resumeRepairRecordSave(
-                historyRepositoryInput(rootCapability),
+                recoveryStorageInput(
+                  repository,
+                  historyRepositoryInput(
+                    rootCapability,
+                    repository?.repositoryRoot,
+                  ),
+                ),
                 requestedRecoveryId,
                 currentOwner,
               );
@@ -1030,13 +1080,22 @@ export async function repairRuntimeOwnedDockerRuntime(
                 !currentOwner()
               )
                 return stopped();
-              history = readState(historyRepositoryInput(rootCapability), {
-                scope: "recovery",
-                input: {
-                  kind: "repair_history",
-                  recoveryId: requestedRecoveryId,
+              history = readState(
+                recoveryStorageInput(
+                  repository,
+                  historyRepositoryInput(
+                    rootCapability,
+                    repository?.repositoryRoot,
+                  ),
+                ),
+                {
+                  scope: "recovery",
+                  input: {
+                    kind: "repair_history",
+                    recoveryId: requestedRecoveryId,
+                  },
                 },
-              });
+              );
               historyLockReleased = history.lockReleased;
               if (
                 history.status !== "completed" ||
@@ -1049,11 +1108,11 @@ export async function repairRuntimeOwnedDockerRuntime(
               if (purpose === "retain") {
                 const retained = history.value?.snapshot.operations.find(
                   (operation) =>
-                    operation.kind === "runtime_repair" &&
+                    operation.kind === "docker_repair" &&
                     operation.recoveryId === requestedRecoveryId,
                 );
                 if (
-                  retained?.kind !== "runtime_repair" ||
+                  retained?.kind !== "docker_repair" ||
                   retained.retention === undefined
                 )
                   return stopped();
@@ -1074,7 +1133,7 @@ export async function repairRuntimeOwnedDockerRuntime(
                 status: "observed" as const,
                 reason:
                   recorded?.outcome?.reason ??
-                  "runtime_repair_state_unavailable",
+                  "docker_repair_state_unavailable",
                 technicalStatus: null,
               });
             }
@@ -1084,7 +1143,13 @@ export async function repairRuntimeOwnedDockerRuntime(
         }
         if (statePublication === null)
           statePublication = resumeRepairRecordSave(
-            historyRepositoryInput(rootCapability),
+            recoveryStorageInput(
+              repository,
+              historyRepositoryInput(
+                rootCapability,
+                repository?.repositoryRoot,
+              ),
+            ),
             requestedRecoveryId,
             currentOwner,
           );
@@ -1098,7 +1163,7 @@ export async function repairRuntimeOwnedDockerRuntime(
         )
           return stopped();
       }
-      const read = readState(rootCapability, {
+      const read = readState(recoveryStorageInput(repository), {
         scope: "recovery",
         input: { kind: "history" },
       });
@@ -1114,7 +1179,7 @@ export async function repairRuntimeOwnedDockerRuntime(
         payloadSha256: read.value.payloadSha256,
       };
       const repairs = read.value.snapshot.operations.filter(
-        (item): item is RepairOperationRecord => item.kind === "runtime_repair",
+        (item): item is RepairOperationRecord => item.kind === "docker_repair",
       );
       if (requestedRecoveryId !== null) {
         target =
@@ -1123,7 +1188,7 @@ export async function repairRuntimeOwnedDockerRuntime(
         disposalSettled =
           read.value.operationStates.find(
             (state): state is RepairOperationState =>
-              state.kind === "runtime_repair" && state.operation === target,
+              state.kind === "docker_repair" && state.operation === target,
           )?.disposalSettled === true;
         if (purpose === "retain") {
           if (!target || !currentOwner()) return stopped();
@@ -1175,7 +1240,7 @@ export async function repairRuntimeOwnedDockerRuntime(
           return Object.freeze({
             ...stopped(),
             status: "observed" as const,
-            reason: "runtime_repair_recovered" as const,
+            reason: "docker_repair_recovered" as const,
             technicalStatus: null,
           });
         }
@@ -1229,7 +1294,7 @@ export async function repairRuntimeOwnedDockerRuntime(
           const savedCheckpoint = target.checkpoint;
           if (
             savedFailure.stage !== "repair" ||
-            savedFailure.reason !== "runtime_repair_effect_unknown" ||
+            savedFailure.reason !== "docker_repair_effect_unknown" ||
             !savedCheckpoint ||
             !["confirmed", "unknown"].includes(savedCheckpoint.cleanup) ||
             repairs.filter((item) => item.recoveryId === requestedRecoveryId)
@@ -1295,7 +1360,7 @@ export async function repairRuntimeOwnedDockerRuntime(
       !currentOwner()
     )
       return stopped();
-    if (signal.aborted) return stopped("runtime_repair_boundary_unavailable");
+    if (signal.aborted) return stopped("docker_repair_boundary_unavailable");
     const previousIdentity =
       target === null
         ? null
@@ -1323,8 +1388,8 @@ export async function repairRuntimeOwnedDockerRuntime(
             if (preparedCalls !== 1 || !currentOwner() || signal.aborted)
               throw new Error("docker_repair_record_unconfirmed");
             if (target === null) {
-              const identityJson = `${JSON.stringify({ schema: "crdd-coordinator/runtime-repair-identity/v2", kind: "runtime_repair", operationNonce: nonce, operationId, repositoryBinding: repository.repositoryBinding, consumer: "coordinator_cli" })}\n`;
-              recoveryId = `docker-runtime-repair.${nonce}.${createHash("sha256").update(identityJson).digest("hex")}`;
+              const identityJson = `${JSON.stringify({ schema: "crdd-coordinator/docker-repair-identity/v3", kind: "docker_repair", operationNonce: nonce, operationId, repositoryBinding: repository.repositoryBinding, consumer: "coordinator_cli" })}\n`;
+              recoveryId = `docker-repair.${nonce}.${createHash("sha256").update(identityJson).digest("hex")}`;
               if (!save({ kind: "create", identityJson: identityJson }))
                 throw new Error("docker_repair_record_unconfirmed");
             }
@@ -1357,9 +1422,8 @@ export async function repairRuntimeOwnedDockerRuntime(
     if (
       !prepared ||
       !result.checkpoint ||
-      !checkpoint(result.checkpoint, primaryFailure) ||
-      !target ||
-      !currentOwner()
+      !checkpoint(result.checkpoint, primaryFailure, true) ||
+      !target
     )
       return stopped();
     finalCheckpointConfirmed = true;
@@ -1383,17 +1447,17 @@ export async function repairRuntimeOwnedDockerRuntime(
         (lifecycle?.failure === null || lifecycle?.failure === "cancelled")
           ? {
               status: "recovered",
-              reason: "runtime_repair_recovered",
+              reason: "docker_repair_recovered",
               cleanupConfirmed: true,
             }
           : {
               status: "blocked",
               reason:
                 lifecycle?.failure && lifecycle.failure !== "cancelled"
-                  ? "runtime_repair_boundary_unavailable"
+                  ? "docker_repair_boundary_unavailable"
                   : !clean
-                    ? "runtime_repair_cleanup_unknown"
-                    : "runtime_repair_failed_closed",
+                    ? "docker_repair_cleanup_unknown"
+                    : "docker_repair_failed_closed",
               cleanupConfirmed: result.checkpoint.cleanup === "confirmed",
             };
     } else if (technical?.primaryFailure) {
@@ -1405,32 +1469,35 @@ export async function repairRuntimeOwnedDockerRuntime(
     } else if (lifecycle?.failure === "cancelled") {
       outcome = {
         status: "cancelled",
-        reason: "runtime_repair_cancelled",
+        reason: "docker_repair_cancelled",
         cleanupConfirmed: result.checkpoint.cleanup === "confirmed",
       };
     } else if (lifecycle?.failure) {
       outcome = {
         status: "blocked",
-        reason: "runtime_repair_boundary_unavailable",
+        reason: "docker_repair_boundary_unavailable",
         cleanupConfirmed: result.checkpoint.cleanup === "confirmed",
       };
     }
     if (
       outcome !== null &&
-      !save({
-        kind: "checkpoint",
-        update: {
-          phase:
-            outcome.status === "recovered" &&
-            target.disposition === "pending_human_decision"
-              ? "awaiting_disposition"
-              : "settling",
-          checkpoint: target.checkpoint,
-          disposition: target.disposition,
-          primaryFailure: target.primaryFailure,
-          outcome,
+      !save(
+        {
+          kind: "checkpoint",
+          update: {
+            phase:
+              outcome.status === "recovered" &&
+              target.disposition === "pending_human_decision"
+                ? "awaiting_disposition"
+                : "settling",
+            checkpoint: target.checkpoint,
+            disposition: target.disposition,
+            primaryFailure: target.primaryFailure,
+            outcome,
+          },
         },
-      })
+        true,
+      )
     )
       return stopped();
     outcomeConfirmed = outcome !== null;
@@ -1465,7 +1532,7 @@ export async function repairRuntimeOwnedDockerRuntime(
       reason:
         outcome?.reason ??
         result.machine?.reason ??
-        "runtime_repair_boundary_unavailable",
+        "docker_repair_boundary_unavailable",
       recoveryId,
       finalCheckpointConfirmed: true,
       outcomeConfirmed,
@@ -1503,14 +1570,14 @@ export async function repairRuntimeOwnedDockerRuntime(
  * @security Host Path・内部権限・保存本文を公開しない。
  * @concurrency 同期の値投影。
  */
-export function projectRuntimeRepairObservation(
-  result: Awaited<ReturnType<typeof repairRuntimeOwnedDockerRuntime>>,
+export function projectDockerRepairObservation(
+  result: Awaited<ReturnType<typeof executeDockerRepair>>,
   expectedRecoveryId: string | null,
 ) {
   if (expectedRecoveryId !== null && result.recoveryId !== expectedRecoveryId)
     return Object.freeze({
       status: "blocked" as const,
-      reason: "runtime_repair_boundary_unavailable" as const,
+      reason: "docker_repair_boundary_unavailable" as const,
       recoveryId: expectedRecoveryId,
       finalCheckpointConfirmed: false,
       outcomeConfirmed: false,
@@ -1543,19 +1610,6 @@ function readConfiguredLocalAppDataDirectory(): string | null {
     : null;
 }
 
-/** 起動元が指定したLocal AppDataから既存の固定Runtime保存先を組み立てる。OSの独立証明ではない。 */
-export function runtimeStateDirectoryCandidate() {
-  const localAppData = readConfiguredLocalAppDataDirectory();
-  if (localAppData === null) return null;
-  const rootPath = path.win32.join(
-    localAppData,
-    "Qual-Lab",
-    "CRDD",
-    "RuntimeState",
-  );
-  return isSupportedWindowsAbsolutePathCandidate(rootPath) ? rootPath : null;
-}
-
 export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT =
   "crdd-coordinator/provider-home-windows-adapter";
 
@@ -1569,7 +1623,7 @@ export function providerHomesDirectoryCandidate(): string | null {
 }
 
 /** 同じ設定の共有Home候補。実体・保護の確認は既存の観測Ownerが行う。 */
-function runtimeOwnedProviderHomeMountSourceCandidate(provider: unknown) {
+function providerHomeMountSourceCandidate(provider: unknown) {
   if (provider !== "codex" && provider !== "claude") return null;
   const root = providerHomesDirectoryCandidate();
   const source = root ? path.win32.join(root, provider) : null;
@@ -1622,19 +1676,17 @@ function providerHomeWindowsAdapterBlocked(reason: string) {
  * @responsibility Runtime 所有 Windows Provider Home 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input provider: codexまたはclaude。所在は上位設定から選定する。
- * @returns inspectRuntimeOwnedWindowsProviderHomeCandidateの計算結果を返す。
+ * @returns inspectWindowsProviderHomeCandidateの計算結果を返す。
  * @precondition Windowsローカル単一ユーザー運用。Home基点は上位設定済みで新旧方式を並走しない。
- * @postcondition inspectRuntimeOwnedWindowsProviderHomeCandidateの責務を完了した結果だけを返す。
+ * @postcondition inspectWindowsProviderHomeCandidateの責務を完了した結果だけを返す。
  * @effect NodeのDirectory・実体読取りのみ。許可tokenや子Processは生成しない。
  * @failure 不明実体・Link・Path差・旧Lock・観測例外は候補を発行せず停止する。
- * @invariant inspectRuntimeOwnedWindowsProviderHomeCandidateは宣言した境界以外へEffectを拡張しない。
+ * @invariant inspectWindowsProviderHomeCandidateは宣言した境界以外へEffectを拡張しない。
  * @boundary 上位確定HomeとNode Filesystem。SID・Token・厳密DACLの独立検証は行わない。
- * @security inspectRuntimeOwnedWindowsProviderHomeCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: inspectRuntimeOwnedWindowsProviderHomeCandidateは共有非同期状態を持たない同期処理である。
+ * @security inspectWindowsProviderHomeCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectWindowsProviderHomeCandidateは共有非同期状態を持たない同期処理である。
  */
-export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
-  provider: unknown,
-) {
+export function inspectWindowsProviderHomeCandidate(provider: unknown) {
   if (
     process.platform !== "win32" ||
     (provider !== "codex" && provider !== "claude")
@@ -1642,7 +1694,7 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
     return providerHomeWindowsAdapterBlocked(
       "provider_home_node_input_invalid",
     );
-  const source = runtimeOwnedProviderHomeMountSourceCandidate(provider);
+  const source = providerHomeMountSourceCandidate(provider);
   if (!source)
     return providerHomeWindowsAdapterBlocked(
       "provider_home_location_unavailable",
@@ -1725,7 +1777,7 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
     return Object.freeze({
       ...observation,
       status: "candidate" as const,
-      reason: "runtime_owned_node_provider_home_observed_candidate",
+      reason: "node_provider_home_observed_candidate",
       executionSourceKind: "node_filesystem",
       processEffectIssued: false,
       manualRecoveryRequired: false,
@@ -2055,7 +2107,6 @@ export function getCapabilities() {
       "openTaskSession",
       "submitDecision",
       "acceptResult",
-      "executeWorkspace",
       "queryState",
       "queryActivity",
       "readRepositoryNetworkHosts",
@@ -2827,9 +2878,7 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
   const isIsolationActive = normalizedOptions.activeIsolation;
   const cwd = normalizedOptions.cwd;
   const repositoryLocation = getRepositoryFromWorkingDirectory(cwd);
-  let operation: ReturnType<
-    typeof createRuntimeOwnedCoordinatorOperation
-  > | null = null;
+  let operation: ReturnType<typeof createCoordinatorOperation> | null = null;
   if (isIsolationActive) {
     try {
       if (repositoryLocation.status !== "completed")
@@ -2837,7 +2886,7 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
       const repository = repositoryLocation.capability;
       const root = resolveVerifiedRepositoryRoot(repository);
       if (!root) throw Error("repository_identity_unavailable");
-      operation = createRuntimeOwnedCoordinatorOperation({
+      operation = createCoordinatorOperation({
         root: repository,
         purpose: "isolation_probe",
         recordingCurrent: () =>
@@ -3519,6 +3568,9 @@ export async function recoverDockerIsolationProbe(
   repository: Repository,
   recordingCurrent: () => boolean,
   signal?: AbortSignal,
+  recoveryRepository?: NonNullable<
+    ReturnType<typeof borrowCoordinatorRecoveryRepository>
+  >,
 ) {
   let generation: object | null = null;
   let result: Readonly<{
@@ -3538,6 +3590,8 @@ export async function recoverDockerIsolationProbe(
       repository,
       recoveryId,
       recordingCurrent,
+      undefined,
+      recoveryRepository,
     );
     if (!generation)
       throw Error("docker_recovery_host_generation_active_or_unknown");
@@ -4219,11 +4273,13 @@ export function finishProviderExecutionRecordings(
  * @security DockerRestartPreparationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility DockerRestartPreparationの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
+type RecoveryRepository = NonNullable<
+  ReturnType<typeof borrowCoordinatorRecoveryRepository>
+>;
+
 type DockerRestartPreparation = Readonly<{
   kind: "restart";
-  repository: NonNullable<
-    ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-  > & { operationId: string };
+  repository: RecoveryRepository & { operationId: string };
   rootCapability: unknown;
   recoveryId: string;
   requestId: string;
@@ -4250,7 +4306,7 @@ type DockerRestartPreparation = Readonly<{
  * @trace ARCH-000008
  * @shape 回復種別、固定結合、Host marker、取得済み排他と保存失効状態。
  * @invariant 元management、署名Root、旧Journalを復元しない。
- * @boundary 現在状態Readerと既存Host／Home／Runtime排他。
+ * @boundary 現在状態Readerと既存Host／Home排他。
  * @security 保存値だけでOwnerを生成せず、公開Rootへ内部値を出さない。
  * @compatibility 最新Schemaだけを扱う。
  */
@@ -4347,22 +4403,23 @@ function assertCurrentRecoveryOwner(
 
 /**
  * 現在Repositoryのexact操作に限定したfresh回収Ownerを取得する。
- * @responsibility 現在本文と既存Host世代・Home・Runtime排他を共同保持する。
+ * @responsibility 現在本文と既存Host世代・Home排他を共同保持する。
  * @trace ARCH-000008
  * @input token: 現在Taskのexact回復参照、rootCapability: 検証済みRepository。
  * @returns 短命な回収準備、または元参照・一次拒否と回収確認を持つblocked。
  * @precondition 現在Schemaを使い、旧Ownerの排他が終了している。
  * @postcondition 取得成功をDocker不存在・Host清掃・Lease解放へ昇格しない。
- * @effect 現在state／marker読取りと既存三種排他の取得だけ。
+ * @effect 現在state／markerの読取りと、対象のHost操作・Provider Homeの排他取得だけ。
  * @failure 対象欠落、現在値不明、競合、marker差、排他欠測を固定拒否する。
  * @invariant raw Host Lockを二重取得せず、旧AppData・署名・Journalへfallbackしない。
- * @boundary 現在Readerと既存Host／Home／Runtimeの保持境界。
+ * @boundary 現在状態のReaderと、対象のHost操作・Provider Homeの保持境界。
  * @security Root Readerや保存JSONだけから書込みOwnerを生成しない。
  * @concurrency 決定順取得、全元版再照合、部分失敗時の全逆順解放を行う。
  */
-export function prepareRuntimeOwnedDockerTaskRecovery(
+export function prepareDockerTaskRecovery(
   token: unknown,
   rootCapability: unknown,
+  confirmed?: string | RecoveryRepository,
 ) {
   const parsed = parseDockerTaskRecoveryId(token);
   const locks: Array<{ assertLive: () => boolean; release: () => boolean }> =
@@ -4376,10 +4433,16 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
       throw new Error(reason);
     }
     const repository =
-      borrowRuntimeOwnedCoordinatorRecoveryRepository(rootCapability);
-    let initial = readState(rootCapability, { scope: "recovery" });
+      typeof confirmed === "object"
+        ? confirmed.root === rootCapability
+          ? confirmed
+          : null
+        : borrowCoordinatorRecoveryRepository(rootCapability, confirmed);
+    let initial = readState(recoveryStorageInput(repository), {
+      scope: "recovery",
+    });
     if (initial.status !== "completed" && initial.lockReleased)
-      initial = readState(rootCapability, {
+      initial = readState(recoveryStorageInput(repository), {
         scope: "recovery",
         input: {
           kind: "resource_publication",
@@ -4395,23 +4458,35 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
           item.outcome?.cleanupConfirmed === true,
       ) === true;
     if (savedTerminal)
-      initial = readState(historyRepositoryInput(rootCapability), {
-        scope: "recovery",
-        input: {
-          kind: "execution_history",
-          recoveryId: parsed.token,
+      initial = readState(
+        recoveryStorageInput(
+          repository,
+          historyRepositoryInput(rootCapability, repository?.repositoryRoot),
+        ),
+        {
+          scope: "recovery",
+          input: {
+            kind: "execution_history",
+            recoveryId: parsed.token,
+          },
         },
-      });
+      );
     if (initial.status !== "completed" && initial.lockReleased)
-      initial = readState(historyRepositoryInput(rootCapability), {
-        scope: "recovery",
-        input: {
-          kind: "execution_history",
-          recoveryId: parsed.token,
+      initial = readState(
+        recoveryStorageInput(
+          repository,
+          historyRepositoryInput(rootCapability, repository?.repositoryRoot),
+        ),
+        {
+          scope: "recovery",
+          input: {
+            kind: "execution_history",
+            recoveryId: parsed.token,
+          },
         },
-      });
+      );
     if (initial.status !== "completed" && initial.lockReleased)
-      initial = readState(rootCapability, {
+      initial = readState(recoveryStorageInput(repository), {
         scope: "recovery",
         input: {
           kind: "execution_completion",
@@ -4451,9 +4526,9 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
     const host = hosts.length === 1 ? hosts[0] : null;
     if (!host || host.purpose === "isolation_probe")
       throw Error("docker_task_recovery_host_binding_invalid");
-    const paths = resolveRepositoryExecutionDataPaths(repository.root);
-    if (!paths) throw Error("docker_task_recovery_host_binding_invalid");
-    const hostRoot = path.join(paths.operations, host.operationId);
+    const parent = resolveRecoveryHostRoot(repository);
+    if (!parent) throw Error("docker_task_recovery_host_binding_invalid");
+    const hostRoot = path.join(parent, host.operationId);
     acquisitionPending = true;
     const generation = acquireHostOperationRecoveryGeneration(
       repository.root,
@@ -4465,11 +4540,15 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
           ? {
               kind: "execution_history",
               recoveryId: parsed.token,
-              history: historyRepositoryInput(repository.root),
+              history: historyRepositoryInput(
+                repository.root,
+                repository.repositoryRoot,
+              ),
             }
           : initial.currentCompletionPublication
             ? { kind: "execution_completion", recoveryId: parsed.token }
             : undefined,
+      repository,
     );
     if (!generation) {
       reason = "docker_task_recovery_host_active_or_unknown";
@@ -4500,7 +4579,7 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
     );
     if (home.status !== "acquired") {
       cleanupConfirmed &&= home.cleanupConfirmed;
-      if (!home.descriptorClosed) poisonRuntimeProcessAfterCleanupUnknown();
+      if (!home.descriptorClosed) poisonExecutionProcessAfterCleanupUnknown();
       reason =
         home.reason === "lock_initialization_failed"
           ? "docker_task_recovery_home_lock_initialization_failed"
@@ -4508,20 +4587,9 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
       throw new Error(reason);
     }
     locks.push(home.lock);
-    const runtime = acquireExecutionStateLock(runtimeStateDirectoryCandidate());
-    if (runtime.status !== "acquired") {
-      cleanupConfirmed &&= runtime.cleanupConfirmed;
-      if (!runtime.descriptorClosed) poisonRuntimeProcessAfterCleanupUnknown();
-      reason =
-        runtime.reason === "lock_initialization_failed"
-          ? "docker_task_recovery_runtime_lock_initialization_failed"
-          : "docker_task_recovery_runtime_active_or_unknown";
-      throw new Error(reason);
-    }
-    locks.push(runtime.lock);
     acquisitionPending = false;
     let current = initial.resourcePublication
-      ? readState(rootCapability, {
+      ? readState(recoveryStorageInput(repository), {
           scope: "recovery",
           input: {
             kind: "resource_publication",
@@ -4529,22 +4597,33 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
           },
         })
       : initial.currentHistoryPublication
-        ? readState(historyRepositoryInput(rootCapability), {
-            scope: "recovery",
-            input: {
-              kind: "execution_history",
-              recoveryId: parsed.token,
+        ? readState(
+            recoveryStorageInput(
+              repository,
+              historyRepositoryInput(
+                rootCapability,
+                repository?.repositoryRoot,
+              ),
+            ),
+            {
+              scope: "recovery",
+              input: {
+                kind: "execution_history",
+                recoveryId: parsed.token,
+              },
             },
-          })
+          )
         : initial.currentCompletionPublication
-          ? readState(rootCapability, {
+          ? readState(recoveryStorageInput(repository), {
               scope: "recovery",
               input: {
                 kind: "execution_completion",
                 recoveryId: parsed.token,
               },
             })
-          : readState(rootCapability, { scope: "recovery" });
+          : readState(recoveryStorageInput(repository), {
+              scope: "recovery",
+            });
     cleanupConfirmed &&= current.lockReleased;
     let before = Buffer.from(initial.value.sourceText, "utf8");
     if (
@@ -4597,7 +4676,9 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
         reason = "docker_task_recovery_resource_publication_unconfirmed";
         throw new Error(reason);
       }
-      current = readState(rootCapability, { scope: "recovery" });
+      current = readState(recoveryStorageInput(repository), {
+        scope: "recovery",
+      });
       cleanupConfirmed &&= current.lockReleased;
       if (
         current.status !== "completed" ||
@@ -4670,7 +4751,7 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
 }
 
 /** 同じ回収Ownerと元版に結び付く技術評価だけを保存する。 @trace ARCH-000008 */
-export function persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
+export function persistDockerTaskRecoveryCheckpoint(
   capability: unknown,
   kind: "resource" | "cleanup" | "lifecycle",
   value: unknown,
@@ -4706,7 +4787,9 @@ export function persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
       !saved.lockReleased
     )
       return false;
-    const current = readState(record.rootCapability, { scope: "recovery" });
+    const current = readState(recoveryStorageInput(record.repository), {
+      scope: "recovery",
+    });
     if (!current.lockReleased) record.cleanupUnknown = true;
     if (
       current.status !== "completed" ||
@@ -4728,12 +4811,12 @@ export function persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
 }
 
 /**
- * 現在の三排他を保持する回収Ownerから旧実行Ownerの退役だけを保存する。
+ * 対象のHost操作とProvider Homeの排他を保持する回収Ownerから旧実行Ownerの退役だけを保存する。
  * @responsibility 既存の実行評価を保持し、新規要求不能の確定を資源清掃から分離する。
  * @trace ARCH-000008
  * @input capability: 同じProcessの私有回収準備。
  * @returns 元版照合と必要な保存・読戻しが成立した場合だけtrue。
- * @precondition 同Root・Host世代とHost／Home／Runtime排他を保持する。
+ * @precondition 同Root・Host世代とHost／Home排他を保持する。
  * @postcondition 既にdisabledなら書込み0。新規退役では他の評価と結果を変更しない。
  * @effect 既存stateのphaseとownerEffectだけを更新する。Docker／Host操作なし。
  * @failure 偽造・元版差・排他不明・後期状態・保存不明では後段を拒否する。
@@ -4742,9 +4825,7 @@ export function persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
  * @security 任意の候補値や外部の成功申告を受け取らない。
  * @concurrency fresh全文と実効排他を保存前後で照合する。
  */
-function retireRuntimeOwnedDockerTaskExecutionOwner(
-  capability: unknown,
-): boolean {
+function retireDockerTaskExecutionOwner(capability: unknown): boolean {
   if (!capability || typeof capability !== "object") return false;
   const record = dockerRecoveryPreparations.get(capability);
   if (
@@ -4761,24 +4842,35 @@ function retireRuntimeOwnedDockerTaskExecutionOwner(
     }
     let current =
       record.completionPending === true
-        ? readState(record.rootCapability, {
+        ? readState(recoveryStorageInput(record.repository), {
             scope: "recovery",
             input: {
               kind: "execution_completion",
               recoveryId: record.recoveryId,
             },
           })
-        : readState(record.rootCapability, { scope: "recovery" });
+        : readState(recoveryStorageInput(record.repository), {
+            scope: "recovery",
+          });
     if (
       current.status === "blocked" &&
       current.lockReleased === true &&
       record.completionPending === false &&
       record.hostCleanup === "absent"
     )
-      current = readState(historyRepositoryInput(record.rootCapability), {
-        scope: "recovery",
-        input: { kind: "execution_history", recoveryId: record.recoveryId },
-      });
+      current = readState(
+        recoveryStorageInput(
+          record.repository,
+          historyRepositoryInput(
+            record.rootCapability,
+            record.repository.repositoryRoot,
+          ),
+        ),
+        {
+          scope: "recovery",
+          input: { kind: "execution_history", recoveryId: record.recoveryId },
+        },
+      );
     if (!current.lockReleased) record.cleanupUnknown = true;
     if (
       current.status !== "completed" ||
@@ -4806,18 +4898,14 @@ function retireRuntimeOwnedDockerTaskExecutionOwner(
       record.persistenceFailed = true;
       return false;
     }
-    return persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
-      capability,
-      "lifecycle",
-      {
-        phase: "settling",
-        lease: operation.lease,
-        execution: { ...operation.execution, ownerEffect: "disabled" },
-        primaryFailure: operation.primaryFailure,
-        outcome: operation.outcome,
-        summarySha256: operation.summarySha256,
-      },
-    );
+    return persistDockerTaskRecoveryCheckpoint(capability, "lifecycle", {
+      phase: "settling",
+      lease: operation.lease,
+      execution: { ...operation.execution, ownerEffect: "disabled" },
+      primaryFailure: operation.primaryFailure,
+      outcome: operation.outcome,
+      summarySha256: operation.summarySha256,
+    });
   } catch {
     record.persistenceFailed = true;
     return false;
@@ -4839,7 +4927,7 @@ function retireRuntimeOwnedDockerTaskExecutionOwner(
  * @security 新しい実行許可や回復先を生成しない。
  * @concurrency 閉鎖を先に固定して全解放を試行する。
  */
-export function releaseRuntimeOwnedDockerTaskRecoveryPreparation(
+export function releaseDockerTaskRecoveryPreparation(
   capability: unknown,
 ): boolean {
   if (!capability || typeof capability !== "object") return false;
@@ -4875,9 +4963,7 @@ export function releaseRuntimeOwnedDockerTaskRecoveryPreparation(
  * @security Rootと保存JSONだけで終了保存Ownerを作らない。
  * @concurrency 試行前に一回性を固定し、保存中は元OwnerとRootを同期再確認する。
  */
-export function finalizeRuntimeOwnedDockerTaskRecoveryPreparation(
-  capability: unknown,
-) {
+export function finalizeDockerTaskRecoveryPreparation(capability: unknown) {
   const refused = Object.freeze({
     status: "blocked" as const,
     snapshotConfirmed: false,
@@ -4909,7 +4995,11 @@ export function finalizeRuntimeOwnedDockerTaskRecoveryPreparation(
       !operation.history.confirmed
         ? {
             ...record.repository,
-            ...withHistoryRetention(record.repository, record.rootCapability),
+            ...withHistoryRetention(
+              record.repository,
+              record.rootCapability,
+              record.repository.repositoryRoot,
+            ),
           }
         : record.repository;
     const saved = saveRecoveryCheckpoint(
@@ -4970,9 +5060,7 @@ export function finalizeRuntimeOwnedDockerTaskRecoveryPreparation(
  * @security 各Writer境界で同じRootとHost両不存在を再確認する。
  * @concurrency 保存段階はEMが所有し、呼出し後は借用Ownerを失効させる。
  */
-export function completeRuntimeOwnedDockerTaskRecoveryHistory(
-  capability: unknown,
-) {
+export function completeDockerTaskRecoveryHistory(capability: unknown) {
   const refused = Object.freeze({
     status: "blocked" as const,
     reason: "coordinator_state_owner_invalid",
@@ -5004,7 +5092,11 @@ export function completeRuntimeOwnedDockerTaskRecoveryHistory(
     const saved = saveRecoveryHistory(
       {
         ...record.repository,
-        ...withHistoryRetention(record.repository, record.rootCapability),
+        ...withHistoryRetention(
+          record.repository,
+          record.rootCapability,
+          record.repository.repositoryRoot,
+        ),
       },
       record.recoveryId,
       () => {
@@ -5116,10 +5208,11 @@ function projectResourceTarget(
  * @security Resolver結果は処置Authorityではなく、保存済み上位義務の照合入力である。
  * @concurrency Readerの全数観測・Root再確認・排他解放を共同条件とする。
  */
-export function resolveRuntimeOwnedDockerTaskCurrentCorrelations(
+export function resolveDockerTaskCurrentCorrelations(
   correlationIds: readonly string[],
   rootCapability: unknown,
-  consumer: "orchestrator" | "workbench" | "coordinator_cli" = "orchestrator",
+  consumer: "coordinator" | "workbench" | "coordinator_cli" = "coordinator",
+  confirmed?: string | RecoveryRepository,
 ) {
   let lockReleased = true;
   /**
@@ -5170,7 +5263,15 @@ export function resolveRuntimeOwnedDockerTaskCurrentCorrelations(
         return refused("docker_task_recovery_correlation_input_invalid");
       requested.push(descriptor.value);
     }
-    const observed = readState(rootCapability, { scope: "recovery" });
+    const repository =
+      typeof confirmed === "object"
+        ? confirmed.root === rootCapability
+          ? confirmed
+          : null
+        : borrowCoordinatorRecoveryRepository(rootCapability, confirmed);
+    const observed = readState(recoveryStorageInput(repository), {
+      scope: "recovery",
+    });
     lockReleased = observed.lockReleased;
     if (observed.status !== "completed" || !observed.value || !lockReleased)
       return refused("docker_task_recovery_correlation_current_unconfirmed");
@@ -5228,15 +5329,17 @@ export function resolveRuntimeOwnedDockerTaskCurrentCorrelations(
  * @security 実Writerの結果を使い、準備キーを外へ返さない。
  * @concurrency 同期技術回収完了後の取消で確認済み終了を巻き戻さない。
  */
-export async function recoverRuntimeOwnedDockerTaskForCurrentConsumer(
+export async function recoverDockerTaskForCurrentConsumer(
   token: unknown,
   rootCapability: unknown,
   signal?: AbortSignal,
+  confirmed?: string | RecoveryRepository,
 ) {
-  const technical = await recoverRuntimeOwnedDockerTaskFromCurrentRepository(
+  const technical = await recoverDockerTaskFromCurrentRepository(
     token,
     rootCapability,
     signal,
+    confirmed,
   );
   const report = {
     contract: "crdd-coordinator/current-task-recovery" as const,
@@ -5264,9 +5367,7 @@ export async function recoverRuntimeOwnedDockerTaskForCurrentConsumer(
   )
     return Object.freeze(report);
   try {
-    const completion = completeRuntimeOwnedDockerTaskRecovery(
-      technical.preparation,
-    );
+    const completion = completeDockerTaskRecovery(technical.preparation);
     if (
       completion.status === "completed" &&
       "operationRetained" in completion &&
@@ -5322,10 +5423,11 @@ export async function recoverRuntimeOwnedDockerTaskForCurrentConsumer(
  * @security 内部準備キーを公開reportへ展開せず、署名資格やCallerの成功値を使わない。
  * @concurrency 同期下位要求の終了後に取消を処理し、次段の新Effectを開始しない。
  */
-export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
+export async function recoverDockerTaskFromCurrentRepository(
   token: unknown,
   rootCapability: unknown,
   signal?: AbortSignal,
+  confirmed?: string | RecoveryRepository,
 ) {
   const parsed = parseDockerTaskRecoveryId(token);
   const base = Object.freeze({
@@ -5356,9 +5458,10 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
     });
   if (signal?.aborted)
     return Object.freeze({ ...base, reason: "docker_task_recovery_cancelled" });
-  const prepared = prepareRuntimeOwnedDockerTaskRecovery(
+  const prepared = prepareDockerTaskRecovery(
     parsed.token,
     rootCapability,
+    confirmed,
   );
   if (prepared.status !== "prepared")
     return Object.freeze({
@@ -5381,15 +5484,11 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
     await setImmediate();
     if (signal?.aborted) throw new Error("docker_task_recovery_cancelled");
     reason = "docker_task_recovery_owner_retirement_unconfirmed";
-    if (!retireRuntimeOwnedDockerTaskExecutionOwner(capability))
-      throw new Error(reason);
+    if (!retireDockerTaskExecutionOwner(capability)) throw new Error(reason);
     await setImmediate();
     if (signal?.aborted) throw new Error("docker_task_recovery_cancelled");
     if (record.hostCleanup === "present") {
-      const resources = await recoverRuntimeOwnedDockerTaskResources(
-        capability,
-        signal,
-      );
+      const resources = await recoverDockerTaskResources(capability, signal);
       reason = resources.reason;
       if (
         resources.status !== "completed" ||
@@ -5407,14 +5506,14 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
     await setImmediate();
     if (signal?.aborted) throw new Error("docker_task_recovery_cancelled");
     reason = "docker_task_recovery_host_cleanup_unconfirmed";
-    if (!cleanupRuntimeOwnedDockerTaskHost(capability)) throw Error(reason);
+    if (!cleanupDockerTaskHost(capability)) throw Error(reason);
     hostCleanupConfirmed = true;
     settled = true;
   } catch (error) {
     reason = safeRecoveryReason(error, "docker_task_recovery_failed_closed");
   } finally {
     try {
-      released = releaseRuntimeOwnedDockerTaskRecoveryPreparation(capability);
+      released = releaseDockerTaskRecoveryPreparation(capability);
     } catch {
       released = false;
     }
@@ -5451,8 +5550,7 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
         ...state,
         reason: "docker_task_recovery_cancelled",
       });
-    const terminal =
-      finalizeRuntimeOwnedDockerTaskRecoveryPreparation(capability);
+    const terminal = finalizeDockerTaskRecoveryPreparation(capability);
     if (
       terminal.status !== "completed" ||
       !terminal.snapshotConfirmed ||
@@ -5473,7 +5571,7 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
         reason: "docker_task_recovery_cancelled",
       });
     finalizationReason = "docker_task_recovery_history_unconfirmed";
-    const history = completeRuntimeOwnedDockerTaskRecoveryHistory(capability);
+    const history = completeDockerTaskRecoveryHistory(capability);
     historyConfirmed = history.historyConfirmed;
     if (
       history.status !== "completed" ||
@@ -5528,7 +5626,7 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
  * @security Root＋IDやCaller成功値だけから終了を許可しない。
  * @concurrency 試行前に一回性を固定し、各Writer確認でRoot・Host両不存在を再観測する。
  */
-export function completeRuntimeOwnedDockerTaskRecovery(capability: unknown) {
+export function completeDockerTaskRecovery(capability: unknown) {
   const refused = Object.freeze({
     status: "blocked" as const,
     reason: "docker_task_recovery_completion_unconfirmed",
@@ -5556,7 +5654,7 @@ export function completeRuntimeOwnedDockerTaskRecovery(capability: unknown) {
   let active = true;
   try {
     const saved = completeRecovery(
-      record.rootCapability,
+      recoveryStorageInput(record.repository),
       record.recoveryId,
       () => {
         if (
@@ -5624,7 +5722,7 @@ export function completeRuntimeOwnedDockerTaskRecovery(capability: unknown) {
  * @security Docker argv・期待値・config手順を組み立てない。
  * @concurrency 各通知とQueryで元版・現在Ownerをfresh確認する。
  */
-export async function recoverRuntimeOwnedDockerTaskResources(
+export async function recoverDockerTaskResources(
   capability: unknown,
   signal?: AbortSignal,
 ) {
@@ -5661,7 +5759,9 @@ export async function recoverRuntimeOwnedDockerTaskResources(
       record.persistenceFailed = true;
       throw Error("docker_task_recovery_owner_unconfirmed");
     }
-    const read = readState(record.rootCapability, { scope: "recovery" });
+    const read = readState(recoveryStorageInput(record.repository), {
+      scope: "recovery",
+    });
     if (!read.lockReleased) record.cleanupUnknown = true;
     if (
       read.status !== "completed" ||
@@ -5718,11 +5818,12 @@ export async function recoverRuntimeOwnedDockerTaskResources(
         const book = current().operation.resources;
         if (
           !book ||
-          !persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
-            capability,
-            "resource",
-            { event: "identified", key, snapshot, cleanup: book.cleanup },
-          )
+          !persistDockerTaskRecoveryCheckpoint(capability, "resource", {
+            event: "identified",
+            key,
+            snapshot,
+            cleanup: book.cleanup,
+          })
         )
           throw Error("docker_task_recovery_checkpoint_unconfirmed");
         current();
@@ -5733,11 +5834,10 @@ export async function recoverRuntimeOwnedDockerTaskResources(
           operationState.authenticationClosureAllowed;
         if (
           !requiresAuthenticationClosure &&
-          !persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
-            capability,
-            "cleanup",
-            { snapshot, observations },
-          )
+          !persistDockerTaskRecoveryCheckpoint(capability, "cleanup", {
+            snapshot,
+            observations,
+          })
         )
           throw Error("docker_task_recovery_checkpoint_unconfirmed");
         const closureState = current();
@@ -5805,7 +5905,9 @@ export async function recoverRuntimeOwnedDockerTaskResources(
           !saved.lockReleased
         )
           throw Error("docker_task_recovery_checkpoint_unconfirmed");
-        const read = readState(record.rootCapability, { scope: "recovery" });
+        const read = readState(recoveryStorageInput(record.repository), {
+          scope: "recovery",
+        });
         if (!read.lockReleased) record.cleanupUnknown = true;
         if (
           read.status !== "completed" ||
@@ -5884,9 +5986,7 @@ export async function recoverRuntimeOwnedDockerTaskResources(
 }
 
 /** 子の技術終結・元Lease解放を保存し、同じHost Ownerで実体を回収する。 @trace ARCH-000008 */
-export function cleanupRuntimeOwnedDockerTaskHost(
-  capability: unknown,
-): boolean {
+export function cleanupDockerTaskHost(capability: unknown): boolean {
   if (!isRecoveryCapability(capability)) return false;
   const record = dockerRecoveryPreparations.get(capability);
   if (
@@ -5899,7 +5999,7 @@ export function cleanupRuntimeOwnedDockerTaskHost(
   try {
     if (!assertCurrentRecoveryOwner(capability, record)) return false;
     const current = readState(
-      record.rootCapability,
+      recoveryStorageInput(record.repository),
       record.completionPending
         ? {
             scope: "recovery",
@@ -5966,18 +6066,14 @@ export function cleanupRuntimeOwnedDockerTaskHost(
     }
     if (
       operation.lease !== "released" &&
-      !persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
-        capability,
-        "lifecycle",
-        {
-          phase: "settling",
-          lease: "released",
-          execution: operation.execution,
-          primaryFailure: operation.primaryFailure,
-          outcome: operation.outcome,
-          summarySha256: operation.summarySha256,
-        },
-      )
+      !persistDockerTaskRecoveryCheckpoint(capability, "lifecycle", {
+        phase: "settling",
+        lease: "released",
+        execution: operation.execution,
+        primaryFailure: operation.primaryFailure,
+        outcome: operation.outcome,
+        summarySha256: operation.summarySha256,
+      })
     )
       return false;
     const recovered = recoverOwnedOperationDirectories(
@@ -5992,7 +6088,9 @@ export function cleanupRuntimeOwnedDockerTaskHost(
       return false;
     }
     record.hostCleanup = "absent";
-    const after = readState(record.rootCapability, { scope: "recovery" });
+    const after = readState(recoveryStorageInput(record.repository), {
+      scope: "recovery",
+    });
     if (!after.lockReleased) record.cleanupUnknown = true;
     if (
       after.status !== "completed" ||
@@ -6084,16 +6182,17 @@ function restartScopeIncludes(
  * @returns 固定要求IDと不透明な準備、または一次／解放失敗の分離結果。
  * @precondition 現在Repositoryと既存準備Ownerだけを使用する。
  * @postcondition 不明を成功・未発行・新しい処置許可へ変換しない。
- * @effect 既存Host／Home／Runtime排他の取得と現在状態の読取り。Docker要求なし。
+ * @effect 対象のHost／Home排他の取得と現在状態の読取り。Docker要求なし。
  * @failure 不一致・観測不能・失効では固定拒否する。
  * @invariant 旧AppData・署名・phase記録へfallbackしない。
  * @boundary Repository現在状態と取得済みHost／Home排他。
  * @security 保存値だけから処置Authorityを生成しない。
  * @concurrency 短期状態排他と保持中の実行排他を分ける。
  */
-export function prepareRuntimeOwnedDockerRestart(
+export function prepareDockerRestart(
   token: unknown,
   rootCapability: unknown,
+  confirmedDirectory?: string,
 ) {
   const parsed = parseDockerTaskRecoveryId(token);
   const locks: Array<
@@ -6102,9 +6201,13 @@ export function prepareRuntimeOwnedDockerRestart(
   let observationCleanupConfirmed = true;
   try {
     if (!parsed) throw new Error("docker_restart_id_invalid");
-    const repository =
-      borrowRuntimeOwnedCoordinatorRecoveryRepository(rootCapability);
-    const initial = readState(rootCapability, { scope: "recovery" });
+    const repository = borrowCoordinatorRecoveryRepository(
+      rootCapability,
+      confirmedDirectory,
+    );
+    const initial = readState(recoveryStorageInput(repository), {
+      scope: "recovery",
+    });
     observationCleanupConfirmed = initial.lockReleased;
     if (
       !repository ||
@@ -6160,11 +6263,15 @@ export function prepareRuntimeOwnedDockerRestart(
       )
       .digest("hex");
     for (const host of [...new Set(identities.map((i) => i.host))].sort()) {
-      const acquired = acquireHostOperationLock(repository.root, host);
+      const acquired = acquireHostOperationLock(
+        repository.root,
+        host,
+        repository.repositoryRoot,
+      );
       if (acquired.status !== "acquired") {
         observationCleanupConfirmed &&= acquired.cleanupConfirmed;
         if (!acquired.descriptorClosed)
-          poisonRuntimeProcessAfterCleanupUnknown();
+          poisonExecutionProcessAfterCleanupUnknown();
         throw Error("docker_restart_host_active_or_unknown");
       }
       locks.push(acquired.lock);
@@ -6178,7 +6285,7 @@ export function prepareRuntimeOwnedDockerRestart(
       );
       if (lock.status !== "acquired") {
         observationCleanupConfirmed &&= lock.cleanupConfirmed;
-        if (!lock.descriptorClosed) poisonRuntimeProcessAfterCleanupUnknown();
+        if (!lock.descriptorClosed) poisonExecutionProcessAfterCleanupUnknown();
         throw Error(
           lock.reason === "lock_initialization_failed"
             ? "docker_restart_home_lock_initialization_failed"
@@ -6187,18 +6294,7 @@ export function prepareRuntimeOwnedDockerRestart(
       }
       locks.push(lock.lock);
     }
-    const state = acquireExecutionStateLock(runtimeStateDirectoryCandidate());
-    if (state.status !== "acquired") {
-      observationCleanupConfirmed &&= state.cleanupConfirmed;
-      if (!state.descriptorClosed) poisonRuntimeProcessAfterCleanupUnknown();
-      throw Error(
-        state.reason === "lock_initialization_failed"
-          ? "docker_restart_state_lock_initialization_failed"
-          : "docker_restart_state_active_or_unknown",
-      );
-    }
-    locks.push(state.lock);
-    const current = readState(rootCapability, {
+    const current = readState(recoveryStorageInput(repository), {
       scope: "recovery",
       input: {
         kind: "restart_preparation",
@@ -6223,10 +6319,16 @@ export function prepareRuntimeOwnedDockerRestart(
     const capability = Object.freeze({});
     dockerRecoveryPreparations.set(capability, {
       kind: "restart",
-      repository: Object.freeze({
-        ...repository,
-        operationId: JSON.parse(target.identityJson).operationId,
-      }),
+      repository: Object.freeze(
+        Object.defineProperty(
+          {
+            ...repository,
+            operationId: JSON.parse(target.identityJson).operationId,
+          },
+          "root",
+          { value: repository.root },
+        ),
+      ),
       rootCapability,
       recoveryId: target.recoveryId,
       requestId,
@@ -6260,14 +6362,12 @@ export function prepareRuntimeOwnedDockerRestart(
   } catch (error) {
     const fixed = new Set([
       "docker_restart_home_lock_initialization_failed",
-      "docker_restart_state_lock_initialization_failed",
       "docker_restart_host_lock_initialization_failed",
       "docker_restart_id_invalid",
       "docker_restart_root_unverified",
       "docker_restart_scope_conflict",
       "docker_restart_host_active_or_unknown",
       "docker_restart_home_active_or_unknown",
-      "docker_restart_state_active_or_unknown",
       "docker_restart_boundary_changed",
     ]);
     const primaryFailure =
@@ -6312,9 +6412,7 @@ export function prepareRuntimeOwnedDockerRestart(
  * @security 保存値だけから処置Authorityを生成しない。
  * @concurrency 短期状態排他と保持中の実行排他を分ける。
  */
-export function verifyRuntimeOwnedDockerRestartPreparation(
-  capability: unknown,
-): boolean {
+export function verifyDockerRestartPreparation(capability: unknown): boolean {
   if (!capability || typeof capability !== "object") return false;
   const record = dockerRecoveryPreparations.get(capability);
   if (record?.kind !== "restart" || record.closed || record.persistenceFailed)
@@ -6325,7 +6423,9 @@ export function verifyRuntimeOwnedDockerRestartPreparation(
       !record.repository.revalidate()
     )
       return false;
-    const current = readState(record.rootCapability, { scope: "recovery" });
+    const current = readState(recoveryStorageInput(record.repository), {
+      scope: "recovery",
+    });
     if (!current.lockReleased) record.cleanupUnknown = true;
     return (
       current.status === "completed" &&
@@ -6353,11 +6453,11 @@ export function verifyRuntimeOwnedDockerRestartPreparation(
  * @security 保存値だけから処置Authorityを生成しない。
  * @concurrency 短期状態排他と保持中の実行排他を分ける。
  */
-export function persistRuntimeOwnedDockerRestartCheckpoint(
+export function persistDockerRestartCheckpoint(
   capability: unknown,
   checkpoint: RestartCheckpoint,
 ): boolean {
-  if (!verifyRuntimeOwnedDockerRestartPreparation(capability)) return false;
+  if (!verifyDockerRestartPreparation(capability)) return false;
   const record = dockerRecoveryPreparations.get(capability as object);
   if (
     record?.kind !== "restart" ||
@@ -6387,7 +6487,9 @@ export function persistRuntimeOwnedDockerRestartCheckpoint(
       !saved.lockReleased
     )
       return false;
-    const observed = readState(record.rootCapability, { scope: "recovery" });
+    const observed = readState(recoveryStorageInput(record.repository), {
+      scope: "recovery",
+    });
     if (!observed.lockReleased) record.cleanupUnknown = true;
     if (
       observed.status !== "completed" ||
@@ -6412,7 +6514,7 @@ export function persistRuntimeOwnedDockerRestartCheckpoint(
     record.before = Buffer.from(observed.value.sourceText, "utf8");
     record.checkpoint = operation.dockerRestart;
     record.persistenceFailed = false;
-    return verifyRuntimeOwnedDockerRestartPreparation(capability);
+    return verifyDockerRestartPreparation(capability);
   } catch {
     return false;
   }
@@ -6433,9 +6535,7 @@ export function persistRuntimeOwnedDockerRestartCheckpoint(
  * @security 保存値だけから処置Authorityを生成しない。
  * @concurrency 短期状態排他と保持中の実行排他を分ける。
  */
-export function releaseRuntimeOwnedDockerRestartPreparation(
-  capability: unknown,
-): boolean {
+export function releaseDockerRestartPreparation(capability: unknown): boolean {
   if (!capability || typeof capability !== "object") return false;
   const record = dockerRecoveryPreparations.get(capability);
   if (record?.kind !== "restart" || record.closed) return false;
@@ -6468,7 +6568,7 @@ export function releaseRuntimeOwnedDockerRestartPreparation(
  * @security closed Ownerは新処置・別対象更新のAuthorityを復活させない。
  * @concurrency 試行前に一回性を固定し、Writer内ではRoot実体だけを再確認する。
  */
-export function finalizeRuntimeOwnedDockerRestartPreparation(
+export function finalizeDockerRestartPreparation(
   capability: unknown,
   result: DockerEnvironmentResult<"restart">,
 ) {
@@ -6560,10 +6660,11 @@ export function finalizeRuntimeOwnedDockerRestartPreparation(
  * @security 生Session・Machine・argv・OS指定・保存Pathを下位へ渡さない。
  * @concurrency 同期の保存確認と通知だけを渡し、下位終端後に外側排他を解放する。
  */
-export async function restartRuntimeOwnedDockerForRecovery(
+export async function executeDockerRestartForRecovery(
   recoveryId: unknown,
   signal: AbortSignal,
   rootCapability: unknown,
+  confirmedDirectory?: string,
 ) {
   if (signal.aborted)
     return Object.freeze({
@@ -6577,9 +6678,10 @@ export async function restartRuntimeOwnedDockerForRecovery(
       restartCompleted: false,
       taskRecoveryCompleted: false,
     });
-  const preparation = prepareRuntimeOwnedDockerRestart(
+  const preparation = prepareDockerRestart(
     recoveryId,
     rootCapability,
+    confirmedDirectory,
   );
   if (preparation.status !== "prepared")
     return Object.freeze({
@@ -6618,8 +6720,8 @@ export async function restartRuntimeOwnedDockerForRecovery(
    */
   const save = (value: RestartCheckpoint) => {
     if (
-      !verifyRuntimeOwnedDockerRestartPreparation(context) ||
-      !persistRuntimeOwnedDockerRestartCheckpoint(context, value)
+      !verifyDockerRestartPreparation(context) ||
+      !persistDockerRestartCheckpoint(context, value)
     ) {
       failure = "docker_restart_record_unconfirmed";
       return false;
@@ -6639,8 +6741,7 @@ export async function restartRuntimeOwnedDockerForRecovery(
             requestId: preparation.requestId,
             signal,
             verifyBoundary: () =>
-              failure === null &&
-              verifyRuntimeOwnedDockerRestartPreparation(context),
+              failure === null && verifyDockerRestartPreparation(context),
             onRequesting: () => {
               if (!preparation.checkpointInitialized && !save(checkpoint))
                 throw new Error("docker_restart_record_unconfirmed");
@@ -6691,15 +6792,14 @@ export async function restartRuntimeOwnedDockerForRecovery(
     failure ??= "docker_restart_execution_unconfirmed";
   } finally {
     try {
-      lockCleanupConfirmed =
-        releaseRuntimeOwnedDockerRestartPreparation(context);
+      lockCleanupConfirmed = releaseDockerRestartPreparation(context);
     } catch {
       lockCleanupConfirmed = false;
     }
   }
   const finalized =
     result && checkpointInitialized
-      ? finalizeRuntimeOwnedDockerRestartPreparation(context, result)
+      ? finalizeDockerRestartPreparation(context, result)
       : null;
   if (
     finalized &&
@@ -6756,9 +6856,7 @@ export async function restartRuntimeOwnedDockerForRecovery(
  * @security Snapshot、内部ID、Home Hash、生Pathを返さない。
  * @concurrency Kernel解放確認後にだけavailableを返す。
  */
-export function inspectRuntimeOwnedDockerTaskAdmission(
-  repositoryRoot: unknown,
-) {
+export function inspectDockerTaskAdmission(repositoryRoot: unknown) {
   let lockReleased = false;
   try {
     const root = getRepository(repositoryRoot);
@@ -6768,7 +6866,23 @@ export function inspectRuntimeOwnedDockerTaskAdmission(
         reason: "coordinator_current_admission_unconfirmed" as const,
         lockReleased: true,
       });
-    const observed = readState(root.capability, {
+    // 通常Taskの受付は回復とは別契約。受付時の改訂照合を維持する。
+    const revision = readRepositoryRevision(root.capability);
+    const repository = borrowCoordinatorRecoveryRepository(root.capability);
+    const input =
+      revision?.objectFormat === "sha1" && repository
+        ? recoveryStorageInput({
+            ...repository,
+            root: repository.root,
+            revalidate: () =>
+              repository.revalidate() &&
+              isDeepStrictEqual(
+                readRepositoryRevision(root.capability),
+                revision,
+              ),
+          })
+        : null;
+    const observed = readState(input, {
       scope: "recovery",
       input: { kind: "admission" },
     });
@@ -6817,7 +6931,7 @@ const CREATE_PURPOSES = new Set([
  */
 type ProductionPlan = Readonly<{
   provider: "codex" | "claude";
-  consumer: "coordinator_cli" | "workbench" | "orchestrator";
+  consumer: "coordinator_cli" | "workbench" | "coordinator";
   operationId: string;
   recoveryCorrelationId?: string | null;
   executionSelection: ExecutionSelection;
@@ -6885,7 +6999,7 @@ const durableRecords = new WeakMap<object, DurableRecord>();
  * @failure 保存・Owner・元参照の不一致又は再結合はfalse。
  * @invariant 保存前・未開始ではControlを登録せず、元completionと結果を置換しない。
  */
-export function bindRuntimeOwnedExecutorAttempt(
+export function bindExecutorAttempt(
   capability: object,
   management: object,
   executor: Executor<"attempt">,
@@ -6931,7 +7045,7 @@ export function bindRuntimeOwnedExecutorAttempt(
  * @effect 成立時だけ同じExecutorのcancelを呼ぶ。
  * @invariant コピーControl・回復Capability・終端aliasを取消に使わない。
  */
-export async function cancelRuntimeOwnedExecutorAttempt(
+export async function cancelExecutorAttempt(
   control: unknown,
   management: unknown,
 ) {
@@ -6961,7 +7075,7 @@ export async function cancelRuntimeOwnedExecutorAttempt(
  * @effect 管理参照が一致する場合だけ同じExecutorのabandonを呼ぶ。
  * @invariant Home解放の結果をHost回収・保存完了の証明にしない。Control aliasは受け付けない。
  */
-function abandonRuntimeOwnedAttemptRecovery(
+function abandonAttemptRecovery(
   capability: unknown,
   management: unknown,
 ): boolean {
@@ -6975,7 +7089,7 @@ function abandonRuntimeOwnedAttemptRecovery(
     }) === true
   )
     return true;
-  return abandonRuntimeOwnedDockerRecovery(capability);
+  return abandonDockerRecovery(capability);
 }
 
 /**
@@ -7008,7 +7122,7 @@ function validProductionPlan(plan: ProductionPlan) {
       plan.providerImageDigest,
       plan.proxyImageDigest,
     ].every((value) => typeof value === "string") &&
-    ["workbench", "coordinator_cli", "orchestrator"].includes(plan.consumer) &&
+    ["workbench", "coordinator_cli", "coordinator"].includes(plan.consumer) &&
     (plan.provider === "codex" || plan.provider === "claude") &&
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
     inspectExecutionSelection(plan.executionSelection)?.provider ===
@@ -7041,7 +7155,7 @@ function validProductionPlan(plan: ProductionPlan) {
  * @security 保存値やCaller supplied成功booleanからAuthorityを発行しない。
  * @concurrency 保存は既存Writerの短期排他と元版照合を用いる。診断は同期発行し完了を待たず、例外・返却Promiseの拒否を捕捉する。
  */
-export function beginRuntimeOwnedDockerRecovery(
+export function beginDockerRecovery(
   plan: ProductionPlan,
   managementCapability: unknown,
   observeFailure?: (
@@ -7055,7 +7169,7 @@ export function beginRuntimeOwnedDockerRecovery(
     try {
       if (!validProductionPlan(plan)) return null;
       const nonce = randomBytes(32).toString("hex");
-      const identityJson = prepareRuntimeOwnedRepositoryDockerOperationIdentity(
+      const identityJson = prepareRepositoryDockerOperationIdentity(
         plan,
         managementCapability,
         nonce,
@@ -7063,9 +7177,7 @@ export function beginRuntimeOwnedDockerRecovery(
       );
       if (!identityJson) return null;
       stage = "provider_home";
-      const observation = inspectRuntimeOwnedWindowsProviderHomeCandidate(
-        plan.provider,
-      );
+      const observation = inspectWindowsProviderHomeCandidate(plan.provider);
       const home = observation.providerHome;
       if (
         observation.status !== "candidate" ||
@@ -7088,7 +7200,7 @@ export function beginRuntimeOwnedDockerRecovery(
         });
         if (
           current.value?.snapshot.operations.some((item) =>
-            item.kind === "runtime_repair"
+            item.kind === "docker_repair"
               ? item.phase !== "terminal"
               : item.kind === "docker_task" &&
                 JSON.parse(item.identityJson).stableLogicalHomeBindingHash ===
@@ -7220,7 +7332,7 @@ export function beginRuntimeOwnedDockerRecovery(
  * @security Host Pathは観測値であり、処置許可や公開情報ではない。
  * @concurrency Rootと操作Ownerを組立て後に再確認し、保存直前の検査はWriterが行う。
  */
-export function prepareRuntimeOwnedRepositoryDockerOperationIdentity(
+export function prepareRepositoryDockerOperationIdentity(
   plan: ProductionPlan,
   managementCapability: unknown,
   operationNonce: unknown,
@@ -7230,14 +7342,13 @@ export function prepareRuntimeOwnedRepositoryDockerOperationIdentity(
     if (
       !validProductionPlan(plan) ||
       typeof consumer !== "string" ||
-      !["workbench", "coordinator_cli", "orchestrator"].includes(consumer) ||
+      !["workbench", "coordinator_cli", "coordinator"].includes(consumer) ||
       consumer !== plan.consumer ||
       typeof operationNonce !== "string" ||
       !HEX64.test(operationNonce)
     )
       return null;
-    const repository =
-      borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
+    const repository = borrowCoordinatorStateRepository(managementCapability);
     if (!repository || repository.operationId !== plan.operationId) return null;
     const host = readOwnedHostOperation(managementCapability).record;
     if (
@@ -7320,7 +7431,7 @@ function durableRecord(capability: unknown, isRequireInitialized = true) {
  * @security 元Capabilityとのobject一致を処置入口で維持する。
  * @concurrency N/A: 同期照合と寿命保持のみ。
  */
-export function bindRuntimeOwnedDockerInitializationFailure(
+export function bindDockerInitializationFailure(
   capability: unknown,
   recoveryId: unknown,
   managementCapability: unknown,
@@ -7349,17 +7460,17 @@ export function bindRuntimeOwnedDockerInitializationFailure(
  * @responsibility Runtime 所有 Docker 回復 Bindingの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input recoveryCapability: unknown、recoveryId: unknown、managementCapability: unknown、stableLogicalHomeBindingHash: unknown
- * @returns verifyRuntimeOwnedDockerRecoveryBindingの計算結果を返す。
- * @precondition 「recoveryCapability: unknown、recoveryId: unknown、managementCapability: unknown、stableLogicalHomeBindingHash: unknown」がverifyRuntimeOwnedDockerRecoveryBindingの入力契約を満たす。
- * @postcondition verifyRuntimeOwnedDockerRecoveryBindingの責務を完了した結果だけを返す。
- * @effect N/A: verifyRuntimeOwnedDockerRecoveryBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: verifyRuntimeOwnedDockerRecoveryBindingは独自の失敗分岐を所有しない。
- * @invariant verifyRuntimeOwnedDockerRecoveryBindingは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: verifyRuntimeOwnedDockerRecoveryBindingはProcess内の同一Subsystemで完結する。
- * @security verifyRuntimeOwnedDockerRecoveryBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: verifyRuntimeOwnedDockerRecoveryBindingは共有非同期状態を持たない同期処理である。
+ * @returns verifyDockerRecoveryBindingの計算結果を返す。
+ * @precondition 「recoveryCapability: unknown、recoveryId: unknown、managementCapability: unknown、stableLogicalHomeBindingHash: unknown」がverifyDockerRecoveryBindingの入力契約を満たす。
+ * @postcondition verifyDockerRecoveryBindingの責務を完了した結果だけを返す。
+ * @effect N/A: verifyDockerRecoveryBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: verifyDockerRecoveryBindingは独自の失敗分岐を所有しない。
+ * @invariant verifyDockerRecoveryBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyDockerRecoveryBindingはProcess内の同一Subsystemで完結する。
+ * @security verifyDockerRecoveryBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyDockerRecoveryBindingは共有非同期状態を持たない同期処理である。
  */
-export function verifyRuntimeOwnedDockerRecoveryBinding(
+export function verifyDockerRecoveryBinding(
   recoveryCapability: unknown,
   recoveryId: unknown,
   managementCapability: unknown,
@@ -7391,7 +7502,7 @@ export function verifyRuntimeOwnedDockerRecoveryBinding(
  * @security 新しい実行・回復Authorityを発行しない。
  * @concurrency 既存Writerの短期排他と元版照合を使用する。
  */
-export function recordRuntimeOwnedUnstartedAttempt(
+export function recordUnstartedAttempt(
   capability: object,
   management: object,
   result: StartResult<"attempt"> & Readonly<{ status: "blocked" }>,
@@ -7474,9 +7585,7 @@ export function recordRuntimeOwnedUnstartedAttempt(
  * @responsibility 要求予定と実開始を混同せず、既存Writerだけを使う。
  * @trace ARCH-000008
  */
-export function recordRuntimeOwnedDockerProviderSubmission(
-  recoveryCapability: unknown,
-) {
+export function recordDockerProviderSubmission(recoveryCapability: unknown) {
   const record = durableRecord(recoveryCapability);
   if (!record) return false;
   const current = readState(operationStateInput(record.managementCapability), {
@@ -7594,7 +7703,7 @@ export function recordDockerResourceEvent(
  * @security 通知から起動・削除Authorityを発行しない。
  * @concurrency 同期callbackの寿命内だけ既存Writerを呼ぶ。
  */
-export function recordRuntimeOwnedDockerResourceNotIssued(
+export function recordDockerResourceNotIssued(
   recoveryCapability: unknown,
   purpose: unknown,
 ) {
@@ -7625,7 +7734,7 @@ export function recordRuntimeOwnedDockerResourceNotIssued(
  * @security 保存値やCaller supplied成功booleanからAuthorityを発行しない。
  * @concurrency 保存は既存Writerの短期排他と元版照合を用いる。
  */
-export function recordRuntimeOwnedDockerAbsence(
+export function recordDockerAbsence(
   recoveryCapability: unknown,
   observations: unknown,
 ) {
@@ -7664,7 +7773,7 @@ export function recordRuntimeOwnedDockerAbsence(
  * @responsibility exactの操作・資源・保存版を照合し、観測・保存例外は従来のblockedへ閉じる。
  * @trace ARCH-000008
  */
-export function completeRuntimeOwnedDockerRecovery(
+export function completeDockerRecovery(
   recoveryCapability: unknown,
   managementCapability: unknown,
   plan: ProductionPlan,
@@ -7795,7 +7904,7 @@ export function completeRuntimeOwnedDockerRecovery(
  * @security 解放事実から起動・清掃・回復Authorityを復元しない。
  * @concurrency N/A: 同期照合だけを行いLockや外部待機を追加しない。
  */
-export function verifyRuntimeOwnedDockerHomeLeaseRelease(
+export function verifyDockerHomeLeaseRelease(
   recoveryCapability: unknown,
   managementCapability: unknown,
   operationId: unknown,
@@ -7814,7 +7923,7 @@ export function verifyRuntimeOwnedDockerHomeLeaseRelease(
 }
 
 /** 同版の操作投影を元試行と照合し、Host清掃の前提を確認する。 @trace ARCH-000008 */
-export function canPrepareRuntimeOwnedDockerHostCleanup(
+export function canPrepareDockerHostCleanup(
   capability: unknown,
   state:
     | NonNullable<
@@ -7851,7 +7960,7 @@ export function canPrepareRuntimeOwnedDockerHostCleanup(
  * @security 本文をstate・history・公開DTO・ログへ複製しない。
  * @concurrency awaitを挟まない同じTask Ownerの同期処理。
  */
-export function registerRuntimeOwnedReviewFindings(
+export function registerReviewFindings(
   capability: object,
   result: CompletionResult<"attempt">,
 ) {
@@ -7904,7 +8013,7 @@ export function registerRuntimeOwnedReviewFindings(
  * @security 新しい実行Authorityを発行しない。
  * @concurrency 同じ試行の終了時に同期で結合する。
  */
-export function recordRuntimeOwnedDockerTerminalObservation(
+export function recordDockerTerminalObservation(
   capability: object,
   result: object,
   observation: RecordedAttemptObservation,
@@ -7949,7 +8058,7 @@ export function recordRuntimeOwnedDockerTerminalObservation(
  * @security 保存値やCaller supplied成功booleanからAuthorityを発行しない。
  * @concurrency 保存は既存Writerの短期排他と元版照合を用い、失敗後の入力差替えを拒否する。
  */
-export function finishRuntimeOwnedDockerRecovery(
+export function finishDockerRecovery(
   recoveryFinalizationCapability: unknown,
   rawCompletion: unknown,
 ) {
@@ -7998,7 +8107,7 @@ export function finishRuntimeOwnedDockerRecovery(
  * @failure 終了を確認できない引渡しは保持し、例外は解放を試みた後に伝播する。
  * @boundary 現在の管理参照と回復用に残るEM記録。廃棄・再送・回復確定は行わない。
  */
-export async function retainRuntimeOwnedHostOperation(
+export async function retainHostOperation(
   target: HostCompletionTarget,
 ): Promise<void> {
   const { managementCapability } = target;
@@ -8007,10 +8116,8 @@ export async function retainRuntimeOwnedHostOperation(
       if (handoff.state === "finalized" || handoff.state === "abandoned")
         continue;
       if (
-        abandonRuntimeOwnedAttemptRecovery(
-          handoff.capability,
-          managementCapability,
-        ) === true
+        abandonAttemptRecovery(handoff.capability, managementCapability) ===
+        true
       )
         handoff.state = "abandoned";
     }
@@ -8035,9 +8142,7 @@ export async function retainRuntimeOwnedHostOperation(
  * @security 進捗値や通知の成功をAuthorityとせず、任意Pathを受けない。
  * @concurrency 全Stageの準備後だけ清掃し、成功対象の退役後にI/Oへ返す。
  */
-export async function completeRuntimeOwnedHostOperation(
-  target: HostCompletionTarget,
-) {
+export async function completeHostOperation(target: HostCompletionTarget) {
   let hostCleanup: "completed" | "protocol_failure_cleanup_confirmed" | null =
     null;
   let recoveryId: string | null = null;
@@ -8127,7 +8232,7 @@ export async function completeRuntimeOwnedHostOperation(
         const record = durableRecord(handoff.capability);
         if (
           record?.operationId !== host.operationId ||
-          !canPrepareRuntimeOwnedDockerHostCleanup(
+          !canPrepareDockerHostCleanup(
             handoff.capability,
             states.get(handoff.recoveryId),
           )
@@ -8176,7 +8281,7 @@ export async function completeRuntimeOwnedHostOperation(
     for (const handoff of pending) {
       recoveryId = handoff.recoveryId;
       const outcome = durableRecord(handoff.capability)?.hostCleanupOutcome;
-      const finished = finishRuntimeOwnedDockerRecovery(
+      const finished = finishDockerRecovery(
         handoff.capability,
         Object.freeze({
           hostCleanupOutcome: outcome,
@@ -8205,17 +8310,17 @@ export async function completeRuntimeOwnedHostOperation(
  * @responsibility abandon Runtime 所有 Docker 回復の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input recoveryCapability: unknown
- * @returns abandonRuntimeOwnedDockerRecoveryの計算結果を返す。
- * @precondition 「recoveryCapability: unknown」がabandonRuntimeOwnedDockerRecoveryの入力契約を満たす。
- * @postcondition abandonRuntimeOwnedDockerRecoveryの責務を完了した結果だけを返す。
- * @effect N/A: abandonRuntimeOwnedDockerRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: abandonRuntimeOwnedDockerRecoveryは独自の失敗分岐を所有しない。
- * @invariant abandonRuntimeOwnedDockerRecoveryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: abandonRuntimeOwnedDockerRecoveryはProcess内の同一Subsystemで完結する。
- * @security abandonRuntimeOwnedDockerRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: abandonRuntimeOwnedDockerRecoveryは共有非同期状態を持たない同期処理である。
+ * @returns abandonDockerRecoveryの計算結果を返す。
+ * @precondition 「recoveryCapability: unknown」がabandonDockerRecoveryの入力契約を満たす。
+ * @postcondition abandonDockerRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: abandonDockerRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: abandonDockerRecoveryは独自の失敗分岐を所有しない。
+ * @invariant abandonDockerRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: abandonDockerRecoveryはProcess内の同一Subsystemで完結する。
+ * @security abandonDockerRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: abandonDockerRecoveryは共有非同期状態を持たない同期処理である。
  */
-export function abandonRuntimeOwnedDockerRecovery(recoveryCapability: unknown) {
+export function abandonDockerRecovery(recoveryCapability: unknown) {
   const record = durableRecord(recoveryCapability, false);
   if (!record) return false;
   return record.homeLeaseReleased;
@@ -8234,7 +8339,7 @@ export function abandonRuntimeOwnedDockerRecovery(recoveryCapability: unknown) {
  * @invariant Handleのrelease・Docker操作を呼ばない。
  * @boundary Executorの技術生涯とCoordinatorの保存・Task進行。
  */
-export function recordRuntimeOwnedAttemptCleanup(
+export function recordAttemptCleanup(
   input: AttemptCleanupInput & Readonly<{ plan: RecoveryPlan }>,
 ): ResourceCleanupResult {
   const {
@@ -8266,14 +8371,14 @@ export function recordRuntimeOwnedAttemptCleanup(
   }
   try {
     if (
-      recordRuntimeOwnedDockerAbsence(recoveryCapability, {
+      recordDockerAbsence(recoveryCapability, {
         snapshot: input.resourceSnapshot,
         observations,
       }) !== true
     )
       throw new Error("docker_absence_record_failed");
     if (homeLeaseReleased) {
-      const completion = completeRuntimeOwnedDockerRecovery(
+      const completion = completeDockerRecovery(
         recoveryCapability,
         managementCapability,
         plan,

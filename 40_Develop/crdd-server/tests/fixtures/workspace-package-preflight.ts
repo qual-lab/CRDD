@@ -29,11 +29,18 @@ await mock.module(coordinatorUrl.href, {
         },
       };
     },
+  },
+});
+const workspaceUrl = new URL("../../src/service/workspace.ts", import.meta.url);
+const workspace = await import(workspaceUrl.href);
+await mock.module(workspaceUrl.href, {
+  namedExports: {
+    ...workspace,
     executeWorkspace: (
-      ...args: Parameters<typeof coordinator.executeWorkspace>
+      ...args: Parameters<typeof workspace.executeWorkspace>
     ) => {
       workspaceCalls++;
-      return coordinator.executeWorkspace(...args);
+      return workspace.executeWorkspace(...args);
     },
   },
 });

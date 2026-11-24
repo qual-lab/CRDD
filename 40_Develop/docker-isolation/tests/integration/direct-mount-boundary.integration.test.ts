@@ -1,7 +1,7 @@
 /**
- * Direct／Isolated共通の固定Path書込み境界を合成物で確認する。
+ * Workspaceの固定Path保護とReviewer向けの読取り境界を合成物で確認する。
  * @packageDocumentation
- * @responsibility 実ID固定の二構成、Host前後観測、失敗時停止と自己生成物回収を所有する。
+ * @responsibility `.git`の二構成とWorkspaceの読書き／読取り専用を、同じHost前後観測と回収で検証する。
  * @trace ERB-IT-001
  * @trace ERB-IT-002
  * @level IT
@@ -31,7 +31,10 @@ const ROOT = path.join(
 const DOCKER = "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe";
 const LABEL = "org.crdd.workspace-write-probe";
 const RUN = randomUUID();
-const enabled = process.env.CRDD_WORKSPACE_WRITE_BOUNDARY_APPROVED === "1";
+const writeApproved =
+  process.env.CRDD_WORKSPACE_WRITE_BOUNDARY_APPROVED === "1";
+const reviewerApproved =
+  process.env.CRDD_WORKSPACE_REVIEWER_BOUNDARY_APPROVED === "1";
 const planned = [
   "dirty-input",
   "normal-write",
@@ -45,6 +48,19 @@ const planned = [
   "git-unlink-denied",
   "internal-unlink-denied",
 ];
+const plannedReviewer = [
+  "dirty-input",
+  "normal-write-denied",
+  "credential-content-hidden",
+  "git-content-hidden",
+  "internal-content-hidden",
+];
+const probeCases = [
+  { kind: "directory-case", pointer: false, reviewer: false },
+  { kind: "pointer-case", pointer: true, reviewer: false },
+  { kind: "reviewer-directory-case", pointer: false, reviewer: true },
+  { kind: "reviewer-pointer-case", pointer: true, reviewer: true },
+].filter(({ reviewer }) => (reviewer ? reviewerApproved : writeApproved));
 const unimplemented = [
   "secret-complete-hiding",
   "hardlink-alias-protection",
@@ -97,9 +113,29 @@ def denied(name, action):
 work = pathlib.Path('/work')
 source = work / 'source.txt'
 result('dirty-input', source.read_text() == 'synthetic-existing-dirty\n')
+git = work / '.git'
+if sys.argv[1] == 'reviewer':
+    denied('normal-write-denied', lambda: source.write_text('probe'))
+    credential = work / '.env'
+    credential_is_directory = sys.argv[2] == 'directory'
+    child_hidden = True
+    if credential_is_directory:
+        try:
+            (credential / 'credential.txt').read_bytes()
+        except FileNotFoundError:
+            pass
+        else:
+            child_hidden = False
+    result('credential-content-hidden',
+        (credential.is_dir() and child_hidden and list(credential.iterdir()) == [])
+        if credential_is_directory else
+        (credential.is_file() and credential.read_bytes() == b''))
+    result('git-content-hidden', list(git.iterdir()) == [] if git.is_dir() else git.read_bytes() == b'')
+    result('internal-content-hidden', list((work / '.crdd').iterdir()) == [])
+    print(json.dumps(rows), flush=True)
+    sys.exit(0)
 source.write_text('synthetic-direct-change\n')
 result('normal-write', source.read_text() == 'synthetic-direct-change\n')
-git = work / '.git'
 result('development-env-readable', (work / '.env').read_text() == 'synthetic-development-value\n')
 denied('git-existing-write-denied', lambda: (git / 'config').write_text('probe') if git.is_dir() else git.write_text('probe'))
 denied('git-write-denied', lambda: (git / 'new.txt').write_text('probe') if git.is_dir() else git.write_text('probe'))
@@ -411,7 +447,9 @@ test("試験Container構成差は回収を発行せず清掃失敗として保�
  * @cleanup 今回の実ID・元構成が一致する資源と専用Rootだけを回収。
  * @boundary 合成Filesystem。任意Repository・全別名経路・Providerの保証ではない。
  */
-test("Docker explicit: Workspace固定Path書込み境界", { skip: !enabled }, () => {
+test("Docker explicit: Workspace固定Path保護境界", {
+  skip: probeCases.length === 0,
+}, () => {
   assert.equal(process.platform, "win32");
   assert.equal(fs.realpathSync.native(REPOSITORY), "C:\\project\\CRDD");
   for (const ancestor of [path.join(REPOSITORY, ".crdd"), path.dirname(ROOT)]) {
@@ -449,7 +487,8 @@ test("Docker explicit: Workspace固定Path書込み境界", { skip: !enabled }, 
     const sentinel = path.join(ROOT, "sentinels", "git-management");
     fs.mkdirSync(path.dirname(sentinel));
     fs.writeFileSync(sentinel, "synthetic-outside-tree\n");
-    for (const kind of ["directory-case", "pointer-case"]) {
+    for (const { kind, pointer, reviewer } of probeCases) {
+      const expectedRows = reviewer ? plannedReviewer : planned;
       const tree = path.join(ROOT, kind);
       fs.mkdirSync(tree);
       fs.writeFileSync(
@@ -461,39 +500,40 @@ test("Docker explicit: Workspace固定Path書込み境界", { skip: !enabled }, 
         path.join(tree, ".crdd", "state.json"),
         "synthetic-state\n",
       );
-      fs.writeFileSync(
-        path.join(tree, ".env"),
-        "synthetic-development-value\n",
-      );
+      const credential = path.join(tree, ".env");
+      const credentialIsDirectory = reviewer && !pointer;
+      const credentialContent = credentialIsDirectory
+        ? path.join(credential, "credential.txt")
+        : credential;
+      if (credentialIsDirectory) fs.mkdirSync(credential);
+      fs.writeFileSync(credentialContent, "synthetic-development-value\n");
       const git = path.join(tree, ".git");
-      if (kind === "directory-case") {
+      if (!pointer) {
         fs.mkdirSync(git);
         fs.writeFileSync(path.join(git, "config"), "synthetic-git-private\n");
       } else fs.writeFileSync(git, "gitdir: ../sentinels/git-management\n");
-      const privateFile =
-        kind === "directory-case" ? path.join(git, "config") : git;
+      const privateFile = pointer ? git : path.join(git, "config");
+      const source = path.join(tree, "source.txt");
       const protectedPaths = [
         tree,
+        ...(reviewer ? [source] : []),
         git,
         privateFile,
         path.join(tree, ".crdd"),
         path.join(tree, ".crdd", "state.json"),
-        path.join(tree, ".env"),
+        credential,
+        ...(credentialIsDirectory ? [credentialContent] : []),
         masks,
         path.join(masks, "file"),
         path.join(masks, "directory"),
         sentinel,
       ];
       const before = protectedPaths.map(observe);
-      const source = path.join(tree, "source.txt");
       const name = `crdd-direct-mount-${RUN}-${kind}`;
       const mounts = [
-        { source: tree, target: "/work", readonly: false },
+        { source: tree, target: "/work", readonly: reviewer },
         {
-          source: path.join(
-            masks,
-            kind === "directory-case" ? "directory" : "file",
-          ),
+          source: path.join(masks, pointer ? "file" : "directory"),
           target: "/work/.git",
           readonly: true,
         },
@@ -502,6 +542,18 @@ test("Docker explicit: Workspace固定Path書込み境界", { skip: !enabled }, 
           target: "/work/.crdd",
           readonly: true,
         },
+        ...(reviewer
+          ? [
+              {
+                source: path.join(
+                  masks,
+                  credentialIsDirectory ? "directory" : "file",
+                ),
+                target: "/work/.env",
+                readonly: true,
+              },
+            ]
+          : []),
       ];
       const entry = {
         case: kind,
@@ -541,6 +593,8 @@ test("Docker explicit: Workspace固定Path書込み境界", { skip: !enabled }, 
             "-B",
             "-c",
             stimulus,
+            reviewer ? "reviewer" : "writer",
+            credentialIsDirectory ? "directory" : "file",
           ]);
           if (
             !created.error &&
@@ -567,13 +621,15 @@ test("Docker explicit: Workspace固定Path書込み境界", { skip: !enabled }, 
           assert.ok(Array.isArray(entry.rows));
           assert.deepEqual(
             entry.rows.map((row) => row.name),
-            planned,
+            expectedRows,
           );
           stage = "host-observation";
           assert.deepEqual(protectedPaths.map(observe), before);
           assert.equal(
             fs.readFileSync(source, "utf8"),
-            "synthetic-direct-change\n",
+            reviewer
+              ? "synthetic-existing-dirty\n"
+              : "synthetic-direct-change\n",
           );
           const ended = JSON.parse(checked(["inspect", id]))[0] as Container;
           stage = "protection-result";
@@ -638,7 +694,7 @@ test("Docker explicit: Workspace固定Path書込み境界", { skip: !enabled }, 
         () => stage,
       );
       Object.assign(entry, settlement);
-      for (const name of planned)
+      for (const name of expectedRows)
         if (!entry.rows.some((row) => row.name === name))
           entry.rows.push({
             name,
@@ -677,7 +733,8 @@ test("Docker explicit: Workspace固定Path書込み境界", { skip: !enabled }, 
         report,
         fixtureFailure,
         fixtureCleanupFailure,
-        remainingCases: ["directory-case", "pointer-case"]
+        remainingCases: probeCases
+          .map(({ kind }) => kind)
           .filter((kind) => !report.some((entry) => entry.case === kind))
           .map((kind) => ({
             case: kind,
@@ -691,7 +748,7 @@ test("Docker explicit: Workspace固定Path書込み境界", { skip: !enabled }, 
   }
   assert.equal(fixtureFailure, null);
   assert.equal(fixtureCleanupFailure, null);
-  assert.equal(report.length, 2, "second case not reached");
+  assert.equal(report.length, probeCases.length, "not all cases reached");
   for (const entry of report) {
     assert.equal(entry.primaryFailure, null);
     assert.equal(entry.cleanupFailure, null);

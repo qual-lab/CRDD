@@ -10,12 +10,12 @@
  */
 import type { Writable } from "node:stream";
 import {
+  hasValidSettlementFailure,
   inspectCandidateValidationFailureDiagnostic,
   inspectRecoveryStartFailureDiagnostic,
   inspectTaskStageDiagnostic,
 } from "../../../coordinator/tests/support/task-diagnostic.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../../../coordinator/src/lifecycle/validation.ts";
-import { isPrimaryFailureDiagnostic } from "../../../executor/tests/support/provider-diagnostic.ts";
 import { parseUnambiguousJsonDocument } from "../../src/transport/parse-json.ts";
 
 type Event = Extract<
@@ -166,7 +166,7 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
               "signal",
               "not_observed",
             ].includes(value.providerProcessExitStatusClass as string) ||
-            !isPrimaryFailureDiagnostic(value.primaryFailure)
+            !hasValidSettlementFailure(value)
           )
             throw new Error("boundary_shape");
           const event = Object.freeze({ ...value }) as BoundaryEvent;

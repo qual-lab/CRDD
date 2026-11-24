@@ -57,21 +57,85 @@ export function prepareWorkspaceRecordUpdate(
       intent.ownerGeneration === ownerGeneration &&
       intent.ownerProcessId === observations.processId,
   );
-  if (!queue || !owned) return blocked("orchestrator_workspace_lease_mismatch");
+  if (!queue || !owned) return blocked("coordinator_workspace_lease_mismatch");
+  return prepareWorkspaceUpdate(
+    current,
+    queue,
+    workspaceId,
+    expectedGeneration,
+    nextRecord,
+    () => observations.now(),
+  );
+}
+
+/** 長期Leaseを発行しない名前更新を、現在のQueue・世代と使用状態で判定する。 @trace ARCH-000004 */
+export function prepareWorkspaceRename(
+  current: Snapshot,
+  projectId: string,
+  queueId: string,
+  workspaceId: string,
+  expectedGeneration: number | undefined,
+  name: string | null,
+  resourcesAbsent: () => boolean,
+) {
+  const queue = current.queueEntries.find(
+    (entry) => entry.queueId === queueId && entry.projectId === projectId,
+  );
+  if (!queue) return blocked("coordinator_lease_binding_invalid");
+  if (current.leaseIntents.some((item) => item.kind === "project-operation"))
+    return blocked("coordinator_lease_unavailable");
+  if (!resourcesAbsent())
+    return blocked("coordinator_lease_preexisting_resource");
+  const previous = current.workspaces.find(
+    (entry) => entry.workspaceId === workspaceId,
+  );
+  if (
+    expectedGeneration !== undefined &&
+    expectedGeneration !== (previous?.generation ?? 0)
+  )
+    return blocked("coordinator_workspace_generation_conflict");
+  if (!previous) return blocked("coordinator_workspace_not_found");
+  if (queue.workspaceId !== workspaceId)
+    return blocked("coordinator_workspace_target_mismatch");
+  if (previous.phase !== "ready" || !validWorkspaceDisplayName(name))
+    return blocked("coordinator_workspace_name_invalid");
+  return prepareWorkspaceUpdate(
+    current,
+    queue,
+    workspaceId,
+    previous.generation,
+    {
+      ...previous,
+      generation: previous.generation + 1,
+      name,
+    },
+  );
+}
+
+/** 正式操作が受け付けたWorkspace変更の共通不変条件を確認する。 @trace ARCH-000004 */
+function prepareWorkspaceUpdate(
+  current: Snapshot,
+  queue: Snapshot["queueEntries"][number],
+  workspaceId: string,
+  expectedGeneration: number,
+  nextRecord: WorkspaceRecord | null,
+  now?: () => number,
+) {
+  const { projectId, queueId } = queue;
   const previous = current.workspaces.find(
     (entry) => entry.workspaceId === workspaceId,
   );
   if ((previous?.generation ?? 0) !== expectedGeneration)
-    return blocked("orchestrator_workspace_generation_conflict");
+    return blocked("coordinator_workspace_generation_conflict");
   if (queue.workspaceId != null && queue.workspaceId !== workspaceId)
-    return blocked("orchestrator_workspace_target_mismatch");
+    return blocked("coordinator_workspace_target_mismatch");
   if (
     nextRecord &&
     (!validWorkspace(nextRecord) ||
       nextRecord.workspaceId !== workspaceId ||
       nextRecord.generation !== expectedGeneration + 1)
   )
-    return blocked("orchestrator_workspace_record_invalid");
+    return blocked("coordinator_workspace_record_invalid");
   // binding-wide操作Leaseを維持し、既存Task／回復参照から非使用を導く。
   const affectedProjects = new Set(
     current.queueEntries
@@ -106,7 +170,7 @@ export function prepareWorkspaceRecordUpdate(
             ),
         ),
       );
-  if (busy) return blocked("orchestrator_workspace_in_use_or_unresolved");
+  if (busy) return blocked("coordinator_workspace_in_use_or_unresolved");
   if (
     (nextRecord?.phase === "discarding" || nextRecord === null) &&
     current.queueEntries.some(
@@ -116,25 +180,26 @@ export function prepareWorkspaceRecordUpdate(
         !["completed", "cancelled"].includes(entry.state),
     )
   )
-    return blocked("orchestrator_workspace_other_queue_pending");
+    return blocked("coordinator_workspace_other_queue_pending");
   if (
     nextRecord?.phase === "discarding" &&
     previous?.holdUntil !== null &&
     previous?.holdUntil !== undefined
   )
-    return blocked("orchestrator_workspace_held");
+    return blocked("coordinator_workspace_held");
   if (
     nextRecord === null &&
-    (previous?.lastResult?.worktreeRemoved !== true ||
+    (!now ||
+      previous?.lastResult?.worktreeRemoved !== true ||
       previous.lastResult.branchRemoved !== true ||
       previous.lastResult.workspaceDirectoryRetained !== false)
   )
-    return blocked("orchestrator_workspace_disposal_unconfirmed");
+    return blocked("coordinator_workspace_disposal_unconfirmed");
   const workspaces = current.workspaces.filter(
     (entry) => entry.workspaceId !== workspaceId,
   );
   if (nextRecord) workspaces.push(nextRecord);
-  return completed("orchestrator_workspace_record_saved", {
+  return completed("coordinator_workspace_record_saved", {
     next: {
       ...current,
       workspaces,
@@ -153,18 +218,18 @@ export function prepareWorkspaceRecordUpdate(
           : entry,
       ),
       historyPending:
-        nextRecord === null
+        nextRecord === null && now
           ? [
               ...current.historyPending,
               historyRow(
                 {
                   id: `workspace-${workspaceId}`,
-                  occurredAt: new Date(observations.now()).toISOString(),
+                  occurredAt: new Date(now()).toISOString(),
                   outcome: "cancelled",
                   primaryFailure: previous?.primaryFailure ? "cleanup" : null,
                   cleanup: "confirmed",
                 },
-                observations.now(),
+                now(),
               ),
             ]
           : current.historyPending,
@@ -252,7 +317,7 @@ export function prepareIntegrationRecordCreation(
     contentHash: hashStateText(encodeStateValue(record.value)),
     value: record.value,
   };
-  if (!validResultRecord(value)) return blocked("orchestrator_result_invalid");
+  if (!validResultRecord(value)) return blocked("coordinator_result_invalid");
   const queue = current.queueEntries.find(
     (item) => item.queueId === binding.queueId,
   );
@@ -263,7 +328,7 @@ export function prepareIntegrationRecordCreation(
       (queue.projectId !== binding.projectId ||
         queue.milestoneId !== binding.milestoneId))
   )
-    return blocked("orchestrator_result_binding_invalid");
+    return blocked("coordinator_result_binding_invalid");
   const old = current.results.find(
     (item) =>
       item.kind === value.kind &&
@@ -271,8 +336,8 @@ export function prepareIntegrationRecordCreation(
       item.identity === value.identity,
   );
   if (old && encodeStateValue(old) !== encodeStateValue(value))
-    return blocked("orchestrator_result_identity_conflict");
-  return completed("orchestrator_result_durable", {
+    return blocked("coordinator_result_identity_conflict");
+  return completed("coordinator_result_durable", {
     next: old ? null : { ...current, results: [...current.results, value] },
     value: { written: true as const },
   });
@@ -655,7 +720,7 @@ export function validCandidateRecord(
 }
 
 export const EXECUTION_INTEGRATION_CONTRACT =
-  "crdd-coordinator/orchestrator-integration/v1" as const;
+  "crdd-coordinator/integration/v1" as const;
 
 export const INTEGRATION_RECORD_IDENTITY =
   /^[A-Za-z0-9][A-Za-z0-9._-]{0,511}$/u;
@@ -819,8 +884,7 @@ export function adoptionWasRejected(record: ResultRecord): boolean {
       "cleanupConfirmed",
     ]) &&
     record.value.status === "rejected" &&
-    record.value.reason ===
-      "orchestrator_adoption_revision_or_scope_mismatch" &&
+    record.value.reason === "coordinator_adoption_revision_or_scope_mismatch" &&
     record.value.ownerGeneration === record.identity &&
     record.value.effectIssued === false &&
     record.value.cleanupConfirmed === true

@@ -25,10 +25,10 @@ import { readProjectViewData, startWorkbench } from "../../../src/app.ts";
 import type { AiRequestSnapshot, AiRequests } from "../../../src/app.ts";
 import {
   assessVerificationDockerInventory,
-  createWorkbenchAiVerificationHttpClient,
   observeVerificationDockerInventory,
   projectVerificationTransportFailure,
 } from "../../support/ai-verification-http.ts";
+import { createWorkbenchAiVerificationHttpClient } from "../../support/workbench-ai-client.ts";
 import { createReadonlyVerificationTiming } from "../../support/readonly-request-timing.ts";
 
 /**
@@ -76,10 +76,7 @@ async function main() {
     )
   )
     throw new Error("docker_preflight_unconfirmed");
-  const selection = readRepositoryAiSelection(
-    verified.capability,
-    getModelCatalog().catalog,
-  );
+  const selection = readRepositoryAiSelection(root, getModelCatalog().catalog);
   if (selection.status !== "available")
     throw new Error("ai_selection_not_configured");
   const configHash = selection.snapshot.identity;
@@ -90,8 +87,8 @@ async function main() {
   };
   const permitted = () =>
     hash(JSON.stringify(canonical())) === hash(JSON.stringify(before)) &&
-    readRepositoryAiSelection(verified.capability, getModelCatalog().catalog)
-      .snapshot?.identity === configHash;
+    readRepositoryAiSelection(root, getModelCatalog().catalog).snapshot
+      ?.identity === configHash;
   const surface = await readProjectViewData(root);
   const gitUser = readGitUser(verified.capability);
   const principalId =

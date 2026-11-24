@@ -1,5 +1,5 @@
 /**
- * WorkbenchのRuntimeActivityを描画する。
+ * WorkbenchのExecutionActivityを描画する。
  * @packageDocumentation
  * @responsibility 検査済み表示値と既存の操作境界を使い、当該画面・部品を構成する。
  * @trace ARCH-000012
@@ -25,7 +25,7 @@ import type { MainViewResponse } from "../api/response.ts";
  * @security Host Path、Credential、生Provider出力を表示しない。
  * @concurrency Serverが確定したSnapshot順序を保つ。
  */
-export function RuntimeActivity({
+export function ExecutionActivity({
   model,
 }: {
   model: MainViewResponse;

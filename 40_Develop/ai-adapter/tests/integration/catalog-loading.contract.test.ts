@@ -9,6 +9,7 @@
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { realpathSync } from "node:fs";
 import {
   copyFile,
   mkdir,
@@ -20,10 +21,19 @@ import {
 import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-
-const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
-  import.meta.dirname,
+const repositoryRoot = realpathSync.native(
+  path.resolve(import.meta.dirname, "../../../.."),
+);
+const checkout = spawnSync("git", ["rev-parse", "--show-toplevel"], {
+  cwd: repositoryRoot,
+  encoding: "utf8",
+  windowsHide: true,
+  timeout: 15000,
+});
+assert.equal(checkout.status, 0, checkout.stderr);
+assert.equal(
+  realpathSync.native(path.resolve(checkout.stdout.trim())),
+  repositoryRoot,
 );
 
 /**

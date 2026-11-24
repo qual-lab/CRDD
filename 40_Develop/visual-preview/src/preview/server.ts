@@ -1,7 +1,7 @@
 /**
  * UI成果物をlocalhostへ読取り専用で配信する。
  *
- * @responsibility Repository内の許可Root、HTTP Method、通常FileおよびListener資源の境界を所有する。
+ * @responsibility 呼出し側が指定する配信Root、HTTP Method、通常FileおよびListener資源の境界を所有する。
  * @trace ARCH-000003
  */
 import { createReadStream, lstatSync, realpathSync } from "node:fs";
@@ -9,8 +9,6 @@ import { lstat, realpath } from "node:fs/promises";
 import { createServer, type ServerResponse } from "node:http";
 import type { Socket } from "node:net";
 import path from "node:path";
-
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 
 const HOST = "127.0.0.1" as const;
 const HEALTH_PATH = "/.well-known/crdd-visual-preview-health" as const;
@@ -37,17 +35,16 @@ const contentTypes = new Map<string, string>([
 /**
  * Visual Previewの開始要求を定義する。
  *
- * @responsibility 作業Directory、公開対象のRepository相対Rootおよび任意Portを型境界として固定する。
+ * @responsibility 公開対象の絶対Directoryと任意Portを型境界として固定する。
  * @trace ARCH-000003
- * @shape workingDirectory、rootRelativePathおよびportで構成する。
+ * @shape rootDirectoryおよびportで構成する。
  * @invariant hostは入力に含めず、実装が127.0.0.1へ固定する。
  * @boundary CLI・検証ConsumerからVisual Previewへの入力境界。
- * @security rootRelativePathをAuthorityとせず、Repository Rootとの包含を開始時に再検証する。
+ * @security 指定Directoryの実体と、配信するFileがその配下に留まることを検証する。
  * @compatibility port省略または0はOSが割り当てる一時Portを意味する。
  */
 export type VisualPreviewRequest = Readonly<{
-  workingDirectory: string;
-  rootRelativePath: string;
+  rootDirectory: string;
   port?: number;
 }>;
 
@@ -251,40 +248,38 @@ async function segmentsAreRegularPath(
 }
 
 /**
- * Repository内のVisual Preview Rootを検証する。
+ * 呼出し側が指定したVisual Preview Rootを検証する。
  *
- * @responsibility Repository相対Rootを実Directoryへ解決し、越境・Link・非Directoryを拒否する。
+ * @responsibility 指定RootがLinkを経由しない実Directoryであることを確認する。
  * @trace ARCH-000003
- * @input workingDirectoryとrootRelativePathを受け取る。
+ * @input rootDirectory: 呼出し側が指定した絶対Directory。
  * @returns 検証済み公開RootのAbsolute Pathを返す。
- * @precondition workingDirectoryはRepository内、rootRelativePathは利用者指定値である。
- * @postcondition Repository内のLinkでない実Directoryだけを返す。
- * @effect FilesystemとRepository Markerを読取る。
+ * @precondition 呼出し側が配信してよい範囲を決定する。
+ * @postcondition Linkでない実Directoryだけを返す。
+ * @effect Filesystemだけを読取る。
  * @failure 不正・観測不能・越境時は公開Listener開始前にErrorを投げる。
  * @invariant Root検証失敗時はNetwork Effect 0である。
- * @boundary Repository LocationとFilesystemの境界。
- * @security Absolute Path、Traversal、LinkおよびRepository外Rootを拒否する。
+ * @boundary 指定PathとFilesystemの境界。
+ * @security 相対Path、Link、非Directoryを拒否する。
  * @concurrency N/A: Listener開始前の同期検証である。
  */
-function resolvePreviewRoot(
-  workingDirectory: string,
-  rootRelativePath: string,
-): string {
+function resolvePreviewRoot(rootDirectory: string): string {
   if (
-    rootRelativePath.length === 0 ||
-    path.isAbsolute(rootRelativePath) ||
-    /[\u0000-\u001f\u007f]/u.test(rootRelativePath)
+    typeof rootDirectory !== "string" ||
+    !path.isAbsolute(rootDirectory) ||
+    /[\u0000-\u001f\u007f]/u.test(rootDirectory)
   )
     throw new Error("visual_preview_root_invalid");
-  const repositoryRoot =
-    resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
-  const candidate = path.resolve(repositoryRoot, rootRelativePath);
-  if (!pathInside(repositoryRoot, candidate))
-    throw new Error("visual_preview_root_outside_repository");
-  const metadata = lstatSync(candidate);
-  if (!metadata.isDirectory() || metadata.isSymbolicLink())
+  const candidate = path.resolve(rootDirectory);
+  let actual: string;
+  try {
+    const metadata = lstatSync(candidate);
+    if (!metadata.isDirectory() || metadata.isSymbolicLink())
+      throw new Error("visual_preview_root_invalid");
+    actual = realpathSync.native(candidate);
+  } catch {
     throw new Error("visual_preview_root_invalid");
-  const actual = realpathSync.native(candidate);
+  }
   if (!samePath(actual, candidate))
     throw new Error("visual_preview_root_link_forbidden");
   return actual;
@@ -295,14 +290,14 @@ function resolvePreviewRoot(
  *
  * @responsibility 検証済みRootだけを127.0.0.1へ公開し、要求処理とListener終了を所有する。
  * @trace ARCH-000003
- * @input requestに作業Directory、Repository相対Rootおよび任意Portを受け取る。
+ * @input requestに配信する絶対Directoryと任意Portを受け取る。
  * @returns 起動URLと終了操作を持つVisualPreviewHandleを返す。
- * @precondition rootRelativePathがRepository内のLinkでないDirectoryを指す。
+ * @precondition rootDirectoryが配信許可済みのLinkでないDirectoryを指す。
  * @postcondition 成功時はlocalhost Listenerが一つ存在し、close後は所有Connectionを含めて終了する。
  * @effect localhost Listenerを開始し、GET／HEADごとに通常Fileを読取る。
  * @failure Root不正、Bind失敗または観測不能時はErrorを返し、未所有資源を残さない。
  * @invariant 外部Bind、書込み、Directory一覧、Root越境およびLink追跡を行わない。
- * @boundary Node HTTP ListenerとRepository Filesystemの直接境界。
+ * @boundary Node HTTP Listenerと指定Directoryの直接境界。
  * @security hostは127.0.0.1固定であり、CORSやCredential受付を提供しない。
  * @concurrency 複数要求は独立処理し、closeが所有Connectionを終了する。
  */
@@ -312,10 +307,7 @@ export async function startVisualPreview(
   const port = request.port ?? 0;
   if (!Number.isInteger(port) || port < 0 || port > 65535)
     throw new Error("visual_preview_port_invalid");
-  const previewRoot = resolvePreviewRoot(
-    request.workingDirectory,
-    request.rootRelativePath,
-  );
+  const previewRoot = resolvePreviewRoot(request.rootDirectory);
   const connections = new Set<Socket>();
   const server = createServer(async (incoming, response) => {
     try {

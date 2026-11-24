@@ -30,7 +30,7 @@ import {
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-  verifyRuntimePersistenceRepository,
+  resolveExecutionStorageDirectory,
 } from "../../src/lifecycle/host.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
@@ -64,7 +64,7 @@ test("選択観測例外は実Storeの固定拒否と解放へ閉じる", (t) =>
     : null;
   let clockCalls = 0;
   const rejected = selectQueueEntry(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     "binding-a",
     () => {
       clockCalls++;
@@ -73,7 +73,7 @@ test("選択観測例外は実Storeの固定拒否と解放へ閉じる", (t) =>
   );
   assert.deepEqual(rejected, {
     status: "blocked",
-    reason: "orchestrator_snapshot_operation_invalid_or_unconfirmed",
+    reason: "coordinator_snapshot_operation_invalid_or_unconfirmed",
     value: null,
     manualRecoveryRequired: false,
     recoveryId: null,
@@ -83,11 +83,8 @@ test("選択観測例外は実Storeの固定拒否と解放へ閉じる", (t) =>
   if (historyBefore === null) assert.equal(fs.existsSync(historyFile), false);
   else assert.deepEqual(fs.readFileSync(historyFile), historyBefore);
   assert.equal(
-    readState(
-      verifyRuntimePersistenceRepository(root),
-      "binding-a",
-      "workspace",
-    ).status,
+    readState(resolveExecutionStorageDirectory(root), "binding-a", "workspace")
+      .status,
     "completed",
   );
   assert.deepEqual(fs.readFileSync(stateFile), before);
@@ -100,7 +97,7 @@ test("選択観測例外は実Storeの固定拒否と解放へ閉じる", (t) =>
     "completed",
   );
   const after = readState(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     "binding-a",
     "workspace",
   );
@@ -161,7 +158,7 @@ test("Workspace時計例外は実Storeの固定拒否と解放へ閉じる", (t)
       },
     };
 
-    const repository = verifyRuntimePersistenceRepository(root);
+    const repository = resolveExecutionStorageDirectory(root);
     const saved = saveWorkspaceRecord(
       repository,
       "binding-a",
@@ -205,7 +202,7 @@ test("Workspace時計例外は実Storeの固定拒否と解放へ閉じる", (t)
     );
     assert.deepEqual(rejected, {
       status: "blocked",
-      reason: "orchestrator_snapshot_operation_invalid_or_unconfirmed",
+      reason: "coordinator_snapshot_operation_invalid_or_unconfirmed",
       value: null,
       manualRecoveryRequired: false,
       recoveryId: null,
@@ -292,7 +289,7 @@ function fixture(t: test.TestContext) {
   if (created.status !== "completed") throw new Error("fixture_state_invalid");
   assert.equal(
     initializeExecutionStore(
-      verifyRuntimePersistenceRepository(root),
+      resolveExecutionStorageDirectory(root),
       "binding-a",
     ).status,
     "completed",
@@ -333,7 +330,7 @@ function fixture(t: test.TestContext) {
  */
 function integrationRecordInput(root: string, projectId = "project-a") {
   return [
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     "binding-a",
     {
       repositoryBindingId: "binding-a",
@@ -370,7 +367,7 @@ test("integration records are immutable and an identical retry is idempotent", (
   assert.equal(saveIntegrationRecord(...records, record).status, "completed");
   assert.deepEqual(fs.readFileSync(file), before);
   const observed = readState(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     "binding-a",
     "workspace",
   );
@@ -406,7 +403,7 @@ test("canonical candidate identity is preserved by the integration record", (t) 
   });
   assert.equal(result.status, "completed");
   const observed = readState(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     "binding-a",
     "workspace",
   );
@@ -443,10 +440,10 @@ test("an identity collision is blocked without replacing the first record", (t) 
     value: { afterRevision: "b".repeat(40) },
   });
   assert.equal(collision.status, "blocked");
-  assert.equal(collision.reason, "orchestrator_result_identity_conflict");
+  assert.equal(collision.reason, "coordinator_result_identity_conflict");
   assert.deepEqual(fs.readFileSync(target), original);
   const observed = readState(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     "binding-a",
     "workspace",
   );
@@ -482,7 +479,7 @@ test("invalid path identities fail before creating a record directory", (t) => {
     },
   );
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "orchestrator_result_invalid");
+  assert.equal(result.reason, "coordinator_result_invalid");
   assert.deepEqual(fs.readFileSync(file), before);
   assert.equal(fs.existsSync(outside), false);
 });
@@ -520,7 +517,7 @@ test("現行結果保存は未知欄・Hash・Queue結合破損を拒否して�
     fs.writeFileSync(file, `${canonicalJson(saved)}\n`);
     const before = fs.readFileSync(file);
     const observed = readState(
-      verifyRuntimePersistenceRepository(root),
+      resolveExecutionStorageDirectory(root),
       "binding-a",
       "workspace",
     );

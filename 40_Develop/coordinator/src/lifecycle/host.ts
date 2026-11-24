@@ -17,7 +17,8 @@ import {
 import type { StoreOptions } from "../../../execution-intelligence/src/index.ts";
 import {
   acquireLease,
-  type ExecutionStorageBlockedError,
+  ExecutionStorageBlockedError,
+  readExecutionStorageBinding,
   type LeaseKind,
   type ProjectQueueEntry,
   readLease,
@@ -40,20 +41,12 @@ import {
   getRepositoryFromWorkingDirectory,
   registerRepositoryLocalIgnore,
   resolveVerifiedRepositoryRoot,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
   type Repository,
   readRepositoryFormat,
+  readRepositoryLocation,
   readRepositoryRevision,
-  readRepositorySnapshot,
-  readRepositoryStorageIdentity,
-  readRepositoryEntries,
-  readWorkingChanges,
-  readFile,
-  readCommitFile,
-  createCommit,
-  createReference,
   removeReference,
-  readCommitDiff,
-  copyCommitFiles,
 } from "../../../version-control/src/index.ts";
 import type {
   CoordinatorLease,
@@ -72,6 +65,7 @@ import {
   snapshotPlainRecord,
   resolveRecoveryReference,
   containsRecognizedSecretMaterial,
+  containsRecognizedSecretPathSegment,
   snapshotJsonValue,
 } from "./validation.ts";
 import { isDeepStrictEqual, types } from "node:util";
@@ -168,29 +162,25 @@ export function updateCoordinatorQueue(
  * @concurrency 既存operation LeaseとSnapshot短期排他。
  */
 export function updateCoordinatorSingleTask(
-  workingDirectory: string,
+  repositoryRoot: string,
   binding: string,
   queueId: string,
   expectedGeneration: number,
   lease: CoordinatorLease,
   raw: unknown,
 ) {
-  return updateQueue(
-    verifyRuntimePersistenceRepository(workingDirectory),
-    binding,
-    {
-      kind: "single",
-      input: [
-        queueId,
-        expectedGeneration,
-        raw,
-        {
-          ...writerLeaseAccess(() => lease),
-          now: () => Date.now(),
-        },
-      ],
-    },
-  );
+  return updateQueue({ directory: repositoryRoot }, binding, {
+    kind: "single",
+    input: [
+      queueId,
+      expectedGeneration,
+      raw,
+      {
+        ...writerLeaseAccess(() => lease),
+        now: () => Date.now(),
+      },
+    ],
+  });
 }
 
 /** 解放・回復の成功値を、返却時点で固定する。 @trace ARCH-000004 */
@@ -237,33 +227,19 @@ export function acquireProviderHomeLock(
   });
 }
 
-/** 同じRuntime状態と回復処理を、Ownerが確定した既存RuntimeState内で排他する。 */
-export function acquireExecutionStateLock(directory: unknown): LockResult {
-  if (typeof directory !== "string")
-    return Object.freeze({
-      status: "blocked",
-      reason: "lock_input_invalid",
-      reference: null,
-      cleanupConfirmed: true,
-      descriptorClosed: true,
-    });
-  // RuntimeStateはRepositoryやHomeをまたいで共有される。同じ所在は同じLockで保護する。
-  const result = acquireLock({
-    directory,
-    name: "coordinator.docker-state.lock",
-    identity: "docker-state:shared",
-  });
-  return result;
-}
-
 /** 作成・回復は同じRepositoryと元操作IDで排他する。 @trace ARCH-000008 */
 export function acquireHostOperationLock(
   repository: Repository,
   operationId: unknown,
+  confirmedDirectory?: string,
 ): LockResult {
   const paths =
     typeof operationId === "string" && /^OP-[0-9]{6,}$/u.test(operationId)
-      ? resolveRepositoryExecutionDataPaths(repository)
+      ? confirmedDirectory === undefined
+        ? resolveRepositoryExecutionDataPaths(repository)
+        : resolveRepositoryExecutionDataPathsFromValidatedRoot(
+            confirmedDirectory,
+          )
       : null;
   if (!paths)
     return Object.freeze({
@@ -379,7 +355,7 @@ export function observeLeaseOwner(
   });
 }
 
-const runtimeProcessInstanceIdentity = randomUUID();
+const executionProcessInstanceIdentity = randomUUID();
 
 /**
  * Runtime Process Instance Identityを取得する。
@@ -387,22 +363,22 @@ const runtimeProcessInstanceIdentity = randomUUID();
  * @responsibility Runtime Process Instance Identityの参照条件、返却値、未検出結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
- * @returns getRuntimeProcessInstanceIdentityの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がgetRuntimeProcessInstanceIdentityの入力契約を満たす。
- * @postcondition getRuntimeProcessInstanceIdentityの責務を完了した結果だけを返す。
- * @effect N/A: getRuntimeProcessInstanceIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: getRuntimeProcessInstanceIdentityは独自の失敗分岐を所有しない。
- * @invariant getRuntimeProcessInstanceIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @returns getExecutionProcessInstanceIdentityの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がgetExecutionProcessInstanceIdentityの入力契約を満たす。
+ * @postcondition getExecutionProcessInstanceIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: getExecutionProcessInstanceIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: getExecutionProcessInstanceIdentityは独自の失敗分岐を所有しない。
+ * @invariant getExecutionProcessInstanceIdentityは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: getRuntimeProcessInstanceIdentityはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: getRuntimeProcessInstanceIdentityは共有非同期状態を持たない同期処理である。
+ * @security N/A: getExecutionProcessInstanceIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: getExecutionProcessInstanceIdentityは共有非同期状態を持たない同期処理である。
  */
-export function getRuntimeProcessInstanceIdentity() {
-  return runtimeProcessInstanceIdentity;
+export function getExecutionProcessInstanceIdentity() {
+  return executionProcessInstanceIdentity;
 }
 
 const RUNTIME_PROCESS_RECOVERY_ID =
-  /^runtime-process\.([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.restart-([0-9a-f]{40})$/u;
+  /^execution-process\.([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.restart-([0-9a-f]{40})$/u;
 
 /**
  * recovery Digestを決定する。
@@ -437,22 +413,22 @@ function recoveryDigest(
  * @responsibility Runtime Process 回復 Identityの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input attemptId: string、operationId: string
- * @returns createRuntimeProcessRecoveryIdentityの計算結果を返す。
- * @precondition 「attemptId: string、operationId: string」がcreateRuntimeProcessRecoveryIdentityの入力契約を満たす。
- * @postcondition createRuntimeProcessRecoveryIdentityの責務を完了した結果だけを返す。
- * @effect createRuntimeProcessRecoveryIdentityは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure N/A: createRuntimeProcessRecoveryIdentityは独自の失敗分岐を所有しない。
- * @invariant createRuntimeProcessRecoveryIdentityは宣言した境界以外へEffectを拡張しない。
+ * @returns createExecutionProcessRecoveryIdentityの計算結果を返す。
+ * @precondition 「attemptId: string、operationId: string」がcreateExecutionProcessRecoveryIdentityの入力契約を満たす。
+ * @postcondition createExecutionProcessRecoveryIdentityの責務を完了した結果だけを返す。
+ * @effect createExecutionProcessRecoveryIdentityは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: createExecutionProcessRecoveryIdentityは独自の失敗分岐を所有しない。
+ * @invariant createExecutionProcessRecoveryIdentityは宣言した境界以外へEffectを拡張しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: createRuntimeProcessRecoveryIdentityはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: createRuntimeProcessRecoveryIdentityは共有非同期状態を持たない同期処理である。
+ * @security N/A: createExecutionProcessRecoveryIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createExecutionProcessRecoveryIdentityは共有非同期状態を持たない同期処理である。
  */
-export function createRuntimeProcessRecoveryIdentity(
+export function createExecutionProcessRecoveryIdentity(
   attemptId: string,
   operationId: string,
 ) {
-  return `runtime-process.${runtimeProcessInstanceIdentity}.restart-${recoveryDigest(
-    runtimeProcessInstanceIdentity,
+  return `execution-process.${executionProcessInstanceIdentity}.restart-${recoveryDigest(
+    executionProcessInstanceIdentity,
     attemptId,
     operationId,
   )}`;
@@ -464,17 +440,17 @@ export function createRuntimeProcessRecoveryIdentity(
  * @responsibility Runtime Process 回復 Identityの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、attemptId: string、operationId: string
- * @returns inspectRuntimeProcessRecoveryIdentityの計算結果を返す。
- * @precondition 「value: unknown、attemptId: string、operationId: string」がinspectRuntimeProcessRecoveryIdentityの入力契約を満たす。
- * @postcondition inspectRuntimeProcessRecoveryIdentityの責務を完了した結果だけを返す。
- * @effect N/A: inspectRuntimeProcessRecoveryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: inspectRuntimeProcessRecoveryIdentityは独自の失敗分岐を所有しない。
- * @invariant inspectRuntimeProcessRecoveryIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @returns inspectExecutionProcessRecoveryIdentityの計算結果を返す。
+ * @precondition 「value: unknown、attemptId: string、operationId: string」がinspectExecutionProcessRecoveryIdentityの入力契約を満たす。
+ * @postcondition inspectExecutionProcessRecoveryIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: inspectExecutionProcessRecoveryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectExecutionProcessRecoveryIdentityは独自の失敗分岐を所有しない。
+ * @invariant inspectExecutionProcessRecoveryIdentityは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: inspectRuntimeProcessRecoveryIdentityはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectRuntimeProcessRecoveryIdentityは共有非同期状態を持たない同期処理である。
+ * @security N/A: inspectExecutionProcessRecoveryIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectExecutionProcessRecoveryIdentityは共有非同期状態を持たない同期処理である。
  */
-export function inspectRuntimeProcessRecoveryIdentity(
+export function inspectExecutionProcessRecoveryIdentity(
   value: unknown,
   attemptId: string,
   operationId: string,
@@ -496,17 +472,17 @@ let processCleanupUnknown = false;
  * @responsibility poison Runtime Process After 清掃 Unknownの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
- * @returns N/A: poisonRuntimeProcessAfterCleanupUnknownは戻り値を返さない。
- * @precondition 「N/A: 実行時引数を受け取らない。」がpoisonRuntimeProcessAfterCleanupUnknownの入力契約を満たす。
- * @postcondition poisonRuntimeProcessAfterCleanupUnknownの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: poisonRuntimeProcessAfterCleanupUnknownは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: poisonRuntimeProcessAfterCleanupUnknownは独自の失敗分岐を所有しない。
- * @invariant poisonRuntimeProcessAfterCleanupUnknownは入力から導いた結果以外の共有状態を変更しない。
+ * @returns N/A: poisonExecutionProcessAfterCleanupUnknownは戻り値を返さない。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がpoisonExecutionProcessAfterCleanupUnknownの入力契約を満たす。
+ * @postcondition poisonExecutionProcessAfterCleanupUnknownの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: poisonExecutionProcessAfterCleanupUnknownは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: poisonExecutionProcessAfterCleanupUnknownは独自の失敗分岐を所有しない。
+ * @invariant poisonExecutionProcessAfterCleanupUnknownは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: poisonRuntimeProcessAfterCleanupUnknownはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: poisonRuntimeProcessAfterCleanupUnknownは共有非同期状態を持たない同期処理である。
+ * @security N/A: poisonExecutionProcessAfterCleanupUnknownはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: poisonExecutionProcessAfterCleanupUnknownは共有非同期状態を持たない同期処理である。
  */
-export function poisonRuntimeProcessAfterCleanupUnknown() {
+export function poisonExecutionProcessAfterCleanupUnknown() {
   processCleanupUnknown = true;
 }
 
@@ -516,17 +492,17 @@ export function poisonRuntimeProcessAfterCleanupUnknown() {
  * @responsibility Runtime Process Poisonedの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
- * @returns isRuntimeProcessPoisonedの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がisRuntimeProcessPoisonedの入力契約を満たす。
- * @postcondition isRuntimeProcessPoisonedの責務を完了した結果だけを返す。
- * @effect N/A: isRuntimeProcessPoisonedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isRuntimeProcessPoisonedは独自の失敗分岐を所有しない。
- * @invariant isRuntimeProcessPoisonedは入力から導いた結果以外の共有状態を変更しない。
+ * @returns isExecutionProcessPoisonedの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がisExecutionProcessPoisonedの入力契約を満たす。
+ * @postcondition isExecutionProcessPoisonedの責務を完了した結果だけを返す。
+ * @effect N/A: isExecutionProcessPoisonedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isExecutionProcessPoisonedは独自の失敗分岐を所有しない。
+ * @invariant isExecutionProcessPoisonedは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: isRuntimeProcessPoisonedはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: isRuntimeProcessPoisonedは共有非同期状態を持たない同期処理である。
+ * @security N/A: isExecutionProcessPoisonedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isExecutionProcessPoisonedは共有非同期状態を持たない同期処理である。
  */
-export function isRuntimeProcessPoisoned() {
+export function isExecutionProcessPoisoned() {
   return processCleanupUnknown;
 }
 
@@ -576,7 +552,7 @@ const activeLeases = new WeakMap<CoordinatorLease, ActiveLease>();
  * @concurrency 既存Writerの短期排他・元版照合へ接続し、独自の排他を追加しない。
  */
 export function settleCoordinatorSnapshotQueueLeaseRelease(
-  storageRepository: ReturnType<typeof verifyRuntimePersistenceRepository>,
+  storageRepository: CoordinatorStateContext["repository"],
   binding: string,
   queueId: string,
   expectedGeneration: number,
@@ -590,8 +566,11 @@ export function settleCoordinatorSnapshotQueueLeaseRelease(
       ownerGeneration,
       {
         resourcesAbsent: (repositoryRoot: string, identity: string) => {
-          const paths = resolveNamedPaths(repositoryRoot);
-          if (!paths) throw new Error("orchestrator_repository_root_invalid");
+          const paths =
+            resolveRepositoryExecutionDataPathsFromValidatedRoot(
+              repositoryRoot,
+            );
+          if (!paths) throw new Error("coordinator_repository_root_invalid");
           const boundary = assertArea(
             repositoryRoot,
             "execution-model",
@@ -646,7 +625,9 @@ function activeLeaseIsObserved(activeLease: ActiveLease) {
   try {
     if (!activeLease.physicalLock.assertLive()) return false;
     if (activeLease.snapshotPhysicalIdentity !== undefined) {
-      const paths = resolveNamedPaths(activeLease.repositoryRoot);
+      const paths = resolveRepositoryExecutionDataPathsFromValidatedRoot(
+        activeLease.repositoryRoot,
+      );
       if (!paths) return false;
       const boundary = assertArea(
         activeLease.repositoryRoot,
@@ -675,7 +656,7 @@ function activeLeaseIsObserved(activeLease: ActiveLease) {
  * 新版の未終了取得意図から、操作LeaseのOwner参照を取得する。
  * @responsibility 記録の取得とOS上のOwner生死判定を分離する。
  * @trace ARCH-000004
- * @input workingDirectory: Repository内起点、binding: 対象Repository結合。
+ * @input repositoryRoot: 受付で確定した正規ディレクトリ、binding: 対象の保存結合。
  * @returns 同一Ownerに結合した取得参照、真正な参照不存在、または停止。
  * @precondition 新版v2の現在状態が確定している。
  * @postcondition 記録の読取りだけでOwner死亡や回収成功を表示しない。
@@ -687,16 +668,15 @@ function activeLeaseIsObserved(activeLease: ActiveLease) {
  * @concurrency 同じ短期Owner内でQueueと取得意図を照合し、解放確認後に返す。
  */
 export function inspectCoordinatorSnapshotLeaseAcquisitionOwner(
-  workingDirectory: string,
+  repositoryRoot: string,
   binding: string,
 ): CoordinatorLeaseResult<
   Readonly<{ acquisition: CoordinatorLeaseAcquisitionResolution | null }>
 > {
-  return readLease(
-    verifyRuntimePersistenceRepository(workingDirectory),
-    binding,
-    { kind: "acquisition", input: [binding] },
-  );
+  return readLease({ directory: repositoryRoot }, binding, {
+    kind: "acquisition",
+    input: [binding],
+  });
 }
 
 /**
@@ -707,7 +687,7 @@ export function inspectCoordinatorSnapshotLeaseAcquisitionOwner(
  * @returns 実排他を取得したLease、またはexact取得回復参照付き停止。
  * @precondition v2保存と対象Project／Queueがある。
  * @postcondition 意図と取得証拠の確定後にだけLeaseを返す。
- * @effect 取得意図を保存し、Repository内tmpの固定名を共通wx Lockで取得する。
+ * @effect 取得意図を保存し、確定先の`.crdd/lock`の固定名を共通wx Lockで取得する。Gitは参照しない。
  * @failure 部分取得は意図を保全し、未取得や清掃済みへ丸めない。
  * @invariant 短期保存排他を長期実行や外部待機へ持ち越さない。
  * @boundary 現在状態、実Filesystem排他、Process内opaque Lease。
@@ -715,7 +695,7 @@ export function inspectCoordinatorSnapshotLeaseAcquisitionOwner(
  * @concurrency Repository単位／Project単位の既存Lease Identityを維持する。
  */
 export function acquireCoordinatorSnapshotLease(
-  workingDirectory: string,
+  storageDirectory: string,
   binding: string,
   projectId: string,
   queueId: string,
@@ -725,57 +705,54 @@ export function acquireCoordinatorSnapshotLease(
     ![binding, projectId, queueId].every(validIdentity) ||
     (kind !== "project-operation" && kind !== "canonical-adoption")
   )
-    return blocked("orchestrator_lease_identity_invalid");
+    return blocked("coordinator_lease_identity_invalid");
   const ownerGeneration = randomUUID();
   let recoveryId: string | null = null;
   let intentSaveRequested = false;
-  const reserved = acquireLease(
-    verifyRuntimePersistenceRepository(workingDirectory),
-    binding,
-    {
-      kind: "intent",
-      input: [
-        projectId,
-        queueId,
-        kind,
-        { ownerGeneration, ownerProcessId: process.pid },
-        {
-          resourcesAbsent: (repositoryRoot: string, identity: string) =>
-            snapshotLeaseResourcesAbsent(repositoryRoot, identity),
-          observeRoot: (repositoryRoot: string) => {
-            const metadata = fs.lstatSync(repositoryRoot);
-            return {
-              repositoryRoot: repositoryRoot,
-              rootIdentity: createHash("sha256")
-                .update(
-                  JSON.stringify([
-                    metadata.dev,
-                    metadata.ino,
-                    metadata.birthtimeMs,
-                  ]),
-                  "utf8",
-                )
-                .digest("hex"),
-            };
-          },
-          markIntentSaveRequested: (id: string) => {
-            recoveryId = id;
-            intentSaveRequested = true;
-          },
+  const reserved = acquireLease({ directory: storageDirectory }, binding, {
+    kind: "intent",
+    input: [
+      projectId,
+      queueId,
+      kind,
+      { ownerGeneration, ownerProcessId: process.pid },
+      {
+        resourcesAbsent: (repositoryRoot: string, identity: string) =>
+          snapshotLeaseResourcesAbsent(repositoryRoot, identity),
+        observeRoot: (repositoryRoot: string) => {
+          const metadata = fs.lstatSync(repositoryRoot);
+          return {
+            repositoryRoot: repositoryRoot,
+            rootIdentity: createHash("sha256")
+              .update(
+                JSON.stringify([
+                  metadata.dev,
+                  metadata.ino,
+                  metadata.birthtimeMs,
+                ]),
+                "utf8",
+              )
+              .digest("hex"),
+          };
         },
-      ],
-    },
-  );
+        markIntentSaveRequested: (id: string) => {
+          recoveryId = id;
+          intentSaveRequested = true;
+        },
+      },
+    ],
+  });
   if (reserved.status !== "completed")
     return intentSaveRequested && reserved.manualRecoveryRequired
       ? blocked(reserved.reason, true, recoveryId)
       : reserved;
   const { repositoryRoot, rootIdentity, identity, intent } = reserved.value;
   recoveryId = reserved.value.recoveryId;
-  const leasePaths = resolveNamedPaths(repositoryRoot);
+  const leasePaths =
+    resolveRepositoryExecutionDataPathsFromValidatedRoot(storageDirectory);
   if (!leasePaths || leasePaths.repositoryRoot !== repositoryRoot)
     return blocked(
-      "orchestrator_lease_acquisition_recovery_required",
+      "coordinator_lease_acquisition_recovery_required",
       true,
       recoveryId,
     );
@@ -786,11 +763,8 @@ export function acquireCoordinatorSnapshotLease(
   let physicalIdentity: string;
   let physicalLock: Lock | null = null;
   try {
-    const resolved = resolveNamedPaths(workingDirectory);
     const rootMetadata = fs.lstatSync(repositoryRoot);
     if (
-      !resolved ||
-      resolved.repositoryRoot !== repositoryRoot ||
       !rootMetadata.isDirectory() ||
       rootMetadata.isSymbolicLink() ||
       fs.realpathSync.native(repositoryRoot) !== repositoryRoot ||
@@ -806,15 +780,10 @@ export function acquireCoordinatorSnapshotLease(
         .digest("hex") !== rootIdentity
     )
       throw new Error("lease_root_changed");
-    const temporary = requireReadyRepositoryExecutionDataArea(
-      ensureRepositoryExecutionDataAreaFromWorkingDirectory(
-        repositoryRoot,
-        "lock",
-      ),
-      "orchestrator_repository_root_invalid",
-    ).directory;
-    const boundary = assertArea(repositoryRoot, "lock", temporary);
-    const locks = temporary;
+    ensureCanonicalDirectory(leasePaths.root);
+    const locks = leasePaths.locks;
+    ensureCanonicalDirectory(locks);
+    const boundary = assertArea(repositoryRoot, "lock", locks);
     assertDirectory(locks);
     const acquiredLock = acquireLock({
       directory: locks,
@@ -824,7 +793,7 @@ export function acquireCoordinatorSnapshotLease(
     if (acquiredLock.status !== "acquired") {
       // 初期化途中・descriptor終了不明も既存Intentと同じ回復IDで保全する。
       return blocked(
-        "orchestrator_lease_acquisition_recovery_required",
+        "coordinator_lease_acquisition_recovery_required",
         true,
         recoveryId,
       );
@@ -836,43 +805,39 @@ export function acquireCoordinatorSnapshotLease(
   } catch {
     physicalLock?.release(true);
     return blocked(
-      "orchestrator_lease_acquisition_recovery_required",
+      "coordinator_lease_acquisition_recovery_required",
       true,
       recoveryId,
     );
   }
   let acquired: ReturnType<typeof acquireLease>;
   try {
-    acquired = acquireLease(
-      verifyRuntimePersistenceRepository(workingDirectory),
-      binding,
-      {
-        kind: "observed",
-        input: [
-          binding,
-          projectId,
-          queueId,
-          kind,
-          ownerGeneration,
-          intent,
-          physicalIdentity,
-          recoveryId,
-          process.pid,
-          {
-            physicalIdentityMatches: () => {
-              return (
-                physicalLock?.assertLive() === true &&
-                observePhysicalLeaseFile(lock) === physicalIdentity
-              );
-            },
+    acquired = acquireLease({ directory: storageDirectory }, binding, {
+      kind: "observed",
+      input: [
+        binding,
+        projectId,
+        queueId,
+        kind,
+        ownerGeneration,
+        intent,
+        physicalIdentity,
+        recoveryId,
+        process.pid,
+        {
+          physicalIdentityMatches: () => {
+            return (
+              physicalLock?.assertLive() === true &&
+              observePhysicalLeaseFile(lock) === physicalIdentity
+            );
           },
-        ],
-      },
-    );
+        },
+      ],
+    });
   } catch {
     physicalLock.release(true);
     return blocked(
-      "orchestrator_lease_acquisition_recovery_required",
+      "coordinator_lease_acquisition_recovery_required",
       true,
       recoveryId,
     );
@@ -880,7 +845,7 @@ export function acquireCoordinatorSnapshotLease(
   if (acquired.status !== "completed") {
     physicalLock.release(true);
     return blocked(
-      "orchestrator_lease_acquisition_recovery_required",
+      "coordinator_lease_acquisition_recovery_required",
       true,
       recoveryId,
     );
@@ -906,16 +871,15 @@ export function acquireCoordinatorSnapshotLease(
      * @concurrency 短期保存Ownerを物理操作の前後で分離する。
      */
     release(): CoordinatorLeaseResult<Readonly<{ released: true }>> {
-      if (released) return blocked("orchestrator_lease_already_released");
+      if (released) return blocked("coordinator_lease_already_released");
       try {
         const active = activeLeases.get(lease);
         if (!active || !activeLeaseIsObserved(active))
           throw new Error("lease_identity_changed");
-        const pending = releaseLease(
-          verifyRuntimePersistenceRepository(workingDirectory),
-          binding,
-          { kind: "intent", input: [intent, physicalIdentity] },
-        );
+        const pending = releaseLease({ directory: storageDirectory }, binding, {
+          kind: "intent",
+          input: [intent, physicalIdentity],
+        });
         if (pending.status !== "completed")
           throw new Error("lease_release_intent_unknown");
         if (!activeLeaseIsObserved(active))
@@ -927,14 +891,10 @@ export function acquireCoordinatorSnapshotLease(
         if (!snapshotLeaseResourcesAbsent(repositoryRoot, identity))
           throw new Error("lease_release_unconfirmed");
         activeLeases.delete(lease);
-        const settled = releaseLease(
-          verifyRuntimePersistenceRepository(workingDirectory),
-          binding,
-          {
-            kind: "observed",
-            input: [binding, intent, physicalIdentity, process.pid],
-          },
-        );
+        const settled = releaseLease({ directory: storageDirectory }, binding, {
+          kind: "observed",
+          input: [binding, intent, physicalIdentity, process.pid],
+        });
         if (settled.status !== "completed")
           throw new Error("lease_release_settlement_unknown");
         released = true;
@@ -943,7 +903,7 @@ export function acquireCoordinatorSnapshotLease(
         // 失敗したLeaseは再利用せず、descriptorを閉じて元Fileと回復参照を保全する。
         activeLeases.delete(lease);
         physicalLock.release(true);
-        return blocked("orchestrator_lease_release_unknown", true, recoveryId);
+        return blocked("coordinator_lease_release_unknown", true, recoveryId);
       }
     },
   });
@@ -963,14 +923,14 @@ export function acquireCoordinatorSnapshotLease(
     snapshotPhysicalIdentity: physicalIdentity,
     physicalLock,
   });
-  return completed("orchestrator_lease_acquired", lease);
+  return completed("coordinator_lease_acquired", lease);
 }
 
 /**
  * 新版LeaseのOwner喪失を現在観測から終了処置する。
  * @responsibility 過去の取得結果と現在の資源不存在を分けて保存する。
  * @trace ARCH-000004
- * @input Repository起点、binding、Project、Queue、Lease種別、既存Owner観測。
+ * @input 受付で確定した正規ディレクトリ、binding、Project、Queue、Lease種別、既存Owner観測。
  * @returns 終了後のQueueと回復参照、または同じ参照付き停止。
  * @precondition v2現在状態と対象の取得意図が検証できる。
  * @postcondition 回収確認だけでTask成功や採用成功を表示しない。
@@ -982,7 +942,7 @@ export function acquireCoordinatorSnapshotLease(
  * @concurrency Owner生存観測は短期排他外、物理処置は全fresh照合後の同じ保存Lock内で同期実行する。
  */
 export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
-  workingDirectory: string,
+  storageDirectory: string,
   binding: string,
   projectId: string,
   queueId: string,
@@ -996,45 +956,42 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
     !["project-operation", "canonical-adoption"].includes(kind) ||
     typeof observeOwner !== "function"
   )
-    return blocked("orchestrator_lease_recovery_input_invalid");
-  const inspected = readLease(
-    verifyRuntimePersistenceRepository(workingDirectory),
-    binding,
-    {
-      kind: "owner_loss",
-      input: [
-        projectId,
-        queueId,
-        kind,
-        {
-          observeRoot: (repositoryRoot: string) => {
-            const metadata = fs.lstatSync(repositoryRoot);
-            return {
-              repositoryRoot: repositoryRoot,
-              rootIdentity: createHash("sha256")
-                .update(
-                  JSON.stringify([
-                    metadata.dev,
-                    metadata.ino,
-                    metadata.birthtimeMs,
-                  ]),
-                  "utf8",
-                )
-                .digest("hex"),
-            };
-          },
+    return blocked("coordinator_lease_recovery_input_invalid");
+  const inspected = readLease({ directory: storageDirectory }, binding, {
+    kind: "owner_loss",
+    input: [
+      projectId,
+      queueId,
+      kind,
+      {
+        observeRoot: (repositoryRoot: string) => {
+          const metadata = fs.lstatSync(repositoryRoot);
+          return {
+            repositoryRoot: repositoryRoot,
+            rootIdentity: createHash("sha256")
+              .update(
+                JSON.stringify([
+                  metadata.dev,
+                  metadata.ino,
+                  metadata.birthtimeMs,
+                ]),
+                "utf8",
+              )
+              .digest("hex"),
+          };
         },
-      ],
-    },
-  );
+      },
+    ],
+  });
   if (inspected.status !== "completed")
     return blocked(inspected.reason, true, inspected.recoveryId);
   const initial = inspected.value;
   const { recoveryId, identity } = initial;
-  const leasePaths = resolveNamedPaths(initial.repositoryRoot);
+  const leasePaths =
+    resolveRepositoryExecutionDataPathsFromValidatedRoot(storageDirectory);
   if (!leasePaths || leasePaths.repositoryRoot !== initial.repositoryRoot)
     return blocked(
-      "orchestrator_lease_recovery_observation_unknown",
+      "coordinator_lease_recovery_observation_unknown",
       true,
       recoveryId,
     );
@@ -1046,8 +1003,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
   if (!first) {
     if (initial.queue?.ownerGeneration) {
       if (!["leased", "running"].includes(initial.queue.state)) {
-        const storageRepository =
-          verifyRuntimePersistenceRepository(workingDirectory);
+        const storageRepository = { directory: storageDirectory };
         if (!validIdentity(binding))
           throw new Error("snapshot_port_binding_invalid");
         const settled = settleCoordinatorSnapshotQueueLeaseRelease(
@@ -1064,24 +1020,20 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
             })
           : blocked(settled.reason, true, recoveryId);
       }
-      return recoverLease(
-        verifyRuntimePersistenceRepository(workingDirectory),
-        binding,
-        {
-          kind: "reconcile",
-          input: [
-            projectId,
-            queueId,
-            kind,
-            initial.queue,
-            recoveryId,
-            {
-              resourcesAbsent: (repositoryRoot: string) =>
-                snapshotLeaseResourcesAbsent(repositoryRoot, identity),
-            },
-          ],
-        },
-      );
+      return recoverLease({ directory: storageDirectory }, binding, {
+        kind: "reconcile",
+        input: [
+          projectId,
+          queueId,
+          kind,
+          initial.queue,
+          recoveryId,
+          {
+            resourcesAbsent: (repositoryRoot: string) =>
+              snapshotLeaseResourcesAbsent(repositoryRoot, identity),
+          },
+        ],
+      });
     }
     try {
       if (
@@ -1089,17 +1041,17 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
         initial.queue?.ownerGeneration
       )
         return blocked(
-          "orchestrator_lease_recovery_state_mismatch",
+          "coordinator_lease_recovery_state_mismatch",
           true,
           recoveryId,
         );
-      return completed("orchestrator_lease_acquisition_resources_absent", {
+      return completed("coordinator_lease_acquisition_resources_absent", {
         queue: initial.queue,
         recoveryId: null,
       });
     } catch {
       return blocked(
-        "orchestrator_lease_recovery_observation_unknown",
+        "coordinator_lease_recovery_observation_unknown",
         true,
         recoveryId,
       );
@@ -1118,7 +1070,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
       initial.queue.ownerGeneration !== first.ownerGeneration)
   )
     return blocked(
-      "orchestrator_lease_acquisition_owner_mismatch",
+      "coordinator_lease_acquisition_owner_mismatch",
       true,
       recoveryId,
     );
@@ -1132,7 +1084,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
     );
   } catch {
     return blocked(
-      "orchestrator_lease_owner_observation_unknown",
+      "coordinator_lease_owner_observation_unknown",
       true,
       recoveryId,
     );
@@ -1148,15 +1100,15 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
     observedOwner.ownerGeneration !== first.ownerGeneration
   )
     return blocked(
-      "orchestrator_lease_owner_observation_unknown",
+      "coordinator_lease_owner_observation_unknown",
       true,
       recoveryId,
     );
   if (observedOwner.status === "alive")
-    return blocked("orchestrator_lease_owner_still_active");
+    return blocked("coordinator_lease_owner_still_active");
   if (observedOwner.status !== "absent")
     return blocked(
-      "orchestrator_lease_owner_observation_unknown",
+      "coordinator_lease_owner_observation_unknown",
       true,
       recoveryId,
     );
@@ -1168,7 +1120,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
       if (!snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)) {
         if (first.phase !== "acquisition_reserved" || ownIntents.length !== 1)
           return blocked(
-            "orchestrator_lease_physical_identity_unconfirmed",
+            "coordinator_lease_physical_identity_unconfirmed",
             true,
             recoveryId,
           );
@@ -1183,7 +1135,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
       }
     } catch {
       return blocked(
-        "orchestrator_lease_recovery_observation_unknown",
+        "coordinator_lease_recovery_observation_unknown",
         true,
         recoveryId,
       );
@@ -1194,144 +1146,131 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
     phase: "recovery_pending" as const,
     physicalIdentity,
   };
-  const reserved = recoverLease(
-    verifyRuntimePersistenceRepository(workingDirectory),
-    binding,
-    {
-      kind: "intent",
-      input: [
-        projectId,
-        queueId,
-        kind,
-        initial,
-        ownIntents,
-        pending,
-        recoveryId,
-        {
-          observeRoot: (repositoryRoot: string) => {
-            const metadata = fs.lstatSync(repositoryRoot);
-            return {
-              repositoryRoot: repositoryRoot,
-              rootIdentity: createHash("sha256")
-                .update(
-                  JSON.stringify([
-                    metadata.dev,
-                    metadata.ino,
-                    metadata.birthtimeMs,
-                  ]),
-                  "utf8",
-                )
-                .digest("hex"),
-            };
-          },
+  const reserved = recoverLease({ directory: storageDirectory }, binding, {
+    kind: "intent",
+    input: [
+      projectId,
+      queueId,
+      kind,
+      initial,
+      ownIntents,
+      pending,
+      recoveryId,
+      {
+        observeRoot: (repositoryRoot: string) => {
+          const metadata = fs.lstatSync(repositoryRoot);
+          return {
+            repositoryRoot: repositoryRoot,
+            rootIdentity: createHash("sha256")
+              .update(
+                JSON.stringify([
+                  metadata.dev,
+                  metadata.ino,
+                  metadata.birthtimeMs,
+                ]),
+                "utf8",
+              )
+              .digest("hex"),
+          };
         },
-      ],
-    },
-  );
+      },
+    ],
+  });
   if (reserved.status !== "completed")
     return blocked(reserved.reason, true, recoveryId);
   let recoveryFailureReason: string | null = null;
-  const settled = recoverLease(
-    verifyRuntimePersistenceRepository(workingDirectory),
-    binding,
-    {
-      kind: "observed",
-      input: [
-        binding,
-        projectId,
-        queueId,
-        kind,
-        initial,
-        ownIntents,
-        pending,
-        first,
-        recoveryId,
-        {
-          observeRoot: (repositoryRoot: string) => {
-            const metadata = fs.lstatSync(repositoryRoot);
-            return {
-              repositoryRoot: repositoryRoot,
-              rootIdentity: createHash("sha256")
+  const settled = recoverLease({ directory: storageDirectory }, binding, {
+    kind: "observed",
+    input: [
+      binding,
+      projectId,
+      queueId,
+      kind,
+      initial,
+      ownIntents,
+      pending,
+      first,
+      recoveryId,
+      {
+        observeRoot: (repositoryRoot: string) => {
+          const metadata = fs.lstatSync(repositoryRoot);
+          return {
+            repositoryRoot: repositoryRoot,
+            rootIdentity: createHash("sha256")
+              .update(
+                JSON.stringify([
+                  metadata.dev,
+                  metadata.ino,
+                  metadata.birthtimeMs,
+                ]),
+                "utf8",
+              )
+              .digest("hex"),
+          };
+        },
+        recoverResources: () => {
+          try {
+            const rootMetadata = fs.lstatSync(initial.repositoryRoot);
+            if (
+              !rootMetadata.isDirectory() ||
+              rootMetadata.isSymbolicLink() ||
+              fs.realpathSync.native(initial.repositoryRoot) !==
+                initial.repositoryRoot ||
+              createHash("sha256")
                 .update(
                   JSON.stringify([
-                    metadata.dev,
-                    metadata.ino,
-                    metadata.birthtimeMs,
+                    rootMetadata.dev,
+                    rootMetadata.ino,
+                    rootMetadata.birthtimeMs,
                   ]),
                   "utf8",
                 )
-                .digest("hex"),
-            };
-          },
-          recoverResources: () => {
-            try {
-              const resolved = resolveNamedPaths(workingDirectory);
-              const rootMetadata = fs.lstatSync(initial.repositoryRoot);
+                .digest("hex") !== initial.rootIdentity
+            )
+              throw new Error("lease_root_changed");
+            // 不存在と観測不能を区別し、親にaliasがある場合も処置しない。
+            if (
+              !snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)
+            ) {
+              const boundary = assertArea(
+                initial.repositoryRoot,
+                "lock",
+                leasePaths.locks,
+              );
+              assertDirectory(path.dirname(lock));
+              const observedIdentity = observePhysicalLeaseFile(lock);
               if (
-                !resolved ||
-                resolved.repositoryRoot !== initial.repositoryRoot ||
-                !rootMetadata.isDirectory() ||
-                rootMetadata.isSymbolicLink() ||
-                fs.realpathSync.native(initial.repositoryRoot) !==
-                  initial.repositoryRoot ||
-                createHash("sha256")
-                  .update(
-                    JSON.stringify([
-                      rootMetadata.dev,
-                      rootMetadata.ino,
-                      rootMetadata.birthtimeMs,
-                    ]),
-                    "utf8",
-                  )
-                  .digest("hex") !== initial.rootIdentity
+                physicalIdentity === null ||
+                observedIdentity !== physicalIdentity
               )
-                throw new Error("lease_root_changed");
-              // 不存在と観測不能を区別し、親にaliasがある場合も処置しない。
-              if (
-                !snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)
-              ) {
-                const boundary = assertArea(
-                  initial.repositoryRoot,
-                  "lock",
-                  leasePaths.locks,
+                throw new Error(
+                  "coordinator_lease_physical_identity_unconfirmed",
                 );
-                assertDirectory(path.dirname(lock));
-                const observedIdentity = observePhysicalLeaseFile(lock);
-                if (
-                  physicalIdentity === null ||
-                  observedIdentity !== physicalIdentity
-                )
-                  throw new Error(
-                    "orchestrator_lease_physical_identity_unconfirmed",
-                  );
-                if (observePhysicalLeaseFile(lock) !== observedIdentity)
-                  throw new Error(
-                    "orchestrator_lease_physical_identity_unconfirmed",
-                  );
-                fs.unlinkSync(lock);
-                assertAreaUnchanged(initial.repositoryRoot, "lock", boundary);
-              }
-              if (
-                !snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)
-              )
-                throw new Error("lease_release_unconfirmed");
-              return true;
-            } catch (error) {
-              recoveryFailureReason =
-                error instanceof Error &&
-                error.message ===
-                  "orchestrator_lease_physical_identity_unconfirmed"
-                  ? error.message
-                  : "orchestrator_lease_recovery_observation_unknown";
-              return false;
+              if (observePhysicalLeaseFile(lock) !== observedIdentity)
+                throw new Error(
+                  "coordinator_lease_physical_identity_unconfirmed",
+                );
+              fs.unlinkSync(lock);
+              assertAreaUnchanged(initial.repositoryRoot, "lock", boundary);
             }
-          },
-          resourcesAbsent: (repositoryRoot: string) =>
-            snapshotLeaseResourcesAbsent(repositoryRoot, identity),
+            if (!snapshotLeaseResourcesAbsent(initial.repositoryRoot, identity))
+              throw new Error("lease_release_unconfirmed");
+            return true;
+          } catch (error) {
+            recoveryFailureReason =
+              error instanceof Error &&
+              error.message ===
+                "coordinator_lease_physical_identity_unconfirmed"
+                ? error.message
+                : "coordinator_lease_recovery_observation_unknown";
+            return false;
+          }
         },
-      ],
-    },
-  );
+        resourcesAbsent: (repositoryRoot: string) =>
+          snapshotLeaseResourcesAbsent(repositoryRoot, identity),
+      },
+    ],
+  });
   return settled.status === "completed"
     ? settled
     : blocked(recoveryFailureReason ?? settled.reason, true, recoveryId);
@@ -1360,7 +1299,7 @@ function assertDirectory(directory: string) {
     metadata.isSymbolicLink() ||
     fs.realpathSync.native(directory) !== directory
   ) {
-    throw new Error("orchestrator_storage_boundary_invalid");
+    throw new Error("coordinator_storage_boundary_invalid");
   }
 }
 
@@ -1433,29 +1372,6 @@ function observePhysicalLeaseFile(file: string): string {
 }
 
 /**
- * 検証済みRootから名前付きPathだけを投影する。
- * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
- * @trace ARCH-000004
- * @input 検証するRepository起点と宣言済み領域。
- * @returns 公開投影または無効Rootのnull。
- * @precondition Callerは既存のRepository/Lease結合を保持する。
- * @postcondition 観測不能を不存在または有効Authorityへ変換しない。
- * @effect VCSとFilesystemを読み取る。初期化、Lock、書込みは0。
- * @failure Root不正、Owner blocked、境界不一致で停止する。
- * @invariant Physical IdentityとRecovery Identityは変更しない。
- * @boundary Coordinator永続基盤からRuntime Data/Version Control公開入口。
- * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
- * @concurrency 観測した現在境界だけを返す。
- */
-
-export function resolveNamedPaths(workingDirectory: string) {
-  const verified = getRepositoryFromWorkingDirectory(workingDirectory);
-  return verified.status === "completed"
-    ? resolveRepositoryExecutionDataPaths(verified.capability)
-    : null;
-}
-
-/**
  * 既存の名前付き領域をEffect0で観測する。
  * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
  * @trace ARCH-000004
@@ -1463,10 +1379,10 @@ export function resolveNamedPaths(workingDirectory: string) {
  * @returns readyまたは真正不存在のnot_observed。
  * @precondition Callerは既存のRepository/Lease結合を保持する。
  * @postcondition 観測不能を不存在または有効Authorityへ変換しない。
- * @effect VCSとFilesystemを読み取る。初期化、Lock、書込みは0。
+ * @effect 確定先のFilesystemだけを読み取る。初期化、Lock、書込みは0。
  * @failure Root不正、Owner blocked、境界不一致で停止する。
  * @invariant Physical IdentityとRecovery Identityは変更しない。
- * @boundary Coordinator永続基盤からRuntime Data/Version Control公開入口。
+ * @boundary 確定済み保存先から既存の名前付きFilesystem領域へ接続する。
  * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
  * @concurrency 観測した現在境界だけを返す。
  */
@@ -1474,19 +1390,12 @@ function observeArea(
   repositoryRoot: string,
   area: "execution-model" | "tmp" | "lock",
 ) {
-  const verified = getRepository(repositoryRoot);
-  if (verified.status !== "completed")
-    throw new Error("orchestrator_repository_root_invalid");
-  const observation = observeRepositoryExecutionDataArea(
-    verified.capability,
+  assertDirectory(repositoryRoot);
+  const observation = observeExecutionDataArea(
+    resolveRepositoryExecutionDataPathsFromValidatedRoot(repositoryRoot),
     area,
   );
   if (observation.status === "blocked") throw new Error(observation.reason);
-  if (
-    observation.status === "ready" &&
-    observation.repositoryRoot !== repositoryRoot
-  )
-    throw new Error("orchestrator_repository_root_invalid");
   return observation;
 }
 
@@ -1498,21 +1407,21 @@ function observeArea(
  * @returns 確認済みready観測。
  * @precondition Callerは既存のRepository/Lease結合を保持する。
  * @postcondition 観測不能を不存在または有効Authorityへ変換しない。
- * @effect VCSとFilesystemを読み取る。初期化、Lock、書込みは0。
+ * @effect 確定先のFilesystemだけを読み取る。初期化、Lock、書込みは0。
  * @failure Root不正、Owner blocked、境界不一致で停止する。
  * @invariant Physical IdentityとRecovery Identityは変更しない。
- * @boundary Coordinator永続基盤からRuntime Data/Version Control公開入口。
+ * @boundary 確定済み保存先から既存の名前付きFilesystem領域へ接続する。
  * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
  * @concurrency 観測した現在境界だけを返す。
  */
-export function assertArea(
+function assertArea(
   repositoryRoot: string,
   area: "execution-model" | "tmp" | "lock",
   directory: string,
 ) {
   const observation = observeArea(repositoryRoot, area);
   if (observation.status !== "ready" || observation.directory !== directory)
-    throw new Error("orchestrator_storage_boundary_invalid");
+    throw new Error("coordinator_storage_boundary_invalid");
   return observation;
 }
 
@@ -1524,14 +1433,14 @@ export function assertArea(
  * @returns N/A: 一致確認のみ。
  * @precondition Callerは既存のRepository/Lease結合を保持する。
  * @postcondition 観測不能を不存在または有効Authorityへ変換しない。
- * @effect VCSとFilesystemを読み取る。初期化、Lock、書込みは0。
+ * @effect 確定先のFilesystemだけを読み取る。初期化、Lock、書込みは0。
  * @failure Root不正、Owner blocked、境界不一致で停止する。
  * @invariant Physical IdentityとRecovery Identityは変更しない。
- * @boundary Coordinator永続基盤からRuntime Data/Version Control公開入口。
+ * @boundary 確定済み保存先から既存の名前付きFilesystem領域へ接続する。
  * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
  * @concurrency 観測した現在境界だけを返す。
  */
-export function assertAreaUnchanged(
+function assertAreaUnchanged(
   repositoryRoot: string,
   area: "execution-model" | "tmp" | "lock",
   initial: Exclude<
@@ -1547,7 +1456,7 @@ export function assertAreaUnchanged(
         current.directory !== initial.directory ||
         current.boundaryIdentity !== initial.boundaryIdentity))
   )
-    throw new Error("orchestrator_storage_boundary_changed");
+    throw new Error("coordinator_storage_boundary_changed");
 }
 
 /**
@@ -1615,7 +1524,7 @@ function leaseAcquisitionTemporaryFiles(directory: string, identity: string) {
     .readdirSync(directory)
     .filter((name) => name.startsWith(prefix));
   if (names.some((name) => !name.endsWith(".tmp")))
-    throw new Error("orchestrator_lease_acquisition_inventory_invalid");
+    throw new Error("coordinator_lease_acquisition_inventory_invalid");
   return Object.freeze(names);
 }
 
@@ -1713,11 +1622,11 @@ export function snapshotLeaseResourcesAbsent(
 }
 
 /**
- * Hostが選択したRepositoryを既存VCの真正参照へ固定する。
- * @responsibility 生PathをDomain保存APIへ渡さず、保存Portが同じ参照を保持できるようにする。
+ * Hostが選択したRepositoryの正規保存ディレクトリを確定する。
+ * @responsibility 上位でGitの配置を検証し、モデルへは保存ディレクトリだけを渡す。
  * @trace ARCH-000004、ARCH-000008
  * @input workingDirectory: 既存Host入口が選択したRepository内の起点。
- * @returns VCが発行した同一性参照。
+ * @returns 検証済みの正規ディレクトリ。
  * @precondition 呼出し元が内容認可・実行Authorityを別に検査する。
  * @postcondition 新しい資格・State・登録を発行しない。
  * @effect 既存VCの読取りだけ。
@@ -1725,27 +1634,40 @@ export function snapshotLeaseResourcesAbsent(
  * @invariant Repository参照を実行許可にしない。
  * @boundary Coordinator HostとDomain保存。
  * @security 外部JSONから参照Objectを構築しない。
- * @concurrency 保存Portは返却参照を保持し、各操作のDomain側で再観測する。
+ * @concurrency 各保存操作での実体の再観測は実行モデルが行う。
  */
-export function verifyRuntimePersistenceRepository(workingDirectory: string) {
-  const verified = getRepositoryFromWorkingDirectory(workingDirectory);
-  if (verified.status !== "completed")
-    throw new Error("orchestrator_repository_root_invalid");
-  return verified.capability;
+export function resolveExecutionStorageDirectory(workingDirectory: string) {
+  try {
+    return Object.freeze({
+      directory:
+        resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory),
+    });
+  } catch {
+    throw new Error("coordinator_repository_root_invalid");
+  }
 }
 
 export const TESTS_RELATIVE_PATH = ".crdd/tests" as const;
 
 /** 履歴を扱う呼出しだけ、確定日数と既存の同期現在性検査を結合する。 */
-export function historyRepositoryInput<T>(root: T) {
-  const initial = readCoordinatorConfig(root as Repository);
+export function historyRepositoryInput<T>(
+  root: T,
+  confirmedDirectory?: string,
+) {
+  const captured =
+    confirmedDirectory ?? (root as { directory?: unknown } | null)?.directory;
+  const directory = () =>
+    typeof captured === "string"
+      ? captured
+      : resolveVerifiedRepositoryRoot(root as Repository);
+  const initial = readCoordinatorConfig(directory());
   return Object.freeze({
     root,
     historyRetentionDays:
       initial.status === "ready" ? initial.config.historyRetentionDays : null,
     revalidate(expectedHistoryRetentionDays?: number) {
       if (expectedHistoryRetentionDays === undefined) return true;
-      const fresh = readCoordinatorConfig(root as Repository);
+      const fresh = readCoordinatorConfig(directory());
       return (
         fresh.status === "ready" &&
         fresh.config.historyRetentionDays === expectedHistoryRetentionDays
@@ -1757,10 +1679,11 @@ export function historyRepositoryInput<T>(root: T) {
 /** 既存の実行・終端借用の再検証を、履歴確認時だけ設定現在性へ接続する。 */
 export function withHistoryRetention<
   T extends Readonly<{ revalidate: () => boolean }>,
->(context: T | null, root?: unknown) {
+>(context: T | null, root?: unknown, confirmedDirectory?: string) {
   if (!context) return null;
   const history = historyRepositoryInput(
     root ?? (context as { root?: unknown }).root,
+    confirmedDirectory,
   );
   return Object.freeze({
     ...context,
@@ -1779,7 +1702,7 @@ export const REPOSITORY_AREAS = Object.freeze([
   "execution-intelligence",
   "candidates",
   "workspaces",
-  "operations",
+  "coordinator",
   "release",
   "communication",
   "tests",
@@ -1793,7 +1716,7 @@ export const AREA_PATH_KEYS = Object.freeze({
   "execution-intelligence": "executionIntelligence",
   candidates: "candidates",
   workspaces: "workspaces",
-  operations: "operations",
+  coordinator: "coordinator",
   release: "release",
   communication: "communication",
   tests: "tests",
@@ -1881,7 +1804,7 @@ function resolveRepositoryExecutionDataPathsFromValidatedRoot(
     executionIntelligence: path.join(root, "execution-intelligence"),
     candidates: path.join(root, "candidates"),
     workspaces: path.join(root, "workspaces"),
-    operations: path.join(root, "operations"),
+    coordinator: path.join(root, "coordinator"),
     release: path.join(root, "release"),
     communication: path.join(root, "communication"),
     tests: path.join(root, "tests"),
@@ -1908,8 +1831,17 @@ function resolveRepositoryExecutionDataPathsFromValidatedRoot(
  * @concurrency N/A: resolveRepositoryExecutionDataPathsは共有非同期状態を持たない同期処理である。
  */
 export function resolveRepositoryExecutionDataPaths(capability: Repository) {
-  const resolved =
-    resolveRepositoryExecutionDataPathsForInternalUse(capability);
+  return projectRepositoryExecutionDataPaths(
+    resolveRepositoryExecutionDataPathsForInternalUse(capability),
+  );
+}
+
+/** 検証済みの名前付き領域だけを返し、内部Rootは公開しない。 @trace ARCH-000011 */
+function projectRepositoryExecutionDataPaths(
+  resolved: ReturnType<
+    typeof resolveRepositoryExecutionDataPathsFromValidatedRoot
+  >,
+) {
   if (!resolved) return null;
   const { root: internalRoot, ...publicPaths } = resolved;
   if (path.dirname(internalRoot) !== resolved.repositoryRoot) return null;
@@ -1959,9 +1891,26 @@ function resolveRepositoryExecutionDataPathsForInternalUse(
 export function observeRepositoryExecutionDataArea(
   capability: Repository,
   area: RepositoryExecutionArea,
+  confirmedDirectory?: string,
+): RepositoryExecutionDataAreaObservation {
+  return observeExecutionDataArea(
+    confirmedDirectory === undefined
+      ? resolveRepositoryExecutionDataPathsForInternalUse(capability)
+      : resolveRepositoryExecutionDataPathsFromValidatedRoot(
+          confirmedDirectory,
+        ),
+    area,
+  );
+}
+
+/** 確定済みの名前付き領域と実体の一致をFilesystemだけで観測する。 @trace ARCH-000004 */
+function observeExecutionDataArea(
+  paths: ReturnType<
+    typeof resolveRepositoryExecutionDataPathsFromValidatedRoot
+  >,
+  area: RepositoryExecutionArea,
 ): RepositoryExecutionDataAreaObservation {
   try {
-    const paths = resolveRepositoryExecutionDataPathsForInternalUse(capability);
     if (!paths || !REPOSITORY_AREAS.includes(area))
       return Object.freeze({
         status: "blocked",
@@ -2042,22 +1991,32 @@ export function checkRepositoryRuntimeDataProtectionDirectory(
   capability: Repository,
   operation: "observe" | "prepare",
 ): "ready" | "absent" | "blocked" {
+  if (operation !== "observe" && operation !== "prepare") return "blocked";
+  const root = resolveVerifiedRepositoryRoot(capability);
+  return root ? checkProtectionDirectory(root, operation) : "blocked";
+}
+
+/** 同期の配置観測で確定した作業ディレクトリの保護先だけを扱う。 */
+function checkProtectionDirectory(
+  root: string,
+  operation: "observe" | "prepare",
+): "ready" | "absent" | "blocked" {
   try {
-    if (operation !== "observe" && operation !== "prepare") return "blocked";
-    const paths = resolveRepositoryExecutionDataPathsForInternalUse(capability);
+    const paths = resolveRepositoryExecutionDataPathsFromValidatedRoot(root);
     if (!paths) return "blocked";
+    const directory = paths.root;
     let metadata: fs.Stats;
     try {
-      metadata = fs.lstatSync(paths.root);
+      metadata = fs.lstatSync(directory);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") return "blocked";
       if (operation === "observe") return "absent";
-      fs.mkdirSync(paths.root);
-      metadata = fs.lstatSync(paths.root);
+      fs.mkdirSync(directory);
+      metadata = fs.lstatSync(directory);
     }
     return metadata.isDirectory() &&
       !metadata.isSymbolicLink() &&
-      fs.realpathSync.native(paths.root) === paths.root
+      fs.realpathSync.native(directory) === directory
       ? "ready"
       : "blocked";
   } catch {
@@ -2109,6 +2068,20 @@ export function ensureRepositoryExecutionDataArea(
 ) {
   const paths = resolveRepositoryExecutionDataPathsForInternalUse(capability);
   if (!paths || !REPOSITORY_AREAS.includes(area)) return null;
+  const failure = observeRuntimeDataIgnoreFailure(capability);
+  if (failure) return failure;
+  ensureCanonicalDirectory(paths.root);
+  const directory = paths[AREA_PATH_KEYS[area]];
+  ensureCanonicalDirectory(directory);
+  return Object.freeze({
+    status: "ready" as const,
+    repositoryRoot: paths.repositoryRoot,
+    directory,
+  });
+}
+
+/** 公式VCの現在結果を既存の領域準備失敗へ投影する。 @trace ARCH-000011 */
+function observeRuntimeDataIgnoreFailure(capability: Repository) {
   const ignore = registerRepositoryLocalIgnore(capability, ".crdd/");
   if (ignore.status !== "registered")
     return Object.freeze({
@@ -2122,14 +2095,28 @@ export function ensureRepositoryExecutionDataArea(
       recoveryReference: ignore.recoveryReference,
       repositoryPathReported: false as const,
     });
-  ensureCanonicalDirectory(paths.root);
-  const directory = paths[AREA_PATH_KEYS[area]];
-  ensureCanonicalDirectory(directory);
-  return Object.freeze({
-    status: "ready" as const,
-    repositoryRoot: paths.repositoryRoot,
-    directory,
-  });
+  return null;
+}
+
+/**
+ * 実行モデルの初回保存から要求されたGit除外だけを確定する。
+ * @responsibility CoordinatorがGit操作を所有し、保存領域の作成には介入しない。
+ * @trace ARCH-000011
+ * @input 対象Repositoryの既存VC参照。
+ * @returns 同期登録成功時のみtrue。
+ * @precondition 初回保存の認可・元Owner・候補を確認済み。
+ * @postcondition 失敗時は回復情報を保持し、保存へ進ませない。
+ * @effect 対象Repositoryのローカル除外の登録。
+ * @failure 既存の領域準備エラーを返す。
+ * @invariant 読取りや既存Stateの更新から呼ばない。
+ * @boundary Coordinator→VC。EMへGit識別値を渡さない。
+ * @security 同じ対象Repositoryに限定する。
+ * @concurrency 既存保存排他下で同期的に処理する。
+ */
+export function prepareExecutionStorageIgnore(capability: Repository): true {
+  const failure = observeRuntimeDataIgnoreFailure(capability);
+  if (failure) throw new ExecutionStorageBlockedError(failure);
+  return true;
 }
 
 /**
@@ -2221,7 +2208,9 @@ export function getExecutionIntelligenceStore(
   repository: Repository,
   prepare: boolean,
 ): StoreOptions | null {
-  const config = readExecutionIntelligenceConfig(repository);
+  const config = readExecutionIntelligenceConfig(
+    resolveVerifiedRepositoryRoot(repository),
+  );
   if (config.status !== "ready")
     throw Error("execution_intelligence_configuration_unavailable");
   const area = prepare
@@ -2300,55 +2289,29 @@ type OperationPaths = Readonly<{
  * 借用Treeの最終観測を内容なしで投影する。
  * @responsibility 全終端の変更情報を同じ意味で返す。
  * @trace ARCH-000004
- * @input 元Workspace capability又は未確定、検証済み対象。
- * @returns 欠測をnullのまま保持した観測値。
+ * @input 検証済みの実行対象。
+ * @returns 実行先と、変更範囲を未観測とした結果。
  * @precondition 呼出し元が対象の実行許可を確認済み。
  * @postcondition Treeの現存・成果採用・回収成功を主張しない。
- * @effect Git／Filesystem読取りだけ。
- * @failure 観測不能は変更Path null。
+ * @effect Git／Filesystemを読まない。
+ * @failure 変更Pathは検査しないためnull。
  * @invariant 一次失敗や回復状態を変更しない。
  * @boundary 終了処理から認可済み上位結果。
  * @security 内容・Host Pathを含めない。
  * @concurrency 他の編集との帰属は未確定。
  */
 export function projectBorrowedExecutionResult(
-  capability: object | undefined,
   target: BorrowedExecutionTarget,
 ): WorkspaceResult {
-  const changedPaths = capability
-    ? observeBorrowedExecutionChanges(capability)
-    : null;
   return Object.freeze({
     workspaceId: target.workspaceId,
-    changedPaths,
+    changedPaths: null,
     canonicalRepositoryChanged:
-      target.executionTree === target.ownerRepositoryRoot
-        ? changedPaths === null
-          ? null
-          : changedPaths.length > 0
-        : false,
+      target.executionTree === target.ownerRepositoryRoot ? null : false,
     changeAttribution: "unattributed",
     workspaceDeletionIssued: false,
   });
 }
-
-/**
- * 同じ借用Ownerに結合したGit固定内容だけを保持する。
- * @responsibility 基準CommitとGit可視Pathを保持し、独自Inventory・Manifestを持たない。
- * @trace ARCH-000013
- * @boundary 実行中の借用結合。永続するRef/OIDは同じHost記録が所有する。
- */
-type WorkspaceRecord = Readonly<{
-  managementCapability: object;
-  mountCapability: object;
-  repositoryBindingCapability: object;
-  operationId: string;
-  source: Repository;
-  sourceTree: string;
-  baseHead: string;
-  baseCommitId: string;
-  basePaths: readonly string[];
-}>;
 
 const RESERVED_WINDOWS_SEGMENT =
   /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
@@ -2424,12 +2387,17 @@ export function isExecutionRelativePath(relativePath: string) {
  * @security readExecutionFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: readExecutionFileは共有非同期状態を持たない同期処理である。
  */
-export function readExecutionFile(target: string) {
+export function readExecutionFile(target: string, expected?: fs.BigIntStats) {
   const handle = fs.openSync(target, "r");
   try {
     const before = fs.fstatSync(handle, { bigint: true });
     if (
       !before.isFile() ||
+      (expected !== undefined &&
+        (before.dev !== expected.dev ||
+          before.ino !== expected.ino ||
+          before.birthtimeNs !== expected.birthtimeNs ||
+          before.nlink !== 1n)) ||
       before.isSymbolicLink() ||
       before.size < 0n ||
       !Number.isSafeInteger(Number(before.size))
@@ -2476,60 +2444,6 @@ export function readExecutionFile(target: string) {
   }
 }
 
-/** Git可視の現在内容をVCの選択値として捕捉する。 @trace ARCH-000013 */
-function readGitSelection(record: WorkspaceRecord, comparison: string) {
-  const observed = readRepositoryEntries(record.sourceTree);
-  if (
-    observed.status !== "completed" ||
-    !observed.nestedRepositoryObservationComplete ||
-    observed.entries.some((entry) => entry.kind !== "file" || entry.conflicted)
-  )
-    throw Error("execution_git_observation_unavailable");
-  const changes = readWorkingChanges(record.source, record.baseHead);
-  const paths = [
-    ...new Set([
-      ...record.basePaths,
-      ...observed.entries.map((entry) => entry.relativePath),
-      ...changes.changedPaths,
-    ]),
-  ]
-    .filter((value) => !/^\.crdd(?:\/|$)/u.test(value))
-    .sort();
-  const spellings = new Map<string, string>();
-  for (const relativePath of paths) {
-    const segments = relativePath.split("/");
-    for (let count = 1; count <= segments.length; count++) {
-      const prefix = segments.slice(0, count).join("/");
-      const key = prefix.toLowerCase();
-      const prior = spellings.get(key);
-      if (prior !== undefined && prior !== prefix)
-        throw Error("execution_git_path_case_conflict");
-      spellings.set(key, prefix);
-    }
-  }
-  return paths.flatMap((relativePath) => {
-    if (!isExecutionRelativePath(relativePath))
-      throw Error("execution_git_path_invalid");
-    try {
-      const file = readFile(record.source, {
-        baseCommit: comparison,
-        path: relativePath,
-      });
-      if (file.head !== record.baseHead)
-        throw Error("execution_git_head_changed");
-      return [Object.freeze(file.selection)];
-    } catch (error) {
-      // VCが同じ固定Commitにも現在Treeにも存在しないと明示したPathだけを除外する。
-      if (
-        error instanceof Error &&
-        error.message === "repository_file_not_found"
-      )
-        return [];
-      throw error;
-    }
-  });
-}
-
 /** 既存HostのCAS内でRef予定と技術結果を保持する。 @trace ARCH-000013 */
 function writeGitSnapshot(
   host: HostState,
@@ -2546,72 +2460,7 @@ function writeGitSnapshot(
   });
 }
 
-/** Gitの基準又は候補を、保存済み予定・OID・Refの順に固定する。 @trace ARCH-000013 */
-function createExecutionCommit(record: WorkspaceRecord, baseCommit: string) {
-  const { identity } = ownedOperationFromManagementCapability(
-    record.managementCapability,
-  );
-  const host = identity.host;
-  freshHost(host);
-  requireHostExecutionCurrent(host.input);
-  const sequence = host.record.git?.length ?? 0;
-  const name = `refs/heads/crdd/operation/${record.operationId}/${sequence === 0 ? "baseline" : `candidate-${sequence}`}`;
-  const planned: NonNullable<HostRecord["git"]>[number] = {
-    name,
-    commitId: null,
-    temporary: null,
-    request: "not_issued",
-    cleanup: "pending",
-  };
-  writeGitSnapshot(host, planned);
-  const selection = readGitSelection(record, baseCommit);
-  const temporaryDirectory = `.crdd/operations/${record.operationId}/management`;
-  const result = createCommit(record.source, {
-    baseCommit,
-    expectedHead: record.baseHead,
-    selection,
-    message: `CRDD ${record.operationId} ${sequence === 0 ? "baseline" : "candidate"}`,
-    temporaryDirectory,
-    allowEmpty: true,
-  });
-  // blockedでも生成済みOID・未回収Indexを捨てない。保存失敗後にRefを発行しない。
-  const received = {
-    ...planned,
-    commitId: result.commitId,
-    temporary: result.temporary,
-  };
-  writeGitSnapshot(host, received);
-  if (
-    result.status !== "completed" ||
-    !result.cleanupConfirmed ||
-    !result.commitId
-  )
-    throw Error("execution_git_commit_unconfirmed", { cause: result.reason });
-  if (!isDeepStrictEqual(selection, readGitSelection(record, baseCommit)))
-    throw Error("execution_git_content_changed");
-  requireHostExecutionCurrent(host.input);
-  writeGitSnapshot(host, { ...received, request: "unknown" });
-  const referenced = createReference(host.input.root, {
-    name,
-    commitId: result.commitId,
-  });
-  if (
-    referenced.status !== "completed" ||
-    referenced.present !== true ||
-    !referenced.effectConfirmed
-  )
-    throw Error("execution_git_reference_unconfirmed");
-  writeGitSnapshot(host, { ...received, request: "confirmed" });
-  return Object.freeze({
-    name,
-    commitId: result.commitId,
-    paths: Object.freeze(
-      selection.filter((item) => item.blobId !== null).map((item) => item.path),
-    ),
-  });
-}
-
-/** 同じ管理OwnerのGit資源を期待OID付きで回収する。 @trace ARCH-000013 */
+/** 旧Operationに記録済みのGit資源を期待OID付きで回収する。新規資源は作らない。 @trace ARCH-000013 */
 function cleanupHostGit(host: HostState) {
   for (const item of host.record.git ?? []) {
     if (item.cleanup === "confirmed") continue;
@@ -2622,7 +2471,7 @@ function cleanupHostGit(host: HostState) {
       ...(item.temporary
         ? {
             temporaryIndex: {
-              directory: `.crdd/operations/${host.record.operationId}/management`,
+              directory: `.crdd/coordinator/${host.record.operationId}/management`,
               value: item.temporary,
             },
           }
@@ -2635,43 +2484,6 @@ function cleanupHostGit(host: HostState) {
     )
       throw Error("host_operation_git_cleanup_unconfirmed");
     writeGitSnapshot(host, { ...item, cleanup: "confirmed" });
-  }
-}
-
-/** 固定基準と現在のGit可視内容を比較する。 @trace ARCH-000013 */
-export function observeBorrowedExecutionChanges(capability: object) {
-  try {
-    const management = ownValue(capability, "managementCapability");
-    if (!isObject(management)) return null;
-    const observed = readBorrowedExecutionBinding(management);
-    const record = observed?.snapshot;
-    if (!observed || !record || record !== capability) return null;
-    const current = currentWorkspaceRecord(
-      capability,
-      record.repositoryBindingCapability,
-      record.managementCapability,
-      record.mountCapability,
-      observed,
-    );
-    if (!current) return null;
-    return Object.freeze(
-      readGitSelection(record, record.baseCommitId)
-        .filter((selection) => {
-          const before = readCommitFile(record.source, {
-            commit: record.baseCommitId,
-            path: selection.path,
-          });
-          if (selection.blobId === null) return true;
-          return (
-            before === null ||
-            before.blobId !== selection.blobId ||
-            before.mode !== selection.mode
-          );
-        })
-        .map((selection) => selection.path),
-    );
-  } catch {
-    return null;
   }
 }
 
@@ -2726,37 +2538,12 @@ function allowedPaths(rawAllowedPaths: unknown) {
 }
 
 /**
- * Allowedかを判定する。
- *
- * @responsibility Allowedの判定条件とtrue／false境界を所有する。
+ * 確定済みWorkspaceを隔離実行へ結び付ける。
+ * @responsibility 借用先と現在Ownerを同じ操作へ結び付け、全ファイルは観測しない。
  * @trace ARCH-000013
- * @input relativePath: string、paths: readonly string[]
- * @returns isAllowedの計算結果を返す。
- * @precondition 「relativePath: string、paths: readonly string[]」がisAllowedの入力契約を満たす。
- * @postcondition isAllowedの責務を完了した結果だけを返す。
- * @effect N/A: isAllowedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isAllowedは独自の失敗分岐を所有しない。
- * @invariant isAllowedは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isAllowedはProcess内の同一Subsystemで完結する。
- * @security isAllowedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: isAllowedは共有非同期状態を持たない同期処理である。
+ * @effect 所有領域のMount保護だけを準備する。
  */
-function isAllowed(relativePath: string, paths: readonly string[]) {
-  return paths.some((allowedPath) =>
-    allowedPath.endsWith("/")
-      ? relativePath.startsWith(allowedPath)
-      : relativePath === allowedPath,
-  );
-}
-
-/**
- * 借用対象の開始dirtyをGit Commitへ固定する。
- * @responsibility 作成予定保存とVC完成操作を接続し、通常Index・HEADを変更しない。
- * @trace ARCH-000013
- * @effect 元Host記録、Git Objectと専用Refだけを更新する。
- * @boundary Main／Linkedの対象と現在Ownerを同じ操作へ結合する。
- */
-export function bindRuntimeOwnedExecutionSnapshot(
+export function bindExecutionWorkspace(
   repositoryBindingCapability: unknown,
   managementCapability: unknown,
   mountCapability: unknown,
@@ -2765,14 +2552,13 @@ export function bindRuntimeOwnedExecutionSnapshot(
 ) {
   try {
     if (
-      !isObject(repositoryBindingCapability) ||
       !isObject(managementCapability) ||
       !isObject(mountCapability) ||
       !borrowedTarget ||
       (rawReadPaths !== undefined && !allowedPaths(rawReadPaths))
     )
       return null;
-    const source = borrowRuntimeOwnedRepositorySource(
+    const source = borrowRepositorySource(
       repositoryBindingCapability,
       managementCapability,
     );
@@ -2781,49 +2567,23 @@ export function bindRuntimeOwnedExecutionSnapshot(
       mountCapability,
     );
     if (!source || source.operationId !== binding.operationId) return null;
+    const { identity } =
+      ownedOperationFromManagementCapability(managementCapability);
+    freshHost(identity.host);
+    requireHostExecutionCurrent(identity.host.input);
     const target = bindBorrowedExecutionTarget(
       managementCapability,
       mountCapability,
       source.repositoryRoot,
       borrowedTarget,
     );
-    if (!target) return null;
-    const location = getRepository(target.executionTree);
-    if (location.status !== "completed") return null;
-    const observed = readRepositorySnapshot(location.capability);
-    if (
-      !observed ||
-      (target.head !== null && observed.revisionIdentity !== target.head)
-    )
-      return null;
-    const initial: WorkspaceRecord = Object.freeze({
-      managementCapability,
-      mountCapability,
-      repositoryBindingCapability,
-      operationId: binding.operationId,
-      source: location.capability,
-      sourceTree: target.executionTree,
-      baseHead: observed.revisionIdentity,
-      baseCommitId: observed.revisionIdentity,
-      basePaths: Object.freeze([]),
-    });
-    const baseline = createExecutionCommit(initial, observed.revisionIdentity);
-    const record: WorkspaceRecord = Object.freeze({
-      ...initial,
-      baseCommitId: baseline.commitId,
-      basePaths: baseline.paths,
-    });
-    const borrowed = readBorrowedExecutionBinding(managementCapability);
-    if (!borrowed) return null;
-    bindExecutionSnapshotToBorrowed(managementCapability, borrowed, record);
-    return Object.freeze({
-      status: "materialized" as const,
-      borrowed: true,
-      workspaceCapability: record,
-      baseCommitId: baseline.commitId,
-      fileCount: baseline.paths.length,
-      pathReported: false,
-    });
+    return target
+      ? Object.freeze({
+          status: "materialized" as const,
+          borrowed: true,
+          pathReported: false,
+        })
+      : null;
   } catch {
     return null;
   }
@@ -2838,7 +2598,7 @@ export function bindRuntimeOwnedExecutionSnapshot(
  * @effect 元の進捗への同期登録だけ。保存・回収・権限発行は行わない。
  * @failure 欠測、不正、重複では既存の組を変更しない。
  */
-export function registerRuntimeOwnedDockerHandoff(
+export function registerDockerHandoff(
   target: Pick<HostCompletionTarget, "dockerHandoffs">,
   capability: unknown,
   recoveryReference: unknown,
@@ -2873,7 +2633,7 @@ export function registerRuntimeOwnedDockerHandoff(
  * @security 参照を再生成せず、保存・清掃の権限を発行しない。
  * @concurrency 呼出しと同じ同期区間で照合する。
  */
-export function matchRuntimeOwnedDockerHandoff(
+export function matchDockerHandoff(
   target: HostCompletionTarget,
   recoveryId: string | null,
   completionCapability: unknown,
@@ -2898,7 +2658,7 @@ export function matchRuntimeOwnedDockerHandoff(
  * @postcondition 元の完了結果を差し替えず、同じ引渡しをfinalizableにする。
  * @effect 同期の状態更新だけ。Host清掃・保存・回復確定は行わない。
  */
-export function recordRuntimeOwnedDockerHandoffCompletion(
+export function recordDockerHandoffCompletion(
   handoff: HostCompletionTarget["dockerHandoffs"][number],
   completion: unknown,
 ): void {
@@ -2906,380 +2666,142 @@ export function recordRuntimeOwnedDockerHandoffCompletion(
   handoff.state = "finalizable";
 }
 
-/** 借用結合の既存Mapだけに実行中の固定内容を保持する。 @trace ARCH-000013 */
-function bindExecutionSnapshotToBorrowed(
-  management: object,
-  current: BorrowedBinding,
-  snapshot: WorkspaceRecord,
-) {
-  borrowed.set(management, Object.freeze({ ...current, snapshot }));
-}
-
-/** 同じ借用・管理・Mount・基準Refの現在性を照合する。観測済み値は直前の同期観測だけを渡す。 @trace ARCH-000013 */
-function currentWorkspaceRecord(
-  workspaceCapability: unknown,
-  repositoryBindingCapability: unknown,
-  managementCapability: unknown,
-  mountCapability: unknown,
-  observed?: BorrowedBinding,
-) {
-  if (!isObject(workspaceCapability) || !isObject(managementCapability))
-    return null;
-  const borrowed =
-    observed ?? readBorrowedExecutionBinding(managementCapability);
-  const record = borrowed?.snapshot;
-  if (
-    !record ||
-    workspaceCapability !== record ||
-    record.managementCapability !== managementCapability ||
-    record.mountCapability !== mountCapability ||
-    record.repositoryBindingCapability !== repositoryBindingCapability ||
-    borrowed.target.executionTree !== record.sourceTree
-  )
-    return null;
-  const repository = verifyRuntimeOwnedRepositoryBindingCapability(
-    repositoryBindingCapability,
-    managementCapability,
-  );
-  const binding = verifyOwnedOperationManagementMountBinding(
-    managementCapability,
-    mountCapability,
-  );
-  const host = readOwnedHostOperation(managementCapability).record;
-  const baseline = host.git?.[0];
-  return repository &&
-    binding.operationId === record.operationId &&
-    baseline?.commitId === record.baseCommitId &&
-    baseline.request === "confirmed" &&
-    baseline.cleanup === "pending"
-    ? record
-    : null;
-}
-
-/** 固定基準からのGit差分を候補Commitへ一度固定する。 @trace ARCH-000013 */
-export function captureExecutionChangeSnapshot(
-  workspaceCapability: unknown,
-  repositoryBindingCapability: unknown,
-  managementCapability: unknown,
-  mountCapability: unknown,
-  rawAllowedPaths: unknown,
-) {
-  try {
-    const current = currentWorkspaceRecord(
-      workspaceCapability,
-      repositoryBindingCapability,
-      managementCapability,
-      mountCapability,
-    );
-    const paths = allowedPaths(rawAllowedPaths);
-    if (!current || !paths) return null;
-    const candidate = createExecutionCommit(current, current.baseCommitId);
-    const diff = readCommitDiff(current.source, {
-      baseCommit: current.baseCommitId,
-      commitId: candidate.commitId,
-    });
-    return Object.freeze({
-      status: "candidate" as const,
-      operationId: current.operationId,
-      baseCommitId: current.baseCommitId,
-      candidateCommitId: candidate.commitId,
-      changedPaths: diff.changedPaths,
-      unexpectedPaths: Object.freeze(
-        diff.changedPaths.filter((value) => !isAllowed(value, paths)),
-      ),
-      candidateCapability: Object.freeze({
-        name: candidate.name,
-        commitId: candidate.commitId,
-      }),
-      pathReported: false,
-      canonicalRepositoryChanged: false,
-    });
-  } catch {
-    return null;
-  }
-}
-
 /**
- * 許可範囲だけを固定Commitから自己所有領域へコピーしReviewerへ渡す。
- * @responsibility 機密拒否、固定内容と実搬送本文の相関を保持する。
+ * 選択済みWorkspaceを読み取り専用で渡す前に保護対象を確定する。
+ * @responsibility 機密検査と保護Mountを同じ候補へ結び付け、本文をPacketへ入れない。
  * @trace ARCH-000013
- * @effect 元Hostのprojection子内への限定コピー。借用元の現在Fileは読まない。
+ * @effect 所有済み管理領域に空の保護Mount元を準備する。Workspaceは変更しない。
  */
-export function projectReviewerReadContent(
-  workspaceCapability: unknown,
-  candidateCapability: unknown,
-  repositoryBindingCapability: unknown,
-  managementCapability: unknown,
-  mountCapability: unknown,
-  rawReadPaths: unknown,
-) {
-  try {
-    const current = currentWorkspaceRecord(
-      workspaceCapability,
-      repositoryBindingCapability,
-      managementCapability,
-      mountCapability,
-    );
-    const readPaths = allowedPaths(rawReadPaths);
-    if (!current || !readPaths || !isObject(managementCapability)) return null;
-    const verified = verifyExecutionChangeSnapshot(
-      candidateCapability,
-      repositoryBindingCapability,
-      managementCapability,
-      mountCapability,
-    );
-    if (verified?.status !== "verified") return null;
-    const { identity } =
-      ownedOperationFromManagementCapability(managementCapability);
-    const host = identity.host;
-    const position = host.record.git?.findIndex(
-      (item) =>
-        item.commitId === verified.candidateCommitId &&
-        !item.name.endsWith("/baseline"),
-    );
-    if (position === undefined || position < 1) return null;
-    const binding = verifyOwnedOperationManagementMountBinding(
-      managementCapability,
-      mountCapability,
-    );
-    const directory = path.join(
-      binding.mounts.projection,
-      `reviewer-${position}`,
-    );
-    fs.mkdirSync(directory);
-    const root = resolveVerifiedRepositoryRoot(host.input.root);
-    if (!root) return null;
-    const files: Readonly<Record<string, unknown>>[] = [];
-    const copied = copyCommitFiles(current.source, {
-      commit: verified.candidateCommitId,
-      outputRepository: host.input.root,
-      relativeDirectory: path
-        .relative(root, directory)
-        .split(path.sep)
-        .join("/"),
-      paths: readPaths,
-      inspectContent: (relativePath, bytes) => {
-        if (!isAllowed(relativePath, readPaths)) return true;
-        try {
-          const content = new TextDecoder("utf-8", { fatal: true }).decode(
-            bytes,
-          );
-          if (containsRecognizedSecretMaterial(relativePath, content))
-            return true;
-          files.push(
-            Object.freeze({
-              path: relativePath,
-              state: "present",
-              byteLength: bytes.byteLength,
-              sha256: createHash("sha256").update(bytes).digest("hex"),
-              encoding: "utf-8",
-              content,
-            }),
-          );
-          return false;
-        } catch {
-          return true;
-        }
-      },
-    });
-    if (copied?.status !== "materialized")
-      return Object.freeze({
-        status: "blocked" as const,
-        reason:
-          copied?.status === "blocked"
-            ? copied.reason
-            : "execution_reviewer_copy_unconfirmed",
-      });
-    const presentPaths = new Set<string>();
-    for (const file of files) {
-      const relativePath = String(file.path);
-      const observed = readExecutionFile(
-        path.join(directory, ...relativePath.split("/")),
-      );
-      if (
-        observed.sha256 !== file.sha256 ||
-        observed.byteLength !== file.byteLength
-      )
-        throw Error("execution_reviewer_copy_changed");
-      presentPaths.add(relativePath);
-    }
-    for (const relativePath of readPaths)
-      if (!relativePath.endsWith("/") && !presentPaths.has(relativePath))
-        files.push(Object.freeze({ path: relativePath, state: "absent" }));
-    files.sort((left, right) =>
-      Buffer.from(String(left.path)).compare(Buffer.from(String(right.path))),
-    );
-    const projectionHash = createHash("sha256")
-      .update("crdd-candidate-read-projection-v2\0")
-      .update(verified.candidateCommitId)
-      .update("\0")
-      .update(JSON.stringify(files))
-      .digest("hex");
-    const borrowed = readBorrowedExecutionBinding(managementCapability);
-    if (!borrowed) return null;
-    const fileHashes = files
-      .filter((file) => file.state === "present")
-      .map((file) =>
-        Object.freeze({ path: String(file.path), sha256: String(file.sha256) }),
-      );
-    bindReviewerCopy(managementCapability, borrowed, {
-      commitId: verified.candidateCommitId,
-      directory,
-      fileHashes: Object.freeze(fileHashes),
-    });
-    return Object.freeze({
-      status: "projected" as const,
-      candidateCommitId: verified.candidateCommitId,
-      projectionHash,
-      totalBytes: files.reduce(
-        (total, file) =>
-          total + (typeof file.byteLength === "number" ? file.byteLength : 0),
-        0,
-      ),
-      files: Object.freeze(files),
-    });
-  } catch {
-    return null;
-  }
-}
-
-/** 既存の借用結合へ今回の固定コピーだけを結合する。 @trace ARCH-000013 */
-function bindReviewerCopy(
-  management: object,
-  current: BorrowedBinding,
-  reviewer: NonNullable<BorrowedBinding["reviewer"]>,
-) {
-  borrowed.set(
-    management,
-    Object.freeze({ ...current, reviewer: Object.freeze(reviewer) }),
-  );
-}
-
-/** Reviewerには同じ候補の自己所有コピーだけをMountさせる。 @trace ARCH-000013 */
-export function readOwnedReviewerWorkspace(
-  management: unknown,
-  commitId: unknown,
-): string | null {
-  try {
-    if (!isObject(management) || typeof commitId !== "string") return null;
-    const { identity } = ownedOperationFromManagementCapability(management);
-    freshHost(identity.host);
-    const binding = readBorrowedExecutionBinding(management);
-    const copy = binding?.reviewer;
-    if (
-      !copy ||
-      copy.commitId !== commitId ||
-      !identity.host.record.git?.some(
-        (item) =>
-          item.commitId === commitId &&
-          item.request === "confirmed" &&
-          item.cleanup === "pending",
-      )
-    )
-      return null;
-    const remaining = new Map(
-      copy.fileHashes.map((file) => [file.path, file.sha256]),
-    );
-    if (remaining.size !== copy.fileHashes.length) return null;
-    const read = (directory: string) => {
-      const info = fs.lstatSync(directory);
-      if (
-        !info.isDirectory() ||
-        info.isSymbolicLink() ||
-        fs.realpathSync(directory) !== directory
-      )
-        throw Error("execution_reviewer_copy_changed");
-      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-        const target = path.join(directory, entry.name);
-        if (entry.isSymbolicLink())
-          throw Error("execution_reviewer_copy_changed");
-        if (entry.isDirectory()) read(target);
-        else {
-          const relative = path
-            .relative(copy.directory, target)
-            .split(path.sep)
-            .join("/");
-          const expected = remaining.get(relative);
-          if (
-            expected === undefined ||
-            readExecutionFile(target).sha256 !== expected
-          )
-            throw Error("execution_reviewer_copy_changed");
-          remaining.delete(relative);
-        }
-      }
-    };
-    read(copy.directory);
-    return remaining.size === 0 ? copy.directory : null;
-  } catch {
-    return null;
-  }
-}
-
-/** 保存済み候補と現在のGit可視内容をVCの既知Commit照合で確認する。 @trace ARCH-000013 */
-export function verifyExecutionChangeSnapshot(
-  candidateCapability: unknown,
+export function prepareReviewerWorkspace(
   repositoryBindingCapability: unknown,
   managementCapability: unknown,
   mountCapability: unknown,
 ) {
   try {
     if (!isObject(managementCapability)) return null;
-    const borrowed = readBorrowedExecutionBinding(managementCapability);
-    const record = borrowed?.snapshot;
+    const borrowedBinding = readBorrowedExecutionBinding(managementCapability);
     if (
-      !borrowed ||
-      !record ||
-      !currentWorkspaceRecord(
-        record,
+      !borrowedBinding ||
+      !verifyRepositoryBindingCapability(
         repositoryBindingCapability,
         managementCapability,
-        mountCapability,
-        borrowed,
-      ) ||
-      !isObject(candidateCapability)
+      )
     )
       return null;
-    const name = ownValue(candidateCapability, "name"),
-      commitId = ownValue(candidateCapability, "commitId");
     const { identity } =
       ownedOperationFromManagementCapability(managementCapability);
-    const saved = identity.host.record.git?.find(
-      (item) =>
-        item.name === name &&
-        item.commitId === commitId &&
-        item.request === "confirmed" &&
-        item.cleanup === "pending",
+    freshHost(identity.host);
+    requireHostExecutionCurrent(identity.host.input);
+    verifyOwnedOperationManagementMountBinding(
+      managementCapability,
+      mountCapability,
     );
-    if (!saved?.commitId || saved.name.endsWith("/baseline")) return null;
-    const verified = createCommit(record.source, {
-      baseCommit: record.baseCommitId,
-      expectedHead: record.baseHead,
-      selection: readGitSelection(record, record.baseCommitId),
-      message: "CRDD candidate verification",
-      temporaryDirectory: `.crdd/operations/${record.operationId}/management`,
-      previousCommit: saved.commitId,
-      allowEmpty: true,
-    });
-    if (
-      verified.status !== "completed" ||
-      !verified.cleanupConfirmed ||
-      verified.effectIssued
-    )
-      return null;
-    const diff = readCommitDiff(record.source, {
-      baseCommit: record.baseCommitId,
-      commitId: saved.commitId,
-    });
+    const root = borrowedBinding.target.executionTree;
+    const snapshotId = createHash("sha256").update(randomUUID()).digest("hex");
+    // 新しい確認が失敗した場合、旧候補を使って起動しない。
+    const { reviewer: previousReviewer, ...currentBinding } = borrowedBinding;
+    borrowed.set(managementCapability, Object.freeze(currentBinding));
+    const masks: { relativePath: string; kind: "file" | "directory" }[] = [];
+    let withheldFileCount = 0;
+    const pending = [""];
+    while (pending.length > 0) {
+      const prefix = pending.pop() as string;
+      const parent = path.join(root, prefix);
+      if (fs.realpathSync.native(parent) !== parent) return null;
+      const entries = fs.readdirSync(parent);
+      if (prefix && entries.some((entry) => entry.toLowerCase() === ".git")) {
+        masks.push(Object.freeze({ relativePath: prefix, kind: "directory" }));
+        continue;
+      }
+      for (const entry of entries) {
+        const relativePath = prefix ? `${prefix}/${entry}` : entry;
+        // 覆っても名前は見えるので、秘密値を含む名前はMountの対象として搬送しない。
+        if (containsRecognizedSecretPathSegment(entry)) return null;
+        const reserved = [".git", ".crdd"].includes(entry.toLowerCase());
+        if (!reserved && !isExecutionRelativePath(relativePath)) return null;
+        const target = path.join(parent, entry);
+        const info = fs.lstatSync(target, { bigint: true });
+        if (info.isSymbolicLink() || (!info.isDirectory() && !info.isFile()))
+          return null;
+        // ルートの二箇所は既存の保護Mountを使う。子孫の同名領域も本文を渡さない。
+        if (!prefix && (entry === ".git" || entry === ".crdd")) continue;
+        if (reserved || containsRecognizedSecretMaterial(relativePath, "")) {
+          masks.push(
+            Object.freeze({
+              relativePath,
+              kind: info.isDirectory() ? "directory" : "file",
+            }),
+          );
+        } else if (info.isDirectory()) {
+          pending.push(relativePath);
+        } else {
+          if (fs.realpathSync.native(target) !== target) return null;
+          const { content } = readExecutionFile(target, info);
+          if (containsRecognizedSecretMaterial(relativePath, content)) {
+            withheldFileCount++;
+            masks.push(Object.freeze({ relativePath, kind: "file" }));
+          }
+        }
+      }
+    }
+    const support = path.join(
+      borrowOwnedDockerExecutionPaths(managementCapability).management,
+      "reviewer-masks",
+    );
+    if (!previousReviewer?.masks) {
+      fs.mkdirSync(support);
+      fs.mkdirSync(path.join(support, "directory"));
+      fs.writeFileSync(path.join(support, "file"), "", { flag: "wx" });
+    }
+    borrowed.set(
+      managementCapability,
+      Object.freeze({
+        ...borrowedBinding,
+        reviewer: Object.freeze({
+          snapshotId,
+          directory: root,
+          masks: Object.freeze(masks),
+        }),
+      }),
+    );
     return Object.freeze({
-      status: "verified" as const,
-      operationId: record.operationId,
-      baseCommitId: record.baseCommitId,
-      candidateCommitId: saved.commitId,
-      changedPaths: diff.changedPaths,
-      pathReported: false,
-      canonicalRepositoryChanged: false,
+      status: "projected" as const,
+      candidateSnapshotId: snapshotId,
+      workspaceReview: true as const,
+      projectionHash: createHash("sha256")
+        .update("crdd-review-content-v2\0")
+        .update(snapshotId)
+        .update("\0")
+        .update(String(withheldFileCount))
+        .update("\0[]")
+        .digest("hex"),
+      withheldFileCount,
+      totalBytes: 0,
+      files: Object.freeze([]),
     });
+  } catch {
+    return null;
+  }
+}
+
+/** 全体レビューの同じ候補だけに、確認済みTreeと保護Mountを引き渡す。 @trace ARCH-000013 */
+export function readOwnedReviewerWorkspace(
+  management: unknown,
+  snapshotId: unknown,
+) {
+  try {
+    if (!isObject(management) || typeof snapshotId !== "string") return null;
+    const { identity } = ownedOperationFromManagementCapability(management);
+    freshHost(identity.host);
+    const binding = readBorrowedExecutionBinding(management, true);
+    const reviewer = binding?.reviewer;
+    return binding && reviewer?.snapshotId === snapshotId
+      ? Object.freeze({
+          directory: reviewer.directory,
+          masks: reviewer.masks,
+          protection: binding.protection,
+        })
+      : null;
   } catch {
     return null;
   }
@@ -3365,11 +2887,13 @@ export function throwProductionOperationFailure(
  * @compatibility 新Workspace入口の短命データ。
  */
 type BorrowedBinding = Readonly<{
-  snapshot?: WorkspaceRecord;
   reviewer?: Readonly<{
-    commitId: string;
+    snapshotId: string;
     directory: string;
-    fileHashes: readonly Readonly<{ path: string; sha256: string }>[];
+    masks: readonly Readonly<{
+      relativePath: string;
+      kind: "file" | "directory";
+    }>[];
   }>;
   target: BorrowedExecutionTarget;
   dev: number;
@@ -3400,6 +2924,11 @@ export function inspectBorrowedExecutionTarget(
   ownerRoot: unknown,
   raw: unknown,
 ): BorrowedExecutionTarget | null {
+  return observeBorrowedExecutionTarget(ownerRoot, raw)?.target ?? null;
+}
+
+/** 呼出し内の前後で配置を比較し、同じ同期操作にだけ実体を返す。 */
+function observeBorrowedExecutionTarget(ownerRoot: unknown, raw: unknown) {
   try {
     if (
       typeof ownerRoot !== "string" ||
@@ -3432,17 +2961,6 @@ export function inspectBorrowedExecutionTarget(
       typeof target.executionTree !== "string"
     )
       return null;
-    const root = getRepository(ownerRoot);
-    const layout =
-      root.status === "completed"
-        ? readRepositoryStorageIdentity(root.capability)
-        : null;
-    if (
-      root.status !== "completed" ||
-      layout === null ||
-      layout.repositoryForm === "linked"
-    )
-      return null;
     // Workspace IDは上位の相関値だけ。配置検索・方式選択には使わない。
     if (
       !(
@@ -3459,20 +2977,28 @@ export function inspectBorrowedExecutionTarget(
       )
     )
       return null;
-    const identity = readRepositorySnapshot(
-      getRepository(target.executionTree).capability,
-    );
-    const ownerIdentity = readRepositorySnapshot(
-      getRepository(ownerRoot).capability,
-    );
+    const direct = target.executionTree === ownerRoot;
     if (
-      !ownerIdentity ||
-      identity?.repositoryIdentity !== ownerIdentity.repositoryIdentity ||
-      !identity ||
-      (target.head !== null && identity.revisionIdentity !== target.head) ||
-      (target.executionTree !== ownerRoot && target.head === null) ||
-      (target.executionTree !== ownerRoot &&
+      !direct &&
+      (target.head === null ||
         !target.executionTree.startsWith(ownerRoot + path.sep))
+    )
+      return null;
+    // 実行先は指定フォルダとして扱い、HEADのCommit実在は確認しない。
+    // 期待HEADがある場合だけ照合し、Commitが必要な採用はVersion Controlが確認する。
+    const mode = target.head === null ? "placement" : "placement_and_head";
+    const owner = readRepositoryLocation(
+      ownerRoot,
+      direct ? mode : "placement",
+    );
+    if (!owner || owner.linked) return null;
+    const execution = direct
+      ? owner
+      : readRepositoryLocation(target.executionTree, mode);
+    if (
+      !execution ||
+      execution.commonIdentity !== owner.commonIdentity ||
+      (target.head !== null && execution.head !== target.head)
     )
       return null;
     const tree = fs.lstatSync(target.executionTree);
@@ -3485,16 +3011,30 @@ export function inspectBorrowedExecutionTarget(
       !(git.isDirectory() || git.isFile())
     )
       return null;
-    const executionRoot = getRepository(target.executionTree);
+    if (checkProtectionDirectory(target.executionTree, "observe") === "blocked")
+      return null;
+    const currentExecution = readRepositoryLocation(target.executionTree, mode);
+    const currentOwner = direct
+      ? currentExecution
+      : readRepositoryLocation(ownerRoot, "placement");
+    const samePlacement = (before: typeof owner, after: typeof currentOwner) =>
+      after !== null &&
+      before.directory === after.directory &&
+      before.linked === after.linked &&
+      before.instanceIdentity === after.instanceIdentity &&
+      before.commonIdentity === after.commonIdentity &&
+      before.gitDirectoryIdentity === after.gitDirectoryIdentity &&
+      before.head === after.head;
     if (
-      executionRoot.status !== "completed" ||
-      checkRepositoryRuntimeDataProtectionDirectory(
-        executionRoot.capability,
-        "observe",
-      ) === "blocked"
+      !samePlacement(execution, currentExecution) ||
+      (!direct && !samePlacement(owner, currentOwner))
     )
       return null;
-    return Object.freeze(target);
+    return {
+      target: Object.freeze(target),
+      tree,
+      git,
+    };
   } catch {
     return null;
   }
@@ -3522,34 +3062,39 @@ export function bindBorrowedExecutionTarget(
   ownerRoot: string,
   raw: unknown,
 ) {
-  const target = inspectBorrowedExecutionTarget(ownerRoot, raw);
-  if (!target || borrowed.has(management)) return null;
+  const observed = observeBorrowedExecutionTarget(ownerRoot, raw);
+  if (!observed || borrowed.has(management)) return null;
+  const { target, tree, git } = observed;
   const binding = verifyOwnedOperationManagementMountBinding(management, mount);
   // 空のMount先だけを初期化する。状態・履歴をこのTreeへ保存しない。
-  const executionRoot = getRepository(target.executionTree);
+  const current = fs.lstatSync(target.executionTree);
+  const currentGit = fs.lstatSync(path.join(target.executionTree, ".git"));
   if (
-    executionRoot.status !== "completed" ||
-    checkRepositoryRuntimeDataProtectionDirectory(
-      executionRoot.capability,
-      "prepare",
-    ) !== "ready"
+    !current.isDirectory() ||
+    current.isSymbolicLink() ||
+    current.dev !== tree.dev ||
+    current.ino !== tree.ino ||
+    fs.realpathSync.native(target.executionTree) !== target.executionTree ||
+    currentGit.isSymbolicLink() ||
+    currentGit.dev !== git.dev ||
+    currentGit.ino !== git.ino ||
+    currentGit.isDirectory() !== git.isDirectory() ||
+    checkProtectionDirectory(target.executionTree, "prepare") !== "ready"
   )
     return null;
   const directory = path.join(binding.mounts.projection, "workspace-masks");
   fs.mkdirSync(directory);
   const gitSourcePath = path.join(directory, "git");
   const internalSourcePath = path.join(directory, "internal");
-  if (fs.lstatSync(path.join(target.executionTree, ".git")).isDirectory())
-    fs.mkdirSync(gitSourcePath);
+  if (git.isDirectory()) fs.mkdirSync(gitSourcePath);
   else fs.writeFileSync(gitSourcePath, "", { flag: "wx" });
   fs.mkdirSync(internalSourcePath);
-  const metadata = fs.lstatSync(target.executionTree);
   borrowed.set(
     management,
     Object.freeze({
       target,
-      dev: metadata.dev,
-      ino: metadata.ino,
+      dev: tree.dev,
+      ino: tree.ino,
       protection: Object.freeze({ gitSourcePath, internalSourcePath }),
     }),
   );
@@ -3701,9 +3246,7 @@ export function cleanupOwnedOperationDirectories(owned: unknown) {
  * @trace ARCH-000008
  * @boundary 現在認可は入力Ownerが保持し、取消後の回収記録と実行継続を分離する。
  */
-export function createRuntimeOwnedCoordinatorOperation(
-  input: HostOperationInput,
-) {
+export function createCoordinatorOperation(input: HostOperationInput) {
   const owned = createOwnedOperationDirectories(input);
   const hostRecoveryId = getOwnedHostRecoveryId(owned);
   try {
@@ -3855,6 +3398,9 @@ type HostState = {
   version: StateVersion;
   lock: Lock;
   publication?: HostRecoveryRead;
+  recoveryRepository?: NonNullable<
+    ReturnType<typeof borrowCoordinatorRecoveryRepository>
+  >;
 };
 
 /** 既存EMの途中保存読取りだけを同じDocker回復IDへ固定する。 */
@@ -3876,11 +3422,13 @@ type HostRecoveryRead = Readonly<
  * @failure 別操作・読取り不明・排他解放不明は拒否する。
  */
 function readHostGenerationSnapshot(
-  root: Repository,
+  repository: ReturnType<typeof borrowCoordinatorRecoveryRepository>,
   operationId: string,
   publication?: HostRecoveryRead,
 ) {
-  const ordinary = readState(root, { scope: "recovery" });
+  const ordinary = readState(recoveryStorageInput(repository), {
+    scope: "recovery",
+  });
   if (
     ordinary.status === "completed" &&
     ordinary.lockReleased &&
@@ -3891,11 +3439,16 @@ function readHostGenerationSnapshot(
     throw Error("host_operation_state_unknown");
   if (
     publication.kind === "execution_history" &&
-    publication.history.root !== root
+    publication.history.root !== repository?.root
   )
     throw Error("host_operation_publication_root_changed");
   const observed = readState(
-    publication.kind === "execution_history" ? publication.history : root,
+    recoveryStorageInput(
+      repository,
+      publication.kind === "execution_history"
+        ? publication.history
+        : undefined,
+    ),
     {
       scope: "recovery",
       input: { kind: publication.kind, recoveryId: publication.recoveryId },
@@ -3930,7 +3483,8 @@ function freshHost(host: HostState) {
   if (!host.lock.assertLive() || host.input.recordingCurrent() !== true)
     throw Error("host_operation_owner_unavailable");
   const reading = readHostGenerationSnapshot(
-    host.input.root,
+    host.recoveryRepository ??
+      borrowCoordinatorRecoveryRepository(host.input.root),
     host.record.operationId,
     host.publication,
   );
@@ -3960,9 +3514,14 @@ function hostRecordingAccess(
   input: HostOperationInput,
   operationId: string,
   lock?: Lock,
+  recoveryRepository?: HostState["recoveryRepository"],
 ) {
+  const directory =
+    recoveryRepository?.repositoryRoot ??
+    resolveVerifiedRepositoryRoot(input.root);
+  if (!directory) return null;
   return Object.freeze({
-    root: input.root,
+    root: { directory },
     revalidate: (
       operation: string,
       target: Readonly<{ operationId: string }>,
@@ -3970,6 +3529,7 @@ function hostRecordingAccess(
       operation === "operation.record" &&
       target.operationId === operationId &&
       input.recordingCurrent() === true &&
+      (!recoveryRepository || recoveryRepository.revalidate()) &&
       (!lock || lock.assertLive()),
   });
 }
@@ -3985,7 +3545,12 @@ function writeHostCheckpoint(host: HostState, candidate: HostRecord): void {
   freshHost(host);
   if (host.publication) throw Error("host_operation_publication_pending");
   const saved = saveOperationCheckpoint(
-    hostRecordingAccess(host.input, candidate.operationId, host.lock),
+    hostRecordingAccess(
+      host.input,
+      candidate.operationId,
+      host.lock,
+      host.recoveryRepository,
+    ),
     candidate.recoveryId,
     {
       kind: "host_operation",
@@ -4017,9 +3582,13 @@ const HOST_CHILD_NAMES = Object.freeze({
 
 /** 専用Rootは検証済みRepositoryと元操作IDだけから導く。 @trace ARCH-000008 */
 function ownedHostRoot(host: HostState): string {
-  const paths = resolveRepositoryExecutionDataPaths(host.input.root);
+  const paths = host.recoveryRepository
+    ? resolveRepositoryExecutionDataPathsFromValidatedRoot(
+        host.recoveryRepository.repositoryRoot,
+      )
+    : resolveRepositoryExecutionDataPaths(host.input.root);
   if (!paths) throw Error("host_operation_repository_unavailable");
-  return path.join(paths.operations, host.record.operationId);
+  return path.join(paths.coordinator, host.record.operationId);
 }
 /** DIが観測したProbe資源を同じ元Hostへ保存する。 @trace ARCH-000008 */
 export function recordOwnedHostResources(
@@ -4104,7 +3673,10 @@ export function isHostOperationRootAbsent(
 ): boolean {
   try {
     if (!/^OP-[0-9]{6,}$/u.test(operationId)) return false;
-    const parent = observeRepositoryExecutionDataArea(repository, "operations");
+    const parent = observeRepositoryExecutionDataArea(
+      repository,
+      "coordinator",
+    );
     return (
       parent.status === "ready" &&
       observeFilesystemEntry(path.join(parent.directory, operationId)) ===
@@ -4521,7 +4093,7 @@ function revokeOwnedOperationGeneration(
   } catch {}
   if (!released) {
     state.retired = true;
-    poisonRuntimeProcessAfterCleanupUnknown();
+    poisonExecutionProcessAfterCleanupUnknown();
     return false;
   }
   state.generationLock = null;
@@ -4545,6 +4117,9 @@ export function acquireHostOperationRecoveryGeneration(
   recoveryId: unknown,
   recordingCurrent: () => boolean,
   publication?: HostRecoveryRead,
+  recoveryRepository?: NonNullable<
+    ReturnType<typeof borrowCoordinatorRecoveryRepository>
+  >,
 ) {
   try {
     if (
@@ -4553,10 +4128,12 @@ export function acquireHostOperationRecoveryGeneration(
       recordingCurrent() !== true
     )
       return null;
-    const repositoryRoot = resolveVerifiedRepositoryRoot(root);
-    if (!repositoryRoot) return null;
+    const repository =
+      recoveryRepository ?? borrowCoordinatorRecoveryRepository(root);
+    if (!repository || repository.root !== root || !repository.revalidate())
+      return null;
     const reading = readHostGenerationSnapshot(
-      root,
+      repository,
       recoveryId.slice("host-operation.".length),
       publication,
     );
@@ -4574,7 +4151,11 @@ export function acquireHostOperationRecoveryGeneration(
     if (matches.length !== 1) return null;
     const record = matches[0];
     if (!record) return null;
-    const acquired = acquireHostOperationLock(root, record.operationId);
+    const acquired = acquireHostOperationLock(
+      root,
+      record.operationId,
+      repository.repositoryRoot,
+    );
     if (acquired.status !== "acquired") return null;
     const host: HostState = {
       input: { root, purpose: record.purpose, recordingCurrent },
@@ -4584,6 +4165,7 @@ export function acquireHostOperationRecoveryGeneration(
         payloadSha256: observed.value.payloadSha256,
       },
       lock: acquired.lock,
+      recoveryRepository: repository,
       ...(reading.publication ? { publication: reading.publication } : {}),
     };
     try {
@@ -4592,7 +4174,7 @@ export function acquireHostOperationRecoveryGeneration(
       hostOperationRecoveryGenerations.set(capability, host);
       return capability;
     } catch {
-      if (!host.lock.release()) poisonRuntimeProcessAfterCleanupUnknown();
+      if (!host.lock.release()) poisonExecutionProcessAfterCleanupUnknown();
       return null;
     }
   } catch {
@@ -5209,10 +4791,11 @@ export function createOwnedOperationDirectories(
     cleanup: "not_requested",
   });
   const access = hostRecordingAccess(input, operationId);
-  const started = saveOperationStart(access, {
-    kind: "host_operation",
-    value: record,
-  });
+  const started = saveOperationStart(
+    access,
+    { kind: "host_operation", value: record },
+    () => prepareExecutionStorageIgnore(input.root),
+  );
   if (
     !started.startSaved ||
     !started.lockReleased ||
@@ -5253,7 +4836,7 @@ export function createOwnedOperationDirectories(
     freshHost(host);
     requireHostExecutionCurrent(input);
     const parent = requireReadyRepositoryExecutionDataArea(
-      ensureRepositoryExecutionDataArea(input.root, "operations"),
+      ensureRepositoryExecutionDataArea(input.root, "coordinator"),
       "host_operation_parent_unconfirmed",
     );
     if (parent.status !== "ready")
@@ -5334,7 +4917,7 @@ export function createOwnedOperationDirectories(
         const paths = resolveRepositoryExecutionDataPaths(input.root);
         if (!paths)
           throw Error("host_recovery_initialization_root_identity_unknown");
-        const root = path.join(paths.operations, operationId);
+        const root = path.join(paths.coordinator, operationId);
         requireConfirmedAbsent(
           root,
           "host_recovery_initialization_root_identity_unknown",
@@ -5427,7 +5010,7 @@ export async function abandonOwnedHostOperationGenerationLock(
     }
     state.retired = true;
     revokeOwnedOperationContextCapabilities(state.owned);
-    poisonRuntimeProcessAfterCleanupUnknown();
+    poisonExecutionProcessAfterCleanupUnknown();
     return false;
   } catch {
     return false;
@@ -6092,17 +5675,17 @@ export function inspectRepositoryObjectFormatCandidate(
  * @responsibility Runtime 所有 Repository Operationの結合条件、相関Identity、不一致の拒否境界を所有する。
  * @trace ARCH-000009
  * @input managementCapability: unknown、repositoryRoot: unknown
- * @returns bindRuntimeOwnedRepositoryOperationの計算結果を返す。
- * @precondition 「managementCapability: unknown、repositoryRoot: unknown」がbindRuntimeOwnedRepositoryOperationの入力契約を満たす。
- * @postcondition bindRuntimeOwnedRepositoryOperationの責務を完了した結果だけを返す。
+ * @returns bindRepositoryOperationの計算結果を返す。
+ * @precondition 「managementCapability: unknown、repositoryRoot: unknown」がbindRepositoryOperationの入力契約を満たす。
+ * @postcondition bindRepositoryOperationの責務を完了した結果だけを返す。
  * @effect Repositoryを読取り、同じOperationの結合を二つの私有WeakMapへ同期登録する。Filesystem書込みは行わない。
- * @failure bindRuntimeOwnedRepositoryOperationは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant bindRuntimeOwnedRepositoryOperationは宣言した境界以外へEffectを拡張しない。
+ * @failure bindRepositoryOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant bindRepositoryOperationは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security bindRuntimeOwnedRepositoryOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: bindRuntimeOwnedRepositoryOperationは共有非同期状態を持たない同期処理である。
+ * @security bindRepositoryOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: bindRepositoryOperationは共有非同期状態を持たない同期処理である。
  */
-export function bindRuntimeOwnedRepositoryOperation(
+export function bindRepositoryOperation(
   managementCapability: unknown,
   repositoryRoot: unknown,
 ) {
@@ -6186,7 +5769,7 @@ function currentBinding(
  * @boundary Host所有操作とRepositoryの現在性。
  * @security 結果を実行AuthorityにせずHost Pathを公開しない。
  */
-export function verifyRuntimeOwnedRepositoryOperation(
+export function verifyRepositoryOperation(
   managementCapability: unknown,
   purpose?: "selection_preflight",
 ) {
@@ -6219,12 +5802,11 @@ export function operationStateInput(managementCapability: unknown) {
   return {
     identity: managementCapability as object,
     observeRepository: () => {
-      const observed =
-        borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
+      const observed = borrowCoordinatorStateRepository(managementCapability);
       return observed
         ? {
             purpose: "execution" as const,
-            root: observed.root,
+            root: { directory: observed.repositoryRoot },
             operationId: observed.operationId,
             revalidate: observed.revalidate,
           }
@@ -6250,14 +5832,17 @@ export function operationStartInput(
     ...operationStateInput(managementCapability),
     observeSettlementRepository: () => {
       const observed =
-        borrowRuntimeOwnedCoordinatorSettlementRepository(managementCapability);
+        borrowCoordinatorSettlementRepository(managementCapability);
       return observed
-        ? withHistoryRetention({
-            purpose: observed.purpose,
-            root: observed.root,
-            operationId: observed.operationId,
-            revalidate: observed.revalidate,
-          })
+        ? withHistoryRetention(
+            {
+              purpose: observed.purpose,
+              root: { directory: observed.repositoryRoot },
+              operationId: observed.operationId,
+              revalidate: observed.revalidate,
+            },
+            observed.root,
+          )
         : null;
     },
     captureCleanupVerification: () =>
@@ -6281,22 +5866,22 @@ export function operationStartInput(
  * @security 返却Path・Identityは書込み、削除、RecoveryまたはProvider起動のAuthorityではなく、外部公開しない。
  * @concurrency 保存直前・直後の再検証と実効排他はWriterが所有する。借用だけでLockを取得しない。
  */
-export function borrowRuntimeOwnedCoordinatorStateRepository(
+export function borrowCoordinatorStateRepository(
   managementCapability: unknown,
 ) {
   try {
     const binding = currentBinding(managementCapability);
     if (!binding) return null;
+    const repositoryBinding = readExecutionStorageBinding(
+      binding.repositoryRoot,
+    );
+    if (!repositoryBinding) return null;
     const repository = {
       operationId: binding.operationId,
       repositoryRoot: binding.repositoryRoot,
       logicalRepositoryIdentity: binding.logicalRepositoryIdentity,
       repositoryInstanceIdentity: binding.repositoryInstanceIdentity,
-      repositoryBinding: deriveCoordinatorRepositoryStateBinding(
-        binding.repositoryRoot,
-        binding.logicalRepositoryIdentity,
-        binding.repositoryInstanceIdentity,
-      ),
+      repositoryBinding,
       revision: binding.revision,
       /**
        * 同じ操作OwnerとRepository結合が現在も成立するか再観測する。
@@ -6338,75 +5923,44 @@ export function borrowRuntimeOwnedCoordinatorStateRepository(
 }
 
 /**
- * 既存Coordinator保存結合のHashを同じ符号化で導出する。
- * @responsibility 通常操作と再入場のRepository・Lock結合を共通化する。
- * @trace ARCH-000009
- * @input repositoryRoot: 検証済みRoot、logicalIdentity: 論理Identity、instanceIdentity: 実体Identity。
- * @returns 既存domain prefixと順序を維持したSHA-256。
- * @precondition 入力は既存Repository観測で確定している。
- * @postcondition 保存先とLock名の既存結合を変更しない。
- * @effect N/A: 局所Hash計算だけ。
- * @failure N/A: 観測不能は呼出し元が計算前に拒否する。
- * @invariant Path・論理・実体の順序とUTF-8符号化を維持する。
- * @boundary Repository観測と現在状態の結合。
- * @security Hashは処置Authorityではない。
- * @concurrency N/A: 同期の値計算だけ。
- */
-function deriveCoordinatorRepositoryStateBinding(
-  repositoryRoot: string,
-  logicalIdentity: string,
-  instanceIdentity: string,
-) {
-  return createHash("sha256")
-    .update("crdd-coordinator-repository-state-binding-v1\0")
-    .update(
-      JSON.stringify([repositoryRoot, logicalIdentity, instanceIdentity]),
-      "utf8",
-    )
-    .digest("hex");
-}
-
-/**
  * 検証済みRootを再入場の現在状態読取りへ借用する。
- * @responsibility 新ProcessのRoot論理・実体・現在Revisionを内部Readerへ固定する。
+ * @responsibility 受付済みRootの保存実体を内部Readerへ固定する。
  * @trace ARCH-000009
- * @input rootCapability: 既存Version Control Ownerが検証したRoot。
+ * @input rootCapability: 既存Version Control Ownerが検証したRoot。confirmedDirectory: 同じ受付で確定した場合だけ渡す正規Directory。
  * @returns 内部読取り結合、またはnull。
  * @precondition 呼出し元のCLIまたは上位組立てが対象Rootを固定している。
  * @postcondition 操作管理Capability、書込み・回収Authorityを生成しない。
- * @effect 現在RootとGit Identityの読取りだけ。
+ * @effect 未確定時だけ入口でGit Rootを確認し、保存起点の実体を読む。
  * @failure 偽Root、失効、観測不能はnull。
  * @invariant 過去の保存値やAppDataからRootを復元しない。
  * @boundary 検証済みRepository Rootと再入場Reader。
  * @security 全Snapshotは内部限定で、公開は既存診断投影が所有する。
- * @concurrency Readerの前後で同じ実体と捕捉した現在Revisionを再確認する。
+ * @concurrency Readerの前後で同じ保存起点の実体を再確認する。HEADは条件にしない。
  */
-export function borrowRuntimeOwnedCoordinatorRecoveryRepository(
+export function borrowCoordinatorRecoveryRepository(
   rootCapability: unknown,
+  confirmedDirectory?: string,
 ) {
   try {
     if (!rootCapability || typeof rootCapability !== "object") return null;
-    const repositoryRoot = resolveVerifiedRepositoryRoot(
-      rootCapability as Repository,
-    );
+    const repositoryRoot =
+      confirmedDirectory ??
+      resolveVerifiedRepositoryRoot(rootCapability as Repository);
     if (!repositoryRoot) return null;
-    const initial = observe(repositoryRoot);
+    const repositoryBinding = readExecutionStorageBinding(repositoryRoot);
+    if (!repositoryBinding) return null;
     const repository = {
       repositoryRoot,
-      repositoryBinding: deriveCoordinatorRepositoryStateBinding(
-        repositoryRoot,
-        initial.logicalRepositoryIdentity,
-        initial.repositoryInstanceIdentity,
-      ),
+      repositoryBinding,
       /**
        * 再入場Readerが捕捉した現在Rootを再確認する。
-       * @responsibility 読取り途中の実体・Revision変更を拒否する。
+       * @responsibility 読取り途中の保存先実体の変更を拒否する。
        * @trace ARCH-000009
-       * @input N/A: 検証済みRootと初回観測を閉包から使う。
+       * @input N/A: 保存先と初回観測を閉包から使う。
        * @returns 同じ観測を確認できた場合だけtrue。
        * @precondition 同じ借用の読取り中だけ使用する。
        * @postcondition 過去操作のAuthorityを復元しない。
-       * @effect RootとGit Identityを読取る。
+       * @effect 保存先の物理実体だけを読む。
        * @failure 観測不能または変化はfalse。
        * @invariant 別Rootへ再結合しない。
        * @boundary 再入場Readerと現在Repository。
@@ -6414,24 +5968,9 @@ export function borrowRuntimeOwnedCoordinatorRecoveryRepository(
        * @concurrency 更新排他は既存Readerが別途所有する。
        */
       revalidate() {
-        try {
-          if (
-            resolveVerifiedRepositoryRoot(rootCapability as Repository) !==
-            repositoryRoot
-          )
-            return false;
-          const current = observe(repositoryRoot);
-          return (
-            current.repositoryKind === initial.repositoryKind &&
-            current.logicalRepositoryIdentity ===
-              initial.logicalRepositoryIdentity &&
-            current.repositoryInstanceIdentity ===
-              initial.repositoryInstanceIdentity &&
-            current.revision === initial.revision
-          );
-        } catch {
-          return false;
-        }
+        return (
+          readExecutionStorageBinding(repositoryRoot) === repositoryBinding
+        );
       },
     };
     return Object.freeze(
@@ -6451,6 +5990,43 @@ export function borrowRuntimeOwnedCoordinatorRecoveryRepository(
 }
 
 /**
+ * 現在の回復用Repositoryから、EMへ保存先と失効確認だけを渡す。
+ * @trace ARCH-000008、ARCH-000009
+ * @input repository: 同じ回復操作で捕捉した保存先。history: 同じ保存先で捕捉済みの保持設定。
+ * @returns 回復読取り・保存用の入力。改訂やRepositoryの識別値は含まない。
+ */
+export function recoveryStorageInput(
+  repository: ReturnType<typeof borrowCoordinatorRecoveryRepository>,
+  history?: ReturnType<typeof historyRepositoryInput>,
+) {
+  if (!repository || (history && history.root !== repository.root)) return null;
+  return Object.freeze({
+    purpose: "recovery" as const,
+    root: { directory: repository.repositoryRoot },
+    historyRetentionDays: history?.historyRetentionDays ?? null,
+    revalidate(expectedHistoryRetentionDays?: number) {
+      return (
+        repository.revalidate() &&
+        (expectedHistoryRetentionDays === undefined ||
+          history?.revalidate(expectedHistoryRetentionDays) === true)
+      );
+    },
+  });
+}
+
+/** 回復時のHost相関に必要な親だけを、受付済みの保存先から導く。 @trace ARCH-000008 */
+export function resolveRecoveryHostRoot(
+  repository: NonNullable<
+    ReturnType<typeof borrowCoordinatorRecoveryRepository>
+  >,
+) {
+  const paths = resolveRepositoryExecutionDataPathsFromValidatedRoot(
+    repository.repositoryRoot,
+  );
+  return paths?.coordinator ?? null;
+}
+
+/**
  * 清掃前のRepository結合を終端保存に限って固定する。
  * @responsibility 通常Ownerの失効と独立した現在Repository実体の再検証を所有する。
  * @trace ARCH-000009
@@ -6465,11 +6041,10 @@ export function borrowRuntimeOwnedCoordinatorRecoveryRepository(
  * @security Pathは内部限定。返却値をProvider起動や一般書込みに用いない。
  * @concurrency Writerは既存短期排他下で実体を再検証する。
  */
-export function borrowRuntimeOwnedCoordinatorSettlementRepository(
+export function borrowCoordinatorSettlementRepository(
   managementCapability: unknown,
 ) {
-  const ordinary =
-    borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
+  const ordinary = borrowCoordinatorStateRepository(managementCapability);
   const binding =
     ordinary && managementCapability && typeof managementCapability === "object"
       ? bindings.get(managementCapability)
@@ -6531,17 +6106,17 @@ export function borrowRuntimeOwnedCoordinatorSettlementRepository(
  * @responsibility Runtime 所有 Repository Binding Capabilityの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000009
  * @input repositoryBindingCapability: unknown、managementCapability: unknown
- * @returns verifyRuntimeOwnedRepositoryBindingCapabilityの計算結果を返す。
- * @precondition 「repositoryBindingCapability: unknown、managementCapability: unknown」がverifyRuntimeOwnedRepositoryBindingCapabilityの入力契約を満たす。
- * @postcondition verifyRuntimeOwnedRepositoryBindingCapabilityの責務を完了した結果だけを返す。
- * @effect N/A: verifyRuntimeOwnedRepositoryBindingCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure verifyRuntimeOwnedRepositoryBindingCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant verifyRuntimeOwnedRepositoryBindingCapabilityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: verifyRuntimeOwnedRepositoryBindingCapabilityはProcess内の同一Subsystemで完結する。
- * @security verifyRuntimeOwnedRepositoryBindingCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: verifyRuntimeOwnedRepositoryBindingCapabilityは共有非同期状態を持たない同期処理である。
+ * @returns verifyRepositoryBindingCapabilityの計算結果を返す。
+ * @precondition 「repositoryBindingCapability: unknown、managementCapability: unknown」がverifyRepositoryBindingCapabilityの入力契約を満たす。
+ * @postcondition verifyRepositoryBindingCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: verifyRepositoryBindingCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyRepositoryBindingCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyRepositoryBindingCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyRepositoryBindingCapabilityはProcess内の同一Subsystemで完結する。
+ * @security verifyRepositoryBindingCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyRepositoryBindingCapabilityは共有非同期状態を持たない同期処理である。
  */
-export function verifyRuntimeOwnedRepositoryBindingCapability(
+export function verifyRepositoryBindingCapability(
   repositoryBindingCapability: unknown,
   managementCapability: unknown,
 ) {
@@ -6575,17 +6150,17 @@ export function verifyRuntimeOwnedRepositoryBindingCapability(
  * @responsibility Runtime 所有 Repository Sourceの参照条件、lifetime、所有権を移さない境界を所有する。
  * @trace ARCH-000009
  * @input repositoryBindingCapability: unknown、managementCapability: unknown
- * @returns borrowRuntimeOwnedRepositorySourceの計算結果を返す。
- * @precondition 「repositoryBindingCapability: unknown、managementCapability: unknown」がborrowRuntimeOwnedRepositorySourceの入力契約を満たす。
- * @postcondition borrowRuntimeOwnedRepositorySourceの責務を完了した結果だけを返す。
- * @effect N/A: borrowRuntimeOwnedRepositorySourceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure borrowRuntimeOwnedRepositorySourceは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant borrowRuntimeOwnedRepositorySourceは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: borrowRuntimeOwnedRepositorySourceはProcess内の同一Subsystemで完結する。
- * @security borrowRuntimeOwnedRepositorySourceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: borrowRuntimeOwnedRepositorySourceは共有非同期状態を持たない同期処理である。
+ * @returns borrowRepositorySourceの計算結果を返す。
+ * @precondition 「repositoryBindingCapability: unknown、managementCapability: unknown」がborrowRepositorySourceの入力契約を満たす。
+ * @postcondition borrowRepositorySourceの責務を完了した結果だけを返す。
+ * @effect N/A: borrowRepositorySourceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure borrowRepositorySourceは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant borrowRepositorySourceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: borrowRepositorySourceはProcess内の同一Subsystemで完結する。
+ * @security borrowRepositorySourceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: borrowRepositorySourceは共有非同期状態を持たない同期処理である。
  */
-export function borrowRuntimeOwnedRepositorySource(
+export function borrowRepositorySource(
   repositoryBindingCapability: unknown,
   managementCapability: unknown,
 ) {

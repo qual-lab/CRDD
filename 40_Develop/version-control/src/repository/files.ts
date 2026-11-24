@@ -16,10 +16,12 @@ import {
   inspectWorktreeFileAncestors,
   isCommitId,
   isCommitPath,
+  readSelectedTreeEntries,
 } from "./commit.ts";
 import { resolveRepositoryGitLayout } from "./layout.ts";
 import {
   getRepositoryFromWorkingDirectory,
+  observeVerifiedRepositoryLayout,
   type Repository,
   resolveVerifiedRepositoryRoot,
 } from "./location.ts";
@@ -29,6 +31,7 @@ import type {
   CommitFileReadRequest,
   CommitFilesCopyRequest,
   CommitFilesCopyResult,
+  CommitSelection,
   FileReadRequest,
   TreeEntry,
   TreePage,
@@ -317,8 +320,8 @@ export function readCommitFile(
   request: CommitFileReadRequest,
 ): CommitFile | null {
   try {
-    const root = resolveVerifiedRepositoryRoot(repository);
-    if (root === null) return null;
+    const observed = observeVerifiedRepositoryLayout(repository);
+    if (observed === null) return null;
     const input = captureFileRequest(request, ["commit", "path"]);
     if (
       !input ||
@@ -327,8 +330,7 @@ export function readCommitFile(
     )
       return null;
     const result = readGitCommitFile({
-      commonDirectory:
-        resolveRepositoryGitLayout(root).commonDirectory.realPath,
+      commonDirectory: observed.layout.commonDirectory.realPath,
       revision: input.commit,
       relativePath: input.path,
     });
@@ -602,6 +604,161 @@ export function copyCommitFiles(
     !isContentRejected,
     true,
   );
+}
+
+/**
+ * 同じWorktree断面から候補に必要なファイル集合と基準との差を読む。
+ * @responsibility Git配置とHEADは集合の前後、リンク・実体・内容はFileごとに照合する。
+ * @trace ARCH-000002
+ * @trace ARCH-000009
+ * @precondition 作業領域の利用調停と対象Path集合の選択は呼出し側が所有する。
+ * @effect 基準Treeと現在Fileを読み、GitやFilesystemには書き込まない。
+ * @failure 途中の観測不能・不正型・HEAD変化を部分成功へ変換しない。
+ * @boundary 同一要求に閉じ、別時点や別要求へ観測を使い回さない。
+ */
+export function readWorkingSelections(
+  repository: Repository,
+  request: Readonly<{
+    baseCommit: string;
+    expectedHead: string;
+    paths: readonly string[];
+  }>,
+): Readonly<{
+  selection: readonly CommitSelection[];
+  changedPaths: readonly string[];
+}> {
+  const { baseCommit, expectedHead } = request;
+  const paths = [...request.paths];
+  if (
+    !isCommitId(baseCommit) ||
+    !isCommitId(expectedHead) ||
+    paths.some((value) => !isCommitPath(value)) ||
+    new Set(paths).size !== paths.length
+  )
+    throw Error("repository_file_input_invalid");
+  const selection: CommitSelection[] = [];
+  const changedPaths: string[] = [];
+  // Gitの個々の子Processは既存期限で待つ。集合のFile読取り時間はそこに含めない。
+  const ctx = createWorktreeGitContext(repository, undefined, "selection-read");
+  const verify = () => {
+    const value = ctx.inspect();
+    if (
+      !value.registered ||
+      !value.directoryPresent ||
+      value.locked ||
+      value.prunable ||
+      value.head !== expectedHead ||
+      (ctx.branch !== "" && value.branchHead !== expectedHead)
+    )
+      throw Error("repository_file_worktree_mismatch");
+  };
+  verify();
+  const format = readRepositoryFormat(repository);
+  if (!format) throw Error("repository_file_observation_unavailable");
+  const width = format.objectFormat === "sha1" ? 40 : 64;
+  if (baseCommit.length !== width || expectedHead.length !== width)
+    throw Error("repository_file_input_invalid");
+  const baseline = readSelectedTreeEntries(ctx, baseCommit, paths);
+  for (const relativePath of paths) {
+    const row = baseline.get(relativePath);
+    const entry = row?.match(
+      /^(040000|100644|100755|120000|160000) (blob|tree|commit) ([a-f0-9]+)\t/u,
+    );
+    const entryMode = entry?.[1];
+    const expectedType =
+      entryMode === "040000"
+        ? "tree"
+        : entryMode === "160000"
+          ? "commit"
+          : "blob";
+    if (
+      row !== undefined &&
+      (!entry || entry[2] !== expectedType || entry[3]?.length !== width)
+    )
+      throw Error("repository_file_observation_unavailable");
+    const baseMode =
+      entryMode === "100644" || entryMode === "100755" ? entryMode : undefined;
+    const baseBlob = baseMode === undefined ? undefined : entry?.[3];
+    const file = path.join(ctx.target, ...relativePath.split("/"));
+    const parents = inspectWorktreeFileAncestors(ctx.target, relativePath);
+    let initial: fs.Stats | undefined;
+    if (parents) {
+      try {
+        initial = fs.lstatSync(file);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+    }
+    if (!initial) {
+      if (inspectWorktreeFileAncestors(ctx.target, relativePath) !== parents)
+        throw Error("repository_file_content_changed");
+      if (parents) {
+        try {
+          fs.lstatSync(file);
+          throw Error("repository_file_content_changed");
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+      }
+      if (baseBlob !== undefined) {
+        selection.push(
+          Object.freeze({ path: relativePath, blobId: null, mode: null }),
+        );
+        changedPaths.push(relativePath);
+      }
+      continue;
+    }
+    if (!initial.isFile() || initial.isSymbolicLink() || initial.nlink !== 1)
+      throw Error("repository_file_path_invalid");
+    const sameFile = (actual: fs.Stats, expected: fs.Stats) =>
+      actual.isFile() &&
+      actual.nlink === 1 &&
+      !actual.isSymbolicLink() &&
+      actual.dev === expected.dev &&
+      actual.ino === expected.ino &&
+      actual.birthtimeMs === expected.birthtimeMs &&
+      actual.mode === expected.mode;
+    const read = (expected: fs.Stats) => {
+      const descriptor = fs.openSync(file, "r");
+      try {
+        if (!sameFile(fs.fstatSync(descriptor), expected))
+          throw Error("repository_file_content_changed");
+        return fs.readFileSync(descriptor);
+      } finally {
+        fs.closeSync(descriptor);
+      }
+    };
+    const bytes = read(initial);
+    if (!inspectWorktreeFileAncestors(ctx.target, relativePath))
+      throw Error("repository_file_content_changed");
+    const fresh = fs.lstatSync(file);
+    if (
+      !sameFile(fresh, initial) ||
+      !read(fresh).equals(bytes) ||
+      !sameFile(fs.lstatSync(file), fresh) ||
+      !inspectWorktreeFileAncestors(ctx.target, relativePath)
+    )
+      throw Error("repository_file_content_changed");
+    const mode = (
+      process.platform === "win32"
+        ? baseMode === "100755"
+        : (fresh.mode & 0o111) !== 0
+    )
+      ? "100755"
+      : "100644";
+    const blobId = createHash(format.objectFormat)
+      .update(`blob ${bytes.length}\0`)
+      .update(bytes)
+      .digest("hex");
+    selection.push(Object.freeze({ path: relativePath, blobId, mode }));
+    if (baseBlob !== blobId || baseMode !== mode)
+      changedPaths.push(relativePath);
+  }
+  verify();
+  return Object.freeze({
+    selection: Object.freeze(selection),
+    changedPaths: Object.freeze(changedPaths),
+  });
 }
 
 /**

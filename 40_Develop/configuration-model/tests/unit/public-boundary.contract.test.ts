@@ -69,8 +69,8 @@ test("設定Rootは採用した10値・14型と単一公開入口だけを提供
   assert.deepEqual(metadata.exports, { ".": "./src/index.ts" });
 });
 
-/** Type・deep import・再exportでも他Modelへの依存を作らない。 @trace RCM-UT-014 */
-test("設定Sourceは他Model・旧Domainのimportや再exportを持たない", () => {
+/** Type・deep import・再exportでも他ModelやVCへの依存を作らない。 @trace RCM-UT-014 */
+test("設定Sourceは他Model・旧Domain・VCのimportや再exportを持たない", () => {
   const pending = [fileURLToPath(new URL("../../src/", import.meta.url))];
   while (pending.length) {
     const directory = pending.pop();
@@ -82,7 +82,7 @@ test("設定Sourceは他Model・旧Domainのimportや再exportを持たない", 
         const source = fs.readFileSync(file, "utf8");
         assert.doesNotMatch(
           source,
-          /(?:from\s*|import\s*\()(["'])[^"']*(?:domain-model|document-model|execution-model)\/src\//u,
+          /(?:from\s*|import\s*\()(["'])[^"']*(?:domain-model|document-model|execution-model|version-control)(?:\/|["'])/u,
           file,
         );
       }

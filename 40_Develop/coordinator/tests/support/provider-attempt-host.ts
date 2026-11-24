@@ -22,7 +22,7 @@ import {
   readReport,
   writeReport,
 } from "../../../executor/tests/support/report.ts";
-import { observeRepositoryRuntimeDataArea } from "../../../executor/tests/support/runtime-data.ts";
+import { observeRepositoryRuntimeDataArea } from "./verification-area.ts";
 import {
   type AttemptDiagnosticNotice,
   type AttemptTerminalObservation,

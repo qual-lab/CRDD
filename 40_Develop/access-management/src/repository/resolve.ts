@@ -6,10 +6,6 @@
  */
 
 import { readRepositoryManifest } from "../../../configuration-model/src/index.ts";
-import {
-  getRepository,
-  resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
 import { resolveCredentialAuthentication } from "../credential/authentication.ts";
 import { readCredentialId } from "../credential/token.ts";
 import type { AuthenticatedRequest } from "../credential/types.ts";
@@ -90,15 +86,12 @@ export function resolveRuntimeContentAccess(
           current.state.revision,
           "development",
         );
-        const resolvedRoot =
-          access && resolveVerifiedRepositoryRoot(access.root);
-        if (!access || !resolvedRoot || signal.aborted) return unavailable;
+        if (!access || signal.aborted) return unavailable;
         return {
           status: "completed" as const,
           value: {
             actor,
             access,
-            resolvedRoot,
             fingerprint: hash(current.bytes),
           },
           revision: current.state.revision,
@@ -124,7 +117,7 @@ export function resolveRuntimeContentAccess(
               "definition.write",
               "decision.read",
               "queue.read",
-              "runtime.read",
+              "execution.read",
             ].includes(operation) ||
             target.projectId !== fixed.access.manifest.projectId
           )
@@ -162,10 +155,7 @@ export function resolveRuntimeContentAccess(
                 access.workspaceId === fixed.access.workspaceId &&
                 access.bindingId === fixed.access.bindingId &&
                 JSON.stringify(access.manifest) === manifest &&
-                resolveVerifiedRepositoryRoot(fixed.access.root) ===
-                  fixed.resolvedRoot &&
-                resolveVerifiedRepositoryRoot(access.root) ===
-                  fixed.resolvedRoot;
+                access.root === fixed.access.root;
               return {
                 status: "completed" as const,
                 value: valid,
@@ -286,11 +276,11 @@ export function selectRepositoryAccess(
  * @input 許可済み登録tuple、現在改訂、採用済み内容範囲。
  * @returns 同要求だけの内部相関値、またはnull。
  * @precondition 現在認可と短命材料清掃を確認済みである。
- * @postcondition 固定manifestのID・Root・Bindingが一致する場合だけ能力を返す。
- * @effect 既存VC Root検証とDomain固定manifestの読取り。
+ * @postcondition 固定manifestのID・ディレクトリ・Bindingが一致する場合だけパスを返す。
+ * @effect 構成モデルによる固定manifestと親ディレクトリの観測。
  * @failure Root・Binding・manifestの欠測・不正・観測不能はnull。例外は保存Ownerが固定理由へ変換する。
  * @invariant PROJECT_CONTEXTの存在・内容はアクセスAuthorityにしない。
- * @boundary AM実アクセス判定→VC／Domain既存観測。
+ * @boundary AM実アクセス判定と構成モデル。Gitを必要とする処置は呼出し側が確認する。
  * @security 任意Path・本文・下位例外を結果へ透過しない。
  * @concurrency 同期bounded観測。本文の取得はLock解放後のConsumerが所有する。
  */
@@ -299,30 +289,23 @@ export function observeRepositoryAccess(
   revision: number,
   workspaceId: "development" | "management",
 ): RepositoryAccess | null {
-  const verified = getRepository(registration.repositoryRoot);
-  if (verified.status !== "completed") return null;
-  const root = resolveVerifiedRepositoryRoot(verified.capability);
+  const root = registration.repositoryRoot;
   if (
-    root === null ||
     deriveRepositoryBindingId(registration.repositoryId, root) !==
-      registration.bindingId
+    registration.bindingId
   )
     return null;
-  const manifestRead = readRepositoryManifest(verified.capability);
+  const manifestRead = readRepositoryManifest(root);
   if (manifestRead.status !== "ready") return null;
   const manifest = manifestRead.manifest;
-  if (
-    manifest.repositoryId !== registration.repositoryId ||
-    resolveVerifiedRepositoryRoot(verified.capability) !== root
-  )
-    return null;
+  if (manifest.repositoryId !== registration.repositoryId) return null;
   return Object.freeze({
     revision,
     repositoryId: registration.repositoryId,
     workspaceId,
     bindingId: registration.bindingId,
     manifest,
-    root: verified.capability,
+    root,
   });
 }
 
@@ -337,9 +320,9 @@ export function observeRepositoryAccess(
  * @effect 既存Lock・current認証・許可後pending清掃・固定Repository観測。
  * @failure 未認証・未登録・範囲外は同一拒否。清掃・実体・解放不明は値なし。
  * @invariant 後続変更は開始済み要求の取消を証明しない。別要求は必ずこの入口へ戻る。
- * @boundary AM現在認可とDomain／VC実アクセス。内容本文は解放後にConsumerが取得する。
- * @security token・内部Path・資格・Lock回復参照を返さず、結果を保存・cache・次要求へ再利用しない。
- * @concurrency 同じ管理Lock内の改訂で受理。技術的Root能力に失効機能があるとは主張しない。
+ * @boundary AM現在認可と内容ディレクトリ。Git操作や内容本文は解放後に呼出し側が扱う。
+ * @security Pathは認可成功した信頼済みConsumerに限る。資格・Lock回復参照を返さず、結果を保存・cache・次要求へ再利用しない。
+ * @concurrency 同じ管理Lock内の改訂で受理。返却後の認可・実体の不変は保証しない。
  */
 export function resolveRepositoryAccess(
   root: FilesystemStoreRoot,
@@ -452,7 +435,7 @@ export function resolveRepositoryAccess(
  * @effect 既存Lockと現在認証、許可後材料清掃、対象ごとの固定manifest観測。
  * @failure 認証・初期化不成立は拒否。対象観測・清掃・解放不明では集合なし。
  * @invariant 内容範囲とExposureの積集合を保持し、管理能力を内容許可にしない。
- * @boundary AM現在認可→VC／Domain技術的観測。本文は解放後のConsumerが取得する。
+ * @boundary AM現在認可と内容ディレクトリ。本文は解放後の呼出し側が取得する。
  * @security Root・資格をTransportへ透過せず、cache・保存・次要求への再利用を禁止する。
  * @concurrency 同じ既存Lock内の改訂。観測量は現在状態内の登録数に比例する。
  */

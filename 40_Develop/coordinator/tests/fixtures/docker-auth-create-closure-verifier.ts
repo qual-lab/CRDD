@@ -10,6 +10,7 @@
  */
 
 import assert from "node:assert/strict";
+import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import cp, {
   execFileSync,
   type SpawnSyncReturns,
@@ -135,7 +136,7 @@ export function assertRecordedAuthReceipt(
     {
       key: resource.key,
       submission: "intent_saved",
-      receiptSource: "runtime_reconciliation",
+      receiptSource: "docker_observation",
       observation: "present",
       absenceEvidenceSha256: null,
     },
@@ -654,7 +655,9 @@ async function executeApprovedAuthCreateClosure() {
       },
     );
     await setImmediate();
-    const saved = store.readState(rootCapability, { scope: "recovery" });
+    const saved = store.readState(prepareFixtureRecovery(rootCapability), {
+      scope: "recovery",
+    });
     assert.equal(saved.status, "completed");
     assert.equal(saved.lockReleased, true);
     assert.ok(saved.value);
@@ -682,7 +685,7 @@ async function executeApprovedAuthCreateClosure() {
     assert.equal(host.recoveryId, `host-operation.${identity.operationId}`);
     assert.equal(host.purpose, "authentication");
     assert.ok(host.rootIdentity);
-    const hostRoot = path.join(root, ".crdd", "operations", host.operationId);
+    const hostRoot = path.join(root, ".crdd", "coordinator", host.operationId);
     const otherOperations = saved.value.snapshot.operations.filter(
       (item) =>
         item.recoveryId !== recoveryId && item.recoveryId !== host.recoveryId,
@@ -702,7 +705,9 @@ async function executeApprovedAuthCreateClosure() {
      * @boundary 親観測と現在保存。
      */
     function currentTarget() {
-      const current = store.readState(rootCapability, { scope: "recovery" });
+      const current = store.readState(prepareFixtureRecovery(rootCapability), {
+        scope: "recovery",
+      });
       assert.equal(current.status, "completed");
       assert.equal(current.lockReleased, true);
       assert.ok(current.value);
@@ -1020,7 +1025,7 @@ async function executeApprovedAuthCreateClosure() {
         import.meta.url,
       ).href
     )) as typeof import("../../src/lifecycle/environment.ts");
-    const restarted = await restart.restartRuntimeOwnedDockerForRecovery(
+    const restarted = await restart.executeDockerRestartForRecovery(
       recoveryId,
       abort.signal,
       rootCapability,
@@ -1122,12 +1127,11 @@ async function executeApprovedAuthCreateClosure() {
       assert.deepEqual(preservedAfter, preservedBefore);
       stage = "recover";
     }
-    const recovered =
-      await lifecycle.recoverRuntimeOwnedDockerTaskForCurrentConsumer(
-        recoveryId,
-        rootCapability,
-        abort.signal,
-      );
+    const recovered = await lifecycle.recoverDockerTaskForCurrentConsumer(
+      recoveryId,
+      rootCapability,
+      abort.signal,
+    );
     assert.equal(recovered.status, "recovered");
     assert.equal(recovered.taskRecoveryCompleted, true);
     assert.equal(recovered.dockerCleanupConfirmed, true);
@@ -1169,7 +1173,9 @@ async function executeApprovedAuthCreateClosure() {
         );
     }
     assert.deepEqual(baseline(), before);
-    const final = store.readState(rootCapability, { scope: "recovery" });
+    const final = store.readState(prepareFixtureRecovery(rootCapability), {
+      scope: "recovery",
+    });
     assert.equal(final.status, "completed");
     assert.equal(final.lockReleased, true);
     assert.ok(final.value);

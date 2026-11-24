@@ -20,6 +20,7 @@
  * @boundary 自己生成Store／Repositoryから既存HTTP Transportまで。公開Launcherの完成ではない。
  */
 import assert from "node:assert/strict";
+import { observeRegistrationDirectory } from "../../src/service/access.ts";
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -40,7 +41,7 @@ import {
 } from "../../../access-management/src/initialization/execution.ts";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { executeWorkspace } from "../../../coordinator/src/index.ts";
+import { executeWorkspace } from "../../src/service/workspace.ts";
 import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import {
   activityId,
@@ -51,7 +52,6 @@ import {
   createMeetingOperations,
   createTopicOperations,
 } from "../../../document-model/src/index.ts";
-import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import {
   createQueue,
   initializeExecutionStore,
@@ -160,7 +160,7 @@ test("共有MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
       assert.equal(state.status, 200);
       assert.equal(
         (await state.json()).reason,
-        "orchestrator_snapshot_not_initialized",
+        "coordinator_snapshot_not_initialized",
       );
       const requested = new URLSearchParams({ ...query, repositoryId: b.id });
       assert.equal((await fetch(`${url}?${requested}`)).status, 400);
@@ -196,12 +196,12 @@ test("共有MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
     assert.equal(
       (await invoke(queryTool, { ...query, repositoryId: a.id })).result
         .structuredContent.reason,
-      "orchestrator_snapshot_not_initialized",
+      "coordinator_snapshot_not_initialized",
     );
     assert.equal(
       (await invoke(queryTool, { ...query, repositoryId: b.id })).result
         .structuredContent.reason,
-      "orchestrator_state_revision_mismatch",
+      "coordinator_state_revision_mismatch",
     );
     for (const args of [
       { ...query, repositoryId: "repository.unknown" },
@@ -224,7 +224,7 @@ test("共有MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
     assert.equal(
       (await invoke("crdd.submit_decision", decision)).result.structuredContent
         .reason,
-      "orchestrator_snapshot_absent",
+      "coordinator_snapshot_absent",
     );
     const objective = {
       repositoryId: a.id,
@@ -247,7 +247,7 @@ test("共有MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
     assert.equal(
       (await invoke("crdd.run_objective", objective)).result.structuredContent
         .reason,
-      "orchestrator_explicit_workspace_adoption_required",
+      "coordinator_explicit_workspace_adoption_required",
     );
     const view = await fetch(`${base}/api/workbench/view`, {
       headers: authHeaders,
@@ -1181,7 +1181,7 @@ test("全ロールで旧Profile四操作は一覧に存在せず呼出しを拒�
  */
 test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", async (t) => {
   const f = fixture(t);
-  const expectedSources = f.targets.map(({ id, target }) => {
+  const repositoryHeads = f.targets.map(({ id, target }) => {
     const committed = spawnSync(
       "git",
       [
@@ -1207,6 +1207,10 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     assert.equal(revision.status, 0, revision.stderr);
     return { repositoryId: id, revision: revision.stdout.trim() };
   });
+  const sourcesWithoutState = repositoryHeads.map(({ repositoryId }) => ({
+    repositoryId,
+    revision: null,
+  }));
   const server = await startMcpAuthenticatedStreamableHttp(
     createAccessMcpResolver(f.root),
     { port: 0 },
@@ -1222,7 +1226,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     assert.equal(observed.projectId, "project.fixture");
     assert.equal(observed.state, "absent");
     assert.equal(observed.reason, "runtime_activity_state_absent");
-    assert.deepEqual(observed.sources, expectedSources);
+    assert.deepEqual(observed.sources, sourcesWithoutState);
     assert.equal(observed.eventState, "observed");
     assert.deepEqual(observed.events, []);
     assert.equal(observed.eventContinuation, null);
@@ -1235,7 +1239,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     assert.equal((await foreign.json()).result.isError, true);
     const a = f.targets[0],
       b = f.targets[1],
-      sourceA = expectedSources[0];
+      sourceA = repositoryHeads[0];
     assert.ok(a && b && sourceA);
     const binding = `binding-${createHash("sha256").update(a.target).digest("hex").slice(0, 40)}`;
     const repository = getRepository(a.target);
@@ -1243,7 +1247,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     if (repository.status !== "completed")
       throw Error("fixture_repository_invalid");
     assert.equal(
-      initializeExecutionStore(repository.capability, binding).status,
+      initializeExecutionStore({ directory: a.target }, binding).status,
       "completed",
     );
     const saved = projectExecutionFixture({
@@ -1269,7 +1273,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     });
     assert.ok(saved.state);
     assert.equal(
-      createQueue(repository.capability, binding, {
+      createQueue({ directory: a.target }, binding, {
         kind: "scheduled",
         input: [
           {
@@ -1320,44 +1324,16 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
           reason: "fixture_duration_not_observed",
         },
         outcome: {
-          status: {
-            status: "completed",
-            reason: "task_completed",
-            effectState: "settled",
-            cleanupConfirmed: true,
-            manualRecoveryRequired: false,
-            processRestartRequired: false,
-          }.status,
-          reason: {
-            status: "completed",
-            reason: "task_completed",
-            effectState: "settled",
-            cleanupConfirmed: true,
-            manualRecoveryRequired: false,
-            processRestartRequired: false,
-          }.reason,
+          status: "completed",
+          reason: "task_completed",
         },
         diagnostic: {
-          cleanupConfirmed: {
-            status: "completed",
-            reason: "task_completed",
-            effectState: "settled",
-            cleanupConfirmed: true,
-            manualRecoveryRequired: false,
-            processRestartRequired: false,
-          }.cleanupConfirmed,
-          manualRecoveryRequired: {
-            status: "completed",
-            reason: "task_completed",
-            effectState: "settled",
-            cleanupConfirmed: true,
-            manualRecoveryRequired: false,
-            processRestartRequired: false,
-          }.manualRecoveryRequired,
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
         },
         retention: "standard",
       },
-    } as Execution;
+    } satisfies Parameters<typeof storeFixtureExecution>[1];
     const ei = getRepository(b.target);
     assert.equal(ei.status, "completed");
     if (ei.status !== "completed") throw new Error("fixture_ei_root_invalid");
@@ -1375,7 +1351,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     assert.equal(present.projection.projectId, "project.fixture");
     assert.equal(present.projection.milestoneId, "milestone.fixture");
     assert.equal(present.projection.taskCounts.ready, 1);
-    assert.deepEqual(present.sources, expectedSources);
+    assert.deepEqual(present.sources, [sourceA, sourcesWithoutState[1]]);
     assert.deepEqual(present.events, [
       {
         repositoryId: b.id,
@@ -1405,7 +1381,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     });
     const partialText = await partial.text();
     const remaining = JSON.parse(partialText).result.structuredContent;
-    assert.deepEqual(remaining.sources, [expectedSources[1]]);
+    assert.deepEqual(remaining.sources, [sourcesWithoutState[1]]);
     assert.equal(remaining.state, "absent");
     assert.equal(remaining.currentSourceRepositoryId, null);
     assert.equal(remaining.projection, null);
@@ -1656,13 +1632,41 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
       ).status,
       400,
     );
-    let response = await sendMcp({
+    const moved = run([
+      "commit-tree",
+      "HEAD^{tree}",
+      "-p",
+      base,
+      "-m",
+      "selected branch",
+    ]);
+    run(["update-ref", "refs/heads/selected", base]);
+    fs.writeFileSync(path.join(target.target, "untracked.txt"), "untracked\n");
+    const index = fs.readFileSync(path.join(target.target, ".git", "index"));
+    const creation = {
       ...common,
       operation: "create",
       expectedGeneration: 0,
+      baseBranch: "selected",
       baseCommit: base,
       name: "共有作業",
-    });
+    };
+    const warning = (await sendMcp(creation)).result?.structuredContent;
+    assert.equal(
+      warning?.data.reason,
+      "workspace_creation_confirmation_required",
+    );
+    assert.equal(warning.data.workspace, null);
+    assert.equal(warning.data.gitEffectIssued, false);
+    assert.deepEqual(await (await sendWb(creation)).json(), warning);
+    const accepted = { ...creation, acceptUncommittedChangesExcluded: true };
+    run(["update-ref", "refs/heads/selected", moved]);
+    const stale = (await sendMcp(accepted)).result?.structuredContent;
+    assert.equal(stale?.data.reason, "workspace_creation_branch_head_changed");
+    assert.equal(stale.data.workspace, null);
+    assert.equal(stale.data.gitEffectIssued, false);
+    run(["update-ref", "refs/heads/selected", base]);
+    let response = await sendMcp(accepted);
     let view = response.result?.structuredContent.data.workspace;
     assert.ok(view, JSON.stringify(response));
     const tree = path.join(
@@ -1672,6 +1676,18 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
       workspaceId,
       "worktree",
     );
+    assert.equal(run(["-C", tree, "rev-parse", "HEAD"]), base);
+    assert.equal(run(["rev-parse", "HEAD"]), base);
+    assert.deepEqual(
+      fs.readFileSync(path.join(target.target, ".git", "index")),
+      index,
+    );
+    assert.equal(
+      fs.readFileSync(path.join(tree, "source.txt"), "utf8").trim(),
+      "base",
+    );
+    assert.equal(fs.existsSync(path.join(tree, "untracked.txt")), false);
+    fs.unlinkSync(path.join(target.target, "untracked.txt"));
     const syntheticSecret = ["sk", "-", "a".repeat(24)].join("");
     for (const content of [
       syntheticSecret,
@@ -1791,6 +1807,7 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
     );
     const originalEnd = ServerResponse.prototype.end;
     let dropped = false;
+    let adoptionResult: unknown;
     const drop = t.mock.method(
       ServerResponse.prototype,
       "end",
@@ -1800,9 +1817,10 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
           !dropped &&
           typeof body === "string" &&
           body.includes('"operation":"adopt"') &&
-          body.includes('"contract":"crdd-orchestrator/workspace-surface/v1"')
+          body.includes('"contract":"crdd-server/workspace-surface/v1"')
         ) {
           dropped = true;
+          adoptionResult = JSON.parse(body).data?.reason;
           this.destroy();
           return this;
         }
@@ -1827,7 +1845,11 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
     const mergedHead = run(["rev-parse", "HEAD"]);
     response = await sendMcp({ ...common, operation: "get" });
     view = response.result.structuredContent.data.workspace;
-    assert.equal(view.candidate.phase, "merged");
+    assert.equal(
+      view.candidate.phase,
+      "merged",
+      JSON.stringify(adoptionResult),
+    );
     assert.equal(view.candidate.mergeCommit, mergedHead);
     assert.equal(run(["rev-parse", "HEAD"]), mergedHead);
     assert.equal(
@@ -2061,6 +2083,7 @@ function fixture(t: TestContext, completed = true) {
           randomUUID(),
           target.id,
           target.target,
+          observeRegistrationDirectory,
         ).status,
         "completed",
       );
@@ -2576,22 +2599,43 @@ test("AM内容MCPは現在認可とforeign Projectと集合欠測で停止する
       assert.equal(topic.get("TOPIC-000043"), null);
       assert.equal(meeting.get("MTG-000043"), null);
     }
-    fs.renameSync(
-      path.join(b.target, ".git"),
-      path.join(b.target, ".git-unavailable"),
-    );
-    const missing = await call(base, f.token, "crdd.get_topic", {
+    const topicRequest = {
       repositoryId: a.id,
       id: "TOPIC-000042",
-    });
-    assert.deepEqual((await missing.json()).error, {
-      code: -32603,
-      message: "Internal error",
-    });
-    fs.renameSync(
-      path.join(b.target, ".git-unavailable"),
-      path.join(b.target, ".git"),
+    };
+    const baseline = await (
+      await call(base, f.token, "crdd.get_topic", topicRequest)
+    ).json();
+    assert.equal(baseline.result.isError, false);
+    const git = path.join(b.target, ".git");
+    const heldGit = path.join(b.target, ".git-unavailable");
+    fs.renameSync(git, heldGit);
+    try {
+      const result = await call(base, f.token, "crdd.get_topic", topicRequest);
+      assert.deepEqual(await result.json(), baseline);
+    } finally {
+      fs.renameSync(heldGit, git);
+    }
+    const manifest = path.join(
+      b.target,
+      ".crdd",
+      "config",
+      "repository-manifest.json",
     );
+    const heldManifest = path.join(
+      path.dirname(manifest),
+      "manifest-held.json",
+    );
+    fs.renameSync(manifest, heldManifest);
+    try {
+      const missing = await call(base, f.token, "crdd.get_topic", topicRequest);
+      assert.deepEqual((await missing.json()).error, {
+        code: -32603,
+        message: "Internal error",
+      });
+    } finally {
+      fs.renameSync(heldManifest, manifest);
+    }
     const state = JSON.parse(original.toString()) as AccessManagementState;
     assert.ok(state.credentials[0]);
     state.credentials[0].revoked = true;
@@ -2915,6 +2959,26 @@ test("実HTTPは文書未確認・競合を部分表示し実体不明を全体�
     fs.renameSync(git, heldGit);
     try {
       reads = 0;
+      const documentOnly = await call(base, f.token);
+      assert.equal(documentOnly.status, 200);
+      assert.deepEqual(await documentOnly.json(), baseline);
+      assert.equal(reads, 2);
+    } finally {
+      fs.renameSync(heldGit, git);
+    }
+    const manifest = path.join(
+      second.target,
+      ".crdd",
+      "config",
+      "repository-manifest.json",
+    );
+    const heldManifest = path.join(
+      path.dirname(manifest),
+      "repository-manifest-held.json",
+    );
+    fs.renameSync(manifest, heldManifest);
+    try {
+      reads = 0;
       const blocked = await call(base, f.token);
       assert.deepEqual(await blocked.json(), {
         jsonrpc: "2.0",
@@ -2923,7 +2987,7 @@ test("実HTTPは文書未確認・競合を部分表示し実体不明を全体�
       });
       assert.equal(reads, 0);
     } finally {
-      fs.renameSync(heldGit, git);
+      fs.renameSync(heldManifest, manifest);
     }
     credential.revoked = true;
     fs.writeFileSync(f.current, JSON.stringify(state));

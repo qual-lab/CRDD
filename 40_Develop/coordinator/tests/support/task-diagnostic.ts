@@ -6,6 +6,7 @@
  * @boundary 検証用のJSON受入。本番Sourceからは参照しない。
  */
 import { inspectCodexExecutionObservation } from "../../../ai-adapter/tests/support/ai-adapter-test.ts";
+import { isPrimaryFailureDiagnostic } from "../../../executor/tests/support/provider-diagnostic.ts";
 import {
   createCandidateValidationFailureDiagnostic,
   createTaskStageDiagnostic,
@@ -14,6 +15,20 @@ import {
 
 // 回復開始診断の検査は、生成するCoordinatorの正本を利用する。
 export { inspectRecoveryStartFailureDiagnostic } from "../../src/lifecycle/validation.ts";
+
+/**
+ * Coordinatorが発行する境界終了通知の一次失敗投影を検査する。
+ * @trace ERB-IT-021
+ * @precondition 利用側がJSONと通知の外形を確認済みである。
+ * @boundary 境界終了通知と下位の固定診断。通知内の既存診断を変換しない。
+ */
+export function hasValidSettlementFailure(event: Record<string, unknown>) {
+  return (
+    event.event === "coordinator_provider_boundary_settled" &&
+    (!Object.hasOwn(event, "primaryFailure") ||
+      isPrimaryFailureDiagnostic(event.primaryFailure))
+  );
+}
 
 /**
  * 候補診断の未検査fieldを捕捉する。

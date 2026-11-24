@@ -10,6 +10,7 @@
  */
 
 import assert from "node:assert/strict";
+import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -123,7 +124,7 @@ export function registerSyntheticOperations(
       schema: "crdd-coordinator/operation-identity/v6",
       operationNonce: nonce,
       provider: "claude",
-      consumer: "orchestrator",
+      consumer: "coordinator",
       operationId: hostOperationId,
       recoveryCorrelationId: operationId,
       taskAttempt: 0 as const,
@@ -144,13 +145,13 @@ export function registerSyntheticOperations(
         identity: Object.freeze({}),
         observeRepository: () => ({
           purpose: "execution" as const,
-          root: verified.capability,
+          root: { directory: root },
           operationId: identity.operationId,
           revalidate: () => true,
         }),
         observeSettlementRepository: () => ({
           purpose: "settlement" as const,
-          root: verified.capability,
+          root: { directory: root },
           operationId: identity.operationId,
           revalidate: () => true,
         }),
@@ -331,14 +332,14 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
   const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   assert.ok(verified.capability);
-  const placed = readState(verified.capability, { scope: "recovery" });
+  const placed = readState(prepareFixtureRecovery(verified.capability), {
+    scope: "recovery",
+  });
   assert.equal(placed.status, "completed", placed.reason);
   assert.equal(placed.lockReleased, true);
   assert.ok(placed.value);
   assert.deepEqual(Buffer.from(placed.value.sourceText, "utf8"), bytes);
-  const borrowed = borrowRuntimeOwnedCoordinatorRecoveryRepository(
-    verified.capability,
-  );
+  const borrowed = borrowCoordinatorRecoveryRepository(verified.capability);
   assert.ok(borrowed);
   assert.equal(borrowed.repositoryBinding, binding);
   const repository = {
@@ -357,7 +358,9 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
   assert.equal(recorded.snapshotConfirmed, true);
   assert.equal(recorded.lockReleased, true);
   assert.equal(recorded.historyConfirmed, true);
-  const saved = readState(verified.capability, { scope: "recovery" });
+  const saved = readState(prepareFixtureRecovery(verified.capability), {
+    scope: "recovery",
+  });
   assert.equal(saved.status, "completed", saved.reason);
   assert.ok(saved.value);
   const terminal = saved.value.snapshot.operations.find(
@@ -393,4 +396,4 @@ export function settleSyntheticOperations(
 
 import { saveRecoveryHistory } from "../../../execution-model/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
-import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/lifecycle/host.ts";
+import { borrowCoordinatorRecoveryRepository } from "../../src/lifecycle/host.ts";

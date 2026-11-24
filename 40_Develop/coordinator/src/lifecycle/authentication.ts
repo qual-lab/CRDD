@@ -37,11 +37,11 @@ import type { LockResult } from "../../../lock/src/index.ts";
 import { snapshotJsonValue, readExecutionCancellation } from "./validation.ts";
 import {
   getIsolationSettings,
-  inspectRuntimeOwnedWindowsProviderHomeCandidate,
+  inspectWindowsProviderHomeCandidate,
 } from "./environment.ts";
 import {
   acquireProviderHomeLock,
-  poisonRuntimeProcessAfterCleanupUnknown,
+  poisonExecutionProcessAfterCleanupUnknown,
 } from "./host.ts";
 export const PROVIDER_AUTHENTICATION_CONTRACT =
   "crdd-coordinator/provider-authentication";
@@ -288,7 +288,7 @@ export function createProviderAuthenticationRecoveryRecord(
 /**
  * 保存済み回復記録が期待するIdentityと同じか判定する。
  *
- * @responsibility 未信頼JSONをrevision 1のexact Recovery Recordへ照合する。
+ * @responsibility 未信頼JSONを現行のrevision 3の回復記録へ照合する。
  * @trace ARCH-000010
  * @trace ARCH-000015
  * @input value: 未信頼の保存値、expected: 現在の期待回復記録
@@ -1023,7 +1023,7 @@ export async function authenticateProvider(
   );
   if (acquisition.status !== "acquired") {
     if (!acquisition.descriptorClosed)
-      poisonRuntimeProcessAfterCleanupUnknown();
+      poisonExecutionProcessAfterCleanupUnknown();
     const retained =
       acquisition.reference !== null || !acquisition.cleanupConfirmed;
     return Object.freeze({
@@ -1372,7 +1372,7 @@ export async function runProviderAuthenticationRequest(
       manualRecoveryRequired: false,
       providerEffectIssued: false,
     });
-  const observed = inspectRuntimeOwnedWindowsProviderHomeCandidate(provider);
+  const observed = inspectWindowsProviderHomeCandidate(provider);
   if (observed.status !== "candidate")
     return Object.freeze({
       status: "blocked",

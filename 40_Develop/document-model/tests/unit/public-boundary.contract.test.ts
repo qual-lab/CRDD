@@ -893,19 +893,17 @@ test("Reality Domain IssueはChecker語彙と絶対Pathを公開しない", () =
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-UT-014=Direct Boundary: document-model Test Source→対象契約
  */
-test("Repository観測はRootの公開操作から不正Capabilityを拒否する", () => {
-  const forgedCapability = {
-    contract: "crdd-version-control/repository-location/v1",
-  } as never;
+test("Repository観測はRootの公開操作から不正Pathを拒否する", () => {
+  const invalidPath = "relative";
   assert.equal(
     domainLibrary
-      .createFilesystemRepositoryObservationPort(forgedCapability)
+      .createFilesystemRepositoryObservationPort(invalidPath)
       .observeFile("PROJECT_CONTEXT.md").status,
     "unobservable",
   );
   assert.equal(
     domainLibrary
-      .createFilesystemRepositoryObservationPort(forgedCapability)
+      .createFilesystemRepositoryObservationPort(invalidPath)
       .observeDirectory("40_Develop").status,
     "unobservable",
   );
@@ -916,12 +914,5 @@ test("Repository観測はRootの公開操作から不正Capabilityを拒否す�
     ),
     "utf8",
   );
-  assert.match(
-    repositoryEntrySource,
-    /from "\.\.\/\.\.\/\.\.\/version-control\/src\/index\.ts"/u,
-  );
-  assert.doesNotMatch(
-    repositoryEntrySource,
-    /version-control\/src\/(?!index\.ts)/u,
-  );
+  assert.doesNotMatch(repositoryEntrySource, /version-control\/src\//u);
 });

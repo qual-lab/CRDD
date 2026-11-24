@@ -238,12 +238,12 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
     assert.equal(root.status, "completed");
     if (root.status !== "completed") throw Error("root_invalid");
     assert.equal(
-      readRepositoryAiSelection(root.capability, getModelCatalog().catalog)
-        .status,
+      readRepositoryAiSelection(fixture, getModelCatalog().catalog).status,
       "missing",
     );
+    await mkdir(path.join(fixture, ".crdd", "config"), { recursive: true });
     const saved = saveRepositoryAiSelection(
-      root.capability,
+      fixture,
       { expectedIdentity: null, config: selectionConfig() },
       () => true,
       getModelCatalog().catalog,
@@ -271,7 +271,7 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
       },
     };
     const changed = saveRepositoryAiSelection(
-      root.capability,
+      fixture,
       { expectedIdentity: saved.snapshot.identity, config: next },
       () => true,
       getModelCatalog().catalog,
@@ -414,7 +414,7 @@ test("旧Profile設定と破損設定を既定Modelへ補正しない", async ()
         "utf8",
       );
       const read = readRepositoryAiSelection(
-        root.capability,
+        fixture,
         getModelCatalog().catalog,
       );
       assert.equal(read.status, "blocked");

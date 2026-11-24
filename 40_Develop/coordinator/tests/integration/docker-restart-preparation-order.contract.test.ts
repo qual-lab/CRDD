@@ -23,10 +23,10 @@ import {
 } from "../../../execution-model/src/index.ts";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import {
-  persistRuntimeOwnedDockerRestartCheckpoint,
-  prepareRuntimeOwnedDockerRestart,
-  releaseRuntimeOwnedDockerRestartPreparation,
-  verifyRuntimeOwnedDockerRestartPreparation,
+  persistDockerRestartCheckpoint,
+  prepareDockerRestart,
+  releaseDockerRestartPreparation,
+  verifyDockerRestartPreparation,
 } from "../../src/lifecycle/environment.ts";
 import { snapshotJsonValue } from "../../src/lifecycle/validation.ts";
 import {
@@ -52,9 +52,9 @@ type DockerRestartCheckpoint = NonNullable<
  */
 test("restart preparation rejects arbitrary capability and invalid task before publication", () => {
   for (const value of [null, undefined, {}, "invalid", 0]) {
-    assert.equal(verifyRuntimeOwnedDockerRestartPreparation(value), false);
+    assert.equal(verifyDockerRestartPreparation(value), false);
     assert.equal(
-      persistRuntimeOwnedDockerRestartCheckpoint(value, {
+      persistDockerRestartCheckpoint(value, {
         requestId: "a".repeat(64),
         scopeSha256: "b".repeat(64),
         request: "not_issued",
@@ -63,9 +63,9 @@ test("restart preparation rejects arbitrary capability and invalid task before p
       }),
       false,
     );
-    assert.equal(releaseRuntimeOwnedDockerRestartPreparation(value), false);
+    assert.equal(releaseDockerRestartPreparation(value), false);
   }
-  const result = prepareRuntimeOwnedDockerRestart("invalid", {});
+  const result = prepareDockerRestart("invalid", {});
   assert.equal(result.status, "blocked");
   assert.equal("capability" in result, false);
   assert.equal(result.cleanupConfirmed, true);
@@ -79,11 +79,11 @@ const source = fs.readFileSync(
 );
 const body = [
   "restartScopeIncludes",
-  "prepareRuntimeOwnedDockerRestart",
-  "verifyRuntimeOwnedDockerRestartPreparation",
-  "persistRuntimeOwnedDockerRestartCheckpoint",
-  "releaseRuntimeOwnedDockerRestartPreparation",
-  "finalizeRuntimeOwnedDockerRestartPreparation",
+  "prepareDockerRestart",
+  "verifyDockerRestartPreparation",
+  "persistDockerRestartCheckpoint",
+  "releaseDockerRestartPreparation",
+  "finalizeDockerRestartPreparation",
 ]
   .map((name) => sourceDeclaration(source, name))
   .join("\n");
@@ -194,19 +194,17 @@ function fixture() {
     dockerRecoveryPreparations: maps,
     normalizeDockerRestartScope: (values: string[]) =>
       Object.freeze([...new Set(values)].sort()),
-    borrowRuntimeOwnedCoordinatorRecoveryRepository: (candidate: unknown) =>
+    borrowCoordinatorRecoveryRepository: (candidate: unknown) =>
       candidate === root && rootValid ? repository : null,
     providerHomesDirectoryCandidate: () => path.resolve("ProviderHomes"),
-    runtimeStateDirectoryCandidate: () => path.resolve("RuntimeState"),
-    poisonRuntimeProcessAfterCleanupUnknown: () =>
+    poisonExecutionProcessAfterCleanupUnknown: () =>
       events.push("process-poisoned"),
     acquireHostOperationLock: (candidate: unknown, id: string) => {
       assert.equal(candidate, root);
       return acquire(`host:${id}`);
     },
     acquireProviderHomeLock: (home: string) => acquire(`home:${home}`),
-    acquireExecutionStateLock: () =>
-      acquire(`state:${repository.repositoryBinding}`),
+    recoveryStorageInput: (root: unknown) => root,
     readState: (
       _root: unknown,
       envelope: {
@@ -319,7 +317,7 @@ function fixture() {
     },
   };
   const api = runInThisContext(
-    `(dependencies)=>{const {${Object.keys(context).join(",")}}=dependencies;\n${body}\nreturn {prepare:prepareRuntimeOwnedDockerRestart,verify:verifyRuntimeOwnedDockerRestartPreparation,persist:persistRuntimeOwnedDockerRestartCheckpoint,release:releaseRuntimeOwnedDockerRestartPreparation,finalize:finalizeRuntimeOwnedDockerRestartPreparation};}`,
+    `(dependencies)=>{const {${Object.keys(context).join(",")}}=dependencies;\n${body}\nreturn {prepare:prepareDockerRestart,verify:verifyDockerRestartPreparation,persist:persistDockerRestartCheckpoint,release:releaseDockerRestartPreparation,finalize:finalizeDockerRestartPreparation};}`,
   )(context);
   return {
     api,
@@ -368,7 +366,7 @@ function fixture() {
  * @precondition 実準備本文と合成の外部観測境界を使用する。
  * @stimulus 二つのHomeとHostを持つ現在操作を準備する。
  * @observation 取得・解放の各Identity、Writer件数と固定結果。
- * @oracle Host→Home→Runtimeの五排他、保存0、逆順全解放。
+ * @oracle Host→Homeの四排他、保存0、逆順全解放。
  * @cleanup 合成境界のみ。実Docker・外部AI・FilesystemのEffectなし。
  * @boundary ERB-IT-014=Related 2 Blocks: 本番準備→状態・排他Adapter。
  */
@@ -377,10 +375,9 @@ test("現在Scopeの複数Ownerは決定的順序で取得し逆順解放する"
     prepared = f.api.prepare(f.token, f.root);
   assert.equal(prepared.status, "prepared");
   assert.equal(prepared.alreadyRequested, false);
-  assert.equal(f.acquired.length, 5);
+  assert.equal(f.acquired.length, 4);
   assert.ok(f.acquired.slice(0, 2).every((id) => id.startsWith("host:")));
-  assert.ok(f.acquired.slice(2, 4).every((id) => id.startsWith("home:")));
-  assert.ok(f.acquired[4]?.startsWith("state:"));
+  assert.ok(f.acquired.slice(2).every((id) => id.startsWith("home:")));
   assert.equal(f.writes, 0);
   assert.equal(f.api.verify(prepared.capability), true);
   assert.equal(f.api.verify({ ...prepared.capability }), false);
@@ -431,18 +428,14 @@ test("不正Rootと別対象は現在準備の取得前に止まる", () => {
  * @responsibility 取得試行と保持成功を区別し、一次失敗を解放結果で消さない。
  * @trace ERB-IT-014
  * @precondition 合成排他のみ、同じ本番準備本文を使用する。
- * @stimulus 後段Host／Home／Runtime取得をthrowにし、既取得解放をfalse／throwへ変える。
+ * @stimulus 後段Host／Home取得をthrowにし、既取得解放をfalse／throwへ変える。
  * @observation 成功取得済みIdentity、全解放順、保存件数と二つの失敗分類。
  * @oracle 失敗した取得自体は解放せず、既取得のみ逆順全解放、保存0、固定一次理由とcleanup分離。
  * @cleanup 合成境界のみ。実Host・Docker・FilesystemのEffectなし。
  * @boundary ERB-IT-014=Related 2 Blocks: 準備Owner→排他取得・解放。
  */
 test("後段取得失敗は成功済み排他だけを逆順に全解放する", () => {
-  for (const failed of [
-    "host:OP-123457",
-    `home:${"a".repeat(64)}`,
-    `state:${"c".repeat(64)}`,
-  ]) {
+  for (const failed of ["host:OP-123457", `home:${"a".repeat(64)}`]) {
     for (const cleanup of [null, "false", "throw"] as const) {
       const f = fixture();
       f.acquireFault = failed;
@@ -561,7 +554,7 @@ test("解放済みOwnerは同要求の終端だけを一度確定する", () => 
  * @precondition 実準備本文と合成の外部観測境界を使用する。
  * @stimulus 二番目を全資源終端・Lease解放・Owner失効へする。
  * @observation 取得・解放の各Identity、Writer件数と固定結果。
- * @oracle 対象Host／HomeとRuntimeだけ取得し、別配送記録を変更しない。
+ * @oracle 対象Host／Homeだけ取得し、別配送記録を変更しない。
  * @cleanup 合成境界のみ。実Docker・外部AI・FilesystemのEffectなし。
  * @boundary ERB-IT-014=Related 2 Blocks: 本番準備→状態・排他Adapter。
  */
@@ -581,7 +574,7 @@ test("清掃済み別操作は再起動Scopeの完全一致を妨げない", () 
   const before = JSON.stringify(closed);
   const prepared = f.api.prepare(f.token, f.root);
   assert.equal(prepared.status, "prepared");
-  assert.equal(f.acquired.length, 3);
+  assert.equal(f.acquired.length, 2);
   assert.equal(JSON.stringify(closed), before);
   assert.equal(f.api.release(prepared.capability), true);
 });
@@ -705,7 +698,7 @@ test("再起動準備の後段初期化失敗は先行解放と未回収・Proce
   for (const descriptorClosed of [true, false]) {
     const f = fixture();
     f.initializationFailure = {
-      id: `state:${f.repository.repositoryBinding}`,
+      id: `home:${"b".repeat(64)}`,
       descriptorClosed,
     };
     const result = f.api.prepare(f.token, f.root);
@@ -713,7 +706,7 @@ test("再起動準備の後段初期化失敗は先行解放と未回収・Proce
     assert.equal(result.cleanupConfirmed, false);
     assert.equal(
       result.primaryFailure,
-      "docker_restart_state_lock_initialization_failed",
+      "docker_restart_home_lock_initialization_failed",
     );
     assert.deepEqual(f.released, [...f.acquired.slice(0, -1)].reverse());
     assert.equal(f.events.includes("process-poisoned"), !descriptorClosed);

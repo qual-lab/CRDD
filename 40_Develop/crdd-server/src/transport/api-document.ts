@@ -316,7 +316,7 @@ export const openApiDocument = {
       post: action(
         "manageWorkspace",
         "Workspaceの明示操作",
-        "commandは操作別JSON文字列で、現在の対象と認可を検査する。",
+        "commandは操作別JSON文字列。createはbaseBranch・baseCommitを選択Branchの期待HEADとして照合する。未コミット変更がある場合はworkspace_creation_confirmation_requiredで停止し、同じHEADに対する明示承認acceptUncommittedChangesExcludedでのみ再送できる。",
         ["repositoryId", "command"],
         { required: ["repositoryId", "command"] },
       ),

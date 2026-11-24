@@ -17,7 +17,7 @@ import test from "node:test";
 import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
+import { withUnsignedRuntimeFixture } from "../support/unsigned-distribution-fixture.ts";
 import {
   renderDockerRecoveryDoctorReport,
   parseDoctorArguments,
@@ -50,11 +50,19 @@ test("正式回復照会は実Readerで記録なしを確認し保存を変更�
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   const before = JSON.stringify(current.snapshot());
+  let rootReads = 0;
   const result = readRecovery(
     { recoveryId },
-    { rootCapability: verified.capability },
+    {
+      get rootCapability() {
+        rootReads++;
+        assert.equal(rootReads, 1);
+        return verified.capability;
+      },
+    },
     new AbortController().signal,
   );
+  assert.equal(rootReads, 1);
   assert.equal(result.observationState, "not_recorded");
   assert.equal(result.lockReleased, true);
   assert.equal(result.dockerResourcesObserved, false);
@@ -216,9 +224,9 @@ test("回復照会はTask・Repair・HostとProbe用途の保存観測を分離�
   const body = stripTypeScriptTypes(
     sourceDeclaration(source, "projectRecoveryRecord") +
       "\n" +
-      sourceDeclaration(source, "readRuntimeOwnedRecovery"),
+      sourceDeclaration(source, "readRecordedRecovery"),
   );
-  const repairId = `docker-runtime-repair.${"a".repeat(64)}.${"b".repeat(64)}`;
+  const repairId = `docker-repair.${"a".repeat(64)}.${"b".repeat(64)}`;
   const probeId = "host-operation.OP-654321";
   const task = {
     kind: "docker_task",
@@ -244,7 +252,7 @@ test("回復照会はTask・Repair・HostとProbe用途の保存観測を分離�
     privateValue: "PRIVATE",
   };
   const repair = {
-    kind: "runtime_repair",
+    kind: "docker_repair",
     recoveryId: repairId,
     phase: "awaiting_disposition",
     disposition: "pending_human_decision",
@@ -282,7 +290,11 @@ test("回復照会はTask・Repair・HostとProbe用途の保存観測を分離�
     path,
     parseDockerTaskRecoveryId,
     readExecutionCancellation,
-    readState: () => {
+    borrowCoordinatorRecoveryRepository: () => storage,
+    recoveryStorageInput: () => storage,
+    readState: (repository: unknown, query: unknown) => {
+      assert.equal(repository, storage);
+      assert.deepEqual(structuredClone(query), { scope: "recovery" });
       reads++;
       abortDuringRead?.abort();
       if (throws || probeFailure) throw Error("PRIVATE");
@@ -293,7 +305,8 @@ test("回復照会はTask・Repair・HostとProbe用途の保存観測を分離�
       };
     },
   };
-  const read = runInNewContext(`${body};readRuntimeOwnedRecovery`, context);
+  const storage = Object.freeze({ root: { directory: "fixture-only" } });
+  const read = runInNewContext(`${body};readRecordedRecovery`, context);
   for (const id of [recoveryId, repairId, probeId, host.recoveryId]) {
     const result = read(id, {}, new AbortController().signal);
     assert.equal(result.observationState, "recorded");
@@ -397,7 +410,7 @@ test("回復照会はTask・Repair・HostとProbe用途の保存観測を分離�
   for (const id of [
     "invalid",
     "docker-task.invalid",
-    "docker-runtime-repair.invalid",
+    "docker-repair.invalid",
     "host.invalid",
     "host-operation.invalid",
     "host-operation.OP-12345",
@@ -460,7 +473,7 @@ test("現在CLIは正式APIを一度待機しRootと取消を結合する", asyn
     "utf8",
   );
   const body = sourceDeclaration(source, "runDoctorCommand");
-  const id = "docker-runtime-repair." + "a".repeat(64) + "." + "b".repeat(64);
+  const id = "docker-repair." + "a".repeat(64) + "." + "b".repeat(64);
   for (const action of [
     "repair-docker",
     "retain-repair",
@@ -529,7 +542,7 @@ test("現在CLIは正式APIを一度待機しRootと取消を結合する", asyn
           throw Error("PRIVATE_FIXTURE_DETAIL");
         return {
           status: "blocked",
-          reason: "runtime_repair_failed_closed",
+          reason: "docker_repair_failed_closed",
           recoveryId: expectedId,
           cleanupConfirmed: true,
           restartCompleted: false,
@@ -644,7 +657,7 @@ test("現在CLIは正式APIを一度待機しRootと取消を結合する", asyn
         const result = JSON.parse(output);
         assert.equal(
           result.reason,
-          "runtime_repair_failed_closed",
+          "docker_repair_failed_closed",
           `${action}/${scenario}: ${output}`,
         );
         assert.equal(result.recoveryId, expectedId);
@@ -675,8 +688,8 @@ test("現在修復診断は固定fieldと相関だけを表示する", () => {
   const value = {
     contract: "crdd-coordinator/current-runtime-repair",
     status: "observed",
-    reason: "runtime_repair_recovered",
-    recoveryId: `docker-runtime-repair.${"a".repeat(64)}.${"b".repeat(64)}`,
+    reason: "docker_repair_recovered",
+    recoveryId: `docker-repair.${"a".repeat(64)}.${"b".repeat(64)}`,
     finalCheckpointConfirmed: true,
     outcomeConfirmed: true,
     retentionConfirmed: false,
@@ -693,7 +706,7 @@ test("現在修復診断は固定fieldと相関だけを表示する", () => {
       {
         ...value,
         cliCleanupConfirmed: false,
-        cliCleanupReason: "runtime_repair_cli_cleanup_unconfirmed",
+        cliCleanupReason: "docker_repair_cli_cleanup_unconfirmed",
       },
       true,
     ).exitCode,
@@ -800,7 +813,7 @@ test("現在修復診断は固定fieldと相関だけを表示する", () => {
       {
         ...waiting,
         status: "blocked",
-        reason: "runtime_repair_state_unavailable",
+        reason: "docker_repair_state_unavailable",
         historyConfirmed: true,
       },
       true,
@@ -897,7 +910,7 @@ test("新文法のparserは処置の混在と旧flagを拒否する", () => {
     [
       "maintenance",
       "retain-repair",
-      `docker-runtime-repair.${"a".repeat(64)}.${"b".repeat(64)}`,
+      `docker-repair.${"a".repeat(64)}.${"b".repeat(64)}`,
     ],
     ["recovery", "restart-docker", recoveryId],
     ["recovery", "resume", recoveryId, "--restart-docker", "--restart-docker"],
@@ -929,16 +942,13 @@ test("修復の公開投影は内部保存checkpointを返さない", () => {
     "utf8",
   );
   const start = source.indexOf(
-    "export function projectRuntimeRepairObservation(",
+    "export function projectDockerRepairObservation(",
   );
   const end = source.indexOf("\n/**", start);
   const body = stripTypeScriptTypes(
     source.slice(start, end < 0 ? undefined : end).replace("export ", ""),
   );
-  const project = runInNewContext(
-    body + ";projectRuntimeRepairObservation",
-    {},
-  );
+  const project = runInNewContext(body + ";projectDockerRepairObservation", {});
   const value = project(
     {
       status: "blocked",
@@ -972,10 +982,8 @@ test("修復の公開投影は内部保存checkpointを返さない", () => {
     ].sort(),
   );
   assert.equal(value.reason, "primary_fixture_failure");
-  const expected =
-    "docker-runtime-repair." + "a".repeat(64) + "." + "b".repeat(64);
-  const other =
-    "docker-runtime-repair." + "c".repeat(64) + "." + "d".repeat(64);
+  const expected = "docker-repair." + "a".repeat(64) + "." + "b".repeat(64);
+  const other = "docker-repair." + "c".repeat(64) + "." + "d".repeat(64);
   const mismatch = project(
     {
       ...value,
@@ -987,7 +995,7 @@ test("修復の公開投影は内部保存checkpointを返さない", () => {
   );
   assert.equal(mismatch.recoveryId, expected);
   assert.equal(mismatch.status, "blocked");
-  assert.equal(mismatch.reason, "runtime_repair_boundary_unavailable");
+  assert.equal(mismatch.reason, "docker_repair_boundary_unavailable");
   for (const key of [
     "finalCheckpointConfirmed",
     "outcomeConfirmed",
@@ -1576,21 +1584,19 @@ test("修復保持再入場の三入口は別IDの成功を元要求へ転用し
     new URL("../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
-  const expected =
-    "docker-runtime-repair." + "a".repeat(64) + "." + "b".repeat(64);
-  const other =
-    "docker-runtime-repair." + "c".repeat(64) + "." + "d".repeat(64);
+  const expected = "docker-repair." + "a".repeat(64) + "." + "b".repeat(64);
+  const other = "docker-repair." + "c".repeat(64) + "." + "d".repeat(64);
   const projector = sourceDeclaration(
     fs.readFileSync(
       new URL("../../src/lifecycle/environment.ts", import.meta.url),
       "utf8",
     ),
-    "projectRuntimeRepairObservation",
+    "projectDockerRepairObservation",
   );
   for (const [source, name] of [
     [api, "repairDockerRuntime"],
     [api, "retainRepair"],
-    [execution, "resumeRuntimeOwnedExecution"],
+    [execution, "resumeExecution"],
   ] as const) {
     const start = source.indexOf("export async function " + name + "("),
       end = source.indexOf("\n}\n", start);
@@ -1606,11 +1612,11 @@ test("修復保持再入場の三入口は別IDの成功を元要求へ転用し
       recoveryReference: (request: { recoveryId: string }) =>
         request.recoveryId,
       readExecutionCancellation: () => false,
-      repairRuntimeOwnedDockerRuntime: async () => {
+      executeDockerRepair: async () => {
         calls++;
         return {
           status: "observed",
-          reason: "runtime_repair_recovered",
+          reason: "docker_repair_recovered",
           recoveryId: other,
           finalCheckpointConfirmed: true,
           outcomeConfirmed: true,
@@ -1627,16 +1633,14 @@ test("修復保持再入場の三入口は別IDの成功を元要求へ転用し
       context,
     );
     const result = await operation(
-      name === "resumeRuntimeOwnedExecution"
-        ? expected
-        : { recoveryId: expected },
+      name === "resumeExecution" ? expected : { recoveryId: expected },
       { rootCapability: {} },
       new AbortController().signal,
     );
     assert.equal(calls, 1);
     assert.equal(result.status, "blocked");
     assert.equal(result.recoveryId, expected);
-    assert.equal(result.reason, "runtime_repair_boundary_unavailable");
+    assert.equal(result.reason, "docker_repair_boundary_unavailable");
     for (const key of [
       "finalCheckpointConfirmed",
       "outcomeConfirmed",

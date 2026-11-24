@@ -412,18 +412,18 @@ test("限定Repository formatだけをAuthority候補として受理する", (t)
 });
 
 /**
- * control fileは上限ちょうどを受理し上限+1を拒否するを検証する。
+ * Git制御ファイルの観測は旧容量上限を理由に停止しない。
  *
- * @responsibility control fileは上限ちょうどを受理し上限+1を拒否するの合否判定を所有する。
+ * @responsibility 旧容量上限の撤去をGit配置の観測で確認する。
  * @trace RFD-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus control fileは上限ちょうどを受理し上限+1を拒否するの対象操作を実行する。
+ * @stimulus 旧上限以下と旧上限を超える制御ファイルを与える。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RFD-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("control fileは上限ちょうどを受理し上限+1を拒否する", (t) => {
+test("control fileは旧容量上限を超えても読み取る", (t) => {
   const repositoryRoot = temporaryRoot(t);
   makeGitDirectory(path.join(repositoryRoot, ".git"));
   const head = path.join(repositoryRoot, ".git", "HEAD");
@@ -435,7 +435,7 @@ test("control fileは上限ちょうどを受理し上限+1を拒否する", (t)
   fs.writeFileSync(head, "a".repeat(4097), "utf8");
   assert.equal(
     inspectGitRepositoryLayout({ repositoryRoot }).status,
-    "blocked",
+    "candidate",
   );
 });
 

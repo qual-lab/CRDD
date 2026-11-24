@@ -611,7 +611,7 @@
     {
       "symbolId": "domain-model.test-support.runtime-storage-source",
       "kind": "file",
-      "path": "tests/support/runtime-storage-source.ts",
+      "path": "tests/support/storage-source.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -619,7 +619,7 @@
     {
       "symbolId": "domain-model.test.integration.runtime-repository",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-repository.contract.test.ts",
+      "path": "tests/integration/storage-repository.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -635,7 +635,7 @@
     {
       "symbolId": "domain-model.test.integration.runtime-core-crud",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-core-crud.contract.test.ts",
+      "path": "tests/integration/core-crud.contract.test.ts",
       "qaIds": [
         "QA-000003",
         "QA-000006"
@@ -662,7 +662,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-history",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-history.contract.test.ts",
+      "path": "tests/integration/operation-history.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -680,7 +680,7 @@
     {
       "symbolId": "domain-model.test.integration.runtime-kernel-lock",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-kernel-lock.contract.test.ts",
+      "path": "tests/integration/state-lock.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -694,7 +694,7 @@
     {
       "symbolId": "domain-model.test.integration.runtime-snapshot-lock",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-snapshot-lock.contract.test.ts",
+      "path": "tests/integration/snapshot-lock.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -708,7 +708,7 @@
     {
       "symbolId": "domain-model.test-fixture.runtime-kernel-owner",
       "kind": "file",
-      "path": "tests/fixtures/runtime-kernel-owner.ts",
+      "path": "tests/fixtures/state-lock-owner.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -716,7 +716,7 @@
     {
       "symbolId": "coordinator.test.integration.current-state-publication-reentry",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-publication-reentry.contract.test.ts",
+      "path": "tests/integration/publication-reentry.contract.test.ts",
       "qaIds": [
         "QA-000003",
         "QA-000006"
@@ -740,7 +740,7 @@
     {
       "symbolId": "domain-model.test.integration.runtime-snapshot-io",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-snapshot-io.contract.test.ts",
+      "path": "tests/integration/snapshot-io.contract.test.ts",
       "qaIds": [
         "QA-000003",
         "QA-000006"
@@ -767,7 +767,7 @@
     {
       "symbolId": "domain-model.test.unit.runtime-codec",
       "kind": "test-suite",
-      "path": "tests/unit/storage/runtime-codec.contract.test.ts",
+      "path": "tests/unit/storage/state-codec.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -785,7 +785,7 @@
     {
       "symbolId": "domain-model.test.integration.runtime-settlement",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-settlement.contract.test.ts",
+      "path": "tests/integration/operation-settlement.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -803,7 +803,7 @@
     {
       "symbolId": "domain-model.test.integration.runtime-repair-storage",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-repair-storage.contract.test.ts",
+      "path": "tests/integration/docker-repair-storage.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -819,7 +819,7 @@
     {
       "symbolId": "coordinator.test.unit.coordinator-state-model",
       "kind": "test-suite",
-      "path": "tests/unit/storage/runtime-transitions.contract.test.ts",
+      "path": "tests/unit/storage/state-transitions.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1048,7 +1048,7 @@
     {
       "symbolId": "execution-model.source.tests.support.runtime-state",
       "kind": "file",
-      "path": "tests/support/runtime-state.ts",
+      "path": "tests/support/state-fixture.ts",
       "archIds": [
         "ARCH-000004"
       ]

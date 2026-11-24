@@ -26,7 +26,7 @@ import { withCallerPlan } from "../../../execution-model/tests/fixtures/executio
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-  verifyRuntimePersistenceRepository,
+  resolveExecutionStorageDirectory,
 } from "../../src/lifecycle/host.ts";
 import { runTestCoordinatorObjective } from "../fixtures/task-persistence-fixture.ts";
 import type {
@@ -160,7 +160,7 @@ function root(t: test.TestContext, initialize = true) {
   );
   if (initialize) {
     const initialized = initializeExecutionStore(
-      verifyRuntimePersistenceRepository(value),
+      resolveExecutionStorageDirectory(value),
       "binding-a",
     );
     assert.equal(initialized.status, "completed");
@@ -315,7 +315,7 @@ async function completed(input: {
 }): Promise<CoordinatorSingleTaskResult> {
   assert.equal(await input.observeStarted?.(), undefined);
   return {
-    contract: "crdd-coordinator/orchestrator-single-task-adapter",
+    contract: "crdd-coordinator/single-task-adapter",
     attemptId: input.attemptId,
     operationId: input.operationId,
     authorityBindingId: input.authorityBindingId,
@@ -332,18 +332,18 @@ async function completed(input: {
 }
 
 /**
- * settleRuntimeProcessAsFreshProcessのTest準備責務を実行する。
+ * settleExecutionProcessAsFreshProcessのTest準備責務を実行する。
  *
- * @responsibility settleRuntimeProcessAsFreshProcessがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @responsibility settleExecutionProcessAsFreshProcessがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
  * @trace PRL-IT-005
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus settleRuntimeProcessAsFreshProcessを呼び出す。
+ * @stimulus settleExecutionProcessAsFreshProcessを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-function settleRuntimeProcessAsFreshProcess(
+function settleExecutionProcessAsFreshProcess(
   workingDirectory: string,
   repositoryBindingId: string,
   projectId: string,
@@ -359,17 +359,18 @@ function settleRuntimeProcessAsFreshProcess(
   const task = state.tasks.find((entry) =>
     entry.recoveryObligations.some(
       (obligation) =>
-        obligation.kind === "runtime_process" && obligation.phase !== "settled",
+        obligation.kind === "execution_process" &&
+        obligation.phase !== "settled",
     ),
   );
   const obligation = task?.recoveryObligations.find(
-    (entry) => entry.kind === "runtime_process" && entry.phase !== "settled",
+    (entry) => entry.kind === "execution_process" && entry.phase !== "settled",
   );
   assert.ok(task);
   assert.ok(obligation);
   if (obligation.phase === "required") {
     const write = saveProjectExecutionState(
-      verifyRuntimePersistenceRepository(workingDirectory),
+      resolveExecutionStorageDirectory(workingDirectory),
       repositoryBindingId,
       {
         kind: "task_recovery_start",
@@ -385,7 +386,7 @@ function settleRuntimeProcessAsFreshProcess(
     state = write.value;
   }
   const write = saveProjectExecutionState(
-    verifyRuntimePersistenceRepository(workingDirectory),
+    resolveExecutionStorageDirectory(workingDirectory),
     repositoryBindingId,
     {
       kind: "task_recovery_settle",
@@ -465,7 +466,7 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
   };
   // Readerの排他Directoryだけを準備し、実行Stateは真正不存在のまま確認する。
   const before = readState(
-    verifyRuntimePersistenceRepository(workingDirectory),
+    resolveExecutionStorageDirectory(workingDirectory),
     "binding-a",
     "execution",
   );
@@ -477,7 +478,7 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
     request({ operation: "resume" }),
     new AbortController().signal,
   );
-  assert.equal(missing.reason, "orchestrator_objective_request_not_found");
+  assert.equal(missing.reason, "coordinator_objective_request_not_found");
   assert.equal(effects, 0);
   assert.deepEqual(runtimeSnapshot(workingDirectory), untouched);
   for (const [input, pair] of [
@@ -525,7 +526,7 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
     new AbortController().signal,
   );
   assert.equal(second.status, "blocked", JSON.stringify(second));
-  assert.equal(second.reason, "orchestrator_objective_request_reused");
+  assert.equal(second.reason, "coordinator_objective_request_reused");
   assert.equal(effects, 1);
   assert.equal(selectionReads, 1);
   const savedBytes = runtimeSnapshot(workingDirectory);
@@ -541,7 +542,7 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
     );
     assert.equal(
       rejected.reason,
-      "orchestrator_objective_request_identity_conflict",
+      "coordinator_objective_request_identity_conflict",
     );
     assert.equal(rejected.effectState, "no_effect");
     assert.deepEqual(runtimeSnapshot(workingDirectory), savedBytes);
@@ -865,7 +866,7 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
       );
       assert.equal(
         result.reason,
-        "orchestrator_lease_acquisition_project_identity_mismatch",
+        "coordinator_lease_acquisition_project_identity_mismatch",
       );
     } else {
       assert.deepEqual(result.recoveryIds, []);
@@ -948,7 +949,7 @@ test("a scheduled Objective arriving during interactive execution waits without 
   assert.equal(scheduled.status, "blocked");
   assert.equal(
     scheduled.reason,
-    "orchestrator_objective_queued_waiting_foreground",
+    "coordinator_objective_queued_waiting_foreground",
   );
   assert.equal(scheduled.cleanupConfirmed, true);
   assert.equal(scheduled.manualRecoveryRequired, false);
@@ -1026,7 +1027,7 @@ test("公開Objective受付は許可範囲外の計画をEffect前に拒否す�
     },
     new AbortController().signal,
   );
-  assert.equal(result.reason, "orchestrator_objective_request_invalid");
+  assert.equal(result.reason, "coordinator_objective_request_invalid");
   assert.equal(effects, 0);
   const state = readCoordinatorState(
     workingDirectory,
@@ -1084,7 +1085,7 @@ test("公開Objective受付は余分field・Accessor・Proxy・不正計画をEf
     request({ unknown: true }),
     new AbortController().signal,
   );
-  assert.equal(unknownField.reason, "orchestrator_objective_request_invalid");
+  assert.equal(unknownField.reason, "coordinator_objective_request_invalid");
 
   const getterRequest = request();
   Object.defineProperty(getterRequest, "objective", {
@@ -1096,7 +1097,7 @@ test("公開Objective受付は余分field・Accessor・Proxy・不正計画をEf
     getterRequest,
     new AbortController().signal,
   );
-  assert.equal(accessor.reason, "orchestrator_objective_request_invalid");
+  assert.equal(accessor.reason, "coordinator_objective_request_invalid");
 
   let proxyTrapCount = 0;
   const proxy = await runCoordinatorObjective(
@@ -1113,7 +1114,7 @@ test("公開Objective受付は余分field・Accessor・Proxy・不正計画をEf
     }),
     new AbortController().signal,
   );
-  assert.equal(proxy.reason, "orchestrator_objective_request_invalid");
+  assert.equal(proxy.reason, "coordinator_objective_request_invalid");
   assert.equal(proxyTrapCount, 0);
   assert.equal(bindingCalls, 0);
 
@@ -1140,7 +1141,7 @@ test("公開Objective受付は余分field・Accessor・Proxy・不正計画をEf
     },
     new AbortController().signal,
   );
-  assert.equal(invalidPlan.reason, "orchestrator_objective_request_invalid");
+  assert.equal(invalidPlan.reason, "coordinator_objective_request_invalid");
   assert.equal(bindingCalls, 0);
   assert.equal(taskEffects, 0);
   const state = readCoordinatorState(
@@ -1299,9 +1300,9 @@ test("async recovery interruption preserves technical and Task settlement bounda
         request({ maximumReplans: 0 }),
         cancellation.signal,
       );
-      assert.equal(first.reason, "orchestrator_task_recovery_required");
+      assert.equal(first.reason, "coordinator_task_recovery_required");
       if (scenario === "after_settled")
-        settleRuntimeProcessAsFreshProcess(
+        settleExecutionProcessAsFreshProcess(
           workingDirectory,
           "binding-a",
           "project-a",
@@ -1333,7 +1334,7 @@ test("async recovery interruption preserves technical and Task settlement bounda
       let expected = before.value;
       if (scenario === "state_change") {
         const written = saveProjectExecutionState(
-          verifyRuntimePersistenceRepository(workingDirectory),
+          resolveExecutionStorageDirectory(workingDirectory),
           "binding-a",
           {
             kind: "task_recovery_start",
@@ -1388,7 +1389,7 @@ test("async recovery interruption preserves technical and Task settlement bounda
       }
       const result = await resumed;
       assert.equal(result.status, "blocked");
-      assert.equal(result.reason, "orchestrator_task_recovery_not_settled");
+      assert.equal(result.reason, "coordinator_task_recovery_not_settled");
       assert.ok(result.recoveryIds.includes(recoveryId));
       assert.equal(recoveries, 1);
       assert.equal(attempts, 1);
@@ -1539,7 +1540,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
           status: "blocked",
           reason:
             finalizationFault === "refused"
-              ? "orchestrator_task_recovery_not_settled"
+              ? "coordinator_task_recovery_not_settled"
               : "save_unconfirmed",
         };
       const result = saveProjectExecutionState(...args);
@@ -1584,7 +1585,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   );
   assert.equal(
     first.reason,
-    "orchestrator_task_recovery_required",
+    "coordinator_task_recovery_required",
     JSON.stringify(first),
   );
   assert.equal(first.manualRecoveryRequired, true);
@@ -1599,8 +1600,8 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   assert.equal(
     first.recoveryObligations.some(
       (entry) =>
-        entry.kind === "runtime_process" &&
-        entry.recoveryId.startsWith("runtime-process."),
+        entry.kind === "execution_process" &&
+        entry.recoveryId.startsWith("execution-process."),
     ),
     true,
   );
@@ -1612,21 +1613,21 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     recoverySignal,
   );
   assert.equal(resumed.status, "blocked", JSON.stringify(resumed));
-  assert.equal(resumed.reason, "orchestrator_task_recovery_not_settled");
+  assert.equal(resumed.reason, "coordinator_task_recovery_not_settled");
   assert.equal(recoveries, 1);
   assert.equal(attempts, 1);
   assert.equal(finalizations, 0);
 
-  settleRuntimeProcessAsFreshProcess(
+  settleExecutionProcessAsFreshProcess(
     workingDirectory,
     "binding-a",
     "project-a",
   );
 
   for (const [fault, reason] of [
-    ["refused", "orchestrator_task_recovery_not_settled"],
+    ["refused", "coordinator_task_recovery_not_settled"],
     ["save_blocked", "save_unconfirmed"],
-    ["candidate_missing", "orchestrator_state_observation_unknown"],
+    ["candidate_missing", "coordinator_state_observation_unknown"],
   ] as const) {
     finalizationFault = fault;
     const before: number = finalizations;
@@ -1652,12 +1653,12 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     recoverySignal,
   );
   assert.equal(interrupted.status, "blocked", JSON.stringify(interrupted));
-  assert.equal(interrupted.reason, "orchestrator_task_execution_set_invalid");
+  assert.equal(interrupted.reason, "coordinator_task_execution_set_invalid");
   assert.equal(attempts, 1);
   assert.equal(recoveries, 1);
   assert.equal(finalizationDiagnostics, 1);
   const retained = readState(
-    verifyRuntimePersistenceRepository(workingDirectory),
+    resolveExecutionStorageDirectory(workingDirectory),
     "binding-a",
     "execution",
   );
@@ -1691,7 +1692,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   );
   assert.equal(
     completedRecovery.reason,
-    "orchestrator_tasks_completed_integration_pending",
+    "coordinator_tasks_completed_integration_pending",
   );
   assert.equal(recoveries, 1);
   assert.equal(attempts, 2);
@@ -1814,7 +1815,7 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
     );
     assert.equal(
       first.reason,
-      "orchestrator_task_recovery_required",
+      "coordinator_task_recovery_required",
       JSON.stringify(first),
     );
     const beforeReentry = readCoordinatorState(
@@ -1834,7 +1835,7 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
       request({ operation: "resume", maximumReplans: 0 }),
       new AbortController().signal,
     );
-    assert.equal(resumed.reason, "orchestrator_task_recovery_not_settled");
+    assert.equal(resumed.reason, "coordinator_task_recovery_not_settled");
     const afterStoppedReentry = readCoordinatorState(
       workingDirectory,
       "binding-a",
@@ -1864,7 +1865,7 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
         : [dockerRecoveryId, secondDockerRecoveryId],
     );
     assert.equal(attempts, 1);
-    settleRuntimeProcessAsFreshProcess(
+    settleExecutionProcessAsFreshProcess(
       workingDirectory,
       "binding-a",
       "project-a",
@@ -1876,7 +1877,7 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
     );
     assert.equal(
       externalRecovery.reason,
-      "orchestrator_external_recovery_required",
+      "coordinator_external_recovery_required",
     );
     assert.ok("recoveryObligations" in externalRecovery);
     assert.deepEqual(externalRecovery.recoveryObligations, [
@@ -1955,7 +1956,7 @@ test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjec
     request({ maximumReplans: 0 }),
     new AbortController().signal,
   );
-  assert.equal(seeded.reason, "orchestrator_task_execution_set_invalid");
+  assert.equal(seeded.reason, "coordinator_task_execution_set_invalid");
   const selectedQueue = selectNextProjectOperation(
     workingDirectory,
     "binding-a",
@@ -1969,7 +1970,7 @@ test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjec
   );
   assert.ok(stateRead.value);
   const reserved = saveProjectExecutionState(
-    verifyRuntimePersistenceRepository(workingDirectory),
+    resolveExecutionStorageDirectory(workingDirectory),
     "binding-a",
     {
       kind: "task_start",
@@ -2115,7 +2116,7 @@ for (const interruption of [
       request({ maximumReplans: 0 }),
       new AbortController().signal,
     );
-    assert.equal(initial.reason, "orchestrator_task_recovery_required");
+    assert.equal(initial.reason, "coordinator_task_recovery_required");
     assert.ok("queueId" in initial);
     const queueBefore = readProjectOperationQueueState(
       workingDirectory,
@@ -2133,7 +2134,7 @@ for (const interruption of [
     assert.ok(stateBefore.value);
     if (interruption !== "recovery_not_started")
       settleSyntheticOperation(workingDirectory, recoveryId);
-    settleRuntimeProcessAsFreshProcess(
+    settleExecutionProcessAsFreshProcess(
       workingDirectory,
       "binding-a",
       "project-a",
@@ -2148,7 +2149,7 @@ for (const interruption of [
       const state = current.value;
       assert.equal(
         saveProjectExecutionState(
-          verifyRuntimePersistenceRepository(workingDirectory),
+          resolveExecutionStorageDirectory(workingDirectory),
           "binding-a",
           {
             kind: "task_recovery_finalize",

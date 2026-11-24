@@ -9,12 +9,10 @@
  * @boundary 固定PROJECT_CONTEXT.md→Reader→中立Source／Portfolio。
  */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { getRepository } from "../../../version-control/src/index.ts";
 import {
   createPortfolioProjection,
   readRepositoryProjectContext,
@@ -27,9 +25,9 @@ import {
  * @precondition Current Repositoryの.crdd/testsだけへ作成する。
  * @stimulus 固有Directoryでgit initと固定本文生成を行う。
  * @observation Root検証・解析済みidentity・本文Pathを取得する。
- * @oracle 完全なGit Rootと三Identityが一致する。
+ * @oracle 指定Directoryの本文と三Identityが一致する。
  * @cleanup hookで自己生成Directoryを削除し、不存在を確認する。
- * @boundary 実Git／Filesystem→Domain公開Reader。
+ * @boundary Gitを初期化しない実Filesystem→Domain公開Reader。
  */
 function fixture(t: TestContext) {
   const parent = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
@@ -40,13 +38,6 @@ function fixture(t: TestContext) {
     fs.rmSync(directory, { recursive: true, force: true });
     assert.equal(fs.existsSync(directory), false);
   });
-  const git = spawnSync("git", ["init", "--quiet", directory], {
-    encoding: "utf8",
-  });
-  assert.equal(git.status, 0, git.stderr);
-  const verified = getRepository(directory);
-  assert.equal(verified.status, "completed");
-  if (verified.status !== "completed") throw new Error("fixture_root_failed");
   const identity = {
     projectId: "p-a",
     repositoryId: "r-a",
@@ -70,7 +61,7 @@ function fixture(t: TestContext) {
   ].join("\n\n");
   const target = path.join(directory, "PROJECT_CONTEXT.md");
   fs.writeFileSync(target, source);
-  return { directory, target, source, identity, root: verified.capability };
+  return { directory, target, source, identity, root: directory };
 }
 
 /**
@@ -193,16 +184,15 @@ test("本文の不存在・種類・容量・解析失敗を固定unavailableへ
     status: "unavailable",
     reason: "project_context_read_unavailable",
   });
-  const git = path.join(f.directory, ".git");
-  const heldGit = path.join(f.directory, "git-held");
-  fs.renameSync(git, heldGit);
+  const heldRoot = `${f.directory}-held`;
+  fs.renameSync(f.directory, heldRoot);
   try {
     assert.deepEqual(readRepositoryProjectContext(f.root, f.identity), {
       status: "blocked",
       reason: "project_context_repository_unavailable",
     });
   } finally {
-    fs.renameSync(heldGit, git);
+    fs.renameSync(heldRoot, f.directory);
   }
 });
 
@@ -222,6 +212,7 @@ test("途中変更と下位読取り例外でもdescriptorを終了する", (t) 
   const originalRead = fs.readFileSync;
   const originalOpen = fs.openSync;
   const originalClose = fs.closeSync;
+  const originalLstat = fs.lstatSync;
   const descriptors = new Set<number>();
   const targetDescriptors = new Set<number>();
   let mode: "throw" | "change" | "root" = "throw";
@@ -247,15 +238,19 @@ test("途中変更と下位読取り例外でもdescriptorを終了する", (t) 
         hit = true;
         if (mode === "throw")
           throw new Error("internal-path-and-secret-fixture");
-        if (mode === "root")
-          fs.renameSync(
-            path.join(f.directory, ".git"),
-            path.join(f.directory, "git-held"),
-          );
-        else fs.appendFileSync(f.target, "changed");
+        if (mode === "change") fs.appendFileSync(f.target, "changed");
       }
       return originalRead(...args);
     }) as typeof fs.readFileSync;
+    t.mock.method(
+      fs,
+      "lstatSync",
+      (...args: Parameters<typeof originalLstat>) => {
+        if (mode === "root" && hit && args[0] === f.directory)
+          throw new Error("fixture root unavailable");
+        return Reflect.apply(originalLstat, fs, args);
+      },
+    );
     for (mode of ["throw", "change", "root"] as const) {
       hit = false;
       fs.writeFileSync(f.target, f.source);
@@ -273,8 +268,5 @@ test("途中変更と下位読取り例外でもdescriptorを終了する", (t) 
     fs.readFileSync = originalRead;
     fs.openSync = originalOpen;
     fs.closeSync = originalClose;
-    const heldGit = path.join(f.directory, "git-held");
-    if (fs.existsSync(heldGit))
-      fs.renameSync(heldGit, path.join(f.directory, ".git"));
   }
 });

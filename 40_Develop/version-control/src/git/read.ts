@@ -7,6 +7,134 @@
  * @security 公開API・認可・保存・Lockを追加しない。
  */
 import { executeGit, inspectGitExternalFilters } from "./execute.ts";
+import type { Repository } from "../repository/location.ts";
+import type { EntitySnapshot } from "../repository/layout.ts";
+
+/** HEAD配下のBranch名の文法だけを検査する。登録と参照の有無は別に観測する。 @trace ARCH-000009 */
+export function isBranchName(branch: unknown): branch is string {
+  return (
+    typeof branch === "string" &&
+    branch.length !== 0 &&
+    !/[\u0000-\u0020\u007f\\:*?[~^]/u.test(branch) &&
+    !branch.includes("..") &&
+    !branch.includes("@{") &&
+    !branch.endsWith(".") &&
+    !branch
+      .split("/")
+      .some((part) => !part || part.startsWith(".") || part.endsWith(".lock"))
+  );
+}
+
+/** 完全一致する直接Branch Refだけを一つのGit出力から読む。 @trace ARCH-000009 */
+export function readDirectBranchOid(
+  name: string,
+  run: (args: readonly string[]) => {
+    status: number | null;
+    stdout: string;
+    stderr: string;
+  },
+  requiredType?: "commit",
+): string | null {
+  const result = run([
+    "for-each-ref",
+    `--format=%(refname)%00%(objectname)%00%(symref)${requiredType ? "%00%(objecttype)" : ""}`,
+    "--",
+    name,
+  ]);
+  if (result.status !== 0 || result.stderr !== "")
+    throw Error("worktree_ref_unavailable");
+  let oid: string | null = null;
+  for (const row of result.stdout.split(/\r?\n/u)) {
+    const [key, value, symbolic, ...extra] = row.split("\0");
+    if (key !== name) continue;
+    if (symbolic) throw Error("worktree_branch_not_direct");
+    if (
+      oid !== null ||
+      (requiredType
+        ? extra.length !== 1 || extra[0] !== requiredType
+        : extra.length !== 0) ||
+      symbolic !== "" ||
+      !value ||
+      !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(value)
+    )
+      throw Error("worktree_ref_unavailable");
+    oid = value;
+  }
+  return oid;
+}
+
+const branchCommitKey = Symbol("branch commit observation");
+
+/** 同じRepositoryへの作成要求に渡せる、VCが観測した固定Commit。 @trace ARCH-000009 */
+class ObservedBranchCommit {
+  readonly #repository: Repository;
+  readonly #commitId: string;
+  readonly #checkedConfiguration: EntitySnapshot | null;
+
+  constructor(
+    key: typeof branchCommitKey,
+    repository: Repository,
+    commitId: string,
+    checkedConfiguration: EntitySnapshot | null,
+  ) {
+    if (key !== branchCommitKey) throw Error("worktree_commit_invalid");
+    this.#repository = repository;
+    this.#commitId = commitId;
+    this.#checkedConfiguration = checkedConfiguration;
+    Object.freeze(this);
+  }
+
+  get commitId(): string {
+    return this.#commitId;
+  }
+
+  static matches(value: unknown, repository: Repository, oid: string): boolean {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      #repository in value &&
+      value.#repository === repository &&
+      value.#commitId === oid
+    );
+  }
+
+  static configuration(
+    value: unknown,
+    repository: Repository,
+    oid: string,
+  ): EntitySnapshot | null {
+    return typeof value === "object" &&
+      value !== null &&
+      #checkedConfiguration in value &&
+      ObservedBranchCommit.matches(value, repository, oid)
+      ? value.#checkedConfiguration
+      : null;
+  }
+}
+Object.freeze(ObservedBranchCommit);
+Object.freeze(ObservedBranchCommit.prototype);
+
+/** 同じGit応答で直接RefとCommit種別が成立した場合だけ、固定基準を発行する。 @trace ARCH-000009 */
+export function observeBranchCommit(
+  repository: Repository,
+  name: string,
+  run: Parameters<typeof readDirectBranchOid>[1],
+  checkedConfiguration: EntitySnapshot | null,
+): ObservedBranchCommit | null {
+  const oid = readDirectBranchOid(name, run, "commit");
+  return oid === null
+    ? null
+    : new ObservedBranchCommit(
+        branchCommitKey,
+        repository,
+        oid,
+        checkedConfiguration,
+      );
+}
+
+export type { ObservedBranchCommit };
+export const matchesBranchCommit = ObservedBranchCommit.matches;
+export const checkedBranchConfiguration = ObservedBranchCommit.configuration;
 
 /**
  * 内容読取り操作が組み立てたdiff／ls-filesを同じ条件で実行する。

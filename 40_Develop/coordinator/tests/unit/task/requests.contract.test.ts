@@ -24,6 +24,7 @@ import {
   inspectWorkspaceResult,
 } from "../../../src/lifecycle/validation.ts";
 import { inspectSingleTaskCommand } from "../../../src/lifecycle/validation.ts";
+import { capturePreparedWorkspaceTarget } from "../../../src/lifecycle/workspace.ts";
 
 /**
  * Taskの受付拒否でも元の回復参照を保持する。
@@ -91,7 +92,7 @@ test("単発回復は既存Owner観測を直接渡して元回復参照を保持
   assert.equal(declaration.includes("deps.observeLeaseOwner"), false);
   const build = compileFunction(`return (${declaration});`, [
     "readState",
-    "verifyRuntimePersistenceRepository",
+    "resolveExecutionStorageDirectory",
     "reconcileCoordinatorSnapshotLeaseOwnerLoss",
     "observeLeaseOwner",
     "projectSingleTask",
@@ -202,7 +203,7 @@ test("単発回復は保存結果を共通終結へ渡し回復参照と理由�
   );
   const build = compileFunction(`return (${declaration});`, [
     "readState",
-    "verifyRuntimePersistenceRepository",
+    "resolveExecutionStorageDirectory",
     "reconcileCoordinatorSnapshotLeaseOwnerLoss",
     "observeLeaseOwner",
     "acquireCoordinatorSnapshotLease",
@@ -281,12 +282,12 @@ test("単発回復は保存結果を共通終結へ渡し回復参照と理由�
     });
     assert.deepEqual(await owner.cancel("request"), {
       status: "unknown",
-      reason: "orchestrator_task_body_unavailable",
+      reason: "coordinator_task_body_unavailable",
       recoveryIds: ["host.original", "store.original"],
       secondaryFailures: [
         ...(saved ? [] : ["write.failed"]),
         "release.failed",
-        "orchestrator_task_lease_release_unconfirmed",
+        "coordinator_task_lease_release_unconfirmed",
       ],
     });
     assert.equal(finishes, 1);
@@ -483,8 +484,7 @@ test("ObjectiveのModule代役は元要求とStateを保持し全終了経路で
           }
           if (options.namedExports.writeCoordinatorRecoveryDiagnostic) {
             assert.ok(
-              options.namedExports
-                .resolveRuntimeOwnedDockerTaskCurrentCorrelations,
+              options.namedExports.resolveDockerTaskCurrentCorrelations,
             );
             return { restore: () => restored.push("environment") };
           }
@@ -804,13 +804,16 @@ test("単発回復は元相関と回収順を保ち未確認参照を残す", as
   const build = compileFunction(
     `return (${stripTypeScriptTypes(sourceDeclaration(source, "recoverSingleTaskOperation"))});`,
     [
-      "resolveRuntimeOwnedDockerTaskCurrentCorrelations",
-      "recoverRuntimeOwnedDockerTaskForCurrentConsumer",
+      "resolveDockerTaskCurrentCorrelations",
+      "recoverDockerTaskForCurrentConsumer",
       "readState",
       "recoverSingleTaskHostOperation",
+      "recoveryStorageInput",
+      "borrowCoordinatorRecoveryRepository",
     ],
   );
   for (const scenario of [
+    "repository_unavailable",
     "unknown",
     "docker_pending",
     "read_confirmed",
@@ -822,6 +825,9 @@ test("単発回復は元相関と回収順を保ち未確認参照を残す", as
     "throw",
   ]) {
     const root = Object.freeze({ root: "synthetic" });
+    const storage = Object.freeze({ root: { directory: "fixture-only" } });
+    // 回復中はRootから一度だけ借りたRepositoryを各処理へ渡す。
+    const repository = Object.freeze({ repositoryBinding: "fixture-binding" });
     const authorize = () => true;
     const ids =
       scenario === "unknown"
@@ -847,19 +853,31 @@ test("単発回復は元相関と回収順を保ち未確認参照を残す", as
         : {}),
     };
     const run = build(
-      (operations: unknown, receivedRoot: unknown, consumer: unknown) => {
+      (
+        operations: unknown,
+        receivedRoot: unknown,
+        consumer: unknown,
+        receivedRepository: unknown,
+      ) => {
         order.push("correlations");
         assert.deepEqual(operations, [record.operationId]);
         assert.equal(receivedRoot, root);
         assert.equal(consumer, "coordinator_cli");
+        assert.equal(receivedRepository, repository);
         return scenario === "unknown"
           ? { status: "unknown", reason: "correlations_unknown" }
           : { status: "completed", bindings };
       },
-      async (id: unknown, receivedRoot: unknown) => {
+      async (
+        id: unknown,
+        receivedRoot: unknown,
+        _signal: unknown,
+        receivedRepository: unknown,
+      ) => {
         order.push("docker");
         assert.equal(id, "docker-task.current");
         assert.equal(receivedRoot, root);
+        assert.equal(receivedRepository, repository);
         if (scenario === "throw") throw failure;
         return {
           status: "recovered",
@@ -869,7 +887,7 @@ test("単発回復は元相関と回収順を保ち未確認参照を残す", as
       },
       (receivedRoot: unknown, request: unknown) => {
         order.push("state");
-        assert.equal(receivedRoot, root);
+        assert.equal(receivedRoot, storage);
         assert.deepEqual(request, {
           scope: "recovery",
           input: {
@@ -880,15 +898,31 @@ test("単発回復は元相関と回収順を保ち未確認参照を残す", as
         });
         return { operationCompletionConfirmed: scenario === "read_confirmed" };
       },
-      (receivedRoot: unknown, hostId: unknown, current: unknown) => {
+      (
+        receivedRoot: unknown,
+        hostId: unknown,
+        current: unknown,
+        receivedRepository: unknown,
+      ) => {
         order.push("host");
         assert.equal(receivedRoot, root);
         assert.equal(hostId, "host-operation.current");
         assert.equal(current, authorize);
+        assert.equal(receivedRepository, repository);
         return {
           cleanupConfirmed: scenario !== "host_unknown",
           reason: "host_unconfirmed",
         };
+      },
+      (receivedRepository: unknown) => {
+        assert.equal(receivedRepository, repository);
+        return storage;
+      },
+      (receivedRoot: unknown, directory: unknown) => {
+        order.push("repository");
+        assert.equal(receivedRoot, root);
+        assert.equal(directory, undefined);
+        return scenario === "repository_unavailable" ? null : repository;
       },
     ) as (
       context: object,
@@ -905,10 +939,21 @@ test("単発回復は元相関と回収順を保ち未確認参照を残す", as
       );
     if (scenario === "throw") {
       await assert.rejects(invoke, (error) => error === failure);
-      assert.deepEqual(order, ["correlations", "docker"]);
+      assert.deepEqual(order, ["repository", "correlations", "docker"]);
       continue;
     }
     const result = await invoke();
+    if (scenario === "repository_unavailable") {
+      assert.equal(result.recoveryIds, ids);
+      assert.equal(result.cleanupConfirmed, false);
+      assert.equal(
+        result.reason,
+        "docker_task_recovery_correlation_current_unconfirmed",
+      );
+      assert.deepEqual(order, ["repository"]);
+      continue;
+    }
+    order.shift();
     if (scenario === "unknown") {
       assert.equal(result.recoveryIds, ids);
       assert.equal(result.cleanupConfirmed, false);
@@ -941,8 +986,8 @@ test("単発回復は元相関と回収順を保ち未確認参照を残す", as
       assert.equal(
         result.reason,
         scenario === "settled"
-          ? "orchestrator_task_recovery_observed"
-          : "orchestrator_task_operation_creation_unconfirmed",
+          ? "coordinator_task_recovery_observed"
+          : "coordinator_task_operation_creation_unconfirmed",
       );
       assert.deepEqual(order, ["correlations"]);
     }
@@ -1089,15 +1134,20 @@ test("単発選定は同じ設定から用途別に一度だけ解決する", ()
   const run = compileFunction(
     `return (${stripTypeScriptTypes(sourceDeclaration(source, "resolveSingleTaskSelection"))});`,
     [
+      "resolveVerifiedRepositoryRoot",
       "readRepositoryAiSelection",
       "getModelCatalog",
       "resolveCheckedExecutionSelection",
       "resolveCheckedTaskExecutionSelections",
     ],
   )(
+    (received: unknown) => {
+      assert.equal(received, root);
+      return "fixture-directory";
+    },
     (receivedRoot: unknown, receivedCatalog: unknown) => {
       order.push("read");
-      assert.equal(receivedRoot, root);
+      assert.equal(receivedRoot, "fixture-directory");
       assert.equal(receivedCatalog, catalog);
       if (fail) throw failure;
       return available
@@ -1325,13 +1375,14 @@ test("単発受付は不正Resolver選定をID発行・保存・実行前に拒�
     [
       "inspectSingleTaskCommand",
       "readState",
-      "verifyRuntimePersistenceRepository",
+      "resolveExecutionStorageDirectory",
       "inspectExecutionSelection",
       "inspectTaskExecutionSelections",
       "randomUUID",
       "createHash",
       "resolveSingleTaskSelection",
       "readRepositoryRevision",
+      "capturePreparedWorkspaceTarget",
     ],
   )(
     () => ({ mode: "read_only_advice" }),
@@ -1358,6 +1409,7 @@ test("単発受付は不正Resolver選定をID発行・保存・実行前に拒�
       order.push("revision");
       return { revisionIdentity: "a".repeat(40) };
     },
+    capturePreparedWorkspaceTarget,
   ) as (deps: object) => {
     start: (raw: unknown) => Promise<{ status: string; reason: string }>;
   };
@@ -1371,7 +1423,7 @@ test("単発受付は不正Resolver選定をID発行・保存・実行前に拒�
     });
     const result = await owner.start({});
     assert.equal(result.status, "blocked");
-    assert.equal(result.reason, "orchestrator_task_configuration_unavailable");
+    assert.equal(result.reason, "coordinator_task_configuration_unavailable");
     assert.deepEqual(order, ["selection", "primary", "pair", "revision"]);
   }
   assert.equal(effects, 0);

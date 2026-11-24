@@ -10,6 +10,7 @@
  */
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { captureArchitectureDocument } from "../../../src/architecture/parse.ts";
 import {
@@ -67,6 +68,61 @@ test("DomainのSemantic APIは同じ可視表から同じIRとBundleを返す", 
   const bundle = createSemanticBundle([first.result], graph.result);
   assert.equal(bundle.contract, "crdd/semantic-coverage-pilot-bundle");
   assert.equal(bundle.contractRevision, 0);
+  const irSchema = JSON.parse(
+    readFileSync(
+      new URL(
+        "../../../../../template/tools/schemas/semantic-ir-pilot-schema.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const bundleSchema = JSON.parse(
+    readFileSync(
+      new URL(
+        "../../../../../template/tools/schemas/semantic-coverage-pilot-schema.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const embeddedIr = bundleSchema.$defs.semanticIr;
+  assert.deepEqual(embeddedIr.properties, irSchema.properties);
+  assert.deepEqual(embeddedIr.required, irSchema.required);
+  assert.deepEqual(bundleSchema.$defs.meaning, irSchema.$defs.meaning);
+  assert.deepEqual(
+    Object.keys(first.result).sort(),
+    [...irSchema.required].sort(),
+  );
+  assert.match(
+    first.result.subsystem,
+    new RegExp(irSchema.properties.subsystem.pattern, "u"),
+  );
+  assert.equal(
+    first.result.sourceDocument.length >=
+      irSchema.properties.sourceDocument.minLength,
+    true,
+  );
+  assert.equal(bundleSchema.properties.semanticIrs.minItems, 1);
+  assert.equal("maxItems" in bundleSchema.properties.semanticIrs, false);
+  const rows = bundleSchema.$defs.coverage.properties.meanings.items;
+  const row = bundle.coverage.meanings[0];
+  assert.ok(row);
+  assert.equal(rows.additionalProperties, false);
+  assert.deepEqual(Object.keys(row).sort(), [...rows.required].sort());
+  assert.deepEqual(rows.properties.verificationMode.enum, [
+    "automated",
+    "manual",
+  ]);
+  assert.deepEqual(rows.properties.testObservation.enum, [
+    "observed",
+    "unobserved",
+    "manual_pending",
+  ]);
+  assert.equal(row.verificationMode, "manual");
+  assert.equal(row.testObservation, "manual_pending");
+  assert.deepEqual(row.qualityLocalIds, []);
+  assert.equal("minItems" in rows.properties.qualityLocalIds, false);
 });
 
 /**

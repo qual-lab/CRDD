@@ -23,7 +23,7 @@ import {
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/command.ts";
-import { cancelRuntimeOwnedCoordinatorTask } from "../../src/lifecycle/execution.ts";
+import { cancelCoordinatorTask } from "../../src/lifecycle/execution.ts";
 import {
   captureOwnedOperationCleanupVerification,
   cleanupOwnedOperationDirectories,
@@ -307,9 +307,21 @@ function createProcessHarness(
     }),
     materializeWorkspace: () => {
       fs.writeFileSync(file, "BEFORE\n");
-      return { status: "materialized", workspaceCapability: capability() };
+      return { status: "materialized", borrowed: true };
     },
-    projectReviewerReadContent: () => ({ status: "projected", files: [] }),
+    prepareReviewerWorkspace: () => {
+      candidateEffectCount += 1;
+      assert.equal(fs.readFileSync(file, "utf8"), "TASK_PROCESS_OK\n");
+      return {
+        status: "projected",
+        candidateSnapshotId: "1".repeat(64),
+        projectionHash: "3".repeat(64),
+        workspaceReview: true,
+        withheldFileCount: 0,
+        totalBytes: 0,
+        files: [],
+      };
+    },
     preflightSelections: () => ({ status: "matched" }),
     observeProviderHome: (provider) => ({
       status: "candidate",
@@ -439,27 +451,6 @@ function createProcessHarness(
             : "provider_cancellation_requested",
         cancellationRequested: true,
         processTerminationObserved: scenario !== "close_unknown",
-      };
-    },
-    captureCandidate: () => {
-      candidateEffectCount += 1;
-      assert.equal(fs.readFileSync(file, "utf8"), "TASK_PROCESS_OK\n");
-      return {
-        status: "candidate",
-        candidateCapability: capability(),
-        changedPaths: ["fixture.txt"],
-      };
-    },
-    verifyCandidate: () => {
-      assert.equal(fs.readFileSync(file, "utf8"), "TASK_PROCESS_OK\n");
-      return {
-        status: "verified",
-        baseCommit: "1".repeat(40),
-        baseTree: "2".repeat(40),
-        patchHash: "3".repeat(64),
-        contentManifestHash: "4".repeat(64),
-        allowedPathsHash: "5".repeat(64),
-        changedPaths: ["fixture.txt"],
       };
     },
   };
@@ -737,8 +728,7 @@ for (const scenario of [
         t.after(() => binding.unbind());
         assert.equal(binding.status, "bound");
         assert.equal(
-          (await cancelRuntimeOwnedCoordinatorTask(started.controlCapability))
-            .status,
+          (await cancelCoordinatorTask(started.controlCapability)).status,
           "blocked",
         );
         if (scenario === "cancel" || scenario === "close_unknown") {

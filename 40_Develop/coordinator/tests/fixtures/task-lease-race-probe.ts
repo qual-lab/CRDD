@@ -14,7 +14,7 @@ import { acquireCoordinatorSnapshotLease } from "../../src/lifecycle/host.ts";
 
 const [workingDirectory, barrier, projectId, queueId] = process.argv.slice(2);
 if (!workingDirectory || !barrier || !projectId || !queueId)
-  throw new Error("orchestrator_lease_race_probe_input_invalid");
+  throw new Error("coordinator_lease_race_probe_input_invalid");
 
 fs.writeFileSync(`${barrier}.${queueId}.ready`, "ready\n", "utf8");
 const deadline = Date.now() + 10_000;

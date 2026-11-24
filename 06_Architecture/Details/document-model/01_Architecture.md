@@ -5,6 +5,8 @@
 
 ## 基本設計との関係
 
+文書の読取り・探索・Semantic成果物の保存は、呼出し側が選定した既存の絶対Directoryを受け取る。文書モデルはGitやVCの型に依存せず、パス越境、リンク、ファイル実体、本文と文書内Identityを検査する。検査対象Repositoryの選定と、必要なGit観測はCheckerなどの呼出し側が所有する。
+
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
 | [ARCH-000001](../../Definitions/ARCH-000001/architecture_definition.md) | Artifactと工程の完成Parse・局所Issueを所有し、適用選択と表示はCheckerに残す | Covered |

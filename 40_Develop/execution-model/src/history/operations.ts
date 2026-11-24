@@ -39,7 +39,7 @@ export function operationSummaryBytes(
   const identity = JSON.parse(operation.identityJson);
   return Buffer.from(
     encodeStateValue({
-      schema: "crdd-execution-model/operation-summary/v6",
+      schema: "crdd-execution-model/operation-summary/v7",
       recoveryCorrelationId:
         identity.recoveryCorrelationId ?? identity.operationId,
       ...(operation.dockerRestart === null
@@ -78,7 +78,7 @@ export function historyLineBytes(
 ): Buffer {
   return Buffer.from(
     `${encodeStateValue({
-      schema: "crdd-coordinator/history-row/v2",
+      schema: "crdd-execution-model/history-row/v3",
       occurredAt,
       summary: JSON.parse(operationSummaryBytes(operation).toString("utf8")),
     })}\n`,
@@ -153,7 +153,7 @@ export function repairHistoryLineBytes(
 ): Buffer {
   return Buffer.from(
     `${encodeStateValue({
-      schema: "crdd-coordinator/history-row/v2",
+      schema: "crdd-execution-model/history-row/v3",
       occurredAt,
       summary: JSON.parse(repairSummaryBytes(operation).toString("utf8")),
     })}\n`,
@@ -178,7 +178,7 @@ export function repairHistoryLineBytes(
 export function taskHistoryLine(row: HistoryRow): Buffer {
   return Buffer.from(
     `${encodeStateValue({
-      schema: "crdd-coordinator/history-row/v2",
+      schema: "crdd-execution-model/history-row/v3",
       occurredAt: row.occurredAt,
       summary: { schema: "crdd-coordinator/task-summary/v1", record: row },
     })}\n`,
@@ -203,7 +203,7 @@ export function taskHistoryLine(row: HistoryRow): Buffer {
 export function decisionHistoryLine(event: DecisionHistoryEvent): Buffer {
   return Buffer.from(
     `${encodeStateValue({
-      schema: "crdd-coordinator/history-row/v2",
+      schema: "crdd-execution-model/history-row/v3",
       occurredAt: event.occurredAt,
       summary: { schema: "crdd-coordinator/decision-event/v1", record: event },
     })}\n`,

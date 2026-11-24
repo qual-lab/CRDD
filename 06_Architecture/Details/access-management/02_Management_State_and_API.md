@@ -128,7 +128,7 @@ RFD-IT-021の4操作部分に6 Caseを接続し、三Role×対象三Role×4操�
 
 ### 2.4 登録・公開範囲管理の実装接続方針 — 2026-10-12
 
-3操作の専用入口を同じ保存Ownerへ接続する。登録は現在認証・固定管理許可・期待改訂・未登録の確認後だけ、Version Controlでexact Git Rootを検証し、Domainの固定File観測でCanonical manifestとPROJECT_CONTEXTのprojectId／repositoryId／repositoryRole一致を照合する。BindingはSchemaと同じ式から導出する。登録だけを保存し、Exposureは作らない。観測時点のBindingから永久アクセス保証を推定しない。
+3操作の専用入口を同じ保存Ownerへ接続する。登録は現在認証・固定管理許可・期待改訂・未登録をAMが確認した後だけ、CRDD Serverが指定ディレクトリ自体のGit配置を確認する。AMは確認済みディレクトリの固定ファイルを観測し、ManifestとPROJECT_CONTEXTのprojectId／repositoryId／repositoryRoleの一致を照合する。出版前にServerが同じ対象を再確認する。BindingはSchemaと同じ式から導出し、Exposureは作らない。観測時点のBindingから永久アクセス保証を推定しない。
 
 Rootの32,768 UTF-16 code unit境界は今回の対象外として維持する。登録時のmanifestとPROJECT_CONTEXTの各1MiB固定容量上限は撤去し、有効な内容の増加だけで登録を拒否しない。固定Fileの形式・実体、読取り中の変更・観測不能を検査し、問題があれば出版せずcurrentと先行材料を保持し、開いたdescriptorを解放する。
 
@@ -243,11 +243,11 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 ### 3.3 内容要求の実Repository解決 — 2026-10-12
 
-`resolveRepositoryAccess(root, token, repositoryId, workspaceId)`は同Processの信頼した内容Consumer向けの内部Package入口とする。新Session・Store・Lock・汎用認可Frameworkは作らない。primitive入力検査→既存Lock内current完全検査→現在資格／User／Role→初回completed→登録・Role内容範囲・Exposure→許可後pending処置→VC exact Root→登録Binding再照合→Domain固定manifest・Repository ID一致→内部相関値→Lock解放確認の順である。Domain本文取得は解放後に行う。
+`resolveRepositoryAccess(root, token, repositoryId, workspaceId)`は同Processの信頼した内容Consumer向けの内部Package入口とする。新Session・Store・Lock・汎用認可Frameworkは作らない。入力検査→既存Lock内current完全検査→現在資格／User／Role→初回completed→登録・Role内容範囲・Exposure→許可後pending処置→登録Binding再照合→ディレクトリ実体と構成モデルのManifest・Repository ID一致→内部相関値→Lock解放確認の順である。本文取得は解放後に行う。Git配置は認可条件に含めず、Gitが必要な操作の呼出し側が対象を確認する。
 
-未認証・未知ID・未登録・Role外・Exposure未設定／空／範囲外は同じ`repository_access_rejected`とし、対象Repository観測0・pending清掃0を保つ。許可後の材料不明では対象観測0、Root・Binding・manifestの欠測／不正は固定未取得理由とする。Path・下位例外・資格材料を返さない。PROJECT_CONTEXTはアクセスAuthorityではなく、欠測・不正を内容Ownerの部分観測へ残す。
+未認証・未知ID・未登録・Role外・Exposure未設定／空／範囲外は同じ`repository_access_rejected`とし、対象Repository観測0・pending清掃0を保つ。許可後の材料不明では対象観測0、Root・Binding・manifestの欠測／不正は固定未取得理由とする。失敗や通信応答にパス・下位例外・資格材料を含めない。PROJECT_CONTEXTはアクセスAuthorityではなく、欠測・不正を内容Ownerの部分観測へ残す。
 
-成功値は`revision`、`repositoryId`、`workspaceId`、`bindingId`、検査済み`manifest`と技術的`root`能力を相関する。技術的Root能力は認可証明・Session・次要求Tokenではなく、保存・cache・Transport応答化を禁止する。Consumerは今回受理した要求の固有lifecycleだけで直ちに消費し、別要求・retryではこの入口へ戻る。型による失効機構や現在権限の永久保証は主張しない。後続のRole／Exposure変更を開始済み要求の取消完了へ読み替えない。本番Consumerの再利用0とDomain搬送の確認が済むまで、resolver局所成立を全体内容認可の完成としない。
+成功値は`revision`、`repositoryId`、`workspaceId`、`bindingId`、検査済み`manifest`と、絶対ディレクトリのパス`root`を相関する。認可の結果は今回の要求に限り、保存・cache・通信応答化を禁止する。別要求・再試行では現在認可を取り直す。後続のRole／Exposure変更を開始済み要求の取消完了へ読み替えない。
 
 確認対象はRFD-IT-013の現在認可・実アクセス部分。誤鍵、未知ID、管理能力のみ、範囲外、pending異常、非exact Root、manifest欠測／不正／ID差／超過、解放不明、Context欠測、次要求の公開解除反映を反証する。署名E2E・本番Consumer・正式191項目評価は未成立のまま保持する。
 

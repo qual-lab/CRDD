@@ -140,7 +140,7 @@ export function inspectQualityRepository(
   }
   for (const registryFileName of [
     "test-catalog.json",
-    "coordinator-runtime-traceability.json",
+    "coordinator-execution-traceability.json",
     "coordinator-task-design-traceability.json",
   ]) {
     const registryFilePath = path.join(

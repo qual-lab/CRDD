@@ -6,6 +6,7 @@
  */
 
 import assert from "node:assert/strict";
+import { prepareFixtureRecovery } from "../../../../coordinator/tests/support/recovery-repository.ts";
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -17,13 +18,16 @@ import {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
 } from "../../../../configuration-model/src/index.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../../../../coordinator/scripts/benchmark.ts";
+import { observeServerDevelopmentSource } from "../../support/task-real-provider-contract.ts";
 import {
-  executeWorkspace,
   openTaskSession,
   type TaskSession,
-  type WorkspaceView,
 } from "../../../../coordinator/src/index.ts";
+import {
+  executeWorkspace,
+  prepareWorkspaceExecutionTarget,
+  type WorkspaceView,
+} from "../../../src/service/workspace.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../../../coordinator/src/lifecycle/validation.ts";
 import { selectionConfig } from "../../../../coordinator/tests/fixtures/ai-selection.ts";
 import { prepareWorkspaceSurface } from "../../../../coordinator/tests/fixtures/workspace-surface.ts";
@@ -46,7 +50,7 @@ import {
 import {
   observeRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPaths,
-} from "../../support/runtime-data.ts";
+} from "../../support/verification-area.ts";
 import { verifyWorkspaceOutputBytes } from "../../support/workspace-output-verification.ts";
 import {
   captureWorkspaceTaskDiagnostic,
@@ -201,8 +205,9 @@ async function verify(
   const verified = getRepository(root);
   assert.equal(verified.status, "completed", "fixture_root_invalid");
   if (verified.status !== "completed") throw new Error("fixture_root_invalid");
+  fs.mkdirSync(path.join(root, ".crdd", "config"), { recursive: true });
   const savedSelection = saveRepositoryAiSelection(
-    verified.capability,
+    root,
     {
       expectedIdentity: null,
       config: {
@@ -241,8 +246,8 @@ async function verify(
   const permitted = () =>
     hash(fs.readFileSync(path.join(root, "PROJECT_CONTEXT.md"))) ===
       contextHash &&
-    readRepositoryAiSelection(verified.capability, getModelCatalog().catalog)
-      .snapshot?.identity === configIdentity;
+    readRepositoryAiSelection(root, getModelCatalog().catalog).snapshot
+      ?.identity === configIdentity;
   const gitUser = readGitUser(verified.capability);
   const principalId =
     gitUser.status === "completed"
@@ -324,7 +329,9 @@ async function verify(
         ...common,
         operation: "create",
         expectedGeneration: 0,
+        baseBranch: "main",
         baseCommit: base,
+        acceptUncommittedChangesExcluded: true,
         name: "合成Isolated",
       });
       assert.equal(created.data.status, "completed", "workspace_create_failed");
@@ -365,6 +372,9 @@ async function verify(
           workspaceId: mode === "direct" ? null : workspaceId,
         },
         deadline.signal,
+        mode === "direct"
+          ? undefined
+          : prepareWorkspaceExecutionTarget(root, projectId, workspaceId),
       );
       assert.equal(start.status, "accepted", "edit_start_rejected");
       assert.ok(start.requestId);
@@ -391,7 +401,9 @@ async function verify(
       clearTimeout(deadlineTimer);
       deadlineTimer = null;
       step = "verify_state";
-      const saved = readState(verified.capability, { scope: "recovery" });
+      const saved = readState(prepareFixtureRecovery(verified.capability), {
+        scope: "recovery",
+      });
       assert.equal(saved.status, "completed", "task_state_unavailable");
       assert.equal(saved.lockReleased, true, "task_state_lock_unreleased");
       if (saved.status !== "completed" || !saved.value)
@@ -661,12 +673,15 @@ async function verify(
         const currentRoot = getRepository(root);
         if (currentRoot.status === "completed") {
           {
-            const read = readState(currentRoot.capability, {
-              scope: "recovery",
-              input: {
-                kind: "history",
+            const read = readState(
+              prepareFixtureRecovery(currentRoot.capability),
+              {
+                scope: "recovery",
+                input: {
+                  kind: "history",
+                },
               },
-            });
+            );
             if (
               read.status === "completed" &&
               read.lockReleased &&
@@ -798,7 +813,10 @@ function assessFixtureRemoval(
       taskHistorySettled = false,
     ) => {
       {
-        const read = readState(verifiedRoot.capability, { scope: "recovery" });
+        const read = readState(
+          prepareFixtureRecovery(verifiedRoot.capability),
+          { scope: "recovery" },
+        );
         assert.equal(read.status, "completed");
         assert.equal(read.lockReleased, true);
         if (read.status !== "completed" || !read.value)
@@ -1101,9 +1119,9 @@ function assessFixtureRemoval(
       const maintenanceNow = Date.now();
       const maintenanceRepository = getRepositoryFromWorkingDirectory(root);
       if (maintenanceRepository.status !== "completed")
-        throw new Error("orchestrator_repository_root_invalid");
-      const maintenanceRoot = maintenanceRepository.capability;
-      const maintenanceConfig = readCoordinatorConfig(maintenanceRoot);
+        throw new Error("coordinator_repository_root_invalid");
+      const maintenanceRoot = { directory: root };
+      const maintenanceConfig = readCoordinatorConfig(root);
       const maintained = retireStateRecords(
         {
           root: maintenanceRoot,
@@ -1113,7 +1131,7 @@ function assessFixtureRemoval(
               : null,
           revalidate(expectedHistoryRetentionDays?: number) {
             if (expectedHistoryRetentionDays === undefined) return true;
-            const fresh = readCoordinatorConfig(maintenanceRoot);
+            const fresh = readCoordinatorConfig(root);
             return (
               fresh.status === "ready" &&
               fresh.config.historyRetentionDays === expectedHistoryRetentionDays
@@ -1126,7 +1144,7 @@ function assessFixtureRemoval(
       assert.equal(maintained.status, "completed");
       if (maintained.status !== "completed")
         throw new Error("fixture_task_retirement_unconfirmed");
-      assert.equal(maintained.reason, "orchestrator_terminal_records_retired");
+      assert.equal(maintained.reason, "coordinator_terminal_records_retired");
       assert.equal(maintained.value, 1);
       const retired = readClosed(historyCount, realTask, true);
       for (const key of [
@@ -1142,9 +1160,9 @@ function assessFixtureRemoval(
     const transferNow = Date.now();
     const transferRepository = getRepositoryFromWorkingDirectory(root);
     if (transferRepository.status !== "completed")
-      throw new Error("orchestrator_repository_root_invalid");
-    const transferRoot = transferRepository.capability;
-    const transferConfig = readCoordinatorConfig(transferRoot);
+      throw new Error("coordinator_repository_root_invalid");
+    const transferRoot = { directory: root };
+    const transferConfig = readCoordinatorConfig(root);
     const transferred = transferHistory(
       {
         root: transferRoot,
@@ -1154,7 +1172,7 @@ function assessFixtureRemoval(
             : null,
         revalidate(expectedHistoryRetentionDays?: number) {
           if (expectedHistoryRetentionDays === undefined) return true;
-          const fresh = readCoordinatorConfig(transferRoot);
+          const fresh = readCoordinatorConfig(root);
           return (
             fresh.status === "ready" &&
             fresh.config.historyRetentionDays === expectedHistoryRetentionDays
@@ -1167,7 +1185,7 @@ function assessFixtureRemoval(
     assert.equal(transferred.status, "completed");
     if (transferred.status !== "completed")
       throw new Error("fixture_history_unconfirmed");
-    assert.equal(transferred.reason, "orchestrator_history_transferred");
+    assert.equal(transferred.reason, "coordinator_history_transferred");
     assert.deepEqual(transferred.value, {
       recorded: mode === "isolated" ? 1 : 0,
       expired: 0,
@@ -1223,7 +1241,7 @@ async function main() {
     "ready",
     "verification_parent_invalid",
   );
-  const sourceBefore = observeRuntimeOwnedDevelopmentSource();
+  const sourceBefore = observeServerDevelopmentSource();
   assert.ok(sourceBefore, "verification_source_unobserved");
   const before = observeVerificationDockerInventory();
   assert.ok(before, "docker_unobserved");
@@ -1329,7 +1347,7 @@ async function main() {
   // Taskの待機・取消・Owner終了・試験物処置が終わった後に実行Sourceを再観測する。
   report.sourceUnchanged = false;
   try {
-    const after = observeRuntimeOwnedDevelopmentSource();
+    const after = observeServerDevelopmentSource();
     report.sourceUnchanged =
       after !== null &&
       after.scope === sourceBefore.scope &&

@@ -296,9 +296,7 @@ export function parseDoctorArguments(
       flags.length > 1 ||
       (flags.length === 1 && flags[0] !== "--json") ||
       (retain &&
-        !/^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
-          recoveryId ?? "",
-        ))
+        !/^docker-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(recoveryId ?? ""))
     )
       return response("blocked", "doctor_arguments_invalid", null, json);
     operation = retain ? "retain-repair" : "repair-docker";
@@ -869,22 +867,22 @@ export function renderDockerRecoveryDoctorReport(
       ]),
     );
     const reasons = [
-      "runtime_repair_recovered",
-      "runtime_repair_failed_closed",
-      "runtime_repair_boundary_unavailable",
-      "runtime_repair_state_unavailable",
-      "runtime_repair_observation_unknown",
-      "runtime_repair_effect_unknown",
-      "runtime_repair_cancelled",
-      "runtime_repair_cleanup_unknown",
-      "runtime_repair_cancellation_binding_failed",
+      "docker_repair_recovered",
+      "docker_repair_failed_closed",
+      "docker_repair_boundary_unavailable",
+      "docker_repair_state_unavailable",
+      "docker_repair_observation_unknown",
+      "docker_repair_effect_unknown",
+      "docker_repair_cancelled",
+      "docker_repair_cleanup_unknown",
+      "docker_repair_cancellation_binding_failed",
     ];
     if (
       !["observed", "blocked"].includes(safe.status) ||
       !reasons.includes(safe.reason) ||
       (safe.recoveryId !== null &&
         (typeof safe.recoveryId !== "string" ||
-          !/^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+          !/^docker-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
             safe.recoveryId,
           ))) ||
       fields.slice(4, 11).some((key) => typeof safe[key] !== "boolean") ||
@@ -896,10 +894,10 @@ export function renderDockerRecoveryDoctorReport(
       safe.retentionConfirmed !== (safe.retentionReviewAfter !== null) ||
       (safe.cliCleanupConfirmed
         ? safe.cliCleanupReason !== null
-        : safe.cliCleanupReason !== "runtime_repair_cli_cleanup_unconfirmed") ||
+        : safe.cliCleanupReason !== "docker_repair_cli_cleanup_unconfirmed") ||
       (safe.completionConfirmed &&
         (safe.status !== "observed" ||
-          safe.reason !== "runtime_repair_recovered" ||
+          safe.reason !== "docker_repair_recovered" ||
           !safe.historyConfirmed ||
           safe.recoveryId === null)) ||
       (safe.retentionConfirmed &&
@@ -913,7 +911,7 @@ export function renderDockerRecoveryDoctorReport(
       throw new Error("diagnostic_failed");
     const recovered =
       safe.status === "observed" &&
-      safe.reason === "runtime_repair_recovered" &&
+      safe.reason === "docker_repair_recovered" &&
       safe.recoveryId !== null;
     const completeState =
       recovered && safe.completionConfirmed && safe.historyConfirmed;
@@ -934,7 +932,7 @@ export function renderDockerRecoveryDoctorReport(
       safe.finalCheckpointConfirmed &&
       safe.operationCleanupConfirmed;
     const stopped =
-      safe.reason !== "runtime_repair_recovered" && !safe.completionConfirmed;
+      safe.reason !== "docker_repair_recovered" && !safe.completionConfirmed;
     if (!(completeState || retained || awaitingDisposition || stopped))
       throw new Error("diagnostic_failed");
     const completed = completeState && safe.cliCleanupConfirmed;
@@ -1515,7 +1513,7 @@ export async function runDoctorCommand(
       const repair =
         options.action === "repair-docker" ||
         options.action === "retain-repair" ||
-        recoveryId?.startsWith("docker-runtime-repair.") === true;
+        recoveryId?.startsWith("docker-repair.") === true;
       if (
         ["resume", "restart-docker", "retain-repair"].includes(
           options.action,
@@ -1530,7 +1528,7 @@ export async function runDoctorCommand(
       let result: Readonly<Record<string, unknown>> = {
         status: "blocked",
         reason: repair
-          ? "runtime_repair_cancellation_binding_failed"
+          ? "docker_repair_cancellation_binding_failed"
           : "coordinator_cli_cancellation_binding_failed",
         recoveryId,
         cleanupConfirmed: false,
@@ -1594,7 +1592,7 @@ export async function runDoctorCommand(
         cliCleanupReason: cliCleanupConfirmed
           ? null
           : repair
-            ? "runtime_repair_cli_cleanup_unconfirmed"
+            ? "docker_repair_cli_cleanup_unconfirmed"
             : "docker_task_recovery_cli_cleanup_unconfirmed",
       };
     }

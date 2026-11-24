@@ -13,14 +13,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { planExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
-import { startRuntimeOwnedDockerProcessController } from "../../../src/lifecycle/execution.ts";
-import { cancelRuntimeOwnedExecutorAttempt } from "../../../src/lifecycle/environment.ts";
+import { startDockerProcessController } from "../../../src/lifecycle/execution.ts";
+import { cancelExecutorAttempt } from "../../../src/lifecycle/environment.ts";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import {
   createAttemptPreparation,
   createReviewerWorkspaceReader,
-  reviewerCommitId,
-  reviewerCopy,
+  reviewerSnapshotId,
+  reviewerWorkspaceRoot,
 } from "../../fixtures/attempt-preparation.ts";
 
 const fixedSelection = executionSelection("independent_reviewer", {
@@ -80,7 +80,7 @@ function createFixture(
         operationId: "OP-123456",
         taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         taskRole: "reviewer" as const,
-        reviewerReadProjection: { candidateCommitId: reviewerCommitId },
+        reviewerReadProjection: { candidateSnapshotId: reviewerSnapshotId },
         taskAttempt: 0 as const,
         executionSelection: fixedSelection,
         taskWorkload: {
@@ -538,7 +538,7 @@ test("Task Packetをstdin専用入力と隔離workspace RO mountへ結合する"
   assert.equal(plan.operationMode, "isolated_task");
   assert.equal(plan.taskRole, "reviewer");
   assert.equal(plan.workspaceMountMode, "read_only");
-  assert.equal(plan.workspaceSourcePath, reviewerCopy);
+  assert.equal(plan.workspaceSourcePath, reviewerWorkspaceRoot);
   assert.equal(plan.providerInput, "Review the exact local candidate.");
   const argv = plan.commands.flatMap((command) => command.argv);
   assert.equal(argv.includes(plan.providerInput), false);
@@ -556,12 +556,23 @@ test("Task Packetをstdin専用入力と隔離workspace RO mountへ結合する"
   const permissionModeIndex = provider.argv.indexOf("--permission-mode");
   const disallowedToolsIndex = provider.argv.indexOf("--disallowedTools");
   assert.equal(provider.argv[permissionModeIndex + 1], "dontAsk");
-  assert.equal(provider.argv.includes("--tools="), true);
-  assert.equal(provider.argv.includes("--tools"), false);
-  assert.equal(provider.argv.includes("Read,Glob,Grep"), false);
+  assert.equal(
+    provider.argv[provider.argv.indexOf("--tools") + 1],
+    "Read,Glob,Grep",
+  );
   assert.equal(
     provider.argv[disallowedToolsIndex + 1],
     "Bash,WebFetch,WebSearch,Task,NotebookEdit,mcp__*",
+  );
+  const resource = plan.isolationRequest.resources.find(
+    (item) => item.key === "create_provider",
+  );
+  assert.ok(resource?.kind === "container");
+  assert.deepEqual(
+    resource.mounts
+      .filter(({ readOnly }) => readOnly)
+      .map(({ target }) => target),
+    ["/work", "/work/.git", "/work/.crdd", "/work/.env", "/work/private"],
   );
 });
 
@@ -689,7 +700,7 @@ test("検証済み作業量を固定argvへ接続し、過大・不明ならPlan
           operationId: "OP-123456",
           taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
           taskRole: "reviewer",
-          reviewerReadProjection: { candidateCommitId: reviewerCommitId },
+          reviewerReadProjection: { candidateSnapshotId: reviewerSnapshotId },
           taskAttempt: 0 as const,
           executionSelection: fixedSelection,
           taskWorkload,
@@ -760,7 +771,7 @@ test("検証済み作業量を固定argvへ接続し、過大・不明ならPlan
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("production adapterは未発行のCapabilityと未接続Selection 選定入力を拒否する", () => {
-  const prepared = startRuntimeOwnedDockerProcessController(
+  const prepared = startDockerProcessController(
     "claude",
     {
       purpose: "probe",
@@ -784,7 +795,7 @@ test("production adapterは未発行のCapabilityと未接続Selection 選定入
   );
   assert.equal(prepared.status, "blocked");
   assert.equal(prepared.providerRequestStarted, false);
-  void cancelRuntimeOwnedExecutorAttempt({}, {}).then((result) =>
+  void cancelExecutorAttempt({}, {}).then((result) =>
     assert.equal(result.status, "blocked"),
   );
 });

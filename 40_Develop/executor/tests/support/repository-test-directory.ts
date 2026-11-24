@@ -11,10 +11,6 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import {
-  getRepository,
-  resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
 
 /**
  * Repository内へ一意な試験Rootと同実体限定の清掃操作を作る。
@@ -29,17 +25,8 @@ import {
  * @cleanup 呼出し元がcleanupを呼ぶ。拒否時は対象を保持し、共有基底は削除しない。
  * @boundary 試験用Filesystemのみ。製品の回復Authorityを発行しない。
  */
-export function createRepositoryTestDirectory(prefix: string) {
-  if (!/^[a-z][a-z0-9-]{0,79}-$/u.test(prefix))
-    throw new Error("testing_directory_prefix_invalid");
-  const candidate = path.resolve(import.meta.dirname, "../../../..");
-  const verified = getRepository(candidate);
-  const repositoryRoot =
-    verified.status === "completed"
-      ? resolveVerifiedRepositoryRoot(verified.capability)
-      : null;
-  if (!repositoryRoot || repositoryRoot !== fs.realpathSync.native(candidate))
-    throw new Error("testing_repository_root_invalid");
+function prepareRepositoryTestArea() {
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
   const ancestors = [
     repositoryRoot,
     path.join(repositoryRoot, ".crdd"),
@@ -67,7 +54,19 @@ export function createRepositoryTestDirectory(prefix: string) {
       throw new Error("testing_directory_boundary_invalid");
     return identity;
   });
-  const parent = ancestors[2] as string;
+  return { parent: ancestors[2] as string, ancestors, identities };
+}
+
+/** 確認済みの試験領域だけを返す。呼出し側が新品の子領域を作る。 @trace ERB-IT-002 */
+export function prepareRepositoryTestParent() {
+  return prepareRepositoryTestArea().parent;
+}
+
+/** 自己生成する子領域と同じ実体だけを清掃する操作を返す。 @trace ERB-IT-002 */
+export function createRepositoryTestDirectory(prefix: string) {
+  if (!/^[a-z][a-z0-9-]{0,79}-$/u.test(prefix))
+    throw new Error("testing_directory_prefix_invalid");
+  const { parent, ancestors, identities } = prepareRepositoryTestArea();
   const root = fs.mkdtempSync(path.join(parent, prefix));
   const identity = fs.lstatSync(root, { bigint: true });
   if (

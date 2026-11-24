@@ -17,6 +17,10 @@ import { createRepositoryTestDirectory } from "../../../execution-model/tests/su
 const modules = {
   operation: new URL("../../src/lifecycle/host.ts", import.meta.url).href,
   model: new URL("../../../execution-model/src/index.ts", import.meta.url).href,
+  recoveryRepository: new URL(
+    "../support/recovery-repository.ts",
+    import.meta.url,
+  ).href,
   repository: new URL("../../../version-control/src/index.ts", import.meta.url)
     .href,
   fixture: new URL(
@@ -33,14 +37,27 @@ import fs from "node:fs";
 import path from "node:path";
 import { mock } from "node:test";
 import { syncBuiltinESMExports } from "node:module";
-import { execFileSync } from "node:child_process";
+import childProcess, { execFileSync } from "node:child_process";
 import * as operation from ${JSON.stringify(modules.operation)};
 import { readState, applyResourceEvent, applyResourceCleanup, saveOperationCheckpoint, saveOperationStart, saveRecoveryCheckpoint } from ${JSON.stringify(modules.model)};
+import { prepareFixtureRecovery } from ${JSON.stringify(modules.recoveryRepository)};
 import { restartRequestIdFixture } from ${JSON.stringify(modules.assertions)};
-import { getRepository, resolveVerifiedRepositoryRoot, readRepositorySnapshot, readCommitFile, createWorktree } from ${JSON.stringify(modules.repository)};
+import { getRepository, resolveVerifiedRepositoryRoot, readRepositorySnapshot, createWorktree } from ${JSON.stringify(modules.repository)};
 import { createResourceOperationFixture, createResourceBookFixture } from ${JSON.stringify(modules.fixture)};
-const root = process.argv[1], scenario = process.argv[2];
+const root = process.argv[2], scenario = process.argv[3];
 const git = (at, ...args) => execFileSync("git", ["-C", at, "-c", "user.name=CRDD Test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false", ...args], {encoding: "utf8", windowsHide: true});
+const gitStarts = {};
+const measureGit = (phase, invoke) => {
+  gitStarts[phase] = 0;
+  const spawn = childProcess.spawnSync;
+  const counter = mock.method(childProcess, "spawnSync", (command, ...args) => {
+    if (["git", "git.exe"].includes(path.basename(String(command)).toLowerCase())) gitStarts[phase]++;
+    return spawn(command, ...args);
+  });
+  syncBuiltinESMExports();
+  try { return invoke(); }
+  finally { counter.mock.restore(); syncBuiltinESMExports(); }
+};
 if (scenario.startsWith("git_")) {
   git(root, "init", "--quiet");
   git(root, "config", "user.name", "CRDD Test");
@@ -51,14 +68,12 @@ if (scenario.startsWith("git_")) {
   fs.writeFileSync(path.join(root, "src", "gone.txt"), "deleted");
   fs.writeFileSync(path.join(root, ".gitignore"), ".crdd/\\nignored.txt\\n");
   git(root, "add", "."); git(root, "commit", "--quiet", "-m", "seed");
-  if (scenario === "git_case_conflict") {
-    fs.mkdirSync(path.join(root, "A"));
-    fs.writeFileSync(path.join(root, "A", "x.txt"), "x");
-    fs.writeFileSync(path.join(root, "A", "y.txt"), "y");
-    git(root, "add", "A/x.txt");
-    const blob = git(root, "hash-object", "-w", path.join(root, "A", "y.txt")).trim();
-    git(root, "update-index", "--add", "--cacheinfo", "100644," + blob + ",a/y.txt");
-    git(root, "commit", "--quiet", "-m", "case-conflict");
+  if (scenario === "git_merge_conflict") {
+    const original = git(root, "branch", "--show-current").trim();
+    git(root, "switch", "-c", "fixture-incoming");
+    fs.writeFileSync(path.join(root, "src", "a.txt"), "incoming");
+    git(root, "commit", "-am", "incoming");
+    git(root, "switch", original);
   }
 } else if (scenario !== "crash_reentry") {
 fs.mkdirSync(path.join(root, ".git", "refs", "heads"), { recursive: true });
@@ -76,7 +91,7 @@ const input = { root: repository, purpose: scenario === "probe" ? "isolation_pro
   recordingCurrent: () => current && resolveVerifiedRepositoryRoot(repository) === root };
 const stateFile = path.join(root, ".crdd", "execution-model", "state.json");
 const read = () => {
-  const value = readState(repository, { scope: "recovery" });
+  const value = readState(prepareFixtureRecovery(repository), { scope: "recovery" });
   assert.equal(value.status, "completed", JSON.stringify(value));
   assert.equal(value.lockReleased, true);
   return value.value;
@@ -114,7 +129,7 @@ if (scenario === "crash_reentry") {
   assert.ok(record);
   assert.match(record.recoveryId, /^host-operation\\.OP-[0-9]{6,}$/);
   assert.equal(record.phase, "preparing");
-  const currentState = readState(repository, { scope: "recovery" });
+  const currentState = readState(prepareFixtureRecovery(repository), { scope: "recovery" });
   if (currentState.status === "completed") {
     assert.equal(currentState.lockReleased, true);
     assert.equal(currentState.value.snapshot.operations.find(item => item.kind === "host_operation").recoveryId, record.recoveryId);
@@ -123,7 +138,7 @@ if (scenario === "crash_reentry") {
     assert.equal(currentState.lockReleased, false);
   }
   assert.equal(operation.acquireHostOperationRecoveryGeneration(repository, record.recoveryId, input.recordingCurrent), null);
-  assert.equal(fs.existsSync(path.join(root, ".crdd", "operations", record.operationId)), true);
+  assert.equal(fs.existsSync(path.join(root, ".crdd", "coordinator", record.operationId)), true);
 } else if (scenario === "current_rejected" || scenario === "foreign_repository_input") {
   if (scenario === "current_rejected") current = false;
   assert.throws(() => operation.createOwnedOperationDirectories(scenario === "foreign_repository_input" ? { ...input, root: path.dirname(root) } : input));
@@ -132,7 +147,7 @@ if (scenario === "crash_reentry") {
   const controller = new AbortController(); controller.abort();
   assert.throws(() => operation.createOwnedOperationDirectories({ ...input, signal: controller.signal }));
   assert.equal(host().cleanup, "confirmed");
-  assert.equal(fs.existsSync(path.join(root, ".crdd", "operations", host().operationId)), false);
+  assert.equal(fs.existsSync(path.join(root, ".crdd", "coordinator", host().operationId)), false);
 } else if (["root_receipt_failure", "child_receipt_failure", "checkpoint_rename_failure", "creation_mkdir_failure"].includes(scenario)) {
   if (scenario === "creation_mkdir_failure") {
     mock.method(fs, "mkdirSync", (candidate, ...args) => {
@@ -171,7 +186,7 @@ if (scenario === "crash_reentry") {
     const durable = JSON.parse(readFile(stateFile, "utf8")).operations.find(item => item.kind === "host_operation");
     assert.ok(durable);
     assert.equal(classified.hostRecoveryId, durable.recoveryId);
-    assert.equal(fs.existsSync(path.join(root, ".crdd", "operations", durable.operationId)), true);
+    assert.equal(fs.existsSync(path.join(root, ".crdd", "coordinator", durable.operationId)), true);
   } else {
     assert.equal(classified.cleanupConfirmed, true);
     assert.equal(classified.hostRecoveryId, null);
@@ -185,13 +200,13 @@ if (scenario === "crash_reentry") {
   const management = operation.createOwnedOperationManagementCapability(context, mount);
   const recoveryId = operation.getOwnedHostRecoveryId(owned);
   assert.equal(recoveryId, host().recoveryId);
-  assert.equal(owned.root, path.join(root, ".crdd", "operations", host().operationId));
+  assert.equal(owned.root, path.join(root, ".crdd", "coordinator", host().operationId));
   assert.equal(Object.keys(host().childIdentities).length, 6);
   assert.equal(host().phase, "active");
   assert.equal(fs.existsSync(path.join(owned.root, ".coordinator-owned")), false);
   assert.equal("hostPaths" in host(), false);
   if (scenario === "git_unsettled_task" || scenario === "git_unsettled_restart") {
-    const bound = operation.bindRuntimeOwnedRepositoryOperation(management, root);
+    const bound = operation.bindRepositoryOperation(management, root);
     assert.ok(bound);
     const identity = { ...createResourceOperationFixture().identity,
       operationId: host().operationId, repositoryBinding: read().snapshot.repositoryBinding };
@@ -224,86 +239,111 @@ if (scenario === "crash_reentry") {
   }
   if (scenario.startsWith("git_")) {
     let executionTree = root;
-    const head = readRepositorySnapshot(repository).revisionIdentity;
-    if (scenario === "git_linked") {
+    let head = readRepositorySnapshot(repository).revisionIdentity;
+    if (scenario === "git_reference_conflict") {
+      const initial = host();
+      const name = "refs/heads/crdd/operation/" + initial.operationId + "/baseline";
+      const write = (item) => {
+        const observed = read();
+        const result = saveOperationCheckpoint(
+          {root: {directory: root}, revalidate: () => true}, recoveryId,
+          { kind: "host_operation", value: {
+            operation: {...initial, git: [item]},
+            expectedVersion: {revision: observed.snapshot.revision, payloadSha256: observed.payloadSha256},
+          } },
+        );
+        assert.equal(result.snapshotConfirmed && result.lockReleased, true, JSON.stringify(result));
+      };
+      const planned = {name, commitId: null, temporary: null, request: "not_issued", cleanup: "pending"};
+      write(planned);
+      write({...planned, commitId: head, request: "unknown"});
+      write({...planned, commitId: head, request: "confirmed"});
+      const foreign = git(root, "commit-tree", "HEAD^{tree}", "-p", head, "-m", "foreign-ref").trim();
+      git(root, "update-ref", name, foreign);
+      assert.equal(await operation.abandonOwnedHostOperationGenerationLock(management), true);
+      let generation = operation.acquireHostOperationRecoveryGeneration(repository, recoveryId, input.recordingCurrent);
+      assert.ok(generation);
+      assert.equal(operation.recoverOwnedOperationDirectories(recoveryId, generation).status, "blocked");
+      assert.equal(git(root, "rev-parse", name).trim(), foreign);
+      assert.equal(operation.releaseHostOperationRecoveryGeneration(generation), true);
+      git(root, "update-ref", name, head, foreign);
+      generation = operation.acquireHostOperationRecoveryGeneration(repository, recoveryId, input.recordingCurrent);
+      assert.ok(generation);
+      assert.equal(operation.recoverOwnedOperationDirectories(recoveryId, generation).status, "recovered");
+      assert.equal(operation.releaseHostOperationRecoveryGeneration(generation), true);
+      assert.equal(git(root, "for-each-ref", "--format=%(refname)", name).trim(), "");
+      process.stdout.write(JSON.stringify({scenario, complete: true})); process.exit(0);
+    }
+    const linked = scenario === "git_linked" || scenario === "git_merge_conflict";
+    if (linked) {
       fs.mkdirSync(path.join(root, ".crdd", "tests"), {recursive: true});
       const created = createWorktree(repository, {relativePath: ".crdd/tests/linked", branch: "fixture-linked", baseCommit: head});
       assert.equal(created.status, "completed", JSON.stringify(created));
       executionTree = path.join(root, ".crdd", "tests", "linked");
     }
+    if (scenario === "git_merge_conflict") {
+      fs.writeFileSync(path.join(executionTree, "src", "a.txt"), "local");
+      git(executionTree, "commit", "-am", "local");
+      head = git(executionTree, "rev-parse", "HEAD").trim();
+      assert.throws(() => git(executionTree, "merge", "fixture-incoming"), {status: 1});
+      assert.match(git(executionTree, "status", "--porcelain"), /^UU /m);
+    }
+    const mergeHead = scenario === "git_merge_conflict"
+      ? git(executionTree, "rev-parse", "MERGE_HEAD").trim()
+      : null;
     fs.writeFileSync(path.join(executionTree, "src", "a.txt"), "start-dirty");
     fs.writeFileSync(path.join(executionTree, "src", "untracked.txt"), "start-untracked");
+    fs.writeFileSync(path.join(executionTree, "src", "untracked-gone.txt"), "start-untracked");
     fs.writeFileSync(path.join(executionTree, "ignored.txt"), "ignored");
     const indexBefore = git(executionTree, "ls-files", "--stage");
-    const bound = operation.bindRuntimeOwnedRepositoryOperation(management, root);
+    const objectsBefore = git(root, "count-objects", "-v");
+    const bound = operation.bindRepositoryOperation(management, root);
     assert.ok(bound);
-    let rejected = false;
-    if (scenario === "git_receipt_failure") mock.method(fs, "renameSync", (from, to) => {
-      if (!rejected && String(to) === stateFile && JSON.parse(readFile(from, "utf8")).operations.some(item => item.kind === "host_operation" && item.git?.some(value => value.commitId !== null && value.request === "not_issued"))) { rejected = true; throw Error("injected_commit_receipt_failure"); }
-      return rename(from, to);
-    });
-    const start = operation.bindRuntimeOwnedExecutionSnapshot(bound.repositoryBindingCapability, management, mount, ["src/"], {workspaceId: scenario === "git_linked" ? "fixture" : null, ownerRepositoryRoot: root, executionTree, baseCommit: head, head});
-    process.stderr.write("git_fixture: baseline observed\\n");
-    if (scenario === "git_case_conflict") {
-      assert.equal(start, null);
-      assert.equal(git(root, "for-each-ref", "--format=%(refname)", "refs/heads/crdd/operation/").trim(), "");
-      assert.ok((host().git ?? []).every(item => item.commitId === null && item.request === "not_issued"));
-    } else if (scenario === "git_receipt_failure") {
-      assert.equal(start, null); assert.equal(rejected, true);
-      assert.equal(git(root, "for-each-ref", "--format=%(refname)", "refs/heads/crdd/operation/").trim(), "");
-      assert.equal(fs.existsSync(owned.root), true);
-      mock.restoreAll(); syncBuiltinESMExports();
-      assert.throws(() => operation.cleanupOwnedOperationDirectories(owned));
-      assert.equal(fs.existsSync(owned.root), true);
-      process.stdout.write(JSON.stringify({scenario, complete: true})); process.exit(0);
-    } else {
-      assert.equal(start?.status, "materialized");
-      const sourceRepository = getRepository(executionTree).capability;
-      assert.equal(readCommitFile(sourceRepository, {commit: start.baseCommitId, path: "src/a.txt"}).bytes.toString(), "start-dirty");
-      assert.equal(readCommitFile(sourceRepository, {commit: start.baseCommitId, path: "src/untracked.txt"}).bytes.toString(), "start-untracked");
-      assert.equal(readCommitFile(sourceRepository, {commit: start.baseCommitId, path: "ignored.txt"}), null);
-      fs.writeFileSync(path.join(executionTree, "src", "a.txt"), "candidate");
-      fs.unlinkSync(path.join(executionTree, "src", "gone.txt"));
-      if (scenario === "git_secret") fs.writeFileSync(path.join(executionTree, "src", ".env"), "OPENAI_API_KEY=synthetic-fixture-value");
-      const candidate = operation.captureExecutionChangeSnapshot(start.workspaceCapability, bound.repositoryBindingCapability, management, mount, ["src/"]);
-      process.stderr.write("git_fixture: candidate observed\\n");
-      assert.equal(candidate?.status, "candidate");
-      assert.ok(candidate.changedPaths.includes("src/a.txt")); assert.ok(candidate.changedPaths.includes("src/gone.txt"));
-      const projection = operation.projectReviewerReadContent(start.workspaceCapability, candidate.candidateCapability, bound.repositoryBindingCapability, management, mount, ["src/"]);
-      process.stderr.write("git_fixture: projection observed\\n");
-      if (scenario === "git_secret") {
-        assert.notEqual(projection?.status, "projected");
-        assert.equal(operation.readOwnedReviewerWorkspace(management, candidate.candidateCommitId), null);
-      } else {
-        assert.equal(projection?.status, "projected", JSON.stringify(projection));
-        const copied = operation.readOwnedReviewerWorkspace(management, candidate.candidateCommitId);
-        assert.ok(copied); assert.notEqual(copied, executionTree);
-        fs.writeFileSync(path.join(executionTree, "src", "a.txt"), "later-edit");
-        assert.equal(fs.readFileSync(path.join(copied, "src", "a.txt"), "utf8"), "candidate");
-        assert.equal(operation.readOwnedReviewerWorkspace(management, candidate.candidateCommitId), copied);
-        assert.equal(operation.verifyExecutionChangeSnapshot(candidate.candidateCapability, bound.repositoryBindingCapability, management, mount), null);
-        fs.writeFileSync(path.join(executionTree, "src", "a.txt"), "candidate");
-        assert.equal(operation.verifyExecutionChangeSnapshot(candidate.candidateCapability, bound.repositoryBindingCapability, management, mount)?.status, "verified");
-        fs.writeFileSync(path.join(copied, "unexpected.txt"), "outside-projection");
-        assert.equal(operation.readOwnedReviewerWorkspace(management, candidate.candidateCommitId), null);
-        fs.unlinkSync(path.join(copied, "unexpected.txt"));
-      }
-      assert.equal(git(executionTree, "rev-parse", "HEAD").trim(), head);
-      assert.equal(git(executionTree, "ls-files", "--stage"), indexBefore);
-      if (scenario === "git_reference_conflict") {
-        const reference = host().git.at(-1);
-        git(root, "update-ref", reference.name, head);
-        assert.throws(() => operation.cleanupOwnedOperationDirectories(owned));
-        assert.equal(fs.existsSync(owned.root), true);
-        assert.notEqual(host().phase, "terminal");
-        git(root, "update-ref", reference.name, reference.commitId, head);
-      }
-    }
+    const start = measureGit("admission", () => operation.bindExecutionWorkspace(bound.repositoryBindingCapability, management, mount, ["src/"], {workspaceId: linked ? "fixture" : null, ownerRepositoryRoot: root, executionTree, baseCommit: head, head}));
+    assert.equal(start?.status, "materialized");
+    assert.equal(gitStarts.admission, 0);
+    fs.writeFileSync(path.join(executionTree, "src", "a.txt"), "candidate");
+    fs.unlinkSync(path.join(executionTree, "src", "gone.txt"));
+    fs.unlinkSync(path.join(executionTree, "src", "untracked-gone.txt"));
+    fs.writeFileSync(path.join(executionTree, ".env"), "hidden path");
+    fs.mkdirSync(path.join(executionTree, "src", ".env.local"));
+    fs.writeFileSync(path.join(executionTree, "src", ".env.local", "config"), "hidden directory");
+    fs.mkdirSync(path.join(executionTree, "nested"));
+    fs.writeFileSync(path.join(executionTree, "nested", ".git"), "gitdir: other");
+    fs.writeFileSync(path.join(executionTree, "nested", "source.txt"), "independent repository");
+    fs.writeFileSync(path.join(executionTree, "ignored.txt"), "OPENAI_API_KEY=synthetic-fixture-value");
+    // 外側のState読取りreadと同じブロックで再宣言すると、前段の参照が未初期化になる。
+    const prepareReviewer = () => operation.prepareReviewerWorkspace(bound.repositoryBindingCapability, management, mount);
+    const reviewed = measureGit("reviewer", prepareReviewer);
+    assert.equal(gitStarts.reviewer, 0);
+    assert.equal(host().git, undefined);
+    assert.equal(git(root, "count-objects", "-v"), objectsBefore);
+    assert.equal(reviewed?.workspaceReview, true);
+    assert.equal(reviewed.withheldFileCount, 1);
+    assert.deepEqual(reviewed.files, []);
+    const live = operation.readOwnedReviewerWorkspace(management, reviewed.candidateSnapshotId);
+    assert.equal(live.directory, executionTree);
+    assert.deepEqual(live.masks.map(({relativePath, kind}) => relativePath + ":" + kind).sort(), [".env:file", "ignored.txt:file", "nested:directory", "src/.env.local:directory"]);
+    const refreshed = prepareReviewer();
+    assert.equal(refreshed?.workspaceReview, true);
+    assert.equal(operation.readOwnedReviewerWorkspace(management, reviewed.candidateSnapshotId), null);
+    assert.equal(fs.readFileSync(path.join(executionTree, ".env"), "utf8"), "hidden path");
+    const sensitiveName = path.join(executionTree, "OPENAI_API_KEY=synthetic-fixture-value");
+    fs.writeFileSync(sensitiveName, "hidden name");
+    assert.equal(prepareReviewer(), null);
+    assert.equal(operation.readOwnedReviewerWorkspace(management, refreshed.candidateSnapshotId), null);
+    fs.unlinkSync(sensitiveName);
+    assert.equal(git(executionTree, "rev-parse", "HEAD").trim(), head);
+    assert.equal(git(executionTree, "ls-files", "--stage"), indexBefore);
+    if (mergeHead !== null)
+      assert.equal(git(executionTree, "rev-parse", "MERGE_HEAD").trim(), mergeHead);
     operation.cleanupOwnedOperationDirectories(owned);
     assert.equal(host().phase, "terminal");
-    assert.equal(host().git.every(item => item.cleanup === "confirmed"), true);
+    assert.equal(host().git, undefined);
     assert.equal(git(root, "for-each-ref", "--format=%(refname)", "refs/heads/crdd/operation/").trim(), "");
     assert.equal(fs.existsSync(owned.root), false);
+    process.stdout.write(JSON.stringify({ scenario, complete: true, gitStarts }));
+    process.exit(0);
   } else if (scenario === "normal") {
     operation.cleanupOwnedOperationDirectories(owned);
     assert.equal(fs.existsSync(owned.root), false);
@@ -481,10 +521,8 @@ for (const scenario of [
   "crash_after_child_receipt",
   "git_main",
   "git_linked",
-  "git_receipt_failure",
+  "git_merge_conflict",
   "git_reference_conflict",
-  "git_secret",
-  "git_case_conflict",
   "git_unsettled_task",
   "git_unsettled_restart",
   "missing_pending_refused",
@@ -496,8 +534,9 @@ for (const scenario of [
     sub.after(directory.cleanup);
     const result = spawnSync(
       process.execPath,
-      ["--input-type=module", "-e", worker, directory.path, scenario],
+      ["--input-type=module", "-", directory.path, scenario],
       {
+        input: worker,
         encoding: "utf8",
         windowsHide: true,
         timeout: scenario.startsWith("git_") ? 180_000 : 30_000,
@@ -513,8 +552,8 @@ for (const scenario of [
       );
       const recovery = spawnSync(
         process.execPath,
-        ["--input-type=module", "-e", worker, directory.path, "crash_reentry"],
-        { encoding: "utf8", windowsHide: true, timeout: 30_000 },
+        ["--input-type=module", "-", directory.path, "crash_reentry"],
+        { input: worker, encoding: "utf8", windowsHide: true, timeout: 30_000 },
       );
       assert.equal(recovery.error, undefined);
       assert.equal(recovery.signal, null);
@@ -526,7 +565,10 @@ for (const scenario of [
       });
     } else {
       assert.equal(result.status, 0, result.stderr);
-      assert.deepEqual(JSON.parse(result.stdout), { scenario, complete: true });
+      const { gitStarts, ...outcome } = JSON.parse(result.stdout);
+      assert.deepEqual(outcome, { scenario, complete: true });
+      if (gitStarts && Object.hasOwn(gitStarts, "reviewer"))
+        sub.diagnostic(`Git starts: ${JSON.stringify(gitStarts)}`);
     }
   });
 }

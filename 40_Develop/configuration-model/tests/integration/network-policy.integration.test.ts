@@ -12,7 +12,6 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { getRepository } from "../../../version-control/src/index.ts";
 import { readNetworkPolicy } from "../../src/index.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 
@@ -21,7 +20,7 @@ import { createRepositoryTestDirectory } from "../support/repository-test-direct
  * @responsibility Root能力の発行とexactな清掃を試験へ提供する。
  * @trace RDL-IT-001
  * @precondition 現在Repository Rootを検証できる。
- * @stimulus tests領域に最小のGit境界を作る。
+ * @stimulus tests領域に独立した設定入力用ディレクトリを作る。
  * @observation 検証済みRoot、固定設定Pathを返す。
  * @oracle 親・兄弟Repositoryへ書き込まない。
  * @cleanup afterで同じRootの非Link・所在を確認して削除し不存在を確認する。
@@ -37,17 +36,8 @@ function createNetworkPolicyFixture(t: TestContext) {
     directory.cleanup();
     assert.equal(fs.existsSync(root), false);
   });
-  fs.mkdirSync(path.join(root, ".git", "info"), { recursive: true });
-  fs.writeFileSync(path.join(root, ".git", "HEAD"), "ref: refs/heads/main\n");
-  fs.writeFileSync(
-    path.join(root, ".git", "config"),
-    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
-  );
-  const verified = getRepository(root);
-  if (verified.status !== "completed") assert.fail("fixture_invalid");
   return {
     root,
-    capability: verified.capability,
     config: path.join(root, ".crdd", "config"),
     file: path.join(root, ".crdd", "config", "network-policy.json"),
   };
@@ -67,7 +57,7 @@ function createNetworkPolicyFixture(t: TestContext) {
 test("追加通信設定は現在Repositoryだけを読み不在と明示空を区別する", (t) => {
   const a = createNetworkPolicyFixture(t);
   const b = createNetworkPolicyFixture(t);
-  const initial = readNetworkPolicy(a.capability);
+  const initial = readNetworkPolicy(a.root);
   assert.equal(initial.status, "ready");
   if (initial.status !== "ready") assert.fail();
   const example = JSON.parse(
@@ -95,10 +85,10 @@ test("追加通信設定は現在Repositoryだけを読み不在と明示空を�
   });
   assert.equal(fs.existsSync(path.join(a.root, ".crdd")), false);
   fs.mkdirSync(a.config, { recursive: true });
-  assert.deepEqual(readNetworkPolicy(a.capability), initial);
+  assert.deepEqual(readNetworkPolicy(a.root), initial);
   const text = '{"version":1,"allowedHosts":["a.example"]}';
   fs.writeFileSync(a.file, text);
-  const first = readNetworkPolicy(a.capability);
+  const first = readNetworkPolicy(a.root);
   assert.equal(first.status, "ready");
   if (first.status !== "ready") assert.fail();
   assert.equal(first.source, "file");
@@ -112,13 +102,13 @@ test("追加通信設定は現在Repositoryだけを読み不在と明示空を�
       Object.isFrozen(first.policy.allowedHosts),
   );
   fs.writeFileSync(a.file, '{"version":1,"allowedHosts":[]}');
-  const empty = readNetworkPolicy(a.capability);
+  const empty = readNetworkPolicy(a.root);
   assert.equal(empty.status, "ready");
   if (empty.status !== "ready") assert.fail();
   assert.deepEqual(empty.policy.allowedHosts, []);
   assert.deepEqual(first.policy.allowedHosts, ["a.example"]);
-  assert.deepEqual(readNetworkPolicy(b.capability), initial);
-  assert.equal(readNetworkPolicy({ ...a.capability }).status, "blocked");
+  assert.deepEqual(readNetworkPolicy(b.root), initial);
+  assert.equal(readNetworkPolicy(".").status, "blocked");
 });
 
 /**
@@ -153,7 +143,7 @@ test("不正設定は重複key・型・UTF-8・容量を既定値へ畳まず拒
   ];
   for (const input of invalid) {
     fs.writeFileSync(fixture.file, input);
-    assert.deepEqual(readNetworkPolicy(fixture.capability), {
+    assert.deepEqual(readNetworkPolicy(fixture.root), {
       status: "blocked",
       reason: "network_policy_invalid",
     });
@@ -167,7 +157,7 @@ test("不正設定は重複key・型・UTF-8・容量を既定値へ畳まず拒
       fixture.file,
       JSON.stringify({ version: 1, allowedHosts: hosts }),
     );
-    assert.equal(readNetworkPolicy(fixture.capability).status, "ready");
+    assert.equal(readNetworkPolicy(fixture.root).status, "ready");
   }
   const valid = '{"version":1,"allowedHosts":[]}';
   for (const bytes of [16_384, 16_385]) {
@@ -175,7 +165,7 @@ test("不正設定は重複key・型・UTF-8・容量を既定値へ畳まず拒
       fixture.file,
       valid + " ".repeat(bytes - Buffer.byteLength(valid)),
     );
-    assert.equal(readNetworkPolicy(fixture.capability).status, "ready");
+    assert.equal(readNetworkPolicy(fixture.root).status, "ready");
   }
 });
 
@@ -198,12 +188,12 @@ test("観測不能・File以外・hardlink・前後Identity差は設定値を返
     status: "blocked",
     reason: "network_policy_unavailable",
   };
-  assert.deepEqual(readNetworkPolicy(fixture.capability), unavailable);
+  assert.deepEqual(readNetworkPolicy(fixture.root), unavailable);
   fs.rmdirSync(fixture.file);
   fs.writeFileSync(fixture.file, '{"version":1,"allowedHosts":[]}');
   const link = path.join(fixture.root, "linked.json");
   fs.linkSync(fixture.file, link);
-  assert.deepEqual(readNetworkPolicy(fixture.capability), unavailable);
+  assert.deepEqual(readNetworkPolicy(fixture.root), unavailable);
   fs.unlinkSync(link);
   for (const mode of [
     "denied",
@@ -230,11 +220,7 @@ test("観測不能・File以外・hardlink・前後Identity差は設定値を返
       return stat;
     });
     try {
-      assert.deepEqual(
-        readNetworkPolicy(fixture.capability),
-        unavailable,
-        mode,
-      );
+      assert.deepEqual(readNetworkPolicy(fixture.root), unavailable, mode);
     } finally {
       mocked.mock.restore();
     }
@@ -276,7 +262,7 @@ test("read故障でもdescriptorを閉じ、不在からの出現競合を拒否
     return originalClose(fd);
   });
   try {
-    assert.deepEqual(readNetworkPolicy(fixture.capability), {
+    assert.deepEqual(readNetworkPolicy(fixture.root), {
       status: "blocked",
       reason: "network_policy_unavailable",
     });
@@ -296,7 +282,7 @@ test("read故障でもdescriptorを閉じ、不在からの出現競合を拒否
     return Reflect.apply(original, fs, args);
   });
   try {
-    assert.deepEqual(readNetworkPolicy(fixture.capability), {
+    assert.deepEqual(readNetworkPolicy(fixture.root), {
       status: "blocked",
       reason: "network_policy_unavailable",
     });

@@ -4,13 +4,55 @@
  * @trace ARCH-000008
  */
 
-import type { Repository } from "../../../version-control/src/index.ts";
-import { withSnapshotOperation } from "../state/crud.ts";
+import type { StorageRootInput } from "../storage/lock.ts";
+import {
+  snapshotLeaseResourcesAbsent,
+  withSnapshotOperation,
+} from "../state/crud.ts";
+import { leaseIdentity } from "../state/operations.ts";
 
 import {
   prepareIntegrationRecordCreation,
   prepareWorkspaceRecordUpdate,
+  prepareWorkspaceRename,
 } from "./validation.ts";
+
+/** 表示名だけを短期保存排他内で更新する。 @trace ARCH-000004
+ * @precondition 呼出し側が現在の操作認可を確認している。
+ * @effect 既存Stateの比較更新だけ。Worktree・Ref・操作Leaseを作成しない。
+ * @failure 既存操作Lease、残存排他、使用中、世代差、保存不明は停止する。
+ */
+export function renameWorkspace(
+  repository: StorageRootInput,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  workspaceId: string,
+  expectedGeneration: number | undefined,
+  name: string | null,
+) {
+  const identity = leaseIdentity(
+    binding,
+    projectId,
+    queueId,
+    "project-operation",
+  );
+  return withSnapshotOperation(
+    repository,
+    binding,
+    (current, owner) =>
+      prepareWorkspaceRename(
+        current,
+        projectId,
+        queueId,
+        workspaceId,
+        expectedGeneration,
+        name,
+        () => snapshotLeaseResourcesAbsent(owner.repositoryRoot, identity),
+      ),
+    "workspace-rename",
+  );
+}
 
 /**
  * 同じ成果Identityの統合記録を作成する。
@@ -28,7 +70,7 @@ import {
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function saveIntegrationRecord(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   ...input: Parameters<typeof prepareIntegrationRecordCreation> extends [
     unknown,
@@ -63,7 +105,7 @@ export function saveIntegrationRecord(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function saveWorkspaceRecord(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   ...input: Parameters<typeof prepareWorkspaceRecordUpdate> extends [
     unknown,

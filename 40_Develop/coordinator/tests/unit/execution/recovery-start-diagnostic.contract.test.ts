@@ -35,12 +35,12 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
     new URL("../../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
-  const start = source.indexOf("function beginRuntimeOwnedDockerRecovery(");
+  const start = source.indexOf("function beginDockerRecovery(");
   const end = source.indexOf("\n/**", start);
   assert.ok(start > 0 && end > start);
   const body = stripTypeScriptTypes(source.slice(start, end));
   const identityStart = source.indexOf(
-    "export function prepareRuntimeOwnedRepositoryDockerOperationIdentity(",
+    "export function prepareRepositoryDockerOperationIdentity(",
   );
   const identityEnd = source.indexOf("\n/**", identityStart);
   assert.ok(identityStart > 0 && identityEnd > identityStart);
@@ -83,7 +83,7 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
       let expectedRecoveryId: string | null = null;
       let hostReads = 0;
       const invoke = runInNewContext(
-        `${identityBody}\n${body}; beginRuntimeOwnedDockerRecovery`,
+        `${identityBody}\n${body}; beginDockerRecovery`,
         {
           Object,
           Error,
@@ -91,7 +91,7 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
           JSON,
           createHash,
           validProductionPlan: () => stage !== "plan_validation",
-          inspectRuntimeOwnedWindowsProviderHomeCandidate: () => {
+          inspectWindowsProviderHomeCandidate: () => {
             homeObservations++;
             return {
               status: stage === "provider_home" ? "blocked" : "candidate",
@@ -148,7 +148,7 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
               },
             };
           },
-          borrowRuntimeOwnedCoordinatorStateRepository: () => ({
+          borrowCoordinatorStateRepository: () => ({
             repositoryBinding: "binding",
             operationId: "op",
             revalidate: () => true,

@@ -489,7 +489,7 @@ test("Doctorは受動の成功・失敗でHost資源を作らず明示隔離だ�
         capability: {},
       }),
       resolveVerifiedRepositoryRoot: () => "fixture-root",
-      createRuntimeOwnedCoordinatorOperation: () => {
+      createCoordinatorOperation: () => {
         calls.push("create");
         if (scenario === "creation_failure") throw failure;
         return { owned };

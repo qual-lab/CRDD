@@ -230,7 +230,7 @@
     {
       "symbolId": "docker-isolation.test.integration.probe-runtime",
       "kind": "test-suite",
-      "path": "tests/integration/probe-runtime.contract.test.ts",
+      "path": "tests/integration/fixed-probe.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -332,7 +332,7 @@
     {
       "symbolId": "docker-isolation.test.integration.repair-runtime",
       "kind": "test-suite",
-      "path": "tests/integration/repair-runtime.contract.test.ts",
+      "path": "tests/integration/desktop-repair.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -397,7 +397,7 @@
     {
       "symbolId": "docker-isolation.test.integration.runtime-directory",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-directory.contract.test.ts",
+      "path": "tests/integration/docker-data-directory.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -443,7 +443,7 @@
     {
       "symbolId": "docker-isolation.test.integration.restart-runtime",
       "kind": "test-suite",
-      "path": "tests/integration/restart-runtime.contract.test.ts",
+      "path": "tests/integration/desktop-restart.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -756,7 +756,7 @@
     {
       "symbolId": "docker-isolation.test.integration.command-runtime",
       "kind": "test-suite",
-      "path": "tests/integration/command-runtime.contract.test.ts",
+      "path": "tests/integration/command-assets.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],

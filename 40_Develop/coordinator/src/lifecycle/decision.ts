@@ -32,16 +32,17 @@ import {
   readCommitFile,
   readRepositorySnapshot,
   type Repository,
+  resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 import {
-  borrowRuntimeOwnedRepositorySource,
+  borrowRepositorySource,
   verifyOwnedOperationManagementCapability,
-  verifyRuntimeOwnedRepositoryBindingCapability,
+  verifyRepositoryBindingCapability,
   coordinatorDataBoundaryBlocked,
   RepositoryDataBlockedError,
   historyRepositoryInput,
-  verifyRuntimePersistenceRepository,
+  resolveExecutionStorageDirectory,
 } from "./host.ts";
 import {
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
@@ -103,7 +104,7 @@ export type CoordinatorDecisionResult = Readonly<{
 }>;
 
 export const COORDINATOR_HUMAN_DECISION_CONTRACT =
-  "crdd-coordinator/orchestrator-human-decision/v2" as const;
+  "crdd-coordinator/human-decision/v2" as const;
 
 /** 判断本文の非空・制御文字条件だけを確認する。 */
 function validDecisionRequestText(value: unknown): value is string {
@@ -302,7 +303,7 @@ export function inspectCoordinatorDecisionResult(
 }
 
 export const COORDINATOR_ACCEPTANCE_DECISION_CONTRACT =
-  "crdd-coordinator/orchestrator-acceptance-decision/v1" as const;
+  "crdd-coordinator/acceptance-decision/v1" as const;
 
 /**
  * 受入判断Applicationの入力を定義する。
@@ -424,10 +425,10 @@ export function submitDecision(
     !isPrincipalId(authenticationContext.principalId)
   )
     return continuationBlocked(
-      "orchestrator_authenticated_principal_not_verified",
+      "coordinator_authenticated_principal_not_verified",
     );
   const input = inspectCoordinatorDecisionRequest(rawRequest);
-  if (!input) return continuationBlocked("orchestrator_decision_input_invalid");
+  if (!input) return continuationBlocked("coordinator_decision_input_invalid");
   try {
     let root: string;
     try {
@@ -435,11 +436,11 @@ export function submitDecision(
         resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
     } catch {
       return continuationBlocked(
-        "orchestrator_repository_root_not_verified",
+        "coordinator_repository_root_not_verified",
         input.decisionId,
       );
     }
-    const repository = verifyRuntimePersistenceRepository(root);
+    const repository = resolveExecutionStorageDirectory(root);
     const binding = deriveCoordinatorRepositoryBindingId(root);
     const observed = readDecision(repository, binding, input.decisionId);
     if (observed.status !== "completed")
@@ -460,7 +461,7 @@ export function submitDecision(
         existing.target.repositoryRevision !== input.repositoryRevision)
     )
       return continuationBlocked(
-        "orchestrator_decision_target_or_principal_mismatch",
+        "coordinator_decision_target_or_principal_mismatch",
         input.decisionId,
       );
     const now = new Date().toISOString();
@@ -469,7 +470,7 @@ export function submitDecision(
       const identity = readRepositorySnapshot(getRepository(root).capability);
       if (!identity || identity.revisionIdentity !== input.repositoryRevision)
         return continuationBlocked(
-          "orchestrator_decision_revision_mismatch",
+          "coordinator_decision_revision_mismatch",
           input.decisionId,
         );
       const requestedAt = existing?.requestedAt ?? now;
@@ -502,7 +503,7 @@ export function submitDecision(
     } else {
       if (!existing)
         return continuationBlocked(
-          "orchestrator_decision_not_observed",
+          "coordinator_decision_not_observed",
           input.decisionId,
         );
       if (input.operation === "answer")
@@ -552,7 +553,7 @@ export function submitDecision(
           : "completed",
       reason:
         history.status !== "confirmed"
-          ? "orchestrator_decision_state_saved_history_unconfirmed"
+          ? "coordinator_decision_state_saved_history_unconfirmed"
           : result.reason,
       decisionId: input.decisionId,
       recoveryId: null,
@@ -577,7 +578,7 @@ export function submitDecision(
       };
     }
     return continuationBlocked(
-      "orchestrator_decision_observation_unknown",
+      "coordinator_decision_observation_unknown",
       input.decisionId,
       true,
     );
@@ -623,7 +624,7 @@ function acceptanceBlocked(
  * @trace ARCH-000005
  * @input rawRequest: 未信頼要求、workingDirectory: Repository内Path、authenticationContext: 認証済みPrincipal。
  * @returns Acceptance Decision Applicationの公開結果を返す。
- * @precondition 認証ContextはRuntime-owned認証境界で構築される。
+ * @precondition 認証Contextは呼出し元の認証境界で構築される。
  * @postcondition 成功時は一つのDecision Recordと必要な状態更新だけを確定する。
  * @effect Repository-local Stateの判断・適用状態とHistoryを更新する。
  * @failure Root、Revision、Principal、AuthorityまたはStoreを確認できない場合はEffectを拡張せず停止する。
@@ -645,7 +646,7 @@ export function acceptResult(
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
-        reason: "orchestrator_authenticated_principal_not_verified",
+        reason: "coordinator_authenticated_principal_not_verified",
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
@@ -655,12 +656,12 @@ export function acceptResult(
       rawRequest = snapshotJsonValue(rawRequest);
     } catch {
       return acceptanceBlocked(
-        "orchestrator_acceptance_decision_request_invalid",
+        "coordinator_acceptance_decision_request_invalid",
       );
     }
     if (!validRequest(rawRequest))
       return acceptanceBlocked(
-        "orchestrator_acceptance_decision_request_invalid",
+        "coordinator_acceptance_decision_request_invalid",
       );
     let repositoryRoot: string;
     try {
@@ -670,7 +671,7 @@ export function acceptResult(
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
-        reason: "orchestrator_repository_root_not_verified",
+        reason: "coordinator_repository_root_not_verified",
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
@@ -684,14 +685,14 @@ export function acceptResult(
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
-        reason: "orchestrator_authenticated_principal_not_verified",
+        reason: "coordinator_authenticated_principal_not_verified",
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
       });
     const repositoryBindingId =
       deriveCoordinatorRepositoryBindingId(repositoryRoot);
-    const repository = verifyRuntimePersistenceRepository(repositoryRoot);
+    const repository = resolveExecutionStorageDirectory(repositoryRoot);
     const observed = readDecision(
       repository,
       repositoryBindingId,
@@ -725,7 +726,7 @@ export function acceptResult(
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
-        reason: "orchestrator_acceptance_revision_mismatch",
+        reason: "coordinator_acceptance_revision_mismatch",
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
@@ -771,7 +772,7 @@ export function acceptResult(
         saved.reason === "decision_identity_retired" ||
           saved.reason === "decision_identity_conflict" ||
           saved.reason === "decision_answer_conflict"
-          ? "orchestrator_acceptance_decision_duplicate"
+          ? "coordinator_acceptance_decision_duplicate"
           : saved.reason,
         `acceptance-${rawRequest.decisionId}`,
         saved.manualRecoveryRequired,
@@ -783,12 +784,12 @@ export function acceptResult(
       status: applied ? ("completed" as const) : ("blocked" as const),
       reason:
         history.status !== "confirmed"
-          ? "orchestrator_acceptance_state_saved_history_unconfirmed"
+          ? "coordinator_acceptance_state_saved_history_unconfirmed"
           : applied
-            ? "orchestrator_acceptance_decision_recorded"
+            ? "coordinator_acceptance_decision_recorded"
             : decision.result?.status === "unapplied"
               ? decision.result.reason
-              : "orchestrator_acceptance_decision_not_applied",
+              : "coordinator_acceptance_decision_not_applied",
       recordId: `acceptance-${decision.decisionId}`,
       newGeneration:
         decision.result?.status === "applied"
@@ -808,7 +809,7 @@ export function acceptResult(
     return Object.freeze({
       contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
       status: "blocked" as const,
-      reason: "orchestrator_acceptance_boundary_unknown",
+      reason: "coordinator_acceptance_boundary_unknown",
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
       effectState: "unknown" as const,
@@ -964,7 +965,7 @@ export type ResolvedExternalSendPolicy = ExternalSendPolicy &
  * @concurrency 返却後のFile変更を現在Snapshotへ反映しない。
  */
 export function readRepositoryNetworkHosts(repositoryRoot: Repository) {
-  const read = readNetworkPolicy(repositoryRoot);
+  const read = readNetworkPolicy(resolveVerifiedRepositoryRoot(repositoryRoot));
   if (read.status !== "ready")
     return Object.freeze({ status: "blocked" as const, reason: read.reason });
   return Object.freeze({
@@ -1205,17 +1206,17 @@ export function compileExternalSendPolicyCandidate(
  * @responsibility Runtime 所有 External Send Policyの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000015
  * @input managementCapability: unknown、repositoryBindingCapability: unknown
- * @returns resolveRuntimeOwnedExternalSendPolicyの計算結果を返す。
- * @precondition 「managementCapability: unknown、repositoryBindingCapability: unknown」がresolveRuntimeOwnedExternalSendPolicyの入力契約を満たす。
- * @postcondition resolveRuntimeOwnedExternalSendPolicyの責務を完了した結果だけを返す。
+ * @returns resolveExternalSendPolicyの計算結果を返す。
+ * @precondition 「managementCapability: unknown、repositoryBindingCapability: unknown」がresolveExternalSendPolicyの入力契約を満たす。
+ * @postcondition resolveExternalSendPolicyの責務を完了した結果だけを返す。
  * @effect 固定版の送信方針と現在のRepository通信設定を読み、既存の非公開PolicyRecordへ保持する。
- * @failure resolveRuntimeOwnedExternalSendPolicyは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant resolveRuntimeOwnedExternalSendPolicyは入力から導いた結果以外の共有状態を変更しない。
+ * @failure resolveExternalSendPolicyは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resolveExternalSendPolicyは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 固定Git Snapshot、現在Filesystemおよび外部送信前の同意入力。
- * @security resolveRuntimeOwnedExternalSendPolicyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: resolveRuntimeOwnedExternalSendPolicyは共有非同期状態を持たない同期処理である。
+ * @security resolveExternalSendPolicyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveExternalSendPolicyは共有非同期状態を持たない同期処理である。
  */
-export function resolveRuntimeOwnedExternalSendPolicy(
+export function resolveExternalSendPolicy(
   managementCapability: unknown,
   repositoryBindingCapability: unknown,
 ) {
@@ -1230,11 +1231,11 @@ export function resolveRuntimeOwnedExternalSendPolicy(
     }
     const operation =
       verifyOwnedOperationManagementCapability(managementCapability);
-    const source = borrowRuntimeOwnedRepositorySource(
+    const source = borrowRepositorySource(
       repositoryBindingCapability,
       managementCapability,
     );
-    const repository = verifyRuntimeOwnedRepositoryBindingCapability(
+    const repository = verifyRepositoryBindingCapability(
       repositoryBindingCapability,
       managementCapability,
     );
@@ -1262,7 +1263,7 @@ export function resolveRuntimeOwnedExternalSendPolicy(
       file.sha256,
     );
     const network = readRepositoryNetworkHosts(verified.capability);
-    const reverified = verifyRuntimeOwnedRepositoryBindingCapability(
+    const reverified = verifyRepositoryBindingCapability(
       repositoryBindingCapability,
       managementCapability,
     );
@@ -1320,17 +1321,17 @@ export function resolveRuntimeOwnedExternalSendPolicy(
  * @responsibility Runtime 所有 External Send Policyの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000015
  * @input capability: unknown、managementCapability: unknown、repositoryBindingCapability: unknown
- * @returns verifyRuntimeOwnedExternalSendPolicyの計算結果を返す。
- * @precondition 「capability: unknown、managementCapability: unknown、repositoryBindingCapability: unknown」がverifyRuntimeOwnedExternalSendPolicyの入力契約を満たす。
- * @postcondition verifyRuntimeOwnedExternalSendPolicyの責務を完了した結果だけを返す。
- * @effect N/A: verifyRuntimeOwnedExternalSendPolicyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure verifyRuntimeOwnedExternalSendPolicyは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant verifyRuntimeOwnedExternalSendPolicyは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: verifyRuntimeOwnedExternalSendPolicyはProcess内の同一Subsystemで完結する。
- * @security verifyRuntimeOwnedExternalSendPolicyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: verifyRuntimeOwnedExternalSendPolicyは共有非同期状態を持たない同期処理である。
+ * @returns verifyExternalSendPolicyの計算結果を返す。
+ * @precondition 「capability: unknown、managementCapability: unknown、repositoryBindingCapability: unknown」がverifyExternalSendPolicyの入力契約を満たす。
+ * @postcondition verifyExternalSendPolicyの責務を完了した結果だけを返す。
+ * @effect N/A: verifyExternalSendPolicyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyExternalSendPolicyは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyExternalSendPolicyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyExternalSendPolicyはProcess内の同一Subsystemで完結する。
+ * @security verifyExternalSendPolicyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyExternalSendPolicyは共有非同期状態を持たない同期処理である。
  */
-export function verifyRuntimeOwnedExternalSendPolicy(
+export function verifyExternalSendPolicy(
   capability: unknown,
   managementCapability: unknown,
   repositoryBindingCapability: unknown,
@@ -1345,7 +1346,7 @@ export function verifyRuntimeOwnedExternalSendPolicy(
     ) {
       return null;
     }
-    const repository = verifyRuntimeOwnedRepositoryBindingCapability(
+    const repository = verifyRepositoryBindingCapability(
       repositoryBindingCapability,
       managementCapability,
     );

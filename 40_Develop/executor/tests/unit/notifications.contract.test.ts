@@ -48,7 +48,7 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
     "utf8",
   );
   let connection: Pick<
-    import("../../src/lifecycle/types.ts").RuntimeState,
+    import("../../src/lifecycle/types.ts").AttemptState,
     "prepareIsolation" | "executeIsolation"
   >;
   const createExecutor = runInNewContext(

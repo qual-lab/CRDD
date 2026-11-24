@@ -1,5 +1,27 @@
 # Checkerの設計
 
+<a id="checker-git-lifecycle"></a>
+
+## CheckerのGit利用と検査への接続
+
+Checkerは対象範囲と診断、VCはGitの読取り、DMは文書やリリースの意味判断を所有する。Git観測の成立条件は[VCの共通ライフサイクル](../version-control/01_Architecture.md#vc-usage-lifecycle)を参照する。
+
+```text
+検査要求 → RootとLink境界を確認
+  ├─ 対象発見    → 宣言・ファイル一覧・IndexのGitlink → 対象と基準版
+  ├─ 公式Stable  → Tagと現在HEAD → リリース照合
+  ├─ 固定履歴    → 固定CommitとPath → 履歴本文を照合
+  ├─ 試験選定    → --base 指定時だけ変更集合 → 試験対象を選ぶ
+  └─ Semantic等  → Rootの確認 → DMの読取り・明示されたFile出力
+           ↓
+検査結果・診断・観測できなかった項目を返す
+```
+
+- 通常ファイル一覧とIndexの結果を別々に扱う。Indexだけの欠測で取得済みファイルを捨てず、Gitlink・宣言・基準版HEADを相互に代用しない。
+- 固定履歴の同じCommit／Pathの再利用は一つの履歴Reader内だけ。旧参照の注記だけで固定本文を読んだことにせず、履歴探索・自動取得は行わない。
+- 同じ探索時点のRoot確認は共通化候補。現在ファイルの観測は別要求へ持ち越さない。Semanticの出力はGit Commit・Tag・公開ではない。
+- `--base` の試験選定はVCが返す変更集合を使う。基準からHEAD、Index、作業ツリーの差分は別々の観測であり、フィルター設定の再取得を見直す場合も、変更集合の判定と外部フィルターの非起動条件は維持する。
+
 ## 現行の責務と公開境界
 
 旧参照の構文と意味は[文書化](../../../03_Documentation.md#編集可能な過去記録の旧参照)を正本とする。DMが履歴配置・Related・外部URLを照合した出現モデルに対し、Checkerは固定履歴契約との重複を確認し、不適用をhistorical-reference-not-allowedとして通常検査へ戻す。適用時もEncoding・Root・Link境界を確認するが、現在の存在／anchorだけを省略し、uncheckedへ表示する。Scope拡張と現在参照Mapには使わず、検査済み件数にも加算しない。旧移行表の固定履歴Readerは別契約として維持し、注記で内容Hash照合を迂回させない。新しい除外台帳、Git履歴探索、公開APIは追加しない。

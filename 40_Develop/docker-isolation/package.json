@@ -14,6 +14,7 @@
     "lint": "biome lint . --error-on-warnings",
     "test": "npm run check && npm run test:run",
     "test:run": "node --experimental-test-module-mocks --test --test-concurrency=1 \"--test-skip-pattern=^Host Windows:\" ./tests/**/*.test.ts",
+    "test:coverage": "node --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --experimental-test-module-mocks --test --test-concurrency=1 \"--test-skip-pattern=^(Host Windows:|Docker explicit:)\" ./tests/**/*.test.ts",
     "test:host-windows": "node --test --test-concurrency=1 \"--test-name-pattern=^Host Windows:\" ./tests/integration/owned-process.integration.test.ts"
   },
   "engines": {

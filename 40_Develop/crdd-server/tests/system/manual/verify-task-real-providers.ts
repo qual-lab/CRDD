@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { getModelCatalog } from "../../../../ai-adapter/src/index.ts";
 import { readRepositoryAiSelection } from "../../../../configuration-model/src/index.ts";
 import { resolveRepositoryExecutionDataPaths } from "../../../../coordinator/src/lifecycle/host.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../../../../coordinator/scripts/benchmark.ts";
+import { observeServerDevelopmentSource } from "../../support/task-real-provider-contract.ts";
 import { resolveTaskExecutionSelections } from "../../../../coordinator/src/lifecycle/selection.ts";
 import { createFilesystemRepositoryObservationPort } from "../../../../document-model/src/index.ts";
 import {
@@ -35,8 +35,8 @@ const MARKER =
   "40_Develop/coordinator/tests/fixtures/task-real-provider-verification.txt";
 const CANCELLATION_MARKER =
   "40_Develop/coordinator/tests/fixtures/task-real-provider-cancellation.txt";
-const BASE = "CRDD_ORCHESTRATOR_BASE\n";
-const FINAL = "CRDD_ORCHESTRATOR_REAL_PROVIDER_OK\n";
+const BASE = "CRDD_PROVIDER_VERIFICATION_BASE\n";
+const FINAL = "CRDD_REAL_PROVIDER_VERIFICATION_OK\n";
 const VERIFICATION_CHOICES = Object.freeze({
   codex: Object.freeze({
     provider: "codex",
@@ -69,10 +69,7 @@ function readVerificationAiSelectionIdentity(root: string): string | null {
   try {
     const verified = getRepository(root);
     if (verified.status !== "completed") return null;
-    const read = readRepositoryAiSelection(
-      verified.capability,
-      getModelCatalog().catalog,
-    );
+    const read = readRepositoryAiSelection(root, getModelCatalog().catalog);
     if (read.status !== "available") return null;
     for (const provider of ["codex", "claude"] as const) {
       const selected = resolveTaskExecutionSelections(read.snapshot.config, {
@@ -129,7 +126,7 @@ function observeRuntimeSource() {
     )
       return null;
     const before = readRepositorySnapshot(getRepository(sourceRoot).capability);
-    const source = observeRuntimeOwnedDevelopmentSource();
+    const source = observeServerDevelopmentSource();
     const entryPath = path.join(
       sourceRoot,
       "template",
@@ -144,7 +141,7 @@ function observeRuntimeSource() {
     )
       return null;
     const entry = createFilesystemRepositoryObservationPort(
-      verified.capability,
+      resolveVerifiedRepositoryRoot(verified.capability),
     ).observeFile("template/tools/crdd-server.ts");
     const entryAfter = fs.lstatSync(entryPath, { bigint: true });
     if (
@@ -227,22 +224,22 @@ function restoreOwnedAdoptionFixture(): void {
   );
   const before = fs.lstatSync(markerPath);
   if (!before.isFile() || before.isSymbolicLink())
-    throw new Error("orchestrator_verification_fixture_invalid");
+    throw new Error("coordinator_verification_fixture_invalid");
   const descriptor = fs.openSync(markerPath, "r+");
   try {
     const opened = fs.fstatSync(descriptor);
     if (opened.dev !== before.dev || opened.ino !== before.ino)
-      throw new Error("orchestrator_verification_fixture_changed");
+      throw new Error("coordinator_verification_fixture_changed");
     const bytes = Buffer.alloc(opened.size);
     if (fs.readSync(descriptor, bytes, 0, bytes.length, 0) !== bytes.length)
-      throw new Error("orchestrator_verification_fixture_read_incomplete");
+      throw new Error("coordinator_verification_fixture_read_incomplete");
     const current = bytes.toString("utf8");
     if (current !== BASE && current !== FINAL)
-      throw new Error("orchestrator_verification_fixture_content_unknown");
+      throw new Error("coordinator_verification_fixture_content_unknown");
     if (current === FINAL) {
       fs.ftruncateSync(descriptor, 0);
       if (fs.writeSync(descriptor, BASE, 0, "utf8") !== Buffer.byteLength(BASE))
-        throw new Error("orchestrator_verification_fixture_write_incomplete");
+        throw new Error("coordinator_verification_fixture_write_incomplete");
       fs.fsyncSync(descriptor);
     }
   } finally {
@@ -254,7 +251,7 @@ function restoreOwnedAdoptionFixture(): void {
     after.ino !== before.ino ||
     fs.readFileSync(markerPath, "utf8") !== BASE
   )
-    throw new Error("orchestrator_verification_fixture_cleanup_unconfirmed");
+    throw new Error("coordinator_verification_fixture_cleanup_unconfirmed");
 }
 
 /**
@@ -370,8 +367,8 @@ function objective(
   return Object.freeze({
     ...commonFields,
     operation: "start",
-    requestId: `orchestrator-public-${provider}-${runId}`,
-    projectId: `crdd-orchestrator-public-${provider}-${runId}`,
+    requestId: `provider-verification-${provider}-${runId}`,
+    projectId: `crdd-provider-verification-${provider}-${runId}`,
     milestoneId: `public-provider-${provider}`,
     workType: `verification-${provider}`,
     choice: VERIFICATION_CHOICES[provider],
@@ -380,9 +377,9 @@ function objective(
 }
 
 /**
- * verify-orchestrator-real-providersのCommand処理を開始する。
+ * verify-task-real-providersのCommand処理を開始する。
  *
- * @responsibility verify-orchestrator-real-providersの引数受付、終了Code、診断出力境界を所有する。
+ * @responsibility verify-task-real-providersの引数受付、終了Code、診断出力境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns mainの計算結果を返す。
@@ -397,16 +394,16 @@ function objective(
  */
 async function main() {
   if (process.argv.length !== 2)
-    throw new Error("usage: verify-orchestrator-real-providers");
+    throw new Error("usage: verify-task-real-providers");
   if (process.platform !== "win32")
-    throw new Error("orchestrator_real_recovery_e2e_windows_only");
+    throw new Error("coordinator_real_recovery_e2e_windows_only");
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     process.cwd(),
   );
   const sourceRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
   const runtimeSourceBefore = observeRuntimeSource();
   if (!runtimeSourceBefore)
-    throw new Error("orchestrator_verification_source_unavailable");
+    throw new Error("coordinator_verification_source_unavailable");
   const repository = readRepositorySnapshot(
     getRepository(repositoryRoot).capability,
   );
@@ -421,7 +418,7 @@ async function main() {
   const aiSelectionIdentity =
     readVerificationAiSelectionIdentity(repositoryRoot);
   if (aiSelectionIdentity === null)
-    throw new Error("orchestrator_verification_ai_selection_unavailable");
+    throw new Error("coordinator_verification_ai_selection_unavailable");
   verifiedRepositoryRootForFixtureCleanup = repositoryRoot;
 
   const verifiedRuntimeRoot = getRepository(repositoryRoot);
@@ -429,7 +426,7 @@ async function main() {
     verifiedRuntimeRoot.status === "completed"
       ? resolveRepositoryExecutionDataPaths(verifiedRuntimeRoot.capability)
       : null;
-  if (!runtimePaths) throw new Error("orchestrator_verification_path_invalid");
+  if (!runtimePaths) throw new Error("coordinator_verification_path_invalid");
   const verificationRoot = runtimePaths.tests;
 
   const runId = randomUUID().replaceAll("-", "").slice(0, 16);
@@ -530,8 +527,8 @@ async function main() {
 
   const cancellationRequest = Object.freeze({
     ...commonFields,
-    requestId: `orchestrator-public-cancel-${runId}`,
-    projectId: `crdd-orchestrator-public-cancel-${runId}`,
+    requestId: `provider-verification-cancel-${runId}`,
+    projectId: `crdd-provider-verification-cancel-${runId}`,
     milestoneId: "public-provider-cancellation",
     workType: "verification-claude",
     choice: VERIFICATION_CHOICES.claude,
@@ -574,8 +571,8 @@ async function main() {
 
   const recoveryRequest = Object.freeze({
     ...commonFields,
-    requestId: `orchestrator-public-recovery-${runId}`,
-    projectId: `crdd-orchestrator-public-recovery-${runId}`,
+    requestId: `provider-verification-recovery-${runId}`,
+    projectId: `crdd-provider-verification-recovery-${runId}`,
     milestoneId: "public-provider-parent-loss-recovery",
     workType: "verification-claude",
     choice: VERIFICATION_CHOICES.claude,
@@ -721,7 +718,7 @@ async function main() {
   stableDirectory(verificationRoot);
   const reportDirectory = path.join(
     verificationRoot,
-    `orchestrator-public-real-providers-${Date.now()}`,
+    `provider-verification-real-providers-${Date.now()}`,
   );
   fs.mkdirSync(reportDirectory, { mode: 0o700 });
   fs.writeFileSync(
@@ -740,11 +737,11 @@ try {
     process.stdout.write(
       `${JSON.stringify(
         {
-          contract: "crdd-coordinator/orchestrator-real-provider-verification",
+          contract: "crdd-coordinator/real-provider-verification",
           contractRevision: 13,
           aiSelectionObservationStatus: "unavailable",
           status: "blocked",
-          reason: "orchestrator_public_mcp_verification_incomplete",
+          reason: "coordinator_public_mcp_verification_incomplete",
           problems: ["verification_exception"],
           phase: "verification_not_started",
           childProcessStarted: false,
@@ -775,16 +772,15 @@ try {
       verifiedRuntimeRoot.status === "completed"
         ? resolveRepositoryExecutionDataPaths(verifiedRuntimeRoot.capability)
         : null;
-    if (!runtimePaths)
-      throw new Error("orchestrator_verification_path_invalid");
+    if (!runtimePaths) throw new Error("coordinator_verification_path_invalid");
     const verificationRoot = runtimePaths.tests;
     fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
     const report = Object.freeze({
-      contract: "crdd-coordinator/orchestrator-real-provider-verification",
+      contract: "crdd-coordinator/real-provider-verification",
       contractRevision: 13,
       aiSelectionObservationStatus: "unavailable",
       status: "blocked",
-      reason: "orchestrator_public_mcp_verification_incomplete",
+      reason: "coordinator_public_mcp_verification_incomplete",
       problems: Object.freeze(["verification_exception"]),
       phase: "verification_unknown",
       childProcessStarted: null,
@@ -806,7 +802,7 @@ try {
     });
     const reportDirectory = path.join(
       verificationRoot,
-      `orchestrator-public-real-providers-${Date.now()}`,
+      `provider-verification-real-providers-${Date.now()}`,
     );
     fs.mkdirSync(reportDirectory, { mode: 0o700 });
     fs.writeFileSync(

@@ -26,8 +26,8 @@ import {
 } from "../../../../execution-model/tests/fixtures/execution-plan.ts";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import {
-  createRuntimeProcessRecoveryIdentity,
-  getRuntimeProcessInstanceIdentity,
+  createExecutionProcessRecoveryIdentity,
+  getExecutionProcessInstanceIdentity,
 } from "../../../src/lifecycle/host.ts";
 import { createCoordinatorObjectiveResult } from "../../../src/lifecycle/execution.ts";
 import { resolveTaskExecutionSelections } from "../../../src/lifecycle/selection.ts";
@@ -119,7 +119,7 @@ test("Docker回復確定は有限要求を渡し保存不明で元参照を保�
       assert.equal(evidence.reads,1);
       assert.deepEqual(input,{kind:'task_recovery_finalize',projectId:'project-a',recoveries:[{taskId:'task-a',recoveryId:${JSON.stringify(id)}}]});
       assert.equal(generation,4);
-      return {status:'blocked',reason:'orchestrator_task_recovery_not_settled'};
+      return {status:'blocked',reason:'coordinator_task_recovery_not_settled'};
     };
 
     ${source.slice(begin, end)}
@@ -189,7 +189,7 @@ test("Docker回復確定は有限要求を渡し保存不明で元参照を保�
       assert.equal(result.cleanupConfirmed, false);
       assert.equal(result.manualRecoveryRequired, true);
       assert.deepEqual(result.recoveryIds, [id]);
-      assert.equal(result.reason, "orchestrator_task_recovery_not_settled");
+      assert.equal(result.reason, "coordinator_task_recovery_not_settled");
     }
     const isNoTarget = scenario === "no_target";
     assert.deepEqual(evidence, {
@@ -237,18 +237,18 @@ test("Objectiveは現在改訂または採用済みWorkspaceを確認してか�
   for (const [value, workspace, binding, root, expected, reads] of [
     ["revision", false, "binding", "root", "verified", 0],
     ["other", true, "binding", "root", "verified", 1],
-    ["other", false, "binding", "root", "orchestrator_binding_not_verified", 1],
+    ["other", false, "binding", "root", "coordinator_binding_not_verified", 1],
     [
       "other",
       "throws",
       "binding",
       "root",
-      "orchestrator_binding_not_verified",
+      "coordinator_binding_not_verified",
       1,
     ],
-    [null, true, "binding", "root", "orchestrator_binding_not_verified", 0],
-    ["revision", false, "", "root", "orchestrator_binding_not_verified", 0],
-    ["revision", false, "binding", "", "orchestrator_binding_not_verified", 0],
+    [null, true, "binding", "root", "coordinator_binding_not_verified", 0],
+    ["revision", false, "", "root", "coordinator_binding_not_verified", 0],
+    ["revision", false, "binding", "", "coordinator_binding_not_verified", 0],
   ] as const) {
     let calls = 0;
     const result = compile(
@@ -476,6 +476,7 @@ test("Objectiveの具体選定は元Root再観測と拒否理由・要求の評�
     const order: string[] = [];
     const resolve = compileFunction(`return (${declaration});`, [
       "getRepository",
+      "resolveVerifiedRepositoryRoot",
       "readRepositoryAiSelection",
       "getModelCatalog",
       "resolveCheckedTaskExecutionSelections",
@@ -488,9 +489,13 @@ test("Objectiveの具体選定は元Root再観測と拒否理由・要求の評�
           ? { status: "blocked", reason: "original-root" }
           : { status: "completed", capability };
       },
+      (input: unknown) => {
+        assert.equal(input, capability);
+        return "fixture-directory";
+      },
       (input: unknown, models: unknown) => {
         order.push("config");
-        assert.equal(input, capability);
+        assert.equal(input, "fixture-directory");
         assert.equal(models, catalog);
         if (mode === "config_throw") throw Error(mode);
         return mode === "config_blocked"
@@ -578,7 +583,7 @@ test("最終読取りと回復保存後の候補不正はexact回復情報を保
     ownerGeneration: "owner",
   }).state;
   const dockerId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
-  const processId = createRuntimeProcessRecoveryIdentity(
+  const processId = createExecutionProcessRecoveryIdentity(
     "attempt",
     "operation",
   );
@@ -589,7 +594,7 @@ test("最終読取りと回復保存後の候補不正はexact回復情報を保
       phase: "required" as const,
     },
     {
-      kind: "runtime_process" as const,
+      kind: "execution_process" as const,
       recoveryId: processId,
       phase: "required" as const,
     },
@@ -625,7 +630,7 @@ test("最終読取りと回復保存後の候補不正はexact回復情報を保
     "inspectCoordinatorSnapshotLeaseAcquisitionOwner",
     "readProjectExecutionState",
     "hashCoordinatorContent",
-    "getRuntimeProcessInstanceIdentity",
+    "getExecutionProcessInstanceIdentity",
   ])(
     () => true,
     inspectTaskStartCandidates,
@@ -637,7 +642,7 @@ test("最終読取りと回復保存後の候補不正はexact回復情報を保
     () => ({ status: "completed", value: { acquisition: null } }),
     () => ({ status: "completed", value: known, taskStartCandidates: null }),
     hashCoordinatorContent,
-    getRuntimeProcessInstanceIdentity,
+    getExecutionProcessInstanceIdentity,
   ) as (
     deps: object,
     request: object,
@@ -651,7 +656,7 @@ test("最終読取りと回復保存後の候補不正はexact回復情報を保
     request,
     new AbortController().signal,
   );
-  assert.equal(missingIntake.reason, "orchestrator_objective_request_invalid");
+  assert.equal(missingIntake.reason, "coordinator_objective_request_invalid");
   assert.equal(missingIntake.effectState, "no_effect");
   const initial = await intake(
     {
@@ -775,7 +780,7 @@ test("最終読取りと回復保存後の候補不正はexact回復情報を保
             tasks: known.tasks.map((task) => ({
               ...task,
               recoveryObligations: task.recoveryObligations.map((item) =>
-                item.kind === "runtime_process"
+                item.kind === "execution_process"
                   ? { ...item, phase: "settled" as const }
                   : item,
               ),
@@ -802,7 +807,7 @@ test("最終読取りと回復保存後の候補不正はexact回復情報を保
           kind: stage,
           projectId: request.projectId,
           taskId: item.taskId,
-          recoveryKind: "runtime_process",
+          recoveryKind: "execution_process",
           recoveryId: processId,
         });
         assert.equal(args[3], known.generation);
@@ -953,7 +958,7 @@ test("公開受付は計画を独立凍結し同じ検査済み参照だけを�
       "blocked",
       "executeCoordinatorObjective",
       "readObjectiveReplay",
-      "verifyRuntimePersistenceRepository",
+      "resolveExecutionStorageDirectory",
     ],
   )(
     isPrincipalId,
@@ -987,6 +992,7 @@ test("公開受付は計画を独立凍結し同じ検査済み参照だけを�
       assert.equal(Object.isFrozen(dependencies.persistence), true);
       assert.deepEqual(Object.keys(dependencies.persistence).sort(), [
         "intake",
+        "prepareStorage",
         "repository",
         "repositoryBindingId",
         "workingDirectory",
@@ -1168,7 +1174,7 @@ test("公開受付は計画を独立凍結し同じ検査済み参照だけを�
         recoveryUnresolved: true,
         recoveryObligations: [
           {
-            kind: "runtime_process",
+            kind: "execution_process",
             recoveryId: "original-recovery",
             phase: "required",
           },
@@ -1187,7 +1193,7 @@ test("公開受付は計画を独立凍結し同じ検査済み参照だけを�
   assert.deepEqual([...replay.recoveryIds], ["original-recovery"]);
   assert.deepEqual(project(request, queue, state, undefined), {
     status: "blocked",
-    reason: "orchestrator_state_observation_unknown",
+    reason: "coordinator_state_observation_unknown",
     options: { knownState: state, queueId: queue.queueId },
   });
   assert.equal(
@@ -1211,7 +1217,7 @@ test("公開受付は計画を独立凍結し同じ検査済み参照だけを�
       "inspectCoordinatorSnapshotLeaseAcquisitionOwner",
       "readProjectExecutionState",
       "hashCoordinatorContent",
-      "getRuntimeProcessInstanceIdentity",
+      "getExecutionProcessInstanceIdentity",
       "resolveObjectiveTaskSelections",
     ],
   )(
@@ -1242,7 +1248,7 @@ test("公開受付は計画を独立凍結し同じ検査済み参照だけを�
       return { status: "completed", value: null };
     },
     hashCoordinatorContent,
-    getRuntimeProcessInstanceIdentity,
+    getExecutionProcessInstanceIdentity,
     (actualRoot: unknown, actualRequest: unknown) => {
       assert.equal(actualRoot, repository);
       assert.equal(typeof actualRequest, "object");
@@ -1329,7 +1335,7 @@ test("公開受付は計画を独立凍結し同じ検査済み参照だけを�
       { ...request, operation: "start" },
       new AbortController().signal,
     );
-    assert.equal(result.reason, "orchestrator_input_invalid");
+    assert.equal(result.reason, "coordinator_input_invalid");
   }
   assert.equal(selectionHooks, 0);
   assert.equal(enqueues, 0);
@@ -1370,7 +1376,7 @@ test("保存競合のObjective再送は同版から返し、Queue欠測でも実
     };
   `,
     [
-      "verifyRuntimePersistenceRepository",
+      "resolveExecutionStorageDirectory",
       "readState",
       "blocked",
       "snapshotPlainArray",
@@ -1399,10 +1405,10 @@ test("保存競合のObjective再送は同版から返し、Queue欠測でも実
   for (const [operation, queueState, hasQueue, expected] of [
     ["start", "queued", true, "exact-recovery"],
     ["resume", "completed", true, "exact-recovery"],
-    ["start", "queued", false, "orchestrator_state_observation_unknown"],
+    ["start", "queued", false, "coordinator_state_observation_unknown"],
     ["resume", "queued", true, "continue"],
     ["resume", "missing", false, "resume_queue_missing"],
-    ["resume", "foreign", true, "orchestrator_queue_identity_conflict"],
+    ["resume", "foreign", true, "coordinator_queue_identity_conflict"],
   ] as const) {
     let reads = 0;
     let registrations = 0;
@@ -1424,7 +1430,7 @@ test("保存競合のObjective再送は同版から返し、Queue欠測でも実
         };
       },
       (_request: unknown, reason: string, options: unknown) => {
-        if (reason === "orchestrator_state_observation_unknown")
+        if (reason === "coordinator_state_observation_unknown")
           assert.deepEqual(options, { knownState: null, queueId: "queue" });
         return reason;
       },
@@ -1465,7 +1471,7 @@ test("保存競合のObjective再送は同版から返し、Queue欠測でも実
         assert.equal(operation, "start");
         return {
           status: "completed",
-          reason: "orchestrator_queue_request_reused",
+          reason: "coordinator_queue_request_reused",
           value: { ...savedQueue, state: queueState },
         };
       },
@@ -1488,7 +1494,7 @@ test("保存競合のObjective再送は同版から返し、Queue欠測でも実
     assert.equal(
       reads,
       expected === "exact-recovery" ||
-        expected === "orchestrator_state_observation_unknown"
+        expected === "coordinator_state_observation_unknown"
         ? 1
         : 0,
     );
@@ -1508,7 +1514,7 @@ test("保存競合のObjective再送は同版から返し、Queue欠測でも実
  */
 test("通常実行でのObjective終了観測は理由とEffectなしの公開結果を維持する", () => {
   const source = stripTypeScriptTypes(objectiveRecoverySource);
-  const mismatch = source.indexOf('"orchestrator_terminal_replay_mismatch"');
+  const mismatch = source.indexOf('"coordinator_terminal_replay_mismatch"');
   const start = source.lastIndexOf("\n  if (\n", mismatch);
   const end = source.indexOf('  if (queue.state !== "queued"', mismatch);
   assert.ok(start > 0 && start < mismatch && mismatch < end);
@@ -1523,25 +1529,25 @@ test("通常実行でのObjective終了観測は理由とEffectなしの公開�
       "integration_pending",
       "executing",
       "completed",
-      "orchestrator_tasks_already_integration_pending",
+      "coordinator_tasks_already_integration_pending",
     ],
     [
       "completed",
       "accepted",
       "completed",
-      "orchestrator_objective_already_accepted",
+      "coordinator_objective_already_accepted",
     ],
     [
       "cancelled",
       "cancelled",
       "cancelled",
-      "orchestrator_objective_already_cancelled",
+      "coordinator_objective_already_cancelled",
     ],
     [
       "completed",
       "executing",
       "blocked",
-      "orchestrator_terminal_replay_mismatch",
+      "coordinator_terminal_replay_mismatch",
     ],
     ["completed", null, null, null],
     ["queued", "executing", null, null],
@@ -1616,7 +1622,7 @@ test("Objectiveの実行後表示は現在Queueを照合し捕捉済みの結果
     };`,
     [
       "readState",
-      "verifyRuntimePersistenceRepository",
+      "resolveExecutionStorageDirectory",
       "workspacePlanReadyForAcceptance",
     ],
   );
@@ -1631,7 +1637,7 @@ test("Objectiveの実行後表示は現在Queueを照合し捕捉済みの結果
   const recoveryObligations = Object.freeze([]);
   const original = Object.freeze({
     status: "completed",
-    reason: "orchestrator_tasks_already_integration_pending",
+    reason: "coordinator_tasks_already_integration_pending",
     queueId: "queue-a",
     projection: Object.freeze({ milestoneState: "executing" }),
     cleanupConfirmed: true,
@@ -1643,12 +1649,12 @@ test("Objectiveの実行後表示は現在Queueを照合し捕捉済みの結果
   });
   const queue = Object.freeze({ ...request, queueId: original.queueId });
   for (const [condition, reason] of [
-    ["ready", "orchestrator_quality_acceptance_required"],
-    ["direct", "orchestrator_quality_acceptance_required"],
-    ["waiting", "orchestrator_workspace_adoption_required"],
-    ["foreign", "orchestrator_workspace_target_unconfirmed"],
-    ["unknown", "orchestrator_workspace_target_unconfirmed"],
-    ["accepted", "orchestrator_objective_already_accepted"],
+    ["ready", "coordinator_quality_acceptance_required"],
+    ["direct", "coordinator_quality_acceptance_required"],
+    ["waiting", "coordinator_workspace_adoption_required"],
+    ["foreign", "coordinator_workspace_target_unconfirmed"],
+    ["unknown", "coordinator_workspace_target_unconfirmed"],
+    ["accepted", "coordinator_objective_already_accepted"],
     ["unrelated", "untouched"],
   ] as const) {
     const calls: string[] = [];
@@ -1727,7 +1733,7 @@ test("Objectiveの実行後表示は現在Queueを照合し捕捉済みの結果
     [
       "isPrincipalId",
       "readObjectiveReplay",
-      "verifyRuntimePersistenceRepository",
+      "resolveExecutionStorageDirectory",
       "executeCoordinatorObjective",
       "retireStateRecords",
       "historyRepositoryInput",
@@ -1761,7 +1767,7 @@ test("Objectiveの実行後表示は現在Queueを照合し捕捉済みの結果
     assert.equal(
       result.reason,
       status === "cancelled"
-        ? "orchestrator_cancelled_history_blocked"
+        ? "coordinator_cancelled_history_blocked"
         : "history_blocked",
     );
     assert.equal(result.projection, null);
@@ -1806,7 +1812,7 @@ test("回復後の再確認はQueue・Project・候補を同じ保存版で比�
       "queueId",
       "cancellationSignal",
       "recoveryProcess",
-      "getRuntimeProcessInstanceIdentity",
+      "getExecutionProcessInstanceIdentity",
       "recoveryQueue",
       "recoveryState",
       "isDeepStrictEqual",
@@ -1910,11 +1916,11 @@ test("共通ループの準備は同版から一度だけ読み、版違いと�
   const queue = { ...state, queueId: "queue", state: "queued" };
   const first = { taskId: "task-a", authorityBindingId: "authority-a" };
   const second = { taskId: "task-b", authorityBindingId: "authority-b" };
-  const expectedRefusal = "orchestrator_task_execution_set_invalid";
+  const expectedRefusal = "coordinator_task_execution_set_invalid";
   for (const [scenario, expected, taskExecutions] of [
     ["match", "scheduled", [second, first]],
-    ["revision", "orchestrator_execution_identity_mismatch", [first, second]],
-    ["missing", "orchestrator_state_observation_unknown", [first, second]],
+    ["revision", "coordinator_execution_identity_mismatch", [first, second]],
+    ["missing", "coordinator_state_observation_unknown", [first, second]],
     ["duplicate", expectedRefusal, [first, first]],
     ["superseded", expectedRefusal, [first, { ...second, taskId: "task-old" }]],
     ["foreign", expectedRefusal, [first, { ...second, taskId: "foreign" }]],
@@ -1981,7 +1987,8 @@ test("共通ループの準備は同版から一度だけ読み、版違いと�
 
   const events: string[] = [];
   const persistence = {
-    workingDirectory: "graph-root",
+    workingDirectory: "graph-root/sub",
+    repository: { directory: "graph-root" },
     repositoryBindingId: "graph-binding",
   };
   const input = { projectId: "graph-project", queueId: "graph-request" };
@@ -2115,7 +2122,7 @@ test("Owner喪失保存の拒否と候補不正でも取得済みexact参照を�
       "initial",
       "request",
       "queueId",
-      "resolveRuntimeOwnedDockerTaskCurrentCorrelations",
+      "resolveDockerTaskCurrentCorrelations",
       "getRepository",
       "inspectRecoveryCorrelationBindings",
       "persistence",
@@ -2363,7 +2370,7 @@ test("未初期化の取得Owner例外は元intakeと全条件に限定する", 
   const evaluate = compileFunction(
     `return (persistence,raw)=>{
     const inspectCoordinatorSnapshotLeaseAcquisitionOwner=(directory,binding)=>{
-      assert.equal(directory,'root/sub');assert.equal(binding,'binding');return raw;
+      assert.equal(directory,'root');assert.equal(binding,'binding');return raw;
     };
     ${source.slice(begin, end)}
     return {acquisition: resolvedAcquisition};
@@ -2389,7 +2396,7 @@ test("未初期化の取得Owner例外は元intakeと全条件に限定する", 
   ]) {
     const raw = {
       status: profile === "completed" ? "completed" : "blocked",
-      reason: profile === "reason" ? "other" : "orchestrator_snapshot_absent",
+      reason: profile === "reason" ? "other" : "coordinator_snapshot_absent",
       manualRecoveryRequired: profile === "manual",
       recoveryId: profile === "recovery" ? "exact" : null,
       value: { acquisition: { original: true } },
@@ -2397,6 +2404,7 @@ test("未初期化の取得Owner例外は元intakeと全条件に限定する", 
     const result = evaluate(
       {
         workingDirectory: "root/sub",
+        repository: { directory: "root" },
         repositoryBindingId: "binding",
         intake:
           profile === "missing"
@@ -2457,10 +2465,10 @@ test("回復後は実際の回復Queueを照合し不一致でも元参照を保
   const evaluate = compileFunction(
     `return raw=>{
     const request={projectId:'project-a'};const queueId='primary';const recoveryQueueId='other';
-    const persistence={workingDirectory:'root/sub',repositoryBindingId:'binding'};
+    const persistence={workingDirectory:'root/sub',repository:{directory:'root'},repositoryBindingId:'binding'};
     const observeObjectiveLeaseOwner=observer;const state={value:null};
     const reconcileCoordinatorSnapshotLeaseOwnerLoss=(...args)=>{
-      assert.deepEqual(args.slice(0,5),['root/sub','binding','project-a','other','project-operation']);
+      assert.deepEqual(args.slice(0,5),['root','binding','project-a','other','project-operation']);
       assert.equal(args[5],observer);return raw;
     };
     ${objectiveStopProjection(source)}
@@ -2489,7 +2497,7 @@ test("回復後は実際の回復Queueを照合し不一致でも元参照を保
         assert.deepEqual(result, {
           contract: "fixture",
           status: "blocked",
-          reason: "orchestrator_lease_recovery_queue_mismatch",
+          reason: "coordinator_lease_recovery_queue_mismatch",
           recoveryIds: recoveryId ? [recoveryId] : [],
           manualRecoveryRequired: recoveryId !== null,
           cleanupConfirmed: recoveryId === null,
@@ -2554,7 +2562,7 @@ test("初回Project読取りの未初期化例外は元intakeの全条件だけ�
   ) as (...args: unknown[]) => unknown;
   const base = Object.freeze({
     status: "blocked",
-    reason: "orchestrator_snapshot_absent",
+    reason: "coordinator_snapshot_absent",
     value: null,
     manualRecoveryRequired: false,
     recoveryId: null,
@@ -2673,7 +2681,7 @@ test("最終Project読取りの欠測は元実行結果と回復参照を変更�
     processRestartRequired: true,
     recoveryIds: ["original-recovery"],
     recoveryObligations: [
-      { kind: "runtime_process", recoveryId: "original-recovery" },
+      { kind: "execution_process", recoveryId: "original-recovery" },
     ],
     effectState: "unknown",
   };

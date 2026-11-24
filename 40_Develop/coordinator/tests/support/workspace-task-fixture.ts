@@ -6,7 +6,7 @@
  * @boundary 自己生成するRepository-local Worktree。Providerの実行・回収は所有しない。
  */
 import { createHash, randomUUID } from "node:crypto";
-import { lstatSync, readFileSync } from "node:fs";
+import { lstatSync, readFileSync, realpathSync, rmdirSync } from "node:fs";
 import path from "node:path";
 import {
   createWorktree,
@@ -16,10 +16,14 @@ import {
 } from "../../../version-control/src/index.ts";
 import { resolveRepositoryExecutionDataPaths } from "../../src/lifecycle/host.ts";
 import type { BorrowedExecutionTarget } from "../../src/lifecycle/types.ts";
-import {
-  workspaceWorktreeResult,
-  workspaceWorktreeTarget,
-} from "../../src/lifecycle/workspace.ts";
+
+/** 自己生成した試験用Worktreeの配置。 @trace ARCH-000009 */
+function workspaceWorktreeTarget(workspaceId: string) {
+  return {
+    relativePath: `.crdd/workspaces/${workspaceId}/worktree`,
+    branch: `crdd/workspace/${workspaceId}`,
+  };
+}
 
 /** 一回の検証Toolが所有する作成結果。新しい永続台帳ではない。 */
 export type VerificationWorkspacePreparation = Readonly<{
@@ -174,21 +178,35 @@ export function closeVerificationWorkspace(
   const verified = getRepository(target.ownerRepositoryRoot);
   if (verified.status !== "completed")
     return Object.freeze({ status: "retained", cleanupConfirmed: false });
-  const closed = workspaceWorktreeResult(
-    target.ownerRepositoryRoot,
-    target.workspaceId,
-    removeWorktree(verified.capability, {
-      ...workspaceWorktreeTarget(target.workspaceId),
-      expectedHead: target.head,
-      discardChanges: true,
-    }),
-    true,
-  );
-  const removed =
+  const worktree = workspaceWorktreeTarget(target.workspaceId);
+  const closed = removeWorktree(verified.capability, {
+    ...worktree,
+    expectedHead: target.head,
+    discardChanges: true,
+  });
+  let removed =
     closed.status === "completed" &&
     closed.worktreeRemoved === true &&
     closed.branchRemoved === true &&
-    closed.workspaceDirectoryRetained === false;
+    closed.relativePath === worktree.relativePath &&
+    closed.branch === worktree.branch;
+  if (removed) {
+    const parent = path.dirname(
+      path.join(target.ownerRepositoryRoot, worktree.relativePath),
+    );
+    try {
+      if (
+        realpathSync.native(parent) !== parent ||
+        !lstatSync(parent).isDirectory()
+      )
+        throw new Error("fixture_workspace_parent_changed");
+      rmdirSync(parent);
+      lstatSync(parent);
+      removed = false;
+    } catch (error) {
+      removed = (error as NodeJS.ErrnoException).code === "ENOENT";
+    }
+  }
   return Object.freeze({
     status: removed ? "discarded" : "retained",
     cleanupConfirmed: removed,

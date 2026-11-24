@@ -45,7 +45,7 @@ export function parseDesktopStatus(
 /**
  * 既存の設定基点に一つのDesktop排他を取得する。基点を作成・探索しない。
  * @effect 固定docker-isolation.desktop.lockのみ。残存は自動削除しない。
- * @invariant 上位のcoordinator.docker-state.lockとは別Scopeで、取得順はstate→Desktop。
+ * @invariant 同じ設定基点のDesktop操作を排他する。通常TaskやTask固有の資源回復を排他するLockではない。
  */
 export function acquireDesktopOperations(
   settings: IsolationSettings,

@@ -53,6 +53,7 @@ export type RemoteTarget = Readonly<{
     | "publication_target_observation_failed";
   destination: string | null;
   branch: string | null;
+  localBranch: string | null;
   revisionIdentity: string | null;
 }>;
 

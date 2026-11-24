@@ -6,6 +6,7 @@
  */
 
 import assert from "node:assert/strict";
+import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import childProcess from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -29,7 +30,6 @@ import {
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { snapshotJsonValue } from "../../src/lifecycle/validation.ts";
-import { recoveryResourceFixtureBody } from "../support/recovery.ts";
 
 const [root, operationId, recoveryId, scenario] = process.argv.slice(2);
 assert.ok(root && operationId && recoveryId && scenario);
@@ -61,16 +61,17 @@ assert.equal(verified.status, "completed");
 assert.ok(verified.capability);
 // CoordinatorがDIを読み込む前に、外部CLI端の有限代役を接続する。
 const f = await createIsolationFixture({ mock });
+// この補助の推移依存はCoordinatorの選定とExecutorを読み込む。
+// Dockerの有限代役を登録する前に回復実装を評価させない。
+const { recoveryResourceFixtureBody } = await import("../support/recovery.ts");
 // 設定OwnerがDI Rootを読む前に、CLI・環境の有限境界を接続する。
 const { getIsolationSettings } = await import(
   "../../src/lifecycle/environment.ts"
 );
-const { borrowRuntimeOwnedCoordinatorRecoveryRepository } = await import(
+const { borrowCoordinatorRecoveryRepository } = await import(
   "../../src/lifecycle/host.ts"
 );
-const observed = borrowRuntimeOwnedCoordinatorRecoveryRepository(
-  verified.capability,
-);
+const observed = borrowCoordinatorRecoveryRepository(verified.capability);
 assert.ok(observed);
 const repository = { ...observed, root: verified.capability, operationId };
 const stateFile = path.join(
@@ -80,7 +81,9 @@ const stateFile = path.join(
   "state.json",
 );
 const before: Buffer = fs.readFileSync(stateFile);
-const initialRead = readState(verified.capability, { scope: "recovery" });
+const initialRead = readState(prepareFixtureRecovery(verified.capability), {
+  scope: "recovery",
+});
 assert.equal(initialRead.status, "completed", initialRead.reason);
 assert.equal(initialRead.lockReleased, true);
 assert.ok(initialRead.value);
@@ -170,20 +173,23 @@ const source = fs.readFileSync(
 const names = [
   "isRecoveryCapability",
   "projectResourceTarget",
-  "persistRuntimeOwnedDockerTaskRecoveryCheckpoint",
-  "recoverRuntimeOwnedDockerTaskResources",
+  "persistDockerTaskRecoveryCheckpoint",
+  "recoverDockerTaskResources",
 ];
 const body = recoveryResourceFixtureBody(
   names.map((name) => sourceDeclaration(source, name)).join("\n"),
 );
-const needle = '{ event: "identified", key, snapshot, cleanup: book.cleanup }';
-assert.equal(body.split(needle).length - 1, 1);
+// 整形で改行位置が変わっても同じ一箇所だけを変異させる。
+const needle =
+  /\{\s*event: "identified",\s*key,\s*snapshot,\s*cleanup: book\.cleanup,?\s*\}/gu;
+assert.equal(body.match(needle)?.length, 1);
 const mutant = body.replace(
   needle,
   '{ event: "identified", key, snapshot: { resources: snapshot.resources.map(r => r.key === key ? {...r, identity: {...r.identity, dockerId: "e".repeat(64)}} : r) }, cleanup: book.cleanup }',
 );
 assert.notEqual(body, mutant);
-const read = () => readState(verified.capability, { scope: "recovery" });
+const read = () =>
+  readState(prepareFixtureRecovery(verified.capability), { scope: "recovery" });
 const currentSnapshot = read();
 assert.equal(currentSnapshot.status, "completed", currentSnapshot.reason);
 assert.equal(currentSnapshot.lockReleased, true);
@@ -194,9 +200,9 @@ assert.ok(
   "fixture_snapshot_must_match_driver_input",
 );
 const driver =
-  runInThisContext(`(dependencies)=>{const {Buffer,isDeepStrictEqual,snapshotJsonValue,dockerRecoveryPreparations,borrowHostRecoveryManagementDirectory,assertCurrentRecoveryOwner,readState,saveRecoveryCheckpoint}=dependencies;
+  runInThisContext(`(dependencies)=>{const {Buffer,isDeepStrictEqual,snapshotJsonValue,dockerRecoveryPreparations,borrowHostRecoveryManagementDirectory,assertCurrentRecoveryOwner,recoveryStorageInput,readState,saveRecoveryCheckpoint}=dependencies;
 ${scenario === "known_id_mutant" ? mutant : body}
-return recoverRuntimeOwnedDockerTaskResources;}`)({
+return recoverDockerTaskResources;}`)({
     Buffer,
     snapshotJsonValue,
     isDeepStrictEqual,
@@ -208,6 +214,11 @@ return recoverRuntimeOwnedDockerTaskResources;}`)({
     assertCurrentRecoveryOwner: () => {
       events.push("owner");
       return live;
+    },
+    // 回復中の読取りは記録が保持するRepositoryから保存先を導く。
+    recoveryStorageInput: (value: unknown) => {
+      assert.equal(value, repository);
+      return value;
     },
     readState: () => {
       events.push("read");
@@ -267,7 +278,7 @@ f.calls.push = (...items: string[][]): number => {
         actualId,
         "削除前に同じ発見実IDを実Writerへ保存する",
       );
-      assert.equal(checkpoint?.receiptSource, "runtime_reconciliation");
+      assert.equal(checkpoint?.receiptSource, "docker_observation");
       removals++;
       events.push("remove");
     }
@@ -495,7 +506,7 @@ try {
       );
       // 発見Receiptは実IDを確定するが、過去の作成要求unknownを改変しない。
       assert.equal(resource.request, "unknown");
-      assert.equal(checkpoint.receiptSource, "runtime_reconciliation");
+      assert.equal(checkpoint.receiptSource, "docker_observation");
       assert.equal(
         checkpoint.observation,
         scenario === "known_id" ? "absent" : "present",

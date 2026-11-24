@@ -451,9 +451,9 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
           const cancel = () => {
             isCancellationObserved = true;
             resolve({
-              contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+              contract: "crdd-coordinator/objective-intake/v4",
               status: "cancelled",
-              reason: "orchestrator_parent_lost",
+              reason: "coordinator_parent_lost",
               requestId: "request-parent-loss",
               projectId: "project-a",
               milestoneId: "milestone-a",
@@ -564,7 +564,7 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
       runObjective: async () => ({
         contract: "crdd-coordinator/public-runtime/v2",
         status: "blocked",
-        reason: "orchestrator_task_recovery_required",
+        reason: "coordinator_task_recovery_required",
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         effectState: "unknown",

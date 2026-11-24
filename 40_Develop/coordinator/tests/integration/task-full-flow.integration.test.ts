@@ -22,7 +22,7 @@ import { withCallerPlan } from "../../../execution-model/tests/fixtures/executio
 
 import { acceptResult, submitDecision } from "../../src/lifecycle/decision.ts";
 import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/lifecycle/decision.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
+import { resolveExecutionStorageDirectory } from "../../src/lifecycle/host.ts";
 import { runTestCoordinatorObjective } from "../fixtures/task-persistence-fixture.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
@@ -55,7 +55,7 @@ function acceptIntegratedResult(
     suffix: string,
   ) => {
     const observed = readProjectExecutionState(
-      verifyRuntimePersistenceRepository(input.root),
+      resolveExecutionStorageDirectory(input.root),
       input.repositoryBindingId,
       input.projectId,
     );
@@ -106,7 +106,7 @@ function acceptIntegratedResult(
 function fixture(t: test.TestContext) {
   const { root, revision } = createRepository(t);
   const initialized = initializeExecutionStore(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     deriveCoordinatorRepositoryBindingId(root),
   );
   assert.equal(initialized.status, "completed");
@@ -191,8 +191,7 @@ function fixture(t: test.TestContext) {
         attempts += 1;
         const isSuccessful = attempts > 1;
         return {
-          contract:
-            "crdd-coordinator/orchestrator-single-task-adapter" as const,
+          contract: "crdd-coordinator/single-task-adapter" as const,
           attemptId: input.attemptId,
           operationId: input.operationId,
           authorityBindingId: input.authorityBindingId,
@@ -238,7 +237,7 @@ test("public intake, bounded retry, progress and integration form one accepted f
     context.request,
     new AbortController().signal,
   );
-  assert.equal(first.reason, "orchestrator_replan_required");
+  assert.equal(first.reason, "coordinator_replan_required");
   assert.ok("queueId" in first);
   assert.equal(first.projection?.qualityState, "blocked");
   const replanned = updateTestTaskAndQueue(
@@ -260,7 +259,7 @@ test("public intake, bounded retry, progress and integration form one accepted f
   );
   assert.equal(
     second.reason,
-    "orchestrator_tasks_completed_integration_pending",
+    "coordinator_tasks_completed_integration_pending",
   );
   assert.equal(context.attempts, 2);
   acceptIntegratedResult({
@@ -271,7 +270,7 @@ test("public intake, bounded retry, progress and integration form one accepted f
     objectiveId: "objective-full",
   });
   const finalState = readProjectExecutionState(
-    verifyRuntimePersistenceRepository(context.root),
+    resolveExecutionStorageDirectory(context.root),
     deriveCoordinatorRepositoryBindingId(context.root),
     context.request.projectId,
   );
@@ -296,7 +295,7 @@ test("public intake, bounded retry, progress and integration form one accepted f
 test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続する", async (t) => {
   const { root, revision } = createRepository(t);
   const initialized = initializeExecutionStore(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     deriveCoordinatorRepositoryBindingId(root),
   );
   assert.equal(initialized.status, "completed");
@@ -391,8 +390,7 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
         lifecycle.push(`completed:${input.attemptId}`);
         active -= 1;
         return {
-          contract:
-            "crdd-coordinator/orchestrator-single-task-adapter" as const,
+          contract: "crdd-coordinator/single-task-adapter" as const,
           attemptId: input.attemptId,
           operationId: input.operationId,
           authorityBindingId: input.authorityBindingId,
@@ -419,7 +417,7 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
   );
   assert.equal(
     execution.reason,
-    "orchestrator_tasks_completed_integration_pending",
+    "coordinator_tasks_completed_integration_pending",
   );
   assert.equal(maximumActive, 1);
   assert.equal(lifecycle.length, 4);
@@ -466,7 +464,7 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
     maximumReplans: context.request.maximumReplans,
   };
   const state = readProjectExecutionState(
-    verifyRuntimePersistenceRepository(context.root),
+    resolveExecutionStorageDirectory(context.root),
     deriveCoordinatorRepositoryBindingId(context.root),
     context.request.projectId,
   );
@@ -512,6 +510,6 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
   );
   assert.equal(
     completed.reason,
-    "orchestrator_tasks_completed_integration_pending",
+    "coordinator_tasks_completed_integration_pending",
   );
 });

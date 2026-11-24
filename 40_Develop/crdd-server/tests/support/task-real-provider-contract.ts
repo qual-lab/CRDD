@@ -9,7 +9,9 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
+import { observeAdditionalDevelopmentSource } from "../../../coordinator/scripts/benchmark.ts";
 import {
+  hasValidSettlementFailure,
   inspectRecoveryStartFailureDiagnostic,
   inspectTaskStageDiagnostic,
 } from "../../../coordinator/tests/support/task-diagnostic.ts";
@@ -17,14 +19,28 @@ import { isSupportedCrddRuntimeGitObjectId } from "../../../coordinator/tests/su
 import type { ProviderBoundaryDiagnosticNotice } from "../../../coordinator/src/lifecycle/validation.ts";
 import { inspectCoordinatorObjectiveResult } from "../../../coordinator/src/index.ts";
 import { snapshotPlainRecord } from "../../../coordinator/src/lifecycle/validation.ts";
-import { isPrimaryFailureDiagnostic } from "../../../executor/tests/support/provider-diagnostic.ts";
 import {
   getRepository,
   readRepositorySnapshot,
 } from "../../../version-control/src/index.ts";
 
 /**
- * orchestrator-real-provider-contractで使用するJson 記録の値契約を定義する。
+ * Server経由の開発検証で必要なソースを二読取りで観測する。
+ * @responsibility Coordinatorの固定範囲にServer自身を加え、単体照合と区別する。
+ * @trace ARCH-000004
+ * @effect 固定Repository内を読取り専用で観測する。
+ * @failure 固定範囲の一部でも観測できなければnull。
+ * @boundary Serverの開発検証だけで用い、製品の権限を表さない。
+ */
+export function observeServerDevelopmentSource() {
+  return observeAdditionalDevelopmentSource(
+    "crdd-server/development-source-snapshot/v1",
+    ["crdd-server"],
+  );
+}
+
+/**
+ * task-real-provider-contractで使用するJson 記録の値契約を定義する。
  *
  * @responsibility Json 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -37,7 +53,7 @@ import {
 export type JsonRecord = Readonly<Record<string, unknown>>;
 
 /**
- * orchestrator-real-provider-contractで使用するSelection Runtime Eventの値契約を定義する。
+ * task-real-provider-contractで使用するSelection Runtime Eventの値契約を定義する。
  *
  * @responsibility Selection Runtime EventのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -54,7 +70,7 @@ type SelectionRuntimeEvent = Readonly<{
   operationId: null;
 }>;
 /**
- * orchestrator-real-provider-contractで使用するProcess Started Runtime Eventの値契約を定義する。
+ * task-real-provider-contractで使用するProcess Started Runtime Eventの値契約を定義する。
  *
  * @responsibility Process Started Runtime EventのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -152,7 +168,7 @@ type ProviderBoundaryDiagnosticEvent =
       { event: "coordinator_provider_recovery_start_failed" }
     >;
 /**
- * orchestrator-real-provider-contractで使用するVerified Runtime Eventの値契約を定義する。
+ * task-real-provider-contractで使用するVerified Runtime Eventの値契約を定義する。
  *
  * @responsibility Verified Runtime EventのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -166,7 +182,7 @@ export type VerifiedRuntimeEvent =
   | SelectionRuntimeEvent
   | ProcessStartedRuntimeEvent;
 /**
- * orchestrator-real-provider-contractで使用する回復 Eventの値契約を定義する。
+ * task-real-provider-contractで使用する回復 Eventの値契約を定義する。
  *
  * @responsibility 回復 EventのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -197,7 +213,7 @@ type RecoveryEvent = Readonly<{
 const PROJECT_OPERATION_ID = /^operation-[a-f0-9]{40}$/u;
 
 /**
- * orchestrator-real-provider-contractで使用するPublic Process Observationの値契約を定義する。
+ * task-real-provider-contractで使用するPublic Process Observationの値契約を定義する。
  *
  * @responsibility Public Process ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -483,7 +499,7 @@ function parseKnownDiagnosticLine(
       typeof parsed.selectionReason !== "string" ||
       parsed.selectionReason.length < 1 ||
       parsed.inputBasis !==
-        "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight" ||
+        "caller_declared_task_attributes_plus_provider_preselection_candidate_with_deferred_provider_preflight" ||
       !Array.isArray(attributes) ||
       attributes.length !== CALLER_DECLARED_ATTRIBUTES.length ||
       !attributes.every(
@@ -607,8 +623,7 @@ function parseKnownDiagnosticLine(
           ? [...BOUNDARY_SETTLED_KEYS, "primaryFailure"].sort()
           : BOUNDARY_SETTLED_KEYS,
       ) &&
-      (!Object.hasOwn(parsed, "primaryFailure") ||
-        isPrimaryFailureDiagnostic(parsed.primaryFailure)) &&
+      hasValidSettlementFailure(parsed) &&
       (parsed.taskAttempt === 0 || parsed.taskAttempt === 1) &&
       (parsed.recoveryCorrelationId === null ||
         closedId(parsed.recoveryCorrelationId, 128)) &&
@@ -1113,7 +1128,7 @@ function semanticResult(
 }
 
 /**
- * orchestrator-real-provider-contractで使用するExpected Objectiveの値契約を定義する。
+ * task-real-provider-contractで使用するExpected Objectiveの値契約を定義する。
  *
  * @responsibility Expected ObjectiveのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -1132,7 +1147,7 @@ type ExpectedObjective = Readonly<{
   reviewerProvider?: "codex" | "claude";
 }>;
 /**
- * orchestrator-real-provider-contractで使用するRepository Snapshotの値契約を定義する。
+ * task-real-provider-contractで使用するRepository Snapshotの値契約を定義する。
  *
  * @responsibility Repository SnapshotのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -1151,7 +1166,7 @@ type RepositorySnapshot = Readonly<{
 }>;
 
 /**
- * orchestrator-real-provider-contractで使用するNormal Objective Runの値契約を定義する。
+ * task-real-provider-contractで使用するNormal Objective Runの値契約を定義する。
  *
  * @responsibility Normal Objective RunのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -1171,7 +1186,7 @@ type NormalObjectiveRun = Readonly<{
 }>;
 
 /**
- * orchestrator-real-provider-contractで使用する回復 Settlement Runの値契約を定義する。
+ * task-real-provider-contractで使用する回復 Settlement Runの値契約を定義する。
  *
  * @responsibility 回復 Settlement RunのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -1388,7 +1403,7 @@ export function buildCoordinatorRealProviderReport(
   );
   const runtimeSource =
     source &&
-    source.scope === "crdd-development-source-snapshot/v5" &&
+    source.scope === "crdd-server/development-source-snapshot/v1" &&
     typeof source.sourceSha256 === "string" &&
     /^[a-f0-9]{64}$/u.test(source.sourceSha256) &&
     typeof source.mcpEntrySourceSha256 === "string" &&
@@ -1466,7 +1481,7 @@ export function buildCoordinatorRealProviderReport(
       return (
         !expected ||
         value?.status !== "blocked" ||
-        value.reason !== "orchestrator_acceptance_decision_required" ||
+        value.reason !== "coordinator_acceptance_decision_required" ||
         value.requestId !== expected.requestId ||
         value.projectId !== expected.projectId ||
         value.milestoneId !== expected.milestoneId ||
@@ -1546,7 +1561,7 @@ export function buildCoordinatorRealProviderReport(
     ? cancellationResult.recoveryIds.filter(
         (value): value is string =>
           typeof value === "string" &&
-          /^runtime-process\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.restart-[0-9a-f]{40}$/u.test(
+          /^execution-process\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.restart-[0-9a-f]{40}$/u.test(
             value,
           ),
       )
@@ -1566,13 +1581,13 @@ export function buildCoordinatorRealProviderReport(
       const obligation = value as JsonRecord;
       return (
         Object.keys(obligation).length === 2 &&
-        obligation.kind === "runtime_process" &&
+        obligation.kind === "execution_process" &&
         obligation.recoveryId === cancellationRecoveryIds[0]
       );
     });
   if (
     cancellationResult?.status !== "blocked" ||
-    cancellationResult.reason !== "orchestrator_task_recovery_required" ||
+    cancellationResult.reason !== "coordinator_task_recovery_required" ||
     cancellationResult.requestId !== input.cancellationExpected.requestId ||
     cancellationResult.projectId !== input.cancellationExpected.projectId ||
     cancellationResult.milestoneId !== input.cancellationExpected.milestoneId ||
@@ -1659,7 +1674,7 @@ export function buildCoordinatorRealProviderReport(
     problems.push("recovery_reentry_response_envelope");
   const isRecoveryReentryResultMatched =
     recoveryResult?.status === "blocked" &&
-    recoveryResult.reason === "orchestrator_acceptance_decision_required" &&
+    recoveryResult.reason === "coordinator_acceptance_decision_required" &&
     recoveryResult.requestId === recovery.expected.requestId &&
     recoveryResult.projectId === recovery.expected.projectId &&
     recoveryResult.milestoneId === recovery.expected.milestoneId &&
@@ -1841,13 +1856,13 @@ export function buildCoordinatorRealProviderReport(
     isRecoverySettlementExercised &&
     publicResults.every((result) => result?.cleanupConfirmed === true);
   return Object.freeze({
-    contract: "crdd-coordinator/orchestrator-real-provider-verification",
+    contract: "crdd-coordinator/real-provider-verification",
     contractRevision: 13,
     aiSelectionObservationStatus,
     status: isCompleted ? "completed" : "blocked",
     reason: isCompleted
-      ? "orchestrator_public_mcp_real_providers_cancellation_and_recovery_verified"
-      : "orchestrator_public_mcp_verification_incomplete",
+      ? "coordinator_public_mcp_real_providers_cancellation_and_recovery_verified"
+      : "coordinator_public_mcp_verification_incomplete",
     problems: Object.freeze(problems),
     cleanupConfirmed,
     manualRecoveryRequired:
@@ -1894,7 +1909,7 @@ export function buildCoordinatorRealProviderReport(
       verifiedObjectiveCount: normalResults.filter(
         (value) =>
           value?.status === "blocked" &&
-          value.reason === "orchestrator_acceptance_decision_required",
+          value.reason === "coordinator_acceptance_decision_required",
       ).length,
       runs: Object.freeze(
         input.normalRuns.map((operationRun, index) =>

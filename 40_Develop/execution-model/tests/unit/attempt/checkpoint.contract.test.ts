@@ -15,7 +15,7 @@ import {
   decodeHostOperation,
   validHostOperationTransition,
 } from "../../../src/attempt/validation.ts";
-import { createRuntimeStorageSourceFixture } from "../../support/runtime-storage-source.ts";
+import { createRuntimeStorageSourceFixture } from "../../support/storage-source.ts";
 import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 import { encodeStateValue } from "../../../src/state/operations.ts";
 
@@ -533,6 +533,16 @@ test("HostのGit資源は別操作・Index逸脱・既知値差と未回収終�
     cleanup: "pending",
   } as const;
   const before = { ...host, git: [item] };
+  const storedIndex = {
+    relativePath: `.crdd/coordinator/${host.operationId}/management/candidate-index-abcdef`,
+    identity: "a".repeat(64),
+  };
+  assert.ok(
+    decodeHostOperation({
+      ...host,
+      git: [{ ...item, temporary: storedIndex }],
+    }),
+  );
   for (const first of [
     item,
     { ...item, request: "unknown" },
@@ -571,7 +581,14 @@ test("HostのGit資源は別操作・Index逸脱・既知値差と未回収終�
     {
       ...item,
       temporary: {
+        ...storedIndex,
         relativePath: `.crdd/operations/${host.operationId}/management/candidate-index-abcdef`,
+      },
+    },
+    {
+      ...item,
+      temporary: {
+        ...storedIndex,
         identity: "bad",
       },
     },

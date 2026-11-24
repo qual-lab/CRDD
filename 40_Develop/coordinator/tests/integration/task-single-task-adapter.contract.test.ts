@@ -100,7 +100,7 @@ test("Workspace観測snapshotは方式と変更情報の相関を保持する", 
   }
 });
 
-const CONTRACT = "crdd-coordinator/orchestrator-single-task-adapter";
+const CONTRACT = "crdd-coordinator/single-task-adapter";
 const ATTEMPT_ID = "attempt-0001";
 const OPERATION_ID = "operation-0001";
 const AUTHORITY_BINDING_ID = "authority-0001";
@@ -719,7 +719,7 @@ test("実行メタデータは共通Task入口の第7引数で同じ内容を搬
       _workspace,
       metadata,
     ) => {
-      assert.equal(consumer, "orchestrator");
+      assert.equal(consumer, "coordinator");
       received = metadata;
       throw Error(COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS[0]);
     },
@@ -1196,7 +1196,7 @@ test("Recovery Identityは種類横断で重複なく保持される", async () 
     snapshotSingleTaskResult({
       ...collected,
       recoveryObligations: obligations.map((item, index) =>
-        index === 128 ? { ...item, kind: "runtime_process" } : item,
+        index === 128 ? { ...item, kind: "execution_process" } : item,
       ),
     }),
     null,

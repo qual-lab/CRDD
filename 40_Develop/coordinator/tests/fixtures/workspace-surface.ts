@@ -11,6 +11,8 @@
  */
 
 import assert from "node:assert/strict";
+import { getRepository } from "../../../version-control/src/index.ts";
+import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -27,13 +29,9 @@ import {
   projectExecutionFixture,
   initialExecutionInput,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
+import { resolveExecutionStorageDirectory } from "../../src/lifecycle/host.ts";
 
 import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
-import {
-  type CoordinatorWorkspaceRequest,
-  manageCoordinatorWorkspace,
-} from "../../src/lifecycle/workspace.ts";
 import { taskExecutionSelections } from "./ai-selection.ts";
 
 /**
@@ -53,7 +51,7 @@ export function prepareWorkspaceSurface(
   base: string,
 ) {
   const binding = deriveCoordinatorRepositoryBindingId(root);
-  const repository = verifyRuntimePersistenceRepository(root);
+  const repository = resolveExecutionStorageDirectory(root);
   const initialized = initializeExecutionStore(repository, binding);
   assert.equal(initialized.status, "completed");
   if (initialized.status !== "completed")
@@ -80,7 +78,7 @@ export function prepareWorkspaceSurface(
   assert.ok(created.state);
   const ports = Object.freeze({
     workingDirectory: root,
-    repository: verifyRuntimePersistenceRepository(root),
+    repository: resolveExecutionStorageDirectory(root),
     repositoryBindingId: binding,
     intake: undefined,
   });
@@ -126,9 +124,12 @@ export function prepareWorkspaceSurface(
  * @boundary 試験の観測。保存・Lock・Authorityは発行しない。
  */
 export function readFixtureSnapshot(root: string, binding: string) {
-  const read = readState(verifyRuntimePersistenceRepository(root), {
-    scope: "recovery",
-  });
+  const read = readState(
+    prepareFixtureRecovery(getRepository(root).capability),
+    {
+      scope: "recovery",
+    },
+  );
   if (read.status !== "completed" || !read.value)
     return { ...read, value: null };
   assert.ok(read.value.snapshot.repositoryBindingId !== null);
@@ -228,7 +229,7 @@ export function fixture(t: TestContext, independent = false) {
   const base = git(root, ["rev-parse", "HEAD"]);
   const binding = deriveCoordinatorRepositoryBindingId(root);
   const initialized = initializeExecutionStore(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     binding,
   );
   assert.equal(initialized.status, "completed", JSON.stringify(initialized));
@@ -254,7 +255,7 @@ export function fixture(t: TestContext, independent = false) {
   assert.ok(created.state);
   const ports = Object.freeze({
     workingDirectory: root,
-    repository: verifyRuntimePersistenceRepository(root),
+    repository: resolveExecutionStorageDirectory(root),
     repositoryBindingId: binding,
     intake: undefined,
   });
@@ -290,14 +291,6 @@ export function fixture(t: TestContext, independent = false) {
     queueId: "queue-a",
     workspaceId,
   };
-  const operate = (
-    operation: Omit<CoordinatorWorkspaceRequest, keyof typeof common> &
-      Record<string, unknown>,
-  ) =>
-    manageCoordinatorWorkspace({
-      ...common,
-      ...operation,
-    } as CoordinatorWorkspaceRequest);
   /**
    * 同じWorkspace fixtureの保存Snapshotを実Readerから取得する。
    * @responsibility 同じWorkspace fixtureの保存Snapshotを実Readerから取得する。
@@ -322,7 +315,6 @@ export function fixture(t: TestContext, independent = false) {
     base,
     ports,
     common,
-    operate,
     snapshot,
     tree: path.join(root, ".crdd", "workspaces", workspaceId, "worktree"),
   };

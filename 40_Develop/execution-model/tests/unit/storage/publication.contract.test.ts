@@ -34,7 +34,7 @@ const recovery = stripTypeScriptTypes(
  */
 test("保存調停は四用途の証拠を一回接続し全終了で失効する", () => {
   for (const kind of [
-    "runtime_repair",
+    "docker_repair",
     "current_completion",
     "current_history",
     "authentication_unknown_closure",
@@ -68,7 +68,6 @@ test("保存調停は四用途の証拠を一回接続し全終了で失効す�
             currentCompletion?: object;
           } | null,
           _unissued: unknown,
-          _host: unknown,
           repair: object | undefined,
         ) => {
           if (!repository)
@@ -108,12 +107,12 @@ test("保存調停は四用途の証拠を一回接続し全終了で失効す�
         kind,
         repository: { revalidate: () => live },
         recoveryId: "exact",
-        before: kind === "runtime_repair" ? null : Buffer.from("before"),
+        before: kind === "docker_repair" ? null : Buffer.from("before"),
         candidate: Buffer.from("candidate"),
         assertOwner: () => live,
-        ...(kind === "runtime_repair" ? { purpose: "checkpoint" } : {}),
+        ...(kind === "docker_repair" ? { purpose: "checkpoint" } : {}),
         ...(kind === "current_completion" || kind === "current_history"
-          ? { operationKind: "runtime_repair", historyFile: null }
+          ? { operationKind: "docker_repair", historyFile: null }
           : {}),
         ...(kind === "current_history"
           ? {
@@ -127,10 +126,10 @@ test("保存調停は四用途の証拠を一回接続し全終了で失効す�
           : {}),
       });
       const partial =
-        kind === "runtime_repair" && mode === "initialization_partial";
+        kind === "docker_repair" && mode === "initialization_partial";
       assert.equal(writes, partial ? 0 : 1);
-      assert.equal(initialized, kind === "runtime_repair" ? 1 : 0);
-      assert.equal(result.filesystemEffectIssued, kind === "runtime_repair");
+      assert.equal(initialized, kind === "docker_repair" ? 1 : 0);
+      assert.equal(result.filesystemEffectIssued, kind === "docker_repair");
       assert.equal(settlements.size, 0);
       assert.equal(initializations.size, 0);
       if (
@@ -167,16 +166,16 @@ test("保存調停は不明用途と用途混在をEffect前に拒否する", ()
   });
   for (const request of [
     { kind: "unknown" },
-    { kind: "runtime_repair", purpose: "history" },
+    { kind: "docker_repair", purpose: "history" },
     { kind: "current_completion", operationKind: "unknown" },
     {
       kind: "current_history",
-      operationKind: "runtime_repair",
+      operationKind: "docker_repair",
       stage: "unknown",
     },
     {
       kind: "current_completion",
-      operationKind: "runtime_repair",
+      operationKind: "docker_repair",
       purpose: "checkpoint",
     },
     { kind: "authentication_unknown_closure", stage: "confirmed" },

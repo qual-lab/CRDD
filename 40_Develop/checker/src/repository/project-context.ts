@@ -12,10 +12,7 @@ import {
   parseRepositoryProjectContextMarkdown,
 } from "../../../document-model/src/index.ts";
 
-import {
-  getRepository,
-  resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+import { readRepositoryLocation } from "../../../version-control/src/index.ts";
 import type { DocumentFinding } from "../report/types.ts";
 import {
   lstatIfPresent,
@@ -106,11 +103,7 @@ export function inspectProjectContextRepository(
       );
     }
     if (!target.template) {
-      const verifiedRoot = getRepository(root);
-      const repositoryRoot =
-        verifiedRoot.status === "completed"
-          ? resolveVerifiedRepositoryRoot(verifiedRoot.capability)
-          : null;
+      const repositoryRoot = readRepositoryLocation(root)?.directory ?? null;
       const manifestPath =
         repositoryRoot === null
           ? null

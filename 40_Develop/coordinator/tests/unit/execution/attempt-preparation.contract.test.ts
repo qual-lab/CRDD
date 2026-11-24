@@ -153,15 +153,17 @@ test("準備計画は共有項目を再利用しProvider相関と段階差を維
     temporarySourcePath: true,
     workspaceSourcePath: true,
     workspaceProtection: true,
+    reviewerMasks: true,
     workspaceMountMode: true,
   };
-  assert.deepEqual(
-    Reflect.ownKeys(codex).sort(),
-    Reflect.ownKeys(expectedKeys).sort(),
+  // reviewerMasksはReviewer計画だけに付く。ここで比べるのはExecutor計画である。
+  const executorKeys = Reflect.ownKeys(expectedKeys).filter(
+    (key) => key !== "reviewerMasks",
   );
+  assert.deepEqual(Reflect.ownKeys(codex).sort(), [...executorKeys].sort());
   assert.deepEqual(
     Reflect.ownKeys(claude).sort(),
-    [...Reflect.ownKeys(expectedKeys), "taskWorkload"].sort(),
+    [...executorKeys, "taskWorkload"].sort(),
   );
   void [
     execution,

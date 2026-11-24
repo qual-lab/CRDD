@@ -12,9 +12,9 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import {
-  consumeRuntimeOwnedProviderAdvicePacket,
-  issueRuntimeOwnedProviderAdvicePacket,
-  revokeRuntimeOwnedProviderAdvicePacket,
+  consumeProviderAdvicePacket,
+  issueProviderAdvicePacket,
+  revokeProviderAdvicePacket,
 } from "../../../src/lifecycle/selection.ts";
 import type { ProviderAdvicePacketInput } from "../../../src/lifecycle/types.ts";
 
@@ -54,36 +54,30 @@ function input(): ProviderAdvicePacketInput {
  * @boundary Packet Ownerと確定入力。
  */
 test("助言Packetは元Ownerだけが一回消費しCommandを含まない", () => {
-  const issued = issueRuntimeOwnedProviderAdvicePacket(input());
+  const issued = issueProviderAdvicePacket(input());
   assert.equal(issued.status, "issued");
   assert.equal(issued.providerEffectIssued, false);
-  assert.equal(
-    consumeRuntimeOwnedProviderAdvicePacket(issued.useCapability, {}),
-    null,
-  );
-  const cancelled = issueRuntimeOwnedProviderAdvicePacket(input());
+  assert.equal(consumeProviderAdvicePacket(issued.useCapability, {}), null);
+  const cancelled = issueProviderAdvicePacket(input());
   assert.equal(cancelled.status, "issued");
   assert.notEqual(issued.ownerCapability, cancelled.ownerCapability);
   assert.notEqual(issued.useCapability, cancelled.useCapability);
+  assert.equal(revokeProviderAdvicePacket(issued.useCapability), false);
   assert.equal(
-    revokeRuntimeOwnedProviderAdvicePacket(issued.useCapability),
-    false,
-  );
-  assert.equal(
-    consumeRuntimeOwnedProviderAdvicePacket(
+    consumeProviderAdvicePacket(
       cancelled.useCapability,
       issued.ownerCapability,
     ),
     null,
   );
   assert.equal(
-    consumeRuntimeOwnedProviderAdvicePacket(
+    consumeProviderAdvicePacket(
       issued.useCapability,
       cancelled.ownerCapability,
     ),
     null,
   );
-  const packet = consumeRuntimeOwnedProviderAdvicePacket(
+  const packet = consumeProviderAdvicePacket(
     issued.useCapability,
     issued.ownerCapability,
   );
@@ -98,26 +92,15 @@ test("助言Packetは元Ownerだけが一回消費しCommandを含まない", ()
   assert.equal(packet.sessionPersistenceAllowed, false);
   assert.match(packet.packetHash, /^[a-f0-9]{64}$/u);
   assert.equal(
-    consumeRuntimeOwnedProviderAdvicePacket(
-      issued.useCapability,
-      issued.ownerCapability,
-    ),
+    consumeProviderAdvicePacket(issued.useCapability, issued.ownerCapability),
     null,
   );
-  assert.equal(
-    revokeRuntimeOwnedProviderAdvicePacket(issued.ownerCapability),
-    false,
-  );
-  const result = revokeRuntimeOwnedProviderAdvicePacket(
-    cancelled.ownerCapability,
-  );
+  assert.equal(revokeProviderAdvicePacket(issued.ownerCapability), false);
+  const result = revokeProviderAdvicePacket(cancelled.ownerCapability);
   assert.equal(result, true);
+  assert.equal(revokeProviderAdvicePacket(cancelled.ownerCapability), false);
   assert.equal(
-    revokeRuntimeOwnedProviderAdvicePacket(cancelled.ownerCapability),
-    false,
-  );
-  assert.equal(
-    consumeRuntimeOwnedProviderAdvicePacket(
+    consumeProviderAdvicePacket(
       cancelled.useCapability,
       cancelled.ownerCapability,
     ),
@@ -138,8 +121,8 @@ test("助言Packetは元Ownerだけが一回消費しCommandを含まない", ()
  */
 test("Packet Hashは操作・完全選定・本文・参照・Policyを固定する", () => {
   const value = input(),
-    issued = issueRuntimeOwnedProviderAdvicePacket(value);
-  const packet = consumeRuntimeOwnedProviderAdvicePacket(
+    issued = issueProviderAdvicePacket(value);
+  const packet = consumeProviderAdvicePacket(
     issued.useCapability,
     issued.ownerCapability,
   );
@@ -207,7 +190,7 @@ test("入力検査は選定・通信条件・旧Command・不正dataを拒否す
     { allowedReferences: ["same", "same"] },
     { providerCommand: { workspaceMountRequired: true } },
   ]) {
-    const issued = issueRuntimeOwnedProviderAdvicePacket({
+    const issued = issueProviderAdvicePacket({
       ...input(),
       ...change,
     } as ProviderAdvicePacketInput);
@@ -223,12 +206,9 @@ test("入力検査は選定・通信条件・旧Command・不正dataを拒否す
       throw Error("must not read");
     },
   });
+  assert.equal(issueProviderAdvicePacket(accessor).status, "blocked");
   assert.equal(
-    issueRuntimeOwnedProviderAdvicePacket(accessor).status,
-    "blocked",
-  );
-  assert.equal(
-    issueRuntimeOwnedProviderAdvicePacket(new Proxy(input(), {})).status,
+    issueProviderAdvicePacket(new Proxy(input(), {})).status,
     "blocked",
   );
   assert.equal(reads, 0);
@@ -251,12 +231,12 @@ test("Policy・参照・本文は発行時の値で固定する", () => {
     allowedReferences: ["PROJECT_CONTEXT.md"],
     additionalHosts: JSON.parse(JSON.stringify(input().additionalHosts)),
   };
-  const issued = issueRuntimeOwnedProviderAdvicePacket(value);
+  const issued = issueProviderAdvicePacket(value);
   value.allowedReferences.push("later");
   value.additionalHosts.push("later.example");
   value.providerPrompt = "later";
   value.executionSelection = executionSelection("executor");
-  const packet = consumeRuntimeOwnedProviderAdvicePacket(
+  const packet = consumeProviderAdvicePacket(
     issued.useCapability,
     issued.ownerCapability,
   );
@@ -278,10 +258,10 @@ test("Policy・参照・本文は発行時の値で固定する", () => {
  * @cleanup Packetを消費する。外部資源なし。
  */
 test("発行した助言Packetは非共有の内容を一回だけ返す", () => {
-  const issued = issueRuntimeOwnedProviderAdvicePacket(input());
+  const issued = issueProviderAdvicePacket(input());
   assert.equal(issued.status, "issued");
   assert.equal(issued.providerEffectIssued, false);
-  const packet = consumeRuntimeOwnedProviderAdvicePacket(
+  const packet = consumeProviderAdvicePacket(
     issued.useCapability,
     issued.ownerCapability,
   );
@@ -296,10 +276,7 @@ test("発行した助言Packetは非共有の内容を一回だけ返す", () =>
   ] as const)
     assert.equal(packet[field], false, field);
   assert.equal(
-    consumeRuntimeOwnedProviderAdvicePacket(
-      issued.useCapability,
-      issued.ownerCapability,
-    ),
+    consumeProviderAdvicePacket(issued.useCapability, issued.ownerCapability),
     null,
   );
 });

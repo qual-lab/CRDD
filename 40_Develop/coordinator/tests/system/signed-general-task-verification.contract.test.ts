@@ -23,7 +23,7 @@ import test from "node:test";
 import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
-import { observeRuntimeOwnedDevelopmentSource } from "../../scripts/benchmark.ts";
+import { observeDevelopmentSource } from "../../scripts/benchmark.ts";
 import {
   getRepository,
   readRepositorySnapshot,
@@ -209,7 +209,7 @@ function resolvesToForbiddenWindowsAsciiModule(
  */
 function source(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
-    scope: "crdd-development-source-snapshot/v5",
+    scope: "crdd-development-source-snapshot/v6",
     sourceSha256: "0".repeat(64),
     sourceIdentitySha256: "9".repeat(64),
     crddCommit: baseCommit,
@@ -645,7 +645,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   );
   assert.equal(
     contract.boundedRemediation,
-    "zero_or_one_runtime_owned_remediation_then_same_independent_reviewer_approval_required",
+    "zero_or_one_remediation_then_same_independent_reviewer_approval_required",
   );
   assert.equal(
     contract.taskFailureReasonProjection,
@@ -933,7 +933,7 @@ test("Source初回観測の欠測・例外・不正値はTask開始0で閉じる
   const getter = {
     get scope() {
       getterCalls += 1;
-      return "crdd-development-source-snapshot/v5";
+      return "crdd-development-source-snapshot/v6";
     },
   };
   for (const observed of [
@@ -996,7 +996,7 @@ test("Source本番観測は固定module RootとGit前後照合を使用する", 
     .replace(/,$/u, "")
     .replace("import.meta.url", JSON.stringify(scriptUrl.href));
   const root = path.resolve(coordinatorRoot, "../..");
-  const expectedSource = observeRuntimeOwnedDevelopmentSource();
+  const expectedSource = observeDevelopmentSource();
   const expectedGit = readRepositorySnapshot(getRepository(root).capability);
   assert.ok(expectedSource && expectedGit?.status === "observed");
   const order: string[] = [];
@@ -1011,9 +1011,9 @@ test("Source本番観測は固定module RootとGit前後照合を使用する", 
       order.push("git");
       return readRepositorySnapshot(observed);
     },
-    observeRuntimeOwnedDevelopmentSource: () => {
+    observeDevelopmentSource: () => {
       order.push("source");
-      return observeRuntimeOwnedDevelopmentSource();
+      return observeDevelopmentSource();
     },
   }) as () => Record<string, unknown> | null;
   assert.deepEqual(JSON.parse(JSON.stringify(observe())), {
@@ -1045,7 +1045,7 @@ test("Source本番観測は固定module RootとGit前後照合を使用する", 
       fileURLToPath,
       getRepository,
       readRepositorySnapshot: () => (count++ === 0 ? before : after),
-      observeRuntimeOwnedDevelopmentSource: () => observed,
+      observeDevelopmentSource: () => observed,
     }) as () => unknown;
     assert.equal(fixture(), null);
     assert.equal(count, 2);
@@ -1099,7 +1099,7 @@ test("Source終了観測は破棄・解除後に五値を照合し内部値を�
     assert.equal(result.cleanupConfirmed, true);
     assert.equal(result.effectStateUnknown, false);
     assert.equal(result.canonicalRepositoryChanged, false);
-    assert.equal(result.sourceScope, "crdd-development-source-snapshot/v5");
+    assert.equal(result.sourceScope, "crdd-development-source-snapshot/v6");
     assert.equal(result.sourceSha256, "0".repeat(64));
     assert.equal(result.signatureRequired, false);
     for (const key of [

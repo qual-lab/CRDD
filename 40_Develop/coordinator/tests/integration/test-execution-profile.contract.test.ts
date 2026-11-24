@@ -22,21 +22,21 @@ const gateFiles = [
     expansion: /test\("Host Windows:/,
   },
   {
-    file: "integration/docker-effect-runtime.contract.test.ts",
+    file: "integration/docker-effect-dispatch.contract.test.ts",
     prefixOccurrences: 2,
     expandedCases: 2,
     expansion: /test\("Host Windows:/,
   },
   {
-    file: "integration/coordinator-state-runtime.contract.test.ts",
-    prefixOccurrences: 4,
-    expandedCases: 4,
-    expansion: /test\("Host Windows:/,
+    file: "integration/coordinator-state-storage.contract.test.ts",
+    prefixOccurrences: 3,
+    expandedCases: 5,
+    expansion: /for \(const issuedFailure of \[false, true\]\)/,
   },
   {
     file: "integration/docker-recovery-owner-reentry.contract.test.ts",
     prefixOccurrences: 3,
-    expandedCases: 14,
+    expandedCases: 13,
     expansion: /for \(const \{ repeatCount, retained \} of \[/,
   },
   {
@@ -47,14 +47,14 @@ const gateFiles = [
   },
   {
     file: "integration/host-recovery-record.contract.test.ts",
-    prefixOccurrences: 12,
-    expandedCases: 12,
-    expansion: /test\("Host Windows:/,
+    prefixOccurrences: 1,
+    expandedCases: 29,
+    expansion: /for \(const scenario of \[/,
   },
   {
     file: "integration/current-host-transition.integration.test.ts",
     prefixOccurrences: 1,
-    expandedCases: 28,
+    expandedCases: 21,
     expansion: /for \(const publicationFault of \[/,
   },
   {
@@ -82,7 +82,7 @@ const gateFiles = [
     expansion: /test\("Host Windows:/,
   },
   {
-    file: "integration/runtime-repair-owner.contract.test.ts",
+    file: "integration/docker-repair-owner.contract.test.ts",
     prefixOccurrences: 13,
     expandedCases: 13,
     expansion: /test\("Host Windows:/,
@@ -147,7 +147,7 @@ test("旧署名graphの任意実行入口を残さず通常checkを維持する"
     assert.equal(scripts[name], undefined, name);
   assert.equal(
     scripts.check,
-    "npm run format:check && npm run typecheck && npm run lint && npm run runtime-traceability:check && npm run task-design-traceability:check",
+    "npm run format:check && npm run typecheck && npm run lint && npm run execution-traceability:check && npm run task-design-traceability:check",
   );
 });
 
@@ -194,7 +194,7 @@ test("Portable試験とHost Windows試験は同じ実環境専用の閉集合を
   );
   assert.equal(
     scripts["test:host-windows"],
-    'node --experimental-test-module-mocks --test --test-concurrency=1 "--test-name-pattern=^Host Windows:" ./tests/integration/docker-effect-runtime.contract.test.ts ./tests/integration/coordinator-state-runtime.contract.test.ts ./tests/integration/docker-recovery-owner-reentry.contract.test.ts ./tests/integration/host-recovery-record.contract.test.ts ./tests/integration/current-host-transition.integration.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/integration/codex-executor-sandbox.integration.test.ts ./tests/integration/docker-process-controller.contract.test.ts ./tests/integration/task-durable-foundation.contract.test.ts ./tests/integration/runtime-repair-owner.contract.test.ts ./tests/integration/docker-auth-create-closure.contract.test.ts ./tests/integration/development-native-observation.integration.test.ts',
+    'node --experimental-test-module-mocks --test --test-concurrency=1 "--test-name-pattern=^Host Windows:" ./tests/integration/docker-effect-dispatch.contract.test.ts ./tests/integration/coordinator-state-storage.contract.test.ts ./tests/integration/docker-recovery-owner-reentry.contract.test.ts ./tests/integration/host-recovery-record.contract.test.ts ./tests/integration/current-host-transition.integration.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/integration/codex-executor-sandbox.integration.test.ts ./tests/integration/docker-process-controller.contract.test.ts ./tests/integration/task-durable-foundation.contract.test.ts ./tests/integration/docker-repair-owner.contract.test.ts ./tests/integration/docker-auth-create-closure.contract.test.ts ./tests/integration/development-native-observation.integration.test.ts',
   );
   assert.equal(scripts.test, "npm run check && npm run test:run");
   assert.equal(scripts["test:run"], "npm run test:portable");
@@ -228,8 +228,36 @@ test("Portable試験とHost Windows試験は同じ実環境専用の閉集合を
   } of gateFiles) {
     const source = fs.readFileSync(new URL(file, testsRoot), "utf8");
     const occurrences = countHostTestRegistrations(source);
-    assert.equal(occurrences, prefixOccurrences);
+    assert.equal(occurrences, prefixOccurrences, file);
     assert.match(source, expansion);
+    if (file === "integration/host-recovery-record.contract.test.ts") {
+      const cases = source.match(
+        /^for \(const scenario of \[([\s\S]*?)\]\) \{/mu,
+      );
+      assert.ok(cases);
+      const names = [...(cases[1] ?? "").matchAll(/"([a-z_]+)"/gu)].map(
+        (match) => match[1],
+      );
+      assert.equal(names.length, expandedCases);
+      assert.equal(new Set(names).size, expandedCases);
+    }
+    if (file === "integration/current-host-transition.integration.test.ts") {
+      const cases = source.match(
+        /^for \(const publicationFault of \[([\s\S]*?)\] as const\) \{/mu,
+      );
+      assert.ok(cases);
+      const names = [...(cases[1] ?? "").matchAll(/"([a-z_]+)"/gu)].map(
+        (match) => match[1],
+      );
+      assert.equal(names.length, expandedCases);
+      assert.equal(new Set(names).size, expandedCases);
+    }
+    if (file === "integration/coordinator-state-storage.contract.test.ts") {
+      assert.match(
+        source,
+        /for \(const consumer of \["workbench", "coordinator_cli"\] as const\)/u,
+      );
+    }
     if (file === "integration/docker-recovery-owner-reentry.contract.test.ts") {
       const ownerLoop = executableTestSource(source).match(
         /for \(const \{ repeatCount, retained \} of \[([\s\S]*?)\]\)/u,
@@ -245,7 +273,6 @@ test("Portable試験とHost Windows試験は同じ実環境専用の閉集合を
           [1, false],
           [1, true],
           [2, false],
-          [3, false],
         ],
       );
       const producerLoop = source.match(
@@ -283,7 +310,7 @@ test("Portable試験とHost Windows試験は同じ実環境専用の閉集合を
     gateCount += expandedCases;
     assert.match(scripts["test:host-windows"] ?? "", new RegExp(file));
   }
-  assert.equal(gateCount, 86);
+  assert.equal(gateCount, 96);
 });
 
 /**

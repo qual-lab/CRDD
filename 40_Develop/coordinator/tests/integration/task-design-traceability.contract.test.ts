@@ -184,7 +184,7 @@ describe("Task design traceability", () => {
       },
     );
     const oldTrace = currentTrace();
-    oldTrace.schema = "crdd-coordinator/orchestrator-design-traceability";
+    oldTrace.schema = "crdd-coordinator/design-traceability";
     assert.deepEqual(
       inspectCoordinatorDesignTraceability(oldTrace, repositoryReader),
       {

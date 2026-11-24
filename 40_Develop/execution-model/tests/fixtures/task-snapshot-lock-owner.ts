@@ -10,7 +10,7 @@
  */
 import { acquireSnapshotPilotLock } from "../../src/storage/lock.ts";
 
-const result = acquireSnapshotPilotLock(process.argv[2] ?? "");
+const result = acquireSnapshotPilotLock({ directory: process.argv[2] ?? "" });
 if (result.status !== "completed") {
   process.stdout.write(result.reason);
   process.exit(21);

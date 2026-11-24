@@ -15,7 +15,10 @@
     "lint": "biome lint . --error-on-warnings",
     "typecheck": "tsc -p ./tsconfig.json",
     "test": "npm run check && npm run test:run",
-    "test:run": "node --test ./tests/integration/*.test.ts"
+    "test:run": "node --test ./tests/integration/*.test.ts",
+    "test:credential-browser": "node --test ./tests/system/credential-administration-browser.contract.test.ts",
+    "test:visual": "node --test --test-concurrency=1 ./tests/system/workbench-visual.integration.test.ts",
+    "test:coverage": "node --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test-coverage-include=\"src/**/*.tsx\" --test ./tests/integration/*.test.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.6",

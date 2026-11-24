@@ -18,11 +18,12 @@
     "contractRevision": { "const": 0 },
     "stability": { "const": "pilot" },
     "subsystem": {
-      "enum": ["coordinator", "orchestrator"]
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
     },
     "sourceDocument": {
       "type": "string",
-      "pattern": "^06_Architecture/Details/coordinator/[^/]+\\.md$"
+      "minLength": 1
     },
     "sourceSha256": {
       "type": "string",
@@ -50,11 +51,11 @@
       "properties": {
         "semanticKey": {
           "type": "string",
-          "pattern": "^(?:coordinator|orchestrator)\\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+          "pattern": "^[a-z][a-z0-9-]*\\."
         },
         "kind": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+          "pattern": "^[a-z][a-z0-9-]*$"
         },
         "statement": { "type": "string", "minLength": 1 },
         "archIds": {
@@ -71,7 +72,7 @@
         },
         "sourceSection": {
           "type": "string",
-          "pattern": "^#{2,3} "
+          "minLength": 1
         },
         "notApplicableReason": {
           "type": ["string", "null"]

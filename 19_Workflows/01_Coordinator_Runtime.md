@@ -60,7 +60,7 @@ PA専用のビルド・Clippy・coverage手順は退役した。旧参照Anchor�
 
 ## 通常回復NamespaceのNode境界試験
 
-通常回復Namespaceは、承認済みのNode中心Policyに従い、Coordinatorの既存Directory生成処理を使う。専用Native保護Toolとfixture、旧observe／initialize modeは退役した。SID／DACL・祖先Handleの同等性は主張しない。専用TEMP保護はOS設定・運用の前提で、共有・保護不明ACLをNodeが自動拒否する保証はない。Provider Home／Runtimeの保護は別契約として維持する。
+通常回復Namespaceは、承認済みのNode中心Policyに従い、Coordinatorの既存Directory生成処理を使う。専用Native保護Toolとfixture、旧observe／initialize modeは退役した。SID／DACL・祖先Handleの同等性は主張しない。専用TEMP保護はOS設定・運用の前提で、共有・保護不明ACLをNodeが自動拒否する保証はない。Provider Homeの保護と、実行モデルによるリポジトリ内の保存排他は別契約として維持する。AppDataの旧共有ロックは使用しない。
 
 通常の反復確認はCoordinatorのhost-recovery-namespace.integration.test.tsとhost-recovery-record.contract.test.tsを使い、新品Repository-local領域で生成・再利用・不適合拒否・部分失敗・記録照合を確認する。各試験の自己生成領域だけを元実体・非使用確認後に回収し、不明・失敗時はexact対象を保持する。既存の共有Namespace、過去保持物、旧runの名前や時刻を削除根拠にしない。
 
@@ -126,13 +126,15 @@ Coordinator固有の署名用端末補助・準備・昇格Script、閉包検査
 | 順序 | 確認・処置 | 停止又は切戻し条件 |
 |---|---|---|
 | 1 | 同じRepositoryの旧新版受付・Task Ownerを止め、固定版、Root、未解決義務・配送・履歴・保存途中材料を確認する | Owner生存、資源・権限・相関が不明なら切替しない。Docker等の処置は別許可で既存入口を使う |
-| 2 | 旧`.crdd/coordinator/`・旧`.crdd/domain-model/`と新`.crdd/execution-model/`を一組として確認する。state、history、pending、state.lockを勝手に取捨選択しない | 新旧競合、内容不一致、未知Schema、link、Root外、観測不能は保全停止。新側の不存在を新品の根拠にしない |
+| 2 | 旧 `.crdd/coordinator/` 内の状態・旧 `.crdd/domain-model/` と新 `.crdd/execution-model/` を一組として確認する。state、history、pending、state.lockを勝手に取捨選択しない。旧 `.crdd/operations/` があれば実行ごとの資源と未解決参照も確認する | 新旧競合、内容不一致、未知Schema、link、Root外、観測不能は保全停止。新側の不存在を新品の根拠にしない |
 | 3 | 同じRootに結合した現行Schemaの内容だけを、許可された一時領域へ保全・コピーし、全対象のbytes／長さ／Hashと現在Readerの相関を確認する | pendingやmarkerを「不要」と推測して除去しない。変換・再入場の成立が未確認なら有効化しない。真正Mapや生きたLock handleはコピーしない |
-| 4 | 旧Writerが停止したまま、確認済みの全対象を新領域へ確定し、正本の読戻しと保持設定値を確認する。新起動設定だけを有効にする | `.crdd/config/coordinator.json`は名前・値を維持。二重Writer・旧版の再起動は禁止。未知を成功へ書き換えない |
+| 4 | 旧Writerが停止したまま、確認済みの全対象を新領域へ確定し、正本の読戻しと保持設定値を確認する。旧 `.crdd/coordinator/` 内の状態・履歴・保存途中ファイル・旧Lockは、対象と内容を照合して許可された保全先へ移すか明示処置し、作業領域からなくなったことを確認してから新版を起動する | `.gitkeep` と確認済みの実行資源以外が作業領域に残る場合は起動しない。`.crdd/config/coordinator.json`は名前・値を維持。二重Writer・旧版の再起動は禁止。未知を成功へ書き換えない |
 | 5 | 新しい版で最初の書込み前なら、全Owner停止と旧正本不変を確認して旧版へ戻せる。最初の書込み後は逆移行を別判断・別許可で行う | 新履歴を持つ状態でSourceだけ旧版へ戻さない。自動Merge・旧側への再送・単純上書きで切戻さない |
-| 6 | 旧領域の退役は、参照・非使用・実体・保持期限と削除許可を確認して別に処置し、要約を既存CHGへ返す | 過去保持物、正式Evidence、Credential、Workspaceを一括清掃しない。保持は既存の期限契約へ結び、無期限の移行書庫を作らない |
+| 6 | 切替後に退役を処置できるのは現行作業領域の外に保全した旧物だけとし、参照・非使用・実体・保持期限と削除許可を確認して、要約を既存CHGへ返す | 現行の `.crdd/coordinator/` 自体は退役させない。過去保持物、正式Evidence、Credential、Workspaceを一括清掃しない。保持は既存の期限契約へ結び、無期限の移行書庫を作らない |
 
-新規初期化は新領域の真正不存在に加えて、旧固定領域のmetadata不存在を必要とする。旧領域がある、又は確認できなければ空初期化を拒否する。製品は旧内容を読まず、移行済みかを独自台帳へ記録しない。新正本が既にある場合の通常読取りと、旧領域を残したままの空初期化は区別する。ひな型の既存`.gitkeep`は残すが、空の`execution-model`領域は配布せず、初期化証拠にも使わない。
+新規初期化では新領域の真正不存在と旧 `.crdd/domain-model/` の不存在を確認する。`.crdd/coordinator/` の有無では拒否しないため、切替前にフロントAIがそこに残る旧状態の移行・保全を判断する。ひな型の `.gitkeep` や新領域の不存在は移行済みの証拠ではない。製品に旧形式の読取り、移行台帳や自動移行は組み込まない。
+
+旧 `.crdd/operations/` に未回収の作業資源がある場合は、原則として旧版の既存回復で終結してから切り替える。引き継ぎが必要なら、全Owner停止下で元の実行・回復ID、移動元と移動先の実体、保存済みの相対Pathとの対応を確認する。資源の移動と実行モデルの記録更新の片方だけしか確認できない場合は、新版を起動しない。資源を終結した場合も、引き継ぐ状態に旧相対Pathが残っていないことを新版のReaderで確認する。記録の文字列だけで資源の移動・回収成立とみなさない。
 
 今回の保存構成刷新全体（Coordinator、Orchestrator、Execution Intelligence、設定、ログ、候補、署名準備、一時領域と試験結果）では、実装は採用済みの最新構成だけを扱う。旧配置探索、移行目的の旧Reader／Writer、二重書込みやFallbackは組み込まない。旧構成の棚卸し、必要情報のOwnerへの移行、停止・非使用確認後の清掃はフロントAIが担当する。旧署名の真正性確認など、移行とは別に成立が必要な現行Capabilityを互換処理と混同して削除しない。
 
@@ -161,7 +163,7 @@ Coordinator／Orchestrator／Dockerの短命な実行記録は、長期の互換
 | 呼出し元が利用可能な入口を調べる | `capabilities --json` | Local Personalで成立する公開commandだけを機械可読に返す |
 | 許可された一般Taskを実行する | `run task --request-stdin --json --principal-id <local-principal-id>` | 選択したCheckout・Repository・同意・Authority・Providerの各検査が必要。CRDD署名は不要。候補と回収結果を確認する |
 | 読取り専用の助言を依頼する | `run advice --request-stdin --json --principal-id <local-principal-id>` | 同じ単発受付へ`mode: "read_only_advice"`、`allowedPaths: []`、`workspaceId: null`を渡す。編集用途との不一致は実行前に拒否する。結果と回収状態を分けて確認する |
-| Workspaceの候補を固定・採用・不採用にする | Workbench／MCPの既存Workspace操作 | Coordinator CLIに旧Bundle／Storeのexport・discard・recover-storeはない。固定とGit統合・採用を区別する |
+| Workspaceを作成・廃棄し、候補を固定・採用・不採用にする | Workbench／MCPのWorkspace操作 | CRDD Serverが既存排他と回復を利用する。実行対象としてWorkspaceを指定する場合もWorkbench／MCPから開始する。固定とGit統合・採用は別操作。 |
 | 復旧担当が残存資源を処置する | `recovery resume <id>` | exact IDと所有・状態が一致する場合だけ。通常Taskの自動再試行にしない。作成結果不明のDocker Taskは、後発の検証済みDocker Desktop再起動を明示結合できる専用形だけを使う |
 | 保守担当が隔離を検証する | `doctor --isolation` | Docker／一時Filesystemの効果を伴う固定Fake診断。実Provider利用・実Provider取消の証明ではない |
 | 開発・配布担当が検証する | 下記の固定Task検証と任意配布検査 | 日常開発と公式署名を分ける。一般利用者にRelease鍵を要求しない |
@@ -261,7 +263,8 @@ Repository・Workspace・追加通信Allowlistは認証へ接続しない。実C
 | 1 | `recovery resume <docker-task-recovery-id> --restart-docker --json` | 同じ対象のための停止・起動・記録確定。Task回復完了ではない |
 | 2 | `recovery resume <same-docker-task-recovery-id> --json` | 現在状態の同じ再起動checkpointと対象資源を再確認し、Task固有の回復を行う |
 
-- Docker全体への停止影響を含む許可範囲を確認してから順序1を実行する。他Task、残存CLI、排他不成立または観測不能では停止し、対象を勝手に終了・削除しない。
+- 順序1の前に、同じDockerを使う別リポジトリ・別Provider Homeを含む他の実行・回復を停止し、再起動の完了まで新しく開始しない運用を確保する。Docker全体への停止影響を含む許可範囲を確認する。該当する他Taskや残存CLIがある、排他が成立しない、または確認できない場合は再起動せず、他の対象を勝手に終了・削除しない。
+- Coordinatorは対象操作とProvider Homeを保護し、DIはDesktop操作同士を排他する。AppDataの旧`RuntimeState`共有ロックは使わず、別リポジトリ・別Homeの資源回復との重複を自動拒否する保証はない。
 - 順序1の`restartCompleted`と`cleanupConfirmed`がともに成立した場合だけ順序2へ進む。旧障害修復の引数と混在させない。
 - 記録後専用flagは廃止し、通常の回復入口へ統一する。旧flagは引数不正として処置前に拒否し、旧記録の互換入口として受理しない。
 - 正常なrun Directoryを退避・削除しない。署名鍵入力や元Taskの再実行は、この操作に含まない。

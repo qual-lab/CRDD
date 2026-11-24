@@ -5,17 +5,113 @@
  * @boundary ローカルGitのみ。業務ID、新しいRegistry・Store・自動再送を持たない。
  */
 import fs from "node:fs";
+import { isDeepStrictEqual } from "node:util";
 import { cleanCommitTemporary } from "./commit.ts";
 import { createWorktreeGitContext } from "../worktree/crud.ts";
 import path from "node:path";
 import { executeGit } from "../git/execute.ts";
-import { resolveRepositoryGitLayout } from "./layout.ts";
-import { resolveVerifiedRepositoryRoot, type Repository } from "./location.ts";
+import {
+  isBranchName,
+  observeBranchCommit,
+  type ObservedBranchCommit,
+} from "../git/read.ts";
+import { resolveRepositoryGitLayout, type EntitySnapshot } from "./layout.ts";
+import {
+  observeVerifiedRepositoryLayout,
+  resolveVerifiedRepositoryRoot,
+  type Repository,
+} from "./location.ts";
+import { readWorktreeCreationDirty } from "./working-directory.ts";
 import type {
   ReferenceCreateRequest,
   ReferenceRemoveRequest,
   ReferenceResult,
 } from "./types.ts";
+
+/** 通常Fileとして存在するRef祖先だけを許し、packed Refの不存在とは区別する。 @trace ARCH-000009 */
+function assertReferencePath(root: string, name: string) {
+  let cursor = resolveRepositoryGitLayout(root).commonDirectory.realPath;
+  const parts = name.split("/");
+  for (const [i, part] of parts.entries()) {
+    cursor = path.join(cursor, part);
+    try {
+      const info = fs.lstatSync(cursor);
+      if (
+        info.isSymbolicLink() ||
+        (i < parts.length - 1
+          ? !info.isDirectory()
+          : !info.isFile() || info.nlink !== 1)
+      )
+        throw Error("reference_path_invalid");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") break;
+      throw error;
+    }
+  }
+}
+
+/** 直接BranchのOIDとCommit種別を一緒に読み、同じRepositoryの作成基準を返す。 @trace ARCH-000009 */
+export function readBranchHead(
+  repository: Repository,
+  branch: string,
+): ObservedBranchCommit | null {
+  return observeRepositoryBranchHead(repository, branch, null);
+}
+
+/** 作成受付の状態・基準を取り、読取りとcheckoutのfilter設定を一度に照合する。 @trace ARCH-000009 */
+export function readWorktreeCreationSource(
+  repository: Repository,
+  branch: string,
+) {
+  const before = observeVerifiedRepositoryLayout(repository, true)?.layout
+    .configSnapshot;
+  const dirty = readWorktreeCreationDirty(repository);
+  const after = observeVerifiedRepositoryLayout(repository, true)?.layout
+    .configSnapshot;
+  return {
+    dirty,
+    observedBase: observeRepositoryBranchHead(
+      repository,
+      branch,
+      before?.contentSha256 && isDeepStrictEqual(before, after) ? before : null,
+    ),
+  };
+}
+
+/** checkout観測済みの扱いは同じVC受付の中だけで有効化する。 @trace ARCH-000009 */
+function observeRepositoryBranchHead(
+  repository: Repository,
+  branch: string,
+  checkedConfiguration: EntitySnapshot | null,
+): ObservedBranchCommit | null {
+  const root = resolveVerifiedRepositoryRoot(repository);
+  if (root === null || !isBranchName(branch) || branch.length > 1013)
+    return null;
+  const name = `refs/heads/${branch}`;
+  try {
+    assertReferencePath(root, name);
+    return observeBranchCommit(
+      repository,
+      name,
+      (args) => {
+        const result = executeGit(root, args, {
+          maxBuffer: 4 * 1024 * 1024,
+          timeout: 30_000,
+        });
+        if (result.error || result.signal)
+          throw Error("reference_observation_unknown");
+        return {
+          status: result.status,
+          stdout: result.stdout.toString("utf8"),
+          stderr: result.stderr.toString("utf8"),
+        };
+      },
+      checkedConfiguration,
+    );
+  } catch {
+    return null;
+  }
+}
 
 /**
  * 作成／削除を同じ対象照合・Git CAS・読戻しで実行する。
@@ -88,25 +184,7 @@ function changeReference(
   try {
     if (run(["check-ref-format", name]).status !== 0)
       throw Error("reference_name_invalid");
-    const layout = resolveRepositoryGitLayout(root);
-    let cursor = layout.commonDirectory.realPath;
-    const parts = name.split("/");
-    for (let i = 0; i < parts.length; i++) {
-      cursor = path.join(cursor, parts[i] as string);
-      try {
-        const info = fs.lstatSync(cursor);
-        if (
-          info.isSymbolicLink() ||
-          (i < parts.length - 1
-            ? !info.isDirectory()
-            : !info.isFile() || info.nlink !== 1)
-        )
-          throw Error("reference_path_invalid");
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT") break;
-        throw error;
-      }
-    }
+    assertReferencePath(root, name);
     const previous = read();
     if (create === null) {
       commitId = previous;

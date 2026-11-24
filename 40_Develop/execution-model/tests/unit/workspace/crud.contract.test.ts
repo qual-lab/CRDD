@@ -21,6 +21,7 @@ import { encodeStateValue } from "../../../src/state/operations.ts";
 import {
   prepareIntegrationRecordCreation,
   prepareWorkspaceRecordUpdate,
+  prepareWorkspaceRename,
   validWorkspace,
 } from "../../../src/workspace/validation.ts";
 
@@ -109,6 +110,62 @@ function fixture() {
   };
   return { id, workspace, current };
 }
+/** 名前更新は操作Leaseの全段階・残存排他・世代差を拒否する。 @trace PRL-UT-007 */
+test("Workspace改名は長期Leaseなしで名前と世代だけを更新する", () => {
+  const { id, workspace, current } = fixture();
+  const plan = (
+    snapshot: Snapshot,
+    generation: number,
+    absent: () => boolean,
+  ) =>
+    prepareWorkspaceRename(
+      snapshot,
+      "project-a",
+      "queue-a",
+      id,
+      generation,
+      "改名",
+      absent,
+    );
+  assert.equal(
+    plan(current, 1, () => assert.fail("active Lease")).reason,
+    "coordinator_lease_unavailable",
+  );
+  const free = { ...current, leaseIntents: [] };
+  assert.equal(
+    plan(free, 1, () => false).reason,
+    "coordinator_lease_preexisting_resource",
+  );
+  assert.equal(
+    plan(free, 0, () => true).reason,
+    "coordinator_workspace_generation_conflict",
+  );
+  const target = free.queueEntries[0];
+  assert.ok(target);
+  assert.equal(
+    plan(
+      {
+        ...free,
+        queueEntries: [
+          { ...target, workspaceId: null },
+          { ...target, queueId: "queue-b" },
+        ],
+      },
+      1,
+      () => true,
+    ).reason,
+    "coordinator_workspace_target_mismatch",
+  );
+  const result = plan(free, 1, () => true);
+  assert.equal(result.status, "completed");
+  if (result.status !== "completed") throw Error("rename");
+  assert.deepEqual(result.value.next, {
+    ...free,
+    workspaces: [{ ...workspace, name: "改名", generation: 2 }],
+    queueEntries: free.queueEntries.map((item) => ({ ...item, generation: 2 })),
+  });
+});
+
 /**
  * 統合結果の新規候補・無書込み再入場・衝突・結合差を確認する。
  * @responsibility 元の判定順・返却形・対象外保持を反証する。
@@ -145,7 +202,7 @@ test("結果候補は元の本文HashとIdentityを保つ", () => {
     prepareIntegrationRecordCreation(created.value.next, binding, record),
     {
       status: "completed",
-      reason: "orchestrator_result_durable",
+      reason: "coordinator_result_durable",
       value: { next: null, value: { written: true } },
     },
   );
@@ -154,7 +211,7 @@ test("結果候補は元の本文HashとIdentityを保つ", () => {
       ...record,
       value: { result: "other" },
     }).reason,
-    "orchestrator_result_identity_conflict",
+    "coordinator_result_identity_conflict",
   );
   assert.equal(
     prepareIntegrationRecordCreation(
@@ -162,14 +219,14 @@ test("結果候補は元の本文HashとIdentityを保つ", () => {
       { ...binding, projectId: "project-b" },
       record,
     ).reason,
-    "orchestrator_result_binding_invalid",
+    "coordinator_result_binding_invalid",
   );
   assert.equal(
     prepareIntegrationRecordCreation(current, binding, {
       ...record,
       identity: "../escape",
     }).reason,
-    "orchestrator_result_invalid",
+    "coordinator_result_invalid",
   );
   assert.equal(Object.isFrozen(created), true);
   assert.equal(Object.isFrozen(created.value), false);
@@ -301,7 +358,7 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
   ];
   for (const [snapshot, next, generation, pid, reason] of cases) {
     const result = invoke(snapshot, next, generation, pid);
-    assert.equal(result.reason, `orchestrator_workspace_${reason}`);
+    assert.equal(result.reason, `coordinator_workspace_${reason}`);
     assert.equal(result.status, "blocked");
     assert.equal(calls, 0);
   }
@@ -377,16 +434,16 @@ test("現在Project投影は入力を書き換えず欠測を補完しない", (
   }
   assert.deepEqual(projectCurrentState(current, "project-a"), {
     status: "completed",
-    reason: "orchestrator_state_observed",
+    reason: "coordinator_state_observed",
     value: { next: null, value: null },
   });
   assert.equal(
     projectCurrentState(current, "../escape").reason,
-    "orchestrator_state_identity_invalid",
+    "coordinator_state_identity_invalid",
   );
   assert.equal(
     projectCurrentState({ ...current, schema: "invalid" as never }, "project-a")
       .reason,
-    "orchestrator_snapshot_schema_invalid",
+    "coordinator_snapshot_schema_invalid",
   );
 });

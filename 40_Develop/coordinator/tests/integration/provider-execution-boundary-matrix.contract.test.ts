@@ -133,17 +133,17 @@ test("共通計画APIは用途・Provider・選定の不一致と入力Trapを�
 });
 
 /**
- * 共通結果入口で用途と容量・Schema判断の責務を分離する。
+ * 共通結果入口で用途と上位Schemaの判断を分け、旧容量上限を適用しない。
  * @responsibility 不正入力を拒否し、解析成功を上位Schema成立へ読み替えない。
  * @trace ERB-IT-004
  * @precondition 合成JSONだけを使う。
- * @stimulus Taskの正常JSON、助言への誤配送、過大Task入力と不明用途を渡す。
+ * @stimulus 正常JSON、旧上限を超える妥当なTask入力、用途不一致を渡す。
  * @observation 解析結果・固定理由・生出力非公開。
  * @oracle 用途別の受理条件を緩めず、不正値から結果を生成しない。
  * @cleanup N/A: 純粋解析だけを行う。
  * @boundary 共通解析→Coordinatorの結果Schema検証。
  */
-test("共通結果APIは用途・容量・上位Schema判断を区別する", () => {
+test("共通結果APIは用途と上位Schema判断を区別し旧容量上限を使わない", () => {
   let trapCount = 0;
   const input = {
     provider: "codex",
@@ -156,6 +156,13 @@ test("共通結果APIは用途・容量・上位Schema判断を区別する", ()
   assert.deepEqual(parsed.value, { status: true });
   assert.equal(parsed.error, null);
   assert.equal(parsed.rawOutputReported, false);
+  const large = extractProviderResult({
+    ...input,
+    raw: " ".repeat(65_537) + input.raw,
+  });
+  assert.equal(large.status, "confirmed");
+  assert.deepEqual(large.value, parsed.value);
+  assert.equal(large.rawOutputReported, false);
   for (const candidate of [
     null,
     {},
@@ -163,7 +170,6 @@ test("共通結果APIは用途・容量・上位Schema判断を区別する", ()
     { ...input, purpose: "unknown" },
     { ...input, purpose: "advice" },
     { ...input, taskRole: "unknown" },
-    { ...input, raw: " ".repeat(65_537) + input.raw },
     Object.defineProperty({ ...input }, "raw", {
       get: () => {
         trapCount++;
@@ -239,20 +245,24 @@ const LIFECYCLE_CASES = Object.freeze([
     title: "隔離TaskのRole別Resultだけをcleanup後に公開する",
   }),
   Object.freeze({
-    id: "candidate_changed_paths_mismatch",
-    file: "tests/integration/coordinator-task-runtime.contract.test.ts",
-    title:
-      "Executor自己申告と実Candidate差またはOperation cleanup不明を成功にしない",
+    id: "executor_reported_paths_diagnostic",
+    file: "tests/integration/coordinator-task-execution.contract.test.ts",
+    title: "Executorの申告件数だけを通知し、通知故障では結果を変えない",
+  }),
+  Object.freeze({
+    id: "operation_cleanup_unknown",
+    file: "tests/integration/coordinator-task-execution.contract.test.ts",
+    title: "Operation cleanup不明を成功にしない",
   }),
   Object.freeze({
     id: "reviewer_projection_failure",
-    file: "tests/integration/coordinator-task-runtime.contract.test.ts",
+    file: "tests/integration/coordinator-task-execution.contract.test.ts",
     title:
       "Candidate結合済みReviewer投影を作れなければReviewer Effect前に停止する",
   }),
   Object.freeze({
     id: "single_remediation",
-    file: "tests/integration/coordinator-task-runtime.contract.test.ts",
+    file: "tests/integration/coordinator-task-execution.contract.test.ts",
     title:
       "Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewerの再承認へ接続する",
   }),
@@ -343,22 +353,23 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
     assert.equal("workspaceMountMode" in plan, false);
     assert.equal(plan.taskPromptTransport, "stdin_only");
     assert.equal(plan.taskPromptInArgvAllowed, false);
-    assert.equal(plan.reviewerFilesystemOrShellToolAllowed, false);
+    const reviewer = item.role === "reviewer";
+    assert.equal(plan.reviewerFilesystemOrShellToolAllowed, reviewer);
+    assert.equal(plan.reviewerInput, "read_only_workspace");
     if (item.provider === "codex") {
       assert.equal(plan.providerHomeCommandReadAllowed, false);
       assert.equal(
         plan.explicitSandboxOption,
-        "approve_for_me_executor_reviewer_read_only",
+        reviewer
+          ? "workspace_reviewer_read_only_permissions"
+          : "approve_for_me_executor_reviewer_read_only",
       );
-      assert.equal(argv.includes("--approve-for-me"), item.role === "executor");
-      assert.equal(argv.includes("--sandbox"), item.role === "reviewer");
+      assert.equal(argv.includes("--approve-for-me"), !reviewer);
+      assert.equal(argv.includes("--sandbox"), false);
+      assert.equal(argv.includes('approval_policy="never"'), reviewer);
       assert.equal(
-        argv.includes('approval_policy="never"'),
-        item.role === "reviewer",
-      );
-      assert.equal(
-        argv.includes("--approve-for-me") && argv.includes("--sandbox"),
-        false,
+        argv.includes('default_permissions="crdd-workspace-reviewer"'),
+        reviewer,
       );
     } else {
       assert.equal(plan.providerHomeBuiltInToolAccessAllowed, false);
@@ -367,7 +378,10 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
         permissionMode,
         item.role === "executor" ? "acceptEdits" : "dontAsk",
       );
-      assert.equal(argv.includes("--tools="), item.role === "reviewer");
+      assert.equal(
+        argv[argv.indexOf("--tools") + 1],
+        reviewer ? "Read,Glob,Grep" : "Read,Glob,Grep,Edit,Write",
+      );
     }
   }
 });

@@ -96,13 +96,13 @@ export type RepairMachineResult = Readonly<{
   checkpointNotificationCompleted: boolean;
   status: "recovered" | "incomplete" | "failed" | "cancelled";
   reason:
-    | "runtime_repair_recovered"
-    | "runtime_repair_state_unavailable"
-    | "runtime_repair_boundary_unavailable"
-    | "runtime_repair_observation_unknown"
-    | "runtime_repair_effect_unknown"
-    | "runtime_repair_cancelled";
-  primaryFailure: "runtime_repair_effect_unknown" | null;
+    | "docker_repair_recovered"
+    | "docker_repair_state_unavailable"
+    | "docker_repair_boundary_unavailable"
+    | "docker_repair_observation_unknown"
+    | "docker_repair_effect_unknown"
+    | "docker_repair_cancelled";
+  primaryFailure: "docker_repair_effect_unknown" | null;
   engineObservation: DockerRepairEngineState | null;
 }>;
 
@@ -301,8 +301,8 @@ export async function executeRepairSteps(
     result(
       input.signal.aborted ? "cancelled" : "incomplete",
       input.signal.aborted
-        ? "runtime_repair_cancelled"
-        : "runtime_repair_boundary_unavailable",
+        ? "docker_repair_cancelled"
+        : "docker_repair_boundary_unavailable",
     );
   /**
    * 合法な技術候補を一度だけ同期通知する。
@@ -485,22 +485,22 @@ export async function executeRepairSteps(
     });
   };
   if (current?.cleanup !== "pending" || current.cleanupFailure !== null)
-    return result("incomplete", "runtime_repair_state_unavailable");
+    return result("incomplete", "docker_repair_state_unavailable");
   // freshでは、保存済み意図と実発行の間のcrash窓を未発行と推定しない。
   for (const action of actions) {
     const prior = current.actions[action];
     if (prior.result === "unknown" || prior.request === "unknown")
       return result(
         "failed",
-        "runtime_repair_effect_unknown",
-        "runtime_repair_effect_unknown",
+        "docker_repair_effect_unknown",
+        "docker_repair_effect_unknown",
       );
     if (prior.intent === "saved" && prior.result === "unobserved") {
       current = uncertain(action);
       return result(
         "failed",
-        "runtime_repair_effect_unknown",
-        "runtime_repair_effect_unknown",
+        "docker_repair_effect_unknown",
+        "docker_repair_effect_unknown",
       );
     }
   }
@@ -508,12 +508,12 @@ export async function executeRepairSteps(
     current.directories.failed.expected !== null ||
     current.directories.auxiliary.expected !== null;
   if (resumingContinuation && !canResumeRepairContinuation(current))
-    return result("incomplete", "runtime_repair_state_unavailable");
+    return result("incomplete", "docker_repair_state_unavailable");
   try {
     if (!issueAllowed()) return stopped();
     if (!(await observe("current")))
       return notificationFailed
-        ? result("incomplete", "runtime_repair_state_unavailable")
+        ? result("incomplete", "docker_repair_state_unavailable")
         : stopped();
     if (
       resumingContinuation &&
@@ -524,12 +524,12 @@ export async function executeRepairSteps(
           (action) => !["confirmed", "not_required"].includes(action.result),
         )
     )
-      return result("incomplete", "runtime_repair_observation_unknown");
+      return result("incomplete", "docker_repair_observation_unknown");
     let continuationObserved = resumingContinuation;
     let continuationEngineWaited = false;
     for (const [index, action] of actions.entries()) {
       if (!current)
-        return result("incomplete", "runtime_repair_state_unavailable");
+        return result("incomplete", "docker_repair_state_unavailable");
       const prior = current.actions[action];
       if (prior.result === "confirmed" || prior.result === "not_required")
         continue;
@@ -545,7 +545,7 @@ export async function executeRepairSteps(
           waited.continuation !== null &&
           engineObservation !== "startup_timeout"
         )
-          return result("incomplete", "runtime_repair_observation_unknown");
+          return result("incomplete", "docker_repair_observation_unknown");
         const continuationReady =
           engineObservation === "startup_timeout" &&
           waited.continuation !== null &&
@@ -566,11 +566,11 @@ export async function executeRepairSteps(
           return result(
             "incomplete",
             notificationFailed
-              ? "runtime_repair_state_unavailable"
-              : "runtime_repair_observation_unknown",
+              ? "docker_repair_state_unavailable"
+              : "docker_repair_observation_unknown",
           );
         if (engine !== "ready" && !continuationReady)
-          return result("incomplete", "runtime_repair_observation_unknown");
+          return result("incomplete", "docker_repair_observation_unknown");
         if (continuationReady) {
           if (
             Object.values(current?.actions ?? {})
@@ -581,8 +581,8 @@ export async function executeRepairSteps(
             return result(
               "incomplete",
               notificationFailed
-                ? "runtime_repair_state_unavailable"
-                : "runtime_repair_observation_unknown",
+                ? "docker_repair_state_unavailable"
+                : "docker_repair_observation_unknown",
             );
           if (!issueAllowed()) return stopped();
         }
@@ -597,11 +597,11 @@ export async function executeRepairSteps(
         if (
           !publish(replaceAction(action, { ...prior, result: "not_required" }))
         )
-          return result("incomplete", "runtime_repair_state_unavailable");
+          return result("incomplete", "docker_repair_state_unavailable");
         continue;
       }
       if (precondition !== "proceed")
-        return result("incomplete", "runtime_repair_observation_unknown");
+        return result("incomplete", "docker_repair_observation_unknown");
       if (
         !publish(
           replaceAction(action, {
@@ -611,7 +611,7 @@ export async function executeRepairSteps(
           }),
         )
       )
-        return result("incomplete", "runtime_repair_state_unavailable");
+        return result("incomplete", "docker_repair_state_unavailable");
       // 同じ呼出しの意図保存後でも、現在許可と技術前提を再確認する。
       if (!issueAllowed()) return stopped();
       const repeatedPrecondition = await technical.precondition(
@@ -620,7 +620,7 @@ export async function executeRepairSteps(
       );
       if (!issueAllowed()) return stopped();
       if (repeatedPrecondition !== "proceed")
-        return result("incomplete", "runtime_repair_observation_unknown");
+        return result("incomplete", "docker_repair_observation_unknown");
       let effect: Awaited<ReturnType<TechnicalBoundary["execute"]>>;
       let observed: RepairCheckpoint | null;
       try {
@@ -631,8 +631,8 @@ export async function executeRepairSteps(
         if (unknown === null || !publish(unknown)) current = unknown;
         return result(
           "failed",
-          "runtime_repair_effect_unknown",
-          "runtime_repair_effect_unknown",
+          "docker_repair_effect_unknown",
+          "docker_repair_effect_unknown",
         );
       }
       if (
@@ -646,12 +646,12 @@ export async function executeRepairSteps(
         if (unknown === null || !publish(unknown)) current = unknown;
         return result(
           "failed",
-          "runtime_repair_effect_unknown",
-          "runtime_repair_effect_unknown",
+          "docker_repair_effect_unknown",
+          "docker_repair_effect_unknown",
         );
       }
       if (effect.issued === false && effect.confirmation === "not_issued")
-        return result("incomplete", "runtime_repair_boundary_unavailable");
+        return result("incomplete", "docker_repair_boundary_unavailable");
       const issued = effect.issued === true;
       const issuedCandidate = {
         ...observed,
@@ -666,13 +666,13 @@ export async function executeRepairSteps(
       };
       if (!publish(issuedCandidate)) {
         current = uncertain(action);
-        return result("incomplete", "runtime_repair_state_unavailable");
+        return result("incomplete", "docker_repair_state_unavailable");
       }
       if (!issued)
         return result(
           "failed",
-          "runtime_repair_effect_unknown",
-          "runtime_repair_effect_unknown",
+          "docker_repair_effect_unknown",
+          "docker_repair_effect_unknown",
         );
       const confirmed = effect.confirmation === "confirmed";
       if (
@@ -685,13 +685,13 @@ export async function executeRepairSteps(
         )
       ) {
         current = uncertain(action);
-        return result("incomplete", "runtime_repair_state_unavailable");
+        return result("incomplete", "docker_repair_state_unavailable");
       }
       if (!confirmed)
         return result(
           "failed",
-          "runtime_repair_effect_unknown",
-          "runtime_repair_effect_unknown",
+          "docker_repair_effect_unknown",
+          "docker_repair_effect_unknown",
         );
       if (!issueAllowed()) return stopped();
       if (action === "restart_runtime") {
@@ -707,8 +707,8 @@ export async function executeRepairSteps(
           return result(
             "incomplete",
             notificationFailed
-              ? "runtime_repair_state_unavailable"
-              : "runtime_repair_observation_unknown",
+              ? "docker_repair_state_unavailable"
+              : "docker_repair_observation_unknown",
           );
       }
     }
@@ -729,16 +729,16 @@ export async function executeRepairSteps(
         return result(
           "incomplete",
           notificationFailed
-            ? "runtime_repair_state_unavailable"
-            : "runtime_repair_observation_unknown",
+            ? "docker_repair_state_unavailable"
+            : "docker_repair_observation_unknown",
         );
     }
     return current?.engine === "ready" && current.hostSafety === "safe"
-      ? result("recovered", "runtime_repair_recovered")
-      : result("incomplete", "runtime_repair_observation_unknown");
+      ? result("recovered", "docker_repair_recovered")
+      : result("incomplete", "docker_repair_observation_unknown");
   } catch {
     return input.signal.aborted
       ? stopped()
-      : result("incomplete", "runtime_repair_observation_unknown");
+      : result("incomplete", "docker_repair_observation_unknown");
   }
 }

@@ -79,7 +79,7 @@ function completed(
     contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed" as const,
     reason: "signed_general_task_verification_completed",
-    sourceScope: "crdd-development-source-snapshot/v5",
+    sourceScope: "crdd-development-source-snapshot/v6",
     sourceSha256: "b".repeat(64),
     sourceObservationStatus: "matched",
     signatureRequired: false,
@@ -144,7 +144,7 @@ function safelyRetryable(
   return Object.freeze({
     status: "blocked" as const,
     reason,
-    sourceScope: "crdd-development-source-snapshot/v5",
+    sourceScope: "crdd-development-source-snapshot/v6",
     sourceSha256: "b".repeat(64),
     sourceObservationStatus: "matched",
     signatureRequired: false,
@@ -897,7 +897,7 @@ test("公開契約は4経路、専用送信確認の不要、Candidate破棄と�
   );
   assert.equal(
     contract.boundedRemediation,
-    "each_route_accepts_zero_or_one_runtime_owned_remediation_only_after_final_independent_approval",
+    "each_route_accepts_zero_or_one_remediation_only_after_final_independent_approval",
   );
   assert.deepEqual(contract.routes, [
     "forward",

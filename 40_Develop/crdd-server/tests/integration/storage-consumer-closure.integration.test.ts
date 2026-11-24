@@ -1,0 +1,859 @@
+/**
+ * 各保存Ownerの局所I/OとConsumer閉包を検証する。
+ *
+ * @packageDocumentation
+ * @responsibility Root非公開、固定所在、失敗情報の搬送と対象外処置の拒否を確認する。
+ * @trace RDL-IT-001
+ * @level IT
+ * @scope CRDD Serverを含む保存Owner、consumer-closure、repository-root
+ * @boundary 保存Sourceと利用側の静的閉包。実保存・回復の成立は別の実体試験で確認する。
+ */
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
+import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
+
+const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
+const RESOLVER_PATH = "40_Develop/execution-model/src/storage/store.ts";
+const RUNTIME_STORAGE_OWNERS = new Set([
+  "40_Develop/execution-model/src/state/crud.ts",
+  // CurrentState wxの固定所在だけを所有する。任意Consumerのraw Root利用は認めない。
+  "40_Develop/execution-model/src/storage/lock.ts",
+  "40_Develop/configuration-model/src/ai-selection/crud.ts",
+  "40_Develop/configuration-model/src/network-policy/crud.ts",
+  RESOLVER_PATH,
+  "40_Develop/execution-model/src/storage/store.ts",
+  "40_Develop/execution-model/src/storage/store.ts",
+  "40_Develop/configuration-model/src/manifest/crud.ts",
+  "40_Develop/configuration-model/src/manifest/validation.ts",
+  "40_Develop/configuration-model/src/history/crud.ts",
+  "40_Develop/configuration-model/src/manifest/types.ts",
+  "40_Develop/execution-model/src/storage/store.ts",
+  "40_Develop/execution-model/src/storage/store.ts",
+  "40_Develop/execution-model/src/storage/store.ts",
+  "40_Develop/execution-model/src/storage/lock.ts",
+  "40_Develop/coordinator/src/lifecycle/host.ts",
+]);
+const runtimePublicEntries = [
+  "40_Develop/document-model/src/index.ts",
+  "40_Develop/execution-model/src/index.ts",
+  "40_Develop/configuration-model/src/index.ts",
+];
+const CONSUMER_SURFACE_PATTERN =
+  /^(?:40_Develop\/[^/]+\/(?:src|scripts|bin)\/|template\/tools\/)/u;
+const SOURCE_EXTENSIONS = new Set([".ts", ".mjs", ".cjs"]);
+const rawResolverSymbols = [
+  "resolveRepositoryExecutionDataPathsFromValidatedRoot",
+  "resolveRepositoryExecutionDataPathsForInternalUse",
+];
+const PROTECTED_SIGNING_SYMBOL =
+  "resolveBundledRepositoryRuntimeDataPathsForProtectedSigning";
+const expectedProtectedSigningConsumers: readonly string[] = [];
+const HOST_OPERATION_OWNER = "40_Develop/coordinator/src/lifecycle/host.ts";
+const HOST_RECOVERY_OWNER =
+  "40_Develop/coordinator/src/lifecycle/environment.ts";
+const ATTEMPT_OWNER = "40_Develop/execution-model/src/attempt/crud.ts";
+const STATE_OWNER = "40_Develop/execution-model/src/state/crud.ts";
+const expectedAreaConsumers = [
+  "40_Develop/coordinator/scripts/benchmark.ts",
+] as const;
+const physicalAreaRequests = new Map([
+  [
+    ATTEMPT_OWNER,
+    /^ensurePhysicalExecutionDataArea\s*\(\s*repository\.repositoryRoot\s*,\s*"tmp"\s*,?\s*\)$/u,
+  ],
+  [
+    STATE_OWNER,
+    /^ensurePhysicalExecutionDataArea\s*\(\s*issued\.repositoryRoot\s*,\s*"tmp"\s*,?\s*\)$/u,
+  ],
+]);
+const fixedAreaRequests = new Map([
+  [
+    HOST_OPERATION_OWNER,
+    /^ensureRepositoryExecutionDataArea\s*\(\s*input\.root\s*,\s*"coordinator"\s*\)$/u,
+  ],
+]);
+const PUBLIC_COORDINATOR_BOUNDARIES = [
+  "40_Develop/coordinator/src/lifecycle/execution.ts",
+  "40_Develop/coordinator/src/lifecycle/decision.ts",
+  "40_Develop/coordinator/src/lifecycle/query.ts",
+] as const;
+const COORDINATOR_BLOCKED_PROJECTION =
+  "40_Develop/coordinator/src/lifecycle/host.ts";
+const EXECUTION_INTELLIGENCE_CONSUMER =
+  "40_Develop/coordinator/src/lifecycle/environment.ts";
+const EXECUTION_INTELLIGENCE_STORE =
+  "40_Develop/coordinator/src/lifecycle/host.ts";
+const blockedMeaningFields = [
+  "effectIssued",
+  "effectStateUnknown",
+  "cleanupConfirmed",
+  "retryAllowed",
+  "recoveryReference",
+] as const;
+const SEMANTIC_ROOT_LITERAL_OWNERS = new Set([
+  RESOLVER_PATH,
+  "40_Develop/execution-model/src/storage/lock.ts",
+  "40_Develop/execution-model/src/storage/store.ts",
+  "40_Develop/configuration-model/src/storage/store.ts",
+  "40_Develop/configuration-model/src/storage/lock.ts",
+  "40_Develop/coordinator/src/lifecycle/host.ts",
+  "40_Develop/crdd-server/src/service/configuration.ts",
+]);
+const ALLOWED_TOP_LEVEL_AREAS = new Set([
+  "config",
+  "execution-model",
+  "execution-intelligence",
+  "candidates",
+  "workspaces",
+  "release",
+  "communication",
+  "tests",
+  "tmp",
+  "lock",
+]);
+const retiredTopLevelAreas = [
+  "operations",
+  "domain-model",
+  "orchestrator",
+  "dogfooding",
+  "native-fixture",
+  "release-staging",
+  "test-fixtures",
+  "test-tmp",
+  "verification-results",
+  "verification",
+] as const;
+const privateStorageExports = [
+  ...rawResolverSymbols,
+  PROTECTED_SIGNING_SYMBOL,
+  "resolveRepositoryExecutionDataPaths",
+  "resolveRepositoryExecutionDataPathsFromWorkingDirectory",
+  "observeRepositoryExecutionDataArea",
+  "requireReadyRepositoryExecutionDataArea",
+  "ensureRepositoryExecutionDataArea",
+  "ensureRepositoryExecutionDataAreaFromWorkingDirectory",
+  "ensurePhysicalExecutionDataArea",
+  "createExecutionDataArea",
+  "checkRepositoryRuntimeDataProtectionDirectory",
+  "resolveCrosRuntimeRoots",
+  "CrosRootInput",
+  "RepositoryExecutionArea",
+  "RepositoryExecutionDataAreaObservation",
+  "RepositoryRootCapability",
+  "readStableFileSnapshot",
+  "StableFileIdentity",
+  "sameStableFileIdentity",
+  "createFilesystemStoreRoot",
+  "FilesystemStoreRoot",
+  "resolveFilesystemStorePath",
+  "withFilesystemStoreLock",
+] as const;
+
+type SourceSet = ReadonlyMap<string, string>;
+
+/**
+ * walkのTest準備責務を実行する。
+ *
+ * @responsibility walkがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RDL-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus walkを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
+ */
+function walk(directory: string): string[] {
+  if (!fs.existsSync(directory)) return [];
+  const discoveredFiles: string[] = [];
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const item = path.join(directory, entry.name);
+    if (entry.isDirectory()) discoveredFiles.push(...walk(item));
+    else if (entry.isFile() && SOURCE_EXTENSIONS.has(path.extname(entry.name)))
+      discoveredFiles.push(item);
+  }
+  return discoveredFiles;
+}
+
+/**
+ * consumerSourcesのTest準備責務を実行する。
+ *
+ * @responsibility consumerSourcesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RDL-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus consumerSourcesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
+ */
+function consumerSources(): Map<string, string> {
+  const result = new Map<string, string>();
+  const developRoot = path.join(repositoryRoot, "40_Develop");
+  for (const component of fs.readdirSync(developRoot, {
+    withFileTypes: true,
+  })) {
+    if (!component.isDirectory()) continue;
+    for (const area of ["src", "scripts", "bin"])
+      for (const file of walk(path.join(developRoot, component.name, area))) {
+        const relativePath = path
+          .relative(repositoryRoot, file)
+          .split(path.sep)
+          .join("/");
+        result.set(relativePath, fs.readFileSync(file, "utf8"));
+      }
+  }
+  for (const file of walk(path.join(repositoryRoot, "template", "tools"))) {
+    const relativePath = path
+      .relative(repositoryRoot, file)
+      .split(path.sep)
+      .join("/");
+    result.set(relativePath, fs.readFileSync(file, "utf8"));
+  }
+  return result;
+}
+
+/**
+ * violationsのTest準備責務を実行する。
+ *
+ * @responsibility violationsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RDL-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus violationsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
+ */
+function violations(rawSources: SourceSet): string[] {
+  const sources = new Map(
+    [...rawSources].map(([file, source]) => [
+      file,
+      source.replaceAll("\\", "/"),
+    ]),
+  );
+  const findings: string[] = [];
+  for (const [item, source] of sources) {
+    if (!CONSUMER_SURFACE_PATTERN.test(item)) continue;
+    // Hostと同居しても、Root所有の例外を既存Lease・Process処理へ広げない。
+    const isCoordinatorHost = item === COORDINATOR_BLOCKED_PROJECTION;
+    const storageOwnerStart = isCoordinatorHost
+      ? source.indexOf("export function resolveExecutionStorageDirectory(")
+      : -1;
+    const operationOwnerStart = isCoordinatorHost
+      ? source.indexOf("type OperationPaths =")
+      : -1;
+    const consumerSource =
+      storageOwnerStart >= 0 && operationOwnerStart > storageOwnerStart
+        ? source.slice(0, storageOwnerStart) + source.slice(operationOwnerStart)
+        : source;
+    const hasRawRootOwnership =
+      RUNTIME_STORAGE_OWNERS.has(item) && !isCoordinatorHost;
+    const hasSemanticRootOwnership =
+      SEMANTIC_ROOT_LITERAL_OWNERS.has(item) && !isCoordinatorHost;
+    // 文書Record Ownerの固定共有Lock所在だけを除外する。同Fileの任意Root構築は拒否する。
+    const pathSource =
+      item === "40_Develop/document-model/src/storage/topic-meeting-store.ts"
+        ? source.replace(
+            /path\.join\(root,\s*"\.crdd",\s*"lock"\)/gu,
+            "fixedRecordLockDirectory",
+          )
+        : consumerSource;
+    const hasDirectRootConstruction =
+      /path\.(?:join|resolve)\([^)]{0,240}?["']\.crdd["']/u.test(pathSource) ||
+      /["']\.["']\s*\+\s*["']crdd["']/u.test(pathSource) ||
+      /["']\.["']\s*,\s*["']crdd["']/u.test(pathSource);
+    if (!hasSemanticRootOwnership && hasDirectRootConstruction)
+      findings.push(`raw-root:${item}`);
+    // Topic探索とReviewer遮蔽の固定除外式はPath構築ではない。同Fileの他のliteralは免除しない。
+    const rootLiteralSource =
+      item === "40_Develop/document-model/src/storage/topic-meeting-store.ts"
+        ? pathSource.replace(
+            /\[\s*"\.git",\s*"\.crdd",\s*"node_modules"\s*\]\.includes\(entry\.name\)/u,
+            "repositoryExplorationExclusion",
+          )
+        : item === COORDINATOR_BLOCKED_PROJECTION
+          ? pathSource
+              .replace(
+                /\[\s*"\.git",\s*"\.crdd"\s*\]\.includes\(entry\.toLowerCase\(\)\)/u,
+                "reviewerReservedEntry",
+              )
+              .replace(
+                /entry === "\.git" \|\| entry === "\.crdd"/u,
+                "reviewerRootReservedEntry",
+              )
+          : item === "40_Develop/docker-isolation/src/execution/preparation.ts"
+            ? pathSource.replace(
+                /lower === "\.git" \|\| lower === "\.crdd"/u,
+                "reviewerRootReservedEntry",
+              )
+            : pathSource;
+    if (
+      !hasSemanticRootOwnership &&
+      /["'](?:\.crdd|crdd)["']/u.test(rootLiteralSource)
+    )
+      findings.push(`root-literal:${item}`);
+    const pathSets = [
+      ...source.matchAll(
+        /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?resolveRepositoryExecutionDataPaths(?:ForInternalUse)?\s*\(/gu,
+      ),
+    ].flatMap((match) => (match[1] ? [match[1]] : []));
+    if (
+      !hasRawRootOwnership &&
+      (pathSets.some((name) =>
+        new RegExp(
+          `(?:^|[^\\w$])${name}\\s*(?:\\?\\.|\\.)\\s*root\\b`,
+          "u",
+        ).test(consumerSource),
+      ) ||
+        /resolveRepositoryExecutionDataPaths(?:ForInternalUse)?\s*\([^)]*\)\s*(?:\?\.|\.)\s*root\b/u.test(
+          consumerSource,
+        ) ||
+        /\{[^}]*\broot\b[^}]*\}\s*=\s*resolveRepositoryExecutionDataPaths(?:ForInternalUse)?\s*\(/u.test(
+          consumerSource,
+        ))
+    )
+      findings.push(`raw-root-value:${item}`);
+    const areas = [
+      ...source.matchAll(
+        /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?(?:ensureRepositoryExecutionDataArea|ensurePhysicalExecutionDataArea)\s*\(/gu,
+      ),
+    ].flatMap((match) => (match[1] ? [match[1]] : []));
+    const properties =
+      "config|orchestrator|coordinator|domainModel|executionModel|executionIntelligence|verification|candidates|workspaces|operations|release|communication|tests|temporary|locks";
+    if (
+      pathSets.some((name) =>
+        new RegExp(
+          `path\\.dirname\\(\\s*${name}\\.(?:${properties})\\s*\\)`,
+          "u",
+        ).test(source),
+      ) ||
+      areas.some((name) =>
+        new RegExp(`path\\.dirname\\(\\s*${name}\\.directory\\s*\\)`, "u").test(
+          source,
+        ),
+      )
+    )
+      findings.push(`named-parent:${item}`);
+
+    // HostのLease・Process処理は受付で確定した保存ディレクトリから保存先を求め、
+    // Git配置・HEADを再観測しない。確定済みRoot用の解決だけを認め、内部用は拒否する。
+    const forbiddenResolverSymbols = isCoordinatorHost
+      ? rawResolverSymbols.filter(
+          (symbol) =>
+            symbol !== "resolveRepositoryExecutionDataPathsFromValidatedRoot",
+        )
+      : rawResolverSymbols;
+    if (
+      !hasRawRootOwnership &&
+      forbiddenResolverSymbols.some((symbol) => consumerSource.includes(symbol))
+    )
+      findings.push(`internal-resolver:${item}`);
+
+    for (const area of retiredTopLevelAreas)
+      if (source.includes(`.crdd/${area}`))
+        findings.push(`retired-area:${area}:${item}`);
+
+    // coordinatorの登録はHost用途に限定し、raw Root検査の免除には使わない。
+    const isRegisteredArea = (area: string) =>
+      ALLOWED_TOP_LEVEL_AREAS.has(area) ||
+      (area === "coordinator" &&
+        (item === HOST_OPERATION_OWNER || item === HOST_RECOVERY_OWNER));
+    const fixedAreaRequest = fixedAreaRequests.get(item);
+    if (fixedAreaRequest !== undefined) {
+      const requests = [
+        ...source.matchAll(
+          /(?<!function )\bensureRepositoryExecutionDataArea(?:FromWorkingDirectory)?\s*\([^)]*\)/gu,
+        ),
+      ];
+      // Leaseは確定済み保存先の`.crdd/lock`を使い、作業ディレクトリから領域を要求しない。
+      const expectedRequests = isCoordinatorHost
+        ? [
+            /^ensureRepositoryExecutionDataArea\s*\(\s*verified\.capability\s*,\s*area\s*\)$/u,
+            /^ensureRepositoryExecutionDataArea\s*\(\s*repository\s*,\s*"execution-intelligence"\s*\)$/u,
+            fixedAreaRequest,
+          ]
+        : [fixedAreaRequest];
+      if (
+        requests.length !== expectedRequests.length ||
+        expectedRequests.some(
+          (expected) =>
+            requests.filter(([request]) => expected.test(request)).length !== 1,
+        )
+      )
+        findings.push(`runtime-area-request:${item}`);
+    } else if (
+      /\bensureRepositoryExecutionDataArea(?:FromWorkingDirectory)?\s*\([^)]*?,\s*["']coordinator["']/u.test(
+        source,
+      )
+    ) {
+      findings.push(`runtime-area-request:${item}`);
+    }
+    const physicalRequests = [
+      ...source.matchAll(
+        /(?<!function )\bensurePhysicalExecutionDataArea\s*\([^)]*\)/gu,
+      ),
+    ];
+    const physicalRequest = physicalAreaRequests.get(item);
+    if (
+      physicalRequest
+        ? physicalRequests.length !== 1 ||
+          !physicalRequest.test(physicalRequests[0]?.[0] ?? "")
+        : physicalRequests.length !== 0
+    )
+      findings.push(`runtime-area-request:${item}`);
+    for (const match of source.matchAll(/["'`]\.crdd\/([^/"'`]+)/gu)) {
+      const area = match[1];
+      if (area !== undefined && !isRegisteredArea(area))
+        findings.push(`unregistered-area:${area}:${item}`);
+    }
+    for (const match of source.matchAll(
+      /path\.(?:join|resolve)\([^)]*?["']\.crdd["']\s*,\s*["']([^"']+)["']/gu,
+    )) {
+      const area = match[1];
+      if (area !== undefined && !isRegisteredArea(area))
+        findings.push(`unregistered-area:${area}:${item}`);
+    }
+  }
+
+  const actualSigningConsumers = [...sources]
+    .filter(
+      ([item, source]) =>
+        CONSUMER_SURFACE_PATTERN.test(item) &&
+        !RUNTIME_STORAGE_OWNERS.has(item) &&
+        source.includes(PROTECTED_SIGNING_SYMBOL),
+    )
+    .map(([item]) => item)
+    .sort();
+  if (
+    actualSigningConsumers.join("\n") !==
+    expectedProtectedSigningConsumers.join("\n")
+  )
+    findings.push(
+      `protected-signing-consumers:${actualSigningConsumers.join(",") || "none"}`,
+    );
+
+  for (const entry of runtimePublicEntries)
+    if (!sources.has(entry)) findings.push(`public-entry-absent:${entry}`);
+  const publicIndex = runtimePublicEntries
+    .map((item) => sources.get(item) ?? "")
+    .join("\n");
+  if (
+    privateStorageExports.some((symbol) =>
+      new RegExp(`\\b${symbol}\\b`, "u").test(publicIndex),
+    )
+  )
+    findings.push("internal-resolver-exported");
+
+  const actualAreaConsumers = [...sources]
+    .filter(
+      ([item, source]) =>
+        !RUNTIME_STORAGE_OWNERS.has(item) &&
+        !runtimePublicEntries.includes(item) &&
+        /ensureRepositoryExecutionDataArea(?:FromWorkingDirectory)?/u.test(
+          source,
+        ),
+    )
+    .map(([item]) => item)
+    .sort();
+  if (actualAreaConsumers.join("\n") !== expectedAreaConsumers.join("\n"))
+    findings.push(`runtime-area-consumers:${actualAreaConsumers.join(",")}`);
+  for (const item of actualAreaConsumers) {
+    const source = sources.get(item) ?? "";
+    const doesPreserveBlockedResult =
+      source.includes("requireReadyRepositoryExecutionDataArea") ||
+      blockedMeaningFields.every((field) => source.includes(field));
+    if (!doesPreserveBlockedResult)
+      findings.push(`runtime-area-blocked-result:${item}`);
+  }
+  try {
+    const lease = sourceDeclaration(
+      rawSources.get(COORDINATOR_BLOCKED_PROJECTION) ?? "",
+      "acquireCoordinatorSnapshotLease",
+    );
+    // 確定済み保存ディレクトリから求めたlock領域を、同じ固定名の領域として照合する。
+    if (
+      !/resolveRepositoryExecutionDataPathsFromValidatedRoot\s*\(\s*storageDirectory\s*\)/u.test(
+        lease,
+      ) ||
+      !/assertArea\s*\(\s*repositoryRoot\s*,\s*"lock"\s*,/u.test(lease)
+    )
+      findings.push(`runtime-area-request:${COORDINATOR_BLOCKED_PROJECTION}`);
+    const store = sourceDeclaration(
+      rawSources.get(EXECUTION_INTELLIGENCE_STORE) ?? "",
+      "getExecutionIntelligenceStore",
+    );
+    if (
+      !store.includes("requireReadyRepositoryExecutionDataArea") ||
+      !store.includes(
+        'observeRepositoryExecutionDataArea(repository, "execution-intelligence")',
+      )
+    )
+      findings.push(
+        `runtime-area-blocked-result:${EXECUTION_INTELLIGENCE_STORE}`,
+      );
+    const diagnostic = sourceDeclaration(
+      rawSources.get(EXECUTION_INTELLIGENCE_CONSUMER) ?? "",
+      "reportExecutionRecordingUnavailable",
+    );
+    if (
+      !diagnostic.includes("ExecutionStorageBlockedError") ||
+      !diagnostic.includes("cause.recoveryReference") ||
+      !blockedMeaningFields.every((field) => diagnostic.includes(field))
+    )
+      findings.push(
+        `runtime-area-blocked-result:${EXECUTION_INTELLIGENCE_CONSUMER}`,
+      );
+  } catch {
+    findings.push("execution-intelligence-storage-contract-unavailable");
+  }
+  const boundarySources = PUBLIC_COORDINATOR_BOUNDARIES.map(
+    (file) => sources.get(file) ?? "",
+  );
+  let blockedProjection = "";
+  try {
+    blockedProjection = sourceDeclaration(
+      rawSources.get(COORDINATOR_BLOCKED_PROJECTION) ?? "",
+      "coordinatorDataBoundaryBlocked",
+    );
+  } catch {
+    // 宣言の欠測や抽出不能も、投影契約の不成立として扱う。
+  }
+  if (
+    !boundarySources.every(
+      (source) =>
+        source.includes("ExecutionStorageBlockedError") &&
+        source.includes("coordinatorDataBoundaryBlocked"),
+    ) ||
+    !blockedMeaningFields.every((field) =>
+      blockedProjection.includes(
+        field === "recoveryReference" ? "recoveryIds" : field,
+      ),
+    )
+  )
+    findings.push("orchestrator-area-final-boundary");
+  return findings.sort();
+}
+
+/**
+ * 本番Runtime Data Consumer集合は公開された名前付き境界だけを使うを検証する。
+ *
+ * @responsibility 本番Runtime Data Consumer集合は公開された名前付き境界だけを使うの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 本番Runtime Data Consumer集合は公開された名前付き境界だけを使うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
+ */
+test("本番保存Consumerは各Ownerの固定所在と失敗搬送を維持する", () => {
+  const sources = consumerSources();
+  assert.deepEqual(violations(sources), []);
+  const projectionSource = sources.get(COORDINATOR_BLOCKED_PROJECTION) ?? "";
+  const leaseRootEscape = new Map(sources);
+  leaseRootEscape.set(
+    COORDINATOR_BLOCKED_PROJECTION,
+    `const rawLeaseRoot = path.join(root, ".crdd");\n${projectionSource}`,
+  );
+  assert.ok(
+    violations(leaseRootEscape).includes(
+      `raw-root:${COORDINATOR_BLOCKED_PROJECTION}`,
+    ),
+  );
+  const wrongLeaseArea = new Map(sources);
+  const leaseAreaCheck = /(assertArea\(\s*repositoryRoot\s*,\s*)"lock"/gu;
+  // 変異の対象が消えた場合に、検出成功を見かけ上の合格にしない。
+  assert.ok((projectionSource.match(leaseAreaCheck)?.length ?? 0) > 0);
+  wrongLeaseArea.set(
+    COORDINATOR_BLOCKED_PROJECTION,
+    projectionSource.replace(leaseAreaCheck, '$1"tests"'),
+  );
+  assert.ok(
+    violations(wrongLeaseArea).includes(
+      `runtime-area-request:${COORDINATOR_BLOCKED_PROJECTION}`,
+    ),
+  );
+  const withoutDeclaration = new Map(sources);
+  withoutDeclaration.set(
+    COORDINATOR_BLOCKED_PROJECTION,
+    projectionSource.replace(
+      "function coordinatorDataBoundaryBlocked(",
+      "function missingBoundaryProjection(",
+    ),
+  );
+  assert.ok(
+    violations(withoutDeclaration).includes("orchestrator-area-final-boundary"),
+  );
+  for (const field of blockedMeaningFields) {
+    const withoutProjection = new Map(sources);
+    const projected = field === "recoveryReference" ? "recoveryIds" : field;
+    withoutProjection.set(
+      COORDINATOR_BLOCKED_PROJECTION,
+      projectionSource.replaceAll(projected, "missingProjection"),
+    );
+    assert.ok(
+      violations(withoutProjection).includes(
+        "orchestrator-area-final-boundary",
+      ),
+      field,
+    );
+    const withoutRecording = new Map(sources);
+    withoutRecording.set(
+      EXECUTION_INTELLIGENCE_CONSUMER,
+      (sources.get(EXECUTION_INTELLIGENCE_CONSUMER) ?? "").replaceAll(
+        field,
+        "missingProjection",
+      ),
+    );
+    assert.ok(
+      violations(withoutRecording).includes(
+        `runtime-area-blocked-result:${EXECUTION_INTELLIGENCE_CONSUMER}`,
+      ),
+      field,
+    );
+  }
+});
+
+/**
+ * 新規Componentのraw Root構築と名前付きPathの親再解釈を拒否するを検証する。
+ *
+ * @responsibility 新規Componentのraw Root構築と名前付きPathの親再解釈を拒否するの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 新規Componentのraw Root構築と名前付きPathの親再解釈を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
+ */
+test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒否する", () => {
+  const sources = consumerSources();
+  const workspaceOwner = "40_Develop/version-control/src/worktree/crud.ts";
+  assert.ok(sources.has(workspaceOwner));
+  sources.set(
+    workspaceOwner,
+    `${sources.get(workspaceOwner)}\nconst unrelated = path.join(root, ".crdd", "other");`,
+  );
+  assert.ok(violations(sources).includes(`raw-root:${workspaceOwner}`));
+  assert.ok(violations(sources).includes(`root-literal:${workspaceOwner}`));
+  const upper = "40_Develop/crdd-server/src/service/workspace.ts";
+  sources.set(
+    upper,
+    `${sources.get(upper)}\nconst duplicated = path.join(root, ".crdd", "workspaces");`,
+  );
+  assert.ok(violations(sources).includes(`raw-root:${upper}`));
+  sources.set(
+    "40_Develop/future-tool/src/consumer.ts",
+    [
+      'import path from "node:path";',
+      'const direct = path.join(repositoryRoot, ".crdd", "future");',
+      "const paths = resolveRepositoryExecutionDataPaths(capability);",
+      "const parent = path.dirname(paths.config);",
+    ].join("\n"),
+  );
+  const findings = violations(sources);
+  assert.ok(
+    findings.includes("raw-root:40_Develop/future-tool/src/consumer.ts"),
+  );
+  assert.ok(
+    findings.includes("named-parent:40_Develop/future-tool/src/consumer.ts"),
+  );
+  sources.set(
+    "40_Develop/future-tool/src/consumer.ts",
+    [
+      "const paths = resolveRepositoryExecutionDataPaths(capability);",
+      "const parent = path.dirname(paths.executionModel);",
+    ].join("\n"),
+  );
+  assert.ok(
+    violations(sources).includes(
+      "named-parent:40_Develop/future-tool/src/consumer.ts",
+    ),
+  );
+  const future = "40_Develop/future-tool/src/consumer.ts";
+  for (const rawRoot of [
+    "const paths = resolveRepositoryExecutionDataPaths(capability); const target = paths?.root;",
+    "const target = resolveRepositoryExecutionDataPaths(capability)?.root;",
+    "const { root: target } = resolveRepositoryExecutionDataPaths(capability);",
+  ]) {
+    sources.set(future, rawRoot);
+    assert.ok(violations(sources).includes(`raw-root-value:${future}`));
+  }
+  sources.set(
+    future,
+    "const paths = resolveRepositoryExecutionDataPaths(input.root); const target = paths?.coordinator;",
+  );
+  assert.ok(!violations(sources).includes(`raw-root-value:${future}`));
+  const topicSource =
+    "40_Develop/document-model/src/storage/topic-meeting-store.ts";
+  assert.match(sources.get(topicSource) ?? "", /acquireLock/);
+  sources.set(
+    topicSource,
+    (sources.get(topicSource) ?? "") +
+      '\nconst unrelatedRoot = path.join(root, ".crdd", "other");',
+  );
+  assert.ok(violations(sources).includes(`raw-root:${topicSource}`));
+  sources.set(
+    topicSource,
+    `${sources.get(topicSource)}\nconst forbiddenRoot = ".crdd";`,
+  );
+  assert.ok(violations(sources).includes(`root-literal:${topicSource}`));
+});
+
+/**
+ * 内部Resolverの公開と予定外の保護署名Consumerを拒否するを検証する。
+ *
+ * @responsibility 内部Resolverの公開と予定外の保護署名Consumerを拒否するの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 内部Resolverの公開と予定外の保護署名Consumerを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
+ */
+test("3Rootの内部保存公開と予定外の保護署名Consumerを拒否する", () => {
+  const sources = consumerSources();
+  for (const entry of runtimePublicEntries) {
+    for (const symbol of privateStorageExports) {
+      const withInternalExport = new Map(sources);
+      withInternalExport.set(
+        entry,
+        `export { ${symbol} } from "./private.ts";\n`,
+      );
+      assert.ok(
+        violations(withInternalExport).includes("internal-resolver-exported"),
+        `${entry}:${symbol}`,
+      );
+    }
+    const withoutEntry = new Map(sources);
+    withoutEntry.delete(entry);
+    assert.ok(
+      violations(withoutEntry).includes(`public-entry-absent:${entry}`),
+    );
+  }
+  sources.set(
+    "40_Develop/future-tool/scripts/sign.ts",
+    `${PROTECTED_SIGNING_SYMBOL}();\n`,
+  );
+  const publicEntry = runtimePublicEntries[0];
+  assert.ok(publicEntry);
+  sources.set(
+    publicEntry,
+    'export { resolveRepositoryExecutionDataPathsForInternalUse } from "./private.ts";\n',
+  );
+  const findings = violations(sources);
+  assert.ok(findings.includes("internal-resolver-exported"));
+  assert.ok(
+    findings.some((finding) =>
+      finding.startsWith("protected-signing-consumers:"),
+    ),
+  );
+});
+
+/**
+ * 配布Toolを含む利用側で旧Area名と未登録Top-level Areaを拒否するを検証する。
+ *
+ * @responsibility 配布Toolを含む利用側で旧Area名と未登録Top-level Areaを拒否するの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 配布Toolを含む利用側で旧Area名と未登録Top-level Areaを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
+ */
+test("配布Toolを含む利用側で旧Area名と未登録Top-level Areaを拒否する", () => {
+  const sources = consumerSources();
+  sources.set(
+    "template/tools/future-tool.ts",
+    [
+      'const retired = ".crdd/test-tmp/run";',
+      'const unknown = ".crdd/future-cache/item";',
+    ].join("\n"),
+  );
+  const findings = violations(sources);
+  assert.ok(
+    findings.includes("retired-area:test-tmp:template/tools/future-tool.ts"),
+  );
+  assert.ok(
+    findings.includes(
+      "unregistered-area:future-cache:template/tools/future-tool.ts",
+    ),
+  );
+  for (const area of ["operations", "orchestrator"]) {
+    const retired = new Map(sources);
+    retired.set(
+      "template/tools/future-tool.ts",
+      `const retired = ".crdd/${area}/state.json";`,
+    );
+    assert.ok(
+      violations(retired).includes(
+        `retired-area:${area}:template/tools/future-tool.ts`,
+      ),
+    );
+  }
+  const owned = new Map(sources);
+  owned.set(
+    RESOLVER_PATH,
+    `${sources.get(RESOLVER_PATH)}\nconst unknown = path.join(repositoryRoot, ".crdd", "future-cache");`,
+  );
+  assert.ok(
+    violations(owned).includes(
+      `unregistered-area:future-cache:${RESOLVER_PATH}`,
+    ),
+  );
+  const elsewhere = "template/tools/future-tool.ts";
+  const operationOutsideOwner = new Map(sources);
+  operationOutsideOwner.set(
+    elsewhere,
+    'const target = ".crdd/coordinator/item";\nensureRepositoryExecutionDataArea(root, "coordinator");',
+  );
+  const outsideFindings = violations(operationOutsideOwner);
+  assert.ok(
+    outsideFindings.includes(`unregistered-area:coordinator:${elsewhere}`),
+  );
+  assert.ok(outsideFindings.includes(`runtime-area-request:${elsewhere}`));
+
+  for (const [owner, helper, validArea, wrongArea] of [
+    [
+      HOST_OPERATION_OWNER,
+      "ensureRepositoryExecutionDataArea",
+      "coordinator",
+      "tmp",
+    ],
+    [ATTEMPT_OWNER, "ensurePhysicalExecutionDataArea", "tmp", "coordinator"],
+    [STATE_OWNER, "ensurePhysicalExecutionDataArea", "tmp", "coordinator"],
+  ] as const) {
+    const finite = new Map(sources);
+    const fixedSource = sources.get(owner) ?? "";
+    const request = fixedSource.match(
+      new RegExp(
+        `\\b${helper}\\s*\\([^,]+,\\s*"${validArea}"\\s*,?\\s*\\)`,
+        "u",
+      ),
+    )?.[0];
+    assert.ok(request);
+    finite.set(owner, fixedSource);
+    assert.ok(!violations(finite).includes(`runtime-area-request:${owner}`));
+    finite.set(
+      owner,
+      `${finite.get(owner)}\nconst raw = path.join(root, ".crdd", "future-cache");`,
+    );
+    const rawFindings = violations(finite);
+    assert.ok(rawFindings.includes(`raw-root:${owner}`));
+    assert.ok(rawFindings.includes(`root-literal:${owner}`));
+    assert.ok(rawFindings.includes(`unregistered-area:future-cache:${owner}`));
+    finite.set(
+      owner,
+      fixedSource.replace(
+        request,
+        request.replace(`"${validArea}"`, `"${wrongArea}"`),
+      ),
+    );
+    assert.ok(violations(finite).includes(`runtime-area-request:${owner}`));
+  }
+});

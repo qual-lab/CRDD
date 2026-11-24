@@ -16,6 +16,7 @@ import { types } from "node:util";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { createCandidateValidationFailureDiagnostic } from "../../src/lifecycle/validation.ts";
+import { createTaskStageDiagnostic } from "../../src/lifecycle/validation.ts";
 import { snapshotPlainArray } from "../../src/lifecycle/validation.ts";
 
 /**
@@ -29,47 +30,26 @@ import { snapshotPlainArray } from "../../src/lifecycle/validation.ts";
  * @cleanup N/A: メモリ内だけ。
  * @boundary 診断への投影。実AI・Docker・保存なし。
  */
-test("候補拒否と検証Toolの診断は旧件数を欠測化しない", () => {
-  const source = fs.readFileSync(
-    new URL("../../src/lifecycle/execution.ts", import.meta.url),
-    "utf8",
-  );
-  const notices: Record<string, unknown>[] = [];
-  const report = runInNewContext(
-    `${["objectCapability", "samePaths", "reportCandidateValidationFailure"]
-      .map((name) => sourceDeclaration(source, name))
-      .join("\n")};reportCandidateValidationFailure`,
-    {
-      Object,
-      Array,
-      Buffer,
-      snapshotPlainArray,
-      createCandidateValidationFailureDiagnostic: (
-        raw: Parameters<typeof createCandidateValidationFailureDiagnostic>[0],
-      ) => createCandidateValidationFailureDiagnostic({ ...raw }),
-      reportTaskDiagnostic: (notice: Record<string, unknown>) =>
-        notices.push(notice),
+test("実測を推定せず、診断の申告件数を保持する", () => {
+  const stage = createTaskStageDiagnostic({
+    taskRole: "executor",
+    result: {
+      captureStatus: "unavailable",
+      pathsMatch: null,
+      candidatePathCount: null,
+      reportedPathCount: 1001,
+      providerExecutionObservation: null,
     },
-  ) as (...args: unknown[]) => void;
-  const paths = Array.from({ length: 1001 }, (_, i) => `src/f-${i}.ts`);
-  const candidate = {
-    status: "candidate",
-    candidateCapability: {},
-    changedPaths: paths,
-  };
-  for (const [reported, expected] of [
-    [paths, true],
-    [[...paths.slice(0, -1), "src/other.ts"], false],
-    [[null], null],
-  ] as const) {
-    report({ operationId: "synthetic" }, null, "codex", 0, candidate, {
-      changedPaths: reported,
-    });
-    const diagnostic = notices.at(-1)?.diagnostic as Record<string, unknown>;
-    assert.equal(diagnostic.candidatePathCount, 1001);
-    assert.equal(diagnostic.reportedPathCount, expected === null ? null : 1001);
-    assert.equal(diagnostic.pathsMatch, expected);
-  }
+  });
+  assert.equal(stage?.taskRole, "executor");
+  assert.equal(
+    stage?.taskRole === "executor" ? stage.result.reportedPathCount : null,
+    1001,
+  );
+  assert.equal(
+    stage?.taskRole === "executor" ? stage.result.pathsMatch : undefined,
+    null,
+  );
   const general = fs.readFileSync(
     new URL("../system/manual/verify-general-task.ts", import.meta.url),
     "utf8",

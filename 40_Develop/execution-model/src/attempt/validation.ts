@@ -705,7 +705,7 @@ export function repairCanComplete(
   return !(
     operation.phase !== "settling" ||
     operation.outcome?.status !== "recovered" ||
-    operation.outcome.reason !== "runtime_repair_recovered" ||
+    operation.outcome.reason !== "docker_repair_recovered" ||
     operation.outcome.cleanupConfirmed !== true ||
     operation.primaryFailure !== null ||
     operation.checkpoint?.engine !== "ready" ||
@@ -782,7 +782,7 @@ export function validExecutionState(
       operations.set(nonce, operation);
       continue;
     }
-    if (operation.kind === "runtime_repair") {
+    if (operation.kind === "docker_repair") {
       if (!validRepairOperation(operation, repositoryBinding as string))
         return false;
       const nonce = operationNonce(operation);
@@ -1019,7 +1019,7 @@ export function validRepairOperation(
       "summarySha256",
       "history",
     ]) ||
-    operation.kind !== "runtime_repair" ||
+    operation.kind !== "docker_repair" ||
     typeof operation.identityJson !== "string"
   )
     return false;
@@ -1034,7 +1034,7 @@ export function validRepairOperation(
         "repositoryBinding",
         "consumer",
       ]) ||
-      identity.schema !== "crdd-coordinator/runtime-repair-identity/v2" ||
+      identity.schema !== "crdd-coordinator/docker-repair-identity/v3" ||
       identity.kind !== operation.kind ||
       identity.repositoryBinding !== repositoryBinding ||
       !isSha256Hex(identity.operationNonce) ||
@@ -1051,7 +1051,7 @@ export function validRepairOperation(
     if (
       operation.identitySha256 !== hash ||
       operation.recoveryId !==
-        `docker-runtime-repair.${identity.operationNonce}.${hash}` ||
+        `docker-repair.${identity.operationNonce}.${hash}` ||
       !["repairing", "settling", "awaiting_disposition", "terminal"].includes(
         operation.phase,
       ) ||
@@ -1112,7 +1112,7 @@ export function validRepairOperation(
           failure.stage,
         ) ||
         !repairReasons.has(failure.reason) ||
-        failure.reason === "runtime_repair_recovered")
+        failure.reason === "docker_repair_recovered")
     )
       return false;
     const outcome = operation.outcome;
@@ -1130,9 +1130,9 @@ export function validRepairOperation(
         return false;
       if (
         (outcome.status === "recovered") !==
-          (outcome.reason === "runtime_repair_recovered") ||
+          (outcome.reason === "docker_repair_recovered") ||
         (outcome.status === "cancelled") !==
-          (outcome.reason === "runtime_repair_cancelled")
+          (outcome.reason === "docker_repair_cancelled")
       )
         return false;
       if (
@@ -1366,7 +1366,7 @@ export function decodeHostOperation(
           (!temporary ||
             typeof temporary.relativePath !== "string" ||
             !new RegExp(
-              `^\\.crdd/operations/${operation.operationId}/management/candidate-index-[A-Za-z0-9]+$`,
+              `^\\.crdd/coordinator/${operation.operationId}/management/candidate-index-[A-Za-z0-9]+$`,
               "u",
             ).test(temporary.relativePath) ||
             !(temporary.identity === null || isSha256Hex(temporary.identity)))
@@ -1421,7 +1421,7 @@ export function decodeHostOperation(
           resources.snapshot.resources[0]?.key !== "probe" ||
           resources.snapshot.resources[0]?.identity.kind !== "container" ||
           resources.checkpoints.some(
-            (item) => item.receiptSource === "runtime_reconciliation",
+            (item) => item.receiptSource === "docker_observation",
           ) ||
           resources.cleanup.unreceiptedAbsence !== "retain" ||
           (operation.cleanup === "confirmed" &&
@@ -2182,14 +2182,14 @@ export function repairRetentionMatchesCheckpoint(
 }
 
 export const repairReasons = new Set([
-  "runtime_repair_recovered",
-  "runtime_repair_failed_closed",
-  "runtime_repair_boundary_unavailable",
-  "runtime_repair_state_unavailable",
-  "runtime_repair_observation_unknown",
-  "runtime_repair_effect_unknown",
-  "runtime_repair_cancelled",
-  "runtime_repair_cleanup_unknown",
+  "docker_repair_recovered",
+  "docker_repair_failed_closed",
+  "docker_repair_boundary_unavailable",
+  "docker_repair_state_unavailable",
+  "docker_repair_observation_unknown",
+  "docker_repair_effect_unknown",
+  "docker_repair_cancelled",
+  "docker_repair_cleanup_unknown",
 ]);
 
 /**
@@ -2495,12 +2495,12 @@ export function validRepairSummary(value: unknown): boolean {
       isSha256Hex(summary.operationNonce) &&
       isSha256Hex(summary.identitySha256) &&
       summary.recoveryId ===
-        `docker-runtime-repair.${summary.operationNonce}.${summary.identitySha256}` &&
+        `docker-repair.${summary.operationNonce}.${summary.identitySha256}` &&
       typeof summary.outcome.reason === "string" &&
       repairReasons.has(summary.outcome.reason) &&
-      summary.outcome.reason !== "runtime_repair_recovered" &&
+      summary.outcome.reason !== "docker_repair_recovered" &&
       (summary.outcome.status === "cancelled") ===
-        (summary.outcome.reason === "runtime_repair_cancelled") &&
+        (summary.outcome.reason === "docker_repair_cancelled") &&
       (failure === null ||
         (hasExecutionStateRecordKeys(failure, ["stage", "reason"]) &&
           ["preparation", "checkpoint", "repair", "delivery"].includes(
@@ -2597,7 +2597,7 @@ export function validRepairSummary(value: unknown): boolean {
     isSha256Hex(summary.operationNonce) &&
     isSha256Hex(summary.identitySha256) &&
     summary.recoveryId ===
-      `docker-runtime-repair.${summary.operationNonce}.${summary.identitySha256}` &&
+      `docker-repair.${summary.operationNonce}.${summary.identitySha256}` &&
     summary.primaryFailure === null &&
     hasExecutionStateRecordKeys(summary.outcome, [
       "status",
@@ -2605,7 +2605,7 @@ export function validRepairSummary(value: unknown): boolean {
       "cleanupConfirmed",
     ]) &&
     summary.outcome.status === "recovered" &&
-    summary.outcome.reason === "runtime_repair_recovered" &&
+    summary.outcome.reason === "docker_repair_recovered" &&
     summary.outcome.cleanupConfirmed === true &&
     hasExecutionStateRecordKeys(technical, [
       "actions",
@@ -2762,7 +2762,7 @@ export function validateOperationTransitions(
         priorOperations.delete(nonce);
         continue;
       }
-      if (operation.kind === "runtime_repair") {
+      if (operation.kind === "docker_repair") {
         if (prior === undefined) {
           if (
             operation.phase !== "repairing" ||
@@ -2777,7 +2777,7 @@ export function validateOperationTransitions(
             return false;
         } else {
           if (
-            prior.kind !== "runtime_repair" ||
+            prior.kind !== "docker_repair" ||
             operation.identityJson !== prior.identityJson ||
             operation.identitySha256 !== prior.identitySha256 ||
             operation.recoveryId !== prior.recoveryId
@@ -2912,7 +2912,7 @@ export function validateOperationTransitions(
           next.snapshot.operations.some((other) => {
             if (other.recoveryId === operation.recoveryId) return false;
             if (other.kind === "host_operation") return false;
-            if (other.kind === "runtime_repair")
+            if (other.kind === "docker_repair")
               return other.phase !== "terminal";
             if (
               JSON.parse(other.identityJson).stableLogicalHomeBindingHash !==

@@ -4,10 +4,8 @@
  * @trace ARCH-000003
  */
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
-import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
-import { prepareVerificationTemporaryArea } from "./temporary.ts";
+import { createVerificationTemporaryDirectory } from "./temporary.ts";
 import {
   startVisualPreview,
   type VisualPreviewHandle,
@@ -30,11 +28,11 @@ const CONTRACT = "crdd/visual-browser-zoom-verification/v1" as const;
  *
  * @responsibility Preview開始、対象×倍率の全数実測、一括判定および全資源清掃を所有する。
  * @trace ARCH-000003
- * @input requestにRepository相対Root、Document一覧、倍率一覧、Window寸法および任意Browser Pathを受け取る。
+ * @input requestに配信Directory、準備済み一時Directory、Document一覧、倍率・寸法、任意Browser Pathを受け取る。
  * @returns 全測定と合否を含むBrowserZoomVerificationResultを返す。
- * @precondition 作業Directoryは検証済みRepository内であり、Documentは許可Root配下のHTMLである。
+ * @precondition 呼出し側が配信先と書込み可能な一時Directoryを用意し、Documentは配信先のHTMLである。
  * @postcondition 成否にかかわらずPreview Listener、Browser Processおよび一時Profileが残らない。
- * @effect localhost Listener、Repository-local一時ProfileおよびHeadless Chromeを順次開始・終了する。
+ * @effect localhost Listener、指定一時領域内の専用ProfileおよびHeadless Chromeを順次開始・終了する。
  * @failure 入力不正、Browser不在、起動・観測・清掃不能はErrorとし、部分結果を全体PASSへ畳まない。
  * @invariant 全Document×全Zoom倍率を一件ずつ実測する。
  * @boundary Repository、localhost HTTP、Chromium Process、DevToolsおよび一時Filesystemの統合境界。
@@ -63,18 +61,13 @@ export async function verifyBrowserZoom(
       throw new Error("visual_zoom_document_invalid");
   }
   for (const zoomFactor of request.zoomFactors) toChromiumZoomLevel(zoomFactor);
-  const temporaryArea = prepareVerificationTemporaryArea(
-    request.workingDirectory,
-    "visual_zoom_runtime_data_root_invalid",
-  );
   const browserExecutablePath = resolveChromeExecutable(
     request.browserExecutablePath,
   );
-  const operationRoot = path.join(
-    temporaryArea.directory,
-    `visual-browser-zoom-${randomUUID()}`,
+  const temporary = createVerificationTemporaryDirectory(
+    request.temporaryDirectory,
+    "visual-browser-zoom-",
   );
-  await mkdir(operationRoot, { recursive: true });
   let preview: VisualPreviewHandle | undefined;
   const measurements: BrowserZoomMeasurement[] = [];
   let isPreviewListenerClosed = false;
@@ -82,15 +75,14 @@ export async function verifyBrowserZoom(
   let cleanupConfirmed = false;
   try {
     preview = await startVisualPreview({
-      workingDirectory: request.workingDirectory,
-      rootRelativePath: request.rootRelativePath,
+      rootDirectory: request.rootDirectory,
     });
     for (const documentPath of request.documentPaths) {
       for (const zoomFactor of request.zoomFactors) {
         measurements.push(
           await measureDocumentAtZoom(
             browserExecutablePath,
-            path.join(operationRoot, randomUUID()),
+            path.join(temporary.directory, randomUUID()),
             `${preview.baseUrl}/${documentPath
               .split("/")
               .map(encodeURIComponent)
@@ -112,13 +104,7 @@ export async function verifyBrowserZoom(
           (await confirmPreviewListenerClosed(preview.healthUrl)) === "absent";
       }
     } finally {
-      await rm(operationRoot, {
-        recursive: true,
-        force: true,
-        maxRetries: 10,
-        retryDelay: 200,
-      });
-      temporaryRootRemoved = !existsSync(operationRoot);
+      temporaryRootRemoved = await temporary.remove();
       cleanupConfirmed = isPreviewListenerClosed && temporaryRootRemoved;
     }
   }
@@ -142,11 +128,11 @@ export async function verifyBrowserZoom(
  *
  * @responsibility Product Serverを所有せず、実Browser表示、Screen Target、Visual閾値およびBrowser資源清掃を全数確認する。
  * @trace ARCH-000003
- * @input requestにRepository Root、loopback Base URL、Target、Profile、Zoomおよび任意Browser Pathを受け取る。
+ * @input requestに準備済み一時Directory、loopback Base URL、Target、Profile、Zoomおよび任意Browser Pathを受け取る。
  * @returns 全測定とBrowser側清掃結果を返す。
  * @precondition 呼出し側がProduction同等Serverを起動し、完了後にListenerを閉じて観測する。
  * @postcondition Browser Process Treeと専用Profileを残さず、Application Listenerには触れない。
- * @effect Repository-local一時ProfileとHeadless Chromeを順次開始・終了する。
+ * @effect 指定一時領域内の専用ProfileとHeadless Chromeを順次開始・終了する。
  * @failure 入力不正、外部Origin、Browser不在、観測不能または清掃不能を成功へ畳まない。
  * @invariant 全Target×Profile×Zoomを一件ずつ実測する。
  * @boundary Product localhost Server、Chromium Process、DevToolsおよび一時Filesystemの統合境界。
@@ -209,18 +195,13 @@ export async function verifyLocalWebApplicationVisual(
   }
   for (const zoomFactor of request.zoomFactors) toChromiumZoomLevel(zoomFactor);
 
-  const temporaryArea = prepareVerificationTemporaryArea(
-    request.workingDirectory,
-    "local_web_visual_runtime_data_root_invalid",
-  );
   const browserExecutablePath = resolveChromeExecutable(
     request.browserExecutablePath,
   );
-  const operationRoot = path.join(
-    temporaryArea.directory,
-    `local-web-visual-${randomUUID()}`,
+  const temporary = createVerificationTemporaryDirectory(
+    request.temporaryDirectory,
+    "local-web-visual-",
   );
-  await mkdir(operationRoot, { recursive: true });
   const measurements: BrowserZoomMeasurement[] = [];
   let temporaryRootRemoved = false;
   try {
@@ -231,7 +212,7 @@ export async function verifyLocalWebApplicationVisual(
           measurements.push(
             await measureDocumentAtZoom(
               browserExecutablePath,
-              path.join(operationRoot, randomUUID()),
+              path.join(temporary.directory, randomUUID()),
               targetUrl.href,
               target.pageId,
               profile.name,
@@ -244,13 +225,7 @@ export async function verifyLocalWebApplicationVisual(
       }
     }
   } finally {
-    await rm(operationRoot, {
-      recursive: true,
-      force: true,
-      maxRetries: 10,
-      retryDelay: 200,
-    });
-    temporaryRootRemoved = !existsSync(operationRoot);
+    temporaryRootRemoved = await temporary.remove();
   }
   const browserCleanupConfirmed = measurements.every(
     (measurement) =>

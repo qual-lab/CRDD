@@ -38,13 +38,13 @@ import type {
 import type { ProviderExecutionRecording } from "../../src/lifecycle/types.ts";
 import type {
   AdviceProviderInput,
-  cancelRuntimeOwnedCoordinatorTask,
+  cancelCoordinatorTask,
   createCoordinatorTaskRequests,
   Operation,
   recoverSingleTaskOperation,
   runCoordinatorSingleTaskAttempt,
   runRepositoryAdvice,
-  startRuntimeOwnedCoordinatorTask,
+  startCoordinatorTask,
   TaskCompletionRecord,
 } from "../../src/lifecycle/execution.ts";
 import type {
@@ -152,12 +152,12 @@ export type TestAdviceDependencies = NonNullable<
     bindRepository: (
       managementCapability: unknown,
     ) => Readonly<{ operationId: string }> | null;
-    observeProviderHome: typeof import("../../src/lifecycle/environment.ts").inspectRuntimeOwnedWindowsProviderHomeCandidate;
-    preflightSelections: typeof selection.preflightRuntimeOwnedDelegationSelections;
-    issuePacket: typeof selection.issueRuntimeOwnedProviderAdvicePacket;
-    revokePacket: typeof selection.revokeRuntimeOwnedProviderAdvicePacket;
-    startProcess: typeof import("../../src/lifecycle/execution.ts").startRuntimeOwnedDockerProcessController;
-    cancelProcess: typeof recovery.cancelRuntimeOwnedExecutorAttempt;
+    observeProviderHome: typeof import("../../src/lifecycle/environment.ts").inspectWindowsProviderHomeCandidate;
+    preflightSelections: typeof selection.preflightDelegationSelections;
+    issuePacket: typeof selection.issueProviderAdvicePacket;
+    revokePacket: typeof selection.revokeProviderAdvicePacket;
+    startProcess: typeof import("../../src/lifecycle/execution.ts").startDockerProcessController;
+    cancelProcess: typeof recovery.cancelExecutorAttempt;
     completeHostOperation: HostCompletionFixture;
     abandonDockerRecovery: (
       capability: unknown,
@@ -197,7 +197,7 @@ const retainHostOperationSource = sourceDeclaration(
     new URL("../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   ),
-  "retainRuntimeOwnedHostOperation",
+  "retainHostOperation",
 );
 
 /**
@@ -211,17 +211,17 @@ function adviceFixtureSource() {
 export { executeWithFixture as executeProviderAdvice };
 function executeWithFixture(dependencies, plan, signal) {
   const openAdviceOperation = (_context, ...args) => dependencies.createOperation(...args);
-  const bindRuntimeOwnedRepositoryOperation = (management) => dependencies.bindRepository(management);
-  const inspectRuntimeOwnedWindowsProviderHomeCandidate = dependencies.observeProviderHome;
-  const preflightRuntimeOwnedDelegationSelections = dependencies.preflightSelections;
-  const issueRuntimeOwnedProviderAdvicePacket = dependencies.issuePacket;
-  const revokeRuntimeOwnedProviderAdvicePacket = dependencies.revokePacket;
-  const startRuntimeOwnedDockerProcessController = dependencies.startProcess;
-  const cancelRuntimeOwnedExecutorAttempt = dependencies.cancelProcess;
-  const completeRuntimeOwnedHostOperation = dependencies.completeHostOperation;
-  const abandonRuntimeOwnedAttemptRecovery = dependencies.abandonDockerRecovery;
+  const bindRepositoryOperation = (management) => dependencies.bindRepository(management);
+  const inspectWindowsProviderHomeCandidate = dependencies.observeProviderHome;
+  const preflightDelegationSelections = dependencies.preflightSelections;
+  const issueProviderAdvicePacket = dependencies.issuePacket;
+  const revokeProviderAdvicePacket = dependencies.revokePacket;
+  const startDockerProcessController = dependencies.startProcess;
+  const cancelExecutorAttempt = dependencies.cancelProcess;
+  const completeHostOperation = dependencies.completeHostOperation;
+  const abandonAttemptRecovery = dependencies.abandonDockerRecovery;
   const abandonOwnedHostOperationGenerationLock = dependencies.abandonOperation;
-  const poisonRuntimeProcessAfterCleanupUnknown = dependencies.poisonAfterCleanupUnknown;
+  const poisonExecutionProcessAfterCleanupUnknown = dependencies.poisonAfterCleanupUnknown;
   ${retainHostOperationSource}
   ${execution}
   return executeProviderAdvice(dependencies, plan, signal);
@@ -282,9 +282,7 @@ function requestWithFixture(repository, deliver, request, signal) {
 }
 
 export type TestTaskAttemptDependencies = Readonly<{
-  startTask: (
-    ...args: Parameters<typeof startRuntimeOwnedCoordinatorTask>
-  ) => unknown;
+  startTask: (...args: Parameters<typeof startCoordinatorTask>) => unknown;
   cancelTask: (controlCapability: object) => unknown;
 }>;
 
@@ -304,11 +302,8 @@ export const runTestSingleTaskAttempt = await (async () => {
       "function runCoordinatorSingleTaskAttempt(",
       "function runCoordinatorSingleTaskAttempt(fixture, ",
     ],
-    [
-      "rawStarted = startRuntimeOwnedCoordinatorTask(",
-      "rawStarted = fixture.startTask(",
-    ],
-    ["\n    cancelRuntimeOwnedCoordinatorTask,", "\n    fixture.cancelTask,"],
+    ["rawStarted = startCoordinatorTask(", "rawStarted = fixture.startTask("],
+    ["\n    cancelCoordinatorTask,", "\n    fixture.cancelTask,"],
   ] as const) {
     assert.equal(source.split(before).length, 2, before);
     source = source.replace(before, after);
@@ -367,9 +362,9 @@ export function traceTaskTerminalState(
 }
 
 type HostCompletionFixture = (
-  target: Parameters<typeof recovery.completeRuntimeOwnedHostOperation>[0],
+  target: Parameters<typeof recovery.completeHostOperation>[0],
   observeHostCleaned?: () => void,
-) => ReturnType<typeof recovery.completeRuntimeOwnedHostOperation>;
+) => ReturnType<typeof recovery.completeHostOperation>;
 
 /** Taskの固定技術操作を試験内だけで代替する。 @trace ERB-IT-003 */
 export type TaskFixtureDependencies = Readonly<{
@@ -380,13 +375,10 @@ export type TaskFixtureDependencies = Readonly<{
   reportSelectionNotice?: (notice: RuntimeRecord) => void | Promise<void>;
   poisonProcessAfterCleanupUnknown?: () => void;
   isProcessPoisoned?: () => boolean;
-  projectReviewerReadContent: (
-    workspaceCapability: object,
-    candidateCapability: object,
+  prepareReviewerWorkspace: (
     repositoryBindingCapability: object,
     managementCapability: object,
     mountCapability: object,
-    readPaths: readonly string[],
   ) => RuntimeRecord | null;
   registerReviewFindings?: (
     capability: object,
@@ -459,19 +451,6 @@ export type TaskFixtureDependencies = Readonly<{
     controlCapability: object,
     managementCapability: object,
   ) => Promise<unknown>;
-  captureCandidate: (
-    workspaceCapability: object,
-    repositoryBindingCapability: object,
-    managementCapability: object,
-    mountCapability: object,
-    allowedPaths: readonly string[],
-  ) => RuntimeRecord | null;
-  verifyCandidate: (
-    candidateCapability: object,
-    repositoryBindingCapability: object,
-    managementCapability: object,
-    mountCapability: object,
-  ) => RuntimeRecord | null;
   completeHostOperation: HostCompletionFixture;
 }>;
 
@@ -485,8 +464,7 @@ function taskRuntimeFixtureSource(origin: URL) {
   let body = [
     "reportTaskDiagnostic",
     "requestControlCancellation",
-    "poisonRuntimeProcess",
-    "reportCandidateValidationFailure",
+    "poisonExecutionProcess",
     "reportTaskStage",
     "executeStage",
     "runCoordinatorTaskCore",
@@ -499,24 +477,18 @@ function taskRuntimeFixtureSource(origin: URL) {
     .concat(retainHostOperationSource)
     .join("\n");
   for (const [operation, fixture, count] of [
-    ["cancelRuntimeOwnedExecutorAttempt", "cancelProcess", 2],
-    ["revokeRuntimeOwnedProviderTaskPacket", "revokeTaskPacket", 1],
-    ["preflightRuntimeOwnedDelegationSelections", "preflightSelections", 2],
-    [
-      "inspectRuntimeOwnedWindowsProviderHomeCandidate",
-      "observeProviderHome",
-      1,
-    ],
-    ["issueRuntimeOwnedProviderTaskPacket", "issueTaskPacket", 1],
-    ["startRuntimeOwnedDockerProcessController", "startProcess", 1],
+    ["cancelExecutorAttempt", "cancelProcess", 2],
+    ["revokeProviderTaskPacket", "revokeTaskPacket", 1],
+    ["preflightDelegationSelections", "preflightSelections", 2],
+    ["inspectWindowsProviderHomeCandidate", "observeProviderHome", 1],
+    ["issueProviderTaskPacket", "issueTaskPacket", 1],
+    ["startDockerProcessController", "startProcess", 1],
     ["inspectRepositoryObjectFormatCandidate", "inspectRepository", 2],
-    ["inspectRuntimeOwnedDockerTaskAdmission", "prepareDockerRecoveryState", 1],
+    ["inspectDockerTaskAdmission", "prepareDockerRecoveryState", 1],
     ["openTaskOperation", "createOperation", 1],
-    ["bindRuntimeOwnedRepositoryOperation", "bindRepository", 1],
-    ["resolveRuntimeOwnedExternalSendPolicy", "resolveExternalSendPolicy", 1],
-    ["bindRuntimeOwnedExecutionSnapshot", "materializeWorkspace", 1],
-    ["captureExecutionChangeSnapshot", "captureCandidate", 2],
-    ["verifyExecutionChangeSnapshot", "verifyCandidate", 2],
+    ["bindRepositoryOperation", "bindRepository", 1],
+    ["resolveExternalSendPolicy", "resolveExternalSendPolicy", 1],
+    ["bindExecutionWorkspace", "materializeWorkspace", 1],
     ["productionOperationFailure", "classifyOperationCreationFailure", 1],
     ["abandonOwnedHostOperationGenerationLock", "abandonOperation", 1],
   ] as const) {
@@ -532,19 +504,13 @@ function taskRuntimeFixtureSource(origin: URL) {
     ],
     ["reportSelectionNotice(", "dependencies.reportSelectionNotice?.("],
     [
-      "poisonRuntimeProcessAfterCleanupUnknown()",
+      "poisonExecutionProcessAfterCleanupUnknown()",
       "dependencies.poisonProcessAfterCleanupUnknown?.()",
     ],
+    ["registerReviewFindings(", "dependencies.registerReviewFindings?.("],
+    ["abandonAttemptRecovery(", "dependencies.abandonDockerRecovery?.("],
     [
-      "registerRuntimeOwnedReviewFindings(",
-      "dependencies.registerReviewFindings?.(",
-    ],
-    [
-      "abandonRuntimeOwnedAttemptRecovery(",
-      "dependencies.abandonDockerRecovery?.(",
-    ],
-    [
-      "control.processPoisoned ||= isRuntimeProcessPoisoned();",
+      "control.processPoisoned ||= isExecutionProcessPoisoned();",
       "control.processPoisoned ||= dependencies.isProcessPoisoned?.() === true;",
     ],
     [
@@ -571,20 +537,16 @@ function taskRuntimeFixtureSource(origin: URL) {
       "STATE-EXECUTOR-CLEAN",
       true,
     ],
-    [
-      "reportTaskStage(\n      operation,\n      control.recoveryCorrelationId,\n      executor.provider,\n      0,",
-      "STATE-CANDIDATE-CAPTURED",
-      false,
-    ],
+    ["let reviewer = await executeStage(", "STATE-CANDIDATE-CAPTURED", false],
     ["let reviewerResult", "STATE-REVIEWER-CLEAN", false],
     [
-      "const remediationCapability = objectCapability(",
+      "const remediation = await executeStage(",
       "STATE-REMEDIATION-AUTHORIZED",
       false,
     ],
     ["remediationPerformed = true;", "STATE-REMEDIATION-EXECUTOR-CLEAN", false],
     [
-      "reportTaskStage(\n        operation,\n        control.recoveryCorrelationId,\n        remediation.provider,\n        1,",
+      "reviewer = await executeStage(\n        operation,",
       "STATE-REMEDIATION-CANDIDATE-CAPTURED",
       false,
     ],
@@ -607,7 +569,7 @@ function taskRuntimeFixtureSource(origin: URL) {
   }
   for (const [operation, fixture] of [
     [
-      "await completeRuntimeOwnedHostOperation(control)",
+      "await completeHostOperation(control)",
       `await dependencies.completeHostOperation(control, () => {
         const previous = observedStages.get(control);
         if (result.status === "completed" &&
@@ -627,7 +589,7 @@ function taskRuntimeFixtureSource(origin: URL) {
 export function bindTaskFixture(dependencies, traceTaskTerminalState) {
   const controls = new WeakMap();
   const observedStages = new WeakMap();
-  const projectReviewerReadContent = dependencies.projectReviewerReadContent;
+  const prepareReviewerWorkspace = dependencies.prepareReviewerWorkspace;
   const notify = (control, next) => {
     if (observedStages.get(control) === next) return;
     observedStages.set(control, next);
@@ -661,8 +623,8 @@ export async function loadTaskRuntimeFixture() {
       dependencies: TaskFixtureDependencies,
       traceTerminal: typeof traceTaskTerminalState,
     ): Readonly<{
-      start: typeof startRuntimeOwnedCoordinatorTask;
-      cancel: typeof cancelRuntimeOwnedCoordinatorTask;
+      start: typeof startCoordinatorTask;
+      cancel: typeof cancelCoordinatorTask;
     }>;
   };
   let api: FixtureApi;

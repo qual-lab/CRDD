@@ -4,6 +4,7 @@
  * @trace ARCH-000002
  */
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { types, TextDecoder } from "node:util";
 import fs from "node:fs";
 
@@ -202,6 +203,8 @@ export type EntitySnapshot = Readonly<{
   realPath: string;
   identity: EntityIdentity;
 }>;
+type RepositoryConfigSnapshot = EntitySnapshot &
+  Readonly<{ contentSha256?: string }>;
 
 /**
  * repository-layoutで使用するRepository Git Layoutの値契約を定義する。
@@ -219,6 +222,7 @@ export type RepositoryGitLayout = Readonly<{
   root: EntitySnapshot;
   gitDirectory: EntitySnapshot;
   commonDirectory: EntitySnapshot;
+  configSnapshot: RepositoryConfigSnapshot;
   infoDirectory: EntitySnapshot | null;
   excludeSnapshot: EntitySnapshot | null;
   structuralGraph: readonly EntitySnapshot[];
@@ -654,8 +658,9 @@ function readControlFile(
 function parseNarrowRepositoryConfig(
   target: string,
   commonDirectory: EntitySnapshot,
+  withContent = false,
 ): Readonly<{
-  snapshot: EntitySnapshot;
+  snapshot: RepositoryConfigSnapshot;
   objectFormat: "sha1" | "sha256";
   worktree: string | null;
 }> {
@@ -755,7 +760,12 @@ function parseNarrowRepositoryConfig(
     throw new Error("repository_git_config_unsupported");
   }
   return Object.freeze({
-    snapshot: bytes.snapshot,
+    snapshot: withContent
+      ? Object.freeze({
+          ...bytes.snapshot,
+          contentSha256: createHash("sha256").update(bytes.value).digest("hex"),
+        })
+      : bytes.snapshot,
     objectFormat: detectedObjectFormat,
     worktree,
   });
@@ -1079,6 +1089,7 @@ function resolveExcludeBoundary(
  */
 export function resolveRepositoryGitLayout(
   repositoryRoot: unknown,
+  observeConfigContent = false,
 ): RepositoryGitLayout {
   if (typeof repositoryRoot !== "string" || repositoryRoot.length === 0) {
     throw new Error("repository_git_root_required");
@@ -1119,6 +1130,7 @@ export function resolveRepositoryGitLayout(
   const config = parseNarrowRepositoryConfig(
     path.join(commonDirectory.realPath, "config"),
     commonDirectory,
+    observeConfigContent,
   );
   if (config.objectFormat !== "sha1")
     throw new Error("repository_git_object_format_unsupported");
@@ -1134,6 +1146,7 @@ export function resolveRepositoryGitLayout(
     root,
     gitDirectory,
     commonDirectory,
+    configSnapshot: config.snapshot,
     infoDirectory: boundary.infoDirectory,
     excludeSnapshot: boundary.excludeSnapshot,
     structuralGraph: Object.freeze([...entitySnapshots]),

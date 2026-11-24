@@ -79,8 +79,9 @@ test("助言の初回終端はHostとDockerのexact参照を保持し後付け�
   const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_required");
+  fs.mkdirSync(path.join(root, ".crdd", "config"), { recursive: true });
   const saved = saveRepositoryAiSelection(
-    verified.capability,
+    root,
     { expectedIdentity: null, config: selectionConfig() },
     () => true,
     getModelCatalog().catalog,
@@ -148,7 +149,7 @@ test("助言の初回終端はHostとDockerのexact参照を保持し後付け�
   assert.equal(readFixtureCalls(), 1);
   assert.deepEqual(outcome.recoveryIds, [hostId, dockerId]);
   const binding = deriveCoordinatorRepositoryBindingId(root);
-  const read = readQueueEntry(verified.capability, binding, accepted.requestId);
+  const read = readQueueEntry({ directory: root }, binding, accepted.requestId);
   assert.equal(read.status, "completed");
   if (read.status !== "completed" || !read.value)
     throw Error("fixture_snapshot_required");
@@ -190,7 +191,7 @@ test("助言の初回終端はHostとDockerのexact参照を保持し後付け�
     if (other.status === "blocked")
       assert.equal(
         other.reason,
-        "orchestrator_single_task_terminal_identity_conflict",
+        "coordinator_single_task_terminal_identity_conflict",
       );
     assert.equal(
       updateCoordinatorSingleTask(

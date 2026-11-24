@@ -46,7 +46,7 @@ test("Host清掃は同期wx解放まで同じ経路で閉じ、不明なら記�
     "operationGenerationByRoot",
     "ownedIdentities",
     "revokeOwnedOperationContextCapabilities",
-    "poisonRuntimeProcessAfterCleanupUnknown",
+    "poisonExecutionProcessAfterCleanupUnknown",
     "removeOwnedOperationRootForCleanup",
     "createOwnedOperationCleanupOutcome",
     declarations + "\nreturn cleanupOwnedOperationDirectories;",
@@ -163,8 +163,8 @@ const createFixtureOwner = new Function(
     createOwnedOperationContextCapability, createOwnedMountCapability,
     createOwnedOperationManagementCapability, requireOwnedIdentity,
     cleanupOwnedOperationDirectories, classifyOwnedOperationDirectoryCreationFailure } = dependencies;
-  ${["fail", "classifyOwnedCoordinatorOperationCreationFailure", "createRuntimeOwnedCoordinatorOperation"].map((name) => sourceDeclaration(creationSource, name)).join("\n")}
-  return { create: () => createRuntimeOwnedCoordinatorOperation({}), classify: classifyOwnedCoordinatorOperationCreationFailure };
+  ${["fail", "classifyOwnedCoordinatorOperationCreationFailure", "createCoordinatorOperation"].map((name) => sourceDeclaration(creationSource, name)).join("\n")}
+  return { create: () => createCoordinatorOperation({}), classify: classifyOwnedCoordinatorOperationCreationFailure };
 `,
 );
 function fixture(

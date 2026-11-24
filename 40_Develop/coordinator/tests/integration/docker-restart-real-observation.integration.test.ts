@@ -19,11 +19,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createWindowsPowerShellAuthenticodeEnvironment } from "../../../docker-isolation/src/docker-cli/environment.ts";
 import { acquireDesktopOperations } from "../../../docker-isolation/src/docker-desktop/command.ts";
 import { createDockerRestartMachine } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
-import {
-  getIsolationSettings,
-  runtimeStateDirectoryCandidate,
-} from "../../src/lifecycle/environment.ts";
-import { acquireExecutionStateLock } from "../../src/lifecycle/host.ts";
+import { getIsolationSettings } from "../../src/lifecycle/environment.ts";
 
 /**
  * 中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できるを検証する。
@@ -84,75 +80,65 @@ test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを�
 });
 
 // Explicit, read-only real-environment IT. No stop/start or Provider invocation.
-for (const hasRuntimeLock of [false, true]) {
-  /**
-   * real Desktop CLI and WSL observation with runtime lock=${hasRuntimeLock}を検証する。
-   *
-   * @responsibility real Desktop CLI and WSL observation with runtime lock=${hasRuntimeLock}の合否判定を所有する。
-   * @trace ERB-IT-014
-   * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus real Desktop CLI and WSL observation with runtime lock=${hasRuntimeLock}の対象操作を実行する。
-   * @observation 結果、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionが期待条件を満たす。
-   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary ERB-IT-014=Direct Boundary: coordinator Test Source→対象契約
-   */
-  test(`real Desktop CLI and WSL observation with runtime lock=${hasRuntimeLock}`, {
-    skip: process.env.CRDD_REAL_DOCKER_OBSERVATION !== "1",
-    timeout: 60_000,
-  }, async (context) => {
-    assert.equal(process.platform, "win32");
-    const acquired = acquireDesktopOperations(
+/**
+ * Desktop実排他下のCLIとWSL観測を検証する。
+ *
+ * @responsibility Desktop実排他下のCLIとWSL観測の合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Desktop実排他下でCLIとWSLの読取り観測を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Desktop実排他Sessionをcloseする。
+ * @boundary ERB-IT-014=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("real Desktop CLI and WSL observation with Desktop operations lock", {
+  skip: process.env.CRDD_REAL_DOCKER_OBSERVATION !== "1",
+  timeout: 60_000,
+}, async (context) => {
+  assert.equal(process.platform, "win32");
+  const acquired = acquireDesktopOperations(
+    getIsolationSettings(),
+    new AbortController().signal,
+  );
+  const session = acquired.operations;
+  assert.ok(session);
+  try {
+    for (let index = 0; index < 3; index += 1) {
+      assert.equal(session.verify(), true);
+      const status = await session.command("status");
+      assert.equal(status.completed, true);
+      assert.notEqual(status.status, "unknown");
+    }
+    const machine = createDockerRestartMachine(
       getIsolationSettings(),
+      session,
+      () => true,
       new AbortController().signal,
     );
-    const session = acquired.operations;
-    assert.ok(session);
-    const lockAcquisition = hasRuntimeLock
-      ? acquireExecutionStateLock(runtimeStateDirectoryCandidate())
-      : null;
-    assert.ok(!lockAcquisition || lockAcquisition.status === "acquired");
-    const lock =
-      lockAcquisition?.status === "acquired" ? lockAcquisition.lock : null;
-    try {
-      if (hasRuntimeLock) assert.ok(lock);
-      for (let index = 0; index < 3; index += 1) {
-        assert.equal(session.verify(), true);
-        const status = await session.command("status");
-        assert.equal(status.completed, true);
-        assert.notEqual(status.status, "unknown");
-      }
-      const machine = createDockerRestartMachine(
-        getIsolationSettings(),
-        session,
-        () => true,
-        new AbortController().signal,
-      );
-      context.diagnostic("entering composed CLI/Engine/WSL observation");
-      const wslState = machine.observeBackendState();
-      assert.notEqual(wslState, "unknown");
-      context.diagnostic(`observed WSL backend state: ${wslState}`);
-      if (process.env.CRDD_EXPECT_NON_WSL_DOCKER_BACKEND === "1")
-        assert.equal(
-          wslState,
-          "stopped",
-          "the explicitly selected non-WSL backend profile must keep the Docker WSL distribution stopped",
-        );
+    context.diagnostic("entering composed CLI/Engine/WSL observation");
+    const wslState = machine.observeBackendState();
+    assert.notEqual(wslState, "unknown");
+    context.diagnostic(`observed WSL backend state: ${wslState}`);
+    if (process.env.CRDD_EXPECT_NON_WSL_DOCKER_BACKEND === "1")
       assert.equal(
-        await machine.observeReady(),
-        true,
-        "a verified Linux Engine response is ready independently of the optional WSL backend state",
+        wslState,
+        "stopped",
+        "the explicitly selected non-WSL backend profile must keep the Docker WSL distribution stopped",
       );
-      assert.equal(
-        await machine.observeStopped(),
-        false,
-        "an Engine that answered as ready cannot simultaneously be observed as stopped",
-      );
-      context.diagnostic("composed observation completed");
-    } finally {
-      const released = await session.close();
-      if (lock) assert.equal(lock.release(), true);
-      assert.equal(released, true);
-    }
-  });
-}
+    assert.equal(
+      await machine.observeReady(),
+      true,
+      "a verified Linux Engine response is ready independently of the optional WSL backend state",
+    );
+    assert.equal(
+      await machine.observeStopped(),
+      false,
+      "an Engine that answered as ready cannot simultaneously be observed as stopped",
+    );
+    context.diagnostic("composed observation completed");
+  } finally {
+    const released = await session.close();
+    assert.equal(released, true);
+  }
+});

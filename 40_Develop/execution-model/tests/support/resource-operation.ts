@@ -71,7 +71,7 @@ export function createResourceOperationFixture() {
     schema: "crdd-coordinator/operation-identity/v6",
     operationNonce: "b".repeat(64),
     provider: "claude",
-    consumer: "orchestrator",
+    consumer: "coordinator",
     operationId: "OP-123456",
     recoveryCorrelationId: "task-operation-a",
     executionSelection: {
@@ -99,7 +99,7 @@ export function createResourceOperationFixture() {
   // 一つの既知入力だけを宣言する。任意Identityから保存候補を作るHelperではない。
   const identityJson = `${JSON.stringify(identity)}\n`;
   const identitySha256 =
-    "d10d59499787df40a3a3cffe645b06c1e75fd3e4b00cf1c38a955cdb9768b9ae";
+    "697a04ea51581261d2844676b7b3998a6ca157b9bc4cdd0f09af0c1bd7031570";
   assert.equal(
     createHash("sha256").update(identityJson).digest("hex"),
     identitySha256,
@@ -166,7 +166,7 @@ export function createResourceOperationFixture() {
     repositoryBindingId: null,
     results: [],
     revision: 1,
-    schema: "crdd-execution-model/state/v7",
+    schema: "crdd-execution-model/state/v9",
     unresolvedRecoveries: [],
     workspaces: [],
   };

@@ -193,7 +193,7 @@ export async function simulateAuthCreateClosure(
   const root = path.join(area, "auth-create-closure");
   const statePath = path.join(root, ".crdd", "execution-model", "state.json");
   const operationId = "OP-123";
-  const hostRoot = path.join(root, ".crdd", "operations", operationId);
+  const hostRoot = path.join(root, ".crdd", "coordinator", operationId);
   const image =
     "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
   const imageId =
@@ -458,6 +458,12 @@ export async function simulateAuthCreateClosure(
     },
   };
   const capability = Object.freeze({});
+  const recoveryInput = Object.freeze({
+    purpose: "recovery",
+    root: Object.freeze({ directory: root }),
+    historyRetentionDays: null,
+    revalidate: () => true,
+  });
   let initialIsolation: Record<string, unknown>;
   let activeLifecycle: Record<string, unknown>;
   /**
@@ -502,7 +508,7 @@ export async function simulateAuthCreateClosure(
       for (const directory of [
         path.join(root, ".crdd"),
         path.join(root, ".crdd", "execution-model"),
-        path.join(root, ".crdd", "operations"),
+        path.join(root, ".crdd", "coordinator"),
         hostRoot,
       ])
         put(directory, true);
@@ -1073,7 +1079,9 @@ export async function simulateAuthCreateClosure(
             lockReleased: true,
           };
         },
-        readState: () => {
+        readState: (input: unknown, request: unknown) => {
+          assert.equal(input, recoveryInput);
+          assert.deepEqual(request, { scope: "recovery" });
           readerCalls++;
           if (
             ["rm_reader_unknown", "rm_reader_release"].includes(fault) &&
@@ -1125,7 +1133,7 @@ export async function simulateAuthCreateClosure(
     if (loads.length === 5) {
       assert.ok(mocks.has(recoveryUrl));
       activeLifecycle = {
-        recoverRuntimeOwnedDockerTaskForCurrentConsumer: async (
+        recoverDockerTaskForCurrentConsumer: async (
           _id: string,
           _cap: unknown,
           inputSignal: AbortSignal,
@@ -1203,7 +1211,7 @@ export async function simulateAuthCreateClosure(
                   },
                   checkpoints: target.resources.checkpoints.map((c) => ({
                     ...c,
-                    receiptSource: "runtime_reconciliation",
+                    receiptSource: "docker_observation",
                     observation: "present",
                   })),
                 },
@@ -1268,7 +1276,7 @@ export async function simulateAuthCreateClosure(
       };
     assert.ok(mocks.has(lifecycleUrl));
     return {
-      restartRuntimeOwnedDockerForRecovery: async (
+      executeDockerRestartForRecovery: async (
         _id: string,
         _capSignal: AbortSignal,
         rootCapability: unknown,
@@ -1358,7 +1366,7 @@ export async function simulateAuthCreateClosure(
     },
   };
   const factory = runInThisContext(`(function(context) {
-    const { assert, cp, execFileSync, createHash, fs, path, mock, setTimeout, setImmediate, fileURLToPath, fixedImage, fixedImageId, endpoint, fixtureUrl, process, AbortController, loadFixtureModule, technicalOperations, Buffer, URL, Object, manifestCompleted } = context;
+    const { assert, cp, execFileSync, createHash, fs, path, mock, setTimeout, setImmediate, fileURLToPath, fixedImage, fixedImageId, endpoint, fixtureUrl, process, AbortController, loadFixtureModule, technicalOperations, Buffer, URL, Object, manifestCompleted, prepareFixtureRecovery } = context;
     const getIsolationSettings = () => Object.freeze({ windowsDirectory: "C:\\\\Windows", userHomeDirectory: "C:\\\\Users\\\\fixture" });
     let spawnSync = cp.spawnSync;
     const syncBuiltinESMExports = () => { spawnSync = cp.spawnSync; context.synced(); };
@@ -1557,6 +1565,10 @@ export async function simulateAuthCreateClosure(
       process: fakeProcess,
       AbortController: FakeAbort,
       loadFixtureModule,
+      prepareFixtureRecovery: (input: unknown) => {
+        assert.equal(input, capability);
+        return recoveryInput;
+      },
       technicalOperations: () => initialIsolation,
       Buffer,
       URL,

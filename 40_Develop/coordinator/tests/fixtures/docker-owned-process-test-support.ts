@@ -10,6 +10,7 @@
  * @boundary 公開された固定診断API。任意Process起動を公開しない。
  */
 import assert from "node:assert/strict";
+import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -48,7 +49,7 @@ import type { RecoveryPlan } from "../../src/lifecycle/types.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 import type { HostCompletionTarget } from "../../src/lifecycle/types.ts";
-import type { completeRuntimeOwnedHostOperation } from "../../src/lifecycle/environment.ts";
+import type { completeHostOperation } from "../../src/lifecycle/environment.ts";
 import { recoveryEnvironmentFixtureUrl } from "../support/recovery.ts";
 
 /**
@@ -80,7 +81,7 @@ export function createHostCompletionFixture(
         ) => Readonly<Record<string, unknown>>)
       | undefined;
   }>,
-): typeof completeRuntimeOwnedHostOperation {
+): typeof completeHostOperation {
   return async (
     target: HostCompletionTarget,
     observeHostCleaned?: () => void,
@@ -198,7 +199,7 @@ export async function verifyNormalOwnerLifecycle(
     "normal_owner_test",
   );
   const root = fs.mkdtempSync(path.join(area.directory, "normal-owner-"));
-  // 共有Home・Runtimeの排他も、このCaseで生成したRootの中だけを使う。
+  // 共有Homeの排他も、このCaseで生成したRootの中だけを使う。
   const previousLocalAppData = process.env.LOCALAPPDATA;
   process.env.LOCALAPPDATA = root;
   t.after(() => {
@@ -296,12 +297,15 @@ export async function verifyNormalOwnerLifecycle(
     const repository = getRepository(root);
     assert.equal(repository.status, "completed");
     assert.ok(repository.capability);
-    const observed = stateModel.readState(repository.capability, {
-      scope: "recovery",
-      input: {
-        kind: "history",
+    const observed = stateModel.readState(
+      prepareFixtureRecovery(repository.capability),
+      {
+        scope: "recovery",
+        input: {
+          kind: "history",
+        },
       },
-    });
+    );
     assert.equal(observed.status, "completed", observed.reason);
     assert.equal(observed.lockReleased, true);
     assert.ok(observed.value && observed.historyRows);
@@ -317,17 +321,13 @@ export async function verifyNormalOwnerLifecycle(
     if (taskRows === 0) assert.deepEqual(bytes, repairHistory);
   }
   try {
-    for (const directory of [
-      homes.providerHomesDirectoryCandidate(),
-      homes.runtimeStateDirectoryCandidate(),
-    ]) {
-      assert.ok(directory);
-      const relative = path.relative(root, directory);
-      assert.ok(
-        relative && !relative.startsWith("..") && !path.isAbsolute(relative),
-      );
-      fs.mkdirSync(directory, { recursive: true });
-    }
+    const directory = homes.providerHomesDirectoryCandidate();
+    assert.ok(directory);
+    const relative = path.relative(root, directory);
+    assert.ok(
+      relative && !relative.startsWith("..") && !path.isAbsolute(relative),
+    );
+    fs.mkdirSync(directory, { recursive: true });
     execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
     execFileSync(
       "git",
@@ -467,7 +467,7 @@ export async function verifyNormalOwnerLifecycle(
                         repairActiveState.toString("utf8"),
                       );
                       assert.equal(active.operations.length, 1);
-                      assert.equal(active.operations[0].kind, "runtime_repair");
+                      assert.equal(active.operations[0].kind, "docker_repair");
                       assert.equal(
                         active.operations[0].checkpoint.cleanup,
                         "pending",
@@ -582,7 +582,7 @@ export async function verifyNormalOwnerLifecycle(
               import.meta.url,
             ).href
           );
-        let result = await repair.repairRuntimeOwnedDockerRuntime(
+        let result = await repair.executeDockerRepair(
           verified.capability,
           new AbortController().signal,
           null,
@@ -609,7 +609,7 @@ export async function verifyNormalOwnerLifecycle(
               import.meta.url,
             ).href
           );
-          result = await repair.repairRuntimeOwnedDockerRuntime(
+          result = await repair.executeDockerRepair(
             verified.capability,
             new AbortController().signal,
             result.recoveryId,
@@ -634,12 +634,15 @@ export async function verifyNormalOwnerLifecycle(
         repairHistory = fs.readFileSync(
           path.join(path.dirname(repairStatePath), "history.jsonl"),
         );
-        const observed = stateModel.readState(verified.capability, {
-          scope: "recovery",
-          input: {
-            kind: "history",
+        const observed = stateModel.readState(
+          prepareFixtureRecovery(verified.capability),
+          {
+            scope: "recovery",
+            input: {
+              kind: "history",
+            },
           },
-        });
+        );
         assert.equal(observed.status, "completed", observed.reason);
         assert.equal(observed.lockReleased, true);
         assert.ok(observed.value && observed.historyRows);
@@ -687,8 +690,8 @@ export async function verifyNormalOwnerLifecycle(
           assert.equal(result.retentionReviewAfter, receipt.reviewAfter);
           for (const purpose of ["repair", "retain"] as const) {
             const repeated: Awaited<
-              ReturnType<typeof repair.repairRuntimeOwnedDockerRuntime>
-            > = await repair.repairRuntimeOwnedDockerRuntime(
+              ReturnType<typeof repair.executeDockerRepair>
+            > = await repair.executeDockerRepair(
               verified.capability,
               new AbortController().signal,
               result.recoveryId,
@@ -765,18 +768,18 @@ export async function verifyNormalOwnerLifecycle(
         hostRuntime.createOwnedOperationContextCapability(otherOwned),
         hostRuntime.createOwnedMountCapability(otherOwned),
       );
-    assert.ok(repository.bindRuntimeOwnedRepositoryOperation(management, root));
-    assert.ok(
-      repository.bindRuntimeOwnedRepositoryOperation(otherManagement, root),
-    );
-    const binding =
-      repository.borrowRuntimeOwnedCoordinatorStateRepository(management);
+    assert.ok(repository.bindRepositoryOperation(management, root));
+    assert.ok(repository.bindRepositoryOperation(otherManagement, root));
+    const binding = repository.borrowCoordinatorStateRepository(management);
     const otherBinding =
-      repository.borrowRuntimeOwnedCoordinatorStateRepository(otherManagement);
+      repository.borrowCoordinatorStateRepository(otherManagement);
     assert.ok(binding && otherBinding);
-    const initialized = stateModel.readState(hostRepository, {
-      scope: "recovery",
-    });
+    const initialized = stateModel.readState(
+      prepareFixtureRecovery(hostRepository),
+      {
+        scope: "recovery",
+      },
+    );
     assert.equal(initialized.status, "completed");
     assert.equal(initialized.lockReleased, true);
     assert.ok(initialized.value);
@@ -831,17 +834,16 @@ export async function verifyNormalOwnerLifecycle(
       workspaceMountMode: null,
     });
     const baseOwner = await import("../../src/lifecycle/environment.ts");
-    const otherIdentity =
-      baseOwner.prepareRuntimeOwnedRepositoryDockerOperationIdentity(
-        {
-          ...plan,
-          operationId: otherBinding.operationId,
-          stableLogicalHomeBindingHash: randomBytes(32).toString("hex"),
-        },
-        otherManagement,
-        randomBytes(32).toString("hex"),
-        "workbench",
-      );
+    const otherIdentity = baseOwner.prepareRepositoryDockerOperationIdentity(
+      {
+        ...plan,
+        operationId: otherBinding.operationId,
+        stableLogicalHomeBindingHash: randomBytes(32).toString("hex"),
+      },
+      otherManagement,
+      randomBytes(32).toString("hex"),
+      "workbench",
+    );
     assert.ok(otherIdentity);
     const currentFile = path.join(
       root,
@@ -856,7 +858,7 @@ export async function verifyNormalOwnerLifecycle(
       const activeRepair = JSON.parse(
         Buffer.from(repairActiveState).toString("utf8"),
       ).operations[0];
-      assert.equal(activeRepair.kind, "runtime_repair");
+      assert.equal(activeRepair.kind, "docker_repair");
       const current = initialized.value.snapshot;
       const ordered = current.operations.map((value) => {
         assert.equal(value.kind, "host_operation");
@@ -876,13 +878,16 @@ export async function verifyNormalOwnerLifecycle(
       );
       fs.writeFileSync(currentFile, activeWithHosts);
       try {
-        const active = stateModel.readState(hostRepository, {
-          scope: "recovery",
-        });
+        const active = stateModel.readState(
+          prepareFixtureRecovery(hostRepository),
+          {
+            scope: "recovery",
+          },
+        );
         assert.equal(active.status, "completed", active.reason);
         assert.deepEqual(
           active.value?.snapshot.operations.filter(
-            (item) => item.kind === "runtime_repair",
+            (item) => item.kind === "docker_repair",
           ),
           [activeRepair],
         );
@@ -995,9 +1000,7 @@ export async function verifyNormalOwnerLifecycle(
         {
           namedExports: {
             ...homes,
-            inspectRuntimeOwnedWindowsProviderHomeCandidate: (
-              provider: unknown,
-            ) => {
+            inspectWindowsProviderHomeCandidate: (provider: unknown) => {
               assert.equal(provider, plan.provider);
               return {
                 status: "candidate",
@@ -1050,10 +1053,12 @@ export async function verifyNormalOwnerLifecycle(
         { namedExports: { ...effects, ...actualHostSubmission } },
       ),
     );
+    const ownerFixtureUrl = recoveryEnvironmentFixtureUrl(
+      new URL("../../src/lifecycle/environment.ts", import.meta.url),
+    );
+    // 同じ本文でも別CaseのModuleに残った代役・Owner Mapを再利用しない。
     ownerRuntime = await import(
-      recoveryEnvironmentFixtureUrl(
-        new URL("../../src/lifecycle/environment.ts", import.meta.url),
-      )
+      `${ownerFixtureUrl}#${randomBytes(16).toString("hex")}`
     );
     assert.ok(ownerRuntime);
     const statePath = path.join(root, ".crdd", "execution-model", "state.json");
@@ -1065,9 +1070,8 @@ export async function verifyNormalOwnerLifecycle(
         hostRuntime.readOwnedHostOperation(management).record.recoveryId,
         hostBefore.record.recoveryId,
       );
-      const begun: ReturnType<
-        typeof baseOwner.beginRuntimeOwnedDockerRecovery
-      > = ownerRuntime.beginRuntimeOwnedDockerRecovery(plan, management);
+      const begun: ReturnType<typeof baseOwner.beginDockerRecovery> =
+        ownerRuntime.beginDockerRecovery(plan, management);
       assert.ok(begun && begun.status === "ready", JSON.stringify(begun));
       assertRetainedArtifact();
       if (repairHistory)
@@ -1130,7 +1134,7 @@ export async function verifyNormalOwnerLifecycle(
       assert.equal(startedHost.record.phase, "active");
       assert.equal(startedHost.record.recoveryId, hostBefore.record.recoveryId);
       assert.equal(
-        path.join(root, ".crdd", "operations", startedHost.record.operationId),
+        path.join(root, ".crdd", "coordinator", startedHost.record.operationId),
         owned.root,
       );
       // 有限Host試験はDocker要求を発行しない。元予定と明示未発行通知を保存する。
@@ -1163,15 +1167,12 @@ export async function verifyNormalOwnerLifecycle(
       );
       for (const resource of resourceSnapshot.resources)
         assert.equal(
-          ownerRuntime.recordRuntimeOwnedDockerResourceNotIssued(
-            capability,
-            resource.key,
-          ),
+          ownerRuntime.recordDockerResourceNotIssued(capability, resource.key),
           resource.key === "create_subscription_auth_probe",
         );
       const beforeComplete = fs.readFileSync(statePath);
       assert.equal(
-        ownerRuntime.verifyRuntimeOwnedDockerHomeLeaseRelease(
+        ownerRuntime.verifyDockerHomeLeaseRelease(
           capability,
           management,
           plan.operationId,
@@ -1180,14 +1181,14 @@ export async function verifyNormalOwnerLifecycle(
         false,
       );
       assert.equal(
-        ownerRuntime.finishRuntimeOwnedDockerRecovery(capability, {
+        ownerRuntime.finishDockerRecovery(capability, {
           hostCleanupOutcome: null,
           dockerCompletion: null,
         }).status,
         "blocked",
       );
       assert.equal(
-        ownerRuntime.completeRuntimeOwnedDockerRecovery(
+        ownerRuntime.completeDockerRecovery(
           { ...capability },
           management,
           proof.completionPlan,
@@ -1198,7 +1199,7 @@ export async function verifyNormalOwnerLifecycle(
         const previousProof = [...proofs.values()][0];
         assert.ok(previousProof);
         assert.equal(
-          ownerRuntime.completeRuntimeOwnedDockerRecovery(
+          ownerRuntime.completeDockerRecovery(
             capability,
             management,
             previousProof.completionPlan,
@@ -1211,7 +1212,7 @@ export async function verifyNormalOwnerLifecycle(
       const homeLeaseReleased = fixtureHomeLease.release();
       assert.equal(homeLeaseReleased, true);
       fixtureHomeLease = null;
-      const completed = ownerRuntime.recordRuntimeOwnedAttemptCleanup({
+      const completed = ownerRuntime.recordAttemptCleanup({
         plan: proof.completionPlan as RecoveryPlan,
         recoveryCapability: capability,
         managementCapability: management,
@@ -1226,7 +1227,7 @@ export async function verifyNormalOwnerLifecycle(
         JSON.stringify(completed),
       );
       assert.equal(
-        ownerRuntime.verifyRuntimeOwnedDockerHomeLeaseRelease(
+        ownerRuntime.verifyDockerHomeLeaseRelease(
           capability,
           management,
           plan.operationId,
@@ -1235,7 +1236,7 @@ export async function verifyNormalOwnerLifecycle(
         true,
       );
       assert.equal(
-        ownerRuntime.verifyRuntimeOwnedDockerHomeLeaseRelease(
+        ownerRuntime.verifyDockerHomeLeaseRelease(
           { ...capability },
           management,
           plan.operationId,
@@ -1257,7 +1258,7 @@ export async function verifyNormalOwnerLifecycle(
         proofRecovery,
       ] of releaseProofTuples) {
         assert.equal(
-          ownerRuntime.verifyRuntimeOwnedDockerHomeLeaseRelease(
+          ownerRuntime.verifyDockerHomeLeaseRelease(
             capability,
             proofOwner,
             proofOperation,
@@ -1267,7 +1268,7 @@ export async function verifyNormalOwnerLifecycle(
         );
         assert.deepEqual(fs.readFileSync(statePath), releaseProofState);
         assert.equal(
-          ownerRuntime.verifyRuntimeOwnedDockerHomeLeaseRelease(
+          ownerRuntime.verifyDockerHomeLeaseRelease(
             capability,
             management,
             plan.operationId,
@@ -1298,7 +1299,7 @@ export async function verifyNormalOwnerLifecycle(
       assert.equal(completedOperation.execution.ownerEffect, "disabled");
       const submissionBefore = fs.readFileSync(statePath);
       assert.equal(
-        ownerRuntime.recordRuntimeOwnedDockerProviderSubmission(capability),
+        ownerRuntime.recordDockerProviderSubmission(capability),
         false,
       );
       assert.deepEqual(fs.readFileSync(statePath), submissionBefore);
@@ -1316,7 +1317,7 @@ export async function verifyNormalOwnerLifecycle(
       );
       const beforeCleanup = fs.readFileSync(statePath);
       assert.equal(
-        ownerRuntime.finishRuntimeOwnedDockerRecovery(capability, {
+        ownerRuntime.finishDockerRecovery(capability, {
           hostCleanupOutcome: null,
           dockerCompletion: proof.dockerResult,
         }).status,
@@ -1352,7 +1353,7 @@ export async function verifyNormalOwnerLifecycle(
       assert.equal(observed.status, "completed");
       assert.equal(observed.lockReleased, true);
       assert.equal(
-        ownerRuntime.canPrepareRuntimeOwnedDockerHostCleanup(
+        ownerRuntime.canPrepareDockerHostCleanup(
           capability,
           observed.value?.operationStates.find(
             (state) => state.operation.recoveryId === proof.recoveryId,
@@ -1397,9 +1398,12 @@ export async function verifyNormalOwnerLifecycle(
         ),
       );
     assert.equal(fs.existsSync(owned.root), false);
-    const hostAfter = stateModel.readState(hostRepository, {
-      scope: "recovery",
-    });
+    const hostAfter = stateModel.readState(
+      prepareFixtureRecovery(hostRepository),
+      {
+        scope: "recovery",
+      },
+    );
     assert.equal(hostAfter.status, "completed");
     assert.equal(
       hostAfter.value?.snapshot.operations.find(
@@ -1456,14 +1460,14 @@ export async function verifyNormalOwnerLifecycle(
         homeLeaseReleased: true,
         recoveryCompleted: true,
       });
-      ownerRuntime.recordRuntimeOwnedDockerTerminalObservation(
+      ownerRuntime.recordDockerTerminalObservation(
         capability,
         proof.dockerResult,
         terminalObservation,
       );
       const terminalOwner = ownerRuntime;
       assert.doesNotThrow(() =>
-        terminalOwner.recordRuntimeOwnedDockerTerminalObservation(
+        terminalOwner.recordDockerTerminalObservation(
           capability,
           proof.dockerResult,
           terminalObservation,
@@ -1471,7 +1475,7 @@ export async function verifyNormalOwnerLifecycle(
       );
       assert.throws(
         () =>
-          terminalOwner.recordRuntimeOwnedDockerTerminalObservation(
+          terminalOwner.recordDockerTerminalObservation(
             capability,
             proof.dockerResult,
             { ...terminalObservation, homeLeaseReleased: false },
@@ -1481,7 +1485,7 @@ export async function verifyNormalOwnerLifecycle(
       const beforeReceipt = fs.readFileSync(statePath);
       const before = JSON.parse(beforeReceipt.toString("utf8"));
       assert.equal(
-        ownerRuntime.finishRuntimeOwnedDockerRecovery(capability, {
+        ownerRuntime.finishDockerRecovery(capability, {
           hostCleanupOutcome: { ...cleanupResult },
           dockerCompletion: proof.dockerResult,
         }).status,
@@ -1491,7 +1495,7 @@ export async function verifyNormalOwnerLifecycle(
         const otherProof = [...proofs.values()].find((item) => item !== proof);
         assert.ok(otherProof);
         assert.equal(
-          ownerRuntime.finishRuntimeOwnedDockerRecovery(capability, {
+          ownerRuntime.finishDockerRecovery(capability, {
             hostCleanupOutcome: cleanupResult,
             dockerCompletion: otherProof.dockerResult,
           }).status,
@@ -1500,7 +1504,7 @@ export async function verifyNormalOwnerLifecycle(
       }
       assert.deepEqual(fs.readFileSync(statePath), beforeReceipt);
       assert.equal(
-        ownerRuntime.verifyRuntimeOwnedDockerHomeLeaseRelease(
+        ownerRuntime.verifyDockerHomeLeaseRelease(
           capability,
           management,
           plan.operationId,
@@ -1509,13 +1513,10 @@ export async function verifyNormalOwnerLifecycle(
         true,
       );
       const receiptStartedAt = Date.now();
-      const recorded = ownerRuntime.finishRuntimeOwnedDockerRecovery(
-        capability,
-        {
-          hostCleanupOutcome: cleanupResult,
-          dockerCompletion: proof.dockerResult,
-        },
-      );
+      const recorded = ownerRuntime.finishDockerRecovery(capability, {
+        hostCleanupOutcome: cleanupResult,
+        dockerCompletion: proof.dockerResult,
+      });
       stageTimings.push({
         stage: "receipt",
         startedAt: receiptStartedAt,
@@ -1525,7 +1526,7 @@ export async function verifyNormalOwnerLifecycle(
       // 本番Controllerと同じ、成功receiptの排他解放後だけI/Oへ返す。
       await new Promise<void>((resolve) => setImmediate(resolve));
       assert.equal(
-        ownerRuntime.verifyRuntimeOwnedDockerHomeLeaseRelease(
+        ownerRuntime.verifyDockerHomeLeaseRelease(
           capability,
           management,
           plan.operationId,
@@ -1549,7 +1550,7 @@ export async function verifyNormalOwnerLifecycle(
     for (const capability of [...proofs.keys()].reverse()) {
       const startedAt = Date.now();
       const finalized: Readonly<{ status: string }> =
-        ownerRuntime.finishRuntimeOwnedDockerRecovery(capability, {
+        ownerRuntime.finishDockerRecovery(capability, {
           hostCleanupOutcome: cleanupResult,
           dockerCompletion: proofs.get(capability)?.dockerResult,
         });
@@ -1565,7 +1566,7 @@ export async function verifyNormalOwnerLifecycle(
         historyAfterReceipts,
       );
       assert.equal(
-        ownerRuntime.finishRuntimeOwnedDockerRecovery(
+        ownerRuntime.finishDockerRecovery(
           { ...capability },
           {
             hostCleanupOutcome: cleanupResult,
@@ -1575,7 +1576,7 @@ export async function verifyNormalOwnerLifecycle(
         "blocked",
       );
       assert.equal(
-        ownerRuntime.finishRuntimeOwnedDockerRecovery(capability, {
+        ownerRuntime.finishDockerRecovery(capability, {
           hostCleanupOutcome: cleanupResult,
           dockerCompletion: proofs.get(capability)?.dockerResult,
         }).status,
@@ -1737,8 +1738,8 @@ export async function verifyNormalOwnerLifecycle(
             for (const capability of pendingCapabilities) {
               try {
                 released =
-                  ownerRuntime.abandonRuntimeOwnedDockerRecovery(capability) ===
-                    true && released;
+                  ownerRuntime.abandonDockerRecovery(capability) === true &&
+                  released;
               } catch {
                 released = false;
               }

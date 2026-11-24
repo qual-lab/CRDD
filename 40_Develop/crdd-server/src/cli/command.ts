@@ -8,6 +8,7 @@
  */
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { createDefinitionAccess } from "../service/execution.ts";
 import {
   readProjectViewData,
   startCrddServer,
@@ -155,7 +156,24 @@ function createAiRequests(
       if (owner.status === "blocked") return owner;
       if (closed || signal?.aborted || !owner.context.authorize())
         return blocked("workbench_ai_access_unavailable");
-      return owner.session.start(request, signal);
+      if (!request.workspaceId) return owner.session.start(request, signal);
+      const { prepareWorkspaceExecutionTarget } = await import(
+        "../service/workspace.ts"
+      );
+      if (closed || signal?.aborted || !owner.context.authorize())
+        return blocked("workbench_ai_access_unavailable");
+      const root = resolveVerifiedRepositoryRoot(owner.context.rootCapability);
+      return owner.session.start(
+        request,
+        signal,
+        root === null
+          ? null
+          : prepareWorkspaceExecutionTarget(
+              root,
+              owner.context.projectId,
+              request.workspaceId,
+            ),
+      );
     },
     async observe(requestId, signal) {
       const owner = await resolveSession(signal);
@@ -287,7 +305,7 @@ function createLocalMcpDependencies(
   ) => {
     const verified = getRepository(repositoryRoot);
     if (verified.status !== "completed") return null;
-    const initial = readRepositoryManifest(verified.capability);
+    const initial = readRepositoryManifest(repositoryRoot);
     if (initial.status !== "ready") return null;
     const manifest = initial.manifest;
     if (manifest.repositoryId !== repositoryId) return null;
@@ -299,7 +317,7 @@ function createLocalMcpDependencies(
           resolveVerifiedRepositoryRoot(verified.capability) !== repositoryRoot
         )
           return false;
-        const fresh = readRepositoryManifest(verified.capability);
+        const fresh = readRepositoryManifest(repositoryRoot);
         return fresh.status === "ready" && fresh.identity === initial.identity;
       },
     };
@@ -319,17 +337,18 @@ function createLocalMcpDependencies(
           ? createLocalPrincipalId(gitUser.email)
           : null;
       if (!principalId) return null;
-      return {
-        root: verified.capability,
+      return createDefinitionAccess(
+        verified.capability,
+        access.ownerRoot,
         principalId,
-        revalidate: (operation, target) =>
+        (operation, target) =>
           !signal.aborted &&
           ["definition.read", "definition.write"].includes(operation) &&
           target.projectId === access.projectId &&
           resolveVerifiedRepositoryRoot(verified.capability) ===
             repositoryRoot &&
           access.authorize(),
-      };
+      );
     },
     projectContext: {
       readPortfolio: () => readRepositoryPortfolio(repositoryRoot),

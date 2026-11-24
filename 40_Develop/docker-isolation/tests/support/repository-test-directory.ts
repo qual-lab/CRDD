@@ -11,10 +11,6 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import {
-  getRepository,
-  resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
 
 /**
  * Repository内へ一意な試験Rootと同実体限定の清掃操作を作る。
@@ -32,14 +28,7 @@ import {
 export function createRepositoryTestDirectory(prefix: string) {
   if (!/^[a-z][a-z0-9-]{0,79}-$/u.test(prefix))
     throw new Error("testing_directory_prefix_invalid");
-  const candidate = path.resolve(import.meta.dirname, "../../../..");
-  const verified = getRepository(candidate);
-  const repositoryRoot =
-    verified.status === "completed"
-      ? resolveVerifiedRepositoryRoot(verified.capability)
-      : null;
-  if (!repositoryRoot || repositoryRoot !== fs.realpathSync.native(candidate))
-    throw new Error("testing_repository_root_invalid");
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
   const ancestors = [
     repositoryRoot,
     path.join(repositoryRoot, ".crdd"),

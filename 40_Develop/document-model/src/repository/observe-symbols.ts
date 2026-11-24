@@ -5,7 +5,6 @@
  * @trace ARCH-000008
  */
 
-import type { Repository } from "../../../version-control/src/index.ts";
 import type { DocumentIssue } from "../artifact/types.ts";
 import { discoverRealitySymbols } from "../reality-traceability/discover.ts";
 import type { LoadedRealitySymbolManifest } from "../reality-traceability/manifest.ts";
@@ -54,9 +53,9 @@ export type RealitySymbolRepositoryObservation = Readonly<{
  *
  * @responsibility Reality Symbol Repositoryの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
- * @input capability: Repository
+ * @input root: 呼出し元が選んだ絶対Directory。
  * @returns RealitySymbolRepositoryObservationを返す。
- * @precondition 「capability: Repository」がobserveRealitySymbolRepositoryの入力契約を満たす。
+ * @precondition 観測対象の選定は呼出し側が行う。
  * @postcondition observeRealitySymbolRepositoryの責務を完了した結果だけを返す。
  * @effect N/A: observeRealitySymbolRepositoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure observeRealitySymbolRepositoryは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -66,9 +65,9 @@ export type RealitySymbolRepositoryObservation = Readonly<{
  * @concurrency N/A: observeRealitySymbolRepositoryは共有非同期状態を持たない同期処理である。
  */
 export function observeRealitySymbolRepository(
-  capability: Repository,
+  root: string | null,
 ): RealitySymbolRepositoryObservation {
-  const repository = createFilesystemRepositoryObservationPort(capability);
+  const repository = createFilesystemRepositoryObservationPort(root);
   const repositoryIssues: RealityRepositoryObservationIssue[] = [];
   const recordIssue = (code: string, path: string, reason: string): void => {
     repositoryIssues.push({ code, path, reason });

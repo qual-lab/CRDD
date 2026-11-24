@@ -18,7 +18,7 @@ import {
 } from "../../../execution-model/src/index.ts";
 import { submitDecision } from "../../src/lifecycle/decision.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/lifecycle/host.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
+import { resolveExecutionStorageDirectory } from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
 import {
@@ -115,7 +115,7 @@ test("継続要求から再計画待ち又は取消へ一回適用し履歴だ�
         state.generation,
       );
       const read = readDecision(
-        verifyRuntimePersistenceRepository(root),
+        resolveExecutionStorageDirectory(root),
         binding,
         request.decisionId,
       );
@@ -176,7 +176,7 @@ test("継続要求から再計画待ち又は取消へ一回適用し履歴だ�
     );
     assert.equal(queue.ownerGeneration, null);
     const observed = readProjectExecutionState(
-      verifyRuntimePersistenceRepository(root),
+      resolveExecutionStorageDirectory(root),
       binding,
       projectId,
     );
@@ -333,7 +333,7 @@ test("明示無効化は判断を閉じるだけでBlockerとQueueを保持す�
   assert.equal(after.blockers[1].cancelledByDecisionId, nextRequest.decisionId);
   assert.equal(after.decisions[2].status, "pending");
   const read = readDecision(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     binding,
     "other-problem-proposal",
   );

@@ -130,18 +130,14 @@ node 40_Develop/checker/bin/checker.ts
 node 40_Develop/checker/bin/checker.ts --json --summary
 ```
 
-採用Repositoryへ配布するひな型は、外部パッケージを必要としない参照実装として`tools/crdd-check.ts`を含む。採用Repositoryでは次の入口を使用する。
+配布用の`template/tools/crdd-check.ts`は、同じ版のCRDDチェックアウトにあるチェッカー本体へ委譲する。完全なチェックアウトを`00_CRDD/`に配置した場合は、適用先のプロジェクトルートから次の入口を使用する。起動ファイルだけを適用先へコピーしない。
 
 ```text
-node tools/crdd-check.ts
-node tools/crdd-check.ts --root <TARGET_REPOSITORY>
-node tools/crdd-check.ts --json
-node tools/crdd-check.ts --json --summary
-node tools/crdd-check.ts --references <PATH> --summary
 node 00_CRDD/template/tools/crdd-check.ts --root . --json --summary
+node 00_CRDD/template/tools/crdd-check.ts --root . --references <PATH> --summary
 ```
 
-最後の形式は、CRDD本体を`00_CRDD/`へサブモジュールとして配置し、配布チェッカーを採用Repositoryのプロジェクトルートへコピーしていない場合に、適用先ルートから使用する。チェッカーはサブモジュールを採用済み基準の境界として扱い、適用先から基準文書へのリンクとアンカーを確認する。基準文書内部を適用先の所有ファイル集合へ混在させず、全件確認しない内部範囲を未確認として返す。基準文書自体の監査は`--root 00_CRDD`で分けて実行する。シンボリックリンクまたはジャンクションを走査・範囲指定・参照確認の境界として使用せず、該当対象を拒否するか未確認範囲へ返す。
+サブモジュールとして配置した場合、チェッカーはサブモジュールを採用済み基準の境界として扱い、適用先から基準文書へのリンクとアンカーを確認する。基準文書内部を適用先の所有ファイル集合へ混在させず、全件確認しない内部範囲を未確認として返す。基準文書自体の監査は`--root 00_CRDD`で分けて実行する。シンボリックリンクまたはジャンクションを走査・範囲指定・参照確認の境界として使用せず、該当対象を拒否するか未確認範囲へ返す。
 
 通常は、[エージェント](10_Agent.md#75-audit-aggregation-and-reconciliation)に従って親エージェントが対象改訂版のリポジトリ全体へ一度実行し、その結果を本監査へ共通入力として渡す。範囲指定は、限定理由と未確認範囲を示す中間確認だけに使用し、全体確認済みとは扱わない。本監査は結果のうち文書監査に関係する指摘を評価し、結果が不足または失効している場合を除いて同じ確認を繰り返さない。対象成果物、対象範囲またはチェッカーを変更した場合は、親エージェントが新しい改訂版へ再実行する。
 

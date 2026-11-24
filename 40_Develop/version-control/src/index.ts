@@ -9,7 +9,11 @@
 
 export { stagePaths, unstagePaths } from "./repository/working-directory.ts";
 export { commitChanges, createCommit } from "./repository/commit.ts";
-export { createReference, removeReference } from "./repository/reference.ts";
+export {
+  createReference,
+  readWorktreeCreationSource,
+  removeReference,
+} from "./repository/reference.ts";
 export {
   readRemoteTarget,
   pushRepositoryRevision,
@@ -25,8 +29,6 @@ export type {
   RepositoryResult,
   CommitFileReadRequest,
   CommitFile,
-  CommitFilesCopyRequest,
-  CommitFilesCopyResult,
   CommitCreateRequest,
   CommitCreateResult,
   CommitMergeRequest,
@@ -70,6 +72,7 @@ export {
 } from "./repository/location.ts";
 export {
   readRepositoryFormat,
+  readRepositoryLocation,
   readRepositoryRevision,
   readRepositoryStorageIdentity,
 } from "./repository/revision.ts";
@@ -77,7 +80,6 @@ export {
   readFile,
   readTree,
   readCommitFile,
-  copyCommitFiles,
 } from "./repository/files.ts";
 export { readFileDiff, readCommitDiff } from "./repository/changes.ts";
 

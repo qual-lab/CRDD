@@ -478,9 +478,11 @@ test("CLIは明示したローカル要求主体だけを渡し、欠測時に�
 test("統合Rootは業務操作と単発実行の明示公開集合を保持する", () => {
   assert.deepEqual(Object.keys(coordinator).sort(), [
     "acceptResult",
+    "acquireCoordinatorSnapshotLease",
     "authenticateProvider",
+    "containsRecognizedSecretText",
+    "deriveCoordinatorRepositoryBindingId",
     "diagnoseEnvironment",
-    "executeWorkspace",
     "getAuthenticationStatus",
     "getCapabilities",
     "inspectCoordinatorDecisionRequest",
@@ -489,20 +491,24 @@ test("統合Rootは業務操作と単発実行の明示公開集合を保持す�
     "inspectCoordinatorObjectiveResult",
     "inspectCoordinatorStateQuery",
     "inspectCoordinatorStateQueryResult",
-    "inspectWorkspaceCommand",
     "openTaskSession",
-    "parseRuntimeActivityObservation",
+    "parseExecutionActivityObservation",
     "queryActivity",
     "queryState",
     "readRecovery",
     "readRepositoryNetworkHosts",
     "recoverExecution",
     "repairDockerRuntime",
+    "resolveExecutionStorageDirectory",
+    "resolveRepositoryExecutionDataPaths",
     "restartDockerForRecovery",
     "retainRepair",
     "runObjective",
     "runTask",
+    "snapshotPlainArray",
+    "snapshotPlainRecord",
     "submitDecision",
+    "validIdentity",
   ]);
   assert.equal(Object.hasOwn(coordinator, "readRepositoryAiSelection"), false);
   assert.equal(Object.hasOwn(coordinator, "saveRepositoryAiSelection"), false);
@@ -541,20 +547,18 @@ test("統合Rootは業務操作と単発実行の明示公開集合を保持す�
 /**
  * 直接利用側が統合Coordinatorの公開Rootへ接続することを確認する。
  *
- * @responsibility Rootの旧Package参照と自己迂回の再導入を拒否する。
+ * @responsibility 旧Package・自己迂回と、Serverへの逆依存の再導入を拒否する。
  * @trace PRL-IT-012
  * @precondition Sourceの現在PathがRepository内で固定されている。
- * @stimulus 公開Rootのimportを読み取り、自己迂回の変異を加える。
+ * @stimulus 公開Root、製品Source、起動入口、開発用Script・試験、Package定義を読み取り、逆依存の変異を加える。
  * @observation Module specifierと業務関数名の参照を取得する。
  * @oracle Rootに旧Package参照・自己迂回がなく、変異を拒否する。
  * @cleanup N/A: Repository Sourceの読取りだけである。
  * @boundary PRL-IT-012=Related 2 Blocks: 利用側→業務公開入口→Coordinator。
  */
 test("Coordinatorの公開Rootは旧Packageと自己迂回を参照しない", () => {
-  const root = fs.readFileSync(
-    path.join(repositoryRoot, "40_Develop/coordinator/src/index.ts"),
-    "utf8",
-  );
+  const packageRoot = path.join(repositoryRoot, "40_Develop/coordinator");
+  const root = fs.readFileSync(path.join(packageRoot, "src/index.ts"), "utf8");
   assert.doesNotMatch(root, /orchestrator\/src/);
   const selfDetour = /\.\.\/\.\.\/coordinator\/src\//u;
   assert.doesNotMatch(root, selfDetour);
@@ -564,6 +568,38 @@ test("Coordinatorの公開Rootは旧Packageと自己迂回を参照しない", (
       selfDetour,
     ),
   );
+  const serverReference =
+    /(?:["'`](?:@qual-lab\/|(?:\.\.?\/)+)?|40_Develop\/)crdd-server(?:\/|["'`])/u;
+  for (const directory of ["src", "bin", "scripts", "tests"]) {
+    const sourceRoot = path.join(packageRoot, directory);
+    for (const file of fs.readdirSync(sourceRoot, {
+      recursive: true,
+      encoding: "utf8",
+    })) {
+      if (!/\.[cm]?[jt]sx?$/u.test(file)) continue;
+      if (path.join(sourceRoot, file) === import.meta.filename) continue;
+      assert.doesNotMatch(
+        fs.readFileSync(path.join(sourceRoot, file), "utf8"),
+        serverReference,
+        file,
+      );
+    }
+  }
+  for (const file of ["package.json", "package-lock.json"]) {
+    assert.doesNotMatch(
+      fs.readFileSync(path.join(packageRoot, file), "utf8"),
+      serverReference,
+      file,
+    );
+  }
+  for (const reference of [
+    'import("../../crdd-server/src/service/workspace.ts")',
+    'import type { Target } from "@qual-lab/crdd-server/api"',
+    '"@qual-lab/crdd-server": "file:../crdd-server"',
+    '"40_Develop/crdd-server/src/service/configuration.ts"',
+  ]) {
+    assert.match(reference, serverReference);
+  }
 });
 
 /**

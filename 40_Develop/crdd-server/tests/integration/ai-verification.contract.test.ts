@@ -9,6 +9,7 @@
  */
 
 import assert from "node:assert/strict";
+import { prepareFixtureRecovery } from "../../../coordinator/tests/support/recovery-repository.ts";
 import { createTaskRequestsFixture } from "../../../coordinator/tests/support/task-requests.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -63,10 +64,11 @@ test("Workspace診断は同じ全履歴Readerの共同成立だけを採用す�
     "malformed",
   ]) {
     const cap = {},
+      prepared = {},
       root = "fixture-root";
     let calls = 0;
     const run = runInNewContext(`(dependencies) => {
-      const { getRepository, readState, root, acceptedRequestId } = dependencies;
+      const { getRepository, prepareFixtureRecovery, readState, root, acceptedRequestId } = dependencies;
       let correlationId = null;
       const identities = [], historyIdentities = [];
       ${body}
@@ -86,9 +88,13 @@ test("Workspace診断は同じ全履歴Readerの共同成立だけを採用す�
           capability: cap,
         };
       },
+      prepareFixtureRecovery: (input: unknown) => {
+        assert.equal(input, cap);
+        return prepared;
+      },
       readState: (input: unknown, request: unknown) => {
         calls++;
-        assert.equal(input, cap);
+        assert.equal(input, prepared);
         assert.equal(
           JSON.stringify(request),
           JSON.stringify({ scope: "recovery", input: { kind: "history" } }),
@@ -262,12 +268,14 @@ import {
 } from "../../../version-control/src/index.ts";
 import {
   assessVerificationDockerInventory,
-  createWorkbenchAiVerificationHttpClient,
   projectVerificationTransportFailure,
-  readMain,
   type VerificationDockerInventory,
   type VerificationHttpTiming,
 } from "../support/ai-verification-http.ts";
+import {
+  createWorkbenchAiVerificationHttpClient,
+  readMain,
+} from "../support/workbench-ai-client.ts";
 import { createReadonlyVerificationTiming } from "../support/readonly-request-timing.ts";
 import { verifyWorkspaceOutputBytes } from "../support/workspace-output-verification.ts";
 import { readProjectViewData, startWorkbench } from "../../src/app.ts";
@@ -592,6 +600,7 @@ test("Workspace試験はHTTPなしでOwner終了とDomainを照合し失敗時�
       preflight: false,
       projectId: "synthetic",
       randomUUID: () => "workspace-id",
+      prepareFixtureRecovery: (input: unknown) => input,
       hash: () => "fixed-hash",
       verifyWorkspaceOutputBytes,
       setTimeout: (callback: () => void, ms: number) => {
@@ -1031,12 +1040,12 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
       {
         assert,
         path,
-        observeRuntimeOwnedDevelopmentSource: () => {
+        observeServerDevelopmentSource: () => {
           sourceReads++;
           if (sourceReads > 1 && scenario === "source-unknown")
             throw new Error("synthetic_observation_unknown");
           return {
-            scope: "crdd-development-source-snapshot/v5",
+            scope: "crdd-server/development-source-snapshot/v1",
             sourceSha256:
               sourceReads > 1 && scenario === "source-changed"
                 ? "different"
@@ -1461,7 +1470,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     const parentPath = path.resolve("fixture");
     const result = runInNewContext(
       stripTypeScriptTypes(
-        `const snapshot=JSON.parse(snapshotJson); const readState=()=>{if(scenario!=='owner')onSnapshotRead();return {status: ['read','owner'].includes(scenario)?'blocked':'completed',lockReleased:scenario!=='release',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}};}; let configurationReads=0; const Date={now:()=>123456}; const getRepositoryFromWorkingDirectory=()=>scenario==="history-root-unavailable"?{status:"blocked"}:{status:"completed",capability:{}}; const readCoordinatorConfig=()=>{configurationReads++;return scenario==="history-config-missing"?{status:"blocked"}:{status:"ready",config:{historyRetentionDays:scenario==="history-config-changed"&&configurationReads>1?31:30}};}; const retireStateRecords=(input,binding,now)=>{assert.equal(input.historyRetentionDays,30);assert.equal(input.revalidate(30),true);assert.equal(input.revalidate(31),false);assert.equal(binding,"binding");assert.equal(now,123456);onMaintain();if(scenario==='ai-maintain-blocked')return{status:'blocked',reason:'synthetic_save_failure'};if(scenario!=='ai-post-task-retained'){snapshot.queueEntries=snapshot.queueEntries.map(q=>q.queueId==='request-abc'?{...q,historySettled:true}:q);snapshot.historyPending=snapshot.historyPending.filter(q=>q.id!=='request-abc');snapshot.leaseEvidence=snapshot.leaseEvidence.filter(q=>q.content.queueId!=='request-abc');}if(scenario==='isolated-ai-post-result-loss')snapshot.results=[];return{status:'completed',reason:'orchestrator_terminal_records_retired',value:scenario==='ai-maintain-zero'?0:scenario==='ai-maintain-two'?2:1};}; const transferHistory=(input,binding,now)=>{assert.equal(input.historyRetentionDays,30);assert.equal(input.revalidate(30),true);assert.equal(input.revalidate(31),false);assert.equal(binding,"binding");assert.equal(now,123456);onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'orchestrator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,preflightOnly:!isAi,requestId:scenario==='ai-request-mismatch'?'request-bad':'request-abc',task:{requestId:'request-abc',status:'completed',reason:null,executionStatus:'completed',cleanupConfirmed:true,primaryFailure:null,recoveryIds:[],secondaryFailures:[]},base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
+        `const snapshot=JSON.parse(snapshotJson); const readState=()=>{if(scenario!=='owner')onSnapshotRead();return {status: ['read','owner'].includes(scenario)?'blocked':'completed',lockReleased:scenario!=='release',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}};}; let configurationReads=0; const Date={now:()=>123456}; const getRepositoryFromWorkingDirectory=()=>scenario==="history-root-unavailable"?{status:"blocked"}:{status:"completed",capability:{}}; const readCoordinatorConfig=()=>{configurationReads++;return scenario==="history-config-missing"?{status:"blocked"}:{status:"ready",config:{historyRetentionDays:scenario==="history-config-changed"&&configurationReads>1?31:30}};}; const retireStateRecords=(input,binding,now)=>{assert.equal(input.historyRetentionDays,30);assert.equal(input.revalidate(30),true);assert.equal(input.revalidate(31),false);assert.equal(binding,"binding");assert.equal(now,123456);onMaintain();if(scenario==='ai-maintain-blocked')return{status:'blocked',reason:'synthetic_save_failure'};if(scenario!=='ai-post-task-retained'){snapshot.queueEntries=snapshot.queueEntries.map(q=>q.queueId==='request-abc'?{...q,historySettled:true}:q);snapshot.historyPending=snapshot.historyPending.filter(q=>q.id!=='request-abc');snapshot.leaseEvidence=snapshot.leaseEvidence.filter(q=>q.content.queueId!=='request-abc');}if(scenario==='isolated-ai-post-result-loss')snapshot.results=[];return{status:'completed',reason:'coordinator_terminal_records_retired',value:scenario==='ai-maintain-zero'?0:scenario==='ai-maintain-two'?2:1};}; const transferHistory=(input,binding,now)=>{assert.equal(input.historyRetentionDays,30);assert.equal(input.revalidate(30),true);assert.equal(input.revalidate(31),false);assert.equal(binding,"binding");assert.equal(now,123456);onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'coordinator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,preflightOnly:!isAi,requestId:scenario==='ai-request-mismatch'?'request-bad':'request-abc',task:{requestId:'request-abc',status:'completed',reason:null,executionStatus:'completed',cleanupConfirmed:true,primaryFailure:null,recoveryIds:[],secondaryFailures:[]},base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
       ),
       {
         assert,
@@ -1481,6 +1490,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
           releases++;
         },
         getRepository: () => ({ status: "completed", capability: {} }),
+        prepareFixtureRecovery: (input: unknown) => input,
         resolveRepositoryRuntimeDataPaths: () => ({
           locks: path.join(
             parentPath,
@@ -2710,13 +2720,13 @@ for (const transport of ["tool-child-process"] as const) {
           assert.throws(
             () =>
               fs.lstatSync(
-                path.join(root, ".crdd", "operations", operation.operationId),
+                path.join(root, ".crdd", "coordinator", operation.operationId),
               ),
             { code: "ENOENT" },
           );
         }
         assert.deepEqual(state.unresolvedRecoveries, []);
-        assert.equal(state.schema, "crdd-execution-model/state/v7");
+        assert.equal(state.schema, "crdd-execution-model/state/v9");
         assert.deepEqual(state.historyPending, []);
         assert.deepEqual(state.leaseIntents, []);
         assert.ok(
@@ -2809,7 +2819,7 @@ for (const transport of ["tool-child-process"] as const) {
     if (verified.status !== "completed") throw Error("fixture_root_required");
     assert.equal(
       saveRepositoryAiSelection(
-        verified.capability,
+        root,
         { expectedIdentity: null, config: selectionConfig() },
         () => true,
         getModelCatalog().catalog,
@@ -2818,7 +2828,7 @@ for (const transport of ["tool-child-process"] as const) {
     );
     const binding = deriveCoordinatorRepositoryBindingId(root);
     assert.equal(
-      initializeExecutionStore(verified.capability, binding).status,
+      initializeExecutionStore({ directory: root }, binding).status,
       "completed",
     );
     owner = await createTaskRequestsFixture(
@@ -3023,7 +3033,9 @@ for (const transport of ["tool-child-process"] as const) {
     assert.equal(requests, 3);
     assert.equal(calls, 3);
     assert.equal(joined, 3);
-    const state = readState(verified.capability, { scope: "recovery" });
+    const state = readState(prepareFixtureRecovery(verified.capability), {
+      scope: "recovery",
+    });
     assert.equal(state.status, "completed");
     if (state.status !== "completed" || !state.value)
       throw Error("snapshot_required");
@@ -3033,9 +3045,9 @@ for (const transport of ["tool-child-process"] as const) {
     const retirementRepository = getRepositoryFromWorkingDirectory(root);
     assert.equal(retirementRepository.status, "completed");
     if (retirementRepository.status !== "completed")
-      throw new Error("orchestrator_repository_root_invalid");
-    const retirementRoot = retirementRepository.capability;
-    const retirementConfig = readCoordinatorConfig(retirementRoot);
+      throw new Error("coordinator_repository_root_invalid");
+    const retirementRoot = { directory: root };
+    const retirementConfig = readCoordinatorConfig(root);
     const retired = retireStateRecords(
       {
         root: retirementRoot,
@@ -3045,7 +3057,7 @@ for (const transport of ["tool-child-process"] as const) {
             : null,
         revalidate(expectedHistoryRetentionDays?: number) {
           if (expectedHistoryRetentionDays === undefined) return true;
-          const fresh = readCoordinatorConfig(retirementRoot);
+          const fresh = readCoordinatorConfig(root);
           return (
             fresh.status === "ready" &&
             fresh.config.historyRetentionDays === expectedHistoryRetentionDays
@@ -3057,9 +3069,12 @@ for (const transport of ["tool-child-process"] as const) {
     );
     assert.equal(retired.status, "completed", retired.reason);
     assert.equal(retired.value, 3);
-    const afterRetirement = readState(verified.capability, {
-      scope: "recovery",
-    });
+    const afterRetirement = readState(
+      prepareFixtureRecovery(verified.capability),
+      {
+        scope: "recovery",
+      },
+    );
     assert.equal(afterRetirement.status, "completed");
     assert.ok(afterRetirement.value);
     assert.equal(afterRetirement.value.snapshot.queueEntries.length, 3);

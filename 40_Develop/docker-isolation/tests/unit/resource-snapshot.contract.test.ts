@@ -11,7 +11,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { observeDockerProtectedMountIdentity } from "../../src/docker-cli/config.ts";
+import {
+  observeDockerEmptyMountIdentity,
+  observeDockerProtectedMountIdentity,
+} from "../../src/docker-cli/config.ts";
 import test from "node:test";
 import {
   dockerResourceConfigurationMatches,
@@ -696,15 +699,28 @@ test("保護.gitの通常Fileは捕捉でき内容差・型差を区別する", 
   const root = fs.mkdtempSync(path.join(parent, "di-protected-file-"));
   assert.equal(path.dirname(root), parent);
   const file = path.join(root, "git-reference");
+  const child = path.join(file, "synthetic");
   try {
-    fs.writeFileSync(file, "gitdir: synthetic\n", { flag: "wx" });
+    fs.writeFileSync(file, "", { flag: "wx" });
+    assert.match(observeDockerEmptyMountIdentity(file, "file"), /^file:/u);
+    assert.throws(() => observeDockerEmptyMountIdentity(file, "directory"));
+    fs.writeFileSync(file, "gitdir: synthetic\n");
     const first = observeDockerProtectedMountIdentity(file);
+    assert.throws(() => observeDockerEmptyMountIdentity(file, "file"));
     fs.writeFileSync(file, "gitdir: synthetic-changed\n");
     assert.notEqual(observeDockerProtectedMountIdentity(file), first);
     fs.unlinkSync(file);
     fs.mkdirSync(file);
     assert.notEqual(observeDockerProtectedMountIdentity(file), first);
+    assert.match(
+      observeDockerEmptyMountIdentity(file, "directory"),
+      /^directory:/u,
+    );
+    assert.throws(() => observeDockerEmptyMountIdentity(file, "file"));
+    fs.writeFileSync(child, "synthetic", { flag: "wx" });
+    assert.throws(() => observeDockerEmptyMountIdentity(file, "directory"));
   } finally {
+    if (fs.existsSync(child)) fs.unlinkSync(child);
     if (fs.existsSync(file)) {
       const info = fs.lstatSync(file);
       if (info.isDirectory() && !info.isSymbolicLink()) fs.rmdirSync(file);

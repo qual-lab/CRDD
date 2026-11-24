@@ -36,12 +36,12 @@ import { sourceUrl } from "./task-requests.ts";
 export function recoveryEnvironmentFixtureUrl(origin: URL) {
   const source = fs.readFileSync(origin, "utf8");
   const observe =
-    /const observation = inspectRuntimeOwnedWindowsProviderHomeCandidate\(\s*plan\.provider,\s*\);/gu;
+    /const observation = inspectWindowsProviderHomeCandidate\(\s*plan\.provider\s*,?\s*\);/gu;
   assert.equal([...source.matchAll(observe)].length, 1);
   const replacement =
     "const observation = observeFixtureProviderHome(plan.provider);";
   const declaration =
-    "import { inspectRuntimeOwnedWindowsProviderHomeCandidate as observeFixtureProviderHome } from " +
+    "import { inspectWindowsProviderHomeCandidate as observeFixtureProviderHome } from " +
     JSON.stringify(origin.href) +
     ";\n";
   return sourceUrl(
@@ -53,10 +53,10 @@ export function recoveryEnvironmentFixtureUrl(origin: URL) {
 
 /** 回復本文の下位APIだけを試験ごとの代役へ結ぶ。 @trace ERB-IT-014 */
 export function recoveryResourceFixtureBody(body: string) {
-  const declaration = "function recoverRuntimeOwnedDockerTaskResources(";
+  const declaration = "function recoverDockerTaskResources(";
   assert.equal(body.split(declaration).length, 2);
   return `${body.replace(declaration, "function runResourceRecovery(cleanupResources, inspectResources, getIsolationSettings, ")}
-    function recoverRuntimeOwnedDockerTaskResources(capability, cleanup, inspect, signal) {
+    function recoverDockerTaskResources(capability, cleanup, inspect, signal) {
       return runResourceRecovery(
         (target, _settings, callbacks) => cleanup(target, callbacks),
         (target, _settings, options) => inspect(target, options),
@@ -214,150 +214,148 @@ export async function createRecoveryFixture(
   const names = [
     "isRecoveryCapability",
     "projectResourceTarget",
-    "persistRuntimeOwnedDockerTaskRecoveryCheckpoint",
-    "recoverRuntimeOwnedDockerTaskResources",
+    "persistDockerTaskRecoveryCheckpoint",
+    "recoverDockerTaskResources",
   ];
   const api =
-    runInThisContext(`(deps)=>{const {Buffer,canonicalJson,snapshotJsonValue,isDeepStrictEqual,dockerRecoveryPreparations,assertCurrentRecoveryOwner,readState,saveRecoveryCheckpoint,borrowHostRecoveryManagementDirectory}=deps;
+    runInThisContext(`(deps)=>{const {Buffer,canonicalJson,snapshotJsonValue,isDeepStrictEqual,dockerRecoveryPreparations,assertCurrentRecoveryOwner,readState,saveRecoveryCheckpoint,borrowHostRecoveryManagementDirectory}=deps; const recoveryStorageInput = root => root;
  ${recoveryResourceFixtureBody(names.map((n) => sourceDeclaration(source, n)).join("\n"))}
- return {run:recoverRuntimeOwnedDockerTaskResources,target:projectResourceTarget};}`)(
-      {
-        Buffer,
-        snapshotJsonValue,
-        isDeepStrictEqual,
-        canonicalJson,
-        dockerRecoveryPreparations: new Map([[capability, record]]),
-        assertCurrentRecoveryOwner: (owner: unknown) =>
-          owner === capability && live,
-        readState: () => ({
-          status: "completed",
-          lockReleased: readerReleased,
-          value:
-            staleReadback && writeCount
-              ? {
-                  snapshot: JSON.parse(previous.toString("utf8")),
-                  payloadSha256: createHash("sha256")
-                    .update(previous)
-                    .digest("hex"),
-                  sourceText: previous.toString("utf8"),
-                }
-              : read(),
-        }),
-        saveRecoveryCheckpoint: (
-          repository: unknown,
-          recoveryId: string,
-          before: Buffer,
-          request: Parameters<
-            typeof import("../../../execution-model/src/index.ts").saveRecoveryCheckpoint
-          >[3],
-        ) => {
-          switch (request.kind) {
-            default:
-              if (!("value" in request))
-                throw new Error("unexpected recovery kind");
-              return Reflect.apply(
-                (
-                  _repository: unknown,
-                  id: string,
-                  before: Buffer,
-                  kind: string,
-                  value: unknown,
-                  owner: () => boolean,
-                ) => {
-                  events.push(`save:${kind}`);
-                  if (!owner() || writeRejected || !before.equals(bytes))
-                    return {
-                      status: "blocked",
-                      snapshotConfirmed: false,
-                      lockReleased: true,
-                    };
-                  const current = read(),
-                    operation = current.snapshot.operations.find(
-                      (item) =>
-                        item.kind === "docker_task" && item.recoveryId === id,
-                    );
-                  assert.ok(operation?.kind === "docker_task");
-                  assert.equal(operation.phase, "settling");
-                  assert.equal(operation.outcome, null);
-                  let resources: OperationResources | null;
-                  if (kind === "resource")
-                    resources = applyResourceEvent(operation.resources, value);
-                  else {
-                    assert.equal(kind, "cleanup");
-                    const payload = JSON.parse(canonicalJson(value));
-                    assert.deepEqual(Object.keys(payload).sort(), [
-                      "observations",
-                      "snapshot",
-                    ]);
-                    assert.ok(operation.resources);
-                    resources = applyResourceCleanup(
-                      operation.resources,
-                      payload.snapshot,
-                      payload.observations,
-                      {
-                        recoveryId: id,
-                        previousPayloadSha256: current.payloadSha256,
-                      },
-                    );
-                  }
-                  // 公開更新操作が元記録との遷移を検査済み。不成立はnullのまま保存しない。
-                  const candidate = resources
-                    ? Buffer.from(
-                        `${canonicalJson({
-                          ...current.snapshot,
-                          revision: current.snapshot.revision + 1,
-                          previous: {
-                            revision: current.snapshot.revision,
-                            payloadSha256: current.payloadSha256,
-                          },
-                          operations: current.snapshot.operations.map((item) =>
-                            item.recoveryId === id
-                              ? { ...item, resources }
-                              : item,
-                          ),
-                        })}\n`,
-                      )
-                    : null;
-                  if (!candidate)
-                    return {
-                      status: "blocked",
-                      snapshotConfirmed: false,
-                      lockReleased: true,
-                    };
-                  previous = bytes;
-                  bytes = candidate;
-                  writeCount++;
-                  if (loseAfterWrite) live = false;
-                  const next = read();
+ return {run:recoverDockerTaskResources,target:projectResourceTarget};}`)({
+      Buffer,
+      snapshotJsonValue,
+      isDeepStrictEqual,
+      canonicalJson,
+      dockerRecoveryPreparations: new Map([[capability, record]]),
+      assertCurrentRecoveryOwner: (owner: unknown) =>
+        owner === capability && live,
+      readState: () => ({
+        status: "completed",
+        lockReleased: readerReleased,
+        value:
+          staleReadback && writeCount
+            ? {
+                snapshot: JSON.parse(previous.toString("utf8")),
+                payloadSha256: createHash("sha256")
+                  .update(previous)
+                  .digest("hex"),
+                sourceText: previous.toString("utf8"),
+              }
+            : read(),
+      }),
+      saveRecoveryCheckpoint: (
+        repository: unknown,
+        recoveryId: string,
+        before: Buffer,
+        request: Parameters<
+          typeof import("../../../execution-model/src/index.ts").saveRecoveryCheckpoint
+        >[3],
+      ) => {
+        switch (request.kind) {
+          default:
+            if (!("value" in request))
+              throw new Error("unexpected recovery kind");
+            return Reflect.apply(
+              (
+                _repository: unknown,
+                id: string,
+                before: Buffer,
+                kind: string,
+                value: unknown,
+                owner: () => boolean,
+              ) => {
+                events.push(`save:${kind}`);
+                if (!owner() || writeRejected || !before.equals(bytes))
                   return {
-                    status: "completed",
-                    snapshotConfirmed: true,
+                    status: "blocked",
+                    snapshotConfirmed: false,
                     lockReleased: true,
-                    revision: next.snapshot.revision,
-                    payloadSha256: next.payloadSha256,
                   };
-                },
-                undefined,
-                [
-                  repository,
-                  recoveryId,
-                  before,
-                  request.kind,
-                  request.value,
-                  request.assertOwner,
-                ],
-              );
-          }
-        },
-        borrowHostRecoveryManagementDirectory: () => {
-          borrowCount++;
-          return {
-            directory: f.request.managementDirectory,
-            assertCurrent: () => borrowLive,
-          };
-        },
+                const current = read(),
+                  operation = current.snapshot.operations.find(
+                    (item) =>
+                      item.kind === "docker_task" && item.recoveryId === id,
+                  );
+                assert.ok(operation?.kind === "docker_task");
+                assert.equal(operation.phase, "settling");
+                assert.equal(operation.outcome, null);
+                let resources: OperationResources | null;
+                if (kind === "resource")
+                  resources = applyResourceEvent(operation.resources, value);
+                else {
+                  assert.equal(kind, "cleanup");
+                  const payload = JSON.parse(canonicalJson(value));
+                  assert.deepEqual(Object.keys(payload).sort(), [
+                    "observations",
+                    "snapshot",
+                  ]);
+                  assert.ok(operation.resources);
+                  resources = applyResourceCleanup(
+                    operation.resources,
+                    payload.snapshot,
+                    payload.observations,
+                    {
+                      recoveryId: id,
+                      previousPayloadSha256: current.payloadSha256,
+                    },
+                  );
+                }
+                // 公開更新操作が元記録との遷移を検査済み。不成立はnullのまま保存しない。
+                const candidate = resources
+                  ? Buffer.from(
+                      `${canonicalJson({
+                        ...current.snapshot,
+                        revision: current.snapshot.revision + 1,
+                        previous: {
+                          revision: current.snapshot.revision,
+                          payloadSha256: current.payloadSha256,
+                        },
+                        operations: current.snapshot.operations.map((item) =>
+                          item.recoveryId === id
+                            ? { ...item, resources }
+                            : item,
+                        ),
+                      })}\n`,
+                    )
+                  : null;
+                if (!candidate)
+                  return {
+                    status: "blocked",
+                    snapshotConfirmed: false,
+                    lockReleased: true,
+                  };
+                previous = bytes;
+                bytes = candidate;
+                writeCount++;
+                if (loseAfterWrite) live = false;
+                const next = read();
+                return {
+                  status: "completed",
+                  snapshotConfirmed: true,
+                  lockReleased: true,
+                  revision: next.snapshot.revision,
+                  payloadSha256: next.payloadSha256,
+                };
+              },
+              undefined,
+              [
+                repository,
+                recoveryId,
+                before,
+                request.kind,
+                request.value,
+                request.assertOwner,
+              ],
+            );
+        }
       },
-    ) as {
+      borrowHostRecoveryManagementDirectory: () => {
+        borrowCount++;
+        return {
+          directory: f.request.managementDirectory,
+          assertCurrent: () => borrowLive,
+        };
+      },
+    }) as {
       run(
         owner: unknown,
         cleanup: (

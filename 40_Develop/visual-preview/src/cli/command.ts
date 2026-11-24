@@ -1,10 +1,29 @@
 /**
  * Visual PreviewのCLI入口。
  *
- * @responsibility Repository相対RootとPortを受付け、Visual Previewの開始・停止結果を構造化表示する。
+ * @responsibility 起動Directory相対の配信先とPortを受け付け、開始・停止結果を構造化表示する。
  * @trace ARCH-000003
  */
+import path from "node:path";
 import { startVisualPreview, verifyBrowserZoom } from "../index.ts";
+
+/** CLIの公開範囲は起動Directory配下から明示的に選ぶ。 @trace ARCH-000003 */
+function resolveCommandRoot(relativeRoot: string): string {
+  const cwd = process.cwd();
+  const root = path.resolve(cwd, relativeRoot);
+  const relative = path.relative(cwd, root);
+  if (
+    !relativeRoot ||
+    path.isAbsolute(relativeRoot) ||
+    /[\u0000-\u001f\u007f]/u.test(relativeRoot) ||
+    !relative ||
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  )
+    throw new Error("visual_preview_root_invalid");
+  return root;
+}
 
 /**
  * CLI引数から指定Optionの値を取得する。
@@ -92,6 +111,7 @@ async function runZoomVerification(
     "--width",
     "--height",
     "--browser",
+    "--temporary-directory",
   ]);
   for (let index = 0; index < argumentValues.length; index += 2) {
     const name = argumentValues[index];
@@ -108,8 +128,10 @@ async function runZoomVerification(
   ).map(Number);
   const browserExecutablePath = readOption(argumentValues, "--browser");
   const result = await verifyBrowserZoom({
-    workingDirectory: process.cwd(),
-    rootRelativePath,
+    rootDirectory: resolveCommandRoot(rootRelativePath),
+    temporaryDirectory: path.resolve(
+      readOption(argumentValues, "--temporary-directory") ?? ".crdd/tmp",
+    ),
     documentPaths: parseList(documentValue, "visual_zoom_documents_invalid"),
     zoomFactors: zoomValues,
     windowSize: {
@@ -129,7 +151,7 @@ async function runZoomVerification(
  * @trace ARCH-000003
  * @input N/A: process.argvとprocess.cwdを使用する。
  * @returns CLI Lifecycle完了を表すPromiseを返す。
- * @precondition `--root`はRepository相対Path、`--port`は0から65535である。
+ * @precondition `--root`は起動Directory配下の相対Path、`--port`は0から65535である。
  * @postcondition 正常終了時はListenerと所有Connectionが残らない。
  * @effect localhost Listenerを開始し、UI成果物を読取る。
  * @failure 入力不正または起動失敗を構造化Errorと終了値1で返す。
@@ -157,8 +179,7 @@ export async function runVisualPreviewCommand(): Promise<void> {
   const portValue = readOption(argumentValues, "--port");
   const port = portValue === undefined ? 0 : Number(portValue);
   const handle = await startVisualPreview({
-    workingDirectory: process.cwd(),
-    rootRelativePath,
+    rootDirectory: resolveCommandRoot(rootRelativePath),
     port,
   });
   process.stdout.write(

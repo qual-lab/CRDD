@@ -9,18 +9,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
 import { observeProviderHome } from "../../support/provider-home.ts";
 import {
   acquireLock,
   type Lock,
   type LockRequest,
 } from "../../../../lock/src/index.ts";
-import {
-  ensureRepositoryRuntimeDataArea,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../support/runtime-data.ts";
-import { getRepository } from "../../../../version-control/src/index.ts";
+import { prepareRepositoryTestParent } from "../../support/repository-test-directory.ts";
 import { writeReport, readReport, removeReport } from "../../support/report.ts";
 
 /**
@@ -90,33 +85,7 @@ export async function verifyProviderHomeBoundary(
     "ProviderHomes",
     provider,
   );
-  const repository = fs.realpathSync(
-    fileURLToPath(new URL("../../../../../", import.meta.url)),
-  );
-  const git = spawnSync(
-    "git",
-    [
-      "-C",
-      fileURLToPath(new URL("./", import.meta.url)),
-      "rev-parse",
-      "--show-toplevel",
-    ],
-    { encoding: "utf8", timeout: 15_000, windowsHide: true },
-  );
-  if (
-    git.error ||
-    git.signal !== null ||
-    git.status !== 0 ||
-    fs.realpathSync(git.stdout.trim()).toLowerCase() !==
-      repository.toLowerCase()
-  )
-    throw new Error("home_boundary_repository_invalid");
-  const verified = getRepository(repository);
-  if (verified.status !== "completed") throw Error(verified.reason);
-  const parent = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataArea(verified.capability, "tests"),
-    "home_boundary_parent_invalid",
-  ).directory;
+  const parent = prepareRepositoryTestParent();
   const root = path.join(parent, `executor-home-${provider}-${runId}`);
   fs.mkdirSync(root); // Existing Roots are never reused or removed.
   const identity = fs.statSync(root, { bigint: true });

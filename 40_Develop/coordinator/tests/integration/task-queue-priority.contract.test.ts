@@ -33,7 +33,7 @@ import {
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-  verifyRuntimePersistenceRepository,
+  resolveExecutionStorageDirectory,
 } from "../../src/lifecycle/host.ts";
 import {
   inspectCoordinatorSnapshotLeaseAcquisitionOwner,
@@ -93,7 +93,7 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
   const file = path.join(root, ".crdd", "execution-model", "state.json");
   const before = fs.readFileSync(file);
   const previous = readState(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     "binding-a",
     "execution",
   );
@@ -124,12 +124,12 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
       ports.repositoryBindingId,
       "../escape",
     ).reason,
-    "orchestrator_state_identity_invalid",
+    "coordinator_state_identity_invalid",
   );
   assert.equal(
     readQueueEntry(ports.repository, ports.repositoryBindingId, "queue-a")
       .reason,
-    "orchestrator_queue_observation_unknown",
+    "coordinator_queue_observation_unknown",
   );
   assert.deepEqual(fs.readFileSync(file), before);
   const input = {
@@ -149,7 +149,7 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
   if (created.status !== "completed") throw Error("fixture");
   const after = fs.readFileSync(file);
   const snapshot = readState(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     "binding-a",
     "execution",
   );
@@ -182,19 +182,19 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
       kind: "scheduled",
       input: [input],
     }).reason,
-    "orchestrator_queue_request_reused",
+    "coordinator_queue_request_reused",
   );
   assert.equal(
     createQueue(ports.repository, ports.repositoryBindingId, {
       kind: "scheduled",
       input: [{ ...input, requestHash: hash("other") }],
     }).reason,
-    "orchestrator_queue_identity_conflict",
+    "coordinator_queue_identity_conflict",
   );
   assert.equal(
     readQueueEntry(ports.repository, ports.repositoryBindingId, "../escape")
       .reason,
-    "orchestrator_queue_input_invalid",
+    "coordinator_queue_input_invalid",
   );
   assert.deepEqual(fs.readFileSync(file), after);
   const scenarios = [
@@ -203,7 +203,7 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
       generation: 1,
       resume: null,
       result: null,
-      expected: "orchestrator_queue_generation_conflict",
+      expected: "coordinator_queue_generation_conflict",
       reads: [],
     },
     {
@@ -211,7 +211,7 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
       generation: 2,
       resume: null,
       result: null,
-      expected: "orchestrator_queue_generation_conflict",
+      expected: "coordinator_queue_generation_conflict",
       reads: [],
     },
     {
@@ -219,7 +219,7 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
       generation: 1,
       resume: "../bad",
       result: null,
-      expected: "orchestrator_queue_resume_condition_invalid",
+      expected: "coordinator_queue_resume_condition_invalid",
       reads: ["resume", "resume"],
     },
     {
@@ -227,7 +227,7 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
       generation: 1,
       resume: null,
       result: "../bad",
-      expected: "orchestrator_queue_result_reference_invalid",
+      expected: "coordinator_queue_result_reference_invalid",
       reads: ["resume", "result", "result"],
     },
     {
@@ -235,7 +235,7 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
       generation: 1,
       resume: null,
       result: null,
-      expected: "orchestrator_queue_transition_invalid",
+      expected: "coordinator_queue_transition_invalid",
       reads: ["resume", "result", "state"],
     },
   ];
@@ -310,7 +310,7 @@ function fixture(
     assert.equal(fs.existsSync(root), false);
   });
   assert.equal(
-    initializeExecutionStore(verifyRuntimePersistenceRepository(root), binding)
+    initializeExecutionStore(resolveExecutionStorageDirectory(root), binding)
       .status,
     "completed",
   );
@@ -440,7 +440,7 @@ test("interactive queue parks scheduled work without preempting an active owner"
     },
   );
   assert.equal(directLease.status, "blocked");
-  assert.equal(directLease.reason, "orchestrator_queue_transition_invalid");
+  assert.equal(directLease.reason, "coordinator_queue_transition_invalid");
   assert.equal(forbiddenLease.value.release().status, "completed");
   const interactive = readQueueEntry(
     ports.repository,
@@ -592,7 +592,7 @@ test("scheduled work arriving after an interactive operation starts remains effe
   assert.equal(selected.status === "completed" && selected.value, null);
   assert.equal(
     selected.status === "completed" && selected.reason,
-    "orchestrator_active_operation_retained",
+    "coordinator_active_operation_retained",
   );
   const scheduled = readQueueEntry(
     ports.repository,
@@ -676,9 +676,9 @@ test("one Repository Binding cannot acquire two Project Operation leases", (t) =
     "project-operation",
   );
   assert.equal(sameProject.status, "blocked");
-  assert.equal(sameProject.reason, "orchestrator_lease_unavailable");
+  assert.equal(sameProject.reason, "coordinator_lease_unavailable");
   assert.equal(otherProject.status, "blocked");
-  assert.equal(otherProject.reason, "orchestrator_lease_unavailable");
+  assert.equal(otherProject.reason, "coordinator_lease_unavailable");
   assert.equal(first.value.release().status, "completed");
 });
 
@@ -812,8 +812,8 @@ test("separate processes cannot both own one Repository Binding operation", asyn
         (result) =>
           result.manualRecoveryRequired === false &&
           [
-            "orchestrator_lease_unavailable",
-            "orchestrator_snapshot_lock_unavailable",
+            "coordinator_lease_unavailable",
+            "coordinator_snapshot_lock_unavailable",
           ].includes(result.reason),
       ),
     JSON.stringify({

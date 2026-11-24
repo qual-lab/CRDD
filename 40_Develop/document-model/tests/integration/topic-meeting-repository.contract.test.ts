@@ -16,7 +16,6 @@ import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { setTimeout } from "node:timers/promises";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { validateTopicMeetingListInput } from "../../src/activity/operations.ts";
 import {
   createMeetingOperations,
@@ -83,9 +82,7 @@ test("期待Projectを両種別の保存・読取り・Relationへ拘束する",
     () => createTopicMeetingRepository("Z:/not-a-root", "BAD ID"),
     /project_operation_expected_project_invalid/u,
   );
-  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
-    import.meta.dirname,
-  );
+  const verified = path.resolve(import.meta.dirname, "../../../..");
   const parent = path.join(verified, ".crdd", "tests");
   fs.mkdirSync(parent, { recursive: true });
   const root = fs.mkdtempSync(path.join(parent, "topic-meeting-project-"));
@@ -246,9 +243,7 @@ test("期待Projectを両種別の保存・読取り・Relationへ拘束する",
  * @boundary 静的な保存先chainと公開CRUD。観測直後の同時差替え防止の証明ではない。
  */
 test("保存先の親linkと観測不能を全操作で拒否する", (t) => {
-  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
-    import.meta.dirname,
-  );
+  const verified = path.resolve(import.meta.dirname, "../../../..");
   const parent = path.join(verified, ".crdd", "tests");
   for (const directory of [path.dirname(parent), parent]) {
     try {
@@ -379,9 +374,7 @@ test("保存先の親linkと観測不能を全操作で拒否する", (t) => {
  * @boundary 固定CHG Pathと一階層mkdirの静的拒否。非協調同時置換保証ではない。
  */
 test("CHG親とmkdir競合後のlinkを拒否する", (t) => {
-  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
-    import.meta.dirname,
-  );
+  const verified = path.resolve(import.meta.dirname, "../../../..");
   const parent = path.join(verified, ".crdd", "tests");
   assert.ok(
     fs.lstatSync(parent).isDirectory() &&
@@ -516,9 +509,7 @@ test("CHG親とmkdir競合後のlinkを拒否する", (t) => {
  * @boundary 公開CRUD→同期Filesystem。close注入は実close後の故障報告で実OS故障の証明ではない。
  */
 test("部分書込みの失敗は所有tmpだけを回収し正本を保持する", (t) => {
-  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
-    import.meta.dirname,
-  );
+  const verified = path.resolve(import.meta.dirname, "../../../..");
   const parent = path.join(verified, ".crdd", "tests");
   for (const directory of [path.dirname(parent), parent]) {
     try {
@@ -807,9 +798,7 @@ Project ID: \`PRJ-001\`
  * @boundary 取得順を固定した協調Writer競合。異常死・同時open勝者・親差替え・電源断は対象外。
  */
 test("TopicとMeetingの協調Writer競合とLock解放後の再利用を実Processで確認する", async () => {
-  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
-    import.meta.dirname,
-  );
+  const verified = path.resolve(import.meta.dirname, "../../../..");
   const parent = path.join(verified, ".crdd", "tests");
   for (const directory of [path.dirname(parent), parent]) {
     try {
@@ -1059,9 +1048,7 @@ fs.writeFileSync(result, JSON.stringify(outcome), { flag: "wx" });
  * @boundary CPR-IT-010=Direct Boundary: Repository Test Source→CRUD契約
  */
 test("TopicとMeetingの登録・編集・削除・一覧・取得を同じ契約で処理する", () => {
-  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
-    import.meta.dirname,
-  );
+  const verified = path.resolve(import.meta.dirname, "../../../..");
   const parent = path.join(verified, ".crdd", "tests");
   for (const directory of [path.dirname(parent), parent]) {
     try {
@@ -1216,9 +1203,7 @@ test("Relation解消と明示確認なしに物理削除しない", () => {
  * @boundary Repository公開更新→同期Filesystem保存・cleanup。実OS故障の網羅証明ではない。
  */
 test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) => {
-  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
-    import.meta.dirname,
-  );
+  const verified = path.resolve(import.meta.dirname, "../../../..");
   const parent = path.join(verified, ".crdd", "tests");
   for (const directory of [path.dirname(parent), parent]) {
     try {
@@ -1401,9 +1386,7 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
  * @boundary 同期Repository保存→同一File読戻し。電源断・親差替え・実Process競合は対象外。
  */
 test("登録・更新はLock内の同一読戻しを確認し保存後失敗を隠さない", (t) => {
-  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
-    import.meta.dirname,
-  );
+  const verified = path.resolve(import.meta.dirname, "../../../..");
   const parent = path.join(verified, ".crdd", "tests");
   for (const directory of [path.dirname(parent), parent]) {
     try {

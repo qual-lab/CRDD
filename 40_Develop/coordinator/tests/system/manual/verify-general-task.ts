@@ -27,18 +27,18 @@ import {
   isSupportedNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../../../src/lifecycle/environment.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../../../scripts/benchmark.ts";
+import { observeDevelopmentSource } from "../../../scripts/benchmark.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   type SignedGeneralTaskPublicReason,
 } from "../../support/verification-result-reasons.ts";
 import {
-  isRuntimeProcessPoisoned,
-  poisonRuntimeProcessAfterCleanupUnknown,
+  isExecutionProcessPoisoned,
+  poisonExecutionProcessAfterCleanupUnknown,
 } from "../../../src/lifecycle/host.ts";
 import {
-  cancelRuntimeOwnedCoordinatorTask,
-  startRuntimeOwnedCoordinatorTask,
+  cancelCoordinatorTask,
+  startCoordinatorTask,
 } from "../../../src/lifecycle/execution.ts";
 import {
   coordinatorTaskPublicReasons,
@@ -239,7 +239,7 @@ type RouteExpectation = Readonly<{
  */
 type SourceIdentity = RuntimeRecord &
   Readonly<{
-    scope: "crdd-development-source-snapshot/v5";
+    scope: "crdd-development-source-snapshot/v6";
     sourceSha256: string;
     sourceIdentitySha256: string;
     crddCommit: string;
@@ -417,7 +417,7 @@ const productionDependencies: VerificationDependencies = Object.freeze({
   observeSource: () => {
     const root = fileURLToPath(new URL("../../../../../", import.meta.url));
     const before = readRepositorySnapshot(getRepository(root).capability);
-    const source = observeRuntimeOwnedDevelopmentSource();
+    const source = observeDevelopmentSource();
     const after = readRepositorySnapshot(getRepository(root).capability);
     if (
       !source ||
@@ -443,7 +443,7 @@ const productionDependencies: VerificationDependencies = Object.freeze({
     const repository = location.capability;
     if (resolveVerifiedRepositoryRoot(repository) !== root)
       throw Error("repository_identity_unavailable");
-    return startRuntimeOwnedCoordinatorTask(
+    return startCoordinatorTask(
       request,
       root,
       null,
@@ -458,7 +458,7 @@ const productionDependencies: VerificationDependencies = Object.freeze({
       },
     );
   },
-  cancelTask: cancelRuntimeOwnedCoordinatorTask,
+  cancelTask: cancelCoordinatorTask,
   readWorkspaceOutput: (target, result) =>
     readVerificationWorkspaceOutput(target, TARGET_PATH, result),
   closeWorkspace: closeVerificationWorkspace,
@@ -965,9 +965,9 @@ function recoveryProjection(...results: readonly (RuntimeRecord | null)[]) {
   const sources = results.filter((result) => result !== null);
   if (
     sources.some((result) => result?.processRestartRequired === true) &&
-    !isRuntimeProcessPoisoned()
+    !isExecutionProcessPoisoned()
   )
-    ensureRuntimeProcessPoisoned();
+    ensureExecutionProcessPoisoned();
   const hostRecovery = collectRecoveryIds(sources, "hostRecoveryId", "host");
   const dockerRecovery = collectRecoveryIds(
     sources,
@@ -997,7 +997,7 @@ function recoveryProjection(...results: readonly (RuntimeRecord | null)[]) {
       (result) => result?.manualRecoveryRequired === true,
     ),
     processRestartRequired:
-      isRuntimeProcessPoisoned() ||
+      isExecutionProcessPoisoned() ||
       sources.some((result) => result?.processRestartRequired === true),
     hostRecoveryId:
       hostRecoveryIds.length === 1 ? (hostRecoveryIds[0] ?? null) : null,
@@ -1162,20 +1162,20 @@ function blockedAfterConfirmedCandidateNotIssued(
  * @responsibility Runtime Process Poisonedの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
- * @returns N/A: ensureRuntimeProcessPoisonedは戻り値を返さない。
- * @precondition 「N/A: 実行時引数を受け取らない。」がensureRuntimeProcessPoisonedの入力契約を満たす。
- * @postcondition ensureRuntimeProcessPoisonedの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: ensureRuntimeProcessPoisonedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure ensureRuntimeProcessPoisonedは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant ensureRuntimeProcessPoisonedは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: ensureRuntimeProcessPoisonedはProcess内の同一Subsystemで完結する。
- * @security N/A: ensureRuntimeProcessPoisonedはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: ensureRuntimeProcessPoisonedは共有非同期状態を持たない同期処理である。
+ * @returns N/A: ensureExecutionProcessPoisonedは戻り値を返さない。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がensureExecutionProcessPoisonedの入力契約を満たす。
+ * @postcondition ensureExecutionProcessPoisonedの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: ensureExecutionProcessPoisonedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure ensureExecutionProcessPoisonedは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ensureExecutionProcessPoisonedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ensureExecutionProcessPoisonedはProcess内の同一Subsystemで完結する。
+ * @security N/A: ensureExecutionProcessPoisonedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ensureExecutionProcessPoisonedは共有非同期状態を持たない同期処理である。
  */
-function ensureRuntimeProcessPoisoned() {
-  poisonRuntimeProcessAfterCleanupUnknown();
-  if (!isRuntimeProcessPoisoned())
-    throw new Error("runtime_process_poison_transition_failed");
+function ensureExecutionProcessPoisoned() {
+  poisonExecutionProcessAfterCleanupUnknown();
+  if (!isExecutionProcessPoisoned())
+    throw new Error("execution_process_poison_transition_failed");
 }
 
 /**
@@ -1237,7 +1237,7 @@ function postStartUnknownBlocked(
   isCandidateDiscarded: boolean,
   executionStateProjection: RuntimeRecord | null = null,
 ) {
-  ensureRuntimeProcessPoisoned();
+  ensureExecutionProcessPoisoned();
   const projected = blocked(
     reason,
     taskResult,
@@ -1397,7 +1397,7 @@ function validSourceIdentity(
   source: RuntimeRecord | null,
 ): source is SourceIdentity {
   return (
-    source?.scope === "crdd-development-source-snapshot/v5" &&
+    source?.scope === "crdd-development-source-snapshot/v6" &&
     sha256(source.sourceSha256) &&
     sha256(source.sourceIdentitySha256) &&
     isCanonicalCrddGitObjectId(source.crddCommit) &&
@@ -1643,7 +1643,7 @@ export async function runSignedGeneralTaskVerification(
     verificationRequest =
       createSignedGeneralTaskVerificationRequest(routeProfile);
   } catch {
-    if (isRuntimeProcessPoisoned())
+    if (isExecutionProcessPoisoned())
       return blocked(
         "signed_general_task_process_restart_required",
         null,
@@ -1669,14 +1669,14 @@ export async function runSignedGeneralTaskVerification(
   } catch {
     // Source provenance remains unobserved; no Task has started.
   }
-  if (isRuntimeProcessPoisoned()) {
+  if (isExecutionProcessPoisoned()) {
     return blocked(
       "signed_general_task_process_restart_required",
       null,
       Object.freeze({
         canonicalRepositoryChanged: false,
         manualRecoveryRequired: true,
-        processRestartRequired: isRuntimeProcessPoisoned(),
+        processRestartRequired: isExecutionProcessPoisoned(),
       }),
     );
   }
@@ -1784,7 +1784,7 @@ export async function runSignedGeneralTaskVerification(
       executionTarget,
     );
   } catch {
-    ensureRuntimeProcessPoisoned();
+    ensureExecutionProcessPoisoned();
     return completeSourceVerification(
       sourceIdentity,
       blocked(
@@ -1911,9 +1911,9 @@ export async function runSignedGeneralTaskVerification(
       }
       if (
         taskResult.processRestartRequired === true &&
-        !isRuntimeProcessPoisoned()
+        !isExecutionProcessPoisoned()
       )
-        ensureRuntimeProcessPoisoned();
+        ensureExecutionProcessPoisoned();
 
       let executionRevisionMismatch: string | null =
         "execution_repository_revision_observation_unknown";
@@ -2189,9 +2189,9 @@ export async function runSignedGeneralTaskVerification(
           "signed_general_task_safety_observation_unknown";
       } else if (
         taskResult.processRestartRequired === true &&
-        !isRuntimeProcessPoisoned()
+        !isExecutionProcessPoisoned()
       ) {
-        ensureRuntimeProcessPoisoned();
+        ensureExecutionProcessPoisoned();
       }
       if (
         cancellationReceipt?.processTerminationObserved === false &&
@@ -2242,7 +2242,7 @@ export async function runSignedGeneralTaskVerification(
       ),
       dependencies,
     );
-  if (isRuntimeProcessPoisoned())
+  if (isExecutionProcessPoisoned())
     return completeWithWorkspace(
       sourceIdentity,
       blocked(
@@ -2306,8 +2306,7 @@ export function describeSignedGeneralTaskVerificationContract() {
     temporaryRequestFileAllowed: false,
     longShellCommandReconstructionAllowed: false,
     normalTaskStdinContractChanged: false,
-    interactiveBoundary:
-      "runtime_owned_console_challenge_for_external_send_only",
+    interactiveBoundary: "console_challenge_for_external_send_only",
     providerRoutes: Object.freeze([
       ROUTE_EXPECTATIONS.forward.route,
       ROUTE_EXPECTATIONS.reverse.route,
@@ -2328,7 +2327,7 @@ export function describeSignedGeneralTaskVerificationContract() {
     identityBinding:
       "fixed_source_identity_is_separate_from_upper_owned_worktree_base_observed_before_and_after_task",
     boundedRemediation:
-      "zero_or_one_runtime_owned_remediation_then_same_independent_reviewer_approval_required",
+      "zero_or_one_remediation_then_same_independent_reviewer_approval_required",
     taskFailureReasonProjection:
       "known_task_failure_reason_preserved_candidate_integrity_failure_distinct_from_reviewer_semantic_rejection",
     resultMismatchDiagnostic:

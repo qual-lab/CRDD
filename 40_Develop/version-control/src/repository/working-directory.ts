@@ -14,6 +14,35 @@ export const LOCAL_CHANGE_SET_CONTRACT =
   "crdd-version-control/local-change-set/v1";
 export const LOCAL_CHANGE_SET_CONTRACT_REVISION = 1;
 
+/** 作成受付用にcheckoutを含むfilterを確認し、通常Indexを変えず変更の有無を返す。 @trace ARCH-000009 */
+export function readWorktreeCreationDirty(repository: Repository): boolean {
+  const root = resolveVerifiedRepositoryRoot(repository);
+  if (root === null) throw Error("verified_repository_root_required");
+  const options = { maxBuffer: 16 * 1024 * 1024 };
+  const filters = inspectGitExternalFilters(root, options, true);
+  if (
+    filters.error ||
+    filters.signal ||
+    filters.status !== 1 ||
+    filters.stdout.length !== 0 ||
+    filters.stderr.length !== 0
+  )
+    throw Error("working_tree_status_unavailable");
+  const result = executeGit(
+    root,
+    ["status", "--porcelain=v1", "-z", "--untracked-files=normal"],
+    options,
+  );
+  if (
+    result.error ||
+    result.signal ||
+    result.status !== 0 ||
+    result.stderr.length !== 0
+  )
+    throw Error("working_tree_status_unavailable");
+  return result.stdout.length > 0;
+}
+
 /** 選択Path以外を追加せず、Root逸脱・option・重複をEffect前に拒否する。 */
 function changePaths(
   repository: Repository,

@@ -201,8 +201,8 @@ test("修復Machine: 八slotの保存拒否・取消とfresh切断窓", async ()
         assert.equal(
           observed.reason,
           stage === "intent_boundary"
-            ? "runtime_repair_boundary_unavailable"
-            : "runtime_repair_cancelled",
+            ? "docker_repair_boundary_unavailable"
+            : "docker_repair_cancelled",
         );
       } else {
         assertCheckpointFaultReached(
@@ -212,7 +212,7 @@ test("修復Machine: 八slotの保存拒否・取消とfresh切断窓", async ()
           stage.replace(/_throw$/u, ""),
         );
         assert.equal(notifications, rejectedAt);
-        assert.equal(observed.reason, "runtime_repair_state_unavailable");
+        assert.equal(observed.reason, "docker_repair_state_unavailable");
         assert.equal(observed.checkpointNotificationCompleted, false);
         assert.ok(
           validateRepairCheckpointTransition(f.saved(), observed.checkpoint),
@@ -240,7 +240,7 @@ test("修復Machine: 八slotの保存拒否・取消とfresh切断窓", async ()
         { ...f.input, checkpoint },
         f.technical,
       );
-      assert.equal(observed.reason, "runtime_repair_effect_unknown");
+      assert.equal(observed.reason, "docker_repair_effect_unknown");
       assert.equal(f.calls.observe, 0);
       assert.equal(f.calls.precondition.length, 0);
       assert.equal(f.calls.execute.length, 0);
@@ -323,7 +323,7 @@ test("修復Machine: 八slotの不要と未発行失敗・不明を分離する"
       }
       if (mode === "unknown" || mode === "issued_unknown" || mode === "throw") {
         assert.equal(slot.result, "unknown");
-        assert.equal(observed.primaryFailure, "runtime_repair_effect_unknown");
+        assert.equal(observed.primaryFailure, "docker_repair_effect_unknown");
       }
       if (mode === "record_lost") {
         assert.equal(slot.request, "unknown");
@@ -396,7 +396,7 @@ test("修復Machine: Engine五分類と不正通知", async () => {
       { ...f.input, onCheckpoint },
       f.technical,
     );
-    assert.equal(observed.reason, "runtime_repair_state_unavailable");
+    assert.equal(observed.reason, "docker_repair_state_unavailable");
     assert.equal(f.calls.execute.length, 0);
   }
   assert.equal(traps, 0);
@@ -665,7 +665,7 @@ test("修復Machine: failed-launchの両世代を保存してから追加処置�
         { ...next.input, checkpoint },
         next.technical,
       );
-      assert.equal(resumed.reason, "runtime_repair_recovered");
+      assert.equal(resumed.reason, "docker_repair_recovered");
       assert.equal(next.calls.observe, 2);
       assert.deepEqual(next.calls.execute, repairActionNames.slice(4));
       assert.equal(next.calls.engine, 1);
@@ -855,7 +855,7 @@ test("修復Machine: 不正Effect観測でもunknownを保存する", async () =
           `${name}:${fault}:${ownerAlive}`,
         );
         assert.equal(observed.status, "failed");
-        assert.equal(observed.primaryFailure, "runtime_repair_effect_unknown");
+        assert.equal(observed.primaryFailure, "docker_repair_effect_unknown");
         assert.equal(observed.checkpointNotificationCompleted, ownerAlive);
         assert.equal(observed.checkpoint?.actions[name].request, "unknown");
         assert.equal(observed.checkpoint?.actions[name].result, "unknown");

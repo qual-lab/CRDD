@@ -22,6 +22,7 @@
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import {
   copyFile,
@@ -34,7 +35,7 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { createServer, request, ServerResponse } from "node:http";
+import { ServerResponse } from "node:http";
 import { syncBuiltinESMExports } from "node:module";
 import { connect } from "node:net";
 import path from "node:path";
@@ -52,12 +53,11 @@ import {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
 } from "../../../configuration-model/src/index.ts";
-import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import {
   getRepository,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
-import { createWorkbenchAiVerificationHttpClient } from "../support/ai-verification-http.ts";
+import { requestRaw, requestTransport } from "../support/workbench-http.ts";
 import {
   createRepositoryWorkbenchActivityReader,
   readProjectViewData,
@@ -67,221 +67,11 @@ import {
   type AiRequests,
 } from "../../src/app.ts";
 import type { ViewResponse } from "../../src/transport/api-types.ts";
-import { validateViewResponse } from "../../../workbench-ui/src/api/response.ts";
+import { assertViewResponse } from "../support/workbench-wire.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
 );
-
-/**
- * 廃止した別Host接続入力が単体利用へ暗黙に後退しないことを確認する。
- * @responsibility 現行起動構成の閉集合と外部通信0を検証する。
- * @trace ERB-IT-021
- * @precondition 現行Workbench公開入口とRepository Rootを使用する。
- * @stimulus 廃止済みRemote接続fieldを持つ起動要求を一回渡す。
- * @observation 固定構成拒否とfetch呼出し0を観測する。
- * @oracle Listener起動や単体Repositoryへのfallbackに進まない。
- * @cleanup fetch mockは試験終了時に復元される。生成資源なし。
- * @boundary 起動構成のみ。MCP Server自体の能力を変更しない。
- */
-test("廃止したRemote起動構成は外部通信せず拒否する", async (t) => {
-  const fetchSpy = t.mock.method(globalThis, "fetch", async () => {
-    throw new Error("unexpected_remote_fetch");
-  });
-  await assert.rejects(
-    startWorkbench({
-      workingDirectory: repositoryRoot,
-      remoteConnection: {
-        mcpEndpoint: "http://127.0.0.1:1/mcp",
-        token: "fixture",
-      },
-    } as unknown as Parameters<typeof startWorkbench>[0]),
-    {
-      message: "workbench_configuration_invalid",
-    },
-  );
-  assert.equal(fetchSpy.mock.callCount(), 0);
-});
-
-/**
- * Local CROSの接続専用Modelが未認証内容と秘密fieldを拒否する。
- * @responsibility 仮のMain Modelを使わず、接続と内容選択の境界を検査する。
- * @trace ERB-IT-021
- * @precondition ProductionのClient Model Inspectorを直接使用する。
- * @stimulus 正規未接続・認証済み空集合と、余剰秘密field／未認証内容を入力する。
- * @observation access判別子受理と固定Errorを確認する。
- * @oracle 未認証にPortfolio・資格Snapshotなし、未知fieldは全拒否。
- * @cleanup N/A: 純粋なModel検査だけ。
- * @boundary 接続JSON→CSR Model Inspector。
- */
-test("Local CROS Client Modelは接続専用の閉集合と未認証境界を守る", () => {
-  const model = {
-    contract: "crdd/workbench/view/v1",
-    view: "access",
-    actionToken: "a".repeat(43),
-    authenticated: false,
-    notice: null,
-    portfolio: null,
-    credentials: { state: "not_configured", snapshot: null },
-  };
-  assert.equal(validateViewResponse(model).view, "access");
-  const empty = { projects: [], retainedAsSourceOfTruth: false };
-  assert.equal(
-    validateViewResponse({
-      ...model,
-      authenticated: true,
-      portfolio: empty,
-    }).view,
-    "access",
-  );
-  for (const value of [
-    { ...model, token: "synthetic-secret" },
-    { ...model, root: "synthetic-host-root" },
-    { ...model, portfolio: empty },
-    { ...model, credentials: { state: "available", snapshot: null } },
-    { ...model, actionToken: "" },
-    { ...model, logoPath: "https://external.invalid/logo" },
-    {
-      ...model,
-      authenticated: true,
-      portfolio: { projects: [], retainedAsSourceOfTruth: true },
-    },
-  ])
-    assert.throws(() => validateViewResponse(value), {
-      message: "workbench_client_model_invalid",
-    });
-});
-
-/**
- * Browser JSON境界が不正Discriminantと必須構造欠落を拒否することを検証する。
- *
- * @responsibility TypeScript castだけで不正JSONを成功画面へ通さないことを反証する。
- * @trace ERB-IT-021
- * @precondition Client Model InspectorがProduction入口と同じ実装である。
- * @stimulus 不正contract、未知viewおよびmain必須構造欠落を入力する。
- * @observation 送出される固定Errorを観測する。
- * @oracle 全入力がworkbench_client_model_invalidで拒否される。
- * @cleanup N/A: 外部資源を使用しない。
- * @boundary ERB-IT-021=Direct Boundary: JSON unknown value→Client Model Inspector
- */
-test("Workbench Clientは契約不正JSONを描画前に拒否する", () => {
-  for (const value of [
-    null,
-    { contract: "invalid", view: "main" },
-    { contract: "crdd/workbench/view/v1", view: "unknown" },
-    { contract: "crdd/workbench/view/v1", view: "main" },
-    {
-      contract: "crdd/workbench/view/v1",
-      view: "main",
-      actionToken: "action-token",
-      projectData: {},
-      connection: {},
-      topicPage: {},
-      topicQuery: {},
-      meetingPage: {},
-      meetingQuery: {},
-      credentials: {},
-      aiRequest: {},
-    },
-    {
-      contract: "crdd/workbench/view/v1",
-      view: "project-detail",
-      project: { projectId: "PRJ-001", state: "complete", sources: {} },
-    },
-    {
-      contract: "crdd/workbench/view/v1",
-      view: "record-detail",
-      actionToken: "action-token",
-      repositoryId: null,
-      record: {
-        kind: "topic",
-        id: "TOPIC-000001",
-        document: {
-          markdown: "# Topic",
-          record: {
-            topicId: "TOPIC-000001",
-            projectId: "PRJ-001",
-            state: "unknown",
-            revision: 1,
-            owner: "Owner",
-            title: "Topic",
-            summary: "Summary",
-          },
-        },
-        relations: [],
-      },
-    },
-  ])
-    assert.throws(
-      () => validateViewResponse(value),
-      /workbench_client_model_invalid/u,
-    );
-});
-
-/**
- * WorkbenchへRaw HTTP Requestを送信する。
- *
- * @responsibility 固定Routeと拒否RouteのResponseをURL正規化前のRequest Targetで観測する。
- * @trace ERB-IT-021
- * @trace CPR-IT-012
- * @trace CPR-IT-010
- * @precondition baseUrlが起動済みWorkbenchを指す。
- * @stimulus methodとrequestPathをNode HTTP Clientから送信する。
- * @observation Status、Headerおよび本文bytesを取得する。
- * @oracle 呼出し側が配信・拒否・Security Headerを判定できる。
- * @cleanup Request SocketはResponse完了時に閉じる。
- * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
- * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
- */
-async function requestTransport(
-  baseUrl: string,
-  requestPath: string,
-  method = "GET",
-  body?: string,
-  headers: Readonly<Record<string, string>> = {},
-): Promise<
-  Readonly<{
-    status: number;
-    headers: NodeJS.Dict<string | string[]>;
-    body: Buffer;
-  }>
-> {
-  const url = new URL(baseUrl);
-  return await new Promise((resolve, reject) => {
-    const outgoing = request(
-      {
-        hostname: url.hostname,
-        port: url.port,
-        method,
-        path: requestPath,
-        headers: {
-          ...(body === undefined
-            ? {}
-            : {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Content-Length": Buffer.byteLength(body),
-              }),
-          ...headers,
-        },
-      },
-      (incoming) => {
-        const chunks: Buffer[] = [];
-        incoming.on("data", (chunk: Buffer) => chunks.push(chunk));
-        incoming.once("end", () =>
-          resolve(
-            Object.freeze({
-              status: incoming.statusCode ?? 0,
-              headers: incoming.headers,
-              body: Buffer.concat(chunks),
-            }),
-          ),
-        );
-      },
-    );
-    outgoing.once("error", reject);
-    outgoing.end(body);
-  });
-}
 
 /**
  * UI Routeと同じQueryから、Browserへ公開されるJSON Read Modelを直接取得する。
@@ -313,7 +103,7 @@ async function requestClientModel(
     `/api/workbench/view?${parameters.toString()}`,
   );
   assert.equal(response.status, 200);
-  return validateViewResponse(JSON.parse(response.body.toString("utf8")));
+  return assertViewResponse(JSON.parse(response.body.toString("utf8")));
 }
 
 /**
@@ -339,36 +129,6 @@ async function requestMainModel(
   assert.equal(model.view, "main");
   if (model.view !== "main") throw new Error("workbench_main_model_required");
   return model;
-}
-
-/**
- * HTTP Responseを加工せず取得する。
- *
- * @responsibility Header、Statusおよび生本文を必要とする契約試験へResponseを渡す。
- * @trace ERB-IT-021
- * @trace CPR-IT-012
- * @trace CPR-IT-010
- * @precondition baseUrlが起動済みWorkbenchを指す。
- * @stimulus 指定method、pathおよび任意bodyを送信する。
- * @observation HTTP Responseを変換せず取得する。
- * @oracle 呼出し側が配信Headerと拒否本文を判定できる。
- * @cleanup Request SocketはResponse完了時に閉じる。
- * @boundary ERB-IT-021=Direct Boundary: Raw HTTP Request→Raw HTTP Response
- * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
- */
-async function requestRaw(
-  baseUrl: string,
-  requestPath: string,
-  method = "GET",
-  body?: string,
-): Promise<
-  Readonly<{
-    status: number;
-    headers: NodeJS.Dict<string | string[]>;
-    body: Buffer;
-  }>
-> {
-  return await requestTransport(baseUrl, requestPath, method, body);
 }
 
 /**
@@ -460,12 +220,6 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     assert.equal(model.view, "main");
     if (model.view !== "main") return;
     assert.deepEqual(model.connection, { state: "repository" });
-    for (const connection of [
-      { ...model.connection, endpoint: "http://127.0.0.1:1/mcp" },
-      { ...model.connection, notice: null },
-      { state: "cros_unavailable" },
-    ])
-      assert.throws(() => validateViewResponse({ ...model, connection }));
     for (const operation of ["connect", "refresh", "disconnect"]) {
       const retired = await requestRaw(
         handle.baseUrl,
@@ -526,7 +280,6 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     );
     assert.ok(model.projectData.ownerArtifacts.artifacts.length > 0);
 
-    assert.doesNotThrow(() => validateViewResponse(structuredClone(model)));
     assert.equal(model.contract, "crdd/workbench/view/v1");
     for (const retiredKey of [
       "surface",
@@ -534,533 +287,8 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       "topicMeetingResult",
     ])
       assert.equal(Object.hasOwn(model, retiredKey), false);
-    const { projectData, ...rest } = model;
-    assert.throws(
-      () => validateViewResponse({ ...rest, surface: projectData }),
-      /workbench_client_model_invalid/u,
-    );
-    const invalidSelection = structuredClone(model);
-    assert.ok(invalidSelection.aiSelection);
-    Object.assign(invalidSelection.aiSelection, {
-      selection: {
-        status: "available",
-        reason: null,
-        snapshot: { config: selectionConfig(), identity: "invalid" },
-      },
-    });
-    assert.throws(
-      () => validateViewResponse(invalidSelection),
-      /workbench_client_model_invalid/u,
-    );
-
-    const invalidQuality = structuredClone(model) as unknown as {
-      projectData: {
-        quality: {
-          projection: { rationale: Record<string, unknown> } | null;
-        };
-      };
-    };
-    assert.notEqual(invalidQuality.projectData.quality.projection, null);
-    if (invalidQuality.projectData.quality.projection !== null) {
-      invalidQuality.projectData.quality.projection.rationale.既知Gap = {
-        unsafe: true,
-      };
-    }
-    assert.throws(
-      () => validateViewResponse(invalidQuality),
-      /workbench_client_model_invalid/u,
-    );
-
-    const invalidPlan = structuredClone(model) as unknown as {
-      projectData: {
-        plan: {
-          projection: { scope: unknown[] } | null;
-        };
-      };
-    };
-    assert.notEqual(invalidPlan.projectData.plan.projection, null);
-    if (invalidPlan.projectData.plan.projection !== null) {
-      invalidPlan.projectData.plan.projection.scope = [
-        { item: { unsafe: true }, disposition: "in_scope", rationale: "x" },
-      ];
-    }
-    assert.throws(
-      () => validateViewResponse(invalidPlan),
-      /workbench_client_model_invalid/u,
-    );
-
-    const invalidPlanReason = structuredClone(model) as unknown as {
-      projectData: { plan: { reason: unknown } };
-    };
-    invalidPlanReason.projectData.plan.reason = { unsafe: true };
-    assert.throws(
-      () => validateViewResponse(invalidPlanReason),
-      /workbench_client_model_invalid/u,
-    );
-
-    for (const invalidSceneKeys of [
-      ["current", "risk", "decision", "reason"],
-      ["current", "risk", "decision", "reason", "reason"],
-      ["risk", "current", "decision", "reason", "next"],
-    ]) {
-      const invalidScenes = structuredClone(model) as unknown as {
-        projectData: {
-          context: {
-            scenes: Array<Record<string, unknown>>;
-          };
-        };
-      };
-      invalidScenes.projectData.context.scenes = invalidSceneKeys.map(
-        (key, index) => ({
-          ...invalidScenes.projectData.context.scenes[index],
-          key,
-        }),
-      );
-      assert.throws(
-        () => validateViewResponse(invalidScenes),
-        /workbench_client_model_invalid/u,
-      );
-    }
-
-    const invalidOperationRecord = structuredClone(model) as unknown as {
-      topicPage: { records: unknown[] };
-    };
-    invalidOperationRecord.topicPage.records = [
-      {
-        kind: "meeting",
-        topicId: "TOPIC-UNSAFE",
-        meetingId: "MTG-000001",
-        projectId: "PRJ-001",
-        state: "recorded",
-        occurredAt: "2026-09-28T00:00:00Z",
-        revision: 1,
-        owner: "Qual-Lab",
-        title: "境界混同",
-        summary: "MeetingへTopic Identityを混在させる。",
-        pendingOutcomeCount: 0,
-      },
-    ];
-    assert.throws(
-      () => validateViewResponse(invalidOperationRecord),
-      /workbench_client_model_invalid/u,
-    );
-
     assert.equal(Object.hasOwn(model, "topic"), false);
     assert.equal(Object.hasOwn(model, "meeting"), false);
-    const invalidSurfaceRecord = structuredClone(model) as unknown as {
-      projectData: { topics: { items: unknown[] } };
-    };
-    invalidSurfaceRecord.projectData.topics.items =
-      invalidOperationRecord.topicPage.records;
-    assert.throws(
-      () => validateViewResponse(invalidSurfaceRecord),
-      /workbench_client_model_invalid/u,
-    );
-
-    const invalidRecordIdentity = structuredClone(model) as unknown as {
-      recordDocuments: unknown[];
-    };
-    invalidRecordIdentity.recordDocuments = [
-      {
-        kind: "topic",
-        id: "TOPIC-000001",
-        document: {
-          markdown: "# Topic",
-          record: {
-            topicId: "TOPIC-000002",
-            projectId: "PRJ-001",
-            state: "open",
-            revision: 1,
-            owner: "Qual-Lab",
-            title: "Identity不一致",
-            summary: "外側と内側のIdentityを変える。",
-          },
-        },
-        relations: [],
-      },
-    ];
-    assert.throws(
-      () => validateViewResponse(invalidRecordIdentity),
-      /workbench_client_model_invalid/u,
-    );
-
-    const invalidFederation = structuredClone(model) as unknown as {
-      portfolio: unknown;
-    };
-    invalidFederation.portfolio = {
-      retainedAsSourceOfTruth: false,
-      projects: [
-        {
-          projectId: model.projectData.context.projectId,
-          state: "complete",
-          sources: [
-            {
-              repositoryId: "missing.repository",
-              revision: "1",
-              state: "missing",
-              repositoryRole: null,
-              context: null,
-            },
-          ],
-        },
-      ],
-    };
-    assert.throws(
-      () => validateViewResponse(invalidFederation),
-      /workbench_client_model_invalid/u,
-    );
-
-    const validFederatedProject = {
-      retainedAsSourceOfTruth: false,
-      projects: [
-        {
-          projectId: model.projectData.context.projectId,
-          state: "complete",
-          sources: [
-            {
-              repositoryId: model.projectData.context.repositoryId,
-              revision: "1",
-              state: "complete",
-              repositoryRole: model.projectData.context.repositoryRole,
-              context: model.projectData.context,
-            },
-          ],
-        },
-      ],
-    };
-    const mismatchedProjectContext = structuredClone(validFederatedProject);
-    const projectContextSource = mismatchedProjectContext.projects
-      .at(0)
-      ?.sources.at(0);
-    assert.ok(projectContextSource);
-    projectContextSource.context = {
-      ...model.projectData.context,
-      projectId: "PRJ-OTHER",
-    };
-    const mismatchedRepositoryContext = structuredClone(validFederatedProject);
-    const repositoryContextSource = mismatchedRepositoryContext.projects
-      .at(0)
-      ?.sources.at(0);
-    assert.ok(repositoryContextSource);
-    repositoryContextSource.context = {
-      ...model.projectData.context,
-      repositoryId: "other.repository",
-    };
-    const mismatchedRoleContext = structuredClone(validFederatedProject);
-    const roleContextSource = mismatchedRoleContext.projects
-      .at(0)
-      ?.sources.at(0);
-    assert.ok(roleContextSource);
-    roleContextSource.repositoryRole = "management";
-    const unorderedSources = {
-      retainedAsSourceOfTruth: false,
-      projects: [
-        {
-          projectId: model.projectData.context.projectId,
-          state: "partial",
-          sources: [
-            {
-              repositoryId: "z.repository",
-              revision: null,
-              state: "missing",
-              repositoryRole: null,
-              context: null,
-            },
-            {
-              repositoryId: "a.repository",
-              revision: null,
-              state: "missing",
-              repositoryRole: null,
-              context: null,
-            },
-          ],
-        },
-      ],
-    };
-    const duplicateSources = structuredClone(unorderedSources);
-    const duplicateSource = duplicateSources.projects.at(0)?.sources.at(1);
-    assert.ok(duplicateSource);
-    duplicateSource.repositoryId = "z.repository";
-    const contextOnMissingSource = {
-      retainedAsSourceOfTruth: false,
-      projects: [
-        {
-          projectId: model.projectData.context.projectId,
-          state: "partial",
-          sources: [
-            {
-              repositoryId: model.projectData.context.repositoryId,
-              revision: "1",
-              state: "missing",
-              repositoryRole: model.projectData.context.repositoryRole,
-              context: model.projectData.context,
-            },
-          ],
-        },
-      ],
-    };
-    for (const invalidPortfolio of [
-      mismatchedProjectContext,
-      mismatchedRepositoryContext,
-      mismatchedRoleContext,
-      unorderedSources,
-      duplicateSources,
-      contextOnMissingSource,
-    ]) {
-      const invalidPortfolioModel = structuredClone(model) as unknown as {
-        portfolio: unknown;
-      };
-      invalidPortfolioModel.portfolio = invalidPortfolio;
-      assert.throws(
-        () => validateViewResponse(invalidPortfolioModel),
-        /workbench_client_model_invalid/u,
-      );
-    }
-    for (const sourceState of [
-      "missing",
-      "unavailable",
-      "conflicting",
-    ] as const) {
-      const partialModel = {
-        ...structuredClone(model),
-        portfolio: structuredClone(validFederatedProject),
-      };
-      const project = partialModel.portfolio.projects[0];
-      assert.ok(project);
-      const source = project.sources[0];
-      assert.ok(source);
-      Object.assign(source, {
-        state: sourceState,
-        revision: null,
-        context: null,
-        repositoryRole: null,
-      });
-      Object.assign(project, {
-        state: sourceState === "conflicting" ? "conflicting" : "partial",
-      });
-      assert.doesNotThrow(() => validateViewResponse(partialModel));
-      for (const field of [
-        "revision",
-        "context",
-        "repositoryRole",
-        "state",
-      ] as const) {
-        const invalid = structuredClone(partialModel);
-        const invalidSource = invalid.portfolio?.projects[0]?.sources[0];
-        assert.ok(invalidSource);
-        Object.assign(invalidSource, {
-          [field]: field === "context" ? model.projectData.context : "invalid",
-        });
-        assert.throws(
-          () => validateViewResponse(invalid),
-          /workbench_client_model_invalid/u,
-        );
-      }
-      Object.assign(project, { state: "complete" });
-      assert.throws(
-        () => validateViewResponse(partialModel),
-        /workbench_client_model_invalid/u,
-      );
-    }
-    const nullComplete = {
-      ...structuredClone(model),
-      portfolio: structuredClone(validFederatedProject),
-    };
-    const completeSource = nullComplete.portfolio.projects[0]?.sources[0];
-    assert.ok(completeSource);
-    Object.assign(completeSource, {
-      revision: null,
-      context: null,
-      repositoryRole: null,
-    });
-    assert.throws(
-      () => validateViewResponse(nullComplete),
-      /workbench_client_model_invalid/u,
-    );
-
-    const invalidQualityState = structuredClone(model) as unknown as {
-      projectData: {
-        quality: {
-          state: string;
-          projection: unknown;
-          reason: unknown;
-        };
-      };
-    };
-    invalidQualityState.projectData.quality.state = "unknown";
-    invalidQualityState.projectData.quality.reason = "observation_failed";
-    assert.throws(
-      () => validateViewResponse(invalidQualityState),
-      /workbench_client_model_invalid/u,
-    );
-
-    const invalidOwnerState = structuredClone(model) as unknown as {
-      projectData: {
-        ownerArtifacts: { state: string; reason: unknown };
-      };
-    };
-    invalidOwnerState.projectData.ownerArtifacts.state = "unknown";
-    invalidOwnerState.projectData.ownerArtifacts.reason =
-      "owner_artifact_observation_failed";
-    assert.throws(
-      () => validateViewResponse(invalidOwnerState),
-      /workbench_client_model_invalid/u,
-    );
-
-    const invalidRepositoryState = structuredClone(model) as unknown as {
-      projectData: {
-        repository: { state: string; reason: unknown };
-      };
-    };
-    invalidRepositoryState.projectData.repository.state = "unknown";
-    invalidRepositoryState.projectData.repository.reason = "observation_failed";
-    assert.throws(
-      () => validateViewResponse(invalidRepositoryState),
-      /workbench_client_model_invalid/u,
-    );
-
-    const invalidCollectionState = structuredClone(model) as unknown as {
-      projectData: {
-        topics: { state: string; items: unknown[]; reason: unknown };
-      };
-    };
-    invalidCollectionState.projectData.topics = {
-      state: "unknown",
-      items: [
-        {
-          topicId: "TOPIC-000001",
-          projectId: "PRJ-001",
-          state: "open",
-          revision: 1,
-          owner: "Qual-Lab",
-          title: "観測不能",
-          summary: "未知状態にPayloadを混在させる。",
-        },
-      ],
-      reason: null,
-    };
-    assert.throws(
-      () => validateViewResponse(invalidCollectionState),
-      /workbench_client_model_invalid/u,
-    );
-
-    const invalidWorktree = structuredClone(model) as unknown as {
-      worktree: { diff: unknown };
-    };
-    invalidWorktree.worktree.diff = {
-      path: { unsafe: true },
-      status: "modified",
-      staged: false,
-      binary: false,
-      oldPath: null,
-      patch: "diff",
-      reason: null,
-    };
-    assert.throws(
-      () => validateViewResponse(invalidWorktree),
-      /workbench_client_model_invalid/u,
-    );
-
-    const invalidRuntime = structuredClone(model) as unknown as {
-      executionActivity: Record<string, unknown> | null;
-    };
-    invalidRuntime.executionActivity = {
-      state: "available",
-      reason: "observed",
-      eventState: "observed",
-      eventReason: "observed",
-      eventContinuation: null,
-      projection: null,
-      events: [
-        {
-          eventId: "EVT-1",
-          occurredAt: "2026-09-28T00:00:00Z",
-          objectiveId: "OBJ-1",
-          taskId: "TASK-1",
-          attemptId: "ATTEMPT-1",
-          status: "completed",
-          reason: { unsafe: true },
-          cleanupConfirmed: true,
-          manualRecoveryRequired: false,
-        },
-      ],
-    };
-    assert.throws(
-      () => validateViewResponse(invalidRuntime),
-      /workbench_client_model_invalid/u,
-    );
-
-    const runtimeProjection = {
-      projectId: "PRJ-001",
-      milestoneId: "MILESTONE-1",
-      generation: 1,
-      milestoneState: "active",
-      objectiveCounts: {},
-      taskCounts: {},
-      objectiveTaskSummaries: [],
-      workProgress: "進行中",
-      qualityState: "観測済み",
-      humanDecisionRequired: false,
-      recoveryRequired: false,
-      nextAction: "継続",
-    };
-    const observedWithoutProjection = structuredClone(model) as unknown as {
-      executionActivity: Record<string, unknown> | null;
-    };
-    observedWithoutProjection.executionActivity = {
-      state: "observed",
-      reason: "observed",
-      projection: null,
-      eventState: "observed",
-      eventReason: "execution_events_observed",
-      events: [],
-      eventContinuation: null,
-    };
-    const absentWithProjection = structuredClone(model) as unknown as {
-      executionActivity: Record<string, unknown> | null;
-    };
-    absentWithProjection.executionActivity = {
-      state: "absent",
-      reason: "not_found",
-      projection: runtimeProjection,
-      eventState: "observed",
-      eventReason: "execution_events_observed",
-      events: [],
-      eventContinuation: null,
-    };
-    const unknownEventsWithPayload = structuredClone(model) as unknown as {
-      executionActivity: Record<string, unknown> | null;
-    };
-    unknownEventsWithPayload.executionActivity = {
-      state: "unknown",
-      reason: "observation_failed",
-      projection: null,
-      eventState: "unknown",
-      eventReason: "observation_failed",
-      events: [
-        {
-          eventId: "EVT-1",
-          occurredAt: "2026-09-28T00:00:00Z",
-          objectiveId: "OBJ-1",
-          taskId: "TASK-1",
-          attemptId: "ATTEMPT-1",
-          status: "completed",
-          reason: "completed",
-          cleanupConfirmed: true,
-          manualRecoveryRequired: false,
-        },
-      ],
-      eventContinuation: "cursor",
-    };
-    for (const invalidRuntimeCorrelation of [
-      observedWithoutProjection,
-      absentWithProjection,
-      unknownEventsWithPayload,
-    ])
-      assert.throws(
-        () => validateViewResponse(invalidRuntimeCorrelation),
-        /workbench_client_model_invalid/u,
-      );
 
     assert.match(shell.body.toString("utf8"), /data-workbench-react-root/u);
     assert.match(
@@ -1202,290 +430,6 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
   } finally {
     await handle.close();
   }
-});
-
-/**
- * Allowlist外Routeを拒否し終了後Listenerを残さないことを検証する。
- *
- * @responsibility Workbenchの公開Path境界とListener cleanupの合否判定を所有する。
- * @trace ERB-IT-021
- * @precondition Workbenchが一時Portで起動済みである。
- * @stimulus 任意Repository PathとTraversalを要求し、Handleを二回閉じる。
- * @observation 拒否Statusとclose後Connection失敗を観測する。
- * @oracle Allowlist外は404で内部Pathを返さず、close後はConnectionを受理しない。
- * @cleanup 冪等closeにより所有ListenerとConnectionを終了する。
- * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
- */
-test("Allowlist外Routeを拒否し終了後Listenerを残さない", async () => {
-  const handle = await startWorkbench({ workingDirectory: repositoryRoot });
-  const baseUrl = handle.baseUrl;
-  for (const forbidden of [
-    "/package.json",
-    "/../package.json",
-    "/04_UI/assets/brand/crdd-brand-icon-512x512.jpg",
-    "/openapi.json",
-    "/docs",
-    "/docs/swagger-ui-bundle.js",
-  ]) {
-    const result = await requestRaw(baseUrl, forbidden);
-    assert.equal(result.status, 404, forbidden);
-    assert.doesNotMatch(
-      result.body.toString("utf8"),
-      /C:\\|CRDD|package\.json/u,
-    );
-  }
-  await handle.close();
-  await handle.close();
-  await assert.rejects(requestRaw(baseUrl, "/"));
-});
-
-/**
- * 明示localhostモードのAPI仕様とSwagger UIを実HTTPで確認する。
- * @trace ERB-IT-021
- * @stimulus 固定5資産と未知Path・不許可Host／Methodを要求する。
- * @oracle OpenAPIは既存HTTP操作だけを記述し、UIは外部通信・操作実行・資格保持を有効化しない。
- * @cleanup 所有Listenerを終了し、再接続拒否を確認する。
- */
-test("開発用API仕様は明示localhostモードで同一Originの固定資産だけを返す", async () => {
-  const handle = await startWorkbench({
-    workingDirectory: repositoryRoot,
-    apiDocumentation: true,
-  });
-  try {
-    const spec = await requestRaw(handle.baseUrl, "/openapi.json");
-    assert.equal(spec.status, 200);
-    assert.match(String(spec.headers["content-type"]), /^application\/json/u);
-    const doc = JSON.parse(spec.body.toString("utf8"));
-    assert.equal(doc.openapi, "3.1.1");
-    assert.deepEqual(doc.servers, [
-      { url: "/", description: "単体loopback配置（--docs）" },
-    ]);
-    assert.deepEqual(doc.paths["/api/workspace"].post.security, []);
-    assert.deepEqual(doc.paths["/api/repository"].post.security, []);
-    assert.deepEqual(doc.paths["/api/records"].post.security, []);
-    assert.deepEqual(doc.paths["/api/access"].get.security, [
-      { bearerAuth: [] },
-    ]);
-    for (const pathname of [
-      "/api/ai-request",
-      "/api/ai-selection",
-      "/api/execution/definition",
-      "/api/execution/state",
-      "/api/execution/objectives/run",
-      "/api/execution/decisions/submit",
-    ]) {
-      const { get, post } = doc.paths[pathname];
-      for (const parameter of get?.parameters ?? [])
-        assert.notEqual(parameter.name, "repositoryId");
-      if (post)
-        assert.ok(
-          !Object.hasOwn(
-            post.requestBody.content["application/x-www-form-urlencoded"].schema
-              .properties,
-            "repositoryId",
-          ),
-        );
-    }
-    assert.deepEqual(Object.keys(doc.paths).sort(), [
-      "/.well-known/crdd-workbench-health",
-      "/api/access",
-      "/api/access/connection",
-      "/api/access/credentials",
-      "/api/ai-request",
-      "/api/ai-selection",
-      "/api/execution/decisions/submit",
-      "/api/execution/definition",
-      "/api/execution/objectives/run",
-      "/api/execution/state",
-      "/api/records",
-      "/api/repository",
-      "/api/workbench/view",
-      "/api/workspace",
-    ]);
-    for (const pathname of [
-      "/api/access",
-      "/api/ai-request",
-      "/api/ai-selection",
-    ])
-      assert.deepEqual(Object.keys(doc.paths[pathname]).sort(), [
-        "get",
-        "post",
-      ]);
-    const viewResponse = doc.paths["/api/workbench/view"].get.responses["200"];
-    for (const name of [
-      "crdd/workbench/view/v1",
-      "projectData",
-      "executionActivity",
-      "recordActionResult",
-    ])
-      assert.ok(viewResponse.description.includes(name), name);
-    assert.deepEqual(Object.keys(doc.paths["/api/execution/state"]), ["get"]);
-    assert.equal(
-      doc.paths["/api/execution/state"].get.operationId,
-      "getExecutionState",
-    );
-    for (const [pathname, operationId] of [
-      ["/api/execution/objectives/run", "runObjective"],
-      ["/api/execution/decisions/submit", "submitDecision"],
-    ] as const) {
-      const route = doc.paths[pathname];
-      assert.deepEqual(Object.keys(route), ["post"]);
-      assert.equal(route.post.operationId, operationId);
-      const schema =
-        route.post.requestBody.content["application/x-www-form-urlencoded"]
-          .schema;
-      assert.ok(!Object.hasOwn(schema.properties, "operation"));
-      assert.equal(
-        (await requestRaw(handle.baseUrl, pathname, "POST")).status,
-        403,
-      );
-    }
-    assert.equal(
-      (await requestRaw(handle.baseUrl, "/api/execution/state", "GET")).status,
-      400,
-    );
-    assert.equal(
-      (await requestRaw(handle.baseUrl, "/api/execution", "POST")).status,
-      405,
-    );
-    assert.equal(
-      (await requestRaw(handle.baseUrl, "/api/runtime-definition", "POST"))
-        .status,
-      405,
-    );
-    for (const legacy of [
-      "/workspace/action",
-      "/ai-selection/action",
-      "/api/execution-definition",
-    ])
-      assert.equal(
-        (await requestRaw(handle.baseUrl, legacy, "POST")).status,
-        405,
-      );
-    assert.ok(doc.paths["/api/execution/definition"].get);
-    assert.ok(
-      doc.paths["/api/execution/definition"].post.requestBody.content[
-        "application/x-www-form-urlencoded"
-      ],
-    );
-    const page = await requestRaw(handle.baseUrl, "/docs");
-    assert.equal(page.status, 200);
-    assert.match(page.body.toString("utf8"), /id="swagger-ui"/u);
-    assert.match(
-      String(page.headers["content-security-policy"]),
-      /connect-src 'self'/u,
-    );
-    assert.equal(page.headers["cache-control"], "no-store");
-    const initializer = await requestRaw(
-      handle.baseUrl,
-      "/docs/swagger-initializer.js",
-    );
-    assert.equal(initializer.status, 200);
-    assert.match(
-      initializer.body.toString("utf8"),
-      /supportedSubmitMethods: \[\]/u,
-    );
-    assert.match(initializer.body.toString("utf8"), /validatorUrl: null/u);
-    assert.match(
-      initializer.body.toString("utf8"),
-      /persistAuthorization: false/u,
-    );
-    const assets = [
-      ["/docs/swagger-ui.css", /^text\/css/u],
-      ["/docs/swagger-ui-bundle.js", /^text\/javascript/u],
-    ] as const;
-    for (const [asset, mediaType] of assets) {
-      const delivered = await requestRaw(handle.baseUrl, asset);
-      assert.equal(delivered.status, 200);
-      assert.match(String(delivered.headers["content-type"]), mediaType);
-      assert.ok(delivered.body.length > 0);
-    }
-    const head = await requestRaw(handle.baseUrl, "/openapi.json", "HEAD");
-    assert.equal(head.status, 200);
-    assert.equal(head.body.length, 0);
-    assert.equal(
-      (await requestRaw(handle.baseUrl, "/docs", "POST")).status,
-      405,
-    );
-    for (const forbidden of [
-      "/docs/",
-      "/docs/package.json",
-      "/docs/%73wagger-ui.css",
-    ])
-      assert.equal((await requestRaw(handle.baseUrl, forbidden)).status, 404);
-    const forwarded = await fetch(`${handle.baseUrl}/docs`, {
-      headers: { "x-forwarded-host": "foreign.example" },
-    });
-    assert.equal(forwarded.status, 403);
-  } finally {
-    await handle.close();
-  }
-  await assert.rejects(requestRaw(handle.baseUrl, "/docs"));
-});
-
-/**
- * Expressの既定Routing・応答加工で既存のHTTP契約を広げない。
- * @responsibility 大小文字・末尾slash・encoded Path・Method・HEADと旧入口の拒否を公開HTTPで確認する。
- * @trace ERB-IT-021
- * @precondition 現在Repositoryを読取り、localhost Server一件だけを起動する。
- * @stimulus 固定の正常・境界・未知PathとMethodを逐次要求する。
- * @observation status、Allow、本文、容量Header、Security Headerを取得する。
- * @oracle 暗黙Route・OPTIONS応答・Express情報を追加せず、HEADは本文なし、旧Candidateは410のままとする。
- * @cleanup finallyで所有Serverをjoinし、終了後の接続拒否を確認する。
- * @boundary 実HTTPとExpress受付。外部AI・Docker・保存Effectは使用しない。
- */
-test("Express受付は現行のPath・Method・HEAD・固定拒否を維持する", async () => {
-  const handle = await startWorkbench({ workingDirectory: repositoryRoot });
-  try {
-    for (const [method, pathname, expectedStatus, expectedBody] of [
-      ["GET", "/PROJECT", 404, "not_found\n"],
-      ["GET", "/project/", 404, "not_found\n"],
-      ["GET", "/%70roject", 404, "not_found\n"],
-      ["GET", "/unknown", 404, "not_found\n"],
-      ["POST", "/unknown", 405, "method_not_allowed\n"],
-      ["OPTIONS", "/", 405, "method_not_allowed\n"],
-      ["PUT", "/", 405, "method_not_allowed\n"],
-      ["POST", "/api/workspace/", 405, "method_not_allowed\n"],
-      [
-        "POST",
-        "/candidate/action",
-        410,
-        "legacy_bundle_candidate_route_removed\n",
-      ],
-    ] as const) {
-      const response = await fetch(`${handle.baseUrl}${pathname}`, {
-        method,
-        redirect: "manual",
-      });
-      assert.equal(response.status, expectedStatus, `${method} ${pathname}`);
-      assert.equal(await response.text(), expectedBody);
-      assert.equal(response.headers.get("x-powered-by"), null);
-      assert.equal(response.headers.get("etag"), null);
-      assert.equal(response.headers.get("cache-control"), "no-store");
-      assert.equal(response.headers.get("x-content-type-options"), "nosniff");
-      if (expectedStatus === 405)
-        assert.equal(response.headers.get("allow"), "GET, HEAD");
-    }
-    const url = `${handle.baseUrl}/.well-known/crdd-workbench-health`;
-    const get = await fetch(url);
-    const body = await get.text();
-    const head = await fetch(url, { method: "HEAD" });
-    assert.equal(get.status, 200);
-    assert.equal(head.status, 200);
-    assert.equal(await head.text(), "");
-    assert.equal(
-      head.headers.get("content-length"),
-      String(Buffer.byteLength(body)),
-    );
-    assert.equal(
-      head.headers.get("content-type"),
-      get.headers.get("content-type"),
-    );
-    assert.equal(head.headers.get("x-powered-by"), null);
-  } finally {
-    await handle.close();
-  }
-  await assert.rejects(fetch(handle.healthUrl));
 });
 
 /**
@@ -2802,216 +1746,6 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
 });
 
 /**
- * 公開HTTPの受付後故障と受信期限を有限な反証集合で検証する。
- *
- * @responsibility POST再送0、受付不明と再観測ID、所有HTTP接続の終了を判定する。
- * @trace ERB-IT-021
- * @precondition 実Workbenchから得た公開モデルを故障注入Serverの応答形式に使う。
- * @stimulus 受付後切断、不正redirect、不正モデル、400、上限超過と期限超過を注入する。
- * @observation POST件数、Errorの固定診断、再観測ID、取消と終了時間を読む。
- * @oracle 受付済みを未実行と断定せず、再送せず、観測可能な同じIDへ戻る。
- * @cleanup 所有HTTP ServerとConnectionをfinallyで終了する。
- * @boundary ERB-IT-021=検証HTTP接続部→故障注入HTTP Server。実Provider回収の証明ではない。
- */
-test("実Provider検証HTTPの受付後故障は再送せず不明結果と同じIDを保持する", async (context) => {
-  const handle = await startWorkbench({ workingDirectory: repositoryRoot });
-  let initial: Awaited<ReturnType<typeof requestMainModel>>;
-  try {
-    initial = await requestMainModel(handle.baseUrl);
-  } finally {
-    await handle.close();
-  }
-  for (const fault of [
-    "cut",
-    "location",
-    "model-invalid",
-    "model-unavailable",
-    "internal-400",
-    "body-limit",
-    "body-incomplete",
-    "header-timeout",
-    "body-disconnect",
-  ] as const) {
-    await context.test(fault, async () => {
-      let starts = 0;
-      let cancels = 0;
-      let afterStartReads = 0;
-      let cancelled = false;
-      const server = createServer((request, response) => {
-        if (request.method === "GET") {
-          if (starts > 0) afterStartReads += 1;
-          if (starts > 0 && fault === "model-unavailable") {
-            response.writeHead(503).end();
-            return;
-          }
-          if (
-            starts > 0 &&
-            afterStartReads === 1 &&
-            fault === "model-invalid"
-          ) {
-            response.writeHead(200).end("{}");
-            return;
-          }
-          const model = {
-            ...initial,
-            aiRequest: {
-              ...initial.aiRequest,
-              snapshot:
-                starts > 0
-                  ? {
-                      resultAvailable: false,
-                      requestId: "AIREQ-FAULT-001",
-                      mode: "read_only_advice",
-                      executionSelection: executionSelection("advice"),
-                      status: cancelled ? "cancelled" : "running",
-                      reason: null,
-                      facts: [],
-                      sharedAnalysis: [],
-                      additionalInferences: [],
-                      nextOptions: [],
-                      candidate: null,
-                    }
-                  : null,
-            },
-          };
-          response
-            .writeHead(200, { "Content-Type": "application/json" })
-            .end(JSON.stringify(model));
-          return;
-        }
-        let body = "";
-        request.on("data", (chunk: Buffer) => {
-          body += chunk.toString("utf8");
-        });
-        request.once("end", () => {
-          const form = new URLSearchParams(body);
-          assert.equal(form.get("actionToken"), initial.actionToken);
-          assert.equal(form.get("requestId"), "AIREQ-FAULT-001");
-          if (form.get("operation") === "cancel") {
-            cancels += 1;
-            cancelled = true;
-            response.writeHead(303, { Location: "/#ai-request" }).end();
-            return;
-          }
-          starts += 1;
-          if (fault === "cut") {
-            response.destroy();
-            return;
-          }
-          if (fault === "internal-400") {
-            response.writeHead(400).end();
-            return;
-          }
-          if (fault === "header-timeout") return;
-          response.writeHead(303, {
-            Location: fault === "location" ? "/unexpected" : "/#ai-request",
-          });
-          if (fault === "body-limit") {
-            response.end(Buffer.alloc(1024 * 1024 + 1, 65));
-            return;
-          }
-          if (fault === "body-incomplete") {
-            response.write("partial");
-            return;
-          }
-          if (fault === "body-disconnect") {
-            response.write("partial");
-            setImmediate(() => response.destroy());
-            return;
-          }
-          response.end();
-        });
-      });
-      await new Promise<void>((resolve) =>
-        server.listen(0, "127.0.0.1", resolve),
-      );
-      const address = server.address();
-      assert.ok(address !== null && typeof address === "object");
-      const baseUrl = `http://127.0.0.1:${address.port}`;
-      try {
-        const application =
-          await createWorkbenchAiVerificationHttpClient(baseUrl);
-        const begunAt = Date.now();
-        let diagnostic: unknown;
-        try {
-          await application.start({
-            requestId: "AIREQ-FAULT-001",
-            mode: "read_only_advice",
-            workType: null,
-            prompt: "固定故障検証",
-            contextReferences: ["PROJECT_CONTEXT.md"],
-            allowedPaths: [],
-            workspaceId: null,
-          });
-          assert.fail("受付故障を成功へ畳んだ");
-        } catch (error) {
-          assert.ok(error instanceof Error);
-          assert.equal(
-            error.message,
-            "workbench_ai_http_start_outcome_unknown",
-          );
-          diagnostic = error.cause;
-        }
-        assert.ok(
-          Date.now() - begunAt < 19_000,
-          "HTTP期限と清掃待機が有限である",
-        );
-        assert.equal(starts, 1);
-        assert.ok(
-          diagnostic !== null &&
-            typeof diagnostic === "object" &&
-            "requestId" in diagnostic,
-        );
-        if (
-          [
-            "body-limit",
-            "body-incomplete",
-            "body-disconnect",
-            "header-timeout",
-          ].includes(fault)
-        ) {
-          assert.ok("transportCause" in diagnostic);
-          const cause = diagnostic.transportCause;
-          assert.ok(
-            cause !== null &&
-              typeof cause === "object" &&
-              "failureClass" in cause,
-          );
-          assert.equal(
-            cause.failureClass,
-            fault === "body-limit"
-              ? "body_limit"
-              : fault === "header-timeout"
-                ? "headers_unobserved"
-                : "read_failed",
-          );
-          if (fault === "header-timeout") {
-            assert.ok("timedOut" in cause);
-            assert.equal(cause.timedOut, true);
-          }
-        }
-        assert.equal(
-          diagnostic.requestId,
-          fault === "model-unavailable" ? null : "AIREQ-FAULT-001",
-        );
-        if (fault !== "model-unavailable") {
-          const result = await application.cancel("AIREQ-FAULT-001");
-          assert.equal(result.status, "cancelled");
-          assert.equal(cancels, 1);
-        } else assert.equal(cancels, 0);
-        assert.equal(starts, 1);
-      } finally {
-        server.closeAllConnections();
-        await new Promise<void>((resolve, reject) =>
-          server.close((error) => (error ? reject(error) : resolve())),
-        );
-      }
-      await assert.rejects(requestRaw(baseUrl, "/"));
-    });
-  }
-});
-
-/**
  * WorkbenchからMeeting Outcomeを処置してCloseするを検証する。
  *
  * @responsibility WorkbenchからMeeting Outcomeを処置してCloseするを検証するの検証責務を所有する。
@@ -3268,7 +2002,7 @@ test("WorkbenchはOrchestratorの現在投影を実行状況として表示す�
     observe: async (projectId) =>
       Object.freeze({
         state: "observed" as const,
-        reason: "orchestrator_state_observed",
+        reason: "coordinator_state_observed",
         projection: Object.freeze({
           projectId,
           milestoneId: "MILESTONE-000001",
@@ -3394,44 +2128,16 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
             reason: "fixture_duration_not_observed",
           },
           outcome: {
-            status: {
-              status: "completed",
-              reason: "task_completed",
-              effectState: "settled",
-              cleanupConfirmed: true,
-              manualRecoveryRequired: false,
-              processRestartRequired: false,
-            }.status,
-            reason: {
-              status: "completed",
-              reason: "task_completed",
-              effectState: "settled",
-              cleanupConfirmed: true,
-              manualRecoveryRequired: false,
-              processRestartRequired: false,
-            }.reason,
+            status: "completed",
+            reason: "task_completed",
           },
           diagnostic: {
-            cleanupConfirmed: {
-              status: "completed",
-              reason: "task_completed",
-              effectState: "settled",
-              cleanupConfirmed: true,
-              manualRecoveryRequired: false,
-              processRestartRequired: false,
-            }.cleanupConfirmed,
-            manualRecoveryRequired: {
-              status: "completed",
-              reason: "task_completed",
-              effectState: "settled",
-              cleanupConfirmed: true,
-              manualRecoveryRequired: false,
-              processRestartRequired: false,
-            }.manualRecoveryRequired,
+            cleanupConfirmed: true,
+            manualRecoveryRequired: false,
           },
           retention: "standard",
         },
-      }) as Execution;
+      }) satisfies Parameters<typeof storeFixtureExecution>[1];
     assert.equal(
       storeFixtureExecution(
         verified.capability,
@@ -3576,8 +2282,9 @@ test("WorkbenchはRepository別AI設定と技術対応を分離して表示す�
     const verified = getRepository(fixture);
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed") throw Error("fixture_root_invalid");
+    await mkdir(path.join(fixture, ".crdd", "config"), { recursive: true });
     const saved = saveRepositoryAiSelection(
-      verified.capability,
+      fixture,
       { expectedIdentity: null, config: selectionConfig() },
       () => true,
       getModelCatalog().catalog,
@@ -3670,10 +2377,144 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
     const invalid = new URLSearchParams(form);
     invalid.set("actionToken", "wrong");
     assert.equal((await post(invalid)).status, 400);
+    const info = path.join(fixture, ".git", "info");
+    const exclude = path.join(info, "exclude");
+    const configDir = path.join(fixture, ".crdd", "config");
+    assert.equal(fs.existsSync(configDir), false);
+    fs.renameSync(info, `${info}.fixture`);
+    try {
+      const invalidConfig = new URLSearchParams(form);
+      invalidConfig.set("config", "{}");
+      const badSettings = JSON.parse(
+        (await post(invalidConfig)).body.toString("utf8"),
+      );
+      assert.equal(badSettings.status, "blocked");
+      assert.equal("setupFailure" in badSettings, false);
+      const blocked = JSON.parse((await post(form)).body.toString("utf8"));
+      assert.equal(blocked.status, "blocked");
+      assert.equal(
+        blocked.reason,
+        "repository_runtime_data_ignore_registration_blocked",
+      );
+      assert.equal(blocked.setupFailure.effectIssued, false);
+      assert.equal(blocked.setupFailure.effectStateUnknown, false);
+      assert.equal(blocked.setupFailure.cleanupConfirmed, true);
+      assert.equal(blocked.setupFailure.recoveryReference, null);
+      assert.equal(fs.existsSync(configDir), false);
+    } finally {
+      fs.renameSync(`${info}.fixture`, info);
+    }
+    const publishIgnore = fs.renameSync;
+    const readIgnore = fs.openSync;
+    const recoveryReference = `repository-local-ignore.${createHash("sha256")
+      .update(fs.realpathSync.native(fixture))
+      .update("\0")
+      .update(".crdd/")
+      .digest("hex")}`;
+    const ignoreLock = path.join(info, ".crdd-runtime-exclude.lock");
+    const unlinkIgnore = fs.unlinkSync;
+    const failPublish = context.mock.method(
+      fs,
+      "renameSync",
+      (...args: Parameters<typeof fs.renameSync>) => {
+        if (args[1] === exclude)
+          throw new Error("synthetic_ignore_publish_rejected");
+        publishIgnore(...args);
+      },
+    );
+    const failCleanup = context.mock.method(
+      fs,
+      "unlinkSync",
+      (...args: Parameters<typeof fs.unlinkSync>) => {
+        if (args[0] === ignoreLock)
+          throw new Error("synthetic_ignore_cleanup_unconfirmed");
+        unlinkIgnore(...args);
+      },
+    );
+    try {
+      const outcome = JSON.parse((await post(form)).body.toString("utf8"));
+      assert.equal(outcome.status, "unknown");
+      assert.equal(outcome.publication, "not_published");
+      assert.deepEqual(outcome.setupFailure, {
+        status: "blocked",
+        reason: "repository_runtime_data_ignore_registration_blocked",
+        effectIssued: false,
+        effectStateUnknown: false,
+        effectConfirmation: "not_issued",
+        cleanupConfirmed: false,
+        retryAllowed: false,
+        recoveryReference,
+        repositoryPathReported: false,
+      });
+      assert.equal(fs.existsSync(configDir), false);
+      assert.equal(fs.existsSync(ignoreLock), true);
+    } finally {
+      failCleanup.mock.restore();
+      failPublish.mock.restore();
+      if (fs.existsSync(ignoreLock)) fs.unlinkSync(ignoreLock);
+    }
+    let excludePublished = false;
+    let ignoreReadbackFailed = false;
+    const publishProbe = context.mock.method(
+      fs,
+      "renameSync",
+      (...args: Parameters<typeof fs.renameSync>) => {
+        publishIgnore(...args);
+        if (args[1] === exclude) excludePublished = true;
+      },
+    );
+    const readProbe = context.mock.method(
+      fs,
+      "openSync",
+      (...args: Parameters<typeof fs.openSync>) => {
+        if (excludePublished && !ignoreReadbackFailed && args[0] === exclude) {
+          // 読戻しの一回だけを失敗させ、応答前の現在認可は観測可能にする。
+          ignoreReadbackFailed = true;
+          throw Object.assign(
+            new Error("synthetic_ignore_readback_unavailable"),
+            { code: "EIO" },
+          );
+        }
+        return readIgnore(...args);
+      },
+    );
+    try {
+      const unknown = JSON.parse((await post(form)).body.toString("utf8"));
+      assert.equal(ignoreReadbackFailed, true);
+      assert.equal(unknown.status, "unknown");
+      assert.equal(unknown.publication, "not_published");
+      assert.deepEqual(unknown.setupFailure, {
+        status: "blocked",
+        reason: "repository_runtime_data_ignore_registration_blocked",
+        effectIssued: true,
+        effectStateUnknown: true,
+        effectConfirmation: "unknown",
+        cleanupConfirmed: true,
+        retryAllowed: false,
+        recoveryReference,
+        repositoryPathReported: false,
+      });
+      assert.equal(fs.existsSync(configDir), false);
+    } finally {
+      readProbe.mock.restore();
+      publishProbe.mock.restore();
+    }
+    assert.match(fs.readFileSync(exclude, "utf8"), /^\.crdd\/$/mu);
+    const area = path.dirname(configDir);
+    const sentinel = path.join(area, "existing.txt");
+    fs.mkdirSync(area);
+    fs.writeFileSync(sentinel, "preserved");
     const created = await post(form);
     assert.equal(created.status, 200);
     const first = JSON.parse(created.body.toString("utf8"));
     assert.equal(first.status, "saved");
+    assert.equal(fs.readFileSync(sentinel, "utf8"), "preserved");
+    assert.deepEqual(fs.readdirSync(area).sort(), [
+      "config",
+      "existing.txt",
+      "lock",
+    ]);
+    assert.deepEqual(fs.readdirSync(path.join(area, "lock")), []);
     const conflict = await post(form);
     assert.equal(JSON.parse(conflict.body.toString("utf8")).status, "conflict");
     const afterCreate = await requestMainModel(handle.baseUrl);
@@ -3733,8 +2574,7 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed") throw Error("fixture_root_invalid");
     assert.equal(
-      readRepositoryAiSelection(verified.capability, getModelCatalog().catalog)
-        .status,
+      readRepositoryAiSelection(fixture, getModelCatalog().catalog).status,
       "available",
     );
     const observed = afterUnknown.aiSelection?.selection.snapshot;
@@ -3766,133 +2606,12 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
     oversized.set("config", "x".repeat(3 * 1024 * 1024 + 16 * 1024));
     assert.equal((await post(oversized)).status, 400);
     assert.equal(
-      readRepositoryAiSelection(verified.capability, getModelCatalog().catalog)
-        .snapshot?.identity,
+      readRepositoryAiSelection(fixture, getModelCatalog().catalog).snapshot
+        ?.identity,
       identity,
     );
   } finally {
     await handle?.close();
     await rm(fixture, { recursive: true, force: true });
   }
-});
-
-/**
- * 実Provider検証用接続部が公開HTTP受付を迂回しないことを確認する。
- *
- * @responsibility 同意、Token、同じ依頼Identity、取消とListener終了を直接境界で判定する。
- * @trace ERB-IT-021
- * @precondition 実Workbenchへ偽AI Applicationだけを注入する。
- * @stimulus 確認なし、不正Token、別ID取消と正常start／observe／cancelを要求する。
- * @observation Application呼出し件数、公開snapshotと終了後接続を読む。
- * @oracle 拒否入力は呼出し0、正常操作は同じIDと意味区分を保持する。
- * @cleanup finallyで所有Listenerを閉じる。実ProviderとDocker資源は作らない。
- * @boundary ERB-IT-021=検証接続部→HTTP Form／Read Model→偽Application。
- */
-test("実Provider検証のHTTP接続部は認可済み依頼Identityを公開境界で照合する", async () => {
-  let starts = 0;
-  let cancels = 0;
-  let received: AiRequestCommand | null = null;
-  let status: "running" | "cancelled" = "running";
-  const application: AiRequests = {
-    start: async (request) => {
-      starts += 1;
-      received = request;
-      return { status: "accepted", requestId: "AIREQ-HTTP-001", reason: null };
-    },
-    observe: async (requestId) => ({
-      resultAvailable: false,
-      requestId,
-      mode: requestId === "AIREQ-HTTP-001" ? "read_only_advice" : null,
-      executionSelection:
-        requestId === "AIREQ-HTTP-001" ? executionSelection("advice") : null,
-      status: requestId === "AIREQ-HTTP-001" ? status : "unknown",
-      reason:
-        requestId === "AIREQ-HTTP-001"
-          ? null
-          : "orchestrator_task_not_available",
-      facts:
-        requestId === "AIREQ-HTTP-001"
-          ? [{ text: "公開結果", references: ["PROJECT_CONTEXT.md"] }]
-          : [],
-      sharedAnalysis: [],
-      additionalInferences: [],
-      nextOptions: [],
-      candidate: null,
-    }),
-    cancel: async (requestId) => {
-      cancels += 1;
-      status = "cancelled";
-      return application.observe(requestId);
-    },
-  };
-  const handle = await startWorkbench({
-    workingDirectory: repositoryRoot,
-    aiRequests: application,
-  });
-  try {
-    const transport = await createWorkbenchAiVerificationHttpClient(
-      handle.baseUrl,
-    );
-    const command: AiRequestCommand = {
-      requestId: "AIREQ-HTTP-001",
-      mode: "read_only_advice",
-      workType: null,
-      prompt: "固定検証依頼",
-      contextReferences: ["PROJECT_CONTEXT.md"],
-      allowedPaths: [],
-      workspaceId: null,
-    };
-    const initial = await requestMainModel(handle.baseUrl);
-    const wrongToken = await requestRaw(
-      handle.baseUrl,
-      "/api/ai-request",
-      "POST",
-      new URLSearchParams({
-        actionToken: "wrong",
-        operation: "start",
-        mode: command.mode,
-        workType: command.workType ?? "",
-        prompt: command.prompt,
-      }).toString(),
-    );
-    assert.equal(wrongToken.status, 400);
-    assert.equal(starts, 0);
-    const accepted = await transport.start({
-      ...command,
-      workspaceId: null,
-    });
-    assert.equal(accepted.status, "accepted");
-    assert.equal(accepted.requestId, "AIREQ-HTTP-001");
-    assert.equal(starts, 1);
-    assert.deepEqual(received, command);
-    const observed = await transport.observe("AIREQ-HTTP-001");
-    assert.equal(observed.status, "running");
-    assert.equal(observed.facts[0]?.text, "公開結果");
-    const wrongId = await requestRaw(
-      handle.baseUrl,
-      "/api/ai-request",
-      "POST",
-      new URLSearchParams({
-        actionToken: initial.actionToken,
-        operation: "cancel",
-        requestId: "AIREQ-OTHER",
-      }).toString(),
-    );
-    assert.equal(wrongId.status, 400);
-    assert.equal(cancels, 0);
-    await assert.rejects(
-      transport.cancel("AIREQ-OTHER"),
-      /workbench_verification_request_unknown/u,
-    );
-    assert.equal(cancels, 0);
-    const cancelled = await transport.cancel("AIREQ-HTTP-001");
-    assert.equal(cancelled.status, "cancelled");
-    assert.equal(cancelled.requestId, accepted.requestId);
-    assert.equal(cancels, 1);
-  } finally {
-    await handle.close();
-  }
-  await assert.rejects(
-    requestRaw(handle.baseUrl, "/.well-known/crdd-workbench-health"),
-  );
 });

@@ -47,6 +47,7 @@ import {
 } from "../../../access-management/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { startCrddServer } from "../../src/app.ts";
+import { inspectServerPublicOrigin } from "../../src/service/configuration.ts";
 import {
   MCP_COORDINATOR_PROTOCOL_VERSION,
   type McpAuthenticatedRequestHandlerResolver,
@@ -55,6 +56,38 @@ import {
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
 );
+/**
+ * 共有起動向けの配布例が両方で同じHTTPS Originを示すことを検証する。
+ * @responsibility 本番のOrigin検査と配布例の乖離を検出する。
+ * @trace ERB-ST-022
+ * @precondition 採用先の実設定ではなく、Git管理された配布例だけを読む。
+ * @stimulus MCPとWorkbenchの各配布例を現行のOrigin検査に渡す。
+ * @observation 項目集合と正規化後のOrigin。
+ * @oracle 非秘密のpublicOriginだけを含み、双方が同じ有効なHTTPS Originになる。
+ * @cleanup N/A: 読取りのみ。
+ * @boundary 配布例とServer入力検査。Listener・実Hostを使用しない。
+ */
+test("共有Serverの配布設定例は同じ公開Originを指定する", async () => {
+  const origins = await Promise.all(
+    (["mcp", "workbench"] as const).map(async (connection) => {
+      const example = JSON.parse(
+        await readFile(
+          new URL(
+            `../../../../template/.crdd/config/${connection}-server.example.json`,
+            import.meta.url,
+          ),
+          "utf8",
+        ),
+      );
+      assert.deepEqual(Object.keys(example), ["publicOrigin"]);
+      return inspectServerPublicOrigin(example.publicOrigin, connection)
+        ?.origin;
+    }),
+  );
+  assert.ok(origins[0]);
+  assert.equal(origins[0], origins[1]);
+});
+
 const entry = path.resolve(import.meta.dirname, "../../bin/crdd-server.ts");
 
 /**

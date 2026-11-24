@@ -88,7 +88,7 @@ export function applyResourceEvent(
         receiptSource:
           event.event === "receipt"
             ? "docker_create_result"
-            : "runtime_reconciliation",
+            : "docker_observation",
         observation:
           event.event === "identified" ? "present" : prior.observation,
         absenceEvidenceSha256: null,
@@ -334,7 +334,7 @@ export function validateResourceBook(
       checkpointKeys.has(checkpoint.key) ||
       !["none", "intent_saved", "not_issued"].includes(checkpoint.submission) ||
       (checkpoint.receiptSource !== null &&
-        !["docker_create_result", "runtime_reconciliation"].includes(
+        !["docker_create_result", "docker_observation"].includes(
           checkpoint.receiptSource,
         )) ||
       !["unobserved", "present", "absent", "unknown"].includes(

@@ -41,14 +41,14 @@ test("試行専用ExecutorのControlは回復Authorityにならず終端で失�
     const records = new WeakMap<object, Record<string, unknown>>();
     const names = [
       "durableRecord",
-      "bindRuntimeOwnedExecutorAttempt",
-      "cancelRuntimeOwnedExecutorAttempt",
-      "abandonRuntimeOwnedAttemptRecovery",
-      "abandonRuntimeOwnedDockerRecovery",
+      "bindExecutorAttempt",
+      "cancelExecutorAttempt",
+      "abandonAttemptRecovery",
+      "abandonDockerRecovery",
     ];
     const api = runInNewContext(
       names.map((name) => sourceDeclaration(source, name)).join("\n") +
-        "\n({lookup:durableRecord,bind:bindRuntimeOwnedExecutorAttempt,cancel:cancelRuntimeOwnedExecutorAttempt,abandon:abandonRuntimeOwnedAttemptRecovery})",
+        "\n({lookup:durableRecord,bind:bindExecutorAttempt,cancel:cancelExecutorAttempt,abandon:abandonAttemptRecovery})",
       { durableRecords: records },
     ) as {
       lookup(capability: unknown): unknown;

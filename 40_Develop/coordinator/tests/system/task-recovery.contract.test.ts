@@ -22,7 +22,7 @@ import { withCallerPlan } from "../../../execution-model/tests/fixtures/executio
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-  verifyRuntimePersistenceRepository,
+  resolveExecutionStorageDirectory,
 } from "../../src/lifecycle/host.ts";
 import { runTestCoordinatorObjective } from "../fixtures/task-persistence-fixture.ts";
 import type { CoordinatorSingleTaskResult } from "../../src/lifecycle/types.ts";
@@ -117,7 +117,7 @@ function root(t: test.TestContext) {
     { windowsHide: true },
   );
   const initialized = initializeExecutionStore(
-    verifyRuntimePersistenceRepository(value),
+    resolveExecutionStorageDirectory(value),
     "binding-a",
   );
   assert.equal(initialized.status, "completed");
@@ -178,7 +178,7 @@ async function completed(input: {
 }): Promise<CoordinatorSingleTaskResult> {
   assert.equal(await input.observeStarted?.(), undefined);
   return {
-    contract: "crdd-coordinator/orchestrator-single-task-adapter",
+    contract: "crdd-coordinator/single-task-adapter",
     attemptId: input.attemptId,
     operationId: input.operationId,
     authorityBindingId: input.authorityBindingId,
@@ -206,7 +206,7 @@ async function completed(input: {
  * @cleanup N/A: 生成した耐久状態はTest Rootのcleanup対象である。
  * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
-function settleRuntimeProcessAsFreshProcess(workingDirectory: string) {
+function settleExecutionProcessAsFreshProcess(workingDirectory: string) {
   const observed = readCoordinatorState(
     workingDirectory,
     "binding-a",
@@ -218,17 +218,18 @@ function settleRuntimeProcessAsFreshProcess(workingDirectory: string) {
   const task = state.tasks.find((entry) =>
     entry.recoveryObligations.some(
       (obligation) =>
-        obligation.kind === "runtime_process" && obligation.phase !== "settled",
+        obligation.kind === "execution_process" &&
+        obligation.phase !== "settled",
     ),
   );
   const obligation = task?.recoveryObligations.find(
-    (entry) => entry.kind === "runtime_process" && entry.phase !== "settled",
+    (entry) => entry.kind === "execution_process" && entry.phase !== "settled",
   );
   assert.ok(task);
   assert.ok(obligation);
   if (obligation.phase === "required") {
     const write = saveProjectExecutionState(
-      verifyRuntimePersistenceRepository(workingDirectory),
+      resolveExecutionStorageDirectory(workingDirectory),
       "binding-a",
       {
         kind: "task_recovery_start",
@@ -244,7 +245,7 @@ function settleRuntimeProcessAsFreshProcess(workingDirectory: string) {
     state = write.value;
   }
   const write = saveProjectExecutionState(
-    verifyRuntimePersistenceRepository(workingDirectory),
+    resolveExecutionStorageDirectory(workingDirectory),
     "binding-a",
     {
       kind: "task_recovery_settle",
@@ -348,7 +349,7 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
     request(),
     new AbortController().signal,
   );
-  assert.equal(first.reason, "orchestrator_task_recovery_required");
+  assert.equal(first.reason, "coordinator_task_recovery_required");
   assert.equal(first.manualRecoveryRequired, true);
   assert.equal(first.recoveryIds.includes(recoveryId), true);
   assert.equal(attempts, 1);
@@ -358,11 +359,11 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
     request({ operation: "resume" }),
     new AbortController().signal,
   );
-  assert.equal(unresolved.reason, "orchestrator_task_recovery_not_settled");
+  assert.equal(unresolved.reason, "coordinator_task_recovery_not_settled");
   assert.equal(recoveries, 1);
   assert.equal(attempts, 1);
 
-  settleRuntimeProcessAsFreshProcess(workingDirectory);
+  settleExecutionProcessAsFreshProcess(workingDirectory);
   const completedResult = await runCoordinatorObjective(
     dependencies,
     request({ operation: "resume" }),

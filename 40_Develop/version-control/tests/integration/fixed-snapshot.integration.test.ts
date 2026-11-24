@@ -13,12 +13,12 @@ import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import {
-  copyCommitFiles,
   readCommitFile,
   getRepository,
   type CommitFileReadRequest,
-  type CommitFilesCopyRequest,
 } from "../../src/index.ts";
+import { copyCommitFiles } from "../../src/repository/files.ts";
+import type { CommitFilesCopyRequest } from "../../src/repository/types.ts";
 
 const parent = path.resolve(
   import.meta.dirname,
@@ -34,7 +34,7 @@ function git(root: string, args: readonly string[]): string {
 }
 
 /** Repository-localに作成し、同じRootだけを試験終了時に回収する。 */
-function fixture(t: TestContext) {
+function fixture(t: TestContext, first = "first\n") {
   fs.mkdirSync(parent, { recursive: true });
   const root = fs.mkdtempSync(path.join(parent, "case-"));
   t.after(() => {
@@ -47,7 +47,7 @@ function fixture(t: TestContext) {
   git(root, ["config", "user.name", "CRDD Test"]);
   git(root, ["config", "user.email", "test@example.invalid"]);
   fs.mkdirSync(path.join(root, "docs"));
-  fs.writeFileSync(path.join(root, "a.txt"), "first\n");
+  fs.writeFileSync(path.join(root, "a.txt"), first);
   fs.writeFileSync(path.join(root, "docs", "fixed.txt"), "fixed\n");
   git(root, ["add", "--", "a.txt", "docs/fixed.txt"]);
   git(root, ["commit", "--quiet", "-m", "fixed"]);
@@ -113,6 +113,94 @@ test("固定CommitのFileと選択コピーはHEAD・通常Indexを変更しな�
   assert.equal(git(f.root, ["rev-parse", "HEAD"]), head);
   assert.deepEqual(fs.readFileSync(path.join(f.root, ".git", "index")), index);
   assert.equal(JSON.stringify(result).includes(f.root), false);
+});
+
+/** 固定内容の別Repositoryへの選択コピーはVC内で検証する。 @trace RFD-IT-008 */
+test("packedの固定Commitから別Repositoryへ選択した本文だけをコピーする", (t) => {
+  const source = fixture(t, "packed source\n");
+  const target = fixture(t);
+  assert.notEqual(source.commit, target.commit);
+  git(source.root, ["repack", "-ad"]);
+  git(source.root, ["prune-packed"]);
+  assert.equal(
+    fs.existsSync(
+      path.join(
+        source.root,
+        ".git",
+        "objects",
+        source.commit.slice(0, 2),
+        source.commit.slice(2),
+      ),
+    ),
+    false,
+  );
+  const result = copyCommitFiles(source.repository, {
+    ...target.request,
+    commit: source.commit,
+    paths: ["a.txt"],
+    inspectContent: (file, bytes) => {
+      assert.equal(file, "a.txt");
+      assert.equal(Buffer.from(bytes).toString("utf8"), "packed source\n");
+      return false;
+    },
+  });
+  assert.equal(result?.status, "materialized");
+  if (result?.status !== "materialized") assert.fail("selected copy failed");
+  assert.equal(result.baseRevisionIdentity, source.commit);
+  assert.equal(result.fileCount, 1);
+  assert.deepEqual(fs.readdirSync(target.output), ["a.txt"]);
+  assert.equal(
+    fs.readFileSync(path.join(target.output, "a.txt"), "utf8"),
+    "packed source\n",
+  );
+});
+
+/**
+ * 固定Commit一つから旧Reviewer件数を超える全Fileをコピーする。
+ * @responsibility 候補Commitの反復なしで固定Treeからの全量搬送を確認する。
+ * @trace RCM-IT-003 RFD-IT-008
+ * @precondition 自己生成Repositoryに選択対象と対象外Fileがある。
+ * @stimulus 257Fileを一括固定し、対象Directoryだけをコピーする。
+ * @observation コピーした名前・本文・件数・Byte数と元GitのHEAD・Index。
+ * @oracle 選択の欠落・混入・切詰めなし、元HEAD・Index不変。
+ * @cleanup 既存fixtureで自己生成Rootを回収する。
+ * @boundary 実Git・Filesystem。外部AI・Dockerなし。
+ */
+test("固定Commitから選択した257ファイルを切り詰めずにコピーする", (t) => {
+  const f = fixture(t);
+  const input = path.join(f.root, "bulk");
+  fs.mkdirSync(input);
+  const files = Array.from({ length: 257 }, (_, index) => ({
+    name: `file-${String(index).padStart(3, "0")}.txt`,
+    content: `fixture ${index}\n`,
+  }));
+  for (const { name, content } of files)
+    fs.writeFileSync(path.join(input, name), content);
+  git(f.root, ["add", "--", "bulk"]);
+  git(f.root, ["commit", "--quiet", "-m", "bulk"]);
+  const commit = git(f.root, ["rev-parse", "HEAD"]);
+  const index = fs.readFileSync(path.join(f.root, ".git", "index"));
+  const result = copyCommitFiles(f.repository, {
+    ...f.request,
+    commit,
+    paths: ["bulk/"],
+  });
+  assert.ok(result?.status === "materialized");
+  assert.equal(result.fileCount, files.length);
+  assert.equal(
+    result.byteLength,
+    files.reduce((bytes, file) => bytes + Buffer.byteLength(file.content), 0),
+  );
+  assert.deepEqual(fs.readdirSync(f.output), ["bulk"]);
+  const output = path.join(f.output, "bulk");
+  assert.deepEqual(
+    fs.readdirSync(output).sort(),
+    files.map(({ name }) => name),
+  );
+  for (const { name, content } of files)
+    assert.equal(fs.readFileSync(path.join(output, name), "utf8"), content);
+  assert.equal(git(f.root, ["rev-parse", "HEAD"]), commit);
+  assert.deepEqual(fs.readFileSync(path.join(f.root, ".git", "index")), index);
 });
 
 /** 原本・Commit・Path・未知fieldとAccessorを、Effect前に検査する。 */

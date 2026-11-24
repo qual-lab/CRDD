@@ -7,11 +7,6 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { types } from "node:util";
-import type { Repository } from "../../../version-control/src/index.ts";
-import {
-  getRepository,
-  readRepositoryRevision,
-} from "../../../version-control/src/index.ts";
 import type {
   ExecutionOperationRecord,
   RecoveryReadRequest,
@@ -31,6 +26,7 @@ import {
 import { hashExecutionProjectDefinition } from "../objective/validation.ts";
 import type {
   HistoryRepositoryInput,
+  StorageRootInput,
   SnapshotOwner,
   StorageOwner,
   StoreResult,
@@ -38,6 +34,7 @@ import type {
 import {
   acquireSnapshotPilotLock,
   acquireStorageOwnerForRepository,
+  observeExecutionStorageRepository,
   blocked,
   completed,
   isLiveSnapshotOwner,
@@ -59,7 +56,7 @@ import {
   assertExecutionStateInitializationBoundary,
   createExecutionDataArea,
   ExecutionStorageBlockedError,
-  ensureRepositoryExecutionDataArea,
+  ensurePhysicalExecutionDataArea,
   inspectDecisionHistorySettlement,
   inspectHistorySettlement,
   leaseAcquisitionFootprintAbsent,
@@ -69,7 +66,6 @@ import {
   readSnapshotOwned,
   readStateSnapshot,
   readStorageSnapshotOwned,
-  requireReadyRepositoryExecutionDataArea,
 } from "../storage/store.ts";
 import type {
   ProjectQueueEntry,
@@ -155,11 +151,11 @@ export function observeSnapshotObligations(
  * 清掃済みの保存領域を新版の現在状態として初期化する。
  * @responsibility 真正不存在だけを同じ保存Ownerで初期化する。
  * @trace ARCH-000004
- * @input workingDirectory: 検証対象Root、binding: Repository結合。
+ * @input workingDirectory: 検証対象Root、binding: Repository結合、prepareDirectory: 初回だけ呼ぶ同期準備。
  * @returns 初期化の確定結果、または保全停止。
- * @precondition 旧記録の清掃はフロントAIが完了している。
+ * @precondition 旧記録の清掃はフロントAIが完了し、準備処理を省略する場合は利用側が領域の準備を済ませている。
  * @postcondition 同時初期化でも先行する同じ結合の状態を上書きしない。
- * @effect 新品領域にstate.jsonを作成する。
+ * @effect 真正不存在のときだけ利用側の準備を実行し、新品領域にstate.jsonを作成する。
  * @failure 旧記録、履歴、pending、破損、観測不能は初期化しない。
  * @invariant QueryやRequest受付による暗黙初期化を行わない。
  * @boundary Repository-localの切替と現在状態。
@@ -167,22 +163,23 @@ export function observeSnapshotObligations(
  * @concurrency 同Rootの短期Ownerで検査と保存を直列化する。
  */
 export function initializeExecutionStore(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
+  prepareDirectory?: () => boolean,
 ): StoreResult<null> {
   if (typeof workingDirectory !== "object" || workingDirectory === null)
-    return blocked("orchestrator_repository_root_invalid");
-  if (!validId(binding)) return blocked("orchestrator_snapshot_input_invalid");
+    return blocked("coordinator_repository_root_invalid");
+  if (!validId(binding)) return blocked("coordinator_snapshot_input_invalid");
   const acquired = acquireSnapshotPilotLock(workingDirectory);
   if (acquired.status !== "completed") return acquired;
   const owner = acquired.value;
   let result: StoreResult<null>;
   let boundaryError: ExecutionStorageBlockedError | null = null;
   try {
-    result = initializeExecutionSnapshotOwned(owner, binding);
+    result = initializeExecutionSnapshotOwned(owner, binding, prepareDirectory);
   } catch (error) {
     if (error instanceof ExecutionStorageBlockedError) boundaryError = error;
-    result = blocked("orchestrator_snapshot_initialization_unconfirmed", true);
+    result = blocked("coordinator_snapshot_initialization_unconfirmed", true);
   }
   const released = owner.release();
   if (boundaryError) {
@@ -191,7 +188,7 @@ export function initializeExecutionStore(
     throw boundaryError;
   }
   if (!released)
-    return blocked("orchestrator_snapshot_lock_release_unconfirmed", true);
+    return blocked("coordinator_snapshot_lock_release_unconfirmed", true);
   return result;
 }
 
@@ -211,7 +208,7 @@ export function initializeExecutionStore(
  * @concurrency 読取り・比較・保存まで一つの短期Ownerを保持し外部待機しない。
  */
 export function writeSnapshotState(
-  workingDirectory: string | Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: import("../task/types.ts").TaskExecutionUpdate,
   expectedGeneration: number,
@@ -236,7 +233,7 @@ export function writeSnapshotState(
     if (!captured) throw new Error("snapshot_state_input_invalid");
     taskUpdate = captured;
   } catch {
-    return blocked("orchestrator_state_generation_mismatch");
+    return blocked("coordinator_state_generation_mismatch");
   }
   const taskResultFacts: readonly ProjectTaskResultFact[] =
     taskUpdate.kind === "task_settle_before_effect" ||
@@ -263,7 +260,7 @@ export function writeSnapshotState(
     const observed = readSnapshotOwned(lock, binding, true);
     if (observed.status !== "completed") outcome = blocked(observed.reason);
     else if (observed.value === null)
-      outcome = blocked("orchestrator_snapshot_absent");
+      outcome = blocked("coordinator_snapshot_absent");
     else {
       const current = observed.value;
       if (
@@ -271,13 +268,13 @@ export function writeSnapshotState(
         (!snapshotRequestMatches(current, intake) ||
           intake.projectId !== taskUpdate.projectId)
       )
-        outcome = blocked("orchestrator_queue_identity_conflict");
+        outcome = blocked("coordinator_queue_identity_conflict");
       else {
         const previous = current.projects.find(
           (item) => item.projectId === taskUpdate.projectId,
         );
         if (!previous)
-          outcome = blocked("orchestrator_state_generation_conflict");
+          outcome = blocked("coordinator_state_generation_conflict");
         else {
           const prepared = prepareTaskExecutionUpdate(
             previous,
@@ -306,10 +303,10 @@ export function writeSnapshotState(
               );
               outcome =
                 saved.status === "completed"
-                  ? completed("orchestrator_state_durable", previous)
+                  ? completed("coordinator_state_durable", previous)
                   : saved;
             } else if (previous.generation !== expectedGeneration)
-              outcome = blocked("orchestrator_state_generation_conflict");
+              outcome = blocked("coordinator_state_generation_conflict");
             else {
               const saved = writeSnapshotOwned(
                 lock,
@@ -326,7 +323,7 @@ export function writeSnapshotState(
               );
               outcome =
                 saved.status === "completed"
-                  ? completed("orchestrator_state_durable", state)
+                  ? completed("coordinator_state_durable", state)
                   : saved;
             }
           }
@@ -335,7 +332,7 @@ export function writeSnapshotState(
     }
   } catch (error) {
     if (error instanceof ExecutionStorageBlockedError) boundaryError = error;
-    outcome = blocked("orchestrator_state_observation_unknown");
+    outcome = blocked("coordinator_state_observation_unknown");
   }
   const released = lock.release();
   if (boundaryError) {
@@ -344,7 +341,7 @@ export function writeSnapshotState(
     throw boundaryError;
   }
   if (!released)
-    return blocked("orchestrator_snapshot_lock_release_unconfirmed", true);
+    return blocked("coordinator_snapshot_lock_release_unconfirmed", true);
   return outcome.status === "completed" && taskUpdateTaskIds !== null
     ? Object.freeze({
         ...outcome,
@@ -369,7 +366,7 @@ export function writeSnapshotState(
  * @concurrency 同Rootの短期OS排他だけを保持し外部待機しない。
  */
 export function writeSnapshot(
-  workingDirectory: string | Repository | HistoryRepositoryInput,
+  workingDirectory: StorageRootInput | HistoryRepositoryInput,
   binding: string,
   payloadJson: string,
   expectedRevision: number,
@@ -383,7 +380,7 @@ export function writeSnapshot(
     outcome = writeSnapshotOwned(lock, binding, payloadJson, expectedRevision);
   } catch (error) {
     if (error instanceof ExecutionStorageBlockedError) boundaryError = error;
-    outcome = blocked("orchestrator_snapshot_invalid_or_unconfirmed", true);
+    outcome = blocked("coordinator_snapshot_invalid_or_unconfirmed", true);
   }
   const released = lock.release();
   if (boundaryError) {
@@ -392,7 +389,7 @@ export function writeSnapshot(
     throw boundaryError;
   }
   if (!released)
-    return blocked("orchestrator_snapshot_lock_release_unconfirmed", true);
+    return blocked("coordinator_snapshot_lock_release_unconfirmed", true);
   return outcome;
 }
 
@@ -417,6 +414,7 @@ export function writeSnapshotOwned(
   payloadJson: string,
   expectedRevision: number,
   resultFacts: unknown = [],
+  prepareDirectory?: () => boolean,
 ): StoreResult<Snapshot> {
   try {
     if (
@@ -426,13 +424,13 @@ export function writeSnapshotOwned(
       !Number.isSafeInteger(expectedRevision) ||
       expectedRevision < 0
     )
-      return blocked("orchestrator_snapshot_input_invalid");
+      return blocked("coordinator_snapshot_input_invalid");
     const payload: unknown = JSON.parse(payloadJson);
     if (
       !validSnapshot(payload, binding, lock.repositoryRootHash) ||
       payload.snapshotRevision !== expectedRevision + 1
     )
-      return blocked("orchestrator_snapshot_input_invalid");
+      return blocked("coordinator_snapshot_input_invalid");
     const observed = readStorageSnapshotOwned(lock, true);
     let current: Snapshot | null = null;
     if (observed.status === "completed" && observed.value) {
@@ -441,10 +439,10 @@ export function writeSnapshotOwned(
         lock.repositoryBinding,
       );
       if (!decoded)
-        return blocked("orchestrator_snapshot_invalid_or_unconfirmed", true);
+        return blocked("coordinator_snapshot_invalid_or_unconfirmed", true);
       current = projectTaskSnapshot(decoded, lock.repositoryRootHash);
       if (current && current.repositoryBindingId !== binding)
-        return blocked("orchestrator_snapshot_binding_invalid", true);
+        return blocked("coordinator_snapshot_binding_invalid", true);
       if (
         observed.value.snapshot.revision !== expectedRevision &&
         !(
@@ -453,7 +451,7 @@ export function writeSnapshotOwned(
           encodeStateValue(current) === encodeStateValue(payload)
         )
       )
-        return blocked("orchestrator_snapshot_revision_conflict");
+        return blocked("coordinator_snapshot_revision_conflict");
     } else if (observed.reason !== "coordinator_state_uninitialized")
       return blocked(observed.reason, true);
     if (current && encodeStateValue(current) !== encodeStateValue(payload))
@@ -468,19 +466,20 @@ export function writeSnapshotOwned(
         .filter(Array.isArray)
         .every((values) => values.length === 0)
     )
-      return blocked("orchestrator_snapshot_initialization_required");
+      return blocked("coordinator_snapshot_initialization_required");
     const saved = writeStorageTaskSnapshotOwned(
       lock,
       payload,
       expectedRevision,
       resultFacts,
+      prepareDirectory,
     );
     return saved.status === "completed" && saved.value
-      ? completed("orchestrator_snapshot_durable", saved.value)
+      ? completed("coordinator_snapshot_durable", saved.value)
       : blocked(saved.reason, saved.filesystemEffectIssued);
   } catch (error) {
     if (error instanceof ExecutionStorageBlockedError) throw error;
-    return blocked("orchestrator_snapshot_invalid_or_unconfirmed", true);
+    return blocked("coordinator_snapshot_invalid_or_unconfirmed", true);
   }
 }
 
@@ -500,26 +499,38 @@ export function writeSnapshotOwned(
  * @concurrency 一回取得し、全処置結果から一回の解放確認へ戻す。
  */
 export function withSnapshotOperation<T>(
-  workingDirectory: Repository | HistoryRepositoryInput,
+  workingDirectory: StorageRootInput | HistoryRepositoryInput,
   binding: string,
   operation: (
     current: Snapshot,
     owner: SnapshotOwner,
   ) => StoreResult<Readonly<{ next: Snapshot | null; value: T }>>,
-  readMode: false | "history" = false,
+  mode: false | "history" | "workspace-rename" = false,
 ): StoreResult<T> {
   if (typeof workingDirectory !== "object" || workingDirectory === null)
-    return blocked("orchestrator_repository_root_invalid");
-  if (!validId(binding)) return blocked("orchestrator_snapshot_input_invalid");
-  const acquired = acquireSnapshotPilotLock(workingDirectory);
+    return blocked("coordinator_repository_root_invalid");
+  if (!validId(binding)) return blocked("coordinator_snapshot_input_invalid");
+  const metadataOnly = mode === "workspace-rename";
+  const repository = metadataOnly
+    ? observeExecutionStorageRepository(workingDirectory, undefined, true)
+    : null;
+  if (metadataOnly && !repository)
+    return blocked("coordinator_state_owner_invalid");
+  const acquired = repository
+    ? acquireStorageOwnerForRepository(repository, true)
+    : acquireSnapshotPilotLock(workingDirectory);
   if (acquired.status !== "completed") return blocked(acquired.reason);
   const owner = acquired.value;
   let result: StoreResult<T>;
   try {
-    const observed = readSnapshotOwned(owner, binding, readMode);
+    const observed = readSnapshotOwned(
+      owner,
+      binding,
+      mode === "history" ? "history" : false,
+    );
     if (observed.status !== "completed") result = observed;
     else if (observed.value === null)
-      result = blocked("orchestrator_snapshot_absent");
+      result = blocked("coordinator_snapshot_absent");
     else {
       const applied = operation(observed.value, owner);
       if (applied.status !== "completed") result = applied;
@@ -542,13 +553,13 @@ export function withSnapshotOperation<T>(
       }
     }
   } catch {
-    result = blocked("orchestrator_snapshot_operation_invalid_or_unconfirmed");
+    result = blocked("coordinator_snapshot_operation_invalid_or_unconfirmed");
   }
   try {
     if (!owner.release())
-      return blocked("orchestrator_snapshot_lock_release_unconfirmed", true);
+      return blocked("coordinator_snapshot_lock_release_unconfirmed", true);
   } catch {
-    return blocked("orchestrator_snapshot_lock_release_unconfirmed", true);
+    return blocked("coordinator_snapshot_lock_release_unconfirmed", true);
   }
   return result;
 }
@@ -693,6 +704,7 @@ export function writeStorageTaskSnapshotOwned(
   viewValue: unknown,
   expectedRevision: number,
   factsValue: unknown = [],
+  prepareDirectory?: () => boolean,
 ) {
   let filesystemEffectIssued = false;
   const rejected = (reason: string) =>
@@ -794,8 +806,7 @@ export function writeStorageTaskSnapshotOwned(
         .every((values) => values.length === 0) &&
       facts.length === 0
     ) {
-      const verified = getRepository(issued.repositoryRoot);
-      if (verified.status !== "completed" || !isLiveStorageOwner(owner))
+      if (!isLiveStorageOwner(owner))
         return rejected("coordinator_state_owner_invalid");
       const {
         schema: _schema,
@@ -818,15 +829,19 @@ export function writeStorageTaskSnapshotOwned(
       );
       if (!decodeStateSnapshot(bytes, issued.repositoryBinding))
         return rejected("coordinator_task_publication_input_invalid");
-      assertExecutionStateInitializationBoundary(verified.capability);
+      assertExecutionStateInitializationBoundary(issued.repositoryRoot);
       filesystemEffectIssued = true;
-      const temporary = requireReadyRepositoryExecutionDataArea(
-        ensureRepositoryExecutionDataArea(verified.capability, "tmp"),
-        "coordinator_state_initialization_unconfirmed",
+      if (prepareDirectory && prepareDirectory() !== true)
+        return rejected("coordinator_state_initialization_unconfirmed");
+      if (!isLiveStorageOwner(owner))
+        return rejected("coordinator_state_owner_invalid");
+      const temporary = ensurePhysicalExecutionDataArea(
+        issued.repositoryRoot,
+        "tmp",
       );
       if (temporary?.status !== "ready" || !isLiveStorageOwner(owner))
         return rejected("coordinator_state_initialization_unconfirmed");
-      const created = createExecutionDataArea(verified.capability);
+      const created = createExecutionDataArea(issued.repositoryRoot);
       filesystemEffectIssued ||= created.effectIssued;
       if (created.status !== "created")
         return rejected("coordinator_state_initialization_unconfirmed");
@@ -879,7 +894,7 @@ export function writeStorageTaskSnapshotOwned(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function readProjectExecutionState(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   ...input: Parameters<typeof projectCurrentState> extends [
     unknown,
@@ -934,7 +949,7 @@ type StateReadViews = {
  * @concurrency 一つの読取り結果から全fieldを構築する。
  */
 export function readState<K extends keyof StateReadViews>(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   scope: K,
 ): StoreResult<StateReadViews[K] | null>;
@@ -964,10 +979,10 @@ export function readState<K extends keyof StateReadViews>(
       snapshotStateRecord(binding, new Set(["scope", "input"])) ??
       snapshotStateRecord(binding, new Set(["scope"]));
     if (!request || !Object.hasOwn(request, "scope"))
-      return blocked<never>("orchestrator_state_read_scope_invalid");
+      return blocked<never>("coordinator_state_read_scope_invalid");
     if (request.scope === "operation")
       return Object.hasOwn(request, "input")
-        ? blocked<never>("orchestrator_state_read_scope_invalid")
+        ? blocked<never>("coordinator_state_read_scope_invalid")
         : readOperationStateStage(workingDirectory);
     if (request.scope === "recovery")
       return request.input === undefined
@@ -976,14 +991,14 @@ export function readState<K extends keyof StateReadViews>(
             workingDirectory,
             request.input as RecoveryReadRequest,
           );
-    return blocked<never>("orchestrator_state_read_scope_invalid");
+    return blocked<never>("coordinator_state_read_scope_invalid");
   }
   if (typeof workingDirectory !== "object" || workingDirectory === null)
-    return blocked<never>("orchestrator_repository_root_invalid");
+    return blocked<never>("coordinator_repository_root_invalid");
   if (scope !== "execution" && scope !== "workspace" && scope !== "queue")
-    return blocked<never>("orchestrator_state_read_scope_invalid");
+    return blocked<never>("coordinator_state_read_scope_invalid");
   const result = readSnapshot(
-    workingDirectory as Repository,
+    workingDirectory as StorageRootInput,
     binding as string,
   );
   if (result.status !== "completed") return result;
@@ -1079,6 +1094,12 @@ export function saveExecutionDefinition<
   );
   if (!repository)
     return { status: "blocked", value: null, reason: "not_authorized" };
+  const revisionValue: unknown = Object.getOwnPropertyDescriptor(
+    access,
+    "initialSourceRevision",
+  )?.value;
+  const initialSourceRevision =
+    typeof revisionValue === "string" ? revisionValue : null;
   const acquisition = acquireStorageOwnerForRepository(repository);
   if (acquisition.status !== "completed") {
     if (!acquisition.manualRecoveryRequired)
@@ -1110,11 +1131,9 @@ export function saveExecutionDefinition<
   let released = false;
   try {
     const current = readStorageSnapshotOwned(owner, true);
-    const revision = readRepositoryRevision(access.root);
     if (
       current.status === "completed" &&
       current.value &&
-      revision &&
       repository.revalidate()
     ) {
       const before = Buffer.from(
@@ -1128,7 +1147,7 @@ export function saveExecutionDefinition<
         kind,
         request,
         repository.repositoryBinding,
-        revision.revisionIdentity,
+        initialSourceRevision,
       );
       if (candidate.status !== "prepared")
         result = { ...candidate, value: null };
@@ -1144,7 +1163,7 @@ export function saveExecutionDefinition<
             before,
             operation: kind,
             request,
-            revision: revision.revisionIdentity,
+            initialSourceRevision,
           });
           effect = saved.filesystemEffectIssued;
           publication = saved.snapshotConfirmed
@@ -1232,6 +1251,7 @@ export function saveExecutionDefinition<
 function initializeExecutionSnapshotOwned(
   owner: StorageOwner,
   binding: string,
+  prepareDirectory?: () => boolean,
 ): StoreResult<null> {
   const observed = readStorageSnapshotOwned(owner);
   if (
@@ -1244,8 +1264,8 @@ function initializeExecutionSnapshotOwned(
     observed.value
   )
     return observed.value.snapshot.repositoryBindingId === binding
-      ? completed("orchestrator_snapshot_initialized", null)
-      : blocked("orchestrator_snapshot_binding_invalid");
+      ? completed("coordinator_snapshot_initialized", null)
+      : blocked("coordinator_snapshot_binding_invalid");
   else {
     const revision = observed.value?.snapshot.revision ?? 0;
     const payload: Snapshot = {
@@ -1269,9 +1289,11 @@ function initializeExecutionSnapshotOwned(
       binding,
       encodeStateValue(payload),
       revision,
+      [],
+      prepareDirectory,
     );
     return saved.status === "completed"
-      ? completed("orchestrator_snapshot_initialized", null)
+      ? completed("coordinator_snapshot_initialized", null)
       : saved;
   }
 }
@@ -1280,11 +1302,11 @@ function initializeExecutionSnapshotOwned(
  * AI設定や管理実行なしで共通状態を明示初期化する。
  * @responsibility 真正不存在を同じ短期排他下で確認し既存初回Writerへ接続する。
  * @trace ARCH-000008
- * @input access、request: 内容認可とexpectedAbsence:trueを伴う対象。
+ * @input access、request: 内容認可とexpectedAbsence:trueを伴う対象、prepareDirectory: 初回だけ呼ぶ同期準備。
  * @returns 初回保存の改訂確認、又は固定拒否・未確定。
- * @precondition 旧領域の移行・過去保持物の処置はこのAPIへ委譲しない。
+ * @precondition 旧領域の移行・過去保持物の処置はこのAPIへ委譲しない。準備処理を省略する場合は利用側が準備を済ませている。
  * @postcondition 既存状態を上書きせずProvider資格を要求しない。
- * @effect Repository内の既存共通状態だけ。
+ * @effect 真正不存在のときだけ利用側の準備を実行し、Repository内の共通状態を保存する。
  * @failure 存在・pending・移行不明・認可失効では保存しない。
  * @invariant 新しい初期化状態・Writer・台帳を追加しない。
  * @boundary 一般HostとDomain共通保存。
@@ -1298,6 +1320,7 @@ export function initializeExecutionState(
     milestoneId: string;
     expectedAbsence: true;
   }>,
+  prepareDirectory?: () => boolean,
 ): ExecutionModelSaveResult<null> {
   const input = snapshotStateRecord(
     request,
@@ -1350,7 +1373,7 @@ export function initializeExecutionState(
       before.reason === "coordinator_state_uninitialized" &&
       repository.revalidate()
     ) {
-      assertExecutionStateInitializationBoundary(access.root);
+      assertExecutionStateInitializationBoundary(repository.repositoryRoot);
       effects = true;
       const binding =
         "binding-" +
@@ -1358,7 +1381,11 @@ export function initializeExecutionState(
           .update(repository.repositoryRoot)
           .digest("hex")
           .slice(0, 40);
-      const saved = initializeExecutionSnapshotOwned(owner, binding);
+      const saved = initializeExecutionSnapshotOwned(
+        owner,
+        binding,
+        prepareDirectory,
+      );
       const current = readStorageSnapshotOwned(owner, true);
       if (
         saved.status === "completed" &&
@@ -1590,7 +1617,7 @@ export function readExecutionContent<K extends keyof ExecutionContentViews>(
  * @concurrency CASと解放確認を同じ保存呼出しへ閉じる。
  */
 export function saveProjectExecutionState(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: import("../task/types.ts").TaskExecutionUpdate,
   expectedGeneration: number,
@@ -1603,18 +1630,16 @@ export function saveProjectExecutionState(
       }>)
   | Extract<ReturnType<typeof writeSnapshotState>, { status: "blocked" }> {
   if (unexpected.length !== 0)
-    return blocked<ProjectExecutionState>(
-      "orchestrator_snapshot_input_invalid",
-    );
+    return blocked<ProjectExecutionState>("coordinator_snapshot_input_invalid");
   if (typeof workingDirectory !== "object" || workingDirectory === null)
     return blocked<ProjectExecutionState>(
-      "orchestrator_repository_root_invalid",
+      "coordinator_repository_root_invalid",
     );
   try {
     const command = captureTaskExecutionUpdate(request);
     if (command === null)
       return blocked<ProjectExecutionState>(
-        "orchestrator_snapshot_input_invalid",
+        "coordinator_snapshot_input_invalid",
       );
     const saved = writeSnapshotState(
       workingDirectory,
@@ -1630,9 +1655,7 @@ export function saveProjectExecutionState(
         })
       : saved;
   } catch {
-    return blocked<ProjectExecutionState>(
-      "orchestrator_snapshot_input_invalid",
-    );
+    return blocked<ProjectExecutionState>("coordinator_snapshot_input_invalid");
   }
 }
 
@@ -1837,13 +1860,13 @@ export function readRecoveryState(
     case "repair_history": {
       const validId =
         typeof recoveryId === "string" &&
-        /^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/.test(recoveryId);
+        /^docker-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/.test(recoveryId);
       return readStateSnapshot(
         validId ? observeExecutionRecoveryRepository(rootCapability) : null,
         null,
         validId ? recoveryId : null,
         null,
-        "runtime_repair",
+        "docker_repair",
       );
     }
     case "execution_completion": {
@@ -1859,16 +1882,14 @@ export function readRecoveryState(
     case "repair_completion": {
       return readStateSnapshot(
         typeof recoveryId === "string" &&
-          /^docker-runtime-repair\.[0-9a-f]{64}\.[0-9a-f]{64}$/u.test(
-            recoveryId,
-          )
+          /^docker-repair\.[0-9a-f]{64}\.[0-9a-f]{64}$/u.test(recoveryId)
           ? observeExecutionRecoveryRepository(rootCapability)
           : null,
         null,
         null,
         typeof recoveryId === "string" ? recoveryId : null,
         "docker_task",
-        "runtime_repair",
+        "docker_repair",
       );
     }
     case "admission": {

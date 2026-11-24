@@ -139,7 +139,7 @@ test("Objective Planは許可Path内の閉じた値だけを受理する", () =>
 test("Objectiveの要求・主体・Signal拒否は内部実行への接続前に成立する", async () => {
   const signal = new AbortController().signal;
   const invalid = await runObjective(null, signal, "root-must-not-be-read");
-  assert.equal(invalid.reason, "orchestrator_objective_request_invalid");
+  assert.equal(invalid.reason, "coordinator_objective_request_invalid");
   assert.equal(invalid.effectState, "no_effect");
   const unauthenticated = await runObjective(
     objectiveRequest,
@@ -149,7 +149,7 @@ test("Objectiveの要求・主体・Signal拒否は内部実行への接続前�
   );
   assert.equal(
     unauthenticated.reason,
-    "orchestrator_authenticated_principal_not_verified",
+    "coordinator_authenticated_principal_not_verified",
   );
   assert.equal(unauthenticated.effectState, "no_effect");
   const cancelled = new AbortController();
@@ -161,10 +161,7 @@ test("Objectiveの要求・主体・Signal拒否は内部実行への接続前�
       "root-must-not-be-read",
       { principalId: "principal-a" },
     );
-    assert.equal(
-      result.reason,
-      "orchestrator_objective_cancelled_before_start",
-    );
+    assert.equal(result.reason, "coordinator_objective_cancelled_before_start");
     assert.equal(result.effectState, "no_effect");
   }
 });
@@ -252,7 +249,7 @@ test("Objective結果は入力Identityと終了条件を同じ公開契約へ固
   assert.deepEqual(
     createCoordinatorObjectiveResult(request, {
       status: "blocked",
-      reason: "orchestrator_waiting",
+      reason: "coordinator_waiting",
       recoveryIds: ["recovery-a"],
       manualRecoveryRequired: true,
       effectState: "unknown",
@@ -260,7 +257,7 @@ test("Objective結果は入力Identityと終了条件を同じ公開契約へ固
     {
       contract: COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
       status: "blocked",
-      reason: "orchestrator_waiting",
+      reason: "coordinator_waiting",
       requestId: "request-a",
       projectId: "project-a",
       milestoneId: "milestone-a",

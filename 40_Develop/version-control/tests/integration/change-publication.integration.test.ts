@@ -97,7 +97,16 @@ test("選択差分だけをRevision化し確認済みRemoteへ通常公開する
     assert.equal(target.status, "available");
     assert.equal(target.destination, "origin");
     assert.equal(target.branch, "main");
+    assert.equal(target.localBranch, "main");
     assert.equal(target.revisionIdentity, git(local, "rev-parse", "HEAD"));
+    git(local, "tag", "main");
+    git(local, "config", "branch.main.merge", "refs/heads/release");
+    const distinct = readRemoteTarget(verified.capability);
+    assert.equal(distinct.branch, "release");
+    assert.equal(distinct.localBranch, "main");
+    assert.equal(distinct.revisionIdentity, target.revisionIdentity);
+    git(local, "tag", "-d", "main");
+    git(local, "config", "branch.main.merge", "refs/heads/main");
 
     // ローカル設定の観測だけで分類し、URLや未登録名を公開しない。
     for (const destination of [".", "チーム/共有"]) {

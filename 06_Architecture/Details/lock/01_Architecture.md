@@ -60,7 +60,7 @@ Coveredは上記の局所責務の設計接続を表す。各ARCH全体の完成
 
 `acquireLock({ directory, name, identity })`は、Ownerが確定した既存Directory内の固定Fileをwx作成する。Directory探索・作成、PID生存判断、残存削除、Recovery実施判断は行わない。公開型は`LockRequest`、`LockReference`、`Lock`、`LockResult`。参照は非Authorityで、取得前のOwner／Generationと取得後のFile／親Directoryの実Identityを結ぶ。
 
-取得結果は非取得と初期化失敗を区別する。新規File作成後に書込み・同期・closeが失敗した場合、同じ取得参照、File残存、descriptor終了確認を返す。Fileが空でも自動回復しない。CurrentStateと共有Home／Runtime状態の利用側は取得結果をnullへ畳まず、既存の失敗結果・手動回復表示へ投影する。公開結果には生PathやRecordを追加せず、CurrentStateは既知の場合だけ取得世代へ結合した非Authority参照を返す。marker処置でも取得の元理由を保持する。
+取得結果は非取得と初期化失敗を区別する。新規File作成後に書込み・同期・closeが失敗した場合、同じ取得参照、File残存、descriptor終了確認を返す。Fileが空でも自動回復しない。CurrentStateと共有Homeの利用側は取得結果をnullへ畳まず、既存の失敗結果・手動回復表示へ投影する。公開結果には生PathやRecordを追加せず、CurrentStateは既知の場合だけ取得世代へ結合した非Authority参照を返す。marker処置でも取得の元理由を保持する。
 
 取得失敗では業務処理を開始せず、同じScopeは残存Fileによって再取得を拒否する。descriptor終了不明を正常解放へ変えず、自動再試行やFile削除をしない。これだけを理由にWorkbench／MCP全体を終了する新機構は設けない。Coordinatorの既存停止方針は各Ownerの責務として保持する。明示回復では、失敗した取得元を含む全関係Processを停止する。
 
@@ -71,10 +71,9 @@ Coveredは上記の局所責務の設計接続を表す。各ARCH全体の完成
 | 保護対象 | 所在・IdentityのOwner | wxの所在 |
 |---|---|---|
 | Domain汎用Store／AM | 各Store Owner | 検証済みStoreの固定Lock。現行値の確認から保存・読戻しと終了処置まで |
-| CurrentState Reader／Writer／Recovery | Domain Model | Repository内`.crdd/lock/execution-model.state.lock`。Readerの一貫観測、Writerの元版検査から保存・読戻しまでの短期区間 |
+| 現在状態の読取り・保存・回復 | 実行モデル | Repository内`.crdd/lock/execution-model.state.lock`。Readerの一貫観測、Writerの元版検査から保存・読戻しまでの短期区間 |
 | Provider Home | Executorが所有する共有Homeの所在・安定Home Binding | 既存ProviderHomes親Directoryの`executor.provider-home.<binding>.lock`。Repository横断で共通。Home使用前から技術終了条件の確認まで、不明なら解放成功にしない |
-| 共有Runtime状態／Decision | Coordinator | 既存RuntimeState内の`coordinator.docker-state.lock`。既存の状態遷移の読取りから確定・終了確認まで。Repository・Home別名には分割しない |
-| Host操作世代 | Coordinator | 対象Rootの親Directoryの`coordinator.host-operation.<generation-binding>.lock`。子Root清掃後まで保持 |
+| Host操作の作成・回復 | Coordinator | Repository内`.crdd/lock/coordinator.host-operation.<operationId>.lock`。同じ操作の作成と回復で同じ名前を使い、子Root清掃後まで保持 |
 | EI履歴Writer | Execution Intelligence | 既存履歴Directoryの`execution-intelligence.history.lock`。pending検査から保存・pending終了処置まで保持 |
 | Topic／Meeting | Document Model | `.crdd/lock/document-model.<topic|meeting>.<id>.lock`。改訂確認から保存／削除・読戻しまで保持 |
 
@@ -104,10 +103,12 @@ Repository内は`.crdd/lock/<責務パッケージ名>.<保護対象>.lock`へ�
 | Coordinatorの長期Lease | `.crdd/lock/coordinator.lease.<identity>.lock` |
 | EI履歴・AM状態 | Repository非依存の明示Store内で`execution-intelligence.history.lock`・`access-management.state.lock` |
 | 共有Home | 現在の共有Home親内で`executor.provider-home.<binding>.lock`。Coordinatorも同名を使用 |
-| 共有Docker状態・Host世代 | 現在の共有所在で`coordinator.docker-state.lock`・`coordinator.host-operation.<binding>.lock` |
+| Host操作の作成・回復 | `.crdd/lock/coordinator.host-operation.<operationId>.lock` |
 | Desktop | 現在の共有設定基点で`docker-isolation.desktop.lock` |
 
-共通LockはDirectoryの探索・作成を追加せず、各Ownerが正規の親Directoryを準備する。明示StoreやRepository横断資源のRootをRepositoryから推測しない。旧名と新名の並走は相互排他しないため、保護対象ごとに全利用者を停止して一括切替する。
+共通Lockは親ディレクトリを探索・作成せず、各Ownerが検証した既存の親を受け取る。明示StoreやRepository横断資源のRootをRepositoryから推測しない。旧名と新名の並走は相互排他しないため、保護対象ごとに全利用者を停止して一括切替する。
+
+AppDataの旧`RuntimeState`共有排他は撤去した。通常のタスク回復はHost操作とProvider Homeの排他を使用する。Docker Desktop操作同士はDIのDesktopロックで排他するが、別リポジトリ・別Homeの実行や資源回復はこれで止まらない。[再起動前の運用条件](../../../19_Workflows/01_Coordinator_Runtime.md#正常なdockerで作成結果不明のtaskを回復するとき)に従う。旧フォルダや残存ロックの探索・自動清掃は行わない。
 
 切替前には、移行元の各Ownerが使用したexact所在・Identityで旧名Lockと未解決義務を照合する。旧Ownerの手順による処置が完了した保護対象だけ、新名を有効化する。不明・未解決の残存があれば切替を停止する。代表的な旧所在はEMの`.crdd/current-state.<hash>.lock`、構成モデルの`.crdd/config/ai-selection.lock`、Coordinatorの`.crdd/tmp/orchestrator-leases/<identity>.lock`である。新コードがこれら旧所在のLock本体を自動検出して拒否する保証はなく、旧Crash残存に対するFail Closedを新名の取得だけから推定しない。
 

@@ -55,7 +55,7 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 | RoleとAuthorityの混同 | 未承認Effect | 現在Task・Operation、完全選定・役割・試行、Packetと送信同意の直接照合。観測Homeを新しい許可tokenへ昇格しない | 不一致のEffect前拒否、元の取消・回復参照の保持 |
 | Provider同士の直接実行 | Scope・Credential・Cost拡張 | Coordinatorだけが各Provider Processを起動し、出力を次のAuthorityへ直接流用しない | 全子Process不存在 |
 | 外部送信の過剰化 | 許可外情報送信 | Repository-local Policy、Provider・目的・情報分類・Subscriptionの固定、最小投影 | 許可境界と実送信先を照合 |
-| 候補の取り違え・直接反映 | 誤変更、Canonical破壊 | base Commit、Path、内容Hash、Candidate ID、構造化結果の照合。Reviewerはread-only | 採用前はCanonical未変更 |
+| 候補の取り違え・直接反映 | 誤変更、Canonical破壊 | 試行内の開始時内容、Path、内容照合値、候補ID、構造化結果の照合。Reviewer作業領域は読取り専用 | TaskはCommitを発行せず、採用はServerの別操作 |
 | Reviewer自由文の命令化 | Scope拡張、Prompt injection | 閉集合Findingだけ抽出し、同じExecutorへの限定是正Capabilityへ変換 | 元Scope・最大round維持 |
 | timeout／取消後の残存 | 後続Effect、資源漏れ | 新Effect停止、Process tree／Container／network／Mount／readerを逆順回収 | cleanupの直接観測 |
 | owner loss／観測不能 | orphan、未知Effect | Effect前Recovery record、exact Recovery ID、新ProcessでのIdentity再結合 | read-back後だけ完了化 |

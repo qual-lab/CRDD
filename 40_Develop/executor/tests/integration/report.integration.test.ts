@@ -103,8 +103,8 @@ test("recovery test directory rejects uncertain roots before creation or deletio
     "utf8",
   );
   const functionText = source
-    .slice(source.indexOf("export function createRepositoryTestDirectory"))
-    .replace("export function", "function")
+    .slice(source.indexOf("function prepareRepositoryTestArea"))
+    .replaceAll("export function", "function")
     .replaceAll("import.meta.dirname", JSON.stringify(sourceDirectory));
   const javascript = stripTypeScriptTypes(functionText);
   for (const scenario of [
@@ -128,6 +128,7 @@ test("recovery test directory rejects uncertain roots before creation or deletio
       [path.dirname(parent), 2n],
       [parent, 3n],
     ]);
+    if (scenario === "invalid-repository") directories.delete(repositoryRoot);
     if (scenario === "missing-ancestors") {
       directories.delete(parent);
       directories.delete(path.dirname(parent));
@@ -169,11 +170,6 @@ test("recovery test directory rejects uncertain roots before creation or deletio
       Error,
       Object,
       path,
-      getRepository: () =>
-        scenario === "invalid-repository"
-          ? { status: "blocked" }
-          : { status: "completed", capability: {} },
-      resolveVerifiedRepositoryRoot: () => repositoryRoot,
       fs: {
         lstatSync,
         realpathSync: {

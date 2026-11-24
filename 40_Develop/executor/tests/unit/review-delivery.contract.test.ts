@@ -8,11 +8,89 @@
  * @boundary ERB-UT-023=N/A: 合成値と有限依存の検査。実AI・Docker・保存を行わない。
  */
 import assert from "node:assert/strict";
+import path from "node:path";
 import test from "node:test";
 import type { TaskResult } from "../../../ai-adapter/src/provider/task-result.ts";
 import { createExecutorTestCandidate } from "../support/executor-test.ts";
 import type { ExecutorTestDependencies } from "../support/executor-test.ts";
-import { attemptPlan } from "../fixtures/attempt-plan.ts";
+import { attemptPlan, attemptTarget } from "../fixtures/attempt-plan.ts";
+import { prepareAttempt } from "../../src/lifecycle/attempt.ts";
+import type { AttemptRequest } from "../../src/lifecycle/types.ts";
+
+/** 全体読取りはReviewer限定で、既存の空ソースを実行コンテナにだけ渡す。 @trace ERB-UT-023 */
+test("全体Reviewerだけに読取り専用のファイル・ディレクトリ保護を接続する", () => {
+  const base = attemptPlan();
+  const paths = { tmp: "C:/fixture/tmp", management: "C:/fixture/management" };
+  const request = {
+    kind: "attempt",
+    purpose: "task",
+    taskRole: "reviewer",
+    input: "Review the workspace",
+    taskWorkload: {
+      allowedPathCount: 1,
+      readPathCount: 1,
+      acceptanceCriterionCount: 1,
+      remediationFindingCount: 0,
+    },
+    additionalHosts: [],
+    selection: base.executionSelection,
+    target: {
+      ...attemptTarget(base, "C:/fixture/work", paths.tmp),
+      workspaceProtection: {
+        gitSourcePath: "C:/fixture/git",
+        internalSourcePath: "C:/fixture/internal",
+      },
+      reviewerMasks: [
+        { relativePath: ".env", kind: "file" },
+        { relativePath: "src/.env.local", kind: "directory" },
+      ],
+    },
+  } as const satisfies AttemptRequest;
+  const random = { randomBytes: (size: number) => Buffer.alloc(size, 1) };
+  const plan = prepareAttempt(random, request, paths);
+  assert.ok(plan);
+  const provider = plan.isolationRequest.resources.find(
+    (r) => r.key === "create_provider",
+  );
+  assert.equal(provider?.kind, "container");
+  if (provider?.kind !== "container") assert.fail("provider container missing");
+  assert.deepEqual(
+    provider.mounts.filter(
+      ({ target }) => target === "/work" || target.startsWith("/work/"),
+    ),
+    [
+      {
+        source: request.target.workspaceSourcePath,
+        target: "/work",
+        readOnly: true,
+      },
+      {
+        source: request.target.workspaceProtection.gitSourcePath,
+        target: "/work/.git",
+        readOnly: true,
+      },
+      {
+        source: request.target.workspaceProtection.internalSourcePath,
+        target: "/work/.crdd",
+        readOnly: true,
+      },
+      {
+        source: path.join(paths.management, "reviewer-masks", "file"),
+        target: "/work/.env",
+        readOnly: true,
+      },
+      {
+        source: path.join(paths.management, "reviewer-masks", "directory"),
+        target: "/work/src/.env.local",
+        readOnly: true,
+      },
+    ],
+  );
+  assert.equal(
+    prepareAttempt(random, { ...request, taskRole: "executor" }, paths),
+    null,
+  );
+});
 
 /**
  * 所見返却と終端通知の故障を同じ実行と清掃へ接続する。

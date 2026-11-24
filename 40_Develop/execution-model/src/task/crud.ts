@@ -4,7 +4,7 @@
  * @trace ARCH-000008
  */
 
-import type { Repository } from "../../../version-control/src/index.ts";
+import type { StorageRootInput } from "../storage/lock.ts";
 import { historyRow } from "../history/validation.ts";
 import type { ProjectObjectiveDefinition } from "../objective/types.ts";
 import { hasTaskDependencyCycle } from "../objective/validation.ts";
@@ -68,7 +68,7 @@ import {
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function readQueueEntry(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   ...input: Parameters<typeof projectQueueEntry> extends [
     unknown,
@@ -103,7 +103,7 @@ export function readQueueEntry(
  * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
  */
 export function selectQueueEntry(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   select: (
     entries: readonly ProjectQueueEntry[],
@@ -260,7 +260,7 @@ export function queryQueue(
  * @concurrency 元のwithSnapshotOperation保持区間を維持する。
  */
 export function updateQueue(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<QueueUpdateRequest, { kind: "operation" }>,
 ): StoreResult<
@@ -270,7 +270,7 @@ export function updateQueue(
   >["value"]["value"]
 >;
 export function updateQueue(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<QueueUpdateRequest, { kind: "single" }>,
 ): StoreResult<
@@ -280,7 +280,7 @@ export function updateQueue(
   >["value"]["value"]
 >;
 export function updateQueue(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<QueueUpdateRequest, { kind: "close_unstarted" }>,
 ): StoreResult<
@@ -290,7 +290,7 @@ export function updateQueue(
   >["value"]["value"]
 >;
 export function updateQueue(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<QueueUpdateRequest, { kind: "recovery" }>,
 ): StoreResult<
@@ -300,7 +300,7 @@ export function updateQueue(
   >["value"]["value"]
 >;
 export function updateQueue(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<QueueUpdateRequest, { kind: "lease_released" }>,
 ): StoreResult<
@@ -310,7 +310,7 @@ export function updateQueue(
   >["value"]["value"]
 >;
 export function updateQueue(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: QueueUpdateRequest,
 ) {
@@ -318,12 +318,12 @@ export function updateQueue(
     request,
     new Set(["kind", "input"]),
   ) as QueueUpdateRequest | null;
-  if (!captured) return blocked("orchestrator_snapshot_input_invalid");
+  if (!captured) return blocked("coordinator_snapshot_input_invalid");
   switch (captured.kind) {
     case "operation": {
       const tuple = snapshotStateArray(captured.input, 4);
       if (tuple.status !== "ok" || tuple.value.length < 4)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
       return withSnapshotOperation<
@@ -343,7 +343,7 @@ export function updateQueue(
     case "single": {
       const tuple = snapshotStateArray(captured.input, 4);
       if (tuple.status !== "ok" || tuple.value.length < 4)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
       return withSnapshotOperation<
@@ -363,7 +363,7 @@ export function updateQueue(
     case "close_unstarted": {
       const tuple = snapshotStateArray(captured.input, 4);
       if (tuple.status !== "ok" || tuple.value.length < 4)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
       return withSnapshotOperation<
@@ -378,7 +378,7 @@ export function updateQueue(
     case "recovery": {
       const tuple = snapshotStateArray(captured.input, 3);
       if (tuple.status !== "ok" || tuple.value.length < 3)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
       return withSnapshotOperation<
@@ -393,7 +393,7 @@ export function updateQueue(
     case "lease_released": {
       const tuple = snapshotStateArray(captured.input, 4);
       if (tuple.status !== "ok" || tuple.value.length < 4)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
       return withSnapshotOperation<
@@ -423,7 +423,7 @@ export function updateQueue(
       );
     }
   }
-  return blocked("orchestrator_snapshot_input_invalid");
+  return blocked("coordinator_snapshot_input_invalid");
 }
 
 /**
@@ -442,9 +442,10 @@ export function updateQueue(
  * @concurrency 元のwithSnapshotOperation保持区間を維持する。
  */
 export function createQueue(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<QueueCreateRequest, { kind: "scheduled" }>,
+  prepareDirectory?: () => boolean,
 ): StoreResult<
   Extract<
     ReturnType<typeof prepareQueueEntryCreation>,
@@ -452,7 +453,7 @@ export function createQueue(
   >["value"]["value"]
 >;
 export function createQueue(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<QueueCreateRequest, { kind: "single" }>,
 ): StoreResult<
@@ -462,20 +463,21 @@ export function createQueue(
   >["value"]["value"]
 >;
 export function createQueue(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: QueueCreateRequest,
+  prepareDirectory?: () => boolean,
 ) {
   const captured = snapshotStateRecord(
     request,
     new Set(["kind", "input"]),
   ) as QueueCreateRequest | null;
-  if (!captured) return blocked("orchestrator_snapshot_input_invalid");
+  if (!captured) return blocked("coordinator_snapshot_input_invalid");
   switch (captured.kind) {
     case "scheduled": {
       const tuple = snapshotStateArray(captured.input, 2);
       if (tuple.status !== "ok" || tuple.value.length < 1)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       let input = tuple.value as unknown as typeof captured.input;
       let initialState: ProjectExecutionState | undefined;
       if (tuple.value.length === 2 && input[1] !== undefined) {
@@ -495,7 +497,7 @@ export function createQueue(
             ]),
           );
           if (!initialization)
-            return blocked("orchestrator_snapshot_input_invalid");
+            return blocked("coordinator_snapshot_input_invalid");
           const created = createProjectExecutionState(
             JSON.parse(encodeStateValue(initialization)),
           );
@@ -513,21 +515,25 @@ export function createQueue(
           if (queueInput && Object.hasOwn(queueInput, "workspaceId"))
             queueKeys.push("workspaceId");
           const queue = snapshotStateRecord(queueInput, new Set(queueKeys));
-          if (!queue) return blocked("orchestrator_snapshot_input_invalid");
+          if (!queue) return blocked("coordinator_snapshot_input_invalid");
           if (
             created.state.projectId !== queue.projectId ||
             created.state.milestoneId !== queue.milestoneId ||
             created.state.repositoryRevision !== queue.repositoryRevision
           )
-            return blocked("orchestrator_state_generation_conflict");
+            return blocked("coordinator_state_generation_conflict");
           if (!validQueueEntry(createQueuedEntry(queueInput)))
-            return blocked("orchestrator_queue_input_invalid");
+            return blocked("coordinator_queue_input_invalid");
           input = [queueInput, input[1]];
           initialState = created.state;
         } catch {
-          return blocked("orchestrator_snapshot_input_invalid");
+          return blocked("coordinator_snapshot_input_invalid");
         }
-        const initialized = initializeExecutionStore(workingDirectory, binding);
+        const initialized = initializeExecutionStore(
+          workingDirectory,
+          binding,
+          prepareDirectory,
+        );
         if (initialized.status !== "completed") return initialized;
       }
 
@@ -543,7 +549,7 @@ export function createQueue(
     case "single": {
       const tuple = snapshotStateArray(captured.input, 1);
       if (tuple.status !== "ok" || tuple.value.length < 1)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
       return withSnapshotOperation<
@@ -556,7 +562,7 @@ export function createQueue(
       );
     }
   }
-  return blocked("orchestrator_snapshot_input_invalid");
+  return blocked("coordinator_snapshot_input_invalid");
 }
 
 const QUEUE_TRANSITIONS = Object.freeze({
@@ -629,7 +635,7 @@ export function prepareQueueLeaseReleaseSettlement(
   }>,
 ) {
   if (current.schema !== PROJECT_SNAPSHOT_SCHEMA)
-    return blockedQueueCandidate("orchestrator_snapshot_schema_invalid");
+    return blockedQueueCandidate("coordinator_snapshot_schema_invalid");
   const previous = current.queueEntries.find(
     (item) => item.queueId === queueId,
   );
@@ -645,12 +651,12 @@ export function prepareQueueLeaseReleaseSettlement(
     previous.state === "running"
   )
     return blockedQueueCandidate(
-      "orchestrator_queue_release_settlement_state_mismatch",
+      "coordinator_queue_release_settlement_state_mismatch",
       true,
     );
   if (observations.resourcesAbsent(previous.projectId) !== true)
     return blockedQueueCandidate(
-      "orchestrator_queue_release_settlement_resource_present",
+      "coordinator_queue_release_settlement_resource_present",
       true,
     );
   const evidence = {
@@ -677,12 +683,12 @@ export function prepareQueueLeaseReleaseSettlement(
     )
   )
     return blockedQueueCandidate(
-      "orchestrator_queue_release_intent_unsettled",
+      "coordinator_queue_release_intent_unsettled",
       true,
     );
   if (!evidence.released || evidence.recovered)
     return blockedQueueCandidate(
-      "orchestrator_queue_release_evidence_mismatch",
+      "coordinator_queue_release_evidence_mismatch",
       true,
     );
   const value = {
@@ -690,7 +696,7 @@ export function prepareQueueLeaseReleaseSettlement(
     generation: previous.generation + 1,
     ownerGeneration: null,
   };
-  return completedQueueCandidate("orchestrator_queue_release_settled", {
+  return completedQueueCandidate("coordinator_queue_release_settled", {
     next: {
       ...current,
       queueEntries: current.queueEntries.map((item) =>
@@ -710,7 +716,7 @@ export function prepareQueueLeaseReleaseSettlement(
  * @precondition 既存短期Ownerがfresh SnapshotとRepository結合を検証済み。
  * @postcondition 元Snapshotと対象外の区画を変更しない。
  * @effect N/A: 同期の値操作だけ。
- * @failure stale世代・重複・対象外更新・不正な選択差分をorchestrator_queue_selection_invalidで拒否する。
+ * @failure stale世代・重複・対象外更新・不正な選択差分をcoordinator_queue_selection_invalidで拒否する。
  * @invariant 候補を保存完了、現在認可、実行順序決定や回復成立にしない。
  * @boundary Coordinatorの検証済み値と既存の単一Writer。
  * @security 保存Owner・任意Snapshot callback・実行Authorityを公開しない。
@@ -721,10 +727,10 @@ export function prepareQueueSelection(
   current: Snapshot,
   decision: Readonly<{
     reason:
-      | "orchestrator_active_operation_retained"
-      | "orchestrator_interactive_queue_selected"
-      | "orchestrator_scheduled_queue_selected"
-      | "orchestrator_queue_empty";
+      | "coordinator_active_operation_retained"
+      | "coordinator_interactive_queue_selected"
+      | "coordinator_scheduled_queue_selected"
+      | "coordinator_queue_empty";
     selectedQueueId: string | null;
     selectedQueueGeneration: number | null;
     updates: readonly Readonly<{
@@ -735,13 +741,13 @@ export function prepareQueueSelection(
     }>[];
   }>,
 ) {
-  const invalid = blockedQueueCandidate("orchestrator_queue_selection_invalid");
+  const invalid = blockedQueueCandidate("coordinator_queue_selection_invalid");
   if (
     ![
-      "orchestrator_active_operation_retained",
-      "orchestrator_interactive_queue_selected",
-      "orchestrator_scheduled_queue_selected",
-      "orchestrator_queue_empty",
+      "coordinator_active_operation_retained",
+      "coordinator_interactive_queue_selected",
+      "coordinator_scheduled_queue_selected",
+      "coordinator_queue_empty",
     ].includes(decision.reason)
   )
     return invalid;
@@ -761,8 +767,8 @@ export function prepareQueueSelection(
   )
     return invalid;
   if (
-    decision.reason === "orchestrator_active_operation_retained" ||
-    decision.reason === "orchestrator_queue_empty"
+    decision.reason === "coordinator_active_operation_retained" ||
+    decision.reason === "coordinator_queue_empty"
       ? selected !== null
       : !selected
   )
@@ -773,9 +779,9 @@ export function prepareQueueSelection(
   )
     return invalid;
   const waitingReason =
-    decision.reason === "orchestrator_active_operation_retained"
+    decision.reason === "coordinator_active_operation_retained"
       ? "active_operation_pending"
-      : decision.reason === "orchestrator_interactive_queue_selected"
+      : decision.reason === "coordinator_interactive_queue_selected"
         ? "interactive_queue_pending"
         : null;
   if (
@@ -785,9 +791,9 @@ export function prepareQueueSelection(
           update.state !== "waiting_foreground" ||
           update.resumeCondition !== waitingReason,
       )) ||
-    (decision.reason === "orchestrator_queue_empty" &&
+    (decision.reason === "coordinator_queue_empty" &&
       decision.updates.length !== 0) ||
-    (decision.reason === "orchestrator_scheduled_queue_selected" &&
+    (decision.reason === "coordinator_scheduled_queue_selected" &&
       (decision.updates.length > 1 ||
         decision.updates.some(
           (update) =>
@@ -841,9 +847,9 @@ export function prepareQueueSelection(
         ) ?? null);
   if (
     value &&
-    ((decision.reason === "orchestrator_interactive_queue_selected" &&
+    ((decision.reason === "coordinator_interactive_queue_selected" &&
       value.originLane !== "interactive") ||
-      (decision.reason === "orchestrator_scheduled_queue_selected" &&
+      (decision.reason === "coordinator_scheduled_queue_selected" &&
         value.originLane !== "scheduled") ||
       value.state !== "queued")
   )
@@ -900,9 +906,9 @@ export function prepareQueueOperationUpdate(
     (item) => item.queueId === queueId,
   );
   if (previous?.singleTask)
-    return blockedQueueCandidate("orchestrator_single_task_owner_required");
+    return blockedQueueCandidate("coordinator_single_task_owner_required");
   if (previous?.historySettled)
-    return blockedQueueCandidate("orchestrator_execution_already_settled");
+    return blockedQueueCandidate("coordinator_execution_already_settled");
   if (
     !validId(queueId) ||
     !Number.isSafeInteger(expectedGeneration) ||
@@ -910,20 +916,20 @@ export function prepareQueueOperationUpdate(
     !previous ||
     previous.generation !== expectedGeneration
   )
-    return blockedQueueCandidate("orchestrator_queue_generation_conflict");
+    return blockedQueueCandidate("coordinator_queue_generation_conflict");
   if (next.resumeCondition !== null && !validId(next.resumeCondition))
-    return blockedQueueCandidate("orchestrator_queue_resume_condition_invalid");
+    return blockedQueueCandidate("coordinator_queue_resume_condition_invalid");
   if (
     next.resultReference !== null &&
     !validResultReference(next.resultReference)
   )
-    return blockedQueueCandidate("orchestrator_queue_result_reference_invalid");
+    return blockedQueueCandidate("coordinator_queue_result_reference_invalid");
   if (
     !(
       QUEUE_TRANSITIONS[previous.state] as readonly ProjectQueueState[]
     ).includes(next.state)
   )
-    return blockedQueueCandidate("orchestrator_queue_transition_invalid");
+    return blockedQueueCandidate("coordinator_queue_transition_invalid");
   if (
     next.state !== previous.state &&
     ["queued", "leased", "running"].includes(next.state) &&
@@ -934,7 +940,7 @@ export function prepareQueueOperationUpdate(
         blocker.target.milestoneId === previous.milestoneId,
     )
   )
-    return blockedQueueCandidate("orchestrator_queue_blocker_active");
+    return blockedQueueCandidate("coordinator_queue_blocker_active");
   if (
     previous.state === "recovery_required" &&
     next.state === "recovery_required" &&
@@ -946,7 +952,7 @@ export function prepareQueueOperationUpdate(
       next.resultReference !== null
     )
   )
-    return blockedQueueCandidate("orchestrator_queue_recovery_binding_invalid");
+    return blockedQueueCandidate("coordinator_queue_recovery_binding_invalid");
   if (
     previous.state === "recovery_required" &&
     next.state === "queued" &&
@@ -959,7 +965,7 @@ export function prepareQueueOperationUpdate(
       next.resultReference === null
     )
   )
-    return blockedQueueCandidate("orchestrator_queue_owner_loss_reset_invalid");
+    return blockedQueueCandidate("coordinator_queue_owner_loss_reset_invalid");
   const activeLease = next.leasePresent
     ? observations.borrowActiveLease()
     : undefined;
@@ -968,7 +974,7 @@ export function prepareQueueOperationUpdate(
     next.state === "leased" ||
     next.state === "running";
   if (!isRequired && !next.leaseIsNull)
-    return blockedQueueCandidate("orchestrator_queue_lease_invalid");
+    return blockedQueueCandidate("coordinator_queue_lease_invalid");
   if (
     isRequired &&
     (activeLease?.kind !== "project-operation" ||
@@ -978,13 +984,13 @@ export function prepareQueueOperationUpdate(
       activeLease.queueId !== queueId ||
       observations.isActiveLeaseObserved() !== true)
   )
-    return blockedQueueCandidate("orchestrator_queue_lease_invalid");
+    return blockedQueueCandidate("coordinator_queue_lease_invalid");
   if (
     isRequired &&
     previous.ownerGeneration !== null &&
     previous.ownerGeneration !== activeLease?.ownerGeneration
   )
-    return blockedQueueCandidate("orchestrator_queue_owner_mismatch");
+    return blockedQueueCandidate("coordinator_queue_owner_mismatch");
   const value: ProjectQueueEntry = {
     ...previous,
     state: next.state,
@@ -994,8 +1000,8 @@ export function prepareQueueOperationUpdate(
     resultReference: next.resultReference,
   };
   if (!validQueueEntry(value))
-    return blockedQueueCandidate("orchestrator_queue_record_mismatch");
-  return completedQueueCandidate("orchestrator_queue_state_durable", {
+    return blockedQueueCandidate("coordinator_queue_record_mismatch");
+  return completedQueueCandidate("coordinator_queue_state_durable", {
     next: {
       ...current,
       queueEntries: current.queueEntries.map((item) =>
@@ -1039,7 +1045,7 @@ export function prepareQueueRecoverySettlement(
     previous.generation !== expectedGeneration
   )
     return blockedQueueCandidate(
-      "orchestrator_queue_recovery_generation_conflict",
+      "coordinator_queue_recovery_generation_conflict",
     );
   if (
     previous.state !== "recovery_required" ||
@@ -1048,7 +1054,7 @@ export function prepareQueueRecoverySettlement(
     previous.resultReference !== recoveryId
   )
     return blockedQueueCandidate(
-      "orchestrator_queue_recovery_identity_mismatch",
+      "coordinator_queue_recovery_identity_mismatch",
     );
   const value: ProjectQueueEntry = {
     ...previous,
@@ -1058,7 +1064,7 @@ export function prepareQueueRecoverySettlement(
     resumeCondition: "exact_recovery_settled",
     resultReference: recoveryId,
   };
-  return completedQueueCandidate("orchestrator_queue_recovery_settled", {
+  return completedQueueCandidate("coordinator_queue_recovery_settled", {
     next: {
       ...current,
       queueEntries: current.queueEntries.map((item) =>
@@ -1100,7 +1106,7 @@ export function prepareSingleTaskQueueCreation(
     input.resultReference !== null ||
     input.resumeCondition !== null
   )
-    return blockedQueueCandidate("orchestrator_single_task_input_invalid");
+    return blockedQueueCandidate("coordinator_single_task_input_invalid");
   const existing = current.queueEntries.find(
     (entry) => entry.queueId === input.queueId,
   );
@@ -1120,11 +1126,11 @@ export function prepareSingleTaskQueueCreation(
           encodeStateValue(existing.singleTask?.[key]) ===
           encodeStateValue(input.singleTask?.[key]),
       )
-      ? completedQueueCandidate("orchestrator_single_task_reused", {
+      ? completedQueueCandidate("coordinator_single_task_reused", {
           next: null,
           value: existing,
         })
-      : blockedQueueCandidate("orchestrator_queue_identity_conflict");
+      : blockedQueueCandidate("coordinator_queue_identity_conflict");
   }
   if (
     input.workspaceId != null &&
@@ -1140,8 +1146,8 @@ export function prepareSingleTaskQueueCreation(
           entry.holdUntil === null,
       ))
   )
-    return blockedQueueCandidate("orchestrator_workspace_not_ready");
-  return completedQueueCandidate("orchestrator_single_task_durable", {
+    return blockedQueueCandidate("coordinator_workspace_not_ready");
+  return completedQueueCandidate("coordinator_single_task_durable", {
     next: {
       ...current,
       queueEntries: [...current.queueEntries, input],
@@ -1189,7 +1195,7 @@ export function prepareSingleTaskQueueUpdate(
 ) {
   const record = inspectSingleTaskRecord(rawRecord);
   if (!record)
-    return blockedQueueCandidate("orchestrator_single_task_record_invalid");
+    return blockedQueueCandidate("coordinator_single_task_record_invalid");
   const previous = current.queueEntries.find(
     (entry) => entry.queueId === queueId,
   );
@@ -1206,7 +1212,7 @@ export function prepareSingleTaskQueueUpdate(
     (previous.ownerGeneration !== null &&
       previous.ownerGeneration !== active.ownerGeneration)
   )
-    return blockedQueueCandidate("orchestrator_single_task_owner_mismatch");
+    return blockedQueueCandidate("coordinator_single_task_owner_mismatch");
   const identityKeys = [
     "principalId",
     "mode",
@@ -1222,7 +1228,7 @@ export function prepareSingleTaskQueueUpdate(
         encodeStateValue(record[key]),
     )
   )
-    return blockedQueueCandidate("orchestrator_single_task_identity_conflict");
+    return blockedQueueCandidate("coordinator_single_task_identity_conflict");
   if (previous.singleTask.phase === "settled") {
     if (
       previous.singleTask.status !== record.status ||
@@ -1233,10 +1239,10 @@ export function prepareSingleTaskQueueUpdate(
       )
     )
       return blockedQueueCandidate(
-        "orchestrator_single_task_terminal_identity_conflict",
+        "coordinator_single_task_terminal_identity_conflict",
       );
     if (encodeStateValue(previous.singleTask) === encodeStateValue(record))
-      return completedQueueCandidate("orchestrator_single_task_already_saved", {
+      return completedQueueCandidate("coordinator_single_task_already_saved", {
         next: null,
         value: previous,
       });
@@ -1248,7 +1254,7 @@ export function prepareSingleTaskQueueUpdate(
     settled: ["settled"],
   };
   if (!phases[previous.singleTask.phase].includes(record.phase))
-    return blockedQueueCandidate("orchestrator_single_task_transition_invalid");
+    return blockedQueueCandidate("coordinator_single_task_transition_invalid");
   const terminal = record.phase === "settled";
   const clean =
     terminal && record.cleanupConfirmed && record.recoveryIds.length === 0;
@@ -1289,7 +1295,7 @@ export function prepareSingleTaskQueueUpdate(
         observations.now(),
       )
     : null;
-  return completedQueueCandidate("orchestrator_single_task_saved", {
+  return completedQueueCandidate("coordinator_single_task_saved", {
     next: {
       ...current,
       queueEntries: current.queueEntries.map((entry) =>
@@ -1336,7 +1342,7 @@ export function prepareUnstartedTaskQueueClosure(
     current.leaseIntents.some((intent) => intent.queueId === queueId)
   )
     return blockedQueueCandidate(
-      "orchestrator_single_task_unstarted_unconfirmed",
+      "coordinator_single_task_unstarted_unconfirmed",
     );
   const record = inspectSingleTaskRecord({
     ...previous.singleTask,
@@ -1346,7 +1352,7 @@ export function prepareUnstartedTaskQueueClosure(
     cleanupConfirmed: true,
   });
   if (!record)
-    return blockedQueueCandidate("orchestrator_single_task_record_invalid");
+    return blockedQueueCandidate("coordinator_single_task_record_invalid");
   const value: ProjectQueueEntry = {
     ...previous,
     singleTask: record,
@@ -1364,7 +1370,7 @@ export function prepareUnstartedTaskQueueClosure(
     },
     observations.now(),
   );
-  return completedQueueCandidate("orchestrator_single_task_not_started", {
+  return completedQueueCandidate("coordinator_single_task_not_started", {
     next: {
       ...current,
       queueEntries: current.queueEntries.map((entry) =>
@@ -1406,11 +1412,11 @@ export function prepareQueueEntryCreation(
       existing.requestHash === input.requestHash &&
       existing.projectId === input.projectId &&
       existing.milestoneId === input.milestoneId
-      ? completedQueueCandidate("orchestrator_queue_request_reused", {
+      ? completedQueueCandidate("coordinator_queue_request_reused", {
           next: null,
           value: existing,
         })
-      : blockedQueueCandidate("orchestrator_queue_identity_conflict");
+      : blockedQueueCandidate("coordinator_queue_identity_conflict");
   }
   if (initialState !== undefined) {
     if (
@@ -1423,7 +1429,7 @@ export function prepareQueueEntryCreation(
         (project) => project.projectId === initialState.projectId,
       )
     )
-      return blockedQueueCandidate("orchestrator_state_generation_conflict");
+      return blockedQueueCandidate("coordinator_state_generation_conflict");
     current = { ...current, projects: [...current.projects, initialState] };
   }
   const value = createQueuedEntry(input);
@@ -1432,7 +1438,7 @@ export function prepareQueueEntryCreation(
     value.singleTask !== undefined ||
     !current.projects.some((item) => item.projectId === value.projectId)
   )
-    return blockedQueueCandidate("orchestrator_queue_input_invalid");
+    return blockedQueueCandidate("coordinator_queue_input_invalid");
   if (
     value.workspaceId != null &&
     (!current.queueEntries.some(
@@ -1447,8 +1453,8 @@ export function prepareQueueEntryCreation(
           entry.holdUntil === null,
       ))
   )
-    return blockedQueueCandidate("orchestrator_workspace_not_ready");
-  return completedQueueCandidate("orchestrator_queue_entry_durable", {
+    return blockedQueueCandidate("coordinator_workspace_not_ready");
+  return completedQueueCandidate("coordinator_queue_entry_durable", {
     next: {
       ...current,
       queueEntries: [...current.queueEntries, value],
@@ -1492,14 +1498,14 @@ function createQueuedEntry(input: QueueEnqueueInput): ProjectQueueEntry {
  */
 export function projectQueueEntry(current: Snapshot, queueId: string) {
   if (!validId(queueId))
-    return blockedQueueCandidate("orchestrator_queue_input_invalid");
+    return blockedQueueCandidate("coordinator_queue_input_invalid");
   const value = current.queueEntries.find((item) => item.queueId === queueId);
   return value
-    ? completedQueueCandidate("orchestrator_queue_observed", {
+    ? completedQueueCandidate("coordinator_queue_observed", {
         next: null,
         value,
       })
-    : blockedQueueCandidate("orchestrator_queue_observation_unknown");
+    : blockedQueueCandidate("coordinator_queue_observation_unknown");
 }
 
 /**
@@ -1673,7 +1679,7 @@ export function createProjectExecutionState(
   ) {
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_input_invalid",
+      reason: "coordinator_input_invalid",
       state: null,
       taskIds: Object.freeze([]),
     });
@@ -1689,7 +1695,7 @@ export function createProjectExecutionState(
   if (definitions.some((definition) => !definition)) {
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_task_definition_invalid",
+      reason: "coordinator_task_definition_invalid",
       state: null,
       taskIds: Object.freeze([]),
     });
@@ -1701,7 +1707,7 @@ export function createProjectExecutionState(
   ) {
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_acceptance_definition_invalid",
+      reason: "coordinator_acceptance_definition_invalid",
       state: null,
       taskIds: Object.freeze([]),
     });
@@ -1734,7 +1740,7 @@ export function createProjectExecutionState(
   ) {
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_task_graph_invalid",
+      reason: "coordinator_task_graph_invalid",
       state: null,
       taskIds: Object.freeze([]),
     });
@@ -1787,7 +1793,7 @@ export function createProjectExecutionState(
   });
   return Object.freeze({
     status: "completed",
-    reason: "orchestrator_state_created",
+    reason: "coordinator_state_created",
     state,
     taskIds: Object.freeze(tasks.map((task) => task.definition.id)),
   });

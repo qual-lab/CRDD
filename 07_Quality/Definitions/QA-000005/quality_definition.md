@@ -2,7 +2,7 @@
 
 ## 保存規則とCoordinator接続の試験Owner（2026-11-11）
 
-既存`CPR-UT-009`のうちVC技術理由・成功相関・一次失敗／回収失敗の保存受理は、Domainの`workspace-technical-contract.contract.test.ts`で検証する。Coordinatorの`acceptance-record.contract.test.ts`は選択内外Pathと実採用記録の相関を維持する。ケース本文の期待値・異常入力を削減せず、正式項目の追加・結果の再定義はしない。移管先はDomain私有検査を直接使い、外部Packageからの私有importを許可しない。実Git・保存I/Oを伴わない局所値検査を、実採用・永続化・Lease解放の成立と扱わない。
+既存`CPR-UT-009`のうちVC技術理由・成功相関・一次失敗／回収失敗の保存受理は、Domainの`workspace-technical-contract.contract.test.ts`で検証する。CRDD Serverの`acceptance-record.contract.test.ts`は選択内外Pathと実採用記録の相関を維持する。ケース本文の期待値・異常入力を削減せず、正式項目の追加・結果の再定義はしない。移管先はDomain私有検査を直接使い、外部Packageからの私有importを許可しない。実Git・保存I/Oを伴わない局所値検査を、実採用・永続化・Lease解放の成立と扱わない。
 
 ## 複数Task計画の旧Bundle撤去に必要な確認（2026-10-18、外部AIなしの接続確認済み・全面撤去未完了）
 

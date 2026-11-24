@@ -16,6 +16,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  readRepositoryLocation,
   readRepositoryRevision,
   readRepositoryStorageIdentity,
 } from "../../src/repository/revision.ts";
@@ -76,9 +77,9 @@ function repository(t: test.TestContext): string {
  * @responsibility 保存用APIがHEADを捏造せず、偽Capabilityと失効Rootを拒否することを確認する。
  * @trace RFD-IT-001
  * @precondition Repository内の自己生成試験領域とGitだけを使用する。
- * @stimulus HEAD未作成、空Commit後、Git管理領域の退避後に同じCapabilityを観測する。
- * @observation 論理・実体Identity、Revision観測の不存在、Root失効を確認する。
- * @oracle 保存IdentityはCommit前後で同じだが、Commitなしを実行Revision成功へ変換しない。
+ * @stimulus 空Commitの前後、子Directoryからの受付と不正な入れ子境界、Git管理領域の退避後を観測する。
+ * @observation 論理・実体Identity、改訂値、HEADを開いた回数、受付拒否とRoot失効。
+ * @oracle 保存IdentityはCommit前後で同じ。受付と改訂照会は同じ観測を繰り返さず、不正な境界は拒否する。
  * @cleanup 自己生成Rootを実体確認後に削除し、不存在を確認する。
  * @boundary RFD-IT-001=Direct Boundary: 保存Identity観測→Git配置とFilesystem。
  */
@@ -93,6 +94,10 @@ test("保存Identityは未CommitのGitでも成立し実行Revisionを捏造し�
     assert.equal(fs.existsSync(root), false);
   });
   git(root, ["init", "--quiet"]);
+  assert.deepEqual(readRepositoryLocation(root), {
+    directory: root,
+    linked: false,
+  });
   const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw new Error("fixture");
@@ -114,7 +119,78 @@ test("保存Identityは未CommitのGitでも成立し実行Revisionを捏造し�
   ]);
   assert.deepEqual(readRepositoryStorageIdentity(verified.capability), before);
   assert.ok(readRepositoryRevision(getRepository(root).capability));
+  const nested = path.join(root, "nested");
+  fs.mkdirSync(nested);
+  assert.deepEqual(getRepository(nested), getRepository(null));
+  const nonRepository = path.join(nested, "ordinary");
+  fs.mkdirSync(nonRepository);
+  assert.deepEqual(getRepository(nonRepository), getRepository(null));
+  const alias = path.join(nonRepository, "alias");
+  fs.symlinkSync(
+    nested,
+    alias,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  try {
+    assert.deepEqual(
+      getRepositoryFromWorkingDirectory(alias),
+      getRepository(null),
+    );
+  } finally {
+    fs.unlinkSync(alias);
+  }
+  const head = path.join(root, ".git", "HEAD");
+  const expectedRevision = git(root, ["rev-parse", "HEAD"]).trim();
+  const open = fs.openSync;
+  let headOpens = 0;
+  const observed = t.mock.method(
+    fs,
+    "openSync",
+    (...args: Parameters<typeof open>) => {
+      if (args[0] === head) headOpens += 1;
+      return Reflect.apply(open, fs, args);
+    },
+  );
+  try {
+    assert.equal(
+      resolveVerifiedRepositoryRootFromWorkingDirectory(nested),
+      root,
+    );
+    const searchOpens = headOpens;
+    assert.ok(searchOpens > 0);
+    headOpens = 0;
+    assert.equal(getRepositoryFromWorkingDirectory(nested).status, "completed");
+    assert.equal(headOpens, searchOpens, "受付は探索済みの配置を読み直さない");
+    headOpens = 0;
+    assert.equal(resolveVerifiedRepositoryRoot(verified.capability), root);
+    const layoutOpens = headOpens;
+    headOpens = 0;
+    const revision = readRepositoryRevision(verified.capability);
+    assert.equal(revision?.revisionIdentity, expectedRevision);
+    assert.ok(
+      headOpens > 0 && headOpens <= layoutOpens + 1,
+      "改訂照会は配置確認一回とHEADの安定読取りに留める",
+    );
+    headOpens = 0;
+    const selected = readRepositoryRevision(verified.capability, {
+      get revision() {
+        assert.equal(headOpens, layoutOpens);
+        return "HEAD";
+      },
+    });
+    assert.equal(selected?.revisionIdentity, expectedRevision);
+    assert.ok(headOpens >= layoutOpens * 2, "明示selectorの取得後は再観測する");
+  } finally {
+    observed.mock.restore();
+  }
+  fs.writeFileSync(path.join(nested, ".git"), "invalid git directory\n");
+  assert.equal(readRepositoryLocation(nested), null);
+  assert.deepEqual(
+    getRepositoryFromWorkingDirectory(nested),
+    getRepository(null),
+  );
   fs.renameSync(path.join(root, ".git"), path.join(root, "retired-git"));
+  assert.equal(readRepositoryLocation(root), null);
   assert.equal(readRepositoryStorageIdentity(verified.capability), null);
 });
 

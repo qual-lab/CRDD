@@ -38,7 +38,7 @@ const createConsumer = compileFunction(
       .map((name) => sourceDeclaration(source, name))
       .join("\n"),
   ) + "\nreturn {historyRepositoryInput,withHistoryRetention};",
-  ["readCoordinatorConfig"],
+  ["resolveVerifiedRepositoryRoot", "readCoordinatorConfig"],
 );
 
 /**
@@ -53,7 +53,13 @@ const createConsumer = compileFunction(
  * @boundary 上位ConsumerからEMへの値搬送。
  */
 function consumer(read: () => Policy) {
-  return createConsumer(read) as {
+  return createConsumer(
+    () => "fixture-directory",
+    (directory: unknown) => {
+      assert.equal(directory, "fixture-directory");
+      return read();
+    },
+  ) as {
     historyRepositoryInput: (root: object) => HistoryInput;
     withHistoryRetention: (context: {
       root: object;

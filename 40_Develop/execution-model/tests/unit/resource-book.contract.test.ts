@@ -724,7 +724,7 @@ test("Receipt又は発見通知だけが実IDを確定しCleanupでは補完し�
     assert.ok(recorded);
     assert.equal(
       recorded.checkpoints[0]?.receiptSource,
-      event === "receipt" ? "docker_create_result" : "runtime_reconciliation",
+      event === "receipt" ? "docker_create_result" : "docker_observation",
     );
     const closed = applyResourceCleanup(
       recorded,

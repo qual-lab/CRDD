@@ -14,14 +14,14 @@ import {
 import type { AuthenticationRequest } from "./lifecycle/authentication.ts";
 import { runProviderAuthenticationRequest } from "./lifecycle/authentication.ts";
 import {
-  projectRuntimeRepairObservation,
-  repairRuntimeOwnedDockerRuntime,
+  projectDockerRepairObservation,
+  executeDockerRepair,
   runDoctor,
-  restartRuntimeOwnedDockerForRecovery,
-  inspectRuntimeOwnedDockerTaskAdmission,
+  executeDockerRestartForRecovery,
+  inspectDockerTaskAdmission,
 } from "./lifecycle/environment.ts";
-import { resumeRuntimeOwnedExecution } from "./lifecycle/execution.ts";
-import { readRuntimeOwnedRecovery } from "./lifecycle/query.ts";
+import { resumeExecution } from "./lifecycle/execution.ts";
+import { readRecordedRecovery } from "./lifecycle/query.ts";
 import {
   readExecutionCancellation,
   snapshotPlainRecord,
@@ -81,7 +81,6 @@ export {
   submitDecision,
 } from "./lifecycle/decision.ts";
 export { queryActivity, queryState } from "./lifecycle/query.ts";
-export { executeWorkspace } from "./lifecycle/workspace.ts";
 export { runObjective } from "./lifecycle/execution.ts";
 export type { SingleTaskCommand } from "./lifecycle/types.ts";
 export { inspectSingleTaskCommand } from "./lifecycle/validation.ts";
@@ -139,11 +138,13 @@ export function readRecovery(
   signal: AbortSignal,
 ) {
   const id = recoveryReference(request);
-  executionRoot(context);
-  return readRuntimeOwnedRecovery(
+  const { rootCapability } = context;
+  const directory = executionRoot({ rootCapability });
+  return readRecordedRecovery(
     id,
-    context.rootCapability,
+    rootCapability,
     executionSignal(signal),
+    directory,
   );
 }
 
@@ -271,7 +272,7 @@ export async function diagnoseEnvironment(
       },
       signal,
     )),
-    dockerTaskRecovery: inspectRuntimeOwnedDockerTaskAdmission(root),
+    dockerTaskRecovery: inspectDockerTaskAdmission(root),
   });
 }
 
@@ -296,11 +297,13 @@ export function recoverExecution(
   signal: AbortSignal,
 ) {
   const id = recoveryReference(request);
-  executionRoot(context);
-  return resumeRuntimeOwnedExecution(
+  const { rootCapability } = context;
+  const directory = executionRoot({ rootCapability });
+  return resumeExecution(
     id,
-    context.rootCapability,
+    rootCapability,
     executionSignal(signal),
+    directory,
   );
 }
 
@@ -325,11 +328,13 @@ export function restartDockerForRecovery(
   signal: AbortSignal,
 ) {
   const id = recoveryReference(request);
-  executionRoot(context);
-  return restartRuntimeOwnedDockerForRecovery(
+  const { rootCapability } = context;
+  const directory = executionRoot({ rootCapability });
+  return executeDockerRestartForRecovery(
     id,
     executionSignal(signal),
-    context.rootCapability,
+    rootCapability,
+    directory,
   );
 }
 
@@ -354,13 +359,15 @@ export async function repairDockerRuntime(
   signal: AbortSignal,
 ) {
   const id = request === null ? null : recoveryReference(request);
-  executionRoot(context);
-  return projectRuntimeRepairObservation(
-    await repairRuntimeOwnedDockerRuntime(
-      context.rootCapability,
+  const { rootCapability } = context;
+  const directory = executionRoot({ rootCapability });
+  return projectDockerRepairObservation(
+    await executeDockerRepair(
+      rootCapability,
       executionSignal(signal),
       id,
       "repair",
+      directory,
     ),
     id,
   );
@@ -387,13 +394,15 @@ export async function retainRepair(
   signal: AbortSignal,
 ) {
   const id = recoveryReference(request);
-  executionRoot(context);
-  return projectRuntimeRepairObservation(
-    await repairRuntimeOwnedDockerRuntime(
-      context.rootCapability,
+  const { rootCapability } = context;
+  const directory = executionRoot({ rootCapability });
+  return projectDockerRepairObservation(
+    await executeDockerRepair(
+      rootCapability,
       executionSignal(signal),
       id,
       "retain",
+      directory,
     ),
     id,
   );
@@ -405,12 +414,7 @@ export {
   getCapabilities,
   isSupportedNodeRuntime,
 } from "./lifecycle/environment.ts";
-export { parseRuntimeActivityObservation } from "./lifecycle/query.ts";
-export {
-  inspectWorkspaceCommand,
-  type WorkspaceCommand,
-  type WorkspaceView,
-} from "./lifecycle/workspace.ts";
+export { parseExecutionActivityObservation } from "./lifecycle/query.ts";
 export {
   inspectCoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveResult,
@@ -424,9 +428,9 @@ export type {
   CoordinatorProjection,
   CoordinatorStateQuery,
   CoordinatorStateQueryResult,
-  RuntimeActivityEvent,
-  RuntimeActivityObservation,
-  RuntimeActivityRequest,
+  ExecutionActivityEvent,
+  ExecutionActivityObservation,
+  ExecutionActivityRequest,
   WorkspaceResult,
 } from "./lifecycle/types.ts";
 
@@ -478,6 +482,6 @@ export type RecoveryResult = Awaited<ReturnType<typeof recoverExecution>>;
  * @security 内部Rootやcheckpointを含めない。
  * @compatibility CLIと同じ固定fieldだけ。
  */
-export type RuntimeRepairResult = Awaited<
+export type DockerRepairResult = Awaited<
   ReturnType<typeof repairDockerRuntime>
 >;

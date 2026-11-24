@@ -68,7 +68,9 @@ src/
 bin/access-management.ts           Process入口と取消通知
 ```
 
-`repository/resolve.ts`はRepository固有の現在認可・公開範囲・実Rootを照合し、単体または集合を返す。添付案の`authorization/repository.ts`は作らない。`authorization/management.ts`は管理権限判定と対象別の非秘密な結果を所有し、User／Repositoryの変更そのものを引き取らない。AI Profile管理の小さな認可判定はここへ統合する。
+`repository/resolve.ts`はRepository固有の現在認可・公開範囲・保存済みのディレクトリ・Manifestを照合し、単体または集合を返す。Git配置の検査は行わず、Gitが必要な操作の前にServerが検査する。添付案の`authorization/repository.ts`は作らない。`authorization/management.ts`は管理権限判定と対象別の非秘密な結果を所有し、User／Repositoryの変更そのものを引き取らない。AI Profile管理の小さな認可判定はここへ統合する。
+
+登録では、AMが認可と期待改訂を確認した後に、CRDD Serverが要求対象のGit配置を確認する。AMが受け取るのは正規ディレクトリと同じ対象の再確認処理だけで、Gitの識別値や技術能力は受け取らない。登録前の固定文書照合、登録・公開範囲の分離、管理状態への保存はAMが所有する。
 
 Core一般CRUDへの`resolveRuntimeContentAccess(root, token, repositoryId, signal)`も`repository/resolve.ts`が所有する。通常本人とdevelopment内容権限を同じ管理改訂で取得し、主体・資格・Repository・公開範囲・Binding・Manifest・真正Root・Projectを要求内Contextへ結合する。定義の読取り／編集と既存記録の読取りだけを許し、`decision.record`と`queue.enqueue`は認可再読前に拒否する。現在認可の失効・改訂差・実体不明・取消・例外はfalse又はnullであり、Rootの技術確認だけを認可へ昇格しない。Context・Tokenの永続化や要求間cache、新Role・Grant・Lockは追加しない。MCP／Workbenchはこの同じ公開APIを利用する。
 
@@ -102,7 +104,7 @@ Contextの初回は一つの既存Lock内で現在状態読取り・KDFによる
 | `registerRepository`、`unregisterRepository`、`updateExposure` | 同じ公開管理結果。登録≠公開を維持 |
 | `readCurrentAccess`、`readManagementState` | `CurrentAccessOutcome`／`ManagementReadOutcome`。種類外情報・内部Bindingを除外 |
 | `evaluateManagementPermission`、`evaluateAiProfileManagementPermission` | 固定Role分担と現在のProfile管理可否 |
-| `resolveRepositoryAccess`、`resolveRepositoryAccessCollection`、`sameAccessCollection` | 信頼したBackend向けの認可済み実Root・集合とその同一性。外部DTOではない |
+| `resolveRepositoryAccess`、`resolveRepositoryAccessCollection`、`sameAccessCollection` | 信頼したServer向けの認可済みディレクトリ・集合とその同一性。外部DTOではない |
 | `authenticateNormalConnection`、`resolveConnectionAuthentication`、`confirmInitialConnection` | 通常認証と初回限定接続を区別した既存結果 |
 | `issueCredential`、`revokeCredential`、`readCredentialAdministrationState`、`updateCredentialPresentationState` | administratorの鍵操作と非秘密状態。生成成功時だけ一度提示用の秘密を保持。個別発行事実Readerは撤去済み |
 | `exchangeCredentials`、`finishKeyExchange`、`readKeyExchangeState` | Workbenchのexact交換処理・終了・再観測。Host専用経路は同じ実装Fileの内部操作として維持。MCPへ公開しない |

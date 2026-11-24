@@ -273,7 +273,7 @@ export type ProjectTaskRecoveryKind =
   | "docker"
   | "candidate"
   | "candidate_store"
-  | "runtime_process";
+  | "execution_process";
 
 /**
  * state-portで使用するCoordinator Queue Enqueue 入力の値契約を定義する。

@@ -16,7 +16,11 @@ import {
 } from "../../../ai-adapter/src/index.ts";
 import {
   readRepositoryAiSelection,
+  saveRepositoryAiSelection,
+  validateAiSelectionConfig,
+  type AiSelectionCatalog,
   type AiSelectionReadResult,
+  type AiSelectionSaveResult,
 } from "../../../configuration-model/src/index.ts";
 import { createHash } from "node:crypto";
 import fs, { type Stats } from "node:fs";
@@ -24,11 +28,116 @@ import * as asyncFs from "node:fs/promises";
 import path from "node:path";
 import {
   getRepositoryFromWorkingDirectory,
+  registerRepositoryLocalIgnore,
   resolveVerifiedRepositoryRoot,
   type Repository,
 } from "../../../version-control/src/index.ts";
 
 type ServerConnection = "workbench" | "mcp";
+
+/**
+ * 認可済みのAI選定設定を保存できるようにRepositoryを準備する。
+ * @responsibility Git除外と固定Directory準備をServerで行い、設定の保存は構成モデルへ委譲する。
+ * @trace ARCH-000012
+ * @input 選択済みRepository、対応するGit入力、再認可、受付済みCAS期待値と設定、技術Catalog。
+ * @returns 保存結果、または準備失敗と元の回復参照。
+ * @precondition CAS期待値はTransportで検査済み。Git操作前に設定値と現在認可を確認する。
+ * @postcondition 除外確認前に設定領域を作らず、領域準備の失敗時に設定を公開しない。
+ * @effect 選択RepositoryのGit除外と固定config領域の準備、設定保存。
+ * @failure Git出版不明を保存前拒否に変えず、元の回復参照を保持する。
+ * @invariant 既存の設定形式、Lockと設定保存時の再認可は構成モデルが所有する。
+ * @boundary CRDD ServerからVC・構成モデルへの接続。
+ * @security 許可されたRepository以外へ書き込まず、実体Pathや設定本文を失敗に含めない。
+ * @concurrency Git除外と設定保存はそれぞれのOwnerの排他に従う。
+ */
+export function updateAiSelection(
+  access: ReturnType<typeof resolveAiSelectionAccess>,
+  repository: Repository,
+  request: { expectedIdentity: string | null; config: unknown },
+  catalog: AiSelectionCatalog,
+) {
+  const blocked = (reason: string): AiSelectionSaveResult =>
+    Object.freeze({ status: "blocked", reason, snapshot: null });
+  const checked = validateAiSelectionConfig(request.config, catalog);
+  if (checked.status !== "valid") return blocked(checked.reason);
+  try {
+    if (!access.authorize()) return blocked("ai_selection_access_unconfirmed");
+  } catch {
+    return blocked("ai_selection_access_unconfirmed");
+  }
+  try {
+    const ignore = registerRepositoryLocalIgnore(repository, ".crdd/");
+    if (ignore.status !== "registered") {
+      const setupFailure = Object.freeze({
+        status: "blocked" as const,
+        reason: "repository_runtime_data_ignore_registration_blocked" as const,
+        effectIssued: ignore.effectIssued,
+        effectStateUnknown: ignore.effectStateUnknown,
+        effectConfirmation: ignore.effectConfirmation,
+        cleanupConfirmed: ignore.cleanupConfirmed,
+        retryAllowed: ignore.retryAllowed,
+        recoveryReference: ignore.recoveryReference,
+        repositoryPathReported: false as const,
+      });
+      return ignore.effectStateUnknown || !ignore.cleanupConfirmed
+        ? Object.freeze({
+            status: "unknown" as const,
+            reason: setupFailure.reason,
+            snapshot: null,
+            publication: "not_published" as const,
+            cleanupConfirmed: ignore.cleanupConfirmed,
+            recoveryId: null,
+            temporary: null,
+            setupFailure,
+          })
+        : Object.freeze({
+            status: "blocked" as const,
+            reason: setupFailure.reason,
+            snapshot: null,
+            setupFailure,
+          });
+    }
+    for (const directory of [
+      path.join(access.repositoryRoot, ".crdd"),
+      path.join(access.repositoryRoot, ".crdd", "config"),
+    ]) {
+      try {
+        fs.mkdirSync(directory, { mode: 0o700 });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      }
+      const metadata = fs.lstatSync(directory);
+      if (
+        !metadata.isDirectory() ||
+        metadata.isSymbolicLink() ||
+        fs.realpathSync.native(directory) !== directory
+      )
+        throw new Error("runtime_data_area_boundary_invalid");
+    }
+  } catch {
+    return Object.freeze({
+      status: "unknown" as const,
+      reason: "ai_selection_store_unconfirmed",
+      snapshot: null,
+      publication: "not_published" as const,
+      cleanupConfirmed: false,
+      recoveryId: null,
+      temporary: null,
+    });
+  }
+  const authorizeWrite = () =>
+    access.authorize() &&
+    resolveVerifiedRepositoryRoot(repository) === access.repositoryRoot;
+  return saveRepositoryAiSelection(
+    access.repositoryRoot,
+    {
+      expectedIdentity: request.expectedIdentity,
+      config: checked.value.config,
+    },
+    authorizeWrite,
+    catalog,
+  );
+}
 
 /**
  * 共有TLS終端の公開Originを閉じたHTTPS値として検査する。
@@ -343,7 +452,7 @@ export type AiSelectionView = Readonly<{
  * @security 認証状態を推定しない。
  * @concurrency 一回の読取りSnapshotを利用する。
  */
-export function readAiSelectionView(root: Repository): AiSelectionView {
+export function readAiSelectionView(root: string): AiSelectionView {
   const catalog = getModelCatalog();
   return Object.freeze({
     catalog,
@@ -372,13 +481,16 @@ export function resolveAiSelectionAccess(
   administration: CredentialAdministration | undefined,
   repositoryId: string | null,
   signal: AbortSignal,
-): Readonly<{ root: Repository; authorize: () => boolean }> {
+): Readonly<{
+  repositoryRoot: string;
+  authorize: () => boolean;
+}> {
   if (!accessRoot) {
     if (repositoryId !== null) throw new Error("ai_selection_input_invalid");
     const initial = resolveVerifiedRepositoryRoot(capability);
     if (!initial) throw new Error("ai_selection_access_unavailable");
     return {
-      root: capability,
+      repositoryRoot: initial,
       authorize: () =>
         !signal.aborted &&
         resolveVerifiedRepositoryRoot(capability) === initial,
@@ -404,10 +516,9 @@ export function resolveAiSelectionAccess(
   );
   if (initial.status !== "completed")
     throw new Error("ai_selection_access_unavailable");
-  const initialPath = resolveVerifiedRepositoryRoot(initial.access.root);
-  if (!initialPath) throw new Error("ai_selection_access_unavailable");
+  const initialPath = initial.access.root;
   return {
-    root: initial.access.root,
+    repositoryRoot: initialPath,
     authorize: () => {
       if (signal.aborted || !permission()) return false;
       const fresh = resolveRepositoryAccess(
@@ -422,8 +533,7 @@ export function resolveAiSelectionAccess(
         fresh.access.bindingId === initial.access.bindingId &&
         JSON.stringify(fresh.access.manifest) ===
           JSON.stringify(initial.access.manifest) &&
-        resolveVerifiedRepositoryRoot(initial.access.root) === initialPath &&
-        resolveVerifiedRepositoryRoot(fresh.access.root) === initialPath
+        fresh.access.root === initialPath
       );
     },
   };

@@ -97,7 +97,7 @@ Consumerが設定とADの結果から実行Inputへ必要fieldを投影する。
 
 設定は既存`.crdd/config/`に保存し、ai-selection.json・network-policy.json・coordinator.json等の名前、Schema・契約ID・CAS・Lock Identityを変更しない。Manifestの既存正本も配置を維持する。退役したTrust検査の代替Reader・保存形式・互換処理は追加しない。
 
-設定保存はVC検証Rootから自分の固定config所在を内部で求める。Ignore登録・Root／Link／実体・EOF・close確認、現在値Hash／期待Identity・競合拒否、出版後の不明・一時物のCleanup未確認参照を保持する。AiSelectionTemporaryReferenceは保存Result内で維持し、単独Root公開だけを外す。
+読取り・保存は呼出し側が確認した絶対ディレクトリを受け、固定の設定所在を選ぶ。構成モデルはGit配置を再確認せず、Gitの識別値を受け取らない。AI選定設定の保存前に、CRDD Serverが認可と入力を確認してGit除外登録と設定領域の準備を行う。構成モデルは準備済み領域だけで、ディレクトリとファイルの実体確認、排他、現在値と期待値の照合、保存時の再認可、保存・回収が不明な場合の元参照を扱う。
 
 AMのHost RootはAM自身の初期化・保存・FilesystemStoreRoot型が正本。CROS既定所在もAM内部で扱う。AM Rootと構成の私有Rootを相互交換しない。AI選定のJSON重複Key拒否・data-property・Proxy／accessor検査はAI選定契約へ局所化する。Manifestと保持設定は従来のJSON.parse条件を維持し、厳密JSON検査へ統一しない。他設定とAMの既存保存I/O・JSON条件はこの整理で変更しない。
 
@@ -110,7 +110,7 @@ AMのHost RootはAM自身の初期化・保存・FilesystemStoreRoot型が正本
 
 担当Interaction Relation: `PRT-000006.spec-000010`
 
-上位はVCが検証したRepositoryをManifest読取りへ渡し、結果のprojectId／repositoryId／repositoryRoleだけを文書モデルのContext照合へ投影する。構成モデルは文書モデル・実行モデルを参照せず、Contextの解析、実行対象の選定、Git操作、認証・認可を行わない。設定読取りの成立を対象へのAuthorityや全Binding成立へ読み替えない。旧Domain Modelの共通Root機能を汎用Readerとして復活させず、Git差分選択・Commit・Pushも担当しない。
+利用側は確認した絶対ディレクトリをManifest読取りへ渡し、結果のprojectId／repositoryId／repositoryRoleだけを文書モデルのContext照合へ投影する。構成モデルは文書モデル・実行モデル・VCを参照せず、Contextの解析、実行対象の選定、Git操作、認証・認可の判断を行わない。設定読取りの成立を対象へのAuthorityや全Binding成立へ読み替えない。旧Domain Modelの共通Root機能を汎用Readerとして復活させず、Git差分選択・Commit・Pushも担当しない。
 
 <a id="verification"></a>
 ## 5. 検証と未確認

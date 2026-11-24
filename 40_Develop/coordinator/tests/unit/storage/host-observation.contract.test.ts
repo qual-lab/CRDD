@@ -44,7 +44,7 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
   );
   const declaration = sourceDeclaration(
     production,
-    "canPrepareRuntimeOwnedDockerHostCleanup",
+    "canPrepareDockerHostCleanup",
   );
   const capability = {},
     management = {};
@@ -62,7 +62,7 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
     restartSettled: true,
   } as const;
   const prepare = runInNewContext(
-    `${declaration}; canPrepareRuntimeOwnedDockerHostCleanup`,
+    `${declaration}; canPrepareDockerHostCleanup`,
     {
       durableRecord: (value: unknown) => (value === capability ? record : null),
     },
@@ -110,7 +110,7 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
     "utf8",
   );
   const completeStart = lifecycleSource.indexOf(
-    "function completeRuntimeOwnedDockerRecovery(",
+    "function completeDockerRecovery(",
   );
   const checkpointStart = lifecycleSource.indexOf(
     "const saved = saveOperationCheckpoint(",

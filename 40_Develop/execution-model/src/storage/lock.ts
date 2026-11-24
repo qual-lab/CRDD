@@ -10,13 +10,6 @@ import path from "node:path";
 import { types } from "node:util";
 import type { Lock, LockResult } from "../../../lock/src/index.ts";
 import { acquireLock } from "../../../lock/src/index.ts";
-import type { Repository } from "../../../version-control/src/index.ts";
-import {
-  getRepositoryFromWorkingDirectory,
-  readRepositoryRevision,
-  readRepositoryStorageIdentity,
-  resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
 import type { OperationResources } from "../attempt/types.ts";
 
 /** Rootを再検証し、保存OwnerとしてRepository内の固定Lock所在を準備する。 */
@@ -108,6 +101,7 @@ const storageOwners = new WeakMap<
       "repositoryRoot" | "repositoryBinding" | "revalidate"
     >;
     lock: Lock;
+    metadataOnly: boolean;
   }>
 >();
 
@@ -134,10 +128,10 @@ export function readStorageOwnerBinding(owner: object) {
  * 検証済みRootの短期wx排他を取得する。
  * @responsibility 保存Ownerの実発行、同Root再観測と解放を保持する。
  * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory: 選択Repository内の起動位置。
+ * @input workingDirectory: 利用側が確定した保存ディレクトリ又はその履歴入力。
  * @returns 保持中Owner、又は取得失敗と回復参照を持つ結果。
  * @precondition 呼出し側が短期処理後の解放を所有する。
- * @postcondition Root・Git Identity・wx保持を結合し、保存領域を初期化しない。
+ * @postcondition 保存先の実体とwx保持を結合し、保存領域を初期化しない。
  * @effect Repository読取りと共通wx Lock取得。
  * @failure Root不正・観測不能・競合を拒否し、初期化失敗とdescriptor終了不明を区別する。
  * @invariant 新しいLock、Registry、永続状態を作らない。
@@ -146,18 +140,9 @@ export function readStorageOwnerBinding(owner: object) {
  * @concurrency このOwnerの内部借用ではLockを再取得しない。
  */
 export function acquireStorageOwner(
-  workingDirectory: string | Repository | HistoryRepositoryInput,
+  workingDirectory: StorageRootInput | HistoryRepositoryInput,
 ): StoreResult<StorageOwner> {
-  const verified =
-    typeof workingDirectory === "string"
-      ? getRepositoryFromWorkingDirectory(workingDirectory)
-      : null;
-  const repository =
-    typeof workingDirectory !== "string"
-      ? observeExecutionStorageRepository(workingDirectory)
-      : verified?.status === "completed"
-        ? observeExecutionStorageRepository(verified.capability)
-        : null;
+  const repository = observeExecutionStorageRepository(workingDirectory);
   return repository
     ? acquireStorageOwnerForRepository(repository)
     : blocked("coordinator_state_owner_invalid");
@@ -183,6 +168,7 @@ export function acquireStorageOwnerForRepository(
     NonNullable<ReturnType<typeof observeExecutionRecoveryRepository>>,
     "repositoryRoot" | "repositoryBinding" | "revalidate"
   >,
+  metadataOnly = false,
 ): StoreResult<StorageOwner> {
   if (!repository) return blocked("coordinator_state_owner_invalid");
   const acquisition = acquireExecutionStateLock(
@@ -215,7 +201,7 @@ export function acquireStorageOwnerForRepository(
       }
     },
   });
-  storageOwners.set(owner, { repository, lock });
+  storageOwners.set(owner, { repository, lock, metadataOnly });
   return completed("coordinator_state_lock_acquired", owner);
 }
 
@@ -277,27 +263,27 @@ export function isLiveStorageOwner(owner: unknown): owner is StorageOwner {
 /**
  * 検証済みRepositoryに結合した保存試行用排他を取得する。
  *
- * @responsibility 起動Directoryから同じRootのOS排他へ接続する。
+ * @responsibility 確定した保存先の短期排他へ接続する。
  * @trace ARCH-000004
- * @input workingDirectory: 対象Repository内の起動Directory。
+ * @input workingDirectory: 利用側が確定した保存入力。
  * @returns 保持確認・解放handle、または停止結果。
- * @precondition WindowsのRepositoryとして一意に解決できる。
+ * @precondition 同じ保存先を上位が選択済み。
  * @postcondition native realpathが取れなければ文字列Pathへfallbackしない。
  * @effect Filesystemを読み、WorkerとOS排他を取得する。保存Fileは作らない。
  * @failure Root不正、観測不能、競合と取得確認不能では停止する。
  * @invariant 排他取得だけで保存・移行・旧Writer停止を主張しない。
- * @boundary Repository検証からWindows短期排他への境界。
+ * @boundary 保存先の実体確認と共通短期排他。
  * @security 呼出し元から任意のRoot Hashを受け取らない。
- * @concurrency 同Rootのcase差と配下起動を同じ排他へ結合する。
+ * @concurrency 同じ確定ディレクトリの取得を同じ排他で直列化する。
  */
 export function acquireSnapshotPilotLock(
-  workingDirectory: string | Repository | HistoryRepositoryInput,
+  workingDirectory: StorageRootInput | HistoryRepositoryInput,
 ): StoreResult<SnapshotOwner> {
   const result = acquireStorageOwner(workingDirectory);
   return result.status === "completed"
-    ? completed("orchestrator_snapshot_lock_acquired", result.value)
+    ? completed("coordinator_snapshot_lock_acquired", result.value)
     : result.reason === "coordinator_state_lock_unavailable"
-      ? blocked("orchestrator_snapshot_lock_unavailable", false)
+      ? blocked("coordinator_snapshot_lock_unavailable", false)
       : result;
 }
 
@@ -350,9 +336,12 @@ export function storageLockFailure<T>(result: LockResult): StoreResult<T> {
   );
 }
 
+/** 利用側が確定した正規保存ディレクトリ。Gitや操作権限を含まない。 */
+export type StorageRootInput = Readonly<{ directory: string }>;
+
 /** 履歴枝だけが消費する値と、既存現在性検査の拡張。設定Readerは持ち込まない。 */
 export type HistoryRepositoryInput = Readonly<{
-  root: Repository;
+  root: StorageRootInput;
   historyRetentionDays: number | null;
   revalidate: (expectedHistoryRetentionDays?: number) => boolean;
 }>;
@@ -378,6 +367,81 @@ export function readHistoryRetentionDays(
 }
 
 /**
+ * Windowsの符号付き64bit File IDを同じ実体の符号なし表現に揃える。
+ * @responsibility Readerと保存Writerの同一性比較で同じ表現規則を使う。
+ * @trace ARCH-000014
+ * @input ino: OSから観測したFile ID。
+ * @returns Windowsの有効な負の64bit表現だけを正規化する。
+ * @precondition 呼出し側がFile Identity全体の妥当性を検査する。
+ * @postcondition 同じ64bit IDの意味を変えず、範囲外の値を補正しない。
+ * @effect N/A: 入力値だけを変換する。
+ * @failure N/A: 不正値の拒否は呼出し側が所有する。
+ * @invariant Windows以外と他のIdentity項目を変更しない。
+ * @boundary Process内の保存部品。
+ * @security 異なるFile IDを同一と扱わない。
+ * @concurrency N/A: 共有状態を持たない。
+ */
+export function normalizeFileId(ino: bigint): bigint {
+  return process.platform === "win32" &&
+    typeof ino === "bigint" &&
+    ino >= -(1n << 63n) &&
+    ino < 0n
+    ? BigInt.asUintN(64, ino)
+    : ino;
+}
+
+/**
+ * 保存起点の物理実体に結合する保存識別値を取得する。
+ * @trace ARCH-000008
+ * @input directory: 利用側が確定した正規絶対ディレクトリ。
+ * @returns 保存識別値、または観測不能のnull。
+ * @effect Filesystem実体の読取りのみ。
+ * @security 操作権限を発行せず、Gitや保存本文から対象を復元しない。
+ */
+export function readExecutionStorageBinding(directory: string): string | null {
+  try {
+    if (!path.isAbsolute(directory) || path.resolve(directory) !== directory)
+      return null;
+    const before = fs.lstatSync(directory, { bigint: true });
+    const ino = normalizeFileId(before.ino);
+    if (
+      !before.isDirectory() ||
+      before.isSymbolicLink() ||
+      typeof before.dev !== "bigint" ||
+      typeof before.birthtimeNs !== "bigint" ||
+      typeof ino !== "bigint" ||
+      before.dev <= 0n ||
+      ino <= 0n ||
+      before.birthtimeNs <= 0n ||
+      fs.realpathSync.native(directory) !== directory
+    )
+      return null;
+    const after = fs.lstatSync(directory, { bigint: true });
+    if (
+      !after.isDirectory() ||
+      after.isSymbolicLink() ||
+      after.dev !== before.dev ||
+      normalizeFileId(after.ino) !== ino ||
+      after.birthtimeNs !== before.birthtimeNs
+    )
+      return null;
+    return createHash("sha256")
+      .update("crdd-execution-storage-directory/v1\0")
+      .update(
+        JSON.stringify([
+          directory,
+          String(before.dev),
+          String(ino),
+          String(before.birthtimeNs),
+        ]),
+      )
+      .digest("hex");
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 同じ操作Ownerが構成する通常保存の有限入力。
  * @responsibility 既存の操作相関キーとfresh Repository借用を別に保持する。
  * @trace ARCH-000008
@@ -391,7 +455,7 @@ export type OperationStorageAccess = Readonly<{
   identity: object;
   observeRepository: () => Readonly<{
     purpose: "execution";
-    root: Repository;
+    root: StorageRootInput;
     operationId: string;
     revalidate: () => boolean;
   }> | null;
@@ -409,7 +473,7 @@ export type OperationStorageAccess = Readonly<{
  */
 export type SettlementStorageAccess = Readonly<{
   purpose: "settlement";
-  root: Repository;
+  root: StorageRootInput;
   operationId: string;
   revalidate: () => boolean;
 }>;
@@ -481,62 +545,50 @@ function synchronous(callback: unknown, ...args: unknown[]): unknown {
 
 /**
  * 検証済みRootの保存実体結合を導く。
- * @responsibility Rootの私有Capabilityと現在Storage Identityだけから元のHashを再現する。
+ * @responsibility 確定した保存ディレクトリと、その現在の実体を結び付ける。
  * @trace ARCH-000008
- * @input root: 既存Version Controlの検証済みRoot。
+ * @input input: 確定した保存ディレクトリ又はその履歴入力。
  * @returns 保存Root、結合、実体観測と再検証、又はnull。
  * @precondition この観測だけを実行Ownerの証明にしない。
- * @postcondition 元のdomainと符号化順を維持する。
- * @effect Repository配置とStorage Identityの読取り。
+ * @postcondition 同じ正規ディレクトリの実体から新形式の同じ結合を導く。
+ * @effect 保存ディレクトリの実体を読む。Git配置は観測しない。
  * @failure 不正Root・実体観測不能はnull。
  * @invariant Path又はHashからCapabilityを再発行しない。
- * @boundary Version Controlと保存内部。
+ * @boundary 利用側の保存入力と保存内部。
  * @security Root Capabilityを返却DTO・JSONへ複製しない。
  * @concurrency 再検証は元のI/O境界で呼ぶ。
  */
 export function observeExecutionStorageRepository(
-  input: Repository | HistoryRepositoryInput,
+  input: StorageRootInput | HistoryRepositoryInput,
   historyInput: unknown = input,
+  metadataOnly = false,
 ) {
-  const root = (
+  const root =
     data(input, "historyRetentionDays") !== undefined
       ? data(input, "root")
-      : input
-  ) as Repository;
+      : input;
   try {
-    const repositoryRoot = resolveVerifiedRepositoryRoot(root);
-    const observed = readRepositoryStorageIdentity(root);
-    if (!repositoryRoot || !observed) return null;
+    const repositoryRoot = data(root, "directory");
+    if (typeof repositoryRoot !== "string") return null;
+    const repositoryBinding = readExecutionStorageBinding(repositoryRoot);
+    if (!repositoryBinding) return null;
     return Object.freeze({
       repositoryRoot,
-      repositoryBinding: createHash("sha256")
-        .update("crdd-coordinator-repository-state-binding-v1\0")
-        .update(
-          JSON.stringify([
-            repositoryRoot,
-            observed.repositoryIdentity,
-            observed.repositoryInstanceIdentity,
-          ]),
-          "utf8",
-        )
-        .digest("hex"),
+      repositoryBinding,
       historyRetentionDays:
         typeof data(historyInput, "historyRetentionDays") === "number"
           ? (data(historyInput, "historyRetentionDays") as number)
           : null,
       revalidate(expectedHistoryRetentionDays?: number) {
-        const fresh = readRepositoryStorageIdentity(root);
+        if (metadataOnly && expectedHistoryRetentionDays !== undefined)
+          return false;
         return (
           (expectedHistoryRetentionDays === undefined ||
             synchronous(
               data(historyInput, "revalidate"),
               expectedHistoryRetentionDays,
             ) === true) &&
-          fresh !== null &&
-          fresh.repositoryForm === observed.repositoryForm &&
-          fresh.repositoryIdentity === observed.repositoryIdentity &&
-          fresh.repositoryInstanceIdentity ===
-            observed.repositoryInstanceIdentity
+          readExecutionStorageBinding(repositoryRoot) === repositoryBinding
         );
       },
     });
@@ -562,7 +614,7 @@ export function observeExecutionStorageRepository(
  */
 export function observeOperationRepository(access: unknown) {
   const context = synchronous(data(access, "observeRepository"));
-  const root = data(context, "root") as Repository;
+  const root = data(context, "root") as StorageRootInput;
   const operationId = data(context, "operationId");
   const revalidate = data(context, "revalidate");
   if (
@@ -609,75 +661,41 @@ export function executionStorageOperationIdentity(access: unknown) {
 }
 
 /**
- * 検証済みRootの現在Revisionを回復読取りへ固定する。
- * @responsibility 操作Authorityを復元せず、同じ実体と捕捉RevisionをReaderへ結合する。
+ * 回復読取り・保存に、確定した保存先と現在性確認を結び付ける。
+ * @responsibility 操作Authorityを復元せず、物理保存先と上位の失効確認を維持する。
  * @trace ARCH-000008
- * @input root: Version Controlが発行したRoot。
+ * @input input: 上位が確定した保存ディレクトリと同期現在性確認。
  * @returns 再入場読取り用の内部結合、又はnull。
  * @precondition 固定読取り入口からだけ使用する。
  * @postcondition 書込み・回復Authorityを発行しない。
- * @effect Root配置とGit Revisionを読む。
- * @failure 偽Root・実体又はRevision差・観測不能はnull又はfalse。
+ * @effect 保存先の実体と上位の現在性を読む。
+ * @failure 旧入力・実体差・上位の失効や観測不能はnull又はfalse。
  * @invariant 記録からRootや旧Ownerを復元しない。
  * @boundary Root検証と回復Reader。
  * @security 元の未知を不存在へ補完しない。
  * @concurrency Readerの元の前後観測点で再検証する。
  */
 export function observeExecutionRecoveryRepository(input: unknown) {
-  const root = (
-    data(input, "historyRetentionDays") !== undefined
-      ? data(input, "root")
-      : input
-  ) as Repository;
-  try {
-    const repositoryRoot = resolveVerifiedRepositoryRoot(root);
-    const initial = readRepositoryRevision(root);
-    if (!repositoryRoot || !initial) return null;
-    return Object.freeze({
-      repositoryRoot,
-      repositoryBinding: createHash("sha256")
-        .update("crdd-coordinator-repository-state-binding-v1\0")
-        .update(
-          JSON.stringify([
-            repositoryRoot,
-            initial.repositoryIdentity,
-            initial.repositoryInstanceIdentity,
-          ]),
-          "utf8",
-        )
-        .digest("hex"),
-      historyRetentionDays:
-        typeof data(input, "historyRetentionDays") === "number"
-          ? (data(input, "historyRetentionDays") as number)
-          : null,
-      revalidate(expectedHistoryRetentionDays?: number) {
-        try {
-          if (
-            resolveVerifiedRepositoryRoot(root) !== repositoryRoot ||
-            (expectedHistoryRetentionDays !== undefined &&
-              synchronous(
-                data(input, "revalidate"),
-                expectedHistoryRetentionDays,
-              ) !== true)
-          )
-            return false;
-          const fresh = readRepositoryRevision(root);
-          return (
-            fresh !== null &&
-            fresh.repositoryForm === initial.repositoryForm &&
-            fresh.repositoryIdentity === initial.repositoryIdentity &&
-            fresh.repositoryInstanceIdentity ===
-              initial.repositoryInstanceIdentity &&
-            fresh.revisionIdentity === initial.revisionIdentity
-          );
-        } catch {
-          return false;
-        }
-      },
-    });
-  } catch {
+  if (data(input, "purpose") !== "recovery") return null;
+  const directory = data(data(input, "root"), "directory");
+  const current = data(input, "revalidate");
+  if (typeof directory !== "string" || typeof current !== "function")
     return null;
-  }
+  const storage = observeExecutionStorageRepository({ directory });
+  if (!storage || synchronous(current) !== true) return null;
+  const days = data(input, "historyRetentionDays");
+  return Object.freeze({
+    ...storage,
+    historyRetentionDays: typeof days === "number" ? days : null,
+    revalidate(expectedHistoryRetentionDays?: number) {
+      return (
+        storage.revalidate() &&
+        (expectedHistoryRetentionDays === undefined
+          ? synchronous(current)
+          : synchronous(current, expectedHistoryRetentionDays)) === true
+      );
+    },
+  });
 }
 
 /**
@@ -696,7 +714,7 @@ export function observeExecutionRecoveryRepository(input: unknown) {
  * @concurrency 元のI/O前後の照合位置を維持する。
  */
 export function observeExecutionSettlementRepository(access: unknown) {
-  const root = data(access, "root") as Repository;
+  const root = data(access, "root") as StorageRootInput;
   const operationId = data(access, "operationId");
   const revalidate = data(access, "revalidate");
   if (
@@ -849,7 +867,7 @@ export function observeExecutionContentRepository(
       >[1]
     | Readonly<{ operationId: string }>,
 ) {
-  const root = data(access, "root") as Repository;
+  const root = data(access, "root") as StorageRootInput;
   const principal =
     operation === "operation.record" ? undefined : data(access, "principalId");
   const revalidate = data(access, "revalidate");

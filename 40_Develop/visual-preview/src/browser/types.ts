@@ -25,15 +25,16 @@ export type BrowserWindowSize = Readonly<{
  *
  * @responsibility 公開Root、対象Document、Zoom倍率、Window寸法および任意Browser Pathを固定する。
  * @trace ARCH-000003
- * @shape Repository相対Pathと正の倍率・寸法で構成する。
+ * @shape 配信Directory、準備済み一時Directoryと正の倍率・寸法で構成する。
  * @invariant 対象Documentは公開Root直下または配下の相対HTML Pathに限る。
  * @boundary CLI・検証ConsumerからVisual Browser検証への入力境界。
  * @security Browser Pathを出力へ複製せず、専用Profileだけを使用する。
  * @compatibility browserExecutablePath省略時は対応済みChrome配置を探索する。
  */
 export type BrowserZoomVerificationRequest = Readonly<{
-  workingDirectory: string;
-  rootRelativePath: string;
+  rootDirectory: string;
+  /** 呼出し側が用意し、検証中は第三者による置換を許さない既存領域。 */
+  temporaryDirectory: string;
   documentPaths: readonly string[];
   zoomFactors: readonly number[];
   windowSize: BrowserWindowSize;
@@ -78,14 +79,15 @@ export type LocalWebVisualTarget = Readonly<{
  *
  * @responsibility Server lifecycleをProduct側に残したまま、Target、ProfileおよびZoomの全組合せを固定する。
  * @trace ARCH-000003
- * @shape Repository Root、loopback Base URL、Target、Profile、Zoomおよび任意Browser Pathで構成する。
+ * @shape 準備済み一時Directory、loopback Base URL、Target、Profile、Zoomおよび任意Browser Pathで構成する。
  * @invariant 検証器はApplication Serverを開始・終了しない。
  * @boundary Product Serverと共通Browser Process／DevTools検証の境界。
  * @security localhost HTTPだけを許可し、通常Browser Profileを使用しない。
  * @compatibility Product固有Serverを変更せず利用できる。
  */
 export type LocalWebVisualVerificationRequest = Readonly<{
-  workingDirectory: string;
+  /** 呼出し側が用意し、検証中は第三者による置換を許さない既存領域。 */
+  temporaryDirectory: string;
   baseUrl: string;
   targets: readonly LocalWebVisualTarget[];
   profiles: readonly BrowserVisualProfile[];

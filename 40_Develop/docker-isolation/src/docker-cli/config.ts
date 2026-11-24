@@ -39,7 +39,7 @@ export function observeDockerDirectoryIdentity(directory: string): string {
 }
 
 /**
- * 保護read-only .gitだけに許すFile／Directoryの元実体を捕捉する。
+ * 保護用のFile／Directoryの元実体を捕捉する。
  * @responsibility 通常MountのDirectory条件を広げず、元型とFileの後発変更を再確認する。
  * @trace ARCH-000008
  * @input source: 確定した保護Mount元。
@@ -63,6 +63,23 @@ export function observeDockerProtectedMountIdentity(source: string): string {
   if (!metadata.isFile())
     throw Error("docker_effect_filesystem_identity_invalid");
   return `file:${metadata.dev}:${metadata.ino}:${metadata.birthtimeNs}:${metadata.mtimeNs}:${metadata.size}`;
+}
+
+/** Reviewerの固定覆いが空の同種実体であることを、現在のIdentityと結合する。 */
+export function observeDockerEmptyMountIdentity(
+  source: string,
+  kind: "file" | "directory",
+): string {
+  const identity = observeDockerProtectedMountIdentity(source);
+  if (
+    !identity.startsWith(`${kind}:`) ||
+    (kind === "directory"
+      ? fs.readdirSync(source).length !== 0
+      : fs.lstatSync(source, { bigint: true }).size !== 0n) ||
+    observeDockerProtectedMountIdentity(source) !== identity
+  )
+    throw Error("docker_isolation_reviewer_mask_invalid");
+  return identity;
 }
 
 /**

@@ -24,6 +24,7 @@ import type {
 import {
   createDockerCliConfig,
   observeDockerDirectoryIdentity,
+  observeDockerEmptyMountIdentity,
   observeDockerProtectedMountIdentity,
   verifyDockerCliConfig,
 } from "../docker-cli/config.ts";
@@ -50,6 +51,7 @@ import {
   captureIsolationRequest,
   containerCreation,
   inspectIsolationResourceConfiguration,
+  isReviewerMaskTarget,
   plannedResourceSnapshot,
 } from "./preparation.ts";
 import {
@@ -77,6 +79,46 @@ const DOCKER_EXECUTABLE =
 const ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
 const TERMINATION_GRACE_MS = 5_000;
 
+/** 固定用途とReviewerの覆いで異なるMount元の条件を区別する。 */
+type MountSourceKind =
+  | "directory"
+  | "protected"
+  | "emptyFile"
+  | "emptyDirectory";
+
+/** 固定用途の実体検査を広げず、Reviewerの覆いにだけ空条件を適用する。 */
+function observeMountSource(source: string, kind: MountSourceKind): string {
+  switch (kind) {
+    case "directory":
+      return observeDockerDirectoryIdentity(source);
+    case "protected":
+      return observeDockerProtectedMountIdentity(source);
+    case "emptyFile":
+      return observeDockerEmptyMountIdentity(source, "file");
+    case "emptyDirectory":
+      return observeDockerEmptyMountIdentity(source, "directory");
+  }
+}
+
+/** 元ツリーに覆いの到達先を作らず、既存の同種・非Link実体だけを受け付ける。 */
+function verifyReviewerMaskTargets(
+  resource: Extract<
+    IsolationRequest["resources"][number],
+    { kind: "container" }
+  >,
+): void {
+  const workspace = resource.mounts.find(({ target }) => target === "/work");
+  if (!workspace) return;
+  for (const mount of resource.mounts) {
+    if (!isReviewerMaskTarget(mount.target)) continue;
+    const relative = mount.target.slice("/work/".length).split("/");
+    const target = path.join(workspace.source, ...relative);
+    const kind = path.basename(mount.source);
+    if (!observeDockerProtectedMountIdentity(target).startsWith(`${kind}:`))
+      throw Error("docker_isolation_reviewer_mask_target_invalid");
+  }
+}
+
 /** 同一Processの短命な準備と一回使用だけを保持する。永続台帳は作らない。 */
 class IsolationPreparation implements PreparedIsolation {
   readonly resources: ResourceSnapshot;
@@ -86,7 +128,7 @@ class IsolationPreparation implements PreparedIsolation {
   readonly directories: readonly Readonly<{
     path: string;
     identity: string;
-    protectedFile: boolean;
+    kind: MountSourceKind;
   }>[];
   readonly cleanupOnly: boolean;
   readonly previouslyAbsent: readonly string[];
@@ -129,26 +171,41 @@ class IsolationPreparation implements PreparedIsolation {
         .isDirectory()
     )
       throw Error("docker_effect_working_directory_unavailable");
-    const locations = new Map<string, boolean>([
-      [request.managementDirectory, false],
+    const locations = new Map<string, MountSourceKind>([
+      [request.managementDirectory, "directory"],
     ]);
-    for (const resource of request.resources)
-      if (resource.kind === "container")
+    for (const resource of request.resources) {
+      if (resource.kind === "container") {
+        verifyReviewerMaskTargets(resource);
         for (const mount of resource.mounts) {
-          const protectedFile = mount.target === "/work/.git" && mount.readOnly;
+          const kind = isReviewerMaskTarget(mount.target)
+            ? path.basename(mount.source) === "file"
+              ? "emptyFile"
+              : "emptyDirectory"
+            : mount.target === "/work/.git" && mount.readOnly
+              ? "protected"
+              : "directory";
+          const previous = locations.get(mount.source);
+          if (
+            previous &&
+            previous !== kind &&
+            ([previous, kind].includes("emptyFile") ||
+              [previous, kind].includes("emptyDirectory"))
+          )
+            throw Error("docker_isolation_reviewer_mask_conflicting_source");
           locations.set(
             mount.source,
-            (locations.get(mount.source) ?? true) && protectedFile,
+            previous === "directory" ? previous : kind,
           );
         }
+      }
+    }
     this.directories = Object.freeze(
-      [...locations].map(([directory, protectedFile]) =>
+      [...locations].map(([directory, kind]) =>
         Object.freeze({
           path: directory,
-          protectedFile,
-          identity: protectedFile
-            ? observeDockerProtectedMountIdentity(directory)
-            : observeDockerDirectoryIdentity(directory),
+          kind,
+          identity: observeMountSource(directory, kind),
         }),
       ),
     );
@@ -174,9 +231,7 @@ class IsolationPreparation implements PreparedIsolation {
   verify(): void {
     for (const directory of this.directories)
       if (
-        (directory.protectedFile
-          ? observeDockerProtectedMountIdentity(directory.path)
-          : observeDockerDirectoryIdentity(directory.path)) !==
+        observeMountSource(directory.path, directory.kind) !==
         directory.identity
       )
         throw Error("docker_isolation_directory_changed");
@@ -916,6 +971,8 @@ function runIsolation(
             let argv: readonly string[];
             stage = "start";
             if (current.action === "create") {
+              if (definition.kind === "container")
+                verifyReviewerMaskTargets(definition);
               argv =
                 definition.kind === "network"
                   ? [
@@ -960,6 +1017,8 @@ function runIsolation(
               } else {
                 await observe(current.resource);
                 if (cancelled) break;
+                if (definition.kind === "container")
+                  verifyReviewerMaskTargets(definition);
                 argv = [
                   "start",
                   ...(current.mode !== "detached" ? ["--attach"] : []),

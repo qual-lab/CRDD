@@ -592,9 +592,9 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
           const cancel = () => {
             wasCancelled = true;
             resolve({
-              contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+              contract: "crdd-coordinator/objective-intake/v4",
               status: "cancelled",
-              reason: "orchestrator_parent_lost",
+              reason: "coordinator_parent_lost",
               requestId: "integration-request",
               projectId: "integration-project",
               milestoneId: "integration-milestone",
@@ -649,7 +649,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
   const result = await running;
   assert.equal(wasCancelled, true);
   assert.equal(result.status, "completed");
-  assert.match(sink.read(), /orchestrator_parent_lost/u);
+  assert.match(sink.read(), /coordinator_parent_lost/u);
 });
 
 /**

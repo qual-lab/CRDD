@@ -286,7 +286,7 @@ test("Realityの実Source欠測は公開診断と終了1へ届く", () => {
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed")
       throw new Error("fixture_root_unverified");
-    const observed = observeRealitySymbolRepository(verified.capability);
+    const observed = observeRealitySymbolRepository(root);
     const issue = observed.domainIssues.find(
       ({ kind }) => kind === "discovery.symbol.source-unobservable",
     );

@@ -102,7 +102,7 @@ export type ClaudeProbePlanResult =
       managedSettingsPath: string;
       bareModeAllowed: false;
       safeModeRequired: true;
-      runtimeOwnedEnvironmentSlots: readonly string[];
+      requiredEnvironmentSlots: readonly string[];
       forbiddenParentEnvironmentCategories: readonly string[];
       shellAllowed: false;
       pathLookupAllowed: false;
@@ -133,7 +133,7 @@ export type ClaudeTaskPlanResult =
     >
   | Readonly<{
       status: "candidate";
-      reason: "runtime_owned_activation_gates_required";
+      reason: "provider_activation_gates_required";
       activationGates: readonly string[];
       activationBlockers: readonly string[];
       spawnAllowed: false;
@@ -161,8 +161,8 @@ export type ClaudeTaskPlanResult =
       }>;
       environmentMode: "replace_required";
       parentEnvironmentInherited: false;
-      reviewerFilesystemOrShellToolAllowed: false;
-      reviewerInput: "runtime_owned_immutable_candidate_content_projection_only";
+      reviewerFilesystemOrShellToolAllowed: boolean;
+      reviewerInput: "read_only_workspace";
       taskPromptTransport: "stdin_only";
       resultTransport:
         | "claude_json_envelope_result_validated_by_crdd"
@@ -243,7 +243,7 @@ export type ClaudeExecutionDefinition = Readonly<{
     parentEnvironmentInherited: false;
     safeModeRequired: true;
     bareModeAllowed: false;
-    runtimeOwnedEnvironmentSlots: readonly string[];
+    requiredEnvironmentSlots: readonly string[];
     forbiddenParentEnvironmentCategories: readonly string[];
     maximumTurns: 2;
     maximumBudgetUsd: 0.1;
@@ -375,7 +375,7 @@ const FIXED_MANAGED_SETTINGS = Object.freeze({
   skipWebFetchPreflight: true,
 });
 
-const RUNTIME_OWNED_ENVIRONMENT_SLOTS = Object.freeze([
+const REQUIRED_ENVIRONMENT_SLOTS = Object.freeze([
   "HOME",
   "TMPDIR",
   "HTTPS_PROXY",
@@ -391,8 +391,8 @@ const FORBIDDEN_PARENT_ENVIRONMENT_CATEGORIES = Object.freeze([
 ]);
 
 const ACTIVATION_GATES = Object.freeze([
-  "runtime_owned_model_selection_grant",
-  "runtime_owned_minimal_environment_replacement",
+  "model_selection_grant",
+  "minimal_environment_replacement",
   "interactive_external_send_grant",
   "subscription_oauth_preflight_before_provider_request",
 ]);
@@ -569,7 +569,7 @@ export function planClaudeReadOnlyProbe(
       locations.managedSettingsPath ?? "managed-settings.json",
     bareModeAllowed: false,
     safeModeRequired: true,
-    runtimeOwnedEnvironmentSlots: RUNTIME_OWNED_ENVIRONMENT_SLOTS,
+    requiredEnvironmentSlots: REQUIRED_ENVIRONMENT_SLOTS,
     forbiddenParentEnvironmentCategories:
       FORBIDDEN_PARENT_ENVIRONMENT_CATEGORIES,
     shellAllowed: false,
@@ -632,10 +632,10 @@ export function planClaudeIsolatedTask(
   const toolArguments =
     taskRole === "executor"
       ? ["--tools", "Read,Glob,Grep,Edit,Write"]
-      : ["--tools="];
+      : ["--tools", "Read,Glob,Grep"];
   return Object.freeze({
     status: "candidate" as const,
-    reason: "runtime_owned_activation_gates_required",
+    reason: "provider_activation_gates_required",
     activationGates: ACTIVATION_GATES,
     activationBlockers: ACTIVATION_BLOCKERS,
     spawnAllowed: false,
@@ -679,8 +679,8 @@ export function planClaudeIsolatedTask(
     environment: FIXED_ENVIRONMENT,
     environmentMode: "replace_required" as const,
     parentEnvironmentInherited: false,
-    reviewerFilesystemOrShellToolAllowed: false,
-    reviewerInput: "runtime_owned_immutable_candidate_content_projection_only",
+    reviewerFilesystemOrShellToolAllowed: taskRole === "reviewer",
+    reviewerInput: "read_only_workspace",
     taskPromptTransport: "stdin_only" as const,
     resultTransport:
       taskRole === "executor"
@@ -766,7 +766,7 @@ export function describeClaudeExecutionPlanContract(): ClaudeExecutionDefinition
       parentEnvironmentInherited: false,
       safeModeRequired: true,
       bareModeAllowed: false,
-      runtimeOwnedEnvironmentSlots: RUNTIME_OWNED_ENVIRONMENT_SLOTS,
+      requiredEnvironmentSlots: REQUIRED_ENVIRONMENT_SLOTS,
       forbiddenParentEnvironmentCategories:
         FORBIDDEN_PARENT_ENVIRONMENT_CATEGORIES,
       maximumTurns: 2,

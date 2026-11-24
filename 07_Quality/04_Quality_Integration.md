@@ -1,5 +1,68 @@
 # Quality Integration
 
+## 実Dockerと実AIを除く全体回帰 — 2026-11-25
+
+### 対象と実行条件
+
+- 対象は基準Commit `c0e3b428d22a4135154565748208e96aaa2fdcba`に、ステージ済みの変更と本節の是正を加えた未Commitの作業ツリーである。固定Commitの結果としては扱わない。
+- 実行順はAGENTS.mdの回帰手順に従う。各Packageは`npm test`（静的検査と通常試験）で実行した。CoordinatorはPortable試験、Windowsホスト試験、Windows Process Gate 3件の順で実行した。CRDD ServerとDocker IsolationのWindowsホスト試験も含めた。
+- 実Docker、実通信、実AIの試験は、専用の環境変数を設定しない限り既定でスキップされる。今回は設定していない。
+
+### 最終結果（2026-11-25、二回目の全体回帰）
+
+| 対象 | 成功 / 件数 | 対象外 |
+|---|---|---|
+| CoordinatorのPortable試験 | 1,470 / 1,473 | 3 |
+| CoordinatorのWindowsホスト試験 | 142 / 142 | 0 |
+| CoordinatorのWindows Process Gate | 3 / 3 | 0 |
+| checker | 475 / 476 | 1 |
+| execution-model | 358 / 358 | 0 |
+| crdd-server | 339 / 339 | 0 |
+| docker-isolation | 323 / 328 | 5 |
+| document-model | 245 / 245 | 0 |
+| access-management | 183 / 183 | 0 |
+| executor | 160 / 160 | 0 |
+| version-control | 96 / 96 | 0 |
+| ai-adapter | 47 / 47 | 0 |
+| execution-intelligence | 45 / 45 | 0 |
+| configuration-model | 30 / 30 | 0 |
+| workbench-ui | 20 / 20 | 0 |
+| lock | 15 / 15 | 0 |
+| visual-preview | 13 / 13 | 0 |
+| docker-isolationのWindowsホスト試験 | 6 / 6 | 0 |
+| crdd-serverのWindowsホスト試験 | 1 / 1 | 0 |
+| 合計 | 3,971 / 3,980 | 9 |
+
+全Packageの静的検査とリポジトリ全体のChecker（Markdown 1,207件、リンク15,338件）はError 0、Warning 0だった。
+
+### 初回の結果と是正（2026-11-24）
+
+初回は、静的検査の不合格4 Package、CoordinatorのPortable試験の失敗14件（小試験3件を含み、親試験は11件）とWindowsホスト試験の失敗3件を検出した。静的検査の是正後に初めて試験まで進んだCRDD Serverでも、失敗3件を検出した。親試験単位の失敗は計17件である。失敗はすべて、ステージ済みの変更に試験が追従していなかったことが原因で、本番の不具合ではなかった。
+
+| 原因 | 対象 | 処置 |
+|---|---|---|
+| 依存未インストールと書式・Lint | lockの依存欠落、Coordinatorの試験1件の書式、CRDD Serverの試験の文字列連結4箇所と未使用import 1件 | `npm ci`と書式・Lintの是正。`package-lock.json`は変更なし |
+| Reviewerの読取り方式の変更 | 7件。Codex Reviewerの起動引数、秘密を含むファイルの遮蔽、Reviewerへの投影証跡、試験補助のReviewer用マスク指定 | ReviewerがWorkspaceを読み取り専用で直接読み、秘密を含むファイルを空の同型Mountで覆う方式へ期待値を追従した。本文で秘密を検出した場合は覆ったうえでReviewerを起動し、レビュー範囲の不完全として候補を採用しないことを確認する形へ書き換えた |
+| 呼出し方や件数の変更 | 6件。回復時の保存先の受け渡し、Sourceを切り出す試験の依存、Host試験の場合分けの件数、同じブロックでの変数の再宣言、整形で変わった文字列への変異 | 本番と同じ値の受け渡しを代役へ追加した。新しい分岐（Repositoryを取得できない場合）を場合分けに加えた |
+| HEADの再観測をしない方針 | 修復中にHEADを動かす試験 | 修復・回復ではGit配置とHEADを再観測しない設計に合わせ、HEADが動いても結果、履歴、終了まで保存されることの確認へ書き換えた。試験名も同じ意味へ変更した |
+| 保存領域の使用規則 | CRDD Serverの保存領域検査2件 | Lease・Process処理が受付で確定した保存ディレクトリから保存先を求める方式を認め、内部用の解決関数は引き続き拒否する形へ追従した。Reviewerの名前除外で`.crdd`を比較する3箇所はPath構築ではないため、その比較式だけを検査対象から外した |
+| 借用先の確認 | CRDD Serverの借用Workspace試験1件 | 次節の製品変更に合わせ、Directで期待HEADを指定しない場合の受付を確認する形へ変更した |
+
+### 製品の変更
+
+借用先の結合`bindBorrowedExecutionTarget`から、HEADが指すCommitとTreeの実在の確認を外した。結合では、配置の確認、実体の再照合、`.git`と`.crdd`を覆う準備を維持する。期待HEADが指定された場合の照合も維持する。設計文書は[Coordinator](../06_Architecture/Details/coordinator/01_Architecture.md)と[Workspace](../06_Architecture/Details/coordinator/05_Workspace.md)の該当文を同じ内容へ更新した。
+
+この変更には専用の試験を追加しない。通常のTask実行では、開始時のRepositoryの結び付けがHEADのCommitを記録し、以降も同じHEADであることを照合するため、HEADのCommitの存在は手前で保証されている。Commitが必要なIsolatedの作成、候補の固定、取込は、Version Controlがその時点で確認する。外した確認と結果が異なるのは、HEADの参照が残ったままCommitのデータが失われた場合だけである。この場合を正しい動作として固定する試験は作らない、と人間が判断した。
+
+外部の独立レビューは、借用Workspaceの試験が実行前の確認しか通っておらず、今回の変更を検出できないことを指摘した。指摘は正しかった。結合まで通す試験の作成を試みたが、上記の理由でHEADの無い状態はRepositoryの結び付けで拒否されるため、提案された形の試験は今の設計では成立しなかった。
+
+### 未実施の範囲と残るリスク
+
+- 実Dockerを使う`codex-executor-sandbox.integration.test.ts`は、Windowsホスト試験から外して未実施とした。`test:docker-isolation-host`と実AIの試験も未実施である。
+- Codex Reviewerの起動引数から`--sandbox read-only`を外し、名前付き権限`crdd-workspace-reviewer`だけにした変更は、実AIでの成立を確認していない。`--sandbox`が名前付き権限を上書きするという変更理由は、コードのコメントにだけ残っている。
+- `codex-executor-sandbox`は実Dockerを使うのにWindowsホスト試験へ分類されている。このため、AGENTS.mdでは回帰からこのファイルを外す規則で運用している。分類の見直しは今回の対象外である。
+- この結果は全体QAの完成、実境界の成立またはRelease可能を意味しない。
+
 ## EIの正式Local Item登録 — 2026-11-11
 
 判断State／History統合のPRL-UT-015／PRL-IT-014をQA-000003へ追加し、同定義は16項目、全13定義は205項目となった。新規2項目はDomain内部の値契約と直接保存境界を対象とし、Coordinator公開入口の成立を意味しない。QA-000012のGroup保持・Query／Summary・Coordinator計測接続をERP-IT-006／007／008として正式登録し、導出元のAnalysis、条件区分、検証項目、中央Local集合へ接続する。現在の全13定義を再計数した設計集合は205項目（QA-000003は16項目、QA-000012は10項目）。過去の日付付き199項目等は当時の集合であり、現在のPass数ではない。既存ST／UAT・評価候補・時間的出所・全Filesystem Effect 0の義務は緩和しない。[範囲と検証](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-qa-link-closure)を参照する。

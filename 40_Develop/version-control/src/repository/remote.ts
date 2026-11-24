@@ -84,15 +84,23 @@ export function readRemoteTarget(repository: Repository): RemoteTarget {
     reason: "publication_target_observation_failed",
     destination: null,
     branch: null,
+    localBranch: null,
     revisionIdentity: null,
   });
-  const branch = singleLineValue(
-    runGit(repositoryRoot, ["symbolic-ref", "--quiet", "--short", "HEAD"]),
+  const reference = singleLineValue(
+    runGit(repositoryRoot, ["symbolic-ref", "--quiet", "HEAD"]),
   );
   const revisionIdentity = revisionFrom(
     runGit(repositoryRoot, ["rev-parse", "HEAD"]),
   );
-  if (branch === null || revisionIdentity === null) return unknown;
+  const prefix = "refs/heads/";
+  if (
+    !reference?.startsWith(prefix) ||
+    reference.length === prefix.length ||
+    revisionIdentity === null
+  )
+    return unknown;
+  const branch = reference.slice(prefix.length);
   const destinationResult = runGit(repositoryRoot, [
     "config",
     "--get",
@@ -127,6 +135,7 @@ export function readRemoteTarget(repository: Repository): RemoteTarget {
       reason: "publication_upstream_not_configured",
       destination: null,
       branch,
+      localBranch: branch,
       revisionIdentity,
     });
   if (
@@ -164,6 +173,7 @@ export function readRemoteTarget(repository: Repository): RemoteTarget {
     reason: "publication_target_observed",
     destination,
     branch: mergeReference.slice("refs/heads/".length),
+    localBranch: branch,
     revisionIdentity,
   });
 }

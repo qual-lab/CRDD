@@ -4,6 +4,8 @@
 
 既存MCP入口はToolとstdio／Streamable HTTPの契約を維持する。[CRDD Serverの標準入口](../../Definitions/ARCH-000012/architecture_definition.md#crdd-server共通入口の公開契約)に非秘密配置設定とTopic／Meetingの操作対象構成を委譲し、MCPへの認証・Tool入力検査・応答分類はTransportとToolのOwnerに残す。許可集合を要求間で再利用しない。
 
+Git利用では、MCPは認可済みの対象と操作を搬送する。Gitコマンド・事前観測・失敗後の再入場は独自に持たず、[CRDD ServerのGit利用](../workbench-server/01_Architecture.md#server-git-lifecycle)と[Coordinatorの実行・回復境界](../coordinator/01_Architecture.md#coordinator-git-lifecycle)に接続する。
+
 ## Objectiveの新規・再開区分
 
 `crdd.run_objective`は`operation: "start" | "resume"`を必須としてCoordinatorへそのまま搬送する。操作区分の省略・未知値は通常の入力拒否とし、互換補完しない。Adapter説明契約はv6、Objective結果はv4へ追従する。新規／再送／再開の判断と保存・実行のOwnerはCoordinatorであり、MCPは独自の再開台帳や再送を追加しない。受付世代は要求・状態照会の双方から撤去した。状態照会はv2で、内部初期化を発行しない。
@@ -52,7 +54,7 @@ Coordinatorの正常な回復ID／義務の集合は、公開結果の捕捉で�
 
 実行系3操作・実行定義・認可済みプロジェクト一覧は、HTTP APIと同じ `service/entry.ts` を使う。入口は既存の操作Ownerへ直接つなぎ、対象・主体の確認、Coordinatorへの委譲、応答公開前の再確認を二重実装しない。Toolの入力、接続の認証・取消とJSON-RPC応答はMCP固有の責務とする。鍵管理とAM管理の公開範囲は変更しない。
 
-Workspaceの操作準備は `service/entry.ts` から `service/workspace.ts` に接続し、共有Repositoryの開発権限・実体の再照合はHTTPと同じ `service/access.ts` を使う。MCPのTool入力・取消・エラー応答は引き続き通信側、Workspaceの意味検査と処置はCoordinatorが担当する。
+Workspaceの操作準備は `service/entry.ts` から `service/workspace.ts` に接続し、共有Repositoryの開発権限・実体の再照合はHTTPと同じ `service/access.ts` を使う。MCPのTool入力・取消・エラー応答は通信側、Workspaceの操作・Git処置の調停はServer、記録・状態遷移はExecution Modelが担当する。
 
 `transport/mcp-server.ts`はHTTPと同じ実行定義の受付を経由してExecution Modelの一般定義CRUDへ接続する。`crdd.get_execution_definition`（plan/objectives/tasks）と`crdd.manage_execution_definition`（initialize、plan.save、objective.create/update/delete、task.create/update/delete）の二Toolを、要求別Factoryの`runtimeDefinition`構成から登録する。AM認証構成は既存development内容権限を`resolveRuntimeContentAccess`で要求内Contextへ変換する。入力は`repositoryId`と操作別の閉じた`command`であり、Root・主体・認可関数をClientから受け取らない。Plan等の意味・DAG・参照・CASはDomainが検査する。
 

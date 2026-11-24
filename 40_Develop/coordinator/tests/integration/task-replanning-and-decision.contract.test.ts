@@ -15,6 +15,8 @@ import {
 } from "../fixtures/task-persistence-fixture.ts";
 
 import assert from "node:assert/strict";
+import { getRepository } from "../../../version-control/src/index.ts";
+import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -29,7 +31,7 @@ import {
   initialExecutionInput,
   projectExecutionFixture,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
+import { resolveExecutionStorageDirectory } from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
 
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
@@ -111,7 +113,7 @@ function fixture(t: test.TestContext) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   assert.equal(
     initializeExecutionStore(
-      verifyRuntimePersistenceRepository(root),
+      resolveExecutionStorageDirectory(root),
       "binding-a",
     ).status,
     "completed",
@@ -184,7 +186,7 @@ async function failTask(root: string) {
       runSingleTaskAttempt: async (input) => {
         assert.equal(await input.observeStarted?.(), undefined);
         return {
-          contract: "crdd-coordinator/orchestrator-single-task-adapter",
+          contract: "crdd-coordinator/single-task-adapter",
           attemptId: input.attemptId,
           operationId: input.operationId,
           authorityBindingId: input.authorityBindingId,
@@ -254,11 +256,13 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     ],
     { windowsHide: true },
   );
-  assert.equal((await failTask(root)).reason, "orchestrator_replan_required");
+  assert.equal((await failTask(root)).reason, "coordinator_replan_required");
   const stateFile = path.join(root, ".crdd/execution-model/state.json");
   const beforeBytes = fs.readFileSync(stateFile);
-  const capability = verifyRuntimePersistenceRepository(root);
-  const beforeRead = readState(capability, { scope: "recovery" });
+  const capability = getRepository(root).capability;
+  const beforeRead = readState(prepareFixtureRecovery(capability), {
+    scope: "recovery",
+  });
   assert.equal(beforeRead.status, "completed", beforeRead.reason);
   assert.equal(beforeRead.lockReleased, true);
   assert.ok(beforeRead.value);
@@ -281,7 +285,9 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   );
   // この試験で生成した正本だけに、管理実行を持たない兄弟定義を配置する。
   fs.writeFileSync(stateFile, mixedBytes);
-  const mixedRead = readState(capability, { scope: "recovery" });
+  const mixedRead = readState(prepareFixtureRecovery(capability), {
+    scope: "recovery",
+  });
   assert.equal(mixedRead.status, "completed", mixedRead.reason);
   assert.equal(mixedRead.lockReleased, true);
   assert.ok(mixedRead.value);
@@ -314,7 +320,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.ok(state.status === "completed" && state.value);
   const replayBytes = fs.readFileSync(stateFile);
   const replay = saveProjectExecutionState(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     "binding-a",
     {
       kind: "task_replan",
@@ -339,7 +345,9 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   ]);
   assert.deepEqual(fs.readFileSync(stateFile), replayBytes);
   const publishedBytes = fs.readFileSync(stateFile);
-  const publishedRead = readState(capability, { scope: "recovery" });
+  const publishedRead = readState(prepareFixtureRecovery(capability), {
+    scope: "recovery",
+  });
   assert.equal(publishedRead.status, "completed", publishedRead.reason);
   assert.equal(publishedRead.lockReleased, true);
   assert.ok(publishedRead.value);
@@ -402,7 +410,9 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     );
     try {
       fs.writeFileSync(stateFile, invalidBytes);
-      const refused = readState(capability, { scope: "recovery" });
+      const refused = readState(prepareFixtureRecovery(capability), {
+        scope: "recovery",
+      });
       assert.equal(refused.status, "blocked");
       assert.equal(refused.lockReleased, true);
       assert.equal(refused.value, null);
@@ -410,7 +420,9 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     } finally {
       fs.writeFileSync(stateFile, publishedBytes);
     }
-    const restored = readState(capability, { scope: "recovery" });
+    const restored = readState(prepareFixtureRecovery(capability), {
+      scope: "recovery",
+    });
     assert.equal(restored.status, "completed", restored.reason);
     assert.equal(restored.lockReleased, true);
     assert.ok(restored.value);
@@ -423,7 +435,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   if (state.status !== "completed" || !state.value) throw new Error("state");
   assert.equal(
     saveProjectExecutionState(
-      verifyRuntimePersistenceRepository(root),
+      resolveExecutionStorageDirectory(root),
       "binding-a",
       {
         kind: "task_replan",
@@ -465,7 +477,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
  */
 test("maintaining the plan creates a fresh attempt and enforces the retry limit", async (t) => {
   const { root, input } = fixture(t);
-  assert.equal((await failTask(root)).reason, "orchestrator_replan_required");
+  assert.equal((await failTask(root)).reason, "coordinator_replan_required");
   const maintained = updateTestTaskAndQueue(
     { ...input, maximumReplans: 1 },
     { kind: "task_retry", taskId: "task-a", previousRetryCount: 0 },
@@ -510,13 +522,10 @@ test("maintaining the plan creates a fresh attempt and enforces the retry limit"
     "blocked",
   );
   assert.deepEqual(fs.readFileSync(stateFile), replayBytes);
-  assert.equal((await failTask(root)).reason, "orchestrator_replan_required");
+  assert.equal((await failTask(root)).reason, "coordinator_replan_required");
   const exhausted = updateTestTaskAndQueue(
     { ...input, maximumReplans: 1 },
     { kind: "task_retry", taskId: "task-a", previousRetryCount: 1 },
   );
-  assert.equal(
-    exhausted.reason,
-    "orchestrator_retry_invalid_or_limit_exceeded",
-  );
+  assert.equal(exhausted.reason, "coordinator_retry_invalid_or_limit_exceeded");
 });

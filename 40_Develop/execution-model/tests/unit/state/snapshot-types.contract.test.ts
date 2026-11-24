@@ -82,7 +82,7 @@ test("通常終端は清掃・候補・義務と完了依存の旧規則を維�
         outcome,
         cleanupConfirmed: false,
       }).reason,
-      "orchestrator_task_settlement_mismatch",
+      "coordinator_task_settlement_mismatch",
     );
   assert.equal(
     prepareTaskSettlement(running, running.generation, {
@@ -315,7 +315,7 @@ test("古い世代と別attemptの結果を反映しない", () => {
       recoveryObligations: [],
       recoveryUnresolved: false,
     }).reason,
-    "orchestrator_task_settlement_mismatch",
+    "coordinator_task_settlement_mismatch",
   );
 });
 
@@ -450,7 +450,7 @@ test("開始前終端は三結果の状態・相関と再送時の全文一致�
     assert.equal(
       prepareTaskPreEffectSettlement(prepared, prepared.generation + 1, input)
         .reason,
-      "orchestrator_pre_effect_settlement_mismatch",
+      "coordinator_pre_effect_settlement_mismatch",
     );
     for (const field of [
       "taskId",
@@ -517,7 +517,7 @@ test("生存する依存Taskを持つ失敗Taskの部分再計画は暗黙に依
     maximumReplans: 1,
   });
   assert.equal(rejected.status, "blocked");
-  assert.equal(rejected.reason, "orchestrator_replan_invalid_or_out_of_scope");
+  assert.equal(rejected.reason, "coordinator_replan_invalid_or_out_of_scope");
   assert.equal(JSON.stringify(rejected.state), before);
   assert.deepEqual(rejected.taskIds, []);
 });
@@ -551,7 +551,7 @@ test("再試行と部分置換は別の上限・Evidence・直後再送を保持
   ] as const)
     assert.equal(
       prepareTaskRetry(failed, generation, "task-a", max, count).reason,
-      "orchestrator_retry_invalid_or_limit_exceeded",
+      "coordinator_retry_invalid_or_limit_exceeded",
     );
   const retry = prepareTaskRetry(failed, 4, "task-a", 3, 2);
   assert.equal(retry.status, "completed");
@@ -660,7 +660,7 @@ test("Taskの引渡しと開始観測は元世代・Attempt・Operation・phase�
         attemptId,
         operationId,
       ).reason,
-      "orchestrator_task_handoff_preparation_mismatch",
+      "coordinator_task_handoff_preparation_mismatch",
     );
   }
   const handed = prepareTaskHandoff(
@@ -691,7 +691,7 @@ test("Taskの引渡しと開始観測は元世代・Attempt・Operation・phase�
         attemptId,
         operationId,
       ).reason,
-      "orchestrator_task_start_observation_mismatch",
+      "coordinator_task_start_observation_mismatch",
     );
   }
   const started = prepareTaskStarted(
@@ -844,7 +844,7 @@ test("開始候補は依存充足・Cleanup不明・回復予約を区別する"
       "attempt",
       "authority",
     ).reason,
-    "orchestrator_generation_or_identity_mismatch",
+    "coordinator_generation_or_identity_mismatch",
   );
   assert.equal(
     prepareTaskStart(
@@ -854,7 +854,7 @@ test("開始候補は依存充足・Cleanup不明・回復予約を区別する"
       "attempt",
       "authority",
     ).reason,
-    "orchestrator_task_not_schedulable",
+    "coordinator_task_not_schedulable",
   );
   const reserved = prepareTaskStart(
     initial,
@@ -965,7 +965,7 @@ test("親Directoryと子Pathを競合として扱う", () => {
 
 /** @trace PRL-UT-006 基準の展開形を保存移行や互換Readerに使わない型Oracleとして保持する。 */
 type ExpectedOverview = Readonly<{
-  schema: "crdd-execution-model/state/v7";
+  schema: "crdd-execution-model/state/v9";
   revision: number;
   previous: Readonly<{ revision: number; payloadSha256: string }> | null;
   repositoryBinding: string;
@@ -1024,7 +1024,7 @@ type ExpectedStoredState = Omit<ExpectedOverview, "schema"> &
     | "projects"
   > &
   Readonly<{
-    schema: "crdd-execution-model/state/v7";
+    schema: "crdd-execution-model/state/v9";
     repositoryBindingId: string | null;
     projects: readonly ProjectDefinition[];
     managedExecutions: readonly ManagedExecution[];
@@ -1168,7 +1168,7 @@ test("Hostが有効なowner generationを供給しない場合は状態を作ら
   });
 
   assert.equal(state.status, "blocked");
-  assert.equal(state.reason, "orchestrator_input_invalid");
+  assert.equal(state.reason, "coordinator_input_invalid");
   assert.equal(state.state, null);
 });
 /**
@@ -1224,7 +1224,7 @@ test("Task定義のRepository外Pathを状態へ取り込まない", () => {
       ownerGeneration: "owner-1",
     });
     assert.equal(state.status, "blocked");
-    assert.equal(state.reason, "orchestrator_task_definition_invalid");
+    assert.equal(state.reason, "coordinator_task_definition_invalid");
     assert.equal(state.state, null);
   }
 });
@@ -1266,7 +1266,7 @@ test("cycleと欠落DependencyをEffect前に拒否する", () => {
       ownerGeneration: "owner-1",
     });
     assert.equal(result.status, "blocked");
-    assert.equal(result.reason, "orchestrator_task_graph_invalid");
+    assert.equal(result.reason, "coordinator_task_graph_invalid");
     assert.equal(result.state, null);
   }
 });
@@ -1484,7 +1484,7 @@ test("Process再起動済みでも外部Effect未解決のTaskをreadyへ戻さ�
     schedulingStateFor([schedulingTask("task-a")]),
     "task-a",
   );
-  const runtimeProcessId = `runtime-process.11111111-1111-4111-8111-111111111111.restart-${"a".repeat(40)}`;
+  const executionProcessId = `execution-process.11111111-1111-4111-8111-111111111111.restart-${"a".repeat(40)}`;
   // 回復規則に対して、既知の終端値を独立した入力として用意する。
   const terminalFixture = {
     taskId: "task-a",
@@ -1495,8 +1495,8 @@ test("Process再起動済みでも外部Effect未解決のTaskをreadyへ戻さ�
     cleanupConfirmed: false,
     recoveryObligations: [
       {
-        kind: "runtime_process",
-        recoveryId: runtimeProcessId,
+        kind: "execution_process",
+        recoveryId: executionProcessId,
         phase: "required",
       },
     ],
@@ -1566,7 +1566,7 @@ test("回復更新はexact義務・直後再送・複数Taskの全件適格を�
       recoveryUnresolved: false,
       recoveryObligations: [
         {
-          kind: "runtime_process",
+          kind: "execution_process",
           recoveryId: `recovery-${item.definition.id}`,
           phase: "required",
         },
@@ -1578,7 +1578,7 @@ test("回復更新はexact義務・直後再送・複数Taskの全件適格を�
     kind: "task_recovery_start" as const,
     projectId: state.projectId,
     taskId: "task-a",
-    recoveryKind: "runtime_process" as const,
+    recoveryKind: "execution_process" as const,
     recoveryId: "recovery-task-a",
   };
   let hooks = 0;

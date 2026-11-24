@@ -1,5 +1,5 @@
 /**
- * Home・RuntimeState・Host世代を既存Owner所在の共通wxへ接続する。
+ * Home・Host世代を既存Owner所在の共通wxへ接続する。
  * @trace ERB-IT-003
  * @level IT
  * @boundary 新品Repository-local領域と実Node子Process。AI・Dockerなし。
@@ -15,7 +15,6 @@ import { fileURLToPath } from "node:url";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { acquireLock } from "../../../lock/src/index.ts";
 import {
-  acquireExecutionStateLock,
   acquireHostOperationLock,
   acquireProviderHomeLock,
 } from "../../src/lifecycle/host.ts";
@@ -69,22 +68,6 @@ test("HomeはRepository横断で同一対象を排他し、Executorと同じRequ
   assert.equal(next.release(), true);
 });
 
-test("共有RuntimeStateはRepository・Homeキーが違っても同じ所在で排他する", (t) => {
-  const directory = fixture(t);
-  const firstAcquisition = acquireExecutionStateLock(directory);
-  assert.ok(firstAcquisition.status === "acquired");
-  const first = firstAcquisition.lock;
-  assert.ok(first);
-  assert.equal(acquireExecutionStateLock(directory).status, "blocked");
-  assert.equal(first.assertLive(), true);
-  assert.equal(first.release(), true);
-  const nextAcquisition = acquireExecutionStateLock(directory);
-  assert.ok(nextAcquisition.status === "acquired");
-  const next = nextAcquisition.lock;
-  assert.ok(next);
-  assert.equal(next.release(), true);
-});
-
 /** 新品Git Rootに、既存LockとHost領域の親だけを用意する。 */
 function hostFixture(t: TestContext) {
   const root = fixture(t);
@@ -96,7 +79,7 @@ function hostFixture(t: TestContext) {
   if (repository.status !== "completed")
     throw Error("fixture_repository_unavailable");
   const lockDirectory = path.join(root, ".crdd", "lock");
-  const hostDirectory = path.join(root, ".crdd", "operations", "OP-000001");
+  const hostDirectory = path.join(root, ".crdd", "coordinator", "OP-000001");
   fs.mkdirSync(lockDirectory, { recursive: true });
   fs.mkdirSync(path.dirname(hostDirectory), { recursive: true });
   return {

@@ -3,19 +3,17 @@
  * @responsibility 固定config File、既存Root・排他、CASと通常の読戻しを接続する。
  * @trace ARCH-000004
  * @boundary 検証済みRepositoryと新形式AI設定。
- * @effect 明示保存だけが既存config領域を確保し、一時File・正本・短期Lockを更新する。
+ * @effect 明示保存だけが準備済みのconfig領域で一時File・正本・短期Lockを更新する。
  * @security 旧Profile・Host設定へfallbackせず、実行Authority・AI・Dockerを開始しない。
  */
 
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
-import type { Repository } from "../../../version-control/src/index.ts";
 import type {
   AiSelectionCatalog,
   AiSelectionReadResult,
   AiSelectionSaveResult,
   AiSelectionTemporaryReference,
-  ConfigAreaFailure,
 } from "./types.ts";
 import {
   validateAiSelectionConfig,
@@ -26,7 +24,6 @@ import { withConfigurationLock } from "../storage/lock.ts";
 import {
   createConfigurationStoreRoot,
   resolveConfigurationFile,
-  ensureConfigurationDirectory,
   observeConfigurationDirectory,
   readStableFileSnapshot,
 } from "../storage/store.ts";
@@ -37,7 +34,7 @@ const CONFIG_FILE = "ai-selection.json";
  * 公開結果に含めないFile bytesとともに固定正本だけを読む。
  * @responsibility config境界・通常File・単一Link・UTF-8と新Schemaを照合する。
  * @trace ARCH-000004
- * @input capability: 発行済みRepository Root。
+ * @input repositoryRoot: 上位で確認したRepository Root。
  * @returns Reader結果と、成功時だけ読取ったbytes。
  * @precondition 作成・初期設定の採用は行わない。
  * @postcondition 親境界とFile実体の前後一致を確認する。
@@ -49,7 +46,7 @@ const CONFIG_FILE = "ai-selection.json";
  * @concurrency Snapshot内で同じbytesと境界を確認する。
  */
 function inspectSelectionFile(
-  capability: Repository,
+  repositoryRoot: string | null,
   catalog: AiSelectionCatalog,
 ): Readonly<{ result: AiSelectionReadResult; bytes: Buffer | null }> {
   const blocked = (
@@ -73,7 +70,7 @@ function inspectSelectionFile(
       bytes: null,
     });
   try {
-    const area = observeConfigurationDirectory(capability);
+    const area = observeConfigurationDirectory(repositoryRoot);
     if (area.status === "not_observed") return missing();
     if (area.status !== "ready")
       return blocked("ai_selection_boundary_unconfirmed");
@@ -85,7 +82,7 @@ function inspectSelectionFile(
       before = fs.lstatSync(file, { bigint: true });
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      const after = observeConfigurationDirectory(capability);
+      const after = observeConfigurationDirectory(repositoryRoot);
       return after.status === "ready" &&
         after.boundaryIdentity === area.boundaryIdentity
         ? missing()
@@ -100,7 +97,7 @@ function inspectSelectionFile(
       return blocked("ai_selection_file_invalid");
     const snapshot = readStableFileSnapshot(file);
     const after = fs.lstatSync(file, { bigint: true });
-    const endArea = observeConfigurationDirectory(capability);
+    const endArea = observeConfigurationDirectory(repositoryRoot);
     if (
       endArea.status !== "ready" ||
       endArea.boundaryIdentity !== area.boundaryIdentity ||
@@ -146,7 +143,7 @@ function inspectSelectionFile(
  * Repository設定を作成せず読取り専用で取得する。
  * @responsibility 正本だけの検証結果を公開する。
  * @trace ARCH-000004
- * @input capability: 発行済みRoot。
+ * @input repositoryRoot: 呼出し側が確認した絶対ディレクトリ。
  * @returns 不変Snapshot、missing又はblocked。
  * @precondition 利用側が必要なRepository読取り認可を行う。
  * @postcondition bytes・内部Path・一時Fileを公開しない。
@@ -154,14 +151,14 @@ function inspectSelectionFile(
  * @failure 観測不能をmissingへ畳まない。
  * @invariant 旧設定やHost設定へのfallbackなし。
  * @boundary Repository設定と利用側。
- * @security Root capabilityを文字列で偽造できない。
+ * @security 呼出し側が対象選定と認可を所有し、ここでは設定ファイルの境界を検査する。
  * @concurrency 安定Snapshotを一回取得する。
  */
 export function readRepositoryAiSelection(
-  capability: Repository,
+  repositoryRoot: string | null,
   catalog: AiSelectionCatalog,
 ): AiSelectionReadResult {
-  return inspectSelectionFile(capability, catalog).result;
+  return inspectSelectionFile(repositoryRoot, catalog).result;
 }
 
 /**
@@ -215,11 +212,11 @@ function authorized(authorize: () => boolean): boolean {
  * 設定を既存排他の中でCAS保存し、通常の読戻しを確認する。
  * @responsibility 作成・公開・読戻し・一時File回収と既存Lock終了を一つの結果へ接続する。
  * @trace ARCH-000004
- * @input capability: Root、candidate: expectedIdentity/config、authorize: 現在管理認可。
+ * @input repositoryRoot: Root、candidate: expectedIdentity/config、authorize: 現在管理認可。
  * @returns saved、conflict、blocked又は公開段階付きunknown。
- * @precondition 操作は同期的で、利用側は失敗を自動再送しない。
+ * @precondition 呼出し側が設定領域を準備済みであり、失敗を自動再送しない。
  * @postcondition 成功は正本・読戻し・cleanupの全確認時だけ。
- * @effect 認可後だけ既存config領域・Lock・一時File・正本を更新する。
+ * @effect 認可後だけ準備済み設定領域の一時File・正本と既存Lockを更新する。
  * @failure 生Errorを公開せず、元の排他回復参照と観測済み一時File Identityを保持する。
  * @invariant 正本を先に削除せず、異なる実体をcleanupしない。
  * @boundary 既存Filesystem排他とRepositoryの設定正本。
@@ -227,7 +224,7 @@ function authorized(authorize: () => boolean): boolean {
  * @concurrency 同じ排他に参加するWriter間だけを直列化し、外部Editorの完全CASは主張しない。
  */
 export function saveRepositoryAiSelection(
-  capability: Repository,
+  repositoryRoot: string | null,
   candidate: unknown,
   authorize: () => boolean,
   catalog: AiSelectionCatalog,
@@ -256,53 +253,21 @@ export function saveRepositoryAiSelection(
     "not_published";
   let lastTemporary: AiSelectionTemporaryReference | null = null;
   try {
-    const area = ensureConfigurationDirectory(capability);
-    if (!area) return blocked("ai_selection_config_area_unconfirmed");
-    if (area.status === "blocked") {
-      const setupFailure: ConfigAreaFailure = Object.freeze({
-        status: area.status,
-        reason: area.reason,
-        effectIssued: area.effectIssued,
-        effectStateUnknown: area.effectStateUnknown,
-        effectConfirmation: area.effectConfirmation,
-        cleanupConfirmed: area.cleanupConfirmed,
-        retryAllowed: area.retryAllowed,
-        recoveryReference: area.recoveryReference,
-        repositoryPathReported: area.repositoryPathReported,
-      });
-      return area.effectStateUnknown || !area.cleanupConfirmed
-        ? Object.freeze({
-            status: "unknown",
-            reason: area.reason,
-            snapshot: null,
-            publication: "not_published",
-            cleanupConfirmed: area.cleanupConfirmed,
-            recoveryId: null,
-            temporary: null,
-            setupFailure,
-          })
-        : Object.freeze({
-            status: "blocked",
-            reason: area.reason,
-            snapshot: null,
-            setupFailure,
-          });
-    }
-    const startArea = observeConfigurationDirectory(capability);
-    if (startArea.status !== "ready" || startArea.directory !== area.directory)
-      return blocked("ai_selection_boundary_unconfirmed");
+    const startArea = observeConfigurationDirectory(repositoryRoot);
+    if (startArea.status !== "ready")
+      return blocked("ai_selection_config_area_unconfirmed");
     const boundaryLive = () => {
-      const current = observeConfigurationDirectory(capability);
+      const current = observeConfigurationDirectory(repositoryRoot);
       return (
         current.status === "ready" &&
         current.boundaryIdentity === startArea.boundaryIdentity &&
         current.directory === startArea.directory
       );
     };
-    const root = createConfigurationStoreRoot(area.directory);
+    const root = createConfigurationStoreRoot(startArea.directory);
     if (!root) return blocked("ai_selection_boundary_unconfirmed");
     const outcome = withConfigurationLock(root, (): AiSelectionSaveResult => {
-      const current = readRepositoryAiSelection(capability, catalog);
+      const current = readRepositoryAiSelection(repositoryRoot, catalog);
       if (current.status === "blocked") return blocked(current.reason);
       if (!matchesExpected(current, request.expectedIdentity))
         return Object.freeze({
@@ -355,7 +320,7 @@ export function saveRepositoryAiSelection(
         )
           throw Error("stage");
         const beforePublication = readRepositoryAiSelection(
-          capability,
+          repositoryRoot,
           catalog,
         );
         if (beforePublication.status === "blocked")
@@ -376,7 +341,7 @@ export function saveRepositoryAiSelection(
             resolveConfigurationFile(root, CONFIG_FILE),
           );
           owned = false;
-          const readback = inspectSelectionFile(capability, catalog);
+          const readback = inspectSelectionFile(repositoryRoot, catalog);
           if (
             readback.result.status !== "available" ||
             readback.result.snapshot.identity !== checked.value.identity ||
@@ -451,7 +416,7 @@ export function saveRepositoryAiSelection(
       if (!cleanupConfirmed || !handleClosed) {
         const temporary = Object.freeze({
           repositoryBinding: createHash("sha256")
-            .update(area.repositoryRoot, "utf8")
+            .update(startArea.repositoryRoot, "utf8")
             .digest("hex"),
           boundaryIdentity: startArea.boundaryIdentity,
           relativePath: `.crdd/config/${name}`,

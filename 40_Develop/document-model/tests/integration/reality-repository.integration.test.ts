@@ -13,8 +13,6 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { getRepository } from "../../../version-control/src/index.ts";
-
 import { createRealitySymbolGraph } from "../../src/reality-traceability/graph.ts";
 import { parseRealitySymbolManifest } from "../../src/reality-traceability/manifest.ts";
 import { createFilesystemRepositoryObservationPort } from "../../src/repository/create-observer.ts";
@@ -36,16 +34,13 @@ test("Repository観測をReality Symbol契約へ渡してGraphを構築する", 
     path.dirname(fileURLToPath(import.meta.url)),
     "../../../..",
   );
-  const verified = getRepository(root);
-  assert.equal(verified.status, "completed");
-  if (verified.status !== "completed") return;
   const observed = createFilesystemRepositoryObservationPort(
-    verified.capability,
+    root,
   ).observeDirectory("40_Develop/document-model");
   assert.equal(observed.status, "resolved");
 
   const observedFile = createFilesystemRepositoryObservationPort(
-    verified.capability,
+    root,
   ).observeFile("40_Develop/document-model/package.json");
   assert.equal(observedFile.status, "resolved");
   if (observedFile.status === "resolved")

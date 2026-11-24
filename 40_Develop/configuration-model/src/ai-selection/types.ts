@@ -6,8 +6,6 @@
  * @boundary 秘密値・実行Authorityを含めない設定データ。
  */
 
-import type { ensureConfigurationDirectory } from "../storage/store.ts";
-
 /**
  * v0.22の固定した五つの作業上の役割。
  * @responsibility アクセス管理のロールとは異なるAIの担当を表す。
@@ -159,7 +157,6 @@ export type AiSelectionSaveResult = Readonly<
       reason: string;
       snapshot: null;
       recoveryId?: string;
-      setupFailure?: ConfigAreaFailure;
     }
   | {
       status: "unknown";
@@ -169,23 +166,7 @@ export type AiSelectionSaveResult = Readonly<
       cleanupConfirmed: boolean;
       recoveryId: string | null;
       temporary: AiSelectionTemporaryReference | null;
-      setupFailure?: ConfigAreaFailure;
     }
->;
-
-/**
- * 既存config領域確保の失敗契約をそのまま保持する。
- * @responsibility Ignoreの未確認Effectと元回復参照を新Storeで失わない。
- * @trace ARCH-000004
- * @shape 既存Domain結果のblocked部分。
- * @invariant 元のreason・cleanup・回復Identityを再生成しない。
- * @boundary Domainの領域確保と設定保存。
- * @security 認可された管理Callerだけへ搬送する内部契約。
- * @compatibility 既存Domain契約を変更しない。
- */
-export type ConfigAreaFailure = Extract<
-  NonNullable<ReturnType<typeof ensureConfigurationDirectory>>,
-  { status: "blocked" }
 >;
 
 /**

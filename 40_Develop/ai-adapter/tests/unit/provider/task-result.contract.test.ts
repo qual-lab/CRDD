@@ -22,6 +22,109 @@ import { inspectTaskResultContent } from "../../../src/provider/task-result.ts";
 import { evaluateProviderTaskScope } from "../../../src/provider/plan.ts";
 
 /**
+ * Reviewerは役割だけで読取り専用のWorkspaceを調べる。
+ * @responsibility Reviewerの読取り権限とExecutorの既存権限を検証する。
+ * @trace ERB-UT-023
+ * @precondition 合成のTask計画入力だけを使用する。
+ * @stimulus ProviderごとにReviewerとExecutorを計画し、旧追加指定を試す。
+ * @observation 生成した引数・構成分類と拒否結果。
+ * @oracle Reviewerは追加指定なしで読取りだけを使い、通信と承認の境界を拡張しない。
+ * @cleanup N/A: 純粋値のみ。
+ * @boundary CLI計画。実Provider・Sandbox実効性は対象外。
+ */
+test("Reviewerは役割だけで読取りWorkspaceを調べるCLI計画を得る", () => {
+  for (const provider of ["codex", "claude"] as const) {
+    const taskInput = {
+      provider,
+      mode: "isolated_task",
+      effort: "low",
+      taskRole: "reviewer",
+      ...(provider === "claude"
+        ? {
+            taskWorkload: {
+              readPathCount: 1,
+              allowedPathCount: 1,
+              acceptanceCriterionCount: 1,
+              remediationFindingCount: 0,
+            },
+          }
+        : {}),
+    };
+    const request = {
+      provider,
+      purpose: "task" as const,
+      modelSelection: {
+        provider,
+        modelIdentifier: provider === "codex" ? "gpt-5.5" : "opus",
+        identifierKind:
+          provider === "codex" ? ("exact" as const) : ("alias" as const),
+        reasoningEffort: "low" as const,
+      },
+    };
+    const review = planExecution({ ...request, input: taskInput });
+    const executor = planExecution({
+      ...request,
+      input: { ...taskInput, taskRole: "executor" },
+    });
+    assert.equal(review.status, "ready");
+    assert.equal(executor.status, "ready");
+    assert.equal(executor.plan.reviewerFilesystemOrShellToolAllowed, false);
+    assert.equal(review.plan.reviewerFilesystemOrShellToolAllowed, true);
+    assert.equal(review.plan.reviewerInput, "read_only_workspace");
+    assert.equal(review.plan.commandNetworkAccessAllowed, false);
+    assert.equal(review.plan.mcpAllowed, false);
+    const argv = review.plan.argv;
+    if (review.plan.provider === "codex") {
+      assert.equal(argv.includes("--sandbox"), false);
+      assert.equal(argv.includes("--approve-for-me"), false);
+      assert.equal(argv.includes("features.shell_tool=true"), true);
+      assert.equal(argv.includes("features.unified_exec=false"), true);
+      assert.equal(argv.includes('approval_policy="never"'), true);
+      assert.equal(
+        argv.includes('default_permissions="crdd-workspace-reviewer"'),
+        true,
+      );
+      const filesystem = argv.find((value) =>
+        value.startsWith("permissions.crdd-workspace-reviewer.filesystem="),
+      );
+      assert.ok(filesystem);
+      assert.match(filesystem, /":root"="deny"/u);
+      assert.match(filesystem, /":workspace_roots"=\{"\."="read"\}/u);
+      assert.match(filesystem, /"\/provider-home"="deny"/u);
+      assert.equal(
+        argv.includes(
+          "permissions.crdd-workspace-reviewer.network.enabled=false",
+        ),
+        true,
+      );
+      assert.equal(review.plan.boundary.sandboxModeConfigured, "read_only");
+      assert.equal(executor.plan.argv.includes("--approve-for-me"), true);
+      assert.equal(
+        executor.plan.argv.includes("features.unified_exec=true"),
+        true,
+      );
+    } else {
+      assert.equal(argv[argv.indexOf("--tools") + 1], "Read,Glob,Grep");
+      assert.equal(argv[argv.indexOf("--permission-mode") + 1], "dontAsk");
+      assert.match(
+        argv[argv.indexOf("--disallowedTools") + 1] ?? "",
+        /\bBash\b/u,
+      );
+      assert.equal(review.plan.shellAllowed, false);
+      assert.equal(
+        executor.plan.argv.includes("Read,Glob,Grep,Edit,Write"),
+        true,
+      );
+    }
+    for (const input of [
+      { ...taskInput, taskRole: "executor", workspaceReview: true },
+      { ...taskInput, workspaceReview: true },
+    ])
+      assert.equal(planExecution({ ...request, input }).status, "blocked");
+  }
+});
+
+/**
  * Claudeの入力件数と実行Turn予算を分離する。
  * @responsibility 旧件数だけの拒否を撤去し、硬いTurn上限と入力文法を維持する。
  * @trace ERB-UT-023

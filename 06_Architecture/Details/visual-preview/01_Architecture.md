@@ -12,6 +12,8 @@
 
 CLIは`bin/visual-preview.ts`から自Packageの`src/cli/command.ts`だけへ接続する。受付は引数解析・用途選択・serve時のsignal収束を実装し、単なる転送ではない。Programmatic ConsumerがないためRoot公開へ追加せず、bin限定の内部接続として検証する。通常の公開五操作はRootからのみ利用する。
 
+配信先とブラウザー検証用の一時領域は呼出し側が用意する。Visual PreviewはGit管理情報を探索せず、除外設定や作業親Directoryを作成しない。配信は指定Directory内の読取りに、検証時の書込みは指定一時領域に作成した専用の子Directoryに限定する。一時領域の親は検証中に第三者が置換しない管理下のDirectoryとする。観測できた実体差は回収成功にせず、別のDirectoryを削除しない。
+
 ## 基本設計との関係
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
@@ -106,12 +108,12 @@ template/tools/
 
 | Interface | Input | Output | 所有しないもの |
 |---|---|---|---|
-| Library | 作業Directory、Repository相対Root、任意Port | localhost URL、Health URL、close | Visual評価、Evidence、外部公開 |
-| CLI | `--root`、`--port` | ready／closed／blockedのJSON | Absolute Path表示、Browser起動 |
+| Library | 配信先の絶対Directory `rootDirectory`、任意Port | localhost URL、Health URL、close | 配信対象の選定、Evidence、外部公開 |
+| CLI | 起動Directory相対の `--root`、`--port`。Zoom時は `--temporary-directory`（省略時は既存の `.crdd/tmp`） | ready／closed／blockedのJSON、Zoom結果 | Git Root探索、作業親Directoryの準備、Absolute Path表示 |
 | HTTP | GET／HEADとRoot内File Path | Fileまたは固定拒否結果 | POST、一覧、CORS、Credential |
 | Health | 固定Path | Contract、ready、host、read-only | Root Path、Repository Identity |
-| Zoom検証 | Root、HTML一覧、倍率一覧、Window寸法、任意Chrome Path | 実倍率、実効Viewport、画像、文字・操作対象・Overflow・Focus、終了経路、限定Fallback、終了所要時間および資源別cleanupの構造化結果 | Human Direction、通常Browser Profile、Browser拡張、外部Network |
-| 起動済みlocalhost Application検証 | loopback HTTPのBase URL、画面Target、表示Profile、倍率、任意Chrome Path | Target別の実倍率、実効Viewport、画像、文字・操作対象・Overflow・Focus、終了経路、限定Fallback、終了所要時間およびBrowser資源cleanupの構造化結果 | Application Serverの起動・停止、外部URL、通常Browser Profile、外部Network |
+| Zoom検証 | 配信先、既存一時領域 `temporaryDirectory`、HTML一覧、倍率一覧、Window寸法、任意Chrome Path | 実倍率、実効Viewport、画像、文字・操作対象・Overflow・Focus、終了経路、限定Fallback、終了所要時間および資源別cleanupの構造化結果 | Human Direction、通常Browser Profile、Browser拡張、外部Network |
+| 起動済みlocalhost Application検証 | 既存一時領域 `temporaryDirectory`、loopback HTTPのBase URL、画面Target、表示Profile、倍率、任意Chrome Path | Target別の実倍率、実効Viewport、画像、文字・操作対象・Overflow・Focus、終了経路、限定Fallback、終了所要時間およびBrowser資源cleanupの構造化結果 | Application Serverの起動・停止、外部URL、通常Browser Profile、外部Network |
 
 ### 公開Export Allowlist
 
@@ -128,11 +130,7 @@ template/tools/
 ## 4. Flow
 
 ```text
-[Repository Rootを検証]
-          │
-          ├ 失敗 ─────────────→ [Effect 0／blocked]
-          ▼
-[相対Preview Rootを検証]
+[呼出し側が指定した配信Directoryを検証]
           │
           ├ 越境・Link・非Directory ─→ [Effect 0／blocked]
           ▼
@@ -185,7 +183,7 @@ CLIはSIGINT／SIGTERMの競合を一回のcloseへ畳む。Library Handleのclo
 ## 6. Security Boundary
 
 - Hostは`127.0.0.1`固定とし、設定で外部Addressへ変更できない。
-- Preview Rootは検証済みRepository Root内の相対Directoryに限定する。
+- Preview Rootは呼出し側が指定した既存の絶対Directoryに限定し、Link経由の配信を拒否する。
 - Rootおよび要求Path内のSymbolic Link／Junctionを追跡しない。
 - 通常Fileだけを返し、Directory一覧や暗黙のIndex解決を行わない。
 - GET／HEAD以外を拒否し、Filesystemへ書き込まない。
@@ -198,7 +196,7 @@ CLIはSIGINT／SIGTERMの競合を一回のcloseへ畳む。Library Handleのclo
 
 | 失敗 | 処置 | 終了後条件 |
 |---|---|---|
-| Repository／Root不正 | Listener開始前にblocked | Network Effect 0 |
+| 配信Directory不正 | Listener開始前にblocked | Network Effect 0 |
 | Bind失敗 | Errorを返す | 未所有Listener 0 |
 | Path越境／Link／Directory | 固定404 | Root外読取り0、内部Path非開示 |
 | 不許可Method | 固定405とAllow Header | Filesystem Effect 0 |

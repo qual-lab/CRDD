@@ -1580,7 +1580,7 @@ test("認証create親は終端・packet・現在保存の不一致を拒否す�
                 ...(field === "submission"
                   ? { submission: "none" as const }
                   : field === "receipt"
-                    ? { receiptSource: "runtime_reconciliation" as const }
+                    ? { receiptSource: "docker_observation" as const }
                     : field === "observation"
                       ? { observation: "present" as const }
                       : {}),

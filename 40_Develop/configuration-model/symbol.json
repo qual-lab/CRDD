@@ -170,7 +170,7 @@
     {
       "symbolId": "domain-model.test.integration.tool-runtime-config",
       "kind": "test-suite",
-      "path": "tests/integration/tool-runtime-config.contract.test.ts",
+      "path": "tests/integration/history-retention-config.contract.test.ts",
       "qaIds": [
         "QA-000008"
       ],

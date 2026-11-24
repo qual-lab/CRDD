@@ -27,7 +27,7 @@ import type { ChangesResult } from "../../../version-control/src/index.ts";
 import type { AiSelectionView } from "../service/configuration.ts";
 import type {
   AiRequestSnapshot,
-  WorkbenchRuntimeActivityObservation,
+  WorkbenchExecutionActivityObservation,
 } from "../service/execution.ts";
 import type { ProjectViewData } from "../service/project-context.ts";
 import type { TopicMeetingActionResult } from "../service/topic.ts";
@@ -106,7 +106,9 @@ export type WorkbenchConnectionState = "repository" | "cros_available";
  * @compatibility 既存のメモリ内変数だけをまとめ、通信・永続Schemaを変更しない。
  */
 export type WorkbenchPresentationState = {
-  runtimeActivityObservation: WorkbenchRuntimeActivityObservation | undefined;
+  executionActivityObservation:
+    | WorkbenchExecutionActivityObservation
+    | undefined;
   projectSurface: ProjectViewData | undefined;
   aiSelection: AiSelectionView;
   lastActionResult: ChangesResult | null;
@@ -187,7 +189,7 @@ export type MainViewResponse = Readonly<{
     snapshot: AiRequestSnapshot | null;
     notice: string | null;
   }>;
-  executionActivity: WorkbenchRuntimeActivityObservation | null;
+  executionActivity: WorkbenchExecutionActivityObservation | null;
 }>;
 
 /**

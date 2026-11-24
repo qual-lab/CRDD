@@ -12,10 +12,6 @@ import {
   parseRepositoryProjectContextMarkdown,
 } from "../../../document-model/src/index.ts";
 import {
-  getRepository,
-  resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
-import {
   evaluateManagementPermission,
   projectManagementOperationResult,
 } from "../authorization/management.ts";
@@ -41,6 +37,21 @@ import type { RepositoryExposureManagementResult } from "./types.ts";
 const ROOT_CODE_UNIT_LIMIT = 32_768;
 
 /**
+ * 呼出し側が今回の登録に対して提供するディレクトリ観測。
+ * @responsibility 観測済みの絶対パスと、同じ対象を再確認する処理だけを受け取る。
+ * @trace ARCH-000013
+ * @shape 絶対Pathの同期観測。観測不能時はnull。
+ * @invariant 登録状態・権限・Git識別値を渡さない。
+ * @boundary 信頼した同Processの呼出し側から登録処理への一要求限定接続。
+ * @security 通信入力からコールバックを選ばない。
+ * @compatibility 保存形式と公開通信契約には含めない。
+ */
+type ObserveRegistrationDirectory = (directory: string) => Readonly<{
+  directory: string;
+  isCurrent: () => boolean;
+}> | null;
+
+/**
  * 登録と公開範囲の三操作入力。
  * @responsibility 操作別に必要な未知値を区別する。
  * @trace ARCH-000013
@@ -55,6 +66,7 @@ export type RepositoryExposureChange =
       operation: "registerRepository";
       repositoryId: unknown;
       repositoryRoot: unknown;
+      observeDirectory: ObserveRegistrationDirectory;
     }
   | { operation: "unregisterRepository"; repositoryId: unknown }
   | {
@@ -94,6 +106,7 @@ export function acceptsRepositoryExposureChange(
   if (change.operation === "registerRepository")
     return (
       !existing &&
+      typeof change.observeDirectory === "function" &&
       typeof change.repositoryRoot === "string" &&
       change.repositoryRoot.length <= ROOT_CODE_UNIT_LIMIT &&
       isAbsolute(change.repositoryRoot) &&
@@ -108,13 +121,13 @@ export function acceptsRepositoryExposureChange(
 
 /**
  * 登録RootのCanonical Identityと表示投影を照合する。
- * @responsibility 既存VC／Domain公開APIから検証済み登録tupleだけを得る。
+ * @responsibility 呼出し側が確認した絶対ディレクトリと固定文書を登録に対応付ける。
  * @trace ARCH-000013
  * @input 検査済み登録IDと絶対Root。固定manifestとPROJECT_CONTEXTを通常Fileとして観測する。
  * @returns 登録tupleまたはnull。
  * @precondition 保存Ownerが同じ現在改訂を使い、外部観測前に認可する。
  * @postcondition 入力状態と対象Repository本文を変更しない。
- * @effect Git Rootと固定manifest／PROJECT_CONTEXTの読取りだけ。
+ * @effect 呼出し側のディレクトリ観測と固定manifest／PROJECT_CONTEXTの読取りだけ。
  * @failure 不正・欠測・観測不能は拒否し、例外を成功へ変えない。
  * @invariant 登録、公開設定、内容認可、実アクセスを同一視しない。
  * @boundary 認可済み登録要求とRepository観測。
@@ -124,15 +137,13 @@ export function acceptsRepositoryExposureChange(
 function observeRegistration(
   repositoryId: string,
   repositoryRoot: string,
+  observeDirectory: ObserveRegistrationDirectory,
 ): AccessManagementState["registeredRepositories"][number] | null {
-  const verified = getRepository(repositoryRoot);
-  if (verified.status !== "completed") return null;
-  const root = resolveVerifiedRepositoryRoot(verified.capability);
-  if (root === null) return null;
-  const observer = createFilesystemRepositoryObservationPort(
-    verified.capability,
-  );
-  const manifestRead = readRepositoryManifest(verified.capability);
+  const location = observeDirectory(repositoryRoot);
+  if (!location) return null;
+  const root = location.directory;
+  const observer = createFilesystemRepositoryObservationPort(root);
+  const manifestRead = readRepositoryManifest(root);
   const contextFile = observer.observeFile("PROJECT_CONTEXT.md");
   if (manifestRead.status !== "ready" || contextFile.status !== "resolved")
     return null;
@@ -153,7 +164,7 @@ function observeRegistration(
     context.projectId !== manifest.projectId ||
     context.repositoryId !== manifest.repositoryId ||
     context.repositoryRole !== manifest.repositoryRole ||
-    resolveVerifiedRepositoryRoot(verified.capability) !== root
+    !location.isCurrent()
   )
     return null;
   return {
@@ -192,6 +203,7 @@ export function prepareRepositoryExposureChange(
     const registration = observeRegistration(
       id,
       change.repositoryRoot as string,
+      change.observeDirectory,
     );
     if (!registration) return null;
     if (
@@ -343,7 +355,7 @@ export function executeRepositoryExposureMutation(
  * 現在manager／administratorがRepositoryを登録する。
  * @responsibility Canonical Identityと検証Rootを登録するが公開しない。
  * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、Repository ID、絶対Root。
+ * @input Root、鍵、期待改訂、受付UUID、Repository ID、絶対パス、呼出し側のディレクトリ観測。
  * @returns 非秘密の対象・改訂・出版／清掃結果、または非開示拒否。
  * @precondition 完了初期化の用途限定Rootを使う内部Consumer。
  * @postcondition 対象登録／Exposure以外とRepository本体を保持する。
@@ -361,13 +373,19 @@ export function saveRepositoryRegistration(
   operationId: string,
   repositoryId: unknown,
   repositoryRoot: unknown,
+  observeDirectory: ObserveRegistrationDirectory,
 ): RepositoryExposureManagementResult {
   return executeRepositoryExposureMutation(
     root,
     token,
     expectedRevision,
     operationId,
-    { operation: "registerRepository", repositoryId, repositoryRoot },
+    {
+      operation: "registerRepository",
+      repositoryId,
+      repositoryRoot,
+      observeDirectory,
+    },
   );
 }
 
@@ -406,7 +424,7 @@ export function saveRepositoryRemoval(
  * 現在manager／administratorがRepositoryを登録する。
  * @responsibility Canonical Identityと検証Rootを登録するが公開しない。
  * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、Repository ID、絶対Root。
+ * @input Root、鍵、期待改訂、受付UUID、Repository ID、絶対パス、呼出し側のディレクトリ観測。
  * @returns 非秘密の対象・改訂・出版／清掃結果、または非開示拒否。
  * @precondition 完了初期化の用途限定Rootを使う内部Consumer。
  * @postcondition 対象登録／Exposure以外とRepository本体を保持する。
@@ -424,6 +442,7 @@ export function registerRepository(
   operationId: string,
   repositoryId: unknown,
   repositoryRoot: unknown,
+  observeDirectory: ObserveRegistrationDirectory,
 ): ManagementOperationOutcome {
   return projectManagementOperationResult(
     saveRepositoryRegistration(
@@ -433,6 +452,7 @@ export function registerRepository(
       operationId,
       repositoryId,
       repositoryRoot,
+      observeDirectory,
     ),
   );
 }

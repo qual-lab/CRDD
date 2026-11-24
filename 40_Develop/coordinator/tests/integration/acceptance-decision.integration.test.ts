@@ -75,7 +75,7 @@ test("公開受入の不正要求はRootの取得前に入力拒否する", (t) 
     assert.equal(result.status, "blocked");
     assert.equal(
       result.reason,
-      "orchestrator_acceptance_decision_request_invalid",
+      "coordinator_acceptance_decision_request_invalid",
     );
     assert.ok("recordId" in result);
     assert.equal(result.recordId, null);

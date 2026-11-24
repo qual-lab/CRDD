@@ -8,7 +8,6 @@ import path from "node:path";
 import { authenticationUnknownAbsenceChanged } from "../attempt/operations.ts";
 import { createHash } from "node:crypto";
 import { types } from "node:util";
-import { getRepository } from "../../../version-control/src/index.ts";
 import type {
   ExecutionOperationRecord,
   RepairWritePurpose,
@@ -53,6 +52,7 @@ import {
   isLiveStorageOwner,
   observeExecutionRecoveryRepository,
   observeOperationRepository,
+  readExecutionStorageBinding,
   readHistoryRetentionDays,
   readStorageOwnerBinding,
   storageLockFailure,
@@ -64,7 +64,7 @@ import {
   createExecutionDataArea,
   createExecutionStatePendingFile,
   flushExecutionStateFile,
-  observeRepositoryExecutionDataArea,
+  observePhysicalExecutionDataArea,
   readExecutionStateFile,
   readStableFileSnapshot,
   readStateSnapshot,
@@ -85,13 +85,14 @@ const settlements = new WeakMap<
       used: boolean;
     }
   | {
-      kind: "runtime_repair";
+      kind: "docker_repair";
       purpose: RepairWritePurpose;
       repository: StorageRepository & { operationId: string };
       recoveryId: string;
       before: Buffer | null;
       candidate: Buffer;
       assertOwner: () => boolean;
+      assertFileOwner?: () => boolean;
       used: boolean;
       publication?: Readonly<{
         boundaryIdentity: string;
@@ -103,7 +104,7 @@ const settlements = new WeakMap<
     }
   | {
       kind: "current_completion";
-      operationKind: "docker_task" | "runtime_repair";
+      operationKind: "docker_task" | "docker_repair";
       repository: StorageRepository & { operationId: string };
       recoveryId: string;
       before: Buffer;
@@ -117,7 +118,7 @@ const settlements = new WeakMap<
     }
   | {
       kind: "current_history";
-      operationKind: "docker_task" | "runtime_repair";
+      operationKind: "docker_task" | "docker_repair";
       repository: StorageRepository & { operationId: string };
       recoveryId: string;
       before: Buffer;
@@ -199,7 +200,7 @@ function prepareStateInitialization(
   const initializationOwner =
     managementCapability &&
     typeof managementCapability === "object" &&
-    settlements.get(managementCapability)?.kind === "runtime_repair"
+    settlements.get(managementCapability)?.kind === "docker_repair"
       ? managementCapability
       : executionStorageOperationIdentity(managementCapability);
   const candidate = repository
@@ -256,14 +257,9 @@ function prepareStateInitialization(
   let effectIssued = false;
   let isPrepared = false;
   try {
-    const verified = getRepository(repository.repositoryRoot);
-    if (
-      verified.status !== "completed" ||
-      !repository.revalidate() ||
-      !lock.assertLive()
-    )
+    if (!repository.revalidate() || !lock.assertLive())
       throw new Error("owner");
-    const created = createExecutionDataArea(verified.capability);
+    const created = createExecutionDataArea(repository.repositoryRoot);
     effectIssued = created.effectIssued;
     if (
       created.status !== "created" ||
@@ -399,11 +395,9 @@ export function resumeRepairRecordSave(
   let noPending = false;
   let lockReleased = false;
   try {
-    const verified = getRepository(repository.repositoryRoot);
-    if (verified.status !== "completed" || !assertOwner() || !lock.assertLive())
-      throw new Error("owner");
-    const area = observeRepositoryExecutionDataArea(
-      verified.capability,
+    if (!assertOwner() || !lock.assertLive()) throw new Error("owner");
+    const area = observePhysicalExecutionDataArea(
+      repository.repositoryRoot,
       "execution-model",
     );
     if (
@@ -465,8 +459,8 @@ export function resumeRepairRecordSave(
       )
         throw new Error("changed");
     }
-    const final = observeRepositoryExecutionDataArea(
-      verified.capability,
+    const final = observePhysicalExecutionDataArea(
+      repository.repositoryRoot,
       "execution-model",
     );
     if (
@@ -503,14 +497,14 @@ export function resumeRepairRecordSave(
     publication.candidate,
     repository.repositoryBinding,
   )?.snapshot.operations.find((item) => item.recoveryId === recoveryId);
-  if (target?.kind !== "runtime_repair") return refused();
+  if (target?.kind !== "docker_repair") return refused();
   const bound = Object.freeze({
     ...repository,
     operationId: JSON.parse(target.identityJson).operationId as string,
     revalidate: assertOwner,
   });
   return publishRecoveryState({
-    kind: "runtime_repair",
+    kind: "docker_repair",
     purpose:
       publication.mode === "initial_publication" ||
       publication.mode === "identity" ||
@@ -570,7 +564,7 @@ function prepareStateWrite(
 ) {
   const repairBinding = repairContext ? settlements.get(repairContext) : null;
   const currentRepair =
-    repairBinding?.kind === "runtime_repair" ? repairBinding : null;
+    repairBinding?.kind === "docker_repair" ? repairBinding : null;
   const currentAuthenticationClosure =
     repairBinding?.kind === "authentication_unknown_closure"
       ? repairBinding
@@ -735,7 +729,7 @@ function commitStateSnapshotOwned(
       before: Buffer;
       kind: Parameters<typeof prepareExecutionDefinitionChange>[1];
       request: unknown;
-      revision: string;
+      initialSourceRevision: string | null;
     }>;
     taskPublication?: Readonly<{
       before: Buffer | null;
@@ -772,12 +766,26 @@ function commitStateSnapshotOwned(
   let initialHistoryLine: string | null = null;
   let historyAlreadyConfirmed = false;
   try {
-    const verified = getRepository(repository.repositoryRoot);
-    if (verified.status !== "completed") throw new Error("root");
-    const initial = observeRepositoryExecutionDataArea(
-      verified.capability,
-      "execution-model",
-    );
+    const boundOwner =
+      initializationOwner && typeof initializationOwner === "object"
+        ? readStorageOwnerBinding(initializationOwner)
+        : null;
+    const metadataOnly =
+      boundOwner?.repository === repository &&
+      boundOwner?.metadataOnly === true;
+    const observeStorage = (initializing = false) => {
+      if (initializing) {
+        if (metadataOnly) throw new Error("metadata_initialization");
+        assertExecutionStateInitializationBoundary(repository.repositoryRoot);
+      }
+      return observePhysicalExecutionDataArea(
+        repository.repositoryRoot,
+        "execution-model",
+      );
+    };
+    if (!repository.revalidate() || !lock.assertLive())
+      throw new Error("owner");
+    const initial = observeStorage();
     if (
       initial.status !== "ready" ||
       initial.repositoryRoot !== repository.repositoryRoot
@@ -786,6 +794,9 @@ function commitStateSnapshotOwned(
     const directory = initial.directory;
     const fileIdentities = new Map<string, StableFileIdentity>();
     let initializationBoundaryRequired = false;
+    const repairOwnsRevalidation =
+      currentRepair?.assertOwner === repository.revalidate;
+    const assertFileOwner = currentRepair?.assertFileOwner;
     /**
      * 保存I/Oの前後で同じ操作Ownerと領域を再確認する。
      * @responsibility Rootと.crddとcoordinator領域の置換を拒否する。
@@ -801,10 +812,20 @@ function commitStateSnapshotOwned(
      * @security 任意Pathや過去JSONから保存先を選択しない。
      * @concurrency 同じRepositoryの短期排他下で処置する。
      */
-    const assertBoundary = () => {
-      if (!repository.revalidate() || !lock.assertLive())
+    const assertBoundary = (readOnly = false) => {
+      const fileRead = readOnly && assertFileOwner !== undefined;
+      if (
+        (fileRead
+          ? readExecutionStorageBinding(repository.repositoryRoot) !==
+            repository.repositoryBinding
+          : !repairOwnsRevalidation && !repository.revalidate()) ||
+        !lock.assertLive()
+      )
         throw new Error("owner");
-      if (currentRepair && currentRepair.assertOwner() !== true)
+      if (
+        currentRepair &&
+        (fileRead ? assertFileOwner() : currentRepair.assertOwner()) !== true
+      )
         throw new Error("repair_owner");
       if (currentCompletion && currentCompletion.assertOwner() !== true)
         throw new Error("current_completion_owner");
@@ -816,14 +837,7 @@ function commitStateSnapshotOwned(
         )
           throw new Error("current_history_config_changed");
       }
-      const fresh = getRepository(repository.repositoryRoot);
-      if (fresh.status !== "completed") throw new Error("root");
-      if (initializationBoundaryRequired)
-        assertExecutionStateInitializationBoundary(fresh.capability);
-      const observed = observeRepositoryExecutionDataArea(
-        fresh.capability,
-        "execution-model",
-      );
+      const observed = observeStorage(initializationBoundaryRequired);
       if (
         observed.status !== "ready" ||
         observed.directory !== directory ||
@@ -831,6 +845,7 @@ function commitStateSnapshotOwned(
       )
         throw new Error("boundary");
     };
+    const assertReadBoundary = () => assertBoundary(true);
     /**
      * 固定Fileの明示不存在と安定本文を区別する。
      * @responsibility 通常File・nlink1・bounded本文と前後境界を照合する。
@@ -857,7 +872,7 @@ function commitStateSnapshotOwned(
         directory,
         name,
         fileIdentities,
-        assertBoundary,
+        assertReadBoundary,
       );
     };
     /**
@@ -888,9 +903,10 @@ function commitStateSnapshotOwned(
         () => {
           filesystemEffectIssued = true;
         },
+        assertReadBoundary,
       );
     };
-    assertBoundary();
+    assertReadBoundary();
     const names = fs.readdirSync(directory);
     if (
       names.some(
@@ -1009,8 +1025,8 @@ function commitStateSnapshotOwned(
         (currentRepair.before === null
           ? currentBytes !== null
           : !currentBytes?.equals(currentRepair.before)) ||
-        target?.kind !== "runtime_repair" ||
-        (beforeTarget && beforeTarget.kind !== "runtime_repair") ||
+        target?.kind !== "docker_repair" ||
+        (beforeTarget && beforeTarget.kind !== "docker_repair") ||
         target.summarySha256 !== (beforeTarget?.summarySha256 ?? null) ||
         encodeStateValue(target.history) !==
           encodeStateValue(beforeTarget?.history ?? null) ||
@@ -1029,9 +1045,10 @@ function commitStateSnapshotOwned(
           ) ||
         encodeStateValue(current?.snapshot.unresolvedRecoveries ?? []) !==
           encodeStateValue(candidate.snapshot.unresolvedRecoveries) ||
-        currentRepair.assertOwner() !== true
+        (!currentRepair.assertFileOwner && currentRepair.assertOwner() !== true)
       )
         throw new Error("repair_writer_scope_invalid");
+      if (currentRepair.assertFileOwner) assertReadBoundary();
     }
     if (corePublication) {
       const expected = prepareExecutionDefinitionChange(
@@ -1039,7 +1056,7 @@ function commitStateSnapshotOwned(
         corePublication.kind,
         corePublication.request,
         repository.repositoryBinding,
-        corePublication.revision,
+        corePublication.initialSourceRevision,
       );
       if (
         taskPublication ||
@@ -1217,12 +1234,12 @@ function commitStateSnapshotOwned(
           ? JSON.parse(operation.identityJson)
           : null;
       const expected = (
-        currentCompletion.operationKind === "runtime_repair"
+        currentCompletion.operationKind === "docker_repair"
           ? prepareStateRepairCompletionSnapshot
           : prepareStateCompletionSnapshot
       )(currentBytes, settlement.recoveryId, repository.repositoryBinding);
       const line = (
-        currentCompletion.operationKind === "runtime_repair"
+        currentCompletion.operationKind === "docker_repair"
           ? prepareRepairHistoryLine
           : prepareStateHistoryLine
       )(currentBytes, settlement.recoveryId, repository.repositoryBinding);
@@ -1237,7 +1254,7 @@ function commitStateSnapshotOwned(
         !expected?.equals(bytes) ||
         !line ||
         !rows ||
-        (currentCompletion.operationKind === "runtime_repair" && !row) ||
+        (currentCompletion.operationKind === "docker_repair" && !row) ||
         createHash("sha256").update(line).digest("hex") !==
           operation.history.lineSha256 ||
         (row && !Buffer.from(row.line).equals(line)) ||
@@ -1312,7 +1329,7 @@ function commitStateSnapshotOwned(
         )
           throw new Error("current_history_checkpoint_invalid");
         expected = (
-          currentHistory.operationKind === "runtime_repair"
+          currentHistory.operationKind === "docker_repair"
             ? prepareRepairHistorySnapshot
             : prepareStateHistorySnapshot
         )(
@@ -1328,7 +1345,7 @@ function commitStateSnapshotOwned(
         const config = readHistoryRetentionDays(repository);
         if (config === null) throw new Error("current_history_config_invalid");
         const publication = (
-          currentHistory.operationKind === "runtime_repair"
+          currentHistory.operationKind === "docker_repair"
             ? prepareRepairHistoryPublication
             : prepareRecoveredHistoryPublication
         )(
@@ -1353,7 +1370,7 @@ function commitStateSnapshotOwned(
         )
           throw new Error("current_history_confirmed_invalid");
         const line = (
-          currentHistory.operationKind === "runtime_repair"
+          currentHistory.operationKind === "docker_repair"
             ? prepareRepairHistoryLine
             : prepareStateHistoryLine
         )(currentBytes, settlement.recoveryId, repository.repositoryBinding);
@@ -1370,7 +1387,7 @@ function commitStateSnapshotOwned(
       if (!expected?.equals(bytes) || currentHistory.assertOwner() !== true)
         throw new Error("current_history_candidate_invalid");
       repairHistoryScopeConfirmed =
-        currentHistory.operationKind === "runtime_repair";
+        currentHistory.operationKind === "docker_repair";
       savedTerminalConfirmed = true;
     } else if (settlement?.completion) {
       const before = decodeStateSnapshot(
@@ -1795,7 +1812,7 @@ function commitStateSnapshotOwned(
     ) {
       if (!currentBytes || !current) throw new Error("history_current_missing");
       const line = (
-        currentHistory?.operationKind === "runtime_repair"
+        currentHistory?.operationKind === "docker_repair"
           ? prepareRepairHistoryLine
           : prepareStateHistoryLine
       )(currentBytes, settlement.recoveryId, repository.repositoryBinding);
@@ -1838,7 +1855,7 @@ function commitStateSnapshotOwned(
       let after: Buffer;
       if (currentHistory) {
         const publication = (
-          currentHistory.operationKind === "runtime_repair"
+          currentHistory.operationKind === "docker_repair"
             ? prepareRepairHistoryPublication
             : prepareRecoveredHistoryPublication
         )(
@@ -1996,6 +2013,7 @@ function commitStateSnapshotOwned(
         currentBytes === null ? target !== null : !target?.equals(currentBytes)
       )
         throw new Error("target_changed");
+      if (assertFileOwner) assertBoundary();
       filesystemEffectIssued = true;
       const publishedIdentity = fileIdentities.get("state.pending.json");
       if (
@@ -2047,7 +2065,7 @@ function commitStateSnapshotOwned(
         currentHistory?.stage === "publish")
     ) {
       const finalLine = (
-        currentHistory?.operationKind === "runtime_repair"
+        currentHistory?.operationKind === "docker_repair"
           ? prepareRepairHistoryLine
           : prepareStateHistoryLine
       )(bytes, settlement.recoveryId, repository.repositoryBinding);
@@ -2072,8 +2090,9 @@ function commitStateSnapshotOwned(
       )
         throw new Error("current_completion_history_changed");
     }
-    assertBoundary();
+    if (!assertFileOwner) assertBoundary();
     if (!read("state.json")?.equals(bytes)) throw new Error("final");
+    if (assertFileOwner) assertBoundary();
     snapshotConfirmed = true;
     if (initializationOwner !== null && typeof initializationOwner === "object")
       initializations.delete(initializationOwner);
@@ -2215,12 +2234,12 @@ export function publishRecoveryState(request: RecoveryPublication) {
   if (
     !request ||
     ![
-      "runtime_repair",
+      "docker_repair",
       "current_completion",
       "current_history",
       "authentication_unknown_closure",
     ].includes(request.kind) ||
-    (request.kind === "runtime_repair" &&
+    (request.kind === "docker_repair" &&
       ![
         "checkpoint",
         "session_begin",
@@ -2233,11 +2252,20 @@ export function publishRecoveryState(request: RecoveryPublication) {
     ((request.kind === "current_completion" ||
       request.kind === "current_history") &&
       request.operationKind !== "docker_task" &&
-      request.operationKind !== "runtime_repair") ||
+      request.operationKind !== "docker_repair") ||
     (request.kind === "current_history" &&
       !["checkpoint", "publish", "confirmed"].includes(request.stage)) ||
-    (request.kind !== "runtime_repair" &&
-      ("purpose" in request || "publication" in request)) ||
+    (request.kind !== "docker_repair" &&
+      ("purpose" in request ||
+        "publication" in request ||
+        "assertFileOwner" in request)) ||
+    (request.kind === "docker_repair" &&
+      request.assertFileOwner !== undefined &&
+      (typeof request.assertFileOwner !== "function" ||
+        request.purpose !== "checkpoint" ||
+        request.before === null ||
+        request.publication !== undefined ||
+        request.repository.revalidate !== request.assertOwner)) ||
     (request.kind !== "current_history" &&
       ("stage" in request || "pendingHistoryFile" in request))
   )
@@ -2261,7 +2289,7 @@ export function publishRecoveryState(request: RecoveryPublication) {
   settlements.set(context, binding);
   try {
     if (
-      binding.kind === "runtime_repair" &&
+      binding.kind === "docker_repair" &&
       binding.before === null &&
       !binding.publication
     ) {
@@ -2309,7 +2337,7 @@ export function publishRecoveryState(request: RecoveryPublication) {
           }
         : null,
       undefined,
-      binding.kind === "runtime_repair" ||
+      binding.kind === "docker_repair" ||
         binding.kind === "authentication_unknown_closure"
         ? context
         : undefined,
@@ -2348,7 +2376,7 @@ type OwnedPublication =
       operation: Parameters<typeof prepareExecutionDefinitionChange>[1];
       before: Buffer;
       request: unknown;
-      revision: string;
+      initialSourceRevision: string | null;
     }>;
 
 /**
@@ -2433,7 +2461,7 @@ export function publishStateOwned(
               before: publication.before,
               kind: publication.operation,
               request: publication.request,
-              revision: publication.revision,
+              initialSourceRevision: publication.initialSourceRevision,
             },
           }),
   });

@@ -683,25 +683,32 @@ test("Provider Result拒否はrawを出さず固定理由で意味分類する",
 });
 
 /**
- * Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで拒否するを検証する。
+ * Codexの重複Pathを拒否し、正当な結果を旧容量・件数上限だけで拒否しない。
  *
- * @responsibility Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで拒否するの合否判定を所有する。
+ * @responsibility 結果の内容検証と、撤去済みの容量・件数制約を区別する。
  * @trace RCM-UT-016
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで拒否するの対象操作を実行する。
+ * @stimulus 大小文字だけ異なる重複Path、旧上限を超える要約と行・Path・指摘一覧を渡す。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
-test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで拒否する", () => {
-  const executorCases = [
-    {
+test("Codexは重複Pathを拒否し旧容量・件数上限を超える妥当な結果を受け付ける", () => {
+  const duplicate = normalizeFixtureTaskResult(
+    "codex",
+    "executor",
+    "low",
+    JSON.stringify({
       status: "completed",
       summary: "ok",
       changedPaths: ["fixture.txt", "FIXTURE.TXT"],
       verification: [],
-    },
+    }),
+  );
+  assert.equal(duplicate.status, "blocked");
+  assert.equal(duplicate.reason, "provider_task_executor_shape_invalid");
+  const executorCases = [
     {
       status: "completed",
       summary: "x".repeat(8_193),
@@ -731,8 +738,12 @@ test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで�
       "low",
       JSON.stringify(value),
     );
-    assert.equal(result.status, "blocked");
-    assert.equal(result.reason, "provider_task_executor_shape_invalid");
+    assert.equal(result.status, "confirmed");
+    assert.deepEqual(result.normalizedResult, {
+      status: value.status,
+      changedPaths: value.changedPaths,
+      verificationCount: value.verification.length,
+    });
   }
 
   const reviewer = {
@@ -752,8 +763,12 @@ test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで�
     "medium",
     JSON.stringify(reviewer),
   );
-  assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "provider_task_reviewer_findings_invalid");
+  assert.equal(result.status, "confirmed");
+  const normalized = result.normalizedResult;
+  assert.ok(normalized && "findingCount" in normalized);
+  assert.equal(normalized.decision, reviewer.decision);
+  assert.equal(normalized.findingCount, reviewer.findings.length);
+  assert.equal(normalized.findingDiagnostics.length, reviewer.findings.length);
 });
 
 /**
@@ -991,13 +1006,12 @@ test("不明または予算超過の作業量を旧固定値へfallbackしない
     null,
     {},
     { ...TASK_WORKLOAD, extra: 1 },
-    ...[-1, 0, 1.5, NaN, Infinity, 65].map((readPathCount) => ({
+    ...[-1, 0, 1.5, NaN, Infinity].map((readPathCount) => ({
       ...TASK_WORKLOAD,
       readPathCount,
     })),
-    { ...TASK_WORKLOAD, acceptanceCriterionCount: 17 },
     { ...TASK_WORKLOAD, remediationFindingCount: -1 },
-    { ...TASK_WORKLOAD, readPathCount: 13 },
+    { ...TASK_WORKLOAD, readPathCount: 65 },
   ]) {
     assert.equal(
       evaluateProviderTaskScope("claude", "reviewer", workload).status,
@@ -1036,6 +1050,25 @@ test("不明または予算超過の作業量を旧固定値へfallbackしない
     );
   }
   assert.equal(trapCount, 0);
+  for (const workload of [
+    { ...TASK_WORKLOAD, acceptanceCriterionCount: 17 },
+    { ...TASK_WORKLOAD, readPathCount: 12 },
+  ]) {
+    assert.equal(
+      evaluateProviderTaskScope("claude", "reviewer", workload).status,
+      "candidate",
+    );
+    assert.equal(
+      parseTaskContent(
+        "claude",
+        "reviewer",
+        "medium",
+        claudeReviewer(JSON.parse(REVIEWER)),
+        workload,
+      ).status,
+      "confirmed",
+    );
+  }
   const split = evaluateProviderTaskScope("claude", "reviewer", {
     ...TASK_WORKLOAD,
     readPathCount: 13,

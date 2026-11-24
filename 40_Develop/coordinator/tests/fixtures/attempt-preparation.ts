@@ -40,8 +40,8 @@ export type AttemptPreparation<P extends Provider = Provider> = Readonly<{
   prepare: (input: PreparationInput) => PreparationResult<P>;
 }>;
 
-export const reviewerCommitId = "c".repeat(40);
-export const reviewerCopy = "C:\\crdd\\operation\\reviewer-copy";
+export const reviewerSnapshotId = "c".repeat(64);
+export const reviewerWorkspaceRoot = "C:\\crdd\\operation\\execution-workspace";
 
 type PreparationFixture<P extends Provider> = {
   verifyOperationMount: (management: unknown, mount: unknown) => AttemptBinding;
@@ -59,7 +59,7 @@ const compilePreparation = compileFunction(
   [
     "createPreparationFailure",
     "verifyProviderOperationMount",
-    "consumeRuntimeOwnedProviderTaskPacket",
+    "consumeProviderTaskPacket",
     "consumeAttemptAdvicePacket",
     "planExecution",
     "isDeepStrictEqual",
@@ -71,12 +71,22 @@ const compilePreparation = compileFunction(
   ],
 );
 
-/** 所有コピーの観測だけを差し替え、準備本体は実装を使う。 @trace PRL-UT-014 */
+/** Reviewer作業領域の観測だけを差し替え、準備本体は実装を使う。 @trace PRL-UT-014 */
 export function createReviewerWorkspaceReader(getManagement: () => object) {
-  return (management: unknown, commitId: unknown) => {
+  return (management: unknown, snapshotId: unknown) => {
     assert.strictEqual(management, getManagement());
-    assert.equal(commitId, reviewerCommitId);
-    return reviewerCopy;
+    assert.equal(snapshotId, reviewerSnapshotId);
+    return Object.freeze({
+      directory: reviewerWorkspaceRoot,
+      masks: Object.freeze([
+        Object.freeze({ relativePath: ".env", kind: "file" as const }),
+        Object.freeze({ relativePath: "private", kind: "directory" as const }),
+      ]),
+      protection: Object.freeze({
+        gitSourcePath: "C:\\crdd\\operation\\mask-git",
+        internalSourcePath: "C:\\crdd\\operation\\mask-crdd",
+      }),
+    });
   };
 }
 

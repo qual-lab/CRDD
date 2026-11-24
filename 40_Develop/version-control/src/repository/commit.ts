@@ -398,7 +398,7 @@ function verifyCommitSelection(
  * @failure 非0、重複又は要求外の応答は拒否する。
  * @boundary GitのNUL区切り出力と内部のexact照合。
  */
-function readSelectedTreeEntries(
+export function readSelectedTreeEntries(
   ctx: WorktreeGitContext,
   commit: string,
   paths: readonly string[],

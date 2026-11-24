@@ -98,6 +98,7 @@ test("公開操作は拒否を直接返しRootを観測・変更しない", () =
       operation,
       "repo",
       "untrusted",
+      () => assert.fail("unauthorized_directory_observation"),
     ),
     denied,
   );

@@ -297,30 +297,28 @@ test("MCP application publishes runtime and context tools without conflating the
 });
 
 /**
- * 廃止した依存名を、値の読取りやOwner呼出し前に拒否する。
- * @responsibility 旧名の黙示的な無視とgetterの実行を防ぐ。
+ * 未使用の起動設定を読まないことを確認する。
+ * @responsibility 宣言した接続以外の値を読まない。
  * @trace PPR-UT-006
- * @precondition 旧構成名をown propertyとして与える。
- * @stimulus 未定義値とgetterを持つ依存でFactoryを作成する。
- * @observation 例外理由とgetter呼出し数を取得する。
- * @oracle 両方を同じ理由で拒否し、getterは呼ばない。
+ * @precondition 宣言していない付加Keyをown propertyとして与える。
+ * @stimulus getterを持つ未使用設定でFactoryを作成する。
+ * @observation Factory成立とgetter呼出し数を取得する。
+ * @oracle 未使用の設定を接続せず、getterも読まない。
  * @cleanup N/A: 外部資源を作成しない。
  * @boundary PPR-UT-006=Direct Boundary: 起動構成→SDK Factory。
  */
-test("MCP rejects the retired dependency key without reading it", () => {
+test("MCPのFactoryは未使用の起動設定を読まない", () => {
   let reads = 0;
-  const retired = Object.defineProperty({}, "orchestrator", {
+  const extra = Object.defineProperty({}, "unusedDependency", {
     get() {
       reads += 1;
       return undefined;
     },
   });
-  for (const dependencies of [{ orchestrator: undefined }, retired]) {
-    assert.throws(
-      () => createMcpServerFactory(dependencies as McpServerDependencies),
-      { message: "mcp_retired_dependency_key" },
-    );
-  }
+  assert.equal(
+    typeof createMcpServerFactory(extra as McpServerDependencies).createServer,
+    "function",
+  );
   assert.equal(reads, 0);
 });
 

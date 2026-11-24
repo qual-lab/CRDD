@@ -14,7 +14,7 @@ Executorが構築する固定入力を旧九argvへ写像する有限Oracleは�
 
 有限Sessionの通知・結果・回収五型はDIの試験実装`tests/support/session.ts`が所有する。Executorの`executor-test.ts`と型を明示参照する試験は宣言元を直接利用し、旧scriptから再exportしない。製品Executorの型・公開IFや実行手順を変更する処置ではない。
 
-`tests/support/runtime-data.ts`はVCの技術結果だけで新品試験領域を準備し、EMの保存例外を読まない。準備失敗は標準Errorのcauseに元のblocked観測を同参照で保持する。記録を行う実試験CLIは、自身が直前に取得したblocked結果だけを既存のEM例外へ渡し、従来のCLI失敗fieldを維持する。任意のcauseから保存結果を復元・信頼する処理は追加しない。この補助の独立化と記録接続のOwner移管は別に検証する。記録Host・実試験CLIはCoordinatorへ移管し、製品Executorの実行・Home排他は従来のOwnerへ残す。
+Executor単独検証は、`tests/support/repository-test-directory.ts`で自己生成する試験領域だけを使用し、VCやGit除外登録に依存しない。Git除外を登録するアプリケーション側の実試験準備はCoordinatorの`tests/support/verification-area.ts`が所有する。準備失敗は標準Errorのcauseに元のblocked観測を同参照で保持し、先に取得した回復参照と失敗情報を変更しない。製品Executorの実行・Home排他は変更しない。
 
 Source宣言抽出と新品Repository-local試験Root管理は、Executorの`tests/support`が所有する。EMの試験補助をimportせず、構文検査・exact宣言選択・欠測／重複拒否・Snapshot解放、Root／Link／実体確認と同じ新品Rootだけの清掃を維持する。補助の本文を反証する試験も同じ局所Sourceを読む。製品API・新しい共通Package・モデル検査のコピーは追加しない。
 
@@ -156,7 +156,7 @@ DIの認証isActiveは同じ実行の明示取消Signalだけを確認する。D
 | `restartDockerEnvironment({mode: "restart", input: request}, settings): Promise<DockerEnvironmentResult<"restart">>` | 入力object・Signal・現在境界確認・同期通知と元Promiseを既存DIへ無変換で委譲する。DI正本の入力・結果・通知型を再利用し、deliveryを落とさない |
 | `restartDockerEnvironment({mode: "repair", input: request}, settings): Promise<DockerEnvironmentResult<"repair">>` | 既存の固定修復Sessionへ無変換で委譲する。判断・保存・保持期限は上位へ残す |
 
-診断結果はatomicなSnapshotでも再起動許可でも全資源停止の証明でもない。診断の先行実行を再起動の条件にせず、既存DIの各Effect直前確認と通知待ちを維持する。Coordinatorの再起動本番接続はこの窓口を使用する。既存doctorの合成Container Probeは別Capabilityであり、環境読取りをdoctorへ自動追加しない。認証は上記の認証窓口へ接続済みである。合成隔離Probeの通常経路は上記の既存Executor入口へ接続する。実Docker境界の成立は今回の非AI検証から推測しない。修復・固定Directoryの観測／処置は以下の共通入口へ接続する。既存Runtime State LockはRepository単位であり、Host全体・別Repositoryの排他保証をこの移管で新設又は証明したとは扱わない。
+診断結果はatomicなSnapshotでも再起動許可でも全資源停止の証明でもない。診断の先行実行を再起動の条件にせず、既存DIの各Effect直前確認と通知待ちを維持する。Coordinatorの再起動本番接続はこの窓口を使用する。既存doctorの合成Container Probeは別Capabilityであり、環境読取りをdoctorへ自動追加しない。認証は上記の認証窓口へ接続済みである。合成隔離Probeの通常経路は上記の既存Executor入口へ接続する。実Docker境界の成立は今回の非AI検証から推測しない。修復・固定Directoryの観測／処置は以下の共通入口へ接続する。実行モデルの保存排他はリポジトリ単位である。DIのDesktopロックはDesktop操作同士を排他し、別リポジトリのタスク・回復は運用で止める。
 
 ## 単一Containerの既存資源API接続（2026-11-01）
 

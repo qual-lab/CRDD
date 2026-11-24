@@ -1,10 +1,10 @@
 /**
- * 設定の固定配置・実体・Ignore・Reader境界を検証する。
+ * 設定の固定配置・実体・Reader境界を検証する。
  * @packageDocumentation
  * @responsibility 汎用Runtime領域を再公開せずconfig固有の保証を保持する。
  * @trace RDL-IT-001
  * @level IT
- * @scope Configuration保存、VC Root、Filesystem。
+ * @scope 設定領域とFilesystem。
  * @boundary 自己生成Repository-local Fixtureのみ。
  */
 import assert from "node:assert/strict";
@@ -13,12 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import {
-  getRepository,
-  getRepositoryFromWorkingDirectory,
-} from "../../../version-control/src/index.ts";
-import {
   configurationPaths,
-  ensureConfigurationDirectory,
   observeConfigurationDirectory,
 } from "../../src/storage/store.ts";
 import {
@@ -26,7 +21,11 @@ import {
   sameStableFileIdentity,
 } from "../../src/storage/store.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
-import { readRepositoryManifest } from "../../src/index.ts";
+import {
+  readCoordinatorConfig,
+  readNetworkPolicy,
+  readRepositoryManifest,
+} from "../../src/index.ts";
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 /**
  * WindowsのFile ID表現を上限付き保存Readerへ接続する。
@@ -114,46 +113,33 @@ test("Windowsの上位bit付きFile IDで保存Readerの同一性確認を維持
 });
 
 /** 設定だけの自己生成Rootを作り、mock復元後に同じ実体を回収する。 @trace RDL-IT-001 */
-function fixture(t: TestContext, git = true) {
+function fixture(t: TestContext) {
   const directory = createRepositoryTestDirectory("configuration-boundary-");
   const root = directory.path;
   t.after(() => {
     t.mock.restoreAll();
     directory.cleanup();
   });
-  if (git) {
-    fs.mkdirSync(path.join(root, ".git", "info"), { recursive: true });
-    fs.writeFileSync(path.join(root, ".git", "HEAD"), "ref: refs/heads/main\n");
-    fs.writeFileSync(
-      path.join(root, ".git", "config"),
-      "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
-    );
-  }
   return root;
 }
 
 /** configの観測は作成と分離し、不明・置換・Linkを保持する。 @trace RDL-IT-001 */
 test("設定Ownerの観測は不存在・境界置換・観測不能をEffect0で区別する", (t) => {
   const root = fixture(t);
-  const verified = getRepository(root);
-  if (verified.status !== "completed") assert.fail("fixture_invalid");
+  const missingRoot = path.join(root, "unavailable-root");
+  assert.equal(observeConfigurationDirectory(missingRoot).status, "blocked");
+  assert.equal(readRepositoryManifest(missingRoot).status, "blocked");
+  assert.equal(readNetworkPolicy(missingRoot).status, "blocked");
+  assert.equal(readCoordinatorConfig(missingRoot).status, "blocked");
+  assert.equal(fs.existsSync(missingRoot), false);
   const initial = fs.readdirSync(root);
-  assert.equal(
-    observeConfigurationDirectory(verified.capability).status,
-    "not_observed",
-  );
+  assert.equal(observeConfigurationDirectory(root).status, "not_observed");
   assert.deepEqual(fs.readdirSync(root), initial);
-  assert.equal(
-    observeConfigurationDirectory({ ...verified.capability }).status,
-    "blocked",
-  );
+  assert.equal(observeConfigurationDirectory(".").status, "blocked");
   const runtime = path.join(root, ".crdd"),
     config = path.join(runtime, "config");
   fs.writeFileSync(runtime, "not-directory");
-  assert.equal(
-    observeConfigurationDirectory(verified.capability).status,
-    "blocked",
-  );
+  assert.equal(observeConfigurationDirectory(root).status, "blocked");
   assert.equal(fs.readFileSync(runtime, "utf8"), "not-directory");
   fs.unlinkSync(runtime);
   const linkTarget = path.join(root, "link-target");
@@ -163,20 +149,14 @@ test("設定Ownerの観測は不存在・境界置換・観測不能をEffect0�
     runtime,
     process.platform === "win32" ? "junction" : "dir",
   );
-  assert.equal(
-    observeConfigurationDirectory(verified.capability).status,
-    "blocked",
-  );
+  assert.equal(observeConfigurationDirectory(root).status, "blocked");
   assert.deepEqual(fs.readdirSync(linkTarget), []);
   fs.unlinkSync(runtime);
   fs.rmdirSync(linkTarget);
   fs.mkdirSync(runtime);
-  assert.equal(
-    observeConfigurationDirectory(verified.capability).status,
-    "not_observed",
-  );
+  assert.equal(observeConfigurationDirectory(root).status, "not_observed");
   fs.mkdirSync(config);
-  const first = observeConfigurationDirectory(verified.capability);
+  const first = observeConfigurationDirectory(root);
   if (first.status !== "ready") assert.fail("first_invalid");
   assert.equal(first.effectIssued, false);
   assert.equal(first.directory, config);
@@ -185,7 +165,7 @@ test("設定Ownerの観測は不存在・境界置換・観測不能をEffect0�
   const old = path.join(root, "prior-config");
   fs.renameSync(config, old);
   fs.mkdirSync(config);
-  const replaced = observeConfigurationDirectory(verified.capability);
+  const replaced = observeConfigurationDirectory(root);
   assert.equal(replaced.status, "ready");
   if (replaced.status === "ready")
     assert.notEqual(replaced.boundaryIdentity, first.boundaryIdentity);
@@ -201,7 +181,7 @@ test("設定Ownerの観測は不存在・境界置換・観測不能をEffect0�
       throw Object.assign(new Error("unobservable"), { code: "EACCES" });
     return Reflect.apply(stat, fs, [target, ...args]);
   });
-  const unknown = observeConfigurationDirectory(verified.capability);
+  const unknown = observeConfigurationDirectory(root);
   assert.equal(unknown.status, "blocked");
   if (unknown.status === "blocked")
     assert.equal(
@@ -213,9 +193,7 @@ test("設定Ownerの観測は不存在・境界置換・観測不能をEffect0�
 
 /** 私有配置は設定だけを返し、他OwnerのPath集合を含めない。 @trace RDL-IT-001 */
 test("検証済みRepository Rootだけから設定の固定配置を解決する", () => {
-  const verified = getRepository(repositoryRoot);
-  if (verified.status !== "completed") assert.fail("fixture_invalid");
-  assert.deepEqual(configurationPaths(verified.capability), {
+  assert.deepEqual(configurationPaths(repositoryRoot), {
     repositoryRoot,
     root: path.join(repositoryRoot, ".crdd"),
     config: path.join(repositoryRoot, ".crdd", "config"),
@@ -223,77 +201,8 @@ test("検証済みRepository Rootだけから設定の固定配置を解決す�
   assert.equal(configurationPaths({} as never), null);
 });
 
-/** 既存Ignoreを確定してからconfigだけを準備する。 @trace RDL-IT-001 */
-test("設定保存は固定configだけを作成し既存内容を保持する", (t) => {
-  const root = fixture(t),
-    verified = getRepository(root);
-  if (verified.status !== "completed") assert.fail("fixture_invalid");
-  assert.deepEqual(ensureConfigurationDirectory(verified.capability), {
-    status: "ready",
-    repositoryRoot: root,
-    directory: path.join(root, ".crdd", "config"),
-  });
-  assert.equal(
-    fs.readFileSync(path.join(root, ".git", "info", "exclude"), "utf8"),
-    ".crdd/\n",
-  );
-  const sentinel = path.join(root, ".crdd", "config", "existing.json");
-  fs.writeFileSync(sentinel, "preserved");
-  assert.equal(
-    ensureConfigurationDirectory(verified.capability)?.status,
-    "ready",
-  );
-  assert.equal(fs.readFileSync(sentinel, "utf8"), "preserved");
-  assert.deepEqual(fs.readdirSync(path.join(root, ".crdd")), ["config"]);
-});
-
-/** Ignore出版の不明を未実施へ戻さず設定作成0で返す。 @trace RDL-IT-001 */
-test("IgnoreのEffect不明をnullへ畳まず設定Directoryを作らない", (t) => {
-  const root = fixture(t),
-    verified = getRepository(root);
-  if (verified.status !== "completed") assert.fail("fixture_invalid");
-  const rename = fs.renameSync,
-    open = fs.openSync;
-  const exclude = path.join(root, ".git", "info", "exclude");
-  let replaced = false;
-  t.mock.method(
-    fs,
-    "renameSync",
-    (...args: Parameters<typeof fs.renameSync>) => {
-      const result = rename(...args);
-      if (args[1] === exclude) replaced = true;
-      return result;
-    },
-  );
-  t.mock.method(fs, "openSync", (...args: Parameters<typeof fs.openSync>) => {
-    if (replaced && args[0] === exclude)
-      throw Object.assign(new Error("synthetic_readback_unavailable"), {
-        code: "EIO",
-      });
-    return open(...args);
-  });
-  const result = ensureConfigurationDirectory(verified.capability);
-  assert.equal(result?.status, "blocked");
-  if (result?.status !== "blocked") assert.fail("blocked_required");
-  assert.equal(result.effectStateUnknown, true);
-  assert.equal(result.retryAllowed, false);
-  assert.equal(result.cleanupConfirmed, true);
-  assert.match(result.recoveryReference ?? "", /^repository-local-ignore\./u);
-  assert.equal(fs.existsSync(path.join(root, ".crdd")), false);
-});
-
-/** Repositoryの子DirectoryをRoot能力に昇格しない。 @trace RDL-IT-001 */
-test("Repositoryの子DirectoryはRoot Capabilityとして拒否する", () => {
-  assert.deepEqual(getRepository(import.meta.dirname), {
-    status: "blocked",
-    reason: "repository_root_invalid",
-    capability: null,
-  });
-});
-
-/** 任意Rootと汎用領域APIを公開しない。 @trace RDL-IT-001 */
-test("任意Directoryと旧汎用Root入口からPath能力を取得できない", async (t) => {
-  assert.equal(getRepository(fixture(t, false)).status, "blocked");
+/** 旧汎用領域APIを公開しない。 @trace RDL-IT-001 */
+test("旧汎用Root入口を公開しない", async () => {
   const api = await import("../../src/index.ts");
   for (const name of [
     "resolveRepositoryRuntimeDataPathsFromValidatedRoot",
@@ -302,27 +211,6 @@ test("任意Directoryと旧汎用Root入口からPath能力を取得できない
     "resolveRepositoryRuntimeDataPaths",
   ])
     assert.equal(Object.hasOwn(api, name), false, name);
-});
-
-/** Linkを通った起動Directoryから別Rootへ正規化しない。 @trace RDL-IT-001 */
-test("junction経由のWorking DirectoryはRepository Rootへ正規化せず拒否する", (t) => {
-  const root = fixture(t, false),
-    alias = path.join(root, "repository-alias");
-  try {
-    fs.symlinkSync(repositoryRoot, alias, "junction");
-    assert.deepEqual(
-      getRepositoryFromWorkingDirectory(
-        path.join(alias, "40_Develop", "configuration-model"),
-      ),
-      {
-        status: "blocked",
-        reason: "repository_root_invalid",
-        capability: null,
-      },
-    );
-  } finally {
-    if (fs.existsSync(alias)) fs.unlinkSync(alias);
-  }
 });
 
 /** 廃止領域の受付自体を公開せずEffect入口を残さない。 @trace RDL-IT-001 */
@@ -339,11 +227,8 @@ test("廃止verification Areaに新規Effectや互換aliasを発行しない", a
 /** 固定Manifestの読取りは既存UTF-8復号本文のIdentityとSchemaを結合する。 @trace RDL-IT-001 */
 test("Manifest読取りは正常Hash・真正不存在・不正SchemaをEffect0で区別する", (t) => {
   const root = fixture(t);
-  const repository = getRepository(root);
-  assert.equal(repository.status, "completed");
-  if (repository.status !== "completed") assert.fail("fixture_invalid");
   const entries = fs.readdirSync(root);
-  assert.deepEqual(readRepositoryManifest(repository.capability), {
+  assert.deepEqual(readRepositoryManifest(root), {
     status: "missing",
     reason: "repository_manifest_missing",
   });
@@ -363,7 +248,7 @@ test("Manifest読取りは正常Hash・真正不存在・不正SchemaをEffect0�
   };
   const bytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`);
   fs.writeFileSync(file, bytes);
-  const observed = readRepositoryManifest(repository.capability);
+  const observed = readRepositoryManifest(root);
   assert.equal(observed.status, "ready");
   if (observed.status !== "ready") assert.fail("manifest_not_ready");
   assert.deepEqual(observed.manifest, manifest);
@@ -380,7 +265,7 @@ test("Manifest読取りは正常Hash・真正不存在・不正SchemaをEffect0�
     ),
   );
   fs.writeFileSync(file, duplicate);
-  const parsedDuplicate = readRepositoryManifest(repository.capability);
+  const parsedDuplicate = readRepositoryManifest(root);
   assert.equal(parsedDuplicate.status, "ready");
   if (parsedDuplicate.status !== "ready")
     assert.fail("duplicate_manifest_not_ready");
@@ -391,7 +276,7 @@ test("Manifest読取りは正常Hash・真正不存在・不正SchemaをEffect0�
   );
   const linked = path.join(directory, "manifest-alias.json");
   fs.linkSync(file, linked);
-  assert.equal(readRepositoryManifest(repository.capability).status, "ready");
+  assert.equal(readRepositoryManifest(root).status, "ready");
   fs.unlinkSync(linked);
 
   const template = JSON.stringify({
@@ -410,7 +295,7 @@ test("Manifest読取りは正常Hash・真正不存在・不正SchemaをEffect0�
   const identities: string[] = [];
   for (const body of invalidBytes) {
     fs.writeFileSync(file, body);
-    const replaced = readRepositoryManifest(repository.capability);
+    const replaced = readRepositoryManifest(root);
     assert.equal(replaced.status, "ready");
     if (replaced.status !== "ready")
       assert.fail("legacy_utf8_replacement_rejected");
@@ -430,7 +315,7 @@ test("Manifest読取りは正常Hash・真正不存在・不正SchemaをEffect0�
     JSON.stringify({ ...manifest, displayName: "日本語🙂" }),
   );
   fs.writeFileSync(file, multibyte);
-  const unicode = readRepositoryManifest(repository.capability);
+  const unicode = readRepositoryManifest(root);
   assert.equal(unicode.status, "ready");
   if (unicode.status !== "ready") assert.fail("unicode_manifest_rejected");
   assert.equal(unicode.manifest.displayName, "日本語🙂");
@@ -441,7 +326,7 @@ test("Manifest読取りは正常Hash・真正不存在・不正SchemaをEffect0�
   assert.notEqual(unicode.identity, observed.identity);
   const bom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), bytes]);
   fs.writeFileSync(file, bom);
-  assert.deepEqual(readRepositoryManifest(repository.capability), {
+  assert.deepEqual(readRepositoryManifest(root), {
     status: "blocked",
     reason: "repository_manifest_invalid",
   });
@@ -451,7 +336,7 @@ test("Manifest読取りは正常Hash・真正不存在・不正SchemaをEffect0�
     JSON.stringify({ ...manifest, authority: true }),
   ]) {
     fs.writeFileSync(file, invalid);
-    assert.deepEqual(readRepositoryManifest(repository.capability), {
+    assert.deepEqual(readRepositoryManifest(root), {
       status: "blocked",
       reason: "repository_manifest_invalid",
     });
@@ -462,15 +347,13 @@ test("Manifest読取りは正常Hash・真正不存在・不正SchemaをEffect0�
 /** Linkと読取り中の別実体を不存在へ変換しない。 @trace RDL-IT-001 */
 test("Manifest読取りはLink・中途差替えを拒否し読取りdescriptorを閉じる", (t) => {
   const root = fixture(t);
-  const repository = getRepository(root);
-  if (repository.status !== "completed") assert.fail("fixture_invalid");
   const directory = path.join(root, ".crdd", "config");
   fs.mkdirSync(directory, { recursive: true });
   const file = path.join(directory, "repository-manifest.json");
   const target = path.join(directory, "original.json");
   fs.writeFileSync(target, "{}");
   fs.symlinkSync(target, file, "file");
-  assert.deepEqual(readRepositoryManifest(repository.capability), {
+  assert.deepEqual(readRepositoryManifest(root), {
     status: "blocked",
     reason: "repository_manifest_unavailable",
   });
@@ -513,7 +396,7 @@ test("Manifest読取りはLink・中途差替えを拒否し読取りdescriptor�
     }
     originalClose(descriptor);
   });
-  const replacedResult = readRepositoryManifest(repository.capability);
+  const replacedResult = readRepositoryManifest(root);
   assert.equal(replaced, true);
   assert.equal(closes, 1);
   assert.deepEqual(replacedResult, {
@@ -525,8 +408,6 @@ test("Manifest読取りはLink・中途差替えを拒否し読取りdescriptor�
 /** close失敗を正常な設定Snapshotへ変換しない。 @trace RDL-IT-001 */
 test("Manifest読取りはclose失敗をunavailableとして返す", (t) => {
   const root = fixture(t);
-  const repository = getRepository(root);
-  if (repository.status !== "completed") assert.fail("fixture_invalid");
   const directory = path.join(root, ".crdd", "config");
   fs.mkdirSync(directory, { recursive: true });
   const file = path.join(directory, "repository-manifest.json");
@@ -558,7 +439,7 @@ test("Manifest読取りはclose失敗をunavailableとして返す", (t) => {
       throw new Error("fixture_manifest_close_failed");
     }
   });
-  assert.deepEqual(readRepositoryManifest(repository.capability), {
+  assert.deepEqual(readRepositoryManifest(root), {
     status: "blocked",
     reason: "repository_manifest_unavailable",
   });

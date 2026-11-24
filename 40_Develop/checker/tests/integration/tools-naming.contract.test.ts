@@ -20,7 +20,7 @@ import {
   parseRealitySymbolManifest,
   type RealitySymbolManifest,
 } from "../../../document-model/src/index.ts";
-import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
+import { createRepositoryTestDirectory } from "../../../document-model/tests/support/repository-test-directory.ts";
 
 import {
   assertExactCheckerTestPopulation,
@@ -230,10 +230,10 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     exportedModules: [
       "./api.ts",
       "./lifecycle/decision.ts",
+      "./lifecycle/host.ts",
       "./lifecycle/validation.ts",
       "./lifecycle/types.ts",
       "./lifecycle/query.ts",
-      "./lifecycle/workspace.ts",
     ],
   },
   {
@@ -319,6 +319,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./state/lease.ts",
       "./state/operations.ts",
       "./state/types.ts",
+      "./storage/lock.ts",
       "./storage/publication.ts",
       "./storage/store.ts",
       "./task/crud.ts",

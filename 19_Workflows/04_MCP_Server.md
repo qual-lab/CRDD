@@ -28,7 +28,7 @@ MCPとWorkbenchは独立した公開契約であり、一つの待受でも資�
 
 共有時は公開Originの両設定を同じ値にするか、両方とも省略する。違う値や一方だけの指定では起動しない。`--shared` は `--docs`・`--mcp-stdio`・固定Bearerと併用できない。どのモードもLANやインターネットに直接公開しない。
 
-公開HTTPS Originは起動Repositoryの`.crdd/config/mcp-server.json`に置き、portはCLI引数で指定する。[MCP設定例](../template/.crdd/config/mcp-server.example.json)と[Workbench設定例](../template/.crdd/config/workbench-server.example.json)は非秘密の可視配布例で、実設定として自動採用しない。User・Credential・Binding・Exposureは既存Host管理状態が正本であり、手編集する`cros.json`や管理状態の設定例を別に作らない。保存境界と移行は[Access Management設計](../06_Architecture/Details/access-management/02_Management_State_and_API.md)を参照する。
+公開HTTPS Originを指定する場合は、同じ値を起動リポジトリの`.crdd/config/mcp-server.json`と`.crdd/config/workbench-server.json`の両方へ設定する。ポートはCLI引数で指定する。[MCP設定例](../template/.crdd/config/mcp-server.example.json)と[Workbench設定例](../template/.crdd/config/workbench-server.example.json)は同じ例示用Originを使用し、実設定として自動採用しない。User・Credential・Binding・Exposureは既存Host管理状態が正本であり、手編集する`cros.json`や管理状態の設定例を別に作らない。保存境界と移行は[Access Management設計](../06_Architecture/Details/access-management/02_Management_State_and_API.md)を参照する。
 
 外部TLS終端はClient由来のForwarded Headerを除去し、`x-forwarded-proto=https`と期待する`x-forwarded-host`を上書きし、公開Hostを保持する。内部Listenerへの直接到達を運用側で禁止する。MCPのProtocol公開Pathは`/mcp`だけで、旧REST同一Origin・Gateway health・HTTP入口のstdin EOF終了を維持しない。BearerやTLS秘密鍵をRepository設定・argv・logへ保存しない。旧設定の移行・清掃はフロントAIがOwner停止・明示対応・読戻しを確認して実施し、Runtimeに旧形式fallbackを追加しない。
 

@@ -12,14 +12,13 @@ import {
   resolveConnectionAuthentication,
   resolveRepositoryAccessCollection,
   sameAccessCollection,
-  resolveRuntimeContentAccess,
   type FilesystemStoreRoot,
   type InitialConnectionBinding,
   authenticateNormalConnection,
   readCurrentAccess,
   readManagementState,
 } from "../../../access-management/src/index.ts";
-import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import { resolveSharedDefinitionAccess } from "../service/execution.ts";
 import { resolveSharedDevelopmentAccess } from "../service/access.ts";
 import { executeMeetingAction } from "../service/meeting.ts";
 import {
@@ -29,7 +28,7 @@ import {
 import {
   resolveTopicMeetingAccess,
   readAuthorizedPortfolio,
-  readAuthorizedRuntimeActivity,
+  readAuthorizedExecutionActivity,
   executeCoordinatorOperation,
   prepareWorkspaceOperation,
   type CoordinatorExecutionConfiguration,
@@ -58,8 +57,8 @@ import type {
   McpServerFactory,
   McpAuthenticatedRequestHandlerResolver,
 } from "./mcp-types.ts";
-import type { ExecutionModelAccess } from "../../../execution-model/src/index.ts";
-import type { RuntimeActivityObservation } from "../../../coordinator/src/index.ts";
+import type { DefinitionAccess } from "../service/execution.ts";
+import type { ExecutionActivityObservation } from "../../../coordinator/src/index.ts";
 import { setTimeout } from "node:timers/promises";
 import {
   executeManagementOperation,
@@ -176,8 +175,6 @@ function readDirectToolCall(
 export function createMcpServerFactory(
   dependencies: McpServerDependencies,
 ): McpServerFactory {
-  if (Object.hasOwn(dependencies, "orchestrator"))
-    throw new Error("mcp_retired_dependency_key");
   const {
     workspace,
     coordinator,
@@ -409,7 +406,7 @@ export function createAccessMcpResolver(
             credentials: { root, token },
           },
           runtimeDefinition: (repositoryId, currentSignal) =>
-            resolveRuntimeContentAccess(
+            resolveSharedDefinitionAccess(
               root,
               token,
               repositoryId,
@@ -446,15 +443,9 @@ export function createAccessMcpResolver(
                   repository.manifest.projectId === query.projectId,
               );
               if (selected.length === 0) return null;
-              for (const repository of selected) {
-                if (signal.aborted)
-                  throw new Error("runtime_activity_unavailable");
-                if (resolveVerifiedRepositoryRoot(repository.root) === null)
-                  throw new Error("runtime_activity_unavailable");
-              }
               if (signal.aborted)
                 throw new Error("runtime_activity_unavailable");
-              return readAuthorizedRuntimeActivity(
+              return readAuthorizedExecutionActivity(
                 query,
                 selected,
                 () =>
@@ -1040,7 +1031,7 @@ export const MANAGE_EXECUTION_DEFINITION_TOOL =
  * 当該RepositoryのCore操作を現在認可へ結ぶ。
  * @responsibility Host構成からだけRootと主体を渡す。
  * @trace ARCH-000013
- * @shape Repository IDと要求SignalからExecutionModelAccess又はnull。
+ * @shape Repository IDと要求Signalからサーバーが認可した定義操作又はnull。
  * @invariant 要求間cache、JSONからのContext復元、暗黙実行なし。
  * @boundary Transport構成と内容認可Owner。
  * @security 拒否時は対象の存在を開示しない。
@@ -1049,7 +1040,7 @@ export const MANAGE_EXECUTION_DEFINITION_TOOL =
 export type RuntimeContentAccessResolver = (
   repositoryId: string,
   signal: AbortSignal,
-) => ExecutionModelAccess | null;
+) => DefinitionAccess | null;
 
 /**
  * 読取りと定義変更の固定Tool集合を返す。
@@ -1294,7 +1285,12 @@ function workspaceCommandSchema(readOnly: boolean) {
         "candidate-diff": ["path"],
       }
     : {
-        create: ["baseCommit", "name"],
+        create: [
+          "baseBranch",
+          "baseCommit",
+          "name",
+          "acceptUncommittedChangesExcluded",
+        ],
         select: [],
         rename: ["name"],
         hold: ["until"],
@@ -1328,47 +1324,55 @@ function workspaceCommandSchema(readOnly: boolean) {
               ? { type: "integer", minimum: 0 }
               : key === "limit"
                 ? { type: "integer", minimum: 1, maximum: 50 }
-                : key === "discardChanges"
-                  ? { type: "boolean" }
-                  : key === "relatedChangeIds"
-                    ? {
-                        type: "array",
-                        maxItems: 20,
-                        items: { type: "string", pattern: "^CHG-[0-9]{6}$" },
-                      }
-                    : key === "selection"
+                : key === "acceptUncommittedChangesExcluded"
+                  ? {
+                      type: "boolean",
+                      description:
+                        "未コミット変更は引き継がれないことを利用者が了承した場合だけtrue。変更があり未了承ならworkspace_creation_confirmation_requiredで作成前に停止します。",
+                    }
+                  : key === "discardChanges"
+                    ? { type: "boolean" }
+                    : key === "relatedChangeIds"
                       ? {
                           type: "array",
-                          minItems: 1,
-                          maxItems: 1000,
-                          items: {
-                            type: "object",
-                            additionalProperties: false,
-                            required: ["path", "blobId", "mode"],
-                            properties: {
-                              path: { type: "string" },
-                              blobId: {
-                                anyOf: [{ type: "string" }, { type: "null" }],
-                              },
-                              mode: { enum: ["100644", "100755", null] },
-                            },
-                          },
+                          maxItems: 20,
+                          items: { type: "string", pattern: "^CHG-[0-9]{6}$" },
                         }
-                      : [
-                            "cursor",
-                            "name",
-                            "until",
-                            "candidateName",
-                            "expectedCommit",
-                          ].includes(key)
-                        ? { anyOf: [{ type: "string" }, { type: "null" }] }
-                        : { type: "string" },
+                      : key === "selection"
+                        ? {
+                            type: "array",
+                            minItems: 1,
+                            maxItems: 1000,
+                            items: {
+                              type: "object",
+                              additionalProperties: false,
+                              required: ["path", "blobId", "mode"],
+                              properties: {
+                                path: { type: "string" },
+                                blobId: {
+                                  anyOf: [{ type: "string" }, { type: "null" }],
+                                },
+                                mode: { enum: ["100644", "100755", null] },
+                              },
+                            },
+                          }
+                        : [
+                              "cursor",
+                              "name",
+                              "until",
+                              "candidateName",
+                              "expectedCommit",
+                            ].includes(key)
+                          ? { anyOf: [{ type: "string" }, { type: "null" }] }
+                          : { type: "string" },
         ]),
       );
       return {
         type: "object",
         additionalProperties: false,
-        required: keys,
+        required: keys.filter(
+          (key) => key !== "acceptUncommittedChangesExcluded",
+        ),
         properties,
       };
     }),
@@ -1709,7 +1713,7 @@ export const EXECUTION_ACTIVITY_TOOL = "crdd.get_execution_activity" as const;
 export type ExecutionActivityReader = Readonly<{
   read(
     query: Readonly<{ projectId: string; cursor?: string; limit: number }>,
-  ): Promise<RuntimeActivityObservation | null>;
+  ): Promise<ExecutionActivityObservation | null>;
 }>;
 
 /**
@@ -1734,7 +1738,7 @@ export function getExecutionActivityToolDefinitions() {
       name: EXECUTION_ACTIVITY_TOOL,
       title: "実行状況と履歴を取得",
       description:
-        "現在参照可能なProjectの実行状況とページ単位の履歴を取得します。",
+        "現在参照可能なProjectの保存済み実行状況とページ単位の履歴を取得します。改訂と次の手順は保存済み状態の情報であり、現在の実行許可ではありません。",
       inputSchema: Object.freeze({
         type: "object",
         additionalProperties: false,
@@ -1816,10 +1820,10 @@ async function dispatchActivityTool(
     ...(typeof args.cursor === "string" ? { cursor: args.cursor } : {}),
     limit: typeof args.limit === "number" ? args.limit : 20,
   };
-  let observation: RuntimeActivityObservation | null;
-  let ownedObservation: RuntimeActivityObservation | null;
+  let observation: ExecutionActivityObservation | null;
+  let ownedObservation: ExecutionActivityObservation | null;
   try {
-    const { parseRuntimeActivityObservation } = await import(
+    const { parseExecutionActivityObservation } = await import(
       "../../../coordinator/src/index.ts"
     );
     if (signal.aborted)
@@ -1830,7 +1834,7 @@ async function dispatchActivityTool(
     ownedObservation =
       observation === null
         ? null
-        : parseRuntimeActivityObservation(observation);
+        : parseExecutionActivityObservation(observation);
   } catch {
     return signal.aborted
       ? protocolError(params.id, -32800, "Request cancelled")

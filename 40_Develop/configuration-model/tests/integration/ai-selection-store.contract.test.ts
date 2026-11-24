@@ -9,28 +9,40 @@
  */
 
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import {
+  type AiSelectionCatalog,
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
 } from "../../src/index.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
 import { validateAiSelectionConfig } from "../../src/index.ts";
 
 const LEGACY_SELECTION_BYTES = 1024 * 1024;
-
-import * as configurationDirectory from "../../src/storage/store.ts";
+const fixtureCatalog = {
+  models: [
+    {
+      provider: "codex",
+      modelIdentifier: "gpt-5.6-sol",
+      supportedEfforts: ["medium"],
+      supportedPurposes: ["advice"],
+    },
+    {
+      provider: "codex",
+      modelIdentifier: "gpt-5.5",
+      supportedEfforts: ["medium"],
+      supportedPurposes: ["task"],
+    },
+  ],
+} as const satisfies AiSelectionCatalog;
 
 /**
  * 合成設定だけを作る。
  * @responsibility 実設定や認証情報を利用しない。
  * @trace RCM-IT-005
- * @precondition 現在の技術Catalog内の組。
+ * @precondition 保存契約に必要な用途別の合成Catalogを使う。
  * @stimulus 五役割へ用途に合う合成値を配置する。
  * @observation 独立した設定値。
  * @oracle 作業分類は任意に追加できる。
@@ -56,28 +68,22 @@ function config() {
 }
 
 /**
- * 今回所有する合成Git Repositoryだけを準備・回収する。
+ * 今回所有する合成ディレクトリだけを準備・回収する。
  * @responsibility 検証した親Root直下の自己生成試験物に書込みを限定する。
  * @trace RCM-IT-005
  * @precondition 親Repositoryのtests領域が確認できる。
- * @stimulus 空のGit Repositoryを作る。
+ * @stimulus 試験用の設定領域を準備する。
  * @observation 発行済みRootと設定Path。
  * @oracle 終了後に今回Rootが存在しない。
  * @cleanup mock復元後、exact自己生成Rootだけを削除して不存在確認。
  * @boundary Repository-local合成領域と既存Root検証。
  */
-function fixture(t: test.TestContext, emptyTemplate = false) {
+function fixture(t: test.TestContext, prepared = true) {
   const directory = createRepositoryTestDirectory("ai-selection-store-");
   const root = directory.path;
   const parent = path.dirname(root);
-  execFileSync(
-    "git",
-    ["init", "--quiet", ...(emptyTemplate ? ["--template="] : []), root],
-    { windowsHide: true },
-  );
-  const verified = getRepository(root);
-  assert.equal(verified.status, "completed");
-  assert.ok(verified.capability);
+  if (prepared)
+    fs.mkdirSync(path.join(root, ".crdd", "config"), { recursive: true });
   t.after(() => {
     t.mock.restoreAll();
     assert.equal(path.dirname(root), parent);
@@ -87,69 +93,34 @@ function fixture(t: test.TestContext, emptyTemplate = false) {
   });
   return {
     root,
-    capability: verified.capability,
     directory: path.join(root, ".crdd", "config"),
     file: path.join(root, ".crdd", "config", "ai-selection.json"),
   };
 }
 
-/**
- * 空Git templateの試験準備と正しい保存拒否を区別する。
- * @responsibility 検証入口が必要なGit info領域を準備し、拒否理由を失わない。
- * @trace RCM-IT-005
- * @precondition 自己生成Repositoryだけを空templateで初期化する。
- * @stimulus info不在の保存と、明示準備後の同じ保存要求を照合する。
- * @observation status・reason・作成Effect・読戻し・Lock残存。
- * @oracle 準備不足ではEffect前拒否、準備後だけ同じ設定を保存する。
- * @cleanup TestContextが自己生成Rootだけ回収し不存在を確認する。
- * @boundary 正式設定API→Git除外登録→Filesystem Store。AI・Dockerは使わない。
- */
-test("空templateのGit info未準備は理由付きで拒否し、試験準備後は保存する", (t) => {
-  const f = fixture(t, true);
-  const info = path.join(f.root, ".git", "info");
-  assert.equal(fs.existsSync(info), false);
+/** 構成モデルは未準備の領域を作成しない。 @trace RCM-IT-005 */
+test("Gitのない環境で準備済み領域だけへ保存する", (t) => {
+  const f = fixture(t, false);
+  const request = { expectedIdentity: null, config: config() };
+  const catalog = fixtureCatalog;
   const rejected = saveRepositoryAiSelection(
-    f.capability,
-    { expectedIdentity: null, config: config() },
+    f.root,
+    request,
     () => true,
-    getModelCatalog().catalog,
+    catalog,
   );
-  assert.equal(rejected.status, "blocked", JSON.stringify(rejected));
-  assert.equal(
-    rejected.reason,
-    "repository_runtime_data_ignore_registration_blocked",
-  );
-  assert.ok("setupFailure" in rejected);
-  assert.equal(rejected.setupFailure?.effectIssued, false);
-  assert.equal(rejected.setupFailure?.effectStateUnknown, false);
-  assert.equal(rejected.setupFailure?.cleanupConfirmed, true);
-  assert.equal(rejected.setupFailure?.recoveryReference, null);
-  assert.equal(
-    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).status,
-    "missing",
-  );
+  assert.equal(rejected.status, "blocked");
+  assert.equal(rejected.reason, "ai_selection_config_area_unconfirmed");
   assert.equal(fs.existsSync(path.join(f.root, ".crdd")), false);
-
-  // 空templateを使う検証入口自身の準備。製品のGit境界拒否は変更しない。
-  fs.mkdirSync(info);
-  fs.writeFileSync(path.join(info, "exclude"), "");
-  const saved = saveRepositoryAiSelection(
-    f.capability,
-    { expectedIdentity: null, config: config() },
-    () => true,
-    getModelCatalog().catalog,
-  );
+  fs.mkdirSync(f.directory, { recursive: true });
+  const saved = saveRepositoryAiSelection(f.root, request, () => true, catalog);
   assert.equal(saved.status, "saved", JSON.stringify(saved));
   assert.equal(
-    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).snapshot
-      ?.identity,
+    readRepositoryAiSelection(f.root, catalog).snapshot?.identity,
     saved.snapshot?.identity,
   );
-  assert.match(
-    fs.readFileSync(path.join(info, "exclude"), "utf8"),
-    /\.crdd\//u,
-  );
   assert.deepEqual(fs.readdirSync(f.directory), ["ai-selection.json"]);
+  assert.equal(fs.existsSync(path.join(f.root, ".git")), false);
 });
 
 /**
@@ -163,10 +134,10 @@ test("空templateのGit info未準備は理由付きで拒否し、試験準備�
  * @cleanup 自己生成Rootだけ回収。
  * @boundary Root・認可・設定Store。
  */
-test("読取りと未認可保存は作成せず、偽Rootも拒否する", (t) => {
-  const f = fixture(t);
+test("読取りと未認可保存は作成せず、相対Pathも拒否する", (t) => {
+  const f = fixture(t, false);
   assert.equal(
-    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).status,
+    readRepositoryAiSelection(f.root, fixtureCatalog).status,
     "missing",
   );
   for (const authorize of [
@@ -177,17 +148,17 @@ test("読取りと未認可保存は作成せず、偽Rootも拒否する", (t) 
   ]) {
     assert.equal(
       saveRepositoryAiSelection(
-        f.capability,
+        f.root,
         { expectedIdentity: null, config: config() },
         authorize,
-        getModelCatalog().catalog,
+        fixtureCatalog,
       ).status,
       "blocked",
     );
   }
-  const fake = Object.freeze({}) as typeof f.capability;
+  const fake = ".";
   assert.equal(
-    readRepositoryAiSelection(fake, getModelCatalog().catalog).status,
+    readRepositoryAiSelection(fake, fixtureCatalog).status,
     "blocked",
   );
   assert.equal(fs.existsSync(path.join(f.root, ".crdd")), false);
@@ -202,22 +173,21 @@ test("読取りと未認可保存は作成せず、偽Rootも拒否する", (t) 
  * @observation 内容Hash、File bytes、残存名。
  * @oracle 競合では上書きせず成功時は正本一件だけ。
  * @cleanup 自己生成Rootだけ回収。
- * @boundary Store→既存排他・Git Ignore・Filesystem。
+ * @boundary Store→既存排他・準備済み設定領域。
  */
 test("初回保存・内容CAS・再保存は正本一件へ確定する", (t) => {
   const f = fixture(t);
   const first = saveRepositoryAiSelection(
-    f.capability,
+    f.root,
     { expectedIdentity: null, config: config() },
     () => true,
-    getModelCatalog().catalog,
+    fixtureCatalog,
   );
   assert.equal(first.status, "saved", JSON.stringify(first));
   if (first.status !== "saved") assert.fail("saved required");
   fs.writeFileSync(f.file, JSON.stringify(first.snapshot.config));
   assert.equal(
-    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).snapshot
-      ?.identity,
+    readRepositoryAiSelection(f.root, fixtureCatalog).snapshot?.identity,
     first.snapshot.identity,
   );
   const changed = config();
@@ -225,19 +195,19 @@ test("初回保存・内容CAS・再保存は正本一件へ確定する", (t) =
   const before = fs.readFileSync(f.file);
   assert.equal(
     saveRepositoryAiSelection(
-      f.capability,
+      f.root,
       { expectedIdentity: null, config: changed },
       () => true,
-      getModelCatalog().catalog,
+      fixtureCatalog,
     ).status,
     "conflict",
   );
   assert.deepEqual(fs.readFileSync(f.file), before);
   const next = saveRepositoryAiSelection(
-    f.capability,
+    f.root,
     { expectedIdentity: first.snapshot.identity, config: changed },
     () => true,
-    getModelCatalog().catalog,
+    fixtureCatalog,
   );
   assert.equal(next.status, "saved", JSON.stringify(next));
   assert.notEqual(next.snapshot?.identity, first.snapshot.identity);
@@ -266,7 +236,7 @@ test("不正UTF-8・重複JSON・旧形式・hardlinkを拒否し大容量設定
   ]) {
     fs.writeFileSync(f.file, bytes);
     assert.equal(
-      readRepositoryAiSelection(f.capability, getModelCatalog().catalog).status,
+      readRepositoryAiSelection(f.root, fixtureCatalog).status,
       "blocked",
     );
   }
@@ -275,17 +245,17 @@ test("不正UTF-8・重複JSON・旧形式・hardlinkを拒否し大容量設定
   fs.unlinkSync(f.file);
   assert.equal(
     saveRepositoryAiSelection(
-      f.capability,
+      f.root,
       { expectedIdentity: null, config: huge },
       () => true,
-      getModelCatalog().catalog,
+      fixtureCatalog,
     ).status,
     "saved",
   );
   fs.writeFileSync(f.file, JSON.stringify(config()));
   fs.linkSync(f.file, path.join(f.directory, "other.json"));
   assert.equal(
-    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).reason,
+    readRepositoryAiSelection(f.root, fixtureCatalog).reason,
     "ai_selection_file_invalid",
   );
 });
@@ -305,10 +275,7 @@ test("旧1MiB境界を超えて保存し、symlink・読取り中の置換を拒
   const f = fixture(t);
   const value = config();
   value.workTypes.coding.label = "あ";
-  const normalized = validateAiSelectionConfig(
-    value,
-    getModelCatalog().catalog,
-  );
+  const normalized = validateAiSelectionConfig(value, fixtureCatalog);
   assert.equal(normalized.status, "valid");
   assert.ok(normalized.value);
   const size = Buffer.byteLength(
@@ -316,27 +283,27 @@ test("旧1MiB境界を超えて保存し、symlink・読取り中の置換を拒
   );
   value.workTypes.coding.label += "x".repeat(LEGACY_SELECTION_BYTES - size);
   const saved = saveRepositoryAiSelection(
-    f.capability,
+    f.root,
     { expectedIdentity: null, config: value },
     () => true,
-    getModelCatalog().catalog,
+    fixtureCatalog,
   );
   assert.equal(saved.status, "saved", JSON.stringify(saved));
   assert.equal(fs.statSync(f.file).size, LEGACY_SELECTION_BYTES);
   value.workTypes.coding.label += "x";
   assert.equal(
     saveRepositoryAiSelection(
-      f.capability,
+      f.root,
       { expectedIdentity: saved.snapshot?.identity, config: value },
       () => true,
-      getModelCatalog().catalog,
+      fixtureCatalog,
     ).status,
     "saved",
   );
   fs.renameSync(f.file, path.join(f.directory, "linked.json"));
   fs.symlinkSync(path.join(f.directory, "linked.json"), f.file, "file");
   assert.equal(
-    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).status,
+    readRepositoryAiSelection(f.root, fixtureCatalog).status,
     "blocked",
   );
   fs.unlinkSync(f.file);
@@ -357,7 +324,7 @@ test("旧1MiB境界を超えて保存し、symlink・読取り中の置換を拒
     }),
   );
   assert.equal(
-    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).status,
+    readRepositoryAiSelection(f.root, fixtureCatalog).status,
     "blocked",
   );
   mocked.mock.restore();
@@ -381,10 +348,10 @@ test("保存前失効と保存後失効を区別する", (t) => {
     const f = fixture(t);
     let calls = 0;
     const result = saveRepositoryAiSelection(
-      f.capability,
+      f.root,
       { expectedIdentity: null, config: config() },
       () => ++calls <= limit,
-      getModelCatalog().catalog,
+      fixtureCatalog,
     );
     if (limit <= 2) {
       assert.equal(result.status, "blocked");
@@ -396,8 +363,7 @@ test("保存前失効と保存後失効を区別する", (t) => {
       assert.equal(result.snapshot, null);
       assert.equal(result.cleanupConfirmed, true);
       assert.equal(
-        readRepositoryAiSelection(f.capability, getModelCatalog().catalog)
-          .status,
+        readRepositoryAiSelection(f.root, fixtureCatalog).status,
         "available",
       );
     }
@@ -487,10 +453,10 @@ test("保存・公開・回収の故障を成功や不存在へ畳まない", (t
       }),
     );
     const result = saveRepositoryAiSelection(
-      f.capability,
+      f.root,
       { expectedIdentity: null, config: config() },
       () => true,
-      getModelCatalog().catalog,
+      fixtureCatalog,
     );
     fault.mock.restore();
     rename.mock.restore();
@@ -626,10 +592,10 @@ test("temp回収不明とLock終了失敗が重なっても先行参照を失わ
       }),
     );
     const result = saveRepositoryAiSelection(
-      f.capability,
+      f.root,
       { expectedIdentity: null, config: config() },
       () => true,
-      getModelCatalog().catalog,
+      fixtureCatalog,
     );
     for (const item of [open, close, rename, unlink, remove])
       item.mock.restore();
@@ -687,10 +653,10 @@ test("tempの置換・hardlink化では削除を拒否し正本へ代用しな�
       }),
     );
     const result = saveRepositoryAiSelection(
-      f.capability,
+      f.root,
       { expectedIdentity: null, config: config() },
       () => true,
-      getModelCatalog().catalog,
+      fixtureCatalog,
     );
     mocked.mock.restore();
     assert.equal(result.status, "unknown");
@@ -699,7 +665,7 @@ test("tempの置換・hardlink化では削除を拒否し正本へ代用しな�
     assert.ok(result.temporary?.identity);
     assert.equal(fs.existsSync(targetPath), true);
     assert.equal(
-      readRepositoryAiSelection(f.capability, getModelCatalog().catalog).status,
+      readRepositoryAiSelection(f.root, fixtureCatalog).status,
       "missing",
     );
     assert.equal(
@@ -720,59 +686,6 @@ test("tempの置換・hardlink化では削除を拒否し正本へ代用しな�
 });
 
 /**
- * 領域確保の失敗意味と回復参照を元契約どおり搬送する。
- * @responsibility 下位の不明Effectを保存前拒否で上書きしない。
- * @trace RCM-IT-005
- * @precondition 有効な合成設定と認可。
- * @stimulus 既存領域APIだけを元契約の固定失敗へ差し替える。
- * @observation setupFailureの全fieldと設定作成0。
- * @oracle 同じ回復参照・Effect・retryを保持する。
- * @cleanup module mockを復元し自己生成Rootを回収。
- * @boundary Domain領域確保の有限代役→Store結果。実Ignore故障の証明ではない。
- */
-test("領域確保の元失敗契約とexact回復参照を保持する", async (t) => {
-  const f = fixture(t);
-  const failure = Object.freeze({
-    status: "blocked" as const,
-    reason: "repository_runtime_data_ignore_registration_blocked" as const,
-    effectIssued: true,
-    effectStateUnknown: true,
-    effectConfirmation: "unknown" as const,
-    cleanupConfirmed: false,
-    retryAllowed: false,
-    recoveryReference: `repository-local-ignore.${"a".repeat(64)}`,
-    repositoryPathReported: false as const,
-  });
-  const mocked = t.mock.module("../../src/storage/store.ts", {
-    namedExports: {
-      ...configurationDirectory,
-      ensureConfigurationDirectory: () => failure,
-    },
-  });
-  try {
-    const url = new URL(
-      "../../src/ai-selection/crud.ts?setup-failure",
-      import.meta.url,
-    ).href;
-    const isolated: typeof import("../../src/ai-selection/crud.ts") =
-      await import(url);
-    const result = isolated.saveRepositoryAiSelection(
-      f.capability,
-      { expectedIdentity: null, config: config() },
-      () => true,
-      getModelCatalog().catalog,
-    );
-    assert.equal(result.status, "unknown");
-    if (result.status !== "unknown") assert.fail("unknown required");
-    assert.deepEqual(result.setupFailure, failure);
-    assert.equal(result.publication, "not_published");
-    assert.equal(fs.existsSync(path.join(f.root, ".crdd")), false);
-  } finally {
-    mocked.restore();
-  }
-});
-
-/**
  * 保存受付の余剰・実行Property・不正期待HashをEffect前に拒否する。
  * @responsibility 正しいCAS要求以外を初回保存へ補完しない。
  * @trace RCM-IT-005
@@ -784,7 +697,7 @@ test("領域確保の元失敗契約とexact回復参照を保持する", async 
  * @boundary 未信頼入力→保存受付。
  */
 test("不正な保存受付はhookも認可も実行しない", (t) => {
-  const f = fixture(t);
+  const f = fixture(t, false);
   let hooks = 0;
   let authorizations = 0;
   for (const value of [
@@ -810,13 +723,13 @@ test("不正な保存受付はhookも認可も実行しない", (t) => {
   ])
     assert.equal(
       saveRepositoryAiSelection(
-        f.capability,
+        f.root,
         value,
         () => {
           authorizations++;
           return true;
         },
-        getModelCatalog().catalog,
+        fixtureCatalog,
       ).status,
       "blocked",
     );

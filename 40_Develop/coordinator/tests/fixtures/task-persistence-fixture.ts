@@ -26,7 +26,7 @@ import {
   selectQueueEntry,
 } from "../../../execution-model/src/index.ts";
 import { chooseCoordinatorQueueOperation } from "../../src/lifecycle/execution.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
+import { resolveExecutionStorageDirectory } from "../../src/lifecycle/host.ts";
 import { taskExecutionSelections } from "./ai-selection.ts";
 import { randomUUID } from "node:crypto";
 import { mock } from "node:test";
@@ -291,13 +291,11 @@ export async function runTestCoordinatorObjective(
     environmentReplacement = mock.module(environmentUrl, {
       namedExports: {
         ...environment,
-        resolveRuntimeOwnedDockerTaskCurrentCorrelations: (
-          ids: readonly string[],
-        ) => {
+        resolveDockerTaskCurrentCorrelations: (ids: readonly string[]) => {
           if (!resolveTaskRecoveryCorrelations) return null;
           return resolveTaskRecoveryCorrelations(ids);
         },
-        recoverRuntimeOwnedDockerTaskForCurrentConsumer: (
+        recoverDockerTaskForCurrentConsumer: (
           id: string,
           _root: unknown,
           signal: AbortSignal,
@@ -380,7 +378,7 @@ export async function runTestCoordinatorObjective(
           (typeof supplied.repositoryRoot !== "object" &&
             typeof supplied.repositoryRoot !== "string")
         )
-          return actual.blocked(accepted, "orchestrator_binding_not_verified");
+          return actual.blocked(accepted, "coordinator_binding_not_verified");
         const binding = Object.freeze({
           repositoryBindingId: supplied.repositoryBindingId,
           workingDirectory: supplied.workingDirectory,
@@ -451,17 +449,17 @@ export async function runTestCoordinatorObjective(
  */
 export function createTestPersistence(root: string, binding: string) {
   const observed = readState(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     binding,
     "execution",
   );
-  if (observed.reason === "orchestrator_snapshot_lock_release_unconfirmed")
-    throw new Error("orchestrator_snapshot_lock_release_unconfirmed");
+  if (observed.reason === "coordinator_snapshot_lock_release_unconfirmed")
+    throw new Error("coordinator_snapshot_lock_release_unconfirmed");
   if (observed.status !== "completed" || observed.value === null)
-    throw new Error("orchestrator_snapshot_not_initialized");
+    throw new Error("coordinator_snapshot_not_initialized");
   return Object.freeze({
     workingDirectory: root,
-    repository: verifyRuntimePersistenceRepository(root),
+    repository: resolveExecutionStorageDirectory(root),
     repositoryBindingId: binding,
     intake: undefined,
   });
@@ -710,7 +708,7 @@ export function updateTestTaskAndQueue(
     projectId: input.projectId,
     maximumReplans: input.maximumReplans,
   };
-  const repository = verifyRuntimePersistenceRepository(root);
+  const repository = resolveExecutionStorageDirectory(root);
   const project = readProjectExecutionState(
     repository,
     binding,

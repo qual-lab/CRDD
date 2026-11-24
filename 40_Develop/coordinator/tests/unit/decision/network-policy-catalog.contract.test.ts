@@ -3,7 +3,7 @@
  * @responsibility Domain読取りと技術Policy構成を分離し、上位にDI正本を複製しない。
  * @trace ERB-UT-023
  * @level UT
- * @scope Domain Readerだけ有限化。実AI・Docker・保存操作なし。
+ * @scope 対象ディレクトリ選択と設定Readerだけ有限化。実AI・Docker・保存操作なし。
  * @boundary この試験は通信強制やHost名の技術検査を主張しない。
  * @packageDocumentation
  */
@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import * as domain from "../../../../configuration-model/src/index.ts";
-import type { Repository } from "../../../../version-control/src/index.ts";
+import * as versionControl from "../../../../version-control/src/index.ts";
 
 /**
  * 開始時に追加Hostを一回捕捉し、変更は次Taskから適用する。
@@ -27,16 +27,26 @@ import type { Repository } from "../../../../version-control/src/index.ts";
 test("Taskの追加Hostは開始時に捕捉し次Taskだけが変更を採用する", async (t) => {
   const root = Object.freeze({
     fixture: "selected_repository",
-  }) as unknown as Repository;
+  }) as unknown as versionControl.Repository;
+  const directory = "selected-repository-directory";
   const hosts = ["pypi.org", "registry.npmjs.org"];
   let unavailable = false,
     reads = 0;
+  t.mock.module("../../../../version-control/src/index.ts", {
+    namedExports: {
+      ...versionControl,
+      resolveVerifiedRepositoryRoot(current: unknown) {
+        assert.equal(current, root);
+        return directory;
+      },
+    },
+  });
   t.mock.module("../../../../configuration-model/src/index.ts", {
     namedExports: {
       ...domain,
       readNetworkPolicy(current: unknown) {
         reads++;
-        assert.equal(current, root);
+        assert.equal(current, directory);
         return unavailable
           ? { status: "blocked", reason: "synthetic_read_unavailable" }
           : { status: "ready", policy: { version: 1, allowedHosts: hosts } };

@@ -41,7 +41,7 @@ Orchestrator節より前は既存実装を責務別に整理したv0.18.1 Stable
 
 以下の既存実装範囲と、新しい期限なし契約の検証状態は[品質状態](../07_Quality/01_Quality_Center.md)で分ける。
 
-Coordinatorは依頼を安全な候補成果物へつなぐ実行ツール、[Checker](#checker-contract)は文書を変更せず整合を検査する独立ツール、[platform-access](#platform-access-contract)はCoordinatorから利用するWindows内部部品である。以下のRuntime利用条件を、Checker単独実行の条件へ適用しない。
+Coordinatorは依頼を安全な候補成果物へつなぐ実行ツール、[Checker](#checker-contract)は文書を変更せず整合を検査する独立ツールである。[Windowsの実行・回復境界](#platform-access-contract)はChecker単独実行の条件ではない。
 
 公開済みv0.18.1は、CodexまたはClaude Codeを入口として、Coordinatorが理由付きで実行者と独立確認者を選び、公式CLIの既存Subscription OAuth Sessionだけを使って隔離されたローカルCandidateを作成・検証・回収する。現行Runtime実行Identityでは、fresh cloneと親Repository＋submoduleの一般Task、実Providerの4経路4/4、および失敗／timeout／cancel／親Process消失／cleanup不明を含むRecovery Matrixを実測した。字句解析、共通Launcher結合、子Process／Worker起動APIのimportと全利用箇所の照合、および説明不能な起動形のFail Closedも署名Identityへ含む。Frontは指定Profileであり実アプリのIdentity認証ではなく、固定Taskの成功を任意の実務Taskへ一般化しない。旧版での実務自己適用の有用性は[現時点の評価](../99_Roadmap/Changes/CHG-000055/change.md#26-実務評価と最終確認への引渡し)で整理したが、比較優位は未実証である。この未実証範囲は公開済みBaselineの利用制限であり、公開判断の残件ではない。
 
@@ -105,7 +105,7 @@ Runtime 1.0が許可する変更は、Operation専用の隔離workspace内のロ
 
 詳細な脅威、主体別権限および停止条件は[脅威モデル](../06_Architecture/Details/coordinator/02_Threat_Model.md)を参照する。変更の判断と追跡は[`CHG-000015`](../99_Roadmap/Changes/CHG-000015/change.md)が所有する。
 
-Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけに使う。Repository本文は許可された読取り投影からだけ渡し、Password、Private Key、Session Token、API Keyその他のSecret値をPromptまたは投影へ含めない。認識可能なSecretをRuntimeが拒否しても未知Secretの不存在までは証明しない。
+Task Promptは目的、受入基準、許可Pathおよび役割の搬送に使う。Reviewerには、選択済みWorkspaceを読み取り専用で渡す。認識済みの機密値をPromptへ含めず、見えるWorkspaceからも除く。認識可能な機密を除いても、未知の機密の不存在までは証明しない。
 
 ## 公開Taskの入力・結果・取消
 
@@ -118,7 +118,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 ```
 
 - `task`は上記の形のexact JSONを標準入力から受ける。
-- `readPaths`はProviderへ見せる開始Revisionの投影で、省略時は`allowedPaths`と同じになる。
+- `readPaths`は既存の計画・実行要求の範囲指定で、省略時は`allowedPaths`と同じになる。Reviewerの読取り対象は`readPaths`ではなく、Direct／Isolationで確定したWorkspaceのルート以下。`.git`・`.crdd`、入れ子の別Repository、既知の機密対象は見せない。
 - Runtimeは両集合の和に`allowedPaths`を必ず含め、Repository全体を暗黙に送らない。
 - 初回だけRepository Policyの全Provider処理境界と、永続化しない現在Operation Previewを分けて表示する。
 - 同じ単一Active境界はTaskごとの再確認なしで使えるが、短命GrantはProvider候補、Revision、目的および読取り範囲へ毎回結合する。
@@ -291,15 +291,8 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 
 #### 候補の保存・期限・破棄
 
-- Candidate本文はPolicyが保存を許可し、唯一の結果配送に必要な保存をProvider Effect前に確認できた場合だけ、1〜168時間のexport可能期限、件数／総容量上限、process間排他および既知Secret pattern拒否付きStoreへstaged保存する。
-- Store Rootは選択ローカルユーザーのWindows Known Folder配下の固定`Qual-Lab\CRDD\CandidateStore`であり、fixed volume、non-reparse chain、安定Identity、選択ユーザーowner、および選択ユーザー／SYSTEMだけのprotected DACLをnative helperが処置前後に照合する。
-- 既存の不正ACLをRuntimeが自動修復せず停止する。
-- production排他は選択ユーザーbindingから導出したWindows kernel objectを使い、owner process終了時にOSが解放するため、時刻だけからstale lock fileを推測削除しない。
-- 期限後はexportできず、明示discardまたは次回の安全なRuntime／Candidate入口で物理削除する。
-- 常駐serviceやSchedulerをv1へ追加しないため、時刻到達と同時の物理削除は保証しない。
-- Operation cleanup成功後だけexport可能なCandidate IDへpublishし、cleanup、rename後再確認、discardまたはpublishが不明な場合はHost、Docker、Candidate、Candidate StoreのRecovery IDを分離して返す。
-- 同じCandidate Recovery IDはstaged／publishedのexact 1実体を全体GCと独立してdiscardでき、staged Candidateはexportできない。
-- unknown／damaged regular fileは安定Identityへ結合したCandidate Store Recovery IDと明示`recover-store --confirm`だけでexact 1実体を削除し、Path、ageまたは名前だけでは推測削除しない。
+- Workspaceの成果候補は、Gitの候補参照・コミットと実行モデルの結果記録を対応させる。候補の保存や確認だけで正本へ採用しない。配置と処置条件は[リポジトリ内の保存設計](../06_Architecture/Details/execution-model/03_Repository_Storage.md)と[Coordinator設計](../06_Architecture/Details/coordinator/01_Architecture.md)を参照する。
+- Windowsの旧`CandidateStore`を現行の保存先とせず、旧領域の移行・削除を通常実行から行わない。年代や名前だけで残存物を削除しない。
 
 #### モデル・推論・選定理由
 
@@ -445,20 +438,11 @@ Root外、symbolic link／junction、Gitlink等の境界を、参照先が存在
 
 <a id="platform-access-contract"></a>
 
-## Windows内部部品の利用契約
+## Windowsの実行・回復境界
 
-platform-accessは独立したエンドユーザーCLIではなく、Coordinatorの用途別Adapterから固定実行物・検証済み要求で利用する内部部品である。通常利用者へnative引数、binary protocol、秘密鍵を操作させない。返された観測候補を、Task実行や外部送信の許可とみなさない。
+[Platform Accessは退役済み](../06_Architecture/Details/platform-access/01_Architecture.md)であり、旧部品による保存領域の初期化・修復は呼び出さない。リポジトリ内の状態・判断は[実行モデル](../06_Architecture/Details/execution-model/03_Repository_Storage.md)、Provider Homeの所在と観測は[Coordinator](../06_Architecture/Details/coordinator/01_Architecture.md)、Docker Desktopの操作は[Docker Isolation](../06_Architecture/Details/docker-isolation/01_Architecture.md)が所有する。
 
-| 用途 | 許可される処理 | 停止・結果の境界 |
-|---|---|---|
-| Root／Provider Home観測 | 選択主体、保護、実体をOSから観測 | HomeのCredential本文を返さず、Home作成・ACL修復を暗黙に行わない |
-| CandidateStore／RuntimeState初期化 | 専用要求で固定最終Directoryが存在しない場合に限定作成 | 既存物を勝手に修復しない。作成後の失敗をEffectなしへ補正しない |
-| Docker Desktop修復補助 | 別modeと許可済みPolicyで対象Process終了・固定起動 | 通常Taskの再試行と分離。helper終了だけでEngine復旧や退避領域の清掃完了としない |
-| 準備Supervisor／Worker | 専用準備処理の範囲で隔離Workerを一回起動 | Job終了と一時Registry処置の復元確認を成功条件に含める。通常TaskごとのRegistry変更ではない |
-
-部分・過剰な応答、nonce不一致、未知flag、異常終了、対象の前後不一致は成功候補へ補正しない。観測結果、操作発行、回収、再起動・手動回復を別々に上位へ伝える。公開表示へPath、SID、ACL、Credentialやraw OS errorを戻さない。
-
-Local Personalで接続済みのHome／State観測と、未接続の保護済み有効世代・Hardened候補を区別する。具体的な成果物、protocol、資源所有、TSとRustの責務および試験は[Windows内部部品の設計](../06_Architecture/Details/platform-access/01_Architecture.md)が所有する。
+Windowsのタスク回復は対象のHost操作とProvider Homeを排他し、Docker Desktop操作同士は[DIのDesktopロック](../06_Architecture/Details/lock/01_Architecture.md#lockの名前と所在)で排他する。AppDataの旧`RuntimeState`は読み書きしない。再起動は、同じDockerを使う他の実行と回復を運用側で停止してから行う。別リポジトリ・別Homeの回復を実装が自動で拒否する保証はない。回復記録の観測や停止処理の応答だけを復旧・回収の完了に読み替えない。
 
 <a id="user-interface-contract"></a>
 

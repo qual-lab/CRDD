@@ -21,7 +21,6 @@ import {
 } from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { createTopicMeetingOperations } from "../../src/activity/operations.ts";
 import {
   federateTopicMeetingRelations,
@@ -184,9 +183,7 @@ test("同Project Relationは集合整合と一意Ownerを保つ", () => {
  * @boundary Topic／Meeting公開面から同一Repository FilesystemへのDirect Boundary。
  */
 test("公開CRUDは生成した種別だけを操作する", () => {
-  const verified = resolveVerifiedRepositoryRootFromWorkingDirectory(
-    import.meta.dirname,
-  );
+  const verified = path.resolve(import.meta.dirname, "../../../..");
   const parent = path.join(verified, ".crdd", "tests");
   for (const directory of [path.dirname(parent), parent]) {
     try {
@@ -700,9 +697,7 @@ test("Topicを実在CHGへ昇格し状態・Relation・改訂を同時更新す�
  * @concurrency N/A: 故障点を同期・直列に評価する。
  */
 test("Topic／Meetingの更新前・更新後例外を入力不正やEffect 0へ丸めない", () => {
-  const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
-    import.meta.dirname,
-  );
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
   const testArea = path.join(repositoryRoot, ".crdd", "tests");
   for (const directory of [path.join(repositoryRoot, ".crdd"), testArea]) {
     if (existsSync(directory)) {

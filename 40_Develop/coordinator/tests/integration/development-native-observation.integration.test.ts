@@ -29,7 +29,7 @@ import { runInNewContext } from "node:vm";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { observeProviderHome } from "../../../executor/tests/support/provider-home.ts";
-import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/lifecycle/environment.ts";
+import { inspectWindowsProviderHomeCandidate } from "../../src/lifecycle/environment.ts";
 
 test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLinkを拒否する", {
   skip: process.platform !== "win32",
@@ -43,7 +43,7 @@ test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLink�
     process.env.LOCALAPPDATA = fixture.path;
     mkdirSync(home, { recursive: true });
     mkdirSync(other);
-    const first = inspectRuntimeOwnedWindowsProviderHomeCandidate("codex");
+    const first = inspectWindowsProviderHomeCandidate("codex");
     assert.equal(first.status, "candidate");
     assert.equal(first.processEffectIssued, false);
     for (const key of [
@@ -72,7 +72,7 @@ test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLink�
       );
     }
     writeFileSync(path.join(home, "non-secret-fixture.txt"), "updated");
-    const updated = inspectRuntimeOwnedWindowsProviderHomeCandidate("codex");
+    const updated = inspectWindowsProviderHomeCandidate("codex");
     const current = "providerHome" in updated ? updated.providerHome : null;
     assert.ok(current);
     assert.equal(
@@ -83,7 +83,7 @@ test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLink�
       current.stableLogicalHomeBindingHash,
       observed.stableLogicalHomeBindingHash,
     );
-    const claude = inspectRuntimeOwnedWindowsProviderHomeCandidate("claude");
+    const claude = inspectWindowsProviderHomeCandidate("claude");
     const separate = "providerHome" in claude ? claude.providerHome : null;
     assert.ok(separate);
     assert.notEqual(
@@ -96,7 +96,7 @@ test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLink�
     );
     writeFileSync(priorLock, "unresolved-fixture");
     assert.equal(
-      inspectRuntimeOwnedWindowsProviderHomeCandidate("codex").reason,
+      inspectWindowsProviderHomeCandidate("codex").reason,
       "provider_home_prior_lock_unresolved",
     );
     assert.equal(readFileSync(priorLock, "utf8"), "unresolved-fixture");
@@ -106,18 +106,18 @@ test("Provider HomeはNode実体を観測し内容更新を許し旧LockとLink�
     renameSync(home, saved);
     symlinkSync(saved, home, "junction");
     assert.equal(
-      inspectRuntimeOwnedWindowsProviderHomeCandidate("codex").status,
+      inspectWindowsProviderHomeCandidate("codex").status,
       "blocked",
     );
     rmSync(home);
     writeFileSync(home, "not-directory");
     assert.equal(
-      inspectRuntimeOwnedWindowsProviderHomeCandidate("codex").status,
+      inspectWindowsProviderHomeCandidate("codex").status,
       "blocked",
     );
     rmSync(home);
     assert.equal(
-      inspectRuntimeOwnedWindowsProviderHomeCandidate("codex").status,
+      inspectWindowsProviderHomeCandidate("codex").status,
       "blocked",
     );
   } finally {
@@ -154,7 +154,8 @@ async function createSourceObservationFixture(readMutation = "") {
       "sourceRoot",
       "readDirectoryNames",
       "captureDevelopmentSource",
-      "observeRuntimeOwnedDevelopmentSource",
+      "observeDevelopmentSource",
+      "observeAdditionalDevelopmentSource",
     ];
     const source =
       'import { createHash } from "node:crypto";\nimport { closeSync, constants, fstatSync, lstatSync, openSync, opendirSync, readSync, realpathSync } from "node:fs";\nimport path from "node:path";\nimport { fileURLToPath } from "node:url";' +
@@ -162,7 +163,7 @@ async function createSourceObservationFixture(readMutation = "") {
       declarations
         .map((name) => sourceDeclaration(fullSource, name))
         .join("\n") +
-      "\nexport { observeRuntimeOwnedDevelopmentSource };";
+      "\nexport { observeDevelopmentSource, observeAdditionalDevelopmentSource };";
     const names = [
       "access-management",
       "ai-adapter",
@@ -174,8 +175,7 @@ async function createSourceObservationFixture(readMutation = "") {
       "executor",
       "execution-intelligence",
       "lock",
-      "crdd-server",
-      "orchestrator",
+      "unrelated-package",
       "version-control",
     ];
     for (const name of names) {
@@ -201,18 +201,25 @@ async function createSourceObservationFixture(readMutation = "") {
     const loaded = (await import(
       `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`
     )) as {
-      observeRuntimeOwnedDevelopmentSource: () => null | Readonly<{
+      observeDevelopmentSource: () => null | Readonly<{
         scope: string;
         sourceSha256: string;
         sourceIdentitySha256: string;
         fileCount: number;
         totalBytes: number;
       }>;
+      observeAdditionalDevelopmentSource: (
+        scope: string,
+        packages: readonly string[],
+      ) => ReturnType<
+        typeof import("../../scripts/benchmark.ts").observeAdditionalDevelopmentSource
+      >;
     };
     return {
       root,
       cleanup: directory.cleanup,
-      observe: loaded.observeRuntimeOwnedDevelopmentSource,
+      observe: loaded.observeDevelopmentSource,
+      observeAdditional: loaded.observeAdditionalDevelopmentSource,
     };
   } catch (error) {
     directory.cleanup();
@@ -238,20 +245,39 @@ if (process.argv[2] !== "--probe") {
     try {
       const first = fixture.observe();
       assert.ok(first);
-      assert.equal(first.fileCount, 24);
-      assert.equal(first.scope, "crdd-development-source-snapshot/v5");
+      assert.equal(first.fileCount, 22);
+      assert.equal(first.scope, "crdd-development-source-snapshot/v6");
       assert.ok(Object.isFrozen(first));
+      const scope = "example/development-source-snapshot/v1";
+      const withAdditional = fixture.observeAdditional(scope, [
+        "unrelated-package",
+      ]);
+      assert.equal(String(withAdditional?.scope), scope);
+      assert.equal(withAdditional?.fileCount, 24);
+      assert.equal(
+        fixture.observeAdditional(first.scope, ["unrelated-package"]),
+        null,
+      );
+      assert.equal(
+        fixture.observeAdditional(scope, ["../unrelated-package"]),
+        null,
+      );
+      assert.equal(fixture.observeAdditional(scope, ["missing-package"]), null);
       writeFileSync(
         path.join(
           fixture.root,
           "40_Develop",
-          "orchestrator",
+          "unrelated-package",
           "src",
           "entry.ts",
         ),
         "export const value = 999;\n",
       );
       assert.deepEqual(fixture.observe(), first);
+      assert.notEqual(
+        fixture.observeAdditional(scope, ["unrelated-package"])?.sourceSha256,
+        withAdditional?.sourceSha256,
+      );
 
       mkdirSync(path.join(fixture.root, ".crdd"));
       writeFileSync(path.join(fixture.root, ".crdd", "ignored.json"), "{}");
@@ -359,6 +385,8 @@ if (process.argv[2] !== "--probe") {
   test("development source snapshot observes normal source beyond former capacity and depth budgets", async () => {
     const fixture = await createSourceObservationFixture();
     try {
+      const baseline = fixture.observe();
+      assert.ok(baseline);
       const source = path.join(
         fixture.root,
         "40_Develop",
@@ -379,7 +407,7 @@ if (process.argv[2] !== "--probe") {
       );
       const observed = fixture.observe();
       assert.ok(observed);
-      assert.equal(observed.fileCount, 27);
+      assert.equal(observed.fileCount, baseline.fileCount + 3);
       assert.ok(observed.totalBytes > 64 * 1024 * 1024);
       assert.equal(observed.sourceSha256.length, 64);
       assert.equal(observed.sourceIdentitySha256.length, 64);
@@ -497,7 +525,7 @@ if (process.argv[2] !== "--probe") {
    *
    * @responsibility Sourceの正常増加を独自の集合予算で拒否しない。
    * @trace ERB-IT-004
-   * @precondition 12対象Package・24通常File（別に対象外の旧Coordinator一Directory）の最小Fixtureが存在する。
+   * @precondition 11対象Package・22通常File（別に対象外の一Directory）の最小Fixtureが存在する。
    * @stimulus File数2048、Directory数2048、64MiBの境界と各超過を作る。
    * @observation 各Snapshotの件数・byte数。
    * @oracle 旧境界の両側で対象全体を観測する。
@@ -510,7 +538,7 @@ if (process.argv[2] !== "--probe") {
       const base = path.join(fixture.root, "40_Develop", "coordinator", "src");
       const extras = path.join(base, "extras");
       mkdirSync(extras);
-      for (let i = 0; i < 2024; i += 1)
+      for (let i = 0; i < 2026; i += 1)
         writeFileSync(path.join(extras, `${i}.ts`), "");
       assert.equal(fixture.observe()?.fileCount, 2048);
       writeFileSync(path.join(extras, "overflow.ts"), "");
@@ -703,10 +731,10 @@ if (process.argv[2] !== "--probe") {
     for (const position of positions.slice(2))
       assert.ok((positions[1] as number) < position);
     const before = inventory();
-    const { observeRuntimeOwnedDevelopmentSource } = await import(
+    const { observeDevelopmentSource } = await import(
       "../../scripts/benchmark.ts"
     );
-    const expected = observeRuntimeOwnedDevelopmentSource();
+    const expected = observeDevelopmentSource();
     assert.ok(expected);
     const execution = spawnSync(
       process.execPath,

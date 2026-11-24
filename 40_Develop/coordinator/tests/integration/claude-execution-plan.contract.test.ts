@@ -261,7 +261,7 @@ test("読取専用probe候補はCLI引数と環境置換要求だけを投影す
     required: ["status"],
     additionalProperties: false,
   });
-  assert.deepEqual(plan.runtimeOwnedEnvironmentSlots, [
+  assert.deepEqual(plan.requiredEnvironmentSlots, [
     "HOME",
     "TMPDIR",
     "HTTPS_PROXY",
@@ -438,14 +438,12 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
     reviewer.argv[reviewer.argv.indexOf("--permission-mode") + 1],
     "dontAsk",
   );
-  assert.equal(reviewer.argv.includes("--tools="), true);
-  assert.equal(reviewer.argv.includes("--tools"), false);
-  assert.equal(reviewer.argv.includes("Read,Glob,Grep"), false);
-  assert.equal(reviewer.reviewerFilesystemOrShellToolAllowed, false);
   assert.equal(
-    reviewer.reviewerInput,
-    "runtime_owned_immutable_candidate_content_projection_only",
+    reviewer.argv[reviewer.argv.indexOf("--tools") + 1],
+    "Read,Glob,Grep",
   );
+  assert.equal(reviewer.reviewerFilesystemOrShellToolAllowed, true);
+  assert.equal(reviewer.reviewerInput, "read_only_workspace");
   for (const plan of [executor, reviewer]) {
     assert.equal(plan.taskPromptTransport, "stdin_only");
     assert.equal(plan.taskPromptInArgvAllowed, false);

@@ -33,9 +33,9 @@
 
 対象はRepository識別とそのRepositoryに所属するWorkspace識別で結合する。ID文字列やCWDだけでPath・権限を確定しない。DirectのID表現・具体APIは未決であり、仮の値を永続契約として発行しない。
 
-Isolatedでは上位発行の小文字UUIDを使い、Coordinatorが専用Branchを`crdd/workspace/<uuid>`、配置を所属Repository直下の`.crdd/workspaces/<uuid>/worktree/`へ導き、確定した相対PathとBranchをVersion Controlへ渡す。UUIDは操作許可ではない。採否・保留・非使用はOrchestratorが既存利用調停で処置期間を通じ維持し、削除時は期待HEADと変更破棄の明示有無を渡す。Workspace専用親の再利用禁止と明示回収も上位が所有し、VCは指定Worktree／Branchの技術処置と観測に集中する。新しい台帳・Lockは追加せず、既存の保存Path／Ref名・DTOは変更しない。
+Isolatedでは上位発行の小文字UUIDを使い、CRDD Serverが専用Branchを`crdd/workspace/<uuid>`、配置を所属Repository直下の`.crdd/workspaces/<uuid>/worktree/`へ導き、確定した相対PathとBranchをVersion Controlへ渡す。UUIDは操作許可ではない。採否・保留・非使用はCRDD Serverが既存の排他・利用調停で処置期間を通じ維持し、削除時は期待HEADと変更破棄の明示有無を渡す。Workspace専用親の再利用禁止と明示回収も上位が所有し、VCは指定Worktree／Branchの技術処置と観測に集中する。新しい台帳・Lockは追加せず、既存の保存Path／Ref名・DTOは変更しない。
 
-候補の業務要求・表示名・関連CHGと既存保存DTOはDomainが所有する。Coordinatorの`lifecycle/workspace.ts`が技術要求と保存結果を投影し、Intent保存後に同期的な`createCommit`→`createReference`、採用時の`mergeCommit`、明示終了時の`removeReference`を接続する。Commit生成と保持Refの間に保存やawaitを挟まず、Ref確定前又は短命Index回収未確認を候補固定成功としない。技術契約と実体照合は[Version Control](../version-control/01_Architecture.md#31-現行公開symbol)を正本とする。
+候補の業務要求・表示名・関連CHGと既存保存DTOはDomainが所有する。CRDD Serverの`service/workspace.ts`が技術要求と保存結果を投影し、Intent保存後に同期的な`createCommit`→`createReference`、採用時の`mergeCommit`、明示終了時の`removeReference`を接続する。Commit生成と保持Refの間に保存やawaitを挟まず、Ref確定前又は短命Index回収未確認を候補固定成功としない。技術契約と実体照合は[Version Control](../version-control/01_Architecture.md#31-現行公開symbol)を正本とする。
 
 新設Workspaceの名称はこの作業領域に用いる。既存のdevelopment／managementを表す`workspaceId(s)`は内容領域（設計名`contentAreaId(s)`）へ改名する。権限の意味を変えず、Role／Exposure・Manifest・通信・保存Schemaと全利用側を同じ切替単位で更新する。内容領域への閲覧許可から新Workspace作成・実行・Mergeの許可を自動生成しない。既存の短命作業領域は一時実行領域等の実責務名へ改め、Dockerや外部CLIの予約語は変更しない。過去Evidenceの名称・署名・Hashは維持する。
 
@@ -71,8 +71,8 @@ Workspaceを選択・管理するのは上位であり、Coordinatorは上位が
 
 | 処理 | 所有する場所 | 下位へ渡すもの／禁止すること |
 |---|---|---|
-| 利用者のWorkspace指定・Direct／Isolated選択 | Workbench／MCP／通常Task CLIの受付からOrchestratorへ接続 | 上位が所属・現在許可・利用状態を照合する。指定IDやCWDだけを実行先に変換しない |
-| 実行先の解決 | Orchestrator。必要なGit観測はVersion Controlを利用 | 解決済みの作業フォルダ、所属Repository、必要なRevision・保護境界の確認材料を渡す |
+| 利用者のWorkspace指定・Direct／Isolated選択 | Workbench／MCPの受付からCRDD Serverへ接続 | 上位が所属・現在許可・利用状態を照合する。指定IDやCWDだけを実行先に変換しない |
+| 実行先の引渡し | CRDD Server | 認可済みProjectと保存済みWorkspaceの対応、作業フォルダ・所属Repository・専用Branchを照合して渡す。この段階では実Gitを起動しない |
 | 単発AI実行 | Coordinator | 受領した対象の一致・安全性を実行前に確認し、その対象でExecutor／Reviewerを調整する。Workspace IDから検索・配置再構築・別Tree選択をしない |
 | 隔離と技術資源回収 | Docker Isolation。上位への結果調整はCoordinator | 既存の隔離・Mount検証を維持する。実行先がDirectかIsolatedかを理由にWorkspace寿命を所有しない |
 | 結果と継続・終了 | CoordinatorはOperationに結んだ結果・通知を返し、OrchestratorがWorkspace／Taskへ対応付ける | Task完了・取消・回収不明をWorkspace削除、Branch除去又は候補採用へ変換しない |
@@ -88,6 +88,18 @@ Workspace IDは上位の選択・管理・結果対応に用いる。Coordinator
 ## 4. 配置とRoot解決
 
 Git Worktreeの物理配置はVersion Controlが所有する。Orchestratorが既存`observeRepositoryWorktree`のWorkspace ID・相対配置と必要なGit観測の相関から対象を解決し、Coordinatorは上位から受領した解決済み対象と安全確認材料を再検証する。欠測時に独自の固定Pathへ戻らない。Domain Modelの名前付き`workspaces`は採用済み領域の宣言でありGit操作を所有しない。借用Treeの内部状態保護先だけはDomainの用途限定観測／準備へ委譲し、raw Rootを上位へ公開しない。
+
+CRDD ServerはHTTPとMCP共通の管理入口でWorkspaceを選択・作成・採用・廃棄し、既存の実行・採用排他を同じ取得・解放処理で使う。Serverは認可済みProjectと保存済みWorkspaceの対応を確認し、保存記録と既定配置が一致した実行候補だけを渡す。この段階では実Gitを起動せず、通信上の要求本文にHost Pathを加えない。準備した対象にHEADは含めない。Coordinatorは取得済みの排他の下でQueueとの相関・状態、指定したWorkspaceの所属、登録状態、専用Branch、実体、現在HEADを実行前に確認する。Workspaceの保存記録に対象パスや専用Branchがなければ実行先を確定せず、既存のWorkspace観測操作で照合し直す。専用Branch上の現在の内容を作業対象とし、保存済みHEADとの差や未Commit変更を理由に実行先の選択を拒否しない。レビュー処理にはその時点で観測した改訂を渡すが、これを採用許可とは扱わない。作成・採用・廃棄で対象を固定する条件は別に維持する。未指定のDirectは自身の実行先を用いるが、明示したWorkspaceの欠測・不一致をDirectへ代替しない。Coordinator単体CLIで新規のWorkspace指定実行は開始せず、確定済みの対象を所持する呼出し元は同Process APIで渡す。保存済み依頼の再送と、未終了依頼の既存資源回復は、新しい実行許可とは区別する。
+
+新規作成の`baseBranch`と`baseCommit`は、選択したローカルBranchとその期待HEADを表す。Serverは既存の排他内で直接参照を照合し、確定したCommitから作業領域を作る。元の作業Treeにステージ済み・未ステージ・無視対象外の未追跡変更があれば、既定では`workspace_creation_confirmation_required`を返して作成しない。利用者がそれらを引き継がないことを了承した場合だけ、同じBranch・期待HEADに`acceptUncommittedChangesExcluded: true`を加えて再送する。HEADが変わった場合や観測できない場合は了承済みでも作成しない。作成処理は元Treeと通常Indexを書き換えず、この契約はTask開始時の変更切り分けには適用しない。
+
+新規作成の完了は、Gitの正常終了と指定先の登録・実体・基準HEADの一致で確認する。完了時に新しいTreeの変更有無は観測せず、変更なしとは記録しない。途中失敗後の再観測や廃棄に使う既存の変更確認は維持する。
+
+サブモジュールがある作業領域も未展開のまま作成できる。作成はサブモジュールの取得・初期化や、その内容を必要とする処理の成立を意味しない。廃棄では未展開の参照だけを拒否理由にしない。参照先の内容や管理情報が残る場合は、破棄を了承していても停止する。参照先のディレクトリがなく、Gitが削除変更として扱う場合も、既存の破棄了承が必要である。実体確認の詳細は[Version Controlの廃棄契約](../version-control/01_Architecture.md#git-worktree管理の実装契約)を正本とする。
+
+依存方向はCRDD ServerからCoordinatorへの一方向とする。Coordinatorの製品Source・起動入口・パッケージ定義はServerを参照しない。Workspace操作の応答識別子は `crdd-server/workspace-surface/v1` とし、UIとServerを同時に切り替える。
+
+借用受付と操作への結合では、HEADが指すCommitとTreeの実在を確認しない。実行先と別の所属Rootは、Git上の所属とRoot実体を再照合する。同じRootで実行する場合は実行先の観測を再利用する。実行先の期待HEAD・所属、Directory実体、管理領域の確認は維持する。
 
 ```text
 対象Repository/
@@ -181,6 +193,8 @@ Tool Runtimeのインストール先、Clone先、CWDを製品データの暗黙
 
 Workspace表示名とCandidate表示名を既存Workspace／採用記録へ追加した。新しい名前Registryは作らない。表示名は省略可能、非一意であり、省略時はID／Commitで表示できる。Candidateを固定するときに、その時点のWorkspace名とCandidate名を保存し、後のWorkspace改名で過去の固定成果・Merge説明を変更しない。
 
+Workspace改名は、Version Controlの一回の配置観測で正規ディレクトリを確定し、連結作業領域を拒否する。表示名の保存にGit管理実体の識別値や改訂は使わず、確認済みディレクトリを読み直さない。現在認可と、実行モデルの保存先実体・排他・元版の照合は維持する。
+
 Workspace BranchとCandidate Branchは別のGit資源とし、固定したCandidate Refと期待Commitを既存候補／採用記録へ結合する。Workspaceを継続しながら終了したCandidateだけを処置できるようにする。採用時の取込済み確認又は不採用時の明示破棄に加え、必要参照・保持判断・非使用を確認した後、VCがRefと期待Commitを再照合して不要なCandidate Refを標準Git操作で削除する。参照中・保持中・使用中・Ref変更・観測不能では削除しない。途中失敗は同じRef・期待Commitへ再入場し、別Candidate／Workspace Refを巻き込まない。Branch削除をGit Objectの即時消去や採用Evidenceの削除として扱わず、新しい回収台帳を作らない。
 
 Merge MessageはCandidate名を件名に使い、本文へ固定時のWorkspace名・Workspace ID・Base Commit・Candidate Commit・存在と開示範囲を確認した関連CHGを最小限で記録する。名前は一行・制御文字なし・上限ありとし、Shell文字列やGit引数へ連結しない。Messageだけから採用Authority・品質成立・過去操作の完了を推定しない。名前なしの場合も同じ機械Identityを維持する。
@@ -191,7 +205,7 @@ Git標準操作の代わりになる独自Merge Engine、Conflict Resolver、新
 
 | 対象 | 現在の実装契約 |
 |---|---|
-| 公開Package入口 | 内部`manageCoordinatorWorkspace`に加え、公開入力・投影の`inspectWorkspaceCommand`／`executeWorkspace`とWorkbench／MCPの直接接続が候補実装済み。実Git・HTTP・Browserの限定確認と、実Provider E2E・移行・旧専用経路撤去の未完了範囲を分ける |
+| 受付 | `manageWorkspace`と、HTTP／MCP共通の`inspectWorkspaceCommand`／`executeWorkspace`はServer内部に置く。Coordinator RootからはWorkspace管理を公開しない。実Git・HTTP・Browserの確認と実Provider E2Eは別に扱う |
 | 名前・状態 | 既存Workspace現在記録へ`name`と単一の現在`candidate`を追加する。候補は固定要求、`freezing`／`fixed`／`merging`／`merged`／`removing`、候補OID、取込先、Merge OID、採否、一次失敗、最終技術結果を持つ。履歴台帳を増やさず、採否は既存の不変結果Portへ記録する |
 | 選択 | 一Pathは一file全体。Path・mode・確認したraw bytesのGit Blob IDを渡す。削除はmode／Blob IDが両方nullかつ実fileの真正不存在を確認する。Directory・glob・部分行・管理領域・重複を拒否。filter・改行変換を適用せず、確認したbytesを固定する |
 | Ref・一時物 | VCは`refs/heads/crdd/candidate/<workspace-id>/<operation-id>`へ固定する。Workspace Branch／HEAD／通常indexを変更せず、既存Workspace Directory内の自己生成短命indexでBaseから選択だけを作る。成功・拒否・例外の全経路で一時index回収を試みる。回収失敗時は既存候補結果に限定相対Path・実体照合値を保持し、同じ対象・親・限定内容を再照合後にだけ回収する。作成直後に実体取得が失敗した場合はPathと`identity:null`・清掃未確認を保持し、自動削除しない。不在と観測不能を分け、兄弟探索・新台帳は作らない |
@@ -209,7 +223,7 @@ Source・実Gitの成立範囲と残件は[変更計画の実装結果](../../..
 
 一覧は上限と継続位置を持ち、現在Queue／Workspaceの所属と世代、固定CandidateのBase・Commit・名前・採否と処置結果を公開する。内部一時物・絶対Path・資格・保存Snapshot全体を返さない。変更確認はVCがBaseと現在fileのraw内容・Blob・modeを相関し、固定直前に内容変更を再検出する。削除・binary・欠測・切詰めを全文確認済みへ変換しない。
 
-作成・選択・改名・保留・終了、候補固定・採用・候補終了は明示操作として分離する。既存世代は操作排他取得後にも照合し、同Queue／Workspaceの利用・保留・回復条件を既存Writerで再評価する。外部referencesReleasedや採用済み申告を判定の代用にしない。MCPでは人間の指示をFront AIが代行できるが、Task完了から自動固定／自動採用しない。Serverは本人認証を人間指示の証明と表示せず、新しい確認Tokenや承認Storeを作らない。
+作成・選択・改名・保留・終了、候補固定・採用・候補終了は明示操作として分離する。既存世代は排他取得後にも照合し、同Queue／Workspaceの利用・保留・回復条件を既存Writerで再評価する。表示名の変更はGitを操作しないため、既存の短期保存排他だけで完結する。その保持中にRepository単位の操作Lease記録・残存排他がないことを確認し、WorkspaceとQueueの世代更新を同じ一版で保存する。Git実体は保存の受付時に確認し、保存中は物理Root・保存領域・ファイル実体・Lock・状態版を検査する。保存中のGit管理領域だけの変更は検出対象にしない。次回の受付では現在の配置を確認し、不正・観測不能なら拒否する。過去のGit管理実体とは照合しない。作成・採用・破棄等の操作Leaseは変更しない。外部referencesReleasedや採用済み申告を判定の代用にしない。MCPでは人間の指示をFront AIが代行できるが、Task完了から自動固定／自動採用しない。Serverは本人認証を人間指示の証明と表示せず、新しい確認Tokenや承認Storeを作らない。
 
 送信前取消はOwner処置0。Ownerへ開始後は同期Git／Writerの終端まで待ち、取消・応答喪失をRollback・未処置へ丸めない。明示再観測・同操作再入場を利用し、自動再送しない。公開時にも現在許可とSignalを再確認する。旧BundleのcandidateActionsと新Workspace候補を区別し、Source切替・実公開結合・人間UATの成立範囲を別に記録する。
 

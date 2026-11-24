@@ -13,11 +13,7 @@ import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { fileURLToPath } from "node:url";
-import {
-  resolveVerifiedRepositoryRoot,
-  getRepository,
-} from "../../../version-control/src/index.ts";
+import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { dockerContainerConfigurationMatches } from "../../src/cleanup/configuration.ts";
 import {
   cleanupDockerContainer,
@@ -39,31 +35,18 @@ import type { DockerContainerConfigurationExpectation } from "../../src/cleanup/
  * @boundary Repository-localの自己生成Filesystem。
  */
 function fixture(t: TestContext) {
-  const root = fileURLToPath(new URL("../../../../", import.meta.url));
-  const verified = getRepository(root);
-  assert.equal(verified.status, "completed");
-  assert.ok(verified.capability);
-  assert.equal(
-    resolveVerifiedRepositoryRoot(verified.capability),
-    path.resolve(root),
-  );
-  const tests = path.join(path.resolve(root), ".crdd", "tests");
-  fs.mkdirSync(tests, { recursive: true });
-  assert.equal(fs.realpathSync.native(tests), tests);
-  const directory = fs.mkdtempSync(path.join(tests, "probe-configuration-"));
+  const owned = createRepositoryTestDirectory("probe-configuration-");
+  const directory = owned.path;
+  t.after(() => {
+    t.mock.restoreAll();
+    owned.cleanup();
+  });
   const mounts = {
     workspace: path.join(directory, "workspace"),
     providerHome: path.join(directory, "provider-home"),
     tmp: path.join(directory, "tmp"),
   };
   for (const value of Object.values(mounts)) fs.mkdirSync(value);
-  t.after(() => {
-    t.mock.restoreAll();
-    assert.equal(fs.realpathSync.native(directory), directory);
-    assert.equal(fs.lstatSync(directory).isSymbolicLink(), false);
-    fs.rmSync(directory, { recursive: true });
-    assert.equal(fs.existsSync(directory), false);
-  });
   const expected: DockerContainerConfigurationExpectation = {
     id: "a".repeat(64),
     name: "crdd-coordinator-probe-probe-123",

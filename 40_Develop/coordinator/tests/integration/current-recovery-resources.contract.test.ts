@@ -102,6 +102,7 @@ test("Host世代は同じ途中保存だけを観測しHost変更を許可しな
           : {}),
       };
       const host = {
+        recoveryRepository: { root },
         input: { root, recordingCurrent: () => fault !== "owner_lost" },
         record,
         version: {},
@@ -129,6 +130,10 @@ test("Host世代は同じ途中保存だけを観測しHost変更を許可しな
         {
           isDeepStrictEqual,
           Buffer,
+          recoveryStorageInput: (
+            repository: { root: unknown },
+            history?: unknown,
+          ) => history ?? repository.root,
           readState: (authority: unknown, request: { input?: unknown }) => {
             calls.push({ authority, request });
             if (!request.input && !ordinary)
@@ -215,7 +220,7 @@ test("Host世代は同じ途中保存だけを観測しHost変更を許可しな
  * 回復Ownerの取得途中失敗を保持成功分だけの解放へ結合する。
  * @responsibility 旧Host代役にあった部分取得の検証義務を現行の取得本文へ移す。
  * @trace ERB-IT-014
- * @precondition 条件ごとに独立したOwner・Map・三つのLockを使う。
+ * @precondition 条件ごとに独立したOwner・MapとHost／HomeのLockを使う。
  * @stimulus 各段階の取得拒否／例外、元版差と解放false／例外を与える。
  * @observation 取得列、逆順解放列、Writer到達0と元回復参照。
  * @oracle 失敗した取得や後続を解放せず、保持済み分だけを一度解放する。
@@ -226,18 +231,16 @@ test("現在回復の部分取得は保持済みLockだけを逆順に全解放�
   const body = [
     "isRecoveryCapability",
     "assertCurrentRecoveryOwner",
-    "prepareRuntimeOwnedDockerTaskRecovery",
-    "releaseRuntimeOwnedDockerTaskRecoveryPreparation",
+    "prepareDockerTaskRecovery",
+    "releaseDockerTaskRecoveryPreparation",
   ]
     .map((name) => sourceDeclaration(source, name))
     .join("\n");
   for (const fault of [
     "host_refused",
     "home_refused",
-    "state_refused",
     "host_throw",
     "home_throw",
-    "state_throw",
     "release_false",
     "release_throw",
     "normal",
@@ -275,21 +278,20 @@ test("現在回復の部分取得は保持済みLockだけを逆順に全解放�
     };
     let hostLock: ReturnType<typeof acquire>;
     const api = runInNewContext(
-      `${body};({prepare:prepareRuntimeOwnedDockerTaskRecovery,release:releaseRuntimeOwnedDockerTaskRecoveryPreparation})`,
+      `${body};({prepare:prepareDockerTaskRecovery,release:releaseDockerTaskRecoveryPreparation})`,
       {
         Buffer,
         path,
         Object,
         parseDockerTaskRecoveryId,
         dockerRecoveryPreparations: new WeakMap(),
-        borrowRuntimeOwnedCoordinatorRecoveryRepository: (value: unknown) =>
+        borrowCoordinatorRecoveryRepository: (value: unknown) =>
           value === root ? repository : null,
-        resolveRepositoryExecutionDataPaths: (value: unknown) => {
-          assert.equal(value, root);
-          return {
-            operations: path.join(repository.repositoryRoot, "operations"),
-          };
+        resolveRecoveryHostRoot: (value: unknown) => {
+          assert.equal(value, repository);
+          return path.join(repository.repositoryRoot, "coordinator");
         },
+        recoveryStorageInput: (root: unknown) => root,
         readState: () => {
           reads++;
           const changed = fault.startsWith("release_") && reads > 1;
@@ -333,19 +335,8 @@ test("現在回復の部分取得は保持済みLockだけを逆順に全解放�
                 descriptorClosed: true,
               };
         },
-        acquireExecutionStateLock: () => {
-          const lock = acquire("state");
-          return lock
-            ? { status: "acquired", lock }
-            : {
-                status: "blocked",
-                cleanupConfirmed: false,
-                descriptorClosed: true,
-              };
-        },
         providerHomesDirectoryCandidate: () => "home",
-        runtimeStateDirectoryCandidate: () => "state",
-        poisonRuntimeProcessAfterCleanupUnknown: () => undefined,
+        poisonExecutionProcessAfterCleanupUnknown: () => undefined,
         saveRecoveryCheckpoint: () => {
           writes++;
           throw Error("unexpected writer");
@@ -355,6 +346,7 @@ test("現在回復の部分取得は保持済みLockだけを逆順に全解放�
     const result = api.prepare(fixture.recoveryId, root);
     if (fault === "normal") {
       assert.equal(result.status, "prepared");
+      assert.deepEqual(acquired, ["host", "home"]);
       assert.equal(api.release(result.capability), true);
       assert.deepEqual(released, [...acquired].reverse());
     } else {
@@ -369,11 +361,7 @@ test("現在回復の部分取得は保持済みLockだけを逆順に全解放�
         ).toReversed(),
         fault,
       );
-      const expected = fault.startsWith("host_")
-        ? 1
-        : fault.startsWith("home_")
-          ? 2
-          : 3;
+      const expected = fault.startsWith("host_") ? 1 : 2;
       assert.equal(acquired.length, expected, fault);
     }
     assert.equal(writes, 0, fault);
@@ -395,7 +383,7 @@ test("現在Host回復は前後の現在観測と停止状態を共同確認す�
   const body = [
     "isRecoveryCapability",
     "assertCurrentRecoveryOwner",
-    "cleanupRuntimeOwnedDockerTaskHost",
+    "cleanupDockerTaskHost",
   ]
     .map((name) => stripTypeScriptTypes(sourceDeclaration(source, name)))
     .join("\n");
@@ -480,7 +468,8 @@ test("現在Host回復は前後の現在観測と停止状態を共同確認す�
         },
       },
     ];
-    const api = runInNewContext(`${body}; cleanupRuntimeOwnedDockerTaskHost`, {
+    const prepared = { purpose: "recovery" };
+    const api = runInNewContext(`${body}; cleanupDockerTaskHost`, {
       Buffer,
       dockerRecoveryPreparations: new Map([[capability, record]]),
       verifyHostOperationRecoveryGeneration: (
@@ -494,8 +483,12 @@ test("現在Host回復は前後の現在観測と停止状態を共同確認す�
         if (scenario === "generation_lost") throw Error("lost");
       },
       observeHostRecoveryRoot: () => root,
+      recoveryStorageInput: (repository: unknown) => {
+        assert.equal(repository, record.repository);
+        return prepared;
+      },
       readState: (value: unknown, options: unknown) => {
-        assert.equal(value, record.rootCapability);
+        assert.equal(value, prepared);
         assert.equal(JSON.stringify(options), '{"scope":"recovery"}');
         reads++;
         const after = reads > 1;
@@ -516,10 +509,7 @@ test("現在Host回復は前後の現在観測と停止状態を共同確認す�
           },
         };
       },
-      persistRuntimeOwnedDockerTaskRecoveryCheckpoint: (
-        value: unknown,
-        kind: string,
-      ) => {
+      persistDockerTaskRecoveryCheckpoint: (value: unknown, kind: string) => {
         assert.equal(value, capability);
         assert.equal(kind, "lifecycle");
         leaseWrites++;
@@ -708,17 +698,17 @@ test("資源作成通知の入力捕捉拒否はIntentとReceiptのWriterへ到�
  * @cleanup N/A: 実Filesystem・Docker・Processを作成しない。
  * @boundary ERB-IT-014=Related 2 Blocks: 回収Owner→既存checkpoint Writer。
  */
-test("現在回収退役: 元版・三排他・保存読戻しと非対象保持", () => {
+test("現在回収退役: 元版・HostとHomeの排他・保存読戻しと非対象保持", () => {
   const ownerStart = source.indexOf("function assertCurrentRecoveryOwner(");
   const ownerEnd = source.indexOf(
-    "export function prepareRuntimeOwnedDockerTaskRecovery(",
+    "export function prepareDockerTaskRecovery(",
     ownerStart,
   );
   const checkpointStart = source.indexOf(
-    "export function persistRuntimeOwnedDockerTaskRecoveryCheckpoint(",
+    "export function persistDockerTaskRecoveryCheckpoint(",
   );
   const checkpointEnd = source.indexOf(
-    "export function releaseRuntimeOwnedDockerTaskRecoveryPreparation(",
+    "export function releaseDockerTaskRecoveryPreparation(",
     checkpointStart,
   );
   assert.ok(
@@ -742,7 +732,6 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
     "marker",
     "lock_0",
     "lock_1",
-    "lock_2",
     "lock_throw",
     "changed",
     "read_unlock",
@@ -827,7 +816,7 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
       recoveryId: "exact",
       before,
       repository: { revalidate: () => scenario !== "root" && ownerLive },
-      locks: [0, 1, 2].map((i) => ({
+      locks: [0, 1].map((i) => ({
         assertLive() {
           if (scenario === "lock_throw") throw new Error("lock");
           return scenario !== `lock_${i}`;
@@ -839,11 +828,13 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
       completionReads = 0,
       historyReads = 0;
     const retire = runInNewContext(
-      `${recoveryCapabilitySource}\n${actualBody}; retireRuntimeOwnedDockerTaskExecutionOwner`,
+      `${recoveryCapabilitySource}\n${actualBody}; retireDockerTaskExecutionOwner`,
       {
         Buffer,
         Object,
         JSON,
+        recoveryStorageInput: (root: unknown, history?: unknown) =>
+          history ?? root,
         historyRepositoryInput: (input: unknown) => ({
           root: input,
           historyRetentionDays: 30,
@@ -873,7 +864,7 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
           const receivedId = request.recoveryId;
           if (request.kind === "execution_completion") {
             assert.equal(record.completionPending, true);
-            assert.equal(receivedRoot, root);
+            assert.equal(receivedRoot, record.repository);
             assert.equal(receivedId, record.recoveryId);
             completionReads++;
             if (scenario === "completion_throw")
@@ -917,7 +908,7 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
             };
           }
           assert.equal(record.completionPending, false);
-          assert.equal(receivedRoot, root);
+          assert.equal(receivedRoot, record.repository);
           reads++;
           if (scenario.startsWith("history_")) {
             if (scenario === "history_normal_throw")
@@ -1121,7 +1112,7 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
  */
 test("現在回収排他: 全逆順・一回性・不明保持を終端処理から分離する", () => {
   const releaseStart = source.indexOf(
-    "export function releaseRuntimeOwnedDockerTaskRecoveryPreparation(",
+    "export function releaseDockerTaskRecoveryPreparation(",
   );
   assert.ok(releaseStart >= 0 && start > releaseStart);
   const releaseBody = stripTypeScriptTypes(
@@ -1145,7 +1136,7 @@ test("現在回収排他: 全逆順・一回性・不明保持を終端処理か
       releaseConfirmed: false,
       finalizationAttempted: false,
       before,
-      locks: [0, 1, 2].map((index) => ({
+      locks: [0, 1].map((index) => ({
         release() {
           calls.push(index);
           assert.equal(record.closed, true);
@@ -1160,7 +1151,7 @@ test("現在回収排他: 全逆順・一回性・不明保持を終端処理か
     };
     const map = new WeakMap<object, typeof record>([[capability, record]]);
     const release = runInNewContext(
-      `${releaseBody}; releaseRuntimeOwnedDockerTaskRecoveryPreparation`,
+      `${releaseBody}; releaseDockerTaskRecoveryPreparation`,
       { dockerRecoveryPreparations: map },
     ) as (value: unknown) => boolean;
     for (const invalid of [null, undefined, 0, "owner", {}, { ...capability }])
@@ -1168,20 +1159,20 @@ test("現在回収排他: 全逆順・一回性・不明保持を終端処理か
     assert.deepEqual(calls, []);
     const confirmed = scenario === "normal" || scenario === "reentrant";
     assert.equal(release(capability), confirmed, scenario);
-    assert.deepEqual(calls, [2, 1, 0], scenario);
+    assert.deepEqual(calls, [1, 0], scenario);
     assert.equal(record.releaseConfirmed, confirmed, scenario);
     assert.equal(record.cleanupUnknown, !confirmed, scenario);
     assert.equal(record.finalizationAttempted, false);
     assert.equal(record.before, before);
     assert.equal(before.toString(), "unchanged-current-state");
     assert.equal(release(capability), false);
-    assert.deepEqual(calls, [2, 1, 0]);
+    assert.deepEqual(calls, [1, 0]);
     const restartKey = Object.freeze({});
     const restart = { ...record, kind: "restart", closed: false };
     map.set(restartKey, restart);
     assert.equal(release(restartKey), false);
     assert.equal(restart.closed, false);
-    assert.deepEqual(calls, [2, 1, 0]);
+    assert.deepEqual(calls, [1, 0]);
   }
 });
 
@@ -1198,7 +1189,7 @@ test("現在回収排他: 全逆順・一回性・不明保持を終端処理か
  */
 test("現在回収終端: 解放確認・一回性・Writer借用の短命性", () => {
   const finalizerStart = source.indexOf(
-    "export function finalizeRuntimeOwnedDockerTaskRecoveryPreparation(",
+    "export function finalizeDockerTaskRecoveryPreparation(",
   );
   assert.ok(finalizerStart >= 0 && start > finalizerStart);
   const finalizerBody = stripTypeScriptTypes(
@@ -1246,7 +1237,7 @@ test("現在回収終端: 解放確認・一回性・Writer借用の短命性", 
       observations = 0;
     let borrowed: (() => boolean) | null = null;
     const finalize = runInNewContext(
-      `${recoveryCapabilitySource}\n${finalizerBody}; finalizeRuntimeOwnedDockerTaskRecoveryPreparation`,
+      `${recoveryCapabilitySource}\n${finalizerBody}; finalizeDockerTaskRecoveryPreparation`,
       {
         withHistoryRetention() {
           assert.fail("履歴なし終了で保持設定を読まない");
@@ -1356,7 +1347,7 @@ test("現在回収終端: 解放確認・一回性・Writer借用の短命性", 
  */
 test("現在回収終端: 未確認履歴だけ保持設定を搬送する", () => {
   const begin = source.indexOf(
-    "export function finalizeRuntimeOwnedDockerTaskRecoveryPreparation(",
+    "export function finalizeDockerTaskRecoveryPreparation(",
   );
   const finalizer = stripTypeScriptTypes(
     source.slice(begin, start).replaceAll("export function", "function"),
@@ -1410,12 +1401,16 @@ test("現在回収終端: 未確認履歴だけ保持設定を搬送する", () 
       writes = 0;
     const pending = ["pending", "invalid", "changed"].includes(scenario);
     const finalize = runInNewContext(
-      `${recoveryCapabilitySource}\n${connection}; ${finalizer}; finalizeRuntimeOwnedDockerTaskRecoveryPreparation`,
+      `${recoveryCapabilitySource}\n${connection}; ${finalizer}; finalizeDockerTaskRecoveryPreparation`,
       {
         Buffer,
         dockerRecoveryPreparations: new WeakMap([[capability, record]]),
-        readCoordinatorConfig(received: unknown) {
+        resolveVerifiedRepositoryRoot(received: unknown) {
           assert.equal(received, root);
+          return "fixture-directory";
+        },
+        readCoordinatorConfig(received: unknown) {
+          assert.equal(received, "fixture-directory");
           reads++;
           return scenario === "invalid"
             ? { status: "blocked" }
@@ -1488,7 +1483,7 @@ test("現在回収終端: 未確認履歴だけ保持設定を搬送する", () 
  */
 test("現在回収履歴: 完成保存一回・失敗後停止・Effect保持", () => {
   const historyStart = source.indexOf(
-    "export function completeRuntimeOwnedDockerTaskRecoveryHistory(",
+    "export function completeDockerTaskRecoveryHistory(",
   );
   assert.ok(historyStart >= 0 && historyStart < start);
   const historyBody = stripTypeScriptTypes(
@@ -1525,7 +1520,7 @@ test("現在回収履歴: 完成保存一回・失敗後停止・Effect保持", 
     let calls = 0;
     const borrowed: (() => boolean)[] = [];
     const complete = runInNewContext(
-      `${recoveryCapabilitySource}\n${historyBody}; completeRuntimeOwnedDockerTaskRecoveryHistory`,
+      `${recoveryCapabilitySource}\n${historyBody}; completeDockerTaskRecoveryHistory`,
       {
         withHistoryRetention: (repository: object) => ({
           ...repository,
@@ -1622,7 +1617,7 @@ test("現在回収履歴: 完成保存一回・失敗後停止・Effect保持", 
  */
 test("認証不明終了後の保持版は保存とfresh読戻しの共同確認後だけ更新する", async () => {
   const begin = source.indexOf(
-    "export async function recoverRuntimeOwnedDockerTaskResources(",
+    "export async function recoverDockerTaskResources(",
   );
   const end = source.indexOf("\n/**", begin);
   assert.ok(begin >= 0 && end > begin);
@@ -1670,7 +1665,7 @@ test("認証不明終了後の保持版は保存とfresh読戻しの共同確認
     const before = Buffer.from(record.before);
     let saves = 0;
     const run = runInNewContext(
-      `${recoveryCapabilitySource}\n${recoveryResourceFixtureBody(body)}; recoverRuntimeOwnedDockerTaskResources`,
+      `${recoveryCapabilitySource}\n${recoveryResourceFixtureBody(body)}; recoverDockerTaskResources`,
       {
         Buffer,
         Object,
@@ -1680,8 +1675,9 @@ test("認証不明終了後の保持版は保存とfresh読戻しの共同確認
         snapshotJsonValue,
         isDeepStrictEqual,
         canonicalJson: JSON.stringify,
+        recoveryStorageInput: (root: unknown) => root,
         readState: (received: unknown) => {
-          assert.equal(received, root);
+          assert.equal(received, record.repository);
           const observedSnapshot =
             saves && fault === "stale"
               ? beforeSnapshot
@@ -1835,10 +1831,10 @@ test("認証不明終了後の保持版は保存とfresh読戻しの共同確認
  */
 test("現在回収組立て: 順序・一次失敗・段階間取消", async () => {
   const begin = source.indexOf(
-    "export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(",
+    "export async function recoverDockerTaskFromCurrentRepository(",
   );
   const finish = source.indexOf(
-    "export async function recoverRuntimeOwnedDockerTaskResources(",
+    "export async function recoverDockerTaskResources(",
     begin,
   );
   assert.ok(begin >= 0 && finish > begin);
@@ -1926,7 +1922,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
     let yields = 0;
     if (scenario === "pre_cancel") controller.abort();
     const driver = runInNewContext(
-      `${recoveryCapabilitySource}\n${driverBody}; recoverRuntimeOwnedDockerTaskFromCurrentRepository`,
+      `${recoveryCapabilitySource}\n${driverBody}; recoverDockerTaskFromCurrentRepository`,
       {
         AbortSignal,
         types,
@@ -1935,10 +1931,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
         parseDockerTaskRecoveryId: (token: unknown) =>
           token === "invalid" ? null : { token: "exact" },
         dockerRecoveryPreparations: new WeakMap([[capability, record]]),
-        prepareRuntimeOwnedDockerTaskRecovery(
-          token: string,
-          receivedRoot: unknown,
-        ) {
+        prepareDockerTaskRecovery(token: string, receivedRoot: unknown) {
           events.push("prepare");
           assert.equal(token, "exact");
           assert.equal(receivedRoot, root);
@@ -1961,7 +1954,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
           yields++;
           if (scenario === `cancel_${yields}`) controller.abort();
         },
-        retireRuntimeOwnedDockerTaskExecutionOwner(key: unknown) {
+        retireDockerTaskExecutionOwner(key: unknown) {
           assert.equal(key, capability);
           assert.deepEqual(events, ["prepare", "yield"]);
           retirementEvents.push("retire");
@@ -1969,7 +1962,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
           retirementYieldPending = retired;
           return retired;
         },
-        recoverRuntimeOwnedDockerTaskResources(key: unknown) {
+        recoverDockerTaskResources(key: unknown) {
           assert.equal(retired, true);
           assert.deepEqual(retirementEvents, [
             "retire",
@@ -1987,12 +1980,12 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
             configCleanupConfirmed: true,
           };
         },
-        cleanupRuntimeOwnedDockerTaskHost(key: unknown) {
+        cleanupDockerTaskHost(key: unknown) {
           events.push("host");
           assert.equal(key, capability);
           return scenario !== "host_failed";
         },
-        releaseRuntimeOwnedDockerTaskRecoveryPreparation(key: unknown) {
+        releaseDockerTaskRecoveryPreparation(key: unknown) {
           events.push("release");
           assert.equal(key, capability);
           if (scenario === "release_throw")
@@ -2001,7 +1994,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
             scenario,
           );
         },
-        finalizeRuntimeOwnedDockerTaskRecoveryPreparation(key: unknown) {
+        finalizeDockerTaskRecoveryPreparation(key: unknown) {
           events.push("terminal");
           assert.equal(key, capability);
           if (scenario === "terminal_throw") throw new Error("fixture");
@@ -2011,7 +2004,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
             lockReleased: scenario !== "terminal_unlock_failed",
           };
         },
-        completeRuntimeOwnedDockerTaskRecoveryHistory(key: unknown) {
+        completeDockerTaskRecoveryHistory(key: unknown) {
           events.push("history");
           assert.equal(key, capability);
           if (scenario === "history_throw") throw new Error("fixture");
@@ -2404,7 +2397,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
  */
 test("現在相関Resolverは完全観測と上位相関だけを使う", () => {
   const begin = source.indexOf(
-    "export function resolveRuntimeOwnedDockerTaskCurrentCorrelations(",
+    "export function resolveDockerTaskCurrentCorrelations(",
   );
   const end = source.indexOf("\n/**", begin);
   assert.ok(begin >= 0 && end > begin);
@@ -2436,7 +2429,7 @@ test("現在相関Resolverは完全観測と上位相関だけを使う", () => 
         kind: "docker_task",
         recoveryId: "exact",
         identityJson: JSON.stringify({
-          consumer: "orchestrator",
+          consumer: "coordinator",
           recoveryCorrelationId: "upper-a",
           operationId: "internal-different",
         }),
@@ -2451,7 +2444,7 @@ test("現在相関Resolverは完全観測と上位相関だけを使う", () => 
       });
     if (scenario === "missing_correlation")
       operation.identityJson = JSON.stringify({
-        consumer: "orchestrator",
+        consumer: "coordinator",
         operationId: "upper-a",
       });
     if (scenario === "wrong_consumer")
@@ -2466,7 +2459,7 @@ test("現在相関Resolverは完全観測と上位相関だけを使う", () => 
         kind: "docker_task",
         recoveryId: "exact",
         identityJson: JSON.stringify({
-          consumer: "orchestrator",
+          consumer: "coordinator",
           recoveryCorrelationId: "absent",
         }),
       });
@@ -2488,7 +2481,7 @@ test("現在相関Resolverは完全観測と上位相関だけを使う", () => 
         },
       });
     const run = runInNewContext(
-      `${recoveryCapabilitySource}\n${body}; resolveRuntimeOwnedDockerTaskCurrentCorrelations`,
+      `${recoveryCapabilitySource}\n${body}; resolveDockerTaskCurrentCorrelations`,
       {
         Object,
         Array,
@@ -2496,6 +2489,8 @@ test("現在相関Resolverは完全観測と上位相関だけを使う", () => 
         Set,
         JSON,
         types,
+        borrowCoordinatorRecoveryRepository: (value: unknown) => value,
+        recoveryStorageInput: (root: unknown) => root,
         readState(received: unknown) {
           reads++;
           if (scenario === "throw") throw new Error("secret");
@@ -2557,7 +2552,7 @@ test("現在相関Resolverは完全観測と上位相関だけを使う", () => 
  */
 test("現在回復の公開組立て: Task相関・共同成立・内部値非公開", async () => {
   const begin = source.indexOf(
-    "export async function recoverRuntimeOwnedDockerTaskForCurrentConsumer(",
+    "export async function recoverDockerTaskForCurrentConsumer(",
   );
   const end = source.indexOf("\n/**", begin);
   assert.ok(begin >= 0 && end > begin);
@@ -2606,12 +2601,11 @@ test("現在回復の公開組立て: Task相関・共同成立・内部値非�
     if (scenario === "technical_blocked") technical.status = "blocked";
     let calls = 0;
     const run = runInNewContext(
-      body + "; recoverRuntimeOwnedDockerTaskForCurrentConsumer",
+      body + "; recoverDockerTaskForCurrentConsumer",
       {
         Object,
-        recoverRuntimeOwnedDockerTaskFromCurrentRepository: async () =>
-          technical,
-        completeRuntimeOwnedDockerTaskRecovery(received: unknown) {
+        recoverDockerTaskFromCurrentRepository: async () => technical,
+        completeDockerTaskRecovery(received: unknown) {
           assert.equal(received, key);
           calls++;
           if (scenario === "completion_throw") throw new Error("secret");
@@ -2744,7 +2738,7 @@ test("Objective回復はexact技術終端と待機後の同じ境界を要求す
   assert.equal(
     check(
       { status: "recovered", recoveryId: null },
-      "runtime_process",
+      "execution_process",
       "exact",
     ),
     true,
@@ -2822,7 +2816,7 @@ test("Objective回復はexact技術終端と待機後の同じ境界を要求す
         recoveryState: state,
         request: { projectId: "project" },
         queueId: "queue",
-        getRuntimeProcessInstanceIdentity: () =>
+        getExecutionProcessInstanceIdentity: () =>
           scenario === "process" ? "other" : "owner",
         persistence: {
           repository,
@@ -2890,11 +2884,9 @@ test("Objective回復はexact技術終端と待機後の同じ境界を要求す
  * @boundary ERB-IT-014=Related 2 Blocks: 技術回収Owner→終了保存Owner。
  */
 test("現在回復終了: genuine Owner・一回性・借用失効", () => {
-  const start = source.indexOf(
-    "export function completeRuntimeOwnedDockerTaskRecovery(",
-  );
+  const start = source.indexOf("export function completeDockerTaskRecovery(");
   const end = source.indexOf(
-    "export async function recoverRuntimeOwnedDockerTaskResources(",
+    "export async function recoverDockerTaskResources(",
     start,
   );
   assert.ok(start >= 0 && end > start);
@@ -2961,12 +2953,13 @@ test("現在回復終了: genuine Owner・一回性・借用失効", () => {
     let calls = 0,
       borrowed: (() => boolean) | null = null;
     const complete = runInNewContext(
-      `${recoveryCapabilitySource}\n${body}; completeRuntimeOwnedDockerTaskRecovery`,
+      `${recoveryCapabilitySource}\n${body}; completeDockerTaskRecovery`,
       {
         Object,
         dockerRecoveryPreparations: new WeakMap([[key, record]]),
         isHostOperationRootAbsent: () =>
           !["host_present", "host_unknown"].includes(scenario),
+        recoveryStorageInput: (root: unknown) => root,
         completeRecovery(
           receivedRoot: unknown,
           id: string,
@@ -2975,7 +2968,7 @@ test("現在回復終了: genuine Owner・一回性・借用失効", () => {
         ) {
           assert.equal(kind, "docker_task");
           calls++;
-          assert.equal(receivedRoot, root);
+          assert.equal(receivedRoot, record.repository);
           assert.equal(id, "exact");
           borrowed = owner;
           if (scenario === "save_throw") throw new Error("fixture");
@@ -3212,7 +3205,7 @@ test("終了出版pendingのHost確認は同じ終結断面だけを読みEffect
   const body = [
     "isRecoveryCapability",
     "assertCurrentRecoveryOwner",
-    "cleanupRuntimeOwnedDockerTaskHost",
+    "cleanupDockerTaskHost",
   ]
     .map((name) => sourceDeclaration(source, name))
     .join("\n");
@@ -3295,7 +3288,8 @@ test("終了出版pendingのHost確認は同じ終結断面だけを読みEffect
       effects++;
       throw Error("unexpected_effect");
     };
-    const api = runInNewContext(`${body};cleanupRuntimeOwnedDockerTaskHost`, {
+    const prepared = { purpose: "recovery" };
+    const api = runInNewContext(`${body};cleanupDockerTaskHost`, {
       Buffer,
       isDeepStrictEqual,
       dockerRecoveryPreparations: new Map([[owner, record]]),
@@ -3307,8 +3301,12 @@ test("終了出版pendingのHost確認は同じ終結断面だけを読みEffect
           : readHost && fault === "root_unknown"
             ? "unknown"
             : "absent",
+      recoveryStorageInput: (value: unknown) => {
+        assert.equal(value, record.repository);
+        return prepared;
+      },
       readState: (value: unknown, request: unknown) => {
-        assert.equal(value, root);
+        assert.equal(value, prepared);
         assert.equal(
           JSON.stringify(request),
           '{"scope":"recovery","input":{"kind":"execution_completion","recoveryId":"exact"}}',
@@ -3354,7 +3352,7 @@ test("終了出版pendingのHost確認は同じ終結断面だけを読みEffect
           payloadSha256: fault === "hash" ? "different" : "same-hash",
         };
       },
-      persistRuntimeOwnedDockerTaskRecoveryCheckpoint: effect,
+      persistDockerTaskRecoveryCheckpoint: effect,
       recoverOwnedOperationDirectories: effect,
     }) as (owner: object) => boolean;
     assert.equal(api(owner), fault === "normal", fault);

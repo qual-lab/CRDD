@@ -15,16 +15,15 @@
     "format:check": "biome format . ../../template/tools/crdd-server.ts",
     "lint": "biome lint . ../../template/tools/crdd-server.ts --error-on-warnings",
     "test": "npm run check && npm run test:run",
-    "test:run": "node --experimental-test-module-mocks --test --test-concurrency=1 \"--test-skip-pattern=^Host Windows:\" ./tests/unit/**/*.test.ts ./tests/integration/*.test.ts ./tests/system/*.test.ts",
+    "test:run": "node --experimental-test-module-mocks --test --test-concurrency=1 \"--test-skip-pattern=^Host Windows:\" ./tests/unit/**/*.test.ts ./tests/integration/*.test.ts ./tests/integration/diagnostic/*.test.ts ./tests/system/*.test.ts",
+    "test:coverage": "node --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --experimental-test-module-mocks --test --test-concurrency=1 \"--test-skip-pattern=^Host Windows:\" ./tests/unit/**/*.test.ts ./tests/integration/*.test.ts",
     "typecheck": "tsc -p ./tsconfig.json && tsc -p ./tsconfig-launcher.json",
     "build:ui": "npm --prefix ../workbench-ui run build",
     "prestart": "npm run build:ui",
     "pretest": "npm run build:ui",
     "start": "node ./bin/crdd-server.ts",
     "test:host-windows": "node --experimental-test-module-mocks --test --test-concurrency=1 \"--test-name-pattern=^Host Windows:\" ./tests/integration/recovery-http-owner.integration.test.ts",
-    "test:credential-browser": "node --test ./tests/system/credential-administration-browser.contract.test.ts",
-    "test:entry": "node --test ./tests/system/workbench-server-entry.integration.test.ts",
-    "test:visual": "node --test --test-concurrency=1 ./tests/system/workbench-visual.integration.test.ts"
+    "test:entry": "node --test ./tests/system/workbench-server-entry.integration.test.ts"
   },
   "engines": {
     "node": ">=24.12.0"

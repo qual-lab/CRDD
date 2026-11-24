@@ -7,13 +7,29 @@
 
 ## Operation Identityと終了保存の現在契約
 
+実行モデルが書き出す現在状態は `crdd-execution-model/state/v9`、保存包絡は `crdd-execution-model/storage-envelope/v2`、履歴行と操作要約はそれぞれ `crdd-execution-model/history-row/v3` と `crdd-execution-model/operation-summary/v7` とする。保存される呼出し元 `coordinator` はCLIの `coordinator_cli`・画面の `workbench` と区別する。Docker環境修復および実行プロセス回復の種別は `docker_repair`・`execution_process`、回復参照の接頭辞は `docker-repair.`・`execution-process.` とする。Docker照合で取得した受領情報の由来は `docker_observation` とする。
+
+旧書式は自動変換せず、新形式の読取り入口では拒否する。既存記録が必要な場合は、停止中に未解決の回復記録と元資源の対応を確認したうえで、別途移行する。旧記録を空の新状態として初期化しない。
+
 実行のOperation Identityは`crdd-coordinator/operation-identity/v6`とし、完全選定・試行番号・Operation／Home相関を保存する。Hostは同じOperation IDの独立記録へ結合し、IdentityへHost Pathを複製しない。旧v5・v4及び`grantRef`を含む旧構造は受理せず、互換Reader・暗黙補完・自動変換を置かない。終了観測の旧`mountLeaseReleased`は受付契約から除き、元の実行Ownerへ照合した資源終端・実Home解放・Recovery確定を、既存Writer・CAS・現在版照合で保存する。Schema更新は過去保持物の移行・削除を実行する許可ではなく、本変更では操作しない。
 
 ## 共通状態保存の配置切替 — 2026-10-28
 
+保存本体の読取り・確定、初期化領域の作成、Lease実体の観測では、保存Ownerに結合済みの絶対ディレクトリを使う。ファイル操作ごとにGitを探索せず、Node.jsで起点と固定領域を観測して、観測不能と領域の真正不存在を区別する。保存形式v8では保存識別値を正規ディレクトリの実体から導出し、Gitの管理実体からは導出しない。上位が修復・再起動などで同じ値を必要とする場合も、実行モデルの同じ観測を使う。排他・Ownerの現在性は別の条件として維持し、旧形式を不存在として初期化しない。
+
+明示の初期化・実行Queue受付・Host操作の開始記録で必要なローカルGit除外の登録は、CoordinatorまたはCRDD Serverが担当する。実行モデルは、排他のもとで状態の不存在と初期化候補を確認した場合に限り、利用側が渡した同期の準備処理を呼ぶ。内容認可を伴う入口では既存の認可確認も維持する。準備の失敗や結果不明では新しい状態を作らない。すでに準備済みの環境では処理を渡さなくてよい。これらの入口の既存状態の読取りや更新では準備を呼び直さない。修復の初回保存は既存の別経路のままとする。
+
+サーバーのHTTP／MCP定義操作とCoordinatorの通常のHost開始・終端記録は、利用側が確定した絶対ディレクトリを渡す。実行モデルは文字列の起動位置から保存先を探さず、その絶対ディレクトリの実体だけを確認する。ローカルGit除外、定義の参照元改訂と内容認可は利用側に残す。
+
+Coordinatorの回復入口は、保存対象のGit改訂と実体を上位で捕捉し、実行モデルへは確定ディレクトリと同期の現在性確認だけを渡す。履歴を伴う処置では、同じ対象で捕捉した保持設定も結び付ける。元の確認位置で失効を見つけたら保存や回収に進めず、改訂値を回復の入力や許可として渡さない。
+
+通常保存・回復の読取りと保存は、上位が確定した正規ディレクトリだけを保存先として受理する。旧来のRepository参照は、排他取得や初期化の前に拒否する。実行モデルはVersion Controlの実装・型に依存せず、Git配置や改訂を直接確認しない。Objective初回保存のGit除外はCoordinatorの準備処理だけが扱う。
+
+Docker修復の技術実行から戻った後に、最後の観測と初回の結果を記録するときは、Coordinatorが元の保存先の実体と同じ呼び出しの生存を確認する。この経路ではGit改訂を確認しない。実行モデルは、同じ回復参照・元版、保存先・領域・ファイルの実体、排他、保存候補、読戻しを従来どおり確認する。実体や保存資格が失効したときは、置換前なら正本と発行済みの保留物を維持し、置換後でも保存確認済みとはしない。修復受付、実行途中のチェックポイント、新しい処置、履歴・終了の確定、回復再入場にはこの例外を適用しない。
+
 [Runtime Domain保存契約](05_Runtime_Domain.md#runtime-domain-storage)が、単一Snapshot／CAS、局所定義と管理実行記録の分離、現在認可との結合、五種一回使用Context・初期化・履歴出版の物理順序を所有する。本書は名前付きRoot・配置・保持・清掃を継続して所有し、同じAPIや状態遷移を複製しない。人間承認により共通保存先を`.crdd/execution-model/`へ統一する。製品は新配置だけを読み書きし、実データの移行・切戻しは[フロントAI手順](../../../19_Workflows/01_Coordinator_Runtime.md#runtime-domain-storage-migration)へ分離する。今回のSource切替は実データ移行済みを意味しない。
 
-保存配置は固定`.crdd/execution-model`へ切り替える。全Runtime Path集合・Area enumは公開せず、旧`coordinator`・`domain-model`のaliasは持たない。空初期化では両方の旧固定Pathのmetadataだけを検査し、ENOENTだけを許可する。旧領域の存在・観測不能・親置換は新規作成を拒否する。内容、旧codec、Fallback、移動・清掃は製品へ追加しない。移行済みの新しい正本が存在する場合、その読取りを旧領域探索へ結合しない。
+実行状態は固定の `.crdd/execution-model/` に保存する。全Runtime Path集合・Area enumは公開しない。空初期化では旧 `.crdd/domain-model/` の有無と親の同一性を確認し、旧領域の存在・観測不能・親置換では新規作成を拒否する。現行の作業領域 `.crdd/coordinator/` の有無は初期化判定に使わない。旧状態の読取り、移行・清掃は製品へ追加せず、切替前にフロントAIが処置する。既存の新しい正本の通常読取りは旧領域探索に結び付けない。
 
 旧`domain-model/state.lock`は廃止した。排他配置は共通Lock設計へ従い、pendingの元版と現在値・履歴を照合して再入場する。旧markerの自動清掃や互換読取りはしない。保持設定は上位が構成モデルから取得し、履歴処理のInputと既存再検証へ結合する。通常Queryへ設定要件を広げない。
 
@@ -141,7 +157,7 @@ Related:
    │  ├─ history.pending.jsonl                履歴保存中の候補
    │  └─ recovery/host-terminal/               同じ非Authority参照と完全intentの再入場情報
    │
-   ├─ operations/                         [W] Coordinatorが所有する実行ごとの作業資源
+   ├─ coordinator/                        [W] Coordinatorが所有する実行ごとの作業資源
    │  └─ <operation-id>/                     対象の操作記録に結び付く作業領域
    │
    ├─ execution-intelligence/              [D] Execution Intelligence
@@ -189,7 +205,8 @@ Related:
 | `.crdd/orchestrator/` | `.crdd/coordinator/` | フロントAIが旧受付・資源・未解決参照を確認し、新受付世代で初期化する。Runtimeへ旧Path探索を残さず、現在状態・要約履歴・短命保存物の再入場保証を維持する。 |
 | `.crdd/config/orchestrator.json` | `.crdd/config/coordinator.json` | フロントAIが保持日数を照合して引き継ぐ。両設定の値が異なる場合は人間判断へ戻し、Runtimeによる旧設定探索は行わない。 |
 | orchestrator設定例・Schema | coordinator設定例・Schema | Taskと技術履歴の同一Owner化へ追従し、旧Reader・配布例・Schemaを撤去する。Execution Intelligenceとは統合しない。 |
-| `.crdd/coordinator/`・`.crdd/domain-model/` | `.crdd/execution-model/` | 共通保存を実行モデルへ移す。上節とフロントAI移行手順に従い、過去状態を空初期化又は自動変換しない。 |
+| 旧 `.crdd/coordinator/` の実行状態・`.crdd/domain-model/` | `.crdd/execution-model/` | フロントAIが実行状態を移す。現行の作業領域の `.crdd/coordinator/` と混同せず、旧状態を空初期化又は自動変換しない。 |
+| 旧 `.crdd/operations/<operation-id>/` | `.crdd/coordinator/<operation-id>/` | フロントAIが未解決の記録と資源の処置を確認する。製品は旧パスを参照しない。 |
 | `.crdd/execution-intelligence/` | 同名を維持 | 非Authorityの分析履歴Ownerとし、共通の現在状態を複製しない。 |
 
 共通保存の配置・公開契約は[Runtime Domain](05_Runtime_Domain.md)、Task側の論理Lifecycleは[詳細設計](../coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)が所有する。移行前の基準ツリーと旧設定名を新構成の配置指示として使用しない。旧設定Reader・配布例・Schemaは撤去し、実設定は値の一致を確認してCoordinator設定へ一本化する。未解決の旧実行記録は設定整理に巻き込まない。
@@ -217,7 +234,7 @@ Related:
 |---|---|---|
 | `config/` | Commit固定する非秘密のRepository宣言とPolicy | Repository設定の変更・削除がGitで確定する |
 | `execution-model/` | Task・Queue・Workspace、技術Operation、未解決義務、未受領結果、判断・統合の参照と終了要約 | 実行モデルが物理保存を所有し、[単一保存Lifecycle](../coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)に従い、実終端・受領・履歴の確認後に現在項目を除く。通常Recoveryは[対象相関と排他](../coordinator/01_Architecture.md#通常回復の対象相関と排他)を維持し、元の参照が不明なHost残存を推測回収しない |
-| `operations/` | Coordinatorが所有する実行ごとの作業資源 | [対象相関と排他](../coordinator/01_Architecture.md#通常回復の対象相関と排他)に従い、元の操作と資源の終端を確認して回収する。未確認の回収義務は実行モデルの記録に残す |
+| `coordinator/` | Coordinatorが所有する実行ごとの作業資源 | [対象相関と排他](../coordinator/01_Architecture.md#通常回復の対象相関と排他)に従い、元の操作と資源の終端を確認して回収する。未確認の回収義務は実行モデルの記録に残す |
 | `execution-intelligence/` | 実行履歴、測定値、相関可能な診断情報 | 保持期間と未解決参照を確認して清掃できる。旧`execution/`の移行はフロントAIが行い、Runtime互換Readerを残さない |
 | `candidates/` | 未採用成果物、由来、現在の処置、Candidate固有Recovery | 採用、破棄または期限切れ処置とRecoveryが確定する |
 | `release/` | Release候補、Manifest、Gate Evidence、staging、Release固有Recovery | Promotion、破棄またはRecoveryが完了する |
@@ -306,7 +323,7 @@ OPEN: 自動処置、保持延長の上限、保護参照の全利用側照合�
 
 ### 4.3. 旧制御領域の扱い
 
-旧 `tmp/.operations/` は[一時操作機能の退役](../../../99_Roadmap/Changes/CHG-000082/change.md#未接続temporary-operationの退役--2026-11-12)により現行の配置に含めない。製品はその領域を作成・読取りせず、自動回復や自動清掃もしない。現行の `.crdd/operations/` はCoordinatorが実行単位の作業資源を置く別の領域であり、旧制御領域の移行先ではない。
+旧 `tmp/.operations/` は[一時操作機能の退役](../../../99_Roadmap/Changes/CHG-000082/change.md#未接続temporary-operationの退役--2026-11-12)により現行の配置に含めない。製品はその領域を作成・読取りせず、自動回復や自動清掃もしない。現行の `.crdd/coordinator/` はCoordinatorが実行単位の作業資源を置く別の領域であり、旧制御領域の移行先ではない。
 
 ### 4.4. Lifecycle
 
@@ -435,13 +452,13 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 
 ## 保存領域の読取り専用観測
 
-`observeRepositoryExecutionDataArea`は検証済みRepository Rootと宣言済みAreaを受け取り、保存領域の現在の観測だけを返す。Directory作成、Git除外登録、Lock取得、設定変更および削除を行わない。Parent Rootの組立てとFilesystem境界の検証はRuntime Dataが所有し、利用側が名前付きPathの親を逆算して`.crdd`を再構成しない。
+実行モデルの保存処理は、保存Ownerに結合済みの起点と宣言済みの領域名で、保存領域の実体を観測する。履歴の追記、搬送済み確認、判断履歴の読取りでもGitから保存先を引き直さない。排他・保存方針の現在性・読取り前後の領域一致は維持する。観測単独では、Directory作成、Git除外登録、Lock取得、設定変更および削除を行わない。利用側が名前付きPathの親を逆算して`.crdd`を再構成しない。
 
 | 結果 | 意味 | 利用側の処置 |
 |---|---|---|
 | ready | RootとAreaのDirectory境界を検証した現在の観測。非Authorityの不透明な`boundaryIdentity`を持つ。 | 内容読取りの前後でOwner観測を再取得し、同じ境界を見ているか照合する。 |
-| not_observed | RootまたはAreaの明示的な不存在を観測した。 | 未作成を正常履歴や実行なしへ読み替えず、未観測を表示する。 |
-| blocked | Capability不正、link・type不正、境界失効または観測不能。 | 読取りを停止し、不存在や空履歴へ補正しない。 |
+| not_observed | 保存起点を確認した上で、`.crdd`または対象領域の明示的な不存在を観測した。 | 未作成を正常履歴や実行なしへ読み替えず、未観測を表示する。 |
+| blocked | 保存起点の欠測・不正、link・type不正、境界失効または観測不能。 | 読取りを停止し、不存在や空履歴へ補正しない。 |
 
 `boundaryIdentity`はDirectory置換の検知用であり、操作権限、過去の終了証明、履歴の完全性または内容の不変性を発行しない。内容Hash、Lock・pendingと終了後観測は各Storeの責務として維持する。
 

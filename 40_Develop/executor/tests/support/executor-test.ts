@@ -68,7 +68,7 @@ import type {
   AttemptRequest,
   ExecutorCallbacks,
   AttemptPlan as ProductAttemptPlan,
-  RuntimeState,
+  AttemptState,
   AttemptTerminalObservation as TechnicalObservation,
 } from "../../src/lifecycle/types.ts";
 
@@ -1389,7 +1389,7 @@ export function createExecutorTestRuntime(
   isolation: IsolationRuntime,
   productionAuthority = false,
 ) {
-  const state: Pick<RuntimeState, "controls"> = { controls: new WeakMap() };
+  const state: Pick<AttemptState, "controls"> = { controls: new WeakMap() };
   return Object.freeze({
     productionAuthority,
     start: (
@@ -1441,7 +1441,7 @@ export function bindLegacyTestIsolation(
   reference: AttemptReference,
   isolation: IsolationRuntime,
 ): Pick<
-  RuntimeState,
+  AttemptState,
   "acquireHomeLease" | "prepareIsolation" | "executeIsolation"
 > {
   const request = plan.isolationRequest;
@@ -1848,7 +1848,7 @@ export function describeIsolationContract() {
     environment: environment.environment,
     commandPlan:
       "exact_nine_command_subscription_preflight_provider_probe_isolated_task_or_workbench_advice",
-    taskInput: "runtime_owned_task_or_advice_stdin_only_not_docker_argv",
+    taskInput: "task_or_advice_stdin_only_not_docker_argv",
     cleanup:
       "durable_create_receipt_exact_docker_id_name_label_image_and_network_configuration_then_exact_id_and_name_absence",
     processTermination: environment.processTermination,

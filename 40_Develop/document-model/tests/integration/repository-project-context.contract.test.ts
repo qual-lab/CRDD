@@ -13,14 +13,11 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { parseRepositoryProjectContextMarkdown } from "../../src/project-context/parse.ts";
 import { parseQualityCenter } from "../../src/quality/parse.ts";
 import { parseRepositoryReleaseProjectionMarkdown } from "../../src/release/parse.ts";
 
-const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
-  import.meta.dirname,
-);
+const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
 /**
  * 現行Project ContextからIdentityと五場面を同じ意味で取得できることを検証する。

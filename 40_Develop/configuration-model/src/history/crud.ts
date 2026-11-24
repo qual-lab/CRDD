@@ -5,7 +5,6 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import type { Repository } from "../../../version-control/src/index.ts";
 import { configurationPaths } from "../storage/store.ts";
 
 import type { ToolRuntimeConfig, ToolRuntimeConfigResult } from "./types.ts";
@@ -16,7 +15,7 @@ import { closed, component } from "./validation.ts";
  * 検証済みRootの保持期間を読取り専用で取得する。
  * @responsibility 不存在、破損、alias、観測不能を区別する。
  * @trace ARCH-000011
- * @input 発行済みRepositoryと固定ツール名。
+ * @input 呼出し側が確認した絶対ディレクトリと固定ツール名。
  * @returns 既定値または検証済み設定、あるいはblocked。
  * @precondition 設定を利用する履歴所有者が自身の排他を保持する。
  * @postcondition 存在するFileと親Directoryの同一性を再確認する。
@@ -28,13 +27,13 @@ import { closed, component } from "./validation.ts";
  * @concurrency 一回の呼出しで不変Snapshotを返し、利用側が処理全体へ適用する。
  */
 function readToolRuntimeConfig(
-  capability: Repository,
+  repositoryRoot: string | null,
   tool: "execution-intelligence" | "coordinator",
 ): ToolRuntimeConfigResult {
   try {
-    const paths = configurationPaths(capability);
+    const paths = configurationPaths(repositoryRoot);
     if (!paths) throw new Error("root");
-    const parents = [paths.root, paths.config];
+    const parents = [paths.repositoryRoot, paths.root, paths.config];
     const observations: { file: string; stat: fs.Stats }[] = [];
     let isAbsent = false;
     for (const file of parents) {
@@ -48,6 +47,7 @@ function readToolRuntimeConfig(
           throw new Error("directory");
         observations.push({ file, stat });
       } catch (error) {
+        if (file === paths.repositoryRoot) throw error;
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         isAbsent = true;
         break;
@@ -129,8 +129,6 @@ function readToolRuntimeConfig(
       )
         throw new Error("changed");
     }
-    if (configurationPaths(capability)?.repositoryRoot !== paths.repositoryRoot)
-      throw new Error("root_changed");
     return Object.freeze({ status: "ready", source, config });
   } catch {
     return Object.freeze({
@@ -144,7 +142,7 @@ function readToolRuntimeConfig(
  * Execution Intelligence専用の設定を取得する。
  * @responsibility 他ツールの不正設定で実行履歴を停止させない。
  * @trace ARCH-000011
- * @input 検証済みRoot Capability。
+ * @input 呼出し側が確認した絶対ディレクトリ。
  * @returns 自ツールの設定Snapshotまたはblocked。
  * @precondition 履歴所有者が必要な排他を保持する。
  * @postcondition execution-intelligence.jsonだけを読取り済み。
@@ -156,16 +154,16 @@ function readToolRuntimeConfig(
  * @concurrency Snapshotを一処理内で固定する。
  */
 export function readExecutionIntelligenceConfig(
-  capability: Repository,
+  repositoryRoot: string | null,
 ): ToolRuntimeConfigResult {
-  return readToolRuntimeConfig(capability, "execution-intelligence");
+  return readToolRuntimeConfig(repositoryRoot, "execution-intelligence");
 }
 
 /**
  * Coordinator専用の履歴保持設定を取得する。
  * @responsibility 他Toolの設定を流用せずCoordinatorの保持期間だけを返す。
  * @trace ARCH-000011
- * @input capability: 検証済みRepository Root。
+ * @input repositoryRoot: 検証済みRepository Root。
  * @returns 自Toolの設定Snapshotまたはblocked。
  * @precondition Coordinator履歴Ownerが必要な排他を保持する。
  * @postcondition coordinator.jsonだけを読取り済み。
@@ -177,7 +175,7 @@ export function readExecutionIntelligenceConfig(
  * @concurrency Snapshotを一処理内で固定する。
  */
 export function readCoordinatorConfig(
-  capability: Repository,
+  repositoryRoot: string | null,
 ): ToolRuntimeConfigResult {
-  return readToolRuntimeConfig(capability, "coordinator");
+  return readToolRuntimeConfig(repositoryRoot, "coordinator");
 }

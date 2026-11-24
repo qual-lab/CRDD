@@ -34,7 +34,7 @@ const binding = "a".repeat(64);
  * @boundary Domain公開候補と同Owner内の要約検査。
  */
 function summaryFixture(
-  consumer: "orchestrator" | "coordinator_cli" | "workbench" = "orchestrator",
+  consumer: "coordinator" | "coordinator_cli" | "workbench" = "coordinator",
 ) {
   const nonce = "b".repeat(64);
   const identity = {
@@ -150,7 +150,7 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
   } = summaryFixture();
   const history = prepareStateHistorySummary(historyBytes, recoveryId, binding);
   assert.ok(history);
-  const goldenTaskSummary = `{"execution":{"externalSend":"unknown","ownerEffect":"unknown","providerStart":"unknown","sharedWrite":"unknown","workspaceReusable":false},"identitySha256":"${identitySha256}","lease":"unknown","operationId":"OP-123456","operationNonce":"${nonce}","outcome":{"cleanupConfirmed":false,"reason":"provider_operation_completed","status":"completed"},"primaryFailure":null,"recoveryCorrelationId":"task-operation-a","recoveryId":"${recoveryId}","schema":"crdd-execution-model/operation-summary/v6"}\n`;
+  const goldenTaskSummary = `{"execution":{"externalSend":"unknown","ownerEffect":"unknown","providerStart":"unknown","sharedWrite":"unknown","workspaceReusable":false},"identitySha256":"${identitySha256}","lease":"unknown","operationId":"OP-123456","operationNonce":"${nonce}","outcome":{"cleanupConfirmed":false,"reason":"provider_operation_completed","status":"completed"},"primaryFailure":null,"recoveryCorrelationId":"task-operation-a","recoveryId":"${recoveryId}","schema":"crdd-execution-model/operation-summary/v7"}\n`;
   assert.equal(history.summaryBytes.toString("utf8"), goldenTaskSummary);
   assert.equal(
     history.summarySha256,
@@ -255,7 +255,7 @@ test("終了要約はexact本文・元Hash・一次失敗を保持し誤相関�
     assert.ok(summary);
     const value = JSON.parse(summary.summaryBytes.toString("utf8"));
     assert.equal(Object.hasOwn(value, "consumer"), false);
-    assert.equal(value.schema, "crdd-execution-model/operation-summary/v6");
+    assert.equal(value.schema, "crdd-execution-model/operation-summary/v7");
     assert.equal(
       value.recoveryCorrelationId,
       fixture.identity.recoveryCorrelationId,

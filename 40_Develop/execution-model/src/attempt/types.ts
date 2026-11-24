@@ -233,7 +233,7 @@ export type OperationResources = Readonly<{
   checkpoints: readonly Readonly<{
     key: string;
     submission: "none" | "intent_saved" | "not_issued";
-    receiptSource: "docker_create_result" | "runtime_reconciliation" | null;
+    receiptSource: "docker_create_result" | "docker_observation" | null;
     observation: "unobserved" | "present" | "absent" | "unknown";
     absenceEvidenceSha256: string | null;
   }>[];
@@ -306,7 +306,7 @@ export type ExecutionOperationRecord = Readonly<{
  * @compatibility 最新v2だけ。旧記録はフロントAIが移行する。
  */
 export type RepairOperationRecord = Readonly<{
-  kind: "runtime_repair";
+  kind: "docker_repair";
   identityJson: string;
   identitySha256: string;
   recoveryId: string;
@@ -345,7 +345,7 @@ export type RepairOperationRecord = Readonly<{
  * 同じ閉集合に保存するDocker実行・Host作業領域・実行環境修復。
  * @responsibility 各操作固有のfieldをkindで区別する。
  * @trace ARCH-000008
- * @shape docker_task、host_operation又はruntime_repair。
+ * @shape docker_task、host_operation又はdocker_repair。
  * @invariant kindを狭めずTask固有状態へアクセスしない。
  * @boundary 一つの現在状態内の異なる操作。
  * @security 一方のIdentityを他方のAuthorityへ変換しない。
@@ -437,7 +437,7 @@ export type OperationState =
       authenticationClosureAllowed: boolean;
     }>
   | Readonly<{
-      kind: "runtime_repair";
+      kind: "docker_repair";
       operation: RepairOperationRecord;
       disposalSettled: boolean;
     }>;

@@ -675,7 +675,7 @@ test("許可集合の不明は空成功や部分成功へ変換しない", (t) =
  * @observation 内部結果の改訂・Binding・manifest・Rootと対象外不変。
  * @oracle developer／managerだけ成功、Context欠測でもRoot解決成功、公開解除後は拒否。
  * @cleanup 既存Fixtureが全自己生成Rootを削除する。
- * @boundary 現在資格→Role内容→Exposure→VC／Domain実体観測。
+ * @boundary 現在資格→Role内容→Exposure→内容ディレクトリとManifestの観測。
  */
 test("内容認可と実Rootを相関し次要求で公開解除を反映", (t) => {
   const f = contentFixture(t),
@@ -696,7 +696,7 @@ test("内容認可と実Rootを相関し次要求で公開解除を反映", (t) 
     assert.ok(result.access.bindingId.startsWith("binding-"));
     assert.ok(Object.isFrozen(result.access));
     assert.ok(Object.isFrozen(result.access.manifest));
-    assert.deepEqual(Object.keys(result.access.root), ["contract"]);
+    assert.equal(result.access.root, f.target.directory);
   }
   assert.deepEqual(
     resolveRepositoryAccess(f.root, f.tokens.administrator, id, "development"),
@@ -724,7 +724,7 @@ test("内容認可と実Rootを相関し次要求で公開解除を反映", (t) 
  * @responsibility 登録時の成功やRoot観測だけを現在完了へ流用しない。
  * @trace RFD-IT-013
  * @precondition 公開済み自己生成Repository。
- * @stimulus manifest欠測・不正・ID差・容量超過・Git消失と解放失敗を注入する。
+ * @stimulus manifest欠測・不正・ID差・容量超過・ディレクトリ消失と解放失敗を注入する。
  * @observation 固定結果、内部値非返却、復元後成功とLock不存在。
  * @oracle 各不成立はobservation_unknown、解放不明はrelease_unknown、Path／例外なし。
  * @cleanup 差替えを復元しFixtureが全Rootを削除する。
@@ -804,11 +804,13 @@ test("内容実体不成立と解放不明は能力非返却", (t) => {
     assert.deepEqual(request(), expected);
   }
   fs.writeFileSync(f.target.manifestPath, original);
-  const git = path.join(f.target.directory, ".git"),
-    backup = path.join(f.target.directory, "git-backup");
-  fs.renameSync(git, backup);
-  assert.deepEqual(request(), expected);
-  fs.renameSync(backup, git);
+  const backup = `${f.target.directory}-held`;
+  fs.renameSync(f.target.directory, backup);
+  try {
+    assert.deepEqual(request(), expected);
+  } finally {
+    fs.renameSync(backup, f.target.directory);
+  }
   const remove = fs.rmSync;
   t.after(() => {
     fs.rmSync = remove;

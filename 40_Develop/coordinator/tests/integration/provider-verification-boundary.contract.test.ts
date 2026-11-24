@@ -22,20 +22,13 @@ import test from "node:test";
  */
 function assertProviderExecutorConsumer(source: string, name: string) {
   assert.equal(
-    [
-      ...source.matchAll(
-        /\bfunction startRuntimeOwnedDockerProcessController\(/gu,
-      ),
-    ].length,
+    [...source.matchAll(/\bfunction startDockerProcessController\(/gu)].length,
     1,
     name,
   );
   assert.equal(
-    [
-      ...source.matchAll(
-        /(?<!function )\bstartRuntimeOwnedDockerProcessController\(/gu,
-      ),
-    ].length,
+    [...source.matchAll(/(?<!function )\bstartDockerProcessController\(/gu)]
+      .length,
     2,
     name,
   );
@@ -44,7 +37,7 @@ function assertProviderExecutorConsumer(source: string, name: string) {
   )) {
     assert.doesNotMatch(
       match[1] ?? "",
-      /verifyRuntimeOwnedDocker(?:ProviderSubmissionNotice|UnissuedNotice|CleanupOutcome)|borrowRuntimeOwnedDockerTerminalObservations/,
+      /verifyDocker(?:ProviderSubmissionNotice|UnissuedNotice|CleanupOutcome)|borrowDockerTerminalObservations/,
       name,
     );
   }
@@ -133,10 +126,10 @@ test("固定Host接続は一つであり保存利用側はExecutorへ逆照会�
     if (name === "lifecycle/environment.ts")
       assert.doesNotMatch(source, /from\s+["']\.\/execution\.ts["']/);
     for (const symbol of [
-      "verifyRuntimeOwnedDockerProviderSubmissionNotice",
-      "verifyRuntimeOwnedDockerUnissuedNotice",
-      "borrowRuntimeOwnedDockerTerminalObservations",
-      "verifyRuntimeOwnedDockerCleanupOutcome",
+      "verifyDockerProviderSubmissionNotice",
+      "verifyDockerUnissuedNotice",
+      "borrowDockerTerminalObservations",
+      "verifyDockerCleanupOutcome",
     ]) {
       assert.doesNotMatch(
         source,
@@ -153,16 +146,12 @@ test("実試験ToolとSymbol管理情報は現行Sourceへ接続する", () => {
       [
         "report.ts",
         "task-trial.ts",
-        "runtime-data.ts",
         "provider-home.ts",
         "provider-diagnostic.ts",
         "task-trial.ts",
       ],
     ],
-    [
-      "../support/provider-attempt-host.ts",
-      ["provider-home.ts", "report.ts", "runtime-data.ts"],
-    ],
+    ["../support/provider-attempt-host.ts", ["provider-home.ts", "report.ts"]],
   ] as const) {
     const source = fs.readFileSync(new URL(toolPath, import.meta.url), "utf8");
     assert.doesNotMatch(

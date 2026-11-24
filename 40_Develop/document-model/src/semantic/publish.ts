@@ -5,7 +5,6 @@
  * @trace ARCH-000008
  */
 
-import type { Repository } from "../../../version-control/src/index.ts";
 import {
   publishSemanticCoverageBundleWithHooks,
   type SemanticBundlePublishReceipt,
@@ -51,9 +50,9 @@ export type PublishSemanticCoverageResult = SemanticBundlePublishReceipt;
  *
  * @responsibility Domain Bundle生成とFilesystem Effectの呼出し順を所有する。
  * @trace ARCH-000008
- * @input request: PublishSemanticCoverageRequest、repository: Repository
+ * @input request: PublishSemanticCoverageRequest、root: 呼出し元が確定した出力Root。
  * @returns PublishSemanticCoverageResultを返す。
- * @precondition request: PublishSemanticCoverageRequest、repository: RepositoryがpublishSemanticCoverageの入力契約を満たす。
+ * @precondition 呼出し元が対象と出力先を選定済み。
  * @postcondition publishSemanticCoverageの責務を完了した結果だけを返す。
  * @effect 既存Storeの公開Effectを一回だけ要求する。
  * @failure Bundle生成と既存Writerの例外を伝播し、書込み結果を成功へ補完しない。
@@ -64,10 +63,10 @@ export type PublishSemanticCoverageResult = SemanticBundlePublishReceipt;
  */
 export function publishSemanticCoverage(
   request: PublishSemanticCoverageRequest,
-  repository: Repository,
+  root: string | null,
 ): PublishSemanticCoverageResult {
   const bundle = createSemanticBundle(request.semanticIrs, request.coverage);
-  return publishSemanticCoverageBundleWithHooks(repository, {
+  return publishSemanticCoverageBundleWithHooks(root, {
     outputRelativePath: request.outputRelativePath,
     content: `${JSON.stringify(bundle, null, 2)}\n`,
   });

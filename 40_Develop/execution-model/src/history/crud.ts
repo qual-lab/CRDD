@@ -4,7 +4,7 @@
  * @trace ARCH-000008
  */
 import { adoptionWasRejected } from "../workspace/validation.ts";
-import type { Repository } from "../../../version-control/src/index.ts";
+import type { StorageRootInput } from "../storage/lock.ts";
 import { prepareDecisionRetirement } from "../decision/validation.ts";
 import {
   observeSnapshotObligations,
@@ -46,7 +46,7 @@ import type { Snapshot, SnapshotObservations } from "../state/types.ts";
  * @concurrency 各段階を同Rootの短期Ownerで直列化する。
  */
 export function retireStateRecords(
-  workingDirectory: Repository | HistoryRepositoryInput,
+  workingDirectory: StorageRootInput | HistoryRepositoryInput,
   binding: string,
   now = Date.now(),
 ): StoreResult<number> {
@@ -65,7 +65,7 @@ export function retireStateRecords(
     binding,
     (current, owner) => {
       if (current.schema !== PROJECT_SNAPSHOT_SCHEMA)
-        return blocked("orchestrator_snapshot_schema_invalid");
+        return blocked("coordinator_snapshot_schema_invalid");
       const trimmed = updateHistoryOwned(
         owner,
         current.historyPending.length
@@ -111,7 +111,7 @@ export function retireStateRecords(
  * @concurrency 同じ実発行Ownerを借用し自己再取得しない。
  */
 export function transferHistory(
-  workingDirectory: Repository | HistoryRepositoryInput,
+  workingDirectory: StorageRootInput | HistoryRepositoryInput,
   binding: string,
   now = Date.now(),
 ): StoreResult<Readonly<{ recorded: number; expired: number }>> {
@@ -142,7 +142,7 @@ export function transferHistory(
  * @trace ARCH-000008
  * @input repository、recoveryId、assertOwner、operationKind: 元保存Ownerとexact対象。
  * @returns 履歴確認、最終Snapshot確認、Lock解放、累積Effectを区別した結果。
- * @precondition docker_task又はruntime_repairの終端条件が既存Readerで成立する。
+ * @precondition docker_task又はdocker_repairの終端条件が既存Readerで成立する。
  * @postcondition 最大二回の保存と最終fresh読取りが揃うまで履歴確認済みにしない。
  * @effect 既存のRepository-local現在状態と履歴だけ。
  * @failure 段階不変・別対象・保存/読取り/排他不明では次段へ進まず保全する。
@@ -155,7 +155,7 @@ export function saveRecoveryHistory(
   repository: StorageRepository & { operationId: string },
   recoveryId: string,
   assertOwner: () => boolean,
-  operationKind: "docker_task" | "runtime_repair",
+  operationKind: "docker_task" | "docker_repair",
 ) {
   let filesystemEffectIssued: boolean | null = false;
   let writing = false;
@@ -167,7 +167,7 @@ export function saveRecoveryHistory(
       filesystemEffectIssued,
       lockReleased,
     });
-  if (operationKind !== "docker_task" && operationKind !== "runtime_repair")
+  if (operationKind !== "docker_task" && operationKind !== "docker_repair")
     return refused();
   let nextStage: "publish" | "confirmed" | null = null;
   let identityJson: string | null = null;
@@ -303,7 +303,7 @@ function prepareHistoryPending(
     now < 0 ||
     current.schema !== PROJECT_SNAPSHOT_SCHEMA
   )
-    return historyCandidateBlocked("orchestrator_history_time_invalid");
+    return historyCandidateBlocked("coordinator_history_time_invalid");
   const rows = current.queueEntries
     .filter(
       (queue) =>
@@ -338,7 +338,7 @@ function prepareHistoryPending(
       cleanup: "confirmed",
     });
   }
-  return historyCandidateCompleted("orchestrator_history_prepared", {
+  return historyCandidateCompleted("coordinator_history_prepared", {
     next: rows.length
       ? { ...current, historyPending: [...current.historyPending, ...rows] }
       : null,
@@ -378,12 +378,12 @@ function prepareTerminalRecordRetirement(
     const disposition = observations.historySettlement(row);
     if (disposition !== "recorded" && disposition !== "expired")
       return historyCandidateBlocked(
-        "orchestrator_history_transfer_unconfirmed",
+        "coordinator_history_transfer_unconfirmed",
         true,
       );
     retired.add(row.id);
   }
-  return historyCandidateCompleted("orchestrator_terminal_records_retired", {
+  return historyCandidateCompleted("coordinator_terminal_records_retired", {
     next: retired.size
       ? {
           ...current,
@@ -527,13 +527,13 @@ function prepareHistoryTransfer(
     const disposition = observations.historySettlement(row);
     if (disposition !== "recorded" && disposition !== "expired")
       return historyCandidateBlocked(
-        "orchestrator_history_transfer_unconfirmed",
+        "coordinator_history_transfer_unconfirmed",
         true,
       );
     if (disposition === "recorded") recorded += 1;
     else expired += 1;
   }
-  return historyCandidateCompleted("orchestrator_history_transferred", {
+  return historyCandidateCompleted("coordinator_history_transferred", {
     next: current.historyPending.length
       ? { ...current, historyPending: [] }
       : null,

@@ -49,7 +49,7 @@ assert.equal(stateValues.validLeaseEvidence({kind:"project-operation",queueId:"q
 assert.equal(stateValues.validLeaseEvidence(null),false);
 assert.equal(stateValues.leaseIdentity("binding","project","queue","project-operation"),"project-operation-binding");
 assert.equal(resources.authenticationUnknownAbsenceChanged(null,{operations:[]}),false);
-assert.equal(workspace.adoptionWasRejected({kind:"adoption",identity:"g",value:{status:"rejected",reason:"orchestrator_adoption_revision_or_scope_mismatch",ownerGeneration:"g",effectIssued:false,cleanupConfirmed:true}}),true);
+assert.equal(workspace.adoptionWasRejected({kind:"adoption",identity:"g",value:{status:"rejected",reason:"coordinator_adoption_revision_or_scope_mismatch",ownerGeneration:"g",effectIssued:false,cleanupConfirmed:true}}),true);
 assert.equal(objective.hashExecutionProjectDefinition({projectId:"p",milestoneId:"m",milestone:{acceptanceCriteria:["done"]},objectives:[],tasks:[]}),stateValues.hashExecutionStateContent({projectId:"p",milestoneId:"m",definition:{milestoneAcceptanceCriteria:["done"],objectives:[],tasks:[]}}));
 console.log("LOCAL_VALIDATION");`;
   const result = spawnSync(

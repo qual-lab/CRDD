@@ -402,7 +402,7 @@ export type ExecutionRecord = {
  * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type RuntimeState = Readonly<{
+export type AttemptState = Readonly<{
   acquireHomeLease(
     bindingHash: string,
     homeSourcePath: string,
@@ -423,6 +423,12 @@ export type AttemptReference = Readonly<{
   recoveryCapability: object;
 }>;
 
+/** Reviewerの作業領域で、空の同型Mountに置き換える相対Path。 */
+type ReviewerWorkspaceMask = Readonly<{
+  relativePath: string;
+  kind: "file" | "directory";
+}>;
+
 /**
  * 上位が照合した単発実行の対象・選定・内容をまとめる。
  * @responsibility 技術Path・Home同一性と用途別本文を受け、GrantやTaskを管理しない。
@@ -435,6 +441,7 @@ export type AttemptRequest = Readonly<{
     operationId: string;
     provider: string;
     workspaceSourcePath: string;
+    reviewerMasks?: readonly ReviewerWorkspaceMask[];
     temporarySourcePath: string;
     workspaceProtection?: Readonly<{
       gitSourcePath: string;
@@ -482,6 +489,7 @@ export type AttemptPlan = AttemptRecordProjection &
     adviceAllowedReferences?: readonly string[] | null;
     providerInput: string | null;
     workspaceSourcePath: string | null;
+    reviewerMasks?: readonly ReviewerWorkspaceMask[];
     workspaceProtection?: Readonly<{
       gitSourcePath: string;
       internalSourcePath: string;

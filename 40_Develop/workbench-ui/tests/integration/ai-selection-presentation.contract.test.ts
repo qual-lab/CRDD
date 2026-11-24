@@ -10,12 +10,48 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selection.ts";
+import type { AiSelectionConfig } from "../../../configuration-model/src/index.ts";
 import {
   validateAiSelectionSnapshot,
   validateAiSelectionResponse,
 } from "../../src/api/response.ts";
 import { inspectWorkbenchSelectionResult } from "../../src/api/ai-selection.ts";
+
+/**
+ * 表示境界へ渡す合成の通信データを用意する。
+ * @trace EST-IT-002
+ * @boundary 保存やCoordinatorの選定を利用しないBrowser入力。
+ */
+function selectionConfig() {
+  const advice = {
+    provider: "codex",
+    model: "gpt-5.6-sol",
+    effort: "medium",
+  } as const;
+  const task = {
+    provider: "codex",
+    model: "gpt-5.5",
+    effort: "medium",
+  } as const;
+  const reviewer = {
+    provider: "claude",
+    model: "opus",
+    effort: "high",
+  } as const;
+  return {
+    contract: "crdd/ai-selection",
+    revision: 1,
+    roleDefaults: {
+      coordinator: advice,
+      executor: task,
+      independent_reviewer: reviewer,
+      result_integration: advice,
+      advice,
+    },
+    workTypes: { coding: { label: "コード" } },
+    overrides: {},
+  } satisfies AiSelectionConfig;
+}
 
 /**
  * 設定Snapshotと不正外形を分離する。

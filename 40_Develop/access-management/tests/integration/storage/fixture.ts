@@ -16,7 +16,6 @@
  * @boundary Node Filesystem・既存Root/Lock・通常認可・鍵発行／独立失効／交換保存・提示状態保存と局所TTY代役。実Host・交換の本番提示・実Surface出力は対象外。
  */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import crypto, { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -203,7 +202,10 @@ export function fixture(t: TestContext): {
   state: AccessManagementState;
 } {
   const repository = path.resolve(import.meta.dirname, "../../../../..");
-  assert.ok(fs.statSync(path.join(repository, ".git")).isDirectory());
+  assert.equal(fs.realpathSync.native(repository), repository);
+  const marker = fs.lstatSync(path.join(repository, ".git"));
+  assert.ok(marker.isDirectory() || marker.isFile());
+  assert.equal(marker.isSymbolicLink(), false);
   const parent = path.join(repository, ".crdd", "tests");
   fs.mkdirSync(parent, { recursive: true });
   assert.equal(fs.realpathSync.native(parent), parent);
@@ -268,21 +270,17 @@ export function managementFixture(t: TestContext) {
 
 /**
  * Canonical Identityを持つ自己生成Repositoryを用意する。
- * @responsibility 実Hostと分離したGit境界・manifest・表示投影を作る。
+ * @responsibility 実Hostと分離した内容ディレクトリと固定文書を作る。
  * @trace RFD-IT-001
- * @precondition Repository-localな自己生成StoreとGit Repository。
+ * @precondition Repository-localな自己生成Storeと内容ディレクトリ。
  * @stimulus git initと固定文書を生成する。
  * @observation 完全byte・相関結果・対象外情報と実Filesystemを確認する。
  * @oracle 正本と表示Identityが同じ。
  * @cleanup Fixtureが自己生成Rootを削除し不存在を確認する。
- * @boundary Package公開管理入口と実Git／Filesystem。
+ * @boundary Package公開管理入口と内容ディレクトリのFilesystem。
  */
 export function repositoryFixture(t: TestContext) {
   const f = fixture(t);
-  const git = spawnSync("git", ["init", "--quiet", f.directory], {
-    encoding: "utf8",
-  });
-  assert.equal(git.status, 0, git.stderr);
   const manifest = {
     schema: "crdd/repository-manifest/v2",
     projectId: "project.fixture",
@@ -321,6 +319,21 @@ export function repositoryFixture(t: TestContext) {
 }
 
 /**
+ * 登録試験の呼出し側として、自己所有ディレクトリを渡す。
+ * @responsibility AMの登録試験をGit観測の実装に依存させない。
+ * @trace RFD-IT-002
+ * @precondition 自己生成した通常ディレクトリだけを使う。
+ * @stimulus 呼出し側が選択したPathを登録処理へ搬送する。
+ * @observation 候補Pathと、同じ対象を許可する有限の確認結果。
+ * @oracle Gitの探索や書込みを行わない。
+ * @cleanup N/A: 領域の清掃は既存Fixtureが所有する。
+ * @boundary 登録試験の信頼した呼出し側代役。
+ */
+export function observeFixtureDirectory(directory: string) {
+  return { directory, isCurrent: () => true };
+}
+
+/**
  * 公開済みRepositoryと三Roleの内容要求前状態を構築する。
  * @responsibility 登録・Exposureの公開入口を通して内容認可の前提を作る。
  * @trace RFD-IT-013
@@ -329,7 +342,7 @@ export function repositoryFixture(t: TestContext) {
  * @observation 各管理結果と完全現在状態を確認する。
  * @oracle 登録改訂2、公開改訂3。管理者の内容範囲は空のまま。
  * @cleanup 既存Fixtureが全自己生成Rootを削除する。
- * @boundary AM公開管理入口と実Git／Filesystem。
+ * @boundary AM公開管理入口と内容ディレクトリのFilesystem。
  */
 export function contentFixture(t: TestContext) {
   const f = managementFixture(t),
@@ -342,6 +355,7 @@ export function contentFixture(t: TestContext) {
       crypto.randomUUID(),
       target.manifest.repositoryId,
       target.directory,
+      observeFixtureDirectory,
     ).status,
     "completed",
   );

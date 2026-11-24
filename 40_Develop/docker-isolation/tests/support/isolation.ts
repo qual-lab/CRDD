@@ -104,6 +104,8 @@ export async function createIsolationFixture(
     ids = new Set<string>();
   let cliFailure: string | null = null;
   let directoryIdentity = "directory";
+  let reviewerMaskTargets: ReadonlyMap<string, string> = new Map();
+  let reviewerMaskEmpty = true;
   let dynamic = false;
   let provider: "codex" | "claude" = "codex";
   const created = new Map<string, IsolationRequest["resources"][number]>();
@@ -172,7 +174,12 @@ export async function createIsolationFixture(
       observeDockerDirectoryIdentity: () => directoryIdentity,
       observeDockerProtectedMountIdentity: (source: string) => {
         protectedIdentities.push(source);
-        return "protected-file";
+        return reviewerMaskTargets.get(source) ?? "protected-file";
+      },
+      observeDockerEmptyMountIdentity: (source: string, kind: string) => {
+        if (!reviewerMaskEmpty)
+          throw Error("docker_isolation_reviewer_mask_invalid");
+        return `${kind}:${source}`;
       },
       createDockerCliConfig: (management: string) => {
         assert.equal(management, request.managementDirectory);
@@ -581,6 +588,12 @@ export async function createIsolationFixture(
     },
     set directoryIdentity(value: string) {
       directoryIdentity = value;
+    },
+    set reviewerMaskTargets(value: ReadonlyMap<string, string>) {
+      reviewerMaskTargets = value;
+    },
+    set reviewerMaskEmpty(value: boolean) {
+      reviewerMaskEmpty = value;
     },
     set observation(value: CommandObservation | null) {
       commandObservation = value;

@@ -3,7 +3,7 @@
  * @responsibility 保存Schemaを変更せず、完成操作と検査が共有する型の正本を持つ。
  * @trace ARCH-000008
  */
-import type { Repository } from "../../../version-control/src/index.ts";
+import type { StorageRootInput } from "../storage/lock.ts";
 import type { OperationRecord } from "../attempt/types.ts";
 import type { Blocker, Decision } from "../decision/types.ts";
 import type { HistoryRow } from "../history/types.ts";
@@ -108,7 +108,7 @@ export type SnapshotObservations = Readonly<{
  * @compatibility 最新形式だけを定義し、旧形式の変換は行わない。
  */
 export type ExecutionStateSnapshot = Readonly<{
-  schema: "crdd-execution-model/state/v7";
+  schema: "crdd-execution-model/state/v9";
   revision: number;
   previous: Readonly<{ revision: number; payloadSha256: string }> | null;
   repositoryBinding: string;
@@ -223,7 +223,7 @@ export type StoredTask = Omit<
  * @invariant 投影を別Fileや旧Schemaの互換Readerとして扱わず、OS handleを含めない。
  * @boundary 単一保存正本とモデル別のメモリ内操作。
  * @security Hashや状態名をAuthorityへ昇格しない。
- * @compatibility project-snapshot/v9は投影の識別であり、物理保存はstate/v7。旧形式を自動変換しない。
+ * @compatibility project-snapshot/v9は投影の識別であり、物理保存はstate/v9。旧形式を自動変換しない。
  */
 export type Snapshot = Pick<
   ExecutionStateSnapshot,
@@ -452,15 +452,16 @@ export type StateVersion = Readonly<{
  * 一般定義の認証済みHost接続を表す。
  * @responsibility 元Rootと認証主体、既存内容権限の同期再照合を結合する。
  * @trace ARCH-000008
- * @shape root、principalId、固定用途を受けるrevalidate。
+ * @shape root、principalId、固定用途を受けるrevalidate、初回計画だけに渡す参照元の改訂。
  * @invariant HTTP入力や保存JSONから復元しない。
  * @boundary 信頼したHost構成とDomainの一般CRUD。
  * @security Root確認を操作認可の代用品にしない。
  * @compatibility 新Role・Grant・Authority発行を追加しない。
  */
 export type ExecutionModelAccess = Readonly<{
-  root: Repository;
+  root: StorageRootInput;
   principalId: string;
+  initialSourceRevision?: string | null;
   revalidate: (
     operation:
       | "definition.read"
@@ -469,7 +470,7 @@ export type ExecutionModelAccess = Readonly<{
       | "decision.record"
       | "queue.read"
       | "queue.enqueue"
-      | "runtime.read",
+      | "execution.read",
     target: Readonly<{ projectId: string; milestoneId: string }>,
   ) => boolean;
 }>;
@@ -748,4 +749,4 @@ export const PROJECT_SNAPSHOT_SCHEMA =
   "crdd-execution-model/project-snapshot/v9";
 
 export const STORAGE_CONTRACT =
-  "crdd-coordinator/orchestrator-durable-foundation/v1" as const;
+  "crdd-execution-model/storage-envelope/v2" as const;

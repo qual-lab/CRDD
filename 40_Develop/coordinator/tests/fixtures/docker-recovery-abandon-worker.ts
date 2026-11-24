@@ -10,6 +10,7 @@
  */
 
 import assert from "node:assert/strict";
+import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import cp from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -93,16 +94,9 @@ const fixtureHomeDirectory =
   mode === "auth_create_unknown"
     ? environment?.providerHomesDirectoryCandidate()
     : path.join(root, ".crdd", "tests", "reentry-home-locks");
-const fixtureRuntimeDirectory = path.join(
-  root,
-  ".crdd",
-  "tests",
-  "reentry-runtime-locks",
-);
 if (mode !== "auth_create_unknown") {
   assert.equal(typeof fixtureHomeDirectory, "string");
   fs.mkdirSync(fixtureHomeDirectory as string, { recursive: true });
-  fs.mkdirSync(fixtureRuntimeDirectory, { recursive: true });
 }
 
 /**
@@ -157,7 +151,6 @@ function captureFixtureLocks() {
   for (const directory of [
     path.join(root, ".crdd", "lock"),
     fixtureHomeDirectory,
-    fixtureRuntimeDirectory,
   ]) {
     assert.equal(typeof directory, "string");
     for (const name of fs
@@ -237,12 +230,10 @@ if (mode !== "recovery") {
     host.createOwnedOperationContextCapability(otherOwned),
     host.createOwnedMountCapability(otherOwned),
   );
-  assert.ok(repository.bindRuntimeOwnedRepositoryOperation(management, root));
-  assert.ok(repository.bindRuntimeOwnedRepositoryOperation(other, root));
-  const binding =
-    repository.borrowRuntimeOwnedCoordinatorStateRepository(management);
-  const otherBinding =
-    repository.borrowRuntimeOwnedCoordinatorStateRepository(other);
+  assert.ok(repository.bindRepositoryOperation(management, root));
+  assert.ok(repository.bindRepositoryOperation(other, root));
+  const binding = repository.borrowCoordinatorStateRepository(management);
+  const otherBinding = repository.borrowCoordinatorStateRepository(other);
   assert.ok(binding && otherBinding);
   assert.equal(observeOperation(management).status, "completed");
   const hash = randomBytes(32).toString("hex"),
@@ -271,17 +262,16 @@ if (mode !== "recovery") {
     workspaceMountMode: null,
   });
   const baseline = await import("../../src/lifecycle/environment.ts");
-  const otherIdentity =
-    baseline.prepareRuntimeOwnedRepositoryDockerOperationIdentity(
-      {
-        ...plan,
-        operationId: otherBinding.operationId,
-        stableLogicalHomeBindingHash: randomBytes(32).toString("hex"),
-      },
-      other,
-      randomBytes(32).toString("hex"),
-      "workbench",
-    );
+  const otherIdentity = baseline.prepareRepositoryDockerOperationIdentity(
+    {
+      ...plan,
+      operationId: otherBinding.operationId,
+      stableLogicalHomeBindingHash: randomBytes(32).toString("hex"),
+    },
+    other,
+    randomBytes(32).toString("hex"),
+    "workbench",
+  );
   assert.ok(otherIdentity);
   assert.equal(
     domain.saveOperationStart(
@@ -304,11 +294,7 @@ if (mode !== "recovery") {
           mode === "auth_create_unknown"
             ? homes.providerHomesDirectoryCandidate
             : () => fixtureHomeDirectory,
-        runtimeStateDirectoryCandidate:
-          mode === "auth_create_unknown"
-            ? homes.runtimeStateDirectoryCandidate
-            : () => fixtureRuntimeDirectory,
-        inspectRuntimeOwnedWindowsProviderHomeCandidate: () => ({
+        inspectWindowsProviderHomeCandidate: () => ({
           status: "candidate",
           providerHome: observedPlan,
         }),
@@ -442,7 +428,7 @@ if (mode !== "recovery") {
       );
       assert.ok(owner);
       if (mode !== "producer") {
-        const begun = owner.beginRuntimeOwnedDockerRecovery(plan, management);
+        const begun = owner.beginDockerRecovery(plan, management);
         assert.ok(begun && begun.status === "ready", JSON.stringify(begun));
         capability = begun.recoveryCapability;
         if (authCreateMode) {
@@ -813,7 +799,9 @@ if (mode !== "recovery") {
       }
       const admissionBaseline = fs.readFileSync(statePath);
       const admissionHost = domain
-        .readState(verified.capability, { scope: "recovery" })
+        .readState(prepareFixtureRecovery(verified.capability), {
+          scope: "recovery",
+        })
         .value?.snapshot.operations.find(
           (item) =>
             item.kind === "host_operation" &&
@@ -892,7 +880,7 @@ if (mode !== "recovery") {
           if (fault === "same_home_after_read") {
             afterStateRead = () => {
               const concurrentIdentity =
-                baseline.prepareRuntimeOwnedRepositoryDockerOperationIdentity(
+                baseline.prepareRepositoryDockerOperationIdentity(
                   { ...plan, operationId: otherBinding.operationId },
                   other,
                   randomBytes(32).toString("hex"),
@@ -913,10 +901,7 @@ if (mode !== "recovery") {
           }
           if (fault !== "same_home_after_read")
             expectedFiles = captureCoordinatorFiles();
-          const refused = owner.beginRuntimeOwnedDockerRecovery(
-            plan,
-            management,
-          );
+          const refused = owner.beginDockerRecovery(plan, management);
           assert.ok(
             refused === null || refused.status === "blocked",
             JSON.stringify({ fault, refused }),
@@ -936,7 +921,7 @@ if (mode !== "recovery") {
             assert.equal(fs.readFileSync(unknown, "utf8"), "unknown fixture");
           if (refused !== null && "recoveryCapability" in refused) {
             assert.equal(
-              owner.verifyRuntimeOwnedDockerRecoveryBinding(
+              owner.verifyDockerRecoveryBinding(
                 refused.recoveryCapability,
                 refused.recoveryId,
                 management,
@@ -962,16 +947,14 @@ if (mode !== "recovery") {
               false,
             );
             assert.equal(
-              owner.canPrepareRuntimeOwnedDockerHostCleanup(
+              owner.canPrepareDockerHostCleanup(
                 refused.recoveryCapability,
                 undefined,
               ),
               false,
             );
             assert.equal(
-              owner.abandonRuntimeOwnedDockerRecovery(
-                refused.recoveryCapability,
-              ),
+              owner.abandonDockerRecovery(refused.recoveryCapability),
               false,
             );
           }
@@ -993,7 +976,9 @@ if (mode !== "recovery") {
         }
         assert.deepEqual(
           domain
-            .readState(verified.capability, { scope: "recovery" })
+            .readState(prepareFixtureRecovery(verified.capability), {
+              scope: "recovery",
+            })
             .value?.snapshot.operations.find(
               (item) =>
                 item.kind === "host_operation" &&
@@ -1002,9 +987,9 @@ if (mode !== "recovery") {
           admissionHost,
         );
       }
-      const begun = owner.beginRuntimeOwnedDockerRecovery(plan, management);
+      const begun = owner.beginDockerRecovery(plan, management);
       assert.ok(begun && begun.status === "ready", JSON.stringify(begun));
-      assert.deepEqual(owner.inspectRuntimeOwnedDockerTaskAdmission(root), {
+      assert.deepEqual(owner.inspectDockerTaskAdmission(root), {
         status: "available",
         reason: "coordinator_current_admission_available",
         lockReleased: true,
@@ -1024,16 +1009,13 @@ if (mode !== "recovery") {
       );
       assert.ok(independentHome.status === "acquired");
       assert.equal(independentHome.lock.release(), true);
-      assert.equal(
-        owner.abandonRuntimeOwnedDockerRecovery({ ...capability }),
-        false,
-      );
-      assert.equal(owner.abandonRuntimeOwnedDockerRecovery(capability), false);
-      assert.equal(owner.abandonRuntimeOwnedDockerRecovery(capability), false);
+      assert.equal(owner.abandonDockerRecovery({ ...capability }), false);
+      assert.equal(owner.abandonDockerRecovery(capability), false);
+      assert.equal(owner.abandonDockerRecovery(capability), false);
       assert.deepEqual(fs.readFileSync(statePath), before);
       assert.deepEqual(captureHostRoot(owned.root), hostRootBefore);
       assert.equal(
-        owner.verifyRuntimeOwnedDockerHomeLeaseRelease(
+        owner.verifyDockerHomeLeaseRelease(
           capability,
           management,
           plan.operationId,
@@ -1042,7 +1024,7 @@ if (mode !== "recovery") {
         false,
       );
       assert.equal(
-        owner.canPrepareRuntimeOwnedDockerHostCleanup(
+        owner.canPrepareDockerHostCleanup(
           capability,
           observeOperation(management).value?.operationStates.find(
             (state) => state.operation.recoveryId === begun.recoveryId,
@@ -1060,12 +1042,9 @@ if (mode !== "recovery") {
       assert.equal(reacquired.release(), true);
       const writesBeforeConflict = startWrites;
       const filesBeforeConflict = captureCoordinatorFiles();
-      assert.equal(
-        owner.inspectRuntimeOwnedDockerTaskAdmission(root).status,
-        "available",
-      );
+      assert.equal(owner.inspectDockerTaskAdmission(root).status, "available");
       assert.deepEqual(captureCoordinatorFiles(), filesBeforeConflict);
-      const conflict = owner.beginRuntimeOwnedDockerRecovery(plan, management);
+      const conflict = owner.beginDockerRecovery(plan, management);
       assert.ok(conflict === null || conflict.status === "blocked");
       assert.equal(
         conflict !== null && "recoveryCapability" in conflict,
@@ -1107,7 +1086,7 @@ if (mode !== "recovery") {
           invalidated++;
         };
         const rootFailures: unknown[] = [];
-        const rootRefused = owner.beginRuntimeOwnedDockerRecovery(
+        const rootRefused = owner.beginDockerRecovery(
           rootPlan,
           management,
           (diagnostic) => {
@@ -1122,7 +1101,7 @@ if (mode !== "recovery") {
         assert.equal(afterStateRead, null);
         if (rootRefused !== null && "recoveryCapability" in rootRefused)
           assert.equal(
-            owner.verifyRuntimeOwnedDockerRecoveryBinding(
+            owner.verifyDockerRecoveryBinding(
               rootRefused.recoveryCapability,
               rootRefused.recoveryId,
               management,
@@ -1182,10 +1161,7 @@ if (mode !== "recovery") {
     try {
       if (owner && capability) {
         abandonCalls++;
-        assert.equal(
-          owner.abandonRuntimeOwnedDockerRecovery(capability),
-          false,
-        );
+        assert.equal(owner.abandonDockerRecovery(capability), false);
       }
       if (!generationReleased) {
         assert.equal(
@@ -1272,7 +1248,7 @@ if (mode !== "recovery") {
   const hostRoot = path.join(
     root,
     ".crdd",
-    "operations",
+    "coordinator",
     targetHost.operationId,
   );
   const originals = new Map<string, unknown>();
@@ -1578,7 +1554,6 @@ if (mode !== "recovery") {
     assert.equal(typeof fixtureHomeDirectory, "string");
     for (const [candidate, fixtureDirectory] of [
       ["providerHomesDirectoryCandidate", fixtureHomeDirectory],
-      ["runtimeStateDirectoryCandidate", fixtureRuntimeDirectory],
     ] as const) {
       const declaration = new RegExp(
         "^export function " +
@@ -1599,10 +1574,6 @@ if (mode !== "recovery") {
     assert.equal(
       recovery.providerHomesDirectoryCandidate(),
       fixtureHomeDirectory,
-    );
-    assert.equal(
-      recovery.runtimeStateDirectoryCandidate(),
-      fixtureRuntimeDirectory,
     );
     if (admissionVerification === "verify_admission") {
       const model = await import("../../../execution-model/src/index.ts");
@@ -1630,7 +1601,7 @@ if (mode !== "recovery") {
           .filter((item: { kind: string }) => item.kind === "host_operation")
           .map((item: { operationId: string }) =>
             captureHostRoot(
-              path.join(root, ".crdd", "operations", item.operationId),
+              path.join(root, ".crdd", "coordinator", item.operationId),
             ),
           );
       }
@@ -1673,7 +1644,9 @@ if (mode !== "recovery") {
             const bytes = Buffer.from(`${canonicalJson(changed)}\n`);
             fs.writeFileSync(statePath, bytes);
             const observed: ReturnType<typeof model.readState> =
-              model.readState(verified.capability, { scope: "recovery" });
+              model.readState(prepareFixtureRecovery(verified.capability), {
+                scope: "recovery",
+              });
             assert.equal(observed.status, "blocked");
             assert.equal(observed.value, null);
             assert.deepEqual(fs.readFileSync(statePath), bytes);
@@ -1682,7 +1655,7 @@ if (mode !== "recovery") {
           const injectedHosts = captureAdmissionHosts();
           assert.deepEqual(injectedHosts, baselineHosts);
           const rejected: unknown =
-            await recovery.recoverRuntimeOwnedDockerTaskForCurrentConsumer(
+            await recovery.recoverDockerTaskForCurrentConsumer(
               id,
               verified.capability,
             );
@@ -1717,11 +1690,10 @@ if (mode !== "recovery") {
       }
       assert.equal(recoveryAdmissionChecks.length, 4);
     }
-    const report =
-      await recovery.recoverRuntimeOwnedDockerTaskForCurrentConsumer(
-        id,
-        verified.capability,
-      );
+    const report = await recovery.recoverDockerTaskForCurrentConsumer(
+      id,
+      verified.capability,
+    );
     assert.deepEqual(violations, []);
     if (
       interruption === "pending_writer_blocked" ||

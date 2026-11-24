@@ -40,10 +40,7 @@ test("Workbench助言の本番入口は署名発行を注入しない", () => {
     ),
     "utf8",
   );
-  assert.doesNotMatch(
-    launcher,
-    /issueRuntimeOwnedVerifiedCoordinatorPackageCapability/,
-  );
+  assert.doesNotMatch(launcher, /issueVerifiedCoordinatorPackageCapability/);
   assert.match(launcher, /session:\s*openTaskSession\(context\)/u);
   assert.match(
     launcher,

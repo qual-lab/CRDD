@@ -290,9 +290,20 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
 
   assert.equal(reviewer.approvalMode, "never_read_only");
   assert.equal(reviewer.argv.includes("--approve-for-me"), false);
+  // --sandboxは名前付き権限を上書きするため、Reviewerは読取り専用の権限名で固定する。
   assert.equal(
-    reviewer.argv[reviewer.argv.indexOf("--sandbox") + 1],
-    "read-only",
+    reviewer.argv.includes('default_permissions="crdd-workspace-reviewer"'),
+    true,
+  );
+  assert.equal(
+    reviewer.argv.some((value) =>
+      value.includes('":workspace_roots"={"."="read"}'),
+    ),
+    true,
+  );
+  assert.equal(
+    reviewer.argv.some((value) => value.includes('"/provider-home"="deny"')),
+    true,
   );
   assert.equal(reviewer.argv.includes('approval_policy="never"'), true);
   for (const plan of [executor, reviewer]) {
@@ -302,18 +313,14 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
     assert.equal(plan.webSearchAllowed, false);
     assert.equal(plan.providerHomeCommandReadAllowed, false);
     assert.equal(plan.argv.at(-1), "-");
-    assert.equal(plan.argv.includes("--sandbox"), plan.taskRole === "reviewer");
+    assert.equal(plan.argv.includes("--sandbox"), false);
     assert.equal(
       plan.argv.includes("features.respect_system_proxy=true"),
       true,
     );
     assert.equal(plan.argv.includes("features.code_mode_host=false"), true);
-    assert.equal(
-      plan.argv.includes(
-        `features.shell_tool=${plan.taskRole === "executor" ? "true" : "false"}`,
-      ),
-      true,
-    );
+    // ReviewerもWorkspaceを読むためにShellを使い、書込みは権限名で拒否する。
+    assert.equal(plan.argv.includes("features.shell_tool=true"), true);
     assert.equal(
       plan.argv.includes(
         `features.unified_exec=${plan.taskRole === "executor" ? "true" : "false"}`,

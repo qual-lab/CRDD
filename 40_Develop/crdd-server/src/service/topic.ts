@@ -23,7 +23,6 @@ import {
   federateTopicMeetingRelations,
   type TopicMeetingAccess,
 } from "../../../document-model/src/index.ts";
-import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 
 /** TopicとMeetingが共用する種別確定済みの書込み入力。 @trace ARCH-000006 */
 export type RecordWriteCommand =
@@ -73,14 +72,15 @@ export function resolveTopicMeetingAccess(
     .filter((entry) => entry.manifest.projectId === selected.manifest.projectId)
     .map((entry) => {
       if (signal.aborted) throw new Error(unavailableReason);
-      const root = resolveVerifiedRepositoryRoot(entry.root);
-      if (root === null) throw new Error(unavailableReason);
       return {
         repositoryId: entry.repositoryId,
         projectId: entry.manifest.projectId,
         application: {
-          topic: createTopicOperations(root, entry.manifest.projectId),
-          meeting: createMeetingOperations(root, entry.manifest.projectId),
+          topic: createTopicOperations(entry.root, entry.manifest.projectId),
+          meeting: createMeetingOperations(
+            entry.root,
+            entry.manifest.projectId,
+          ),
         },
       };
     });

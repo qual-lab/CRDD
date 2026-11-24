@@ -15,6 +15,7 @@ import {
 import {
   getRepository,
   readCommitFile,
+  type Repository,
 } from "../../../version-control/src/index.ts";
 import type { DocumentReferenceMap } from "../report/types.ts";
 import { isWithin, pathContainsSymbolicLink, samePath } from "./observe.ts";
@@ -290,6 +291,7 @@ export function createDocumentReferenceReader(
   }
   const fixedHistoryMigration = loadFixedHistoryMigration();
   const historicalContentCache = new Map<string, string | null>();
+  let historicalRepository: Repository | null = null;
   /**
    * historical Contentを決定する。
    *
@@ -311,10 +313,11 @@ export function createDocumentReferenceReader(
     const normalized = relativePath.replaceAll("\\", "/");
     if (historicalContentCache.has(normalized))
       return historicalContentCache.get(normalized) ?? null;
-    const repository = getRepository(root);
+    if (historicalRepository === null)
+      historicalRepository = getRepository(root).capability;
     const content =
-      repository.status === "completed"
-        ? (readCommitFile(repository.capability, {
+      historicalRepository !== null
+        ? (readCommitFile(historicalRepository, {
             commit: fixedHistoryMigration.sourceCommit,
             path: normalized,
           })?.bytes.toString("utf8") ?? null)

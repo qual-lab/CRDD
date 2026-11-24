@@ -434,13 +434,12 @@ function recoverStoppedFixtureLocks(root: string, pid: number, value: unknown) {
       [
         path.join(root, ".crdd", "lock"),
         path.join(root, ".crdd", "tests", "reentry-home-locks"),
-        path.join(root, ".crdd", "tests", "reentry-runtime-locks"),
       ].includes(directory),
     );
     assert.equal(fs.realpathSync(directory), directory);
     assert.match(
       path.basename(file),
-      /^(?:coordinator\.host-operation\.OP-[0-9]{6,}|executor\.provider-home\.[a-f0-9]{64}|coordinator\.docker-state)\.lock$/u,
+      /^(?:coordinator\.host-operation\.OP-[0-9]{6,}|executor\.provider-home\.[a-f0-9]{64})\.lock$/u,
     );
     const bytes = Buffer.from(entry.bytes, "base64");
     const record = JSON.parse(bytes.toString());
@@ -451,11 +450,9 @@ function recoverStoppedFixtureLocks(root: string, pid: number, value: unknown) {
     const name = path.basename(file);
     assert.equal(
       record.identity,
-      name === "coordinator.docker-state.lock"
-        ? "docker-state:shared"
-        : name.startsWith("coordinator.host-operation.")
-          ? `host-operation:${name.slice("coordinator.host-operation.".length, -5)}`
-          : `provider-home:${name.slice("executor.provider-home.".length, -5)}`,
+      name.startsWith("coordinator.host-operation.")
+        ? `host-operation:${name.slice("coordinator.host-operation.".length, -5)}`
+        : `provider-home:${name.slice("executor.provider-home.".length, -5)}`,
     );
     const stat = fs.lstatSync(file, { bigint: true });
     assert.equal(stat.isFile(), true);
@@ -754,7 +751,7 @@ for (const producerMode of [
       const hostRoot = path.join(
         root,
         ".crdd",
-        "operations",
+        "coordinator",
         targetHost.operationId,
       );
       assert.equal(fs.lstatSync(hostRoot).isDirectory(), true);
@@ -793,7 +790,7 @@ for (const producerMode of [
       const otherRoot = path.join(
         root,
         ".crdd",
-        "operations",
+        "coordinator",
         otherHost.operationId,
       );
       const otherChildNames = fs.readdirSync(otherRoot).sort();
@@ -1256,7 +1253,7 @@ for (const fault of [
         path.join(
           root,
           ".crdd",
-          "operations",
+          "coordinator",
           JSON.parse(target.identityJson).operationId,
         ),
       ])
@@ -1435,10 +1432,7 @@ test("レビュー所見からの是正許可は同じ終端結果と初回レ�
     new URL("../../src/lifecycle/environment.ts", import.meta.url),
     "utf8",
   );
-  const declaration = sourceDeclaration(
-    source,
-    "registerRuntimeOwnedReviewFindings",
-  );
+  const declaration = sourceDeclaration(source, "registerReviewFindings");
   for (const fault of [
     "none",
     "copy",
@@ -1509,23 +1503,20 @@ test("レビュー所見からの是正許可は同じ終端結果と初回レ�
     if (fault === "plan_missing") record.completedPlan = undefined;
     let issued = 0;
     const permit = Object.freeze({});
-    const register = runInNewContext(
-      `${declaration}\nregisterRuntimeOwnedReviewFindings`,
-      {
-        durableRecord: (c: object) => (c === capability ? record : null),
-        registerTaskRemediation: (
-          id: string,
-          attempt: number,
-          value: unknown,
-        ) => {
-          issued++;
-          assert.equal(id, record.operationId);
-          assert.equal(attempt, 0);
-          assert.equal(value, findings);
-          return permit;
-        },
+    const register = runInNewContext(`${declaration}\nregisterReviewFindings`, {
+      durableRecord: (c: object) => (c === capability ? record : null),
+      registerTaskRemediation: (
+        id: string,
+        attempt: number,
+        value: unknown,
+      ) => {
+        issued++;
+        assert.equal(id, record.operationId);
+        assert.equal(attempt, 0);
+        assert.equal(value, findings);
+        return permit;
       },
-    );
+    });
     const returned = register(
       fault === "capability" ? {} : capability,
       fault === "copy" ? { ...result } : result,

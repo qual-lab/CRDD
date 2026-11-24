@@ -137,7 +137,15 @@ Qual-Lab / CRDD公式リポジトリのGit運用は、`main`から作業用の`f
 
 独立レビューまたは監査集合の開始前に、親エージェントは対象範囲と対象改訂版を固定し、利用可能な`node 40_Develop/checker/bin/checker.ts --json --summary`または同等の決定論的確認をリポジトリ全体へ一度実行する。実行結果は共通入力として各確認者へ渡し、同じ対象への重複実行をさせない。`--scope`は限定理由と未確認範囲を示せる中間確認だけに使用し、全体確認済みとは扱わない。対象成果物、対象範囲またはチェッカーを変更した場合は、新しい改訂版へ一度再実行して結果を差し替える。利用できない場合は同等の確認範囲と未確認事項を示す。機械確認は独立レビューまたは監査を代替せず、特定ツールの使用や合格を準拠条件にしない。
 
-Codexの制限ProcessからCoordinatorの全試験を実行する場合は、`npm test`を先に失敗させて実行環境差を判定してはならない。同じ固定Commitの`40_Develop/coordinator`で、最初に`npm run check`を成功させ、その後`npm run test:restricted-process`を制限Processから実行し、`npm run test:windows-process`を通常のローカルユーザーProcessから実行する。静的検査が失敗した状態では、いずれの分割試験結果も回帰成功へ数えない。後者を実行できない場合は8件を未確認として保持し、前者の成功だけを全試験成功としない。通常のローカルユーザーProcessまたはCIでは、静的検査と両Process試験を所有する`npm test`を使用できる。
+Coordinatorの回帰は、同一の変更内容を対象とし、以下のコマンドは`40_Develop/coordinator`から実行する。最初に`npm run check`を成功させ、その後`npm run test:portable`、通常のWindowsローカルユーザーProcessで`npm run test:host-windows`の順に実行する。両環境を満たす場合は`npm run test:all`で同じ順序を実行できる。`npm test`は静的検査とPortable試験だけを実行する。静的検査が失敗した場合や、必要なHost試験を実行できない場合は全回帰成功としない。実Docker・実Providerなどの実環境試験は別の許可と条件に従い、許可されていない検証は起動せず未実施として区別する。
+
+`test:host-windows`と`test:all`は実Dockerを使う`codex-executor-sandbox.integration.test.ts`を含むため、実Dockerの許可がなければそのまま実行しない。Host試験は`test:host-windows`のコマンドからその試験ファイルだけを外して実行し、除外した試験を未実施として記録する。
+
+`Windows Process Gate:`の試験は上記の入口には含まれない。回帰では、WindowsローカルユーザーProcessで次の子Process・代役による3件を別途確認する。実Dockerを使う残りの試験は別枠の`npm run test:docker-isolation-host`であり、実行許可がなければ未実施とする。
+
+```powershell
+node --experimental-test-module-mocks --test --test-concurrency=1 '--test-name-pattern=^Windows Process Gate:' ./tests/integration/provider-authentication-recovery.integration.test.ts ./tests/integration/docker-process-controller.contract.test.ts
+```
 
 独立レビューと監査は、重大リスク等の停止条件に該当しない限り、対象範囲へ適用する確認観点を初回に一度走査し、同種箇所の水平探索、重複と共通原因の整理を終えてから一括して返す。適用した確認観点、確認済み／未評価範囲、水平探索、サンプリングの限界を示す。一つの指摘を見つけた時点で残りの観点を未評価のまま返さない。一つの指摘、根本原因または合意事項が複数箇所へ及ぶ場合、親エージェントまたは修正担当は[`10_Agent.md`](10_Agent.md#multi-location-remediation)に従い、元の指摘事項の意味を保持して契約母集団と利用側母集団を分け、是正対象を列挙する。処置進捗、阻害状態、解消判定を分け、`Applied`または`Self-checked`を`Resolved`と扱わない。受入条件、合否判定方法、現行固定改訂版の新しい根拠、各利用側の処置、対象に応じた確認／実行結果または理由付き非該当判定、独立再レビュー、現在状態への伝播、新規候補を含む未解決指摘の処置を照合してから解消と判定する。再レビューの新規候補は[`10_Agent.md`](10_Agent.md#76-first-pass-review-completeness)が定める発生理由へ分類する。同じ根本原因が繰り返され、局所修正では収束しない場合は、個別編集を継ぎ足さず構造是正へ戻す。
 

@@ -107,19 +107,19 @@ function crossModelReferences(
 }
 
 /**
- * EM保存契約をAD／DIの技術型へ結合しない。
+ * EM保存契約をAD／DI／VCの実装・技術型へ結合しない。
  * @responsibility 実装・型・再export・動的参照とPackage宣言を同じ禁止先へ照合する。
  * @trace RCM-UT-014
- * @precondition 現行EM SourceとPackage宣言。
- * @stimulus 値／型import・型再export・インライン型の反証と現行Sourceを検査する。
+ * @precondition 現行EM Source・試験とPackage宣言。
+ * @stimulus 値／型import・型再export・インライン型の反証と現行Source・試験を検査する。
  * @observation 禁止先参照と保存Ownerの境界。
- * @oracle AD／DIへの参照0。VC／Lockと似た別名は許可する。
+ * @oracle AD／DI／VCへの参照0。共通Lockや似た別名は許可する。
  * @cleanup 読取りだけ。実行・保存・資源作成なし。
  * @boundary EM保存契約と専門技術Package。
  */
-test("EM保存契約はADとDIの型・実装へ依存しない", () => {
+test("EMの本番と試験はAD・DI・VCの型・実装へ依存しない", () => {
   const root = path.resolve(import.meta.dirname, "../..");
-  const forbidden = ["ai-adapter", "docker-isolation"];
+  const forbidden = ["ai-adapter", "docker-isolation", "version-control"];
   const file = path.join(root, "src/attempt/types.ts");
   for (const source of [
     'import type { ModelSelection } from "../../../ai-adapter/src/index.ts";',
@@ -127,13 +127,14 @@ test("EM保存契約はADとDIの型・実装へ依存しない", () => {
     'type Snapshot = import("../../../docker-isolation/src/index.ts").ResourceSnapshot;',
     'const api = await import("@qual-lab/crdd-ai-adapter");',
     'const api = require("@qual-lab/crdd-docker-isolation/internal");',
+    'import type { Repository } from "../../../version-control/src/index.ts";',
+    'const api = await import("@qual-lab/crdd-version-control");',
   ])
     assert.equal(
       crossModelReferences(source, file, "execution-model", forbidden).length,
       1,
     );
   for (const source of [
-    'import type { Repository } from "../../../version-control/src/index.ts";',
     'import { acquireLock } from "../../../lock/src/index.ts";',
     'import type { Value } from "@qual-lab/crdd-ai-adapter-other";',
   ])
@@ -141,7 +142,12 @@ test("EM保存契約はADとDIの型・実装へ依存しない", () => {
       crossModelReferences(source, file, "execution-model", forbidden),
       [],
     );
-  for (const target of typescriptFiles(path.join(root, "src"))) {
+  for (const target of [
+    ...typescriptFiles(path.join(root, "src")),
+    ...typescriptFiles(path.join(root, "tests")).filter(
+      (candidate) => candidate !== import.meta.filename,
+    ),
+  ]) {
     assert.deepEqual(
       crossModelReferences(
         fs.readFileSync(target, "utf8"),
@@ -398,6 +404,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "queryQueue",
     "queryTasks",
     "readDecision",
+    "readExecutionStorageBinding",
     "readLease",
     "readProjectExecutionState",
     "readQueueEntry",
@@ -405,6 +412,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "recordDecision",
     "recoverLease",
     "releaseLease",
+    "renameWorkspace",
     "requestDecision",
     "resumeRepairRecordSave",
     "retireStateRecords",
@@ -493,6 +501,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "queryQueue",
     "queryTasks",
     "readDecision",
+    "readExecutionStorageBinding",
     "readLease",
     "readProjectExecutionState",
     "readQueueEntry",
@@ -500,6 +509,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "recordDecision",
     "recoverLease",
     "releaseLease",
+    "renameWorkspace",
     "requestDecision",
     "resumeRepairRecordSave",
     "retireStateRecords",
@@ -617,9 +627,9 @@ test("Execution Modelの利用側は宣言済み公開indexだけを利用する
     );
     assert.deepEqual(
       imports(
-        `${prefix}"../../../execution-model/tests/support/runtime-storage-source.ts"`,
+        `${prefix}"../../../execution-model/tests/support/storage-source.ts"`,
       ),
-      ["../../../execution-model/tests/support/runtime-storage-source.ts"],
+      ["../../../execution-model/tests/support/storage-source.ts"],
     );
   }
   // 中立fixtureは許可し、保存内部を試験facade経由で公開する参照は拒否する。
@@ -665,9 +675,7 @@ test("Execution Modelの利用側は宣言済み公開indexだけを利用する
     return false;
   };
   assert.equal(
-    reachesPrivate(
-      path.join(domainRoot, "tests/support/runtime-storage-source.ts"),
-    ),
+    reachesPrivate(path.join(domainRoot, "tests/support/storage-source.ts")),
     true,
   );
   assert.equal(

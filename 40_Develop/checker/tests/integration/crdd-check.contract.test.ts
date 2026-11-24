@@ -902,16 +902,66 @@ test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体
     "utf8",
   );
   const checkIndex = agentContract.indexOf("最初に`npm run check`を成功させ");
-  const restrictedIndex = agentContract.indexOf(
-    "`npm run test:restricted-process`",
+  const portableIndex = agentContract.indexOf("`npm run test:portable`");
+  const windowsIndex = agentContract.indexOf("`npm run test:host-windows`");
+  const coordinatorManifest: unknown = JSON.parse(
+    fs.readFileSync(
+      path.join(repositoryRoot, "40_Develop", "coordinator", "package.json"),
+      "utf8",
+    ),
   );
-  const windowsIndex = agentContract.indexOf("`npm run test:windows-process`");
+  const scripts = record(record(coordinatorManifest)?.scripts);
+  assert.ok(scripts);
+  for (const name of [
+    "check",
+    "test:portable",
+    "test:host-windows",
+    "test:all",
+  ])
+    assert.equal(typeof scripts[name], "string", name);
+  assert.equal(scripts["test:run"], "npm run test:portable");
+  assert.equal(
+    scripts["test:all"],
+    "npm run check && npm run test:run && npm run test:host-windows",
+  );
   assert.ok(checkIndex >= 0, "AGENTS must require static checks first");
-  assert.ok(
-    restrictedIndex > checkIndex,
-    "restricted tests must follow checks",
-  );
-  assert.ok(windowsIndex > restrictedIndex, "Windows tests must follow checks");
+  assert.ok(portableIndex > checkIndex, "Portable tests must follow checks");
+  assert.ok(windowsIndex > portableIndex, "Windows tests must follow Portable");
+});
+
+/** 製品所有の集計と横断試験の実行入口を区別する。 @trace AUH-IT-003 */
+test("製品のカバレッジ入口に横断試験を混ぜない", () => {
+  const develop = path.join(repositoryRoot, "40_Develop");
+  const packageNames = fs
+    .readdirSync(develop, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .filter((name) => fs.existsSync(path.join(develop, name, "package.json")));
+  for (const name of packageNames) {
+    const manifest: unknown = JSON.parse(
+      fs.readFileSync(path.join(develop, name, "package.json"), "utf8"),
+    );
+    const scripts = record(record(manifest)?.scripts);
+    assert.ok(scripts, name);
+    const coverage = scripts["test:coverage"];
+    assert.equal(typeof coverage, "string", name);
+    assert.doesNotMatch(
+      String(coverage),
+      /tests\/(?:system|integration\/diagnostic)/u,
+      name,
+    );
+    if (name === "workbench-ui") {
+      assert.doesNotMatch(String(scripts["test:run"]), /tests\/system/u);
+      assert.match(
+        String(scripts["test:credential-browser"]),
+        /tests\/system\/credential-administration-browser/u,
+      );
+      assert.match(
+        String(scripts["test:visual"]),
+        /tests\/system\/workbench-visual/u,
+      );
+    }
+  }
 });
 
 /**
@@ -8054,7 +8104,7 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
     );
   for (const fileName of [
     "test-catalog.json",
-    "coordinator-runtime-traceability.json",
+    "coordinator-execution-traceability.json",
     "coordinator-task-design-traceability.json",
   ])
     write(path.join(root, "07_Quality", "Registry", fileName), "{}\n");

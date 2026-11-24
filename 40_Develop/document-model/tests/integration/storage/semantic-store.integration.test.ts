@@ -10,13 +10,11 @@
  * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation / RDL-IT-007=Direct Boundary: Semantic Bundle Publisher→Filesystem
  */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { getRepository } from "../../../../version-control/src/index.ts";
 import { publishSemanticCoverageBundleWithHooks } from "../../../src/storage/semantic-store.ts";
 
 /**
@@ -36,9 +34,6 @@ test("Semantic Bundle公開前の失敗は既存Snapshotを置換しない", () 
     path.dirname(fileURLToPath(import.meta.url)),
     "../../../../..",
   );
-  const verified = getRepository(repositoryRoot);
-  assert.equal(verified.status, "completed");
-  if (verified.status !== "completed") return;
   const testRoot = path.join(
     repositoryRoot,
     ".crdd",
@@ -48,33 +43,37 @@ test("Semantic Bundle公開前の失敗は既存Snapshotを置換しない", () 
   fs.mkdirSync(testRoot, { recursive: true });
   const temporaryRoot = fs.mkdtempSync(path.join(testRoot, "semantic-bundle-"));
   try {
-    const targetPath = path.join(temporaryRoot, "semantic-coverage.json");
+    const outputDirectory = path.join(temporaryRoot, "outputs");
+    fs.mkdirSync(outputDirectory);
+    const targetPath = path.join(outputDirectory, "semantic-coverage.json");
     const outputRelativePath = path
-      .relative(repositoryRoot, targetPath)
+      .relative(temporaryRoot, targetPath)
       .replaceAll("\\", "/");
     fs.writeFileSync(targetPath, "old\n", "utf8");
-    assert.throws(() =>
-      publishSemanticCoverageBundleWithHooks(
-        verified.capability,
-        { outputRelativePath, content: "new\n" },
-        {
-          beforePublish: () => {
-            throw new Error("injected-before-publish");
+    assert.throws(
+      () =>
+        publishSemanticCoverageBundleWithHooks(
+          temporaryRoot,
+          { outputRelativePath, content: "new\n" },
+          {
+            beforePublish: () => {
+              throw new Error("injected-before-publish");
+            },
           },
-        },
-      ),
+        ),
+      /injected-before-publish/u,
     );
     assert.equal(fs.readFileSync(targetPath, "utf8"), "old\n");
     assert.deepEqual(
       fs
-        .readdirSync(temporaryRoot)
+        .readdirSync(outputDirectory)
         .filter((name) => name.startsWith(".semantic-coverage-pilot.")),
       [],
     );
-    const receipt = publishSemanticCoverageBundleWithHooks(
-      verified.capability,
-      { outputRelativePath, content: "new\n" },
-    );
+    const receipt = publishSemanticCoverageBundleWithHooks(temporaryRoot, {
+      outputRelativePath,
+      content: "new\n",
+    });
     assert.equal(receipt.outputRelativePath, outputRelativePath);
     assert.equal(receipt.byteLength, 4);
     assert.equal(fs.readFileSync(targetPath, "utf8"), "new\n");
@@ -110,28 +109,12 @@ test("Root外とLink出力を拒否し失敗後に一時成果物を残さない
   const temporaryRoot = fs.mkdtempSync(path.join(testRoot, "bundle-boundary-"));
   const outsideRoot = fs.mkdtempSync(path.join(testRoot, "bundle-outside-"));
   try {
-    const initialized = spawnSync(
-      "git",
-      ["-c", "init.templateDir=", "init", "--quiet", temporaryRoot],
-      {
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          GIT_CONFIG_NOSYSTEM: "1",
-          GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null",
-        },
-      },
-    );
-    assert.equal(initialized.status, 0, initialized.stderr);
     const repositoryRoot = temporaryRoot;
-    const verified = getRepository(repositoryRoot);
-    assert.equal(verified.status, "completed");
-    if (verified.status !== "completed") return;
     const outsideRelativePath = path
       .relative(repositoryRoot, path.join(outsideRoot, "outside.json"))
       .replaceAll("\\", "/");
     assert.throws(() =>
-      publishSemanticCoverageBundleWithHooks(verified.capability, {
+      publishSemanticCoverageBundleWithHooks(repositoryRoot, {
         outputRelativePath: outsideRelativePath,
         content: "outside\n",
       }),
@@ -149,7 +132,7 @@ test("Root外とLink出力を拒否し失敗後に一時成果物を残さない
       .replaceAll("\\", "/");
     assert.throws(
       () =>
-        publishSemanticCoverageBundleWithHooks(verified.capability, {
+        publishSemanticCoverageBundleWithHooks(repositoryRoot, {
           outputRelativePath: linkRelativePath,
           content: "replacement\n",
         }),

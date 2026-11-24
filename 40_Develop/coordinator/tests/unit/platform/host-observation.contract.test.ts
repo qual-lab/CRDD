@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../../version-control/src/index.ts";
-import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../../src/lifecycle/environment.ts";
+import { inspectWindowsProviderHomeCandidate } from "../../../src/lifecycle/environment.ts";
 import { observeLeaseOwner } from "../../../src/lifecycle/host.ts";
 
 /**
@@ -63,8 +63,7 @@ test("非対応・欠測のOSと不正ProviderではHomeを観測しない", (t)
     ] as const) {
       Object.defineProperty(process, "platform", { ...platform, value: given });
       for (const provider of providers) {
-        const observed =
-          inspectRuntimeOwnedWindowsProviderHomeCandidate(provider);
+        const observed = inspectWindowsProviderHomeCandidate(provider);
         assert.equal(observed.status, "blocked");
         assert.equal(observed.reason, "provider_home_node_input_invalid");
         assert.equal(observed.providerHome, null);

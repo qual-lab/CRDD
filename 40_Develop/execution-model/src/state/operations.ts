@@ -662,7 +662,7 @@ export function createLeaseEvidence(
   content: LeaseEvidenceContent,
 ): LeaseEvidenceEnvelope {
   if (!validLeaseEvidence(content))
-    throw new Error("orchestrator_record_content_invalid");
+    throw new Error("coordinator_record_content_invalid");
   const serialized = encodeStateValue(content);
   return Object.freeze({
     schema: STORAGE_CONTRACT,

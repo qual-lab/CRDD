@@ -79,7 +79,7 @@ export function prepareExecutionDefinitionChange(
     | "task.delete",
   raw: unknown,
   binding: string,
-  revision: string,
+  initialSourceRevision: string | null,
 ) {
   const denied = (
     reason:
@@ -159,6 +159,9 @@ export function prepareExecutionDefinitionChange(
   )
     return denied("target_referenced");
   if (kind !== "plan.save" && !current) return denied("target_missing");
+  const revision = current?.repositoryRevision ?? initialSourceRevision;
+  if (typeof revision !== "string" || revision.length === 0)
+    return { status: "blocked" as const, reason: "state_unavailable" as const };
   let objectives = current?.objectives ?? [];
   let tasks = current?.tasks ?? [];
   let criteria = current?.milestone.acceptanceCriteria ?? [];
@@ -255,7 +258,7 @@ export function prepareExecutionDefinitionChange(
     contract: "crdd-domain/project-state/v1",
     projectId: request.projectId,
     milestoneId: request.milestoneId,
-    repositoryRevision: current?.repositoryRevision ?? revision,
+    repositoryRevision: revision,
     generation: (current?.generation ?? 0) + 1,
     decisionApplicationId: null,
     milestone: {

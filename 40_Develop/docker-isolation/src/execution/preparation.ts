@@ -31,6 +31,43 @@ const MOUNT_TARGETS = new Set([
   "/operation/tmp",
 ]);
 
+/** 固定用途以外の作業領域内MountをReviewer用の覆いとして扱う。 */
+export function isReviewerMaskTarget(target: string): boolean {
+  return target.startsWith("/work/") && !MOUNT_TARGETS.has(target);
+}
+
+/** 上位から受けた覆いを、CSVに安全な相対所在と管理領域内の空実体へ限定する。 */
+function reviewerMaskAllowed(
+  mount: IsolationContainer["mounts"][number],
+  managementDirectory: string,
+  workspaceReadOnly: boolean,
+  targets: ReadonlySet<string>,
+): boolean {
+  if (!workspaceReadOnly || !mount.readOnly) return false;
+  const masks = path.join(managementDirectory, "reviewer-masks");
+  if (
+    /["\p{Cc}]/u.test(mount.source) ||
+    (mount.source !== path.join(masks, "file") &&
+      mount.source !== path.join(masks, "directory"))
+  )
+    return false;
+  const segments = mount.target.slice("/work/".length).split("/");
+  let parent = "/work";
+  for (const [index, segment] of segments.entries()) {
+    const lower = segment.toLowerCase();
+    if (
+      !segment ||
+      /[. ]$/u.test(segment) ||
+      /[\\,:"<>|?*\p{Cc}]/u.test(segment) ||
+      (index === 0 && (lower === ".git" || lower === ".crdd"))
+    )
+      return false;
+    parent += `/${lower}`;
+    if (index < segments.length - 1 && targets.has(parent)) return false;
+  }
+  return true;
+}
+
 /** getter・Proxy・疎配列・循環参照を実行入力へ持ち込まない。 */
 function capture(value: unknown, active = new Set<object>()): unknown {
   if (value === null || typeof value === "string" || typeof value === "boolean")
@@ -187,13 +224,32 @@ export function captureIsolationRequest(
         !profile.entrypoints.includes(r.entrypoint)
       )
         throw Error("docker_isolation_container_invalid");
-      for (const m of r.mounts) {
+      const mounts: IsolationContainer["mounts"] = r.mounts;
+      const workspaceReadOnly =
+        r.workingDirectory === "/work" &&
+        mounts.some(({ target, readOnly }) => target === "/work" && readOnly);
+      const reviewerTargets = mounts
+        .map(({ target }) => (typeof target === "string" ? target : ""))
+        .filter(isReviewerMaskTarget)
+        .map((target) => target.toLowerCase());
+      const reviewerTargetSet = new Set(reviewerTargets);
+      if (reviewerTargetSet.size !== reviewerTargets.length)
+        throw Error("docker_isolation_mount_invalid");
+      for (const m of mounts) {
         fields(m, "source,target,readOnly");
         if (
           !absolute(m.source) ||
-          !MOUNT_TARGETS.has(m.target) ||
+          typeof m.target !== "string" ||
           typeof m.readOnly !== "boolean" ||
-          (["/work/.git", "/work/.crdd"].includes(m.target) && !m.readOnly)
+          (["/work/.git", "/work/.crdd"].includes(m.target) && !m.readOnly) ||
+          (!MOUNT_TARGETS.has(m.target) &&
+            (!isReviewerMaskTarget(m.target) ||
+              !reviewerMaskAllowed(
+                m,
+                input.managementDirectory,
+                workspaceReadOnly,
+                reviewerTargetSet,
+              )))
         )
           throw Error("docker_isolation_mount_invalid");
       }

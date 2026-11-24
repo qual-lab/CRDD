@@ -35,8 +35,8 @@ import {
 } from "../../src/lifecycle/host.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
-  bindRuntimeOwnedRepositoryOperation,
-  borrowRuntimeOwnedCoordinatorStateRepository,
+  bindRepositoryOperation,
+  borrowCoordinatorStateRepository,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
@@ -71,9 +71,7 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
   );
   const begin = source.indexOf(
     "onResourcesClosed: (snapshot, observations) =>",
-    source.indexOf(
-      "export async function recoverRuntimeOwnedDockerTaskResources(",
-    ),
+    source.indexOf("export async function recoverDockerTaskResources("),
   );
   const end = source.indexOf("\n    });\n    const abort", begin);
   assert.ok(begin > 0 && end > begin);
@@ -225,6 +223,7 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
     const capability = {},
       rootCapability = {},
       before = Buffer.from("before");
+    const recoveryInput = { root: { directory: "fixture-repository" } };
     const record = {
       repository: { repositoryBinding: fixture.binding },
       recoveryId: fixture.recoveryId,
@@ -265,7 +264,7 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
           authenticationClosureAllowed: becameEligible || !generalPath,
         };
       },
-      persistRuntimeOwnedDockerTaskRecoveryCheckpoint: (
+      persistDockerTaskRecoveryCheckpoint: (
         owner: unknown,
         kind: string,
         value: unknown,
@@ -350,9 +349,14 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
           payloadSha256: "saved",
         };
       },
-      readState: (owner: unknown) => {
+      recoveryStorageInput: (owner: unknown) => {
+        assert.equal(owner, record.repository);
+        return recoveryInput;
+      },
+      readState: (owner: unknown, query: unknown) => {
         counts.read++;
-        assert.equal(owner, rootCapability);
+        assert.equal(owner, recoveryInput);
+        assert.deepEqual(structuredClone(query), { scope: "recovery" });
         return {
           status: "completed",
           lockReleased: true,
@@ -591,10 +595,10 @@ test("CLI試験の期限: 通常三形だけ既存の二層枠へ接続する", 
   for (const [fault, innerExpected, outerExpected] of [
     ["cli_entry_cli", 120000, 180000],
     ["cli_entry_workbench", 120000, 180000],
-    ["cli_entry_orchestrator", 120000, 180000],
+    ["cli_entry_coordinator", 120000, 180000],
     ["restart_cli_entry", 120000, 180000],
     ["restart_auth_cli_entry", 120000, 180000],
-    ["cli_entry_orchestrator_identified", 60000, 90000],
+    ["cli_entry_coordinator_identified", 60000, 90000],
     ["driver", 60000, 90000],
     ["A", 60000, 90000],
     ["handoff_failure", 60000, 90000],
@@ -765,7 +769,7 @@ test("回収再入場の拒否: await省略と下位Effect発行を反例で拒�
     "const refusedResources=await ",
   );
   const end = currentHostTransitionWorkerSource.indexOf(
-    "assert.equal(recovery.cleanupRuntimeOwnedDockerTaskHost",
+    "assert.equal(recovery.cleanupDockerTaskHost",
     start,
   );
   assert.ok(start > 0 && end > start);
@@ -777,7 +781,7 @@ test("回収再入場の拒否: await省略と下位Effect発行を反例で拒�
       rejectedEffects: 0,
       prepared: { capability: {} },
       recovery: {
-        recoverRuntimeOwnedDockerTaskResources: async () => {
+        recoverDockerTaskResources: async () => {
           if (issueEffect) context.rejectedEffects++;
           return {
             status: "blocked",
@@ -1059,7 +1063,7 @@ test("保存済み不存在の代役: 四応答・終了・未知要求拒否を
       "--host",
       "npipe:////./pipe/dockerDesktopLinuxEngine",
       "--config",
-      "C:\\fixture\\.crdd\\operations\\OP-fixture\\management\\docker-cli-config",
+      "C:\\fixture\\.crdd\\coordinator\\OP-fixture\\management\\docker-cli-config",
     ];
     const options = {
       shell: false,
@@ -1152,8 +1156,8 @@ function fixtureOperation(
     createOwnedOperationContextCapability(owned),
     createOwnedMountCapability(owned),
   );
-  assert.ok(bindRuntimeOwnedRepositoryOperation(management, root));
-  const repository = borrowRuntimeOwnedCoordinatorStateRepository(management);
+  assert.ok(bindRepositoryOperation(management, root));
+  const repository = borrowCoordinatorStateRepository(management);
   assert.ok(repository);
   const nonce = randomBytes(32).toString("hex"),
     suffix = nonce.slice(0, 16);
@@ -1514,7 +1518,7 @@ test("Docker代役は同期・非同期の未知要求を発行前に拒否し�
           assert.equal(diagnostic.index, 0);
         } else if (scenario === "wrong_channel") {
           run(
-            "const argv=['--host','npipe:////./pipe/dockerDesktopLinuxEngine','--config','C:\\\\fixture\\\\.crdd\\\\operations\\\\OP-fixture\\\\management\\\\docker-cli-config','version','--format','{{.Server.Os}}'];assert.throws(()=>cp.spawnSync(dockerExe,argv,{shell:false,windowsHide:true,cwd:'C:\\\\Windows\\\\System32',stdio:['ignore','pipe','pipe'],env:{}}));assert.throws(()=>cp.spawn(dockerExe,argv,{shell:false,windowsHide:true,timeout:10000,maxBuffer:1048576}));",
+            "const argv=['--host','npipe:////./pipe/dockerDesktopLinuxEngine','--config','C:\\\\fixture\\\\.crdd\\\\coordinator\\\\OP-fixture\\\\management\\\\docker-cli-config','version','--format','{{.Server.Os}}'];assert.throws(()=>cp.spawnSync(dockerExe,argv,{shell:false,windowsHide:true,cwd:'C:\\\\Windows\\\\System32',stdio:['ignore','pipe','pipe'],env:{}}));assert.throws(()=>cp.spawn(dockerExe,argv,{shell:false,windowsHide:true,timeout:10000,maxBuffer:1048576}));",
           );
         } else if (scenario === "throw") {
           assert.throws(() =>
@@ -1526,7 +1530,7 @@ test("Docker代役は同期・非同期の未知要求を発行前に拒否し�
             .spawnSync as unknown as typeof childProcess.spawnSync;
           syncBuiltinESMExports();
           const config =
-            "C:\\fixture\\.crdd\\operations\\OP-fixture\\management\\docker-cli-config";
+            "C:\\fixture\\.crdd\\coordinator\\OP-fixture\\management\\docker-cli-config";
           const options = { workingDirectory: "C:\\Windows\\System32" };
           const handle = startOwnedWindowsProcess(
             dockerExe,
@@ -1550,7 +1554,7 @@ test("Docker代役は同期・非同期の未知要求を発行前に拒否し�
           assert.equal(handle.closed(), true);
           context.process.env.SystemRoot = "C:\\Windows";
           await run(
-            `(async()=>{const cmds=${authentication ? "asyncCommands" : "expectedCommands"};for(const argv of cmds.slice(1)){const child=cp.spawn(dockerExe,['--host','npipe:////./pipe/dockerDesktopLinuxEngine','--config','C:\\\\fixture\\\\.crdd\\\\operations\\\\OP-fixture\\\\management\\\\docker-cli-config',...argv],{shell:false,windowsHide:true,cwd:'C:\\\\Windows\\\\System32',stdio:['ignore','pipe','pipe'],env:{HTTP_PROXY:'',HTTPS_PROXY:'',ALL_PROXY:''}});const events=[];child.once('spawn',()=>events.push('spawn'));child.stdout.on('data',()=>{});child.stderr.on('data',()=>{});child.stdout.once('end',()=>events.push('stdout_end'));child.stderr.once('end',()=>events.push('stderr_end'));child.once('exit',()=>events.push('exit'));await new Promise(resolve=>child.once('close',()=>{events.push('close');resolve();}));assert.deepEqual(events,['spawn','stdout_end','stderr_end','exit','close']);} ${authentication ? "for(const argv of commands)cp.spawnSync(dockerExe,['--host','npipe:////./pipe/dockerDesktopLinuxEngine','--config','C:\\\\fixture\\\\.crdd\\\\operations\\\\OP-fixture\\\\management\\\\docker-recovery-config-fixture',...argv],{shell:false,windowsHide:true,timeout:10000,maxBuffer:1048576});" : ""}})();`,
+            `(async()=>{const cmds=${authentication ? "asyncCommands" : "expectedCommands"};for(const argv of cmds.slice(1)){const child=cp.spawn(dockerExe,['--host','npipe:////./pipe/dockerDesktopLinuxEngine','--config','C:\\\\fixture\\\\.crdd\\\\coordinator\\\\OP-fixture\\\\management\\\\docker-cli-config',...argv],{shell:false,windowsHide:true,cwd:'C:\\\\Windows\\\\System32',stdio:['ignore','pipe','pipe'],env:{HTTP_PROXY:'',HTTPS_PROXY:'',ALL_PROXY:''}});const events=[];child.once('spawn',()=>events.push('spawn'));child.stdout.on('data',()=>{});child.stderr.on('data',()=>{});child.stdout.once('end',()=>events.push('stdout_end'));child.stderr.once('end',()=>events.push('stderr_end'));child.once('exit',()=>events.push('exit'));await new Promise(resolve=>child.once('close',()=>{events.push('close');resolve();}));assert.deepEqual(events,['spawn','stdout_end','stderr_end','exit','close']);} ${authentication ? "for(const argv of commands)cp.spawnSync(dockerExe,['--host','npipe:////./pipe/dockerDesktopLinuxEngine','--config','C:\\\\fixture\\\\.crdd\\\\coordinator\\\\OP-fixture\\\\management\\\\docker-recovery-config-fixture',...argv],{shell:false,windowsHide:true,timeout:10000,maxBuffer:1048576});" : ""}})();`,
           );
           assert.equal(
             authentication ? context.asyncCalls : context.calls,
@@ -1652,7 +1656,7 @@ test("再起動後の兄弟Host比較は本文変更と比較省略を区別す�
   assert.ok(calls[0] > end && calls[1] > calls[0] && calls[1] < beforeCli);
   const orderOracle = `const calls = [...source.matchAll(/ {8}assertRestartSiblingPhysical\\(\\);/gu)].map(match => match.index);
     assert.equal(calls.length,2);
-    const steps = [source.indexOf("assert.equal(completed.status,'completed');"),calls[0],source.indexOf('const repeated = await restart.restartRuntimeOwnedDockerForRecovery('),source.indexOf("assert.equal(repeated.status,'blocked');"),calls[1],source.indexOf("      if(process.argv[3].startsWith('cli_entry_')")];
+    const steps = [source.indexOf("assert.equal(completed.status,'completed',JSON.stringify(completed));"),calls[0],source.indexOf('const repeated = await restart.executeDockerRestartForRecovery('),source.indexOf("assert.equal(repeated.status,'blocked');"),calls[1],source.indexOf("      if(process.argv[3].startsWith('cli_entry_')")];
     assert.ok(steps.every((position,index) => Number.isInteger(position) && position >= 0 && (index === 0 || position > steps[index-1])));`;
   runInNewContext(orderOracle, {
     assert,
@@ -1721,8 +1725,8 @@ for (const publicationFault of [
   "completion_readback",
   "cli_entry_cli",
   "cli_entry_workbench",
-  "cli_entry_orchestrator",
-  "cli_entry_orchestrator_identified",
+  "cli_entry_coordinator",
+  "cli_entry_coordinator_identified",
   "handoff_failure",
   "restart_cli_entry",
   "restart_auth_cli_entry",
@@ -1752,12 +1756,15 @@ for (const publicationFault of [
     );
     const rootIdentity = fs.lstatSync(root, { bigint: true });
     const localAppData = path.join(root, "local-app-data");
-    for (const name of ["ProviderHomes", "RuntimeState"]) {
-      const directory = path.join(localAppData, "Qual-Lab", "CRDD", name);
-      fs.mkdirSync(directory, { recursive: true });
-      assert.equal(fs.realpathSync.native(directory), directory);
-      assert.equal(fs.lstatSync(directory).isSymbolicLink(), false);
-    }
+    const providerHomes = path.join(
+      localAppData,
+      "Qual-Lab",
+      "CRDD",
+      "ProviderHomes",
+    );
+    fs.mkdirSync(providerHomes, { recursive: true });
+    assert.equal(fs.realpathSync.native(providerHomes), providerHomes);
+    assert.equal(fs.lstatSync(providerHomes).isSymbolicLink(), false);
     let otherOwned: ReturnType<typeof createOwnedOperationDirectories> | null =
       null;
     let targetOwned: ReturnType<typeof createOwnedOperationDirectories> | null =
@@ -1801,9 +1808,9 @@ for (const publicationFault of [
           children: info.isDirectory() ? fs.readdirSync(file).sort() : null,
         };
       });
-      if (publicationFault.startsWith("cli_entry_orchestrator"))
-        target.identity.consumer = "orchestrator";
-      if (publicationFault.startsWith("cli_entry_orchestrator"))
+      if (publicationFault.startsWith("cli_entry_coordinator"))
+        target.identity.consumer = "coordinator";
+      if (publicationFault.startsWith("cli_entry_coordinator"))
         Object.assign(target.identity, {
           recoveryCorrelationId: "upper-current-host",
         });
@@ -1863,7 +1870,7 @@ for (const publicationFault of [
         },
       };
       if (
-        publicationFault === "cli_entry_orchestrator_identified" ||
+        publicationFault === "cli_entry_coordinator_identified" ||
         publicationFault === "restart_auth_cli_entry"
       ) {
         const resource = {
@@ -2028,7 +2035,7 @@ for (const publicationFault of [
                 submission: r.key === key ? "intent_saved" : "none",
                 receiptSource:
                   r.key === key && event !== "submission"
-                    ? "runtime_reconciliation"
+                    ? "docker_observation"
                     : null,
                 observation:
                   r.key === key && event !== "submission"
@@ -2122,7 +2129,7 @@ for (const publicationFault of [
       const hostWorkerTimeout = [
         "cli_entry_cli",
         "cli_entry_workbench",
-        "cli_entry_orchestrator",
+        "cli_entry_coordinator",
         "restart_cli_entry",
         "restart_auth_cli_entry",
       ].includes(publicationFault)
@@ -2245,7 +2252,7 @@ for (const publicationFault of [
         publicationFault === "handoff_failure" ||
         publicationFault === "cli_entry_cli" ||
         publicationFault === "cli_entry_workbench" ||
-        publicationFault.startsWith("cli_entry_orchestrator") ||
+        publicationFault.startsWith("cli_entry_coordinator") ||
         publicationFault.startsWith("restart_")
       ) {
         assert.equal(finalOperation, undefined);
@@ -2483,7 +2490,7 @@ test("現在回収子の資源Oracleは新Bookと元断面を使い旧配列を�
     (b: typeof identified) => {
       const c = b.checkpoints.find((c) => c.key === "create_provider");
       assert.ok(c);
-      Reflect.set(c, "receiptSource", "runtime_reconciliation");
+      Reflect.set(c, "receiptSource", "docker_observation");
     },
   ]) {
     const changed = structuredClone(identified);

@@ -91,6 +91,7 @@ export type {
   StateVersion,
 } from "./state/types.ts";
 export { PROJECT_STATE_CONTRACT } from "./state/types.ts";
+export { readExecutionStorageBinding } from "./storage/lock.ts";
 export { resumeRepairRecordSave } from "./storage/publication.ts";
 export { ExecutionStorageBlockedError } from "./storage/store.ts";
 export {
@@ -124,6 +125,7 @@ export {
   inspectTaskExecutionSelections,
 } from "./task/validation.ts";
 export {
+  renameWorkspace,
   saveIntegrationRecord,
   saveWorkspaceRecord,
 } from "./workspace/crud.ts";

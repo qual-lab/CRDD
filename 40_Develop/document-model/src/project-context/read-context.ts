@@ -8,10 +8,9 @@
  */
 import { createHash } from "node:crypto";
 import {
-  type Repository,
-  resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
-import { createFilesystemRepositoryObservationPort } from "../repository/create-observer.ts";
+  createFilesystemRepositoryObservationPort,
+  observeDocumentRoot,
+} from "../repository/create-observer.ts";
 import { parseRepositoryProjectContextMarkdown } from "./parse.ts";
 import type {
   RepositoryProjectContext,
@@ -22,9 +21,9 @@ import type {
  * 固定本文を読み、今回の三つの期待Identityと照合する。
  * @responsibility 観測不能を欠測や成功へ変換せず、解析済みContextだけを返す。
  * @trace ARCH-000005
- * @input 技術的Root能力とProject・Repository・役割の三期待値。
+ * @input 呼出し側が選定した絶対DirectoryとProject・Repository・役割の三期待値。
  * @returns completedのContextとUTF-8本文相関revision、またはRoot不成立・文書競合・未確認の固定理由。
- * @precondition 呼出し元が今回要求の認可を済ませ、能力を再利用しない。
+ * @precondition 呼出し元が今回要求の対象選定と認可を済ませている。
  * @postcondition Project・Repository・役割の完全一致時だけContextを返す。
  * @effect 固定PROJECT_CONTEXT.mdを同期読取りする。独自の容量上限を追加しない。
  * @failure Root不成立はblocked、三Identity不一致はconflicting、文書取得・解析不成立はunavailable。
@@ -34,16 +33,25 @@ import type {
  * @concurrency 単一本文の安定読取り。期待manifestとの複数File原子性や再読取りは保証しない。
  */
 export function readRepositoryProjectContext(
-  root: Repository,
+  root: string | null,
   expectedIdentity: Pick<
     RepositoryProjectContext,
     "projectId" | "repositoryId" | "repositoryRole"
   >,
 ): RepositoryProjectContextReadResult {
-  let observedRoot: string | null = null;
+  const initial = observeDocumentRoot(root);
+  const sameRoot = () => {
+    const current = observeDocumentRoot(root);
+    return (
+      initial !== null &&
+      current !== null &&
+      initial.dev === current.dev &&
+      initial.ino === current.ino &&
+      initial.birthtimeNs === current.birthtimeNs
+    );
+  };
   try {
-    observedRoot = resolveVerifiedRepositoryRoot(root);
-    if (observedRoot === null)
+    if (initial === null)
       return Object.freeze({
         status: "blocked",
         reason: "project_context_repository_unavailable",
@@ -52,7 +60,7 @@ export function readRepositoryProjectContext(
       createFilesystemRepositoryObservationPort(root).observeFile(
         "PROJECT_CONTEXT.md",
       );
-    if (resolveVerifiedRepositoryRoot(root) !== observedRoot)
+    if (!sameRoot())
       return Object.freeze({
         status: "blocked",
         reason: "project_context_repository_unavailable",
@@ -88,10 +96,7 @@ export function readRepositoryProjectContext(
       revision: `context-text-sha256:${createHash("sha256").update(observed.source, "utf8").digest("hex")}`,
     });
   } catch {
-    if (
-      observedRoot === null ||
-      resolveVerifiedRepositoryRoot(root) !== observedRoot
-    )
+    if (!sameRoot())
       return Object.freeze({
         status: "blocked",
         reason: "project_context_repository_unavailable",

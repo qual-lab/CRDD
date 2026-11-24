@@ -30,9 +30,9 @@ import {
 import { attemptPlan } from "../../../executor/tests/fixtures/attempt-plan.ts";
 import { planDockerIsolationCommands } from "../../../executor/tests/support/isolation-plan.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/command.ts";
-import { createRuntimeOwnedLifecycleNoticeReporter } from "../../src/lifecycle/environment.ts";
-import { startRuntimeOwnedDockerProcessController } from "../../src/lifecycle/execution.ts";
-import { cancelRuntimeOwnedExecutorAttempt } from "../../src/lifecycle/environment.ts";
+import { createLifecycleNoticeReporter } from "../../src/lifecycle/environment.ts";
+import { startDockerProcessController } from "../../src/lifecycle/execution.ts";
+import { cancelExecutorAttempt } from "../../src/lifecycle/environment.ts";
 import {
   attemptSelection,
   executionSelection,
@@ -111,7 +111,7 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
   );
   assert.doesNotMatch(
     source("lifecycle/execution.ts"),
-    /export function createRuntimeOwnedLifecycleNoticeReporter/,
+    /export function createLifecycleNoticeReporter/,
   );
   assert.doesNotMatch(
     runtime("lifecycle/validation.ts"),
@@ -119,7 +119,7 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
   );
   assert.doesNotMatch(
     source("index.ts"),
-    /createProviderObservationOwner|registerRuntimeOwnedProviderTerminalObservation|registerRuntimeOwnedProviderSubmissionNotice|revokeRuntimeOwnedProviderSubmissionNotice/,
+    /createProviderObservationOwner|registerProviderTerminalObservation|registerProviderSubmissionNotice|revokeProviderSubmissionNotice/,
   );
   const observationSource = source("lifecycle/environment.ts");
   assert.doesNotMatch(
@@ -132,19 +132,19 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
   );
   assert.doesNotMatch(
     observationSource,
-    /export const runtimeOwnedProviderObservationOwner/,
+    /export const providerObservationOwner/,
   );
   const writers = [
-    "registerRuntimeOwnedProviderTerminalObservation",
-    "registerRuntimeOwnedProviderSubmissionNotice",
-    "revokeRuntimeOwnedProviderSubmissionNotice",
+    "registerProviderTerminalObservation",
+    "registerProviderSubmissionNotice",
+    "revokeProviderSubmissionNotice",
   ];
   const root = new URL("../../src/", import.meta.url);
   for (const entry of fs.readdirSync(root, { recursive: true })) {
     const name = String(entry).replaceAll("\\", "/");
     if (!name.endsWith(".ts")) continue;
     const text = runtime(name);
-    assert.doesNotMatch(text, /runtimeOwnedProviderObservationOwner/);
+    assert.doesNotMatch(text, /providerObservationOwner/);
     if (name !== "lifecycle/execution.ts") {
       for (const writer of writers)
         assert.equal(text.includes(writer), false, `${name}: ${writer}`);
@@ -2282,10 +2282,7 @@ test("Lifecycle通知はbackpressureを失敗とせずwrite完了を待ち、clo
       },
     });
     assert.equal(
-      await createRuntimeOwnedLifecycleNoticeReporter(
-        backpressured,
-        prefix,
-      )(notice),
+      await createLifecycleNoticeReporter(backpressured, prefix)(notice),
       undefined,
     );
     assert.ok(written.startsWith(`${prefix} `));
@@ -2298,7 +2295,7 @@ test("Lifecycle通知はbackpressureを失敗とせずwrite完了を待ち、clo
         // Keep the callback pending so close is the first observable outcome.
       },
     });
-    const reported = createRuntimeOwnedLifecycleNoticeReporter(
+    const reported = createLifecycleNoticeReporter(
       closesBeforeWrite,
       prefix,
     )(notice);
@@ -2313,7 +2310,7 @@ test("Lifecycle通知はbackpressureを失敗とせずwrite完了を待ち、clo
       },
     });
     await assert.rejects(
-      createRuntimeOwnedLifecycleNoticeReporter(writeFails, prefix)(notice),
+      createLifecycleNoticeReporter(writeFails, prefix)(notice),
       /lifecycle_notice_unavailable/u,
     );
     assert.equal(writeFails.listenerCount("error"), 0);
@@ -2815,7 +2812,7 @@ test("追加制約のtrueはRepository改訂検査を代替せず、不正な改
   assert.equal(recoveryCalls, 0);
   assert.equal(fixture.getCommandCount(), 0);
   assert.equal(
-    startRuntimeOwnedDockerProcessController(
+    startDockerProcessController(
       "codex",
       {} as never,
       () => true,
@@ -4696,7 +4693,7 @@ test("Recovery記録前と偽造production CapabilityはDocker Effectを開始�
   assert.equal(fixture.getCommandCount(), 0);
 
   assert.equal(
-    startRuntimeOwnedDockerProcessController(
+    startDockerProcessController(
       "codex",
       {} as never,
       () => true,
@@ -4706,10 +4703,7 @@ test("Recovery記録前と偽造production CapabilityはDocker Effectを開始�
     ).status,
     "blocked",
   );
-  assert.equal(
-    (await cancelRuntimeOwnedExecutorAttempt({}, {})).status,
-    "blocked",
-  );
+  assert.equal((await cancelExecutorAttempt({}, {})).status, "blocked");
 });
 
 /**
@@ -5764,7 +5758,7 @@ test("表示通知の5秒期限はDocker取消猶予と独立し後着writeを�
   )?.[0];
   assert.ok(constant);
   const start = source.indexOf(
-    "export function createRuntimeOwnedLifecycleNoticeReporter(",
+    "export function createLifecycleNoticeReporter(",
   );
   const end = source.indexOf("\n/**", start);
   assert.ok(start >= 0 && end > start);
@@ -5775,7 +5769,7 @@ test("表示通知の5秒期限はDocker取消猶予と独立し後着writeを�
       constant +
         "\n" +
         source.slice(start, end).replace("export function", "function"),
-    ) + "\ncreateRuntimeOwnedLifecycleNoticeReporter",
+    ) + "\ncreateLifecycleNoticeReporter",
     {
       Error,
       Promise,
@@ -5790,7 +5784,7 @@ test("表示通知の5秒期限はDocker取消猶予と独立し後着writeを�
         cleared++;
       },
     },
-  ) as typeof createRuntimeOwnedLifecycleNoticeReporter;
+  ) as typeof createLifecycleNoticeReporter;
   let finishWrite: ((error?: Error | null) => void) | null = null;
   const stream = new Writable({
     write(_chunk, _encoding, callback) {

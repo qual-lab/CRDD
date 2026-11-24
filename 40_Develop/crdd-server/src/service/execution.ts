@@ -12,8 +12,8 @@ import type {
 } from "../../../coordinator/src/index.ts";
 import type { AuthorizedRepository } from "../../../access-management/src/index.ts";
 import type {
-  RuntimeActivityObservation,
-  RuntimeActivityRequest,
+  ExecutionActivityObservation,
+  ExecutionActivityRequest,
   SingleTaskCommand,
 } from "../../../coordinator/src/index.ts";
 import type { RepositoryProjectContext } from "../../../document-model/src/index.ts";
@@ -22,6 +22,7 @@ import { inspectAiSelectionChoice } from "../../../configuration-model/src/index
 import { types } from "node:util";
 import {
   resolveConnectionAuthentication,
+  resolveRuntimeContentAccess,
   type FilesystemStoreRoot,
 } from "../../../access-management/src/index.ts";
 import {
@@ -30,6 +31,7 @@ import {
   createTask,
   deleteObjective,
   deleteTask,
+  ExecutionStorageBlockedError,
   type ExecutionModelAccess,
   initializeExecutionState,
   isPrincipalId,
@@ -43,10 +45,84 @@ import {
 import {
   getRepository,
   readGitUser,
+  readRepositoryRevision,
+  registerRepositoryLocalIgnore,
   resolveVerifiedRepositoryRoot,
+  type Repository,
 } from "../../../version-control/src/index.ts";
 import type { CredentialAdministration } from "./access.ts";
 import { resolveSharedDevelopmentAccess } from "./access.ts";
+
+/** サーバーが許可した定義操作と、その初回保存の準備。 @trace ARCH-000012 */
+export type DefinitionAccess = ExecutionModelAccess &
+  Readonly<{
+    readInitialPlanRevision: () => string | null;
+    prepareDirectory: () => boolean;
+  }>;
+
+/**
+ * 確定した保存先とサーバー所有の初回準備を定義操作へ渡す。
+ * @trace ARCH-000012
+ * @precondition 呼出し元が同じRepositoryの認可と正規ディレクトリを確認する。
+ */
+export function createDefinitionAccess(
+  repository: Repository,
+  directory: string,
+  principalId: string,
+  revalidate: ExecutionModelAccess["revalidate"],
+): DefinitionAccess {
+  return {
+    root: { directory },
+    principalId,
+    readInitialPlanRevision: () =>
+      readRepositoryRevision(repository)?.revisionIdentity ?? null,
+    prepareDirectory: () => {
+      const ignore = registerRepositoryLocalIgnore(repository, ".crdd/");
+      if (ignore.status !== "registered")
+        throw new ExecutionStorageBlockedError({
+          ...ignore,
+          reason: "repository_runtime_data_ignore_registration_blocked",
+        });
+      return true;
+    },
+    revalidate,
+  };
+}
+
+/**
+ * 現在認可を実行モデルの定義操作へ接続する。
+ * @responsibility AMが許可した保存先だけを実行モデルへ渡す。
+ * @trace ARCH-000012
+ * @input 管理Root、当該要求の資格、Repository ID、取消Signal。
+ * @returns 既存の実行モデル操作入力、又はnull。
+ * @precondition 通信入力を検査済みである。
+ * @postcondition 認可が成立しない対象についてGit配置を観測しない。
+ * @effect AMの認可・実体確認と対象のGit配置観測。定義を変更しない。
+ * @failure 未許可・観測不能・取消はnull、再確認不成立はfalse。
+ * @invariant 技術的なGit入力を内容の認可証明にしない。
+ * @boundary CRDD ServerからAMと実行モデル。
+ * @security 資格や絶対パスは公開応答へ渡さない。
+ * @concurrency 当該要求中だけ既存の現在認可を再使用する。
+ */
+export function resolveSharedDefinitionAccess(
+  root: FilesystemStoreRoot,
+  token: string,
+  repositoryId: string,
+  signal: AbortSignal,
+): DefinitionAccess | null {
+  const access = resolveRuntimeContentAccess(root, token, repositoryId, signal);
+  if (!access || signal.aborted) return null;
+  const repository = getRepository(access.root);
+  if (repository.status !== "completed") return null;
+  return createDefinitionAccess(
+    repository.capability,
+    access.root,
+    access.principalId,
+    (operation, target) =>
+      access.revalidate(operation, target) &&
+      resolveVerifiedRepositoryRoot(repository.capability) === access.root,
+  );
+}
 
 export const definitionReadFields = {
   plan: [],
@@ -130,7 +206,7 @@ export function validateExecutionDefinitionCommand(
  * @boundary 通信の認可・取消・結果配送を代替しない。
  */
 export function executeDefinitionOperation(
-  access: ExecutionModelAccess,
+  access: DefinitionAccess,
   { operation, input }: ExecutionDefinitionCommand,
 ): unknown {
   // 型の絞り込みは検査ではない。Execution Modelの検査・認可・CASをそのまま使う。
@@ -139,9 +215,22 @@ export function executeDefinitionOperation(
       return initializeExecutionState(
         access,
         input as Parameters<typeof initializeExecutionState>[1],
+        access.prepareDirectory,
       );
-    case "plan.save":
-      return savePlan(access, input as Parameters<typeof savePlan>[1]);
+    case "plan.save": {
+      const plan = input as Parameters<typeof savePlan>[1];
+      const initialSourceRevision =
+        plan.expectedDefinitionHash === null &&
+        typeof plan.projectId === "string" &&
+        typeof plan.milestoneId === "string" &&
+        access.revalidate("definition.write", {
+          projectId: plan.projectId,
+          milestoneId: plan.milestoneId,
+        })
+          ? access.readInitialPlanRevision()
+          : null;
+      return savePlan({ ...access, initialSourceRevision }, plan);
+    }
     case "objective.create":
       return createObjective(
         access,
@@ -460,6 +549,28 @@ export async function executeCoordinatorOperation(
   let result: unknown;
   try {
     if ("scope" in configuration) {
+      let workspaceTarget:
+        | import("../../../coordinator/src/index.ts").PreparedWorkspaceTarget
+        | null
+        | undefined;
+      if (
+        operation === "objective" &&
+        ownerRoot &&
+        "workspaceId" in args &&
+        typeof args.workspaceId === "string"
+      ) {
+        const { prepareWorkspaceExecutionTarget } = await import(
+          "./workspace.ts"
+        );
+        if (signal.aborted) return { kind: "cancelled" } as const;
+        if (authorize && !authorize())
+          return { kind: "access_denied" } as const;
+        workspaceTarget = prepareWorkspaceExecutionTarget(
+          ownerRoot,
+          args.projectId,
+          args.workspaceId,
+        );
+      }
       result =
         operation === "objective"
           ? await coordinator.runObjective(
@@ -467,6 +578,7 @@ export async function executeCoordinatorOperation(
               signal,
               ownerRoot,
               authentication,
+              workspaceTarget,
             )
           : operation === "decision"
             ? coordinator.submitDecision(args, ownerRoot, authentication)
@@ -514,26 +626,42 @@ export async function executeCoordinatorOperation(
  * @security 遅延読込み後に現在認可を再確認し、資格・管理情報をReaderへ渡さない。
  * @concurrency 取消済みではReaderを開始せず、開始後はReaderの完了を待つ。
  */
-export async function readAuthorizedRuntimeActivity(
-  query: Omit<RuntimeActivityRequest, "repositories">,
+export async function readAuthorizedExecutionActivity(
+  query: Omit<ExecutionActivityRequest, "repositories">,
   selected: readonly AuthorizedRepository[],
   authorize: () => boolean,
   signal: AbortSignal,
-): Promise<RuntimeActivityObservation> {
+): Promise<ExecutionActivityObservation> {
   const { queryActivity } = await import("../../../coordinator/src/index.ts");
   if (signal.aborted || !authorize())
     throw new Error("runtime_activity_unavailable");
-  return queryActivity(
+  const repositories = selected.map((entry) => {
+    const repository = getRepository(entry.root);
+    if (signal.aborted || repository.status !== "completed")
+      throw new Error("runtime_activity_unavailable");
+    return {
+      projectId: entry.manifest.projectId,
+      repositoryId: entry.repositoryId,
+      root: repository.capability,
+    };
+  });
+  const observation = await queryActivity(
     {
       ...query,
-      repositories: selected.map((entry) => ({
-        projectId: entry.manifest.projectId,
-        repositoryId: entry.repositoryId,
-        root: entry.root,
-      })),
+      repositories,
     },
     signal,
   );
+  if (
+    signal.aborted ||
+    repositories.some(
+      (repository, index) =>
+        resolveVerifiedRepositoryRoot(repository.root) !==
+        selected[index]?.root,
+    )
+  )
+    throw new Error("runtime_activity_unavailable");
+  return observation;
 }
 
 /**
@@ -551,8 +679,8 @@ export async function readAuthorizedRuntimeActivity(
 export type WorkbenchActivityReader = Readonly<{
   observe: (
     projectId: string,
-    page?: WorkbenchRuntimeActivityPageRequest,
-  ) => Promise<WorkbenchRuntimeActivityObservation>;
+    page?: WorkbenchExecutionActivityPageRequest,
+  ) => Promise<WorkbenchExecutionActivityObservation>;
 }>;
 
 const DEFAULT_EVENT_LIMIT = 20;
@@ -619,7 +747,7 @@ export function createRepositoryWorkbenchActivityReader(
       });
       if (observation.projectId !== fixedIdentity.projectId)
         throw new Error("workbench_runtime_activity_project_mismatch");
-      return projectRuntimeActivityForWorkbench(observation);
+      return projectExecutionActivityForWorkbench(observation);
     },
   });
 }
@@ -735,7 +863,7 @@ export function requireAiRequestForAction(
 ): AiRequestSnapshot {
   if (
     previous.mode === null ||
-    previous.reason === "orchestrator_task_not_available"
+    previous.reason === "coordinator_task_not_available"
   )
     throw new Error("workbench_ai_request_identity_invalid");
   return previous;
@@ -758,9 +886,9 @@ export function requireAiRequestForAction(
  * @security 非秘密の表示項目だけを明示投影する。
  * @concurrency N/A: 共有状態を持たない。
  */
-export function projectRuntimeActivityForWorkbench(
-  observation: RuntimeActivityObservation,
-): WorkbenchRuntimeActivityObservation {
+export function projectExecutionActivityForWorkbench(
+  observation: ExecutionActivityObservation,
+): WorkbenchExecutionActivityObservation {
   return Object.freeze({
     state: observation.state,
     reason: observation.reason,
@@ -802,7 +930,7 @@ export function projectRuntimeActivityForWorkbench(
  * @security 非開示Task本文、Credential、Host PathおよびRecovery Authorityを含まない。
  * @compatibility Coordinator公開契約変更時はAdapterと表示試験を再評価する。
  */
-export type WorkbenchRuntimeActivityProjection = Readonly<{
+export type WorkbenchExecutionActivityProjection = Readonly<{
   projectId: string;
   milestoneId: string;
   generation: number;
@@ -833,7 +961,7 @@ export type WorkbenchRuntimeActivityProjection = Readonly<{
  * @security Credential、Prompt、Response、Host PathおよびRecovery Authorityを含まない。
  * @compatibility Event契約変更時は投影と継続読込試験を再評価する。
  */
-export type WorkbenchRuntimeEventProjection = Readonly<{
+export type WorkbenchExecutionEventProjection = Readonly<{
   eventId: string;
   occurredAt: string;
   objectiveId: string;
@@ -857,7 +985,7 @@ export type WorkbenchRuntimeEventProjection = Readonly<{
  * @security CursorへRepository Pathまたは秘密値を含めない。
  * @compatibility Cursorは同じ並び順の後続取得にだけ使用する。
  */
-export type WorkbenchRuntimeActivityPageRequest = Readonly<{
+export type WorkbenchExecutionActivityPageRequest = Readonly<{
   cursor?: string;
   limit?: number;
 }>;
@@ -874,14 +1002,14 @@ export type WorkbenchRuntimeActivityPageRequest = Readonly<{
  * @security reasonに秘密値、Host Pathまたは非開示Identityを含めない。
  * @compatibility 状態追加時は未接続を含む全表示分岐を再評価する。
  */
-export type WorkbenchRuntimeActivityObservation = Readonly<{
-  singleTasks?: RuntimeActivityObservation["singleTasks"];
+export type WorkbenchExecutionActivityObservation = Readonly<{
+  singleTasks?: ExecutionActivityObservation["singleTasks"];
   state: "observed" | "absent" | "unknown";
   reason: string;
-  projection: WorkbenchRuntimeActivityProjection | null;
+  projection: WorkbenchExecutionActivityProjection | null;
   eventState: "observed" | "unknown";
   eventReason: string;
-  events: readonly WorkbenchRuntimeEventProjection[];
+  events: readonly WorkbenchExecutionEventProjection[];
   eventContinuation: string | null;
 }>;
 

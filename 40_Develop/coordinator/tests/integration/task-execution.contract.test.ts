@@ -26,7 +26,7 @@ import {
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { runTestSingleTaskAttempt } from "../support/task-requests.ts";
 import * as host from "../../src/lifecycle/host.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
+import { resolveExecutionStorageDirectory } from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
 import type { CoordinatorSingleTaskResult } from "../../src/lifecycle/types.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
@@ -298,7 +298,7 @@ async function runCoordinatorOperation(
     {
       namedExports: {
         ...host,
-        poisonRuntimeProcessAfterCleanupUnknown: poisonAfterCleanupUnknown,
+        poisonExecutionProcessAfterCleanupUnknown: poisonAfterCleanupUnknown,
       },
     },
   );
@@ -398,7 +398,7 @@ function fixture(
     { windowsHide: true },
   );
   const initialized = initializeExecutionStore(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     "binding-a",
   );
   assert.equal(initialized.status, "completed", initialized.reason);
@@ -486,7 +486,7 @@ function completedAfterStart(
   >[0],
 ): CoordinatorSingleTaskResult {
   return {
-    contract: "crdd-coordinator/orchestrator-single-task-adapter",
+    contract: "crdd-coordinator/single-task-adapter",
     attemptId: input.attemptId,
     operationId: input.operationId,
     authorityBindingId: input.authorityBindingId,
@@ -579,9 +579,9 @@ test("PR-N-01 connects one durable Project task to the Single Task boundary", as
   assert.equal(outcome.status, "completed", JSON.stringify(outcome));
   assert.equal(
     outcome.reason,
-    "orchestrator_tasks_completed_integration_pending",
+    "coordinator_tasks_completed_integration_pending",
   );
-  assert.equal(outcome.contract, "crdd-coordinator/orchestrator-execution/v1");
+  assert.equal(outcome.contract, "crdd-coordinator/execution/v1");
   assert.equal(effects, 1);
   changedPaths.push("src/late.ts");
   assert.equal(outcome.workspaceResults?.length, 1);
@@ -624,7 +624,7 @@ test("PR-N-01 connects one durable Project task to the Single Task boundary", as
     },
     input,
   );
-  assert.equal(replay.reason, "orchestrator_tasks_already_integration_pending");
+  assert.equal(replay.reason, "coordinator_tasks_already_integration_pending");
   assert.equal(effects, 1);
 });
 
@@ -666,7 +666,7 @@ test("interactive Queue wins a fresh binding-wide selection before a scheduled c
     queueId: "queue-scheduled",
   });
   assert.equal(scheduled.status, "blocked");
-  assert.equal(scheduled.reason, "orchestrator_queue_claim_priority_changed");
+  assert.equal(scheduled.reason, "coordinator_queue_claim_priority_changed");
   assert.equal(scheduled.effectState, "no_effect");
   assert.equal(effects, 0);
   const interactive = await runCoordinatorOperation(dependencies, input);
@@ -703,7 +703,7 @@ test("PR-N-01 uses the existing Single Task adapter without widening its authori
               workspaceTarget,
             ) => {
               starts += 1;
-              assert.equal(consumer, "orchestrator");
+              assert.equal(consumer, "coordinator");
               assert.deepEqual(workspaceTarget, {
                 workspaceId: null,
                 ownerRepositoryRoot: attempt.repositoryRoot,
@@ -893,7 +893,7 @@ test("PR-A-03 rejects a result from another attempt without projecting success",
       ),
   );
   assert.equal(outcome.status, "blocked");
-  assert.equal(outcome.reason, "orchestrator_task_recovery_required");
+  assert.equal(outcome.reason, "coordinator_task_recovery_required");
   assert.equal(outcome.manualRecoveryRequired, true);
   assert.equal(settlements.length, 1);
   assert.equal(settlements[0]?.outcome, "recovery_required");
@@ -908,7 +908,7 @@ test("PR-A-03 rejects a result from another attempt without projecting success",
   assert.equal(state.value.tasks[0]?.candidateId, null);
   assert.equal(
     state.value.tasks[0]?.recoveryObligations[0]?.kind,
-    "runtime_process",
+    "execution_process",
   );
 });
 
@@ -958,7 +958,7 @@ test("PR-A-03 rejects malformed and differently bound Single Task results", asyn
         input,
       );
       assert.equal(outcome.status, "blocked");
-      assert.equal(outcome.reason, "orchestrator_task_recovery_required");
+      assert.equal(outcome.reason, "coordinator_task_recovery_required");
       assert.equal(outcome.workspaceResults, undefined);
       const state = readCoordinatorState(root, "binding-a", "project-a");
       assert.equal(state.status, "completed");
@@ -1008,38 +1008,38 @@ test("PR-A-03 rejects recovery identifiers that durable Project State cannot sto
         input,
       );
       assert.equal(outcome.status, "blocked");
-      assert.equal(outcome.reason, "orchestrator_task_recovery_required");
+      assert.equal(outcome.reason, "coordinator_task_recovery_required");
       const state = readCoordinatorState(root, "binding-a", "project-a");
       assert.equal(state.status, "completed");
       assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
       assert.equal(
         state.value?.tasks[0]?.recoveryObligations[0]?.kind,
-        "runtime_process",
+        "execution_process",
       );
     });
   }
 });
 
 /**
- * 下位Adapterがruntime_process義務を自己発行しても通常再入場へ採用しないを検証する。
+ * 下位Adapterがexecution_process義務を自己発行しても通常再入場へ採用しないを検証する。
  *
- * @responsibility 下位Adapterがruntime_process義務を自己発行しても通常再入場へ採用しないの合否判定を所有する。
+ * @responsibility 下位Adapterがexecution_process義務を自己発行しても通常再入場へ採用しないの合否判定を所有する。
  * @trace PRL-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 下位Adapterがruntime_process義務を自己発行しても通常再入場へ採用しないの対象操作を実行する。
+ * @stimulus 下位Adapterがexecution_process義務を自己発行しても通常再入場へ採用しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("下位Adapterがruntime_process義務を自己発行しても通常再入場へ採用しない", async (t) => {
+test("下位Adapterがexecution_process義務を自己発行しても通常再入場へ採用しない", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
-  const forged = `runtime-process.11111111-1111-4111-8111-111111111111.restart-${"a".repeat(40)}`;
+  const forged = `execution-process.11111111-1111-4111-8111-111111111111.restart-${"a".repeat(40)}`;
   let expectedRecoveryId: string | undefined;
   const outcome = await runCoordinatorOperation(
     {
       runSingleTaskAttempt: async (attempt) => {
-        expectedRecoveryId = host.createRuntimeProcessRecoveryIdentity(
+        expectedRecoveryId = host.createExecutionProcessRecoveryIdentity(
           attempt.attemptId,
           attempt.operationId,
         );
@@ -1054,7 +1054,7 @@ test("下位Adapterがruntime_process義務を自己発行しても通常再入�
           candidateId: null,
           recoveryIds: [forged],
           recoveryObligations: [
-            { kind: "runtime_process" as const, recoveryId: forged },
+            { kind: "execution_process" as const, recoveryId: forged },
           ],
         } as unknown as CoordinatorSingleTaskResult;
       },
@@ -1068,7 +1068,7 @@ test("下位Adapterがruntime_process義務を自己発行しても通常再入�
   assert.ok(expectedRecoveryId);
   const obligations = state.value?.tasks[0]?.recoveryObligations;
   assert.equal(obligations?.length, 1);
-  assert.equal(obligations?.[0]?.kind, "runtime_process");
+  assert.equal(obligations?.[0]?.kind, "execution_process");
   assert.equal(obligations?.[0]?.recoveryId, expectedRecoveryId);
   assert.notEqual(obligations?.[0]?.recoveryId, forged);
 });
@@ -1112,7 +1112,7 @@ test("開始後の候補回収IDだけでは外部Effectの不明状態を解消
   assert.equal(state.value?.tasks[0]?.recoveryUnresolved, true);
   assert.deepEqual(
     state.value?.tasks[0]?.recoveryObligations.map((entry) => entry.kind),
-    ["candidate", "runtime_process"],
+    ["candidate", "execution_process"],
   );
 });
 
@@ -1195,11 +1195,11 @@ test("PR-A-03 enforces result correlations and propagates process restart", asyn
         assert.equal(state.value.tasks[0]?.recoveryUnresolved, true);
         assert.equal(
           state.value.tasks[0]?.recoveryObligations[0]?.kind,
-          "runtime_process",
+          "execution_process",
         );
         assert.match(
           state.value.tasks[0]?.recoveryObligations[0]?.recoveryId ?? "",
-          /^runtime-process\.[0-9a-f-]{36}\.restart-[0-9a-f]{40}$/u,
+          /^execution-process\.[0-9a-f-]{36}\.restart-[0-9a-f]{40}$/u,
         );
       }
     });
@@ -1225,7 +1225,7 @@ test("開始未確認の成功は回復待ちにし候補や完了一覧を公�
     {
       runSingleTaskAttempt: async (attempt) => {
         dispatched.push((attempt.taskRequest as { taskId: string }).taskId);
-        recoveryId = host.createRuntimeProcessRecoveryIdentity(
+        recoveryId = host.createExecutionProcessRecoveryIdentity(
           attempt.attemptId,
           attempt.operationId,
         );
@@ -1245,7 +1245,7 @@ test("開始未確認の成功は回復待ちにし候補や完了一覧を公�
     input,
   );
   assert.equal(outcome.status, "blocked");
-  assert.equal(outcome.reason, "orchestrator_task_recovery_required");
+  assert.equal(outcome.reason, "coordinator_task_recovery_required");
   assert.equal(outcome.effectState, "unknown");
   assert.equal(outcome.cleanupConfirmed, false);
   assert.equal(outcome.processRestartRequired, true);
@@ -1263,7 +1263,7 @@ test("開始未確認の成功は回復待ちにし候補や完了一覧を公�
   assert.equal(saved?.candidateId, null);
   assert.equal(saved?.recoveryUnresolved, true);
   assert.deepEqual(saved?.recoveryObligations, [
-    { kind: "runtime_process", recoveryId, phase: "required" },
+    { kind: "execution_process", recoveryId, phase: "required" },
   ]);
 });
 
@@ -1303,18 +1303,18 @@ test("PR-A-03 stops later waves when a Task requires process restart", async (t)
 });
 
 /**
- * runtime_process義務は同じTask attemptとoperationにだけ結合するを検証する。
+ * execution_process義務は同じTask attemptとoperationにだけ結合するを検証する。
  *
- * @responsibility runtime_process義務は同じTask attemptとoperationにだけ結合するの合否判定を所有する。
+ * @responsibility execution_process義務は同じTask attemptとoperationにだけ結合するの合否判定を所有する。
  * @trace PRL-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus runtime_process義務は同じTask attemptとoperationにだけ結合するの対象操作を実行する。
+ * @stimulus execution_process義務は同じTask attemptとoperationにだけ結合するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("runtime_process義務は同じTask attemptとoperationにだけ結合する", async (t) => {
+test("execution_process義務は同じTask attemptとoperationにだけ結合する", async (t) => {
   const { root, input } = fixture(t, [task("task-a"), task("task-b")], 2);
   let firstRecoveryId = "";
   const outcome = await runCoordinatorOperation(
@@ -1323,7 +1323,7 @@ test("runtime_process義務は同じTask attemptとoperationにだけ結合す�
       runSingleTaskAttempt: async (attempt) => {
         await attempt.observeStarted?.();
         if ((attempt.taskRequest as { taskId: string }).taskId === "task-a") {
-          firstRecoveryId = host.createRuntimeProcessRecoveryIdentity(
+          firstRecoveryId = host.createExecutionProcessRecoveryIdentity(
             attempt.attemptId,
             attempt.operationId,
           );
@@ -1347,7 +1347,7 @@ test("runtime_process義務は同じTask attemptとoperationにだけ結合す�
           processRestartRequired: true,
           recoveryIds: [firstRecoveryId],
           recoveryObligations: [
-            { kind: "runtime_process" as const, recoveryId: firstRecoveryId },
+            { kind: "execution_process" as const, recoveryId: firstRecoveryId },
           ],
         } as unknown as CoordinatorSingleTaskResult;
       },
@@ -1403,7 +1403,7 @@ test("下位実行へ委譲後のthrowは開始観測の有無にかかわらず
     const state = readCoordinatorState(root, "binding-a", "project-a");
     assert.equal(
       state.value?.tasks[0]?.recoveryObligations[0]?.kind,
-      "runtime_process",
+      "execution_process",
     );
   });
   await t.test("before-start-observation", async (subtest) => {
@@ -1525,7 +1525,7 @@ test("PR-A-03 treats a synchronous failure after delegation as an unknown handof
     input,
   );
   assert.equal(outcome.status, "blocked");
-  assert.equal(outcome.reason, "orchestrator_task_recovery_required");
+  assert.equal(outcome.reason, "coordinator_task_recovery_required");
   assert.equal(outcome.cleanupConfirmed, false);
   assert.equal(outcome.manualRecoveryRequired, true);
   assert.equal(outcome.effectState, "unknown");
@@ -1876,10 +1876,11 @@ test("開始候補の輸送不正は各保存境界で後続処理を停止す�
               persistence: original,
               runSingleTaskAttempt: async (attempt) => {
                 effects++;
-                expectedRecoveryId = host.createRuntimeProcessRecoveryIdentity(
-                  attempt.attemptId,
-                  attempt.operationId,
-                );
+                expectedRecoveryId =
+                  host.createExecutionProcessRecoveryIdentity(
+                    attempt.attemptId,
+                    attempt.operationId,
+                  );
                 return completed(attempt);
               },
             },
@@ -1933,7 +1934,7 @@ test("開始候補の輸送不正は各保存境界で後続処理を停止す�
       assert.equal(outcome.manualRecoveryRequired, true);
       assert.deepEqual(outcome.recoveryIds, [expectedRecoveryId]);
       assert.deepEqual(outcome.recoveryObligations, [
-        { kind: "runtime_process", recoveryId: expectedRecoveryId },
+        { kind: "execution_process", recoveryId: expectedRecoveryId },
       ]);
       if (stage !== "started_terminal_failed") {
         const observed = readProjectExecutionState(
@@ -1951,7 +1952,7 @@ test("開始候補の輸送不正は各保存境界で後続処理を停止す�
         assert.equal(observed.value?.tasks[0]?.recoveryUnresolved, true);
       }
     } else
-      assert.equal(outcome.reason, "orchestrator_state_observation_unknown");
+      assert.equal(outcome.reason, "coordinator_state_observation_unknown");
     if (stage === "read") {
       assert.equal(leases, 0);
       assert.equal(queueWrites, 0);
@@ -2001,7 +2002,7 @@ test("開始前終端の保存不明は元回復IDを保持する", async (t) =>
               persistence,
               runSingleTaskAttempt: async (attempt) => {
                 calls++;
-                recoveryId = host.createRuntimeProcessRecoveryIdentity(
+                recoveryId = host.createExecutionProcessRecoveryIdentity(
                   attempt.attemptId,
                   attempt.operationId,
                 );
@@ -2019,7 +2020,7 @@ test("開始前終端の保存不明は元回復IDを保持する", async (t) =>
       assert.equal(outcome.processRestartRequired, true);
       assert.deepEqual(outcome.recoveryIds, [recoveryId]);
       assert.deepEqual(outcome.recoveryObligations, [
-        { kind: "runtime_process", recoveryId },
+        { kind: "execution_process", recoveryId },
       ]);
       const observed = readProjectExecutionState(
         persistence.repository,
@@ -2118,7 +2119,7 @@ test("開始前終端は実在する関連OperationをTaskと同一改訂で整�
       ),
   );
   assert.equal(settlements, 1);
-  assert.equal(outcome.reason, "orchestrator_replan_required");
+  assert.equal(outcome.reason, "coordinator_replan_required");
   assert.equal(outcome.cleanupConfirmed, true);
   assert.deepEqual(outcome.recoveryIds, []);
 });
@@ -2135,14 +2136,14 @@ test("開始前終端は実在する関連OperationをTaskと同一改訂で整�
  */
 test("Processの再利用禁止は同じ世代でstickyに保持される", () => {
   const script = `import assert from "node:assert/strict";
-import {getRuntimeProcessInstanceIdentity,isRuntimeProcessPoisoned,poisonRuntimeProcessAfterCleanupUnknown} from ${JSON.stringify(new URL("../../src/lifecycle/host.ts", import.meta.url).href)};
-const generation=getRuntimeProcessInstanceIdentity();
-assert.equal(isRuntimeProcessPoisoned(),false);
-poisonRuntimeProcessAfterCleanupUnknown();
-assert.equal(isRuntimeProcessPoisoned(),true);
-poisonRuntimeProcessAfterCleanupUnknown();
-assert.equal(isRuntimeProcessPoisoned(),true);
-assert.equal(getRuntimeProcessInstanceIdentity(),generation);
+import {getExecutionProcessInstanceIdentity,isExecutionProcessPoisoned,poisonExecutionProcessAfterCleanupUnknown} from ${JSON.stringify(new URL("../../src/lifecycle/host.ts", import.meta.url).href)};
+const generation=getExecutionProcessInstanceIdentity();
+assert.equal(isExecutionProcessPoisoned(),false);
+poisonExecutionProcessAfterCleanupUnknown();
+assert.equal(isExecutionProcessPoisoned(),true);
+poisonExecutionProcessAfterCleanupUnknown();
+assert.equal(isExecutionProcessPoisoned(),true);
+assert.equal(getExecutionProcessInstanceIdentity(),generation);
 process.stdout.write("verified");`;
   assert.equal(
     execFileSync(process.execPath, ["--input-type=module", "-e", script], {

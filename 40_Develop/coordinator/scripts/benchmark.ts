@@ -51,7 +51,7 @@ import { assertSupportedCoordinatorNodeRuntime } from "../src/lifecycle/environm
 type Dependencies = Readonly<{
   runTask: typeof runTask;
   getRepository: typeof getRepository;
-  observeSource: typeof observeRuntimeOwnedDevelopmentSource;
+  observeSource: typeof observeDevelopmentSource;
   now: () => number;
   wallNow: () => number;
   setTimer: typeof setTimeout;
@@ -61,7 +61,7 @@ type Dependencies = Readonly<{
 const productionDependencies: Dependencies = Object.freeze({
   runTask,
   getRepository,
-  observeSource: observeRuntimeOwnedDevelopmentSource,
+  observeSource: observeDevelopmentSource,
   now: () => performance.now(),
   wallNow: Date.now,
   setTimer: setTimeout,
@@ -92,8 +92,8 @@ async function executeMeasurement(
   const results: Array<
     Readonly<{ elapsedMs: number | null; result: TaskRunResult }>
   > = [];
-  let before: ReturnType<typeof observeRuntimeOwnedDevelopmentSource> = null;
-  let after: ReturnType<typeof observeRuntimeOwnedDevelopmentSource> = null;
+  let before: ReturnType<typeof observeDevelopmentSource> = null;
+  let after: ReturnType<typeof observeDevelopmentSource> = null;
   let reason: string | null = null;
   let cleanupConfirmed = true;
   let started = false;
@@ -329,7 +329,7 @@ export function createIsolatedDevelopmentProviderMeasurementCandidate(
   });
 }
 
-const SOURCE_SCOPE = "crdd-development-source-snapshot/v5";
+const SOURCE_SCOPE = "crdd-development-source-snapshot/v6";
 
 const PACKAGES = [
   "access-management",
@@ -342,7 +342,6 @@ const PACKAGES = [
   "executor",
   "execution-intelligence",
   "lock",
-  "crdd-server",
   "version-control",
 ] as const;
 
@@ -373,8 +372,8 @@ const sourceRoot = path.resolve(
  * @security 本文・秘密値・実行Authorityを返さない。
  * @compatibility Scope版が異なるHashを同じ観測契約と解釈しない。
  */
-type SourceObservation = Readonly<{
-  scope: typeof SOURCE_SCOPE;
+type SourceObservation<Scope extends string> = Readonly<{
+  scope: Scope;
   sourceSha256: string;
   sourceIdentitySha256: string;
   fileCount: number;
@@ -428,12 +427,16 @@ function readDirectoryNames(directory: string): string[] {
  * @security linkを辿らず、外部Rootを返さず、書込みを行わない。
  * @concurrency 二読取りの差を拒否するが、ロード済みModuleとの原子的同一性は保証しない。
  */
-function captureDevelopmentSource(root: string): SourceObservation | null {
+function captureDevelopmentSource<Scope extends string>(
+  root: string,
+  scope: Scope,
+  packages: readonly string[],
+): SourceObservation<Scope> | null {
   try {
     const passes: string[] = [];
-    let result: SourceObservation | null = null;
+    let result: SourceObservation<Scope> | null = null;
     for (let pass = 0; pass < 2; pass += 1) {
-      const content: unknown[] = [SOURCE_SCOPE, PACKAGES, DIRECTORIES];
+      const content: unknown[] = [scope, packages, DIRECTORIES];
       const identities: unknown[] = [];
       let fileCount = 0;
       let totalBytes = 0;
@@ -456,7 +459,7 @@ function captureDevelopmentSource(root: string): SourceObservation | null {
           String(stat.birthtimeNs),
         ]);
       }
-      for (const packageName of PACKAGES) {
+      for (const packageName of packages) {
         const relative = `40_Develop/${packageName}`;
         const absolute = path.join(root, "40_Develop", packageName);
         const stat = lstatSync(absolute, { bigint: true });
@@ -633,7 +636,7 @@ function captureDevelopmentSource(root: string): SourceObservation | null {
         ]);
         identities.push([entry.relative, identity]);
       }
-      if (packagesWithSource.size !== PACKAGES.length) return null;
+      if (packagesWithSource.size !== packages.length) return null;
       content.splice(
         3,
         content.length - 3,
@@ -662,7 +665,7 @@ function captureDevelopmentSource(root: string): SourceObservation | null {
         .digest("hex");
       passes.push(sourceIdentitySha256);
       result = Object.freeze({
-        scope: SOURCE_SCOPE,
+        scope,
         sourceSha256,
         sourceIdentitySha256,
         fileCount,
@@ -691,8 +694,38 @@ function captureDevelopmentSource(root: string): SourceObservation | null {
  * @security 任意Root、期待値自動補完、Source本文の公開を許さない。
  * @concurrency Snapshot観測中の差を拒否する。将来の変更不能は保証しない。
  */
-export function observeRuntimeOwnedDevelopmentSource(): SourceObservation | null {
-  return captureDevelopmentSource(sourceRoot);
+export function observeDevelopmentSource(): SourceObservation<
+  typeof SOURCE_SCOPE
+> | null {
+  return captureDevelopmentSource(sourceRoot, SOURCE_SCOPE, PACKAGES);
+}
+
+/**
+ * 上位Packageの検証が必要なSourceだけを固定Rootで追加観測する。
+ * @responsibility 上位の照合範囲をCoordinator単体の版と混同しない。
+ * @trace ARCH-000004
+ * @input 上位Ownerが固定する範囲識別子と単一階層のPackage名。
+ * @returns 内容・実体の二読取りが一致したときだけ観測値。
+ * @effect このModuleと同じRepositoryだけを読取り、書込みは行わない。
+ * @failure 未登録実体、不正な名前、範囲衝突、観測不能はnull。
+ * @boundary 開発時のSource観測。製品API・実行許可ではない。
+ */
+export function observeAdditionalDevelopmentSource<Scope extends string>(
+  scope: Scope,
+  additionalPackages: readonly string[],
+): SourceObservation<Scope> | null {
+  const packages: readonly string[] = [...PACKAGES, ...additionalPackages];
+  if (
+    String(scope) === SOURCE_SCOPE ||
+    !/^[a-z][a-z0-9-]*\/development-source-snapshot\/v[1-9][0-9]*$/u.test(
+      scope,
+    ) ||
+    additionalPackages.length === 0 ||
+    additionalPackages.some((name) => !/^[a-z][a-z0-9-]*$/u.test(name)) ||
+    new Set(packages).size !== packages.length
+  )
+    return null;
+  return captureDevelopmentSource(sourceRoot, scope, packages);
 }
 
 /**
@@ -755,7 +788,7 @@ export function projectDevelopmentMeasurementEntryFailure(error: unknown) {
 async function main() {
   assertSupportedCoordinatorNodeRuntime(process.versions.node);
   if (process.argv.length === 3 && process.argv[2] === "--describe-source") {
-    const observation = observeRuntimeOwnedDevelopmentSource();
+    const observation = observeDevelopmentSource();
     process.stdout.write(
       `${JSON.stringify(
         observation

@@ -23,7 +23,7 @@ const selectionNotice = (
   speedMode: "normal",
   selectionReason: "fixed_test_selection",
   inputBasis:
-    "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
+    "caller_declared_task_attributes_plus_provider_preselection_candidate_with_deferred_provider_preflight",
   callerDeclaredAttributes: [
     "workClass",
     "planState",
@@ -96,8 +96,8 @@ process.stdin.on("data", (chunk) => {
     const request = JSON.parse(received.split(/\r?\n/u)[0] ?? "");
     const id = mode === "wrong-id" ? "wrong" : request.id;
     const isCancelled = mode === "cancelled";
-    const runtimeProcessRecoveryId =
-      "runtime-process.6d7cc28e-2bdf-4c1a-8714-396a4a1db5a3.restart-7fb909b959f2101c318473bf51b0c388e0fb75bf";
+    const executionProcessRecoveryId =
+      "execution-process.6d7cc28e-2bdf-4c1a-8714-396a4a1db5a3.restart-7fb909b959f2101c318473bf51b0c388e0fb75bf";
     const responseLine = `${JSON.stringify({
       jsonrpc: "2.0",
       id,
@@ -105,9 +105,9 @@ process.stdin.on("data", (chunk) => {
         structuredContent: {
           status: "blocked",
           reason: isCancelled
-            ? "orchestrator_task_recovery_required"
-            : "orchestrator_acceptance_decision_required",
-          contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+            ? "coordinator_task_recovery_required"
+            : "coordinator_acceptance_decision_required",
+          contract: "crdd-coordinator/objective-intake/v4",
           requestId: "request-a",
           projectId: "project-a",
           milestoneId: "milestone-a",
@@ -116,12 +116,12 @@ process.stdin.on("data", (chunk) => {
           cleanupConfirmed: !isCancelled,
           manualRecoveryRequired: isCancelled,
           processRestartRequired: isCancelled,
-          recoveryIds: isCancelled ? [runtimeProcessRecoveryId] : [],
+          recoveryIds: isCancelled ? [executionProcessRecoveryId] : [],
           recoveryObligations: isCancelled
             ? [
                 {
-                  kind: "runtime_process",
-                  recoveryId: runtimeProcessRecoveryId,
+                  kind: "execution_process",
+                  recoveryId: executionProcessRecoveryId,
                 },
               ]
             : [],

@@ -1533,7 +1533,7 @@ test("判断履歴は元の質問・回答者・理由・状態変化を安定ID
     .map(
       (event) =>
         `${encodeStateValue({
-          schema: "crdd-coordinator/history-row/v2",
+          schema: "crdd-execution-model/history-row/v3",
           occurredAt: event.occurredAt,
           summary: {
             schema: "crdd-coordinator/decision-event/v1",

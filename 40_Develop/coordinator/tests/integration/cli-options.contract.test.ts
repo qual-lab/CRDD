@@ -26,7 +26,7 @@ import {
 } from "../../src/cli/command.ts";
 
 import { assertPresent } from "../support/contract-assertions.ts";
-import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
+import { withUnsignedRuntimeFixture } from "../support/unsigned-distribution-fixture.ts";
 
 const coordinatorExecutable = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -562,7 +562,7 @@ test("Docker Desktop最終復旧は単独の明示doctor処置としてだけ受
  * @boundary 引数と明示保持判断。
  */
 test("修復保持はexact IDの単独操作だけを受理する", () => {
-  const id = `docker-runtime-repair.${"a".repeat(64)}.${"b".repeat(64)}`;
+  const id = `docker-repair.${"a".repeat(64)}.${"b".repeat(64)}`;
   const task = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
   const old = `docker-desktop-repair.${"c".repeat(32)}`;
   const flag = "--retain-docker-runtime-repair";
@@ -681,7 +681,6 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
     "openTaskSession",
     "submitDecision",
     "acceptResult",
-    "executeWorkspace",
     "queryState",
     "queryActivity",
     "readRepositoryNetworkHosts",

@@ -5,7 +5,7 @@
  * @level UT
  * @scope 実Coordinator／Executor／DIと有限外部CLI・メモリ記録。実Docker・AIは使わない。
  */
-import { isRuntimeProcessPoisoned } from "../../src/lifecycle/host.ts";
+import { isExecutionProcessPoisoned } from "../../src/lifecycle/host.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
@@ -48,7 +48,7 @@ test("認証入口はHome観測の実Effectと回復分類を保持する", asyn
     [
       "types",
       "readExecutionCancellation",
-      "inspectRuntimeOwnedWindowsProviderHomeCandidate",
+      "inspectWindowsProviderHomeCandidate",
       "authenticateProvider",
     ],
   );
@@ -739,7 +739,7 @@ test("認証Home取得は競合・初期化残存・descriptor不明を区別す
       "processRestartRequired" in result && result.processRestartRequired,
       mode === "close",
     );
-    assert.equal(isRuntimeProcessPoisoned(), mode === "close");
+    assert.equal(isExecutionProcessPoisoned(), mode === "close");
     assert.equal(JSON.stringify(result).includes(f.home), false);
     assert.equal(f.events.includes("begin"), false);
   }

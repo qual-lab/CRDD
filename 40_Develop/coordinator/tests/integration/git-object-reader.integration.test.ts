@@ -19,7 +19,7 @@ import {
   readGitCommitFile,
 } from "../../../version-control/src/git/objects.ts";
 import {
-  copyCommitFiles,
+  readCommitFile,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
@@ -30,8 +30,8 @@ import {
   requireReadyRepositoryExecutionDataArea,
 } from "../../src/lifecycle/host.ts";
 import {
-  bindRuntimeOwnedRepositoryOperation,
-  borrowRuntimeOwnedRepositorySource,
+  bindRepositoryOperation,
+  borrowRepositorySource,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
@@ -229,18 +229,18 @@ test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合
 });
 
 /**
- * 現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成するを検証する。
+ * 元操作の借用から固定Commitの本文へ接続し、借用が配置への書込みではないことを確認する。
  *
- * @responsibility 現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成するの合否判定を所有する。
+ * @responsibility 元操作・現在改訂・固定本文の相関と借用先へのEffect 0を確認する。
  * @trace RFD-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成するの対象操作を実行する。
+ * @stimulus 元操作へRepositoryを結合し、借用した改訂のREADMEを読む。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RFD-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {
+test("元操作の借用から固定本文を読み隔離workspaceは変更しない", (t) => {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
   const owner = getRepository(repositoryRoot);
   assert.equal(owner.status, "completed");
@@ -290,12 +290,12 @@ test("現行CRDDのpacked objectから明示Read Projectionだけを隔離worksp
     contextCapability,
     mountCapability,
   );
-  const repository = bindRuntimeOwnedRepositoryOperation(
+  const repository = bindRepositoryOperation(
     managementCapability,
     repositoryRoot,
   );
   assert.ok(repository);
-  const source = borrowRuntimeOwnedRepositorySource(
+  const source = borrowRepositorySource(
     repository.repositoryBindingCapability,
     managementCapability,
   );
@@ -307,25 +307,19 @@ test("現行CRDDのpacked objectから明示Read Projectionだけを隔離worksp
   const verified = getRepository(source.repositoryRoot);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
-  const materialized = copyCommitFiles(verified.capability, {
+  const before = fs.readdirSync(binding.mounts.workspace).sort();
+  const read = readCommitFile(verified.capability, {
     commit: source.revision,
-    outputRepository: hostRepository.capability,
-    relativeDirectory: path
-      .relative(parent, binding.mounts.workspace)
-      .split(path.sep)
-      .join("/"),
-    paths: ["README.md"],
-    inspectContent: containsRecognizedSecretMaterial,
+    path: "README.md",
   });
-  assert.equal(materialized?.status, "materialized");
-  assert.equal(materialized?.baseRevisionIdentity, repository.revision);
-  assert.equal(materialized?.fileCount, 1);
+  assert.ok(read);
+  assert.equal(read.revisionIdentity, repository.revision);
+  assert.equal(read.bytes.toString("utf8").startsWith("# CRDD"), true);
   assert.equal(
-    fs
-      .readFileSync(path.join(binding.mounts.workspace, "README.md"), "utf8")
-      .startsWith("# CRDD"),
-    true,
+    containsRecognizedSecretMaterial("README.md", read.bytes),
+    false,
   );
+  assert.deepEqual(fs.readdirSync(binding.mounts.workspace).sort(), before);
   assert.equal(
     fs.existsSync(path.join(binding.mounts.workspace, ".git")),
     false,

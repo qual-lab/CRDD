@@ -27,7 +27,7 @@ import fs from "node:fs";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { attemptPlan } from "../../../../executor/tests/fixtures/attempt-plan.ts";
-import { poisonRuntimeProcessAfterCleanupUnknown } from "../../../src/lifecycle/host.ts";
+import { poisonExecutionProcessAfterCleanupUnknown } from "../../../src/lifecycle/host.ts";
 
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import {
@@ -36,7 +36,7 @@ import {
   prepareProviderAdviceInput,
 } from "../../../src/lifecycle/selection.ts";
 import { runRepositoryAdvice } from "../../../src/lifecycle/execution.ts";
-import { registerRuntimeOwnedDockerHandoff } from "../../../src/lifecycle/host.ts";
+import { registerDockerHandoff } from "../../../src/lifecycle/host.ts";
 import {
   loadAdviceRuntimeFixture,
   loadOperationFailureFixture,
@@ -85,7 +85,7 @@ test("同じ回復ID・制御参照の再登録を拒否し別試行だけ追加
   const second = Object.freeze({});
   const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
   const otherId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"d".repeat(64)}`;
-  assert.equal(registerRuntimeOwnedDockerHandoff(target, first, id), true);
+  assert.equal(registerDockerHandoff(target, first, id), true);
   const original = target.dockerHandoffs[0];
   assert.ok(original);
   for (const [capability, recoveryId] of [
@@ -96,20 +96,14 @@ test("同じ回復ID・制御参照の再登録を拒否し別試行だけ追加
     [first, otherId],
     [second, id],
   ] as const) {
-    assert.equal(
-      registerRuntimeOwnedDockerHandoff(target, capability, recoveryId),
-      false,
-    );
+    assert.equal(registerDockerHandoff(target, capability, recoveryId), false);
     assert.equal(target.dockerHandoffs.length, 1);
     assert.equal(target.dockerHandoffs[0], original);
     assert.equal(original.capability, first);
     assert.equal(original.recoveryId, id);
     assert.equal(original.state, "active");
   }
-  assert.equal(
-    registerRuntimeOwnedDockerHandoff(target, second, otherId),
-    true,
-  );
+  assert.equal(registerDockerHandoff(target, second, otherId), true);
   assert.equal(target.dockerHandoffs.length, 2);
   assert.equal(target.dockerHandoffs[0], original);
   assert.equal(target.dockerHandoffs[1]?.capability, second);
@@ -129,9 +123,9 @@ test("同じ回復ID・制御参照の再登録を拒否し別試行だけ追加
  */
 test("共通の失敗終結は回復参照を残し、保持終了の確認だけを記録する", async () => {
   const build = new Function(
-    "abandonRuntimeOwnedAttemptRecovery",
+    "abandonAttemptRecovery",
     "abandonOwnedHostOperationGenerationLock",
-    `${sourceDeclaration(recoverySource, "retainRuntimeOwnedHostOperation")}; return retainRuntimeOwnedHostOperation;`,
+    `${sourceDeclaration(recoverySource, "retainHostOperation")}; return retainHostOperation;`,
   );
   for (const scenario of ["unconfirmed", "throw", "host_cleaned"] as const) {
     const management = {};
@@ -206,11 +200,11 @@ test("共通Host終結は全件照合後に一清掃し、部分成功を戻さ�
     "getOwnedHostRecoveryId",
     "cleanupOwnedOperationDirectories",
     "verifyOwnedOperationCleanupOutcome",
-    "finishRuntimeOwnedDockerRecovery",
+    "finishDockerRecovery",
     "setImmediate",
     "readOwnedHostOperation",
     operationReadFixtureSource +
-      `${sourceDeclaration(recoverySource, "canPrepareRuntimeOwnedDockerHostCleanup")}\n${sourceDeclaration(recoverySource, "completeRuntimeOwnedHostOperation")};return completeRuntimeOwnedHostOperation;`,
+      `${sourceDeclaration(recoverySource, "canPrepareDockerHostCleanup")}\n${sourceDeclaration(recoverySource, "completeHostOperation")};return completeHostOperation;`,
   );
   for (const fault of [
     "none",
@@ -482,7 +476,7 @@ test("Provider開始通知は保存三確認と既知Effectを保持する", () 
     "readFixtureOperation",
     "saveOperationCheckpoint",
     operationReadFixtureSource +
-      `${sourceDeclaration(recoverySource, "recordRuntimeOwnedDockerProviderSubmission")}; return recordRuntimeOwnedDockerProviderSubmission;`,
+      `${sourceDeclaration(recoverySource, "recordDockerProviderSubmission")}; return recordDockerProviderSubmission;`,
   );
   for (const known of [false, true])
     for (const fault of [
@@ -581,7 +575,7 @@ test("正常終了準備は元版・元計画と保存三確認へ再入場す�
     "saveOperationCheckpoint",
     sourceDeclaration(recoverySource, "validProductionPlan") +
       operationReadFixtureSource +
-      `${sourceDeclaration(recoverySource, "completeRuntimeOwnedDockerRecovery")}; return completeRuntimeOwnedDockerRecovery;`,
+      `${sourceDeclaration(recoverySource, "completeDockerRecovery")}; return completeDockerRecovery;`,
   );
   for (const fault of [
     "revision",
@@ -820,7 +814,7 @@ test("正常終了保存は失敗Effectを保持して再試行し確定後に�
     "durableRecords",
     "completeOperation",
     "snapshotPlainRecord",
-    `${sourceDeclaration(recoverySource, "finishRuntimeOwnedDockerRecovery")}; return finishRuntimeOwnedDockerRecovery;`,
+    `${sourceDeclaration(recoverySource, "finishDockerRecovery")}; return finishDockerRecovery;`,
   )(
     (value: object) => records.get(value),
     records,
@@ -898,7 +892,7 @@ test("初期化失敗はexact相関だけを結合しHome解放後も記録を�
     const api = new Function(
       "durableRecords",
       operationReadFixtureSource +
-        `${sourceDeclaration(recoverySource, "durableRecord")}\n${sourceDeclaration(recoverySource, "bindRuntimeOwnedDockerInitializationFailure")}\n${sourceDeclaration(recoverySource, "abandonRuntimeOwnedDockerRecovery")}\n${sourceDeclaration(recoverySource, "verifyRuntimeOwnedDockerRecoveryBinding")};return {bind:bindRuntimeOwnedDockerInitializationFailure,abandon:abandonRuntimeOwnedDockerRecovery,verify:verifyRuntimeOwnedDockerRecoveryBinding};`,
+        `${sourceDeclaration(recoverySource, "durableRecord")}\n${sourceDeclaration(recoverySource, "bindDockerInitializationFailure")}\n${sourceDeclaration(recoverySource, "abandonDockerRecovery")}\n${sourceDeclaration(recoverySource, "verifyDockerRecoveryBinding")};return {bind:bindDockerInitializationFailure,abandon:abandonDockerRecovery,verify:verifyDockerRecoveryBinding};`,
     )(records);
     assert.equal(
       api.bind(
@@ -975,7 +969,7 @@ test("不存在観測は保存とfresh読戻しの共同確認後だけ一度固
       "saveOperationCheckpoint",
       "readFixtureOperation",
       operationReadFixtureSource +
-        `${sourceDeclaration(recoverySource, "durableRecord")}\n${sourceDeclaration(recoverySource, "recordRuntimeOwnedDockerAbsence")};return recordRuntimeOwnedDockerAbsence;`,
+        `${sourceDeclaration(recoverySource, "durableRecord")}\n${sourceDeclaration(recoverySource, "recordDockerAbsence")};return recordDockerAbsence;`,
     )(
       records,
       (
@@ -1040,8 +1034,8 @@ test("未開始拒否の四理由は元段階と参照を保って記録要求�
     "readFixtureOperation",
     "saveOperationCheckpoint",
     operationReadFixtureSource +
-      String(sourceDeclaration(source, "recordRuntimeOwnedUnstartedAttempt")) +
-      "\nreturn recordRuntimeOwnedUnstartedAttempt;",
+      String(sourceDeclaration(source, "recordUnstartedAttempt")) +
+      "\nreturn recordUnstartedAttempt;",
   );
   for (const reason of [
     "docker_process_controller_plan_invalid",
@@ -2229,10 +2223,7 @@ test("技術Planの往復を廃止し上位は同じ試行専用Executorを開�
     new URL("../../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
   );
-  const startSource = sourceDeclaration(
-    source,
-    "startRuntimeOwnedDockerProcessController",
-  );
+  const startSource = sourceDeclaration(source, "startDockerProcessController");
   const recorded = sourceDeclaration(source, "startRecordedAttempt");
   const hostStart = sourceDeclaration(source, "startHostAttempt");
   assert.doesNotMatch(source, /projectExecutionPlan|\.prepare\(state,/);
@@ -2271,7 +2262,7 @@ test("準備計画の開始と計測は元選定と同じExecutor・Operation相
   const declarations = [
     "blockedAttemptStart",
     "beginAttemptRecording",
-    "startRuntimeOwnedDockerProcessController",
+    "startDockerProcessController",
   ]
     .map((name) => sourceDeclaration(source, name))
     .join("\n");
@@ -2353,7 +2344,7 @@ test("準備計画の開始と計測は元選定と同じExecutor・Operation相
       },
     };
     Object.assign(bindings, {
-      borrowRuntimeOwnedCoordinatorStateRepository: (candidate: unknown) => {
+      borrowCoordinatorStateRepository: (candidate: unknown) => {
         assert.strictEqual(candidate, management);
         return { repositoryRoot: "fixture" };
       },
@@ -2406,10 +2397,10 @@ test("準備計画の開始と計測は元選定と同じExecutor・Operation相
         };
       },
       process: { stderr: {} },
-      createRuntimeOwnedLifecycleNoticeReporter: () => noop,
+      createLifecycleNoticeReporter: () => noop,
     });
     const start = runInNewContext(
-      `${declarations}\nstartRuntimeOwnedDockerProcessController`,
+      `${declarations}\nstartDockerProcessController`,
       bindings,
     );
     const result = start(
@@ -2508,18 +2499,18 @@ test("起動は元計画の改訂と回復引渡しの後にだけ行う", () =>
       recoveryId,
     });
     const bindings = {
-      verifyRuntimeOwnedRepositoryOperation(candidate: unknown) {
+      verifyRepositoryOperation(candidate: unknown) {
         events.push("revision");
         assert.strictEqual(candidate, management);
         return mode !== "revision";
       },
-      beginRuntimeOwnedDockerRecovery(supplied: unknown, candidate: unknown) {
+      beginDockerRecovery(supplied: unknown, candidate: unknown) {
         events.push("begin");
         assert.strictEqual(supplied, plan);
         assert.strictEqual(candidate, management);
         return recovery;
       },
-      verifyRuntimeOwnedDockerRecoveryBinding(
+      verifyDockerRecoveryBinding(
         capability: unknown,
         id: unknown,
         candidate: unknown,
@@ -2532,7 +2523,7 @@ test("起動は元計画の改訂と回復引渡しの後にだけ行う", () =>
         assert.equal(homeHash, plan.stableLogicalHomeBindingHash);
         return mode !== "binding";
       },
-      abandonRuntimeOwnedDockerRecovery(capability: unknown) {
+      abandonDockerRecovery(capability: unknown) {
         events.push("abandon");
         assert.strictEqual(capability, recoveryCapability);
       },
@@ -2737,7 +2728,7 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
       Object,
       Error,
       types,
-      bindRuntimeOwnedExecutorAttempt: () => true,
+      bindExecutorAttempt: () => true,
       ...bindings,
     });
   // 必須通知は同じ回復参照へ記録し、同期成功以外は後続へ進ませない。
@@ -2756,13 +2747,13 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
         callbacks.onCommandSubmitting?.(purpose, preparation),
     ],
     [
-      "recordRuntimeOwnedDockerResourceNotIssued",
+      "recordDockerResourceNotIssued",
       [purpose],
       (callbacks: ExecutorCallbacks<"attempt">) =>
         callbacks.onCommandNotIssued?.(purpose, preparation),
     ],
     [
-      "recordRuntimeOwnedDockerProviderSubmission",
+      "recordDockerProviderSubmission",
       [],
       (callbacks: ExecutorCallbacks<"attempt">) =>
         callbacks.onProviderSubmitting?.(),
@@ -2827,10 +2818,7 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
       );
       assert.equal(
         observedSubmissions,
-        writer === "recordRuntimeOwnedDockerProviderSubmission" &&
-          outcome === true
-          ? 1
-          : 0,
+        writer === "recordDockerProviderSubmission" && outcome === true ? 1 : 0,
       );
       assert.equal(submissions, 1);
     }
@@ -2924,13 +2912,12 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
       },
     };
     const run = bind({
-      bindRuntimeOwnedExecutorAttempt: () =>
-        mode !== "recovery_binding_refused",
-      verifyRuntimeOwnedRepositoryOperation: (supplied: unknown) => {
+      bindExecutorAttempt: () => mode !== "recovery_binding_refused",
+      verifyRepositoryOperation: (supplied: unknown) => {
         assert.strictEqual(supplied, management);
         return !revisionChanged;
       },
-      recordRuntimeOwnedAttemptCleanup: (input: {
+      recordAttemptCleanup: (input: {
         plan: unknown;
         managementCapability: unknown;
         recoveryCapability: unknown;
@@ -2947,12 +2934,12 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
           recoveryFinalizationCapability: {},
         };
       },
-      recordRuntimeOwnedUnstartedAttempt: () => {
+      recordUnstartedAttempt: () => {
         unstarted++;
         if (mode.endsWith("throw")) throw Error("synthetic");
         return false;
       },
-      recordRuntimeOwnedDockerTerminalObservation: async (
+      recordDockerTerminalObservation: async (
         supplied: unknown,
         value: unknown,
       ) => {
@@ -3135,12 +3122,12 @@ test("Control結合失敗でも同じExecutorを一回取り消し元completion�
       Object,
       Error,
       types,
-      recordRuntimeOwnedAttemptCleanup: () => ({
+      recordAttemptCleanup: () => ({
         homeLeaseReleased: true,
         recoveryCompleted: false,
         recoveryFinalizationCapability: null,
       }),
-      bindRuntimeOwnedExecutorAttempt: (
+      bindExecutorAttempt: (
         supplied: unknown,
         owner: unknown,
         candidate: unknown,
@@ -3217,7 +3204,7 @@ test("Control結合失敗でも同じExecutorを一回取り消し元completion�
  */
 test("Process回収不明は署名拒否でなく再起動要求として停止する", async () => {
   const current = fixture();
-  poisonRuntimeProcessAfterCleanupUnknown();
+  poisonExecutionProcessAfterCleanupUnknown();
   const result = await executeProviderAdvice(
     current.dependencies,
     plan,

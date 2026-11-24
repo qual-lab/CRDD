@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   describeProviderHomeWindowsAdapterContract,
-  inspectRuntimeOwnedWindowsProviderHomeCandidate,
+  inspectWindowsProviderHomeCandidate,
 } from "../../../src/lifecycle/environment.ts";
 
 test("Provider HomeのNode契約はNative・OS主体・ACL検証を成功扱いしない", () => {
@@ -26,7 +26,7 @@ test("Provider HomeのNode契約はNative・OS主体・ACL検証を成功扱い�
   assert.equal(contract.osPrincipalVerification, false);
   assert.equal(contract.processEffectIssued, false);
   assert.equal(contract.credentialContentRead, false);
-  const invalid = inspectRuntimeOwnedWindowsProviderHomeCandidate("other");
+  const invalid = inspectWindowsProviderHomeCandidate("other");
   assert.equal(invalid.status, "blocked");
   for (const key of [
     "helperSpawnAttempts",

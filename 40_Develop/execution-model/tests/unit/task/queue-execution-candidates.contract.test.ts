@@ -152,18 +152,18 @@ function observations() {
   };
 }
 /**
- * 単発受付は計画を作らず、同じ発行時結合にだけ再入場する。
+ * 単発受付は計画を作らず、同じ要求の記録がある場合だけ再利用する。
  * @responsibility 固定候補と観測順・拒否・対象外保持を反証する。
  * @trace PRL-UT-006
  * @precondition 値操作用の合成Snapshot。実Owner・実資源・全体codecの根拠ではない。
- * @stimulus 成功値と世代・Identity・観測の不一致を渡す。
+ * @stimulus 新規、同じ要求の反復、内容の違う同ID、不正入力を渡す。
  * @observation 固定結果、候補全文、元値、観測順と回数。
  * @oracle 認可・資源観測を代用せず、元条件と対象外区画を維持する。
  * @cleanup N/A: メモリ値だけ。
  * @boundary Domain候補と有限同期観測。実保存は結合試験が所有する。
  */
 
-test("単発受付候補は反復・旧epoch・元Identityを区別する", () => {
+test("単発受付候補は新規受付・記録済みの反復・元Identityを区別する", () => {
   const { current, entry, record } = fixture();
   const empty = { ...current, queueEntries: [] };
   const before = encodeStateValue(empty);
@@ -175,7 +175,7 @@ test("単発受付候補は反復・旧epoch・元Identityを区別する", () =
   assert.strictEqual(created.value.next.projects, empty.projects);
   assert.equal(
     prepareSingleTaskQueueCreation(created.value.next, entry).reason,
-    "orchestrator_single_task_reused",
+    "coordinator_single_task_reused",
   );
   const raced = prepareSingleTaskQueueCreation(created.value.next, {
     ...entry,
@@ -191,7 +191,7 @@ test("単発受付候補は反復・旧epoch・元Identityを区別する", () =
       },
     },
   });
-  assert.equal(raced.reason, "orchestrator_single_task_reused");
+  assert.equal(raced.reason, "coordinator_single_task_reused");
   if (raced.status === "completed") {
     assert.strictEqual(raced.value.value, entry);
     assert.equal(raced.value.next, null);
@@ -201,18 +201,18 @@ test("単発受付候補は反復・旧epoch・元Identityを区別する", () =
       ...entry,
       requestHash: "d".repeat(64),
     }).reason,
-    "orchestrator_queue_identity_conflict",
+    "coordinator_queue_identity_conflict",
   );
   assert.equal(
     prepareSingleTaskQueueCreation(empty, entry).reason,
-    "orchestrator_intake_epoch_retired",
+    "coordinator_single_task_durable",
   );
   assert.equal(
     prepareSingleTaskQueueCreation(empty, {
       ...entry,
       milestoneId: "milestone-a",
     }).reason,
-    "orchestrator_single_task_input_invalid",
+    "coordinator_single_task_input_invalid",
   );
   assert.equal(encodeStateValue(empty), before);
 });
@@ -259,7 +259,7 @@ test("単発更新は同じ実体の借用後だけ生存を一回観測する",
         },
       },
     );
-    assert.equal(result.reason, "orchestrator_single_task_owner_mismatch");
+    assert.equal(result.reason, "coordinator_single_task_owner_mismatch");
     assert.deepEqual(o.calls, ["borrow"]);
   }
   for (const snapshot of [
@@ -425,7 +425,7 @@ test("単発終端はcleanだけ時計二回、既存unknown参照は保持す�
       terminal,
       duplicate.ops,
     ).reason,
-    "orchestrator_single_task_already_saved",
+    "coordinator_single_task_already_saved",
   );
   assert.deepEqual(duplicate.calls, ["borrow", "live"]);
   const dirty = observations();
@@ -462,7 +462,7 @@ test("単発終端はcleanだけ時計二回、既存unknown参照は保持す�
       { ...terminal, operationId: "other" },
       conflict.ops,
     ).reason,
-    "orchestrator_single_task_identity_conflict",
+    "coordinator_single_task_identity_conflict",
   );
   assert.deepEqual(conflict.calls, ["borrow", "live"]);
   const thrown = observations();
@@ -601,7 +601,7 @@ test("一般Queue更新は先行拒否で借用零回、相関後だけ生存一
       next,
       denied.ops,
     ).reason,
-    "orchestrator_queue_blocker_active",
+    "coordinator_queue_blocker_active",
   );
   assert.deepEqual(denied.calls, []);
   assert.equal(
@@ -614,7 +614,7 @@ test("一般Queue更新は先行拒否で借用零回、相関後だけ生存一
       next,
       stale.ops,
     ).reason,
-    "orchestrator_queue_generation_conflict",
+    "coordinator_queue_generation_conflict",
   );
   assert.deepEqual(stale.calls, []);
   for (const key of [
@@ -641,7 +641,7 @@ test("一般Queue更新は先行拒否で借用零回、相関後だけ生存一
           },
         },
       ).reason,
-      "orchestrator_queue_lease_invalid",
+      "coordinator_queue_lease_invalid",
     );
     assert.deepEqual(o.calls, ["borrow"]);
   }
@@ -778,7 +778,7 @@ test("Queue選択適用は旧世代・誤ID・重複・対象外更新を拒否�
     ],
   };
   const decision = {
-    reason: "orchestrator_interactive_queue_selected" as const,
+    reason: "coordinator_interactive_queue_selected" as const,
     selectedQueueId: "queue-a",
     selectedQueueGeneration: 1,
     updates: [
@@ -810,12 +810,12 @@ test("Queue選択適用は旧世代・誤ID・重複・対象外更新を拒否�
   ])
     assert.equal(
       prepareQueueSelection(state, { ...decision, ...change }).reason,
-      "orchestrator_queue_selection_invalid",
+      "coordinator_queue_selection_invalid",
     );
   assert.equal(
     prepareQueueSelection(state, {
       ...decision,
-      reason: "orchestrator_queue_empty",
+      reason: "coordinator_queue_empty",
       selectedQueueId: null,
       selectedQueueGeneration: null,
     }).status,
@@ -898,7 +898,7 @@ test("Queue解放確定は資源不明・intent残存・元証拠差を成功に
       "owner-a",
       ops,
     ).reason,
-    "orchestrator_queue_release_evidence_mismatch",
+    "coordinator_queue_release_evidence_mismatch",
   );
   assert.equal(
     prepareQueueLeaseReleaseSettlement(
@@ -921,6 +921,6 @@ test("Queue解放確定は資源不明・intent残存・元証拠差を成功に
       "owner-a",
       ops,
     ).reason,
-    "orchestrator_queue_release_intent_unsettled",
+    "coordinator_queue_release_intent_unsettled",
   );
 });

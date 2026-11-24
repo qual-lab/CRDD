@@ -35,8 +35,8 @@ import {
   capturePreparationInput,
   createPreparationFailure,
 } from "../../../src/lifecycle/selection.ts";
-import { startRuntimeOwnedDockerProcessController } from "../../../src/lifecycle/execution.ts";
-import { cancelRuntimeOwnedExecutorAttempt } from "../../../src/lifecycle/environment.ts";
+import { startDockerProcessController } from "../../../src/lifecycle/execution.ts";
+import { cancelExecutorAttempt } from "../../../src/lifecycle/environment.ts";
 import {
   executionSelection,
   taskExecutionSelections,
@@ -44,8 +44,8 @@ import {
 import {
   createAttemptPreparation,
   createReviewerWorkspaceReader,
-  reviewerCommitId,
-  reviewerCopy,
+  reviewerSnapshotId,
+  reviewerWorkspaceRoot,
 } from "../../fixtures/attempt-preparation.ts";
 
 /**
@@ -143,17 +143,17 @@ test("準備入力は用途ごとの正確な形だけを捕捉しCapabilityを�
 });
 
 /**
- * 借用内容の全量を要求捕捉・準備検査へ搬送し、Schema拒否を保持する。
- * @responsibility Path集合とReviewer内容の旧容量上限を後段で復活させない。
+ * 借用パスを要求捕捉へ、Reviewerの作業ツリー証拠を準備検査へ搬送する。
+ * @responsibility Path集合の旧容量上限を復活させず、Reviewerには本文を渡さない。
  * @trace PRL-UT-014
  * @precondition 私有準備関数の実宣言と実Domain値検査を局所VMへ接続する。
- * @stimulus 65Path・長Path、257File・1MiB超本文とHash／相関不正を渡す。
- * @observation 全件数・全文、拒否結果、元入力非変更。
- * @oracle 容量だけで拒否せず、Hash・totalBytes・Path文法・Accessor不正は拒否する。
+ * @stimulus 65Path・長Path、作業ツリー証拠と本文混入・Hash不正を渡す。
+ * @observation 全パスの件数と、正常・拒否の準備結果。
+ * @oracle 容量だけで拒否せず、Hash・本文混入・Path文法・Accessor不正は拒否する。
  * @cleanup N/A: 局所値のみ。実AI送信・Docker・Filesystem保存なし。
  * @boundary 本番要求捕捉と実準備宣言の値検査。Provider実行は対象外。
  */
-test("借用PathとReviewer全量は要求捕捉・準備へ接続し不正Schemaを拒否する", () => {
+test("借用PathとReviewerの作業ツリー証拠を検査し旧本文投影を拒否する", () => {
   const source = fs.readFileSync(
     new URL("../../../src/lifecycle/selection.ts", import.meta.url),
     "utf8",
@@ -189,9 +189,7 @@ test("借用PathとReviewer全量は要求捕捉・準備へ接続し不正Schem
       readPaths: readonly string[];
       acceptanceCriteria: readonly string[];
     } | null;
-    reviewer: (
-      value: unknown,
-    ) => { totalBytes: number; files: readonly { content?: string }[] } | null;
+    reviewer: (value: unknown) => { workspaceReview: true } | null;
   };
   const longPath = `${"segment/".repeat(150)}file.txt`;
   const paths = [
@@ -234,37 +232,42 @@ test("借用PathとReviewer全量は要求捕捉・準備へ接続し不正Schem
     snapshotCoordinatorTaskRequest({ ...request, allowedPaths: [0] }),
     null,
   );
-  const content = "a".repeat(1024 * 1024 + 1);
-  const files = Array.from({ length: 257 }, (_, index) => {
-    const text = index === 0 ? content : "a";
-    return {
-      path: `src/${index}.txt`,
-      state: "present",
-      byteLength: Buffer.byteLength(text),
-      sha256: createHash("sha256").update(text).digest("hex"),
-      encoding: "utf-8",
-      content: text,
-    };
-  });
-  const candidateCommitId = reviewerCommitId;
+  assert.equal(
+    snapshotCoordinatorTaskRequest({ ...request, readPaths: ["."] }),
+    null,
+  );
+  assert.equal(
+    snapshotCoordinatorTaskRequest({
+      ...request,
+      readPaths: [".", "README.md"],
+    }),
+    null,
+  );
+  assert.equal(
+    snapshotCoordinatorTaskRequest({ ...request, allowedPaths: ["."] }),
+    null,
+  );
+  const candidateSnapshotId = reviewerSnapshotId;
   const projectionHash = createHash("sha256")
-    .update("crdd-candidate-read-projection-v2\0")
-    .update(candidateCommitId)
+    .update("crdd-review-content-v2\0")
+    .update(candidateSnapshotId)
     .update("\0")
-    .update(JSON.stringify(files))
+    .update("0\0[]")
     .digest("hex");
   const projection = {
     status: "projected",
-    candidateCommitId,
+    candidateSnapshotId,
     projectionHash,
-    totalBytes: content.length + 256,
-    files,
+    workspaceReview: true,
+    withheldFileCount: 0,
+    totalBytes: 0,
+    files: [],
   };
   const normalized = api.reviewer(projection);
-  assert.equal(normalized?.files.length, 257);
-  assert.equal(normalized?.files[0]?.content, content);
+  assert.equal(normalized?.workspaceReview, true);
+  assert.equal(api.reviewer({ ...projection, totalBytes: 1 }), null);
   assert.equal(
-    api.reviewer({ ...projection, totalBytes: projection.totalBytes - 1 }),
+    api.reviewer({ ...projection, files: [{ content: "old" }] }),
     null,
   );
   assert.equal(
@@ -272,19 +275,18 @@ test("借用PathとReviewer全量は要求捕捉・準備へ接続し不正Schem
     null,
   );
   assert.equal(
-    api.reviewer({ ...projection, candidateCommitId: "d".repeat(40) }),
+    api.reviewer({ ...projection, candidateSnapshotId: "d".repeat(64) }),
     null,
   );
   let getterCalls = 0;
   const accessor = Object.defineProperty({ ...projection }, "files", {
     get() {
       getterCalls += 1;
-      return files;
+      return [];
     },
   });
   assert.equal(api.reviewer(accessor), null);
   assert.equal(getterCalls, 0);
-  assert.equal(files[0]?.content, content);
 });
 
 /**
@@ -353,8 +355,8 @@ test("Executor向け投影は上位の時刻・速度・助言管理Hashと不�
         protection: { gitSourcePath: "git", internalSourcePath: "internal" },
       }),
       randomBytes: unused,
-      consumeRuntimeOwnedProviderTaskPacket: unused,
-      consumeRuntimeOwnedProviderAdvicePacket: () => {
+      consumeProviderTaskPacket: unused,
+      consumeProviderAdvicePacket: () => {
         packetConsumed++;
         return packet;
       },
@@ -408,7 +410,7 @@ test("共通Provider本番組立てはStoreを共有せず固定依存とEffect�
     new URL("../../../src/lifecycle/selection.ts", import.meta.url),
     "utf8",
   );
-  assert.doesNotMatch(source, /getRuntimeOwnedProviderDockerAdapter/);
+  assert.doesNotMatch(source, /getProviderDockerAdapter/);
   const lifecycle = fs.readFileSync(
     new URL("../../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
@@ -606,7 +608,11 @@ function createFixture(
         taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         taskRole,
         ...(taskRole === "reviewer"
-          ? { reviewerReadProjection: { candidateCommitId: reviewerCommitId } }
+          ? {
+              reviewerReadProjection: {
+                candidateSnapshotId: reviewerSnapshotId,
+              },
+            }
           : {}),
         taskAttempt: 0 as const,
         executionSelection: selected,
@@ -1213,18 +1219,18 @@ test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する"
 });
 
 /**
- * Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受け取らないを検証する。
+ * Reviewerは読み取り専用Workspaceと固定seccompを使う。
  *
- * @responsibility Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受け取らないの合否判定を所有する。
+ * @responsibility ReviewerのWorkspace、保護Mount、固定seccompの接続を検査する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受け取らないの対象操作を実行する。
+ * @stimulus Reviewer用にProvider実行を準備する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受け取らない", () => {
+test("Reviewerは読み取り専用Workspaceと固定seccompを使う", () => {
   let management = Object.freeze({});
   const reviewerPreparation = createReviewerWorkspaceReader(() => management);
   const fixture = createFixture(
@@ -1234,7 +1240,7 @@ test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受
           operationId: "OP-123456",
           taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
           taskRole: "reviewer" as const,
-          reviewerReadProjection: { candidateCommitId: reviewerCommitId },
+          reviewerReadProjection: { candidateSnapshotId: reviewerSnapshotId },
           taskAttempt: 0 as const,
           executionSelection: executionSelection("independent_reviewer", {
             provider: "codex",
@@ -1266,21 +1272,39 @@ test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受
   assert.equal(prepared.status, "prepared", JSON.stringify(prepared));
   const plan = fixture.getTechnicalPlan();
   assert.ok(plan);
-  assert.equal(plan.workspaceSourcePath, reviewerCopy);
+  assert.equal(plan.workspaceSourcePath, reviewerWorkspaceRoot);
   const provider = plan.commands.find(
     (candidate) => candidate.purpose === "create_provider",
   );
   assert.ok(provider);
   assert.equal(plan.workspaceMountMode, "read_only");
   assert.equal(
-    provider.argv.some((value) => value.startsWith("--security-opt=seccomp=")),
-    false,
+    provider.argv.includes(
+      "--security-opt=seccomp=" +
+        fileURLToPath(
+          new URL(
+            "../../../../docker-isolation/src/execution/codex-executor-seccomp.json",
+            import.meta.url,
+          ),
+        ),
+    ),
+    true,
   );
   assert.equal(
     provider.argv.some(
       (value) => value.includes("dst=/work") && value.endsWith(",readonly"),
     ),
     true,
+  );
+  const resource = plan.isolationRequest.resources.find(
+    (item) => item.key === "create_provider",
+  );
+  assert.ok(resource?.kind === "container");
+  assert.deepEqual(
+    resource.mounts
+      .filter(({ readOnly }) => readOnly)
+      .map(({ target }) => target),
+    ["/work", "/work/.git", "/work/.crdd", "/work/.env", "/work/private"],
   );
 });
 
@@ -1408,7 +1432,7 @@ test("Executor seccomp profileを検証できなければProvider planを発行�
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("production adapterは未発行のCapabilityと未接続Selection 選定入力を拒否する", () => {
-  const prepared = startRuntimeOwnedDockerProcessController(
+  const prepared = startDockerProcessController(
     "codex",
     {
       purpose: "probe",
@@ -1432,7 +1456,7 @@ test("production adapterは未発行のCapabilityと未接続Selection 選定入
   );
   assert.equal(prepared.status, "blocked");
   assert.equal(prepared.providerRequestStarted, false);
-  void cancelRuntimeOwnedExecutorAttempt({}, {}).then((result) =>
+  void cancelExecutorAttempt({}, {}).then((result) =>
     assert.equal(result.status, "blocked"),
   );
 });
@@ -1607,7 +1631,7 @@ test("固定利用側は相関IDと独立し不正値はOperation観測前に拒
   for (const consumer of [
     "coordinator_cli",
     "workbench",
-    "orchestrator",
+    "coordinator",
   ] as const) {
     for (const correlation of [null, "task-correlation"]) {
       const fixture = createFixture({}, true);
@@ -1633,6 +1657,7 @@ test("固定利用側は相関IDと独立し不正値はOperation観測前に拒
     undefined,
     null,
     "unknown",
+    "orchestrator",
     "transient",
     "durable",
     {},

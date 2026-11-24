@@ -28,7 +28,6 @@ import {
   type OwnerArtifactCatalog,
 } from "../../src/app.ts";
 import { readArtifactSelection } from "../../src/service/project-context.ts";
-import { validateArtifactResponse } from "../../../workbench-ui/src/api/response.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -256,17 +255,9 @@ test("Owner文書は旧容量境界を超えて見出しと本文を返し終了
       assert.equal(reads, Buffer.byteLength(body));
       assert.equal(closes, 1);
       assert.equal(
-        (await readOwnerArtifact(root, catalog, relative)) !== null,
-        bodyAllowed,
+        await readOwnerArtifact(root, catalog, relative),
+        bodyAllowed ? body : null,
       );
-      const model = {
-        contract: "crdd/workbench/view/v1",
-        view: "artifact",
-        repositoryId: "repository-a",
-        selectedRepositoryId: null,
-        artifact: { kind: "owner", identity: relative, markdown: body },
-      };
-      assert.equal(validateArtifactResponse(model).artifact.markdown, body);
     }
     for (fault of ["read", "close", "replace"]) {
       await writeFile(file, "# original\n");

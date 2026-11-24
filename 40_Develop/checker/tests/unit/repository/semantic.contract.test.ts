@@ -66,7 +66,7 @@ assert.equal(verifiedRepository.status, "completed");
 if (verifiedRepository.status !== "completed")
   throw new Error("repository root verification failed");
 const capability = verifiedRepository.capability;
-const discoveryObservation = observeRealitySymbolRepository(capability);
+const discoveryObservation = observeRealitySymbolRepository(repositoryRoot);
 const discovery = {
   manifests: discoveryObservation.manifests,
   knownArchIds: discoveryObservation.knownArchIds,

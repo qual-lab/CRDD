@@ -915,7 +915,8 @@
       ],
       "testIds": [
         "workbench:integration:browser-query",
-        "workbench:integration:production-shell"
+        "workbench:integration:production-shell",
+        "workbench:integration:http-transport"
       ],
       "postconditions": [
         "browser_dependencies_separated",
@@ -1099,23 +1100,6 @@
       ]
     },
     {
-      "id": "version-control:repository-to-visual-preview",
-      "architectureAnchor": "06_Architecture/Details/visual-preview/01_Architecture.md#4-flow",
-      "blockPath": [
-        "version-control:repository-observation",
-        "visual-preview:local-read-only-preview"
-      ],
-      "testIds": [
-        "version-control:integration:repository-location",
-        "visual-preview:integration:preview-server"
-      ],
-      "postconditions": [
-        "repository_root_identity_preserved",
-        "repository_content_unchanged",
-        "listener_absent"
-      ]
-    },
-    {
       "id": "visual-preview:server-to-browser-lifecycle",
       "architectureAnchor": "06_Architecture/Details/visual-preview/01_Architecture.md#5-lifecycle",
       "blockPath": [
@@ -1142,7 +1126,8 @@
       "testIds": [
         "project-operation:integration:repository-project-context",
         "workbench:integration:project-surface",
-        "workbench:integration:production-shell"
+        "workbench:integration:production-shell",
+        "workbench:integration:view-response"
       ],
       "postconditions": [
         "project_context_five_scenes_exact",
@@ -1355,6 +1340,33 @@
     }
   ],
   "consumerBindings": [
+    {
+      "producerOwner": "crdd-server",
+      "producerPaths": ["40_Develop/crdd-server/src", "40_Develop/crdd-server/bin"],
+      "consumerOwner": "workbench-ui",
+      "consumerStatic": true,
+      "testIds": [
+        "workbench:system:credential-browser",
+        "workbench:system:actual-browser-visual"
+      ]
+    },
+    {
+      "producerOwner": "executor",
+      "producerPaths": ["40_Develop/executor/src", "40_Develop/executor/tests/support/executor-test.ts"],
+      "consumerOwner": "crdd-server",
+      "consumerStatic": true,
+      "testIds": ["executor:integration:task-summary-observation"]
+    },
+    {
+      "producerOwner": "visual-preview",
+      "producerPaths": ["40_Develop/visual-preview/src"],
+      "consumerOwner": "workbench-ui",
+      "consumerStatic": true,
+      "testIds": [
+        "workbench:system:credential-browser",
+        "workbench:system:actual-browser-visual"
+      ]
+    },
     {
       "producerOwner": "lock",
       "producerPaths": [
@@ -1678,7 +1690,7 @@
       "consumerStatic": true,
       "testIds": [
         "workbench:integration:project-surface",
-        "workbench:integration:artifact-presentation"
+        "workbench:integration:artifact-http"
       ]
     },
     {
@@ -2193,7 +2205,7 @@
     {
       "id": "mcp:integration:runtime-definition",
       "owner": "crdd-server",
-      "path": "40_Develop/crdd-server/tests/integration/runtime-definition.contract.test.ts",
+      "path": "40_Develop/crdd-server/tests/integration/execution-definition.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2396,8 +2408,8 @@
     },
     {
       "id": "orchestrator:unit:workspace-acceptance-record",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workspace/acceptance-record.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/unit/workspace/acceptance-record.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -2483,7 +2495,7 @@
     {
       "id": "docker-isolation:integration:runtime-directory",
       "owner": "docker-isolation",
-      "path": "40_Develop/docker-isolation/tests/integration/runtime-directory.contract.test.ts",
+      "path": "40_Develop/docker-isolation/tests/integration/docker-data-directory.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2744,7 +2756,7 @@
     {
       "id": "docker-isolation:integration:probe-runtime",
       "owner": "docker-isolation",
-      "path": "40_Develop/docker-isolation/tests/integration/probe-runtime.contract.test.ts",
+      "path": "40_Develop/docker-isolation/tests/integration/fixed-probe.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -2867,7 +2879,7 @@
     {
       "id": "docker-isolation:integration:command-runtime",
       "owner": "docker-isolation",
-      "path": "40_Develop/docker-isolation/tests/integration/command-runtime.contract.test.ts",
+      "path": "40_Develop/docker-isolation/tests/integration/command-assets.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3034,7 +3046,7 @@
     {
       "id": "coordinator:integration:runtime-assets",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/runtime-assets.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/isolation-assets.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3076,7 +3088,7 @@
     {
       "id": "mcp:integration:runtime-activity-adapter",
       "owner": "crdd-server",
-      "path": "40_Develop/crdd-server/tests/integration/runtime-activity-adapter.contract.test.ts",
+      "path": "40_Develop/crdd-server/tests/integration/execution-activity-adapter.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3261,6 +3273,7 @@
         "test_root_removed",
         "registration_requires_current_management_role",
         "registration_does_not_publish",
+        "registration_rejects_unverified_git_directory_before_publication",
         "local_portfolio_uses_current_access",
         "unknown_context_not_partial_success",
         "explicit_repository_selection_no_fallback",
@@ -3627,7 +3640,7 @@
     {
       "id": "coordinator:integration:coordinator-state-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/coordinator-state-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/coordinator-state-storage.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3745,7 +3758,7 @@
     {
       "id": "domain-model:unit:runtime-transitions",
       "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/unit/storage/runtime-transitions.contract.test.ts",
+      "path": "40_Develop/execution-model/tests/unit/storage/state-transitions.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3931,7 +3944,7 @@
     {
       "id": "runtime-data:integration:tool-runtime-config",
       "owner": "configuration-model",
-      "path": "40_Develop/configuration-model/tests/integration/tool-runtime-config.contract.test.ts",
+      "path": "40_Develop/configuration-model/tests/integration/history-retention-config.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3990,6 +4003,7 @@
       "postconditions": [
         "read_without_creation",
         "content_identity_cas",
+        "prepared_configuration_storage_without_git",
         "publication_cleanup_distinguished",
         "provider_effect_zero"
       ],
@@ -4827,6 +4841,7 @@
       "postconditions": [
         "snapshot_identity_preserved",
         "candidate_output_capability_required",
+        "packed_cross_repository_copy_preserves_selected_content",
         "partial_candidate_absent_or_unknown_explicit"
       ],
       "mandatoryByDefault": true
@@ -4916,8 +4931,8 @@
     },
     {
       "id": "runtime-data:integration:consumer-closure",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/storage-consumer-closure.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/storage-consumer-closure.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5129,7 +5144,7 @@
     {
       "id": "coordinator:integration:coordinator-task-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/coordinator-task-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/coordinator-task-execution.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5240,7 +5255,7 @@
     {
       "id": "coordinator:integration:docker-effect-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/docker-effect-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/docker-effect-dispatch.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5385,7 +5400,7 @@
     {
       "id": "coordinator:integration:docker-recovery-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/docker-recovery-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/docker-recovery.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5405,7 +5420,7 @@
     {
       "id": "coordinator:integration:external-send-policy-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/external-send-policy-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/external-send-policy-binding.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5508,7 +5523,7 @@
     {
       "id": "domain-model:integration:runtime-history",
       "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/integration/runtime-history.contract.test.ts",
+      "path": "40_Develop/execution-model/tests/integration/operation-history.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5757,7 +5772,7 @@
     {
       "id": "coordinator:integration:repository-operation-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/repository-operation-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/repository-operation.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5770,6 +5785,7 @@
       "humanInput": false,
       "postconditions": [
         "boundary_result_observed",
+        "single_git_layout_observation_for_storage_location",
         "owned_resources_settled_or_reported"
       ],
       "mandatoryByDefault": true
@@ -5796,8 +5812,8 @@
     },
     {
       "id": "coordinator:integration:repository-workspace-runtime",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/repository-workspace-runtime.contract.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/workspace-operation.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5812,6 +5828,7 @@
       "humanInput": false,
       "postconditions": [
         "boundary_result_observed",
+        "linked_checkout_does_not_require_owner_head",
         "owned_resources_settled_or_reported"
       ],
       "mandatoryByDefault": true
@@ -5819,7 +5836,7 @@
     {
       "id": "coordinator:integration:runtime-process-safety-state",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/runtime-process-safety-state.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/execution-process-safety.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5841,7 +5858,7 @@
     {
       "id": "coordinator:integration:runtime-traceability",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/runtime-traceability.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/execution-traceability.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -6118,6 +6135,7 @@
       "postconditions": [
         "authorized_projection_only",
         "authorized_repository_write_only",
+        "project_context_does_not_require_git_layout",
         "project_identity_bound",
         "unknown_body_stops_whole_result",
         "request_reauthorization",
@@ -6660,8 +6678,8 @@
     },
     {
       "id": "orchestrator:integration:workspace-lifecycle",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/workspace-lifecycle.integration.test.ts",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/workspace-lifecycle.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -6689,7 +6707,7 @@
     {
       "id": "orchestrator:integration:runtime-activity",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/runtime-activity.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/execution-activity.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -6709,7 +6727,8 @@
         "closed_reason_and_event_order",
         "legacy_binding_bytes_preserved",
         "unknown_not_empty_success",
-        "no_cursor_for_unknown_revision",
+        "cursor_survives_head_change_and_unborn_repository",
+        "cursor_rejected_for_changed_sources_or_unobservable_root",
         "owned_fixture_absent"
       ],
       "mandatoryByDefault": true
@@ -6996,7 +7015,7 @@
     {
       "id": "coordinator:unit:node-runtime-version",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/runtime-version.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/node-version.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -7380,7 +7399,7 @@
     {
       "id": "coordinator:unit:runtime-trace-case",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/runtime-trace-case.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution-trace-case.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -7607,6 +7626,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "workbench:integration:http-transport",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/workbench-http.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["workbench", "http", "route", "openapi"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["route_allowlist_preserved", "docs_opt_in", "listener_absent"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "workbench:integration:production-shell",
       "owner": "crdd-server",
       "path": "40_Develop/crdd-server/tests/integration/workbench-server.contract.test.ts",
@@ -7668,6 +7700,7 @@
         "ai_result_external_text_escaped",
         "repository_selection_and_technical_catalog_separated",
         "repository_selection_cas_save",
+        "git_ignore_unconfirmed_prevents_configuration_save",
         "runtime_activity_current_projection_only",
         "runtime_activity_current_revision_exact",
         "runtime_state_query_initialization_effect_absent",
@@ -7724,8 +7757,8 @@
     },
     {
       "id": "workbench:integration:artifact-presentation",
-      "owner": "crdd-server",
-      "path": "40_Develop/crdd-server/tests/integration/artifact-presentation.contract.test.ts",
+      "owner": "workbench-ui",
+      "path": "40_Develop/workbench-ui/tests/integration/artifact-presentation.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -7743,8 +7776,22 @@
       "postconditions": [
         "artifact_model_closed",
         "artifact_repository_correlated",
-        "artifact_utf8_capacity_bounded"
+        "artifact_original_text_preserved_without_capacity_guard"
       ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:integration:view-response",
+      "owner": "workbench-ui",
+      "path": "40_Develop/workbench-ui/tests/integration/view-response.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["workbench", "closed-model", "view-response"],
+      "environment": "fixed_system_runtime",
+      "executionProfiles": ["restricted_process"],
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["invalid_view_rejected_before_rendering", "view_states_and_correlations_preserved"],
       "mandatoryByDefault": true
     },
     {
@@ -7802,6 +7849,7 @@
         "publication_confirmation_required",
         "normal_push_local_remote_observed",
         "post_effect_access_loss_result_unconfirmed",
+        "post_effect_git_layout_loss_result_unconfirmed",
         "git_effect_once",
         "unknown_result_no_retry",
         "owned_fixture_absent"
@@ -7833,7 +7881,7 @@
         "artifact_selected_root_exact",
         "artifact_catalog_allowlist",
         "artifact_realpath_boundary",
-        "artifact_capacity_before_and_after_read",
+        "artifact_original_text_preserved_without_capacity_guard",
         "artifact_current_authorization_before_publication",
         "cancelled_reader_joined",
         "cancelled_success_body_zero",
@@ -7861,18 +7909,17 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "catalog_extra_field_rejected",
-        "duplicate_identity_rejected",
-        "unregistered_model_rejected",
-        "ambiguous_selection_rejected",
+        "closed_selection_snapshot_rejects_extra_missing_or_legacy_fields",
+        "missing_and_blocked_selection_distinguished",
+        "save_result_distinguishes_saved_conflict_unknown",
         "submitted_mutation_result_correlated"
       ],
       "mandatoryByDefault": true
     },
     {
       "id": "workbench:system:credential-browser",
-      "owner": "crdd-server",
-      "path": "40_Develop/crdd-server/tests/system/credential-administration-browser.contract.test.ts",
+      "owner": "workbench-ui",
+      "path": "40_Develop/workbench-ui/tests/system/credential-administration-browser.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -7963,8 +8010,8 @@
     },
     {
       "id": "workbench:system:actual-browser-visual",
-      "owner": "crdd-server",
-      "path": "40_Develop/crdd-server/tests/system/workbench-visual.integration.test.ts",
+      "owner": "workbench-ui",
+      "path": "40_Develop/workbench-ui/tests/system/workbench-visual.integration.test.ts",
       "level": "system",
       "kind": "integration",
       "semanticTags": [
@@ -8085,7 +8132,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-provider-executor",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/advice-runtime-result.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/advice-execution-result.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8456,7 +8503,7 @@
     {
       "id": "coordinator:integration:runtime-fixed-text",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/runtime-fixed-text.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/fixed-distribution-text.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -8475,7 +8522,7 @@
     {
       "id": "docker-isolation:integration:restart-runtime",
       "owner": "docker-isolation",
-      "path": "40_Develop/docker-isolation/tests/integration/restart-runtime.contract.test.ts",
+      "path": "40_Develop/docker-isolation/tests/integration/desktop-restart.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -8545,7 +8592,7 @@
     {
       "id": "domain-model:integration:runtime-publication-reentry",
       "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/integration/runtime-publication-reentry.contract.test.ts",
+      "path": "40_Develop/execution-model/tests/integration/publication-reentry.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -8594,7 +8641,7 @@
     {
       "id": "coordinator:integration:docker-restart-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/docker-restart-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/docker-restart.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -8657,7 +8704,7 @@
     {
       "id": "docker-isolation:integration:repair-runtime",
       "owner": "docker-isolation",
-      "path": "40_Develop/docker-isolation/tests/integration/repair-runtime.contract.test.ts",
+      "path": "40_Develop/docker-isolation/tests/integration/desktop-repair.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -8718,7 +8765,7 @@
     {
       "id": "coordinator:integration:runtime-repair-result",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/runtime-repair-result.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/docker-repair-result.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -8746,7 +8793,7 @@
     {
       "id": "coordinator:integration:runtime-repair-owner",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/runtime-repair-owner.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/docker-repair-owner.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -8763,6 +8810,8 @@
       "humanInput": false,
       "postconditions": [
         "result_observed",
+        "repair_outcome_recorded_after_head_change",
+        "repair_history_and_completion_not_confirmed_after_head_change",
         "test_root_absent"
       ],
       "mandatoryByDefault": true
@@ -8789,7 +8838,7 @@
     {
       "id": "coordinator:integration:runtime-retirement",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/runtime-retirement.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/legacy-signature-retirement.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -9108,6 +9157,7 @@
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
+        "registration-directory-observation-after-authorization",
         "state-storage",
         "revision-conflict",
         "bounded-input",
@@ -10030,7 +10080,7 @@
     {
       "id": "domain-model:integration:runtime-repository",
       "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/integration/runtime-repository.contract.test.ts",
+      "path": "40_Develop/execution-model/tests/integration/storage-repository.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10043,6 +10093,9 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
+        "physical_area_observed_and_created_without_git",
+        "definition_crud_uses_supplied_directory_without_git",
+        "recovery_read_uses_supplied_directory_and_rejects_expired_context",
         "repository_root_exact",
         "unknown_not_absent",
         "rejection_preserves_state",
@@ -10053,7 +10106,7 @@
     {
       "id": "domain-model:integration:runtime-core-crud",
       "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/integration/runtime-core-crud.contract.test.ts",
+      "path": "40_Develop/execution-model/tests/integration/core-crud.contract.test.ts",
       "executionProfiles": [
         "restricted_process",
         "windows_process_control"
@@ -10176,7 +10229,7 @@
     {
       "id": "domain-model:integration:runtime-kernel-lock",
       "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/integration/runtime-kernel-lock.contract.test.ts",
+      "path": "40_Develop/execution-model/tests/integration/state-lock.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10198,7 +10251,7 @@
     {
       "id": "domain-model:integration:runtime-snapshot-lock",
       "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/integration/runtime-snapshot-lock.contract.test.ts",
+      "path": "40_Develop/execution-model/tests/integration/snapshot-lock.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10221,7 +10274,7 @@
     {
       "id": "domain-model:integration:runtime-snapshot-io",
       "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/integration/runtime-snapshot-io.contract.test.ts",
+      "path": "40_Develop/execution-model/tests/integration/snapshot-io.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10267,7 +10320,7 @@
     {
       "id": "domain-model:unit:runtime-codec",
       "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/unit/storage/runtime-codec.contract.test.ts",
+      "path": "40_Develop/execution-model/tests/unit/storage/state-codec.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -10290,7 +10343,7 @@
     {
       "id": "domain-model:integration:runtime-settlement",
       "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/integration/runtime-settlement.contract.test.ts",
+      "path": "40_Develop/execution-model/tests/integration/operation-settlement.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10316,7 +10369,7 @@
     {
       "id": "domain-model:integration:runtime-repair-storage",
       "owner": "execution-model",
-      "path": "40_Develop/execution-model/tests/integration/runtime-repair-storage.contract.test.ts",
+      "path": "40_Develop/execution-model/tests/integration/docker-repair-storage.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10388,7 +10441,7 @@
     {
       "id": "workbench:integration:runtime-definition",
       "owner": "crdd-server",
-      "path": "40_Develop/crdd-server/tests/integration/http-runtime-definition.contract.test.ts",
+      "path": "40_Develop/crdd-server/tests/integration/http-execution-definition.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10405,7 +10458,9 @@
         "result_observed",
         "rejection_preserves_state",
         "lock_release_observed",
-        "authorized_content_access_passed_to_execution_model_unchanged"
+        "authorized_directory_is_bound_to_execution_model_after_git_verification",
+        "existing_plan_updates_without_head_read",
+        "git_ignore_is_registered_only_after_valid_initialization"
       ],
       "mandatoryByDefault": true
     },
@@ -10708,9 +10763,43 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "workbench:integration:ai-client-correlation",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/workbench-ai-client.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["workbench", "ai-verification-client", "request-correlation"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["same_request_result_observed", "unknown_cleanup_prevents_retry"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:integration:ai-http",
+      "owner": "crdd-server",
+      "path": "40_Develop/crdd-server/tests/integration/workbench-ai-http.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "workbench",
+        "http",
+        "request-correlation"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "same_request_result_observed",
+        "start_not_retried",
+        "listener_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "executor:integration:task-summary-observation",
       "owner": "crdd-server",
-      "path": "40_Develop/crdd-server/tests/integration/task-summary-observation.contract.test.ts",
+      "path": "40_Develop/crdd-server/tests/integration/diagnostic/task-summary-observation.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10794,7 +10883,7 @@
     {
       "id": "coordinator:integration:runtime-data-protection",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/runtime-data-protection.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/repository-storage-protection.contract.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -10913,7 +11002,7 @@
     {
       "id": "executor:integration:fixed-runtime",
       "owner": "executor",
-      "path": "40_Develop/executor/tests/integration/fixed-runtime.contract.test.ts",
+      "path": "40_Develop/executor/tests/integration/fixed-execution.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [

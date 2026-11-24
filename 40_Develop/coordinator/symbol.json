@@ -4,6 +4,24 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.workspace.execution-target",
+      "kind": "file",
+      "path": "src/lifecycle/workspace.ts",
+      "archIds": ["ARCH-000004", "ARCH-000005"]
+    },
+    {
+      "symbolId": "coordinator.verification.recovery-repository",
+      "kind": "file",
+      "path": "tests/support/recovery-repository.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "coordinator.verification.git-test-area",
+      "kind": "file",
+      "path": "tests/support/verification-area.ts",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
       "symbolId": "coordinator.test.unit.executor-resource-record",
       "kind": "test-suite",
       "path": "tests/unit/execution/resource-record.contract.test.ts",
@@ -50,15 +68,6 @@
       "path": "src/lifecycle/environment.ts",
       "archIds": [
         "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.workspace.git",
-      "kind": "file",
-      "path": "src/lifecycle/workspace.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000009"
       ]
     },
     {
@@ -221,7 +230,7 @@
     {
       "symbolId": "coordinator.test.integration.runtime-retirement",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-retirement.contract.test.ts",
+      "path": "tests/integration/legacy-signature-retirement.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -236,7 +245,7 @@
     {
       "symbolId": "coordinator.test.integration.runtime-assets",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-assets.contract.test.ts",
+      "path": "tests/integration/isolation-assets.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -335,7 +344,7 @@
     {
       "symbolId": "coordinator.test.integration.runtime-repair-result",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-repair-result.contract.test.ts",
+      "path": "tests/integration/docker-repair-result.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -363,7 +372,7 @@
     {
       "symbolId": "coordinator.test.integration.runtime-repair-owner",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-repair-owner.contract.test.ts",
+      "path": "tests/integration/docker-repair-owner.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -388,7 +397,7 @@
     {
       "symbolId": "coordinator.test.integration.runtime-fixed-text",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-fixed-text.contract.test.ts",
+      "path": "tests/integration/fixed-distribution-text.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -476,7 +485,7 @@
     {
       "symbolId": "coordinator.test.integration.coordinator-state-runtime",
       "kind": "test-suite",
-      "path": "tests/integration/coordinator-state-runtime.contract.test.ts",
+      "path": "tests/integration/coordinator-state-storage.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -792,7 +801,7 @@
     {
       "symbolId": "coordinator.test.integration.coordinator-task-runtime",
       "kind": "test-suite",
-      "path": "tests/integration/coordinator-task-runtime.contract.test.ts",
+      "path": "tests/integration/coordinator-task-execution.contract.test.ts",
       "qaIds": [
         "QA-000003",
         "QA-000005",
@@ -834,7 +843,7 @@
     {
       "symbolId": "coordinator.test.integration.docker-effect-runtime",
       "kind": "test-suite",
-      "path": "tests/integration/docker-effect-runtime.contract.test.ts",
+      "path": "tests/integration/docker-effect-dispatch.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -888,7 +897,7 @@
     {
       "symbolId": "coordinator.test.integration.docker-recovery-runtime",
       "kind": "test-suite",
-      "path": "tests/integration/docker-recovery-runtime.contract.test.ts",
+      "path": "tests/integration/docker-recovery.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -909,7 +918,7 @@
     {
       "symbolId": "coordinator.test.integration.external-send-policy-runtime",
       "kind": "test-suite",
-      "path": "tests/integration/external-send-policy-runtime.contract.test.ts",
+      "path": "tests/integration/external-send-policy-binding.contract.test.ts",
       "qaIds": [
         "QA-000009"
       ],
@@ -1155,7 +1164,7 @@
     {
       "symbolId": "coordinator.test.integration.repository-operation-runtime",
       "kind": "test-suite",
-      "path": "tests/integration/repository-operation-runtime.contract.test.ts",
+      "path": "tests/integration/repository-operation.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1182,32 +1191,9 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.integration.repository-workspace-runtime",
-      "kind": "test-suite",
-      "path": "tests/integration/repository-workspace-runtime.contract.test.ts",
-      "qaIds": [
-        "QA-000003",
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "PRL-IT-013",
-        "RFD-IT-013"
-      ],
-      "verifies": [
-        "coordinator.workspace.git",
-        "version-control.repository.commit",
-        "version-control.repository.reference",
-        "version-control.repository.merge",
-        "coordinator.source.src.security.execution.environment",
-        "coordinator.source.src.security.repository.operation.runtime",
-        "coordinator.source.src.security.repository.workspace.runtime",
-        "coordinator.source.repository-operation.borrowed-workspace"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.integration.runtime-process-safety-state",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-process-safety-state.contract.test.ts",
+      "path": "tests/integration/execution-process-safety.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1222,7 +1208,7 @@
     {
       "symbolId": "coordinator.test.integration.runtime-traceability",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-traceability.contract.test.ts",
+      "path": "tests/integration/execution-traceability.contract.test.ts",
       "qaIds": [
         "QA-000004"
       ],
@@ -1686,7 +1672,7 @@
     {
       "symbolId": "coordinator.test.unit.node-runtime-version",
       "kind": "test-suite",
-      "path": "tests/unit/execution/runtime-version.contract.test.ts",
+      "path": "tests/unit/execution/node-version.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1873,7 +1859,7 @@
     {
       "symbolId": "coordinator.test.unit.workbench-ai-advice-provider-executor",
       "kind": "test-suite",
-      "path": "tests/unit/execution/advice-runtime-result.contract.test.ts",
+      "path": "tests/unit/execution/advice-execution-result.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -1982,7 +1968,7 @@
     {
       "symbolId": "coordinator.test.unit.runtime-trace-case",
       "kind": "test-suite",
-      "path": "tests/unit/runtime-trace-case.contract.test.ts",
+      "path": "tests/unit/execution-trace-case.contract.test.ts",
       "qaIds": [
         "QA-000004"
       ],
@@ -1996,7 +1982,7 @@
     {
       "symbolId": "coordinator.test.support.runtime-trace-case",
       "kind": "file",
-      "path": "tests/support/runtime-trace-case.ts",
+      "path": "tests/support/execution-trace-case.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2040,8 +2026,8 @@
         "ERB-IT-014"
       ],
       "verifies": [
-        "coordinator.host-execution.kernel-lock",
-        "docker-isolation.desktop.restart-machine"
+        "docker-isolation.desktop.restart-machine",
+        "docker-isolation.source.desktop-command"
       ]
     },
     {
@@ -2087,7 +2073,7 @@
     {
       "symbolId": "coordinator.test.integration.docker-restart-runtime",
       "kind": "test-suite",
-      "path": "tests/integration/docker-restart-runtime.contract.test.ts",
+      "path": "tests/integration/docker-restart.contract.test.ts",
       "qaIds": [
         "QA-000003",
         "QA-000006"
@@ -2389,7 +2375,7 @@
     {
       "symbolId": "coordinator.source.src.core.runtime.traceability",
       "kind": "file",
-      "path": "tests/support/runtime-traceability.ts",
+      "path": "tests/support/execution-traceability.ts",
       "archIds": [
         "ARCH-000018"
       ]
@@ -2672,23 +2658,6 @@
       ]
     },
     {
-      "symbolId": "orchestrator.test.workspace-acceptance-record",
-      "kind": "test-suite",
-      "path": "tests/unit/workspace/acceptance-record.contract.test.ts",
-      "qaIds": [
-        "QA-000005",
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "CPR-UT-009",
-        "RFD-UT-030"
-      ],
-      "verifies": [
-        "orchestrator.workspace.operations",
-        "orchestrator.workspace.commands"
-      ]
-    },
-    {
       "symbolId": "orchestrator.test.task-requests",
       "kind": "test-suite",
       "path": "tests/unit/task/requests.contract.test.ts",
@@ -2713,58 +2682,11 @@
       ]
     },
     {
-      "symbolId": "orchestrator.workspace.commands",
-      "kind": "file",
-      "path": "src/lifecycle/workspace.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000012"
-      ]
-    },
-    {
       "symbolId": "orchestrator.workspace.record",
       "kind": "file",
       "path": "src/lifecycle/validation.ts",
       "archIds": [
         "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.workspace.operations",
-      "kind": "file",
-      "path": "src/lifecycle/workspace.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000009"
-      ],
-      "implements": [
-        "orchestrator.candidate-adoption"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.test.integration.workspace-lifecycle",
-      "kind": "test-suite",
-      "path": "tests/integration/workspace-lifecycle.integration.test.ts",
-      "qaIds": [
-        "QA-000003",
-        "QA-000005",
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "CPR-IT-001",
-        "CPR-IT-004",
-        "CPR-IT-006",
-        "PRL-IT-011",
-        "PRL-IT-012",
-        "PRL-IT-013",
-        "RFD-IT-029"
-      ],
-      "verifies": [
-        "orchestrator.workspace.record",
-        "orchestrator.workspace.operations",
-        "orchestrator.workspace.commands",
-        "orchestrator.objective-intake",
-        "coordinator.test.fixture.workspace-surface"
       ]
     },
     {
@@ -2814,7 +2736,7 @@
     {
       "symbolId": "orchestrator.test.integration.runtime-activity",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-activity.contract.test.ts",
+      "path": "tests/integration/execution-activity.contract.test.ts",
       "qaIds": [
         "QA-000004"
       ],
@@ -3539,7 +3461,7 @@
     {
       "symbolId": "coordinator.test.integration.runtime-data-protection",
       "kind": "test-suite",
-      "path": "tests/integration/runtime-data-protection.contract.test.ts",
+      "path": "tests/integration/repository-storage-protection.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -3699,27 +3621,6 @@
       "path": "tests/fixtures/docker-owned-process-test-support.ts",
       "archIds": [
         "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "runtime-data.test.integration.consumer-closure",
-      "kind": "test-suite",
-      "path": "tests/integration/storage-consumer-closure.integration.test.ts",
-      "qaIds": [
-        "QA-000008"
-      ],
-      "localTestIds": [
-        "RDL-IT-001"
-      ],
-      "verifies": [
-        "coordinator.host-execution.kernel-lock",
-        "coordinator.source.src.configuration.runtime-data",
-        "coordinator.source.src.security.repository.operation.runtime",
-        "coordinator.source.src.security.docker.recovery.runtime",
-        "domain-model.attempt.settlement",
-        "access-management.public-api",
-        "crdd-domain-library.repository-entry",
-        "domain-model.configuration-entry"
       ]
     },
     {

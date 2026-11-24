@@ -9,13 +9,60 @@
  * @boundary 失敗保全はmemory依存、本番入口は専用TEMPと実Node Filesystem境界。
  */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs, { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
+import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
+import {
+  classifyOwnedOperationDirectoryCreationFailure,
+  cleanupOwnedOperationDirectories,
+  createCoordinatorOperation,
+  getOwnedHostRecoveryId,
+} from "../../src/lifecycle/host.ts";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+
+/**
+ * 現行Hostの作業先となる試験専用Gitリポジトリを用意する。
+ * @trace ERB-IT-003
+ * @boundary 操作対象は既存fixtureが作成した試験Rootだけ。
+ */
+function hostNamespaceFixture(t: test.TestContext) {
+  const directory = createRepositoryTestDirectory("node-host-namespace-");
+  t.after(directory.cleanup);
+  const git = (...args: string[]) =>
+    execFileSync("git", ["-C", directory.path, ...args], { windowsHide: true });
+  git("init", "--quiet");
+  git(
+    "-c",
+    "user.name=CRDD Test",
+    "-c",
+    "user.email=test@example.invalid",
+    "-c",
+    "commit.gpgsign=false",
+    "commit",
+    "--allow-empty",
+    "--quiet",
+    "-m",
+    "fixture",
+  );
+  const verified = getRepository(directory.path);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed")
+    throw Error("fixture_repository_invalid");
+  return {
+    root: directory.path,
+    parent: path.join(directory.path, ".crdd", "coordinator"),
+    input: {
+      root: verified.capability,
+      purpose: "isolation_probe" as const,
+      recordingCurrent: () => true,
+    },
+  };
+}
 
 /**
  * 既存Node Ownerの正常系を、新規Repository-local領域と子Processに隔離する。
@@ -203,87 +250,120 @@ import { runDoctor, REQUIRED_CHECK_IDS } from ${JSON.stringify(new URL("../../sr
  */
 test("production Operationは実Directory producerのexact Host Recovery IDを公開する", {
   timeout: 120_000,
-}, () => {
-  runNodeNamespaceCase(`
-import assert from "node:assert/strict";
-import { createRuntimeOwnedCoordinatorOperation, cleanupOwnedOperationDirectories, getOwnedHostRecoveryId } from ${JSON.stringify(new URL("../../src/lifecycle/host.ts", import.meta.url).href)};
-
+}, (t) => {
+  const { input, parent } = hostNamespaceFixture(t);
+  const seen = new Set<string>();
   for (let attempt = 0; attempt < 2; attempt++) {
-  const created = createRuntimeOwnedCoordinatorOperation();
-  try {
-    assert.equal(getOwnedHostRecoveryId(created.owned), created.hostRecoveryId);
-    assert.match(
-      created.hostRecoveryId,
-      /^host\\.[a-z0-9-]+\\.[0-9a-f-]{36}\\.[a-f0-9]{64}$/u,
-    );
-  } finally {
-    cleanupOwnedOperationDirectories(created.owned);
+    const created = createCoordinatorOperation(input);
+    try {
+      assert.equal(
+        getOwnedHostRecoveryId(created.owned),
+        created.hostRecoveryId,
+      );
+      assert.equal(
+        created.hostRecoveryId,
+        `host-operation.${created.operationId}`,
+      );
+      assert.match(created.hostRecoveryId, /^host-operation\.OP-[0-9]+$/u);
+      assert.equal(created.owned.root, path.join(parent, created.operationId));
+      assert.ok(!seen.has(created.hostRecoveryId));
+      seen.add(created.hostRecoveryId);
+    } finally {
+      cleanupOwnedOperationDirectories(created.owned);
+      assert.equal(fs.existsSync(created.owned.root), false);
+    }
   }
-  }
-`);
 });
 
 /**
- * 本番Node入口が固定childの不正実体を拒否し、部分生成を元の分類で回収する。
+ * 本番の新しいCoordinator親で不正実体の保全と自己生成物の回収を確認する。
  * @trace ERB-IT-003
- * @precondition 自己生成の専用TEMPだけを使用する。
- * @stimulus 固定childのFile／junctionと、子Directory生成失敗を与える。
- * @observation 本番作成失敗の分類、既存実体不変、記録・Rootの残存。
- * @oracle 不正childは清掃未確認・IDなし、回収済み部分生成はclean。Nativeへ迂回しない。
- * @cleanup 自作のFile／junction／空targetだけを元実体と照合して除去する。
- * @boundary 本番Operation→実Node Filesystem。
+ * @precondition 毎回独立した試験Repositoryと固定の試験資源を使う。
+ * @stimulus 親をFileまたはlinkにし、別Caseで子の作成を一度失敗させる。
+ * @observation 既存実体、link先、失敗分類と新規作業領域の有無。
+ * @oracle 既存実体へ書かず、部分作成が回収済みのときだけ回収成功を返す。
+ * @cleanup 自己生成のlinkを明示解除し、残りは今回のfixtureだけを回収する。
+ * @boundary 本番OperationとNode Filesystem。実AI・Dockerは使わない。
  */
 test("production Operationは不正Namespaceと部分生成失敗を既存分類へ返す", {
   timeout: 120_000,
-}, () => {
-  runNodeNamespaceCase(`
-import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { createRuntimeOwnedCoordinatorOperation, classifyOwnedOperationDirectoryCreationFailure } from ${JSON.stringify(new URL("../../src/lifecycle/host.ts", import.meta.url).href)};
-const parent = fs.realpathSync(os.tmpdir());
-const directory = path.join(parent, "crdd-coordinator-recovery-v1");
-function reject(expected) {
-  assert.throws(() => createRuntimeOwnedCoordinatorOperation(), error => {
-    assert.deepEqual(classifyOwnedOperationDirectoryCreationFailure(error), expected);
-    return true;
-  });
-  assert.deepEqual(fs.readdirSync(parent).filter(name => name.startsWith("crdd-coordinator-doctor-")), []);
-}
-const refused = { cleanupConfirmed: false, manualRecoveryRequired: true, hostRecoveryId: null };
-fs.writeFileSync(directory, "owned-fixture", { flag: "wx" });
-const file = fs.lstatSync(directory);
-reject(refused);
-assert.equal(fs.readFileSync(directory, "utf8"), "owned-fixture");
-assert.equal(fs.lstatSync(directory).ino, file.ino);
-fs.unlinkSync(directory);
-const target = path.join(parent, "link-target");
-fs.mkdirSync(target);
-const targetIdentity = fs.lstatSync(target);
-fs.symlinkSync(target, directory, process.platform === "win32" ? "junction" : "dir");
-assert.equal(fs.lstatSync(directory).isSymbolicLink(), true);
-reject(refused);
-assert.equal(fs.realpathSync(directory), fs.realpathSync(target));
-fs.unlinkSync(directory);
-const currentTarget = fs.lstatSync(target);
-assert.equal(currentTarget.isDirectory() && !currentTarget.isSymbolicLink(), true);
-assert.equal(currentTarget.dev, targetIdentity.dev);
-assert.equal(currentTarget.ino, targetIdentity.ino);
-assert.deepEqual(fs.readdirSync(target), []);
-fs.rmdirSync(target);
-const mkdir = fs.mkdirSync;
-try {
-  fs.mkdirSync = (target, options) => {
-    if (path.basename(String(target)) === "management") throw new Error("fixture_child_creation");
-    return mkdir(target, options);
-  };
-  reject({ cleanupConfirmed: true, manualRecoveryRequired: false, hostRecoveryId: null });
-} finally {
-  fs.mkdirSync = mkdir;
-}
-assert.deepEqual(fs.readdirSync(directory), []);
-`);
+}, async (t) => {
+  for (const scenario of ["file", "link", "partial"] as const) {
+    await t.test(scenario, (sub) => {
+      const { input, parent, root } = hostNamespaceFixture(sub);
+      fs.mkdirSync(path.dirname(parent));
+      const target = path.join(root, "link-target");
+      let original: fs.Stats | null = null;
+      let injected = false;
+      let mkdirMock: ReturnType<typeof sub.mock.method> | undefined;
+      if (scenario === "file") {
+        fs.writeFileSync(parent, "owned-fixture", { flag: "wx" });
+        original = fs.lstatSync(parent);
+      } else if (scenario === "link") {
+        fs.mkdirSync(target);
+        fs.symlinkSync(
+          target,
+          parent,
+          process.platform === "win32" ? "junction" : "dir",
+        );
+        original = fs.lstatSync(target);
+      } else {
+        const mkdir = fs.mkdirSync;
+        mkdirMock = sub.mock.method(
+          fs,
+          "mkdirSync",
+          (...args: Parameters<typeof fs.mkdirSync>) => {
+            if (!injected && path.basename(String(args[0])) === "management") {
+              injected = true;
+              throw Error("fixture_child_creation");
+            }
+            return Reflect.apply(mkdir, fs, args);
+          },
+        );
+      }
+      try {
+        assert.throws(
+          () => createCoordinatorOperation(input),
+          (error) => {
+            const result =
+              classifyOwnedOperationDirectoryCreationFailure(error);
+            assert.ok(result);
+            assert.equal(
+              result.manualRecoveryRequired,
+              !result.cleanupConfirmed,
+            );
+            if (scenario === "partial")
+              assert.equal(result.cleanupConfirmed, true);
+            if (!result.cleanupConfirmed)
+              assert.match(
+                result.hostRecoveryId ?? "",
+                /^host-operation\.OP-[0-9]+$/u,
+              );
+            return true;
+          },
+        );
+        if (scenario === "file") {
+          assert.equal(fs.readFileSync(parent, "utf8"), "owned-fixture");
+          assert.equal(fs.lstatSync(parent).ino, original?.ino);
+        } else if (scenario === "link") {
+          assert.equal(fs.realpathSync(parent), target);
+          assert.equal(fs.lstatSync(target).ino, original?.ino);
+          assert.deepEqual(fs.readdirSync(target), []);
+        } else {
+          assert.equal(injected, true);
+          assert.deepEqual(fs.readdirSync(parent), []);
+        }
+      } finally {
+        mkdirMock?.mock.restore();
+        if (
+          scenario === "link" &&
+          fs.lstatSync(parent).isSymbolicLink() &&
+          fs.realpathSync(parent) === target
+        )
+          fs.unlinkSync(parent);
+      }
+    });
+  }
 });
 
 /**
@@ -296,10 +376,11 @@ test("通常producerは既存NodeのDirectory Ownerへ直接接続する", () =>
     new URL("../../src/lifecycle/host.ts", import.meta.url),
     "utf8",
   );
-  assert.match(source, /createDirectories: createOwnedOperationDirectories,/u);
-  assert.equal(source.includes("initializeWindowsHostRecordNamespace"), false);
-  assert.equal(
-    source.includes("createProtectedRuntimeOwnedOperationDirectories"),
-    false,
+  const producer = sourceDeclaration(source, "createCoordinatorOperation");
+  assert.match(
+    producer,
+    /const owned = createOwnedOperationDirectories\(input\);/u,
   );
+  assert.equal(source.includes("initializeWindowsHostRecordNamespace"), false);
+  assert.equal(source.includes("createProtectedOperationDirectories"), false);
 });

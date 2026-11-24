@@ -23,6 +23,7 @@ type GitExecutionOptions = Readonly<{
 export function inspectGitExternalFilters(
   root: string,
   options: GitExecutionOptions,
+  includeCheckout = false,
 ): SpawnSyncReturns<Buffer> {
   return executeGit(
     root,
@@ -32,7 +33,9 @@ export function inspectGitExternalFilters(
       "--null",
       "--name-only",
       "--get-regexp",
-      "^filter\\..*\\.(clean|process)$",
+      includeCheckout
+        ? "^filter\\..*\\.(clean|smudge|process)$"
+        : "^filter\\..*\\.(clean|process)$",
     ],
     options,
   );

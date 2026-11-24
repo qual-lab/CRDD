@@ -84,7 +84,7 @@ test("回復Matrixは署名資格を要求せずNode境界と七形を保持す�
   );
   assert.doesNotMatch(
     source,
-    /package-verification\.ts|issueRuntimeOwnedVerifiedCoordinatorPackageCapability|qualLabManifestCryptographicMatch|verifySignedPackagePrerequisite/u,
+    /package-verification\.ts|issueVerifiedCoordinatorPackageCapability|qualLabManifestCryptographicMatch|verifySignedPackagePrerequisite/u,
   );
   const classBody = source.slice(
     source.indexOf("class RecoveryMatrixFailure"),

@@ -48,7 +48,7 @@ import type {
   ExecutionRecord,
   HomeLease,
   PrimaryFailureDiagnostic,
-  RuntimeState,
+  AttemptState,
   AttemptDiagnosticNotice,
   CompletionResultInput,
   AttemptStartResult,
@@ -179,7 +179,7 @@ const BLOCKED_COMPLETION_REASONS = new Set<string>(ATTEMPT_COMPLETION_REASONS);
  * @concurrency executeAttemptは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 async function executeAttempt(
-  state: RuntimeState,
+  state: AttemptState,
   record: ExecutionRecord,
   plan: AttemptPlan,
   recovery: AttemptReference,
@@ -864,7 +864,7 @@ async function executeAttempt(
  * @concurrency 同じControlだけが取消とcompletionを共有する。
  */
 export function start(
-  state: RuntimeState,
+  state: AttemptState,
   plan: AttemptPlan,
   managementCapability: unknown,
   recovery: AttemptReference,
@@ -975,7 +975,7 @@ export function start(
  * @concurrency 取消印をawait前に確定し、通常完了と清掃は元completionへjoinする。
  */
 export async function cancel(
-  state: Pick<RuntimeState, "controls">,
+  state: Pick<AttemptState, "controls">,
   controlCapability: unknown,
   managementCapability: unknown,
 ) {
@@ -1008,7 +1008,7 @@ export async function cancel(
  * @concurrency 再入・重複呼出しで同じLeaseへのreleaseを追加発行しない。
  */
 export function abandon(
-  state: Pick<RuntimeState, "controls">,
+  state: Pick<AttemptState, "controls">,
   reference: unknown,
   management: unknown,
 ): boolean {
@@ -1083,7 +1083,7 @@ export function createAttemptExecutor(
   const plan = prepareAttempt(random, request, paths);
   if (!plan) return null;
 
-  const state: Pick<RuntimeState, "controls"> = { controls: new WeakMap() };
+  const state: Pick<AttemptState, "controls"> = { controls: new WeakMap() };
   const lifecycle = createLifecycleControl();
   return Object.freeze({
     kind: "attempt" as const,
@@ -1205,6 +1205,7 @@ export function prepareAttempt(
     ...(Object.hasOwn(rawTarget, "workspaceProtection")
       ? ["workspaceProtection"]
       : []),
+    ...(Object.hasOwn(rawTarget, "reviewerMasks") ? ["reviewerMasks"] : []),
   ]);
   if (!targetData || paths.tmp !== targetData.temporarySourcePath) return null;
   for (const key of [
@@ -1236,11 +1237,49 @@ export function prepareAttempt(
       internalSourcePath: value.internalSourcePath,
     });
   }
+  let reviewerMasks: AttemptRequest["target"]["reviewerMasks"];
+  if (Object.hasOwn(targetData, "reviewerMasks")) {
+    const raw = targetData.reviewerMasks;
+    if (
+      captured.purpose !== "task" ||
+      captured.taskRole !== "reviewer" ||
+      !protection ||
+      !Array.isArray(raw) ||
+      types.isProxy(raw) ||
+      Object.getPrototypeOf(raw) !== Array.prototype ||
+      Reflect.ownKeys(raw).length !== raw.length + 1
+    )
+      return null;
+    const copied: NonNullable<typeof reviewerMasks>[number][] = [];
+    for (let i = 0; i < raw.length; i++) {
+      const mask = copyPlainDataRecord(readOwnDataProperty(raw, String(i)), [
+        "relativePath",
+        "kind",
+      ]);
+      if (
+        !mask ||
+        typeof mask.relativePath !== "string" ||
+        (mask.kind !== "file" && mask.kind !== "directory")
+      )
+        return null;
+      copied.push(
+        Object.freeze({ relativePath: mask.relativePath, kind: mask.kind }),
+      );
+    }
+    reviewerMasks = Object.freeze(copied);
+  }
+  if (
+    captured.purpose === "task" &&
+    captured.taskRole === "reviewer" &&
+    !reviewerMasks
+  )
+    return null;
   request = Object.freeze({
     ...captured,
     target: Object.freeze({
       ...targetData,
       ...(protection ? { workspaceProtection: protection } : {}),
+      ...(reviewerMasks ? { reviewerMasks } : {}),
     }),
   }) as AttemptRequest;
   const { target, selection: modelSelection } = request;
@@ -1355,6 +1394,7 @@ export function prepareAttempt(
     adviceAllowedReferences,
     providerInput: task?.input ?? advice?.input ?? null,
     workspaceSourcePath: task ? target.workspaceSourcePath : null,
+    ...(reviewerMasks ? { reviewerMasks } : {}),
     ...(target.workspaceProtection
       ? { workspaceProtection: target.workspaceProtection }
       : {}),
@@ -1627,6 +1667,11 @@ function createIsolationRequest(
               },
             ]
           : []),
+        ...(plan.reviewerMasks ?? []).map(({ relativePath, kind }) => ({
+          source: path.join(paths.management, "reviewer-masks", kind),
+          target: `/work/${relativePath}`,
+          readOnly: true,
+        })),
       ],
     },
     {
@@ -1943,9 +1988,7 @@ export function resolveIsolationCommandInput(
   );
   if (!authenticationEnvironment) return null;
   const seccompProfile =
-    plan.provider === "codex" &&
-    purpose === "task" &&
-    plan.taskRole === "executor"
+    plan.provider === "codex" && purpose === "task"
       ? {
           sha256:
             describeIsolationConfiguration("codex").assets.identity

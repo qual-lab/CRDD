@@ -6,17 +6,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import {
-  type Repository,
-  registerRepositoryLocalIgnore,
-  resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
 
 /** 設定Owner内部だけで固定Pathを作る。任意領域の要求を受け付けない。 */
-export function configurationPaths(repository: Repository) {
-  const repositoryRoot = resolveVerifiedRepositoryRoot(repository);
+export function configurationPaths(repositoryRoot: string | null) {
   if (
-    !repositoryRoot ||
+    typeof repositoryRoot !== "string" ||
     !path.isAbsolute(repositoryRoot) ||
     path.resolve(repositoryRoot) !== repositoryRoot
   )
@@ -30,9 +24,9 @@ export function configurationPaths(repository: Repository) {
 }
 
 /** 読取りだけで真正不存在・境界不正・観測不能を区別する。 */
-export function observeConfigurationDirectory(repository: Repository) {
+export function observeConfigurationDirectory(repositoryRoot: string | null) {
   try {
-    const paths = configurationPaths(repository);
+    const paths = configurationPaths(repositoryRoot);
     if (!paths)
       return Object.freeze({
         status: "blocked" as const,
@@ -40,11 +34,12 @@ export function observeConfigurationDirectory(repository: Repository) {
         effectIssued: false as const,
       });
     const identities: string[] = [];
-    for (const target of [paths.root, paths.config]) {
+    for (const target of [paths.repositoryRoot, paths.root, paths.config]) {
       let metadata: fs.BigIntStats;
       try {
         metadata = fs.lstatSync(target, { bigint: true });
       } catch (error) {
+        if (target === paths.repositoryRoot) throw error;
         if ((error as NodeJS.ErrnoException).code === "ENOENT")
           return Object.freeze({
             status: "not_observed" as const,
@@ -90,44 +85,6 @@ export function observeConfigurationDirectory(repository: Repository) {
       effectIssued: false as const,
     });
   }
-}
-
-/** 設定保存の明示要求だけが既存Ignore登録後に固定Directoryを準備する。 */
-export function ensureConfigurationDirectory(repository: Repository) {
-  const paths = configurationPaths(repository);
-  if (!paths) return null;
-  const ignore = registerRepositoryLocalIgnore(repository, ".crdd/");
-  if (ignore.status !== "registered")
-    return Object.freeze({
-      status: "blocked" as const,
-      reason: "repository_runtime_data_ignore_registration_blocked" as const,
-      effectIssued: ignore.effectIssued,
-      effectStateUnknown: ignore.effectStateUnknown,
-      effectConfirmation: ignore.effectConfirmation,
-      cleanupConfirmed: ignore.cleanupConfirmed,
-      retryAllowed: ignore.retryAllowed,
-      recoveryReference: ignore.recoveryReference,
-      repositoryPathReported: false as const,
-    });
-  for (const target of [paths.root, paths.config]) {
-    try {
-      fs.mkdirSync(target, { mode: 0o700 });
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-    }
-    const metadata = fs.lstatSync(target);
-    if (
-      !metadata.isDirectory() ||
-      metadata.isSymbolicLink() ||
-      fs.realpathSync.native(target) !== target
-    )
-      throw new Error("runtime_data_area_boundary_invalid");
-  }
-  return Object.freeze({
-    status: "ready" as const,
-    repositoryRoot: paths.repositoryRoot,
-    directory: paths.config,
-  });
 }
 
 /**

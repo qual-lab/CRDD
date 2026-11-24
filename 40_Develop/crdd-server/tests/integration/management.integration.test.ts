@@ -26,6 +26,7 @@ import {
   ServerResponse,
 } from "node:http";
 import { syncBuiltinESMExports } from "node:module";
+import { createConnection } from "node:net";
 import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -42,9 +43,7 @@ import {
   type ProjectContextSource,
   readRepositoryProjectContext,
 } from "../../../document-model/src/index.ts";
-import type { Execution } from "../../../execution-intelligence/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
-import { observeLocalListener } from "../../../visual-preview/src/index.ts";
 import { startWorkbench } from "../../src/app.ts";
 import { authenticateLocalConnectionForm } from "../../src/transport/api-server.ts";
 import {
@@ -53,8 +52,35 @@ import {
 } from "../../src/service/project-context.ts";
 import { resolveTopicMeetingAccess } from "../../src/service/topic.ts";
 import { validateTopicMeetingActionForm } from "../../src/transport/api-server.ts";
-import { validateManagementResponse } from "../../../workbench-ui/src/api/response.ts";
-import { validateViewResponse } from "../../../workbench-ui/src/api/response.ts";
+import {
+  assertManagementResponse,
+  assertViewResponse,
+} from "../support/workbench-wire.ts";
+
+/**
+ * 閉じたServerへの再接続が拒否されることを確認する。
+ * @trace RFD-IT-013
+ * @boundary 既存試験が所有するloopback Listenerだけに接続する。
+ */
+async function assertLoopbackClosed(baseUrl: string) {
+  const { hostname, port } = new URL(baseUrl);
+  assert.equal(hostname, "127.0.0.1");
+  const socket = createConnection({ host: hostname, port: Number(port) });
+  try {
+    await assert.rejects(
+      new Promise<void>((resolve, reject) => {
+        socket.once("connect", resolve);
+        socket.once("error", reject);
+        socket.setTimeout(500, () =>
+          reject(new Error("listener_observation_timeout")),
+        );
+      }),
+      { code: "ECONNREFUSED" },
+    );
+  } finally {
+    socket.destroy();
+  }
+}
 
 /**
  * 自己生成Repositoryへ非秘密の活動履歴を準備する。
@@ -103,44 +129,16 @@ function recordFixtureActivity(
         reason: "fixture_duration_not_observed",
       },
       outcome: {
-        status: {
-          status: "completed",
-          reason: "fixture_task_completed",
-          effectState: "settled",
-          cleanupConfirmed: true,
-          manualRecoveryRequired: false,
-          processRestartRequired: false,
-        }.status,
-        reason: {
-          status: "completed",
-          reason: "fixture_task_completed",
-          effectState: "settled",
-          cleanupConfirmed: true,
-          manualRecoveryRequired: false,
-          processRestartRequired: false,
-        }.reason,
+        status: "completed",
+        reason: "fixture_task_completed",
       },
       diagnostic: {
-        cleanupConfirmed: {
-          status: "completed",
-          reason: "fixture_task_completed",
-          effectState: "settled",
-          cleanupConfirmed: true,
-          manualRecoveryRequired: false,
-          processRestartRequired: false,
-        }.cleanupConfirmed,
-        manualRecoveryRequired: {
-          status: "completed",
-          reason: "fixture_task_completed",
-          effectState: "settled",
-          cleanupConfirmed: true,
-          manualRecoveryRequired: false,
-          processRestartRequired: false,
-        }.manualRecoveryRequired,
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
       },
       retention: "standard",
     },
-  } as Execution;
+  } satisfies Parameters<typeof storeFixtureExecution>[1];
   const verified = getRepository(root);
   assert.ok(verified.status === "completed");
   assert.equal(
@@ -439,7 +437,7 @@ for (const mode of ["local", "cros"] as const) {
         localAccessRoot: root,
       });
       try {
-        const access = validateViewResponse(
+        const access = assertViewResponse(
           await (await fetch(`${local.baseUrl}/api/workbench/view`)).json(),
         );
         assert.ok(access.view === "access");
@@ -564,18 +562,18 @@ for (const mode of ["local", "cros"] as const) {
           forbiddenBody,
         ])
           assert.equal(modelText.includes(hidden), false);
-        const connected = validateViewResponse(JSON.parse(modelText));
+        const connected = assertViewResponse(JSON.parse(modelText));
         assert.ok(connected.view === "access");
         assert.equal(connected.authenticated, true);
         assert.deepEqual(connected.portfolio?.projects, []);
-        const otherBrowser = validateViewResponse(
+        const otherBrowser = assertViewResponse(
           await (await fetch(`${local.baseUrl}/api/workbench/view`)).json(),
         );
         assert.ok(otherBrowser.view === "access");
         assert.equal(otherBrowser.authenticated, false);
         assert.equal(otherBrowser.portfolio, null);
         assert.equal(otherBrowser.credentials.state, "not_configured");
-        const actor = validateManagementResponse(
+        const actor = assertManagementResponse(
           await (
             await fetch(`${local.baseUrl}/api/access?view=current`, {
               headers: { authorization: `Bearer ${material.token}` },
@@ -604,7 +602,7 @@ for (const mode of ["local", "cros"] as const) {
           ).status,
           403,
         );
-        const unauthenticatedArtifact = validateViewResponse(
+        const unauthenticatedArtifact = assertViewResponse(
           await (
             await fetch(
               `${local.baseUrl}/api/workbench/view?repositoryId=repository.fixture&route=%2Fchange&id=CHG-000001`,
@@ -631,7 +629,7 @@ for (const mode of ["local", "cros"] as const) {
           ).status,
           200,
         );
-        const disconnected = validateViewResponse(
+        const disconnected = assertViewResponse(
           await (await fetch(`${local.baseUrl}/api/workbench/view`)).json(),
         );
         assert.ok(disconnected.view === "access");
@@ -696,7 +694,7 @@ for (const mode of ["local", "cros"] as const) {
           presentation: "confirmed",
         });
         fs.writeFileSync(current, JSON.stringify(currentState));
-        const revoked = validateViewResponse(
+        const revoked = assertViewResponse(
           await (
             await fetch(`${local.baseUrl}/api/workbench/view`, {
               headers: { authorization: `Bearer ${material.token}` },
@@ -706,7 +704,7 @@ for (const mode of ["local", "cros"] as const) {
         assert.ok(revoked.view === "access");
         assert.equal(revoked.authenticated, false);
         assert.equal(revoked.portfolio, null);
-        const secondActor = validateManagementResponse(
+        const secondActor = assertManagementResponse(
           await (
             await fetch(`${local.baseUrl}/api/access?view=current`, {
               headers: { authorization: `Bearer ${secondMaterial.token}` },
@@ -717,7 +715,7 @@ for (const mode of ["local", "cros"] as const) {
         assert.ok(secondActor.status === "completed" && "user" in secondActor);
         assert.equal(secondActor.user.userId, secondUserId);
         assert.equal(secondActor.user.role, "developer");
-        const secondModel = validateViewResponse(
+        const secondModel = assertViewResponse(
           await (
             await fetch(`${local.baseUrl}/api/workbench/view`, {
               headers: { authorization: `Bearer ${secondMaterial.token}` },
@@ -756,11 +754,11 @@ for (const mode of ["local", "cros"] as const) {
           );
           outgoing.end();
         });
-        const duplicateModel = validateViewResponse(JSON.parse(duplicateBody));
+        const duplicateModel = assertViewResponse(JSON.parse(duplicateBody));
         assert.ok(duplicateModel.view === "access");
         assert.equal(duplicateModel.authenticated, false);
         assert.equal(duplicateModel.portfolio, null);
-        const malformedModel = validateViewResponse(
+        const malformedModel = assertViewResponse(
           await (
             await fetch(`${local.baseUrl}/api/workbench/view`, {
               headers: {
@@ -771,7 +769,7 @@ for (const mode of ["local", "cros"] as const) {
         );
         assert.ok(malformedModel.view === "access");
         assert.equal(malformedModel.authenticated, false);
-        const noAuthority = validateManagementResponse(
+        const noAuthority = assertManagementResponse(
           await (
             await fetch(`${local.baseUrl}/api/access?view=current`)
           ).json(),
@@ -785,10 +783,7 @@ for (const mode of ["local", "cros"] as const) {
         );
       } finally {
         await local.close();
-        assert.equal(
-          await observeLocalListener(Number(new URL(local.baseUrl).port)),
-          "absent",
-        );
+        await assertLoopbackClosed(local.baseUrl);
         fs.writeFileSync(current, before);
       }
     }
@@ -827,7 +822,7 @@ for (const mode of ["local", "cros"] as const) {
         `${handle.baseUrl}/api/access?view=current`,
       );
       assert.equal(actorReply.headers.get("x-crdd-management-mode"), "local");
-      const actor = validateManagementResponse(
+      const actor = assertManagementResponse(
         await actorReply.json(),
         "current",
       );
@@ -1108,7 +1103,7 @@ for (const mode of ["local", "cros"] as const) {
           `${handle.baseUrl}/api/access?view=${view}`,
         );
         const text = await reply.text();
-        validateManagementResponse(JSON.parse(text), view);
+        assertManagementResponse(JSON.parse(text), view);
         for (const hidden of [
           material.token,
           material.tokenSalt,
@@ -1159,7 +1154,7 @@ for (const mode of ["local", "cros"] as const) {
           },
         });
         const value: unknown = await response.json();
-        if (response.ok) return validateManagementResponse(value, "mutation");
+        if (response.ok) return assertManagementResponse(value, "mutation");
         return { httpStatus: response.status };
       }
 
@@ -1239,10 +1234,28 @@ for (const mode of ["local", "cros"] as const) {
         const result = await submitMutation(operation, { ...fields });
         assert.ok("status" in result && result.status === "completed");
       }
-      const registration = await submitMutation("registerRepository", {
+      const registrationFields = {
         repositoryId: "repository.fixture",
         repositoryRoot: target,
-      });
+      };
+      const registrationBefore = fs.readFileSync(current);
+      const gitDirectory = path.join(target, ".git");
+      const displacedGit = path.join(owned, "registration-fixture-git");
+      fs.renameSync(gitDirectory, displacedGit);
+      try {
+        const rejected = await submitMutation(
+          "registerRepository",
+          registrationFields,
+        );
+        assert.ok("status" in rejected && rejected.status === "unavailable");
+        assert.deepEqual(fs.readFileSync(current), registrationBefore);
+      } finally {
+        fs.renameSync(displacedGit, gitDirectory);
+      }
+      const registration = await submitMutation(
+        "registerRepository",
+        registrationFields,
+      );
       assert.ok(
         "status" in registration && registration.status === "completed",
       );
@@ -1810,7 +1823,7 @@ for (const mode of ["local", "cros"] as const) {
           );
           assert.equal(reply.status, 200);
           const body = await reply.text();
-          const selectedModel = validateViewResponse(JSON.parse(body));
+          const selectedModel = assertViewResponse(JSON.parse(body));
           assert.ok(selectedModel.view === "main");
           assert.equal(
             selectedModel.selectedRepositoryId,
@@ -1828,7 +1841,8 @@ for (const mode of ["local", "cros"] as const) {
             selectedModel.aiSelection?.selection.status,
             "available",
           );
-          assert.equal(selectedModel.executionActivity?.state, "unknown");
+          assert.equal(selectedModel.executionActivity?.state, "absent");
+          assert.equal(selectedModel.executionActivity.projection, null);
           assert.equal(selectedModel.aiRequest.configured, false);
           assert.equal("candidateConfigured" in selectedModel.aiRequest, false);
           assert.equal(selectedModel.repositoryResult, null);
@@ -1837,21 +1851,10 @@ for (const mode of ["local", "cros"] as const) {
           assert.equal(selectedModel.aiSelectionManagement.allowed, true);
           for (const secret of [material.token, root.root, target, "bindingId"])
             assert.equal(body.includes(secret), false);
-          for (const invalidProfile of [{}, undefined]) {
-            const invalid = structuredClone(selectedModel);
-            Object.defineProperty(invalid, "aiSelection", {
-              value: invalidProfile,
-              enumerable: true,
-            });
-            assert.throws(
-              () => validateViewResponse(invalid),
-              /workbench_client_model_invalid/u,
-            );
-          }
           const detail = await fetchWorkbench(
             `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture&route=%2Ftopic&id=TOPIC-000001`,
           );
-          const documentModel = validateViewResponse(await detail.json());
+          const documentModel = assertViewResponse(await detail.json());
           assert.ok(documentModel.view === "record-detail");
           assert.equal(documentModel.record.id, "TOPIC-000001");
           assert.equal(documentModel.repositoryId, "repository.fixture");
@@ -1867,7 +1870,7 @@ for (const mode of ["local", "cros"] as const) {
             `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
           );
           assert.equal(anonymous.status, 403);
-          const portal = validateViewResponse(
+          const portal = assertViewResponse(
             await (
               await fetchWorkbench(
                 `${handle.baseUrl}/api/workbench/view?repositoryId=`,
@@ -2074,9 +2077,7 @@ for (const mode of ["local", "cros"] as const) {
           const activityReply = await fetchWorkbench(
             `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
           );
-          const activityModel = validateViewResponse(
-            await activityReply.json(),
-          );
+          const activityModel = assertViewResponse(await activityReply.json());
           assert.ok(activityModel.view === "main");
           assert.equal(activityModel.executionActivity?.state, "absent");
           assert.equal(activityModel.executionActivity?.eventState, "observed");
@@ -2099,7 +2100,7 @@ for (const mode of ["local", "cros"] as const) {
           );
           const cursor = activityModel.executionActivity?.eventContinuation;
           assert.ok(cursor);
-          const continuation = validateViewResponse(
+          const continuation = assertViewResponse(
             await (
               await fetchWorkbench(
                 `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture&activityCursor=${encodeURIComponent(cursor)}`,
@@ -2123,7 +2124,7 @@ for (const mode of ["local", "cros"] as const) {
               (_, index) => `task.fixture-${index}`,
             ).sort(),
           );
-          const invalidCursor = validateViewResponse(
+          const invalidCursor = assertViewResponse(
             await (
               await fetchWorkbench(
                 `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture&activityCursor=invalid`,
@@ -2146,7 +2147,7 @@ for (const mode of ["local", "cros"] as const) {
           const savedHistory = fs.readFileSync(historyPath);
           try {
             fs.writeFileSync(historyPath, "invalid-history\n");
-            const unknown = validateViewResponse(
+            const unknown = assertViewResponse(
               await (
                 await fetchWorkbench(
                   `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
@@ -2287,7 +2288,7 @@ for (const mode of ["local", "cros"] as const) {
               publication.mock.restore();
               syncBuiltinESMExports();
             }
-            const next = validateViewResponse(
+            const next = assertViewResponse(
               await new Promise<unknown>((resolve, reject) => {
                 const request = httpRequest(
                   `${handle.baseUrl}${selectedUrl}`,
@@ -2412,7 +2413,7 @@ for (const mode of ["local", "cros"] as const) {
                 assert.equal(changed, true, scenario);
                 if (scenario === "reorder") {
                   assert.equal(stale.status, 200);
-                  const reordered = validateViewResponse(await stale.json());
+                  const reordered = assertViewResponse(await stale.json());
                   assert.ok(reordered.view === "main");
                   assert.equal(
                     reordered.projectData.context.repositoryId,
@@ -2688,10 +2689,7 @@ for (const mode of ["local", "cros"] as const) {
       await handle.close();
       await requestClosed;
       assert.deepEqual(fs.readFileSync(current), beforeClose);
-      assert.equal(
-        await observeLocalListener(Number(new URL(handle.baseUrl).port)),
-        "absent",
-      );
+      await assertLoopbackClosed(handle.baseUrl);
     } finally {
       await handle.close();
     }

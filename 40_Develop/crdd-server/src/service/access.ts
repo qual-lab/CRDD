@@ -32,7 +32,36 @@ import {
   type CurrentAccessOutcome,
   type ManagementReadOutcome,
 } from "../../../access-management/src/index.ts";
-import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import {
+  getRepository,
+  readRepositoryLocation,
+  resolveVerifiedRepositoryRoot,
+} from "../../../version-control/src/index.ts";
+
+/**
+ * 認可済みの登録要求からexact Git Rootを確認する。
+ * @responsibility Gitの配置と現在性はServer側で観測し、AMにはディレクトリと照合処理だけを渡す。
+ * @trace ARCH-000013
+ * @input AMが現在認可・期待改訂と照合した登録Path。
+ * @returns 正規ディレクトリと同じ対象の再確認、又はnull。
+ * @precondition AMの登録観測から同期的に呼ばれる。
+ * @postcondition Git識別値と技術能力をAMの保存値に含めない。
+ * @effect Git配置の読取りだけ。対象Repositoryを書き換えない。
+ * @failure 不正・不明はnull、再確認不能はfalse。
+ * @invariant 親Repositoryを代替にしない。
+ * @boundary Serverの登録接続とVC。
+ * @security 要求値によって観測方法を変更しない。
+ * @concurrency 最後の照合は初回と同じ対象をfresh観測する。
+ */
+export function observeRegistrationDirectory(directory: string) {
+  const location = readRepositoryLocation(directory);
+  if (location === null) return null;
+  const root = location.directory;
+  return {
+    directory: root,
+    isCurrent: () => readRepositoryLocation(root)?.directory === root,
+  };
+}
 
 /**
  * 同Processの管理Rootと現在Bearerを明示する。
@@ -513,6 +542,7 @@ export function executeManagementOperation(
         operationId,
         args.repositoryId,
         args.repositoryRoot,
+        observeRegistrationDirectory,
       );
     case "unregisterRepository":
       return unregisterRepository(
@@ -554,8 +584,9 @@ export function resolveSharedDevelopmentAccess(
     "development",
   );
   if (initial.status !== "completed") return null;
-  const ownerRoot = resolveVerifiedRepositoryRoot(initial.access.root);
-  if (ownerRoot === null) return null;
+  const ownerRoot = initial.access.root;
+  const repository = getRepository(ownerRoot);
+  if (repository.status !== "completed") return null;
   return {
     ownerRoot,
     projectId: initial.access.manifest.projectId,
@@ -574,8 +605,8 @@ export function resolveSharedDevelopmentAccess(
         fresh.access.bindingId === initial.access.bindingId &&
         JSON.stringify(fresh.access.manifest) ===
           JSON.stringify(initial.access.manifest) &&
-        resolveVerifiedRepositoryRoot(initial.access.root) === ownerRoot &&
-        resolveVerifiedRepositoryRoot(fresh.access.root) === ownerRoot
+        fresh.access.root === ownerRoot &&
+        resolveVerifiedRepositoryRoot(repository.capability) === ownerRoot
       );
     },
   };

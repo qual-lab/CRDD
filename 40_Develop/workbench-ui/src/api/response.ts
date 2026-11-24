@@ -596,6 +596,9 @@ function isMainViewResponse(value: Record<string, unknown>): boolean {
         ) &&
         isNullableString(projectData.repository.publicationTarget.branch) &&
         isNullableString(
+          projectData.repository.publicationTarget.localBranch,
+        ) &&
+        isNullableString(
           projectData.repository.publicationTarget.revisionIdentity,
         ))) &&
     isNullableString(projectData.repository.reason) &&

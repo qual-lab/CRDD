@@ -425,26 +425,30 @@ test("保護対象Runtimeは正式公開契約を使いGit内部実装へ直接�
       );
     }
   }
-  const childConsumer = [
-    "coordinator/tests/integration/coordinator-state-runtime.contract.test.ts",
-    "execution-model/tests/integration/runtime-core-crud.contract.test.ts",
-    "execution-model/tests/integration/runtime-snapshot-io.contract.test.ts",
-    "execution-model/tests/integration/runtime-settlement.contract.test.ts",
+  const coordinatorChild = fs.readFileSync(
+    path.join(
+      developRoot,
+      "coordinator/tests/integration/coordinator-state-storage.contract.test.ts",
+    ),
+    "utf8",
+  );
+  const modelChildren = [
+    "execution-model/tests/integration/core-crud.contract.test.ts",
+    "execution-model/tests/integration/snapshot-io.contract.test.ts",
+    "execution-model/tests/integration/operation-settlement.contract.test.ts",
   ]
     .map((file) => fs.readFileSync(path.join(developRoot, file), "utf8"))
     .join("\n");
-  assert.doesNotMatch(
-    childConsumer,
-    /version-control\/src\/repository\/location\.ts/u,
+  assert.doesNotMatch(modelChildren, /version-control\/src\//u);
+  assert.match(
+    modelChildren,
+    /new URL\("\.\.\/\.\.\/src\/index\.ts", import\.meta\.url\)/u,
+    "モデル側の再入場子はモデルの公開入口だけを使う",
   );
-  assert.equal(
-    [
-      ...childConsumer.matchAll(
-        /new URL\("\.\.\/\.\.\/\.\.\/version-control\/src\/index\.ts", import\.meta\.url\)/gu,
-      ),
-    ].length,
-    2,
-    "旧結果読取り子の退役後も二つのfresh child Processは、pending再入場を含め公開Rootだけを使う",
+  assert.match(
+    coordinatorChild,
+    /new URL\("\.\.\/\.\.\/\.\.\/version-control\/src\/index\.ts", import\.meta\.url\)/u,
+    "上位の実Git観測を行う子だけがVCの公開Rootを使う",
   );
 });
 
@@ -489,13 +493,15 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
       .map(({ relativePath }) => relativePath)
       .sort();
 
+  assert.deepEqual(externalConsumers(/\breadCommitFile\b/u), [
+    "40_Develop/checker/src/repository/references.ts",
+    "40_Develop/coordinator/src/lifecycle/decision.ts",
+  ]);
   assert.deepEqual(
-    externalConsumers(/\b(?:readCommitFile|copyCommitFiles)\b/u),
-    [
-      "40_Develop/checker/src/repository/references.ts",
-      "40_Develop/coordinator/src/lifecycle/decision.ts",
-      "40_Develop/coordinator/src/lifecycle/host.ts",
-    ],
+    externalConsumers(
+      /\b(?:readBranchHead|readRepositoryFilePaths|readWorkingSelections|copyCommitFiles)\b/u,
+    ),
+    [],
   );
   assert.deepEqual(
     externalConsumers(/\b(?:readRepositorySnapshot|readRepositoryRevision)\b/u),
@@ -507,9 +513,8 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
       "40_Develop/coordinator/src/lifecycle/query.ts",
       "40_Develop/coordinator/src/lifecycle/host.ts",
       "40_Develop/coordinator/src/lifecycle/execution.ts",
-      "40_Develop/coordinator/src/lifecycle/workspace.ts",
-      "40_Develop/execution-model/src/state/crud.ts",
-      "40_Develop/execution-model/src/storage/lock.ts",
+      "40_Develop/crdd-server/src/service/execution.ts",
+      "40_Develop/crdd-server/src/service/workspace.ts",
     ].sort(),
   );
 
@@ -532,9 +537,7 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
     .sort();
   assert.deepEqual(commitConsumers, [
     "40_Develop/coordinator/src/lifecycle/host.ts",
-    "40_Develop/coordinator/src/lifecycle/workspace.ts",
-    "40_Develop/execution-model/src/workspace/types.ts",
-    "40_Develop/workbench-ui/src/components/workspace-panel.tsx",
+    "40_Develop/crdd-server/src/service/workspace.ts",
   ]);
 });
 
@@ -584,13 +587,10 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       /\b(?:getRepository|getRepositoryFromWorkingDirectory|resolveVerifiedRepositoryRootFromWorkingDirectory)\b/u,
     ),
     [
-      "40_Develop/access-management/src/repository/register.ts",
-      "40_Develop/access-management/src/repository/resolve.ts",
       "40_Develop/checker/src/cli/semantic.ts",
       "40_Develop/checker/src/cli/test-catalog.ts",
       "40_Develop/checker/src/repository/discover.ts",
       "40_Develop/checker/src/repository/document.ts",
-      "40_Develop/checker/src/repository/project-context.ts",
       "40_Develop/checker/src/repository/reality.ts",
       "40_Develop/checker/src/repository/references.ts",
       "40_Develop/coordinator/scripts/benchmark.ts",
@@ -602,15 +602,10 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/coordinator/src/lifecycle/selection.ts",
       "40_Develop/coordinator/src/lifecycle/query.ts",
       "40_Develop/coordinator/src/lifecycle/workspace.ts",
-      "40_Develop/execution-model/src/attempt/crud.ts",
-      "40_Develop/execution-model/src/state/crud.ts",
-      "40_Develop/execution-model/src/storage/lock.ts",
-      "40_Develop/execution-model/src/storage/publication.ts",
-      "40_Develop/execution-model/src/storage/store.ts",
       "40_Develop/crdd-server/src/service/configuration.ts",
-      "40_Develop/visual-preview/src/browser/temporary.ts",
-      "40_Develop/visual-preview/src/preview/server.ts",
       "40_Develop/crdd-server/src/cli/command.ts",
+      "40_Develop/crdd-server/src/service/access.ts",
+      "40_Develop/crdd-server/src/transport/api-server.ts",
       "40_Develop/crdd-server/src/service/workspace.ts",
       "40_Develop/crdd-server/src/service/execution.ts",
       "40_Develop/crdd-server/src/service/repository.ts",
@@ -618,10 +613,9 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
     ].sort(),
   );
   assert.deepEqual(consumers(/\bregisterRepositoryLocalIgnore\b/u), [
-    "40_Develop/configuration-model/src/storage/store.ts",
     "40_Develop/coordinator/src/lifecycle/host.ts",
-    "40_Develop/execution-model/src/storage/store.ts",
-    "40_Develop/visual-preview/src/browser/temporary.ts",
+    "40_Develop/crdd-server/src/service/configuration.ts",
+    "40_Develop/crdd-server/src/service/execution.ts",
   ]);
 });
 
@@ -710,9 +704,8 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     .sort();
   assert.deepEqual(localChangeSetConsumers, [
     "40_Develop/checker/src/cli/test-catalog.ts",
-    "40_Develop/coordinator/src/lifecycle/host.ts",
-    "40_Develop/coordinator/src/lifecycle/workspace.ts",
     "40_Develop/crdd-server/src/service/repository.ts",
+    "40_Develop/crdd-server/src/service/workspace.ts",
   ]);
 
   const checkerObservationConsumers = sources
@@ -735,12 +728,11 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     "40_Develop/checker/src/repository/observe.ts",
     "40_Develop/checker/src/repository/references.ts",
     "40_Develop/coordinator/src/lifecycle/decision.ts",
+    "40_Develop/coordinator/src/lifecycle/environment.ts",
     "40_Develop/coordinator/src/lifecycle/execution.ts",
     "40_Develop/coordinator/src/lifecycle/host.ts",
-    "40_Develop/coordinator/src/lifecycle/query.ts",
-    "40_Develop/coordinator/src/lifecycle/workspace.ts",
-    "40_Develop/execution-model/src/state/crud.ts",
-    "40_Develop/execution-model/src/storage/lock.ts",
+    "40_Develop/crdd-server/src/service/execution.ts",
+    "40_Develop/crdd-server/src/service/workspace.ts",
   ]);
 
   const repositoryIdentityConsumers = sources
@@ -752,6 +744,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
           "Repository",
           "resolveVerifiedRepositoryRoot",
           "resolveVerifiedRepositoryRootFromWorkingDirectory",
+          "readRepositoryLocation",
           "getRepository",
           "getRepositoryFromWorkingDirectory",
         ].includes(name),
@@ -762,9 +755,6 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
   assert.deepEqual(
     repositoryIdentityConsumers,
     [
-      "40_Develop/access-management/src/repository/register.ts",
-      "40_Develop/access-management/src/repository/resolve.ts",
-      "40_Develop/access-management/src/repository/types.ts",
       "40_Develop/checker/src/cli/semantic.ts",
       "40_Develop/checker/src/cli/test-catalog.ts",
       "40_Develop/checker/src/repository/discover.ts",
@@ -784,32 +774,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/src/lifecycle/execution.ts",
       "40_Develop/coordinator/src/lifecycle/types.ts",
       "40_Develop/coordinator/src/lifecycle/workspace.ts",
-      "40_Develop/configuration-model/src/history/crud.ts",
-      "40_Develop/configuration-model/src/ai-selection/crud.ts",
-      "40_Develop/configuration-model/src/manifest/crud.ts",
-      "40_Develop/configuration-model/src/storage/store.ts",
-      "40_Develop/document-model/src/project-context/read-context.ts",
-      "40_Develop/document-model/src/repository/create-observer.ts",
-      "40_Develop/document-model/src/repository/observe-symbols.ts",
-      "40_Develop/execution-model/src/storage/store.ts",
-      "40_Develop/execution-model/src/state/types.ts",
-      "40_Develop/configuration-model/src/network-policy/crud.ts",
-      "40_Develop/execution-model/src/decision/crud.ts",
-      "40_Develop/execution-model/src/history/crud.ts",
-      "40_Develop/execution-model/src/storage/lock.ts",
-      "40_Develop/execution-model/src/storage/publication.ts",
-      "40_Develop/execution-model/src/state/crud.ts",
-      "40_Develop/execution-model/src/attempt/crud.ts",
-      "40_Develop/execution-model/src/state/lease.ts",
-      "40_Develop/execution-model/src/task/crud.ts",
-      "40_Develop/execution-model/src/workspace/crud.ts",
-      "40_Develop/document-model/src/semantic/publish.ts",
-      "40_Develop/document-model/src/storage/semantic-store.ts",
-      "40_Develop/crdd-server/src/transport/mcp-server.ts",
       "40_Develop/crdd-server/src/service/configuration.ts",
-      "40_Develop/crdd-server/src/service/topic.ts",
-      "40_Develop/visual-preview/src/browser/temporary.ts",
-      "40_Develop/visual-preview/src/preview/server.ts",
       "40_Develop/crdd-server/src/cli/command.ts",
       "40_Develop/crdd-server/src/service/access.ts",
       "40_Develop/crdd-server/src/service/workspace.ts",

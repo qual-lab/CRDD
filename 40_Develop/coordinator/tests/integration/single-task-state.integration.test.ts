@@ -24,14 +24,13 @@ import {
   readState,
   type SingleTaskRecord,
 } from "../../../execution-model/src/index.ts";
-import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   acquireCoordinatorSnapshotLease,
   settleCoordinatorSnapshotQueueLeaseRelease,
   updateCoordinatorQueue,
   updateCoordinatorSingleTask,
 } from "../../src/lifecycle/host.ts";
-import { verifyRuntimePersistenceRepository } from "../../src/lifecycle/host.ts";
+import { resolveExecutionStorageDirectory } from "../../src/lifecycle/host.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
 import type { createCoordinatorTaskRequests } from "../../src/lifecycle/execution.ts";
 import {
@@ -86,7 +85,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   fs.writeFileSync(path.join(root, ".git", "info", "exclude"), "");
   const binding = deriveCoordinatorRepositoryBindingId(root);
   const initialized = initializeExecutionStore(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     binding,
   );
   assert.equal(initialized.status, "completed", JSON.stringify(initialized));
@@ -121,20 +120,20 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     workspaceId: null,
     singleTask: record,
   };
-  const first = createQueue(verifyRuntimePersistenceRepository(root), binding, {
+  const first = createQueue(resolveExecutionStorageDirectory(root), binding, {
     kind: "single",
     input: [entry],
   });
   assert.equal(first.status, "completed", JSON.stringify(first));
   assert.equal(
-    createQueue(verifyRuntimePersistenceRepository(root), binding, {
+    createQueue(resolveExecutionStorageDirectory(root), binding, {
       kind: "single",
       input: [entry],
     }).status,
     "completed",
   );
   assert.equal(
-    createQueue(verifyRuntimePersistenceRepository(root), binding, {
+    createQueue(resolveExecutionStorageDirectory(root), binding, {
       kind: "single",
       input: [
         {
@@ -148,7 +147,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   const stateFile = path.join(root, ".crdd/execution-model/state.json");
   const beforeIdentityConflict = fs.readFileSync(stateFile);
   const identityConflict = createQueue(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     binding,
     {
       kind: "single",
@@ -161,7 +160,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     },
   );
   assert.equal(identityConflict.status, "blocked");
-  assert.equal(identityConflict.reason, "orchestrator_queue_identity_conflict");
+  assert.equal(identityConflict.reason, "coordinator_queue_identity_conflict");
   assert.deepEqual(fs.readFileSync(stateFile), beforeIdentityConflict);
   const acquired = acquireCoordinatorSnapshotLease(
     root,
@@ -194,7 +193,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     assert.equal(started.status, "completed", JSON.stringify(started));
     const port = Object.freeze({
       workingDirectory: root,
-      repository: verifyRuntimePersistenceRepository(root),
+      repository: resolveExecutionStorageDirectory(root),
       repositoryBindingId: binding,
       intake: undefined,
     });
@@ -251,7 +250,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     assert.equal(released.status, "completed", JSON.stringify(released));
     // 物理解放後・Queue解放保存前の中断を残し、次の入口で再入場する。
     const interrupted = readState(
-      verifyRuntimePersistenceRepository(root),
+      resolveExecutionStorageDirectory(root),
       binding,
       "execution",
     );
@@ -278,14 +277,14 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     },
   };
   assert.equal(
-    createQueue(verifyRuntimePersistenceRepository(root), binding, {
+    createQueue(resolveExecutionStorageDirectory(root), binding, {
       kind: "single",
       input: [second],
     }).status,
     "completed",
   );
   const read = readState(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     binding,
     "execution",
   );
@@ -488,19 +487,19 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     requestId: "revocation-request",
   });
   assert.equal(duplicate.status, "accepted");
-  assert.equal(duplicate.reason, "orchestrator_task_request_reused");
+  assert.equal(duplicate.reason, "coordinator_task_request_reused");
   const otherActive = await owner.start({
     ...command,
     requestId: "other-active-request",
   });
-  assert.equal(otherActive.reason, "orchestrator_task_request_active");
+  assert.equal(otherActive.reason, "coordinator_task_request_active");
   await revokeStarted;
   const withheld = await owner.cancel(revocation.requestId);
-  assert.equal(withheld.reason, "orchestrator_task_not_available");
+  assert.equal(withheld.reason, "coordinator_task_not_available");
   assert.deepEqual(withheld.facts, []);
   assert.equal(withheld.taskId, null);
   const after = readState(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     binding,
     "execution",
   );
@@ -604,7 +603,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   const replayCommand = { ...command, requestId: "completed-request" };
   const reordered = Object.fromEntries(Object.entries(replayCommand).reverse());
   const replay = await reentry.start(reordered);
-  assert.equal(replay.reason, "orchestrator_task_request_reused");
+  assert.equal(replay.reason, "coordinator_task_request_reused");
   assert.equal(replay.requestId, replayCommand.requestId);
   const replayState = await reentry.wait(replayCommand.requestId);
   assert.equal(replayState.status, "completed");
@@ -617,7 +616,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   assert.equal(recoveries, 0);
   assert.equal(
     (await reentry.start({ ...replayCommand, prompt: "different" })).reason,
-    "orchestrator_task_request_identity_conflict",
+    "coordinator_task_request_identity_conflict",
   );
   for (const denied of [
     await createReentry("different-principal"),
@@ -659,7 +658,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     },
   };
   assert.equal(
-    createQueue(verifyRuntimePersistenceRepository(root), binding, {
+    createQueue(resolveExecutionStorageDirectory(root), binding, {
       kind: "single",
       input: [recoveryEntry],
     }).status,
@@ -707,7 +706,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     assert.equal(recoveryLease.value.release().status, "completed");
     assert.equal(
       settleCoordinatorSnapshotQueueLeaseRelease(
-        verifyRuntimePersistenceRepository(root),
+        resolveExecutionStorageDirectory(root),
         binding,
         recoveryEntry.queueId,
         3,
@@ -722,7 +721,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   assert.equal(recovered.cleanupConfirmed, true, JSON.stringify(recovered));
   assert.equal(recovered.executionStatus, "unknown");
   assert.equal(recovered.primaryFailure, "fixture_primary_failure");
-  assert.equal(recovered.reason, "orchestrator_task_body_unavailable");
+  assert.equal(recovered.reason, "coordinator_task_body_unavailable");
   assert.equal(recoveries, 1);
   assert.deepEqual(recovered.recoveryIds, []);
   const repeatedRecovery = await reentry.cancel(recoveryEntry.queueId);
@@ -839,7 +838,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   assert.equal(executions, 0);
   await owner.close();
   assert.equal(
-    initializeExecutionStore(verifyRuntimePersistenceRepository(root), binding)
+    initializeExecutionStore(resolveExecutionStorageDirectory(root), binding)
       .status,
     "completed",
   );
@@ -852,12 +851,12 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
       peer.start(input),
     ]);
     assert.equal(accepted.status, "accepted");
-    assert.equal(peerAccepted.reason, "orchestrator_task_request_reused");
+    assert.equal(peerAccepted.reason, "coordinator_task_request_reused");
     assert.equal(peerAccepted.requestId, accepted.requestId);
     assert.ok(accepted.requestId);
     assert.equal(executions, 0);
     const initial = readState(
-      verifyRuntimePersistenceRepository(root),
+      resolveExecutionStorageDirectory(root),
       binding,
       "queue",
     );
@@ -878,7 +877,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     assert.equal(executions, 0);
     const duplicate = await owner.start(input);
     assert.equal(duplicate.status, "accepted");
-    assert.equal(duplicate.reason, "orchestrator_task_request_reused");
+    assert.equal(duplicate.reason, "coordinator_task_request_reused");
     if (operation === "cancel") {
       const result = await owner.cancel(accepted.requestId);
       assert.equal(result.status, "cancelled");
@@ -889,7 +888,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     await owner.close();
     assert.equal((await owner.start(command)).status, "blocked");
     const final = readState(
-      verifyRuntimePersistenceRepository(root),
+      resolveExecutionStorageDirectory(root),
       binding,
       "queue",
     );
@@ -923,7 +922,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   };
   assert.equal(lost.status, "accepted");
   const saved = readState(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     binding,
     "queue",
   );
@@ -951,7 +950,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   assert.equal(executions, 0);
   await owner.close();
   const end = readState(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     binding,
     "queue",
   );
@@ -1026,10 +1025,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
       createQueue: (
         ...args: Parameters<typeof snapshotStorage.createQueue>
       ) => {
-        assert.equal(
-          resolveVerifiedRepositoryRoot(args[0]),
-          fs.realpathSync.native(root),
-        );
+        assert.deepEqual(args[0], { directory: fs.realpathSync.native(root) });
         assert.equal(args[1], "synthetic-binding");
         assert.equal(args[2].kind, "single");
         assert.ok(args[2].kind === "single");
@@ -1046,7 +1042,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
           };
           return {
             status: "blocked",
-            reason: "orchestrator_queue_identity_conflict",
+            reason: "coordinator_queue_identity_conflict",
           };
         }
         queue = input;
@@ -1076,10 +1072,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
           { kind: string; input: readonly unknown[] },
         ]
       ) => {
-        assert.equal(
-          resolveVerifiedRepositoryRoot(args[0]),
-          fs.realpathSync.native(root),
-        );
+        assert.deepEqual(args[0], { directory: fs.realpathSync.native(root) });
         assert.equal(args[1], "synthetic-binding");
         assert.equal(args[2].kind, "close_unstarted");
         assert.ok(args[2].kind === "close_unstarted");
@@ -1114,10 +1107,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
         >
       ) => {
         settlements++;
-        assert.equal(
-          resolveVerifiedRepositoryRoot(args[0]),
-          fs.realpathSync.native(root),
-        );
+        assert.deepEqual(args[0], { directory: fs.realpathSync.native(root) });
         assert.equal(args[1], "synthetic-binding");
         assert.equal(args[2], queue?.queueId);
         assert.equal(args[3], queue?.generation);
@@ -1183,7 +1173,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
         assert.equal(accepted.status, "blocked");
         assert.equal(accepted.requestId, null);
         if (stage === "identity") {
-          assert.equal(accepted.reason, "orchestrator_task_request_rejected");
+          assert.equal(accepted.reason, "coordinator_task_request_rejected");
           const stored = failures.readState().value.queueEntries.at(0);
           assert.equal(stored?.projectId, "different-project");
           assert.equal(stored?.singleTask?.principalId, "different-principal");
@@ -1199,14 +1189,14 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
         if (stage === "starting" || stage === "starting_release") {
           assert.equal(
             result.reason,
-            "orchestrator_task_start_save_unconfirmed",
+            "coordinator_task_start_save_unconfirmed",
           );
           assert.deepEqual(result.recoveryIds, ["store.synthetic"]);
           assert.deepEqual(
             result.secondaryFailures,
             stage === "starting_release"
               ? [
-                  "orchestrator_task_lease_release_unconfirmed",
+                  "coordinator_task_lease_release_unconfirmed",
                   "fixture_starting_save_failed",
                 ]
               : ["fixture_starting_save_failed"],

@@ -4,10 +4,6 @@
  * @trace ARCH-000008
  */
 
-import type {
-  CommitSelection,
-  CommitTemporary,
-} from "../../../version-control/src/index.ts";
 import type { EXECUTION_INTEGRATION_CONTRACT } from "./validation.ts";
 
 /**
@@ -116,7 +112,11 @@ export type WorkspaceCandidateRequest = Readonly<{
   operationId: string;
   baseCommit: string;
   expectedWorkspaceHead: string;
-  selection: readonly CommitSelection[];
+  selection: readonly Readonly<{
+    path: string;
+    blobId: string | null;
+    mode: "100644" | "100755" | null;
+  }>[];
   workspaceName: string | null;
   candidateName: string | null;
   relatedChangeIds: readonly string[];
@@ -131,6 +131,9 @@ export type WorkspaceCandidateResult = Readonly<{
   mergeCommit: string | null;
   effectIssued: boolean;
   cleanupConfirmed: boolean;
-  temporary: CommitTemporary | null;
+  temporary: Readonly<{
+    relativePath: string;
+    identity: string | null;
+  }> | null;
   changedPaths: readonly string[];
 }>;

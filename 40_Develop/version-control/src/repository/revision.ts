@@ -13,9 +13,9 @@ import { inspectGitCommitTree } from "../git/objects.ts";
 import {
   inspectRepositoryGitObjectFormat,
   type RepositoryGitLayout,
-  resolveRepositoryGitLayout,
 } from "./layout.ts";
 import {
+  observeExactRepositoryLayout,
   observeVerifiedRepositoryLayout,
   resolveVerifiedRepositoryRoot,
   type Repository,
@@ -69,13 +69,15 @@ export function readRepositorySnapshot(
     if (capability === null) return null;
     const initial = observeVerifiedRepositoryLayout(capability);
     if (initial === null) return null;
-    const before = readRootRevision(initial.root);
+    const before = readLayoutRevision(initial);
     if (before?.objectFormat !== "sha1") return null;
     const snapshot = inspectGitCommitTree({
       commonDirectory: initial.layout.commonDirectory.realPath,
       revision: before.revisionIdentity,
     });
-    const after = readRootRevision(initial.root);
+    const observed = observeVerifiedRepositoryLayout(capability);
+    if (observed === null || observed.root !== initial.root) return null;
+    const after = readLayoutRevision(observed);
     const final = observeVerifiedRepositoryLayout(capability);
     if (
       snapshot?.status !== "candidate" ||
@@ -295,20 +297,94 @@ function identity(domain: string, entity: RepositoryGitLayout["root"]): string {
     .digest("hex");
 }
 
-/** Git管理領域からHEADを読み、共有RepositoryとWorktreeの実体Identityを対応付ける。
- * @responsibility Main／LinkedのHEADと共有Object領域を混同せずに観測する。
+type RepositoryLocation = Readonly<{ directory: string; linked: boolean }>;
+type RepositoryPlacement = RepositoryLocation &
+  Readonly<{
+    instanceIdentity: string;
+    commonIdentity: string;
+    gitDirectoryIdentity: string;
+    head: string | null;
+  }>;
+type RepositoryLocationObservation =
+  | "placement"
+  | "placement_and_head"
+  | "placement_and_commit";
+
+/**
+ * 正規ディレクトリと、明示された場合だけ配置実体・現在HEADを同一の配置から観測する。
+ * @responsibility 配置、Ref、固定Commitの必要な範囲だけを一回の配置から観測する。
  * @trace ARCH-000002
+ * @effect Git管理情報の読取りだけ。子Process起動・書込みなし。
+ * @failure 不明な配置又は、要求したHEADを読めない場合はnull。
+ * @invariant 既定の結果は配置パスと連結区分だけ。観測は後続操作の許可にならない。
+ * @concurrency 前後の比較が必要な呼出し側は各時点で観測する。
  */
-function readRootRevision(
-  repositoryRoot: string,
+export function readRepositoryLocation(
+  candidate: unknown,
+): RepositoryLocation | null;
+export function readRepositoryLocation(
+  candidate: unknown,
+  observation: RepositoryLocationObservation,
+): RepositoryPlacement | null;
+export function readRepositoryLocation(
+  candidate: unknown,
+  observation?: RepositoryLocationObservation,
+): RepositoryLocation | RepositoryPlacement | null {
+  if (
+    observation !== undefined &&
+    observation !== "placement" &&
+    observation !== "placement_and_head" &&
+    observation !== "placement_and_commit"
+  )
+    return null;
+  const layout = observeExactRepositoryLayout(candidate);
+  if (!layout) return null;
+  const location = {
+    directory: layout.root.realPath,
+    linked: layout.kind === "linked_worktree",
+  };
+  if (observation === undefined) return Object.freeze(location);
+  try {
+    const head = observation === "placement" ? null : readRevision(layout);
+    if (observation === "placement_and_commit") {
+      const commit = inspectGitCommitTree({
+        commonDirectory: layout.commonDirectory.realPath,
+        revision: head,
+      });
+      if (commit?.status !== "candidate" || commit.commit !== head) return null;
+    }
+    return Object.freeze({
+      ...location,
+      instanceIdentity: identity("crdd-repository-instance-v1", layout.root),
+      commonIdentity: identity(
+        "crdd-logical-repository-v1",
+        layout.commonDirectory,
+      ),
+      gitDirectoryIdentity: identity(
+        `crdd-git-directory-v1:${layout.kind}`,
+        layout.gitDirectory,
+      ),
+      head,
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** 現在観測したGit配置からHEADを読み、共有RepositoryとWorktreeの実体Identityを対応付ける。
+ * @responsibility 同じ観測段階の配置を利用し、Main／LinkedのHEADと共有Object領域を混同しない。
+ * @trace ARCH-000002
+ * @precondition 呼出し元が同じ同期処理内で配置を観測済み。別のI/O段階へ持ち越さない。
+ */
+function readLayoutRevision(
+  { root, layout }: { root: string; layout: RepositoryGitLayout },
   selector?: string,
 ): RepositoryRevisionObservation | null {
   try {
-    const layout = resolveRepositoryGitLayout(repositoryRoot);
     const revision =
       selector === undefined
         ? readRevision(layout)
-        : readSelectedRevision(repositoryRoot, selector);
+        : readSelectedRevision(root, selector);
     if (revision === null) return null;
     const repositoryForm =
       layout.kind === "normal_worktree"
@@ -437,14 +513,14 @@ export function readRepositoryRevision(
     if (capability === null) throw Error("verified_repository_root_required");
     return readReference(capability, request.reference);
   }
-  const root =
-    capability === null ? null : resolveVerifiedRepositoryRoot(capability);
-  return root === null
-    ? null
-    : readRootRevision(
-        root,
-        request && "revision" in request ? request.revision : undefined,
-      );
+  if (capability === null) return null;
+  const observed = observeVerifiedRepositoryLayout(capability);
+  if (observed === null) return null;
+  if (request === undefined) return readLayoutRevision(observed);
+  // 明示selectorの取得後は、従来どおり現在の配置で照合する。
+  const selector = "revision" in request ? request.revision : undefined;
+  const current = observeVerifiedRepositoryLayout(capability);
+  return current === null ? null : readLayoutRevision(current, selector);
 }
 
 /** 検証済みRepositoryのObject形式を読み取る。未CommitのRepositoryも対象とする。 */

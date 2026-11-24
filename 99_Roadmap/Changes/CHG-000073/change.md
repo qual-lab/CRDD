@@ -725,7 +725,7 @@
 - `07_Quality/Definitions/artifact-understanding-and-handoff/verification.md`（削除または旧Path）
 - `07_Quality/Definitions/execution-record-publication/verification.md`（削除または旧Path）
 - `07_Quality/05_Coordinator_Runtime_Traceability.json`（削除または旧Path）
-- [`07_Quality/Registry/coordinator-runtime-traceability.json`](<../../../07_Quality/Registry/coordinator-runtime-traceability.json>)
+- [旧参照][`07_Quality/Registry/coordinator-runtime-traceability.json`](<../../../07_Quality/Registry/coordinator-runtime-traceability.json>)
 - `07_Quality/06_Project_Runtime_Design_Traceability.json`（削除または旧Path）
 - [旧参照][`07_Quality/Registry/project-runtime-design-traceability.json`](<../../../07_Quality/Registry/project-runtime-design-traceability.json>)
 - `07_Quality/04_Test_Catalog.json`（削除または旧Path）
@@ -737,8 +737,8 @@
 - [旧参照][`40_Develop/coordinator/scripts/check-project-runtime-design-traceability.ts`](<../../../40_Develop/coordinator/scripts/check-project-runtime-design-traceability.ts>)
 - [旧参照][`40_Develop/coordinator/scripts/check-runtime-traceability.ts`](<../../../40_Develop/coordinator/scripts/check-runtime-traceability.ts>)
 - [旧参照][`40_Develop/coordinator/tests/integration/project-runtime-design-traceability.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/project-runtime-design-traceability.contract.test.ts>)
-- [`40_Develop/coordinator/tests/integration/runtime-traceability.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/runtime-traceability.contract.test.ts>)
-- [`40_Develop/coordinator/tests/support/runtime-trace-case.ts`](<../../../40_Develop/coordinator/tests/support/runtime-trace-case.ts>)
+- [旧参照][`40_Develop/coordinator/tests/integration/runtime-traceability.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/runtime-traceability.contract.test.ts>)
+- [旧参照][`40_Develop/coordinator/tests/support/runtime-trace-case.ts`](<../../../40_Develop/coordinator/tests/support/runtime-trace-case.ts>)
 - [`99_Roadmap/Changes/CHG-000001/change.md`](<../CHG-000001/change.md>)
 - [`99_Roadmap/Changes/CHG-000002/change.md`](<../CHG-000002/change.md>)
 - [`99_Roadmap/Changes/CHG-000004/change.md`](<../CHG-000004/change.md>)

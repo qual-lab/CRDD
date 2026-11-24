@@ -33,9 +33,10 @@ const repository = getRepository(root);
 assert.equal(repository.status, "completed");
 if (repository.status !== "completed")
   throw Error("fixture_repository_unverified");
+fs.mkdirSync(path.join(root, ".crdd", "config"), { recursive: true });
 assert.equal(
   saveRepositoryAiSelection(
-    repository.capability,
+    root,
     { expectedIdentity: null, config: selectionConfig() },
     () => true,
     getModelCatalog().catalog,

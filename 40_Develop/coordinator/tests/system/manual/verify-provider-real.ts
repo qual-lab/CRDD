@@ -83,7 +83,7 @@ const {
   ensureRepositoryRuntimeDataArea,
   requireReadyRepositoryRuntimeDataArea,
   observeRepositoryRuntimeDataArea,
-} = await import("../../../../executor/tests/support/runtime-data.ts");
+} = await import("../../support/verification-area.ts");
 const {
   getRepositoryFromWorkingDirectory,
   getRepository,

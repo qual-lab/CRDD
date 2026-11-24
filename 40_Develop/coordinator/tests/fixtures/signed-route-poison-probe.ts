@@ -8,8 +8,8 @@
  * @scope 署名Route検証の停止境界
  * @boundary 模擬操作→Route検証Tool。実Provider依頼や署名を発行するFixtureではない。
  */
-import { startRuntimeOwnedCoordinatorTask } from "../../src/lifecycle/execution.ts";
-import { isRuntimeProcessPoisoned } from "../../src/lifecycle/host.ts";
+import { startCoordinatorTask } from "../../src/lifecycle/execution.ts";
+import { isExecutionProcessPoisoned } from "../../src/lifecycle/host.ts";
 import { runSignedRouteMatrixVerification } from "../system/manual/verify-route-matrix.ts";
 import {
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
@@ -52,7 +52,7 @@ function completed(route: SignedGeneralTaskRouteProfile) {
     contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed",
     reason: "signed_general_task_verification_completed",
-    sourceScope: "crdd-development-source-snapshot/v5",
+    sourceScope: "crdd-development-source-snapshot/v6",
     sourceSha256: "b".repeat(64),
     sourceObservationStatus: "matched",
     signatureRequired: false,
@@ -161,7 +161,7 @@ const taskProbe = new Proxy(Object.create(null), {
 });
 let taskReason = "task_not_blocked";
 try {
-  startRuntimeOwnedCoordinatorTask(taskProbe, null);
+  startCoordinatorTask(taskProbe, null);
 } catch (error) {
   taskReason = error instanceof Error ? error.message : "unknown";
 }
@@ -171,7 +171,7 @@ process.stdout.write(
     result,
     secondMatrix,
     attempts,
-    poisoned: isRuntimeProcessPoisoned(),
+    poisoned: isExecutionProcessPoisoned(),
     taskReads,
     taskReason,
   })}\n`,

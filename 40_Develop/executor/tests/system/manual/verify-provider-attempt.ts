@@ -11,11 +11,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getRepository } from "../../../../version-control/src/index.ts";
-import {
-  ensureRepositoryRuntimeDataArea,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../support/runtime-data.ts";
+import { createRepositoryTestDirectory } from "../../support/repository-test-directory.ts";
 
 /**
  * 同じ有限検証をCLIとITから実行する。
@@ -34,31 +30,9 @@ import {
  * @concurrency 既存十五秒期限内で有限検証を直列実行する。
  */
 export function verifyStandaloneProviderAttempt() {
-  const repository = fs.realpathSync(
-    fileURLToPath(new URL("../../../../../", import.meta.url)),
-  );
-  const git = spawnSync(
-    "git",
-    ["-C", repository, "rev-parse", "--show-toplevel"],
-    {
-      encoding: "utf8",
-      timeout: 15_000,
-      windowsHide: true,
-    },
-  );
-  assert.equal(git.error, undefined);
-  assert.equal(git.status, 0);
-  assert.equal(
-    fs.realpathSync(git.stdout.trim()).toLowerCase(),
-    repository.toLowerCase(),
-  );
-  const verified = getRepository(repository);
-  assert.equal(verified.status, "completed");
-  const parent = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataArea(verified.capability, "tests"),
-    "standalone_parent_invalid",
-  ).directory;
-  const fixtureRoot = fs.mkdtempSync(path.join(parent, "executor-standalone-"));
+  const owned = createRepositoryTestDirectory("executor-standalone-");
+  const fixtureRoot = owned.path;
+  const parent = path.dirname(fixtureRoot);
   const fixtureIdentity = fs.statSync(fixtureRoot, { bigint: true });
   const root = new URL("../../../src/index.ts", import.meta.url).href;
   const script = `
@@ -394,8 +368,7 @@ export function verifyStandaloneProviderAttempt() {
         }
       }
     }
-    fs.rmSync(fixtureRoot, { recursive: true });
-    assert.equal(fs.existsSync(fixtureRoot), false);
+    owned.cleanup();
   } catch (error) {
     cleanupFailure = new Error(
       `executor_test_cleanup_unconfirmed: ${fixtureRoot}`,

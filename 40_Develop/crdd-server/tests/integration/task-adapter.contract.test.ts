@@ -16,15 +16,15 @@ import { Readable, Writable } from "node:stream";
 import test from "node:test";
 import { compileFunction } from "node:vm";
 import {
-  createRuntimeProcessRecoveryIdentity,
+  createExecutionProcessRecoveryIdentity,
   observeObjectiveLeaseOwner,
 } from "../../../coordinator/src/lifecycle/host.ts";
 import {
   inspectCoordinatorDecisionResult,
   inspectCoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveResult,
-  inspectWorkspaceCommand,
 } from "../../../coordinator/src/index.ts";
+import { inspectWorkspaceCommand } from "../../src/service/workspace.ts";
 import { createCoordinatorObjectiveResult } from "../../../coordinator/src/lifecycle/execution.ts";
 import {
   inspectTaskStartCandidates,
@@ -61,7 +61,7 @@ const revision = "a".repeat(40);
  */
 test("MCPは候補不明の停止でもexact回復情報と再起動必要性を保持する", async () => {
   const dockerId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
-  const processId = createRuntimeProcessRecoveryIdentity(
+  const processId = createExecutionProcessRecoveryIdentity(
     "attempt",
     "operation",
   );
@@ -77,7 +77,7 @@ test("MCPは候補不明の停止でもexact回復情報と再起動必要性を
         assert.ok(parsed);
         return createCoordinatorObjectiveResult(parsed, {
           status: "blocked",
-          reason: "orchestrator_state_observation_unknown",
+          reason: "coordinator_state_observation_unknown",
           projection: null,
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
@@ -85,7 +85,7 @@ test("MCPは候補不明の停止でもexact回復情報と再起動必要性を
           recoveryIds: [dockerId, processId],
           recoveryObligations: [
             { kind: "docker", recoveryId: dockerId },
-            { kind: "runtime_process", recoveryId: processId },
+            { kind: "execution_process", recoveryId: processId },
           ],
           effectState: "unknown",
         });
@@ -102,7 +102,7 @@ test("MCPは候補不明の停止でもexact回復情報と再起動必要性を
   assert.deepEqual(result.recoveryIds, [dockerId, processId]);
   assert.deepEqual(result.recoveryObligations, [
     { kind: "docker", recoveryId: dockerId },
-    { kind: "runtime_process", recoveryId: processId },
+    { kind: "execution_process", recoveryId: processId },
   ]);
   assert.equal(result.effectState, "unknown");
   assert.equal(result.cleanupConfirmed, false);
@@ -236,7 +236,7 @@ test("MCPはProducerの差戻しと回復必要を両Toolで保持する", async
         }),
         dependencies({
           runObjective: async (input) => ({
-            contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+            contract: "crdd-coordinator/objective-intake/v4",
             status: "blocked",
             reason: "fixture_pending",
             requestId: input.requestId,
@@ -254,9 +254,9 @@ test("MCPはProducerの差戻しと回復必要を両Toolで保持する", async
             effectState: recovery ? "unknown" : "no_effect",
           }),
           getProjectState: async (input) => ({
-            contract: "crdd-coordinator/orchestrator-state-query/v2",
+            contract: "crdd-coordinator/state-query/v2",
             status: "completed",
-            reason: "orchestrator_state_observed",
+            reason: "coordinator_state_observed",
             requestId: input.requestId,
             projectId: "project-a",
             repositoryRevision: revision,
@@ -378,9 +378,9 @@ test("MCPは品質判断待ちと受入済み読取りの結果を保持する",
         assert.ok(Object.isFrozen(observed));
         assert.deepEqual(authentication, { principalId: "principal-a" });
         return {
-          contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+          contract: "crdd-coordinator/objective-intake/v4",
           status: "blocked",
-          reason: "orchestrator_quality_acceptance_required",
+          reason: "coordinator_quality_acceptance_required",
           requestId: observed.requestId,
           projectId: observed.projectId,
           milestoneId: observed.milestoneId,
@@ -409,7 +409,7 @@ test("MCPは品質判断待ちと受入済み読取りの結果を保持する",
   assert.equal(result.structuredContent.status, "blocked");
   assert.equal(
     result.structuredContent.reason,
-    "orchestrator_quality_acceptance_required",
+    "coordinator_quality_acceptance_required",
   );
   assert.deepEqual(result.structuredContent.recoveryIds, []);
   assert.equal(result.content[0]?.type, "text");
@@ -472,9 +472,9 @@ test("MCPは品質判断待ちと受入済み読取りの結果を保持する",
         assert.deepEqual(authentication, { principalId: "principal-a" });
         assert.ok(Object.isFrozen(observed));
         return {
-          contract: "crdd-coordinator/orchestrator-state-query/v2",
+          contract: "crdd-coordinator/state-query/v2",
           status: "completed",
-          reason: "orchestrator_state_observed",
+          reason: "coordinator_state_observed",
           requestId: observed.requestId,
           projectId: observed.projectId,
           repositoryRevision: observed.repositoryRevision,
@@ -782,7 +782,7 @@ function decision() {
 function decisionOutcome(input: ReturnType<typeof decision>) {
   const time = "2026-11-12T00:00:00.000Z";
   return {
-    contract: "crdd-coordinator/orchestrator-human-decision/v2",
+    contract: "crdd-coordinator/human-decision/v2",
     status: "completed",
     reason: "decision_applied",
     decisionId: input.decisionId,
@@ -848,7 +848,7 @@ function dependencies(
 ): McpCoordinatorDependencies {
   return {
     runObjective: async (input) => ({
-      contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+      contract: "crdd-coordinator/objective-intake/v4",
       status: "completed",
       reason: "objective_complete",
       cleanupConfirmed: true,
@@ -866,9 +866,9 @@ function dependencies(
     submitDecision: async (input) =>
       decisionOutcome({ ...decision(), ...input }),
     getProjectState: async (input) => ({
-      contract: "crdd-coordinator/orchestrator-state-query/v2",
+      contract: "crdd-coordinator/state-query/v2",
       status: "completed",
-      reason: "orchestrator_state_absent",
+      reason: "coordinator_state_absent",
       requestId: input.requestId,
       projectId: input.projectId,
       repositoryRevision: input.repositoryRevision,
@@ -1152,9 +1152,9 @@ test("MCP state tool returns the canonical read-only result", async () => {
       getProjectState: async (input, observedAuthentication) => {
         authentication = observedAuthentication;
         return {
-          contract: "crdd-coordinator/orchestrator-state-query/v2",
+          contract: "crdd-coordinator/state-query/v2",
           status: "completed",
-          reason: "orchestrator_state_absent",
+          reason: "coordinator_state_absent",
           requestId: input.requestId,
           projectId: input.projectId,
           repositoryRevision: input.repositoryRevision,
@@ -1202,7 +1202,7 @@ test("MCP Objective uses the common semantic entry and preserves cancellation", 
         assert.equal(signal.aborted, false);
         assert.deepEqual(authentication, { principalId: "principal-a" });
         return {
-          contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+          contract: "crdd-coordinator/objective-intake/v4",
           status: "completed",
           reason: "accepted",
           cleanupConfirmed: true,
@@ -1400,7 +1400,7 @@ test("MCPは内部Task fieldを公開結果へ透過しない", async () => {
       }),
       dependencies({
         runObjective: async () => ({
-          contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+          contract: "crdd-coordinator/objective-intake/v4",
           status: "completed",
           reason: "accepted",
           cleanupConfirmed: true,
@@ -1444,7 +1444,7 @@ test("MCPは内部Task fieldを公開結果へ透過しない", async () => {
  */
 test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再構成する", async () => {
   const base = {
-    contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+    contract: "crdd-coordinator/objective-intake/v4",
     status: "blocked",
     reason: "recovery_required",
     requestId: "request-a",
@@ -1687,7 +1687,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     [
       "createObjectiveIntake",
       "readState",
-      "verifyRuntimePersistenceRepository",
+      "resolveExecutionStorageDirectory",
       "COORDINATOR_PUBLIC_RUNTIME_CONTRACT",
     ],
   )(
@@ -1735,7 +1735,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
         "readProjectExecutionState",
         "wasObjectiveStateUninitialized",
         "hashCoordinatorContent",
-        "getRuntimeProcessInstanceIdentity",
+        "getExecutionProcessInstanceIdentity",
         "runCoordinatorOperation",
       ],
     )(
@@ -1890,7 +1890,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
   }
   const ordinary = {
     status: "blocked" as const,
-    reason: "orchestrator_state_generation_conflict",
+    reason: "coordinator_state_generation_conflict",
     value: null,
     manualRecoveryRequired: false,
     recoveryId: null,
@@ -2002,7 +2002,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     assert.equal(
       captured.reason,
       stage === "acquisition_other"
-        ? "orchestrator_lease_acquisition_project_identity_mismatch"
+        ? "coordinator_lease_acquisition_project_identity_mismatch"
         : outcome.reason,
     );
     assert.equal(stateReads, stage.startsWith("acquisition") ? 0 : 1);
@@ -2069,9 +2069,9 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     {
       ...base,
       processRestartRequired: false,
-      recoveryIds: ["runtime-process.a"],
+      recoveryIds: ["execution-process.a"],
       recoveryObligations: [
-        { kind: "runtime_process", recoveryId: "runtime-process.a" },
+        { kind: "execution_process", recoveryId: "execution-process.a" },
       ],
     },
     { ...base, status: "cancelled" },
@@ -2421,7 +2421,7 @@ test("MCPは129件の回復IDと義務を全量搬送し集合差を拒否する
     recoveryId,
   }));
   const base = {
-    contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+    contract: "crdd-coordinator/objective-intake/v4",
     status: "blocked",
     reason: "recovery_required",
     requestId: "request-a",
@@ -2510,7 +2510,7 @@ test("MCP Integration結果はblocked時のcleanupとmanual recoveryを相関検
       }),
       dependencies({
         runObjective: async () => ({
-          contract: "crdd-coordinator/orchestrator-integration/v1",
+          contract: "crdd-coordinator/integration/v1",
           status: "blocked",
           reason: "integration_blocked",
           projectId: "project-a",
@@ -2548,8 +2548,8 @@ test("MCP Integration結果はblocked時のcleanupとmanual recoveryを相関検
 test("MCPは旧Integration契約を成功や回復参照の有無にかかわらず拒否する", async () => {
   const recoveryId = `lease-acquisition-${"1".repeat(40)}`;
   const base = {
-    contract: "crdd-coordinator/orchestrator-integration/v1",
-    reason: "orchestrator_milestone_accepted",
+    contract: "crdd-coordinator/integration/v1",
+    reason: "coordinator_milestone_accepted",
     projectId: "project-a",
     milestoneId: "milestone-a",
     queueId: "queue-a",
@@ -2588,7 +2588,7 @@ test("MCPは旧Integration契約を成功や回復参照の有無にかかわら
       {
         ...base,
         status: "blocked",
-        reason: "orchestrator_candidate_base_cleanup_unconfirmed",
+        reason: "coordinator_candidate_base_cleanup_unconfirmed",
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         recoveryIds: [],
@@ -2603,7 +2603,7 @@ test("MCPは旧Integration契約を成功や回復参照の有無にかかわら
       {
         ...base,
         status: "blocked",
-        reason: "orchestrator_lease_acquisition_recovery_evidence_mismatch",
+        reason: "coordinator_lease_acquisition_recovery_evidence_mismatch",
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         recoveryIds: [recoveryId],
@@ -2687,7 +2687,7 @@ test("MCPは旧Integration契約を成功や回復参照の有無にかかわら
  */
 test("MCPは旧Integration契約をDecision付きでも拒否する", async () => {
   const decisionResult = {
-    contract: "crdd-coordinator/orchestrator-human-decision/v1",
+    contract: "crdd-coordinator/human-decision/v1",
     status: "completed",
     reason: "decision_issued",
     decisionId: "decision-a",
@@ -2700,7 +2700,7 @@ test("MCPは旧Integration契約をDecision付きでも拒否する", async () =
     effectState: "settled",
   };
   const integrationBase = {
-    contract: "crdd-coordinator/orchestrator-integration/v1",
+    contract: "crdd-coordinator/integration/v1",
     status: "blocked",
     reason: "integration_conflict",
     projectId: "project-a",
@@ -2717,7 +2717,7 @@ test("MCPは旧Integration契約をDecision付きでも拒否する", async () =
     { ...integrationBase, decision: decisionResult },
     {
       ...integrationBase,
-      reason: "orchestrator_candidate_base_cleanup_unconfirmed",
+      reason: "coordinator_candidate_base_cleanup_unconfirmed",
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
       effectIssued: false,
@@ -2730,7 +2730,7 @@ test("MCPは旧Integration契約をDecision付きでも拒否する", async () =
       reason: "repository_runtime_data_ignore_registration_blocked",
       cleanupConfirmed: true,
       manualRecoveryRequired: true,
-      recoveryIds: [`runtime-process.${"1".repeat(40)}`],
+      recoveryIds: [`execution-process.${"1".repeat(40)}`],
       effectIssued: true,
       effectStateUnknown: true,
       retryAllowed: false,
@@ -2777,7 +2777,7 @@ test("MCP DecisionはObjective専用fieldを拒否する", async () => {
     }),
     dependencies({
       submitDecision: async () => ({
-        contract: "crdd-coordinator/orchestrator-human-decision/v1",
+        contract: "crdd-coordinator/human-decision/v1",
         status: "completed",
         reason: "decision_applied",
         decisionId: "decision-a",

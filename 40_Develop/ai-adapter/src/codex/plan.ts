@@ -38,7 +38,7 @@ export type CodexProbePlanResult =
     >
   | Readonly<{
       status: "candidate";
-      reason: "runtime_owned_authority_and_distribution_required";
+      reason: "execution_authority_and_distribution_required";
       spawnAllowed: false;
       providerEffectAllowed: false;
       provider: "codex";
@@ -76,7 +76,7 @@ export type CodexTaskPlanResult =
     >
   | Readonly<{
       status: "candidate";
-      reason: "runtime_owned_task_packet_and_authority_required";
+      reason: "task_packet_and_authority_required";
       spawnAllowed: false;
       providerEffectAllowed: false;
       provider: "codex";
@@ -91,13 +91,15 @@ export type CodexTaskPlanResult =
         CODEX_HOME?: string;
         CODEX_DISABLE_AUTO_UPDATE: "1";
       }>;
-      explicitSandboxOption: "approve_for_me_executor_reviewer_read_only";
+      explicitSandboxOption:
+        | "approve_for_me_executor_reviewer_read_only"
+        | "workspace_reviewer_read_only_permissions";
       approvalMode: "automatic_review_workspace_write" | "never_read_only";
       taskPromptTransport: "stdin_only";
       structuredEventTransport: "fixed_cli_jsonl_v0_164_0";
       taskPromptInArgvAllowed: false;
-      reviewerFilesystemOrShellToolAllowed: false;
-      reviewerInput: "runtime_owned_immutable_candidate_content_projection_only";
+      reviewerFilesystemOrShellToolAllowed: boolean;
+      reviewerInput: "read_only_workspace";
       commandNetworkAccessAllowed: false;
       webSearchAllowed: false;
       mcpAllowed: false;
@@ -164,6 +166,8 @@ const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
 
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
 
+const WORKSPACE_REVIEW_PROFILE = "crdd-workspace-reviewer";
+
 const EFFORTS = new Set(["low", "medium", "high"]);
 
 const FIXED_PROMPT =
@@ -209,7 +213,9 @@ export function projectCodexExecutionBoundary(candidate: unknown) {
   const index = argv.indexOf("--sandbox");
   const sandbox = index < 0 ? undefined : argv[index + 1];
   const sandboxModeConfigured =
-    sandbox === "read-only"
+    sandbox === "read-only" ||
+    (sandbox === undefined &&
+      argv.includes(`default_permissions="${WORKSPACE_REVIEW_PROFILE}"`))
       ? ("read_only" as const)
       : sandbox === undefined
         ? ("implicit" as const)
@@ -276,7 +282,7 @@ export function planCodexReadOnlyProbe(
   const effort = value.effort as "low" | "medium" | "high";
   return Object.freeze({
     status: "candidate" as const,
-    reason: "runtime_owned_authority_and_distribution_required",
+    reason: "execution_authority_and_distribution_required",
     spawnAllowed: false,
     providerEffectAllowed: false,
     provider: "codex" as const,
@@ -356,7 +362,6 @@ export function planCodexIsolatedTask(
     return blocked("codex_task_execution_plan_effort_invalid");
   if (value.taskRole !== "executor" && value.taskRole !== "reviewer")
     return blocked("codex_task_execution_plan_role_invalid");
-
   const selected = snapshotPlainRecord(
     selection,
     new Set([
@@ -386,11 +391,15 @@ export function planCodexIsolatedTask(
 
   const effort = value.effort as "low" | "medium" | "high";
   const taskRole = value.taskRole as "executor" | "reviewer";
-  const permissionProfile = `crdd-${taskRole}`;
+  const reviewer = taskRole === "reviewer";
+  const permissionProfile = reviewer
+    ? WORKSPACE_REVIEW_PROFILE
+    : "crdd-executor";
   const workspaceAccess = taskRole === "executor" ? "write" : "read";
+  const homeDeny = reviewer ? ',"/provider-home"="deny"' : "";
   return Object.freeze({
     status: "candidate" as const,
-    reason: "runtime_owned_task_packet_and_authority_required",
+    reason: "task_packet_and_authority_required",
     spawnAllowed: false,
     providerEffectAllowed: false,
     provider: "codex" as const,
@@ -421,7 +430,7 @@ export function planCodexIsolatedTask(
         : "features.code_mode_host=false",
       ...(codeMode ? ["--config", "features.code_mode_only=true"] : []),
       "--config",
-      `features.shell_tool=${taskRole === "executor" ? "true" : "false"}`,
+      "features.shell_tool=true",
       "--config",
       `features.unified_exec=${taskRole === "executor" ? "true" : "false"}`,
       ...(taskRole === "reviewer"
@@ -446,10 +455,10 @@ export function planCodexIsolatedTask(
       "--config",
       `default_permissions="${permissionProfile}"`,
       "--config",
-      `permissions.${permissionProfile}.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="${workspaceAccess}"},"${locations.commandPath ?? "codex"}"="read"}`,
+      `permissions.${permissionProfile}.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="${workspaceAccess}"},"${locations.commandPath ?? "codex"}"="read"${homeDeny}}`,
       "--config",
       `permissions.${permissionProfile}.network.enabled=false`,
-      ...(taskRole === "reviewer" ? ["--sandbox", "read-only"] : []),
+      // --sandbox は名前付き権限を上書きするため併用しない。
       "--skip-git-repo-check",
       "--cd",
       locations.workingDirectory ?? ".",
@@ -468,7 +477,9 @@ export function planCodexIsolatedTask(
         : {}),
       CODEX_DISABLE_AUTO_UPDATE: "1",
     }),
-    explicitSandboxOption: "approve_for_me_executor_reviewer_read_only",
+    explicitSandboxOption: reviewer
+      ? "workspace_reviewer_read_only_permissions"
+      : "approve_for_me_executor_reviewer_read_only",
     approvalMode:
       taskRole === "executor"
         ? "automatic_review_workspace_write"
@@ -476,8 +487,8 @@ export function planCodexIsolatedTask(
     taskPromptTransport: "stdin_only" as const,
     structuredEventTransport: "fixed_cli_jsonl_v0_164_0" as const,
     taskPromptInArgvAllowed: false,
-    reviewerFilesystemOrShellToolAllowed: false,
-    reviewerInput: "runtime_owned_immutable_candidate_content_projection_only",
+    reviewerFilesystemOrShellToolAllowed: reviewer,
+    reviewerInput: "read_only_workspace",
     commandNetworkAccessAllowed: false,
     webSearchAllowed: false,
     mcpAllowed: false,

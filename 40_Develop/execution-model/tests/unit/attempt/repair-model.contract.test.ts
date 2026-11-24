@@ -108,8 +108,8 @@ function historyDerivation(overrides: Readonly<Record<string, unknown>> = {}) {
   >;
 }
 const identity = {
-  schema: "crdd-coordinator/runtime-repair-identity/v2",
-  kind: "runtime_repair",
+  schema: "crdd-coordinator/docker-repair-identity/v3",
+  kind: "docker_repair",
   operationNonce: "e".repeat(64),
   operationId: "OP-123456",
   repositoryBinding: binding,
@@ -170,7 +170,7 @@ const initial = {
  * @trace ERB-UT-036
  * @precondition 純粋な固定Identity。
  * @stimulus 初回Snapshotを生成・復号する。
- * @observation 最新Schemaとruntime_repair判別。
+ * @observation 最新Schemaとdocker_repair判別。
  * @oracle 実codecが初期値を受理する。
  * @cleanup N/A: 外部資源なし。
  * @boundary N/A: 値生成のみ。
@@ -181,7 +181,7 @@ function fixture() {
   const observed = decodeStateSnapshot(bytes, binding);
   assert.ok(observed);
   const operation = observed.snapshot.operations[0];
-  assert.ok(operation?.kind === "runtime_repair");
+  assert.ok(operation?.kind === "docker_repair");
   return { bytes, observed, operation };
 }
 
@@ -262,7 +262,7 @@ function retentionFixture(phase: RepairOperationRecord["phase"]) {
               ? null
               : {
                   status: "recovered",
-                  reason: "runtime_repair_recovered",
+                  reason: "docker_repair_recovered",
                   cleanupConfirmed: true,
                 },
         },
@@ -272,7 +272,7 @@ function retentionFixture(phase: RepairOperationRecord["phase"]) {
   const current = decodeStateSnapshot(bytes, binding);
   assert.ok(current, phase);
   const operation = current.snapshot.operations[0];
-  assert.ok(operation?.kind === "runtime_repair");
+  assert.ok(operation?.kind === "docker_repair");
   return { bytes, current, operation };
 }
 
@@ -341,7 +341,7 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
   const next = decodeStateSnapshot(candidate, binding);
   assert.ok(next);
   const operation = next.snapshot.operations[0];
-  assert.ok(operation?.kind === "runtime_repair");
+  assert.ok(operation?.kind === "docker_repair");
   assert.deepEqual(operation, {
     ...f.operation,
     phase: "settling",
@@ -419,7 +419,7 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
     primaryFailure: null,
     outcome: {
       status: "recovered",
-      reason: "runtime_repair_recovered",
+      reason: "docker_repair_recovered",
       cleanupConfirmed: true,
     },
     disposition: "retained_by_human_decision",
@@ -671,7 +671,7 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
     const original = structuredClone(f.current.snapshot);
     const mixedOperation = original.operations[0];
     assert.ok(
-      mixedOperation?.kind === "runtime_repair" && mixedOperation.checkpoint,
+      mixedOperation?.kind === "docker_repair" && mixedOperation.checkpoint,
     );
     const mixedCheckpoint = {
       ...mixedOperation.checkpoint,
@@ -814,7 +814,7 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
           ...sibling,
           identityJson: siblingJson,
           identitySha256: siblingHash,
-          recoveryId: `docker-runtime-repair.${siblingIdentity.operationNonce}.${siblingHash}`,
+          recoveryId: `docker-repair.${siblingIdentity.operationNonce}.${siblingHash}`,
         },
       ],
     })}\n`,
@@ -832,7 +832,7 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
   const actual = decodeStateSnapshot(candidate, binding);
   assert.ok(actual);
   const operation = actual.snapshot.operations[0];
-  assert.ok(operation?.kind === "runtime_repair" && operation.disposal);
+  assert.ok(operation?.kind === "docker_repair" && operation.disposal);
   assert.equal(operation.disposition, "discard");
   assert.equal(operation.disposal.decidedAt, time);
   assert.deepEqual(
@@ -951,7 +951,7 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
     const observed = decodeStateSnapshot(next, binding);
     assert.ok(observed);
     const target = observed.snapshot.operations[0];
-    assert.ok(target?.kind === "runtime_repair" && target.disposal);
+    assert.ok(target?.kind === "docker_repair" && target.disposal);
     assert.deepEqual({ ...target, disposal: operation.disposal }, operation);
     assert.deepEqual(
       observed.snapshot.operations.slice(1),
@@ -1048,7 +1048,7 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
   const actual = decodeStateSnapshot(candidate, binding);
   assert.ok(actual);
   const target = actual.snapshot.operations[0];
-  assert.ok(target?.kind === "runtime_repair" && target.disposal);
+  assert.ok(target?.kind === "docker_repair" && target.disposal);
   for (const time of [
     null,
     "bad",
@@ -1078,14 +1078,14 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
     {
       outcome: {
         status: "blocked",
-        reason: "runtime_repair_failed_closed",
+        reason: "docker_repair_failed_closed",
         cleanupConfirmed: true,
       },
     },
     {
       primaryFailure: {
         stage: "repair",
-        reason: "runtime_repair_effect_unknown",
+        reason: "docker_repair_effect_unknown",
       },
     },
   ]) {
@@ -1202,7 +1202,7 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
   for (const purpose of ["primary", "failed", "auxiliary"] as const) {
     const current = decodeStateSnapshot(settled, binding)?.snapshot
       .operations[0];
-    assert.ok(current?.kind === "runtime_repair" && current.disposal);
+    assert.ok(current?.kind === "docker_repair" && current.disposal);
     const intent = {
       ...current.disposal.checkpoint,
       directories: {
@@ -1255,7 +1255,7 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
     primaryFailure: null,
     outcome: {
       status: "recovered",
-      reason: "runtime_repair_recovered",
+      reason: "docker_repair_recovered",
       cleanupConfirmed: true,
     },
     disposition: "discard",
@@ -1338,7 +1338,7 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
     );
     const operation = decodeStateSnapshot(version, binding)?.snapshot
       .operations[0];
-    assert.ok(operation?.kind === "runtime_repair" && operation.disposal);
+    assert.ok(operation?.kind === "docker_repair" && operation.disposal);
     assert.equal(
       prepareStateRepairDisposalProgressSnapshot(
         version,
@@ -1532,7 +1532,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     assert.ok(source);
     return {
       ...source.snapshot,
-      schema: "crdd-execution-model/state/v7",
+      schema: "crdd-execution-model/state/v9",
       repositoryBindingId: null,
       projects: [],
       queueEntries: [],
@@ -1593,35 +1593,35 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     {
       outcome: {
         status: "blocked",
-        reason: "runtime_repair_effect_unknown",
+        reason: "docker_repair_effect_unknown",
         cleanupConfirmed: true,
       },
     },
     {
       outcome: {
         status: "cancelled",
-        reason: "runtime_repair_cancelled",
+        reason: "docker_repair_cancelled",
         cleanupConfirmed: true,
       },
     },
     {
       outcome: {
         status: "recovered",
-        reason: "runtime_repair_effect_unknown",
+        reason: "docker_repair_effect_unknown",
         cleanupConfirmed: true,
       },
     },
     {
       outcome: {
         status: "recovered",
-        reason: "runtime_repair_recovered",
+        reason: "docker_repair_recovered",
         cleanupConfirmed: false,
       },
     },
     {
       primaryFailure: {
         stage: "repair",
-        reason: "runtime_repair_effect_unknown",
+        reason: "docker_repair_effect_unknown",
       },
     },
     { checkpoint: { ...technical, engine: "unknown" } },
@@ -1712,7 +1712,7 @@ test("修復履歴: 専用要約と初回時刻を固定し確認だけを進め
   const pending = decodeStateSnapshot(initialHistory, binding);
   assert.ok(pending);
   const operation = pending.snapshot.operations[0];
-  assert.ok(operation?.kind === "runtime_repair" && operation.history);
+  assert.ok(operation?.kind === "docker_repair" && operation.history);
   assert.equal(operation.summarySha256, summary.summarySha256);
   assert.equal(operation.history.confirmed, false);
   const line = prepareRepairHistoryLine(initialHistory, id, binding);
@@ -1823,13 +1823,13 @@ test("修復失敗履歴: 未知値を保持し成功と終了へ昇格しない
   const f = fixture();
   const at = "2026-10-16T00:00:00.000Z";
   for (const reason of [
-    "runtime_repair_failed_closed",
-    "runtime_repair_boundary_unavailable",
-    "runtime_repair_state_unavailable",
-    "runtime_repair_observation_unknown",
-    "runtime_repair_effect_unknown",
-    "runtime_repair_cleanup_unknown",
-    "runtime_repair_cancelled",
+    "docker_repair_failed_closed",
+    "docker_repair_boundary_unavailable",
+    "docker_repair_state_unavailable",
+    "docker_repair_observation_unknown",
+    "docker_repair_effect_unknown",
+    "docker_repair_cleanup_unknown",
+    "docker_repair_cancelled",
   ])
     for (const cleanup of ["confirmed", "unknown"] as const)
       for (const failedSlot of names) {
@@ -1852,7 +1852,7 @@ test("修復失敗履歴: 未知値を保持し成功と終了へ昇格しない
           request: "unknown",
           result: "unknown",
         };
-        const cancelled = reason === "runtime_repair_cancelled";
+        const cancelled = reason === "docker_repair_cancelled";
         const operation = {
           ...f.operation,
           phase: "settling",
@@ -1917,7 +1917,7 @@ test("修復失敗履歴: 未知値を保持し成功と終了へ昇格しない
           {
             outcome: {
               ...row.summary.outcome,
-              reason: "runtime_repair_recovered",
+              reason: "docker_repair_recovered",
             },
           },
           {
@@ -1957,7 +1957,7 @@ test("修復失敗履歴: 未知値を保持し成功と終了へ昇格しない
     ...retained.operation,
     outcome: {
       status: "blocked",
-      reason: "runtime_repair_boundary_unavailable",
+      reason: "docker_repair_boundary_unavailable",
       cleanupConfirmed: true,
     },
   };
@@ -2011,14 +2011,14 @@ test("修復履歴: schemaと八処置の不正を単独で拒否する", () => 
     {
       primaryFailure: {
         stage: "repair",
-        reason: "runtime_repair_effect_unknown",
+        reason: "docker_repair_effect_unknown",
       },
     },
     { outcome: { ...row.summary.outcome, status: "blocked" } },
     {
       outcome: {
         ...row.summary.outcome,
-        reason: "runtime_repair_failed_closed",
+        reason: "docker_repair_failed_closed",
       },
     },
     { outcome: { ...row.summary.outcome, cleanupConfirmed: false } },
@@ -2183,7 +2183,7 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
     publication.snapshotBytes,
     binding,
   )?.snapshot.operations[0];
-  assert.ok(publishedOperation?.kind === "runtime_repair");
+  assert.ok(publishedOperation?.kind === "docker_repair");
   assert.equal(publishedOperation.history?.confirmed, true);
   const duplicate = prepareRepairHistoryPublication(
     initialHistory,
@@ -2490,20 +2490,20 @@ test("修復保持: codec合法な旧判断候補の新規生成を拒否する"
     {
       primaryFailure: {
         stage: "repair",
-        reason: "runtime_repair_effect_unknown",
+        reason: "docker_repair_effect_unknown",
       },
     },
     {
       outcome: {
         status: "blocked",
-        reason: "runtime_repair_failed_closed",
+        reason: "docker_repair_failed_closed",
         cleanupConfirmed: true,
       },
     },
     {
       outcome: {
         status: "cancelled",
-        reason: "runtime_repair_cancelled",
+        reason: "docker_repair_cancelled",
         cleanupConfirmed: true,
       },
     },
@@ -2746,13 +2746,13 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
   assert.ok(otherInitial);
   const otherValue = decodeStateSnapshot(otherInitial, binding)?.snapshot
     .operations[0];
-  assert.ok(otherValue?.kind === "runtime_repair");
+  assert.ok(otherValue?.kind === "docker_repair");
   const other = {
     ...otherValue,
     phase: "terminal",
     outcome: {
       status: "blocked",
-      reason: "runtime_repair_failed_closed",
+      reason: "docker_repair_failed_closed",
       cleanupConfirmed: true,
     },
   };
@@ -2796,7 +2796,7 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
             ...other,
             outcome: {
               ...other.outcome,
-              reason: "runtime_repair_boundary_unavailable",
+              reason: "docker_repair_boundary_unavailable",
             },
           },
         ],
@@ -2825,7 +2825,7 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
             ...f.operation,
             primaryFailure: {
               stage: "preparation",
-              reason: "runtime_repair_boundary_unavailable",
+              reason: "docker_repair_boundary_unavailable",
             },
           },
         ],
@@ -2927,7 +2927,7 @@ test("修復variant: 観測回収不明を保持しfreshと成功主張を拒否
   const decoded = decodeStateSnapshot(failed, binding);
   assert.ok(decoded);
   const repaired = decoded.snapshot.operations[0];
-  assert.ok(repaired?.kind === "runtime_repair");
+  assert.ok(repaired?.kind === "docker_repair");
   assert.equal(
     repaired.checkpoint?.cleanupFailure,
     "observation_cleanup_unknown",
@@ -2944,7 +2944,7 @@ test("修復variant: 観測回収不明を保持しfreshと成功主張を拒否
         phase: "settling",
         outcome: {
           status: "blocked",
-          reason: "runtime_repair_cleanup_unknown",
+          reason: "docker_repair_cleanup_unknown",
           cleanupConfirmed,
         },
       }),
@@ -2965,7 +2965,7 @@ test("修復variant: 観測回収不明を保持しfreshと成功主張を拒否
  * @cleanup N/A: 外部資源なし。
  * @boundary N/A: 保存モデルだけ。
  */
-test("修復variant: v2-onlyとIdentity／IDの相関", () => {
+test("修復variant: 現行Identityと回復IDの相関", () => {
   const { bytes, observed, operation } = fixture();
   assert.equal(observed.snapshot.schema, EXECUTION_STATE_SCHEMA);
   assert.equal("resources" in operation, false);
@@ -3004,6 +3004,14 @@ test("修復variant: v2-onlyとIdentity／IDの相関", () => {
     prepareStateRepairSnapshot(
       bytes,
       `${JSON.stringify({ ...identity, operationNonce: "f".repeat(64) })}\n`,
+      binding,
+    ),
+    null,
+  );
+  assert.equal(
+    prepareStateRepairSnapshot(
+      bytes,
+      `${JSON.stringify({ ...identity, schema: "crdd-coordinator/runtime-repair-identity/v2" })}\n`,
       binding,
     ),
     null,
@@ -3088,7 +3096,7 @@ test("修復variant: fresh Sessionは専用候補だけでcleanupを再開する
   const after = decodeStateSnapshot(next, binding);
   assert.ok(before && after);
   const actual = after.snapshot.operations[0];
-  assert.ok(actual?.kind === "runtime_repair");
+  assert.ok(actual?.kind === "docker_repair");
   assert.deepEqual(actual, {
     ...before.snapshot.operations[0],
     checkpoint: { ...initial, cleanup: "pending" },
@@ -3117,14 +3125,14 @@ test("修復variant: fresh Sessionは専用候補だけでcleanupを再開する
     {
       primaryFailure: {
         stage: "repair",
-        reason: "runtime_repair_effect_unknown",
+        reason: "docker_repair_effect_unknown",
       },
     },
     {
       phase: "settling",
       outcome: {
         status: "blocked",
-        reason: "runtime_repair_observation_unknown",
+        reason: "docker_repair_observation_unknown",
         cleanupConfirmed: true,
       },
     },
@@ -3242,7 +3250,7 @@ test("修復variant: 回復結果は全八処置の確認または明示不要�
           checkpoint: technical,
           outcome: {
             status: "recovered",
-            reason: "runtime_repair_recovered",
+            reason: "docker_repair_recovered",
             cleanupConfirmed: true,
           },
         },
@@ -3362,7 +3370,7 @@ test("修復variant: checkpointの意図前発行とunknown巻戻しを拒否す
   );
   const parsed = decodeStateSnapshot(intent, binding);
   assert.ok(parsed);
-  assert.ok(parsed.snapshot.operations[0]?.kind === "runtime_repair");
+  assert.ok(parsed.snapshot.operations[0]?.kind === "docker_repair");
   assert.equal(
     parsed.snapshot.previous?.payloadSha256,
     createHash("sha256").update(begun).digest("hex"),
@@ -3390,7 +3398,7 @@ test("修復variant: ready単独・清掃不明・保持判断の捏造を拒否
       checkpoint: ready,
       outcome: {
         status: "recovered",
-        reason: "runtime_repair_recovered",
+        reason: "docker_repair_recovered",
         cleanupConfirmed: true,
       },
     },
@@ -3398,7 +3406,7 @@ test("修復variant: ready単独・清掃不明・保持判断の捏造を拒否
     {
       primaryFailure: {
         purpose: "create_provider",
-        reason: "runtime_repair_failed_closed",
+        reason: "docker_repair_failed_closed",
       },
     },
   ])
@@ -3413,7 +3421,7 @@ test("修復variant: ready単独・清掃不明・保持判断の捏造を拒否
     );
   const failure = {
     stage: "preparation",
-    reason: "runtime_repair_failed_closed",
+    reason: "docker_repair_failed_closed",
   };
   const failed = prepareStateRepairCheckpointSnapshot(
     bytes,
@@ -3423,7 +3431,7 @@ test("修復variant: ready単独・清掃不明・保持判断の捏造を拒否
       primaryFailure: failure,
       outcome: {
         status: "blocked",
-        reason: "runtime_repair_failed_closed",
+        reason: "docker_repair_failed_closed",
         cleanupConfirmed: true,
       },
     }),
@@ -3439,7 +3447,7 @@ test("修復variant: ready単独・清掃不明・保持判断の捏造を拒否
         primaryFailure: null,
         outcome: {
           status: "blocked",
-          reason: "runtime_repair_failed_closed",
+          reason: "docker_repair_failed_closed",
           cleanupConfirmed: true,
         },
       }),
@@ -3476,11 +3484,11 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
   };
   const primaryFailure = {
     stage: "repair",
-    reason: "runtime_repair_cleanup_unknown",
+    reason: "docker_repair_cleanup_unknown",
   };
   const outcome = {
     status: "blocked",
-    reason: "runtime_repair_cleanup_unknown",
+    reason: "docker_repair_cleanup_unknown",
     cleanupConfirmed: false,
   };
   const failed = prepareStateRepairCheckpointSnapshot(
@@ -3590,7 +3598,7 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
       operation.recoveryId,
       update(operation, {
         ...next,
-        outcome: { ...next.outcome, reason: "runtime_repair_failed_closed" },
+        outcome: { ...next.outcome, reason: "docker_repair_failed_closed" },
       }),
       binding,
     ),
@@ -3650,7 +3658,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   assert.ok(parsed);
   assert.equal(parsed.snapshot.operations.length, 3);
   const repair = parsed.snapshot.operations.find(
-    (item) => item.kind === "runtime_repair",
+    (item) => item.kind === "docker_repair",
   );
   assert.ok(repair);
   assert.equal(
@@ -3677,7 +3685,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     encodeStateValue(task),
   );
   const repairBefore = withRepair.snapshot.operations.find(
-    (item) => item.kind === "runtime_repair",
+    (item) => item.kind === "docker_repair",
   );
   assert.ok(repairBefore);
   const resource = {
@@ -3723,7 +3731,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   assert.ok(last);
   assert.equal(
     encodeStateValue(
-      last.snapshot.operations.find((item) => item.kind === "runtime_repair"),
+      last.snapshot.operations.find((item) => item.kind === "docker_repair"),
     ),
     encodeStateValue(repairBefore),
   );
@@ -3754,13 +3762,13 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   assert.ok(otherStart);
   const otherValue = decodeStateSnapshot(otherStart, binding)?.snapshot
     .operations[0];
-  assert.ok(otherValue?.kind === "runtime_repair");
+  assert.ok(otherValue?.kind === "docker_repair");
   const other = {
     ...otherValue,
     phase: "terminal",
     outcome: {
       status: "blocked",
-      reason: "runtime_repair_failed_closed",
+      reason: "docker_repair_failed_closed",
       cleanupConfirmed: true,
     },
   };
@@ -4179,7 +4187,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
           oldTaskLine
             .toString("utf8")
             .replace(
-              "crdd-execution-model/operation-summary/v6",
+              "crdd-execution-model/operation-summary/v7",
               "crdd-coordinator/repair-summary/v1",
             ),
         ),
@@ -4195,7 +4203,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
       payloadSha256: last.payloadSha256,
     },
     operations: last.snapshot.operations.filter(
-      (item) => item.kind !== "runtime_repair",
+      (item) => item.kind !== "docker_repair",
     ),
   };
   assert.equal(

@@ -29,13 +29,13 @@ import { verifyStandaloneProviderAttempt } from "../system/manual/verify-provide
  * @responsibility 上位Module解決禁止の下で全失敗情報とEffect前停止を確認する。
  * @trace ERB-IT-002
  * @precondition 新品NodeでEM／Coordinatorの読込みと書込み／Process起動を拒否する。
- * @stimulus ready、null、Effect不明のblocked結果を渡す。
- * @observation readyの同参照、標準Errorのcause、拒否されたEffect回数。
- * @oracle 元結果の全fieldとexact回復参照を保持し、Effectを発行しない。
+ * @stimulus 単独試験の領域準備と二つの検証入口をimportする。
+ * @observation 禁止先の解決と書込み・子Processの試行回数。
+ * @oracle 上位とVCを読み込まず、Effectを発行しない。
  * @cleanup 子Process終了のみ。Filesystem上の試験物は作らない。
  * @boundary 技術補助と単独検証入口の読込み。モデル記録／CLI搬送は別の接続検証で確認する。
  */
-test("試験領域の技術補助はEMなしで全失敗観測を保持する", () => {
+test("単独検証のimportは上位Package・VC・Effectを必要としない", () => {
   const child = spawnSync(
     process.execPath,
     [
@@ -47,7 +47,7 @@ test("試験領域の技術補助はEMなしで全失敗観測を保持する", 
       import cp from 'node:child_process';
       import {registerHooks,syncBuiltinESMExports} from 'node:module';
       registerHooks({resolve(s,c,n){const r=n(s,c);
-        if(['/execution-model/','/coordinator/'].some(part=>r.url.includes(part)))throw Error('upper_owner_forbidden');
+        if(['/execution-model/','/coordinator/','/version-control/'].some(part=>r.url.includes(part)))throw Error('upper_owner_forbidden');
         return r;
       }});
       let effects=0;
@@ -55,22 +55,10 @@ test("試験領域の技術補助はEMなしで全失敗観測を保持する", 
       for(const name of ['writeFileSync','mkdirSync','mkdtempSync','rmSync','unlinkSync'])fs[name]=forbidden;
       for(const name of ['spawn','spawnSync','fork','exec','execSync','execFile','execFileSync'])cp[name]=forbidden;
       syncBuiltinESMExports();
-      const api=await import(${JSON.stringify(new URL("../support/runtime-data.ts", import.meta.url).href)});
+      const api=await import(${JSON.stringify(new URL("../support/repository-test-directory.ts", import.meta.url).href)});
       await import(${JSON.stringify(new URL("../system/manual/verify-provider-attempt.ts", import.meta.url).href)});
       await import(${JSON.stringify(new URL("../system/manual/verify-provider-home.ts", import.meta.url).href)});
-      const ready=Object.freeze({status:'ready',repositoryRoot:'not-used',directory:'not-used'});
-      assert.equal(api.requireReadyRepositoryRuntimeDataArea(ready,'invalid'),ready);
-      assert.throws(()=>api.requireReadyRepositoryRuntimeDataArea(null,'invalid'),{message:'invalid'});
-      const failure=Object.freeze({status:'blocked',reason:'repository_runtime_data_ignore_registration_blocked',
-        effectIssued:true,effectStateUnknown:true,effectConfirmation:'unknown',cleanupConfirmed:false,
-        retryAllowed:false,recoveryReference:'runtime-data.fixture-exact-reference',repositoryPathReported:false});
-      assert.throws(()=>api.requireReadyRepositoryRuntimeDataArea(failure,'invalid'),error=>{
-        assert.equal(error.constructor,Error);
-        assert.equal(error.message,failure.reason);
-        assert.equal(error.cause,failure);
-        assert.deepEqual(error.cause,failure);
-        return true;
-      });
+      assert.equal(typeof api.createRepositoryTestDirectory,'function');
       assert.equal(effects,0);
       `,
     ],
@@ -104,8 +92,8 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     ...publicSource.matchAll(/export type\s*\{([^}]+)\}/g),
   ].flatMap((match) => (match[1] ?? "").split(",").map((name) => name.trim()));
   for (const removed of [
-    "DockerRuntimeRepairInput",
-    "DockerRuntimeRepairResult",
+    "DockerDockerRepairInput",
+    "DockerDockerRepairResult",
     "DockerRuntimeRestartInput",
     "DockerRuntimeRestartResult",
     "RepairInput",
@@ -228,8 +216,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     for (const name of ['verifyProviderSubmissionNotice','verifyUnissuedNotice','borrowTerminalObservations'])
       assert.equal(name in runtime,false,name);
     // 名前付き領域APIの依存Sourceを先にロードし、以下ではTool自体のimport Effectを検査する。
-    await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-    await import(${JSON.stringify(new URL("../support/runtime-data.ts", import.meta.url).href)});
+    await import(${JSON.stringify(new URL("../support/repository-test-directory.ts", import.meta.url).href)});
     const {default:fs}=await import('node:fs');
     const {default:childProcess}=await import('node:child_process');
     const {syncBuiltinESMExports}=await import('node:module');

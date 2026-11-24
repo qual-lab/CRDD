@@ -80,23 +80,19 @@ test("状態照会は完成投影で一度だけ候補を受け付ける", () =>
     COORDINATOR_STATE_QUERY_CONTRACT,
   ) as typeof queryCoordinatorState;
   for (const [metadata, repositoryRevision, reason] of [
-    [base, request.repositoryRevision, "orchestrator_state_observed"],
-    [
-      null,
-      request.repositoryRevision,
-      "orchestrator_state_observation_unknown",
-    ],
+    [base, request.repositoryRevision, "coordinator_state_observed"],
+    [null, request.repositoryRevision, "coordinator_state_observation_unknown"],
     [
       { ...base, generation: base.generation + 1 },
       request.repositoryRevision,
-      "orchestrator_state_observation_unknown",
+      "coordinator_state_observation_unknown",
     ],
-    [base, "b".repeat(40), "orchestrator_state_revision_mismatch"],
-    [null, "b".repeat(40), "orchestrator_state_observation_unknown"],
+    [base, "b".repeat(40), "coordinator_state_revision_mismatch"],
+    [null, "b".repeat(40), "coordinator_state_observation_unknown"],
     [
       [base, base],
       request.repositoryRevision,
-      "orchestrator_state_observation_unknown",
+      "coordinator_state_observation_unknown",
     ],
   ] as const) {
     projections = 0;
@@ -111,7 +107,7 @@ test("状態照会は完成投影で一度だけ候補を受け付ける", () =>
     assert.equal(result.reason, reason);
     assert.equal(
       projections,
-      reason === "orchestrator_state_observation_unknown" ? 0 : 1,
+      reason === "coordinator_state_observation_unknown" ? 0 : 1,
     );
     assert.equal(inspections, Array.isArray(metadata) ? 2 : 1);
   }
@@ -143,6 +139,7 @@ test("終端保存失敗は既知義務と今回分をQueue・Lease失敗後も�
     const COORDINATOR_EXECUTION_CONTRACT = 'fixture';
     ${sourceDeclaration(source, "result")}
     ${sourceDeclaration(source, "blocked")}
+    ${stripTypeScriptTypes(sourceDeclaration(source, "blockExecution"))}
     const input = {projectId:'project-a', queueId:'queue-a'};
     const calls = [];
     const lease = {ownerGeneration:1, release:()=> {
@@ -201,7 +198,7 @@ test("終端保存失敗は既知義務と今回分をQueue・Lease失敗後も�
     "queue_release",
   ]) {
     for (const explicit of [false, true]) {
-      const old = { kind: "runtime_process", recoveryId: "old-exact" };
+      const old = { kind: "execution_process", recoveryId: "old-exact" };
       const current = { kind: "candidate", recoveryId: "new-exact" };
       const output = run(mode, {
         state: {
@@ -348,7 +345,7 @@ test("Queue所有前後の終結は一回解放し対象がある場合だけ確
         completedTaskIds: ["task-a"],
         recoveryIds: ["exact-recovery"],
         recoveryObligations: [
-          { kind: "runtime_process", recoveryId: "exact-recovery" },
+          { kind: "execution_process", recoveryId: "exact-recovery" },
         ],
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
@@ -460,7 +457,6 @@ test("共通終結は単発と明示回復の解放順・running分岐を保つ"
     "utf8",
   );
   const compile = new Function(
-    "verifyRuntimePersistenceRepository",
     "settleCoordinatorSnapshotQueueLeaseRelease",
     `${sourceDeclaration(source, "finishOperationLease")} return finishOperationLease;`,
   );
@@ -470,13 +466,14 @@ test("共通終結は単発と明示回復の解放順・running分岐を保つ"
     "recovery_running",
     "release_blocked",
     "release_throw",
-    "root_throw",
     "settlement_blocked",
     "recovery_settlement_blocked",
     "settlement_throw",
   ]) {
     const calls: string[] = [];
-    const repository = Object.freeze({});
+    const repository = Object.freeze({
+      directory: "original-working-directory",
+    });
     const failure = new Error(mode);
     const released = {
       status: mode === "release_blocked" ? "blocked" : "completed",
@@ -487,20 +484,12 @@ test("共通終結は単発と明示回復の解放順・running分岐を保つ"
       reason: mode,
       recoveryId: "settlement.original",
     };
-    const finish = compile(
-      (root: string) => {
-        calls.push("root");
-        assert.equal(root, "original-working-directory");
-        if (mode === "root_throw") throw failure;
-        return repository;
-      },
-      (...args: unknown[]) => {
-        calls.push("settlement");
-        assert.deepEqual(args, [repository, "binding", "request", 9, "owner"]);
-        if (mode === "settlement_throw") throw failure;
-        return settled;
-      },
-    ) as (lease: object, target: object) => { status: string; reason: string };
+    const finish = compile((...args: unknown[]) => {
+      calls.push("settlement");
+      assert.deepEqual(args, [repository, "binding", "request", 9, "owner"]);
+      if (mode === "settlement_throw") throw failure;
+      return settled;
+    }) as (lease: object, target: object) => { status: string; reason: string };
     const invoke = () =>
       finish(
         {
@@ -530,7 +519,7 @@ test("共通終結は単発と明示回復の解放順・running分岐を保つ"
         assert.equal(observed.status, "blocked");
         assert.equal(
           observed.reason,
-          "orchestrator_task_lease_release_unconfirmed",
+          "coordinator_task_lease_release_unconfirmed",
         );
       } else
         assert.strictEqual(
@@ -542,9 +531,7 @@ test("共通終結は単発と明示回復の解放順・running分岐を保つ"
       calls,
       mode === "running" || mode.startsWith("release_")
         ? ["release"]
-        : mode === "root_throw"
-          ? ["release", "root"]
-          : ["release", "root", "settlement"],
+        : ["release", "settlement"],
     );
   }
 });
@@ -580,7 +567,7 @@ test("試験の値Context構成はexecution viewだけを一度取得する", ()
   };
   const create = new Function(
     "readState",
-    "verifyRuntimePersistenceRepository",
+    "resolveExecutionStorageDirectory",
     `${source}; return createTestPersistence;`,
   )(
     (actual: unknown, binding: string, scope: string) => {
@@ -604,19 +591,19 @@ test("試験の値Context構成はexecution viewだけを一度取得する", ()
   for (const [value, expected] of [
     [
       { status: "completed", reason: "absent", value: null },
-      "orchestrator_snapshot_not_initialized",
+      "coordinator_snapshot_not_initialized",
     ],
     [
       { status: "blocked", reason: "read_unknown", value: null },
-      "orchestrator_snapshot_not_initialized",
+      "coordinator_snapshot_not_initialized",
     ],
     [
       {
         status: "blocked",
-        reason: "orchestrator_snapshot_lock_release_unconfirmed",
+        reason: "coordinator_snapshot_lock_release_unconfirmed",
         value: null,
       },
-      "orchestrator_snapshot_lock_release_unconfirmed",
+      "coordinator_snapshot_lock_release_unconfirmed",
     ],
   ] as const) {
     reply = value;
@@ -671,7 +658,7 @@ test("公開状態照会は同版のProjectを使い採用確認後だけ再取�
       readRepositorySnapshot: () => ({
         revisionIdentity: mode === "adopted" ? "b".repeat(40) : revision,
       }),
-      verifyRuntimePersistenceRepository: () => capability,
+      resolveExecutionStorageDirectory: () => capability,
       deriveCoordinatorRepositoryBindingId: () => "binding-a",
       readState: (root: unknown, binding: string, scope: string) => {
         assert.strictEqual(root, capability);
@@ -741,7 +728,7 @@ test("公開状態照会は同版のProjectを使い採用確認後だけ再取�
       mode === "wrong_schema"
     ) {
       assert.equal(result.status, "blocked");
-      assert.equal(result.reason, "orchestrator_snapshot_not_initialized");
+      assert.equal(result.reason, "coordinator_snapshot_not_initialized");
       assert.equal(result.observationState, "unknown");
       assert.equal(result.manualRecoveryRequired, mode === "unknown");
       assert.equal(result.cleanupConfirmed, true);
@@ -814,7 +801,7 @@ test("公開状態照会は既知の保存例外だけを元の回復情報付�
       resolveVerifiedRepositoryRootFromWorkingDirectory: () => "fixture-root",
       getRepository: () => ({ capability: {} }),
       readRepositorySnapshot: () => ({ revisionIdentity: revision }),
-      verifyRuntimePersistenceRepository: () => ({}),
+      resolveExecutionStorageDirectory: () => ({}),
       deriveCoordinatorRepositoryBindingId: () => "binding-a",
       readState: () => {
         throw error;
@@ -857,7 +844,7 @@ test("公開状態照会はHost Storeを認証の代替にせず未認証入力�
     assert.equal(result.status, "blocked");
     assert.equal(
       result.reason,
-      "orchestrator_authenticated_principal_not_verified",
+      "coordinator_authenticated_principal_not_verified",
     );
     assert.equal(result.effectState, "no_effect");
   }
@@ -917,7 +904,7 @@ test("結果受付は列挙値Objectの暗黙変換を実行しない", () => {
     taskIds: ["task-a"],
   });
   const objective = {
-    contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+    contract: "crdd-coordinator/objective-intake/v4",
     status: "blocked",
     reason: "fixture_pending",
     requestId: "request-a",
@@ -933,9 +920,9 @@ test("結果受付は列挙値Objectの暗黙変換を実行しない", () => {
     effectState: "no_effect",
   };
   const query = {
-    contract: "crdd-coordinator/orchestrator-state-query/v2",
+    contract: "crdd-coordinator/state-query/v2",
     status: "completed",
-    reason: "orchestrator_state_observed",
+    reason: "coordinator_state_observed",
     requestId: "state-a",
     projectId: projection.projectId,
     repositoryRevision: revision,
@@ -1069,9 +1056,9 @@ test("差戻しと回復必要はProducerから両結果受付まで一貫する
     });
     assert.deepEqual(inspectCoordinatorProjection(projection), projection);
     const query = {
-      contract: "crdd-coordinator/orchestrator-state-query/v2",
+      contract: "crdd-coordinator/state-query/v2",
       status: "completed",
-      reason: "orchestrator_state_observed",
+      reason: "coordinator_state_observed",
       requestId: "state-a",
       projectId: state.projectId,
       repositoryRevision: revision,
@@ -1087,7 +1074,7 @@ test("差戻しと回復必要はProducerから両結果受付まで一貫する
     );
     const recovery = mode === "recovery_required";
     const result = {
-      contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+      contract: "crdd-coordinator/objective-intake/v4",
       status: "blocked",
       reason: "fixture_pending",
       requestId: "request-a",
@@ -1230,7 +1217,7 @@ test("状態参照はOrchestratorのcanonical投影だけを返す", () => {
       }),
       request,
     );
-    assert.equal(rejected.reason, "orchestrator_state_observation_unknown");
+    assert.equal(rejected.reason, "coordinator_state_observation_unknown");
     assert.equal(rejected.projection, null);
   }
   assert.equal(hooks, 0);
@@ -1258,7 +1245,7 @@ test("状態参照はOrchestratorのcanonical投影だけを返す", () => {
       request,
     );
     assert.equal(unknown.status, "blocked");
-    assert.equal(unknown.reason, "orchestrator_state_observation_unknown");
+    assert.equal(unknown.reason, "coordinator_state_observation_unknown");
     assert.equal(unknown.projection, null);
   }
   const result = queryCoordinatorState(
@@ -1282,7 +1269,7 @@ test("状態参照はOrchestratorのcanonical投影だけを返す", () => {
   assert.equal(
     inspectCoordinatorStateQueryResult({
       ...result,
-      contract: "crdd-coordinator/orchestrator-public-runtime/v1",
+      contract: "crdd-coordinator/public-runtime/v1",
     }),
     null,
   );
@@ -1340,7 +1327,7 @@ test("異なるRepository改訂版の状態を現在値として返さない", (
     request,
   );
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "orchestrator_state_revision_mismatch");
+  assert.equal(result.reason, "coordinator_state_revision_mismatch");
   assert.equal(result.observationState, "unknown");
   assert.equal(result.projection, null);
 });
@@ -1383,11 +1370,11 @@ test("取得済み断面から指定Projectと同版の候補だけを選ぶ", (
     },
     request,
   );
-  assert.equal(duplicate.reason, "orchestrator_state_observation_unknown");
+  assert.equal(duplicate.reason, "coordinator_state_observation_unknown");
   assert.equal(duplicate.projection, null);
 });
 
-import { parseRuntimeActivityObservation } from "../../../src/lifecycle/query.ts";
+import { parseExecutionActivityObservation } from "../../../src/lifecycle/query.ts";
 import {
   inspectCoordinatorStateQuery,
   inspectCoordinatorStateQueryResult,
@@ -1441,23 +1428,26 @@ test("活動結果は10001出所・単発記録と51eventを保持する", () =>
     eventContinuation: null,
     singleTasks,
   };
-  const observed = parseRuntimeActivityObservation(raw);
+  const observed = parseExecutionActivityObservation(raw);
   assert.equal(observed?.sources.length, 10001);
   assert.equal(observed?.singleTasks?.length, 10001);
   assert.equal(observed?.events.length, 51);
   assert.equal(
-    parseRuntimeActivityObservation({
+    parseExecutionActivityObservation({
       ...raw,
       sources: [...sources, sources[0]],
     }),
     null,
   );
   assert.equal(
-    parseRuntimeActivityObservation({ ...raw, events: [...events, events[0]] }),
+    parseExecutionActivityObservation({
+      ...raw,
+      events: [...events, events[0]],
+    }),
     null,
   );
   assert.equal(
-    parseRuntimeActivityObservation({
+    parseExecutionActivityObservation({
       ...raw,
       singleTasks: [{ ...singleTasks[0], repositoryId: "missing" }],
     }),

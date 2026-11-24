@@ -23,16 +23,17 @@ import {
 } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
-  readRepositoryRevision,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 import {
+  borrowCoordinatorRecoveryRepository,
   coordinatorDataBoundaryBlocked,
   getExecutionIntelligenceStore,
+  recoveryStorageInput,
   RepositoryDataBlockedError,
-  verifyRuntimePersistenceRepository,
+  resolveExecutionStorageDirectory,
 } from "./host.ts";
 import {
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
@@ -51,9 +52,9 @@ import type {
   ActivitySource,
   CoordinatorStateQuery,
   CoordinatorStateQueryResult,
-  RuntimeActivityEvent,
-  RuntimeActivityObservation,
-  RuntimeActivityRequest,
+  ExecutionActivityEvent,
+  ExecutionActivityObservation,
+  ExecutionActivityRequest,
 } from "./types.ts";
 import { workspacePlanReadyForAcceptance } from "./workspace.ts";
 
@@ -101,7 +102,7 @@ function projectRecoveryRecord(
           }),
     historyConfirmed: operation.history?.confirmed ?? null,
   };
-  if (operation.kind === "runtime_repair")
+  if (operation.kind === "docker_repair")
     return Object.freeze({
       ...common,
       kind: operation.kind,
@@ -148,10 +149,11 @@ function projectRecoveryRecord(
  * @security 記録全体、Path、資格情報、生例外を返さない。
  * @concurrency 同じReader断面で相関し、Lock解放確認後だけ記録を公開する。
  */
-export function readRuntimeOwnedRecovery(
+export function readRecordedRecovery(
   recoveryId: string,
   rootCapability: unknown,
   signal: AbortSignal,
+  confirmedDirectory?: string,
 ) {
   const result = (
     observationState: "recorded" | "not_recorded" | "unknown",
@@ -184,10 +186,8 @@ export function readRuntimeOwnedRecovery(
   try {
     if (recoveryId.startsWith("docker-task.")) {
       if (!parseDockerTaskRecoveryId(recoveryId)) throw Error();
-    } else if (recoveryId.startsWith("docker-runtime-repair.")) {
-      if (
-        !/^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(recoveryId)
-      )
+    } else if (recoveryId.startsWith("docker-repair.")) {
+      if (!/^docker-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(recoveryId))
         throw Error();
     } else if (recoveryId.startsWith("host-operation.")) {
       if (!/^host-operation\.OP-[0-9]{6,}$/u.test(recoveryId)) throw Error();
@@ -197,7 +197,13 @@ export function readRuntimeOwnedRecovery(
   }
   let lockReleased = false;
   try {
-    const observed = readState(rootCapability, { scope: "recovery" });
+    const repository = borrowCoordinatorRecoveryRepository(
+      rootCapability,
+      confirmedDirectory,
+    );
+    const observed = readState(recoveryStorageInput(repository), {
+      scope: "recovery",
+    });
     lockReleased = observed.lockReleased;
     if (readExecutionCancellation(signal) !== false)
       return result(
@@ -288,16 +294,16 @@ export function queryCoordinatorState(
   }
   const reason =
     state === null
-      ? "orchestrator_state_absent"
+      ? "coordinator_state_absent"
       : projection === null
-        ? "orchestrator_state_observation_unknown"
+        ? "coordinator_state_observation_unknown"
         : state.repositoryRevision !== request.repositoryRevision
-          ? "orchestrator_state_revision_mismatch"
-          : "orchestrator_state_observed";
+          ? "coordinator_state_revision_mismatch"
+          : "coordinator_state_observed";
   const observationState =
-    reason === "orchestrator_state_absent"
+    reason === "coordinator_state_absent"
       ? "absent"
-      : reason === "orchestrator_state_observed"
+      : reason === "coordinator_state_observed"
         ? "observed"
         : "unknown";
   return Object.freeze({
@@ -342,7 +348,7 @@ export function queryState(
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
-        reason: "orchestrator_state_query_invalid",
+        reason: "coordinator_state_query_invalid",
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
@@ -354,7 +360,7 @@ export function queryState(
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
-        reason: "orchestrator_authenticated_principal_not_verified",
+        reason: "coordinator_authenticated_principal_not_verified",
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
@@ -367,7 +373,7 @@ export function queryState(
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
-        reason: "orchestrator_repository_root_not_verified",
+        reason: "coordinator_repository_root_not_verified",
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
@@ -379,7 +385,7 @@ export function queryState(
     const adoptedPlan =
       identity && identity.revisionIdentity !== request.repositoryRevision
         ? readState(
-            verifyRuntimePersistenceRepository(repositoryRoot),
+            resolveExecutionStorageDirectory(repositoryRoot),
             deriveCoordinatorRepositoryBindingId(repositoryRoot),
             "execution",
           ).value?.projects.find(
@@ -404,7 +410,7 @@ export function queryState(
       return Object.freeze({
         contract: COORDINATOR_STATE_QUERY_CONTRACT,
         status: "blocked" as const,
-        reason: "orchestrator_state_revision_mismatch",
+        reason: "coordinator_state_revision_mismatch",
         requestId: request.requestId,
         projectId: request.projectId,
         repositoryRevision: request.repositoryRevision,
@@ -415,7 +421,7 @@ export function queryState(
         effectState: "no_effect" as const,
       });
     const snapshot = readState(
-      verifyRuntimePersistenceRepository(repositoryRoot),
+      resolveExecutionStorageDirectory(repositoryRoot),
       deriveCoordinatorRepositoryBindingId(repositoryRoot),
       "execution",
     );
@@ -427,7 +433,7 @@ export function queryState(
       return Object.freeze({
         contract: COORDINATOR_STATE_QUERY_CONTRACT,
         status: "blocked" as const,
-        reason: "orchestrator_snapshot_not_initialized",
+        reason: "coordinator_snapshot_not_initialized",
         requestId: request.requestId,
         projectId: request.projectId,
         repositoryRevision: request.repositoryRevision,
@@ -465,8 +471,8 @@ export function queryState(
  * @concurrency 一要求の観測だけを返し、共有Cacheや固定Snapshotを作らない。
  */
 function inspectActivityRequest(
-  input: RuntimeActivityRequest,
-): RuntimeActivityRequest {
+  input: ExecutionActivityRequest,
+): ExecutionActivityRequest {
   if (!input || typeof input !== "object" || types.isProxy(input))
     throw new Error("runtime_activity_input_invalid");
   const record = snapshotPlainRecord(
@@ -552,7 +558,7 @@ function inspectActivityRequest(
 function projectActivityEvent(
   event: Execution,
   repositoryId: string,
-): RuntimeActivityEvent {
+): ExecutionActivityEvent {
   const metadata = event.metadata;
   if (
     !metadata ||
@@ -620,80 +626,74 @@ function projectActivityEvent(
  * @concurrency 一要求の観測だけを返し、共有Cacheや固定Snapshotを作らない。
  */
 export async function queryActivity(
-  input: RuntimeActivityRequest,
+  input: ExecutionActivityRequest,
   signal?: AbortSignal,
-): Promise<RuntimeActivityObservation> {
+): Promise<ExecutionActivityObservation> {
   if (signal?.aborted) throw new Error("runtime_activity_cancelled");
   const request = inspectActivityRequest(input);
-  const targets = request.repositories.map((repository) => {
-    const root = resolveVerifiedRepositoryRoot(repository.root);
-    let revision: string | null = null;
-    if (root !== null) {
-      try {
-        const target = readRepositoryRevision(repository.root);
-        revision = target?.revisionIdentity ?? null;
-      } catch {
-        revision = null;
-      }
-    }
-    return { repository, root, revision };
-  });
-  const sources: readonly ActivitySource[] = Object.freeze(
-    targets.map(({ repository, revision }) =>
-      Object.freeze({ repositoryId: repository.repositoryId, revision }),
-    ),
-  );
-  const revisionsKnown = sources.every((source) => source.revision !== null);
-  if (request.cursor !== undefined && !revisionsKnown)
-    throw new Error("runtime_activity_cursor_revision_unknown");
+  const targets = request.repositories.map((repository) => ({
+    repository,
+    root: resolveVerifiedRepositoryRoot(repository.root),
+  }));
+  if (request.cursor !== undefined && targets.some(({ root }) => root === null))
+    throw new Error("runtime_activity_cursor_invalid");
   const sourceHash = deriveActivitySourceCorrelation(
     request.projectId,
-    sources,
+    request.repositories,
   );
   const cursor = decodeActivityCursor(request.cursor, sourceHash);
+  const sources: ActivitySource[] = [];
   let stateUnknown = false,
     eventUnknown = false;
   const observed: {
     repositoryId: string;
-    projection: NonNullable<RuntimeActivityObservation["projection"]>;
+    projection: NonNullable<ExecutionActivityObservation["projection"]>;
   }[] = [];
-  const events: RuntimeActivityEvent[] = [];
+  const events: ExecutionActivityEvent[] = [];
   const singleTasks: NonNullable<
-    RuntimeActivityObservation["singleTasks"]
+    ExecutionActivityObservation["singleTasks"]
   >[number][] = [];
-  for (const { repository, root, revision } of targets) {
+  for (const { repository, root } of targets) {
+    const source = {
+      repositoryId: repository.repositoryId,
+      revision: null as string | null,
+    };
+    sources.push(source);
     if (root === null) {
       stateUnknown = true;
       eventUnknown = true;
       continue;
     }
-    if (revision === null) stateUnknown = true;
-    else {
-      const snapshot = readState(
-        verifyRuntimePersistenceRepository(root),
-        deriveCoordinatorRepositoryBindingId(root),
-        "execution",
+    const snapshot = readState(
+      { directory: root },
+      deriveCoordinatorRepositoryBindingId(root),
+      "execution",
+    );
+    if (snapshot.status !== "completed") stateUnknown = true;
+    else if (snapshot.value !== null) {
+      const value = snapshot.value;
+      const project = value.projects.find(
+        (entry) => entry.projectId === request.projectId,
       );
-      if (snapshot.status !== "completed") stateUnknown = true;
-      else if (snapshot.value !== null) {
-        const value = snapshot.value;
-        for (const queue of value.queueEntries) {
-          const record = queue.singleTask;
-          if (queue.projectId === request.projectId && record)
-            singleTasks.push({
-              repositoryId: repository.repositoryId,
-              requestId: queue.queueId,
-              mode: record.mode,
-              phase: record.phase,
-              status: record.status,
-              cleanupConfirmed: record.cleanupConfirmed,
-              recoveryRequired: queue.state === "recovery_required",
-            });
-        }
+      for (const queue of value.queueEntries) {
+        const record = queue.singleTask;
+        if (queue.projectId === request.projectId && record)
+          singleTasks.push({
+            repositoryId: repository.repositoryId,
+            requestId: queue.queueId,
+            mode: record.mode,
+            phase: record.phase,
+            status: record.status,
+            cleanupConfirmed: record.cleanupConfirmed,
+            recoveryRequired: queue.state === "recovery_required",
+          });
+      }
+      if (project) {
+        source.revision = project.repositoryRevision;
         const result = queryCoordinatorState(value, {
           requestId: "runtime-activity-observation",
           projectId: request.projectId,
-          repositoryRevision: revision,
+          repositoryRevision: project.repositoryRevision,
         });
         if (result.observationState === "unknown") stateUnknown = true;
         else if (result.projection !== null)
@@ -742,7 +742,7 @@ export async function queryActivity(
       : observed.length === 1
         ? "observed"
         : "absent";
-  const result = parseRuntimeActivityObservation({
+  const result = parseExecutionActivityObservation({
     projectId: request.projectId,
     singleTasks: stateUnknown ? [] : singleTasks,
     state,
@@ -762,7 +762,7 @@ export async function queryActivity(
       : "runtime_activity_events_observed",
     events: page,
     eventContinuation:
-      !eventUnknown && revisionsKnown && after.length > page.length && last
+      !eventUnknown && after.length > page.length && last
         ? encodeActivityCursor(last, sourceHash)
         : null,
   });
@@ -772,7 +772,7 @@ export async function queryActivity(
 
 /**
  * Projectと正規Sourceの相関Hashを導出する。
- * @responsibility 同じ対象集合と改訂のbyte表現を一つにする。
+ * @responsibility 同じ認可済み対象集合のIDを一つに結合する。
  * @trace ARCH-000004
  * @input Project IDとRepository ID昇順のSource。
  * @returns 64桁のSHA-256相関値。
@@ -787,10 +787,15 @@ export async function queryActivity(
  */
 export function deriveActivitySourceCorrelation(
   projectId: string,
-  sources: readonly ActivitySource[],
+  sources: readonly Pick<ActivitySource, "repositoryId">[],
 ): string {
   return createHash("sha256")
-    .update(JSON.stringify([projectId, sources]))
+    .update(
+      JSON.stringify([
+        projectId,
+        sources.map(({ repositoryId }) => repositoryId),
+      ]),
+    )
     .digest("hex");
 }
 
@@ -854,7 +859,7 @@ export function decodeActivityCursor(
  * @concurrency N/A: 局所値だけ。
  */
 export function encodeActivityCursor(
-  event: Pick<RuntimeActivityEvent, "occurredAt" | "eventId">,
+  event: Pick<ExecutionActivityEvent, "occurredAt" | "eventId">,
   sourceHash: string,
 ): string {
   return Buffer.from(
@@ -880,8 +885,8 @@ export function encodeActivityCursor(
  * @concurrency N/A: 局所値だけ。
  */
 export function compareActivityEventPositions(
-  left: Pick<RuntimeActivityEvent, "occurredAt" | "eventId">,
-  right: Pick<RuntimeActivityEvent, "occurredAt" | "eventId">,
+  left: Pick<ExecutionActivityEvent, "occurredAt" | "eventId">,
+  right: Pick<ExecutionActivityEvent, "occurredAt" | "eventId">,
 ): number {
   const time = Date.parse(right.occurredAt) - Date.parse(left.occurredAt);
   return (
@@ -907,9 +912,9 @@ export function compareActivityEventPositions(
  * @security 余剰Property、Proxy、accessorと暗黙文字列化を拒否する。
  * @concurrency 同期取得した所有Snapshotだけを公開する。
  */
-export function parseRuntimeActivityObservation(
+export function parseExecutionActivityObservation(
   value: unknown,
-): RuntimeActivityObservation | null {
+): ExecutionActivityObservation | null {
   const keys = new Set([
     "projectId",
     "state",
@@ -984,7 +989,7 @@ export function parseRuntimeActivityObservation(
   if (sources === null) return null;
   const sourceIds = new Set(sources.map((source) => source.repositoryId));
   const singleTasks: NonNullable<
-    RuntimeActivityObservation["singleTasks"]
+    ExecutionActivityObservation["singleTasks"]
   >[number][] = [];
   if (Object.hasOwn(record, "singleTasks")) {
     const items = snapshotPlainArray(
@@ -1030,7 +1035,7 @@ export function parseRuntimeActivityObservation(
         return null;
       singleTasks.push(
         Object.freeze(task) as NonNullable<
-          RuntimeActivityObservation["singleTasks"]
+          ExecutionActivityObservation["singleTasks"]
         >[number],
       );
     }
@@ -1057,8 +1062,7 @@ export function parseRuntimeActivityObservation(
       : record.currentSourceRepositoryId !== null) ||
     (record.eventContinuation !== null &&
       (typeof record.eventContinuation !== "string" ||
-        !/^[A-Za-z0-9_-]{1,1024}$/u.test(record.eventContinuation) ||
-        sources.some((source) => source.revision === null))) ||
+        !/^[A-Za-z0-9_-]{1,1024}$/u.test(record.eventContinuation))) ||
     (record.eventState === "unknown" && record.eventContinuation !== null)
   )
     return null;
@@ -1066,9 +1070,9 @@ export function parseRuntimeActivityObservation(
   if (rawEvents.status !== "ok") return null;
   if (record.eventState === "unknown" && rawEvents.value.length !== 0)
     return null;
-  const events: RuntimeActivityEvent[] = [];
+  const events: ExecutionActivityEvent[] = [];
   for (const raw of rawEvents.value) {
-    const event = parseRuntimeEvent(raw);
+    const event = parseExecutionEvent(raw);
     if (
       event === null ||
       !sourceIds.has(event.repositoryId) ||
@@ -1106,14 +1110,14 @@ export function parseRuntimeActivityObservation(
   return Object.freeze({
     projectId: record.projectId,
     singleTasks: Object.freeze(singleTasks),
-    state: record.state as RuntimeActivityObservation["state"],
+    state: record.state as ExecutionActivityObservation["state"],
     reason: record.reason,
     projection,
     sources,
     currentSourceRepositoryId: record.currentSourceRepositoryId as
       | string
       | null,
-    eventState: record.eventState as RuntimeActivityObservation["eventState"],
+    eventState: record.eventState as ExecutionActivityObservation["eventState"],
     eventReason: record.eventReason,
     events: Object.freeze(events),
     eventContinuation: record.eventContinuation,
@@ -1137,7 +1141,7 @@ export function parseRuntimeActivityObservation(
  * @security 任意Objectまたは生Provider情報を透過しない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
-function parseRuntimeEvent(value: unknown): RuntimeActivityEvent | null {
+function parseExecutionEvent(value: unknown): ExecutionActivityEvent | null {
   const record = snapshotPlainRecord(
     value,
     new Set([
@@ -1175,7 +1179,9 @@ function parseRuntimeEvent(value: unknown): RuntimeActivityEvent | null {
     record.reason.length <= 512 &&
     typeof record.cleanupConfirmed === "boolean" &&
     typeof record.manualRecoveryRequired === "boolean";
-  return valid ? (Object.freeze({ ...record }) as RuntimeActivityEvent) : null;
+  return valid
+    ? (Object.freeze({ ...record }) as ExecutionActivityEvent)
+    : null;
 }
 
 /**

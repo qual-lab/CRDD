@@ -57,7 +57,6 @@ import {
   setResponseHeaders,
 } from "./api-http.ts";
 import {
-  resolveRuntimeContentAccess,
   type FilesystemStoreRoot,
   type RepositoryAccessCollectionResult,
   resolveRepositoryAccessCollection,
@@ -68,10 +67,10 @@ import {
 } from "../../../access-management/src/index.ts";
 import {
   createLocalPrincipalId,
-  type ExecutionModelAccess,
   type queryPlan,
 } from "../../../execution-model/src/index.ts";
 import {
+  getRepository,
   readGitUser,
   resolveVerifiedRepositoryRoot,
   type Repository,
@@ -84,18 +83,24 @@ import {
   prepareWorkspaceOperation,
   type CoordinatorExecutionOperation,
   readAuthorizedPortfolio,
-  readAuthorizedRuntimeActivity,
+  readAuthorizedExecutionActivity,
 } from "../service/entry.ts";
-import { resolveLocalWorkspaceAccess } from "../service/workspace.ts";
+import {
+  createDefinitionAccess,
+  type DefinitionAccess,
+  resolveSharedDefinitionAccess,
+} from "../service/execution.ts";
 import { resolveSharedDevelopmentAccess } from "../service/access.ts";
-import { resolveAiSelectionAccess } from "../service/configuration.ts";
+import {
+  resolveAiSelectionAccess,
+  updateAiSelection,
+} from "../service/configuration.ts";
 import type { CredentialAdministration } from "../service/access.ts";
 import { executeManagementOperation } from "../service/access.ts";
 import type { ManagementView, ManagementResult } from "../service/access.ts";
 import { parseUnambiguousJsonDocument } from "./parse-json.ts";
 import {
   readRepositoryAiSelection,
-  saveRepositoryAiSelection,
   type AiSelectionReadResult,
   type AiSelectionSaveResult,
 } from "../../../configuration-model/src/index.ts";
@@ -122,9 +127,9 @@ import type {
 import type { WorkbenchActivityReader } from "../service/execution.ts";
 import type {
   AiRequestSnapshot,
-  WorkbenchRuntimeActivityObservation,
+  WorkbenchExecutionActivityObservation,
 } from "../service/execution.ts";
-import { projectRuntimeActivityForWorkbench } from "../service/execution.ts";
+import { projectExecutionActivityForWorkbench } from "../service/execution.ts";
 import {
   readProjectViewData,
   readArtifactMarkdown,
@@ -381,10 +386,10 @@ export async function handleExecutionDefinition({
     );
     if (!command) throw new Error("runtime_input_invalid");
     if (requestSignal.aborted) throw new Error("runtime_access_unavailable");
-    let access: ExecutionModelAccess | null = null;
+    let access: DefinitionAccess | null = null;
     if (localAccessRoot) {
       if (repositoryId && credentialAdministration)
-        access = resolveRuntimeContentAccess(
+        access = resolveSharedDefinitionAccess(
           credentialAdministration.root,
           credentialAdministration.token,
           repositoryId,
@@ -400,14 +405,15 @@ export async function handleExecutionDefinition({
           ? createLocalPrincipalId(gitUser.email)
           : null;
       if (!principalId) throw new Error("runtime_access_unavailable");
-      access = {
-        root: capability,
+      access = createDefinitionAccess(
+        capability,
+        root,
         principalId,
-        revalidate: (operation) =>
+        (operation) =>
           !requestSignal.aborted &&
           ["definition.read", "definition.write"].includes(operation) &&
           resolveVerifiedRepositoryRoot(capability) === root,
-      };
+      );
     }
     if (!access) throw new Error("runtime_access_unavailable");
     dispatched = true;
@@ -648,7 +654,7 @@ export async function handleWorkspaceAction({
     const prepared = await prepareWorkspaceOperation(rawCommand, requestSignal);
     if (requestSignal.aborted || response.destroyed) return;
     if (!prepared) throw new Error("workspace_input_invalid");
-    const { command, executeWorkspace } = prepared;
+    const { command, executeWorkspace, resolveLocalWorkspaceAccess } = prepared;
     await setTimeout(0);
     if (requestSignal.aborted || response.destroyed) return;
     const access =
@@ -1030,6 +1036,7 @@ export async function handleAiSelection({
     );
     if (!access.authorize()) throw new Error("ai_selection_access_unavailable");
     let result: AiSelectionReadResult | AiSelectionSaveResult;
+    let writeRepository: Repository | null = null;
     if (form) {
       const expectedIdentity = form.get("expectedIdentity") || null;
       if (
@@ -1039,22 +1046,32 @@ export async function handleAiSelection({
         throw new Error("ai_selection_input_invalid");
       const config = parseUnambiguousJsonDocument(form.get("config") ?? "");
       if (config === null) throw new Error("ai_selection_input_invalid");
+      const verification = getRepository(access.repositoryRoot);
+      if (verification.status !== "completed")
+        throw new Error("ai_selection_access_unavailable");
+      writeRepository = verification.capability;
       dispatched = true;
-      result = saveRepositoryAiSelection(
-        access.root,
+      result = updateAiSelection(
+        access,
+        writeRepository,
         { expectedIdentity, config },
-        access.authorize,
         getModelCatalog().catalog,
       );
     } else
       result = readRepositoryAiSelection(
-        access.root,
+        access.repositoryRoot,
         getModelCatalog().catalog,
       );
     const body = JSON.stringify(result);
     await setTimeout(0);
     if (requestSignal.aborted || response.destroyed) return;
-    if (!access.authorize()) throw new Error("ai_selection_access_unavailable");
+    if (
+      !access.authorize() ||
+      (writeRepository !== null &&
+        resolveVerifiedRepositoryRoot(writeRepository) !==
+          access.repositoryRoot)
+    )
+      throw new Error("ai_selection_access_unavailable");
     sendResponseBody(
       response,
       "application/json; charset=utf-8",
@@ -1201,12 +1218,13 @@ export async function handleRepositoryView({
           ...(activityCursor === null ? {} : { cursor: activityCursor }),
           limit: 20,
         };
-        presentation.runtimeActivityObservation = await activityReader.observe(
-          presentation.projectSurface.context.projectId,
-          page,
-        );
+        presentation.executionActivityObservation =
+          await activityReader.observe(
+            presentation.projectSurface.context.projectId,
+            page,
+          );
       } catch {
-        presentation.runtimeActivityObservation = Object.freeze({
+        presentation.executionActivityObservation = Object.freeze({
           state: "unknown",
           reason: "observation_failed",
           projection: null,
@@ -1229,7 +1247,7 @@ export async function handleRepositoryView({
         requestUrl.searchParams.get("diffPath"),
       ),
     );
-    presentation.aiSelection = readAiSelectionView(capability);
+    presentation.aiSelection = readAiSelectionView(repositoryRoot);
     const baseModel = readMainViewData(
       presentation.projectSurface,
       portfolio,
@@ -1244,14 +1262,16 @@ export async function handleRepositoryView({
       meetingQuery,
       presentation.recordActionResult,
       presentation.aiSelection,
-      readRepositoryAiSelection(capability, getModelCatalog().catalog)
-        .snapshot ?? undefined,
+      readRepositoryAiSelection(
+        resolveVerifiedRepositoryRoot(capability),
+        getModelCatalog().catalog,
+      ).snapshot ?? undefined,
       true,
       presentation.aiSelectionManagementResult,
       aiRequests,
       presentation.aiRequestSnapshot,
       presentation.aiRequestNotice,
-      presentation.runtimeActivityObservation,
+      presentation.executionActivityObservation,
       Object.freeze({
         query: requestUrl.searchParams.get("portfolioQuery") ?? "",
         state: requestUrl.searchParams.get("portfolioState") ?? "",
@@ -1550,11 +1570,11 @@ export async function handleSharedView({
           requestSignal,
           "workbench_local_records_unavailable",
         );
-        const root =
-          selected === null
-            ? null
-            : resolveVerifiedRepositoryRoot(selected.root);
-        if (!selected || !records || root === null)
+        if (!selected || !records)
+          throw new Error("workbench_selected_content_unavailable");
+        const root = selected.root;
+        const verification = getRepository(root);
+        if (verification.status !== "completed")
           throw new Error("workbench_selected_content_unavailable");
         const projectData = await readProjectViewData(root);
         if (requestSignal.aborted || response.destroyed) return true;
@@ -1566,18 +1586,18 @@ export async function handleSharedView({
         const { topicPage, topicQuery, meetingPage, meetingQuery, reader } =
           readRecordPages(records, requestUrl.searchParams);
         const worktree = readWorktreeObservation(
-          selected.root,
+          verification.capability,
           projectData.repository,
           requestUrl.searchParams.get("treeDirectory") ?? "",
           requestUrl.searchParams.get("treeCursor") ?? undefined,
           requestUrl.searchParams.get("diffPath"),
         );
-        let activity: WorkbenchRuntimeActivityObservation;
+        let activity: WorkbenchExecutionActivityObservation;
         await setTimeout(0);
         if (requestSignal.aborted || response.destroyed) return true;
         try {
           const cursor = requestUrl.searchParams.get("activityCursor");
-          const observation = await readAuthorizedRuntimeActivity(
+          const observation = await readAuthorizedExecutionActivity(
             {
               projectId: selected.manifest.projectId,
               limit: 20,
@@ -1600,7 +1620,7 @@ export async function handleSharedView({
           );
           if (observation.projectId !== selected.manifest.projectId)
             throw new Error("workbench_activity_unavailable");
-          activity = projectRuntimeActivityForWorkbench(observation);
+          activity = projectExecutionActivityForWorkbench(observation);
         } catch {
           activity = {
             state: "unknown",
@@ -1687,7 +1707,7 @@ export async function handleSharedView({
             )
           )
             throw new Error("workbench_selected_content_unavailable");
-          network = owner.readRepositoryNetworkHosts(selected.root);
+          network = owner.readRepositoryNetworkHosts(verification.capability);
         }
         model = {
           ...model,
@@ -1747,6 +1767,8 @@ export async function handleSharedView({
         } else if (route !== "/" && route !== "/index.html") {
           throw new Error("workbench_selected_content_unavailable");
         }
+        if (resolveVerifiedRepositoryRoot(verification.capability) !== root)
+          throw new Error("workbench_selected_content_unavailable");
       } catch {
         if (requestSignal.aborted || response.destroyed) return true;
         setResponseHeaders(response);
@@ -2052,11 +2074,14 @@ export async function handleRepositoryAction({
         )
       )
         throw new Error("workbench_repository_access_unavailable");
-      assertRepositoryActionTarget(selected.root, validated.request);
+      const verification = getRepository(selected.root);
+      if (verification.status !== "completed")
+        throw new Error("workbench_repository_access_unavailable");
+      assertRepositoryActionTarget(verification.capability, validated.request);
       dispatched = true;
       const result = inspectRepositoryActionResult(
         validated.request,
-        executeRepositoryAction(selected.root, validated.request),
+        executeRepositoryAction(verification.capability, validated.request),
       );
       const body = JSON.stringify(result);
       await setTimeout(0);
@@ -2068,7 +2093,8 @@ export async function handleRepositoryAction({
             credentialAdministration.root,
             credentialAdministration.token,
           ),
-        )
+        ) ||
+        resolveVerifiedRepositoryRoot(verification.capability) !== selected.root
       )
         throw new Error("workbench_repository_publication_unavailable");
       sendResponseBody(response, "application/json; charset=utf-8", body);
@@ -2928,7 +2954,7 @@ function readMainViewData(
   aiRequests: AiRequests | undefined,
   aiRequestSnapshot: AiRequestSnapshot | null,
   aiRequestNotice: string | null,
-  executionActivity: WorkbenchRuntimeActivityObservation | undefined,
+  executionActivity: WorkbenchExecutionActivityObservation | undefined,
   portfolioQuery: Readonly<{ query: string; state: string; cursor: string }>,
   worktree: Readonly<{
     state: "available" | "unknown";

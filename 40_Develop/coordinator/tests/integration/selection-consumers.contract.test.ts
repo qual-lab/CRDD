@@ -292,16 +292,15 @@ test("新Model設定はmediumを維持しCodexの両役割と保護条件へ接�
   assert.equal(reviewer.plan.exactModel, codex.model);
   for (const expected of [
     "features.code_mode=true",
-    "features.shell_tool=false",
+    "features.shell_tool=true",
     "features.unified_exec=false",
     'approval_policy="never"',
-    "permissions.crdd-reviewer.network.enabled=false",
+    'default_permissions="crdd-workspace-reviewer"',
+    "permissions.crdd-workspace-reviewer.network.enabled=false",
   ])
     assert.ok(reviewer.plan.argv.includes(expected));
-  assert.equal(
-    reviewer.plan.argv[reviewer.plan.argv.indexOf("--sandbox") + 1],
-    "read-only",
-  );
+  assert.equal(reviewer.plan.boundary.sandboxModeConfigured, "read_only");
+  assert.equal(reviewer.plan.argv.includes("--sandbox"), false);
   assert.equal(reviewer.plan.argv.includes("--approve-for-me"), false);
   const commandPath =
     describeIsolationConfiguration("codex").locations.primary.commandPath ??
@@ -309,7 +308,7 @@ test("新Model設定はmediumを維持しCodexの両役割と保護条件へ接�
   for (const expected of [
     "features.code_mode_only=true",
     "features.code_mode_host={enabled=true,disable_in_process_fallback=true}",
-    `permissions.crdd-reviewer.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="read"},"${commandPath}"="read"}`,
+    `permissions.crdd-workspace-reviewer.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="read"},"${commandPath}"="read","/provider-home"="deny"}`,
   ])
     assert.ok(reviewer.plan.argv.includes(expected));
   assert.equal(

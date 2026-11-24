@@ -342,7 +342,7 @@ test("退役は観測不能・非同期の履歴を拒否し終了記録を保�
         return value as never;
       },
     });
-    assert.equal(result.reason, "orchestrator_history_transfer_unconfirmed");
+    assert.equal(result.reason, "coordinator_history_transfer_unconfirmed");
     assert.deepEqual(o.calls, ["obligations", "lease", "lease", "history"]);
   }
   const o = observations();
@@ -435,7 +435,7 @@ test("独立採用の退役と退役零件は対象外の結合を変更しな�
   const evidence = (
     disposition: "acquired" | "released",
   ): LeaseEvidenceEnvelope => ({
-    schema: "crdd-coordinator/orchestrator-durable-foundation/v1",
+    schema: "crdd-execution-model/storage-envelope/v2",
     schemaRevision: 1,
     recordKind: "lease-evidence",
     repositoryBindingId: "binding-a",

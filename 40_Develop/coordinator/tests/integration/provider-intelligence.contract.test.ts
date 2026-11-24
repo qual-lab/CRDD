@@ -179,10 +179,11 @@ for (const kind of ["execution", "group"] as const) {
     const harness = vm.runInNewContext(
       `${script}\n({beginProviderExecutionRecording,getExecutionIntelligenceStore,reportExecutionRecordingUnavailable})`,
       {
-        readExecutionIntelligenceConfig: () => ({
-          status: "ready",
-          config: { historyRetentionDays: 30 },
-        }),
+        resolveVerifiedRepositoryRoot: () => "fixture-directory",
+        readExecutionIntelligenceConfig: (directory: unknown) => {
+          assert.equal(directory, "fixture-directory");
+          return { status: "ready", config: { historyRetentionDays: 30 } };
+        },
         ensureRepositoryExecutionDataArea: () => ({
           status: "blocked",
           reason: "repository_runtime_data_ignore_registration_blocked",

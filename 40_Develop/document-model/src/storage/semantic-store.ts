@@ -8,10 +8,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
-  type Repository,
-  resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
-import { createFilesystemRepositoryObservationPort } from "../repository/create-observer.ts";
+  createFilesystemRepositoryObservationPort,
+  observeDocumentRoot,
+} from "../repository/create-observer.ts";
 
 /**
  * Filesystemへ公開するBundle本文とRepository相対Pathを表す。
@@ -91,9 +90,9 @@ function isContained(root: string, target: string): boolean {
  *
  * @responsibility 一時Fileの作成、同期、内容確認、置換および全経路cleanupを所有する。
  * @trace ARCH-000008
- * @input capability: Repository、request: SemanticBundlePublishRequest、hooks: SemanticBundleWriterHooks
+ * @input repositoryRoot: 出力用の絶対Directory、request: Bundleと相対出力Path、hooks: 試験用注入。
  * @returns SemanticBundlePublishReceiptを返す。
- * @precondition capability: Repository、request: SemanticBundlePublishRequest、hooks: SemanticBundleWriterHooksがpublishSemanticCoverageBundleWithHooksの入力契約を満たす。
+ * @precondition 呼出し元が対象と許可された出力領域を選定済み。
  * @postcondition publishSemanticCoverageBundleWithHooksの責務を完了した結果だけを返す。
  * @effect 検証済みRepository内の指定Bundleを置換する。
  * @failure 部分書込みやRoot外Pathでは既存Snapshotを維持する。
@@ -103,15 +102,14 @@ function isContained(root: string, target: string): boolean {
  * @concurrency N/A: publishSemanticCoverageBundleWithHooksは共有非同期状態を持たない同期処理である。
  */
 export function publishSemanticCoverageBundleWithHooks(
-  capability: Repository,
+  repositoryRoot: string | null,
   request: SemanticBundlePublishRequest,
   hooks: SemanticBundleWriterHooks = {},
 ): SemanticBundlePublishReceipt {
   const { outputRelativePath, content: serializedBundle } = request;
-  const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
-  if (repositoryRoot === null)
-    throw new Error("Verified repository root capability is unavailable.");
-  const repository = createFilesystemRepositoryObservationPort(capability);
+  if (repositoryRoot === null || !observeDocumentRoot(repositoryRoot))
+    throw new Error("Document output root directory is unavailable.");
+  const repository = createFilesystemRepositoryObservationPort(repositoryRoot);
   const outputDirectoryRelativePath = path.posix.dirname(outputRelativePath);
   const outputDirectory = repository.observeDirectory(
     outputDirectoryRelativePath,

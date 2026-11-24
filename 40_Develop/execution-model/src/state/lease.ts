@@ -14,7 +14,7 @@ import {
   createLeaseEvidence,
 } from "./operations.ts";
 import { types } from "node:util";
-import type { Repository } from "../../../version-control/src/index.ts";
+import type { StorageRootInput } from "../storage/lock.ts";
 import type { StoreResult } from "../storage/lock.ts";
 import { blocked } from "../storage/lock.ts";
 import type { ProjectQueueEntry } from "../task/types.ts";
@@ -45,7 +45,7 @@ import { withSnapshotOperation } from "./crud.ts";
  * @concurrency 元のwithSnapshotOperation保持区間を維持する。
  */
 export function readLease(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<LeaseReadRequest, { kind: "acquisition" }>,
 ): StoreResult<
@@ -56,7 +56,7 @@ export function readLease(
 >;
 
 export function readLease(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<LeaseReadRequest, { kind: "owner_loss" }>,
 ): StoreResult<
@@ -67,7 +67,7 @@ export function readLease(
 >;
 
 export function readLease(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: LeaseReadRequest,
 ) {
@@ -75,12 +75,12 @@ export function readLease(
     request,
     new Set(["kind", "input"]),
   ) as LeaseReadRequest | null;
-  if (!captured) return blocked("orchestrator_snapshot_input_invalid");
+  if (!captured) return blocked("coordinator_snapshot_input_invalid");
   switch (captured.kind) {
     case "acquisition": {
       const tuple = snapshotStateArray(captured.input, 1);
       if (tuple.status !== "ok" || tuple.value.length < 1)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
       return withSnapshotOperation<
@@ -95,7 +95,7 @@ export function readLease(
     case "owner_loss": {
       const tuple = snapshotStateArray(captured.input, 4);
       if (tuple.status !== "ok" || tuple.value.length < 4)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
       if (
         !validId(binding) ||
@@ -103,7 +103,7 @@ export function readLease(
         !validId(input[1]) ||
         (input[2] !== "project-operation" && input[2] !== "canonical-adoption")
       )
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const recoveryId = leaseAcquisitionRecoveryId(
         binding,
         input[0],
@@ -129,7 +129,7 @@ export function readLease(
           });
     }
   }
-  return blocked("orchestrator_snapshot_input_invalid");
+  return blocked("coordinator_snapshot_input_invalid");
 }
 
 /**
@@ -148,7 +148,7 @@ export function readLease(
  * @concurrency 元のwithSnapshotOperation保持区間を維持する。
  */
 export function recoverLease(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<LeaseRecoveryRequest, { kind: "reconcile" }>,
 ): StoreResult<
@@ -159,7 +159,7 @@ export function recoverLease(
 >;
 
 export function recoverLease(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<LeaseRecoveryRequest, { kind: "intent" }>,
 ): StoreResult<
@@ -170,7 +170,7 @@ export function recoverLease(
 >;
 
 export function recoverLease(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<LeaseRecoveryRequest, { kind: "observed" }>,
 ): StoreResult<
@@ -181,7 +181,7 @@ export function recoverLease(
 >;
 
 export function recoverLease(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: LeaseRecoveryRequest,
 ) {
@@ -189,12 +189,12 @@ export function recoverLease(
     request,
     new Set(["kind", "input"]),
   ) as LeaseRecoveryRequest | null;
-  if (!captured) return blocked("orchestrator_snapshot_input_invalid");
+  if (!captured) return blocked("coordinator_snapshot_input_invalid");
   switch (captured.kind) {
     case "reconcile": {
       const tuple = snapshotStateArray(captured.input, 6);
       if (tuple.status !== "ok" || tuple.value.length < 6)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
       return withSnapshotOperation<
@@ -220,7 +220,7 @@ export function recoverLease(
     case "intent": {
       const tuple = snapshotStateArray(captured.input, 8);
       if (tuple.status !== "ok" || tuple.value.length < 8)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
       return withSnapshotOperation<
@@ -245,7 +245,7 @@ export function recoverLease(
     case "observed": {
       const tuple = snapshotStateArray(captured.input, 10);
       if (tuple.status !== "ok" || tuple.value.length < 10)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
       return withSnapshotOperation<
@@ -277,7 +277,7 @@ export function recoverLease(
           input[9].resourcesAbsent(owner.repositoryRoot) !== true
         )
           return blocked(
-            "orchestrator_lease_recovery_state_mismatch",
+            "coordinator_lease_recovery_state_mismatch",
             true,
             input[8],
           );
@@ -285,7 +285,7 @@ export function recoverLease(
       });
     }
   }
-  return blocked("orchestrator_snapshot_input_invalid");
+  return blocked("coordinator_snapshot_input_invalid");
 }
 
 /**
@@ -304,7 +304,7 @@ export function recoverLease(
  * @concurrency 元のwithSnapshotOperation保持区間を維持する。
  */
 export function releaseLease(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<LeaseReleaseRequest, { kind: "intent" }>,
 ): StoreResult<
@@ -315,7 +315,7 @@ export function releaseLease(
 >;
 
 export function releaseLease(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<LeaseReleaseRequest, { kind: "observed" }>,
 ): StoreResult<
@@ -326,7 +326,7 @@ export function releaseLease(
 >;
 
 export function releaseLease(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: LeaseReleaseRequest,
 ) {
@@ -334,12 +334,12 @@ export function releaseLease(
     request,
     new Set(["kind", "input"]),
   ) as LeaseReleaseRequest | null;
-  if (!captured) return blocked("orchestrator_snapshot_input_invalid");
+  if (!captured) return blocked("coordinator_snapshot_input_invalid");
   switch (captured.kind) {
     case "intent": {
       const tuple = snapshotStateArray(captured.input, 2);
       if (tuple.status !== "ok" || tuple.value.length < 2)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
       return withSnapshotOperation<
@@ -354,7 +354,7 @@ export function releaseLease(
     case "observed": {
       const tuple = snapshotStateArray(captured.input, 4);
       if (tuple.status !== "ok" || tuple.value.length < 4)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
       return withSnapshotOperation<
@@ -367,7 +367,7 @@ export function releaseLease(
       );
     }
   }
-  return blocked("orchestrator_snapshot_input_invalid");
+  return blocked("coordinator_snapshot_input_invalid");
 }
 
 /**
@@ -386,7 +386,7 @@ export function releaseLease(
  * @concurrency 元のwithSnapshotOperation保持区間を維持する。
  */
 export function acquireLease(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<LeaseAcquisitionRequest, { kind: "intent" }>,
 ): StoreResult<
@@ -397,7 +397,7 @@ export function acquireLease(
 >;
 
 export function acquireLease(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: Extract<LeaseAcquisitionRequest, { kind: "observed" }>,
 ): StoreResult<
@@ -408,7 +408,7 @@ export function acquireLease(
 >;
 
 export function acquireLease(
-  workingDirectory: Repository,
+  workingDirectory: StorageRootInput,
   binding: string,
   request: LeaseAcquisitionRequest,
 ) {
@@ -416,12 +416,12 @@ export function acquireLease(
     request,
     new Set(["kind", "input"]),
   ) as LeaseAcquisitionRequest | null;
-  if (!captured) return blocked("orchestrator_snapshot_input_invalid");
+  if (!captured) return blocked("coordinator_snapshot_input_invalid");
   switch (captured.kind) {
     case "intent": {
       const tuple = snapshotStateArray(captured.input, 5);
       if (tuple.status !== "ok" || tuple.value.length !== 5)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
       const owner = snapshotStateRecord(
         input[3],
@@ -438,7 +438,7 @@ export function acquireLease(
         !Number.isSafeInteger(owner.ownerProcessId) ||
         (owner.ownerProcessId as number) <= 0
       )
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const identity = leaseIdentity(binding, input[0], input[1], input[2]);
       const recoveryId = leaseAcquisitionRecoveryId(
         binding,
@@ -484,7 +484,7 @@ export function acquireLease(
     case "observed": {
       const tuple = snapshotStateArray(captured.input, 10);
       if (tuple.status !== "ok" || tuple.value.length < 10)
-        return blocked("orchestrator_snapshot_input_invalid");
+        return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
       return withSnapshotOperation<
@@ -497,7 +497,7 @@ export function acquireLease(
       );
     }
   }
-  return blocked("orchestrator_snapshot_input_invalid");
+  return blocked("coordinator_snapshot_input_invalid");
 }
 
 /**
@@ -520,13 +520,13 @@ export function projectLeaseAcquisitionOwner(
   binding: string,
 ) {
   if (current.schema !== PROJECT_SNAPSHOT_SCHEMA)
-    return blockedLeaseCandidate("orchestrator_snapshot_schema_invalid");
+    return blockedLeaseCandidate("coordinator_snapshot_schema_invalid");
   const intents = current.leaseIntents.filter(
     (item) => item.kind === "project-operation",
   );
   const first = intents[0];
   if (!first)
-    return completedLeaseCandidate("orchestrator_lease_acquisition_absent", {
+    return completedLeaseCandidate("coordinator_lease_acquisition_absent", {
       next: null,
       value: { acquisition: null },
     });
@@ -548,12 +548,12 @@ export function projectLeaseAcquisitionOwner(
     )
   )
     return blockedLeaseCandidate(
-      "orchestrator_lease_acquisition_owner_mismatch",
+      "coordinator_lease_acquisition_owner_mismatch",
       true,
       first.recoveryId,
     );
   return completedLeaseCandidate(
-    "orchestrator_lease_acquisition_owner_observed",
+    "coordinator_lease_acquisition_owner_observed",
     {
       next: null,
       value: {
@@ -611,7 +611,7 @@ export function prepareLeaseAcquisitionReservation(
         )
       : queueId !== "canonical")
   )
-    return blockedLeaseCandidate("orchestrator_lease_binding_invalid");
+    return blockedLeaseCandidate("coordinator_lease_binding_invalid");
   if (
     current.leaseIntents.some(
       (item) =>
@@ -619,12 +619,12 @@ export function prepareLeaseAcquisitionReservation(
         identity,
     )
   )
-    return blockedLeaseCandidate("orchestrator_lease_unavailable");
+    return blockedLeaseCandidate("coordinator_lease_unavailable");
   if (observations.resourcesAbsent() !== true)
-    return blockedLeaseCandidate("orchestrator_lease_preexisting_resource");
+    return blockedLeaseCandidate("coordinator_lease_preexisting_resource");
   const root = observeLeaseRoot(observations.observeRoot);
   observations.markIntentSaveRequested();
-  return completedLeaseCandidate("orchestrator_lease_intent_durable", {
+  return completedLeaseCandidate("coordinator_lease_intent_durable", {
     next: { ...current, leaseIntents: [...current.leaseIntents, intent] },
     value: {
       repositoryRoot: root.repositoryRoot,
@@ -671,13 +671,13 @@ export function prepareLeaseAcquisitionConfirmation(
     )
   )
     return blockedLeaseCandidate(
-      "orchestrator_lease_intent_mismatch",
+      "coordinator_lease_intent_mismatch",
       true,
       recoveryId,
     );
   if (observations.physicalIdentityMatches() !== true)
     return blockedLeaseCandidate(
-      "orchestrator_lease_physical_identity_changed",
+      "coordinator_lease_physical_identity_changed",
       true,
       recoveryId,
     );
@@ -688,7 +688,7 @@ export function prepareLeaseAcquisitionConfirmation(
     ownerProcessId,
     disposition: "acquired",
   });
-  return completedLeaseCandidate("orchestrator_lease_acquired", {
+  return completedLeaseCandidate("coordinator_lease_acquired", {
     next: {
       ...current,
       leaseIntents: [
@@ -732,11 +732,11 @@ export function prepareLeaseReleaseIntent(
     )
   )
     return blockedLeaseCandidate(
-      "orchestrator_lease_intent_mismatch",
+      "coordinator_lease_intent_mismatch",
       true,
       recoveryId,
     );
-  return completedLeaseCandidate("orchestrator_lease_release_intent_durable", {
+  return completedLeaseCandidate("coordinator_lease_release_intent_durable", {
     next: {
       ...current,
       leaseIntents: [
@@ -785,7 +785,7 @@ export function prepareLeaseReleaseSettlement(
     )
   )
     return blockedLeaseCandidate(
-      "orchestrator_lease_intent_mismatch",
+      "coordinator_lease_intent_mismatch",
       true,
       recoveryId,
     );
@@ -796,7 +796,7 @@ export function prepareLeaseReleaseSettlement(
     ownerProcessId,
     disposition: "released",
   });
-  return completedLeaseCandidate("orchestrator_lease_released", {
+  return completedLeaseCandidate("coordinator_lease_released", {
     next: {
       ...current,
       leaseIntents: current.leaseIntents.filter(
@@ -842,7 +842,7 @@ export function projectLeaseOwnerLossState(
   }>,
 ) {
   if (current.schema !== PROJECT_SNAPSHOT_SCHEMA)
-    return blockedLeaseCandidate("orchestrator_snapshot_schema_invalid");
+    return blockedLeaseCandidate("coordinator_snapshot_schema_invalid");
   const queue =
     kind === "project-operation"
       ? (current.queueEntries.find((item) => item.queueId === queueId) ?? null)
@@ -853,7 +853,7 @@ export function projectLeaseOwnerLossState(
       ? queue?.projectId !== projectId
       : queueId !== "canonical")
   )
-    return blockedLeaseCandidate("orchestrator_lease_binding_invalid");
+    return blockedLeaseCandidate("coordinator_lease_binding_invalid");
   const intents = current.leaseIntents.filter(
     (item) =>
       item.projectId === projectId &&
@@ -861,7 +861,7 @@ export function projectLeaseOwnerLossState(
       item.kind === kind,
   );
   const root = observeLeaseRoot(observations.observeRoot);
-  return completedLeaseCandidate("orchestrator_lease_recovery_inspected", {
+  return completedLeaseCandidate("coordinator_lease_recovery_inspected", {
     next: null,
     value: {
       intents,
@@ -932,7 +932,7 @@ export function prepareReleasedLeaseReconciliation(
     observations.resourcesAbsent() !== true
   )
     return blockedLeaseCandidate(
-      "orchestrator_lease_recovery_state_mismatch",
+      "coordinator_lease_recovery_state_mismatch",
       true,
       recoveryId,
     );
@@ -944,7 +944,7 @@ export function prepareReleasedLeaseReconciliation(
     resumeCondition: "owner_loss",
     resultReference: recoveryId,
   };
-  return completedLeaseCandidate("orchestrator_released_lease_reconciled", {
+  return completedLeaseCandidate("coordinator_released_lease_reconciled", {
     next: {
       ...current,
       queueEntries: current.queueEntries.map((item) =>
@@ -1011,18 +1011,18 @@ export function prepareLeaseRecoveryReservation(
     ) !== encodeStateValue(initial.queue)
   )
     return blockedLeaseCandidate(
-      "orchestrator_lease_recovery_state_mismatch",
+      "coordinator_lease_recovery_state_mismatch",
       true,
       recoveryId,
     );
   const existing = ownIntents.find((item) => item.phase === "recovery_pending");
   if (existing && encodeStateValue(existing) !== encodeStateValue(pending))
     return blockedLeaseCandidate(
-      "orchestrator_lease_intent_mismatch",
+      "coordinator_lease_intent_mismatch",
       true,
       recoveryId,
     );
-  return completedLeaseCandidate("orchestrator_lease_recovery_intent_durable", {
+  return completedLeaseCandidate("coordinator_lease_recovery_intent_durable", {
     next: existing
       ? null
       : { ...current, leaseIntents: [...current.leaseIntents, pending] },
@@ -1093,7 +1093,7 @@ export function prepareLeaseRecoverySettlement(
       )
   )
     return blockedLeaseCandidate(
-      "orchestrator_lease_recovery_state_mismatch",
+      "coordinator_lease_recovery_state_mismatch",
       true,
       recoveryId,
     );
@@ -1115,7 +1115,7 @@ export function prepareLeaseRecoverySettlement(
   );
   if (ended)
     return blockedLeaseCandidate(
-      "orchestrator_lease_recovery_state_mismatch",
+      "coordinator_lease_recovery_state_mismatch",
       true,
       recoveryId,
     );
@@ -1143,7 +1143,7 @@ export function prepareLeaseRecoverySettlement(
               }),
           resultReference: recoveryId,
         });
-  return completedLeaseCandidate("orchestrator_lease_owner_loss_reconciled", {
+  return completedLeaseCandidate("coordinator_lease_owner_loss_reconciled", {
     next: {
       ...current,
       leaseIntents: current.leaseIntents.filter(
@@ -1187,10 +1187,10 @@ function observeLeaseRoot(
 ) {
   const value = observe();
   if (!value || typeof value !== "object" || types.isProxy(value))
-    throw Error("orchestrator_lease_recovery_observation_unknown");
+    throw Error("coordinator_lease_recovery_observation_unknown");
   const prototype = Object.getPrototypeOf(value);
   if ((prototype !== Object.prototype && prototype !== null) || "then" in value)
-    throw Error("orchestrator_lease_recovery_observation_unknown");
+    throw Error("coordinator_lease_recovery_observation_unknown");
   const properties = Object.getOwnPropertyDescriptors(value);
   if (
     Reflect.ownKeys(properties).length !== 2 ||
@@ -1203,7 +1203,7 @@ function observeLeaseRoot(
     typeof properties.rootIdentity.value !== "string" ||
     !/^[a-f0-9]{64}$/.test(properties.rootIdentity.value)
   )
-    throw Error("orchestrator_lease_recovery_observation_unknown");
+    throw Error("coordinator_lease_recovery_observation_unknown");
   return value;
 }
 

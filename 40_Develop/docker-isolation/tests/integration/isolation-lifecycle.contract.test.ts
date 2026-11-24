@@ -9,6 +9,7 @@
  */
 
 import assert from "node:assert/strict";
+import path from "node:path";
 import test from "node:test";
 import type { IsolationRequest } from "../../src/execution/types.ts";
 import { createIsolationFixture } from "../support/isolation.ts";
@@ -548,6 +549,105 @@ test("共通準備は全構築入口で検査し疎配列とconfig省略を拒�
     null,
   );
   assert.equal(f.calls.length, 0);
+});
+
+/** Reviewerの覆いは準備・実行直前・Docker構成・Receiptで同じものを使う。
+ * @responsibility 読取り専用Workspace外へ可変Mount先や秘密を含むSourceを開かない。
+ * @trace ERB-IT-004
+ * @precondition 有限CLI・Filesystem代役を使用する。
+ * @stimulus 同じ準備へFile／Directory、誤配置・可変・別型を与える。
+ * @observation 起動前条件、要求Mountと実構成、元資源記録を確認する。
+ * @oracle 完成経路だけ二つの空Sourceを適用し、失敗では外部要求を発行しない。
+ * @cleanup 有限実行の完了まで待ち代役を復元する。
+ * @boundary 実Docker・AI・保持物を使用しない。
+ */
+test("Reviewerの覆いは所有する空File・Directoryを読取り専用の作業先だけに接続する", async (t) => {
+  const f = await createIsolationFixture(t);
+  const resource = f.request.resources[0];
+  assert.ok(resource?.kind === "container");
+  const masks = path.join(f.request.managementDirectory, "reviewer-masks");
+  const workspace = {
+    source: "C:\\fixture\\workspace",
+    target: "/work",
+    readOnly: true,
+  };
+  const file = {
+    source: path.join(masks, "file"),
+    target: "/work/config/.env",
+    readOnly: true,
+  };
+  const directory = {
+    source: path.join(masks, "directory"),
+    target: "/work/.ssh",
+    readOnly: true,
+  };
+  const nestedGit = { ...file, target: "/work/vendor/.git" };
+  const nestedInternal = { ...directory, target: "/work/vendor/.crdd" };
+  const mountTargets = new Map([
+    [path.join(workspace.source, "config", ".env"), "file:observed"],
+    [path.join(workspace.source, ".ssh"), "directory:observed"],
+    [path.join(workspace.source, "vendor", ".git"), "file:observed"],
+    [path.join(workspace.source, "vendor", ".crdd"), "directory:observed"],
+  ]);
+  f.reviewerMaskTargets = mountTargets;
+  const requestWith = (mounts: typeof resource.mounts): IsolationRequest => ({
+    ...f.request,
+    resources: [{ ...resource, workingDirectory: "/work", mounts }],
+  });
+  for (const mounts of [
+    [file],
+    [{ ...workspace, readOnly: false }, file],
+    [workspace, { ...file, readOnly: false }],
+    [workspace, { ...file, source: "C:\\fixture\\external" }],
+    [workspace, { ...file, target: "/work/../.env" }],
+    [workspace, { ...file, target: "/work/link\\.env" }],
+    [workspace, { ...file, target: '/work/"unsafe"' }],
+    [workspace, { ...file, target: "/work/unsafe,ro" }],
+    [workspace, { ...file, target: "/work/.git/config" }],
+    [workspace, { ...file, target: "/work/.crdd/config" }],
+    [workspace, directory, { ...file, target: "/work/.ssh/file" }],
+    [workspace, file, { ...file, target: "/work/config/.ENV" }],
+    [workspace, { ...file, source: directory.source }],
+  ])
+    assert.equal(
+      f.api.prepareIsolation(requestWith(mounts), ISOLATION_SETTINGS),
+      null,
+    );
+
+  const mounts = [workspace, file, directory, nestedGit, nestedInternal];
+  const input = requestWith(mounts);
+  f.reviewerMaskEmpty = false;
+  assert.equal(f.api.prepareIsolation(input, ISOLATION_SETTINGS), null);
+  f.reviewerMaskEmpty = true;
+  const changed = f.api.prepareIsolation(input, ISOLATION_SETTINGS);
+  assert.ok(changed);
+  f.reviewerMaskEmpty = false;
+  const stopped = await f.api.executeIsolation(changed).completion;
+  assert.ok(stopped.failure);
+  assert.equal(f.calls.length, 0);
+
+  f.reviewerMaskEmpty = true;
+  f.useRequest(input, "codex");
+  const prepared = f.api.prepareIsolation(input, ISOLATION_SETTINGS);
+  assert.ok(prepared);
+  assert.deepEqual(
+    prepared.resources.resources[0]?.configuration.mounts?.map((mount) => ({
+      ...mount,
+    })),
+    mounts,
+  );
+  const completed = await f.api.executeIsolation(prepared).completion;
+  assert.equal(completed.failure, null);
+  assert.equal(completed.cleanup.confirmed, true);
+  assert.deepEqual(
+    f.calls
+      .find(([command]) => command === "create")
+      ?.filter((part) => part.startsWith("type=bind")),
+    mounts.map(
+      ({ source, target }) =>
+        `type=bind,src=${source},dst=${target},bind-propagation=rprivate,readonly`,
+    ),
+  );
 });
 
 /** request起算は開始観測が停止しても起動要求からの期限を一回だけ使用する。

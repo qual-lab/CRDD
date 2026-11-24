@@ -740,7 +740,7 @@ export function describeSignedRecoveryMatrixContract() {
       "cleanup_observation_unknown_then_recover",
     ]),
     parentLoss: "real_child_process_termination_then_fresh_recovery",
-    recoveryIdentity: "exact_durable_runtime_owned_token",
+    recoveryIdentity: "exact_persisted_recovery_id",
     providerCredentialAllowed: false,
     providerNetworkAllowed: false,
     apiKeyFallbackAllowed: false,

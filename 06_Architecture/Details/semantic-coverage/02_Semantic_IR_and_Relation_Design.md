@@ -134,7 +134,15 @@ Implementation Symbol   QA Local Item
 
 逆方向の`implementedBy`、`verifiedByQuality`、`testedBy`は生成Graphが作る。Architecture Details、Symbol Manifest、Quality Definitionの複数箇所へ同じ逆Relationを手書きしない。
 
-生成Graphの`implementationObservation`と`testObservation`は`observed`または`unobserved`だけを返す。前者は実装Symbol、後者はTest Symbolとの接続の有無であり、実装の完成、試験の実行または合格を表さない。未接続を失敗として隠さず、後続のReality Auditが現在のSource、TestおよびEvidenceを評価するための観測結果として保持する。
+生成結果は実装と試験の観測を別々に保持する。
+
+| 項目 | 値と意味 |
+|---|---|
+| `implementationObservation` | 実装Symbolへの接続ありは`observed`、接続なしは`unobserved`。 |
+| `verificationMode` | 自動検証の指定があれば`automated`、なければ`manual`。 |
+| `testObservation` | Test Symbolへの接続ありは`observed`。接続なしなら`automated`では`unobserved`、`manual`では`manual_pending`。 |
+
+これらは実装の完成、試験の実行または合格を表さない。未接続と手動検証の未観測を区別し、後続のReality Auditが実装・試験・証拠を評価するための観測結果として保持する。
 
 Test SymbolとQuality Local Itemの結合単位は`QA-ID/Local-ID`である。Local IDだけではQA Definitionを越えて一意にならない。同じTest Symbolの`qaIds`と`localTestIds`から複数の完全一致候補が得られる場合は、誤接続を避けてGraph生成を停止する。
 
@@ -152,7 +160,7 @@ Test SymbolとQuality Local Itemの結合単位は`QA-ID/Local-ID`である。Lo
 | Test Symbolの未解決実装Symbol | Coverage Graphを生成しない |
 | 必須Meaningに実装Symbolがない | `unobserved`としてGraphへ残す。実装不足または未接続の判定はReality Auditへ渡す |
 | 必須MeaningにQuality Local Itemがない | Coverage Graphを生成しない |
-| 必須MeaningにTest Symbolがない | `unobserved`としてGraphへ残す。Pass／Failへ変換しない |
+| 必須MeaningにTest Symbolがない | 検証方法に応じ`unobserved`または`manual_pending`として残す。Pass／Failへ変換しない |
 | `QA-ID/Local-ID`が複数候補へ解決される | Coverage Graphを生成しない |
 | 一部Subsystemだけ正常 | 部分Graphを正式結果として発行しない |
 | 生成中に失敗する | 既存Bundleを保持し、新しい部分Snapshotを公開しない |

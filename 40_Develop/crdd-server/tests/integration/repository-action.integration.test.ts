@@ -273,7 +273,10 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
   closeServer = handle.close;
   let mutationCalls = 0,
     revokeAfterMutation = false,
+    hideGitAfterMutation = false,
     injectProcessFailure = false;
+  const selectedGit = path.join(roots[1] as string, ".git");
+  const heldGit = path.join(fixture, "selected-git-held");
   let submittingMarker: string | null = null;
   const spy = t.mock.method(
     childProcess,
@@ -330,6 +333,7 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
         credential.revoked = true;
         fs.writeFileSync(current, JSON.stringify(next));
       }
+      if (mutation && hideGitAfterMutation) fs.renameSync(selectedGit, heldGit);
       return result;
     },
   );
@@ -534,6 +538,22 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
     assert.equal(unknown.reason, "repository_effect_unknown");
     assert.equal(unknown.automaticRetryIssued, false);
     injectProcessFailure = false;
+    fs.writeFileSync(path.join(b, "work.txt"), "saved-before-git-loss\n");
+    const beforeGitLoss = mutationCalls;
+    hideGitAfterMutation = true;
+    try {
+      response = await send(form("prepare", { path: "work.txt" }));
+      assert.equal(response.status, 503);
+      assert.equal(
+        await response.text(),
+        "repository_action_outcome_unconfirmed\n",
+      );
+      assert.equal(mutationCalls, beforeGitLoss + 1);
+    } finally {
+      hideGitAfterMutation = false;
+      if (fs.existsSync(heldGit)) fs.renameSync(heldGit, selectedGit);
+    }
+    assert.equal(run(b, ["diff", "--cached", "--name-only"]), "work.txt");
     fs.writeFileSync(path.join(b, "work.txt"), "saved-before-loss\n");
     const beforeLoss = mutationCalls;
     revokeAfterMutation = true;

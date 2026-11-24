@@ -6,17 +6,15 @@
 
 一件化しても、遅延・重複した開始通知の保存順序は別に維持する。元Task・Attempt・Operationへの相関、同期例外・非同期拒否、実開始の有無、委譲後の不明、取消、回復IDの真正な発行と保存を区別し、不明な結果をEffectなしや清掃済みへ畳まない。TaskとQueueの状態遷移・CASは既存EM完成操作を正本とする。
 
-## Gitで固定した実行内容とReviewer読取り
+## 実行時の変更観測とReviewer読取り
 
-`lifecycle/host.ts`は、借用したMain／Linked Worktreeの開始時Git可視内容を基準Commitへ固定し、実行後の内容を候補Commitへ固定する。追跡済みFileと無視外の未追跡Fileを対象とし、開始時dirty内容をHEADとの差へ畳まない。Root直下の`.crdd`とGit無視対象の未追跡物は対象外で、Submodule・入れ子Repositoryは拒否する。
+Coordinatorは確定済みのWorkspaceをExecutorへ渡し、終了確認後にReviewerを実行する。開始・終了時にツリー全体の差分を取らない。Executorの許可パスは作業指示であり、隔離はWorkspace全体を境界とする。Workspace内の許可外書込みを事後に全件検査したとは扱わず、Task完了も採用可能性を意味しない。取り込む変更は別のコミット・採用操作で確認する。
 
-Git一覧、HEAD、内容、Pathと祖先case衝突、Link／hardlink、実体と現在Ownerの照合は既存VC操作と借用結合で行う。Git ObjectのOIDと`readCommitDiff`を正本とし、全物理Inventory・独自Manifest・候補WeakMapを持たない。相対Pathの文法と自己所有コピーFileの安定読取りは、唯一の本番利用元である`lifecycle/host.ts`が所有する。
+Task実行・レビューはCommit、専用Ref、一時Indexを作らず、通常Index、HEAD、進行中のマージを変更しない。旧操作にすでに記録された専用Ref・一時Indexは既存の回復条件でのみ処置する。Serverの明示的な候補固定・採用とは別の操作である。
 
-Ref予定を同じEMのHost記録へ先に保存し、Commit結果のOID／未回収Index、Ref発行予定、確認結果の順に同じCASへ記録する。保存不明で後続Refを発行せず、Ref回収は既知の期待OIDと一時Index実体が一致する場合だけ行う。不一致・不明ではHost領域を残し、通常Index／HEAD／利用者Fileを更新しない。
+Reviewerの読取り対象は、Directの選択済み作業ツリーまたはIsolationの選択済みWorkspaceのルート以下とし、個別パス指定で切り替えない。既存の外部送信ポリシーで認められたReviewerに、選択した作業ツリーを読み取り専用で渡す。Gitの無視設定と無関係に、見える範囲を起動前に既存の機密規則で確認する。`.git`・`.crdd`、入れ子のRepository全体、既知の機密パス、本文検査で機密を認識したファイルは、空の同型マウントで覆う。既知の機密を覆えない場合やパス名自体に機密値を認識した場合は起動しない。既知のパスの遮蔽だけではレビューを止めず、通常本文の機密検出によるレビュー未完の扱いは維持する。ハードリンクの別名、未知の機密、検査後のホスト編集の固定は保証しない。`readPaths` は計画・既存の実行要求の範囲に使い、Reviewerの対象を選ぶ入力にはしない。Executorの書込み範囲は変更しない。
 
-Reviewerは候補Commitから許可readPathsだけをVCの既存コピー操作で自己所有projectionへ展開した内容を読む。UTF-8・認識済み機密・コピー内容と余剰Fileを確認し、そのコピーを実際の実行計画へ渡す。可変Worktreeへ戻す経路は持たない。配送本文の`projectionHash`はCommit IDと提示内容の取り違え検査として維持し、廃止した内容Manifestと混同しない。
-
-対象欠測・不正対象ではSnapshotを登録せず、自己所有の空Workspaceを暗黙の実行対象にしない。許可範囲外変更は`unexpectedPaths`へ保持し、候補固定だけから採用・Cleanup成功を主張しない。
+対象欠測・不正対象では自己所有の空Workspaceへ切り替えない。Executorの変更パスは申告であり、Workspaceの実測`changedPaths`は`null`（未観測）とする。
 
 ## 共通定義と実行Admissionの分離 — 2026-10-27
 
@@ -195,7 +193,7 @@ Objectiveの本番組立てはObjective受付へ接続し、結合試験はObjec
 
 非公開実装の検証はCoordinator所有試験へ置く。ObjectiveのProducerとTaskのConsumerで、同じ設定から固定したExecutor／Reviewerの完全選定を直接照合する。Homeは非秘密の四値として同期準備へ渡し、独立した選定／Home許可tokenは発行しない。実Home wx排他とDIの技術実行・回収は[Home観測と排他の契約](01_Architecture.md#74-provider-homeの観測と排他)に従う。純粋な搬送の成功を実AI・Docker境界の成立へ換算しない。
 
-Workspace操作は完成入口`executeWorkspace`、入力は`WorkspaceCommand`、読取り投影・実行観測は`WorkspaceView`／`WorkspaceResult`をRootから公開する。Task対象の解決・具体保存・Lease・VC接続は内部Ownerへ閉じ、Host Pathや内部CapabilityをSurfaceへ返さない。接続と検証境界は[状態・資源詳細の接続表](04_Task_Detailed_Design.md#workspace接続の実装順序と移管先)を参照する。
+Workspace管理の完成操作`executeWorkspace`と入力・読取り投影はCRDD ServerのHTTP／MCP共通処理に閉じる。Coordinator Rootは実行観測の`WorkspaceResult`と、上位が確定した実行先を受け取る実行入口を提供する。Host Pathや内部Capabilityは通信側へ公開しない。接続と検証境界は[状態・資源詳細の接続表](04_Task_Detailed_Design.md#workspace接続の実装順序と移管先)を参照する。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: coordinator
@@ -221,7 +219,7 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 旧State／Queue／Leaseの移行入力Readerは本番へ残さず、移行はフロントAIの明示手順が所有する。現在Readerは不存在・観測不能・Root置換を区別し、既存意図・証拠とexact参照を保全する。保存先は`.crdd/execution-model/state.json`、通常終了要約は同領域の`history.jsonl`、保持設定は`.crdd/config/coordinator.json`へ統一する。保存形式の変更で業務進行・判断・終了条件を緩めない。保持②は移行・清掃の対象にしない。
 
-本番の上位組立ては`src/lifecycle/execution.ts`、`src/lifecycle/decision.ts`、`src/lifecycle/query.ts`、公開業務操作は`src/index.ts`、受付と現在保存の接続も`src/lifecycle/execution.ts`が所有する。認証済みPrincipalの搬送は`src/lifecycle/decision.ts`、Workspace利用・固定・採否は`src/lifecycle/workspace.ts`、判断・回答・適用・閉鎖の保存はDomainの既存State Writerへ接続する。Coordinatorには同じ業務Sourceを残さず、個別実行・検証済みRepository等の下位能力を呼ぶ。Coordinator Rootによる上位操作の再公開は撤去済みで、MCP配布入口・Workbench状態観測を本領域へ直接接続した。CLI内部の上位呼出しは撤去済みで、全公開利用側と旧実Runtime Rootの処置は後続確認の対象であり、File移管だけを依存方向の最終完成としない。
+本番の上位組立ては`src/lifecycle/execution.ts`、`src/lifecycle/decision.ts`、`src/lifecycle/query.ts`、公開業務操作は`src/index.ts`、受付と現在保存の接続も`src/lifecycle/execution.ts`が所有する。認証済みPrincipalの搬送は`src/lifecycle/decision.ts`、Workspaceの実行先を利用するのはCoordinator、固定・採否はCRDD Serverの`src/service/workspace.ts`、判断・回答・適用・閉鎖の保存はDomainの既存State Writerへ接続する。Coordinatorには同じ業務Sourceを残さず、個別実行・検証済みRepository等の下位能力を呼ぶ。Coordinator Rootによる上位操作の再公開は撤去済みで、MCP配布入口・Workbench状態観測を本領域へ直接接続した。CLI内部の上位呼出しは撤去済みで、全公開利用側と旧実Runtime Rootの処置は後続確認の対象であり、File移管だけを依存方向の最終完成としない。
 
 ## 基本設計との関係
 
@@ -243,7 +241,7 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 上位Project／Task／Attemptの実行相関と単発実行への委譲と単発実行の技術調停は同じ`lifecycle/execution.ts`が所有する。CoordinatorのTask専用公開入口を呼び、開始時の上位相関を完了待機中に置き換えない。Task開始・取消・完了形状と下位回復参照の検証はCoordinatorが所有する。Coordinator Rootの上位再exportは撤去済みで、共通Task公開面を推移的に読み込む。CLI配送と保存Root参照は切替済みで、全本番利用側と旧実Runtime Rootの処置は継続中であり、この接続だけを全体完成としない。
 
-公開Workspace結果の型は`lifecycle/types.ts`、相関を保った結果捕捉は`lifecycle/validation.ts`、閉じた入力・認可・現在投影、Workspace操作と保存・Gitへの接続は`lifecycle/workspace.ts`が所有する。完成保存はEMの`workspace/crud.ts`から既存State／Storageへ接続し、保存Codec・内容HashはEMの`state/operations.ts`が所有する。Task終端と関連Operationの除去はEMの同じ保存候補で確定する。利用側別の受領集合・ACK段階は持たない。保存Writerは同じ短期Lock内で最新値を読み直した後に判定し、CAS・出版・読戻し・解放を保持する。値検査だけで保存成功・受領・実適用を主張しない。旧形式移行Readerは本番に残さずフロントAIが移行を扱う。保存統合Bの接続・検証範囲は[詳細設計](04_Task_Detailed_Design.md#unified-storage-lifecycle)と[変更計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#374-source統合の準備と事実の照合)を参照する。
+公開Workspace結果の型は`lifecycle/types.ts`、相関を保った結果捕捉は`lifecycle/validation.ts`、閉じた入力・認可・現在投影、Workspace操作と保存・Gitへの接続はCRDD Serverの`service/workspace.ts`が所有する。完成保存はEMの`workspace/crud.ts`から既存State／Storageへ接続し、保存Codec・内容HashはEMの`state/operations.ts`が所有する。Task終端と関連Operationの除去はEMの同じ保存候補で確定する。利用側別の受領集合・ACK段階は持たない。保存Writerは同じ短期Lock内で最新値を読み直した後に判定し、CAS・出版・読戻し・解放を保持する。値検査だけで保存成功・受領・実適用を主張しない。旧形式移行Readerは本番に残さずフロントAIが移行を扱う。保存統合Bの接続・検証範囲は[詳細設計](04_Task_Detailed_Design.md#unified-storage-lifecycle)と[変更計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#374-source統合の準備と事実の照合)を参照する。
 
 Taskの時刻・安定識別子とProcess安全操作は既存の実行Adapterへ接続し、技術処理をTask側へ複製しない。`lifecycle/execution.ts` / `lifecycle/types.ts`は固定Repository情報と回復遷移の観測を接続する。技術回収の実処置はExecutionと専門Package、受領の原子確定は共通Storageが所有し、新しい回復機構を作らない。
 
@@ -525,7 +523,7 @@ unknown   Store、Identityまたは改訂版を現在値として確認不能
 |---|---|---|---|
 | `runObjective`／内部`executeCoordinatorObjective` | 固定Objective、Repository・Revision、縮小Authority、分類・明示選択と保存済み選定組、取消 → 相関検査済み結果 | CLI、MCP Server | 初回選定と継承を区別し、Project Stateを保存する。下位の新選定接続は未完了。Task完了から受入を生成しない。 |
 | `runCoordinatorOperation` | 用途を明示した単発またはGraphの受付済み操作 → 単発の終結またはGraphのTask結果と未解決義務 | 単発受付・Objective操作 | 待機前のIntent保存、待機後の再検査、下位実行だけ。Provider差を実装しない。 |
-| `executeWorkspace` | Workspace、Base、選択差分、固定Commit、取込先HEADと現在認可 → Git結果と保存結果 | Workbench Server、許可済みMCP操作 | 固定と採用を別操作にし、採用時は原則二親Merge。自動Commit／採用なし。 |
+| CRDD Server内部の`executeWorkspace` | Workspace、Base、選択差分、固定Commit、取込先HEADと現在認可 → Git結果と保存結果 | Workbench、許可済みMCP操作 | 固定と採用は別。採用は原則二親Merge。自動Commit／採用なし。 |
 | `acceptResult` | 対象Objective／Milestone、根拠Revision、人間判断 → 一回の判断記録 | API直接利用（CLI／MCPは未接続） | 受入・差戻し・判断待ちのみ。Task作成0、Provider Effect 0。 |
 | `submitDecision` | request／answer／apply／close、exact対象・世代、認証済み回答先 → 判断・適用・履歴結果 | CLI、MCP Server | 回答先を照合し、判断・Blocker・必要な適用Stateを同じCASへ保存する。履歴確定は別結果で返し、回答からAIを再送しない。旧Capability・別Store・再発行は使わない。 |
 | `queryState`／内部`queryCoordinatorState` | request・project・Revision → observed／absent／unknown | CLI、MCP Server、Workbench Server | 読取りのみ。不存在を未開始・成功へ読み替えない。 |
@@ -551,15 +549,15 @@ Coordinator内Executionは技術実行、TaskはAttempt進行の事実をExecuti
 
 活動取得は実行・判断・回復を開始しない読取り専用の公開能力とする。Access Managementが今回要求の内容認可を行い、利用側の構成が`projectId`、`repositoryId`、既存の検証済みRoot能力だけを短命入力へ射影する。資格、Role、Workspace、管理改訂、AMのBinding IDを活動Ownerへ渡さない。AMのBindingとCoordinator保存のBindingは別の導出契約であり、同一IDとして流用しない。
 
-Coordinatorは活動観測型、閉じた結果検査、現在状態Query、Execution IntelligenceのEvent投影、横断合成とCursorを所有する。履歴の正本と物理ReaderはExecution Intelligenceに残す。Workbenchの既存実Readerを複製せずこのOwnerへ移管し、WorkbenchとMCPは同じ公開契約のConsumerにする。旧ローカルCLIの本人確認をAM認証へ二重適用せず、上位で認可されたRootを受ける別の読取り専用入口を明示する。これは任意Pathで認証を迂回する入口ではない。各要求でRoot、現在Git改訂、保存RootのBinding、状態と履歴を既存Ownerから再観測する。状態なしは初期化せず、保存・判断Authority・Recovery操作を受け取らない。
+Coordinatorは活動観測型、閉じた結果検査、現在状態Query、Execution IntelligenceのEvent投影、横断合成とCursorを所有する。履歴の正本と物理ReaderはExecution Intelligenceに残す。Workbenchの既存実Readerを複製せずこのOwnerへ移管し、WorkbenchとMCPは同じ公開契約のConsumerにする。旧ローカルCLIの本人確認をAM認証へ二重適用せず、上位で認可されたRootを受ける別の読取り専用入口を明示する。これは任意Pathで認証を迂回する入口ではない。各要求でRoot、保存RootのBinding、状態と履歴を既存Ownerから再観測する。現在のHEADが指すコミットは取得しない。状態・次の手順は保存済み改訂の観測であり、現在の実行許可ではない。状態なしは初期化せず、保存・判断Authority・Recovery操作を受け取らない。
 
 | 観測対象 | 合成規則 | 不成立時の処置 |
 |---|---|---|
 | 対象集合 | 今回認可された同ProjectのRepositoryだけを全件観測する。0件は非開示の取得不能。 | 集合取得・Root・Project照合が不明なら、部分集合へ後退しない。未許可・異Projectを本文Readerへ渡さない。 |
 | 現在状態 | 観測済み1件＋他は状態なしなら当該投影、全件状態なしなら状態なし。 | 観測済みが複数なら競合としてunknown。1件でもunknownなら全体unknown。先頭値を採用しない。 |
 | 実行履歴 | 全Sourceの履歴観測が成功した場合だけ対象ProjectのEventを合成し、時刻降順→Event ID降順で全体へlimitを適用する。 | 一件でも履歴不明ならeventState=unknown、部分Eventを正常結果として返さない。同一Event IDが複数Sourceに現れる場合も出所競合として止め、暗黙dedupeしない。現在状態と履歴の不成立は独立保持する。 |
-| 出所 | `sources`は対象Repositoryを各1件、重複のないRepository ID昇順の配列に固定し、観測できたGit改訂（不明はnull）を保持する。`currentSourceRepositoryId`はstate=observedの単一投影Ownerだけを保持し、各Eventには`repositoryId`を保持する。 | absent／unknownでは現在投影Ownerをnullにする。内部Root・Path・Binding・資格を結果へ含めない。出所情報を認可証明にしない。 |
-| 継続位置 | 公開済み時刻・Event IDと、この正規化済み`sources`配列のRepository ID／Git改訂から導出した相関値をCursorへ結合する。次ページも現在認可を再評価する。いずれかのGit改訂がnullなら第一Pageの観測結果は状態契約どおり返すが、`eventContinuation`はnullとし継続Cursorを発行しない。 | Source集合または改訂が変わったCursorは明示拒否し、最初のPageから再取得する。入力Cursorを伴う要求で現在のいずれかのGit改訂が観測不能なら明示拒否する。null同士の一致を改訂不変の根拠にせず、空Pageや先頭Pageへfallbackしない。Cursorに権限・Pathを保持せず、古い集合で探索しない。 |
+| 出所 | `sources`は対象Repositoryを各1件、重複のないRepository ID昇順の配列に固定し、対象Projectの保存済み改訂（状態なし・未観測はnull）を保持する。`currentSourceRepositoryId`はstate=observedの単一投影Ownerだけを保持し、各Eventには`repositoryId`を保持する。 | absent／unknownでは現在投影Ownerをnullにする。内部Root・Path・Binding・資格を結果へ含めない。出所情報を認可証明にしない。 |
+| 継続位置 | 公開済み時刻・Event IDと、要求Project・正規化済みRepository ID集合をCursorに結合する。次ページも現在認可を再評価する。HEADや保存済み改訂の変化だけでは継続を止めない。 | 対象集合の変化・Root観測不能・旧方式のCursorは明示拒否し、第一Pageから再取得する。空Pageや先頭Pageへfallbackしない。 |
 
 ページングは現在観測に対する継続であり、履歴全体の固定Snapshot・重複配送保証ではない。通常の新しいEvent追記は既存の時刻／ID境界より後続Pageへ混入させず、保持期間による履歴整理から過去Eventを復元しない。Snapshot保存、Session、Registry、Lockや履歴の複製は追加しない。開始前取消は観測0、開始済みReaderは完了までjoinし、取消後に結果を公開・再実行しない。取消要求を実I/O中断や資源不存在の証明にしない。
 

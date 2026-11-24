@@ -7,7 +7,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import type { Repository } from "../../../version-control/src/index.ts";
 import {
   configurationPaths,
   readStableFileSnapshot,
@@ -24,7 +23,7 @@ export const EXTERNAL_SEND_POLICY_RELATIVE_PATH =
  * 固定Manifestだけを読み、真正不存在・不正内容・観測不能を分離する。
  * @responsibility 親とFileの前後実体、EOF、UTF-8、既存Schemaを確認する。
  * @trace ARCH-000011
- * @input repository: VCが発行したRepository。
+ * @input repositoryRoot: 呼出し側が確認した絶対ディレクトリ。
  * @returns readyはManifestとUTF-8復号本文のSHA256、その他は閉じた停止理由。
  * @precondition 利用許可と処置直前の再確認は呼出し元が所有する。
  * @postcondition 同じ読取りの値とHashだけを返し、状態をcacheしない。
@@ -35,10 +34,10 @@ export const EXTERNAL_SEND_POLICY_RELATIVE_PATH =
  * @concurrency 観測後の変更は利用側が同じ入口を再読取りして確認する。
  */
 export function readRepositoryManifest(
-  repository: Repository,
+  repositoryRoot: string | null,
 ): RepositoryManifestReadResult {
   try {
-    const paths = configurationPaths(repository);
+    const paths = configurationPaths(repositoryRoot);
     if (!paths) throw new Error("root");
     const parents: { file: string; stat: fs.BigIntStats }[] = [];
     const unchanged = () => {
@@ -54,10 +53,6 @@ export function readRepositoryManifest(
         )
           throw new Error("parent_changed");
       }
-      if (
-        configurationPaths(repository)?.repositoryRoot !== paths.repositoryRoot
-      )
-        throw new Error("root_changed");
     };
     const absent = (file: string): RepositoryManifestReadResult => {
       try {
@@ -77,7 +72,10 @@ export function readRepositoryManifest(
       try {
         stat = fs.lstatSync(file, { bigint: true });
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT")
+        if (
+          file !== paths.repositoryRoot &&
+          (error as NodeJS.ErrnoException).code === "ENOENT"
+        )
           return absent(file);
         throw error;
       }

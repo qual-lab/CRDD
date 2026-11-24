@@ -250,7 +250,7 @@ function fixture(outcomes: readonly string[]) {
       sourceCalls++;
       if (missingSource) return null;
       return Object.freeze({
-        scope: "crdd-development-source-snapshot/v5",
+        scope: "crdd-development-source-snapshot/v6",
         sourceSha256:
           changeSource && sourceCalls > 1 ? "d".repeat(64) : "c".repeat(64),
         sourceIdentitySha256: "e".repeat(64),

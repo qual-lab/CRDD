@@ -56,7 +56,7 @@ export function createTaskControllerCancellationFixture(
     isolationRequest: attemptPlan().isolationRequest,
     additionalHosts: null,
     provider: "claude" as const,
-    consumer: "orchestrator" as const,
+    consumer: "coordinator" as const,
     operationId,
     ...attemptSelection(
       executionSelection("executor", {

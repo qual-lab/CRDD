@@ -32,7 +32,7 @@ CRDD公式Repositoryの開発に限り、各Packageの`npm run check`、`npm run
 
 ## 通常の全体確認
 
-検証済みNode.jsと対象Repositoryの絶対Pathを使う。次は公式CRDD Repositoryの例であり、採用先では配布済みの`tools/crdd-check.ts`を指定する。
+検証済みNode.jsと対象リポジトリを使う。以下は公式CRDDリポジトリの実行例。採用先では、版を固定した完全なCRDDチェックアウトを`00_CRDD/`に置き、適用先のルートから`node 00_CRDD/template/tools/crdd-check.ts --root . --json --summary`を実行する。
 
 ```powershell
 & "C:\Program Files\nodejs\node.exe" "C:\project\CRDD\40_Develop\checker\bin\checker.ts" --root "C:\project\CRDD" --json --summary
@@ -57,7 +57,7 @@ node 40_Develop/checker/bin/checker.ts --semantic --root . @semanticInputs
 
 `npm run semantic --prefix 40_Develop/checker -- <対象指定>`も同じ入口である。従来の対象指定なし呼出しは64となるため、フロントAI／人間が対象を確認して引数を更新する。互換用の製品固定fallbackは設けない。Root省略時だけ起動Directoryを含む最寄りの検証済みRepositoryを使い、通常文書検査の対象選択は変えない。
 
-既定はJSON表示のみ。`--write`指定時だけ既存の`07_Quality/Registry/semantic-coverage-pilot.json`へ保存する。保存先Directoryは既存を前提とし、観測不能や入力不成立では書き込まない。成功0、検査不成立1、実行不能・保存失敗2、引数不正／Architecture未指定64を返す。既存SnapshotのSchema・保存先・履歴的Evidenceはこの変更で改名しない。今回の入力指定対応を全工程の品質Passとは扱わない。
+既定はJSON表示のみ。`--write`指定時だけ既存の`07_Quality/Registry/semantic-coverage-pilot.json`へ保存する。保存されたBundleとその中の意味IRの形式は、配布用の[Semantic Coverageスキーマ](../template/tools/schemas/semantic-coverage-pilot-schema.json)と[Semantic IRスキーマ](../template/tools/schemas/semantic-ir-pilot-schema.json)に対応する。手動検証が未観測の場合は`manual_pending`であり、試験合格を意味しない。保存先Directoryは既存を前提とし、観測不能や入力不成立では書き込まない。成功0、検査不成立1、実行不能・保存失敗2、引数不正／Architecture未指定64を返す。既存の保存結果や履歴は書き換えない。今回の入力指定対応を全工程の品質Passとは扱わない。
 
 以下は通常文書検査（`--semantic`なし）にだけ適用する。
 

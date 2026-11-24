@@ -24,7 +24,7 @@ import {
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
-  verifyRuntimePersistenceRepository,
+  resolveExecutionStorageDirectory,
 } from "../../src/lifecycle/host.ts";
 import {
   acquireCoordinatorSnapshotLease,
@@ -134,7 +134,7 @@ export function persistAcceptancePendingState(
   assert.ok(state.state);
   assert.equal(
     initializeExecutionStore(
-      verifyRuntimePersistenceRepository(root),
+      resolveExecutionStorageDirectory(root),
       repositoryBindingId,
     ).status,
     "completed",

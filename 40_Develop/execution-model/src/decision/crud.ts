@@ -3,7 +3,7 @@
  * @responsibility 共通保存処理へ接続し、既存の排他・改訂検査・通知順序を維持する。
  * @trace ARCH-000008
  */
-import type { Repository } from "../../../version-control/src/index.ts";
+import type { StorageRootInput } from "../storage/lock.ts";
 import { withSnapshotOperation, writeSnapshotOwned } from "../state/crud.ts";
 import { validId, encodeStateValue } from "../state/operations.ts";
 import type { HistoryRepositoryInput, StoreResult } from "../storage/lock.ts";
@@ -42,7 +42,7 @@ import {
  * @concurrency 取得からfresh読取り・候補・保存まで同じOwnerを保持する。
  */
 export function requestDecision(
-  repository: Repository | HistoryRepositoryInput,
+  repository: StorageRootInput | HistoryRepositoryInput,
   binding: string,
   request: DecisionRequest,
 ) {
@@ -65,7 +65,7 @@ export function requestDecision(
  * @concurrency 同じ元版とWriterのCASを使用する。
  */
 export function answerDecision(
-  repository: Repository | HistoryRepositoryInput,
+  repository: StorageRootInput | HistoryRepositoryInput,
   binding: string,
   decisionId: string,
   answer: DecisionAnswer,
@@ -95,7 +95,7 @@ export function answerDecision(
  * @concurrency 同じOwnerでfresh確認・CAS・解放を行う。
  */
 export function applyDecision(
-  repository: Repository | HistoryRepositoryInput,
+  repository: StorageRootInput | HistoryRepositoryInput,
   binding: string,
   decisionId: string,
   expected: Decision | null = null,
@@ -123,7 +123,7 @@ export function applyDecision(
  * @concurrency 同じOwnerでfresh確認・CAS・解放を行う。
  */
 export function closeDecision(
-  repository: Repository | HistoryRepositoryInput,
+  repository: StorageRootInput | HistoryRepositoryInput,
   binding: string,
   decisionId: string,
   status: "invalidated",
@@ -155,7 +155,7 @@ export function closeDecision(
  * @concurrency 同一Owner下のfresh値とCASを用いる。
  */
 export function recordDecision(
-  repository: Repository | HistoryRepositoryInput,
+  repository: StorageRootInput | HistoryRepositoryInput,
   binding: string,
   request: DecisionRequest,
   answer: DecisionAnswer,
@@ -185,7 +185,7 @@ export function recordDecision(
  * @concurrency 同Ownerの読取りと解放確認を使用する。
  */
 export function readDecision(
-  repository: Repository,
+  repository: StorageRootInput,
   binding: string,
   decisionId: string,
 ): StoreResult<Decision | null> {
@@ -220,7 +220,7 @@ export function readDecision(
  * @concurrency 同じOwnerを借用し、取得・解放を内側で繰り返さない。
  */
 function saveDecision(
-  repository: Repository | HistoryRepositoryInput,
+  repository: StorageRootInput | HistoryRepositoryInput,
   binding: string,
   input:
     | Readonly<{ kind: "request"; request: DecisionRequest }>

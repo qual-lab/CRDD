@@ -15,6 +15,7 @@ import {
 import {
   getRepository,
   getRepositoryFromWorkingDirectory,
+  resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import {
   compileQualitySemanticRelationsFromRepository,
@@ -97,7 +98,7 @@ export function runSemanticCoverage(request: CheckerRunRequest): CheckerResult {
     const outputRelativePath =
       "07_Quality/Registry/semantic-coverage-pilot.json";
     const symbolDiscovery = observeRealitySymbolRepository(
-      verifiedRepository.capability,
+      resolveVerifiedRepositoryRoot(verifiedRepository.capability),
     );
     const results = architectures.map((target) => ({
       ...target,
@@ -152,7 +153,7 @@ export function runSemanticCoverage(request: CheckerRunRequest): CheckerResult {
           semanticIrs,
           coverage: coverage.graph,
         },
-        verifiedRepository.capability,
+        resolveVerifiedRepositoryRoot(verifiedRepository.capability),
       );
       failureStage = "output";
       request.writeOutput(

@@ -22,7 +22,7 @@ import {
   verifyTrustedDockerCliSnapshot,
 } from "../../src/docker-cli/trust.ts";
 import { prepareDockerNetworkPolicy } from "../../src/network/policy.ts";
-import { createNetworkPolicyDirectory } from "../fixtures/network-policy-directory.ts";
+import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 
 const ISOLATION_SETTINGS = Object.freeze({
   windowsDirectory: "C:\\Windows",
@@ -46,10 +46,10 @@ const endpoint = "npipe:////./pipe/dockerDesktopLinuxEngine";
  * @boundary 実Filesystem。Docker・通信・AIなし。
  */
 test("通信試験Directoryは自己生成Rootだけを回収し差替えを拒否する", () => {
-  const normal = createNetworkPolicyDirectory();
+  const normal = createRepositoryTestDirectory("network-policy-");
   normal.cleanup();
   assert.equal(fs.existsSync(normal.path), false);
-  const owned = createNetworkPolicyDirectory();
+  const owned = createRepositoryTestDirectory("network-policy-");
   const original = `${owned.path}-original`;
   let moved = false;
   try {
@@ -338,7 +338,7 @@ test("Docker explicit: Repository追加通信先のnpm・pip・拒否・取消�
     image: string | null;
     internal: boolean;
   }[] = [];
-  const owned = createNetworkPolicyDirectory();
+  const owned = createRepositoryTestDirectory("network-policy-");
   const root = owned.path;
   t.after(() => {
     if (

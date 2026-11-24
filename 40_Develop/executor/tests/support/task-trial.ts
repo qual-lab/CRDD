@@ -192,6 +192,10 @@ export function buildTaskTrialRequest(
         gitSourcePath: path.join(work, ".git"),
         internalSourcePath: path.join(work, ".crdd"),
       },
+      // 固定Workに秘密や入れ子のGit管理領域はなく、ルートの二箇所は保護Mountが覆う。
+      ...(spec.taskRole === "reviewer"
+        ? { reviewerMasks: Object.freeze([]) }
+        : {}),
     },
     selection: technicalSelection,
   });

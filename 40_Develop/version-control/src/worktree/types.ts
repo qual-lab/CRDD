@@ -3,6 +3,8 @@
  * @responsibility 業務IDや保存状態を持たず技術対象だけを定義する。
  * @trace ARCH-000009
  */
+import type { ObservedBranchCommit } from "../git/read.ts";
+
 export type WorktreeTarget = Readonly<{ relativePath: string; branch: string }>;
 /** Worktree登録・実Directory・BranchとHEAD・Lock・dirtyの個別観測。 */
 export type WorktreeObservation = Readonly<{
@@ -27,9 +29,9 @@ export type WorktreeResult = Readonly<{
   parentDirectoryRetained: boolean | null;
   observation: WorktreeObservation | null;
 }>;
-/** 生成対象のWorktreeと開始Commitを指定する。 */
+/** 生成対象のWorktreeと開始Commitを指定する。確認済みの場合は同じRepositoryの観測を渡せる。 */
 export type WorktreeCreateRequest = WorktreeTarget &
-  Readonly<{ baseCommit: string }>;
+  Readonly<{ baseCommit: string; observedBase?: ObservedBranchCommit }>;
 /** 削除対象の期待HEADと変更破棄の明示条件を指定する。 */
 export type WorktreeRemoveRequest = WorktreeTarget &
   Readonly<{ expectedHead: string; discardChanges?: boolean }>;
@@ -46,5 +48,5 @@ export type WorktreeGitContext = {
     args: readonly string[],
     options?: { indexFile?: string; input?: string | Buffer },
   ) => { status: number | null; stdout: string; stderr: string };
-  inspect: () => WorktreeObservation;
+  inspect: (phase?: "before-create" | "after-create") => WorktreeObservation;
 };

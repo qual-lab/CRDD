@@ -10,6 +10,7 @@
  */
 
 import assert from "node:assert/strict";
+import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -17,12 +18,9 @@ import { mock, test } from "node:test";
 import { runInNewContext } from "node:vm";
 import * as domain from "../../../execution-model/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import {
-  getRepository,
-  resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import * as areas from "../../src/lifecycle/host.ts";
-import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/lifecycle/host.ts";
+import { borrowCoordinatorRecoveryRepository } from "../../src/lifecycle/host.ts";
 import { coordinatorDataBoundaryBlocked } from "../../src/lifecycle/host.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
@@ -71,11 +69,9 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     const verified = getRepository(root);
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
-    const binding = borrowRuntimeOwnedCoordinatorRecoveryRepository(
-      verified.capability,
-    );
+    const binding = borrowCoordinatorRecoveryRepository(verified.capability);
     assert.ok(binding);
-    const { inspectRuntimeOwnedDockerTaskAdmission: inspect } = await import(
+    const { inspectDockerTaskAdmission: inspect } = await import(
       "../../src/lifecycle/environment.ts"
     );
     const current = path.join(root, ".crdd", "execution-model");
@@ -86,15 +82,17 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     };
     assert.deepEqual(inspect(root), available);
     assert.equal(fs.existsSync(current), false);
-    for (const oldArea of ["coordinator", "domain-model"]) {
-      const old = path.join(root, ".crdd", oldArea);
-      fs.mkdirSync(old, { recursive: true });
-      try {
-        assert.equal(inspect(root).status, "blocked", oldArea);
-        assert.equal(fs.existsSync(current), false, oldArea);
-      } finally {
-        fs.rmdirSync(old);
-      }
+    const coordinator = path.join(root, ".crdd", "coordinator");
+    fs.mkdirSync(coordinator, { recursive: true });
+    assert.deepEqual(inspect(root), available);
+    assert.equal(fs.existsSync(current), false);
+    const old = path.join(root, ".crdd", "domain-model");
+    fs.mkdirSync(old);
+    try {
+      assert.equal(inspect(root).status, "blocked");
+      assert.equal(fs.existsSync(current), false);
+    } finally {
+      fs.rmdirSync(old);
     }
     assert.equal(
       domain.readState({}, { scope: "recovery", input: { kind: "admission" } })
@@ -106,7 +104,7 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     const file = path.join(current, "state.json");
     const bytes = Buffer.from(
       `${canonicalJson({
-        schema: "crdd-execution-model/state/v7",
+        schema: "crdd-execution-model/state/v9",
         revision: 1,
         previous: null,
         repositoryBinding: binding.repositoryBinding,
@@ -127,7 +125,9 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     );
 
     fs.writeFileSync(file, bytes);
-    const read = domain.readState(verified.capability, { scope: "recovery" });
+    const read = domain.readState(prepareFixtureRecovery(verified.capability), {
+      scope: "recovery",
+    });
     assert.equal(read.status, "completed", read.reason);
     assert.equal(read.lockReleased, true);
     assert.ok(read.value);
@@ -178,7 +178,7 @@ test("現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する
   );
   const inspector = sourceDeclaration(
     ownerSource,
-    "inspectRuntimeOwnedDockerTaskAdmission",
+    "inspectDockerTaskAdmission",
   );
   // Domain Readerの二つの固定結果に対するHost DTO投影だけを確認する。
   for (const [reason, mutated] of [
@@ -186,11 +186,14 @@ test("現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する
     ["coordinator_state_uninitialized", true],
   ] as const) {
     const result = runInNewContext(
-      `${inspector}\ninspectRuntimeOwnedDockerTaskAdmission("fixture");`,
+      `${inspector}\ninspectDockerTaskAdmission("fixture");`,
       {
         getRepository: () => ({ status: "completed", capability: {} }),
+        readRepositoryRevision: () => ({ objectFormat: "sha1" }),
+        borrowCoordinatorRecoveryRepository: () => ({}),
+        recoveryStorageInput: (root: unknown) => root,
         readState: (
-          _root: Parameters<typeof resolveVerifiedRepositoryRoot>[0],
+          _root: unknown,
           request: NonNullable<Parameters<typeof domain.readState>[1]> = {
             scope: "recovery",
             input: { kind: "current" },
@@ -276,19 +279,14 @@ test("現在入場: Task通常・正式診断APIの本番構成式はexact Root�
     "utf8",
   );
   for (const source of [task, api, adapter]) {
-    assert.equal(
-      source.includes("inspectRuntimeOwnedDockerTaskRecoveryState"),
-      false,
-    );
+    assert.equal(source.includes("inspectDockerTaskRecoveryState"), false);
     assert.equal(source.includes("projectDockerRecoveryAdmission"), false);
   }
   const taskCore = sourceDeclaration(task, "runCoordinatorTaskCore");
   const normal = taskCore.match(
-    /\binspectRuntimeOwnedDockerTaskAdmission\(repositoryRoot\)/gu,
+    /\binspectDockerTaskAdmission\(repositoryRoot\)/gu,
   );
-  assert.deepEqual(normal, [
-    "inspectRuntimeOwnedDockerTaskAdmission(repositoryRoot)",
-  ]);
+  assert.deepEqual(normal, ["inspectDockerTaskAdmission(repositoryRoot)"]);
   const apiStart = api.indexOf("export async function diagnoseEnvironment(");
   const bodyStart = api.indexOf(
     "  const root = executionRoot(context);",
@@ -314,7 +312,7 @@ test("現在入場: Task通常・正式診断APIの本番構成式はexact Root�
     const doctorRoots: unknown[] = [];
     let resolutions = 0;
     const configured = await runInNewContext(snippet, {
-      inspectRuntimeOwnedDockerTaskAdmission: (root: unknown) => {
+      inspectDockerTaskAdmission: (root: unknown) => {
         calls.push(root);
         return { status: "available" };
       },
@@ -346,8 +344,8 @@ test("現在入場: Task通常・正式診断APIの本番構成式はexact Root�
   await assert.rejects(() =>
     verify(
       doctor.replace(
-        "inspectRuntimeOwnedDockerTaskAdmission(root)",
-        "inspectRuntimeOwnedDockerTaskAdmission(executionRoot(context))",
+        "inspectDockerTaskAdmission(root)",
+        "inspectDockerTaskAdmission(executionRoot(context))",
       ),
       "api",
     ),
@@ -367,7 +365,7 @@ test("現在入場: Task通常・正式診断APIの本番構成式はexact Root�
       runDoctor: () => {
         requests++;
       },
-      inspectRuntimeOwnedDockerTaskAdmission: () => {
+      inspectDockerTaskAdmission: () => {
         requests++;
       },
     }),
@@ -449,7 +447,7 @@ test("診断APIは同じdoctorの完了を待ち、拒否時に入場照会を�
         events.push("doctor");
         return pending;
       },
-      inspectRuntimeOwnedDockerTaskAdmission: () => {
+      inspectDockerTaskAdmission: () => {
         events.push("admission");
         return { status: "available" };
       },
@@ -492,7 +490,7 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
       namedExports: {
         ...domain,
         readState: (
-          root: Parameters<typeof resolveVerifiedRepositoryRoot>[0],
+          root: Parameters<typeof domain.readState>[0],
           request: NonNullable<Parameters<typeof domain.readState>[1]> = {
             scope: "recovery",
             input: { kind: "current" },
@@ -500,12 +498,21 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
         ) => {
           switch (request.input?.kind) {
             case "admission":
-              return ((
-                root: Parameters<typeof resolveVerifiedRepositoryRoot>[0],
-              ) => {
-                roots.push(resolveVerifiedRepositoryRoot(root));
-                return observed;
-              })(root);
+              assert.ok(
+                root &&
+                  typeof root === "object" &&
+                  "root" in root &&
+                  "purpose" in root,
+              );
+              assert.equal(root.purpose, "recovery");
+              assert.ok(
+                root.root &&
+                  typeof root.root === "object" &&
+                  "directory" in root.root &&
+                  typeof root.root.directory === "string",
+              );
+              roots.push(root.root.directory);
+              return observed;
             default:
               return domain.readState(root, request);
           }
@@ -530,7 +537,7 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
         unresolvedRecoveries: [],
       },
       {
-        operations: [{ kind: "runtime_repair", phase: "terminal" }],
+        operations: [{ kind: "docker_repair", phase: "terminal" }],
         unresolvedRecoveries: [],
       },
     ]) {
@@ -540,8 +547,7 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
         value: { snapshot },
       };
       const before = JSON.stringify(observed);
-      const result =
-        owner.inspectRuntimeOwnedDockerTaskAdmission(repositoryRoot);
+      const result = owner.inspectDockerTaskAdmission(repositoryRoot);
       assert.deepEqual(result, {
         status: "available",
         reason: "coordinator_current_admission_available",
@@ -606,7 +612,7 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
     ]) {
       observed = result;
       assert.equal(
-        owner.inspectRuntimeOwnedDockerTaskAdmission(repositoryRoot).status,
+        owner.inspectDockerTaskAdmission(repositoryRoot).status,
         "blocked",
       );
     }

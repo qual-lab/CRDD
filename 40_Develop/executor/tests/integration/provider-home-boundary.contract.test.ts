@@ -31,7 +31,6 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
   ).href;
   const platformUrl = new URL("../support/provider-home.ts", import.meta.url)
     .href;
-  const domainUrl = new URL("../support/runtime-data.ts", import.meta.url).href;
   const child = spawnSync(
     process.execPath,
     [
@@ -45,7 +44,6 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
     import {mock} from 'node:test';import {registerHooks} from 'node:module';
     registerHooks({resolve(s,c,n){const r=n(s,c);if(r.url.includes('/coordinator/'))throw Error('coordinator_forbidden');return r;}});
     const platform=await import(${JSON.stringify(platformUrl)});
-    const domain=await import(${JSON.stringify(domainUrl)});
     const report=await import(${JSON.stringify(new URL("../support/report.ts", import.meta.url).href)});
     process.env.LOCALAPPDATA=${JSON.stringify("C:\\synthetic-home-not-read")};
     let mode='normal',observations=0,acquisitions=0,releases=0,held=false,pipe=null;

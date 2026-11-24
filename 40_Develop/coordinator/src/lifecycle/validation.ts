@@ -398,6 +398,7 @@ export const coordinatorTaskPublicReasons = Object.freeze([
   "coordinator_task_candidate_persistence_not_authorized",
   "coordinator_task_candidate_publish_unconfirmed",
   "coordinator_task_candidate_recognized_secret_rejected",
+  "coordinator_task_reviewer_coverage_incomplete",
   "coordinator_task_candidate_revision_invalid",
   "coordinator_task_candidate_store_unavailable",
   "coordinator_task_candidate_verification_failed",
@@ -2198,7 +2199,7 @@ function sourceIndirection(value: string, isSourceFileContext: boolean) {
  * @security containsRecognizedSecretPathSegmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: containsRecognizedSecretPathSegmentは共有非同期状態を持たない同期処理である。
  */
-function containsRecognizedSecretPathSegment(segment: string) {
+export function containsRecognizedSecretPathSegment(segment: string) {
   if (containsRecognizedSecretText(segment)) return true;
   const match = PATH_SEGMENT_ASSIGNMENT_PATTERN.exec(segment);
   if (!match) return false;
@@ -2780,19 +2781,12 @@ const REVIEWER_FINDING_DIAGNOSTIC_KEYS = new Set([
 
 const REVIEWER_PROJECTION_KEYS = new Set([
   "status",
-  "candidateCommitId",
+  "candidateSnapshotId",
   "projectionHash",
+  "withheldFileCount",
   "totalBytes",
   "files",
-]);
-
-const REVIEWER_PROJECTION_FILE_KEYS = new Set([
-  "path",
-  "state",
-  "byteLength",
-  "sha256",
-  "encoding",
-  "content",
+  "workspaceReview",
 ]);
 
 /**
@@ -3010,41 +3004,23 @@ export function projectReviewerProjectionEvidence(value: unknown) {
     : null;
   if (
     record?.status !== "projected" ||
-    typeof record.candidateCommitId !== "string" ||
-    !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(record.candidateCommitId) ||
+    record.workspaceReview !== true ||
+    typeof record.candidateSnapshotId !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(record.candidateSnapshotId) ||
     !sha256Value(record.projectionHash) ||
-    !Number.isSafeInteger(record.totalBytes) ||
-    (record.totalBytes as number) < 0 ||
-    files?.status !== "ok"
+    !Number.isSafeInteger(record.withheldFileCount) ||
+    (record.withheldFileCount as number) < 0 ||
+    record.totalBytes !== 0 ||
+    files?.status !== "ok" ||
+    files.value.length !== 0
   )
     return null;
-  const projectedFiles = files.value.map((item) => {
-    const file = snapshotPlainRecord(item, REVIEWER_PROJECTION_FILE_KEYS);
-    if (
-      !file ||
-      typeof file.path !== "string" ||
-      file.state !== "present" ||
-      !Number.isSafeInteger(file.byteLength) ||
-      (file.byteLength as number) < 0 ||
-      !sha256Value(file.sha256) ||
-      file.encoding !== "utf-8" ||
-      typeof file.content !== "string"
-    )
-      return null;
-    return Object.freeze({
-      path: file.path,
-      state: file.state,
-      byteLength: file.byteLength,
-      sha256: file.sha256,
-      encoding: file.encoding,
-    });
-  });
-  if (projectedFiles.some((item) => item === null)) return null;
   return Object.freeze({
-    candidateCommitId: record.candidateCommitId,
+    candidateSnapshotId: record.candidateSnapshotId,
     projectionHash: record.projectionHash,
+    withheldFileCount: record.withheldFileCount,
     totalBytes: record.totalBytes,
-    files: Object.freeze(projectedFiles),
+    files: files.value,
     contentReported: false,
   });
 }
@@ -3221,7 +3197,7 @@ export function inspectCompletionRecord(value: unknown): Readonly<{
     )
       return null;
     // The current completion record never carries status "cancelled": effect-era
-    // cancellation settles as "blocked" with a runtime-owned cancellation
+    // cancellation settles as "blocked" with a Coordinator cancellation
     // reason, and accepting values the producer cannot emit would widen the
     // observation surface beyond the real contract.
     if (
@@ -3693,6 +3669,8 @@ export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
   ) {
     return null;
   }
+  if (paths.value.includes(".") || requestedReadPaths.value.includes("."))
+    return null;
   const readPaths = [
     ...new Map(
       [...requestedReadPaths.value, ...paths.value].map((value) => [
@@ -3880,7 +3858,7 @@ export function inspectCoordinatorObjectiveRequest(
 }
 
 export const COORDINATOR_OBJECTIVE_INTAKE_CONTRACT =
-  "crdd-coordinator/orchestrator-objective-intake/v4" as const;
+  "crdd-coordinator/objective-intake/v4" as const;
 
 /**
  * Task定義と実行入力を一対一で固定する。
@@ -4063,7 +4041,7 @@ export function projectCoordinatorState(
     candidates?.projectId !== state.projectId ||
     candidates.generation !== state.generation
   )
-    throw new Error("orchestrator_state_observation_unknown");
+    throw new Error("coordinator_state_observation_unknown");
   const objectiveCounts = countStates(
     state.objectives.map((objective) => objective.state),
     OBJECTIVE_STATES,
@@ -4118,7 +4096,7 @@ export function projectCoordinatorState(
     nextAction,
   });
   if (!isCoordinatorProjectionSemanticallyValid(projection))
-    throw new Error("orchestrator_projection_semantics_invalid");
+    throw new Error("coordinator_projection_semantics_invalid");
   return projection;
 }
 
@@ -4750,7 +4728,7 @@ function recoverySnapshot(rawIds: unknown, rawObligations: unknown) {
         "docker",
         "candidate",
         "candidate_store",
-        "runtime_process",
+        "execution_process",
       ].includes(entry.kind) ||
       !objectiveResultText(entry.recoveryId, 512) ||
       !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(entry.recoveryId)
@@ -4899,9 +4877,9 @@ export function inspectCoordinatorObjectiveResult(
         ? "blocked"
         : objective.status;
     const hasRecovery = Boolean(recoveries?.recoveryIds.length);
-    const hasRuntimeProcessRecovery = Boolean(
+    const hasExecutionProcessRecovery = Boolean(
       recoveries?.recoveryObligations.some(
-        (entry) => entry.kind === "runtime_process",
+        (entry) => entry.kind === "execution_process",
       ),
     );
     const isCorrelationValid =
@@ -4962,7 +4940,7 @@ export function inspectCoordinatorObjectiveResult(
           objective.processRestartRequired !== false ||
           hasRecovery ||
           !["no_effect", "settled"].includes(objective.effectState))) ||
-      objective.processRestartRequired !== hasRuntimeProcessRecovery ||
+      objective.processRestartRequired !== hasExecutionProcessRecovery ||
       (objective.processRestartRequired === true &&
         (objective.status !== "blocked" ||
           objective.cleanupConfirmed !== false ||
@@ -4982,7 +4960,7 @@ export function inspectCoordinatorObjectiveResult(
 }
 
 export const COORDINATOR_STATE_QUERY_CONTRACT =
-  "crdd-coordinator/orchestrator-state-query/v2" as const;
+  "crdd-coordinator/state-query/v2" as const;
 
 const queryKeys = new Set([
   "requestId",

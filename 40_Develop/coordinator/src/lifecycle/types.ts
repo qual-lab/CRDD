@@ -34,7 +34,10 @@ import type {
   RecordProjection,
   StartResult,
 } from "../../../executor/src/index.ts";
-import type { Repository } from "../../../version-control/src/index.ts";
+import type {
+  Repository,
+  WorktreeTarget,
+} from "../../../version-control/src/index.ts";
 import type { COORDINATOR_STATE_QUERY_CONTRACT } from "./validation.ts";
 import type {
   Observation,
@@ -61,10 +64,10 @@ export const RECOVERY_START_FAILURE_STAGES = Object.freeze([
 ] as const);
 
 export const COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT =
-  "crdd-coordinator/orchestrator-single-task-adapter" as const;
+  "crdd-coordinator/single-task-adapter" as const;
 
 export const COORDINATOR_EXECUTION_CONTRACT =
-  "crdd-coordinator/orchestrator-execution/v1" as const;
+  "crdd-coordinator/execution/v1" as const;
 
 /**
  * 単発操作の非永続入力。
@@ -206,6 +209,12 @@ export type BorrowedExecutionTarget = Readonly<{
   baseCommit: string | null;
   head: string | null;
 }>;
+
+/** 上位が確定した作業領域と、登録を再照合するための技術値。 @trace ARCH-000005 */
+export type PreparedWorkspaceTarget = Omit<BorrowedExecutionTarget, "head"> &
+  Readonly<{
+    worktree: WorktreeTarget;
+  }>;
 
 /**
  * 単発TaskとObjectiveが共有するTask Attemptの入力を定義する。
@@ -362,6 +371,7 @@ export type CoordinatorExecutionDependencies = Readonly<{
   persistence: CoordinatorStateContext;
 
   recording?: ObjectiveExecutionRecording;
+  workspaceTarget?: PreparedWorkspaceTarget | null;
 }>;
 
 /**
@@ -435,6 +445,7 @@ export type CoordinatorObjectiveExecutionDependencies = Readonly<{
   repositoryRoot: object | string;
   persistence: CoordinatorStateContext & {
     readonly intake: NonNullable<CoordinatorStateContext["intake"]>;
+    readonly prepareStorage: () => true;
   };
 
   execution: Omit<CoordinatorExecutionDependencies, "persistence">;
@@ -514,7 +525,7 @@ export type CoordinatorQueueUpdate = Readonly<{
 /**
  * 検証済みRepositoryと元の受付情報を保持する値Context。
  *
- * @responsibility 保存対象のRepository参照・元Directory・binding・受付情報を再構成せず搬送する。
+ * @responsibility 確定した保存ディレクトリ・元の作業位置・binding・受付情報を搬送する。
  * @trace ARCH-000004
  * @shape CoordinatorStateContextが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CoordinatorStateContextで宣言した値と責務の対応を維持する。
@@ -524,7 +535,7 @@ export type CoordinatorQueueUpdate = Readonly<{
  */
 export type CoordinatorStateContext = Readonly<{
   workingDirectory: string;
-  repository: Repository;
+  repository: Readonly<{ directory: string }>;
   repositoryBindingId: string;
   intake?: Parameters<typeof saveProjectExecutionState>[4];
 }>;
@@ -614,7 +625,7 @@ export type ActivityRepository = Readonly<{
 
 /**
  * 一Repositoryの観測出所。
- * @responsibility 現在のGit改訂の既知・不明を区別する。
+ * @responsibility 対象Projectの保存済み改訂を示す。現在のHEADや実行可否は示さない。
  * @trace ARCH-000004
  * @shape 宣言したPropertyだけを表す。
  * @invariant 内容認可や実行Authorityを生成しない。
@@ -638,7 +649,7 @@ export type ActivitySource = Readonly<{
  * @security 公開観測へRoot・秘密値を含めない。
  * @compatibility 移管後の活動契約のみを扱う。
  */
-export type RuntimeActivityEvent = Readonly<{
+export type ExecutionActivityEvent = Readonly<{
   repositoryId: string;
   eventId: string;
   occurredAt: string;
@@ -661,7 +672,7 @@ export type RuntimeActivityEvent = Readonly<{
  * @security 公開観測へRoot・秘密値を含めない。
  * @compatibility 移管後の活動契約のみを扱う。
  */
-export type RuntimeActivityObservation = Readonly<{
+export type ExecutionActivityObservation = Readonly<{
   projectId: string;
   state: "observed" | "absent" | "unknown";
   reason: string;
@@ -670,7 +681,7 @@ export type RuntimeActivityObservation = Readonly<{
   sources: readonly ActivitySource[];
   eventState: "observed" | "unknown";
   eventReason: string;
-  events: readonly RuntimeActivityEvent[];
+  events: readonly ExecutionActivityEvent[];
   eventContinuation: string | null;
   singleTasks?: readonly Readonly<{
     repositoryId: string;
@@ -693,7 +704,7 @@ export type RuntimeActivityObservation = Readonly<{
  * @security 公開観測へRoot・秘密値を含めない。
  * @compatibility 移管後の活動契約のみを扱う。
  */
-export type RuntimeActivityRequest = Readonly<{
+export type ExecutionActivityRequest = Readonly<{
   projectId: string;
   repositories: readonly ActivityRepository[];
   limit: number;
@@ -926,7 +937,7 @@ export type RecoveryPlan = RecordProjection<"attempt"> &
     taskPacketHash: string | null;
     advicePacketRef?: string | null;
     advicePacketHash?: string | null;
-    consumer: "coordinator_cli" | "workbench" | "orchestrator";
+    consumer: "coordinator_cli" | "workbench" | "coordinator";
     recoveryCorrelationId?: string | null;
   }>;
 
@@ -997,7 +1008,10 @@ export type TaskPacket = Readonly<{
   operationId: string;
   taskPacketRef: string;
   taskRole: "executor" | "reviewer";
-  reviewerReadProjection?: Readonly<{ candidateCommitId: string }> | null;
+  reviewerReadProjection?: Readonly<{
+    candidateSnapshotId: string;
+    workspaceReview?: true;
+  }> | null;
   taskAttempt: 0 | 1;
   executionSelection: ExecutionSelection;
   taskWorkload?: unknown;

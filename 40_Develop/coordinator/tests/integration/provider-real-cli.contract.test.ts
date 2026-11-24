@@ -309,7 +309,7 @@ test("単段CLIの計画・Effect前拒否を確認する", () => {
   assert.equal(child.signal, null);
   assert.equal(child.status, 0, child.stderr);
   const domainEntry = new URL(
-    "../../../executor/tests/support/runtime-data.ts",
+    "../support/verification-area.ts",
     import.meta.url,
   ).href;
   for (const absent of [false, true]) {
@@ -326,8 +326,18 @@ test("単段CLIの計画・Effect前拒否を確認する", () => {
       import {syncBuiltinESMExports} from 'node:module';
       import {fileURLToPath} from 'node:url';
       const domain=await import(${JSON.stringify(domainEntry)});
+      const observed=Object.freeze({status:'ready',directory:'not-used'});
+      assert.equal(domain.requireReadyRepositoryRuntimeDataArea(observed,'invalid'),observed);
+      assert.throws(()=>domain.requireReadyRepositoryRuntimeDataArea(null,'invalid'),{message:'invalid'});
       const absent=${JSON.stringify(absent)};
       const failure={status:'blocked',reason:'repository_runtime_data_ignore_unconfirmed',effectIssued:true,effectStateUnknown:true,cleanupConfirmed:false,retryAllowed:false,recoveryReference:'runtime-data.fixture-exact-reference'};
+      assert.throws(()=>domain.requireReadyRepositoryRuntimeDataArea(failure,'invalid'),error=>{
+        assert.equal(error.constructor,Error);
+        assert.equal(error.message,failure.reason);
+        assert.equal(error.cause,failure);
+        assert.deepEqual(error.cause,failure);
+        return true;
+      });
       let effects=0,ensures=0;
       for(const name of ['spawn','spawnSync','fork','exec','execSync','execFile','execFileSync'])cp[name]=()=>{effects++;throw Error('external_process_forbidden');};
       syncBuiltinESMExports();

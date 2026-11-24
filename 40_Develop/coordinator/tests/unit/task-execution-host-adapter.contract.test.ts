@@ -19,9 +19,9 @@ import {
   hashCoordinatorContent,
 } from "../../src/lifecycle/validation.ts";
 import {
-  createRuntimeProcessRecoveryIdentity,
-  getRuntimeProcessInstanceIdentity,
-  inspectRuntimeProcessRecoveryIdentity,
+  createExecutionProcessRecoveryIdentity,
+  getExecutionProcessInstanceIdentity,
+  inspectExecutionProcessRecoveryIdentity,
 } from "../../src/lifecycle/host.ts";
 import type { CoordinatorRecoveryTransition } from "../../src/lifecycle/types.ts";
 
@@ -52,7 +52,6 @@ test("Queue具体保存は元更新をWriter内で遅延評価しLeaseを持ち�
     "updateQueue",
     "borrowCoordinatorActiveLease",
     "activeLeaseIsObserved",
-    "verifyRuntimePersistenceRepository",
     "Date",
     `${declarations}; return { updateCoordinatorQueue, updateCoordinatorSingleTask };`,
   );
@@ -114,7 +113,9 @@ test("Queue具体保存は元更新をWriter内で遅延評価しLeaseを持ち�
           ];
         },
       ) => {
-        assert.strictEqual(actualRepository, repository);
+        if (request.kind === "operation")
+          assert.strictEqual(actualRepository, repository);
+        else assert.deepEqual(actualRepository, { directory: "worktree" });
         assert.equal(binding, "binding");
         const [queueId, generation, values, access] = request.input;
         assert.equal(queueId, "queue");
@@ -130,7 +131,7 @@ test("Queue具体保存は元更新をWriter内で遅延評価しLeaseを持ち�
           assert.equal(access.now, undefined);
         } else {
           assert.equal(request.kind, "single");
-          assert.deepEqual(events, ["repository"]);
+          assert.deepEqual(events, []);
           assert.strictEqual(values, raw);
           assert.equal(access.now?.(), 123);
         }
@@ -150,11 +151,6 @@ test("Queue具体保存は元更新をWriter内で遅延評価しLeaseを持ち�
       (observed: unknown) => {
         assert.strictEqual(observed, active);
         return profile === "active";
-      },
-      (directory: string) => {
-        assert.equal(directory, "worktree");
-        events.push("repository");
-        return repository;
       },
       {
         now() {
@@ -199,7 +195,7 @@ test("Queue具体保存は元更新をWriter内で遅延評価しLeaseを持ち�
       if (profile === "throws")
         assert.throws(executeSingle, (error) => error === failure);
       else assert.strictEqual(executeSingle(), outcome);
-      assert.deepEqual(events, ["repository", "now"]);
+      assert.deepEqual(events, ["now"]);
     }
   }
 });
@@ -224,11 +220,12 @@ test("TaskのWorkspace直接観測は元対象を照合し取消では観測し�
   const end = source.indexOf("    const capturedOutcome", start);
   assert.ok(start > 0 && end > start);
   const evaluate = new Function(
-    "resolveCoordinatorWorkspaceTaskTarget",
+    "confirmPreparedWorkspaceTarget",
     "runCoordinatorSingleTaskAttempt",
     "persistence",
     "input",
     "queue",
+    "operation",
     `${stripTypeScriptTypes(`
       async function inspectTarget() {
         let delegated = false;
@@ -254,6 +251,7 @@ test("TaskのWorkspace直接観測は元対象を照合し取消では観測し�
     let observations = 0;
     let delegations = 0;
     const outcome = Object.freeze({ status: "completed" });
+    const workspaceTarget = Object.freeze({ target: "prepared-by-caller" });
     const persistence = Object.freeze({
       workingDirectory: "original/nested",
       repositoryBindingId: "binding-a",
@@ -265,6 +263,7 @@ test("TaskのWorkspace直接観測は元対象を照合し取消では観測し�
           persistence.workingDirectory,
           persistence.repositoryBindingId,
           "queue-a",
+          workspaceTarget,
         ]);
         if (profile === "blocked" || profile === "unknown")
           return { status: profile, value: null };
@@ -297,6 +296,7 @@ test("TaskのWorkspace直接観測は元対象を照合し取消では観測し�
         cancellationSignal: { aborted: profile === "cancelled" },
       },
       { workspaceId: profile === "direct" ? null : "workspace-a" },
+      { workspaceTarget },
     );
     assert.equal(observations, profile === "cancelled" ? 0 : 1, profile);
     const matched = profile === "direct" || profile === "isolated";
@@ -388,13 +388,13 @@ test("相関IDと内容Hashは元の区切り・順序・桁数を維持する",
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("同じProcess世代の回復照合と既存停止Ownerへの直接接続を維持する", () => {
-  const recoveryId = createRuntimeProcessRecoveryIdentity(
+  const recoveryId = createExecutionProcessRecoveryIdentity(
     "attempt-12345678",
     "operation-12345678",
   );
-  assert.match(getRuntimeProcessInstanceIdentity(), /^[0-9a-f-]{36}$/u);
+  assert.match(getExecutionProcessInstanceIdentity(), /^[0-9a-f-]{36}$/u);
   assert.deepEqual(
-    inspectRuntimeProcessRecoveryIdentity(
+    inspectExecutionProcessRecoveryIdentity(
       recoveryId,
       "attempt-12345678",
       "operation-12345678",
@@ -411,16 +411,16 @@ test("同じProcess世代の回復照合と既存停止Ownerへの直接接続�
   );
   const state = new Function(
     `${sourceDeclaration(source, "processCleanupUnknown")}
-    ${sourceDeclaration(source, "poisonRuntimeProcessAfterCleanupUnknown")}
-    ${sourceDeclaration(source, "isRuntimeProcessPoisoned")}
-    return { poisonRuntimeProcessAfterCleanupUnknown, isRuntimeProcessPoisoned };`,
+    ${sourceDeclaration(source, "poisonExecutionProcessAfterCleanupUnknown")}
+    ${sourceDeclaration(source, "isExecutionProcessPoisoned")}
+    return { poisonExecutionProcessAfterCleanupUnknown, isExecutionProcessPoisoned };`,
   )() as {
-    poisonRuntimeProcessAfterCleanupUnknown(): void;
-    isRuntimeProcessPoisoned(): boolean;
+    poisonExecutionProcessAfterCleanupUnknown(): void;
+    isExecutionProcessPoisoned(): boolean;
   };
-  assert.equal(state.isRuntimeProcessPoisoned(), false);
-  state.poisonRuntimeProcessAfterCleanupUnknown();
-  assert.equal(state.isRuntimeProcessPoisoned(), true);
+  assert.equal(state.isExecutionProcessPoisoned(), false);
+  state.poisonExecutionProcessAfterCleanupUnknown();
+  assert.equal(state.isExecutionProcessPoisoned(), true);
 });
 
 const recoveryDiagnostic = sourceDeclaration(

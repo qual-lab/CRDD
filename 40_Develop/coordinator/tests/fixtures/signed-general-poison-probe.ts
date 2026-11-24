@@ -15,8 +15,8 @@
 import { createHash } from "node:crypto";
 
 import { runSignedGeneralTaskVerification } from "../system/manual/verify-general-task.ts";
-import { isRuntimeProcessPoisoned } from "../../src/lifecycle/host.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/lifecycle/execution.ts";
+import { isExecutionProcessPoisoned } from "../../src/lifecycle/host.ts";
+import { startCoordinatorTask } from "../../src/lifecycle/execution.ts";
 
 const scenario = process.argv[2] ?? "completed_true";
 const TARGET_PATH =
@@ -48,7 +48,7 @@ const patchHash = createHash("sha256")
   .digest("hex");
 
 const source = Object.freeze({
-  scope: "crdd-development-source-snapshot/v5",
+  scope: "crdd-development-source-snapshot/v6",
   sourceSha256: "0".repeat(64),
   sourceIdentitySha256: "9".repeat(64),
   crddCommit: baseCommit,
@@ -387,7 +387,7 @@ const taskProbe = new Proxy(Object.create(null), {
 });
 let taskReason = "task_not_blocked";
 try {
-  startRuntimeOwnedCoordinatorTask(taskProbe, null);
+  startCoordinatorTask(taskProbe, null);
 } catch (error) {
   taskReason = error instanceof Error ? error.message : "unknown";
 }
@@ -397,7 +397,7 @@ await new Promise<void>((resolve) => setImmediate(resolve));
 process.stdout.write(
   `${JSON.stringify({
     runnerResult,
-    poisoned: isRuntimeProcessPoisoned(),
+    poisoned: isExecutionProcessPoisoned(),
     taskReads,
     taskReason,
     cancelAttempts,

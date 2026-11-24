@@ -119,7 +119,7 @@ test("Docker Isolation全試験を収集し上位の同名試験を混同しな�
   ]);
   for (const file of [
     "docker-isolation-host.integration.test.ts",
-    "runtime-assets.contract.test.ts",
+    "isolation-assets.contract.test.ts",
   ]) {
     const target = `40_Develop/coordinator/tests/integration/${file}`;
     const direct = selectRegressionTests(catalog, [target]);
@@ -251,7 +251,7 @@ test("変更した意味に対応する試験を選び、未分類の実装変�
  */
 test("直接変更した試験だけはその試験に限定する", () => {
   const target =
-    "40_Develop/coordinator/tests/unit/workspace/acceptance-record.contract.test.ts";
+    "40_Develop/crdd-server/tests/unit/workspace/acceptance-record.contract.test.ts";
   assert.deepEqual(
     selectRegressionTests(catalog, [target]).map((entry) => entry.path),
     [target],
@@ -359,6 +359,39 @@ test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () 
     selectRegressionStaticOwners(catalog, changedPaths, selectedEntries),
     ["coordinator", "execution-intelligence"],
   );
+});
+
+/** ServerとUIの試験をOwner・段階別に選ぶ。 @trace CQS-UT-010 */
+test("WorkbenchのBrowser横断試験はUI所有のシステム試験として選ぶ", () => {
+  const changed = ["40_Develop/crdd-server/src/transport/api-server.ts"];
+  const selected = selectRegressionTests(
+    catalog,
+    changed,
+    new Set(["integration"]),
+  );
+  const shell = selected.find(
+    (entry) => entry.id === "workbench:integration:production-shell",
+  );
+  assert.ok(shell);
+  assert.equal(shell.owner, "crdd-server");
+  assert.ok(!selected.some((entry) => entry.level === "system"));
+  assert.deepEqual(selectRegressionStaticOwners(catalog, changed, selected), [
+    "crdd-server",
+    "workbench-ui",
+  ]);
+  assert.deepEqual(
+    selectRegressionTests(catalog, [shell.path]).map((entry) => entry.id),
+    [shell.id],
+  );
+  const system = selectRegressionTests(catalog, changed, new Set(["system"]));
+  for (const id of [
+    "workbench:system:credential-browser",
+    "workbench:system:actual-browser-visual",
+  ])
+    assert.equal(
+      system.find((entry) => entry.id === id)?.owner,
+      "workbench-ui",
+    );
 });
 
 /**

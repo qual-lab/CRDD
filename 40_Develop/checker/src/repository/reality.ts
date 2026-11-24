@@ -15,7 +15,10 @@ import {
   type RepositoryObservationPort,
 } from "../../../document-model/src/index.ts";
 import type { Repository } from "../../../version-control/src/index.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import {
+  getRepository,
+  resolveVerifiedRepositoryRoot,
+} from "../../../version-control/src/index.ts";
 import { mapRealityDomainIssueToCheckerFinding } from "../report/reality.ts";
 import type { CheckerFinding, CheckerRealityFinding } from "../report/types.ts";
 /**
@@ -143,7 +146,9 @@ export function discoverRealitySymbolManifests(
   knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>;
   findings: readonly CheckerRealityFinding[];
 }> {
-  const observed = observeRealitySymbolRepository(capability);
+  const observed = observeRealitySymbolRepository(
+    resolveVerifiedRepositoryRoot(capability),
+  );
   return {
     manifests: observed.manifests,
     knownArchIds: observed.knownArchIds,
@@ -180,7 +185,9 @@ export function readRegisteredRealityTests(
   capability: Repository,
 ): ReturnType<typeof readRegisteredRealityTestsFromRepository> {
   return readRegisteredRealityTestsFromRepository(
-    createFilesystemRepositoryObservationPort(capability),
+    createFilesystemRepositoryObservationPort(
+      resolveVerifiedRepositoryRoot(capability),
+    ),
   );
 }
 

@@ -63,7 +63,7 @@ export function decodeHistoryRows(bytes: unknown) {
               "occurredAt",
               "summary",
             ]) ||
-            row.schema !== "crdd-coordinator/history-row/v2" ||
+            row.schema !== "crdd-execution-model/history-row/v3" ||
             !hasExecutionStateRecordKeys(summary, ["schema", "record"]) ||
             row.occurredAt !== event.occurredAt ||
             `${encodeStateValue(row)}\n` !== `${line}\n`
@@ -90,7 +90,7 @@ export function decodeHistoryRows(bytes: unknown) {
               "occurredAt",
               "summary",
             ]) ||
-            row.schema !== "crdd-coordinator/history-row/v2" ||
+            row.schema !== "crdd-execution-model/history-row/v3" ||
             !hasExecutionStateRecordKeys(summary, ["schema", "record"]) ||
             `${encodeStateValue(row)}\n` !== `${line}\n`
           )
@@ -117,7 +117,7 @@ export function decodeHistoryRows(bytes: unknown) {
               "occurredAt",
               "summary",
             ]) ||
-            row.schema !== "crdd-coordinator/history-row/v2" ||
+            row.schema !== "crdd-execution-model/history-row/v3" ||
             typeof row.occurredAt !== "string" ||
             !Number.isFinite(Date.parse(row.occurredAt)) ||
             new Date(row.occurredAt).toISOString() !== row.occurredAt ||
@@ -148,7 +148,7 @@ export function decodeHistoryRows(bytes: unknown) {
             "occurredAt",
             "summary",
           ]) ||
-          row.schema !== "crdd-coordinator/history-row/v2" ||
+          row.schema !== "crdd-execution-model/history-row/v3" ||
           typeof row.occurredAt !== "string" ||
           !Number.isFinite(Date.parse(row.occurredAt)) ||
           new Date(Date.parse(row.occurredAt)).toISOString() !==
@@ -169,7 +169,7 @@ export function decodeHistoryRows(bytes: unknown) {
             "outcome",
             "lease",
           ]) ||
-          summary.schema !== "crdd-execution-model/operation-summary/v6" ||
+          summary.schema !== "crdd-execution-model/operation-summary/v7" ||
           typeof summary.recoveryCorrelationId !== "string" ||
           !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(
             summary.recoveryCorrelationId,

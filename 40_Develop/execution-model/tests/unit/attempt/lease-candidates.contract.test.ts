@@ -188,7 +188,7 @@ function assertEvidence(
 ) {
   assert.ok(evidence);
   assert.deepEqual(evidence, {
-    schema: "crdd-coordinator/orchestrator-durable-foundation/v1",
+    schema: "crdd-execution-model/storage-envelope/v2",
     schemaRevision: 1,
     recordKind: "lease-evidence",
     repositoryBindingId: "binding-a",
@@ -223,7 +223,7 @@ test("取得Owner投影は不存在・同じ参照・混在Ownerを分離する"
   const { current, intent } = fixture();
   assert.equal(
     projectLeaseAcquisitionOwner(current, "binding-a").reason,
-    "orchestrator_lease_acquisition_absent",
+    "coordinator_lease_acquisition_absent",
   );
   const state = { ...current, leaseIntents: [intent] };
   const before = encodeStateValue(state);
@@ -238,10 +238,7 @@ test("取得Owner投影は不存在・同じ参照・混在Ownerを分離する"
     },
     "binding-a",
   );
-  assert.equal(
-    mismatch.reason,
-    "orchestrator_lease_acquisition_owner_mismatch",
-  );
+  assert.equal(mismatch.reason, "coordinator_lease_acquisition_owner_mismatch");
   assert.equal(
     mismatch.status === "blocked" && mismatch.recoveryId,
     "recovery-a",
@@ -657,7 +654,7 @@ test("回復intent予約はRootと元集合を照合し同じpendingだけ再入
     "recovery-a",
     o.ops,
   );
-  assert.equal(mismatched.reason, "orchestrator_lease_intent_mismatch");
+  assert.equal(mismatched.reason, "coordinator_lease_intent_mismatch");
 });
 /**
  * 回復確定を取得有無・現在観測と元版相関で反証する。
@@ -825,7 +822,7 @@ test("LeaseとQueueは未捕捉tupleの実行Propertyを評価しない", async 
       assert.equal(result.status, "blocked", name + ":" + kind);
       assert.equal(
         result.reason,
-        "orchestrator_snapshot_input_invalid",
+        "coordinator_snapshot_input_invalid",
         name + ":" + kind,
       );
       assert.equal(traps, 0, name + ":" + kind);

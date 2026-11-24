@@ -17,7 +17,6 @@ export {
   type EnvironmentResult,
   type ExecutionContext,
   type ExecutionSelection,
-  executeWorkspace,
   getAuthenticationStatus,
   getCapabilities,
   openTaskSession,
@@ -26,7 +25,7 @@ export {
   type RecoveryObservation,
   type RecoveryRequest,
   type RecoveryResult,
-  type RuntimeRepairResult,
+  type DockerRepairResult,
   readRecovery,
   readRepositoryNetworkHosts,
   recoverExecution,
@@ -40,33 +39,41 @@ export {
   type TaskRunResult,
   type TaskSession,
   type TaskSessionContext,
-  type WorkspaceView,
 } from "./api.ts";
 export {
   type CoordinatorDecisionRequest,
   inspectCoordinatorDecisionRequest,
   inspectCoordinatorDecisionResult,
 } from "./lifecycle/decision.ts";
-export { parseRuntimeActivityObservation } from "./lifecycle/query.ts";
+export { parseExecutionActivityObservation } from "./lifecycle/query.ts";
 export {
-  inspectWorkspaceCommand,
-  type WorkspaceCommand,
-} from "./lifecycle/workspace.ts";
+  acquireCoordinatorSnapshotLease,
+  resolveRepositoryExecutionDataPaths,
+  resolveExecutionStorageDirectory,
+} from "./lifecycle/host.ts";
 export {
+  containsRecognizedSecretText,
+  deriveCoordinatorRepositoryBindingId,
   inspectCoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveResult,
   inspectCoordinatorStateQuery,
   inspectCoordinatorStateQueryResult,
+  snapshotPlainArray,
+  snapshotPlainRecord,
+  validIdentity,
 } from "./lifecycle/validation.ts";
 export type {
   ActivityRepository,
   ActivitySource,
+  BorrowedExecutionTarget,
+  PreparedWorkspaceTarget,
+  CoordinatorLease,
   CoordinatorObjectiveRequest,
   CoordinatorProjection,
   CoordinatorStateQuery,
   CoordinatorStateQueryResult,
-  RuntimeActivityEvent,
-  RuntimeActivityObservation,
-  RuntimeActivityRequest,
+  ExecutionActivityEvent,
+  ExecutionActivityObservation,
+  ExecutionActivityRequest,
   WorkspaceResult,
 } from "./lifecycle/types.ts";

@@ -855,7 +855,7 @@ test("CLI検証は妥当な段階通知をLifecycle成立証拠へ数えない",
     speedMode: "standard",
     selectionReason: "a".repeat(16_385),
     inputBasis:
-      "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
+      "caller_declared_task_attributes_plus_provider_preselection_candidate_with_deferred_provider_preflight",
     callerDeclaredAttributes: attributes,
     highCostSelectionAllowed: false,
   };
@@ -1039,7 +1039,7 @@ test("実Provider Toolは起動未発行を回復不明として記録しない"
 test("実Provider E2Eは分離後の公開MCP入口だけを起動する", () => {
   assert.doesNotMatch(
     verificationScriptSource,
-    /import\s*\{\s*inspectRuntimeOwnedDockerTaskRecoveryState\s*\}\s*from/u,
+    /import\s*\{\s*inspectDockerTaskRecoveryState\s*\}\s*from/u,
   );
   assert.doesNotMatch(
     verificationScriptSource,
@@ -1047,7 +1047,7 @@ test("実Provider E2Eは分離後の公開MCP入口だけを起動する", () =>
   );
   assert.doesNotMatch(
     verificationScriptSource,
-    /const dockerRecovery\s*=\s*recoveryModule\.inspectRuntimeOwnedDockerTaskRecoveryState\(\)/u,
+    /const dockerRecovery\s*=\s*recoveryModule\.inspectDockerTaskRecoveryState\(\)/u,
   );
   assert.match(
     verificationScriptSource,
@@ -1144,11 +1144,11 @@ const semantic = (
       status,
       reason:
         status === "cancelled"
-          ? "orchestrator_operation_cancelled"
+          ? "coordinator_operation_cancelled"
           : status === "blocked"
-            ? "orchestrator_acceptance_decision_required"
-            : "orchestrator_milestone_accepted",
-      contract: "crdd-coordinator/orchestrator-objective-intake/v4",
+            ? "coordinator_acceptance_decision_required"
+            : "coordinator_milestone_accepted",
+      contract: "crdd-coordinator/objective-intake/v4",
       requestId: "request-a",
       projectId: "project-a",
       milestoneId: "milestone-a",
@@ -1185,7 +1185,7 @@ const semantic = (
   },
 });
 const RUNTIME_PROCESS_RECOVERY_ID =
-  "runtime-process.6d7cc28e-2bdf-4c1a-8714-396a4a1db5a3.restart-7fb909b959f2101c318473bf51b0c388e0fb75bf";
+  "execution-process.6d7cc28e-2bdf-4c1a-8714-396a4a1db5a3.restart-7fb909b959f2101c318473bf51b0c388e0fb75bf";
 /**
  * 取消後にProcess再起動が必要な公開回復結果を構築する。
  *
@@ -1200,14 +1200,14 @@ const RUNTIME_PROCESS_RECOVERY_ID =
  */
 const interruptedCancellationSemantic = (id: string) =>
   semantic("blocked", id, {
-    reason: "orchestrator_task_recovery_required",
+    reason: "coordinator_task_recovery_required",
     projection: null,
     cleanupConfirmed: false,
     manualRecoveryRequired: true,
     processRestartRequired: true,
     recoveryIds: [RUNTIME_PROCESS_RECOVERY_ID],
     recoveryObligations: [
-      { kind: "runtime_process", recoveryId: RUNTIME_PROCESS_RECOVERY_ID },
+      { kind: "execution_process", recoveryId: RUNTIME_PROCESS_RECOVERY_ID },
     ],
     effectState: "unknown",
   });
@@ -1321,9 +1321,9 @@ test("公開状態照会は世代取得なしで現行DTOと旧形式拒否を�
   };
   const state = {
     ...input,
-    contract: "crdd-coordinator/orchestrator-state-query/v2",
+    contract: "crdd-coordinator/state-query/v2",
     status: "completed",
-    reason: "orchestrator_state_absent",
+    reason: "coordinator_state_absent",
     observationState: "absent",
     projection: null,
     cleanupConfirmed: true,
@@ -1365,7 +1365,7 @@ test("公開状態照会は世代取得なしで現行DTOと旧形式拒否を�
   );
   assert.equal((good.result as { isError?: boolean })?.isError, false);
   for (const invalid of [
-    { ...state, contract: "crdd-coordinator/orchestrator-state-query/v1" },
+    { ...state, contract: "crdd-coordinator/state-query/v1" },
     { ...state, intakeEpoch: "old" },
     { ...state, unexpected: true },
     { ...state, cleanupConfirmed: false },
@@ -1585,7 +1585,7 @@ const buildInput = (overrides: Record<string, unknown> = {}) =>
     aiSelectionObservationStatus: "matched",
     executionIdentity: { commit: "a".repeat(40), tree: "b".repeat(40) },
     runtimeSource: {
-      scope: "crdd-development-source-snapshot/v5",
+      scope: "crdd-server/development-source-snapshot/v1",
       sourceSha256: "c".repeat(64),
       crddCommit: "d".repeat(40),
       crddTree: "e".repeat(40),
@@ -1696,7 +1696,7 @@ const build = (overrides: Record<string, unknown> = {}) =>
  * @cleanup N/A: 実Filesystem・Git・Providerは使用しない。
  * @boundary PRL-ST-004=Direct Boundary: 実Source観測関数→既存Reader。
  */
-test("Orchestrator検証の固定Source観測は入口欠測と途中差を拒否する", () => {
+test("実Provider検証の固定Source観測は入口欠測と途中差を拒否する", () => {
   const body = stripTypeScriptTypes(
     verificationScriptSource
       .slice(
@@ -1744,11 +1744,11 @@ test("Orchestrator検証の固定Source観測は入口欠測と途中差を拒�
         ).repeat(40),
         snapshotIdentity: "b".repeat(40),
       }),
-      observeRuntimeOwnedDevelopmentSource: () =>
+      observeServerDevelopmentSource: () =>
         scenario === "source_missing"
           ? null
           : {
-              scope: "crdd-development-source-snapshot/v5",
+              scope: "crdd-server/development-source-snapshot/v1",
               sourceSha256: "c".repeat(64),
               sourceIdentitySha256: "d".repeat(64),
             },
@@ -1773,7 +1773,7 @@ test("Orchestrator検証の固定Source観測は入口欠測と途中差を拒�
       },
       createFilesystemRepositoryObservationPort: (...args: unknown[]) => {
         assert.equal(args.length, 1);
-        assert.deepEqual(Array.from(args), ["root-capability"]);
+        assert.deepEqual(Array.from(args), [root]);
         return {
           observeFile: (relative: string) => {
             assert.equal(relative, "template/tools/crdd-server.ts");
@@ -1817,7 +1817,7 @@ test("Orchestrator検証の固定Source観測は入口欠測と途中差を拒�
  * @cleanup N/A: メモリ値だけ。
  * @boundary PRL-ST-004=Direct Boundary: Report公開投影。
  */
-test("Orchestrator検証のSource不成立は終了事実を変えず公開値を閉じる", () => {
+test("実Provider検証のSource不成立は終了事実を変えず公開値を閉じる", () => {
   const base = buildInput();
   const source = base.runtimeSource as Record<string, unknown>;
   const privateObservation = {
@@ -1867,6 +1867,8 @@ test("Orchestrator検証のSource不成立は終了事実を変えず公開値�
     { ...source, scope: "crdd-development-source-snapshot/v2" },
     { ...source, scope: "crdd-development-source-snapshot/v3" },
     { ...source, scope: "crdd-development-source-snapshot/v4" },
+    { ...source, scope: "crdd-development-source-snapshot/v5" },
+    { ...source, scope: "crdd-development-source-snapshot/v6" },
     { ...source, sourceSha256: "bad" },
     { ...source, mcpEntrySourceSha256: "bad" },
     { ...source, crddCommit: "bad" },
@@ -2393,7 +2395,7 @@ test("取消Recovery義務の余分値と理由差を完了へ昇格しない", 
       ...validContent,
       recoveryObligations: [
         {
-          kind: "runtime_process",
+          kind: "execution_process",
           recoveryId: RUNTIME_PROCESS_RECOVERY_ID,
           extra: true,
         },
@@ -2812,7 +2814,7 @@ test("正常・準正常・異常の不一致をblocked結果へ閉じる", () =
     {
       cancellation: observation([
         semantic("cancelled", "objective-cancellation", {
-          reason: "orchestrator_milestone_accepted",
+          reason: "coordinator_milestone_accepted",
         }),
       ]),
     },

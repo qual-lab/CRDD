@@ -7,14 +7,87 @@
  * @security Root・資格・任意commandを入力させずReact Textで表示する。
  */
 import { type ReactElement, useEffect, useRef, useState } from "react";
-import type {
-  WorkspaceCommand,
-  WorkspaceView,
-} from "../../../coordinator/src/index.ts";
 
-import type { CommitSelection } from "../../../version-control/src/index.ts";
 import { requestWorkbenchMutation } from "../api/mutations.ts";
 import { WorkbenchPanel } from "./elements.ts";
+
+/** HTTPのWorkspace表示で使う値だけを保持する。 @trace ARCH-000012 */
+type WorkspaceView = Readonly<{
+  workspaceId: string;
+  name: string | null;
+  generation: number;
+  baseCommit: string;
+  head: string;
+  phase: "creating" | "ready" | "discarding";
+  holdUntil: string | null;
+  candidate: Readonly<{
+    operationId: string;
+    name: string | null;
+    phase: "freezing" | "fixed" | "merging" | "merged" | "removing";
+    baseCommit: string;
+    candidateCommit: string | null;
+    disposition: "adopted" | "rejected" | null;
+    target: Readonly<{
+      targetBranch: string;
+      expectedTargetHead: string;
+    }> | null;
+    selection: readonly FilePreview["selection"][];
+    relatedChangeIds: readonly string[];
+  }> | null;
+}>;
+
+/** Workspaceフォームの既存HTTP要求。 @trace ARCH-000012 */
+type WorkspaceCommand =
+  | Readonly<{
+      operation: "list";
+      projectId: string;
+      cursor: string | null;
+      limit: number;
+    }>
+  | (Readonly<{ projectId: string; queueId: string; workspaceId: string }> &
+      (
+        | { operation: "get" }
+        | { operation: "inspect"; path: string }
+        | { operation: "candidate-diff"; path: string }
+        | (Readonly<{ expectedGeneration: number }> &
+            (
+              | {
+                  operation: "create";
+                  baseBranch: string;
+                  baseCommit: string;
+                  name: string | null;
+                  acceptUncommittedChangesExcluded?: boolean;
+                }
+              | { operation: "select" }
+              | { operation: "rename"; name: string | null }
+              | { operation: "hold"; until: string | null }
+              | {
+                  operation: "discard";
+                  expectedHead: string;
+                  discardChanges: boolean;
+                }
+              | {
+                  operation: "freeze";
+                  operationId: string;
+                  baseCommit: string;
+                  expectedHead: string;
+                  selection: readonly FilePreview["selection"][];
+                  candidateName: string | null;
+                  relatedChangeIds: readonly string[];
+                }
+              | {
+                  operation: "adopt";
+                  candidateCommit: string;
+                  targetBranch: string;
+                  expectedTargetHead: string;
+                }
+              | {
+                  operation: "close-candidate";
+                  expectedCommit: string | null;
+                  disposition: "adopted" | "rejected";
+                }
+            ))
+      ));
 
 /**
  * 画面から取得する一fileの確認値。
@@ -29,7 +102,11 @@ import { WorkbenchPanel } from "./elements.ts";
 type FilePreview = Readonly<{
   baseCommit: string;
   head: string;
-  selection: CommitSelection;
+  selection: Readonly<{
+    path: string;
+    blobId: string | null;
+    mode: "100644" | "100755" | null;
+  }>;
   content: string | null;
   patch: string;
   binary: boolean;
@@ -126,12 +203,14 @@ export function WorkspacePanel({
   actionToken,
   initialHead,
   initialBranch,
+  initialBaseBranch,
 }: Readonly<{
   repositoryId: string;
   projectId: string;
   actionToken: string;
   initialHead: string;
   initialBranch: string;
+  initialBaseBranch: string;
 }>): ReactElement {
   const [rows, setRows] = useState<
     readonly {
@@ -145,9 +224,18 @@ export function WorkspacePanel({
   const [workspace, setWorkspace] = useState<WorkspaceView | null>(null);
   const [paths, setPaths] = useState<readonly string[]>([]);
   const [preview, setPreview] = useState<FilePreview | null>(null);
-  const [selection, setSelection] = useState<readonly CommitSelection[]>([]);
+  const [selection, setSelection] = useState<
+    readonly FilePreview["selection"][]
+  >([]);
   const [name, setName] = useState("");
-  const [base, setBase] = useState(initialHead);
+  const [baseOverride, setBase] = useState<string | null>(null);
+  const [baseBranchOverride, setBaseBranch] = useState<string | null>(null);
+  const base = baseOverride ?? initialHead;
+  const baseBranch = baseBranchOverride ?? initialBaseBranch;
+  const [pendingCreate, setPendingCreate] = useState<Extract<
+    WorkspaceCommand,
+    { operation: "create" }
+  > | null>(null);
   const [candidateName, setCandidateName] = useState("");
   const [targetBranch, setTargetBranch] = useState(initialBranch);
   const [targetHead, setTargetHead] = useState(initialHead);
@@ -207,7 +295,7 @@ export function WorkspacePanel({
       const result = await response.json();
       if (current !== generation.current || abort.signal.aborted) return;
       if (
-        result?.contract !== "crdd-orchestrator/workspace-surface/v1" ||
+        result?.contract !== "crdd-server/workspace-surface/v1" ||
         result.projectId !== projectId ||
         result.operation !== command.operation ||
         !result.data ||
@@ -246,6 +334,7 @@ export function WorkspacePanel({
         setSelection([]);
         setPreview(null);
         setNeedsRefresh(false);
+        setPendingCreate(null);
         createId.current = null;
         setNotice(
           entries.length
@@ -307,6 +396,29 @@ export function WorkspacePanel({
           )
             throw new Error("workspace_response_invalid");
           setPaths([]);
+          if (command.operation === "create") {
+            setPendingCreate(null);
+            if (
+              data.reason === "workspace_creation_confirmation_required" &&
+              data.status === "blocked" &&
+              next === null &&
+              data.gitEffectIssued === false &&
+              data.manualRecoveryRequired === false &&
+              data.releaseFailure === null
+            ) {
+              setPendingCreate(command);
+              setNotice(
+                "未コミットの変更は新しい作業領域に引き継がれません。含めたい場合は、コミットしてから作成してください。",
+              );
+              return;
+            }
+            if (data.reason === "workspace_creation_branch_head_changed") {
+              setNotice(
+                "指定したブランチのHEADを確認できません。ブランチと現在のHEADを確認してから作成してください。",
+              );
+              return;
+            }
+          }
           setNotice(
             `${data.status === "completed" ? "操作完了" : "操作停止"}: ${data.reason}。変更一覧は再取得してください。`,
           );
@@ -374,6 +486,7 @@ export function WorkspacePanel({
             onChange={(e) => {
               const q = rows.find((r) => r.queueId === e.target.value);
               setQueueId(e.target.value);
+              setPendingCreate(null);
               setWorkspace(q?.workspace ?? null);
               setPaths([]);
               setPreview(null);
@@ -397,16 +510,37 @@ export function WorkspacePanel({
               <input
                 value={name}
                 maxLength={120}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setPendingCreate(null);
+                }}
               />
             </label>
             <label>
-              Base Commit
-              <input value={base} onChange={(e) => setBase(e.target.value)} />
+              基準ブランチ
+              <input
+                value={baseBranch}
+                onChange={(e) => {
+                  setBaseBranch(e.target.value);
+                  setPendingCreate(null);
+                }}
+              />
+            </label>
+            <label>
+              選択したブランチのHEAD
+              <input
+                value={base}
+                onChange={(e) => {
+                  setBase(e.target.value);
+                  setPendingCreate(null);
+                }}
+              />
             </label>
             <button
               type="button"
-              disabled={!queueId || !base}
+              disabled={
+                !queueId || !base || !baseBranch || pendingCreate !== null
+              }
               onClick={() => {
                 createId.current ??= crypto.randomUUID();
                 void call({
@@ -415,6 +549,7 @@ export function WorkspacePanel({
                   queueId,
                   workspaceId: createId.current,
                   expectedGeneration: 0,
+                  baseBranch,
                   baseCommit: base,
                   name: name || null,
                 });
@@ -422,6 +557,30 @@ export function WorkspacePanel({
             >
               独立した作業領域を作成
             </button>
+            {pendingCreate ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void call({
+                      ...pendingCreate,
+                      acceptUncommittedChangesExcluded: true,
+                    })
+                  }
+                >
+                  変更を引き継がずに作成
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingCreate(null);
+                    setNotice("作業領域は作成していません。");
+                  }}
+                >
+                  作成を取り消す
+                </button>
+              </>
+            ) : null}
             <label>
               既存の作業領域
               <select

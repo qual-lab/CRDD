@@ -295,7 +295,7 @@ export function recoveryObligations(
         "docker",
         "candidate",
         "candidate_store",
-        "runtime_process",
+        "execution_process",
       ].includes(String(entry.kind)) ||
       !["required", "recovering", "settled"].includes(String(entry.phase)) ||
       typeof entry.recoveryId !== "string" ||
@@ -935,7 +935,7 @@ export function prepareTaskReplan(
   ) {
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_replan_invalid_or_out_of_scope",
+      reason: "coordinator_replan_invalid_or_out_of_scope",
       state,
       taskIds: Object.freeze([]),
     });
@@ -986,7 +986,7 @@ export function prepareTaskReplan(
   );
   return Object.freeze({
     status: "completed",
-    reason: "orchestrator_partial_replan_applied",
+    reason: "coordinator_partial_replan_applied",
     state: Object.freeze({
       ...state,
       generation: state.generation + 1,
@@ -1021,7 +1021,7 @@ export function prepareTaskRetry(
   ) {
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_retry_invalid_or_limit_exceeded",
+      reason: "coordinator_retry_invalid_or_limit_exceeded",
       state,
       taskIds: Object.freeze([]),
     });
@@ -1050,7 +1050,7 @@ export function prepareTaskRetry(
   );
   return Object.freeze({
     status: "completed",
-    reason: "orchestrator_plan_maintained_for_retry",
+    reason: "coordinator_plan_maintained_for_retry",
     state: Object.freeze({
       ...state,
       generation: state.generation + 1,
@@ -1106,7 +1106,7 @@ export function prepareTaskSettlement(
           "docker",
           "candidate",
           "candidate_store",
-          "runtime_process",
+          "execution_process",
         ].includes(entry.kind) ||
         !validResultReference(entry.recoveryId) ||
         entry.phase !== "required",
@@ -1126,7 +1126,7 @@ export function prepareTaskSettlement(
   ) {
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_task_settlement_mismatch",
+      reason: "coordinator_task_settlement_mismatch",
       state,
       taskIds: Object.freeze([]),
     });
@@ -1201,7 +1201,7 @@ export function prepareTaskSettlement(
       : state.milestone.state;
   return Object.freeze({
     status: "completed",
-    reason: "orchestrator_task_settled",
+    reason: "coordinator_task_settled",
     state: Object.freeze({
       ...state,
       generation: state.generation + 1,
@@ -1236,7 +1236,7 @@ export function prepareTaskPreEffectSettlement(
     "docker",
     "candidate",
     "candidate_store",
-    "runtime_process",
+    "execution_process",
   ]);
   if (
     state.generation !== expectedGeneration ||
@@ -1261,7 +1261,7 @@ export function prepareTaskPreEffectSettlement(
   )
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_pre_effect_settlement_mismatch",
+      reason: "coordinator_pre_effect_settlement_mismatch",
       state,
       taskIds: Object.freeze([]),
     });
@@ -1295,7 +1295,7 @@ export function prepareTaskPreEffectSettlement(
   );
   return Object.freeze({
     status: "completed",
-    reason: "orchestrator_pre_effect_task_settled",
+    reason: "coordinator_pre_effect_task_settled",
     state: Object.freeze({
       ...state,
       generation: state.generation + 1,
@@ -1356,7 +1356,7 @@ export function prepareTaskRecoveryStart(
   )
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_task_recovery_start_mismatch",
+      reason: "coordinator_task_recovery_start_mismatch",
       state,
       taskIds: Object.freeze([]),
     });
@@ -1376,7 +1376,7 @@ export function prepareTaskRecoveryStart(
   );
   return Object.freeze({
     status: "completed",
-    reason: "orchestrator_task_recovery_started",
+    reason: "coordinator_task_recovery_started",
     state: Object.freeze({
       ...state,
       generation: state.generation + 1,
@@ -1427,7 +1427,7 @@ export function prepareTaskRecoverySettlement(
   )
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_task_recovery_settlement_mismatch",
+      reason: "coordinator_task_recovery_settlement_mismatch",
       state,
       taskIds: Object.freeze([]),
     });
@@ -1447,7 +1447,7 @@ export function prepareTaskRecoverySettlement(
   );
   return Object.freeze({
     status: "completed",
-    reason: "orchestrator_task_recovery_item_settled",
+    reason: "coordinator_task_recovery_item_settled",
     state: Object.freeze({
       ...state,
       generation: state.generation + 1,
@@ -1486,7 +1486,7 @@ export function prepareTaskRecoveryRetry(
   )
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_task_recovery_batch_invalid",
+      reason: "coordinator_task_recovery_batch_invalid",
       state,
       taskIds: Object.freeze([]),
     });
@@ -1506,7 +1506,7 @@ export function prepareTaskRecoveryRetry(
   )
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_task_recovery_batch_mismatch",
+      reason: "coordinator_task_recovery_batch_mismatch",
       state,
       taskIds: Object.freeze([]),
     });
@@ -1537,7 +1537,7 @@ export function prepareTaskRecoveryRetry(
   );
   return Object.freeze({
     status: "completed",
-    reason: "orchestrator_task_recoveries_settled_for_retry",
+    reason: "coordinator_task_recoveries_settled_for_retry",
     state: Object.freeze({
       ...state,
       generation: state.generation + 1,
@@ -1600,7 +1600,7 @@ export function prepareTaskOwnerLoss(
   )
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_owner_loss_recovery_binding_invalid",
+      reason: "coordinator_owner_loss_recovery_binding_invalid",
       state,
       taskIds: Object.freeze([]),
     });
@@ -1620,7 +1620,7 @@ export function prepareTaskOwnerLoss(
   )
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_owner_loss_recovery_binding_mismatch",
+      reason: "coordinator_owner_loss_recovery_binding_mismatch",
       state,
       taskIds: Object.freeze([]),
     });
@@ -1674,7 +1674,7 @@ export function prepareTaskOwnerLoss(
   );
   return Object.freeze({
     status: "completed",
-    reason: "orchestrator_owner_loss_recoveries_bound",
+    reason: "coordinator_owner_loss_recoveries_bound",
     state: Object.freeze({
       ...state,
       generation: state.generation + 1,
@@ -1701,7 +1701,7 @@ export function prepareTaskExecutionUpdate(
     if (state.generation !== expectedGeneration)
       return Object.freeze({
         status: "blocked" as const,
-        reason: "orchestrator_state_generation_conflict",
+        reason: "coordinator_state_generation_conflict",
         state,
         taskIds: Object.freeze([]),
       });
@@ -1735,14 +1735,14 @@ export function prepareTaskExecutionUpdate(
     )
       return Object.freeze({
         status: "blocked" as const,
-        reason: "orchestrator_task_recovery_not_settled",
+        reason: "coordinator_task_recovery_not_settled",
         state,
         taskIds: Object.freeze([]),
       });
     // Operation・履歴・未解決参照の最終判定と退役は既存の統合Writerが所有する。
     return Object.freeze({
       status: "completed" as const,
-      reason: "orchestrator_state_durable",
+      reason: "coordinator_state_durable",
       state: Object.freeze({ ...state, generation: state.generation + 1 }),
       taskIds: Object.freeze([
         ...new Set(request.recoveries.map((item) => item.taskId)),
@@ -1778,7 +1778,7 @@ export function prepareTaskExecutionUpdate(
       )
         return Object.freeze({
           status: "completed" as const,
-          reason: "orchestrator_state_durable",
+          reason: "coordinator_state_durable",
           state,
           taskIds: Object.freeze([...request.taskIds]),
         });
@@ -1835,7 +1835,7 @@ export function prepareTaskExecutionUpdate(
       )
         return Object.freeze({
           status: "completed" as const,
-          reason: "orchestrator_state_durable",
+          reason: "coordinator_state_durable",
           state,
           taskIds: Object.freeze([request.taskId]),
         });
@@ -1875,7 +1875,7 @@ export function prepareTaskExecutionUpdate(
       )
         return Object.freeze({
           status: "completed" as const,
-          reason: "orchestrator_state_durable",
+          reason: "coordinator_state_durable",
           state,
           taskIds: Object.freeze([request.taskId]),
         });
@@ -1910,7 +1910,7 @@ export function prepareTaskExecutionUpdate(
       )
         return Object.freeze({
           status: "completed" as const,
-          reason: "orchestrator_state_durable",
+          reason: "coordinator_state_durable",
           state,
           taskIds: Object.freeze([request.taskId]),
         });
@@ -1991,7 +1991,7 @@ export function prepareTaskExecutionUpdate(
     if (replay)
       return Object.freeze({
         status: "completed" as const,
-        reason: "orchestrator_state_durable",
+        reason: "coordinator_state_durable",
         state,
         taskIds: Object.freeze(taskIds),
       });
@@ -2026,7 +2026,7 @@ export function prepareTaskExecutionUpdate(
   )
     return Object.freeze({
       status: "completed" as const,
-      reason: "orchestrator_state_durable",
+      reason: "coordinator_state_durable",
       state,
       taskIds: Object.freeze([request.taskId]),
     });
@@ -2207,7 +2207,7 @@ export function captureTaskExecutionUpdate(
           "host",
           "candidate",
           "candidate_store",
-          "runtime_process",
+          "execution_process",
         ].includes(recovery.recoveryKind as string)) ||
       (recoveryRetry?.kind === "task_recovery_retry" &&
         Array.isArray(recoveryRetry.taskIds)) ||
@@ -2270,7 +2270,7 @@ export function prepareTaskStart(
   ) {
     return Object.freeze({
       status: "blocked" as const,
-      reason: "orchestrator_generation_or_identity_mismatch",
+      reason: "coordinator_generation_or_identity_mismatch",
       state,
       taskIds: Object.freeze([]),
     });
@@ -2278,7 +2278,7 @@ export function prepareTaskStart(
   if (!observeTaskStartCandidates(state).taskIds.includes(taskId)) {
     return Object.freeze({
       status: "blocked",
-      reason: "orchestrator_task_not_schedulable",
+      reason: "coordinator_task_not_schedulable",
       state,
       taskIds: Object.freeze([]),
     });
@@ -2306,7 +2306,7 @@ export function prepareTaskStart(
   );
   return Object.freeze({
     status: "completed" as const,
-    reason: "orchestrator_task_start_reserved",
+    reason: "coordinator_task_start_reserved",
     state: Object.freeze({
       ...state,
       generation: state.generation + 1,
@@ -2350,7 +2350,7 @@ export function prepareTaskHandoff(
   ) {
     return Object.freeze({
       status: "blocked" as const,
-      reason: "orchestrator_task_handoff_preparation_mismatch",
+      reason: "coordinator_task_handoff_preparation_mismatch",
       state,
       taskIds: Object.freeze([]),
     });
@@ -2366,7 +2366,7 @@ export function prepareTaskHandoff(
   );
   return Object.freeze({
     status: "completed" as const,
-    reason: "orchestrator_task_handoff_prepared",
+    reason: "coordinator_task_handoff_prepared",
     state: Object.freeze({
       ...state,
       generation: state.generation + 1,
@@ -2402,7 +2402,7 @@ export function prepareTaskStarted(
   )
     return Object.freeze({
       status: "blocked" as const,
-      reason: "orchestrator_task_start_observation_mismatch",
+      reason: "coordinator_task_start_observation_mismatch",
       state,
       taskIds: Object.freeze([]),
     });
@@ -2417,7 +2417,7 @@ export function prepareTaskStarted(
   );
   return Object.freeze({
     status: "completed" as const,
-    reason: "orchestrator_task_started",
+    reason: "coordinator_task_started",
     state: Object.freeze({
       ...state,
       generation: state.generation + 1,

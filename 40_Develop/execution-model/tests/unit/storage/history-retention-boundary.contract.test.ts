@@ -8,7 +8,6 @@
  * @boundary EMの保持値・保存制御と有限VC観測。物理保存・実資源の成立ではない。
  */
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
@@ -88,7 +87,7 @@ test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉
               revision: reads,
               operations: [
                 {
-                  kind: "runtime_repair",
+                  kind: "docker_repair",
                   recoveryId: "id",
                   identityJson:
                     mode === "changed_identity" && reads === 2
@@ -101,7 +100,7 @@ test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉
             payloadSha256: "hash",
           },
           currentHistoryPublication: {
-            operationKind: "runtime_repair",
+            operationKind: "docker_repair",
             stage: actual,
             needsWrite: actual !== "confirmed",
             before: Buffer.from("before"),
@@ -156,7 +155,7 @@ test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉
       {},
       "id",
       () => ownerLive,
-      mode === "wrong_kind" ? "unknown" : "runtime_repair",
+      mode === "wrong_kind" ? "unknown" : "docker_repair",
     );
     const success = ["normal", "resume", "confirmed"].includes(mode);
     assert.equal(result.status, success ? "completed" : "blocked", mode);
@@ -256,7 +255,7 @@ test("履歴出版の一回Contextは保持日数と元Ownerの現在性を結�
   );
   publish({
     kind: "current_history",
-    operationKind: "runtime_repair",
+    operationKind: "docker_repair",
     repository: {
       revalidate: (days?: number) => {
         received.push(days);
@@ -340,12 +339,7 @@ test("EMのRepository観測は保持日数を転送し通常照合とRevision条
     "utf8",
   );
   let revision = "a".repeat(40);
-  const observed = () => ({
-    repositoryForm: "main",
-    repositoryIdentity: "one",
-    repositoryInstanceIdentity: "instance",
-    revisionIdentity: revision,
-  });
+  const initialRevision = revision;
   const factories = compileFunction(
     stripTypeScriptTypes(
       [
@@ -358,14 +352,8 @@ test("EMのRepository観測は保持日数を転送し通常照合とRevision条
         .join("\n"),
     ) +
       "\nreturn {observeExecutionStorageRepository,observeExecutionRecoveryRepository};",
-    [
-      "types",
-      "createHash",
-      "resolveVerifiedRepositoryRoot",
-      "readRepositoryStorageIdentity",
-      "readRepositoryRevision",
-    ],
-  )(types, createHash, () => "C:/synthetic-unused", observed, observed) as {
+    ["types", "readExecutionStorageBinding"],
+  )(types, () => "fixture-physical-binding") as {
     observeExecutionStorageRepository: (value: object) => {
       revalidate: (days?: number) => boolean;
       historyRetentionDays: number | null;
@@ -378,14 +366,19 @@ test("EMのRepository観測は保持日数を転送し通常照合とRevision条
   let currentDays = 30;
   let policyChecks = 0;
   const input = {
-    root: {},
+    purpose: "recovery",
+    root: { directory: "C:/synthetic-unused" },
     historyRetentionDays: 30,
     revalidate: (days?: number) => {
+      if (revision !== initialRevision) return false;
+      if (days === undefined) return true;
       policyChecks++;
       return days === currentDays;
     },
   };
-  const normal = factories.observeExecutionStorageRepository({});
+  const normal = factories.observeExecutionStorageRepository({
+    directory: "C:/synthetic-unused",
+  });
   assert.equal(normal.revalidate(), true);
   assert.equal(policyChecks, 0);
   assert.equal(readHistoryRetentionDays(normal), null);

@@ -29,6 +29,7 @@ test("CLIは不正入力を起動前に単一の公開結果で拒否する", ()
     [["--unknown", "x"], "visual_preview_option_unknown"],
     [["--root"], "visual_preview_option_value_required"],
     [["--root", "a", "--root", "b"], "visual_preview_option_duplicated"],
+    [["--root", "../outside"], "visual_preview_root_invalid"],
     [["verify-zoom", "--unknown", "x"], "visual_zoom_option_unknown"],
     [["verify-zoom"], "visual_zoom_required_option_missing"],
   ] as const) {

@@ -8,7 +8,6 @@ import type { NetworkPolicyReadResult } from "./types.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type { Repository } from "../../../version-control/src/index.ts";
 import {
   DEFAULT_NETWORK_POLICY,
   parseNetworkPolicyDocument,
@@ -20,9 +19,9 @@ import { readStableFileSnapshot } from "../storage/store.ts";
  * 検証済みRootの現在設定を一回固定する。
  * @responsibility 親chain・nlink・開いたFile・Rootの前後同一性を確認する。
  * @trace ARCH-000011
- * @input capability: 発行済みRepository Root。
+ * @input repositoryRoot: 上位で確認したRepository Root。
  * @returns 不変設定・由来または固定停止理由。
- * @precondition 選択Repositoryの能力を渡す。
+ * @precondition 呼出し側が確認した絶対ディレクトリを渡す。
  * @postcondition 別Repositoryの値をCache・継承しない。
  * @effect 固定PathのmetadataとFileを読み、descriptorを閉じる。書込みは0。
  * @failure 不正内容はinvalid、読取り・実体確認不能はunavailable。
@@ -32,14 +31,14 @@ import { readStableFileSnapshot } from "../storage/store.ts";
  * @concurrency 観測後の変更を返却済みSnapshotへ反映しない。
  */
 export function readNetworkPolicy(
-  capability: Repository,
+  repositoryRoot: string | null,
 ): NetworkPolicyReadResult {
   try {
-    const paths = configurationPaths(capability);
+    const paths = configurationPaths(repositoryRoot);
     if (!paths) throw new Error("root");
     const parents: { file: string; stat: fs.BigIntStats }[] = [];
     let missing: string | null = null;
-    for (const file of [paths.root, paths.config]) {
+    for (const file of [paths.repositoryRoot, paths.root, paths.config]) {
       try {
         const stat = fs.lstatSync(file, { bigint: true });
         if (
@@ -50,6 +49,7 @@ export function readNetworkPolicy(
           throw new Error("parent");
         parents.push({ file, stat });
       } catch (error) {
+        if (file === paths.repositoryRoot) throw error;
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         missing = file;
         break;
@@ -129,8 +129,6 @@ export function readNetworkPolicy(
       )
         throw new Error("parent_changed");
     }
-    if (configurationPaths(capability)?.repositoryRoot !== paths.repositoryRoot)
-      throw new Error("root_changed");
     return sourceFileHash === null
       ? Object.freeze({
           status: "ready",

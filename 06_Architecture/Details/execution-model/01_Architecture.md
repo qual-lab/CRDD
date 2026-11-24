@@ -1,5 +1,7 @@
 # 実行モデルの責務と単一保存契約
 
+実行モデルの保存試験は、試験が確定したディレクトリと呼出し側の同期再確認だけを渡す。Gitが存在するか、どの改訂が現在かをVersion Controlから取得しない。Gitの改訂・配置を実際に変える接続試験とその準備はCoordinatorが所有し、実行モデルの試験は呼出し側の失効、保存先の実体差、再入場、排他解放を独立に検証する。
+
 ## Host作業領域の保存基盤
 
 Host記録の`resources`は必須で、Task／Adviceは`null`とする。`isolation_probe`だけが既存`OperationResources`を同じ記録に保持し、Probe専用のStore・疑似Task／Provider／Homeを作らない。初回Host Intentでは資源は未設定で、Rootと全子領域Receiptの確認後に、単一Probe Containerの作成Intentから記録する。元Resource Snapshot・回収順・期限・`retain`を保存し、Receiptを失う更新や自動再発見のReceiptは拒否する。資源が未解決ならHost清掃確認・終端化を受理しない。入力はgetter／Proxyを実行せず独立捕捉し、資源の内側まで凍結する。
@@ -10,7 +12,7 @@ Host資源の要求区分は、発行不明／発行済みから未発行へ巻�
 
 Taskの固定Git資源は同じHost記録の`git`へ保持する。未要求なら項目自体を持たず、初回追加は一件の未発行予定（OID・一時Index未取得、回収未確認）だけを認める。基準・候補の管理Ref名は元Operationから固定し、OID・一時Index結果・Ref発行不明・確認・回収を単調に記録する。既知OIDの変更、予定なしの確認済み追加、複数一括追加、別OperationのPath・余剰属性を拒否する。配列のSymbol・accessorも補完せず拒否する。
 
-Git資源が未回収ならHost終端を受理しない。この値契約は実Refの不存在や削除許可を証明せず、上位はVCの期待OID付き回収結果を同じCASへ保存する。Docker終端WriterはHost記録を更新せず、Hostの独立CheckpointとDocker終端・履歴を混ぜない。終了履歴の新Schemaは`operation-summary/v6`だけを受理する。
+Git資源が未回収ならHost終端を受理しない。この値契約は実Refの不存在や削除許可を証明せず、上位はVCの期待OID付き回収結果を同じCASへ保存する。Docker終端WriterはHost記録を更新せず、Hostの独立CheckpointとDocker終端・履歴を混ぜない。終了履歴の新Schemaは`operation-summary/v7`だけを受理する。
 
 Hostは同じOperationRecord閉集合の`host_operation`として、元の操作ID・用途・作成日時、Rootと固定子領域の実体Receipt、準備／使用中／終端と回収状態を保持する。非Authorityの回復参照は元操作IDから`host-operation.<操作ID>`へ一意に導く。任意Path、別nonce、専用Hash token、Docker／修復用の架空履歴は追加しない。Rootは検証済みRepositoryと元操作IDから上位が導出する。
 
@@ -122,7 +124,7 @@ Coveredは局所責務の設計接続を表し、ARCH全体や実動作の合格
 
 ### Package依存
 
-EMはNode.js、Version Control、共通Lockを利用する。文書モデル・構成モデルとの直接依存は、実装・型・再export・深いimport・dynamic import・package依存を含めて持たない。設定・選定は上位が取得・確定して渡す。
+EMはNode.jsと共通Lockを利用する。Version Control・文書モデル・構成モデルとの直接依存は、実装・型・再export・深いimport・dynamic import・package依存を含めて持たない。保存ディレクトリ、設定、選定は上位が取得・確定して渡す。
 
 EM SourceはAD／DI型を直接参照しない。`ExecutionSelection`の技術選定五項目、`OperationResources.snapshot`の非秘密資源情報、一次失敗の`turnCountDiagnostic`はEM所有の保存契約である。上位のCoordinatorが技術型と保存型の構造適合・入力搬送を接続する。型適合は認可・保存成功・技術Effectの証明ではない。
 
@@ -171,7 +173,7 @@ Taskの候補・回復・結果参照の文法はTask、計画定義HashはObjec
 <a id="public-api"></a>
 ## 3. 公開契約
 
-Rootは94項目（58値・36型）。完成した読取り・更新・終了・回復・履歴操作、独立した入力受付とモデル語彙を明示公開する。正確な集合は`src/index.ts`と固定期待値の公開契約試験で確認する。件数を目標にunknownや巨大Unionへ置換しない。
+Rootは95項目（59値・36型）。完成した読取り・更新・終了・回復・履歴操作、独立した入力受付とモデル語彙を明示公開する。正確な集合は`src/index.ts`と固定期待値の公開契約試験で確認する。件数を目標にunknownや巨大Unionへ置換しない。
 
 管理Projectの読取り・保存成功結果は、同じProject・世代から導出した`taskStartCandidates`を非永続の観測として返す。並列枠・未回収資源の予約・Path／Conflict Key・定義順の規則はTaskが所有する。観測はAuthorityではなく、予約・引渡し・開始観測は既存の`saveProjectExecutionState`が有限の`task_start`／`task_handoff`／`task_started`要求を受け、同じ短期保存Ownerのfresh Stateで再検査する。保存形式・一般Task定義CRUD・他の更新の保存境界は変更しない。
 
@@ -183,7 +185,7 @@ Rootは94項目（58値・36型）。完成した読取り・更新・終了・�
 
 初回ProjectとQueueの作成は`createQueue`のscheduled操作で完結する。第二入力は完成Stateではなく`ProjectExecutionInitialization`とし、閉形式捕捉・入力検査をStore初期化より先に実施する。モデル内部でgeneration 1と依存待ちを組み立て、同じ保存候補へProjectとQueueを結合する。freshな同ID照合を優先し、再送で勝者のOwner・固定選定・初期値を置換しない。初期生成HelperはRootへ公開しない。Taskの開始・終了・回復義務更新は有限保存へ接続するが、Owner不在・元Operationの実観測はCoordinatorに残し、その結果からの状態結合は同じ有限保存が所有する。初期生成だけから全制御の移管済みを主張しない。
 
-通常CRUDの`queryPlan`／`queryObjectives`／`queryTasks`／`queryQueue`と単件取得、同版複合取得の`readState`を区別する。`queryQueue`は現在の本番外部Consumerがなくても、採用済みの認証・対象限定付き通常一覧Capabilityとして維持する。他の93公開項目には本番の直接参照があるが、参照の存在だけを設計上の必要性の証明とはしない。
+通常CRUDの`queryPlan`／`queryObjectives`／`queryTasks`／`queryQueue`と単件取得、同版複合取得の`readState`を区別する。`queryQueue`は現在の本番外部Consumerがなくても、採用済みの認証・対象限定付き通常一覧Capabilityとして維持する。参照の存在だけを設計上の必要性の証明とはしない。
 
 ### 独立した入力受付
 
@@ -233,7 +235,7 @@ Resource Bookの更新は次値を遷移検査内で一回検査し、元Book・
 
 `saveOperationStart`は開始保存と終端Context準備を`startSaved`／`completionContext`で区別する。保存済みでも準備失敗ならHost要求を出さず、元参照・保存Effect・解放不明を保持する。`completeOperation`は元Host／Controller結果の同じ参照を固定し、入力受理と保存結果を区別する。ContextはProcess内だけで使用し、保存値から復元しない。Task結合操作はTask終端と同じStateで終了し、非結合操作は技術終端・履歴確認で終了する。配送ACKは終了条件ではない。
 
-`saveRecoveryCheckpoint`の資源未発行・Host清掃準備・認証不明終了・資源再出版は、それぞれの元Owner、元本文、再観測・一回証拠、元／候補全文pairの条件を保つ。`completeRecovery`／`saveRecoveryHistory`はdocker_task／runtime_repairを固定用途で区別する。履歴保存は要約固定・保存・最終fresh確認まで一回の完成操作とする。
+`saveRecoveryCheckpoint`の資源未発行・Host清掃準備・認証不明終了・資源再出版は、それぞれの元Owner、元本文、再観測・一回証拠、元／候補全文pairの条件を保つ。`completeRecovery`／`saveRecoveryHistory`はdocker_task／docker_repairを固定用途で区別する。履歴保存は要約固定・保存・最終fresh確認まで一回の完成操作とする。
 
 Lease IntentはRepository・Project・Queue・種別からIdentityと回復IDを生成し、保存前通知・物理取得確認・Owner喪失観測で同じexact値を使う。呼出し側のOwner世代・Process IDと物理排他、回復順序は別の保証として保持する。
 
@@ -241,7 +243,7 @@ Lease IntentはRepository・Project・Queue・種別からIdentityと回復IDを
 
 ### 実行の終了記録を保持する保存契約
 
-保存候補は`crdd-execution-model/state/v7`、内部投影は`project-snapshot/v9`を使用する。旧形式の互換Reader・自動移行は追加せず、既存保持物は今回処置しない。Coordinator整理のためのEM変更であり、独立した重複防止Storeや台帳を新設しない。
+保存候補は`crdd-execution-model/state/v9`、内部投影は`project-snapshot/v9`を使用する。旧形式の互換Reader・自動移行は追加せず、既存保持物は今回処置しない。Coordinator整理のためのEM変更であり、独立した重複防止Storeや台帳を新設しない。
 
 Queueは受付と実行状態の正本であり、終了履歴が確定しただけでは削除しない。同じ記録の`historySettled`が履歴の保存確認又は既存の保持期限処置の確定を表す。新規受付はfalse、閉鎖・履歴照合後だけtrueへ進み、trueからの巻戻し、要求Hashの変更、通常の再開と記録削除を拒否する。履歴候補生成はtrueの記録を除き、二回目の保守で同じ履歴を作り直さない。
 
@@ -317,7 +319,7 @@ Runtime import graphは実行時参照と型のみ参照を分けて確認する
 
 | 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|---|---|---|
-| `execution-model.package-boundary` | Interface／State／Failure | 公開93項目・独立ロード・モデル間依存0 | 既存の完成操作・Owner・結果相関を保持 | 内部補助の公開、上位Consumer知識、逆依存 | UT | N/A | RCM-UT-014の入力・結果・現在値と必要な終了確認 | 純粋受付はEffect 0、保存は元対象の確定または未確認を保持 | 全体回帰・実AI・Docker・旧保持物の移行は未実施。上位義務の完了とは別 |
+| `execution-model.package-boundary` | Interface／State／Failure | 公開95項目・独立ロード・モデル間依存0 | 既存の完成操作・Owner・結果相関を保持 | 内部補助の公開、上位Consumer知識、逆依存 | UT | N/A | RCM-UT-014の入力・結果・現在値と必要な終了確認 | 純粋受付はEffect 0、保存は元対象の確定または未確認を保持 | 全体回帰・実AI・Docker・旧保持物の移行は未実施。上位義務の完了とは別 |
 | `execution-model.execution-state` | Interface／State／Failure | Task・Attempt・Blocker・Leaseと全Stateの相関 | 既存の完成操作・Owner・結果相関を保持 | 不正遷移・資源未確認の成功化・古い世代 | UT／IT | Direct Boundary | PRL-UT-006／ERB-IT-014の入力・結果・現在値と必要な終了確認 | 純粋受付はEffect 0、保存は元対象の確定または未確認を保持 | 全体回帰・実AI・Docker・旧保持物の移行は未実施。上位義務の完了とは別 |
 | `execution-model.state-publication` | Interface／State／Failure | Lock・CAS・pending・保存証拠の寿命 | 既存の完成操作・Owner・結果相関を保持 | 途中保存・別世代証拠・未知残存・終了不明 | IT | Direct Boundary | RDL-IT-001は配置、PRL-IT-013はState I/O・失効、ERB-IT-014はpending・出版不明・同ID再入場。PRL-IT-012の上位Transportとは分ける | 元版・同対象・一次失敗と未解決義務を保持し、未知・途中出版は保全する | 全体回帰・実AI・Docker・旧保持物の移行は未実施。上位義務の完了とは別 |
 

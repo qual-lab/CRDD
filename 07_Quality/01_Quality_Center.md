@@ -1,5 +1,19 @@
 # CRDD内部ツールの品質の現在状態
 
+## 実Docker・実AIを除く全体回帰 — 2026-11-25
+
+全15 Packageの静的検査と試験、CoordinatorのWindowsホスト試験およびWindows Process Gateを、同じ作業ツリーで実行した。対象は基準Commit `c0e3b428d`にステージ済みの変更と回帰中の是正を加えた未Commitの状態であり、固定Commitの結果ではない。
+
+| 確認 | 結果 |
+|---|---|
+| 試験 | 3,980件中3,971件成功、失敗0件、9件は実環境未設定または手動確認用で対象外 |
+| 静的検査 | 全Package成功 |
+| リポジトリ全体のChecker | Error 0、Warning 0 |
+
+初回の回帰では、静的検査の不合格4 Packageと試験の失敗20件を検出した。原因はステージ済みの変更に試験が追従していなかったことで、試験側を是正した。製品側の変更は、借用先の結合からHEADのCommit実在の確認を外した1件だけである。各失敗の原因と処置、再確認の結果は[Quality Integration](04_Quality_Integration.md#実dockerと実aiを除く全体回帰--2026-11-25)を正本とする。
+
+実Dockerを使う`codex-executor-sandbox`、`test:docker-isolation-host`、実AIの試験は未実施である。Codex Reviewerの起動引数の変更は実AIで未確認のまま残る。この結果を全体QAの完成、実境界の成立またはRelease可能とは扱わない。
+
 ## 現在の設計集合の再計数 — 2026-11-17
 
 現行13定義の正式検証項目は191件。独立Trust評価器・旧署名・素材専用Storeと既存確認の抽象的な重複だけの13項目を現行集合から撤去した。現在の具体的確認と素材文書による人間判断は維持し、撤去をPassに数えない。207件のうちPA専用のERB-UT-035／037／039を退役記録へ分離した。元のIDと定義はQA-000006の「退役した検証項目」に保持し、現在Required・実行集合・Coverage・Passへ混ぜない。HST-UT-001／ERB-UT-024の登録は維持する。設計集合の整理であり、試験削除・現在Pass追加・全体回帰成立ではない。
@@ -8,7 +22,7 @@
 
 判断State／History統合のPRL-UT-015／PRL-IT-014をQA-000003へ追加し、同定義は16項目、全13定義は205項目となった。新規2項目はDomain内部の値契約と直接保存境界を対象とし、Coordinator公開入口の成立を意味しない。EIのGroup保持・検索集計・Coordinator計測接続をQA-000012の正式項目ERP-IT-006／007／008へ登録した。全13定義の正式検証項目を重複なく再計数した現在値は205項目（QA-000003は16項目、QA-000012は10項目）。以下の199／198等の日付付き件数は当時の集合であり、現在値として加算・転用しない。設計項目登録はPass数・実行数ではなく、上位ST／UAT・全体品質の未評価を維持する。[登録範囲と結果](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-qa-link-closure)を参照する。
 
-人間承認により通常回復Namespaceを既存Node初期化へ統合し、専用Native保護・Protocolを撤去した。専用TEMP保護は運用前提であり、厳密SID／DACL・祖先Handleの同等性は主張しない。Home／Runtimeの保護は維持する。[今回の限定確認](04_Quality_Integration.md#namespaceのnode統合--2026-11-07)を参照する。過去保持物は不変更で、今回対象の限定独立レビューは完了した。Host限定fixture是正と今回試験物の回収は残件である。
+人間承認により通常回復Namespaceを既存Node初期化へ統合し、専用Native保護・Protocolを撤去した。専用TEMP保護は運用前提であり、厳密SID／DACL・祖先Handleの同等性は主張しない。Provider Homeの保護と、実行モデルによるリポジトリ内の保存排他は維持する。AppDataの旧共有ロックの撤去とは区別する。[今回の限定確認](04_Quality_Integration.md#namespaceのnode統合--2026-11-07)を参照する。過去保持物は不変更で、今回対象の限定独立レビューは完了した。Host限定fixture是正と今回試験物の回収は残件である。
 
 本番未使用の端末・確認コード・旧Root観測を退役した。共用処理の限定回帰と台帳整合は成功し、Windows保護やPA全体の撤去完了とはしない。[現在の限定結果](04_Quality_Integration.md#本番未使用の端末旧root観測の退役--2026-11-06)を参照する。
 

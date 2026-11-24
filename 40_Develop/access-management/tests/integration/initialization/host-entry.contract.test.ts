@@ -19,10 +19,6 @@ import {
   type CrosRootInput,
   resolveCrosRuntimeRoots,
 } from "../../../src/initialization/root.ts";
-import {
-  resolveVerifiedRepositoryRoot,
-  getRepositoryFromWorkingDirectory,
-} from "../../../../version-control/src/index.ts";
 import { runHostAccessCommand } from "../../../src/cli/command.ts";
 import { createCredentialMaterial } from "../../../src/credential/token.ts";
 import { exchangeCredentialsFromHost } from "../../../src/credential/exchange.ts";
@@ -41,7 +37,7 @@ import type { AccessManagementState } from "../../../src/storage/types.ts";
  * Repository markerのDirectoryとworktree File両形態を検査する。
  * @responsibility .gitの種類だけで正規worktreeを拒否しない。
  * @trace RFD-IT-025
- * @precondition Root自体は既存VCS verifierで別途確定する。
+ * @precondition RootはこのSourceの所在と通常ディレクトリの実パスから確認する。
  * @stimulus .gitのlstatを取得する。
  * @observation 通常FileまたはDirectory、非linkを確認する。
  * @oracle markerの種類をRoot Authorityの証明にしない。
@@ -68,11 +64,8 @@ function assertRepositoryMarker(markerPath: string): void {
  */
 function fixture(t: TestContext) {
   const repository = path.resolve(import.meta.dirname, "../../../../..");
-  const verified = getRepositoryFromWorkingDirectory(repository);
-  assert.equal(verified.status, "completed");
-  if (verified.status !== "completed")
-    throw new Error("test_repository_unverified");
-  assert.equal(resolveVerifiedRepositoryRoot(verified.capability), repository);
+  assert.equal(fs.lstatSync(repository).isDirectory(), true);
+  assert.equal(fs.realpathSync.native(repository), repository);
   assertRepositoryMarker(path.join(repository, ".git"));
   const parent = path.join(repository, ".crdd", "tests");
   fs.mkdirSync(parent, { recursive: true });

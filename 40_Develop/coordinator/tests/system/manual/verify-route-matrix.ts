@@ -9,8 +9,8 @@ import { fileURLToPath } from "node:url";
 import { types } from "node:util";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../../version-control/src/index.ts";
 import {
-  isRuntimeProcessPoisoned,
-  poisonRuntimeProcessAfterCleanupUnknown,
+  isExecutionProcessPoisoned,
+  poisonExecutionProcessAfterCleanupUnknown,
 } from "../../../src/lifecycle/host.ts";
 import {
   displayVerificationRecording,
@@ -224,7 +224,7 @@ function snapshotRouteRecord(value: unknown) {
  */
 function validSourceIdentity(result: Readonly<Record<string, unknown>>) {
   return (
-    result.sourceScope === "crdd-development-source-snapshot/v5" &&
+    result.sourceScope === "crdd-development-source-snapshot/v6" &&
     typeof result.sourceSha256 === "string" &&
     SHA256.test(result.sourceSha256) &&
     result.sourceObservationStatus === "matched" &&
@@ -308,20 +308,20 @@ function executionIdentity(result: Readonly<Record<string, unknown>>) {
  * @responsibility Runtime Process Poisonedの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
- * @returns N/A: ensureRuntimeProcessPoisonedは戻り値を返さない。
- * @precondition 「N/A: 実行時引数を受け取らない。」がensureRuntimeProcessPoisonedの入力契約を満たす。
- * @postcondition ensureRuntimeProcessPoisonedの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: ensureRuntimeProcessPoisonedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure ensureRuntimeProcessPoisonedは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant ensureRuntimeProcessPoisonedは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: ensureRuntimeProcessPoisonedはProcess内の同一Subsystemで完結する。
- * @security N/A: ensureRuntimeProcessPoisonedはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: ensureRuntimeProcessPoisonedは共有非同期状態を持たない同期処理である。
+ * @returns N/A: ensureExecutionProcessPoisonedは戻り値を返さない。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がensureExecutionProcessPoisonedの入力契約を満たす。
+ * @postcondition ensureExecutionProcessPoisonedの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: ensureExecutionProcessPoisonedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure ensureExecutionProcessPoisonedは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ensureExecutionProcessPoisonedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ensureExecutionProcessPoisonedはProcess内の同一Subsystemで完結する。
+ * @security N/A: ensureExecutionProcessPoisonedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ensureExecutionProcessPoisonedは共有非同期状態を持たない同期処理である。
  */
-function ensureRuntimeProcessPoisoned() {
-  poisonRuntimeProcessAfterCleanupUnknown();
-  if (!isRuntimeProcessPoisoned())
-    throw new Error("runtime_process_poison_transition_failed");
+function ensureExecutionProcessPoisoned() {
+  poisonExecutionProcessAfterCleanupUnknown();
+  if (!isExecutionProcessPoisoned())
+    throw new Error("execution_process_poison_transition_failed");
 }
 
 const RECOVERY_PAIRS = Object.freeze([
@@ -443,7 +443,7 @@ function failedRouteResult(
     requestedRouteProfile: route,
     cleanupConfirmed: false,
     manualRecoveryRequired: true,
-    processRestartRequired: isRuntimeProcessPoisoned(),
+    processRestartRequired: isExecutionProcessPoisoned(),
     effectStateUnknown: true,
     canonicalRepositoryChanged: null,
     rawProviderOutputReported: null,
@@ -660,7 +660,7 @@ export async function runSignedRouteMatrixVerification(
   repositoryRoot: string,
   routeRun: typeof runSignedGeneralTaskVerification = runSignedGeneralTaskVerification,
 ) {
-  if (isRuntimeProcessPoisoned()) return processRestartRequiredResult();
+  if (isExecutionProcessPoisoned()) return processRestartRequiredResult();
   const results: Array<Readonly<Record<string, unknown>>> = [];
   let verifiedRouteCount = 0;
   let retryableRouteAttemptCount = 0;
@@ -689,9 +689,9 @@ export async function runSignedRouteMatrixVerification(
           throw new Error("route_safety_observation_unknown");
         if (
           result.processRestartRequired === true &&
-          !isRuntimeProcessPoisoned()
+          !isExecutionProcessPoisoned()
         )
-          ensureRuntimeProcessPoisoned();
+          ensureExecutionProcessPoisoned();
         results.push(result);
         if (!validSourceIdentity(result) || !validExecutionIdentity(result)) {
           failedRouteProfile = route;
@@ -730,7 +730,7 @@ export async function runSignedRouteMatrixVerification(
         verifiedRouteCount += 1;
         continue routeLoop;
       } catch {
-        ensureRuntimeProcessPoisoned();
+        ensureExecutionProcessPoisoned();
         results.push(failedRouteResult(route, routeSnapshot));
         failedRouteProfile = route;
         validationFailure = "runner_exception";
@@ -763,7 +763,7 @@ export async function runSignedRouteMatrixVerification(
     manualRecoveryRequired:
       isEffectStateUnknown ||
       results.some((result) => result.manualRecoveryRequired !== false),
-    processRestartRequired: isRuntimeProcessPoisoned(),
+    processRestartRequired: isExecutionProcessPoisoned(),
     effectStateUnknown: isEffectStateUnknown,
     canonicalRepositoryChanged: isEffectStateUnknown
       ? null
@@ -813,7 +813,7 @@ export function describeSignedRouteMatrixVerificationContract() {
     verificationFixture:
       "same_tracked_base_marker_exact_token_replacement_for_every_route",
     boundedRemediation:
-      "each_route_accepts_zero_or_one_runtime_owned_remediation_only_after_final_independent_approval",
+      "each_route_accepts_zero_or_one_remediation_only_after_final_independent_approval",
     sourceIdentity:
       "all_attempts_same_source_scope_content_hash_commit_and_tree",
     executionIdentity:
@@ -871,7 +871,7 @@ export function createSignedRouteMatrixCliFailureResult(
     results: Object.freeze([]),
     cleanupConfirmed: !isEffectStateUnknown,
     manualRecoveryRequired: isEffectStateUnknown,
-    processRestartRequired: isRuntimeProcessPoisoned(),
+    processRestartRequired: isExecutionProcessPoisoned(),
     effectStateUnknown: isEffectStateUnknown,
     canonicalRepositoryChanged: isEffectStateUnknown ? null : false,
     rawProviderOutputReported: isEffectStateUnknown ? null : false,
@@ -913,7 +913,7 @@ async function main() {
         resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
       ),
     () => {
-      ensureRuntimeProcessPoisoned();
+      ensureExecutionProcessPoisoned();
       return createSignedRouteMatrixCliFailureResult("runner_exception");
     },
   );
@@ -927,7 +927,7 @@ if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
   try {
     await main();
   } catch {
-    ensureRuntimeProcessPoisoned();
+    ensureExecutionProcessPoisoned();
     process.stdout.write(
       `${JSON.stringify(createSignedRouteMatrixCliFailureResult("runner_exception"), null, 2)}\n`,
     );

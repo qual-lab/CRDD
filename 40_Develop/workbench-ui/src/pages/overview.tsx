@@ -46,7 +46,7 @@ import { Connection } from "../components/credentials.tsx";
 import { Credentials } from "../components/credentials.tsx";
 import { Portfolio } from "../components/portfolio-panel.tsx";
 import { Repository } from "../components/repository-panel.tsx";
-import { RuntimeActivity } from "../components/activity-panel.tsx";
+import { ExecutionActivity } from "../components/activity-panel.tsx";
 import { AiSelection } from "../components/ai-selection.tsx";
 
 /**
@@ -304,7 +304,7 @@ export function MainWorkbench({
             model.projectData.ownerArtifacts,
           )}
           <OwnerArtifacts model={model} query={displayQuery.document} />
-          <RuntimeActivity model={model} />
+          <ExecutionActivity model={model} />
           <WorkspacePanel
             key={`workspace:${model.selectedRepositoryId}:${model.actionToken}`}
             repositoryId={
@@ -319,6 +319,9 @@ export function MainWorkbench({
             }
             initialBranch={
               model.projectData.repository.publicationTarget?.branch ?? ""
+            }
+            initialBaseBranch={
+              model.projectData.repository.publicationTarget?.localBranch ?? ""
             }
           />
           {model.connection.state === "repository" ? (

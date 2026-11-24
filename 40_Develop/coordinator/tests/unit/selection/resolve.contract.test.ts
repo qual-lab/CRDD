@@ -56,9 +56,9 @@ test("実行前の選定照合は現在操作と技術適合だけを確認す�
     "utf8",
   );
   const body = [
-    sourceDeclaration(source, "preflightRuntimeOwnedDelegationSelections"),
+    sourceDeclaration(source, "preflightDelegationSelections"),
     sourceDeclaration(operationSource, "currentBinding"),
-    sourceDeclaration(operationSource, "verifyRuntimeOwnedRepositoryOperation"),
+    sourceDeclaration(operationSource, "verifyRepositoryOperation"),
   ].join("\n");
   const operationId = "OP-123456";
   const reference = Object.freeze({});
@@ -82,8 +82,8 @@ test("実行前の選定照合は現在操作と技術適合だけを確認す�
     null;
   const { preflight: invoke, verify } = compileFunction(
     `${body}\nreturn {
-    preflight: preflightRuntimeOwnedDelegationSelections,
-    verify: verifyRuntimeOwnedRepositoryOperation,
+    preflight: preflightDelegationSelections,
+    verify: verifyRepositoryOperation,
   };`,
     [
       "verifyOwnedOperationManagementCapability",
@@ -133,7 +133,7 @@ test("実行前の選定照合は現在操作と技術適合だけを確認す�
       owner: unknown,
       request: unknown,
     ) => { status: "matched" } | { status: "blocked"; reason: string };
-    verify: typeof import("../../../src/lifecycle/host.ts").verifyRuntimeOwnedRepositoryOperation;
+    verify: typeof import("../../../src/lifecycle/host.ts").verifyRepositoryOperation;
   };
   const selected = resolveTaskExecutionSelections(config(), {
     workType: "coding",

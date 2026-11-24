@@ -168,15 +168,15 @@ export function projectCurrentState(current: Snapshot, projectId: string) {
       status: "blocked" as const,
       reason:
         current.schema !== PROJECT_SNAPSHOT_SCHEMA
-          ? "orchestrator_snapshot_schema_invalid"
-          : "orchestrator_state_identity_invalid",
+          ? "coordinator_snapshot_schema_invalid"
+          : "coordinator_state_identity_invalid",
       value: null,
       manualRecoveryRequired: false,
       recoveryId: null,
     });
   return Object.freeze({
     status: "completed" as const,
-    reason: "orchestrator_state_observed",
+    reason: "coordinator_state_observed",
     value: {
       next: null,
       value:
@@ -319,7 +319,7 @@ export function prepareStateOperationSnapshot(
     };
     if (
       current?.snapshot.operations.some(
-        (item) => item.kind === "runtime_repair" && item.phase !== "terminal",
+        (item) => item.kind === "docker_repair" && item.phase !== "terminal",
       )
     )
       return null;
@@ -450,10 +450,10 @@ export function prepareStateRepairSnapshot(
       .update(identityJson, "utf8")
       .digest("hex");
     const operation: RepairOperationRecord = {
-      kind: "runtime_repair",
+      kind: "docker_repair",
       identityJson,
       identitySha256: hash,
-      recoveryId: `docker-runtime-repair.${identity.operationNonce}.${hash}`,
+      recoveryId: `docker-repair.${identity.operationNonce}.${hash}`,
       phase: "repairing",
       checkpoint: null,
       disposition: "not_applicable",
@@ -535,7 +535,7 @@ export function prepareStateRepairCheckpointSnapshot(
       return null;
     const target = current.snapshot.operations.find(
       (item): item is RepairOperationRecord =>
-        item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+        item.kind === "docker_repair" && item.recoveryId === recoveryId,
     );
     if (!target) return null;
     const next = {
@@ -583,7 +583,7 @@ export function prepareStateRepairSessionSnapshot(
     if (!current || typeof recoveryId !== "string") return null;
     const target = current.snapshot.operations.find(
       (item): item is RepairOperationRecord =>
-        item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+        item.kind === "docker_repair" && item.recoveryId === recoveryId,
     );
     if (
       target?.phase !== "repairing" ||
@@ -645,7 +645,7 @@ export function prepareStateRepairRetentionHandoffSnapshot(
     const current = decodeStateSnapshot(currentBytes, repositoryBinding);
     const target = current?.snapshot.operations.find(
       (operation): operation is RepairOperationRecord =>
-        operation.kind === "runtime_repair" &&
+        operation.kind === "docker_repair" &&
         operation.recoveryId === recoveryId,
     );
     const captured = JSON.parse(encodeStateValue(receipt));
@@ -725,8 +725,7 @@ export function validateStateRepairRetentionHandoffTransition(
   const next = decodeStateSnapshot(nextBytes, repositoryBinding);
   const target = next?.snapshot.operations.find(
     (operation): operation is RepairOperationRecord =>
-      operation.kind === "runtime_repair" &&
-      operation.recoveryId === recoveryId,
+      operation.kind === "docker_repair" && operation.recoveryId === recoveryId,
   );
   if (!target?.retention || !Buffer.isBuffer(nextBytes)) return false;
   return (
@@ -808,7 +807,7 @@ export function prepareStateRepairDisposalDecisionSnapshot(
     return null;
   const targets = current.snapshot.operations.filter(
     (item): item is RepairOperationRecord =>
-      item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+      item.kind === "docker_repair" && item.recoveryId === recoveryId,
   );
   const target = targets[0];
   if (
@@ -890,7 +889,7 @@ export function prepareStateRepairDisposalProgressSnapshot(
     return null;
   const targets = current.snapshot.operations.filter(
     (item): item is RepairOperationRecord =>
-      item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+      item.kind === "docker_repair" && item.recoveryId === recoveryId,
   );
   const target = targets[0];
   if (
@@ -957,7 +956,7 @@ export function validateStateRepairDisposalTransition(
   const next = decodeStateSnapshot(nextBytes, repositoryBinding);
   const target = next?.snapshot.operations.find(
     (item): item is RepairOperationRecord =>
-      item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+      item.kind === "docker_repair" && item.recoveryId === recoveryId,
   );
   if (!target?.disposal || !Buffer.isBuffer(nextBytes)) return false;
   const expected =
@@ -1019,7 +1018,7 @@ export function classifyRepairPublication(
     return null;
   const targets = next.snapshot.operations.filter(
     (item): item is RepairOperationRecord =>
-      item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+      item.kind === "docker_repair" && item.recoveryId === recoveryId,
   );
   if (targets.length !== 1) return null;
   const target = targets[0];
@@ -1055,7 +1054,7 @@ export function classifyRepairPublication(
             next.snapshot.unresolvedRecoveries.length === 0))
       )
         modes.push(before ? "identity" : "initial_publication");
-    } else if (prior.kind === "runtime_repair") {
+    } else if (prior.kind === "docker_repair") {
       const expected = prepareStateRepairCheckpointSnapshot(
         currentBytes,
         recoveryId,
@@ -1513,7 +1512,7 @@ export function prepareRepairHistorySummary(
   const current = decodeStateSnapshot(currentBytes, repositoryBinding);
   const operation = current?.snapshot.operations.find(
     (item): item is RepairOperationRecord =>
-      item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+      item.kind === "docker_repair" && item.recoveryId === recoveryId,
   );
   return current
     ? repairHistorySummary(operation, current.payloadSha256)
@@ -1545,7 +1544,7 @@ export function prepareRepairHistorySnapshot(
   const current = decodeStateSnapshot(currentBytes, repositoryBinding);
   const operation = current?.snapshot.operations.find(
     (item): item is RepairOperationRecord =>
-      item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+      item.kind === "docker_repair" && item.recoveryId === recoveryId,
   );
   return current
     ? repairHistorySnapshot(
@@ -1582,7 +1581,7 @@ export function prepareRepairHistoryLine(
   const current = decodeStateSnapshot(currentBytes, repositoryBinding);
   const operation = current?.snapshot.operations.find(
     (item): item is RepairOperationRecord =>
-      item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+      item.kind === "docker_repair" && item.recoveryId === recoveryId,
   );
   return operation?.history
     ? repairHistoryLineBytes(operation, operation.history.occurredAt)
@@ -1618,7 +1617,7 @@ export function prepareRepairHistoryPublication(
   const current = decodeStateSnapshot(currentBytes, repositoryBinding);
   const operation = current?.snapshot.operations.find(
     (item): item is RepairOperationRecord =>
-      item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+      item.kind === "docker_repair" && item.recoveryId === recoveryId,
   );
   if (!current || !operation?.history || operation.history.confirmed)
     return null;
@@ -1852,7 +1851,7 @@ export function prepareStateRepairCompletionSnapshot(
   const current = decodeStateSnapshot(currentBytes, repositoryBinding);
   const operation = current?.snapshot.operations.find(
     (item): item is RepairOperationRecord =>
-      item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+      item.kind === "docker_repair" && item.recoveryId === recoveryId,
   );
   if (
     !current ||
@@ -2335,7 +2334,7 @@ function validateSettlementTransition(
         )
       )
         continue;
-      if (operation.kind === "runtime_repair") {
+      if (operation.kind === "docker_repair") {
         if (!repairCanComplete(operation, current.snapshot)) return false;
         continue;
       }
@@ -2543,7 +2542,7 @@ export function decodeStateSnapshot(
       return null;
     const snapshot = value as ExecutionStateSnapshot;
     if (
-      snapshot.schema !== "crdd-execution-model/state/v7" ||
+      snapshot.schema !== "crdd-execution-model/state/v9" ||
       snapshot.repositoryBinding !== repositoryBinding ||
       !Number.isSafeInteger(snapshot.revision) ||
       snapshot.revision < 1 ||
@@ -3042,7 +3041,7 @@ function validExecutionTaskReferences(
  * @trace ARCH-000004、ARCH-000008
  */
 
-export const EXECUTION_STATE_SCHEMA = "crdd-execution-model/state/v7";
+export const EXECUTION_STATE_SCHEMA = "crdd-execution-model/state/v9";
 
 // Queue results may carry an exact opaque candidate or recovery reference.
 // These references use the same closed character set as stable IDs, but can

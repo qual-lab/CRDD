@@ -106,10 +106,10 @@ export type {
   ProjectQualityObservation,
 } from "./service/project-context.ts";
 export type {
-  WorkbenchRuntimeActivityObservation,
-  WorkbenchRuntimeActivityPageRequest,
-  WorkbenchRuntimeActivityProjection,
-  WorkbenchRuntimeEventProjection,
+  WorkbenchExecutionActivityObservation,
+  WorkbenchExecutionActivityPageRequest,
+  WorkbenchExecutionActivityProjection,
+  WorkbenchExecutionEventProjection,
   AiRequestSnapshot,
   AiResultItem,
 } from "./service/execution.ts";
@@ -279,9 +279,9 @@ async function startHttpServer(
       ? await readProjectViewData(repositoryRoot)
       : undefined;
   const presentation: WorkbenchPresentationState = {
-    runtimeActivityObservation: undefined,
+    executionActivityObservation: undefined,
     projectSurface: initialProjectSurface,
-    aiSelection: readAiSelectionView(verification.capability),
+    aiSelection: readAiSelectionView(repositoryRoot),
     lastActionResult: null,
     recordActionResult: null,
     currentAiRequestId: null,
@@ -327,12 +327,14 @@ async function startHttpServer(
     );
     if (auth.status !== "normal" || selected.status !== "completed")
       return null;
+    const original = selected.access;
+    const root = original.root;
+    const repository = getRepository(root);
+    if (repository.status !== "completed") return null;
     const key = `${auth.snapshot.credentialId}:${repositoryId}`;
     const current = sharedAiSessions.get(key);
     if (current) return current;
     if (!create || sharedAiSessions.size >= 100) return null;
-    const original = selected.access;
-    const root = resolveVerifiedRepositoryRoot(original.root);
     const authorize = () => {
       const now = resolveConnectionAuthentication(
         connection.root,
@@ -351,12 +353,13 @@ async function startHttpServer(
         access.status === "completed" &&
         access.access.bindingId === original.bindingId &&
         access.access.manifest.projectId === original.manifest.projectId &&
-        resolveVerifiedRepositoryRoot(access.access.root) === root
+        access.access.root === root &&
+        resolveVerifiedRepositoryRoot(repository.capability) === root
       );
     };
     const session = {
       owner: request.sharedAiRequestsFactory(
-        original.root,
+        repository.capability,
         original.manifest.projectId,
         auth.snapshot.userId,
         authorize,

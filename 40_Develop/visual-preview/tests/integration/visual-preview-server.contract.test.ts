@@ -17,12 +17,10 @@ import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { createConnection } from "node:net";
 
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { createVerificationTemporaryDirectory } from "../../src/browser/temporary.ts";
 import { observeLocalListener, startVisualPreview } from "../../src/index.ts";
 
-const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
-  import.meta.dirname,
-);
+const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
 /**
  * Visual Preview用のRepository内Fixtureを作成する。
@@ -37,7 +35,6 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  * @boundary ERB-IT-018=Direct Boundary: visual-preview Test Source→対象契約
  */
 function createFixture(): Readonly<{
-  relativeRoot: string;
   absoluteRoot: string;
   assertUnchanged: () => void;
   cleanup: () => void;
@@ -57,7 +54,6 @@ function createFixture(): Readonly<{
     "junction",
   );
   return Object.freeze({
-    relativeRoot,
     absoluteRoot,
     /**
      * 固定Fixtureの内容と構造が変わっていないことを確認する。
@@ -188,8 +184,7 @@ async function requestRaw(
 test("通常FileだけをGET／HEADで配信し共通Security Headerを返す", async () => {
   const fixture = createFixture();
   const handle = await startVisualPreview({
-    workingDirectory: repositoryRoot,
-    rootRelativePath: fixture.relativeRoot,
+    rootDirectory: fixture.absoluteRoot,
   });
   try {
     assert.match(handle.baseUrl, /^http:\/\/127\.0\.0\.1:\d+$/u);
@@ -239,8 +234,7 @@ test("通常FileだけをGET／HEADで配信し共通Security Headerを返す", 
 test("越境・Link・Directory・書込みMethodを拒否して終了後Listenerを残さない", async () => {
   const fixture = createFixture();
   const handle = await startVisualPreview({
-    workingDirectory: repositoryRoot,
-    rootRelativePath: fixture.relativeRoot,
+    rootDirectory: fixture.absoluteRoot,
   });
   const baseUrl = handle.baseUrl;
   const url = new URL(baseUrl);
@@ -293,43 +287,84 @@ test("越境・Link・Directory・書込みMethodを拒否して終了後Listene
 });
 
 /**
- * Repository外・Absolute・Link RootをListener開始前に拒否することを検証する。
+ * 相対Path・非Directory・Link RootをListener開始前に拒否することを検証する。
  *
  * @responsibility 公開Rootの事前検証失敗をNetwork Effect 0で閉じる合否判定を所有する。
  * @trace ERB-IT-018
  * @precondition Repository内FixtureとそのJunctionが存在する。
- * @stimulus 越境相対Path、Absolute PathおよびLink Rootで開始を要求する。
+ * @stimulus 相対Path、非DirectoryおよびLink Rootで開始を要求する。
  * @observation startVisualPreviewの拒否理由を観測する。
  * @oracle すべてListener Handleを返さずErrorになる。
  * @cleanup Fixtureを削除する。
  * @boundary ERB-IT-018=Direct Boundary: visual-preview Test Source→対象契約
  */
-test("Repository外・Absolute・Link RootをListener開始前に拒否する", async () => {
+test("相対Path・非Directory・Link RootをListener開始前に拒否する", async () => {
   const fixture = createFixture();
   try {
     await assert.rejects(
       startVisualPreview({
-        workingDirectory: repositoryRoot,
-        rootRelativePath: "../outside",
-      }),
-      /visual_preview_root_outside_repository/u,
-    );
-    await assert.rejects(
-      startVisualPreview({
-        workingDirectory: repositoryRoot,
-        rootRelativePath: fixture.absoluteRoot,
+        rootDirectory: "../outside",
       }),
       /visual_preview_root_invalid/u,
     );
     await assert.rejects(
       startVisualPreview({
-        workingDirectory: repositoryRoot,
-        rootRelativePath: `${fixture.relativeRoot}/linked`,
+        rootDirectory: path.join(fixture.absoluteRoot, "index.html"),
+      }),
+      /visual_preview_root_invalid/u,
+    );
+    await assert.rejects(
+      startVisualPreview({
+        rootDirectory: path.join(fixture.absoluteRoot, "linked"),
       }),
       /visual_preview_root_invalid|visual_preview_root_link_forbidden/u,
     );
   } finally {
     fixture.assertUnchanged();
+    fixture.cleanup();
+  }
+});
+
+/** 指定済み一時領域の外や別の実体を作業物として処置しない。 @trace ERB-IT-018 */
+test("一時領域はGitなしで使え、未準備・Link・差し替えを拒否する", async () => {
+  const fixture = createFixture();
+  try {
+    assert.throws(
+      () =>
+        createVerificationTemporaryDirectory(
+          path.join(fixture.absoluteRoot, "missing"),
+          "visual-browser-zoom-",
+        ),
+      { message: "visual_temporary_directory_invalid" },
+    );
+    assert.throws(
+      () =>
+        createVerificationTemporaryDirectory(
+          path.join(fixture.absoluteRoot, "linked"),
+          "visual-browser-zoom-",
+        ),
+      /visual_temporary_directory_invalid/u,
+    );
+    const operation = createVerificationTemporaryDirectory(
+      fixture.absoluteRoot,
+      "visual-browser-zoom-",
+    );
+    const retired = `${operation.directory}-retired`;
+    fs.renameSync(operation.directory, retired);
+    fs.mkdirSync(operation.directory);
+    try {
+      await assert.rejects(
+        operation.remove(),
+        /visual_temporary_directory_changed/u,
+      );
+      assert.equal(fs.statSync(operation.directory).isDirectory(), true);
+    } finally {
+      fs.rmdirSync(operation.directory);
+      fs.renameSync(retired, operation.directory);
+    }
+    assert.equal(await operation.remove(), true);
+    fixture.assertUnchanged();
+  } finally {
     fixture.cleanup();
   }
 });

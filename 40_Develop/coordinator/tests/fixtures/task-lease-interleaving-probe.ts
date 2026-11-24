@@ -29,7 +29,7 @@ if (
   !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(queueId) ||
   !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(projectId)
 )
-  throw new Error("orchestrator_lease_interleaving_probe_input_invalid");
+  throw new Error("coordinator_lease_interleaving_probe_input_invalid");
 
 if (mode === "pause-before-publish") {
   const originalOpenSync = fs.openSync;

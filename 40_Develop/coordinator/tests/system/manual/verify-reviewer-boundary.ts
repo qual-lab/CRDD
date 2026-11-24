@@ -8,8 +8,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../../version-control/src/index.ts";
 import {
-  isRuntimeProcessPoisoned,
-  poisonRuntimeProcessAfterCleanupUnknown,
+  isExecutionProcessPoisoned,
+  poisonExecutionProcessAfterCleanupUnknown,
 } from "../../../src/lifecycle/host.ts";
 import {
   displayVerificationRecording,
@@ -88,7 +88,7 @@ function exactCompletedRoute(result: RuntimeRecord, route: string) {
     result.contractRevision ===
       SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION &&
     result.status === "completed" &&
-    result.sourceScope === "crdd-development-source-snapshot/v5" &&
+    result.sourceScope === "crdd-development-source-snapshot/v6" &&
     typeof result.sourceSha256 === "string" &&
     /^[a-f0-9]{64}$/u.test(result.sourceSha256) &&
     result.sourceObservationStatus === "matched" &&
@@ -161,7 +161,7 @@ function blockedResult(
     manualRecoveryRequired:
       isFinalEffectStateUnknown || last?.manualRecoveryRequired !== false,
     processRestartRequired:
-      isRuntimeProcessPoisoned() || last?.processRestartRequired === true,
+      isExecutionProcessPoisoned() || last?.processRestartRequired === true,
     effectStateUnknown: isFinalEffectStateUnknown,
     canonicalRepositoryChanged: isFinalEffectStateUnknown
       ? null
@@ -217,7 +217,7 @@ export async function runSignedReviewerBoundaryVerification(
   repositoryRoot: string,
   routeRun: typeof runSignedGeneralTaskVerification = runSignedGeneralTaskVerification,
 ) {
-  if (isRuntimeProcessPoisoned()) return blockedResult([], null, true);
+  if (isExecutionProcessPoisoned()) return blockedResult([], null, true);
   const results: RuntimeRecord[] = [];
   let sourceIdentity: string | null = null;
   for (const route of ROUTES) {
@@ -240,7 +240,7 @@ export async function runSignedReviewerBoundaryVerification(
         return blockedResult(results, route);
       sourceIdentity = observed;
     } catch {
-      poisonRuntimeProcessAfterCleanupUnknown();
+      poisonExecutionProcessAfterCleanupUnknown();
       return blockedResult(results, route, true);
     }
   }
@@ -335,7 +335,7 @@ async function main() {
         resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
       ),
     () => {
-      poisonRuntimeProcessAfterCleanupUnknown();
+      poisonExecutionProcessAfterCleanupUnknown();
       return blockedResult([], null, true);
     },
   );

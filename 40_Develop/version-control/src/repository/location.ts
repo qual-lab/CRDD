@@ -125,13 +125,14 @@ function validAbsoluteDirectory(candidate: unknown): candidate is string {
  * @security 観測値自体はCapabilityを発行しない。
  * @concurrency 呼出しごとに現在実体を確認する。
  */
-function observeExactRepositoryLayout(
+export function observeExactRepositoryLayout(
   candidate: unknown,
+  observeConfigContent = false,
 ): RepositoryGitLayout | null {
   if (!validAbsoluteDirectory(candidate)) return null;
   try {
     const root = path.resolve(candidate);
-    const layout = resolveRepositoryGitLayout(root);
+    const layout = resolveRepositoryGitLayout(root, observeConfigContent);
     return samePath(layout.root.realPath, root) ? layout : null;
   } catch {
     return null;
@@ -139,27 +140,31 @@ function observeExactRepositoryLayout(
 }
 
 /**
- * Capabilityを発行する。
+ * 確認済みRootに結合した受付結果を返す。
  *
  * @responsibility Capabilityの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000002
  * @input root: string
- * @returns Repositoryを返す。
- * @precondition 「root: string」がissueCapabilityの入力契約を満たす。
- * @postcondition issueCapabilityの責務を完了した結果だけを返す。
- * @effect N/A: issueCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: issueCapabilityは独自の失敗分岐を所有しない。
- * @invariant issueCapabilityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: issueCapabilityはProcess内の同一Subsystemで完結する。
- * @security N/A: issueCapabilityはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: issueCapabilityは共有非同期状態を持たない同期処理である。
+ * @returns 検証済みCapabilityを含むcompleted結果。
+ * @precondition 同じ同期呼出しでRootの実体とGit配置を検証済み。
+ * @postcondition Rootに結合したCapabilityを返し、配置を読み直さない。
+ * @effect 発行したCapabilityとRootの対応だけをProcess内のWeakMapへ登録する。
+ * @failure N/A: 独自の失敗分岐を所有しない。
+ * @invariant 既存Capabilityの結合を変更しない。
+ * @boundary 検証済みRootをProcess内のCapabilityへ結合する。
+ * @security 未検証Rootの受付や公開は行わない。
+ * @concurrency 同期処理であり、観測から発行まで待機を挟まない。
  */
-function issueCapability(root: string): Repository {
+function issueRepository(root: string): RepositoryResult {
   const capability = Object.freeze({
     contract: REPOSITORY_LOCATION_CONTRACT,
   });
   roots.set(capability, root);
-  return capability;
+  return Object.freeze({
+    status: "completed" as const,
+    reason: "repository_root_verified" as const,
+    capability,
+  });
 }
 
 /**
@@ -198,11 +203,7 @@ export function getRepository(candidate: unknown): RepositoryResult {
         reason: "repository_root_invalid" as const,
         capability: null,
       })
-    : Object.freeze({
-        status: "completed" as const,
-        reason: "repository_root_verified" as const,
-        capability: issueCapability(root),
-      });
+    : issueRepository(root);
 }
 
 /**
@@ -225,8 +226,9 @@ export function getRepositoryFromWorkingDirectory(
   workingDirectory: unknown,
 ): RepositoryResult {
   try {
-    return getRepository(
-      resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory),
+    // 上方探索で検証済みの同じRootを、もう一度getRepositoryへ通さない。
+    return issueRepository(
+      findRepositoryLayout(workingDirectory).root.realPath,
     );
   } catch {
     return getRepository(null);
@@ -261,7 +263,7 @@ export function resolveVerifiedRepositoryRoot(
  * @trace ARCH-000002
  * @input capability: 私有WeakMapへ結合済みのRoot。
  * @returns 発行時Rootと現在配置、又は不正・観測不能のnull。
- * @precondition capabilityは同moduleのgetRepositoryが発行し私有WeakMapへ結合済みである。
+ * @precondition capabilityは同Moduleで発行し私有WeakMapへ結合済みである。
  * @postcondition 毎回exact Rootとfresh配置を照合する。
  * @effect Filesystem読取りだけ。書込み・Process・権限発行なし。
  * @failure 偽Capability、実Path差、配置不正はnull。
@@ -272,10 +274,11 @@ export function resolveVerifiedRepositoryRoot(
  */
 export function observeVerifiedRepositoryLayout(
   capability: Repository,
+  observeConfigContent = false,
 ): Readonly<{ root: string; layout: RepositoryGitLayout }> | null {
   const stored = roots.get(capability);
   if (stored === undefined) return null;
-  const layout = observeExactRepositoryLayout(stored);
+  const layout = observeExactRepositoryLayout(stored, observeConfigContent);
   return layout !== null && samePath(layout.root.realPath, stored)
     ? Object.freeze({ root: stored, layout })
     : null;
@@ -290,7 +293,7 @@ export function observeVerifiedRepositoryLayout(
  * @returns stringを返す。
  * @precondition 「workingDirectory: unknown」がresolveVerifiedRepositoryRootFromWorkingDirectoryの入力契約を満たす。
  * @postcondition resolveVerifiedRepositoryRootFromWorkingDirectoryの責務を完了した結果だけを返す。
- * @effect resolveVerifiedRepositoryRootFromWorkingDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @effect Filesystemから最寄りのGit境界を読み、実体の正規Pathを返す。書込みなし。
  * @failure resolveVerifiedRepositoryRootFromWorkingDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant resolveVerifiedRepositoryRootFromWorkingDirectoryは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -300,6 +303,11 @@ export function observeVerifiedRepositoryLayout(
 export function resolveVerifiedRepositoryRootFromWorkingDirectory(
   workingDirectory: unknown,
 ): string {
+  return findRepositoryLayout(workingDirectory).root.realPath;
+}
+
+/** 作業Directoryから最寄りのGit境界を一度確認する。 */
+function findRepositoryLayout(workingDirectory: unknown): RepositoryGitLayout {
   if (!validAbsoluteDirectory(workingDirectory))
     throw new Error("repository_working_directory_invalid");
   let current = path.resolve(workingDirectory);
@@ -316,8 +324,8 @@ export function resolveVerifiedRepositoryRootFromWorkingDirectory(
       current = parent;
       continue;
     }
-    if (observeExactRepositoryLayout(current) === null)
-      throw new Error("repository_boundary_invalid");
-    return current;
+    const layout = observeExactRepositoryLayout(current);
+    if (layout === null) throw new Error("repository_boundary_invalid");
+    return layout;
   }
 }

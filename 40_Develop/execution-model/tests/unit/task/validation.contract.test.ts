@@ -110,7 +110,7 @@ test("回復参照の有限確定は同じ終端Taskだけを候補にする", (
       );
       assert.equal(
         prepareTaskExecutionUpdate(candidate, 6, command).reason,
-        "orchestrator_state_generation_conflict",
+        "coordinator_state_generation_conflict",
       );
     }
   }
@@ -144,7 +144,7 @@ test("回復参照の有限確定は同じ終端Taskだけを候補にする", (
         6,
         command,
       ).reason,
-      "orchestrator_task_recovery_not_settled",
+      "coordinator_task_recovery_not_settled",
     );
   }
   const duplicate = captureTaskExecutionUpdate({

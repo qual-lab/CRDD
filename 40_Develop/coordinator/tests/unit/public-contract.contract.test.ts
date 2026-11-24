@@ -30,7 +30,7 @@ test("公開Objective入口は配置変更後も同じ受付契約を使う", as
   assert.equal(runObjective, runObjectiveImplementation);
   const result = await runObjective(null, new AbortController().signal);
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "orchestrator_objective_request_invalid");
+  assert.equal(result.reason, "coordinator_objective_request_invalid");
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.effectState, "no_effect");
@@ -125,7 +125,7 @@ test("公開GraphはTask別の指示を固定し不正な相関を拒否する",
 test("単発結果は既存の固定契約を意味変更せず所有する", () => {
   assert.equal(
     COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
-    "crdd-coordinator/orchestrator-single-task-adapter",
+    "crdd-coordinator/single-task-adapter",
   );
 });
 
@@ -183,7 +183,9 @@ test("単発結果検査は閉形式を維持し下位からのProcess再起動�
     manualRecoveryRequired: true,
     processRestartRequired: true,
     recoveryIds: ["runtime-a"],
-    recoveryObligations: [{ kind: "runtime_process", recoveryId: "runtime-a" }],
+    recoveryObligations: [
+      { kind: "execution_process", recoveryId: "runtime-a" },
+    ],
   };
   assert.equal(snapshotSingleTaskResult(recovery), null);
   const paths = ["one.txt"];
@@ -204,7 +206,7 @@ test("単発結果検査は閉形式を維持し下位からのProcess再起動�
   assert.ok(captured);
   source.reason = "changed";
   source.recoveryIds.push("other-recovery");
-  obligation.kind = "runtime_process";
+  obligation.kind = "execution_process";
   paths.push("two.txt");
   assert.equal(captured.reason, "completed");
   assert.deepEqual(captured.recoveryIds, ["runtime-a"]);
@@ -597,7 +599,7 @@ test("Objective要求はRepository外を指すPath表現をEffect前に拒否す
 test("判断要求はTransportに依存しない閉じた公開契約へsnapshotする", () => {
   assert.equal(
     COORDINATOR_HUMAN_DECISION_CONTRACT,
-    "crdd-coordinator/orchestrator-human-decision/v2",
+    "crdd-coordinator/human-decision/v2",
   );
   const source = decisionRequest();
   const inspected = inspectCoordinatorDecisionRequest(source);

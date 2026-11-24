@@ -46,6 +46,7 @@ import {
 } from "../state/validation.ts";
 import {
   encodeStateValue,
+  isPlainRecord,
   isSha256Hex,
   snapshotStateRecord,
 } from "../state/operations.ts";
@@ -57,6 +58,7 @@ import {
   observeExecutionTerminalForStorage,
   observeOperationRepository,
   observeExecutionContentRepository,
+  readExecutionStorageBinding,
   acquireStorageOwnerForRepository,
 } from "../storage/lock.ts";
 import {
@@ -71,11 +73,9 @@ import {
   readStateSnapshot,
   readStorageSnapshotOwned,
   assertExecutionStateInitializationBoundary,
-  ensureRepositoryExecutionDataArea,
-  requireReadyRepositoryExecutionDataArea,
+  ensurePhysicalExecutionDataArea,
   createExecutionDataArea,
 } from "../storage/store.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
 import type {
   ExecutionOperationRecord,
   OperationCheckpointRequest,
@@ -99,6 +99,7 @@ function saveHostOperation(
   access: unknown,
   value: unknown,
   expectedVersion: unknown,
+  prepareDirectory?: () => boolean,
 ) {
   const operation = decodeHostOperation(value);
   const refused = writeStateSnapshot(null, null, null, null);
@@ -188,18 +189,21 @@ function saveHostOperation(
         else {
           let initialBoundary: string | null = null;
           if (before === null) {
-            const verified = getRepository(repository.repositoryRoot);
-            if (verified.status !== "completed")
-              throw new Error("repository_unavailable");
-            assertExecutionStateInitializationBoundary(verified.capability);
-            effect = true;
-            const temporary = requireReadyRepositoryExecutionDataArea(
-              ensureRepositoryExecutionDataArea(verified.capability, "tmp"),
-              "coordinator_state_initialization_unconfirmed",
+            assertExecutionStateInitializationBoundary(
+              repository.repositoryRoot,
             );
-            if (temporary.status !== "ready" || !owner.assertLive())
+            effect = true;
+            if (prepareDirectory && prepareDirectory() !== true)
               throw new Error("initialization_unconfirmed");
-            const created = createExecutionDataArea(verified.capability);
+            if (!owner.assertLive())
+              throw new Error("initialization_unconfirmed");
+            const temporary = ensurePhysicalExecutionDataArea(
+              repository.repositoryRoot,
+              "tmp",
+            );
+            if (temporary?.status !== "ready" || !owner.assertLive())
+              throw new Error("initialization_unconfirmed");
+            const created = createExecutionDataArea(repository.repositoryRoot);
             effect ||= created.effectIssued;
             if (created.status !== "created")
               throw new Error("initialization_unconfirmed");
@@ -962,7 +966,7 @@ export function readOwnedSettlementSnapshot(context: unknown) {
  * @returns 保存・読戻し・排他解放の結果と対象の非Authority回復参照。
  * @precondition Host用途はDirectory作成前。Docker用途は同じProvider Home Leaseと既存Host／操作Ownerを確認済み。
  * @postcondition 成功結果の前に開始Identityをstate.jsonへ確定する。
- * @effect Repository-local初回領域、state.jsonと既存の短命保存物だけ。
+ * @effect Hostの初回保存に限り利用側の準備処理を呼ぶ。保存先はRepository-local初回領域、state.jsonと既存の短命保存物。
  * @failure 不正Identity、重複、読取り不明、競合、既存領域の新品扱いを拒否する。
  * @invariant 読取り失敗だけから新品を推定せず、保存結果からDocker要求Authorityを発行しない。
  * @boundary Runtimeの開始Ownerから同じRepositoryの現在状態Writer。
@@ -972,10 +976,16 @@ export function readOwnedSettlementSnapshot(context: unknown) {
 export function saveOperationStart(
   managementCapability: unknown,
   identityJson: unknown,
+  prepareDirectory?: () => boolean,
 ) {
   const host = snapshotStateRecord(identityJson, new Set(["kind", "value"]));
   if (host?.kind === "host_operation") {
-    const saved = saveHostOperation(managementCapability, host.value, null);
+    const saved = saveHostOperation(
+      managementCapability,
+      host.value,
+      null,
+      prepareDirectory,
+    );
     return Object.freeze({
       ...saved,
       startSaved:
@@ -1708,7 +1718,7 @@ export function saveOperationCheckpoint(
  * 明示した回復種別の終了候補を同じ物理Writerへ渡す。
  * @responsibility 私有Contextの寿命と保存対象を一回へ限定する。
  * @trace ARCH-000008
- * @input rootCapability、recoveryId、assertOwner: 真正Root・対象・元Owner。operationKind: docker_task又はruntime_repair。
+ * @input rootCapability、recoveryId、assertOwner: 真正Root・対象・元Owner。operationKind: docker_task又はdocker_repair。
  * @returns 保存・読戻し・排他終了の観測。
  * @precondition 種別は閉集合で検査し、元Ownerと対象の既存条件を満たす。
  * @postcondition Contextを返却後に破棄する。
@@ -1723,10 +1733,10 @@ export function completeRecovery(
   rootCapability: unknown,
   recoveryId: unknown,
   assertOwner: unknown,
-  operationKind: "docker_task" | "runtime_repair",
+  operationKind: "docker_task" | "docker_repair",
 ) {
   const refused = writeStateSnapshot(null, null, null, null);
-  if (operationKind !== "docker_task" && operationKind !== "runtime_repair")
+  if (operationKind !== "docker_task" && operationKind !== "docker_repair")
     return refused;
   try {
     if (typeof assertOwner !== "function" || assertOwner() !== true)
@@ -1816,7 +1826,7 @@ export function completeRecovery(
     }
     const observed = readRecoveryState(rootCapability, {
       kind:
-        operationKind === "runtime_repair"
+        operationKind === "docker_repair"
           ? "repair_completion"
           : "execution_completion",
       recoveryId,
@@ -1913,7 +1923,7 @@ export function saveRepairRecord(
      * @security 任意のthenableを実行しない。
      * @concurrency 同期確認のみ。
      */
-    const assertOwner = () => {
+    const assertFileOwner = () => {
       try {
         const result = assertInvocation();
         if (types.isPromise(result))
@@ -1922,11 +1932,12 @@ export function saveRepairRecord(
             () => undefined,
             () => undefined,
           );
-        return result === true && repository.revalidate();
+        return result === true;
       } catch {
         return false;
       }
     };
+    const assertOwner = () => assertFileOwner() && repository.revalidate();
     if (!assertOwner()) return blocked();
     const captured = snapshotStateRecord(
       request,
@@ -1988,10 +1999,29 @@ export function saveRepairRecord(
           reason: current.reason,
           lockReleased: current.lockReleased,
         };
+      const outcome =
+        kind === "checkpoint" && isPlainRecord(change.update)
+          ? Object.getOwnPropertyDescriptor(change.update, "outcome")
+          : undefined;
+      const firstOutcome =
+        outcome !== undefined &&
+        Object.hasOwn(outcome, "value") &&
+        outcome.value != null &&
+        current.value.snapshot.operations.some(
+          (operation) =>
+            operation.kind === "docker_repair" &&
+            operation.recoveryId === recoveryId &&
+            operation.outcome === null,
+        );
+      // Readerは読取り後に改訂を確認済み。結果保存は次のWriter受付でも確認する。
       if (
         current.value.snapshot.revision !== expected.revision ||
         current.value.payloadSha256 !== expected.payloadSha256 ||
-        !assertOwner()
+        !(firstOutcome
+          ? assertFileOwner() &&
+            readExecutionStorageBinding(repository.repositoryRoot) ===
+              repository.repositoryBinding
+          : assertOwner())
       )
         return blocked();
       before = Buffer.from(`${encodeStateValue(current.value.snapshot)}\n`);
@@ -2029,7 +2059,7 @@ export function saveRepairRecord(
             repository.repositoryBinding,
           )?.snapshot.operations.find(
             (item): item is RepairOperationRecord =>
-              item.recoveryId === recoveryId && item.kind === "runtime_repair",
+              item.recoveryId === recoveryId && item.kind === "docker_repair",
           );
           if (
             !operation ||
@@ -2085,12 +2115,12 @@ export function saveRepairRecord(
         : decodeStateSnapshot(before, repository.repositoryBinding);
     const target = candidate?.snapshot.operations.find(
       (operation): operation is RepairOperationRecord =>
-        operation.kind === "runtime_repair" &&
+        operation.kind === "docker_repair" &&
         operation.recoveryId === recoveryId,
     );
     const previousTarget = previous?.snapshot.operations.find(
       (operation): operation is RepairOperationRecord =>
-        operation.kind === "runtime_repair" &&
+        operation.kind === "docker_repair" &&
         operation.recoveryId === recoveryId,
     );
     if (
@@ -2146,7 +2176,7 @@ export function saveRepairRecord(
         ) &&
         observed.value.snapshot.operations.filter(
           (item) =>
-            item.kind === "runtime_repair" && item.recoveryId === recoveryId,
+            item.kind === "docker_repair" && item.recoveryId === recoveryId,
         ).length === 1 &&
         assertOwner();
       return Object.freeze({
@@ -2178,13 +2208,18 @@ export function saveRepairRecord(
       });
     }
     const saved = publishRecoveryState({
-      kind: "runtime_repair",
+      kind: "docker_repair",
       purpose,
       repository: bound,
       recoveryId,
       before: before === null ? null : Buffer.from(before),
       candidate: Buffer.from(candidateBytes),
       assertOwner,
+      ...(purpose === "checkpoint" &&
+      previousTarget?.outcome === null &&
+      target.outcome !== null
+        ? { assertFileOwner }
+        : {}),
     });
     return Object.freeze({
       ...saved,

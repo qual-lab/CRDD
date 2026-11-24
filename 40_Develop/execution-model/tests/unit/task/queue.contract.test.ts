@@ -50,7 +50,26 @@ test("初回Stateの捕捉はGetterとProxyを拒否し元参照を共有しな�
     new URL("../../../src/task/crud.ts", import.meta.url),
     "utf8",
   );
-  const raw = { projectId: "project-a", nested: { values: [1] } };
+  const raw = {
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "revision-a",
+    taskExecutionSelections: {},
+    maximumConcurrency: 1,
+    milestoneAcceptanceCriteria: [],
+    objectives: [],
+    tasks: [{ values: [1] }],
+    ownerGeneration: "owner-a",
+  };
+  const queue = {
+    projectId: raw.projectId,
+    milestoneId: raw.milestoneId,
+    repositoryRevision: raw.repositoryRevision,
+    queueId: "queue-a",
+    requestHash: "a".repeat(64),
+    originLane: "scheduled",
+    scopeHash: "b".repeat(64),
+  };
   let calls = 0;
   let captured: unknown = null;
   const create = compileFunction(
@@ -60,6 +79,10 @@ test("初回Stateの捕捉はGetterとProxyを拒否し元参照を共有しな�
       "snapshotStateArray",
       "encodeStateValue",
       "blocked",
+      "createProjectExecutionState",
+      "createQueuedEntry",
+      "validQueueEntry",
+      "initializeExecutionStore",
       "withSnapshotOperation",
       "prepareQueueEntryCreation",
     ],
@@ -68,6 +91,13 @@ test("初回Stateの捕捉はGetterとProxyを拒否し元参照を共有しな�
     snapshotStateArray,
     encodeStateValue,
     (reason: string) => ({ status: "blocked", reason }),
+    (state: unknown) => ({ status: "completed", state }),
+    (input: unknown) => input,
+    (input: unknown) => {
+      assert.deepEqual(input, queue);
+      return true;
+    },
+    () => ({ status: "completed" }),
     (
       _root: unknown,
       _binding: string,
@@ -75,7 +105,7 @@ test("初回Stateの捕捉はGetterとProxyを拒否し元参照を共有しな�
     ) => {
       calls++;
       raw.projectId = "changed";
-      raw.nested.values.push(2);
+      raw.tasks[0]?.values.push(2);
       return operation({});
     },
     (_current: unknown, _input: unknown, initial: unknown) => {
@@ -84,16 +114,18 @@ test("初回Stateの捕捉はGetterとProxyを拒否し元参照を共有しな�
     },
   );
   assert.equal(
-    create({}, "binding", { kind: "scheduled", input: [{}, raw] }).status,
+    create({}, "binding", { kind: "scheduled", input: [queue, raw] }).status,
     "completed",
   );
   assert.deepEqual(captured, {
+    ...raw,
     projectId: "project-a",
-    nested: { values: [1] },
+    tasks: [{ values: [1] }],
   });
   let hooks = 0;
   for (const initial of [
     {
+      ...raw,
       get projectId() {
         hooks++;
         return "project-a";
@@ -107,7 +139,8 @@ test("初回Stateの捕捉はGetterとProxyを拒否し元参照を共有しな�
     }),
   ])
     assert.equal(
-      create({}, "binding", { kind: "scheduled", input: [{}, initial] }).status,
+      create({}, "binding", { kind: "scheduled", input: [queue, initial] })
+        .status,
       "blocked",
     );
   assert.equal(hooks, 0);
@@ -266,7 +299,7 @@ test("Queue追加候補は同内容を再保存せず競合の理由を維持す
         repositoryRevision: "d".repeat(40),
       },
     ).reason,
-    "orchestrator_queue_request_reused",
+    "coordinator_queue_request_reused",
   );
   for (const change of [
     { requestHash: "d".repeat(64) },
@@ -278,16 +311,16 @@ test("Queue追加候補は同内容を再保存せず競合の理由を維持す
         ...input,
         ...change,
       }).reason,
-      "orchestrator_queue_identity_conflict",
+      "coordinator_queue_identity_conflict",
     );
   assert.equal(
     prepareQueueEntryCreation(next, { ...input, requestHash: "d".repeat(64) })
       .reason,
-    "orchestrator_queue_identity_conflict",
+    "coordinator_queue_identity_conflict",
   );
   assert.equal(
     prepareQueueEntryCreation({ ...current, projects: [] }, input).reason,
-    "orchestrator_queue_input_invalid",
+    "coordinator_queue_input_invalid",
   );
   for (const change of [
     { queueId: "../escape" },
@@ -300,7 +333,7 @@ test("Queue追加候補は同内容を再保存せず競合の理由を維持す
         ...input,
         ...change,
       } as unknown as QueueEnqueueInput).reason,
-      "orchestrator_queue_input_invalid",
+      "coordinator_queue_input_invalid",
     );
   assert.equal(encodeStateValue(current), before);
 });
@@ -365,7 +398,7 @@ test("Queue追加は既存Workspace結合を補完しない", () => {
   ])
     assert.equal(
       prepareQueueEntryCreation(modified, following).reason,
-      "orchestrator_workspace_not_ready",
+      "coordinator_workspace_not_ready",
     );
 });
 /**
@@ -391,20 +424,20 @@ test("QueueとProjectの投影は入力を保存候補へ変えない", () => {
   }
   assert.deepEqual(projectCurrentState(current, "project-b"), {
     status: "completed",
-    reason: "orchestrator_state_observed",
+    reason: "coordinator_state_observed",
     value: { next: null, value: null },
   });
   assert.equal(
     projectCurrentState(current, "../escape").reason,
-    "orchestrator_state_identity_invalid",
+    "coordinator_state_identity_invalid",
   );
   assert.equal(
     projectQueueEntry(current, "../escape").reason,
-    "orchestrator_queue_input_invalid",
+    "coordinator_queue_input_invalid",
   );
   assert.equal(
     projectQueueEntry(current, "queue-a").reason,
-    "orchestrator_queue_observation_unknown",
+    "coordinator_queue_observation_unknown",
   );
   const created = prepareQueueEntryCreation(current, input);
   assert.equal(created.status, "completed");

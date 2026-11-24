@@ -112,8 +112,9 @@ type RuntimeContentOperation =
   | "definition.read" | "definition.write" | "decision.read" | "decision.record"
   | "queue.read" | "queue.enqueue" | "runtime.read";
 type ExecutionModelAccess = Readonly<{
-  root: VerifiedRepositoryRoot;
+  root: Readonly<{ directory: string }>;
   principalId: string;
+  initialSourceRevision?: string | null;
   revalidate: (operation: RuntimeContentOperation, target: DefinitionTarget) => boolean;
 }>;
 type ExecutionModelReadResult<T> =
@@ -129,7 +130,7 @@ type ExecutionModelSaveResult<T> =
       recoveryReferences: readonly string[] };
 ```
 
-`VerifiedRepositoryRoot`は既存VCの型を再利用する。Root確認は対象Filesystemの確認であり、操作認可ではない。`RuntimeContentOperation`は下表の読取り・定義編集・判断記録・受付という閉じた操作集合とする。操作名をCallerの自由文字列から生成せず、各Domain APIが固定して既存の内容権限へ対応する。新しいRoleやGrantは追加しない。既存権限との対応を確定できない操作は公開しない。
+上は定義操作で使う入力。サーバーは確定した正規ディレクトリを渡し、新しい計画の参照元改訂は上位が認可後に観測し、値として渡す。既存定義は保存済み改訂を引き継ぎ、保存時にHEADの読取りを要求しない。既存の認可・対象確認は維持する。旧来のRepository参照は受理しない。保存先の実体確認は操作認可ではない。`RuntimeContentOperation`は下表の読取り・定義編集・判断記録・受付という閉じた操作集合とする。操作名をCallerの自由文字列から生成せず、各Domain APIが固定して既存の内容権限へ対応する。新しいRoleやGrantは追加しない。既存権限との対応を確定できない操作は公開しない。
 
 Contextは認証済み主体・同じRootへ結合する。入口と、短期排他下で対象の最新改訂を得た処置直前に再確認し、読取りは返却前にも確認する。失効・不一致・確認不能では値や対象存在を公開しない。再確認関数は既存の同期認可結合を使い、callback登録・Plugin・新Capability発行を設けない。
 
@@ -421,7 +422,7 @@ MCP／Workbenchは共通Domainへ直接接続し、Core構成ではCoordinator�
 
 | 実体 | Ownerと入力境界 |
 |---|---|
-| 単一SnapshotのReader／Writer・CAS・pending再入場・出版読戻し | Domain `storage/runtime-store.ts`。技術保存の固定入口はVersion Controlの真正な`VerifiedRepositoryRoot`を必須とし、生Path・構造偽造参照・互換overloadを受けない |
+| 単一SnapshotのReader／Writer・CAS・pending再入場・出版読戻し | Domainの保存処理。信頼した利用側が確定した対象だけを使用し、通信入力のPathを保存先に転用しない |
 | 短期保存Owner・実体Map・保存専用Kernel | Domain `storage/runtime-lock.ts`／`runtime-kernel-lock.ts`。同じ参照の現在実体をI/O前後まで再照合し、既存Pipe名・Hash・解放結果を維持する。RootへOwner・handleを公開しない |
 | 履歴の実I/O・保持・一回出版 | Domain `storage/runtime-history.ts`。元操作をkeyにする一回証拠は一実体だけ。通常終端の相関・一回消費は`attempt/settlement.ts`に置く |
 | 一般定義CRUD | `objective/crud.ts`の純粋候補を、同じ`runtime-store.ts`のReader／Writerへ接続。初期化・Plan保存、Objective／Taskの追加・更新・削除と用途別照会はCoordinatorなしで利用する |
@@ -429,7 +430,7 @@ MCP／Workbenchは共通Domainへ直接接続し、Core構成ではCoordinator�
 | 実Leaseと資源不存在の観測 | Coordinator `lifecycle/host.ts`。Domain候補の観測位置・短絡順を維持し、Rootへ生Path観測helperを公開しない |
 | 判断State | Domainの既存State Writerへ統合。Coordinatorは認証済み回答先・対象・操作を搬送する。Host専用Store・独立Hash連鎖・Bearerは使用しない |
 
-一般CRUDのHost入力`ExecutionModelAccess`は現在認可を持ち、真正Rootだけで権限を代用しない。技術保存の真正Rootも実行Authorityではなく、既存Host限定の利用側から渡す。長命Portは構築時の同じ参照を保持し、各保存入口がfreshに再検証する。値と同じ構造のObject、別のRootやcaller指定Pathへの付替えを認めない。
+一般CRUDのHost入力`ExecutionModelAccess`は現在認可を持ち、保存先の実体だけで権限を代用しない。技術保存でも、利用側が確定した保存先は実行Authorityではない。同じ保存先の物理実体と上位の現在性を確認し、通信入力から指定されたPathや別対象への差替えを認めない。
 
 一般定義変更は同じ版・元Hash・対象定義Hashを比較し、参照中・管理実行中の同じProjectは拒否する。別Projectの管理実行、Queue、Operation、unknown、exact回復参照、受領、履歴は変更しない。一般CRUDのための固定選定・実行Owner・完了Evidenceを捏造しない。公開結果は`ExecutionModelSaveResult<T>`／`ExecutionModelReadResult<T>`で正常・競合・拒否・不明を分離する。
 

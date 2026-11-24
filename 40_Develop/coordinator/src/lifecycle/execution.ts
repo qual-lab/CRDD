@@ -70,7 +70,6 @@ import {
   projectCoordinatorState,
   snapshotPlainArray,
   COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS,
-  createCandidateValidationFailureDiagnostic,
   createTaskStageDiagnostic,
   projectExecutorResultDiagnostics,
   projectProviderTurnObservation,
@@ -112,6 +111,7 @@ import {
   type CoordinatorAiRequestInput,
   type CoordinatorAiRequestResult,
   type BorrowedExecutionTarget,
+  type PreparedWorkspaceTarget,
   type PreparationInput,
   type PreparedAttemptPlan,
   type RecoveryStartFailureNotice,
@@ -133,15 +133,16 @@ import {
   type HostOperationRecording,
   inspectBorrowedExecutionTarget,
   acquireHostOperationRecoveryGeneration,
-  borrowRuntimeOwnedCoordinatorRecoveryRepository,
-  borrowRuntimeOwnedCoordinatorStateRepository,
-  verifyRuntimeOwnedRepositoryOperation,
+  borrowCoordinatorRecoveryRepository,
+  recoveryStorageInput,
+  borrowCoordinatorStateRepository,
+  verifyRepositoryOperation,
   recoverOwnedOperationDirectories,
   releaseHostOperationRecoveryGeneration,
-  verifyRuntimePersistenceRepository,
+  resolveExecutionStorageDirectory,
   acquireCoordinatorSnapshotLease,
-  createRuntimeProcessRecoveryIdentity,
-  poisonRuntimeProcessAfterCleanupUnknown,
+  createExecutionProcessRecoveryIdentity,
+  poisonExecutionProcessAfterCleanupUnknown,
   settleCoordinatorSnapshotQueueLeaseRelease,
   updateCoordinatorQueue,
   updateCoordinatorSingleTask,
@@ -150,40 +151,39 @@ import {
   coordinatorDataBoundaryBlocked,
   RepositoryDataBlockedError,
   historyRepositoryInput,
-  getRuntimeProcessInstanceIdentity,
+  getExecutionProcessInstanceIdentity,
   inspectCoordinatorSnapshotLeaseAcquisitionOwner,
-  inspectRuntimeProcessRecoveryIdentity,
+  inspectExecutionProcessRecoveryIdentity,
   observeObjectiveLeaseOwner,
-  isRuntimeProcessPoisoned,
-  bindRuntimeOwnedRepositoryOperation,
+  prepareExecutionStorageIgnore,
+  isExecutionProcessPoisoned,
+  bindRepositoryOperation,
   classifyOwnedCoordinatorOperationCreationFailure,
-  bindRuntimeOwnedExecutionSnapshot,
-  captureExecutionChangeSnapshot,
+  bindExecutionWorkspace,
   inspectRepositoryObjectFormatCandidate,
   productionOperationFailure,
   projectBorrowedExecutionResult,
-  projectReviewerReadContent,
+  prepareReviewerWorkspace,
   throwProductionOperationFailure,
-  verifyExecutionChangeSnapshot,
-  matchRuntimeOwnedDockerHandoff,
-  recordRuntimeOwnedDockerHandoffCompletion,
-  registerRuntimeOwnedDockerHandoff,
+  matchDockerHandoff,
+  recordDockerHandoffCompletion,
+  registerDockerHandoff,
 } from "./host.ts";
 import {
   hashExecutionSelection,
   resolveSingleTaskSelection,
   resolveObjectiveTaskSelections,
-  preflightRuntimeOwnedDelegationSelections,
+  preflightDelegationSelections,
   type AdviceTaskPacket,
   capturePreparationInput,
   createPreparationFailure,
-  issueRuntimeOwnedProviderAdvicePacket,
-  issueRuntimeOwnedProviderTaskPacket,
+  issueProviderAdvicePacket,
+  issueProviderTaskPacket,
   prepareAdviceTask,
   prepareProviderAdviceInput,
   prepareProviderAttempt,
-  revokeRuntimeOwnedProviderAdvicePacket,
-  revokeRuntimeOwnedProviderTaskPacket,
+  revokeProviderAdvicePacket,
+  revokeProviderTaskPacket,
 } from "./selection.ts";
 import {
   finishProviderExecutionRecordings,
@@ -192,41 +192,42 @@ import {
   reportExecutionRecording,
   reportExecutionRecordingUnavailable,
   writeCoordinatorRecoveryDiagnostic,
-  inspectRuntimeOwnedWindowsProviderHomeCandidate,
+  inspectWindowsProviderHomeCandidate,
   observeExecutionCompletion,
   openExecutionHost,
-  projectRuntimeRepairObservation,
+  projectDockerRepairObservation,
   recoverDockerIsolationProbe,
-  repairRuntimeOwnedDockerRuntime,
-  createRuntimeOwnedLifecycleNoticeReporter,
-  recoverRuntimeOwnedDockerTaskForCurrentConsumer,
-  resolveRuntimeOwnedDockerTaskCurrentCorrelations,
-  cancelRuntimeOwnedExecutorAttempt,
-  completeRuntimeOwnedHostOperation,
-  retainRuntimeOwnedHostOperation,
-  abandonRuntimeOwnedDockerRecovery,
-  beginRuntimeOwnedDockerRecovery,
-  bindRuntimeOwnedDockerInitializationFailure,
-  bindRuntimeOwnedExecutorAttempt,
-  recordRuntimeOwnedAttemptCleanup,
-  recordRuntimeOwnedDockerProviderSubmission,
-  recordRuntimeOwnedDockerResourceNotIssued,
+  executeDockerRepair,
+  createLifecycleNoticeReporter,
+  recoverDockerTaskForCurrentConsumer,
+  resolveDockerTaskCurrentCorrelations,
+  cancelExecutorAttempt,
+  completeHostOperation,
+  retainHostOperation,
+  abandonDockerRecovery,
+  beginDockerRecovery,
+  bindDockerInitializationFailure,
+  bindExecutorAttempt,
+  recordAttemptCleanup,
+  recordDockerProviderSubmission,
+  recordDockerResourceNotIssued,
   recordDockerResourceEvent,
-  recordRuntimeOwnedDockerTerminalObservation,
-  recordRuntimeOwnedUnstartedAttempt,
-  verifyRuntimeOwnedDockerRecoveryBinding,
-  inspectRuntimeOwnedDockerTaskAdmission,
-  registerRuntimeOwnedReviewFindings,
+  recordDockerTerminalObservation,
+  recordUnstartedAttempt,
+  verifyDockerRecoveryBinding,
+  inspectDockerTaskAdmission,
+  registerReviewFindings,
 } from "./environment.ts";
 import { types, isDeepStrictEqual } from "node:util";
 import {
-  resolveCoordinatorWorkspaceTaskTarget,
+  capturePreparedWorkspaceTarget,
+  confirmPreparedWorkspaceTarget,
   workspacePlanReadyForAcceptance,
 } from "./workspace.ts";
 import { createFilesystemRepositoryObservationPort } from "../../../document-model/src/index.ts";
 import {
   readRepositoryNetworkHosts,
-  resolveRuntimeOwnedExternalSendPolicy,
+  resolveExternalSendPolicy,
 } from "./decision.ts";
 
 /** 受付時の試行相関。操作IDは実行に使うコピーから返す。 @trace ARCH-000004 */
@@ -363,7 +364,7 @@ const SETTLED_RUNTIME_CANCELLATION_REASONS = new Set([
 
 /** 共通Task開始へ渡す用途とHost情報。 @trace ARCH-000004 */
 type TaskStartContext = Readonly<{
-  consumer: NonNullable<Parameters<typeof startRuntimeOwnedCoordinatorTask>[4]>;
+  consumer: NonNullable<Parameters<typeof startCoordinatorTask>[4]>;
   hostInput?: HostOperationRecording;
 }>;
 
@@ -493,12 +494,12 @@ export async function runCoordinatorSingleTaskAttempt(
     return firstStartObservation;
   };
   try {
-    rawStarted = startRuntimeOwnedCoordinatorTask(
+    rawStarted = startCoordinatorTask(
       input.taskRequest,
       input.repositoryRoot,
       input.operationId,
       observeStarted === undefined ? undefined : forwardStarted,
-      startContext?.consumer ?? "orchestrator",
+      startContext?.consumer ?? "coordinator",
       workspaceTarget,
       input.executionMetadata,
       startContext?.hostInput,
@@ -530,7 +531,7 @@ export async function runCoordinatorSingleTaskAttempt(
   }
   const observation = await observeExecutionCompletion(
     started,
-    cancelRuntimeOwnedCoordinatorTask,
+    cancelCoordinatorTask,
     input.cancellationSignal,
   );
   isNotificationClosed = true;
@@ -624,16 +625,28 @@ export async function runCoordinatorSingleTaskAttempt(
 export async function recoverSingleTaskOperation(
   context: Readonly<{
     rootCapability: Repository;
+    root?: string;
     consumer: "workbench" | "coordinator_cli";
     authorize: () => boolean;
   }>,
   record: SingleTaskRecord,
 ) {
   const { rootCapability, consumer, authorize } = context;
-  const observed = resolveRuntimeOwnedDockerTaskCurrentCorrelations(
+  const repository = borrowCoordinatorRecoveryRepository(
+    rootCapability,
+    context.root,
+  );
+  if (!repository)
+    return {
+      cleanupConfirmed: false,
+      recoveryIds: record.recoveryIds,
+      reason: "docker_task_recovery_correlation_current_unconfirmed",
+    };
+  const observed = resolveDockerTaskCurrentCorrelations(
     [record.operationId],
     rootCapability,
     consumer,
+    repository,
   );
   if (observed.status !== "completed")
     return {
@@ -643,9 +656,11 @@ export async function recoverSingleTaskOperation(
     };
   const unresolved = new Set(record.recoveryIds);
   for (const entry of observed.bindings) {
-    const result = await recoverRuntimeOwnedDockerTaskForCurrentConsumer(
+    const result = await recoverDockerTaskForCurrentConsumer(
       entry.recoveryId,
       rootCapability,
+      undefined,
+      repository,
     );
     if (result.status !== "recovered" || !result.taskRecoveryCompleted) {
       unresolved.add(entry.recoveryId);
@@ -660,7 +675,7 @@ export async function recoverSingleTaskOperation(
   for (const recoveryId of unresolved) {
     if (
       recoveryId.startsWith("docker-task.") &&
-      readState(rootCapability, {
+      readState(recoveryStorageInput(repository), {
         scope: "recovery",
         input: {
           kind: "completion",
@@ -679,6 +694,7 @@ export async function recoverSingleTaskOperation(
       rootCapability,
       hostId,
       authorize,
+      repository,
     );
     if (!host.cleanupConfirmed) {
       unresolved.add(hostId);
@@ -693,13 +709,13 @@ export async function recoverSingleTaskOperation(
     return {
       cleanupConfirmed: false,
       recoveryIds: [...unresolved],
-      reason: "orchestrator_task_operation_creation_unconfirmed",
+      reason: "coordinator_task_operation_creation_unconfirmed",
     };
   }
   return {
     cleanupConfirmed: unresolved.size === 0,
     recoveryIds: [...unresolved],
-    reason: "orchestrator_task_recovery_observed",
+    reason: "coordinator_task_recovery_observed",
   };
 }
 
@@ -708,11 +724,16 @@ function recoverSingleTaskHostOperation(
   root: Repository,
   hostId: string,
   recordingCurrent: () => boolean,
+  repository?: NonNullable<
+    ReturnType<typeof borrowCoordinatorRecoveryRepository>
+  >,
 ) {
   const capability = acquireHostOperationRecoveryGeneration(
     root,
     hostId,
     recordingCurrent,
+    undefined,
+    repository,
   );
   if (!capability)
     return {
@@ -753,20 +774,21 @@ function recoverSingleTaskHostOperation(
  * @security 種類名だけで所有権を認定せず、元のRoot相関を必要とする。
  * @concurrency Taskの既存非同期取消を伝播する。同期Host処理に存在しない中断保証を作らない。
  */
-export async function resumeRuntimeOwnedExecution(
+export async function resumeExecution(
   recoveryId: string,
   rootCapability: unknown,
   signal: AbortSignal,
+  confirmedDirectory?: string,
 ) {
   const cancellation = readExecutionCancellation(signal);
   if (cancellation !== false) {
-    if (recoveryId.startsWith("docker-runtime-repair."))
+    if (recoveryId.startsWith("docker-repair."))
       return Object.freeze({
         status: "blocked" as const,
         reason:
           cancellation === null
-            ? ("runtime_repair_boundary_unavailable" as const)
-            : ("runtime_repair_cancelled" as const),
+            ? ("docker_repair_boundary_unavailable" as const)
+            : ("docker_repair_cancelled" as const),
         recoveryId,
         finalCheckpointConfirmed: false,
         outcomeConfirmed: false,
@@ -787,23 +809,27 @@ export async function resumeRuntimeOwnedExecution(
     });
   }
   if (recoveryId.startsWith("docker-task."))
-    return recoverRuntimeOwnedDockerTaskForCurrentConsumer(
+    return recoverDockerTaskForCurrentConsumer(
       recoveryId,
       rootCapability,
       signal,
+      confirmedDirectory,
     );
-  if (recoveryId.startsWith("docker-runtime-repair."))
-    return projectRuntimeRepairObservation(
-      await repairRuntimeOwnedDockerRuntime(
+  if (recoveryId.startsWith("docker-repair."))
+    return projectDockerRepairObservation(
+      await executeDockerRepair(
         rootCapability,
         signal,
         recoveryId,
         "repair",
+        confirmedDirectory,
       ),
       recoveryId,
     );
-  const repository =
-    borrowRuntimeOwnedCoordinatorRecoveryRepository(rootCapability);
+  const repository = borrowCoordinatorRecoveryRepository(
+    rootCapability,
+    confirmedDirectory,
+  );
   if (!repository || !/^host-operation\.OP-[0-9]{6,}$/u.test(recoveryId))
     return Object.freeze({
       status: "blocked" as const,
@@ -811,7 +837,9 @@ export async function resumeRuntimeOwnedExecution(
       recoveryId,
       hostCleanupCompleted: false,
     });
-  const current = readState(repository.root, { scope: "recovery" });
+  const current = readState(recoveryStorageInput(repository), {
+    scope: "recovery",
+  });
   const host =
     current.status === "completed" && current.value && current.lockReleased
       ? current.value.snapshot.operations.find(
@@ -832,11 +860,14 @@ export async function resumeRuntimeOwnedExecution(
       repository.root,
       repository.revalidate,
       signal,
+      repository,
     );
   const generation = acquireHostOperationRecoveryGeneration(
     repository.root,
     recoveryId,
     repository.revalidate,
+    undefined,
+    repository,
   );
   if (!generation)
     return {
@@ -891,8 +922,8 @@ export function chooseCoordinatorQueueOperation(
       : "interactive_queue_pending";
     return {
       reason: isActive
-        ? ("orchestrator_active_operation_retained" as const)
-        : ("orchestrator_interactive_queue_selected" as const),
+        ? ("coordinator_active_operation_retained" as const)
+        : ("coordinator_interactive_queue_selected" as const),
       selectedQueueId: isActive ? null : (interactive?.queueId ?? null),
       selectedQueueGeneration: isActive
         ? null
@@ -920,7 +951,7 @@ export function chooseCoordinatorQueueOperation(
   );
   if (waiting)
     return {
-      reason: "orchestrator_scheduled_queue_selected" as const,
+      reason: "coordinator_scheduled_queue_selected" as const,
       selectedQueueId: waiting.queueId,
       selectedQueueGeneration: waiting.generation,
       updates: [
@@ -941,8 +972,8 @@ export function chooseCoordinatorQueueOperation(
     ) ?? null;
   return {
     reason: value
-      ? ("orchestrator_scheduled_queue_selected" as const)
-      : ("orchestrator_queue_empty" as const),
+      ? ("coordinator_scheduled_queue_selected" as const)
+      : ("coordinator_queue_empty" as const),
     selectedQueueId: value?.queueId ?? null,
     selectedQueueGeneration: value?.generation ?? null,
     updates: [],
@@ -1035,7 +1066,7 @@ export function snapshotSingleTaskResult(
       : undefined;
     if (
       workspaceResult === null ||
-      contract !== "crdd-coordinator/orchestrator-single-task-adapter" ||
+      contract !== "crdd-coordinator/single-task-adapter" ||
       !validIdentity(attemptId) ||
       !validIdentity(operationId) ||
       !validIdentity(authorityBindingId) ||
@@ -1347,7 +1378,7 @@ export async function runCoordinatorOperation(
   const leaseResult = acquireCoordinatorSnapshotLease(
     operation.kind === "single"
       ? operation.deps.root
-      : operation.persistence.workingDirectory,
+      : operation.persistence.repository.directory,
     operation.kind === "single"
       ? operation.deps.binding
       : operation.persistence.repositoryBindingId,
@@ -1536,7 +1567,7 @@ export async function runCoordinatorOperation(
     if (!candidates)
       return {
         status: "blocked" as const,
-        reason: "orchestrator_state_observation_unknown",
+        reason: "coordinator_state_observation_unknown",
       };
     if (settling) state = written.value;
     return { status: "completed" as const, candidates };
@@ -1565,7 +1596,7 @@ export async function runCoordinatorOperation(
     selectedAfterLease.value.queueId !== input.queueId
   )
     return completeQueue(
-      blockExecution(input, "orchestrator_queue_claim_priority_changed", {
+      blockExecution(input, "coordinator_queue_claim_priority_changed", {
         state,
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
@@ -1606,7 +1637,7 @@ export async function runCoordinatorOperation(
       () =>
         result(input, {
           status: "cancelled",
-          reason: "orchestrator_cancelled_before_task_effect",
+          reason: "coordinator_cancelled_before_task_effect",
           stateGeneration: state.generation,
           completedTaskIds: [],
           cleanupConfirmed: true,
@@ -1638,7 +1669,7 @@ export async function runCoordinatorOperation(
     if (taskId === undefined) break;
     const execution = executions.get(taskId);
     if (!execution)
-      return finalizeOwnedFailure("orchestrator_task_execution_missing", {
+      return finalizeOwnedFailure("coordinator_task_execution_missing", {
         state,
         completedTaskIds,
       });
@@ -1696,10 +1727,11 @@ export async function runCoordinatorOperation(
       if (input.cancellationSignal.aborted) {
         stoppedBeforeDelegation = "cancelled";
       } else {
-        const target = resolveCoordinatorWorkspaceTaskTarget(
+        const target = confirmPreparedWorkspaceTarget(
           persistence.workingDirectory,
           persistence.repositoryBindingId,
           input.queueId,
+          operation.workspaceTarget,
         );
         if (
           target.status !== "completed" ||
@@ -1785,15 +1817,15 @@ export async function runCoordinatorOperation(
       isDelegatedResultIsUnknown ||
       acceptedOutcome?.processRestartRequired === true;
     if (isProcessDiscardRequired) {
-      const runtimeProcessRecoveryId = createRuntimeProcessRecoveryIdentity(
+      const executionProcessRecoveryId = createExecutionProcessRecoveryIdentity(
         attemptId,
         operationId,
       );
-      poisonRuntimeProcessAfterCleanupUnknown();
+      poisonExecutionProcessAfterCleanupUnknown();
       normalizedRecoveryObligations.push(
         Object.freeze({
-          kind: "runtime_process" as const,
-          recoveryId: runtimeProcessRecoveryId,
+          kind: "execution_process" as const,
+          recoveryId: executionProcessRecoveryId,
         }),
       );
     }
@@ -1932,10 +1964,10 @@ export async function runCoordinatorOperation(
             status: terminalState === "cancelled" ? "cancelled" : "blocked",
             reason:
               terminalState === "recovery_required"
-                ? "orchestrator_task_recovery_required"
+                ? "coordinator_task_recovery_required"
                 : terminalState === "cancelled"
-                  ? "orchestrator_operation_cancelled"
-                  : "orchestrator_replan_required",
+                  ? "coordinator_operation_cancelled"
+                  : "coordinator_replan_required",
             stateGeneration: state.generation,
             completedTaskIds,
             cleanupConfirmed: terminalState !== "recovery_required",
@@ -1957,7 +1989,7 @@ export async function runCoordinatorOperation(
   }
 
   if (!state.tasks.every((task) => task.state === "completed"))
-    return finalizeOwnedFailure("orchestrator_no_schedulable_task", {
+    return finalizeOwnedFailure("coordinator_no_schedulable_task", {
       state,
       completedTaskIds,
     });
@@ -1973,7 +2005,7 @@ export async function runCoordinatorOperation(
     () =>
       result(input, {
         status: "completed",
-        reason: "orchestrator_tasks_completed_integration_pending",
+        reason: "coordinator_tasks_completed_integration_pending",
         stateGeneration: state.generation,
         completedTaskIds,
         cleanupConfirmed: true,
@@ -2006,6 +2038,7 @@ type SingleTaskOperation = Readonly<{
   record: SingleTaskRecord;
   queue: ProjectQueueEntry;
   command: SingleTaskCommand;
+  workspaceTarget?: PreparedWorkspaceTarget | null;
   pair: TaskExecutionSelections | null;
   revision: string;
   controller: AbortController;
@@ -2030,7 +2063,7 @@ function prepareScheduledOperation(
   input: ExecutionInput,
 ) {
   if (!(input.cancellationSignal instanceof AbortSignal))
-    return blockExecution(input, "orchestrator_execution_input_invalid");
+    return blockExecution(input, "coordinator_execution_input_invalid");
   const observed = readState(
     persistence.repository,
     persistence.repositoryBindingId,
@@ -2044,7 +2077,7 @@ function prepareScheduledOperation(
     (entry) => entry.queueId === input.queueId,
   );
   if (!view || !state || !queue)
-    return blockExecution(input, "orchestrator_execution_observation_unknown", {
+    return blockExecution(input, "coordinator_execution_observation_unknown", {
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
       effectState: "unknown",
@@ -2054,7 +2087,7 @@ function prepareScheduledOperation(
     view.taskStartCandidates,
   );
   if (!startCandidates)
-    return blockExecution(input, "orchestrator_state_observation_unknown", {
+    return blockExecution(input, "coordinator_state_observation_unknown", {
       state,
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
@@ -2067,12 +2100,12 @@ function prepareScheduledOperation(
     queue.milestoneId !== input.milestoneId ||
     queue.repositoryRevision !== state.repositoryRevision
   )
-    return blockExecution(input, "orchestrator_execution_identity_mismatch");
+    return blockExecution(input, "coordinator_execution_identity_mismatch");
   if (queue.state === "integration_pending")
     return queue.ownerGeneration === null
       ? result(input, {
           status: "completed",
-          reason: "orchestrator_tasks_already_integration_pending",
+          reason: "coordinator_tasks_already_integration_pending",
           stateGeneration: state.generation,
           completedTaskIds: state.tasks
             .filter((task) => task.state === "completed")
@@ -2081,14 +2114,14 @@ function prepareScheduledOperation(
           manualRecoveryRequired: false,
           effectState: "no_effect",
         })
-      : blockExecution(input, "orchestrator_queue_release_not_settled", {
+      : blockExecution(input, "coordinator_queue_release_not_settled", {
           state,
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
           effectState: "unknown",
         });
   if (queue.state !== "queued")
-    return blockExecution(input, "orchestrator_queue_not_startable", {
+    return blockExecution(input, "coordinator_queue_not_startable", {
       state,
       manualRecoveryRequired: [
         "leased",
@@ -2098,7 +2131,7 @@ function prepareScheduledOperation(
     });
   const executions = taskExecutionMap(state, input.taskExecutions);
   if (!executions)
-    return blockExecution(input, "orchestrator_task_execution_set_invalid", {
+    return blockExecution(input, "coordinator_task_execution_set_invalid", {
       state,
     });
 
@@ -2135,7 +2168,7 @@ export function finishOperationLease(
       }>
     | Readonly<{
         kind: "scheduled";
-        repository: Repository;
+        repository: CoordinatorStateContext["repository"];
         binding: string;
         queueId: string;
         queue: ProjectQueueEntry | null;
@@ -2146,12 +2179,12 @@ export function finishOperationLease(
   if (target.kind === "single" && target.queue.state === "running")
     return {
       status: "blocked" as const,
-      reason: "orchestrator_task_lease_release_unconfirmed",
+      reason: "coordinator_task_lease_release_unconfirmed",
     };
   return settleCoordinatorSnapshotQueueLeaseRelease(
     target.kind === "scheduled"
       ? target.repository
-      : verifyRuntimePersistenceRepository(target.root),
+      : { directory: target.root },
     target.binding,
     target.queueId,
     target.queue.generation,
@@ -2199,7 +2232,7 @@ async function executeSingleTask(
     return empty("coordinator_task_selection_or_access_invalid");
   if (signal.aborted)
     return {
-      ...empty("orchestrator_task_cancelled_before_execution"),
+      ...empty("coordinator_task_cancelled_before_execution"),
       status: "cancelled",
     };
   if (command.mode === "read_only_advice") {
@@ -2290,7 +2323,7 @@ async function executeSingleTask(
   );
   if (result.candidateId !== null)
     return {
-      ...empty("orchestrator_legacy_candidate_result_rejected"),
+      ...empty("coordinator_legacy_candidate_result_rejected"),
       status: "unknown",
       cleanupConfirmed: false,
       recoveryIds: result.recoveryIds,
@@ -2332,7 +2365,7 @@ async function executeSingleOperation(
   let { queue } = operation;
   if (acquired.status !== "completed") {
     const closed = updateQueue(
-      verifyRuntimePersistenceRepository(deps.root),
+      resolveExecutionStorageDirectory(deps.root),
       deps.binding,
       {
         kind: "close_unstarted",
@@ -2399,14 +2432,15 @@ async function executeSingleOperation(
         requestId,
         record,
         "unknown",
-        "orchestrator_task_start_save_unconfirmed",
+        "coordinator_task_start_save_unconfirmed",
       );
       return;
     }
-    const target = resolveCoordinatorWorkspaceTaskTarget(
+    const target = confirmPreparedWorkspaceTarget(
       deps.root,
       deps.binding,
       requestId,
+      operation.workspaceTarget,
     );
     if (
       target.status !== "completed" ||
@@ -2422,7 +2456,7 @@ async function executeSingleOperation(
         reason:
           target.status !== "completed"
             ? target.reason
-            : "orchestrator_task_not_started",
+            : "coordinator_task_not_started",
         cleanupConfirmed: true,
       };
       const confirmed = save(next);
@@ -2432,7 +2466,7 @@ async function executeSingleOperation(
         confirmed ? next.status : "unknown",
         target.status !== "completed"
           ? target.reason
-          : "orchestrator_task_not_started",
+          : "coordinator_task_not_started",
       );
       return;
     }
@@ -2485,7 +2519,7 @@ async function executeSingleOperation(
       },
     );
     const outcome = snapshotSingleTaskOutcome(rawOutcome);
-    if (!outcome) throw new Error("orchestrator_task_result_invalid");
+    if (!outcome) throw new Error("coordinator_task_result_invalid");
     outcomeForFailure = outcome;
     const next: SingleTaskRecord = {
       ...phase,
@@ -2508,16 +2542,14 @@ async function executeSingleOperation(
             (!workspaceResult ||
               workspaceResult.workspaceId !== command.workspaceId))))
     )
-      throw new Error("orchestrator_task_result_invalid");
+      throw new Error("coordinator_task_result_invalid");
     const confirmed = save(next);
     item.snapshot = {
       ...projectSingleTask(
         requestId,
         next,
         confirmed && next.status !== "pending" ? next.status : "unknown",
-        confirmed
-          ? outcome.reason
-          : "orchestrator_task_result_save_unconfirmed",
+        confirmed ? outcome.reason : "coordinator_task_result_save_unconfirmed",
       ),
       ...(confirmed && outcome.advice ? outcome.advice : {}),
       resultAvailable:
@@ -2531,7 +2563,7 @@ async function executeSingleOperation(
       phase: "settled" as const,
       status: "unknown" as const,
       reason:
-        outcomeForFailure?.reason ?? "orchestrator_task_execution_unconfirmed",
+        outcomeForFailure?.reason ?? "coordinator_task_execution_unconfirmed",
       cleanupConfirmed: outcomeForFailure?.cleanupConfirmed ?? false,
       recoveryIds: outcomeForFailure?.recoveryIds ?? phase.recoveryIds,
     };
@@ -2559,7 +2591,7 @@ async function executeSingleOperation(
       ],
       secondaryFailures: [
         ...item.snapshot.secondaryFailures,
-        ...(settled ? [] : ["orchestrator_task_lease_release_unconfirmed"]),
+        ...(settled ? [] : ["coordinator_task_lease_release_unconfirmed"]),
         ...secondaryFailures,
       ],
     };
@@ -2714,10 +2746,10 @@ export function createCoordinatorTaskRequests(
         requestId,
         null,
         "unknown",
-        "orchestrator_task_not_available",
+        "coordinator_task_not_available",
       );
     const current = readState(
-      verifyRuntimePersistenceRepository(deps.root),
+      resolveExecutionStorageDirectory(deps.root),
       deps.binding,
       "queue",
     );
@@ -2735,7 +2767,7 @@ export function createCoordinatorTaskRequests(
         requestId,
         null,
         "unknown",
-        "orchestrator_task_not_available",
+        "coordinator_task_not_available",
       );
     return projectSingleTask(
       requestId,
@@ -2751,13 +2783,13 @@ export function createCoordinatorTaskRequests(
             : "running",
       record?.reason ??
         (record
-          ? "orchestrator_task_saved_state"
-          : "orchestrator_task_not_available"),
+          ? "coordinator_task_saved_state"
+          : "coordinator_task_not_available"),
     );
   };
   const recoverRecord = async (requestId: string) => {
     const current = readState(
-      verifyRuntimePersistenceRepository(deps.root),
+      resolveExecutionStorageDirectory(deps.root),
       deps.binding,
       "queue",
     );
@@ -2783,7 +2815,7 @@ export function createCoordinatorTaskRequests(
         requestId,
         queue?.singleTask ?? null,
         "unknown",
-        "orchestrator_task_body_unavailable",
+        "coordinator_task_body_unavailable",
       );
     const reconciled = reconcileCoordinatorSnapshotLeaseOwnerLoss(
       deps.root,
@@ -2802,7 +2834,7 @@ export function createCoordinatorTaskRequests(
           requestId,
           queue.singleTask,
           "unknown",
-          "orchestrator_task_body_unavailable",
+          "coordinator_task_body_unavailable",
         ),
         recoveryIds: [
           ...new Set([
@@ -2824,18 +2856,18 @@ export function createCoordinatorTaskRequests(
         requestId,
         observed.singleTask,
         "unknown",
-        "orchestrator_task_body_unavailable",
+        "coordinator_task_body_unavailable",
       );
     if (observed.singleTask?.phase === "accepted") {
       const closed = updateQueue(
-        verifyRuntimePersistenceRepository(deps.root),
+        resolveExecutionStorageDirectory(deps.root),
         deps.binding,
         {
           kind: "close_unstarted",
           input: [
             requestId,
             observed.generation,
-            "orchestrator_task_not_started",
+            "coordinator_task_not_started",
             { now: () => Date.now() },
           ],
         },
@@ -2846,7 +2878,7 @@ export function createCoordinatorTaskRequests(
           ? (closed.value.singleTask ?? null)
           : observed.singleTask,
         "unknown",
-        "orchestrator_task_body_unavailable",
+        "coordinator_task_body_unavailable",
       );
       return closed.status === "completed"
         ? result
@@ -2874,7 +2906,7 @@ export function createCoordinatorTaskRequests(
           requestId,
           observed.singleTask ?? null,
           "unknown",
-          "orchestrator_task_body_unavailable",
+          "coordinator_task_body_unavailable",
         ),
         recoveryIds: [
           ...new Set([
@@ -2890,7 +2922,7 @@ export function createCoordinatorTaskRequests(
       requestId,
       observed.singleTask ?? null,
       "unknown",
-      "orchestrator_task_body_unavailable",
+      "coordinator_task_body_unavailable",
     );
     try {
       const record = observed.singleTask;
@@ -2902,7 +2934,7 @@ export function createCoordinatorTaskRequests(
         status: record.status === "pending" ? "unknown" : record.status,
         reason:
           record.status === "pending"
-            ? "orchestrator_task_owner_lost"
+            ? "coordinator_task_owner_lost"
             : record.reason,
         cleanupConfirmed: recovery.cleanupConfirmed,
         recoveryIds: recovery.recoveryIds,
@@ -2921,7 +2953,7 @@ export function createCoordinatorTaskRequests(
           requestId,
           next,
           "unknown",
-          "orchestrator_task_body_unavailable",
+          "coordinator_task_body_unavailable",
         ),
         recoveryIds:
           saved.status === "completed"
@@ -2940,7 +2972,7 @@ export function createCoordinatorTaskRequests(
         ...result,
         secondaryFailures: [
           ...result.secondaryFailures,
-          "orchestrator_task_recovery_unconfirmed",
+          "coordinator_task_recovery_unconfirmed",
         ],
       };
     } finally {
@@ -2965,7 +2997,7 @@ export function createCoordinatorTaskRequests(
           secondaryFailures: [
             ...result.secondaryFailures,
             settled.reason,
-            "orchestrator_task_lease_release_unconfirmed",
+            "coordinator_task_lease_release_unconfirmed",
           ],
         };
     }
@@ -2975,7 +3007,7 @@ export function createCoordinatorTaskRequests(
           requestId,
           null,
           "unknown",
-          "orchestrator_task_not_available",
+          "coordinator_task_not_available",
         );
   };
   const recoverSaved = async (requestId: string) => {
@@ -2985,19 +3017,23 @@ export function createCoordinatorTaskRequests(
     return result;
   };
   return Object.freeze({
-    async start(raw: unknown, signal?: AbortSignal) {
+    async start(
+      raw: unknown,
+      signal?: AbortSignal,
+      workspaceTarget?: PreparedWorkspaceTarget | null,
+    ) {
       const command = inspectSingleTaskCommand(raw);
       if (!command || closing || signal?.aborted || !authorized())
         return {
           status: "blocked" as const,
           requestId: null,
-          reason: "orchestrator_task_request_rejected",
+          reason: "coordinator_task_request_rejected",
         };
       const hash = (value: unknown) =>
         createHash("sha256").update(JSON.stringify(value)).digest("hex");
       const requestHash = hash(command);
       let current = readState(
-        verifyRuntimePersistenceRepository(deps.root),
+        resolveExecutionStorageDirectory(deps.root),
         deps.binding,
         "queue",
       );
@@ -3016,20 +3052,27 @@ export function createCoordinatorTaskRequests(
           return {
             status: "blocked" as const,
             requestId: null,
-            reason: "orchestrator_task_request_rejected",
+            reason: "coordinator_task_request_rejected",
           };
         if (existing.requestHash !== requestHash)
           return {
             status: "blocked" as const,
             requestId: command.requestId,
-            reason: "orchestrator_task_request_identity_conflict",
+            reason: "coordinator_task_request_identity_conflict",
           };
         return {
           status: "accepted" as const,
           requestId: command.requestId,
-          reason: "orchestrator_task_request_reused",
+          reason: "coordinator_task_request_reused",
         };
       }
+      const preparedWorkspace = capturePreparedWorkspaceTarget(workspaceTarget);
+      if (command.workspaceId && !preparedWorkspace)
+        return {
+          status: "blocked" as const,
+          requestId: null,
+          reason: "coordinator_workspace_target_changed",
+        };
       if (
         [...requests.values()].some((item) =>
           ["accepted", "running"].includes(item.snapshot.status),
@@ -3038,7 +3081,7 @@ export function createCoordinatorTaskRequests(
         return {
           status: "blocked" as const,
           requestId: null,
-          reason: "orchestrator_task_request_active",
+          reason: "coordinator_task_request_active",
         };
       // 現在Sessionの本文は最大100件。実行中の依頼を追出さない。
       for (const [id, item] of requests)
@@ -3051,7 +3094,7 @@ export function createCoordinatorTaskRequests(
         return {
           status: "blocked" as const,
           requestId: null,
-          reason: "orchestrator_task_session_capacity",
+          reason: "coordinator_task_session_capacity",
         };
       if (current.status === "completed" && current.value) {
         for (const queue of current.value.queueEntries) {
@@ -3075,7 +3118,7 @@ export function createCoordinatorTaskRequests(
             return {
               status: "blocked" as const,
               requestId: null,
-              reason: "orchestrator_task_request_rejected",
+              reason: "coordinator_task_request_rejected",
             };
           if (
             !recovered.cleanupConfirmed ||
@@ -3085,11 +3128,11 @@ export function createCoordinatorTaskRequests(
             return {
               status: "blocked" as const,
               requestId: queue.queueId,
-              reason: "orchestrator_task_previous_cleanup_unconfirmed",
+              reason: "coordinator_task_previous_cleanup_unconfirmed",
             };
         }
         current = readState(
-          verifyRuntimePersistenceRepository(deps.root),
+          resolveExecutionStorageDirectory(deps.root),
           deps.binding,
           "queue",
         );
@@ -3109,18 +3152,18 @@ export function createCoordinatorTaskRequests(
           return {
             status: "blocked" as const,
             requestId: null,
-            reason: "orchestrator_task_request_rejected",
+            reason: "coordinator_task_request_rejected",
           };
         return concurrent.requestHash === requestHash
           ? {
               status: "accepted" as const,
               requestId: command.requestId,
-              reason: "orchestrator_task_request_reused",
+              reason: "coordinator_task_request_reused",
             }
           : {
               status: "blocked" as const,
               requestId: command.requestId,
-              reason: "orchestrator_task_request_identity_conflict",
+              reason: "coordinator_task_request_identity_conflict",
             };
       }
       const selection = resolveSingleTaskSelection(
@@ -3143,7 +3186,7 @@ export function createCoordinatorTaskRequests(
         return {
           status: "blocked" as const,
           requestId: null,
-          reason: "orchestrator_task_request_active",
+          reason: "coordinator_task_request_active",
         };
       if (
         current.status !== "completed" ||
@@ -3160,7 +3203,7 @@ export function createCoordinatorTaskRequests(
         return {
           status: "blocked" as const,
           requestId: null,
-          reason: "orchestrator_task_configuration_unavailable",
+          reason: "coordinator_task_configuration_unavailable",
         };
       const requestId = command.requestId;
       const record: SingleTaskRecord = {
@@ -3198,7 +3241,7 @@ export function createCoordinatorTaskRequests(
         singleTask: record,
       };
       const saved = createQueue(
-        verifyRuntimePersistenceRepository(deps.root),
+        resolveExecutionStorageDirectory(deps.root),
         deps.binding,
         { kind: "single", input: [queue] },
       );
@@ -3207,15 +3250,15 @@ export function createCoordinatorTaskRequests(
           status: "blocked" as const,
           requestId: null,
           reason:
-            saved.reason === "orchestrator_queue_identity_conflict"
-              ? "orchestrator_task_request_rejected"
+            saved.reason === "coordinator_queue_identity_conflict"
+              ? "coordinator_task_request_rejected"
               : saved.reason,
         };
-      if (saved.reason === "orchestrator_single_task_reused")
+      if (saved.reason === "coordinator_single_task_reused")
         return {
           status: "accepted" as const,
           requestId,
-          reason: "orchestrator_task_request_reused",
+          reason: "coordinator_task_request_reused",
         };
       const controller = new AbortController();
       const abort = () => controller.abort();
@@ -3234,6 +3277,7 @@ export function createCoordinatorTaskRequests(
         record,
         queue,
         command,
+        workspaceTarget: preparedWorkspace,
         pair,
         revision,
         controller,
@@ -3248,7 +3292,7 @@ export function createCoordinatorTaskRequests(
           requestId,
           null,
           "unknown",
-          "orchestrator_task_not_available",
+          "coordinator_task_not_available",
         );
       const item = requests.get(requestId);
       if (item) return item.snapshot;
@@ -3260,7 +3304,7 @@ export function createCoordinatorTaskRequests(
           requestId,
           null,
           "unknown",
-          "orchestrator_task_not_available",
+          "coordinator_task_not_available",
         );
       const item = requests.get(requestId);
       if (!item) return recoverSaved(requestId);
@@ -3281,7 +3325,7 @@ export function createCoordinatorTaskRequests(
             requestId,
             null,
             "unknown",
-            "orchestrator_task_not_available",
+            "coordinator_task_not_available",
           );
     },
     async wait(requestId: string) {
@@ -3292,7 +3336,7 @@ export function createCoordinatorTaskRequests(
           requestId,
           null,
           "unknown",
-          "orchestrator_task_not_available",
+          "coordinator_task_not_available",
         );
       await item.pending;
       return authorized()
@@ -3301,7 +3345,7 @@ export function createCoordinatorTaskRequests(
             requestId,
             null,
             "unknown",
-            "orchestrator_task_not_available",
+            "coordinator_task_not_available",
           );
     },
     async close() {
@@ -3331,15 +3375,18 @@ export function createCoordinatorTaskRequests(
 export function openTaskSession(context: TaskSessionContext) {
   const { rootCapability, projectId, principalId, authorize } = context;
   if (!isPrincipalId(principalId))
-    throw new Error("orchestrator_task_principal_invalid");
+    throw new Error("coordinator_task_principal_invalid");
   const consumer = context.consumer ?? "workbench";
   const root = resolveVerifiedRepositoryRoot(rootCapability);
-  if (root === null) throw new Error("orchestrator_task_root_invalid");
-  const persistenceRepository = verifyRuntimePersistenceRepository(root);
+  if (root === null) throw new Error("coordinator_task_root_invalid");
   const binding = deriveCoordinatorRepositoryBindingId(root);
-  const initialized = initializeExecutionStore(persistenceRepository, binding);
+  const initialized = initializeExecutionStore(
+    { directory: root },
+    binding,
+    () => authorize() && prepareExecutionStorageIgnore(rootCapability),
+  );
   if (initialized.status !== "completed")
-    throw new Error("orchestrator_task_state_initialization_blocked");
+    throw new Error("coordinator_task_state_initialization_blocked");
   return createCoordinatorTaskRequests({
     root,
     rootCapability,
@@ -3429,6 +3476,7 @@ export async function runTask(
   context: TaskSessionContext,
   command: unknown,
   signal?: AbortSignal,
+  workspaceTarget?: PreparedWorkspaceTarget | null,
 ): Promise<TaskRunResult> {
   const cancellation = readExecutionCancellation(signal);
   if (cancellation !== false)
@@ -3454,7 +3502,7 @@ export async function runTask(
   try {
     session = openTaskSession(context);
     startIssued = true;
-    const started = await session.start(command, signal);
+    const started = await session.start(command, signal, workspaceTarget);
     result = { ...result, ...started };
     if (started.status === "accepted" && started.requestId)
       result = await session.wait(started.requestId);
@@ -3533,7 +3581,7 @@ function readObjectiveReplay(
   reuseObserved = false,
 ) {
   const observed = readState(
-    verifyRuntimePersistenceRepository(workingDirectory),
+    resolveExecutionStorageDirectory(workingDirectory),
     repositoryBindingId,
     "execution",
   );
@@ -3554,7 +3602,7 @@ function readObjectiveReplay(
   );
   if (!queue)
     return !reuseObserved && request.operation === "resume"
-      ? blocked(request, "orchestrator_objective_request_not_found")
+      ? blocked(request, "coordinator_objective_request_not_found")
       : null;
   if (
     queue.singleTask ||
@@ -3562,7 +3610,7 @@ function readObjectiveReplay(
     queue.milestoneId !== request.milestoneId ||
     queue.requestHash !== intake.requestHash
   )
-    return blocked(request, "orchestrator_objective_request_identity_conflict");
+    return blocked(request, "coordinator_objective_request_identity_conflict");
   const terminal = queue.state === "completed" || queue.state === "cancelled";
   if (!reuseObserved && request.operation === "resume" && !terminal)
     return null;
@@ -3608,7 +3656,7 @@ function projectObjectiveReplay(
       task.recoveryObligations.filter((item) => item.phase !== "settled"),
     ) ?? [];
   if (state && !candidates)
-    return blocked(request, "orchestrator_state_observation_unknown", {
+    return blocked(request, "coordinator_state_observation_unknown", {
       knownState: state,
       queueId: queue.queueId,
     });
@@ -3624,7 +3672,7 @@ function projectObjectiveReplay(
         : queue.state === "completed" || state?.milestone.state === "accepted"
           ? "completed"
           : "blocked",
-    reason: "orchestrator_objective_request_reused",
+    reason: "coordinator_objective_request_reused",
     queueId: queue.queueId,
     projection:
       recoveryRequired && obligations.length === 0
@@ -3640,7 +3688,7 @@ function projectObjectiveReplay(
     cleanupConfirmed: !recoveryRequired,
     manualRecoveryRequired: recoveryRequired,
     processRestartRequired: obligations.some(
-      (entry) => entry.kind === "runtime_process",
+      (entry) => entry.kind === "execution_process",
     ),
     recoveryIds: obligations.map((entry) => entry.recoveryId),
     recoveryObligations: obligations.map(({ kind, recoveryId }) => ({
@@ -3883,7 +3931,7 @@ function blocked(
       effectState: "unknown",
       processRestartRequired:
         result.processRestartRequired === true ||
-        retained.some((item) => item.kind === "runtime_process"),
+        retained.some((item) => item.kind === "execution_process"),
       recoveryIds: [
         ...new Set([
           ...(result.recoveryIds ?? []),
@@ -3936,7 +3984,7 @@ function wasObjectiveStateUninitialized(
   return (
     intake?.operation === "start" &&
     observation.status === "blocked" &&
-    observation.reason === "orchestrator_snapshot_absent" &&
+    observation.reason === "coordinator_snapshot_absent" &&
     !observation.manualRecoveryRequired &&
     observation.recoveryId === null
   );
@@ -3982,19 +4030,16 @@ async function executeCoordinatorObjective(
   cancellationSignal: AbortSignal,
 ) {
   if (request.adoptResult)
-    return blocked(
-      request,
-      "orchestrator_explicit_workspace_adoption_required",
-    );
+    return blocked(request, "coordinator_explicit_workspace_adoption_required");
   if (
     !(cancellationSignal instanceof AbortSignal) ||
     !isPrincipalId(dependencies.authenticatedPrincipalId)
   )
-    return blocked(request, "orchestrator_objective_request_invalid");
+    return blocked(request, "coordinator_objective_request_invalid");
   const plan = request.plan;
   const persistence = dependencies.persistence;
   if (!persistence.intake)
-    return blocked(request, "orchestrator_objective_request_invalid");
+    return blocked(request, "coordinator_objective_request_invalid");
   const { queueId, requestHash } = persistence.intake;
   const scopeHash = hashCoordinatorContent(
     JSON.stringify({
@@ -4037,7 +4082,7 @@ async function executeCoordinatorObjective(
   }
   const observedAcquisitionOwner =
     inspectCoordinatorSnapshotLeaseAcquisitionOwner(
-      persistence.workingDirectory,
+      persistence.repository.directory,
       persistence.repositoryBindingId,
     );
   if (
@@ -4063,7 +4108,7 @@ async function executeCoordinatorObjective(
     return Object.freeze({
       contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
       status: "blocked" as const,
-      reason: "orchestrator_lease_acquisition_project_identity_mismatch",
+      reason: "coordinator_lease_acquisition_project_identity_mismatch",
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
       recoveryIds: Object.freeze([resolvedAcquisition.recoveryId]),
@@ -4096,7 +4141,7 @@ async function executeCoordinatorObjective(
   let initialization: ProjectExecutionInitialization | undefined;
   if (state.value === null) {
     if (request.operation === "resume")
-      return blocked(request, "orchestrator_objective_request_not_found");
+      return blocked(request, "coordinator_objective_request_not_found");
     let selected: ReturnType<typeof resolveObjectiveTaskSelections>;
     try {
       selected = resolveObjectiveTaskSelections(
@@ -4109,7 +4154,7 @@ async function executeCoordinatorObjective(
     if (selected.status !== "resolved")
       return blocked(request, selected.reason);
     const selections = inspectTaskExecutionSelections(selected.value);
-    if (!selections) return blocked(request, "orchestrator_input_invalid");
+    if (!selections) return blocked(request, "coordinator_input_invalid");
     initialization = Object.freeze({
       taskExecutionSelections: selections,
       projectId: request.projectId,
@@ -4119,7 +4164,7 @@ async function executeCoordinatorObjective(
       milestoneAcceptanceCriteria: plan.milestoneAcceptanceCriteria,
       objectives: plan.objectives,
       tasks: plan.tasks,
-      ownerGeneration: getRuntimeProcessInstanceIdentity(),
+      ownerGeneration: getExecutionProcessInstanceIdentity(),
     });
     if (!objectiveSelectionsMatch(request, selections, true))
       return blocked(request, "coordinator_objective_selection_mismatch");
@@ -4127,7 +4172,7 @@ async function executeCoordinatorObjective(
     state.value.milestoneId !== request.milestoneId ||
     state.value.repositoryRevision !== request.repositoryRevision
   ) {
-    return blocked(request, "orchestrator_existing_state_identity_mismatch");
+    return blocked(request, "coordinator_existing_state_identity_mismatch");
   }
   if (state.value) {
     const candidates = inspectTaskStartCandidates(
@@ -4135,7 +4180,7 @@ async function executeCoordinatorObjective(
       state.taskStartCandidates,
     );
     if (!candidates)
-      return blocked(request, "orchestrator_state_observation_unknown", {
+      return blocked(request, "coordinator_state_observation_unknown", {
         knownState: state.value,
         queueId,
       });
@@ -4172,10 +4217,15 @@ async function executeCoordinatorObjective(
           persistence.repositoryBindingId,
           queueId,
         )
-      : createQueue(persistence.repository, persistence.repositoryBindingId, {
-          kind: "scheduled",
-          input: initialization ? [queueInput, initialization] : [queueInput],
-        });
+      : createQueue(
+          persistence.repository,
+          persistence.repositoryBindingId,
+          {
+            kind: "scheduled",
+            input: initialization ? [queueInput, initialization] : [queueInput],
+          },
+          persistence.prepareStorage,
+        );
   if (queued.status !== "completed")
     return blockWithoutProject(
       queued.reason,
@@ -4189,11 +4239,11 @@ async function executeCoordinatorObjective(
       queued.value.milestoneId !== request.milestoneId ||
       queued.value.requestHash !== requestHash)
   )
-    return blocked(request, "orchestrator_queue_identity_conflict");
+    return blocked(request, "coordinator_queue_identity_conflict");
   if (
     request.operation === "resume"
       ? queued.value.state === "completed" || queued.value.state === "cancelled"
-      : queued.reason === "orchestrator_queue_request_reused"
+      : queued.reason === "coordinator_queue_request_reused"
   ) {
     // 保存時に競合を観測した場合も、QueueとProjectを同じ保存版から返す。
     return (
@@ -4204,7 +4254,7 @@ async function executeCoordinatorObjective(
         persistence.intake,
         true,
       ) ??
-      blocked(request, "orchestrator_state_observation_unknown", {
+      blocked(request, "coordinator_state_observation_unknown", {
         knownState: null,
         queueId,
       })
@@ -4227,7 +4277,7 @@ async function executeCoordinatorObjective(
       observed.taskStartCandidates,
     );
     if (!candidates)
-      return blocked(request, "orchestrator_state_observation_unknown", {
+      return blocked(request, "coordinator_state_observation_unknown", {
         knownState: observed.value,
         queueId,
       });
@@ -4242,7 +4292,7 @@ async function executeCoordinatorObjective(
     (queue.ownerGeneration === null ? null : queueId);
   if (recoveryQueueId !== null) {
     const reconciled = reconcileCoordinatorSnapshotLeaseOwnerLoss(
-      persistence.workingDirectory,
+      persistence.repository.directory,
       persistence.repositoryBindingId,
       request.projectId,
       recoveryQueueId,
@@ -4257,19 +4307,19 @@ async function executeCoordinatorObjective(
     ) {
       const recoveryId = reconciled.value.recoveryId;
       return blockWithoutProject(
-        "orchestrator_lease_recovery_queue_mismatch",
+        "coordinator_lease_recovery_queue_mismatch",
         recoveryId,
       );
     }
     if (
       reconciled.status !== "completed" &&
-      reconciled.reason === "orchestrator_lease_owner_still_active" &&
+      reconciled.reason === "coordinator_lease_owner_still_active" &&
       recoveryQueueId === queueId &&
       state.value
     )
       return createCoordinatorObjectiveResult(request, {
         status: "blocked",
-        reason: "orchestrator_objective_already_running",
+        reason: "coordinator_objective_already_running",
         queueId,
         projection: projectCoordinatorState(
           state.value,
@@ -4278,7 +4328,7 @@ async function executeCoordinatorObjective(
       });
     if (
       reconciled.status !== "completed" &&
-      reconciled.reason !== "orchestrator_lease_owner_still_active"
+      reconciled.reason !== "coordinator_lease_owner_still_active"
     )
       return blockWithoutProject(
         reconciled.reason,
@@ -4317,9 +4367,13 @@ async function executeCoordinatorObjective(
         let rawBindings: unknown;
         try {
           const root = getRepository(dependencies.repositoryRoot);
-          rawBindings = resolveRuntimeOwnedDockerTaskCurrentCorrelations(
+          rawBindings = resolveDockerTaskCurrentCorrelations(
             operationIds,
             root.status === "completed" ? root.capability : null,
+            "coordinator",
+            typeof dependencies.repositoryRoot === "string"
+              ? dependencies.repositoryRoot
+              : undefined,
           );
         } catch {
           rawBindings = null;
@@ -4330,7 +4384,7 @@ async function executeCoordinatorObjective(
         );
       }
       if (!bindings)
-        return blocked(request, "orchestrator_owner_loss_recovery_unresolved", {
+        return blocked(request, "coordinator_owner_loss_recovery_unresolved", {
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
           effectState: "unknown",
@@ -4367,7 +4421,7 @@ async function executeCoordinatorObjective(
         });
       state = captureObjectiveRecoveryWrite(boundWrite);
       if (!state.taskStartCandidates)
-        return blocked(request, "orchestrator_state_observation_unknown", {
+        return blocked(request, "coordinator_state_observation_unknown", {
           knownState: state.value,
           queueId,
           cleanupConfirmed: false,
@@ -4401,7 +4455,7 @@ async function executeCoordinatorObjective(
         ["starting", "running"].includes(task.state),
       );
       if (remainingActiveTasks.length > 0)
-        return blocked(request, "orchestrator_owner_loss_recovery_unresolved", {
+        return blocked(request, "coordinator_owner_loss_recovery_unresolved", {
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
           effectState: "unknown",
@@ -4468,7 +4522,7 @@ async function executeCoordinatorObjective(
     const publicRecoveryObligations = recoveries.map(({ kind, recoveryId }) =>
       Object.freeze({ kind, recoveryId }),
     );
-    const recoveryProcess = getRuntimeProcessInstanceIdentity();
+    const recoveryProcess = getExecutionProcessInstanceIdentity();
     const recoveryQueue = queue;
     /**
      * 待機・診断後の同じ上位状態と取消を読戻す。
@@ -4491,7 +4545,7 @@ async function executeCoordinatorObjective(
       try {
         if (
           cancellationSignal.aborted ||
-          getRuntimeProcessInstanceIdentity() !== recoveryProcess
+          getExecutionProcessInstanceIdentity() !== recoveryProcess
         )
           return null;
         const current = readState(
@@ -4571,7 +4625,7 @@ async function executeCoordinatorObjective(
       }
     };
     if (unresolvedTasks.length > 0)
-      return blocked(request, "orchestrator_recovery_result_unresolved", {
+      return blocked(request, "coordinator_recovery_result_unresolved", {
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         effectState: "unknown",
@@ -4579,7 +4633,7 @@ async function executeCoordinatorObjective(
         recoveryObligations: publicRecoveryObligations,
       });
     if (!recoveryApplication || queue.resultReference !== recoveryApplication)
-      return blocked(request, "orchestrator_recovery_identity_mismatch", {
+      return blocked(request, "coordinator_recovery_identity_mismatch", {
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         effectState: "unknown",
@@ -4608,7 +4662,7 @@ async function executeCoordinatorObjective(
         return blockObjectiveRecoveryItem(request, written.reason, item);
       state = captureObjectiveRecoveryWrite(written);
       if (!state.taskStartCandidates)
-        return blocked(request, "orchestrator_state_observation_unknown", {
+        return blocked(request, "coordinator_state_observation_unknown", {
           knownState: state.value,
           queueId,
           currentRecovery: item,
@@ -4640,7 +4694,7 @@ async function executeCoordinatorObjective(
     if (queue.state === "recovery_required") {
       for (const item of recoveries.filter(
         (entry) =>
-          ["docker", "runtime_process"].includes(entry.kind) &&
+          ["docker", "execution_process"].includes(entry.kind) &&
           entry.phase !== "settled",
       )) {
         if (item.phase === "required" && item.kind !== "docker") {
@@ -4649,13 +4703,13 @@ async function executeCoordinatorObjective(
           await writeRecoveryPhaseDiagnostic("recovering", item);
         }
         let recovery: unknown;
-        if (item.kind === "runtime_process") {
+        if (item.kind === "execution_process") {
           const task = recoveryState.tasks.find(
             (entry) => entry.definition.id === item.taskId,
           );
           const match =
             task?.attemptId && task.operationId
-              ? inspectRuntimeProcessRecoveryIdentity(
+              ? inspectExecutionProcessRecoveryIdentity(
                   item.recoveryId,
                   task.attemptId,
                   task.operationId,
@@ -4663,7 +4717,7 @@ async function executeCoordinatorObjective(
               : null;
           recovery =
             match &&
-            match.processIdentity !== getRuntimeProcessInstanceIdentity()
+            match.processIdentity !== getExecutionProcessInstanceIdentity()
               ? Object.freeze({
                   status: "recovered" as const,
                   recoveryId: null,
@@ -4677,10 +4731,13 @@ async function executeCoordinatorObjective(
             if (readCurrentRecoveryState()) {
               const root = getRepository(dependencies.repositoryRoot);
               recovery =
-                (await recoverRuntimeOwnedDockerTaskForCurrentConsumer(
+                (await recoverDockerTaskForCurrentConsumer(
                   item.recoveryId,
                   root.status === "completed" ? root.capability : null,
                   cancellationSignal,
+                  typeof dependencies.repositoryRoot === "string"
+                    ? dependencies.repositoryRoot
+                    : undefined,
                 )) ?? null;
             }
             const fresh = readCurrentRecoveryState(item);
@@ -4693,7 +4750,7 @@ async function executeCoordinatorObjective(
         if (!exactRecoveryCompleted(recovery, item.kind, item.recoveryId))
           return blockObjectiveRecoveryItem(
             request,
-            "orchestrator_task_recovery_not_settled",
+            "coordinator_task_recovery_not_settled",
             item,
           );
         if (item.kind === "docker") {
@@ -4710,7 +4767,7 @@ async function executeCoordinatorObjective(
           )
             return blockObjectiveRecoveryItem(
               request,
-              "orchestrator_task_recovery_not_settled",
+              "coordinator_task_recovery_not_settled",
               item,
             );
           await writeRecoveryPhaseDiagnostic(
@@ -4760,7 +4817,7 @@ async function executeCoordinatorObjective(
       }));
       // 終結可否は同じ世代のTaskを排他下で検査するEMの確定操作が所有する。
       if (!readCurrentRecoveryState())
-        return blocked(request, "orchestrator_task_recovery_not_settled", {
+        return blocked(request, "coordinator_task_recovery_not_settled", {
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
           effectState: "unknown",
@@ -4792,7 +4849,7 @@ async function executeCoordinatorObjective(
       recoveryState = saved.value;
       state = captureObjectiveRecoveryWrite(saved);
       if (!state.taskStartCandidates)
-        return blocked(request, "orchestrator_state_observation_unknown", {
+        return blocked(request, "coordinator_state_observation_unknown", {
           knownState: state.value,
           queueId,
           cleanupConfirmed: false,
@@ -4820,10 +4877,10 @@ async function executeCoordinatorObjective(
     );
     if (
       outstanding.some(
-        ({ kind }) => kind !== "docker" && kind !== "runtime_process",
+        ({ kind }) => kind !== "docker" && kind !== "execution_process",
       )
     )
-      return blocked(request, "orchestrator_external_recovery_required", {
+      return blocked(request, "coordinator_external_recovery_required", {
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         effectState: "unknown",
@@ -4883,8 +4940,8 @@ async function executeCoordinatorObjective(
       if (
         retryWrite.status !== "completed" &&
         [
-          "orchestrator_task_recovery_batch_invalid",
-          "orchestrator_task_recovery_batch_mismatch",
+          "coordinator_task_recovery_batch_invalid",
+          "coordinator_task_recovery_batch_mismatch",
         ].includes(retryWrite.reason)
       )
         return blocked(request, retryWrite.reason, {
@@ -4900,7 +4957,7 @@ async function executeCoordinatorObjective(
         });
       state = captureObjectiveRecoveryWrite(retryWrite);
       if (!state.taskStartCandidates)
-        return blocked(request, "orchestrator_state_observation_unknown", {
+        return blocked(request, "coordinator_state_observation_unknown", {
           knownState: state.value,
           queueId,
           cleanupConfirmed: false,
@@ -4923,7 +4980,7 @@ async function executeCoordinatorObjective(
   if (queue.state === "queued" || queue.state === "waiting_foreground") {
     const currentState = state.value;
     if (!currentState)
-      return blocked(request, "orchestrator_state_observation_unknown", {
+      return blocked(request, "coordinator_state_observation_unknown", {
         knownState: state.value,
         queueId,
         cleanupConfirmed: false,
@@ -4944,7 +5001,7 @@ async function executeCoordinatorObjective(
     if (!selected.value || selected.value.queueId !== queueId)
       return createCoordinatorObjectiveResult(request, {
         status: "blocked",
-        reason: "orchestrator_objective_queued_waiting_foreground",
+        reason: "coordinator_objective_queued_waiting_foreground",
         queueId,
         projection: projectCoordinatorState(
           currentState,
@@ -4963,7 +5020,7 @@ async function executeCoordinatorObjective(
       state.taskStartCandidates,
     );
     if (queue.state === "completed" && projection.milestoneState !== "accepted")
-      return blocked(request, "orchestrator_terminal_replay_mismatch", {
+      return blocked(request, "coordinator_terminal_replay_mismatch", {
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         effectState: "unknown",
@@ -4972,10 +5029,10 @@ async function executeCoordinatorObjective(
       status: queue.state === "cancelled" ? "cancelled" : "completed",
       reason:
         queue.state === "integration_pending"
-          ? "orchestrator_tasks_already_integration_pending"
+          ? "coordinator_tasks_already_integration_pending"
           : queue.state === "completed"
-            ? "orchestrator_objective_already_accepted"
-            : "orchestrator_objective_already_cancelled",
+            ? "coordinator_objective_already_accepted"
+            : "coordinator_objective_already_cancelled",
       queueId,
       projection,
     });
@@ -4987,7 +5044,7 @@ async function executeCoordinatorObjective(
     );
     return createCoordinatorObjectiveResult(request, {
       status: "blocked",
-      reason: `orchestrator_objective_${queue.state}`,
+      reason: `coordinator_objective_${queue.state}`,
       queueId,
       projection: projectCoordinatorState(
         state.value,
@@ -4996,7 +5053,7 @@ async function executeCoordinatorObjective(
       cleanupConfirmed: !manualRecoveryRequired,
       manualRecoveryRequired,
       processRestartRequired: outstandingRecoveries.some(
-        (entry) => entry.kind === "runtime_process",
+        (entry) => entry.kind === "execution_process",
       ),
       recoveryIds: Object.freeze(
         outstandingRecoveries.map((entry) => entry.recoveryId),
@@ -5013,7 +5070,7 @@ async function executeCoordinatorObjective(
   }
   const executableState = state.value;
   if (!executableState)
-    return blocked(request, "orchestrator_state_observation_unknown", {
+    return blocked(request, "coordinator_state_observation_unknown", {
       knownState: state.value,
       queueId,
       cleanupConfirmed: false,
@@ -5031,7 +5088,7 @@ async function executeCoordinatorObjective(
     taskExecutions = null;
   }
   if (!taskExecutions)
-    return blocked(request, "orchestrator_task_execution_set_invalid");
+    return blocked(request, "coordinator_task_execution_set_invalid");
   const execution = await runCoordinatorOperation({
     ...dependencies.execution,
     kind: "scheduled",
@@ -5054,7 +5111,7 @@ async function executeCoordinatorObjective(
       ? inspectTaskStartCandidates(latest.value, latest.taskStartCandidates)
       : null;
   if (latest.status === "completed" && latest.value && !latestCandidates)
-    return blocked(request, "orchestrator_state_observation_unknown", {
+    return blocked(request, "coordinator_state_observation_unknown", {
       knownState: latest.value,
       queueId,
       recoveryIds: execution.recoveryIds,
@@ -5169,6 +5226,7 @@ export function runObjective(
   cancellationSignal: AbortSignal,
   workingDirectory = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,
+  workspaceTarget?: PreparedWorkspaceTarget | null,
 ) {
   // 既定のcwd評価が失敗した時は従来どおり同期で通知する。
   return (async () => {
@@ -5177,7 +5235,7 @@ export function runObjective(
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
-        reason: "orchestrator_objective_request_invalid",
+        reason: "coordinator_objective_request_invalid",
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
@@ -5185,14 +5243,14 @@ export function runObjective(
     if (request.adoptResult)
       return createCoordinatorObjectiveResult(request, {
         status: "blocked",
-        reason: "orchestrator_explicit_workspace_adoption_required",
+        reason: "coordinator_explicit_workspace_adoption_required",
       });
     const principalId = authenticationContext?.principalId;
     if (!isPrincipalId(principalId))
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
-        reason: "orchestrator_authenticated_principal_not_verified",
+        reason: "coordinator_authenticated_principal_not_verified",
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
@@ -5201,7 +5259,7 @@ export function runObjective(
       !(cancellationSignal instanceof AbortSignal) ||
       cancellationSignal.aborted
     )
-      return blocked(request, "orchestrator_objective_cancelled_before_start");
+      return blocked(request, "coordinator_objective_cancelled_before_start");
     let repositoryRoot: string;
     try {
       repositoryRoot =
@@ -5210,7 +5268,7 @@ export function runObjective(
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
-        reason: "orchestrator_repository_root_not_verified",
+        reason: "coordinator_repository_root_not_verified",
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
@@ -5230,6 +5288,13 @@ export function runObjective(
       intake,
     );
     if (replay) return replay;
+    const preparedWorkspace = capturePreparedWorkspaceTarget(workspaceTarget);
+    if (
+      request.operation === "start" &&
+      request.workspaceId &&
+      !preparedWorkspace
+    )
+      return blocked(request, "coordinator_workspace_target_changed");
     const identity = readRepositorySnapshot(
       getRepository(repositoryRoot).capability,
     );
@@ -5240,7 +5305,7 @@ export function runObjective(
           projectId: "invalid",
           milestoneId: "invalid",
         }) as CoordinatorObjectiveRequest,
-        "orchestrator_objective_request_invalid",
+        "coordinator_objective_request_invalid",
       );
     let revisionConfirmed = false;
     try {
@@ -5263,7 +5328,7 @@ export function runObjective(
       !validIdentity(repositoryBindingId) ||
       repositoryRoot.length === 0
     )
-      return blocked(request, "orchestrator_binding_not_verified");
+      return blocked(request, "coordinator_binding_not_verified");
     const groupId = `group-${createHash("sha256").update(`${request.projectId}\0${request.requestId}`).digest("hex").slice(0, 40)}`;
     const groupState: ObjectiveExecutionRecording = {
       repositoryRoot,
@@ -5285,6 +5350,7 @@ export function runObjective(
         intake,
         execution: {
           recording: groupState,
+          workspaceTarget: preparedWorkspace,
         },
       },
       request,
@@ -5292,7 +5358,7 @@ export function runObjective(
     );
     if (
       execution.contract === COORDINATOR_PUBLIC_RUNTIME_CONTRACT ||
-      execution.reason === "orchestrator_objective_request_reused"
+      execution.reason === "coordinator_objective_request_reused"
     )
       return execution;
     const eiGroup = groupState.group;
@@ -5313,23 +5379,23 @@ export function runObjective(
       }
     }
     const wasIntegrationPending =
-      execution.reason === "orchestrator_tasks_already_integration_pending";
+      execution.reason === "coordinator_tasks_already_integration_pending";
     if (execution.projection?.milestoneState === "accepted")
       return wasIntegrationPending
         ? Object.freeze({
             ...execution,
             status: "completed" as const,
-            reason: "orchestrator_objective_already_accepted",
+            reason: "coordinator_objective_already_accepted",
           })
         : execution;
     if (
       !execution.queueId ||
       (!wasIntegrationPending &&
-        execution.reason !== "orchestrator_tasks_completed_integration_pending")
+        execution.reason !== "coordinator_tasks_completed_integration_pending")
     )
       return execution;
     const snapshot = readState(
-      verifyRuntimePersistenceRepository(repositoryRoot),
+      resolveExecutionStorageDirectory(repositoryRoot),
       repositoryBindingId,
       "queue",
     );
@@ -5346,7 +5412,7 @@ export function runObjective(
       return Object.freeze({
         ...execution,
         status: "blocked" as const,
-        reason: "orchestrator_workspace_target_unconfirmed",
+        reason: "coordinator_workspace_target_unconfirmed",
         cleanupConfirmed: false,
       });
     const ready = workspacePlanReadyForAcceptance(
@@ -5362,8 +5428,8 @@ export function runObjective(
       status: "blocked" as const,
       reason:
         queue.workspaceId != null && !ready
-          ? "orchestrator_workspace_adoption_required"
-          : "orchestrator_quality_acceptance_required",
+          ? "coordinator_workspace_adoption_required"
+          : "coordinator_quality_acceptance_required",
     });
   })().catch((error: unknown) => {
     if (
@@ -5412,7 +5478,7 @@ async function executeAcceptedCoordinatorObjective(
         projectId: "invalid",
         milestoneId: "invalid",
       }) as CoordinatorObjectiveRequest,
-      "orchestrator_objective_request_invalid",
+      "coordinator_objective_request_invalid",
     );
 
   const { binding, intake } = dependencies;
@@ -5424,9 +5490,7 @@ async function executeAcceptedCoordinatorObjective(
   );
   if (replay) return replay;
 
-  const repository = verifyRuntimePersistenceRepository(
-    binding.workingDirectory,
-  );
+  const repository = resolveExecutionStorageDirectory(binding.workingDirectory);
   const result = await executeCoordinatorObjective(
     {
       authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
@@ -5436,6 +5500,12 @@ async function executeAcceptedCoordinatorObjective(
         repository,
         repositoryBindingId: binding.repositoryBindingId,
         intake,
+        prepareStorage: () => {
+          const verified = getRepository(repository.directory);
+          if (verified.status !== "completed")
+            throw new Error("coordinator_repository_root_invalid");
+          return prepareExecutionStorageIgnore(verified.capability);
+        },
       }),
 
       execution: dependencies.execution,
@@ -5445,13 +5515,13 @@ async function executeAcceptedCoordinatorObjective(
   );
   if (
     result.status === "blocked" ||
-    result.reason === "orchestrator_objective_request_reused"
+    result.reason === "coordinator_objective_request_reused"
   )
     return result;
   const maintenanceNow = Date.now();
   const maintenance = retireStateRecords(
     historyRepositoryInput(
-      verifyRuntimePersistenceRepository(binding.workingDirectory),
+      resolveExecutionStorageDirectory(binding.workingDirectory),
     ),
     binding.repositoryBindingId,
     maintenanceNow,
@@ -5464,7 +5534,7 @@ async function executeAcceptedCoordinatorObjective(
         result.projection?.milestoneState === "accepted"
           ? null
           : result.projection,
-      reason: `${result.status === "cancelled" ? "orchestrator_cancelled_" : ""}${maintenance.reason}`,
+      reason: `${result.status === "cancelled" ? "coordinator_cancelled_" : ""}${maintenance.reason}`,
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
       effectState: "unknown" as const,
@@ -5625,7 +5695,7 @@ function prepareRepositoryAdvicePacket(
   try {
     if (cancellationSignal.aborted) return null;
     const observed = createFilesystemRepositoryObservationPort(
-      repositoryRootCapability,
+      repositoryRoot,
     ).observeFile(PROJECT_CONTEXT_REFERENCE);
     if (observed.status !== "resolved") return null;
     const content = observed.source;
@@ -6071,7 +6141,7 @@ async function executeProviderAdvice(
       false,
       true,
     );
-  if (isRuntimeProcessPoisoned())
+  if (isExecutionProcessPoisoned())
     return blockAdviceRuntime(
       "workbench_ai_advice_process_restart_required",
       false,
@@ -6098,7 +6168,7 @@ async function executeProviderAdvice(
       cleanupConfirmed: result.cleanupConfirmed,
       manualRecoveryRequired:
         failure?.manualRecoveryRequired ?? !result.cleanupConfirmed,
-      processRestartRequired: isRuntimeProcessPoisoned(),
+      processRestartRequired: isExecutionProcessPoisoned(),
     });
     return result;
   };
@@ -6107,7 +6177,7 @@ async function executeProviderAdvice(
     operation = await openAdviceOperation(
       context,
       cancellationSignal,
-      () => !cancellationSignal.aborted && !isRuntimeProcessPoisoned(),
+      () => !cancellationSignal.aborted && !isExecutionProcessPoisoned(),
     );
     hostCompletion = {
       ownedOperation: operation.owned,
@@ -6121,7 +6191,7 @@ async function executeProviderAdvice(
         "workbench_ai_advice_cancelled_during_operation_creation",
       );
 
-    const repositoryBinding = bindRuntimeOwnedRepositoryOperation(
+    const repositoryBinding = bindRepositoryOperation(
       operation.managementCapability,
       context.repositoryRoot,
     );
@@ -6143,7 +6213,7 @@ async function executeProviderAdvice(
         "workbench_ai_advice_operation_save_unconfirmed",
       );
     }
-    const preflight = preflightRuntimeOwnedDelegationSelections(
+    const preflight = preflightDelegationSelections(
       operation.managementCapability,
       Object.freeze({
         operationId: operation.operationId,
@@ -6153,8 +6223,7 @@ async function executeProviderAdvice(
     if (preflight.status !== "matched")
       throw new AdviceRuntimeError("workbench_ai_advice_selection_unavailable");
 
-    const observation =
-      inspectRuntimeOwnedWindowsProviderHomeCandidate(provider);
+    const observation = inspectWindowsProviderHomeCandidate(provider);
     const providerHome = observation.providerHome;
     if (
       observation.status !== "candidate" ||
@@ -6164,7 +6233,7 @@ async function executeProviderAdvice(
       throw new AdviceRuntimeError(
         "workbench_ai_advice_provider_home_unavailable",
       );
-    const packet = issueRuntimeOwnedProviderAdvicePacket({
+    const packet = issueProviderAdvicePacket({
       operationId: operation.operationId,
       executionSelection: plan.executionSelection,
       provider,
@@ -6181,7 +6250,7 @@ async function executeProviderAdvice(
         "workbench_ai_advice_runtime_packet_unavailable",
       );
 
-    const process = startRuntimeOwnedDockerProcessController(
+    const process = startDockerProcessController(
       provider,
       {
         purpose: "advice",
@@ -6200,11 +6269,7 @@ async function executeProviderAdvice(
           recoveryHandoffRejected ||
           !hostCompletion ||
           hostCompletion.dockerHandoffs.length > 0 ||
-          !registerRuntimeOwnedDockerHandoff(
-            hostCompletion,
-            capability,
-            recoveryId,
-          )
+          !registerDockerHandoff(hostCompletion, capability, recoveryId)
         ) {
           recoveryHandoffRejected = true;
           return false;
@@ -6241,7 +6306,7 @@ async function executeProviderAdvice(
       { controlCapability: startedControl, completion },
       (control) => {
         cancellationTransferred = true;
-        return cancelRuntimeOwnedExecutorAttempt(control, startedManagement);
+        return cancelExecutorAttempt(control, startedManagement);
       },
       cancellationSignal,
     );
@@ -6258,7 +6323,7 @@ async function executeProviderAdvice(
       : result.status === "completed"
         ? null
         : (stringValue(result.reason) ?? "workbench_ai_advice_provider_failed");
-    const handoff = matchRuntimeOwnedDockerHandoff(
+    const handoff = matchDockerHandoff(
       hostCompletion,
       hostCompletion.dockerHandoffs[0]?.recoveryId ?? null,
       result.recoveryFinalizationCapability,
@@ -6278,8 +6343,8 @@ async function executeProviderAdvice(
         "workbench_ai_advice_normalized_result_invalid",
       );
 
-    recordRuntimeOwnedDockerHandoffCompletion(handoff, result);
-    const settled = await completeRuntimeOwnedHostOperation(hostCompletion);
+    recordDockerHandoffCompletion(handoff, result);
+    const settled = await completeHostOperation(hostCompletion);
     if (settled.error !== undefined) throw settled.error;
     if (settled.status !== "completed")
       throw new AdviceRuntimeError(
@@ -6327,7 +6392,7 @@ async function executeProviderAdvice(
     if (processControl && operation && !cancellationTransferred) {
       cancellationTransferred = true;
       try {
-        await cancelRuntimeOwnedExecutorAttempt(
+        await cancelExecutorAttempt(
           processControl,
           operation.managementCapability,
         );
@@ -6337,7 +6402,7 @@ async function executeProviderAdvice(
     packetOwner = null;
     if (packet) {
       try {
-        if (revokeRuntimeOwnedProviderAdvicePacket(packet) !== true)
+        if (revokeProviderAdvicePacket(packet) !== true)
           authorityCleanupConfirmed = false;
       } catch {
         authorityCleanupConfirmed = false;
@@ -6357,7 +6422,7 @@ async function executeProviderAdvice(
       !unresolved
     ) {
       try {
-        const cleanup = await completeRuntimeOwnedHostOperation(hostCompletion);
+        const cleanup = await completeHostOperation(hostCompletion);
         cleanupConfirmed =
           cleanup.status === "completed" && hostCompletion.hostCleanupCompleted;
       } catch {
@@ -6370,12 +6435,12 @@ async function executeProviderAdvice(
       dockerRecoveryId === null;
     if (hostCompletion && (unresolved || !cleanupConfirmed)) {
       try {
-        await retainRuntimeOwnedHostOperation(hostCompletion);
+        await retainHostOperation(hostCompletion);
       } catch {}
     }
     if (!cleanupConfirmed) {
       try {
-        poisonRuntimeProcessAfterCleanupUnknown();
+        poisonExecutionProcessAfterCleanupUnknown();
       } catch {
         // 終了通知の例外でも一次結果と同じ回復参照を登録する。
       }
@@ -6705,7 +6770,6 @@ export type TaskCompletionRecord = RuntimeRecord &
 type ControlRecord = HostCompletionTarget & {
   hostInput?: HostOperationRecording;
   workspaceTarget?: BorrowedExecutionTarget;
-  borrowedWorkspaceCapability?: object;
   currentProcessControl: object | null;
   cancellationRequested: boolean;
   cancellationReceipt: Promise<RuntimeRecord> | null;
@@ -6715,7 +6779,7 @@ type ControlRecord = HostCompletionTarget & {
   retainOperationRoot: boolean;
   processPoisoned: boolean;
   recoveryCorrelationId: string | null;
-  consumer: "coordinator_cli" | "workbench" | "orchestrator";
+  consumer: "coordinator_cli" | "workbench" | "coordinator";
   observeProviderStarted:
     | ((notice: ProcessStartedNotice) => void | Promise<void>)
     | undefined;
@@ -6978,7 +7042,7 @@ function requestControlCancellation(control: ControlRecord) {
         cancellationRequested: true,
         processTerminationObserved: true,
       });
-    const observed = await cancelRuntimeOwnedExecutorAttempt(
+    const observed = await cancelExecutorAttempt(
       processControl,
       control.managementCapability,
     );
@@ -7000,7 +7064,7 @@ function requestControlCancellation(control: ControlRecord) {
         if (outcome === "unknown") {
           control.cancellationProtocolFailure = true;
           try {
-            poisonRuntimeProcess(control);
+            poisonExecutionProcess(control);
           } catch {
             control.processPoisoned = true;
           }
@@ -7153,19 +7217,19 @@ function canRunManagedDockerCleanup(
  * @responsibility poison Runtime Processの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input control: ControlRecord
- * @returns N/A: poisonRuntimeProcessは戻り値を返さない。
- * @precondition 「control: ControlRecord」がpoisonRuntimeProcessの入力契約を満たす。
- * @postcondition poisonRuntimeProcessの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: poisonRuntimeProcessは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: poisonRuntimeProcessは独自の失敗分岐を所有しない。
- * @invariant poisonRuntimeProcessは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: poisonRuntimeProcessはProcess内の同一Subsystemで完結する。
- * @security poisonRuntimeProcessはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: poisonRuntimeProcessは共有非同期状態を持たない同期処理である。
+ * @returns N/A: poisonExecutionProcessは戻り値を返さない。
+ * @precondition 「control: ControlRecord」がpoisonExecutionProcessの入力契約を満たす。
+ * @postcondition poisonExecutionProcessの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: poisonExecutionProcessは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: poisonExecutionProcessは独自の失敗分岐を所有しない。
+ * @invariant poisonExecutionProcessは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: poisonExecutionProcessはProcess内の同一Subsystemで完結する。
+ * @security poisonExecutionProcessはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: poisonExecutionProcessは共有非同期状態を持たない同期処理である。
  */
-function poisonRuntimeProcess(control: ControlRecord) {
+function poisonExecutionProcess(control: ControlRecord) {
   control.processPoisoned = true;
-  poisonRuntimeProcessAfterCleanupUnknown();
+  poisonExecutionProcessAfterCleanupUnknown();
 }
 
 /**
@@ -7313,97 +7377,6 @@ function projectProviderPreparationFailure(reason: unknown) {
   return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.prepareFailed;
 }
 
-/**
- * Pathsが同一かを判定する。
- *
- * @responsibility Pathsの同一性Propertyと一致／不一致境界を所有する。
- * @trace ARCH-000004
- * @input left: unknown、right: unknown
- * @returns samePathsの計算結果を返す。
- * @precondition 「left: unknown、right: unknown」がsamePathsの入力契約を満たす。
- * @postcondition samePathsの責務を完了した結果だけを返す。
- * @effect N/A: samePathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: samePathsは独自の失敗分岐を所有しない。
- * @invariant samePathsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: samePathsはProcess内の同一Subsystemで完結する。
- * @security samePathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: samePathsは共有非同期状態を持たない同期処理である。
- */
-function samePaths(left: unknown, right: unknown) {
-  if (!Array.isArray(left) || !Array.isArray(right)) return false;
-  const normalize = (values: unknown[]) =>
-    values.every((value) => typeof value === "string")
-      ? [...(values as string[])].sort((a, b) =>
-          Buffer.from(a).compare(Buffer.from(b)),
-        )
-      : null;
-  const normalizedLeftPaths = normalize(left);
-  const normalizedRightPaths = normalize(right);
-  return (
-    normalizedLeftPaths !== null &&
-    normalizedRightPaths !== null &&
-    normalizedLeftPaths.length === normalizedRightPaths.length &&
-    normalizedLeftPaths.every(
-      (value, index) => value === normalizedRightPaths[index],
-    )
-  );
-}
-
-/** 候補拒否時だけ固定診断を通知し、通知失敗で元の結果を変えない。
- * @responsibility 既存の実行診断と候補照合を同じTask・試行へ結合する。
- * @trace ERB-IT-021
- */
-function reportCandidateValidationFailure(
-  operation: Operation,
-  correlationId: string | null,
-  provider: unknown,
-  attempt: 0 | 1,
-  candidate: RuntimeRecord | null,
-  executorResult: RuntimeRecord,
-  executionObservation: CompletionResult<"attempt">["providerExecutionObservation"] = null,
-) {
-  try {
-    if (provider !== "codex" && provider !== "claude") return;
-    const captureStatus =
-      candidate?.status !== "candidate"
-        ? "unavailable"
-        : !objectCapability(candidate.candidateCapability)
-          ? "capability_unavailable"
-          : "captured";
-    const paths = (raw: unknown) => {
-      const value = snapshotPlainArray<unknown>(raw, Number.MAX_SAFE_INTEGER);
-      return value.status === "ok" &&
-        value.value.every((p) => typeof p === "string")
-        ? value.value
-        : null;
-    };
-    const actual =
-      captureStatus === "captured" ? paths(candidate?.changedPaths) : null;
-    const reported = paths(executorResult?.changedPaths);
-    const diagnostic = createCandidateValidationFailureDiagnostic({
-      captureStatus,
-      pathsMatch: actual && reported ? samePaths(actual, reported) : null,
-      candidatePathCount: actual?.length ?? null,
-      reportedPathCount: reported?.length ?? null,
-      providerExecutionObservation: executionObservation,
-    });
-    if (!diagnostic) return;
-    reportTaskDiagnostic(
-      Object.freeze({
-        event: "coordinator_task_candidate_validation_failed",
-        provider,
-        taskRole: "executor",
-        operationId: operation.operationId,
-        taskAttempt: attempt,
-        recoveryCorrelationId: correlationId,
-        diagnostic,
-      }),
-    );
-  } catch {
-    // Passive diagnostics never alter refusal, authority, or cleanup.
-  }
-}
-
 /** 正規化済みの各段階を件数・分類だけで通知する。
  * @responsibility 通知失敗を実行結果・Authority・cleanupへ伝播させない。
  * @trace ERB-IT-021
@@ -7414,7 +7387,7 @@ function reportTaskStage(
   provider: unknown,
   attempt: 0 | 1,
   result: RuntimeRecord,
-  candidate?: RuntimeRecord,
+  taskRole: TaskRole = "reviewer",
   executionObservation: CompletionResult<"attempt">["providerExecutionObservation"] = null,
 ) {
   try {
@@ -7426,9 +7399,9 @@ function reportTaskStage(
       "security_or_authority_defect",
     ];
     const review =
-      candidate === undefined ? projectReviewerResultDiagnostics(result) : null;
+      taskRole === "reviewer" ? projectReviewerResultDiagnostics(result) : null;
     const diagnostic = createTaskStageDiagnostic(
-      candidate === undefined
+      taskRole === "reviewer"
         ? {
             taskRole: "reviewer",
             decision: review?.decision,
@@ -7443,14 +7416,9 @@ function reportTaskStage(
         : {
             taskRole: "executor",
             result: {
-              captureStatus: "captured",
-              pathsMatch: samePaths(
-                candidate.changedPaths,
-                result.changedPaths,
-              ),
-              candidatePathCount: Array.isArray(candidate.changedPaths)
-                ? candidate.changedPaths.length
-                : null,
+              captureStatus: "unavailable",
+              pathsMatch: null,
+              candidatePathCount: null,
               reportedPathCount: Array.isArray(result.changedPaths)
                 ? result.changedPaths.length
                 : null,
@@ -7520,10 +7488,8 @@ async function executeStage(
     if (task) {
       try {
         if (
-          revokeRuntimeOwnedProviderTaskPacket(
-            task,
-            operation.managementCapability,
-          ).status !== "revoked"
+          revokeProviderTaskPacket(task, operation.managementCapability)
+            .status !== "revoked"
         )
           revocationConfirmed = false;
       } catch {
@@ -7532,7 +7498,7 @@ async function executeStage(
     }
     if (!revocationConfirmed) {
       try {
-        poisonRuntimeProcess(control);
+        poisonExecutionProcess(control);
       } catch {
         // controlは通知前にpoison済み。通知例外で一次理由・元回復参照を失わせない。
       }
@@ -7550,7 +7516,7 @@ async function executeStage(
     if (provider !== expectedProvider) {
       return revokeUnconsumed("coordinator_task_selection_slate_mismatch");
     }
-    const preflight = preflightRuntimeOwnedDelegationSelections(
+    const preflight = preflightDelegationSelections(
       operation.managementCapability,
       Object.freeze({
         operationId: operation.operationId,
@@ -7559,8 +7525,7 @@ async function executeStage(
     );
     if (preflight.status !== "matched")
       return blockTaskCompletion("coordinator_task_selection_failed");
-    const observation =
-      inspectRuntimeOwnedWindowsProviderHomeCandidate(provider);
+    const observation = inspectWindowsProviderHomeCandidate(provider);
     const providerHome = observation.providerHome;
     if (
       observation.status !== "candidate" ||
@@ -7588,7 +7553,7 @@ async function executeStage(
           speedMode: "normal",
           selectionReason: selectionNotice,
           inputBasis:
-            "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
+            "caller_declared_task_attributes_plus_provider_preselection_candidate_with_deferred_provider_preflight",
           callerDeclaredAttributes: Object.freeze([
             "workClass",
             "planState",
@@ -7603,7 +7568,7 @@ async function executeStage(
     } catch {
       // 任意の選定表示は実行許可ではない。
     }
-    const packet: RuntimeRecord | null = issueRuntimeOwnedProviderTaskPacket(
+    const packet: RuntimeRecord | null = issueProviderTaskPacket(
       operation.managementCapability,
       repositoryBindingCapability,
       provider,
@@ -7632,7 +7597,7 @@ async function executeStage(
     if (control.cancellationRequested) {
       return revokeUnconsumed("coordinator_task_cancelled_before_stage_start");
     }
-    const process = startRuntimeOwnedDockerProcessController(
+    const process = startDockerProcessController(
       provider,
       {
         purpose: "task",
@@ -7646,7 +7611,7 @@ async function executeStage(
         consumer: control.consumer,
       },
       (capability, recoveryId) =>
-        registerRuntimeOwnedDockerHandoff(control, capability, recoveryId),
+        registerDockerHandoff(control, capability, recoveryId),
       control.observeProviderStarted,
       control.executionMetadata,
       control.executionRecordings,
@@ -7701,7 +7666,7 @@ async function executeStage(
     }
     const handoff =
       result.cleanupConfirmed === true
-        ? matchRuntimeOwnedDockerHandoff(
+        ? matchDockerHandoff(
             control,
             startedDockerRecoveryId,
             result.recoveryFinalizationCapability,
@@ -7716,7 +7681,7 @@ async function executeStage(
       );
     }
     if (handoff !== "not_tracked")
-      recordRuntimeOwnedDockerHandoffCompletion(handoff, result);
+      recordDockerHandoffCompletion(handoff, result);
     if (control.cancellationRequested) {
       const dockerRecoveryIds = controlDockerRecoveryIds(control);
       return Object.freeze({
@@ -7774,8 +7739,7 @@ async function executeStage(
     ) {
       try {
         reviewRemediation =
-          registerRuntimeOwnedReviewFindings(handoff.capability, result) ??
-          null;
+          registerReviewFindings(handoff.capability, result) ?? null;
       } catch {}
     }
     return Object.freeze({
@@ -7793,7 +7757,7 @@ async function executeStage(
     if (startedProcessControl) {
       if (!control.cancellationRequested) {
         try {
-          await cancelRuntimeOwnedExecutorAttempt(
+          await cancelExecutorAttempt(
             startedProcessControl,
             operation.managementCapability,
           );
@@ -7881,8 +7845,7 @@ async function runCoordinatorTaskCore(
   }
   let dockerRecoveryState: unknown;
   try {
-    dockerRecoveryState =
-      inspectRuntimeOwnedDockerTaskAdmission(repositoryRoot);
+    dockerRecoveryState = inspectDockerTaskAdmission(repositoryRoot);
   } catch {
     dockerRecoveryState = null;
   }
@@ -7908,7 +7871,7 @@ async function runCoordinatorTaskCore(
     operation = await openTaskOperation(
       control.cancellationController.signal,
       () => {
-        if (control.cancellationRequested || isRuntimeProcessPoisoned())
+        if (control.cancellationRequested || isExecutionProcessPoisoned())
           return false;
         const current = inspectRepositoryObjectFormatCandidate(repositoryRoot);
         return (
@@ -7923,7 +7886,7 @@ async function runCoordinatorTaskCore(
     if (control.cancellationRequested) {
       return blocked("coordinator_task_cancelled_during_operation_creation");
     }
-    const repository = bindRuntimeOwnedRepositoryOperation(
+    const repository = bindRepositoryOperation(
       operation.managementCapability,
       repositoryRoot,
     );
@@ -7933,7 +7896,7 @@ async function runCoordinatorTaskCore(
     if (repository?.repositoryBound !== true || !repositoryBinding) {
       return blocked("coordinator_task_repository_binding_failed");
     }
-    const externalSendPolicy = resolveRuntimeOwnedExternalSendPolicy(
+    const externalSendPolicy = resolveExternalSendPolicy(
       operation.managementCapability,
       repositoryBinding,
     );
@@ -7949,7 +7912,7 @@ async function runCoordinatorTaskCore(
     const fixedSelections = request.taskExecutionSelections;
     if (!fixedSelections)
       return blocked("coordinator_task_execution_slate_unavailable");
-    const slate = preflightRuntimeOwnedDelegationSelections(
+    const slate = preflightDelegationSelections(
       operation.managementCapability,
       Object.freeze({
         operationId: operation.operationId,
@@ -7975,33 +7938,21 @@ async function runCoordinatorTaskCore(
         ...result,
         candidateDisposition: "not_issued" as const,
       });
-    const workspace: RuntimeRecord | null = bindRuntimeOwnedExecutionSnapshot(
+    const workspace: RuntimeRecord | null = bindExecutionWorkspace(
       repositoryBinding,
       operation.managementCapability,
       operation.mountCapability,
       request.readPaths as readonly string[],
       control.workspaceTarget,
     );
-    const workspaceCapability = objectCapability(
-      workspace?.workspaceCapability,
-    );
-    if (workspace?.status !== "materialized" || !workspaceCapability) {
+    if (workspace?.status !== "materialized")
       return candidateNotIssued(
-        blocked(
-          workspace?.reason ===
-            "repository_read_projection_recognized_secret_rejected"
-            ? "coordinator_task_read_projection_recognized_secret_rejected"
-            : "coordinator_task_workspace_materialization_failed",
-        ),
+        blocked("coordinator_task_workspace_materialization_failed"),
       );
-    }
-    if (control.workspaceTarget) {
-      if (workspace.borrowed !== true)
-        return candidateNotIssued(
-          blocked("coordinator_task_workspace_borrowing_unavailable"),
-        );
-      control.borrowedWorkspaceCapability = workspaceCapability;
-    }
+    if (workspace.borrowed !== true)
+      return candidateNotIssued(
+        blocked("coordinator_task_workspace_borrowing_unavailable"),
+      );
     const executor = await executeStage(
       operation,
       request,
@@ -8019,7 +7970,7 @@ async function runCoordinatorTaskCore(
     }
     if (control.cancellationRequested) {
       return candidateNotIssued(
-        blocked("coordinator_task_cancelled_before_candidate_capture"),
+        blocked("coordinator_task_cancelled_before_independent_review"),
       );
     }
     let finalExecutor = executor;
@@ -8038,67 +7989,23 @@ async function runCoordinatorTaskCore(
         );
     };
     retainTurnObservation(executor, 0);
-    let candidate: RuntimeRecord | null = captureExecutionChangeSnapshot(
-      workspaceCapability,
-      repositoryBinding,
-      operation.managementCapability,
-      operation.mountCapability,
-      request.allowedPaths as readonly string[],
-    );
-    let candidateCapability = objectCapability(candidate?.candidateCapability);
-    if (
-      control.workspaceTarget &&
-      Array.isArray(candidate?.unexpectedPaths) &&
-      candidate.unexpectedPaths.length > 0
-    )
-      return candidateNotIssued(
-        blocked("coordinator_task_workspace_unexpected_changes"),
-      );
-    if (
-      candidate?.status !== "candidate" ||
-      !candidateCapability ||
-      executorResult?.status !== "completed" ||
-      !samePaths(executorResult.changedPaths, candidate.changedPaths)
-    ) {
-      if (candidate?.reason !== "candidate_recognized_secret_rejected")
-        reportCandidateValidationFailure(
-          operation,
-          control.recoveryCorrelationId,
-          executor.provider,
-          0,
-          candidate,
-          executorResult,
-          executor.providerExecutionObservation,
-        );
-      return candidateNotIssued(
-        blocked(
-          candidate?.reason === "candidate_recognized_secret_rejected"
-            ? "coordinator_task_candidate_recognized_secret_rejected"
-            : "coordinator_task_candidate_revision_invalid",
-        ),
-      );
-    }
     reportTaskStage(
       operation,
       control.recoveryCorrelationId,
       executor.provider,
       0,
       executorResult,
-      candidate,
+      "executor",
       executor.providerExecutionObservation,
     );
-    if (control.cancellationRequested) {
+    if (control.cancellationRequested)
       return candidateNotIssued(
         blocked("coordinator_task_cancelled_before_independent_review"),
       );
-    }
-    const reviewerReadProjection = projectReviewerReadContent(
-      workspaceCapability,
-      candidateCapability,
+    const reviewerReadProjection = prepareReviewerWorkspace(
       repositoryBinding,
       operation.managementCapability,
       operation.mountCapability,
-      request.readPaths as readonly string[],
     );
     if (reviewerReadProjection?.status !== "projected") {
       return candidateNotIssued(
@@ -8132,21 +8039,10 @@ async function runCoordinatorTaskCore(
     let finalReviewerReadProjection = reviewerReadProjection;
     retainTurnObservation(reviewer, 0);
     let remediationPerformed = false;
-    if (reviewerResult?.decision === "changes_requested") {
-      // レビュー中にTreeが変わった場合、その結果を入力に限定是正を始めない。
-      // 同じ既存Candidate検査を使い、新しいLockや監視を追加しない。
-      if (
-        verifyExecutionChangeSnapshot(
-          candidateCapability,
-          repositoryBinding,
-          operation.managementCapability,
-          operation.mountCapability,
-        )?.status !== "verified"
-      ) {
-        return candidateNotIssued(
-          blocked("coordinator_task_candidate_verification_failed"),
-        );
-      }
+    if (
+      reviewerResult?.decision === "changes_requested" &&
+      reviewerReadProjection.withheldFileCount === 0
+    ) {
       const remediationCapability = objectCapability(
         reviewer.remediationCapability,
       );
@@ -8174,62 +8070,23 @@ async function runCoordinatorTaskCore(
       finalExecutor = remediation;
       executorResult = remediation.normalizedResult as RuntimeRecord;
       retainTurnObservation(remediation, 1);
-      candidate = captureExecutionChangeSnapshot(
-        workspaceCapability,
-        repositoryBinding,
-        operation.managementCapability,
-        operation.mountCapability,
-        request.allowedPaths as readonly string[],
-      );
-      candidateCapability = objectCapability(candidate?.candidateCapability);
-      if (
-        candidate?.status !== "candidate" ||
-        !candidateCapability ||
-        executorResult?.status !== "completed" ||
-        !samePaths(executorResult.changedPaths, candidate.changedPaths)
-      ) {
-        if (candidate?.reason !== "candidate_recognized_secret_rejected")
-          reportCandidateValidationFailure(
-            operation,
-            control.recoveryCorrelationId,
-            remediation.provider,
-            1,
-            candidate,
-            executorResult,
-            remediation.providerExecutionObservation,
-          );
-        return candidateNotIssued(
-          blocked(
-            candidate?.reason === "candidate_recognized_secret_rejected"
-              ? "coordinator_task_candidate_recognized_secret_rejected"
-              : "coordinator_task_remediated_candidate_invalid",
-          ),
-        );
-      }
       reportTaskStage(
         operation,
         control.recoveryCorrelationId,
         remediation.provider,
         1,
         executorResult,
-        candidate,
+        "executor",
         remediation.providerExecutionObservation,
       );
-      if (
-        control.workspaceTarget &&
-        Array.isArray(candidate.unexpectedPaths) &&
-        candidate.unexpectedPaths.length > 0
-      )
+      if (control.cancellationRequested)
         return candidateNotIssued(
-          blocked("coordinator_task_workspace_unexpected_changes"),
+          blocked("coordinator_task_cancelled_before_independent_review"),
         );
-      const remediationReviewerReadProjection = projectReviewerReadContent(
-        workspaceCapability,
-        candidateCapability,
+      const remediationReviewerReadProjection = prepareReviewerWorkspace(
         repositoryBinding,
         operation.managementCapability,
         operation.mountCapability,
-        request.readPaths as readonly string[],
       );
       if (remediationReviewerReadProjection?.status !== "projected") {
         return candidateNotIssued(
@@ -8263,19 +8120,9 @@ async function runCoordinatorTaskCore(
       finalReviewerReadProjection = remediationReviewerReadProjection;
       retainTurnObservation(reviewer, 1);
     }
-    const verified = verifyExecutionChangeSnapshot(
-      candidateCapability,
-      repositoryBinding,
-      operation.managementCapability,
-      operation.mountCapability,
-    );
-    if (verified?.status !== "verified") {
-      return Object.freeze({
-        ...blocked("coordinator_task_candidate_verification_failed"),
-        candidateDisposition: "not_issued" as const,
-      });
-    }
+    const reviewIncomplete = finalReviewerReadProjection.withheldFileCount > 0;
     if (
+      reviewIncomplete ||
       reviewerResult?.decision !== "approved" ||
       reviewerResult.findingCount !== 0
     ) {
@@ -8289,17 +8136,16 @@ async function runCoordinatorTaskCore(
         finalReviewerReadProjection,
       );
       return Object.freeze({
-        ...blocked("coordinator_task_independent_review_not_approved"),
+        ...blocked(
+          reviewIncomplete
+            ? "coordinator_task_reviewer_coverage_incomplete"
+            : "coordinator_task_independent_review_not_approved",
+        ),
         candidateDisposition: "not_issued" as const,
         executorProvider: executor.provider,
         reviewerProvider: reviewer.provider,
         reviewerIndependence,
         remediationPerformed,
-        candidateRevision: Object.freeze({
-          baseCommitId: verified.baseCommitId,
-          candidateCommitId: verified.candidateCommitId,
-          changedPaths: verified.changedPaths,
-        }),
         executorResult: executorDiagnostics,
         reviewerResult: reviewerDiagnostics,
         reviewerProjectionEvidence,
@@ -8437,9 +8283,10 @@ async function runCoordinatorTask(
   });
 }
 
-const reportProviderBoundaryDiagnostic =
-  createRuntimeOwnedLifecycleNoticeReporter(process.stderr);
-const reportSelectionNotice = createRuntimeOwnedLifecycleNoticeReporter(
+const reportProviderBoundaryDiagnostic = createLifecycleNoticeReporter(
+  process.stderr,
+);
+const reportSelectionNotice = createLifecycleNoticeReporter(
   process.stderr,
   "[Coordinator selection]",
 );
@@ -8476,7 +8323,7 @@ async function openTaskOperation(
 /** Taskの結果投影に必要なHost保持状態を更新し、共通の失敗終結へ渡す。 @trace ARCH-000004 */
 function retainRuntimeRecoveryState(control: ControlRecord) {
   control.retainOperationRoot = !control.hostCleanupCompleted;
-  return retainRuntimeOwnedHostOperation(control);
+  return retainHostOperation(control);
 }
 
 /** 受け付けたTaskを同じ状態へ登録し、元の完了まで調停する。
@@ -8492,10 +8339,7 @@ function startTask(
   observeProviderStarted?: (
     notice: ProcessStartedNotice,
   ) => void | Promise<void>,
-  consumer:
-    | "coordinator_cli"
-    | "workbench"
-    | "orchestrator" = "coordinator_cli",
+  consumer: "coordinator_cli" | "workbench" | "coordinator" = "coordinator_cli",
   workspaceTarget?: BorrowedExecutionTarget,
   executionMetadata: Readonly<Record<string, string>> = {},
   hostInput?: HostOperationRecording,
@@ -8503,7 +8347,7 @@ function startTask(
   if (
     consumer !== "coordinator_cli" &&
     consumer !== "workbench" &&
-    consumer !== "orchestrator"
+    consumer !== "coordinator"
   )
     throw new Error("coordinator_task_consumer_invalid");
   if (
@@ -8555,7 +8399,7 @@ function startTask(
         if (control.retainOperationRoot)
           await retainRuntimeRecoveryState(control);
         else if (control.ownedOperation || control.dockerHandoffs.length > 0) {
-          const settled = await completeRuntimeOwnedHostOperation(control);
+          const settled = await completeHostOperation(control);
           if (control.hostCleanupCompleted)
             result = Object.freeze({ ...result, hostRecoveryId: null });
           if (settled.error !== undefined) throw settled.error;
@@ -8659,7 +8503,7 @@ function startTask(
       try {
         await retainRuntimeRecoveryState(control);
       } catch {
-        poisonRuntimeProcess(control);
+        poisonExecutionProcess(control);
       }
       return blockTaskCompletion(
         "coordinator_task_operation_cleanup_unconfirmed",
@@ -8677,7 +8521,7 @@ function startTask(
       try {
         if (control.cancellationRequested && control.cancellationSettlement)
           await control.cancellationSettlement;
-        control.processPoisoned ||= isRuntimeProcessPoisoned();
+        control.processPoisoned ||= isExecutionProcessPoisoned();
         if (control.cancellationProtocolFailure) {
           const manualRecoveryRequired = result.manualRecoveryRequired === true;
           result = Object.freeze({
@@ -8708,7 +8552,6 @@ function startTask(
     .then((result): TaskCompletionRecord => {
       if (control.workspaceTarget) {
         const workspaceResult = projectBorrowedExecutionResult(
-          control.borrowedWorkspaceCapability,
           control.workspaceTarget,
         );
         result = Object.freeze({
@@ -8761,32 +8604,29 @@ const taskControls = new WeakMap<object, ControlRecord>();
  * @responsibility Runtime 所有 Coordinator Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000004
  * @input Task要求、Repository Root、回復相関ID、任意のProvider接続用Host Process開始確認と本番組立ての固定利用側。JSON要求から利用側を取得しない。
- * @returns startRuntimeOwnedCoordinatorTaskの計算結果を返す。
+ * @returns startCoordinatorTaskの計算結果を返す。
  * @precondition 実行Processの片付けが確定しており、要求・Root・回復相関IDが下位Runtimeの入力契約を満たす。
- * @postcondition startRuntimeOwnedCoordinatorTaskの責務を完了した結果だけを返す。
+ * @postcondition startCoordinatorTaskの責務を完了した結果だけを返す。
  * @effect Taskを開始し、下位Runtimeの検査と外部送信許可が成立した場合だけ隔離実行を委譲する。
- * @failure startRuntimeOwnedCoordinatorTaskは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant startRuntimeOwnedCoordinatorTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @failure startCoordinatorTaskは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant startCoordinatorTaskは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 通常Task入口からRepository検査、外部送信許可、隔離実行への境界。
- * @security startRuntimeOwnedCoordinatorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @security startCoordinatorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency Process停止条件を開始前に確認し、返したControlと完了Promiseで同じTaskを追跡する。
  */
-export function startRuntimeOwnedCoordinatorTask(
+export function startCoordinatorTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
   recoveryCorrelationId: unknown = null,
   observeProviderStarted?: (
     notice: ProcessStartedNotice,
   ) => void | Promise<void>,
-  consumer:
-    | "coordinator_cli"
-    | "workbench"
-    | "orchestrator" = "coordinator_cli",
+  consumer: "coordinator_cli" | "workbench" | "coordinator" = "coordinator_cli",
   rawWorkspaceTarget?: BorrowedExecutionTarget,
   executionMetadata: Readonly<Record<string, string>> = {},
   hostInput?: HostOperationRecording,
 ) {
-  if (isRuntimeProcessPoisoned()) {
+  if (isExecutionProcessPoisoned()) {
     throw new Error("coordinator_task_process_restart_required");
   }
   if (
@@ -8803,7 +8643,7 @@ export function startRuntimeOwnedCoordinatorTask(
   if (
     consumer !== "coordinator_cli" &&
     consumer !== "workbench" &&
-    consumer !== "orchestrator"
+    consumer !== "coordinator"
   )
     throw new Error("coordinator_task_consumer_invalid");
   return startTask(
@@ -8825,23 +8665,23 @@ export function startRuntimeOwnedCoordinatorTask(
  * @responsibility Runtime 所有 Coordinator Taskの取消条件、終了状態、残存Effectの境界を所有する。
  * @trace ARCH-000004
  * @input controlCapability: unknown
- * @returns cancelRuntimeOwnedCoordinatorTaskの計算結果を返す。
- * @precondition 「controlCapability: unknown」がcancelRuntimeOwnedCoordinatorTaskの入力契約を満たす。
- * @postcondition cancelRuntimeOwnedCoordinatorTaskの責務を完了した結果だけを返す。
- * @effect N/A: cancelRuntimeOwnedCoordinatorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: cancelRuntimeOwnedCoordinatorTaskは独自の失敗分岐を所有しない。
- * @invariant cancelRuntimeOwnedCoordinatorTaskは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: cancelRuntimeOwnedCoordinatorTaskはProcess内の同一Subsystemで完結する。
- * @security cancelRuntimeOwnedCoordinatorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: cancelRuntimeOwnedCoordinatorTaskは共有非同期状態を持たない同期処理である。
+ * @returns cancelCoordinatorTaskの計算結果を返す。
+ * @precondition 「controlCapability: unknown」がcancelCoordinatorTaskの入力契約を満たす。
+ * @postcondition cancelCoordinatorTaskの責務を完了した結果だけを返す。
+ * @effect N/A: cancelCoordinatorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: cancelCoordinatorTaskは独自の失敗分岐を所有しない。
+ * @invariant cancelCoordinatorTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: cancelCoordinatorTaskはProcess内の同一Subsystemで完結する。
+ * @security cancelCoordinatorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: cancelCoordinatorTaskは共有非同期状態を持たない同期処理である。
  */
-export function cancelRuntimeOwnedCoordinatorTask(controlCapability: unknown) {
+export function cancelCoordinatorTask(controlCapability: unknown) {
   return cancelTask(taskControls, controlCapability);
 }
 
 /** 同じ試行の診断に相関値を補い、受動出力へ渡す。 @trace ARCH-000008 */
 function reportAttemptDiagnostic(
-  report: ReturnType<typeof createRuntimeOwnedLifecycleNoticeReporter>,
+  report: ReturnType<typeof createLifecycleNoticeReporter>,
   plan: PreparedAttemptPlan<Provider>,
   notice:
     | Parameters<NonNullable<ExecutorCallbacks<"attempt">["onDiagnostic"]>>[0]
@@ -8862,7 +8702,7 @@ function beginAttemptRecording(
   management: unknown,
   executionMetadata: Readonly<Record<string, string>>,
 ): ProviderExecutionRecording | null {
-  const source = borrowRuntimeOwnedCoordinatorStateRepository(management);
+  const source = borrowCoordinatorStateRepository(management);
   const repository = source ? getRepository(source.repositoryRoot) : null;
   if (repository?.status === "completed")
     return beginProviderExecutionRecording(
@@ -8939,7 +8779,7 @@ function blockedAttemptStart(
  * @security 任意CLI／Processを追加注入しない。
  * @concurrency 返されたcompletionは上位が終了まで管理する。
  */
-export function startRuntimeOwnedDockerProcessController(
+export function startDockerProcessController(
   provider: Provider,
   input: PreparationInput,
   handoff: (capability: object, recoveryId: string) => boolean,
@@ -8971,7 +8811,7 @@ export function startRuntimeOwnedDockerProcessController(
       plan,
       management,
       handoff,
-      createRuntimeOwnedLifecycleNoticeReporter(process.stderr),
+      createLifecycleNoticeReporter(process.stderr),
       () => {
         if (recordingAttempted) return;
         recordingAttempted = true;
@@ -9013,7 +8853,7 @@ function settleInvalidRecoveryStart(
 ) {
   if (recoveryCapability && typeof recoveryCapability === "object") {
     try {
-      abandonRuntimeOwnedDockerRecovery(recoveryCapability);
+      abandonDockerRecovery(recoveryCapability);
     } catch {}
   }
   return blockedAttemptStart(reason, {
@@ -9033,7 +8873,7 @@ function startRecordedAttempt(
   plan: PreparedAttemptPlan<Provider>,
   management: object,
   recovery: Recovery,
-  report: ReturnType<typeof createRuntimeOwnedLifecycleNoticeReporter>,
+  report: ReturnType<typeof createLifecycleNoticeReporter>,
   observeProviderSubmission: () => void,
   observeStarted?: (notice: ProcessStartedNotice) => void | Promise<void>,
 ): RecordedStartResult {
@@ -9062,15 +8902,12 @@ function startRecordedAttempt(
     },
     onCommandNotIssued: (purpose) => {
       requireRecorded(
-        recordRuntimeOwnedDockerResourceNotIssued(
-          recovery.recoveryCapability,
-          purpose,
-        ),
+        recordDockerResourceNotIssued(recovery.recoveryCapability, purpose),
       );
     },
     onProviderSubmitting: () => {
       requireRecorded(
-        recordRuntimeOwnedDockerProviderSubmission(recovery.recoveryCapability),
+        recordDockerProviderSubmission(recovery.recoveryCapability),
       );
       observeProviderSubmission();
     },
@@ -9131,7 +8968,7 @@ function startRecordedAttempt(
         observation.resources === null
       )
         return;
-      const saved = recordRuntimeOwnedAttemptCleanup({
+      const saved = recordAttemptCleanup({
         plan,
         managementCapability: management,
         recoveryCapability: recovery.recoveryCapability,
@@ -9145,7 +8982,7 @@ function startRecordedAttempt(
       cleanup = saved;
     },
   };
-  const bound = bindRuntimeOwnedExecutorAttempt(
+  const bound = bindExecutorAttempt(
     recovery.recoveryCapability,
     management,
     executor,
@@ -9162,7 +8999,7 @@ function startRecordedAttempt(
   let controlBindingConfirmed = true;
   if (
     started.status === "started" &&
-    !bindRuntimeOwnedExecutorAttempt(
+    !bindExecutorAttempt(
       recovery.recoveryCapability,
       management,
       executor,
@@ -9183,13 +9020,9 @@ function startRecordedAttempt(
       started.reason ===
       "docker_process_controller_home_lock_descriptor_close_unconfirmed"
     )
-      poisonRuntimeProcessAfterCleanupUnknown();
+      poisonExecutionProcessAfterCleanupUnknown();
     try {
-      recordRuntimeOwnedUnstartedAttempt(
-        recovery.recoveryCapability,
-        management,
-        started,
-      );
+      recordUnstartedAttempt(recovery.recoveryCapability, management, started);
     } catch {
       /* 同じ未開始参照と回復義務を保持する。 */
     }
@@ -9210,8 +9043,7 @@ function startRecordedAttempt(
           throw Error("executor_control_binding_failed");
         const observation = terminalObservation;
         if (!observation) throw Error("terminal_observation_missing");
-        const revisionValid =
-          !!verifyRuntimeOwnedRepositoryOperation(management);
+        const revisionValid = !!verifyRepositoryOperation(management);
         const taskCleanupConfirmed = result.cleanupConfirmed;
         const blockedReason = !revisionValid
           ? "repository_revision_changed"
@@ -9239,7 +9071,7 @@ function startRecordedAttempt(
             result.manualRecoveryRequired || !cleanup.recoveryCompleted,
         });
         if (observation.resources !== null)
-          await recordRuntimeOwnedDockerTerminalObservation(
+          await recordDockerTerminalObservation(
             recovery.recoveryCapability,
             final,
             Object.freeze({
@@ -9269,7 +9101,7 @@ function startHostAttempt(
   plan: PreparedAttemptPlan<Provider>,
   managementCapability: unknown,
   registerRecoveryHandoff: unknown,
-  report: ReturnType<typeof createRuntimeOwnedLifecycleNoticeReporter>,
+  report: ReturnType<typeof createLifecycleNoticeReporter>,
   observeProviderSubmission: () => void,
   observeProviderStarted?: (
     notice: ProcessStartedNotice,
@@ -9285,30 +9117,25 @@ function startHostAttempt(
   }
   if (!plan)
     return blockedAttemptStart("docker_process_controller_plan_invalid");
-  if (!verifyRuntimeOwnedRepositoryOperation(managementCapability)) {
+  if (!verifyRepositoryOperation(managementCapability)) {
     return blockedAttemptStart("docker_process_controller_revision_invalid", {
       cleanupConfirmed: true,
     });
   }
   let recoveryStartFailure: RecoveryStartFailureDiagnostic | null = null;
   let failureObserved = false;
-  const recovery = beginRuntimeOwnedDockerRecovery(
-    plan,
-    managementCapability,
-    (raw) => {
-      if (failureObserved) return;
-      failureObserved = true;
-      const value = inspectRecoveryStartFailureDiagnostic(raw);
-      recoveryStartFailure =
-        value &&
-        (value.recoveryId === null ||
-          parseDockerTaskRecoveryId(value.recoveryId)
-            ?.stableLogicalHomeBindingHash ===
-            plan.stableLogicalHomeBindingHash)
-          ? value
-          : Object.freeze({ stage: "unknown", recoveryId: null });
-    },
-  );
+  const recovery = beginDockerRecovery(plan, managementCapability, (raw) => {
+    if (failureObserved) return;
+    failureObserved = true;
+    const value = inspectRecoveryStartFailureDiagnostic(raw);
+    recoveryStartFailure =
+      value &&
+      (value.recoveryId === null ||
+        parseDockerTaskRecoveryId(value.recoveryId)
+          ?.stableLogicalHomeBindingHash === plan.stableLogicalHomeBindingHash)
+        ? value
+        : Object.freeze({ stage: "unknown", recoveryId: null });
+  });
   const readyRecovery = snapshotReadyRecovery(recovery);
   if (!readyRecovery) {
     if (failureObserved && recoveryStartFailure) {
@@ -9357,7 +9184,7 @@ function startHostAttempt(
       let isVerified = false;
       try {
         isVerified =
-          bindRuntimeOwnedDockerInitializationFailure(
+          bindDockerInitializationFailure(
             exactBlocked.recoveryCapability,
             exactBlocked.recoveryId,
             managementCapability,
@@ -9368,7 +9195,7 @@ function startHostAttempt(
       } catch {}
       if (isVerified) {
         try {
-          abandonRuntimeOwnedDockerRecovery(exactBlocked.recoveryCapability);
+          abandonDockerRecovery(exactBlocked.recoveryCapability);
         } catch {}
         return stopped;
       }
@@ -9404,7 +9231,7 @@ function startHostAttempt(
     !parsedRecoveryId ||
     parsedRecoveryId.stableLogicalHomeBindingHash !==
       plan.stableLogicalHomeBindingHash ||
-    verifyRuntimeOwnedDockerRecoveryBinding(
+    verifyDockerRecoveryBinding(
       readyRecovery.recoveryCapability,
       parsedRecoveryId?.token ?? readyRecovery.recoveryId,
       managementCapability,

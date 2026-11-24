@@ -14,7 +14,23 @@ export {
   type CoordinatorExecutionDependencies,
   type CoordinatorExecutionOperation,
 } from "./execution.ts";
-export { prepareWorkspaceOperation } from "./workspace.ts";
-export { readAuthorizedRuntimeActivity } from "./execution.ts";
+/** Workspaceの実行基盤は、対象操作の受付時だけ読み込む。 @trace ARCH-000012 */
+export async function prepareWorkspaceOperation(
+  input: unknown,
+  signal: AbortSignal,
+) {
+  if (signal.aborted) return null;
+  const {
+    executeWorkspace,
+    inspectWorkspaceCommand,
+    resolveLocalWorkspaceAccess,
+  } = await import("./workspace.ts");
+  if (signal.aborted) return null;
+  const command = inspectWorkspaceCommand(input);
+  return command
+    ? { command, executeWorkspace, resolveLocalWorkspaceAccess }
+    : null;
+}
+export { readAuthorizedExecutionActivity } from "./execution.ts";
 export { readAuthorizedPortfolio } from "./project-context.ts";
 export { resolveTopicMeetingAccess } from "./topic.ts";

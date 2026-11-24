@@ -185,7 +185,7 @@ export function describeDockerIsolationExecutionEnvironment() {
       shellAllowed: false,
     }),
     engine: DOCKER_ENGINE,
-    environment: "runtime_owned_minimal_replacement",
+    environment: "minimal_environment_replacement",
     processTermination: "node_kill_owned_process_then_close",
   });
 }

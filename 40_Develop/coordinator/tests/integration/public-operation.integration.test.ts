@@ -30,12 +30,13 @@ import { withCallerPlan } from "../../../execution-model/tests/fixtures/executio
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { getGroup } from "../../../execution-intelligence/src/index.ts";
+import { capturePreparedWorkspaceTarget } from "../../src/lifecycle/workspace.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   getExecutionIntelligenceStore,
   RepositoryDataBlockedError,
   requireReadyRepositoryExecutionDataArea,
-  verifyRuntimePersistenceRepository,
+  resolveExecutionStorageDirectory,
 } from "../../src/lifecycle/host.ts";
 import { acceptResult, submitDecision } from "../../src/lifecycle/decision.ts";
 import {
@@ -116,6 +117,7 @@ test("公開Objectiveは既定cwdと受付・実行の既知例外を区別す�
       return accepted;
     },
     isPrincipalId: () => true,
+    capturePreparedWorkspaceTarget,
     resolveVerifiedRepositoryRootFromWorkingDirectory: (value: string) => {
       assert.equal(value, "known-root");
       return value;
@@ -314,7 +316,7 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
   t.mock.module("../../src/lifecycle/host.ts", {
     namedExports: {
       ...areas,
-      verifyRuntimePersistenceRepository: () => ({}),
+      resolveExecutionStorageDirectory: () => ({}),
       historyRepositoryInput: () => {
         throw new Error("unexpected_history_boundary");
       },
@@ -420,9 +422,10 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed")
     throw new Error("fixture_root_not_verified");
+  fs.mkdirSync(path.join(root, ".crdd", "config"), { recursive: true });
   assert.equal(
     saveRepositoryAiSelection(
-      verified.capability,
+      root,
       { expectedIdentity: null, config: selectionConfig() },
       () => true,
       getModelCatalog().catalog,
@@ -430,7 +433,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
     "saved",
   );
   const initialized = initializeExecutionStore(
-    verifyRuntimePersistenceRepository(root),
+    resolveExecutionStorageDirectory(root),
     `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`,
   );
   assert.equal(initialized.status, "completed");
@@ -467,7 +470,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
       });
       assert.equal(Object.hasOwn(delivered, "requestedProfileId"), false);
       assert.equal(Object.hasOwn(delivered, "frontProvider"), false);
-      assert.equal(consumer, "orchestrator");
+      assert.equal(consumer, "coordinator");
       assert.deepEqual(workspaceTarget, {
         workspaceId: null,
         ownerRepositoryRoot: root,
@@ -556,7 +559,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
     );
     assert.equal(
       denied.reason,
-      "orchestrator_authenticated_principal_not_verified",
+      "coordinator_authenticated_principal_not_verified",
     );
     const decisionDenied = submitDecision(
       {
@@ -573,12 +576,12 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
     );
     assert.equal(
       decisionDenied.reason,
-      "orchestrator_authenticated_principal_not_verified",
+      "coordinator_authenticated_principal_not_verified",
     );
     const acceptanceDenied = acceptResult({}, root, context);
     assert.equal(
       acceptanceDenied.reason,
-      "orchestrator_authenticated_principal_not_verified",
+      "coordinator_authenticated_principal_not_verified",
     );
     assert.ok("effectState" in acceptanceDenied);
     assert.equal(acceptanceDenied.effectState, "no_effect");
@@ -617,7 +620,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
     Object.freeze({ principalId: "local.email.fixture@example.invalid" }),
   );
   assert.equal(result.status, "blocked", JSON.stringify(result));
-  assert.equal(result.reason, "orchestrator_quality_acceptance_required");
+  assert.equal(result.reason, "coordinator_quality_acceptance_required");
   const expectedGroupId = `group-${createHash("sha256").update("project-public-runtime\0request-public-runtime").digest("hex").slice(0, 40)}`;
   assert.equal(deliveredMetadata[0]?.groupId, expectedGroupId);
   assert.equal(deliveredMetadata[0]?.workType, "coding");
@@ -655,7 +658,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
   );
   assert.equal(
     resumedPending.reason,
-    "orchestrator_quality_acceptance_required",
+    "coordinator_quality_acceptance_required",
   );
   assert.ok("queueId" in resumedPending && "queueId" in result);
   assert.equal(resumedPending.queueId, result.queueId);
@@ -699,7 +702,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
   ) =>
     acceptResult(
       {
-        contract: "crdd-coordinator/orchestrator-acceptance-decision/v1",
+        contract: "crdd-coordinator/acceptance-decision/v1",
         decisionId,
         blockerId: `blocker-${decisionId}`,
         sourceSpecId: "SPEC-000002",
@@ -725,7 +728,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
   );
   assert.equal(
     differentUser.reason,
-    "orchestrator_authenticated_principal_not_verified",
+    "coordinator_authenticated_principal_not_verified",
   );
   assert.ok("effectState" in differentUser);
   assert.equal(differentUser.effectState, "no_effect");
@@ -771,10 +774,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
   assert.equal(after.status, "completed");
   assert.equal(after.observationState, "observed");
   assert.equal(after.projection?.milestoneState, "accepted");
-  assert.equal(
-    result.contract,
-    "crdd-coordinator/orchestrator-objective-intake/v4",
-  );
+  assert.equal(result.contract, "crdd-coordinator/objective-intake/v4");
   assert.equal(result.requestId, "request-public-runtime");
   assert.equal(result.projectId, "project-public-runtime");
   assert.equal(result.milestoneId, "milestone-public-runtime");
@@ -804,7 +804,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
   );
   assert.equal(
     cleanupBlocked.reason,
-    "orchestrator_explicit_workspace_adoption_required",
+    "coordinator_explicit_workspace_adoption_required",
   );
   assert.equal(cleanupBlocked.cleanupConfirmed, true);
   assert.equal(cleanupBlocked.manualRecoveryRequired, false);
@@ -835,7 +835,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
     Object.freeze({ principalId: "local.email.fixture@example.invalid" }),
   );
   assert.equal(replay.status, "completed", JSON.stringify(replay));
-  assert.equal(replay.reason, "orchestrator_objective_request_reused");
+  assert.equal(replay.reason, "coordinator_objective_request_reused");
   assert.equal(taskStarts, 1);
 
   const publicationBlocked = await executeObjective(
@@ -862,7 +862,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
   assert.equal(publicationBlocked.status, "blocked");
   assert.equal(
     publicationBlocked.reason,
-    "orchestrator_quality_acceptance_required",
+    "coordinator_quality_acceptance_required",
   );
   assert.equal(publicationObservations.length, 0);
   assert.equal(taskStarts, 2);
@@ -891,7 +891,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
   assert.equal(diagnosticFailed.status, "blocked");
   assert.equal(
     diagnosticFailed.reason,
-    "orchestrator_quality_acceptance_required",
+    "coordinator_quality_acceptance_required",
   );
   assert.equal(taskStarts, 3);
   const graphRequest = {
@@ -961,7 +961,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
     );
     assert.equal(
       denied.reason,
-      "orchestrator_authenticated_principal_not_verified",
+      "coordinator_authenticated_principal_not_verified",
     );
     assert.equal(taskStarts, 3);
   }
@@ -973,7 +973,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
   );
   assert.equal(
     graphResult.reason,
-    "orchestrator_quality_acceptance_required",
+    "coordinator_quality_acceptance_required",
     JSON.stringify(graphResult),
   );
   assert.equal(taskStarts, 5);
@@ -997,7 +997,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
     root,
     { principalId: "local.email.fixture@example.invalid" },
   );
-  assert.equal(graphReplay.reason, "orchestrator_objective_request_reused");
+  assert.equal(graphReplay.reason, "coordinator_objective_request_reused");
   assert.equal(taskStarts, 5);
   const changedGraph = await executeObjective(
     {
@@ -1013,7 +1013,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
   assert.equal(changedGraph.status, "blocked");
   assert.equal(
     changedGraph.reason,
-    "orchestrator_objective_request_identity_conflict",
+    "coordinator_objective_request_identity_conflict",
   );
   assert.equal(changedGraph.effectState, "no_effect");
   assert.equal(changedGraph.cleanupConfirmed, true);

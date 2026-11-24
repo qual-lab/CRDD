@@ -23,7 +23,6 @@ import { deriveRepositoryBindingId } from "../../../access-management/src/reposi
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { validateViewResponse } from "../../../workbench-ui/src/api/response.ts";
 import { startWorkbench } from "../../src/app.ts";
 
 /**
@@ -182,16 +181,17 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
           { headers },
         );
         assert.equal(response.status, 200);
-        const model = validateViewResponse(await response.json());
-        assert.equal(model.view, "artifact");
-        if (model.view === "artifact") {
-          assert.equal(model.repositoryId, `repo.${suffix}`);
-          assert.equal(model.selectedRepositoryId, model.repositoryId);
-          assert.equal(
-            model.artifact.markdown,
-            `# 原文-${suffix}\n<script>globalThis.__artifactProbe=1</script>\n`,
-          );
-        }
+        assert.deepEqual(await response.json(), {
+          contract: "crdd/workbench/view/v1",
+          view: "artifact",
+          repositoryId: `repo.${suffix}`,
+          selectedRepositoryId: `repo.${suffix}`,
+          artifact: {
+            kind: route === "/change" ? "change" : "owner",
+            identity,
+            markdown: `# 原文-${suffix}\n<script>globalThis.__artifactProbe=1</script>\n`,
+          },
+        });
       }
     const largeRelative = "99_Roadmap/large.md";
     const largeMarkdown = `# 大きい変更計画\n${"x".repeat(524289)}`;
@@ -225,13 +225,17 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
       { headers },
     );
     assert.equal(largeResponse.status, 200);
-    const largeModel = validateViewResponse(await largeResponse.json());
-    assert.equal(largeModel.view, "artifact");
-    if (largeModel.view === "artifact") {
-      assert.equal(largeModel.repositoryId, "repo.a");
-      assert.equal(largeModel.selectedRepositoryId, "repo.a");
-      assert.equal(largeModel.artifact.markdown, largeMarkdown);
-    }
+    assert.deepEqual(await largeResponse.json(), {
+      contract: "crdd/workbench/view/v1",
+      view: "artifact",
+      repositoryId: "repo.a",
+      selectedRepositoryId: "repo.a",
+      artifact: {
+        kind: "owner",
+        identity: largeRelative,
+        markdown: largeMarkdown,
+      },
+    });
     const anonymous = await fetch(
       handle.baseUrl + query("repo.a", "/change", "CHG-000301"),
     );
@@ -342,10 +346,17 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
         { headers },
       );
       assert.equal(response.status, 200);
-      const model = validateViewResponse(await response.json());
-      assert.equal(model.view, "artifact");
-      if (model.view === "artifact")
-        assert.equal(model.artifact.markdown, largeChange);
+      assert.deepEqual(await response.json(), {
+        contract: "crdd/workbench/view/v1",
+        view: "artifact",
+        repositoryId: "repo.a",
+        selectedRepositoryId: "repo.a",
+        artifact: {
+          kind: "change",
+          identity: "CHG-000301",
+          markdown: largeChange,
+        },
+      });
     };
     fs.writeFileSync(file, largeChange);
     try {

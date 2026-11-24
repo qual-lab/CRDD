@@ -146,7 +146,13 @@ test("Version Controlの公開SymbolはArchitectureの現行集合と完全一�
     architecture,
   )?.[1];
   assert.ok(section, "Version Control Architectureの公開Symbol節");
-  const declaredExports = [...section.matchAll(/`([A-Za-z][A-Za-z0-9_]*)`/gu)]
+  const symbolTable = section
+    .split(/\r?\n/u)
+    .filter((line) => line.startsWith("|"))
+    .join("\n");
+  const declaredExports = [
+    ...symbolTable.matchAll(/`([A-Za-z][A-Za-z0-9_]*)`/gu),
+  ]
     .map((match) => match[1] ?? "")
     .filter(Boolean)
     .sort();
@@ -154,7 +160,7 @@ test("Version Controlの公開SymbolはArchitectureの現行集合と完全一�
 
   const narrowEntrypoints = [
     {
-      heading: "Checker Observation",
+      heading: "Repository Observation",
       sourcePath: "40_Develop/version-control/src/index.ts",
     },
     {
