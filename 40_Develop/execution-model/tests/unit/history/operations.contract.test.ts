@@ -17,7 +17,7 @@ import {
   retainHistoryRows,
   taskHistoryLine,
   decisionHistoryLine,
-} from "../../../src/history/operations.ts";
+} from "../../../src/history/records.ts";
 import {
   prepareHistoryAppend,
   decodeHistoryRows,
@@ -283,6 +283,44 @@ test("履歴保持は期限外の必須行も欠測・両Hash差を拒否する"
       },
       NOW,
       30,
+    ),
+    null,
+  );
+});
+
+/** @trace HST-UT-001 別操作への追記だけがTaskの未出版行を待たない。 */
+test("別操作の履歴追記はTaskの未出版行を待たず同IDの差と確認済み欠落を拒む", () => {
+  const first = row("FIRST", NOW);
+  const second = row("SECOND", NOW);
+  const required = references([first, second]);
+  const scoped = {
+    ...required,
+    requiredRows: required.requiredRows.map((item) =>
+      item.recoveryId === first.recoveryId
+        ? { ...item, unpublishedTask: true as const }
+        : item,
+    ),
+  };
+  assert.equal(
+    retainHistoryRows([second], scoped, NOW, 30, second.recoveryId)?.toString(),
+    second.line,
+  );
+  assert.equal(retainHistoryRows([second], scoped, NOW, 30), null);
+  assert.equal(
+    retainHistoryRows([second], scoped, NOW, 30, first.recoveryId),
+    null,
+  );
+  assert.equal(
+    retainHistoryRows([first], scoped, NOW, 30, first.recoveryId),
+    null,
+  );
+  assert.equal(
+    retainHistoryRows(
+      [{ ...first, lineSha256: "f".repeat(64) }, second],
+      scoped,
+      NOW,
+      30,
+      second.recoveryId,
     ),
     null,
   );

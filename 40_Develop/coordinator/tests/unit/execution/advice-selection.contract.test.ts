@@ -22,16 +22,18 @@ import { loadAdviceDispatchFixture } from "../../support/task-requests.ts";
 const { dispatchAdviceRequest, executeAcceptedAdviceInput } =
   await loadAdviceDispatchFixture();
 const selection = executionSelection("advice");
-const prepared = prepareAdviceTask({
-  executionSelection: selection,
-  prompt: "現在状態を説明する",
-  projection: [
-    {
-      reference: "PROJECT_CONTEXT.md",
-      content: "# Project Context\n",
-    },
-  ],
-});
+const prepared = prepareAdviceTask(
+  {
+    prompt: "現在状態を説明する",
+    projection: [
+      {
+        reference: "PROJECT_CONTEXT.md",
+        content: "# Project Context\n",
+      },
+    ],
+  },
+  selection,
+);
 if (prepared.status !== "prepared" || prepared.taskPacket === null)
   throw new Error("test_task_packet_required");
 
@@ -73,7 +75,6 @@ test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => 
     Object.freeze({
       additionalHosts: Object.freeze([]),
       taskPacket: prepared.taskPacket,
-      executionSelection: selection,
     }),
     new AbortController().signal,
   );
@@ -107,7 +108,7 @@ test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => 
  * @cleanup N/A: Process外資源を生成しない局所検証である。
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
-test("選定契約不整合を全Executor Effect前に拒否する", async () => {
+test("技術Catalogと食い違うPacketの選定はExecutor Effect前に拒否する", async () => {
   let calls = 0;
   const adapterDependencies: [
     Parameters<typeof executeAcceptedAdviceInput>[0],
@@ -122,16 +123,18 @@ test("選定契約不整合を全Executor Effect前に拒否する", async () =>
       executeAcceptedAdviceInput(...adapterDependencies, input, signal),
     Object.freeze({
       additionalHosts: Object.freeze([]),
-      taskPacket: prepared.taskPacket,
-      executionSelection: Object.freeze({
-        ...selection,
-        provider: "claude" as const,
+      taskPacket: Object.freeze({
+        ...prepared.taskPacket,
+        executionSelection: Object.freeze({
+          ...selection,
+          identifierKind: "alias" as const,
+        }),
       }),
     }),
     new AbortController().signal,
   );
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "workbench_ai_advice_dispatch_input_invalid");
+  assert.equal(result.reason, "workbench_ai_advice_execution_plan_invalid");
   assert.equal(calls, 0);
 });
 
@@ -147,32 +150,19 @@ test("選定契約不整合を全Executor Effect前に拒否する", async () =>
  * @cleanup N/A: 外部資源を生成しない。
  * @boundary ERB-UT-023=Direct Boundary: Task Identity→Coordinator Provider Adapter
  */
-test("Task 選定不一致はAI Adapter移管後もExecutor Effect前に拒否する", async () => {
-  let calls = 0;
-  const adapterDependencies: [
-    Parameters<typeof executeAcceptedAdviceInput>[0],
-  ] = [
-    async () => {
-      calls++;
-      throw new Error("unreachable");
-    },
-  ];
-  const result = await dispatchAdviceRequest(
-    (input, signal) =>
-      executeAcceptedAdviceInput(...adapterDependencies, input, signal),
+test("Task向け選定から助言Packetを発行しない", () => {
+  const result = prepareAdviceTask(
     {
-      additionalHosts: Object.freeze([]),
-      taskPacket: {
-        ...prepared.taskPacket,
-        executionSelection: { ...selection, configIdentity: "f".repeat(64) },
-      },
-      executionSelection: selection,
+      prompt: prepared.taskPacket.prompt,
+      projection: prepared.taskPacket.projection.map(
+        ({ reference, content }) => ({ reference, content }),
+      ),
     },
-    new AbortController().signal,
+    executionSelection("executor"),
   );
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "workbench_ai_advice_dispatch_input_invalid");
-  assert.equal(calls, 0);
+  assert.equal(result.reason, "workbench_ai_advice_task_input_invalid");
+  assert.equal(result.providerEffectIssued, false);
 });
 
 /**

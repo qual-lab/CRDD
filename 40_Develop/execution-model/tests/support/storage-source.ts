@@ -15,18 +15,18 @@ import path from "node:path";
 import { types } from "node:util";
 import { runInThisContext } from "node:vm";
 import * as sharedLock from "../../../lock/src/index.ts";
-import * as attemptOperations from "../../src/attempt/operations.ts";
+import * as attemptOperations from "../../src/attempt/transition.ts";
 import * as attemptValidation from "../../src/attempt/validation.ts";
 import * as decisionValidation from "../../src/decision/validation.ts";
-import * as historyOperations from "../../src/history/operations.ts";
+import * as historyOperations from "../../src/history/records.ts";
 import * as historyValidation from "../../src/history/validation.ts";
 import * as domain from "../../src/index.ts";
 import * as objectiveValidation from "../../src/objective/validation.ts";
-import * as stateValues from "../../src/state/types.ts";
-import * as stateValidation from "../../src/state/validation.ts";
-import * as stateOperations from "../../src/state/operations.ts";
+import * as stateValues from "../../src/composition/types.ts";
+import * as stateValidation from "../../src/composition/transition.ts";
+import * as stateOperations from "../../src/composition/validation.ts";
 import * as taskValidation from "../../src/task/validation.ts";
-import * as objectiveOperations from "../../src/objective/operations.ts";
+import * as objectiveOperations from "../../src/objective/transition.ts";
 import * as workspaceValidation from "../../src/workspace/validation.ts";
 
 const unchangedSource = (source: string) => source;
@@ -56,8 +56,7 @@ const factories = new Map<
 export function createRuntimeStorageSourceFixture(
   transform: (source: string) => string = unchangedSource,
   overrides: Readonly<Record<string, unknown>> = {},
-): typeof import("../../src/storage/publication.ts") &
-  typeof import("../../src/state/crud.ts") &
+): typeof import("../../src/composition/crud.ts") &
   typeof import("../../src/attempt/crud.ts") &
   typeof import("../../src/decision/crud.ts") &
   typeof import("../../src/history/crud.ts") &
@@ -129,7 +128,7 @@ export function createRuntimeStorageSourceFixture(
 }
 
 /**
- * 固定11Sourceの読取りと型除去だけを一度準備する。
+ * 固定10Sourceの読取りと型除去だけを一度準備する。
  * @responsibility 変異前本文・元export一覧・通常本文の宣言名を保持し、実行値を保持しない。
  * @trace ERB-IT-014
  * @precondition 同じ試験Process中に製品Sourceを編集しない。
@@ -144,9 +143,8 @@ function prepareRuntimeStorageSource() {
   const files = [
     "../../src/storage/store.ts",
     "../../src/storage/lock.ts",
-    "../../src/state/crud.ts",
-    "../../src/state/lease.ts",
-    "../../src/storage/publication.ts",
+    "../../src/composition/crud.ts",
+    "../../src/lease/crud.ts",
     "../../src/attempt/crud.ts",
     "../../src/decision/crud.ts",
     "../../src/history/crud.ts",

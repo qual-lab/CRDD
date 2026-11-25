@@ -6,7 +6,6 @@
  * @boundary 専門Package依存と公式SDKのProtocol受付。
  * @security 認可をcacheせず、要求別Serverを再利用しない。
  */
-import type { Readable, Writable } from "node:stream";
 import {
   confirmInitialConnection,
   resolveConnectionAuthentication,
@@ -64,11 +63,7 @@ import {
   executeManagementOperation,
   type ManagementWriteOperation,
 } from "../service/access.ts";
-import type {
-  JsonRpcId,
-  McpResponse,
-  McpCoordinatorHttpOptions,
-} from "./mcp-types.ts";
+import type { JsonRpcId, McpResponse } from "./mcp-types.ts";
 import {
   handleMcpDiscoverRequest,
   MCP_SERVER_NAME,
@@ -82,8 +77,6 @@ import {
   listKeysNoCursor,
   callKeys,
 } from "./mcp-protocol.ts";
-import { startMcpStreamableHttp } from "./mcp-http.ts";
-import { runMcpStdio } from "./mcp-stdio.ts";
 
 export { MCP_COORDINATOR_PROTOCOL_VERSION } from "./mcp-protocol.ts";
 export {
@@ -563,60 +556,6 @@ function createInitialConnectionHandler(
       ? response
       : protocolError(response.id, -32603, "Initial connection unavailable");
   };
-}
-
-/**
- * Coordinator互換入口でStreamable HTTPを開始する。
- *
- * @responsibility 既存利用側をCoordinator Adapterへ接続する互換入口を維持する。
- * @trace ARCH-000012
- * @input dependenciesとHTTP optionsを受け取る。
- * @returns 待受情報と終了操作を持つServer Handleを返す。
- * @precondition dependenciesはCoordinator公開契約を満たす。
- * @postcondition 全RequestをCoordinator Adapterへだけ渡す。
- * @effect localhost listenerを開始し、HTTP応答を返す。
- * @failure TransportまたはAdapter失敗を安全に拒否する。
- * @invariant 既存公開関数の意味を変更しない。
- * @boundary localhost HTTPとCoordinator Adapterの互換境界。
- * @security HTTP認証とCoordinator Client認証を両方維持する。
- * @concurrency Requestごとの取消とServer全体のjoinを管理する。
- */
-export async function startMcpCoordinatorStreamableHttp(
-  dependencies: McpCoordinatorDependencies,
-  options: McpCoordinatorHttpOptions,
-) {
-  return startMcpStreamableHttp(
-    createMcpServerFactory({ coordinator: dependencies }),
-    options,
-  );
-}
-
-/**
- * Coordinator互換入口でMCP stdioを実行する。
- *
- * @responsibility 既存利用側をCoordinator Adapterへ接続する互換入口を維持する。
- * @trace ARCH-000012
- * @input dependencies、inputおよびoutputを受け取る。
- * @returns Transportの終了結果を返す。
- * @precondition dependenciesはCoordinator公開契約を満たす。
- * @postcondition 全RequestをCoordinator Adapterへだけ渡す。
- * @effect stdioを読取り、応答を書き込む。
- * @failure TransportまたはAdapter失敗をblockedへ閉じる。
- * @invariant 既存公開関数の意味を変更しない。
- * @boundary stdioとCoordinator Adapterの互換境界。
- * @security Coordinator Adapterの認証契約を維持する。
- * @concurrency 一つの入力Queueを順序保持して処理する。
- */
-export async function runMcpCoordinatorStdio(
-  dependencies: McpCoordinatorDependencies,
-  input: Readable,
-  output: Writable,
-) {
-  return runMcpStdio(
-    createMcpServerFactory({ coordinator: dependencies }),
-    input,
-    output,
-  );
 }
 
 export type {

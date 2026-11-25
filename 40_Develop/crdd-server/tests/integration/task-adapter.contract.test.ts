@@ -10,6 +10,7 @@
  * @boundary メモリ内の公式SDK受付から実行操作の有限依存まで。
  */
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import { registerHooks } from "node:module";
 import { Readable, Writable } from "node:stream";
@@ -20,29 +21,33 @@ import {
   observeObjectiveLeaseOwner,
 } from "../../../coordinator/src/lifecycle/host.ts";
 import {
-  inspectCoordinatorDecisionResult,
   inspectCoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveResult,
 } from "../../../coordinator/src/index.ts";
+import * as coordinatorOperations from "../../../coordinator/src/index.ts";
 import { inspectWorkspaceCommand } from "../../src/service/workspace.ts";
+import { executeCoordinatorOperation } from "../../src/service/execution.ts";
 import { createCoordinatorObjectiveResult } from "../../../coordinator/src/lifecycle/execution.ts";
 import {
   inspectTaskStartCandidates,
   projectCoordinatorState,
 } from "../../../coordinator/src/lifecycle/validation.ts";
 import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
-import { inspectTaskExecutionSelections } from "../../../execution-model/src/index.ts";
 import {
   projectExecutionFixture,
   withCallerPlan,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
+import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 import {
   MCP_COORDINATOR_PROTOCOL_VERSION,
   runMcpStdio,
 } from "../../src/transport/mcp-server.ts";
 import type { McpCoordinatorDependencies } from "../../src/transport/mcp-server.ts";
-import { invokeMcpCoordinatorRequest } from "../fixtures/sdk-request.ts";
+import {
+  invokeMcpCoordinatorRequest,
+  invokeMcpRequest,
+} from "../fixtures/sdk-request.ts";
 
 const MCP_COORDINATOR_DECISION_TOOL = "crdd.submit_decision";
 const MCP_COORDINATOR_OBJECTIVE_TOOL = "crdd.run_objective";
@@ -113,14 +118,13 @@ test("MCPは候補不明の停止でもexact回復情報と再起動必要性を
 
 /**
  * @trace PRL-IT-012
- * @precondition 判断結果とCandidate終了の正常な文字列入力を構築する。
- * @stimulus effectState／dispositionへ変換hook付きObjectとProxyを与える。
+ * @precondition Candidate終了の正常な文字列入力を構築する。
+ * @stimulus dispositionへ変換hook付きObjectとProxyを与える。
  * @observation 値拒否、未知コード実行0と正常入力の維持。
  * @oracle 不正な型を正しい語彙へ暗黙変換せず、権限や保存処置へ進まない。
  * @cleanup メモリのみ。
  */
-test("判断とWorkspace受付も未知Objectを文字列へ変換しない", () => {
-  const outcome = decisionOutcome(decision());
+test("Workspace受付は未知Objectを文字列へ変換しない", () => {
   const command = {
     operation: "close-candidate",
     projectId: "project-a",
@@ -130,43 +134,34 @@ test("判断とWorkspace受付も未知Objectを文字列へ変換しない", ()
     expectedCommit: null,
     disposition: "adopted",
   };
-  assert.ok(inspectCoordinatorDecisionResult(outcome));
   assert.ok(inspectWorkspaceCommand(command));
-  for (const target of [
+  let calls = 0;
+  const convert = () => {
+    calls++;
+    return command.disposition;
+  };
+  const hook = {
+    toString: convert,
+    valueOf: convert,
+    [Symbol.toPrimitive]: convert,
+  };
+  const proxy = new Proxy(
+    {},
     {
-      valid: outcome.effectState,
-      inspect: (value: unknown) =>
-        inspectCoordinatorDecisionResult({ ...outcome, effectState: value }),
-    },
-    {
-      valid: command.disposition,
-      inspect: (value: unknown) =>
-        inspectWorkspaceCommand({ ...command, disposition: value }),
-    },
-  ]) {
-    let calls = 0;
-    const convert = () => {
-      calls++;
-      return target.valid;
-    };
-    const hook = {
-      toString: convert,
-      valueOf: convert,
-      [Symbol.toPrimitive]: convert,
-    };
-    const proxy = new Proxy(
-      {},
-      {
-        get() {
-          calls++;
-          throw Error("proxy_get");
-        },
+      get() {
+        calls++;
+        throw Error("proxy_get");
       },
+    },
+  );
+  for (const value of [hook, proxy]) {
+    assert.doesNotThrow(() =>
+      assert.equal(
+        inspectWorkspaceCommand({ ...command, disposition: value }),
+        null,
+      ),
     );
-    for (const value of [hook, proxy]) {
-      assert.doesNotThrow(() => assert.equal(target.inspect(value), null));
-      assert.equal(calls, 0);
-    }
+    assert.equal(calls, 0);
   }
 });
 
@@ -563,6 +558,119 @@ function objective() {
   });
 }
 
+/** @trace PRL-IT-012 設定済みRepositoryのObjective要求を正式受付へ一度だけ渡す。 */
+test("設定済みObjectiveはServerで計画を再検査せず正式受付で拒否を確定する", async (t) => {
+  const directory = createRepositoryTestDirectory("mcp-objective-owner-");
+  try {
+    for (const command of [
+      ["init", "--quiet"],
+      ["config", "user.name", "Objective Fixture"],
+      ["config", "user.email", "objective@example.invalid"],
+    ])
+      execFileSync("git", command, { cwd: directory.path, windowsHide: true });
+    const mocked = t.mock.module("../../../coordinator/src/index.ts", {
+      namedExports: {
+        ...coordinatorOperations,
+        inspectCoordinatorObjectiveRequest: () =>
+          assert.fail("server must not inspect the plan"),
+      },
+    });
+    let workspaceReads = 0;
+    const workspace = t.mock.module("../../src/service/workspace.ts", {
+      namedExports: {
+        prepareWorkspaceExecutionTarget: (
+          root: string,
+          projectId: string,
+          workspaceId: string,
+        ) => {
+          workspaceReads++;
+          assert.equal(root, directory.path);
+          assert.equal(projectId, "project-a");
+          assert.equal(workspaceId, "11111111-1111-1111-1111-111111111111");
+          return null;
+        },
+      },
+    });
+    try {
+      const signal = new AbortController().signal;
+      const configuration = {
+        scope: "local",
+        repositoryRoot: directory.path,
+      } as const;
+      for (const operation of ["start", "resume"] as const) {
+        const input = { ...objective(), operation, adoptResult: true };
+        assert.deepEqual(
+          await executeCoordinatorOperation(
+            "objective",
+            { ...input, plan: null },
+            configuration,
+            signal,
+          ),
+          { kind: "invalid" },
+        );
+        const result = await executeCoordinatorOperation(
+          "objective",
+          input,
+          configuration,
+          signal,
+        );
+        assert.equal(result.kind, "result");
+        assert.equal(
+          result.kind === "result" ? result.value.reason : null,
+          "coordinator_explicit_workspace_adoption_required",
+        );
+      }
+      const isolated = {
+        ...objective(),
+        adoptResult: true,
+        workspaceId: "11111111-1111-1111-1111-111111111111",
+      };
+      const cancelled = new AbortController();
+      const hook = registerHooks({
+        resolve(specifier, context, next) {
+          if (
+            specifier === "./workspace.ts" &&
+            context.parentURL?.endsWith("/src/service/execution.ts")
+          )
+            cancelled.abort();
+          return next(specifier, context);
+        },
+      });
+      try {
+        assert.deepEqual(
+          await executeCoordinatorOperation(
+            "objective",
+            isolated,
+            configuration,
+            cancelled.signal,
+          ),
+          { kind: "cancelled" },
+        );
+        assert.equal(workspaceReads, 0);
+      } finally {
+        hook.deregister();
+      }
+      assert.equal(
+        (
+          await executeCoordinatorOperation(
+            "objective",
+            isolated,
+            configuration,
+            signal,
+          )
+        ).kind,
+        "result",
+      );
+      assert.equal(workspaceReads, 1);
+    } finally {
+      workspace.restore();
+      mocked.restore();
+    }
+  } finally {
+    directory.cleanup();
+  }
+});
+
 /**
  * 遅延読込み前に実行系Toolの入れ子引数を独立捕捉することを検証する。
  * @trace PRL-IT-012
@@ -863,8 +971,6 @@ function dependencies(
       recoveryIds: [],
       recoveryObligations: [],
     }),
-    submitDecision: async (input) =>
-      decisionOutcome({ ...decision(), ...input }),
     getProjectState: async (input) => ({
       contract: "crdd-coordinator/state-query/v2",
       status: "completed",
@@ -883,6 +989,37 @@ function dependencies(
       overrides.authenticateClient ??
       (() => ({ status: "verified", principalId: "principal-a" })),
   };
+}
+
+/** 実ローカル対象の解決を通し、正式な判断操作だけを試験代役にする。 @trace PRL-IT-012 */
+async function invokeConfiguredDecision(
+  t: test.TestContext,
+  raw: unknown,
+  submit: (
+    ...args: Parameters<typeof coordinatorOperations.submitDecision>
+  ) => unknown,
+) {
+  const directory = createRepositoryTestDirectory("mcp-decision-owner-");
+  try {
+    for (const command of [
+      ["init", "--quiet"],
+      ["config", "user.name", "Decision Fixture"],
+      ["config", "user.email", "decision@example.invalid"],
+    ])
+      execFileSync("git", command, { cwd: directory.path, windowsHide: true });
+    const mocked = t.mock.module("../../../coordinator/src/index.ts", {
+      namedExports: { ...coordinatorOperations, submitDecision: submit },
+    });
+    try {
+      return await invokeMcpRequest(raw, {
+        coordinator: { scope: "local", repositoryRoot: directory.path },
+      });
+    } finally {
+      mocked.restore();
+    }
+  } finally {
+    directory.cleanup();
+  }
 }
 
 /**
@@ -1254,40 +1391,36 @@ test("MCP Objective uses the common semantic entry and preserves cancellation", 
 });
 
 /**
- * MCP Decision uses a separate entry and never forwards comment to Objectiveを検証する。
+ * MCP Decisionが正式な判断操作を呼び完全結果を保持するを検証する。
  *
- * @responsibility MCP Decision uses a separate entry and never forwards comment to Objectiveの合否判定を所有する。
+ * @responsibility MCP Decisionが正式な判断操作を呼び完全結果を保持するの合否判定を所有する。
  * @trace PRL-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus MCP Decision uses a separate entry and never forwards comment to Objectiveの対象操作を実行する。
+ * @stimulus MCP Decisionが正式な判断操作を呼び完全結果を保持するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: mcp Test Source→対象契約
  */
-test("MCP Decision uses a separate entry and never forwards comment to Objective", async () => {
+test("MCP Decision uses the configured Coordinator operation", async (t) => {
   let calls = 0;
   const outcome = decisionOutcome(decision());
-  const response = await invokeMcpCoordinatorRequest(
+  const response = await invokeConfiguredDecision(
+    t,
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_DECISION_TOOL,
       arguments: { ...decision(), comment: "確認済み" },
     }),
-    dependencies({
-      runObjective: async () => {
-        throw new Error("not_expected");
-      },
-      submitDecision: async (input, authentication) => {
-        calls += 1;
-        assert.equal(
-          input.operation === "answer" && input.selectedOption,
-          "resume",
-        );
-        assert.deepEqual(authentication, { principalId: "principal-a" });
-        return outcome;
-      },
-    }),
+    (input, root, authentication) => {
+      calls += 1;
+      assert.deepEqual(input, { ...decision(), comment: "確認済み" });
+      assert.ok(root);
+      assert.deepEqual(authentication, {
+        principalId: "local.email.decision@example.invalid",
+      });
+      return outcome;
+    },
   );
   assert.equal(calls, 1);
   assert.equal((response.result as { isError: boolean }).isError, false);
@@ -1295,14 +1428,28 @@ test("MCP Decision uses a separate entry and never forwards comment to Objective
     .structuredContent;
   assert.deepEqual(accepted, outcome);
   assert.notEqual(accepted.decision, outcome.decision);
-  assert.equal(
-    Object.isFrozen(inspectCoordinatorDecisionResult(outcome)?.decision),
-    true,
-  );
   outcome.decision.question = "changed after receipt";
   outcome.decision.result.answer.principalId = "another-principal";
   assert.equal(accepted.decision.question, "継続しますか");
   assert.equal(accepted.decision.result.answer.principalId, "principal-a");
+});
+
+/** 未構成の判断Toolに外部関数を混入しても認証や実行へ進めない。 @trace PRL-IT-012 */
+test("MCP Decisionは旧差し替え入口を実行しない", async () => {
+  const unexpected = () => assert.fail("legacy callback must not run");
+  const input = {
+    ...dependencies({ authenticateClient: unexpected }),
+    submitDecision: unexpected,
+  };
+  const response = await invokeMcpCoordinatorRequest(
+    request("tools/call", {
+      _meta: META,
+      name: MCP_COORDINATOR_DECISION_TOOL,
+      arguments: decision(),
+    }),
+    input,
+  );
+  assert.equal(response.error?.code, -32603);
 });
 
 /**
@@ -1321,10 +1468,6 @@ test("MCP rejects unknown fields, stale-shaped decisions, and multiline comments
   let effects = 0;
   const deps = dependencies({
     runObjective: async () => {
-      effects += 1;
-      return null;
-    },
-    submitDecision: async () => {
       effects += 1;
       return null;
     },
@@ -1686,7 +1829,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     `return (${sourceDeclaration(source, "readObjectiveReplay")});`,
     [
       "createObjectiveIntake",
-      "readState",
+      "readExecutionState",
       "resolveExecutionStorageDirectory",
       "COORDINATOR_PUBLIC_RUNTIME_CONTRACT",
     ],
@@ -1723,7 +1866,6 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
         "isPrincipalId",
         "COORDINATOR_PUBLIC_RUNTIME_CONTRACT",
         "resolveObjectiveTaskSelections",
-        "inspectTaskExecutionSelections",
         "objectiveSelectionsMatch",
         "inspectTaskStartCandidates",
         "readQueueEntry",
@@ -1743,7 +1885,6 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
       "crdd-coordinator/public-runtime/v2",
       operations.resolveObjectiveTaskSelections ??
         (() => assert.fail("selection forbidden")),
-      inspectTaskExecutionSelections,
       () => true,
       inspectTaskStartCandidates,
       operations.readQueueEntry ?? (() => assert.fail("Queue read forbidden")),
@@ -2757,37 +2898,36 @@ test("MCPは旧Integration契約をDecision付きでも拒否する", async () =
 });
 
 /**
- * MCP DecisionはObjective専用fieldを拒否するを検証する。
+ * MCP Decisionが正式操作の結果未確認を公開失敗へ写すを検証する。
  *
- * @responsibility MCP DecisionはObjective専用fieldを拒否するの合否判定を所有する。
+ * @responsibility MCP Decisionが正式操作の結果未確認を公開失敗へ写すの合否判定を所有する。
  * @trace PRL-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus MCP DecisionはObjective専用fieldを拒否するの対象操作を実行する。
+ * @stimulus MCP Decisionが正式操作の結果未確認を公開失敗へ写すの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: mcp Test Source→対象契約
  */
-test("MCP DecisionはObjective専用fieldを拒否する", async () => {
-  const response = await invokeMcpCoordinatorRequest(
+test("MCP DecisionはOwnerの結果未確認を公開成功へ変えない", async (t) => {
+  const response = await invokeConfiguredDecision(
+    t,
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_DECISION_TOOL,
       arguments: decision(),
     }),
-    dependencies({
-      submitDecision: async () => ({
-        contract: "crdd-coordinator/human-decision/v1",
-        status: "completed",
-        reason: "decision_applied",
-        decisionId: "decision-a",
-        applicationId: "application-a",
-        generation: 5,
-        cleanupConfirmed: true,
-        manualRecoveryRequired: false,
-        effectState: "settled",
-        projection: null,
-      }),
+    () => ({
+      contract: "crdd-coordinator/human-decision/v2",
+      status: "blocked",
+      reason: "coordinator_decision_result_unconfirmed",
+      decisionId: null,
+      recoveryId: null,
+      decision: null,
+      history: null,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectState: "unknown",
     }),
   );
   assert.equal(

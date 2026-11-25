@@ -10,6 +10,8 @@ Git利用では、MCPは認可済みの対象と操作を搬送する。Gitコ�
 
 `crdd.run_objective`は`operation: "start" | "resume"`を必須としてCoordinatorへそのまま搬送する。操作区分の省略・未知値は通常の入力拒否とし、互換補完しない。Adapter説明契約はv6、Objective結果はv4へ追従する。新規／再送／再開の判断と保存・実行のOwnerはCoordinatorであり、MCPは独自の再開台帳や再送を追加しない。受付世代は要求・状態照会の双方から撤去した。状態照会はv2で、内部初期化を発行しない。
 
+設定済みのローカル・共有入口は、計画をCoordinatorの正式なObjective受付に一度だけ渡す。受付成功時に限りServerが対象を選び、現在認可と必要なWorkspace観測を行う。Workspaceの遅延読込みから戻った後は、取消確認・現在認可・Workspace観測を実行直前に続けて行う。応答の公開前にも共有認可を再確認する。不正計画は対象の選択や保存へ進まない。
+
 保存境界の公開Runtime停止は、既存の単純停止と`recoveryIds`を持つ閉形式を区別して捕捉する。後者は密な文字列配列・ID文法・一意性を検査し、IDありでは`unknown`・回収未確認・明示対応必要を必須とする。新しいkindを推測しない。ObjectiveのTask回復IDと義務の集合一致、Process再起動・投影相関の検査は変更しない。
 
 ## 実Objective結果のWorkspace観測搬送 — 2026-11-14
@@ -98,11 +100,13 @@ Topic／Meetingの横断Relationでは、構成が認可済み同Project集合�
 |---|---|---|
 | Tool構成 | `createMcpServerFactory`、`McpServerDependencies`、`McpServerFactory` | 要求ごとのSDK Server。現在認可と元入力を後続要求へ共有しない |
 | 現在認証 | `createAccessMcpResolver` | 現在の資格から要求別Factoryまたは非開示null。旧来の関数として直接呼ばない |
-| stdio | `runMcpStdio`、限定用途の`runMcpCoordinatorStdio` | 有界逐次実行・EOF取消・Owner join・意味cleanup結果。外部Streamを破棄しない |
-| HTTP | `startMcpStreamableHttp`、`startMcpAuthenticatedStreamableHttp`、限定用途の`startMcpCoordinatorStreamableHttp` | 待受情報と`close()`。Origin・認証・切断取消・Owner join |
+| stdio | `runMcpStdio` | 有界逐次実行・EOF取消・Owner join・意味cleanup結果。外部Streamを破棄しない |
+| HTTP | `startMcpStreamableHttp`、`startMcpAuthenticatedStreamableHttp` | 待受情報と`close()`。Origin・認証・切断取消・Owner join |
 | 構成・終了 | `readMcpServerConfiguration`、`closeMcpHttpOnProcessSignal` | 既存の閉設定とSignal終了編成 |
-| Tool契約 | 各`tools/*.ts`の明示公開定義・処理・結果検査 | 専門Ownerの既存入力・結果を維持。汎用Protocol補助は内部のみ |
+| Tool契約 | `transport/mcp-server.ts`の明示公開定義と専門Ownerへの接続 | 専門Ownerの既存入力・結果を維持。汎用Protocol補助は内部のみ |
 | 配布コマンド | `crdd-server [--port <port>]`、`--shared`、`--mcp-stdio` | HTTPは常にloopback。stdioは単体に限りMCPだけを切替 |
+
+判断Toolは、起動時に指定したローカルRepositoryか、共有認証で許可されたRepositoryに対してのみ正式な`submitDecision`を呼ぶ。起動側が判断処理や結果を差し替えるコールバックは受け取らない。判断の完全な記録はEMが保存操作内で検査し、`submitDecision`が結果区分と履歴・回復の相関を確認する。Transportは保存物を再読取りせず、共有接続の公開前認可と、結果未確認時の停止を維持する。
 
 `routeMcpRequest` と `McpRequestRoutingDependencies` は撤去し、互換Routerを残さない。Task／Objective固有Schemaは `transport/mcp-server.ts`、閉じた共通通信入力の検査は `transport/mcp-protocol.ts` が所有する。生JSONの重複キー拒否は維持する。同一プロセスの直接呼び出しはJSON相当の値を渡す契約とし、getter・Proxyを呼ばずに拒否する保証は持たない。待機後まで使う値だけを操作側で確定する。認証結果および下位からの結果の検査は別境界で維持する。
 

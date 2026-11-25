@@ -18,14 +18,13 @@ import {
   type ProjectExecutionInitialization,
   type ProjectExecutionState,
   type LeaseKind,
-  readState,
+  readExecutionState,
   readProjectExecutionState,
   readQueueEntry,
   saveProjectExecutionState,
   updateQueue,
-  selectQueueEntry,
+  selectNextQueueEntry,
 } from "../../../execution-model/src/index.ts";
-import { chooseCoordinatorQueueOperation } from "../../src/lifecycle/execution.ts";
 import { resolveExecutionStorageDirectory } from "../../src/lifecycle/host.ts";
 import { taskExecutionSelections } from "./ai-selection.ts";
 import { randomUUID } from "node:crypto";
@@ -448,10 +447,9 @@ export async function runTestCoordinatorObjective(
  * @boundary 試験準備からEM読取りとCoordinator保存接続。
  */
 export function createTestPersistence(root: string, binding: string) {
-  const observed = readState(
+  const observed = readExecutionState(
     resolveExecutionStorageDirectory(root),
     binding,
-    "execution",
   );
   if (observed.reason === "coordinator_snapshot_lock_release_unconfirmed")
     throw new Error("coordinator_snapshot_lock_release_unconfirmed");
@@ -579,11 +577,7 @@ export function enqueueProjectOperation(
  */
 export function selectNextProjectOperation(root: string, binding: string) {
   const state = createTestPersistence(root, binding);
-  return selectQueueEntry(
-    state.repository,
-    state.repositoryBindingId,
-    chooseCoordinatorQueueOperation,
-  );
+  return selectNextQueueEntry(state.repository, state.repositoryBindingId);
 }
 /**
  * EMのQueue回復確定を試験Repositoryへ直接接続する。

@@ -24,11 +24,13 @@ import {
   createQueue,
   initializeExecutionStore,
   readState,
+  readWorkspaceState,
 } from "../../../execution-model/src/index.ts";
 import {
   projectExecutionFixture,
   initialExecutionInput,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import { readStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import { resolveExecutionStorageDirectory } from "../../src/lifecycle/host.ts";
 
 import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
@@ -132,22 +134,30 @@ export function readFixtureSnapshot(root: string, binding: string) {
   );
   if (read.status !== "completed" || !read.value)
     return { ...read, value: null };
-  assert.ok(read.value.snapshot.repositoryBindingId !== null);
+  const snapshot = readStoredExecutionFixture(root, read.value.payloadSha256);
+  assert.ok(snapshot.repositoryBindingId !== null);
+  const view = readWorkspaceState(
+    resolveExecutionStorageDirectory(root),
+    binding,
+  );
+  assert.equal(view.status, "completed", view.reason);
+  assert.ok(view.value);
+  assert.equal(view.value.snapshotRevision, snapshot.revision);
   const projected = {
     schema: "crdd-execution-model/project-snapshot/v9" as const,
     schemaRevision: 9 as const,
-    repositoryRootHash: read.value.snapshot.repositoryBinding,
-    repositoryBindingId: read.value.snapshot.repositoryBindingId,
-    snapshotRevision: read.value.snapshot.revision,
-    projects: read.value.projects,
-    queueEntries: read.value.snapshot.queueEntries,
-    workspaces: read.value.snapshot.workspaces,
-    leaseEvidence: read.value.snapshot.leaseEvidence,
-    leaseIntents: read.value.snapshot.leaseIntents,
-    results: read.value.snapshot.results,
-    historyPending: read.value.snapshot.historyPending,
-    decisions: read.value.snapshot.decisions,
-    blockers: read.value.snapshot.blockers,
+    repositoryRootHash: snapshot.repositoryBinding,
+    repositoryBindingId: snapshot.repositoryBindingId,
+    snapshotRevision: snapshot.revision,
+    projects: view.value.projects,
+    queueEntries: snapshot.queueEntries,
+    workspaces: snapshot.workspaces,
+    leaseEvidence: snapshot.leaseEvidence,
+    leaseIntents: snapshot.leaseIntents,
+    results: snapshot.results,
+    historyPending: snapshot.historyPending,
+    decisions: snapshot.decisions,
+    blockers: snapshot.blockers,
   };
   assert.ok(projected);
   assert.equal(projected.repositoryBindingId, binding);

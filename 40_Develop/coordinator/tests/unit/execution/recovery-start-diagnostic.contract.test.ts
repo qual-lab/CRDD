@@ -51,6 +51,9 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
   );
   for (const stage of [
     "plan_validation",
+    "plan_missing",
+    "plan_before_consumer",
+    "nonce_failure",
     "identity_unavailable",
     "identity_purpose",
     "identity_phase",
@@ -71,7 +74,11 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
       const observed: unknown[] = [];
       let rejectLate: ((error: Error) => void) | undefined;
       let writes = 0,
-        homeObservations = 0;
+        homeObservations = 0,
+        planValidations = 0,
+        stateReads = 0,
+        repositoryBorrows = 0,
+        nonceCalls = 0;
       const plan = {
         provider: "codex",
         operationId: "op",
@@ -90,7 +97,10 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
           Buffer,
           JSON,
           createHash,
-          validProductionPlan: () => stage !== "plan_validation",
+          validProductionPlan: (value: unknown) => {
+            planValidations++;
+            return stage !== "plan_validation" && value === plan;
+          },
           inspectWindowsProviderHomeCandidate: () => {
             homeObservations++;
             return {
@@ -106,6 +116,7 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
           }),
           operationStateInput: (identity: unknown) => ({ identity }),
           readState: (_input: unknown, request: { scope: string }) => {
+            stateReads++;
             assert.equal(request.scope, "operation");
             return {
               value: {
@@ -124,7 +135,11 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
               },
             };
           },
-          randomBytes: () => Buffer.alloc(32, 1),
+          randomBytes: () => {
+            nonceCalls++;
+            if (stage === "nonce_failure") throw Error("nonce_unavailable");
+            return Buffer.alloc(32, 1);
+          },
           HEX64: /^[a-f0-9]{64}$/,
           readOwnedHostOperation: () => {
             hostReads++;
@@ -148,11 +163,14 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
               },
             };
           },
-          borrowCoordinatorStateRepository: () => ({
-            repositoryBinding: "binding",
-            operationId: "op",
-            revalidate: () => true,
-          }),
+          borrowCoordinatorStateRepository: () => {
+            repositoryBorrows++;
+            return {
+              repositoryBinding: "binding",
+              operationId: "op",
+              revalidate: () => true,
+            };
+          },
           durableRecords: new WeakMap(),
           releasedLogicalHomeLeases: new WeakSet(),
           operationStartInput: (
@@ -181,14 +199,21 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
               reason: "coordinator_state_storage_unconfirmed",
             };
           },
-          safeRecoveryReason: () =>
-            "docker_recovery_initialization_failed_closed",
+          safeRecoveryReason: (_error: unknown, fallback: string) => fallback,
         },
       );
       let result: unknown;
       try {
         result = invoke(
-          plan,
+          stage === "plan_missing"
+            ? null
+            : stage === "plan_before_consumer"
+              ? {
+                  get consumer() {
+                    throw Error("must_not_read_consumer");
+                  },
+                }
+              : plan,
           {},
           sink === "none"
             ? undefined
@@ -215,8 +240,26 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
         "[object Promise]",
         "開始結果は同期返却のまま",
       );
-      if (stage.startsWith("identity_")) {
+      assert.equal(planValidations, 1, stage);
+      const invalidPlan = stage.startsWith("plan_");
+      assert.equal(nonceCalls, invalidPlan ? 0 : 1, stage);
+      if (invalidPlan) assert.equal(result, null, stage);
+      if (stage === "nonce_failure")
+        assert.deepEqual(JSON.parse(JSON.stringify(result)), {
+          status: "blocked",
+          reason: "docker_task_recovery_begin_failed_closed",
+          recoveryId: null,
+          manualRecoveryRequired: true,
+        });
+      if (invalidPlan || stage === "nonce_failure")
+        assert.equal(repositoryBorrows, 0);
+      if (
+        invalidPlan ||
+        stage.startsWith("identity_") ||
+        stage === "nonce_failure"
+      ) {
         assert.equal(homeObservations, 0);
+        assert.equal(stateReads, 0);
         assert.equal(writes, 0);
       }
       const beforeLate = JSON.stringify({
@@ -258,11 +301,14 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
       assert.equal(result.observed.length, stage === "ready" ? 0 : 1, stage);
       if (stage !== "ready")
         assert.deepEqual(result.observed[0], {
-          stage: stage.startsWith("identity_")
-            ? "plan_validation"
-            : stage.startsWith("host_")
-              ? "settlement_binding"
-              : stage,
+          stage:
+            stage.startsWith("identity_") ||
+            stage.startsWith("plan_") ||
+            stage === "nonce_failure"
+              ? "plan_validation"
+              : stage.startsWith("host_")
+                ? "settlement_binding"
+                : stage,
           recoveryId: [
             "operation_start_save",
             "settlement_binding",

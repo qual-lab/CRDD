@@ -18,13 +18,16 @@ import test from "node:test";
 import { Server } from "@modelcontextprotocol/server";
 
 import {
-  runMcpCoordinatorStdio,
   runMcpStdio,
   createMcpServerFactory,
   type McpCoordinatorDependencies,
-  startMcpCoordinatorStreamableHttp,
   startMcpStreamableHttp,
 } from "../../src/transport/mcp-server.ts";
+import {
+  runCoordinatorStdioFixture,
+  startCoordinatorHttpFixture,
+} from "../fixtures/sdk-request.ts";
+
 const SDK_META = {
   "io.modelcontextprotocol/protocolVersion": "2026-07-28",
   "io.modelcontextprotocol/clientCapabilities": {},
@@ -523,7 +526,6 @@ function dependencies(
       principalId: "integration-principal",
     }),
     runObjective: async () => assert.fail("objective not expected"),
-    submitDecision: async () => assert.fail("decision not expected"),
     getProjectState: async () => assert.fail("state query not expected"),
     ...overrides,
   };
@@ -572,7 +574,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
   const started = new Promise<void>((resolve) => {
     markStarted = resolve;
   });
-  const running = runMcpCoordinatorStdio(
+  const running = runCoordinatorStdioFixture(
     dependencies({
       runObjective: async (_request, signal) =>
         new Promise((resolve) => {
@@ -665,7 +667,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
  * @boundary EST-IT-002=Direct Boundary: mcp Test Source→対象契約
  */
 test("HTTP blockはidle接続とlistenerをcloseで回収し、再接続を拒否する", async () => {
-  const server = await startMcpCoordinatorStreamableHttp(dependencies(), {
+  const server = await startCoordinatorHttpFixture(dependencies(), {
     port: 0,
     bearerToken: TOKEN,
   });

@@ -22,7 +22,7 @@ import {
 import {
   hashExecutionEntityDefinition,
   prepareExecutionDefinitionChange,
-} from "../objective/operations.ts";
+} from "../objective/transition.ts";
 import { hashExecutionProjectDefinition } from "../objective/validation.ts";
 import type {
   HistoryRepositoryInput,
@@ -44,13 +44,12 @@ import {
   observeOperationRepository,
   readStorageOwnerBinding,
 } from "../storage/lock.ts";
+import type { StorageRepository } from "../storage/store.ts";
 import {
+  captureStateVersionEvidence,
   publishRecoveryState,
   publishStateOwned,
   writeStateSnapshot,
-} from "../storage/publication.ts";
-import type { StorageRepository } from "../storage/store.ts";
-import {
   assertAreaUnchanged,
   assertDirectory,
   assertExecutionStateInitializationBoundary,
@@ -76,30 +75,27 @@ import {
   captureTaskExecutionUpdate,
   observeTaskStartCandidates,
   prepareTaskExecutionUpdate,
-} from "../task/validation.ts";
+} from "../task/transition.ts";
 import type { ResultRecord } from "../workspace/types.ts";
-import { adoptionWasRejected } from "../workspace/validation.ts";
 import {
   encodeStateValue,
-  hasStateKeys,
   isSha256Hex,
   isStateObject,
   leaseIdentity,
-  normalizeRepositoryRelativePath,
   snapshotStateRecord,
   validId,
-} from "./operations.ts";
+} from "./validation.ts";
 import type {
   ExecutionContentViews,
   ExecutionDefinitionValues,
   ExecutionModelAccess,
   ExecutionModelReadResult,
   ExecutionModelSaveResult,
-  LeaseEvidenceEnvelope,
   ProjectExecutionState,
   Snapshot,
   SnapshotObservations,
 } from "./types.ts";
+import type { LeaseEvidenceEnvelope } from "../lease/types.ts";
 import { PROJECT_SNAPSHOT_SCHEMA } from "./types.ts";
 import {
   decodeStateSnapshot,
@@ -110,7 +106,7 @@ import {
   projectTaskSnapshot,
   snapshotRequestMatches,
   validSnapshot,
-} from "./validation.ts";
+} from "./transition.ts";
 /**
  * Coordinatorの現在状態・Queue・Leaseを単一Snapshotへ保存する。
  *
@@ -434,13 +430,7 @@ export function writeSnapshotOwned(
     const observed = readStorageSnapshotOwned(lock, true);
     let current: Snapshot | null = null;
     if (observed.status === "completed" && observed.value) {
-      const decoded = decodeStateSnapshot(
-        Buffer.from(`${encodeStateValue(observed.value.snapshot)}\n`),
-        lock.repositoryBinding,
-      );
-      if (!decoded)
-        return blocked("coordinator_snapshot_invalid_or_unconfirmed", true);
-      current = projectTaskSnapshot(decoded, lock.repositoryRootHash);
+      current = projectTaskSnapshot(observed.value, lock.repositoryRootHash);
       if (current && current.repositoryBindingId !== binding)
         return blocked("coordinator_snapshot_binding_invalid", true);
       if (
@@ -473,6 +463,10 @@ export function writeSnapshotOwned(
       expectedRevision,
       resultFacts,
       prepareDirectory,
+      observed.status === "completed" &&
+        observed.value?.snapshot.revision === expectedRevision
+        ? observed.value
+        : undefined,
     );
     return saved.status === "completed" && saved.value
       ? completed("coordinator_snapshot_durable", saved.value)
@@ -505,12 +499,12 @@ export function withSnapshotOperation<T>(
     current: Snapshot,
     owner: SnapshotOwner,
   ) => StoreResult<Readonly<{ next: Snapshot | null; value: T }>>,
-  mode: false | "history" | "workspace-rename" = false,
+  mode: false | "history" | "workspace-metadata" = false,
 ): StoreResult<T> {
   if (typeof workingDirectory !== "object" || workingDirectory === null)
     return blocked("coordinator_repository_root_invalid");
   if (!validId(binding)) return blocked("coordinator_snapshot_input_invalid");
-  const metadataOnly = mode === "workspace-rename";
+  const metadataOnly = mode === "workspace-metadata";
   const repository = metadataOnly
     ? observeExecutionStorageRepository(workingDirectory, undefined, true)
     : null;
@@ -688,7 +682,7 @@ export function saveAuthenticationClosure(
  * 取得済みOwnerでTask区画を既存の物理Writerへ渡す。
  * @responsibility 業務候補の固定・初期作成・同版再入場と単一CASを接続する。
  * @trace ARCH-000004、ARCH-000008
- * @input owner: 真正保存Owner、viewValue: 業務View、expectedRevision: 元保存改訂、factsValue: 明示結果事実。
+ * @input owner: 真正保存Owner、viewValue: 業務View、expectedRevision: 元保存改訂、factsValue: 明示結果事実、verifiedBefore: 同じOwnerで検証した元版。
  * @returns 保存確認と保持中Ownerを区別した結果。
  * @precondition 呼出し側が同Owner内で業務遷移・Lease・履歴を照合している。
  * @postcondition 既存の固定I/Oだけを利用し、内部で排他を解放しない。
@@ -699,12 +693,15 @@ export function saveAuthenticationClosure(
  * @security 任意Path・偽Owner・外部callbackを受け付けない。
  * @concurrency 呼出し元が外側の一回解放を所有する。
  */
-export function writeStorageTaskSnapshotOwned(
+function writeStorageTaskSnapshotOwned(
   owner: unknown,
   viewValue: unknown,
   expectedRevision: number,
   factsValue: unknown = [],
   prepareDirectory?: () => boolean,
+  verifiedBefore?: NonNullable<
+    ReturnType<typeof readStorageSnapshotOwned>["value"]
+  >,
 ) {
   let filesystemEffectIssued = false;
   const rejected = (reason: string) =>
@@ -774,23 +771,25 @@ export function writeStorageTaskSnapshotOwned(
       )
     )
       return rejected("coordinator_task_publication_input_invalid");
-    const observed = readStorageSnapshotOwned(owner, true);
+    // 通常保存では上で遷移を照合した版を使う。物理Writerは現在本文と再比較する。
+    // 初期化・同じ候補の再入場は従来どおりここでも状態を観測する。
+    const observed = verifiedBefore
+      ? null
+      : readStorageSnapshotOwned(owner, true);
+    const currentTask = verifiedBefore ?? observed?.value;
     let before: Buffer | null = null,
       initialBoundary: string | null = null;
     let bytes: Buffer | null = null;
-    if (observed.status === "completed" && observed.value) {
-      before = Buffer.from(`${encodeStateValue(observed.value.snapshot)}\n`);
-      const currentTask = decodeStateSnapshot(before, issued.repositoryBinding);
-      if (!currentTask)
-        return rejected("coordinator_task_publication_input_invalid");
+    if (currentTask) {
+      before = Buffer.from(currentTask.sourceText, "utf8");
       if (
-        observed.value.snapshot.revision === view.snapshotRevision &&
+        currentTask.snapshot.revision === view.snapshotRevision &&
         encodeStateValue(
           projectTaskSnapshot(currentTask, issued.repositoryRootHash),
         ) === encodeStateValue(view)
       )
         bytes = before;
-      else if (observed.value.snapshot.revision === expectedRevision)
+      else if (currentTask.snapshot.revision === expectedRevision)
         bytes = prepareUnifiedTaskSections(
           before,
           view,
@@ -799,7 +798,7 @@ export function writeStorageTaskSnapshotOwned(
           facts,
         );
     } else if (
-      observed.reason === "coordinator_state_uninitialized" &&
+      observed?.reason === "coordinator_state_uninitialized" &&
       expectedRevision === 0 &&
       Object.values(view)
         .filter(Array.isArray)
@@ -933,14 +932,38 @@ type StateReadViews = {
   >;
 };
 
+/** 同じ保存版のQueueとLease意図を一度の読取りで取得する。 @trace ARCH-000008 */
+export function readQueueState(
+  workingDirectory: StorageRootInput,
+  binding: string,
+) {
+  return readStateView(workingDirectory, binding, "queue");
+}
+
+/** 同じ保存版のProject・Queueと実行候補を一度の読取りで取得する。 @trace ARCH-000008 */
+export function readExecutionState(
+  workingDirectory: StorageRootInput,
+  binding: string,
+) {
+  return readStateView(workingDirectory, binding, "execution");
+}
+
+/** 同じ保存版のWorkspace・結果・関連するProjectとQueueを取得する。 @trace ARCH-000008 */
+export function readWorkspaceState(
+  workingDirectory: StorageRootInput,
+  binding: string,
+) {
+  return readStateView(workingDirectory, binding, "workspace");
+}
+
 /**
- * 同じ保存版から指定したモデル間の関連情報を取得する。
- * @responsibility 固定viewのfieldだけを構築し、モデル単体CRUDと複合取得を分離する。
+ * 元Ownerが許可する技術記録を同じ保存版から取得する。
+ * @responsibility 通常照会の範囲を広げず、技術処置と回復へ既存の観測値だけを返す。
  * @trace ARCH-000008
- * @input 三引数はRepository・binding・intake/queue/execution/workspace。二引数は元Authorityとoperation/recovery及び用途別input。
+ * @input 元Authorityとoperation/recovery及び用途別input。
  * @returns 元の保存結果と範囲限定の値、又は明示不存在。
  * @precondition 呼出し側が同じRepositoryの操作認可を確認する。
- * @postcondition 通常三scopeは限定投影だけを返す。技術二scopeは元Authorityに従う検査済み記録を返し、新Ownerや任意field選択を公開しない。
+ * @postcondition 元Authorityに従う検査済み記録を返し、新Ownerや任意field選択を公開しない。
  * @effect 既存Readerと一つの短期排他だけ。
  * @failure Root・scope・結合・読取り・解放が不明なら値を返さない。
  * @invariant 不明を不存在へ補完せず、実行・保存・回復を開始しない。
@@ -948,59 +971,86 @@ type StateReadViews = {
  * @security scopeごとに元の取得範囲を維持し、全技術情報へ広げない。
  * @concurrency 一つの読取り結果から全fieldを構築する。
  */
-export function readState<K extends keyof StateReadViews>(
-  workingDirectory: StorageRootInput,
-  binding: string,
-  scope: K,
-): StoreResult<StateReadViews[K] | null>;
 export function readState(
   authority: unknown,
   request: Readonly<{
     scope: "operation";
   }>,
-): ReturnType<typeof readOperationStateStage>;
+): ReturnType<typeof projectTechnicalRead> & Readonly<{ kind: "state" }>;
 export function readState(
   authority: unknown,
   request: Readonly<{
     scope: "recovery";
     input?: RecoveryReadRequest | undefined;
   }>,
-): ReturnType<typeof readRecoveryState>;
-export function readState<K extends keyof StateReadViews>(
-  workingDirectory: unknown,
-  binding: unknown,
-  scope?: K,
-):
-  | StoreResult<StateReadViews[K] | null>
-  | ReturnType<typeof readOperationStateStage>
-  | ReturnType<typeof readRecoveryState> {
-  if (scope === undefined) {
-    const request =
-      snapshotStateRecord(binding, new Set(["scope", "input"])) ??
-      snapshotStateRecord(binding, new Set(["scope"]));
-    if (!request || !Object.hasOwn(request, "scope"))
-      return blocked<never>("coordinator_state_read_scope_invalid");
-    if (request.scope === "operation")
-      return Object.hasOwn(request, "input")
-        ? blocked<never>("coordinator_state_read_scope_invalid")
-        : readOperationStateStage(workingDirectory);
-    if (request.scope === "recovery")
-      return request.input === undefined
-        ? readRecoveryState(workingDirectory)
-        : readRecoveryState(
-            workingDirectory,
-            request.input as RecoveryReadRequest,
-          );
+): ReturnType<typeof projectTechnicalRead>;
+export function readState(
+  authority: unknown,
+  rawRequest: unknown,
+): ReturnType<typeof projectTechnicalRead> | StoreResult<never> {
+  const request =
+    snapshotStateRecord(rawRequest, new Set(["scope", "input"])) ??
+    snapshotStateRecord(rawRequest, new Set(["scope"]));
+  if (!request || !Object.hasOwn(request, "scope"))
     return blocked<never>("coordinator_state_read_scope_invalid");
-  }
+  if (request.scope === "operation")
+    return Object.hasOwn(request, "input")
+      ? blocked<never>("coordinator_state_read_scope_invalid")
+      : Object.freeze({
+          ...projectTechnicalRead(readOperationStateStage(authority)),
+          kind: "state" as const,
+        });
+  if (request.scope === "recovery")
+    return projectTechnicalRead(
+      request.input === undefined
+        ? readRecoveryState(authority)
+        : readRecoveryState(authority, request.input as RecoveryReadRequest),
+    );
+  return blocked<never>("coordinator_state_read_scope_invalid");
+}
+
+/**
+ * 技術処置に必要な操作・回復参照だけを同じ保存版から投影する。
+ * @trace ARCH-000008
+ * @boundary 保存内部の全Stateや復元済みProjectを上位へ搬送しない。
+ * @invariant 厳密な元本文と段階観測・Lock解放の結果は保持する。
+ * @effect 追加の読取りや検査を行わない。
+ */
+function projectTechnicalRead(observed: ReturnType<typeof readRecoveryState>) {
+  const { currentHistoryPublication, currentCompletionPublication, ...result } =
+    observed;
+  const publication = {
+    historyPublicationStage: currentHistoryPublication?.stage ?? null,
+    completionPublicationReady: Boolean(currentCompletionPublication),
+  };
+  if (result.status === "blocked")
+    return Object.freeze({ ...result, ...publication });
+  const { snapshot, sourceText, payloadSha256, operationStates } = result.value;
+  return Object.freeze({
+    ...result,
+    ...publication,
+    value: Object.freeze({
+      snapshot: Object.freeze({
+        revision: snapshot.revision,
+        operations: snapshot.operations,
+        unresolvedRecoveries: snapshot.unresolvedRecoveries,
+      }),
+      versionEvidence: captureStateVersionEvidence(sourceText),
+      payloadSha256,
+      operationStates,
+    }),
+  });
+}
+
+/** 通常の固定投影に必要な保存観測と解放を一回で完了する。 @trace ARCH-000008 */
+function readStateView<K extends keyof StateReadViews>(
+  workingDirectory: StorageRootInput,
+  binding: string,
+  scope: K,
+): StoreResult<StateReadViews[K] | null> {
   if (typeof workingDirectory !== "object" || workingDirectory === null)
     return blocked<never>("coordinator_repository_root_invalid");
-  if (scope !== "execution" && scope !== "workspace" && scope !== "queue")
-    return blocked<never>("coordinator_state_read_scope_invalid");
-  const result = readSnapshot(
-    workingDirectory as StorageRootInput,
-    binding as string,
-  );
+  const result = readSnapshot(workingDirectory, binding);
   if (result.status !== "completed") return result;
   if (result.value === null) return completed<null>(result.reason, null);
   const current = result.value;
@@ -1967,24 +2017,8 @@ export function assertSnapshotTransition(
     if (
       intent.physicalIdentity !== null ||
       intent.ownerProcessId !== owner.processId ||
-      payload.leaseIntents.filter(
-        (item) =>
-          leaseIdentity(
-            payload.repositoryBindingId,
-            item.projectId,
-            item.queueId,
-            item.kind,
-          ) === identity,
-      ).length !== 1 ||
-      current?.leaseIntents.some(
-        (item) =>
-          leaseIdentity(
-            payload.repositoryBindingId,
-            item.projectId,
-            item.queueId,
-            item.kind,
-          ) === identity,
-      ) ||
+      payload.leaseIntents.length !== 1 ||
+      current?.leaseIntents.length ||
       !owner.leaseResourcesAbsent(identity)
     )
       throw new Error("snapshot_acquisition_reservation_invalid");
@@ -2060,19 +2094,13 @@ export function assertSnapshotTransition(
         )
           if (
             collection === "results"
-              ? (!current.queueEntries.some(
+              ? !current.queueEntries.some(
                   (queue) =>
                     retired.has(queue.queueId) &&
                     queue.queueId === (old as ResultRecord).queueId &&
                     queue.projectId === old.projectId &&
                     queue.milestoneId === (old as ResultRecord).milestoneId,
-                ) &&
-                  !current.historyPending.some(
-                    (row) =>
-                      row.id === (old as ResultRecord).identity &&
-                      standaloneAdoptionIsClosed(current, row.id, owner) &&
-                      owner.historySettlement(row) !== null,
-                  )) ||
+                ) ||
                 currentEvidenceIds.has((old as ResultRecord).identity) ||
                 payload.queueEntries.some(
                   (item) =>
@@ -2080,49 +2108,10 @@ export function assertSnapshotTransition(
                 )
               : !current.queueEntries.some(
                   (queue) =>
-                    (old as LeaseEvidenceEnvelope).content.kind ===
-                      "project-operation" &&
                     retired.has(queue.queueId) &&
                     queue.queueId ===
                       (old as LeaseEvidenceEnvelope).content.queueId &&
                     queue.projectId === old.projectId,
-                ) &&
-                !rejectedAdoptionEvidenceCanRetire(
-                  current,
-                  payload,
-                  old as LeaseEvidenceEnvelope,
-                  owner,
-                ) &&
-                !(
-                  (old as LeaseEvidenceEnvelope).content.kind ===
-                    "canonical-adoption" &&
-                  !payload.queueEntries.some(
-                    (queue) => queue.projectId === old.projectId,
-                  ) &&
-                  !payload.leaseIntents.some(
-                    (intent) => intent.projectId === old.projectId,
-                  ) &&
-                  !payload.results.some(
-                    (record) =>
-                      record.kind === "adoption" &&
-                      record.projectId === old.projectId,
-                  ) &&
-                  current.historyPending.some(
-                    (row) =>
-                      (current.queueEntries.some(
-                        (queue) =>
-                          retired.has(queue.queueId) &&
-                          queue.projectId === old.projectId,
-                      ) ||
-                        current.results.some(
-                          (record) =>
-                            record.identity === row.id &&
-                            record.projectId === old.projectId &&
-                            !adoptionWasRejected(record) &&
-                            standaloneAdoptionIsClosed(current, row.id, owner),
-                        )) &&
-                      owner.historySettlement(row) !== null,
-                  )
                 )
           )
             throw new Error("snapshot_retained_obligation_removed");
@@ -2426,172 +2415,12 @@ export function queueIsClosed(
       )
         return false;
     }
-    for (const kind of ["project-operation", "canonical-adoption"] as const)
-      if (
-        !owner.leaseResourcesAbsent(
-          leaseIdentity(
-            current.repositoryBindingId,
-            queue.projectId,
-            kind === "project-operation" ? queueId : "canonical",
-            kind,
-          ),
-        )
-      )
-        return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * 既知拒否の終了証拠をexact Owner単位で整理できるか確認する。
- * @responsibility 拒否結果、終了証拠、履歴確定と除去候補を結合する。
- * @trace ARCH-000004
- * @input 現在値、保存候補、終了証拠と取得済みOwner。
- * @returns 全終了条件が成立した場合だけtrue。
- * @precondition 同Rootの短期排他を保持する。
- * @postcondition 別Owner世代の証拠を除去しない。
- * @effect 実Leaseと履歴確定を読む。
- * @failure 観測不能はfalse。
- * @invariant 未知Effectと解放未確認を整理しない。
- * @boundary 採用終了から履歴と現在保存。
- * @security 履歴は再実行Authorityを持たない。
- * @concurrency 同じ保存Owner内で評価する。
- */
-export function rejectedAdoptionEvidenceCanRetire(
-  current: Snapshot,
-  payload: Snapshot,
-  evidence: LeaseEvidenceEnvelope,
-  owner: SnapshotObservations,
-): boolean {
-  if (evidence.content.kind !== "canonical-adoption") return false;
-  const record = current.results.find(
-    (item) =>
-      item.projectId === evidence.projectId &&
-      item.identity === evidence.content.ownerGeneration &&
-      adoptionWasRejected(item),
-  );
-  const row =
-    record &&
-    current.historyPending.find((item) => item.id === record.identity);
-  return Boolean(
-    record &&
-      row &&
-      row.outcome === "failed" &&
-      row.primaryFailure === "execution" &&
-      !payload.results.some((item) => item.identity === record.identity) &&
-      standaloneAdoptionIsClosed(current, record.identity, owner) &&
-      owner.historySettlement(row) !== null,
-  );
-}
-
-/**
- * 通常Queueを持たない採用結果の終了条件を確認する。
- * @responsibility 実適用Receipt、参照と実Leaseの現在観測から整理可能性を決める。
- * @trace ARCH-000004
- * @input 検証済み保存値、Receipt Identity、取得済みOwner。
- * @returns 全条件が成立した場合だけtrue。
- * @precondition Ownerは同じRepositoryへ結合している。
- * @postcondition 使用中・参照中・未確定結果を退役対象にしない。
- * @effect 所有する実Leaseの不存在を読む。
- * @failure 不正Receiptと観測不能はfalse。
- * @invariant Receiptを再適用Authorityへ変換しない。
- * @boundary 独立候補採用と現在保存の境界。
- * @security Candidate本文や秘密値を履歴へ複製しない。
- * @concurrency 同じ短期Owner内で評価する。
- */
-export function standaloneAdoptionIsClosed(
-  current: Snapshot,
-  identity: string,
-  owner: SnapshotObservations,
-): boolean {
-  try {
-    if (current.schema !== owner.schema) return false;
-    const record = current.results.find(
-      (item) => item.identity === identity && item.kind === "adoption",
-    );
-    const isRejected = record !== undefined && adoptionWasRejected(record);
-    if (
-      !record ||
-      !isStateObject(record.value) ||
-      (!isRejected &&
-        (!hasStateKeys(record.value, [
-          "status",
-          "receiptId",
-          "beforeRevision",
-          "afterRevision",
-          "changedPaths",
-          "cleanupConfirmed",
-        ]) ||
-          record.value.status !== "completed" ||
-          record.value.receiptId !== identity ||
-          record.value.cleanupConfirmed !== true ||
-          typeof record.value.beforeRevision !== "string" ||
-          !/^[0-9a-f]{40,64}$/u.test(record.value.beforeRevision) ||
-          typeof record.value.afterRevision !== "string" ||
-          !/^[0-9a-f]{40,64}$/u.test(record.value.afterRevision) ||
-          !Array.isArray(record.value.changedPaths) ||
-          record.value.changedPaths.length === 0 ||
-          record.value.changedPaths.some(
-            (item) =>
-              typeof item !== "string" ||
-              normalizeRepositoryRelativePath(item) === null,
-          ))) ||
-      current.queueEntries.some(
-        (queue) => queue.projectId === record.projectId,
-      ) ||
-      current.leaseIntents.some(
-        (intent) => intent.projectId === record.projectId,
-      ) ||
-      (isRejected &&
-        current.results.some(
-          (other) =>
-            other.projectId === record.projectId &&
-            other.kind === "adoption" &&
-            !adoptionWasRejected(other),
-        )) ||
-      current.blockers.some(
-        (item) =>
-          item.target.projectId === record.projectId &&
-          (record.milestoneId === null ||
-            item.target.milestoneId === record.milestoneId) &&
-          item.status === "active",
-      ) ||
-      current.projects.some(
-        (project) =>
-          project.milestone.criterionEvidenceIds.includes(identity) ||
-          project.objectives.some((objective) =>
-            objective.criterionEvidenceIds.includes(identity),
-          ),
-      )
-    )
-      return false;
-    const evidence = current.leaseEvidence.filter(
-      (item) =>
-        item.projectId === record.projectId &&
-        item.content.kind === "canonical-adoption" &&
-        (!isRejected || item.content.ownerGeneration === identity),
-    );
-    if (
-      !evidence.length ||
-      evidence.some(
-        (item) =>
-          !evidence.some(
-            (end) =>
-              end.content.ownerGeneration === item.content.ownerGeneration &&
-              end.content.ownerProcessId === item.content.ownerProcessId &&
-              end.content.disposition !== "acquired",
-          ),
-      )
-    )
-      return false;
     return owner.leaseResourcesAbsent(
       leaseIdentity(
         current.repositoryBindingId,
-        record.projectId,
-        "canonical",
-        "canonical-adoption",
+        queue.projectId,
+        queueId,
+        "project-operation",
       ),
     );
   } catch {

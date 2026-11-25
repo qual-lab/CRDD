@@ -428,6 +428,7 @@ export type TaskFixtureDependencies = Readonly<{
     taskAttempt: 0 | 1,
     externalSendPolicyCapability: object,
     remediationCapability: object | null,
+    executionSelection: Parameters<typeof selection.issueProviderTaskPacket>[7],
     packet: RuntimeRecord,
   ) => RuntimeRecord | null;
   revokeTaskPacket: (
@@ -596,7 +597,20 @@ export function bindTaskFixture(dependencies, traceTaskTerminalState) {
     try { void Promise.resolve(dependencies.observeLifecycleState?.(next)).catch(() => {}); } catch {}
   };
   ${body}
-  return Object.freeze({ start: startTask.bind(undefined, controls), cancel: cancelTask.bind(undefined, controls) });
+  return Object.freeze({
+    start(raw, root, ...args) {
+      if (!raw || typeof raw !== "object" || types.isProxy(raw))
+        return startTask(controls, raw, root, ...args);
+      const descriptor = Object.getOwnPropertyDescriptor(raw, "taskExecutionSelections");
+      if (!descriptor || !Object.hasOwn(descriptor, "value") || args[6] !== undefined)
+        return startTask(controls, raw, root, ...args);
+      const descriptors = Object.getOwnPropertyDescriptors(raw);
+      delete descriptors.taskExecutionSelections;
+      const request = Object.create(Object.getPrototypeOf(raw), descriptors);
+      return startTask(controls, request, root, args[0], args[1], args[2], args[3], args[4], args[5], descriptor.value);
+    },
+    cancel: cancelTask.bind(undefined, controls),
+  });
 }`;
 }
 

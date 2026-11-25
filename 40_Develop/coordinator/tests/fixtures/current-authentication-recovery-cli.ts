@@ -213,7 +213,13 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
     const storeUrl = ${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)};
     const store = await import(storeUrl);
     const historyInputs = await import(${JSON.stringify(new URL("../../src/lifecycle/host.ts", import.meta.url).href)});
+    let lastVersion = null;
     storeMock = mock.module(storeUrl,{namedExports:{...store,
+      readState: (...args) => {
+        const value=store.readState(...args);
+        if(value.status==='completed'&&value.lockReleased&&value.value)lastVersion=value.value;
+        return value;
+      },
       saveRecoveryCheckpoint: (...args) => {
         if(args[3]?.kind!=="authentication_unknown_closure"){
           const value=store.saveRecoveryCheckpoint(...args);
@@ -222,17 +228,20 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
         }
         assert.equal(++saves,1); assert.equal(args[1],id); assert.equal(discoveries,0); assert.equal(rounds,2); assert.equal(calls,commands.length);
         assert.deepEqual(args[3].observations,[{round:1,name:'absent',name_label:'absent'},{round:2,name:'absent',name_label:'absent'}]);
-        assert.deepEqual(fs.readFileSync(statePath),args[2]);
-        const before = JSON.parse(args[2]), operation = before.operations.find(item => item.recoveryId === id);
+        const beforeBytes=fs.readFileSync(statePath);
+        assert.ok(lastVersion);
+        assert.equal(args[2].matches(lastVersion.versionEvidence),true);
+        assert.equal(lastVersion.payloadSha256,createHash('sha256').update(beforeBytes).digest('hex'));
+        const before = JSON.parse(beforeBytes), operation = before.operations.find(item => item.recoveryId === id);
         assert.deepEqual({...operation,resources:target.resources},target);
         const result = store.saveRecoveryCheckpoint(...args);
         assert.equal(result.status,'completed'); assert.equal(result.snapshotConfirmed,true); assert.equal(result.lockReleased,true);
         const candidate = fs.readFileSync(statePath);
         const read = store.readState(historyInputs.recoveryStorageInput(historyInputs.borrowCoordinatorRecoveryRepository(verified.capability)),{scope:'recovery'});
         assert.equal(read.status,'completed'); assert.equal(read.lockReleased,true);
-        assert.deepEqual(read.value.snapshot,JSON.parse(candidate));
+        assert.equal(read.value.payloadSha256,createHash('sha256').update(candidate).digest('hex'));
         const saved = JSON.parse(candidate), closed = saved.operations.find(item => item.recoveryId === id);
-        assert.deepEqual(saved,{...before,revision:before.revision+1,previous:{revision:before.revision,payloadSha256:createHash('sha256').update(args[2]).digest('hex')},operations:before.operations.map(item=>item.recoveryId===id?closed:item)});
+        assert.deepEqual(saved,{...before,revision:before.revision+1,previous:{revision:before.revision,payloadSha256:createHash('sha256').update(beforeBytes).digest('hex')},operations:before.operations.map(item=>item.recoveryId===id?closed:item)});
         assert.deepEqual({...closed,resources:operation.resources},operation);
         assert.deepEqual(saved.operations.filter(item => item.recoveryId !== id),initial.operations.filter(item => item.recoveryId !== id));
         const auth=closed.resources.snapshot.resources.find(item=>item.key==='create_subscription_auth_probe');
@@ -251,7 +260,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
     const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
     const verified = vc.getRepository(process.cwd()); assert.equal(verified.status,'completed'); assert.ok(verified.capability);
     const read = store.readState(historyInputs.recoveryStorageInput(historyInputs.borrowCoordinatorRecoveryRepository(verified.capability)),{scope:'recovery'});
-    assert.equal(read.status,'completed'); assert.equal(read.lockReleased,true); assert.deepEqual(read.value.snapshot,initial);
+    assert.equal(read.status,'completed'); assert.equal(read.lockReleased,true); assert.equal(read.value.payloadSha256,createHash('sha256').update(initialBytes).digest('hex'));
     process.argv = [process.execPath,cli,'recovery','resume',id,'--json'];
     await import(cliUrl);
     assert.equal(process.exitCode,0,JSON.stringify({factories,discoveries,rounds,saves,calls,asyncCalls,trustCalls,violations,failureSites,technicalObservation,checkpointResults,children:syntheticChildren.map(item=>[item.spawn,item.exit,item.close])}));

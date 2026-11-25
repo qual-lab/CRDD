@@ -19,8 +19,8 @@ import {
   repairCanComplete,
   repairCanSummarize,
 } from "../../../src/attempt/validation.ts";
-import * as stateValidation from "../../../src/state/validation.ts";
-import * as historyOperations from "../../../src/history/operations.ts";
+import * as stateValidation from "../../../src/composition/transition.ts";
+import * as historyOperations from "../../../src/history/records.ts";
 import * as attemptValidation from "../../../src/attempt/validation.ts";
 import { projectDecisionHistory } from "../../../src/decision/validation.ts";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
@@ -30,8 +30,8 @@ import {
   EXECUTION_STATE_SCHEMA,
   prepareHistoryRetention,
   validateUnifiedTransition,
-} from "../../../src/state/validation.ts";
-import { encodeStateValue } from "../../../src/state/operations.ts";
+} from "../../../src/composition/transition.ts";
+import { encodeStateValue } from "../../../src/composition/validation.ts";
 
 type RepairDisposalCheckpoint = NonNullable<
   RepairOperationRecord["disposal"]
@@ -46,7 +46,7 @@ import {
   validateStateRepairRetentionHandoffTransition,
   validateStateRepairSessionTransition,
   validateStateTransition,
-} from "../../../src/state/validation.ts";
+} from "../../../src/composition/transition.ts";
 
 const binding = "a".repeat(64);
 
@@ -63,7 +63,7 @@ const binding = "a".repeat(64);
  */
 function historyDerivation(overrides: Readonly<Record<string, unknown>> = {}) {
   const source = fs.readFileSync(
-    new URL("../../../src/state/validation.ts", import.meta.url),
+    new URL("../../../src/composition/transition.ts", import.meta.url),
     "utf8",
   );
   const names = [
@@ -77,7 +77,8 @@ function historyDerivation(overrides: Readonly<Record<string, unknown>> = {}) {
     "prepareRepairHistoryPublication",
     "stateHistorySummary",
     "repairHistorySummary",
-    "stateHistorySnapshot",
+    "prepareTaskHistorySnapshot",
+    "fixTaskHistory",
     "repairHistorySnapshot",
     "projectHistoryRetentionReferences",
   ];
@@ -1575,7 +1576,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
   // 履歴受理が将来拡張されても、終了判定自体が成功条件を保持する。
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../../src/state/validation.ts", import.meta.url),
+      new URL("../../../src/composition/transition.ts", import.meta.url),
       "utf8",
     ),
   );
@@ -2863,7 +2864,7 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
   };
   reject(classifyRepairPublication);
   const source = fs.readFileSync(
-    new URL("../../../src/state/validation.ts", import.meta.url),
+    new URL("../../../src/composition/transition.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf("export function classifyRepairPublication(");
@@ -3194,7 +3195,7 @@ import {
   prepareStateRepairSessionSnapshot,
   prepareStateRepairSnapshot,
   prepareStateResourceSnapshot,
-} from "../../../src/state/validation.ts";
+} from "../../../src/composition/transition.ts";
 
 /**
  * 全八処置と周辺観測の共同成立を回復結果へ要求する。
@@ -3871,7 +3872,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   const repairPending = preserve(prepareRepairHistorySnapshot);
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../../src/state/validation.ts", import.meta.url),
+      new URL("../../../src/composition/transition.ts", import.meta.url),
       "utf8",
     ),
   );
@@ -3887,23 +3888,12 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
    * @boundary 型除去したSourceとメモリVM。
    */
   const body = (name: string) => {
-    const actualSource = [
-      "repairSummaryBytes",
-      "repairHistoryLineBytes",
-    ].includes(name)
-      ? stripTypeScriptTypes(
-          fs.readFileSync(
-            new URL("../../../src/history/operations.ts", import.meta.url),
-            "utf8",
-          ),
-        )
-      : source;
-    const begin = actualSource.indexOf(`function ${name}(`);
+    const begin = source.indexOf(`function ${name}(`);
     assert.ok(begin >= 0);
-    const nextHeader = actualSource.indexOf("/**", begin);
-    const end = nextHeader < 0 ? actualSource.length : nextHeader;
+    const nextHeader = source.indexOf("/**", begin);
+    const end = nextHeader < 0 ? source.length : nextHeader;
     assert.ok(end > begin);
-    return actualSource.slice(begin, end);
+    return source.slice(begin, end);
   };
   const absentTechnical = structuredClone(initial);
   absentTechnical.engine = "ready";
@@ -4007,16 +3997,26 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   assert.throws(() => preserveCompletion(completionMutant));
   const original = body("repairHistorySnapshot");
   assert.equal(original.split("...current.snapshot,").length, 2);
-  const mutant = runInThisContext(
-    `(function(deps){const {createHash,decodeStateSnapshot,encodeStateValue,prepareHistorySummary,repairCanSummarize,validateStateTransition}=deps; ${body("repairSummaryBytes")} ${body("repairHistoryLineBytes")} ${body("repairHistorySummary")} ${original.replace("...current.snapshot,", "...current.snapshot, pendingDeliveries: [],")}; ${body("prepareRepairHistorySnapshot")}; return prepareRepairHistorySnapshot;})`,
-  )({
-    createHash,
-    decodeStateSnapshot: decodeStateSnapshot,
-    encodeStateValue: encodeStateValue,
-    repairCanSummarize,
-    validateStateTransition,
-    prepareHistorySummary: historyOperations.prepareHistorySummary,
-  }) as typeof prepareRepairHistorySnapshot;
+  const prepareHistoryInFixture = (snapshotSource: string) =>
+    runInThisContext(
+      `(function(deps){const {createHash,decodeStateSnapshot,encodeStateValue,prepareHistorySummary,repairCanSummarize,validateStateTransition,repairSummaryBytes,repairHistoryLineBytes}=deps; ${body("repairHistorySummary")} ${snapshotSource}; ${body("prepareRepairHistorySnapshot")}; return prepareRepairHistorySnapshot;})`,
+    )({
+      createHash,
+      decodeStateSnapshot: decodeStateSnapshot,
+      encodeStateValue: encodeStateValue,
+      repairCanSummarize,
+      validateStateTransition,
+      prepareHistorySummary: historyOperations.prepareHistorySummary,
+      repairSummaryBytes: historyOperations.repairSummaryBytes,
+      repairHistoryLineBytes: historyOperations.repairHistoryLineBytes,
+    }) as typeof prepareRepairHistorySnapshot;
+  assert.deepEqual(preserve(prepareHistoryInFixture(original)), repairPending);
+  const mutant = prepareHistoryInFixture(
+    original.replace(
+      "...current.snapshot,",
+      "...current.snapshot, pendingDeliveries: [],",
+    ),
+  );
   assert.throws(() => preserve(mutant), /repair_history_candidate_required/u);
   const repairConfirmed = prepareRepairHistorySnapshot(
     repairPending,
@@ -4054,6 +4054,53 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     binding,
   );
   assert.ok(oldTaskLine && currentRepairLine);
+  // 旧行生成（要約bytesをJSONへ戻す）と現在の行を独立に比較する。
+  const historyState = decodeStateSnapshot(taskPending, binding);
+  assert.ok(historyState);
+  const taskRecord = historyState.snapshot.operations.find(
+    (operation) =>
+      operation.kind === "docker_task" &&
+      operation.recoveryId === task.recoveryId,
+  );
+  const repairRecord = historyState.snapshot.operations.find(
+    (operation) =>
+      operation.kind === "docker_repair" &&
+      operation.recoveryId === ready.operation.recoveryId,
+  );
+  assert.ok(taskRecord?.kind === "docker_task" && taskRecord.history);
+  assert.ok(repairRecord?.kind === "docker_repair" && repairRecord.history);
+  for (const [record, summary, line] of [
+    [
+      taskRecord,
+      historyOperations.operationSummaryBytes(taskRecord),
+      oldTaskLine,
+    ],
+    [
+      repairRecord,
+      historyOperations.repairSummaryBytes(repairRecord),
+      currentRepairLine,
+    ],
+  ] as const) {
+    assert.ok(record.history);
+    assert.deepEqual(
+      line,
+      Buffer.from(
+        `${encodeStateValue({
+          schema: "crdd-execution-model/history-row/v3",
+          occurredAt: record.history.occurredAt,
+          summary: JSON.parse(summary.toString("utf8")),
+        })}\n`,
+      ),
+    );
+    assert.equal(
+      createHash("sha256").update(summary).digest("hex"),
+      record.summarySha256,
+    );
+    assert.equal(
+      createHash("sha256").update(line).digest("hex"),
+      record.history.lineSha256,
+    );
+  }
   const historyMix = Buffer.concat([oldTaskLine, currentRepairLine]);
   // 不変の混在fixtureは共有し、用途と段階だけを変えて導出・最終検査を観測する。
   for (const item of [
@@ -4099,13 +4146,25 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
         transitions++;
         return validateStateTransition(...args);
       },
+      validateDecodedStateTransition: (
+        ...args: Parameters<
+          typeof stateValidation.validateDecodedStateTransition
+        >
+      ) => {
+        transitions++;
+        return stateValidation.validateDecodedStateTransition(...args);
+      },
     });
     assert.deepEqual(
       observed[item.snapshot](item.before, item.id, item.at, false, binding),
       item.pending,
       item.kind,
     );
-    assert.equal(decodes, 1, `${item.kind}: same-source derivation`);
+    assert.equal(
+      decodes,
+      item.kind === "Task" ? 2 : 1,
+      `${item.kind}: same-source derivation`,
+    );
     assert.equal(transitions, 1, `${item.kind}: final transition`);
     decodes = 0;
     transitions = 0;
@@ -4133,8 +4192,82 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
       ),
       expected,
     );
-    assert.equal(decodes, 1, `${item.kind}: publication derivation`);
+    assert.equal(
+      decodes,
+      item.kind === "Task" ? 2 : 1,
+      `${item.kind}: publication derivation`,
+    );
     assert.equal(transitions, 1, `${item.kind}: publication transition`);
+    if (item.kind === "Task") {
+      const decoded = decodeStateSnapshot(item.pending, binding);
+      const candidate = stateValidation.prepareRecoveredHistoryPublication(
+        item.pending,
+        item.id,
+        item.history,
+        null,
+        30,
+        binding,
+      );
+      assert.ok(decoded && candidate);
+      const pair = {
+        current: { bytes: item.pending, decoded },
+        candidate: {
+          bytes: candidate.snapshotBytes,
+          decoded: candidate.decoded,
+        },
+      };
+      decodes = 0;
+      transitions = 0;
+      assert.deepEqual(
+        observed.prepareRecoveredHistoryPublication(
+          item.pending,
+          item.id,
+          item.history,
+          null,
+          30,
+          binding,
+          pair,
+        ),
+        candidate,
+      );
+      assert.equal(decodes, 0);
+      assert.equal(transitions, 1);
+      assert.equal(
+        observed.prepareRecoveredHistoryPublication(
+          Buffer.concat([item.pending, Buffer.from(" ")]),
+          item.id,
+          item.history,
+          null,
+          30,
+          binding,
+          pair,
+        ),
+        null,
+      );
+      assert.equal(decodes, 0);
+      assert.equal(transitions, 1);
+      const different = {
+        ...pair,
+        candidate: {
+          ...pair.candidate,
+          bytes: Buffer.concat([pair.candidate.bytes, Buffer.from(" ")]),
+        },
+      };
+      assert.equal(
+        observed.prepareRecoveredHistoryPublication(
+          item.pending,
+          item.id,
+          item.history,
+          null,
+          30,
+          binding,
+          different,
+        ),
+        null,
+      );
+      assert.equal(decodes, 0);
+      assert.equal(transitions, 1);
+    }
     const failure = new Error("history_meaning_failed");
     const failing = historyDerivation({
       [item.summaryBytes]: () => {

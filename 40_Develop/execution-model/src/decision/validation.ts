@@ -4,8 +4,8 @@
  * @trace ARCH-000008
  */
 
-import type { ProjectExecutionState } from "../state/types.ts";
-import { encodeStateValue, isPrincipalId } from "../state/operations.ts";
+import type { ProjectExecutionState } from "../composition/types.ts";
+import { encodeStateValue, isPrincipalId } from "../composition/validation.ts";
 import type {
   Blocker,
   Decision,
@@ -1448,13 +1448,13 @@ export function projectDecisionHistory(
 
 /**
  * 判断モデルを既存の再構成検査で捕捉する。
- * @responsibility 公開表示のOwnerへ保存codecや履歴投影の内部手順を渡さない。
+ * @responsibility Decision保存の確定結果をモデル側で独立捕捉し、不正な候補を公開結果にしない。
  * @trace ARCH-000008
  * @input value: 未検証の判断値。
  * @returns 独立した正規モデル、又はnull。
  * @effect N/A: 値の捕捉と検査のみ。
  * @failure 不正形、未知field、状態・回答・適用の不整合はnull。
- * @boundary モデル値と外部の結果検査。
+ * @boundary Decision内部の値候補と保存結果。Rootには公開しない。
  * @security 保存値を認証・認可へ昇格しない。
  */
 export function inspectDecision(value: unknown): Decision | null {
@@ -1614,6 +1614,17 @@ export function validateDecisionCollections(
       records.some((record) => projectDecisionHistory(record) === null)
     )
       return false;
+    const byDecisionId = new Map(
+      records.map((record) => [record.decisionId, record]),
+    );
+    const firstByBlockerId = new Map<string, Decision>();
+    for (const record of records)
+      if (!firstByBlockerId.has(record.blockerId))
+        firstByBlockerId.set(record.blockerId, record);
+    const byBlockerId = new Map(
+      conditions.map((condition) => [condition.blockerId, condition]),
+    );
+    const knownProjects = new Set(projectIds);
     for (const condition of conditions) {
       if (
         !condition ||
@@ -1626,13 +1637,11 @@ export function validateDecisionCollections(
         !text(condition.reason) ||
         !["active", "resolved", "cancelled"].includes(condition.status) ||
         !validTarget(condition.target) ||
-        !projectIds.includes(condition.target.projectId)
+        !knownProjects.has(condition.target.projectId)
       )
         return false;
       if (condition.status === "cancelled") {
-        const cause = records.find(
-          (item) => item.decisionId === condition.cancelledByDecisionId,
-        );
+        const cause = byDecisionId.get(condition.cancelledByDecisionId);
         if (
           cause?.kind !== "continuation" ||
           cause.target.kind !== "milestone" ||
@@ -1645,12 +1654,11 @@ export function validateDecisionCollections(
           return false;
       }
       if (condition.kind === "human_decision") {
-        const first = records.find(
-          (item) => item.blockerId === condition.blockerId,
-        );
-        const record = records.find(
-          (item) => item.decisionId === condition.currentDecisionId,
-        );
+        const first = firstByBlockerId.get(condition.blockerId);
+        const record =
+          condition.currentDecisionId === null
+            ? undefined
+            : byDecisionId.get(condition.currentDecisionId);
         if (
           !record ||
           !first ||
@@ -1676,31 +1684,32 @@ export function validateDecisionCollections(
       )
         return false;
     }
-    return records.every((record) =>
-      conditions.some(
-        (condition) =>
-          condition.kind === "human_decision" &&
-          condition.blockerId === record.blockerId &&
-          sameDecisionSubject(condition.target, record.target) &&
-          records.some(
-            (current) =>
-              current.decisionId === condition.currentDecisionId &&
-              current.kind === record.kind &&
-              current.respondentPrincipalId === record.respondentPrincipalId &&
-              current.requestedAt >= record.requestedAt &&
-              (current.kind !== "continuation" ||
-                (record.kind === "continuation" &&
-                  current.queueId === record.queueId)) &&
-              (record.decisionId === current.decisionId ||
-                (record.status !== "pending" &&
-                  !(
-                    record.result?.status === "applied" &&
-                    (record.result.application.blockerResolved ||
-                      record.result.answer.selectedOption === "cancel")
-                  ))),
-          ),
-      ),
-    );
+    return records.every((record) => {
+      const condition = byBlockerId.get(record.blockerId);
+      if (
+        condition?.kind !== "human_decision" ||
+        condition.currentDecisionId === null ||
+        !sameDecisionSubject(condition.target, record.target)
+      )
+        return false;
+      const current = byDecisionId.get(condition.currentDecisionId);
+      return (
+        current !== undefined &&
+        current.kind === record.kind &&
+        current.respondentPrincipalId === record.respondentPrincipalId &&
+        current.requestedAt >= record.requestedAt &&
+        (current.kind !== "continuation" ||
+          (record.kind === "continuation" &&
+            current.queueId === record.queueId)) &&
+        (record.decisionId === current.decisionId ||
+          (record.status !== "pending" &&
+            !(
+              record.result?.status === "applied" &&
+              (record.result.application.blockerResolved ||
+                record.result.answer.selectedOption === "cancel")
+            )))
+      );
+    });
   } catch {
     return false;
   }

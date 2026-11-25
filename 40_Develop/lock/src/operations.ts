@@ -44,14 +44,21 @@ function targetPath(request: LockRequest): string | null {
       !/^[a-zA-Z0-9][a-zA-Z0-9:._-]{0,255}$/u.test(request.identity)
     )
       return null;
-    const stat = fs.lstatSync(request.directory);
-    if (
-      !stat.isDirectory() ||
-      stat.isSymbolicLink() ||
-      fs.realpathSync.native(request.directory) !== request.directory
-    )
-      return null;
     return path.join(request.directory, request.name);
+  } catch {
+    return null;
+  }
+}
+
+/** 一回の実体観測で通常Directoryとその正規Pathを確認する。観測不能は不成立。 */
+function observeDirectory(directory: string): fs.BigIntStats | null {
+  try {
+    const stat = fs.lstatSync(directory, { bigint: true });
+    return stat.isDirectory() &&
+      !stat.isSymbolicLink() &&
+      fs.realpathSync.native(directory) === directory
+      ? stat
+      : null;
   } catch {
     return null;
   }
@@ -70,7 +77,9 @@ export function acquireLock(request: LockRequest): LockResult {
     identity: request?.identity,
   });
   const target = targetPath(request);
-  if (target === null)
+  const directoryStat =
+    target === null ? null : observeDirectory(request.directory);
+  if (target === null || directoryStat === null)
     return Object.freeze({
       status: "blocked",
       reason: "lock_input_invalid",
@@ -79,7 +88,6 @@ export function acquireLock(request: LockRequest): LockResult {
       descriptorClosed: true,
     });
   const generation = randomUUID();
-  const directoryStat = fs.lstatSync(request.directory, { bigint: true });
   const directoryIdentity = Object.freeze({
     device: directoryStat.dev.toString(),
     inode: directoryStat.ino.toString(),
@@ -91,9 +99,10 @@ export function acquireLock(request: LockRequest): LockResult {
   const record = Buffer.from(
     `${JSON.stringify({ schema: "crdd-lock/v1", identity: request.identity, owner, generation })}\n`,
   );
+  const observedRecord = Buffer.alloc(record.length);
   let descriptor: number;
   try {
-    descriptor = fs.openSync(target, "wx", 0o600);
+    descriptor = fs.openSync(target, "wx+", 0o600);
   } catch (error) {
     return Object.freeze({
       status: "blocked",
@@ -152,37 +161,40 @@ export function acquireLock(request: LockRequest): LockResult {
   }
   let released = false;
   let descriptorOpen = true;
-  const matchesPath = (): boolean => {
-    try {
-      if (targetPath(request) !== target) return false;
-      const currentDirectory = fs.lstatSync(request.directory, {
-        bigint: true,
-      });
-      if (
-        currentDirectory.dev.toString() !== directoryIdentity.device ||
-        currentDirectory.ino.toString() !== directoryIdentity.inode
-      )
-        return false;
-      const stat = fs.lstatSync(target, { bigint: true });
-      return (
-        matchesFile(stat, reference) &&
-        stat.size === BigInt(record.length) &&
-        stat.size <= BigInt(RECORD_LIMIT_BYTES) &&
-        fs.readFileSync(target).equals(record)
-      );
-    } catch {
-      return false;
-    }
+  const matchesRecordFile = (stat: fs.BigIntStats): boolean =>
+    matchesFile(stat, reference) &&
+    stat.size === BigInt(record.length) &&
+    stat.size <= BigInt(RECORD_LIMIT_BYTES);
+  const matchesDirectory = (): boolean => {
+    const directory = observeDirectory(request.directory);
+    return (
+      directory !== null &&
+      directory.dev.toString() === directoryIdentity.device &&
+      directory.ino.toString() === directoryIdentity.inode
+    );
   };
   const assertLive = (): boolean => {
     try {
+      if (released || !descriptorOpen || !matchesDirectory()) return false;
+      const held = fs.fstatSync(descriptor, { bigint: true });
       if (
-        released ||
-        !descriptorOpen ||
-        !matchesFile(fs.fstatSync(descriptor, { bigint: true }), reference)
+        !matchesRecordFile(held) ||
+        !matchesRecordFile(fs.lstatSync(target, { bigint: true }))
       )
         return false;
-      return matchesPath();
+      // 同じ実体を確認した後、取得済みdescriptorで元bytesまで照合する。
+      for (let offset = 0; offset < record.length; ) {
+        const length = fs.readSync(
+          descriptor,
+          observedRecord,
+          offset,
+          record.length - offset,
+          offset,
+        );
+        if (length === 0) return false;
+        offset += length;
+      }
+      return observedRecord.equals(record);
     } catch {
       return false;
     }
@@ -200,10 +212,17 @@ export function acquireLock(request: LockRequest): LockResult {
       } catch {
         return false;
       }
-      if (!matched || !matchesPath()) return false;
-      if (retainFile) return true;
-      // 正規Callerは保持中に置換しない。非協調の最終照合後置換は保証対象外。
       try {
+        // close中の変化も見落とさないように、解放直前だけPathで本文まで再照合する。
+        if (
+          !matched ||
+          !matchesDirectory() ||
+          !matchesRecordFile(fs.lstatSync(target, { bigint: true })) ||
+          !fs.readFileSync(target).equals(record)
+        )
+          return false;
+        if (retainFile) return true;
+        // 正規Callerは保持中に置換しない。非協調の最終照合後置換は保証対象外。
         fs.rmSync(target);
         try {
           const current = fs.lstatSync(target, { bigint: true });

@@ -66,6 +66,8 @@ Coveredは上記の局所責務の設計接続を表す。各ARCH全体の完成
 
 `lock.assertLive()`と一回限りの`lock.release()`は、Lock Identity・Owner・GenerationのRecord、保持descriptor、PathのFile実体と親Directoryを照合する。不一致・不明なら削除しない。close失敗も削除せず、正常解放後の正当な次世代を再削除しない。
 
+排他作成には読書き可能な`wx+`を使う。保持中は親Directoryの通常型と実体IDを一回の観測で照合し、Pathとdescriptorが同じFileを指すことを確認してから、取得済みdescriptorで先頭からRecordを照合する。PathのFile確認後に非協調ProcessがPathを差し替える競合は保証対象外である。解放時はdescriptorを閉じた後にPathからRecordまで改めて照合し、保持中の結果で代用しない。
+
 ## 接続する保護対象
 
 | 保護対象 | 所在・IdentityのOwner | wxの所在 |

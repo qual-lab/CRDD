@@ -8,21 +8,23 @@ import { types } from "node:util";
 import {
   applyResourceCleanup,
   applyResourceEvent,
-  validateResourceBookTransition,
-} from "../attempt/operations.ts";
+} from "../attempt/transition.ts";
+import { validateResourceBookTransition } from "../attempt/validation.ts";
 import type {
   ExecutionOperationRecord,
+  HostOperationRecord,
   OperationResources,
   RepairOperationRecord,
 } from "../attempt/types.ts";
 import {
   areTaskResourcesSettled,
+  indexOperationHosts,
+  inspectExecutionState,
   readOperationHost,
   authenticationClosureEvidence,
   createEnvironmentRepairDisposalCheckpoint,
   decodeEnvironmentRepairDisposalCheckpoint,
   decodeHostOperation,
-  validHostOperationTransition,
   isDockerRestartCheckpointSettled,
   isRepairCheckpointSettled,
   operationNonce,
@@ -31,12 +33,14 @@ import {
   repairCanComplete,
   repairCanSummarize,
   repairRetentionMatchesCheckpoint,
-  validateEnvironmentRepairDisposalTransition,
-  validateOperationTransitions,
-  validExecutionState,
   validRepairOperation,
   validRepairRetentionReceipt,
 } from "../attempt/validation.ts";
+import {
+  validHostOperationTransition,
+  validateEnvironmentRepairDisposalTransition,
+  validateOperationTransitions,
+} from "../attempt/transition.ts";
 import {
   projectDecisionHistory,
   validateDecisionCollections,
@@ -53,7 +57,7 @@ import {
   repairHistoryLineBytes,
   repairSummaryBytes,
   retainHistoryRows,
-} from "../history/operations.ts";
+} from "../history/records.ts";
 import type { HistoryRetentionReferences } from "../history/types.ts";
 import { decodeHistoryRows, historyRow } from "../history/validation.ts";
 import {
@@ -65,16 +69,12 @@ import type {
   ProjectTaskRecord,
   ProjectTaskRecoveryObligation,
 } from "../task/types.ts";
-import {
-  associateTaskOperations,
-  validQueueEntry,
-  validState,
-} from "../task/validation.ts";
+import { validQueueEntry, validState } from "../task/validation.ts";
+import { associateTaskOperations } from "../task/transition.ts";
 import { validResultRecord, validWorkspace } from "../workspace/validation.ts";
 import type {
   ExecutionStateSnapshot,
   ExecutionStoredManagedProject,
-  LeaseEvidenceEnvelope,
   ProjectDefinition,
   ProjectExecutionState,
   Snapshot,
@@ -82,6 +82,7 @@ import type {
   ManagedExecution,
   TaskSettlementFact,
 } from "./types.ts";
+import type { LeaseEvidenceEnvelope } from "../lease/types.ts";
 import {
   validLeaseEvidence,
   hashStateText,
@@ -94,7 +95,7 @@ import {
   isStateObject,
   hasStateKeys,
   HASH,
-} from "./operations.ts";
+} from "./validation.ts";
 import { PROJECT_SNAPSHOT_SCHEMA, STORAGE_CONTRACT } from "./types.ts";
 /**
  * 保存Bufferを一意なJSON値として安全に復号する。
@@ -1658,7 +1659,7 @@ export function prepareRepairHistoryPublication(
  * 現在終端の履歴出版候補を固定時刻と全文から再導出する。
  * @responsibility Process内の過去試行情報を復元せず、同じ行・保持設定・pendingを照合する。
  * @trace ARCH-000008
- * @input currentBytes、recoveryId、historyBytes、pendingBytes、retentionDays、repositoryBinding: 現在状態と固定履歴入力。
+ * @input currentBytes、recoveryId、historyBytes、pendingBytes、retentionDays、repositoryBinding: 現在状態と固定履歴入力。observedは同じLock内で検査済みの本文だけを渡す。
  * @returns 確認済みSnapshotと履歴全文の候補、またはnull。
  * @precondition 実終端、Root、File実体、排他と現在設定は保存Ownerが別に確認する。
  * @postcondition 固定時刻・行内容を変えず、同じIDの行を再追加しない。
@@ -1676,13 +1677,29 @@ export function prepareRecoveredHistoryPublication(
   pendingBytes: unknown,
   retentionDays: unknown,
   repositoryBinding: unknown,
+  observed?: Readonly<{
+    current: TaskHistorySnapshot;
+    candidate?: TaskHistorySnapshot;
+  }>,
 ) {
   try {
     const canonical = copyHistoryBytes(historyBytes);
     const pending =
       pendingBytes === null ? null : copyHistoryBytes(pendingBytes);
     if (!canonical || (pendingBytes !== null && !pending)) return null;
-    const current = decodeStateSnapshot(currentBytes, repositoryBinding);
+    const source = observed ? null : copyHistoryBytes(currentBytes);
+    if (!observed && !source) return null;
+    if (
+      observed &&
+      (!Buffer.isBuffer(currentBytes) ||
+        !observed.current.bytes.equals(currentBytes) ||
+        observed.current.decoded.snapshot.repositoryBinding !==
+          repositoryBinding)
+    )
+      return null;
+    const current =
+      observed?.current.decoded ??
+      decodeStateSnapshot(source, repositoryBinding);
     const operation = current?.snapshot.operations.find(
       (item): item is ExecutionOperationRecord =>
         item.kind === "docker_task" && item.recoveryId === recoveryId,
@@ -1690,16 +1707,22 @@ export function prepareRecoveredHistoryPublication(
     if (!current || !operation?.history || operation.history.confirmed)
       return null;
     const line = operationHistoryLine(operation);
-    const snapshotBytes = stateHistorySnapshot(
-      currentBytes,
+    const snapshot = prepareTaskHistorySnapshot(
       current,
       recoveryId,
       operation.history.occurredAt,
       true,
       repositoryBinding,
+      observed?.candidate,
     );
     const rows = decodeHistoryRows(canonical);
-    if (!line || !snapshotBytes || !rows) return null;
+    if (
+      !line ||
+      !snapshot ||
+      !rows ||
+      (source && !copyHistoryBytes(currentBytes)?.equals(source))
+    )
+      return null;
     const lineRows = decodeHistoryRows(line);
     const references = projectHistoryRetentionReferences(current.snapshot);
     if (lineRows?.length !== 1 || !lineRows[0] || !references) return null;
@@ -1716,7 +1739,8 @@ export function prepareRecoveredHistoryPublication(
     if (!publication) return null;
     const candidateHistory = publication.historyBytes;
     return Object.freeze({
-      snapshotBytes: Buffer.from(snapshotBytes),
+      snapshotBytes: snapshot.bytes,
+      decoded: snapshot.decoded,
       historyBytes: Buffer.from(candidateHistory),
       historyChanged: publication.historyChanged,
     });
@@ -1748,16 +1772,20 @@ export function prepareStateHistorySnapshot(
   repositoryBinding: unknown,
 ): Buffer | null {
   try {
-    const current = decodeStateSnapshot(currentBytes, repositoryBinding);
-    return current
-      ? stateHistorySnapshot(
-          currentBytes,
+    const source = copyHistoryBytes(currentBytes);
+    if (!source) return null;
+    const current = decodeStateSnapshot(source, repositoryBinding);
+    const candidate = current
+      ? prepareTaskHistorySnapshot(
           current,
           recoveryId,
           occurredAt,
           confirmed,
           repositoryBinding,
         )
+      : null;
+    return candidate && copyHistoryBytes(currentBytes)?.equals(source)
+      ? candidate.bytes
       : null;
   } catch {
     return null;
@@ -1873,6 +1901,35 @@ export function prepareStateRepairCompletionSnapshot(
   };
   const bytes = Buffer.from(`${encodeStateValue(next)}\n`);
   return decodeStateSnapshot(bytes, repositoryBinding) ? bytes : null;
+}
+
+/**
+ * 初期化候補の全操作と回復義務が元の単一操作に属することを確認する。
+ * @trace ARCH-000008
+ * @precondition 初期化候補はState codecを通過している。初期化資格・排他・実体はWriterが確認する。
+ */
+export function initialStateOperationsMatch(
+  snapshot: ExecutionStateSnapshot,
+  operationId: string | undefined,
+): boolean {
+  return (
+    !snapshot.operations.some(
+      (operation) =>
+        (operation.kind === "host_operation"
+          ? operation.operationId
+          : JSON.parse(operation.identityJson).operationId) !== operationId,
+    ) &&
+    !snapshot.unresolvedRecoveries.some((item) => {
+      const operation = snapshot.operations.find(
+        (value): value is ExecutionOperationRecord =>
+          value.kind === "docker_task" && value.recoveryId === item.recoveryId,
+      );
+      return (
+        !operation ||
+        JSON.parse(operation.identityJson).operationId !== operationId
+      );
+    })
+  );
 }
 
 /**
@@ -2021,6 +2078,19 @@ function validateStateTransitionValue(
         ? null
         : decodeStateSnapshot(currentBytes, repositoryBinding);
     if (!next || (currentBytes !== null && !current)) return false;
+    return validateDecodedStateTransition(current, next, repairSessionId);
+  } catch {
+    return false;
+  }
+}
+
+/** 同じ排他内で復号済みの元版・候補に通常と同じ遷移規則を適用する。 @trace ARCH-000008 */
+export function validateDecodedStateTransition(
+  current: ReturnType<typeof decodeStateSnapshot>,
+  next: NonNullable<ReturnType<typeof decodeStateSnapshot>>,
+  repairSessionId: string | null = null,
+): boolean {
+  try {
     if (current) {
       const expectedProjects = associateTaskOperations(
         current.snapshot,
@@ -2554,19 +2624,22 @@ export function decodeStateSnapshot(
           ]) ||
           snapshot.previous?.revision !== snapshot.revision - 1 ||
           !isSha256Hex(snapshot.previous?.payloadSha256)) ||
-      !validExecutionState(snapshot, repositoryBinding) ||
       !Array.isArray(snapshot.projects) ||
       !Array.isArray(snapshot.managedExecutions)
     )
       return null;
+    const operationReferences = inspectExecutionState(
+      snapshot,
+      repositoryBinding,
+    );
+    if (!operationReferences) return null;
     const definitions: ProjectDefinition[] = [];
+    const definitionsByProjectId = new Map<string, ProjectDefinition>();
     for (const raw of snapshot.projects) {
       const definition = inspectExecutionProjectDefinition(raw);
-      if (
-        !definition ||
-        definitions.some((item) => item.projectId === definition.projectId)
-      )
+      if (!definition || definitionsByProjectId.has(definition.projectId))
         return null;
+      definitionsByProjectId.set(definition.projectId, definition);
       definitions.push(definition);
     }
     if (
@@ -2591,13 +2664,10 @@ export function decodeStateSnapshot(
         !Array.isArray(execution.tasks)
       )
         return null;
-      const definition = definitions.find(
-        (item) =>
-          item.projectId === execution.projectId &&
-          item.milestoneId === execution.milestoneId,
-      );
+      const definition = definitionsByProjectId.get(execution.projectId);
       if (
         !definition ||
+        definition.milestoneId !== execution.milestoneId ||
         !inspectCompletePlanDefinition({
           milestoneAcceptanceCriteria: definition.milestone.acceptanceCriteria,
           objectives: definition.objectives.map(
@@ -2630,11 +2700,8 @@ export function decodeStateSnapshot(
           taskIds.has(task.taskId)
         )
           return null;
-        const taskDefinition = definition.tasks.find(
-          (item) => item.id === task.taskId,
-        );
-        if (!taskDefinition) return null;
-        if (definition.tasks[tasks.length]?.id !== task.taskId) return null;
+        const taskDefinition = definition.tasks[tasks.length];
+        if (!taskDefinition || taskDefinition.id !== task.taskId) return null;
         taskIds.add(task.taskId);
         const { taskId: _taskId, ...record } = task;
         tasks.push(Object.freeze({ ...record, definition: taskDefinition }));
@@ -2657,6 +2724,7 @@ export function decodeStateSnapshot(
       Object.freeze(projects),
       decoded.payloadSha256,
       definitions,
+      operationReferences,
     );
     return projection
       ? Object.freeze({
@@ -2688,6 +2756,9 @@ export function decodeStateSnapshot(
 export function projectTaskSettlement(
   input: unknown,
   snapshot: Pick<ExecutionStateSnapshot, "operations" | "unresolvedRecoveries">,
+  taskReferences?: NonNullable<
+    ReturnType<typeof inspectExecutionState>
+  >["tasks"],
 ): Readonly<{ cleanupConfirmed: boolean; recoveryUnresolved: boolean }> | null {
   try {
     const fact: unknown = JSON.parse(encodeStateValue(input));
@@ -2726,11 +2797,29 @@ export function projectTaskSettlement(
     )
       return null;
     const recoveryIds = fact.recoveryIds as readonly string[];
+    const byId =
+      !taskReferences && recoveryIds.length > 1
+        ? new Map<string, ExecutionStateSnapshot["operations"][number]>()
+        : null;
+    if (byId)
+      for (const operation of snapshot.operations)
+        if (!byId.has(operation.recoveryId))
+          byId.set(operation.recoveryId, operation);
     const operations = recoveryIds.map((id) =>
-      snapshot.operations.find((operation) => operation.recoveryId === id),
+      taskReferences
+        ? taskReferences.get(id)?.operation
+        : byId
+          ? byId.get(id)
+          : snapshot.operations.find(
+              (operation) => operation.recoveryId === id,
+            ),
     );
     if (operations.some((operation) => operation?.kind !== "docker_task"))
       return null;
+    const hosts =
+      byId && !fact.resultUnresolved
+        ? indexOperationHosts(snapshot.operations)
+        : null;
     return Object.freeze({
       cleanupConfirmed:
         !fact.resultUnresolved &&
@@ -2739,8 +2828,12 @@ export function projectTaskSettlement(
             operation?.kind === "docker_task" &&
             operation.phase !== "executing" &&
             operation.outcome?.cleanupConfirmed === true &&
-            readOperationHost(snapshot.operations, operation)?.cleanup ===
-              "confirmed" &&
+            (taskReferences
+              ? taskReferences.get(operation.recoveryId)?.host
+              : hosts
+                ? hosts.get(JSON.parse(operation.identityJson).operationId)
+                : readOperationHost(snapshot.operations, operation)
+            )?.cleanup === "confirmed" &&
             operation.lease === "released" &&
             operation.execution.ownerEffect === "disabled" &&
             (operation.dockerRestart === null ||
@@ -2882,9 +2975,7 @@ function validExecutionTaskReferences(
       record.updatedGeneration !==
         (record.content.disposition === "acquired" ? 1 : 2) ||
       record.contentHash !== hashStateText(encodeStateValue(record.content)) ||
-      !(record.content.kind === "canonical-adoption"
-        ? record.content.queueId === "canonical"
-        : queues.get(record.content.queueId)?.projectId === record.projectId)
+      queues.get(record.content.queueId)?.projectId !== record.projectId
     )
       return false;
     const key = `${leaseIdentity(binding, record.projectId, record.content.queueId, record.content.kind)}\0${record.content.ownerGeneration}`;
@@ -2932,11 +3023,8 @@ function validExecutionTaskReferences(
         "physicalIdentity",
       ]) ||
       !validId(item.projectId) ||
-      !(item.kind === "canonical-adoption"
-        ? item.queueId === "canonical"
-        : queues.get(item.queueId)?.projectId === item.projectId) ||
-      (item.kind !== "project-operation" &&
-        item.kind !== "canonical-adoption") ||
+      queues.get(item.queueId)?.projectId !== item.projectId ||
+      item.kind !== "project-operation" ||
       !validId(item.ownerGeneration) ||
       !Number.isSafeInteger(item.ownerProcessId) ||
       item.ownerProcessId < 1 ||
@@ -2969,13 +3057,13 @@ function validExecutionTaskReferences(
       )
     )
       return false;
-    const key = `${leaseIdentity(binding, item.projectId, item.queueId, item.kind)}\0${item.ownerGeneration}\0${item.phase}`;
     const leaseKey = leaseIdentity(
       binding,
       item.projectId,
       item.queueId,
       item.kind,
     );
+    const key = `${leaseKey}\0${item.ownerGeneration}\0${item.phase}`;
     const ownerKey = `${item.ownerGeneration}\0${item.ownerProcessId}\0${item.queueId}\0${item.projectId}`;
     const evidence = evidenceGroups.get(`${leaseKey}\0${item.ownerGeneration}`);
     if (
@@ -3067,6 +3155,7 @@ function projectExecutionSnapshotSections(
   managedProjects: readonly ExecutionStoredManagedProject[],
   payloadSha256: string,
   definitionProjects: readonly Readonly<{ projectId: string }>[],
+  operationReferences: NonNullable<ReturnType<typeof inspectExecutionState>>,
 ) {
   const claimedOperations = new Set<string>();
   const projects: ProjectExecutionState[] = [];
@@ -3091,26 +3180,24 @@ function projectExecutionSnapshotSections(
         !Array.isArray(task.recoveryObligations)
       )
         return null;
-      const settlement = projectTaskSettlement(task.settlement, snapshot);
+      const settlement = projectTaskSettlement(
+        task.settlement,
+        snapshot,
+        operationReferences.tasks,
+      );
       if (!settlement) return null;
-      const matching = snapshot.operations
-        .filter((operation) => {
-          if (operation.kind !== "docker_task" || task.operationId === null)
-            return false;
-          const identity = JSON.parse(operation.identityJson);
-          return (
-            (identity.recoveryCorrelationId ?? identity.operationId) ===
-            task.operationId
-          );
-        })
-        .map((operation) => operation.recoveryId);
+      const matching =
+        task.operationId === null
+          ? []
+          : (operationReferences.recoveryIdsByTask.get(task.operationId) ?? []);
       const referenced =
         task.settlement.kind === "operations"
           ? task.settlement.recoveryIds
           : [];
+      const referencedIds = new Set(referenced);
       if (
         matching.length !== referenced.length ||
-        matching.some((id) => !referenced.includes(id)) ||
+        matching.some((id) => !referencedIds.has(id)) ||
         referenced.some((id: string) => claimedOperations.has(id))
       )
         return null;
@@ -3144,6 +3231,7 @@ function projectExecutionSnapshotSections(
             resultUnresolved: false,
           },
           snapshot,
+          operationReferences.tasks,
         );
         if (
           (!observed && obligation.phase !== "settled") ||
@@ -3340,7 +3428,7 @@ export function validateRepairWriteCandidate(
  * @postcondition 行の存在や保存確定は推定しない。
  * @effect N/A: メモリ内投影だけ。
  * @failure 判断イベントの相関不正はnull。
- * @invariant historyを持つ全操作はconfirmedによらず必須行に含める。
+ * @invariant 全参照のHashを投影し、別操作の追記でだけ未出版Task行の欠測を許す。
  * @boundary Stateの参照整合とHistoryの選別。
  * @security 保存・退役Authorityを生成しない。
  * @concurrency 外部読取りや時点の追加取得をしない。
@@ -3368,6 +3456,9 @@ function projectHistoryRetentionReferences(
       recoveryId: operation.recoveryId,
       lineSha256: operation.history.lineSha256,
       summarySha256: operation.summarySha256,
+      ...(operation.kind === "docker_task" && !operation.history.confirmed
+        ? { unpublishedTask: true as const }
+        : {}),
     });
   }
   return { protectedRecoveries, requiredRows };
@@ -3382,7 +3473,7 @@ function projectHistoryRetentionReferences(
  * @precondition 更新排他内の元File実体・版・設定を物理Writerが再照合する。
  * @postcondition 未確認行は期限外でも保持し、確認済みの欠落行を再追加しない。
  * @effect N/A: メモリ内の候補生成だけ。
- * @failure 全行検査失敗、設定不正、未確認行欠落または相関不一致はnull。
+ * @failure 全行検査失敗、設定不正、必須行欠落または相関不一致はnull。追記時だけ別Taskの未出版は許容。
  * @invariant 件数・容量を理由に削除せず、状態の操作・搬送を変更しない。
  * @boundary 現在状態と通常履歴の保持期間。
  * @security 候補生成は実保存・読戻し・操作除去のAuthorityを発行しない。
@@ -3394,13 +3485,20 @@ export function prepareHistoryRetention(
   now: unknown,
   retentionDays: unknown,
   repositoryBinding: unknown,
+  publishingRecoveryId?: string,
 ): Buffer | null {
   const current = decodeStateSnapshot(currentBytes, repositoryBinding);
   const rows = decodeHistoryRows(historyBytes);
   if (!current || !rows) return null;
   const references = projectHistoryRetentionReferences(current.snapshot);
   return references
-    ? retainHistoryRows(rows, references, now, retentionDays)
+    ? retainHistoryRows(
+        rows,
+        references,
+        now,
+        retentionDays,
+        publishingRecoveryId,
+      )
     : null;
 }
 
@@ -3459,11 +3557,20 @@ function repairHistorySummary(
   return summary ? Object.freeze({ ...summary, sourcePayloadSha256 }) : null;
 }
 
+export type DecodedExecutionState = NonNullable<
+  ReturnType<typeof decodeStateSnapshot>
+>;
+
+export type TaskHistorySnapshot = Readonly<{
+  bytes: Buffer;
+  decoded: DecodedExecutionState;
+}>;
+
 /**
  * Task履歴を同じ元Snapshotへ結合し、全体遷移を検査する。
  * @responsibility Host清掃・Lease解放・Owner無効化・資源終端と初回falseを共同確認する。
  * @trace ARCH-000008
- * @input currentBytes/current: 同じ元本文と検査結果、recoveryId/occurredAt/confirmed: 固定対象と履歴値、repositoryBinding: 結合。
+ * @input current: 検査済み元版、recoveryId/occurredAt/confirmed: 固定対象と履歴値、repositoryBinding: 結合、observedCandidate: 同じLock内で検査済みの候補。
  * @returns 固定条件を満たすSnapshot候補、またはnull。
  * @precondition 呼出し元の検査済みStateと元本文が同一の同期呼出しに属する。
  * @postcondition 対象Operationの履歴相関とSnapshotの改訂・previousだけを更新し、対象外操作を保持する。
@@ -3472,16 +3579,16 @@ function repairHistorySummary(
  * @invariant 候補成功を実保存・Process終了・Cleanup成立と扱わない。
  * @boundary History相関と全State改訂。
  * @security 値やHashを保存・操作Authorityへ昇格しない。
- * @concurrency 最終遷移検査には元のcurrentBytesを渡し、Writerのfresh照合を維持する。
+ * @concurrency 候補の完全一致時だけ検査結果を再利用し、遷移検査とWriterのfresh照合を維持する。
  */
-function stateHistorySnapshot(
-  currentBytes: unknown,
-  current: NonNullable<ReturnType<typeof decodeStateSnapshot>>,
+export function prepareTaskHistorySnapshot(
+  current: DecodedExecutionState,
   recoveryId: unknown,
   occurredAt: unknown,
   confirmed: unknown,
   repositoryBinding: unknown,
-): Buffer | null {
+  observedCandidate?: TaskHistorySnapshot,
+): TaskHistorySnapshot | null {
   if (
     typeof recoveryId !== "string" ||
     typeof occurredAt !== "string" ||
@@ -3507,15 +3614,13 @@ function stateHistorySnapshot(
   )
     return null;
   if (!operation.history && confirmed) return null;
-  const summary = stateHistorySummary(operation, current.payloadSha256);
-  if (!summary) return null;
-  const history = {
+  const fixed = fixTaskHistory(
+    operation,
+    current.payloadSha256,
     occurredAt,
-    lineSha256: createHash("sha256")
-      .update(historyLineBytes(operation, occurredAt))
-      .digest("hex"),
     confirmed,
-  };
+  );
+  if (!fixed) return null;
   const next = {
     ...current.snapshot,
     revision: current.snapshot.revision + 1,
@@ -3524,14 +3629,123 @@ function stateHistorySnapshot(
       payloadSha256: current.payloadSha256,
     },
     operations: current.snapshot.operations.map((item) =>
-      item !== operation
-        ? item
-        : { ...item, summarySha256: summary.summarySha256, history },
+      item !== operation ? item : fixed,
     ),
   };
   const bytes = Buffer.from(`${encodeStateValue(next)}\n`);
-  return validateStateTransition(currentBytes, bytes, repositoryBinding)
-    ? bytes
+  if (
+    observedCandidate &&
+    (!observedCandidate.bytes.equals(bytes) ||
+      observedCandidate.decoded.snapshot.repositoryBinding !==
+        repositoryBinding)
+  )
+    return null;
+  const decoded =
+    observedCandidate?.decoded ?? decodeStateSnapshot(bytes, repositoryBinding);
+  return decoded && validateDecodedStateTransition(current, decoded)
+    ? { bytes, decoded }
+    : null;
+}
+
+function fixTaskHistory(
+  operation: ExecutionOperationRecord,
+  sourcePayloadSha256: string,
+  occurredAt: string,
+  confirmed: boolean,
+): ExecutionOperationRecord | null {
+  const summary = stateHistorySummary(operation, sourcePayloadSha256);
+  if (!summary) return null;
+  return {
+    ...operation,
+    summarySha256: summary.summarySha256,
+    history: {
+      occurredAt,
+      lineSha256: createHash("sha256")
+        .update(historyLineBytes(operation, occurredAt))
+        .digest("hex"),
+      confirmed,
+    },
+  };
+}
+
+/**
+ * 回復時、実行Ownerが無効で資源が終端したTaskだけを一改訂で終了・履歴固定する。
+ * @responsibility 既存の終了保存と初回履歴固定を同じ元版へ結合する。
+ * @trace ARCH-000008
+ * @input current: 検査済み元版、recoveryId/operationId: 正確な対象、occurredAt: 固定UTC時刻。
+ * @returns 正規候補、更新不要、または対象外・不整合ならnull。
+ * @precondition Writerは別途現在Owner、元版、遷移、CASを照合する。
+ * @postcondition 対象Task以外を変更せず、履歴は未確認のまま固定する。
+ * @effect N/A: 値計算のみ。
+ * @failure 回収未完了や既に終了保存済みなら候補を作らない。
+ * @invariant 履歴未掲載を確認済みにしない。
+ * @boundary Task回復終端と履歴固定。
+ * @security 時刻やHashから保存権限を導出しない。
+ * @concurrency 元版と候補の対応をWriterの排他内で再導出する。
+ */
+export function prepareRecoveryTerminalSnapshot(
+  current: NonNullable<ReturnType<typeof decodeStateSnapshot>>,
+  recoveryId: string,
+  operationId: string | undefined,
+  occurredAt: string,
+): { status: "unchanged" } | { status: "prepared"; bytes: Buffer } | null {
+  const { snapshot, payloadSha256 } = current;
+  const operation = snapshot.operations.find(
+    (item): item is ExecutionOperationRecord =>
+      item.kind === "docker_task" && item.recoveryId === recoveryId,
+  );
+  if (
+    !operation ||
+    (operationId !== undefined &&
+      JSON.parse(operation.identityJson).operationId !== operationId) ||
+    operation.phase === "terminal" ||
+    operation.execution.ownerEffect !== "disabled" ||
+    readOperationHost(snapshot.operations, operation)?.cleanup !==
+      "confirmed" ||
+    !areTaskResourcesSettled(operation) ||
+    !isDockerRestartCheckpointSettled(operation.dockerRestart)
+  )
+    return null;
+  if (operation.lease === "released" && operation.outcome?.cleanupConfirmed)
+    return { status: "unchanged" };
+  const time = Date.parse(occurredAt);
+  if (
+    operation.history !== null ||
+    !Number.isFinite(time) ||
+    new Date(time).toISOString() !== occurredAt
+  )
+    return null;
+  const fixed = fixTaskHistory(
+    {
+      ...operation,
+      phase: "settling",
+      lease: "released",
+      outcome: operation.outcome
+        ? { ...operation.outcome, cleanupConfirmed: true }
+        : {
+            status: "blocked",
+            reason: "docker_process_controller_execution_failed_closed",
+            cleanupConfirmed: true,
+          },
+    },
+    payloadSha256,
+    occurredAt,
+    false,
+  );
+  return fixed
+    ? {
+        status: "prepared",
+        bytes: Buffer.from(
+          `${encodeStateValue({
+            ...snapshot,
+            revision: snapshot.revision + 1,
+            previous: { revision: snapshot.revision, payloadSha256 },
+            operations: snapshot.operations.map((item) =>
+              item === operation ? fixed : item,
+            ),
+          })}\n`,
+        ),
+      }
     : null;
 }
 
@@ -3737,6 +3951,30 @@ export function normalizeTaskProjects(
     )
   )
     return null;
+  const hosts = indexOperationHosts(current.snapshot.operations);
+  const taskReferences = new Map<
+    string,
+    {
+      operation: ExecutionOperationRecord;
+      host: HostOperationRecord;
+      taskId: string;
+    }
+  >();
+  const recoveryIdsByTask = new Map<string, string[]>();
+  for (const operation of current.snapshot.operations) {
+    if (operation.kind !== "docker_task") continue;
+    const identity = JSON.parse(operation.identityJson);
+    const host = hosts.get(identity.operationId);
+    if (!host) return null;
+    const taskId = identity.recoveryCorrelationId ?? identity.operationId;
+    taskReferences.set(operation.recoveryId, { operation, host, taskId });
+    const ids = recoveryIdsByTask.get(taskId);
+    if (ids) ids.push(operation.recoveryId);
+    else recoveryIdsByTask.set(taskId, [operation.recoveryId]);
+  }
+  const unresolvedIds = new Set(
+    current.snapshot.unresolvedRecoveries.map((item) => item.recoveryId),
+  );
   const completed = new Set<string>();
   for (const priorProject of current.snapshot.managedExecutions) {
     const project = states.find((p) => p.projectId === priorProject.projectId);
@@ -3766,34 +4004,21 @@ export function normalizeTaskProjects(
       )
         continue;
       // 未解決参照が残るTaskは、同じ状態を保存してもOperation除去へ進めない。
-      if (
-        current.snapshot.unresolvedRecoveries.some(
-          (recovery) =>
-            prior.settlement.kind === "operations" &&
-            prior.settlement.recoveryIds.includes(recovery.recoveryId),
-        )
-      )
+      if (prior.settlement.recoveryIds.some((id) => unresolvedIds.has(id)))
         continue;
       for (const id of prior.settlement.recoveryIds) {
-        const operation = current.snapshot.operations.find(
-          (o) => o.recoveryId === id,
-        );
-        const identity =
-          operation?.kind === "docker_task"
-            ? JSON.parse(operation.identityJson)
-            : null;
+        const reference = taskReferences.get(id);
         const terminal = projectTaskSettlement(
           { kind: "operations", recoveryIds: [id], resultUnresolved: false },
           current.snapshot,
+          taskReferences,
         );
         if (
-          operation?.kind !== "docker_task" ||
-          !identity ||
-          (identity.recoveryCorrelationId ?? identity.operationId) !==
-            task.operationId ||
-          operation.history?.confirmed !== true ||
+          !reference ||
+          reference.taskId !== task.operationId ||
+          reference.operation.history?.confirmed !== true ||
           !terminal?.cleanupConfirmed ||
-          current.snapshot.unresolvedRecoveries.some((r) => r.recoveryId === id)
+          unresolvedIds.has(id)
         )
           return null;
         completed.add(id);
@@ -3826,17 +4051,12 @@ export function normalizeTaskProjects(
           : previous?.kind === "executor_result"
             ? previous.recoveryUnresolved
             : false);
-      const matching = operations
-        .filter((o) => {
-          if (o.kind !== "docker_task" || task.operationId === null)
-            return false;
-          const identity = JSON.parse(o.identityJson);
-          return (
-            (identity.recoveryCorrelationId ?? identity.operationId) ===
-            task.operationId
-          );
-        })
-        .map((o) => o.recoveryId);
+      const matching =
+        task.operationId === null
+          ? []
+          : (recoveryIdsByTask.get(task.operationId) ?? []).filter(
+              (id) => !completed.has(id),
+            );
       const settlement: TaskSettlementFact = matching.length
         ? { kind: "operations", recoveryIds: matching, resultUnresolved }
         : task.startPhase === "none" &&

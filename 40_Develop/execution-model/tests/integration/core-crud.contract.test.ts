@@ -16,10 +16,10 @@ import * as domain from "../../src/index.ts";
 import {
   encodeStateValue,
   hashExecutionStateContent,
-} from "../../src/state/operations.ts";
-import { EXECUTION_STATE_SCHEMA } from "../../src/state/validation.ts";
+} from "../../src/composition/validation.ts";
+import { EXECUTION_STATE_SCHEMA } from "../../src/composition/transition.ts";
 import { observeExecutionStorageRepository } from "../../src/storage/lock.ts";
-import * as privatePublication from "../../src/storage/publication.ts";
+import * as privatePublication from "../../src/storage/store.ts";
 import { ensurePhysicalExecutionDataArea } from "../../src/storage/store.ts";
 import fs from "node:fs";
 import path from "node:path";
@@ -41,11 +41,9 @@ import {
   saveOperationCheckpoint,
   applyResourceEvent,
 } from "../../src/index.ts";
-import { decodeStateSnapshot } from "../../src/state/validation.ts";
-import {
-  decodeHostOperation,
-  validHostOperationTransition,
-} from "../../src/attempt/validation.ts";
+import { decodeStateSnapshot } from "../../src/composition/transition.ts";
+import { decodeHostOperation } from "../../src/attempt/validation.ts";
+import { validHostOperationTransition } from "../../src/attempt/transition.ts";
 import { acquireExecutionStateLock } from "../../src/storage/lock.ts";
 import { readStableFileSnapshot } from "../../src/storage/store.ts";
 import {
@@ -1607,9 +1605,8 @@ test("保存Source準備: 不変コードだけを共有し各fixtureと変異�
     [
       "storage/store.ts",
       "storage/lock.ts",
-      "state/crud.ts",
-      "state/lease.ts",
-      "storage/publication.ts",
+      "composition/crud.ts",
+      "lease/crud.ts",
       "attempt/crud.ts",
       "decision/crud.ts",
       "history/crud.ts",
@@ -1656,7 +1653,7 @@ test("保存Source準備: 不変コードだけを共有し各fixtureと変異�
   const second = createRuntimeStorageSourceFixture(undefined, {
     WeakMap: observeMaps(mapsB),
   });
-  assert.equal(sourceReads, 11);
+  assert.equal(sourceReads, files.size);
   assert.equal(compilations, 1, "同署名の未束縛factoryだけを再利用する");
   assert.ok(mapsA.length >= 3);
   assert.equal(mapsA.length, mapsB.length);
@@ -1797,7 +1794,7 @@ test("保存Source準備: 不変コードだけを共有し各fixtureと変異�
   assert.equal(compilations, beforeFailedFactory + 2);
   assert.equal(
     sourceReads,
-    11,
+    files.size,
     "変異と故障を挟んでも不変Sourceは再読取りしない",
   );
 });

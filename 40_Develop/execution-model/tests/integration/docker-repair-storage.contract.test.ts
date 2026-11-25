@@ -15,12 +15,14 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import * as storedContract from "../../src/attempt/validation.ts";
+import * as storedTransitions from "../../src/attempt/transition.ts";
 import { decodeHistoryRows } from "../../src/history/validation.ts";
 import type * as model from "../../src/index.ts";
 import * as domain from "../../src/index.ts";
 import * as stateStore from "../../src/index.ts";
-import { decodeStateSnapshot } from "../../src/state/validation.ts";
-import { encodeStateValue } from "../../src/state/operations.ts";
+import { readRecoveryState } from "../../src/composition/crud.ts";
+import { decodeStateSnapshot } from "../../src/composition/transition.ts";
+import { encodeStateValue } from "../../src/composition/validation.ts";
 
 import * as kernel from "../../src/storage/lock.ts";
 import { observeExecutionStorageRepository } from "../../src/storage/lock.ts";
@@ -888,7 +890,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
           fs,
           "openSync",
           (target: fs.PathLike, flags: fs.OpenMode, mode?: fs.Mode) => {
-            const lockCreation = String(target) === lockPath && flags === "wx";
+            const lockCreation = String(target) === lockPath && flags === "wx+";
             if (
               !lockCreation &&
               flags !== "r" &&
@@ -1156,7 +1158,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   assert.equal(taskResult.status, "blocked");
   assert.ok(fs.readFileSync(stateFile).equals(original));
   const first = stateStoreSource((source) => source);
-  const observed = first.readHistory(historyInput, id);
+  const observeHistory = () =>
+    readRecoveryState(prepareFixtureRecovery(historyInput), {
+      kind: "repair_history",
+      recoveryId: id,
+    });
+  const observed = observeHistory();
   assert.equal(observed.status, "completed");
   assert.equal(observed.currentHistoryPublication?.stage, "checkpoint");
   assert.equal(
@@ -1191,9 +1198,31 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   );
   const second = stateStoreSource((source) => source);
   assert.equal(
-    second.readHistory(historyInput, id).currentHistoryPublication?.stage,
+    second.readHistory(historyInput, id).historyPublicationStage,
     "publish",
   );
+  const pendingHistory = path.join(
+    path.dirname(stateFile),
+    "history.pending.jsonl",
+  );
+  const pendingLine = prepareRepairHistoryLine(
+    checkpointBytes,
+    id,
+    repository.repositoryBinding,
+  );
+  assert.ok(pendingLine);
+  fs.writeFileSync(pendingHistory, pendingLine, { flag: "wx" });
+  try {
+    const observedPending = observeHistory();
+    assert.equal(observedPending.status, "completed", observedPending.reason);
+    assert.equal(observedPending.currentHistoryPublication?.stage, "publish");
+    assert.deepEqual(
+      observedPending.currentHistoryPublication?.pendingHistoryFile?.bytes,
+      pendingLine,
+    );
+  } finally {
+    fs.unlinkSync(pendingHistory);
+  }
   const published = second.saveRecoveryHistory(
     repository,
     id,
@@ -1228,6 +1257,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   const rows = decodeHistoryRows(historyBytes);
   assert.equal(rows?.length, 1);
   assert.equal(rows?.[0]?.recoveryId, id);
+  const confirmedHistory = observeHistory();
+  assert.equal(confirmedHistory.currentHistoryPublication?.stage, "confirmed");
+  assert.deepEqual(
+    confirmedHistory.currentHistoryPublication?.historyFile?.bytes,
+    historyBytes,
+  );
   await t.test("終了ReaderとWriterは履歴欠測を独立に拒否する", () => {
     const original = currentBytes;
     const candidate = prepareStateRepairCompletionSnapshot(
@@ -1236,6 +1271,13 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
       repository.repositoryBinding,
     );
     assert.ok(candidate);
+    const ready = readRecoveryState(prepareFixtureRecovery(f.root), {
+      kind: "repair_completion",
+      recoveryId: id,
+    });
+    assert.equal(ready.status, "completed", ready.reason);
+    assert.deepEqual(ready.currentCompletionPublication?.before, original);
+    assert.deepEqual(ready.currentCompletionPublication?.candidate, candidate);
     const row = JSON.parse(historyBytes.toString("utf8"));
     row.summary.operationNonce = "9".repeat(64);
     row.summary.recoveryId = `docker-repair.${row.summary.operationNonce}.${row.summary.identitySha256}`;
@@ -1319,7 +1361,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
       const valid = historyCase === "empty" || historyCase === "other";
       assert.equal(read.status, valid ? "completed" : "blocked");
       assert.equal(read.repairHistoryState, valid ? "technical_state" : null);
-      assert.equal(read.currentHistoryPublication, null);
+      assert.equal(read.historyPublicationStage, null);
       if (!valid) assert.ok(fs.readFileSync(stateFile).equals(technicalBytes));
     });
   }
@@ -1365,6 +1407,129 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   assert.equal(wrongOperation.filesystemEffectIssued, false);
   assert.ok(fs.readFileSync(stateFile).equals(checkpointBytes));
   assert.ok(fs.readFileSync(historyFile).equals(historyBytes));
+  await t.test(
+    "一回のLockで二段を保存し、最後のState本文を開き直さない",
+    () => {
+      fs.writeFileSync(stateFile, original);
+      fs.unlinkSync(historyFile);
+      let acquisitions = 0;
+      let stateRenames = 0;
+      let readsAfterFinalRename = 0;
+      let historyPublished = false;
+      let historyReadsAfterRename = 0;
+      const worker = stateStoreSource((source) => source, {
+        fs: {
+          ...fs,
+          renameSync(source: fs.PathLike, target: fs.PathLike) {
+            fs.renameSync(source, target);
+            if (String(target) === stateFile) stateRenames++;
+            if (String(target) === historyFile) historyPublished = true;
+          },
+        },
+        acquireExecutionStateLock(
+          ...args: Parameters<typeof kernel.acquireExecutionStateLock>
+        ) {
+          acquisitions++;
+          return kernel.acquireExecutionStateLock(...args);
+        },
+        readStableFileSnapshot(
+          ...args: Parameters<typeof fileObservation.readStableFileSnapshot>
+        ) {
+          if (stateRenames === 2 && args[0] === stateFile)
+            readsAfterFinalRename++;
+          if (historyPublished && args[0] === historyFile)
+            historyReadsAfterRename++;
+          return fileObservation.readStableFileSnapshot(...args);
+        },
+      });
+      const saved = worker.saveRecoveryHistory(
+        repository,
+        id,
+        () => true,
+        "docker_repair",
+      );
+      assert.equal(saved.status, "completed");
+      assert.equal(saved.historyConfirmed, true);
+      assert.equal(saved.lockReleased, true);
+      assert.equal(acquisitions, 1);
+      assert.equal(stateRenames, 2);
+      assert.equal(readsAfterFinalRename, 0);
+      assert.equal(historyReadsAfterRename, 1);
+      const confirmed = decodeStateSnapshot(
+        fs.readFileSync(stateFile),
+        repository.repositoryBinding,
+      );
+      assert.equal(saved.revision, confirmed?.snapshot.revision);
+      assert.equal(saved.payloadSha256, confirmed?.payloadSha256);
+      assert.equal("recoveryIds" in saved, false);
+    },
+  );
+  await t.test(
+    "新規途中ファイルは一度同期し、同期失敗後の再入場は再同期する",
+    () => {
+      const pending = path.join(path.dirname(stateFile), "state.pending.json");
+      const pendingHistory = path.join(
+        path.dirname(stateFile),
+        "history.pending.jsonl",
+      );
+      for (const file of [pending, pendingHistory, historyFile])
+        if (fs.existsSync(file)) fs.unlinkSync(file);
+      fs.writeFileSync(stateFile, original);
+
+      let failFirst = true;
+      let renames = 0;
+      const syncs: string[] = [];
+      const descriptors = new Map<number, string>();
+      const worker = stateStoreSource((source) => source, {
+        fs: {
+          ...fs,
+          openSync(file: fs.PathLike, flags?: fs.OpenMode, mode?: fs.Mode) {
+            const fd = fs.openSync(file, flags ?? "r", mode);
+            if (flags === "wx" || flags === "r+")
+              descriptors.set(fd, `${path.basename(String(file))}:${flags}`);
+            return fd;
+          },
+          fsyncSync(fd: number) {
+            const label = descriptors.get(fd);
+            if (label) syncs.push(label);
+            if (failFirst && label === "state.pending.json:wx")
+              throw new Error("pending_initial_sync_failed");
+            fs.fsyncSync(fd);
+          },
+          closeSync(fd: number) {
+            descriptors.delete(fd);
+            fs.closeSync(fd);
+          },
+          renameSync(from: fs.PathLike, to: fs.PathLike) {
+            fs.renameSync(from, to);
+            renames++;
+          },
+        },
+      });
+      const save = () =>
+        worker.saveRecoveryHistory(repository, id, () => true, "docker_repair");
+      const failed = save();
+      assert.equal(failed.status, "blocked");
+      assert.equal(failed.filesystemEffectIssued, true);
+      assert.equal(renames, 0);
+      assert.ok(fs.readFileSync(stateFile).equals(original));
+      assert.deepEqual(syncs, ["state.pending.json:wx"]);
+
+      failFirst = false;
+      syncs.length = 0;
+      const resumed = save();
+      assert.equal(resumed.status, "completed");
+      assert.equal(resumed.historyConfirmed, true);
+      assert.equal(renames, 3);
+      assert.deepEqual(syncs, [
+        "state.pending.json:r+",
+        "history.pending.jsonl:wx",
+        "history.jsonl:r+",
+        "state.pending.json:wx",
+      ]);
+      assert.equal(descriptors.size, 0);
+    },
+  );
   for (const fault of [
     "checkpoint_before",
     "checkpoint_after",
@@ -1377,6 +1542,8 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
     "config_changed",
     "state_changed",
     "owner_lost",
+    "late_state_pending",
+    "late_history_replace",
   ] as const) {
     await t.test(fault, () => {
       for (const name of [
@@ -1429,28 +1596,38 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
           }
         },
       };
-      const worker = stateStoreSource((source) => source, {
-        fs: hostFs,
-        readStableFileSnapshot: (
-          ...args: Parameters<typeof fileObservation.readStableFileSnapshot>
-        ) => {
-          if (
-            fault === "readback_unknown" &&
-            renamed &&
-            hit === 0 &&
-            args[0] === historyFile
-          ) {
-            hit++;
-            throw new Error("synthetic_readback_unknown");
-          }
-          return fileObservation.readStableFileSnapshot(...args);
+      const worker = stateStoreSource(
+        (source) => {
+          const anchor =
+            "const repairBinding = repairContext ? settlements.get(repairContext) : null;";
+          assert.equal(source.split(anchor).length, 2);
+          const finalAnchor = "const finalNames = fs.readdirSync(directory);";
+          assert.equal(source.split(finalAnchor).length, 2);
+          return source
+            .replace(
+              anchor,
+              `if (historyOwner) beforeHistoryWrite(); ${anchor}`,
+            )
+            .replace(finalAnchor, `beforeFinalMetadata(); ${finalAnchor}`);
         },
-        acquireExecutionStateLock: (
-          ...args: Parameters<typeof kernel.acquireExecutionStateLock>
-        ) => {
-          const lock = kernel.acquireExecutionStateLock(...args);
-          locks++;
-          if (lock.status === "acquired" && locks === 2) {
+        {
+          fs: hostFs,
+          beforeFinalMetadata: () => {
+            if (fault === "late_state_pending") {
+              fs.writeFileSync(
+                path.join(directory, "state.pending.json"),
+                currentBytes,
+              );
+              hit++;
+            } else if (fault === "late_history_replace") {
+              const temporary = path.join(directory, "replacement.fixture");
+              fs.writeFileSync(temporary, fs.readFileSync(historyFile));
+              fs.renameSync(temporary, historyFile);
+              hit++;
+            }
+          },
+          beforeHistoryWrite: () => {
+            if (hit !== 0) return;
             if (fault === "file_changed") {
               const previous = fs.lstatSync(historyFile, { bigint: true });
               const temporary = path.join(directory, "replacement.fixture");
@@ -1475,7 +1652,27 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
               ownerLive = false;
               hit++;
             }
-            if (fault === "release_unknown")
+          },
+          readStableFileSnapshot: (
+            ...args: Parameters<typeof fileObservation.readStableFileSnapshot>
+          ) => {
+            if (
+              fault === "readback_unknown" &&
+              renamed &&
+              hit === 0 &&
+              args[0] === historyFile
+            ) {
+              hit++;
+              throw new Error("synthetic_readback_unknown");
+            }
+            return fileObservation.readStableFileSnapshot(...args);
+          },
+          acquireExecutionStateLock: (
+            ...args: Parameters<typeof kernel.acquireExecutionStateLock>
+          ) => {
+            const lock = kernel.acquireExecutionStateLock(...args);
+            locks++;
+            if (lock.status === "acquired" && fault === "release_unknown")
               return {
                 ...lock,
                 lock: {
@@ -1487,10 +1684,10 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
                   },
                 },
               };
-          }
-          return lock;
+            return lock;
+          },
         },
-      });
+      );
       try {
         const failed = worker.saveRecoveryHistory(
           repository,
@@ -1511,7 +1708,15 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
             "owner_lost",
           ].includes(fault),
         );
-        assert.equal(locks, 2, "repair_does_not_retry_or_fallback");
+        assert.equal(locks, 1, "repair_holds_one_lock_through_publication");
+        if (fault === "late_state_pending") {
+          assert.equal(
+            fs.existsSync(path.join(directory, "state.pending.json")),
+            true,
+          );
+          assert.ok(fs.readFileSync(stateFile).equals(currentBytes));
+          return;
+        }
         if (["file_changed", "config_changed", "owner_lost"].includes(fault))
           assert.ok(fs.readFileSync(stateFile).equals(before));
         else if (fault === "state_changed")
@@ -1582,10 +1787,350 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
       }
     });
   }
+  for (const fault of [
+    "read_area_replaced",
+    "read_group_parent_replaced",
+    "read_group_lock_lost",
+    "physical_history_differs_from_prepared",
+    "history_rename_cas_target_appeared",
+    "history_rename_pending_replaced",
+    "checkpoint_rename_history_pending_appeared",
+    "state_rename_retention_changed",
+    "state_rename_cas_target_replaced",
+    "state_rename_pending_replaced",
+    "state_rename_history_replaced",
+    "state_rename_lock_lost_during_retention_check",
+  ] as const) {
+    await t.test(fault, () => {
+      const pending = path.join(directory, "state.pending.json");
+      const historyPending = path.join(directory, "history.pending.jsonl");
+      const moved = path.join(path.dirname(directory), "storage-area.fixture");
+      const configDirectory = path.join(f.root, ".crdd", "config");
+      const configFile = path.join(configDirectory, "coordinator.json");
+      for (const file of [pending, historyPending, historyFile])
+        if (fs.existsSync(file)) fs.unlinkSync(file);
+      const before =
+        fault === "checkpoint_rename_history_pending_appeared"
+          ? original
+          : checkpointBytes;
+      fs.writeFileSync(stateFile, before);
+      let hits = 0;
+      let stateRenames = 0;
+      let historyRenames = 0;
+      let lockLive = true;
+      let checkingStateRename = false;
+      const worker = stateStoreSource(
+        (source) => {
+          const read = "const observed = observeStorage(";
+          const parentCheck =
+            "const parent = fs.lstatSync(path.dirname(directory), { bigint: true });";
+          const rename =
+            /if \(assertFileOwner \|\| currentHistory \|\| recoveryTerminal\)\s+assertBoundary\(\);/gu;
+          const physicalInput = "const priorHistory = preparedHistory";
+          const historyCas =
+            /assertHistoryCasIdentities\(\s*priorHistory === null\s*\?/gu;
+          assert.equal(source.split(read).length, 2);
+          assert.equal(source.split(parentCheck).length, 2);
+          assert.equal([...source.matchAll(rename)].length, 1);
+          assert.equal(source.split(physicalInput).length, 2);
+          assert.equal([...source.matchAll(historyCas)].length, 1);
+          return source
+            .replace(physicalInput, `beforePhysicalHistory(); ${physicalInput}`)
+            .replace(
+              new RegExp(historyCas.source, "u"),
+              (value) => `beforeHistoryCas(); ${value}`,
+            )
+            .replace(
+              read,
+              `if (currentHistory && mode === "read") beforeArea(); ${read}`,
+            )
+            .replace(parentCheck, `${parentCheck} afterParentRead(parent);`)
+            .replace(
+              rename,
+              (value) =>
+                `beforeStateRename(); ${value} afterStateAuthorization();`,
+            );
+        },
+        {
+          fs: {
+            ...fs,
+            renameSync(from: fs.PathLike, to: fs.PathLike) {
+              if (String(from) === pending && String(to) === stateFile)
+                stateRenames++;
+              if (String(from) === historyPending && String(to) === historyFile)
+                historyRenames++;
+              fs.renameSync(from, to);
+            },
+          },
+          acquireExecutionStateLock(
+            ...args: Parameters<typeof kernel.acquireExecutionStateLock>
+          ) {
+            const result = kernel.acquireExecutionStateLock(...args);
+            if (result.status !== "acquired") return result;
+            return {
+              ...result,
+              lock: {
+                ...result.lock,
+                assertLive: () => lockLive && result.lock.assertLive(),
+              },
+            };
+          },
+          beforeArea() {
+            if (hits) return;
+            if (fault === "read_group_lock_lost") {
+              hits++;
+              lockLive = false;
+              return;
+            }
+            if (fault !== "read_area_replaced") return;
+            hits++;
+            fs.renameSync(directory, moved);
+            fs.mkdirSync(directory);
+            fs.writeFileSync(stateFile, checkpointBytes);
+          },
+          afterParentRead(parent: fs.BigIntStats) {
+            if (fault !== "read_group_parent_replaced" || hits) return;
+            hits++;
+            parent.ino += 1n;
+          },
+          beforePhysicalHistory() {
+            if (fault !== "physical_history_differs_from_prepared") return;
+            hits++;
+            fs.writeFileSync(historyPending, historyBytes);
+          },
+          beforeHistoryCas() {
+            if (fault === "history_rename_pending_replaced") {
+              hits++;
+              const replacement = path.join(directory, "replacement.fixture");
+              fs.writeFileSync(replacement, fs.readFileSync(historyPending));
+              fs.renameSync(replacement, historyPending);
+              return;
+            }
+            if (fault !== "history_rename_cas_target_appeared") return;
+            hits++;
+            fs.writeFileSync(historyFile, historyBytes);
+          },
+          beforeStateRename() {
+            checkingStateRename = true;
+            if (fault === "checkpoint_rename_history_pending_appeared") {
+              hits++;
+              fs.writeFileSync(historyPending, historyBytes);
+              return;
+            }
+            if (fault !== "state_rename_retention_changed") return;
+            hits++;
+            fs.mkdirSync(configDirectory);
+            fs.writeFileSync(
+              configFile,
+              JSON.stringify({
+                schemaRevision: 1,
+                historyRetentionDays: 31,
+              }),
+            );
+          },
+          afterStateAuthorization() {
+            if (
+              fault !== "state_rename_cas_target_replaced" &&
+              fault !== "state_rename_history_replaced" &&
+              fault !== "state_rename_pending_replaced"
+            )
+              return;
+            hits++;
+            const replacement = path.join(directory, "replacement.fixture");
+            const target =
+              fault === "state_rename_history_replaced"
+                ? historyFile
+                : fault === "state_rename_pending_replaced"
+                  ? pending
+                  : stateFile;
+            fs.writeFileSync(replacement, fs.readFileSync(target));
+            fs.renameSync(replacement, target);
+          },
+        },
+      );
+      try {
+        const result = worker.saveRecoveryHistory(
+          {
+            ...repository,
+            revalidate(days?: number) {
+              if (
+                fault === "state_rename_lock_lost_during_retention_check" &&
+                checkingStateRename &&
+                days !== undefined
+              ) {
+                hits++;
+                lockLive = false;
+              }
+              return repository.revalidate(days);
+            },
+          },
+          id,
+          () => true,
+          "docker_repair",
+        );
+        assert.equal(hits, 1);
+        assert.equal(stateRenames, 0);
+        assert.equal(result.status, "blocked");
+        assert.equal(result.lockReleased, true);
+        assert.equal(result.historyConfirmed, false);
+        const beforeAnyEffect = [
+          "read_area_replaced",
+          "read_group_parent_replaced",
+          "read_group_lock_lost",
+          "physical_history_differs_from_prepared",
+        ].includes(fault);
+        assert.equal(result.filesystemEffectIssued, !beforeAnyEffect);
+        assert.ok(fs.readFileSync(stateFile).equals(before));
+        if (
+          fault.startsWith("state_rename") ||
+          fault === "checkpoint_rename_history_pending_appeared"
+        )
+          assert.equal(fs.existsSync(pending), true);
+        if (!fault.startsWith("state_rename")) assert.equal(historyRenames, 0);
+        if (fault === "checkpoint_rename_history_pending_appeared")
+          assert.ok(fs.readFileSync(historyPending).equals(historyBytes));
+      } finally {
+        if (fault === "read_area_replaced" && fs.existsSync(moved)) {
+          fs.unlinkSync(stateFile);
+          fs.rmdirSync(directory);
+          fs.renameSync(moved, directory);
+        }
+        if (fs.existsSync(configFile)) fs.unlinkSync(configFile);
+        if (fs.existsSync(configDirectory)) fs.rmdirSync(configDirectory);
+        if (
+          (fault === "physical_history_differs_from_prepared" ||
+            fault === "checkpoint_rename_history_pending_appeared") &&
+          fs.existsSync(historyPending)
+        )
+          fs.unlinkSync(historyPending);
+        if (
+          fault === "history_rename_cas_target_appeared" &&
+          fs.existsSync(historyFile)
+        )
+          fs.unlinkSync(historyFile);
+      }
+      let expected: Buffer = currentBytes;
+      if (fault === "checkpoint_rename_history_pending_appeared") {
+        const fixed = fs.readFileSync(pending);
+        const checkpoint = decodeStateSnapshot(
+          fixed,
+          repository.repositoryBinding,
+        );
+        const operation = checkpoint?.snapshot.operations.find(
+          (item) => item.recoveryId === id && item.kind === "docker_repair",
+        );
+        assert.ok(operation?.kind === "docker_repair" && operation.history);
+        const confirmed = prepareRepairHistorySnapshot(
+          fixed,
+          id,
+          operation.history.occurredAt,
+          true,
+          repository.repositoryBinding,
+        );
+        assert.ok(confirmed);
+        expected = confirmed;
+      }
+      const fresh = stateStoreSource((source) => source);
+      const resumed = fresh.saveRecoveryHistory(
+        repository,
+        id,
+        () => true,
+        "docker_repair",
+      );
+      assert.equal(resumed.status, "completed");
+      assert.equal(resumed.historyConfirmed, true);
+      assert.ok(fs.readFileSync(stateFile).equals(expected));
+    });
+  }
+  for (const mutant of [
+    "history_birthtime",
+    "history_other_file",
+    "history_other_bytes",
+    "state_birthtime",
+    "state_other_file",
+    "state_other_bytes",
+  ] as const) {
+    await t.test(`置換後の作成時刻と同一実体・本文を区別する ${mutant}`, () => {
+      const statePending = path.join(directory, "state.pending.json");
+      const historyPending = path.join(directory, "history.pending.jsonl");
+      const target = mutant.startsWith("history") ? historyFile : stateFile;
+      for (const file of [statePending, historyPending, historyFile])
+        if (fs.existsSync(file)) fs.unlinkSync(file);
+      fs.writeFileSync(stateFile, checkpointBytes);
+      let observations = 0;
+      let byteChecks = 0;
+      const worker = stateStoreSource(
+        (source) => {
+          const renamed =
+            "const renamed = { ...identity(stat), ctimeNs: source.ctimeNs };";
+          assert.equal(source.split(renamed).length, 2);
+          return source
+            .replace(
+              renamed,
+              `source = observeBirthtime(file, source); ${renamed}`,
+            )
+            .replace(
+              "readStableFileSnapshot(file, stat).bytes.equals(expectedBytes)",
+              "checkPublishedBytes(file, readStableFileSnapshot(file, stat).bytes, expectedBytes)",
+            );
+        },
+        {
+          fs: {
+            ...fs,
+            renameSync(from: fs.PathLike, to: fs.PathLike) {
+              fs.renameSync(from, to);
+              if (to !== target || !mutant.endsWith("other_file")) return;
+              const replacement = path.join(directory, "other-file.fixture");
+              fs.copyFileSync(target, replacement);
+              const before = fs.lstatSync(target, { bigint: true });
+              const after = fs.lstatSync(replacement, { bigint: true });
+              assert.notEqual(after.ino, before.ino);
+              fs.renameSync(replacement, target);
+            },
+          },
+          observeBirthtime(file: string, source: { birthtimeNs: bigint }) {
+            if (file !== target) return source;
+            observations++;
+            return { ...source, birthtimeNs: source.birthtimeNs + 1n };
+          },
+          checkPublishedBytes(file: string, actual: Buffer, expected: Buffer) {
+            if (file !== target) return actual.equals(expected);
+            byteChecks++;
+            if (!mutant.endsWith("other_bytes")) return actual.equals(expected);
+            const changed = Buffer.from(actual);
+            changed[0] = (changed[0] ?? 0) ^ 1;
+            return changed.equals(expected);
+          },
+        },
+      );
+      const result = worker.saveRecoveryHistory(
+        repository,
+        id,
+        () => true,
+        "docker_repair",
+      );
+      const expectedSuccess = mutant.endsWith("birthtime");
+      assert.equal(observations, 1);
+      assert.equal(byteChecks, mutant.endsWith("other_file") ? 0 : 1);
+      assert.equal(result.status, expectedSuccess ? "completed" : "blocked");
+      assert.equal(result.historyConfirmed, expectedSuccess);
+      assert.equal(result.filesystemEffectIssued, true);
+      assert.equal(result.lockReleased, true);
+      assert.ok(fs.readFileSync(historyFile).equals(historyBytes));
+      assert.ok(
+        fs
+          .readFileSync(stateFile)
+          .equals(
+            !expectedSuccess && target === historyFile
+              ? checkpointBytes
+              : currentBytes,
+          ),
+      );
+    });
+  }
   for (const mutant of [
     "checkpoint_kind",
     "publish_kind",
-    "physical_publish_kind",
     "line_kind",
     "final_kind",
     "repair_scope",
@@ -1620,19 +2165,21 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
         const pattern =
           mutant === "checkpoint_kind"
             ? /currentHistory\.operationKind === "docker_repair"\s*\? prepareRepairHistorySnapshot/u
-            : mutant === "publish_kind" || mutant === "physical_publish_kind"
+            : mutant === "publish_kind"
               ? /currentHistory\.operationKind === "docker_repair"\s*\? prepareRepairHistoryPublication/gu
               : /currentHistory\?\.operationKind === "docker_repair"\s*\? prepareRepairHistoryLine/gu;
         const count = [...source.matchAll(new RegExp(pattern.source, "gu"))]
           .length;
-        assert.equal(count, mutant === "checkpoint_kind" ? 1 : 2);
+        assert.equal(
+          count,
+          mutant === "checkpoint_kind" || mutant === "publish_kind" ? 1 : 2,
+        );
         return source.replace(pattern, (value) => {
           matches++;
           if (
             (mutant === "line_kind" && matches !== 1) ||
             (mutant === "final_kind" && matches !== 2) ||
-            (mutant === "publish_kind" && matches !== 1) ||
-            (mutant === "physical_publish_kind" && matches !== 2)
+            (mutant === "publish_kind" && matches !== 1)
           )
             return value;
           return value.replace('=== "docker_repair"', '=== "docker_task"');
@@ -1661,6 +2208,80 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
                 : checkpointBytes,
           ),
       );
+    });
+  }
+  for (const changed of ["checkpoint_state", "history_pending"] as const) {
+    await t.test(`途中Stateからの継続は現物差を拒否する ${changed}`, () => {
+      fs.writeFileSync(stateFile, original);
+      const pendingHistory = path.join(directory, "history.pending.jsonl");
+      for (const file of [historyFile, pendingHistory])
+        if (fs.existsSync(file)) fs.unlinkSync(file);
+      let injected = false;
+      let stateRenames = 0;
+      let historyRenames = 0;
+      let checkpoint: Buffer | null = null;
+      const writer = stateStoreSource(
+        (source) => {
+          const marker =
+            "const retentionDays = readHistoryRetentionDays(repository);";
+          assert.equal(source.split(marker).length, 2);
+          return source.replace(marker, `betweenHistoryStages(); ${marker}`);
+        },
+        {
+          fs: {
+            ...fs,
+            renameSync(from: fs.PathLike, to: fs.PathLike) {
+              if (String(to) === stateFile) stateRenames++;
+              if (String(to) === historyFile) historyRenames++;
+              fs.renameSync(from, to);
+            },
+          },
+          betweenHistoryStages() {
+            assert.equal(injected, false);
+            injected = true;
+            checkpoint = fs.readFileSync(stateFile);
+            assert.ok(!checkpoint.equals(original));
+            if (changed === "checkpoint_state")
+              fs.writeFileSync(stateFile, original);
+            else fs.writeFileSync(pendingHistory, historyBytes);
+          },
+        },
+      );
+      const refused = writer.saveRecoveryHistory(
+        repository,
+        id,
+        () => true,
+        "docker_repair",
+      );
+      assert.equal(injected, true);
+      assert.equal(refused.status, "blocked");
+      assert.equal(refused.filesystemEffectIssued, true);
+      assert.equal(refused.historyConfirmed, false);
+      assert.equal(refused.lockReleased, true);
+      assert.equal(stateRenames, 1);
+      assert.equal(historyRenames, 0);
+      assert.equal(fs.existsSync(historyFile), false);
+      assert.equal(
+        fs.existsSync(path.join(directory, "state.pending.json")),
+        false,
+      );
+      if (changed === "history_pending") {
+        assert.ok(fs.readFileSync(pendingHistory).equals(historyBytes));
+      } else {
+        assert.equal(fs.existsSync(pendingHistory), false);
+      }
+      assert.ok(checkpoint);
+      if (changed === "checkpoint_state")
+        fs.writeFileSync(stateFile, checkpoint);
+      else fs.unlinkSync(pendingHistory);
+      const resumed = stateStoreSource((source) => source).saveRecoveryHistory(
+        repository,
+        id,
+        () => true,
+        "docker_repair",
+      );
+      assert.equal(resumed.status, "completed");
+      assert.equal(resumed.historyConfirmed, true);
     });
   }
   for (const name of [
@@ -1816,8 +2437,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
     const fallbackProbe = stateStoreSource(
       (source) => {
         if (!mutant) return source;
-        const target =
-          "const publication = observed.currentHistoryPublication;";
+        const target = "const initial = observed.currentHistoryPublication;";
         assert.equal(source.split(target).length, 2);
         // 現行入口には旧fallbackがないため、不正なTask再読を変異として導入する。
         return source.replace(
@@ -2225,7 +2845,7 @@ test("修復保存値の八処置辺・終端・Sessionと廃棄条件を独立�
       assert.ok(next);
       assert.deepEqual(next, expected);
       assert.equal(
-        storedContract.validateEnvironmentRepairCheckpointTransition(
+        storedTransitions.validateEnvironmentRepairCheckpointTransition(
           previous,
           next,
         ),
@@ -2248,7 +2868,7 @@ test("修復保存値の八処置辺・終端・Sessionと廃棄条件を独立�
       fresh,
     );
     assert.equal(
-      storedContract.validateEnvironmentRepairCheckpointTransition(
+      storedTransitions.validateEnvironmentRepairCheckpointTransition(
         completed,
         fresh,
       ),
@@ -2272,7 +2892,7 @@ test("修復保存値の八処置辺・終端・Sessionと廃棄条件を独立�
         absence: "unknown",
       });
       assert.equal(
-        storedContract.validateEnvironmentRepairDisposalTransition(
+        storedTransitions.validateEnvironmentRepairDisposalTransition(
           disposal,
           next,
           purpose,
@@ -2291,7 +2911,7 @@ import {
   prepareStateRepairDisposalProgressSnapshot,
   prepareStateRepairSessionSnapshot,
   prepareStateRepairSnapshot,
-} from "../../src/state/validation.ts";
+} from "../../src/composition/transition.ts";
 
 /**
  * 修復専用保存の公開Root・CAS・Session境界を実Filesystemで検査する。
@@ -2870,4 +3490,4 @@ import {
   prepareRepairHistoryLine,
   prepareRepairHistorySnapshot,
   prepareStateOperationSnapshot,
-} from "../../src/state/validation.ts";
+} from "../../src/composition/transition.ts";

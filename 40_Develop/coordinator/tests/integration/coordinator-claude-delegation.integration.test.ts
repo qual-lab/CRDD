@@ -64,13 +64,31 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
         randomValue += 1;
         return Buffer.alloc(size, randomValue);
       },
+      consumeTaskPacket: () =>
+        Object.freeze({
+          operationId: "OP-123456",
+          taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+          taskRole: "executor" as const,
+          taskAttempt: 0 as const,
+          executionSelection: selected,
+          taskWorkload: {
+            readPathCount: 1,
+            allowedPathCount: 1,
+            acceptanceCriterionCount: 1,
+            remediationFindingCount: 0,
+          },
+          taskPacketHash: "a".repeat(64),
+          prompt: "Run the bounded test task.",
+          additionalHosts: Object.freeze([]),
+          promptTransport: "provider_stdin_only" as const,
+        }),
     },
     (_upper, lower) => {
       technicalPlan = lower;
     },
   );
   const prepared = adapter.prepare({
-    purpose: "probe",
+    purpose: "task",
     managementCapability: managementCapability,
     mountCapability: mountCapability,
     providerHome: {
@@ -80,7 +98,8 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
       providerHomeIdentityHash: "c".repeat(64),
       stableLogicalHomeBindingHash: "1".repeat(64),
     },
-    executionSelection: selected,
+    packetCapability: {},
+    packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
     taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",
@@ -127,7 +146,12 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
                     is_error: false,
                     num_turns: 2,
                     total_cost_usd: 0.04699,
-                    structured_output: { status: true },
+                    structured_output: {
+                      status: "completed",
+                      summary: "fixture complete",
+                      changedPaths: [],
+                      verification: ["fixture checked"],
+                    },
                   })}\n`
                 : command.purpose === "start_subscription_auth_probe_attached"
                   ? JSON.stringify({
@@ -184,7 +208,11 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
   assert.ok(started.completion);
   const result = await started.completion;
   assert.equal(result.status, "completed");
-  assert.deepEqual(result.normalizedResult, { status: true });
+  assert.deepEqual(result.normalizedResult, {
+    status: "completed",
+    changedPaths: [],
+    verificationCount: 1,
+  });
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(Object.hasOwn(result, "selectionRecordId"), false);
   assert.deepEqual(prepared.plan.executionSelection, selected);

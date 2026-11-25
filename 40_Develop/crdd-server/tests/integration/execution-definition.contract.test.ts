@@ -194,7 +194,7 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     let automationCalls=0;
     const execution = runtime.createMcpServerFactory({coordinator:{
       authenticateClient:()=>{automationCalls++;throw Error("unexpected");},
-      runObjective:async()=>{automationCalls++;},submitDecision:async()=>{automationCalls++;},getProjectState:async()=>{automationCalls++;}
+      runObjective:async()=>{automationCalls++;},getProjectState:async()=>{automationCalls++;}
     }});
     const list = await sdk.invokeMcpSource(execution,{jsonrpc:"2.0",id:0,method:"tools/list",params:{_meta:${JSON.stringify(META)}}},new AbortController().signal);
     assert.deepEqual(list.result.tools.map(tool=>tool.name),["crdd.run_objective","crdd.submit_decision","crdd.get_execution_state"]);
@@ -264,7 +264,7 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     const sdk=await import(${JSON.stringify(modules.sdk)});
     assert.equal(imports,0);
     const fail=()=>{calls++;throw Error("unexpected");};
-    const source=runtime.createMcpServerFactory({coordinator:{authenticateClient:fail,runObjective:fail,submitDecision:fail,getProjectState:fail}});
+    const source=runtime.createMcpServerFactory({coordinator:{authenticateClient:fail,runObjective:fail,getProjectState:fail}});
     const request={jsonrpc:"2.0",id:1,method:"tools/call",params:{_meta:${JSON.stringify(META)},name:"crdd.get_execution_state",arguments:{}}};
     const response=await sdk.invokeMcpSource(source,request,controller.signal);
     assert.equal(response.error.code,-32800);

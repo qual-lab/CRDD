@@ -21,9 +21,9 @@ import {
   readProjectExecutionState,
   createQueue,
   readQueueEntry,
-  selectQueueEntry,
+  selectNextQueueEntry,
   initializeExecutionStore,
-  readState,
+  readExecutionState,
   type ProjectExecutionInitialization,
 } from "../../../execution-model/src/index.ts";
 import {
@@ -41,7 +41,6 @@ import {
   updateCoordinatorQueue,
 } from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
-import { chooseCoordinatorQueueOperation } from "../../src/lifecycle/execution.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
 const revision = "a".repeat(40);
@@ -92,10 +91,9 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
   assert.equal(prior.status, "completed", prior.reason);
   const file = path.join(root, ".crdd", "execution-model", "state.json");
   const before = fs.readFileSync(file);
-  const previous = readState(
+  const previous = readExecutionState(
     resolveExecutionStorageDirectory(root),
     "binding-a",
-    "execution",
   );
   assert.equal(previous.status, "completed");
   if (previous.status !== "completed" || !previous.value)
@@ -148,10 +146,9 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
   assert.equal(created.status, "completed");
   if (created.status !== "completed") throw Error("fixture");
   const after = fs.readFileSync(file);
-  const snapshot = readState(
+  const snapshot = readExecutionState(
     resolveExecutionStorageDirectory(root),
     "binding-a",
-    "execution",
   );
   assert.equal(snapshot.status, "completed");
   if (snapshot.status !== "completed" || !snapshot.value)
@@ -400,10 +397,9 @@ test("interactive queue parks scheduled work without preempting an active owner"
       "completed",
     );
   }
-  const first = selectQueueEntry(
+  const first = selectNextQueueEntry(
     ports.repository,
     ports.repositoryBindingId,
-    chooseCoordinatorQueueOperation,
   );
   assert.equal(
     first.status === "completed" && first.value?.queueId,
@@ -463,10 +459,9 @@ test("interactive queue parks scheduled work without preempting an active owner"
     ).status,
     "completed",
   );
-  const second = selectQueueEntry(
+  const second = selectNextQueueEntry(
     ports.repository,
     ports.repositoryBindingId,
-    chooseCoordinatorQueueOperation,
   );
   assert.equal(
     second.status === "completed" && second.value?.queueId,
@@ -583,10 +578,9 @@ test("scheduled work arriving after an interactive operation starts remains effe
     }).status,
     "completed",
   );
-  const selected = selectQueueEntry(
+  const selected = selectNextQueueEntry(
     ports.repository,
     ports.repositoryBindingId,
-    chooseCoordinatorQueueOperation,
   );
   assert.equal(selected.status, "completed");
   assert.equal(selected.status === "completed" && selected.value, null);

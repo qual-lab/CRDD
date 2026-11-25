@@ -3647,7 +3647,9 @@
         "coordinator-state",
         "pending-delivery",
         "filesystem",
-        "owner-invalidation"
+        "owner-invalidation",
+        "recovery-terminal-history",
+        "single-lock"
       ],
       "environment": "local_component_boundary",
       "executionProfiles": [
@@ -3736,7 +3738,8 @@
         "host-recovery",
         "root-binding",
         "filesystem",
-        "owner-invalidation"
+        "owner-invalidation",
+        "recovery-terminal-history"
       ],
       "environment": "local_component_boundary",
       "executionProfiles": [
@@ -8627,7 +8630,8 @@
         "recovery",
         "current-state",
         "cleanup",
-        "owner"
+        "owner",
+        "recovery-terminal-history"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
@@ -8784,6 +8788,7 @@
         "shared_immutable_preparation_once",
         "mutable_case_state_isolated",
         "actual_state_history_lock_and_cas_preserved",
+        "single_history_lock_release_required",
         "case_owned_artifacts_absent",
         "technical_notifications_match_confirmed_public_save",
         "recovery_id_three_components_preserved"
@@ -8825,7 +8830,8 @@
       "semanticTags": [
         "coordinator",
         "repair",
-        "state"
+        "state",
+        "task-history-state-reuse"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -10388,6 +10394,16 @@
         "result_observed",
         "rejection_preserves_state",
         "lock_release_observed",
+        "one_lock_for_both_history_stages",
+        "no_final_state_body_read",
+        "history_read_area_replacement_rejected",
+        "history_state_rename_retention_and_cas_rechecked",
+        "history_read_group_lock_loss_rejected",
+        "history_candidate_inputs_and_publication_cas_preserved",
+        "history_checkpoint_continuation_checks_current_files",
+        "history_read_group_parent_replacement_rejected",
+        "history_pending_sync_distinguishes_creation_and_reentry",
+        "history_single_postsync_read_and_pending_identity_cas",
         "independent_storage_codec_matrix_2799_inputs",
         "eight_action_transition_and_session_conditions_preserved"
       ],
@@ -11078,7 +11094,8 @@
       "semanticTags": [
         "history-publication",
         "retention",
-        "exact-identity"
+        "exact-identity",
+        "independent-task-history"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,

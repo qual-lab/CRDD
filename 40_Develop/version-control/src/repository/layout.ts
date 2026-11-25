@@ -475,12 +475,15 @@ export function verifyLayoutForWrite(layout: RepositoryGitLayout): void {
 function directoryRealpath(target: string): EntitySnapshot {
   const before = identity(fs.lstatSync(target, { bigint: true }), "directory");
   const realPath = fs.realpathSync.native(target);
-  const resolved = identity(
-    fs.lstatSync(realPath, { bigint: true }),
-    "directory",
-  );
+  const resolved =
+    realPath === target
+      ? null
+      : identity(fs.lstatSync(realPath, { bigint: true }), "directory");
   const after = identity(fs.lstatSync(target, { bigint: true }), "directory");
-  if (!sameIdentity(before, resolved) || !sameIdentity(before, after)) {
+  if (
+    (resolved !== null && !sameIdentity(before, resolved)) ||
+    !sameIdentity(before, after)
+  ) {
     throw new Error("repository_git_layout_changed");
   }
   return Object.freeze({ realPath, identity: before });

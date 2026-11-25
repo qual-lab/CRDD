@@ -20,13 +20,15 @@ import {
   encodeStateValue,
   hasExecutionStateRecordKeys,
   isSha256Hex,
-} from "../../src/state/operations.ts";
+} from "../../src/composition/validation.ts";
 import {
   applyResourceCleanup,
   applyResourceEvent,
+} from "../../src/attempt/transition.ts";
+import {
   validateResourceBook,
   validateResourceBookTransition,
-} from "../../src/attempt/operations.ts";
+} from "../../src/attempt/validation.ts";
 import type {
   ExecutionOperationRecord,
   OperationResources,
@@ -40,7 +42,7 @@ import {
   decodeStateSnapshot,
   prepareStateLifecycleSnapshot,
   validateUnifiedTransition,
-} from "../../src/state/validation.ts";
+} from "../../src/composition/transition.ts";
 
 import {
   createResourceOperationFixture,
@@ -378,7 +380,11 @@ const CLEANUP = {
  */
 test("資源更新は次Bookの検査を遷移と一体で一回だけ行う", () => {
   const source = fs.readFileSync(
-    new URL("../../src/attempt/operations.ts", import.meta.url),
+    new URL("../../src/attempt/transition.ts", import.meta.url),
+    "utf8",
+  );
+  const validation = fs.readFileSync(
+    new URL("../../src/attempt/validation.ts", import.meta.url),
     "utf8",
   );
   const body = [
@@ -386,7 +392,14 @@ test("資源更新は次Bookの検査を遷移と一体で一回だけ行う", (
     "applyResourceCleanup",
     "validateResourceBookTransition",
   ]
-    .map((name) => stripTypeScriptTypes(sourceDeclaration(source, name)))
+    .map((name) =>
+      stripTypeScriptTypes(
+        sourceDeclaration(
+          name === "validateResourceBookTransition" ? validation : source,
+          name,
+        ),
+      ),
+    )
     .join("\n");
   let validations = 0;
   const update = compileFunction(
@@ -691,7 +704,7 @@ test("初期Snapshotと最初のIntentは一つの記録として成立しIdenti
   );
 });
 
-import { prepareStateResourceSnapshot } from "../../src/state/validation.ts";
+import { prepareStateResourceSnapshot } from "../../src/composition/transition.ts";
 
 /**
  * Receipt又は発見通知だけが実IDを確定しCleanupでは補完しない。

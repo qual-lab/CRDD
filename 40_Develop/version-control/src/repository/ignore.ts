@@ -7,7 +7,6 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  resolveRepositoryGitLayout,
   type EntitySnapshot,
   type RepositoryGitLayout,
   decodeUtf8,
@@ -19,7 +18,10 @@ import {
   verifyLayoutForWrite,
   verifySnapshot,
 } from "./layout.ts";
-import { resolveVerifiedRepositoryRoot, type Repository } from "./location.ts";
+import {
+  observeVerifiedRepositoryLayout,
+  type Repository,
+} from "./location.ts";
 
 const REPOSITORY_LOCAL_IGNORE_CONTRACT =
   "crdd-version-control/repository-local-ignore/v1";
@@ -517,15 +519,12 @@ export function registerRepositoryLocalIgnore(
       )
   )
     throw new Error("repository_local_ignore_entry_invalid");
-  const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
-  if (repositoryRoot === null)
-    throw new Error("verified_repository_root_required");
+  const observed = observeVerifiedRepositoryLayout(capability);
+  if (observed === null) throw new Error("verified_repository_root_required");
+  const { root: repositoryRoot, layout } = observed;
   let result: RepositoryLocalExcludeWriteResult;
   try {
-    result = writeRepositoryLocalExclude(
-      resolveRepositoryGitLayout(repositoryRoot),
-      entry,
-    );
+    result = writeRepositoryLocalExclude(layout, entry);
   } catch {
     result = {
       status: "blocked",

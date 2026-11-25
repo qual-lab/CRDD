@@ -37,6 +37,7 @@ import {
   retireStateRecords,
   transferHistory,
 } from "../../../../execution-model/src/index.ts";
+import { readStoredExecutionFixture } from "../../../../execution-model/tests/fixtures/stored-execution.ts";
 import {
   getRepository,
   getRepositoryFromWorkingDirectory,
@@ -408,7 +409,11 @@ async function verify(
       assert.equal(saved.lockReleased, true, "task_state_lock_unreleased");
       if (saved.status !== "completed" || !saved.value)
         throw new Error("task_state_unavailable");
-      const records = saved.value.snapshot.queueEntries.filter(
+      const snapshot = readStoredExecutionFixture(
+        root,
+        saved.value.payloadSha256,
+      );
+      const records = snapshot.queueEntries.filter(
         (q) => q.queueId === start.requestId,
       );
       assert.equal(records.length, 1, "task_state_identity_mismatch");
@@ -417,9 +422,7 @@ async function verify(
       assert.equal(queue.projectId, projectId, "task_state_project_mismatch");
       assert.equal(queue.ownerGeneration, null, "task_state_owner_unreleased");
       assert.equal(
-        saved.value.snapshot.leaseIntents.some(
-          (l) => l.queueId === start.requestId,
-        ),
+        snapshot.leaseIntents.some((l) => l.queueId === start.requestId),
         false,
         "task_state_lease_pending",
       );
@@ -688,10 +691,13 @@ async function verify(
               read.value &&
               read.historyRows !== null
             ) {
+              const stored = readStoredExecutionFixture(
+                root,
+                read.value.payloadSha256,
+              );
               correlationId =
-                read.value.snapshot.queueEntries.find(
-                  (q) => q.queueId === acceptedRequestId,
-                )?.singleTask?.operationId ?? null;
+                stored.queueEntries.find((q) => q.queueId === acceptedRequestId)
+                  ?.singleTask?.operationId ?? null;
               for (const operation of read.value.snapshot.operations) {
                 if (operation.kind !== "docker_task") continue;
                 const identity = JSON.parse(operation.identityJson);
@@ -821,7 +827,7 @@ function assessFixtureRemoval(
         assert.equal(read.lockReleased, true);
         if (read.status !== "completed" || !read.value)
           throw new Error("snapshot_unobserved");
-        let s = read.value.snapshot;
+        let s = readStoredExecutionFixture(root, read.value.payloadSha256);
         if (includeTask) {
           const queues = s.queueEntries.filter((q) => q.queueId === requestId);
           assert.equal(queues.length, 1);
@@ -953,9 +959,10 @@ function assessFixtureRemoval(
           assert.equal(task[key], null);
         assert.deepEqual(task.recoveryObligations, []);
         assert.equal(Object.hasOwn(task, "resultAcceptanceIds"), false);
+        // Task側の証拠は上で個別に確認済み。Workspace操作は証拠を作らない。
+        assert.equal(s.leaseEvidence.length, 0);
         if (mode === "direct") {
           assert.equal(s.results.length, 0);
-          assert.equal(s.leaseEvidence.length, 0);
         } else {
           const object = (value: unknown) => {
             assert.ok(
@@ -1007,48 +1014,6 @@ function assessFixtureRemoval(
           assert.equal(value.primaryFailure, null);
           assert.equal(end.cleanupFailure, null);
           assert.equal(end.refAbsent, true);
-          assert.equal(s.leaseEvidence.length, 12);
-          const pairs = new Map<
-            string,
-            { acquired: number; released: number }
-          >();
-          let projectPairs = 0;
-          for (const [index, item] of s.leaseEvidence.entries()) {
-            assert.equal(item.repositoryBindingId, s.repositoryBindingId);
-            assert.equal(item.projectId, projectId);
-            const content = item.content;
-            assert.ok(
-              content.kind === "project-operation" ||
-                content.kind === "canonical-adoption",
-            );
-            assert.equal(
-              content.queueId,
-              content.kind === "project-operation" ? "queue-a" : "canonical",
-            );
-            const key = JSON.stringify([
-              content.kind,
-              content.queueId,
-              content.ownerGeneration,
-              content.ownerProcessId,
-            ]);
-            const pair = pairs.get(key) ?? { acquired: -1, released: -1 };
-            assert.ok(
-              content.disposition === "acquired" ||
-                content.disposition === "released",
-            );
-            assert.equal(pair[content.disposition], -1);
-            pair[content.disposition] = index;
-            pairs.set(key, pair);
-            if (
-              content.disposition === "acquired" &&
-              content.kind === "project-operation"
-            )
-              projectPairs++;
-          }
-          assert.equal(pairs.size, 6);
-          assert.equal(projectPairs, 5);
-          for (const pair of pairs.values())
-            assert.ok(pair.acquired >= 0 && pair.released > pair.acquired);
         }
         return s;
       }

@@ -818,7 +818,7 @@ if (mode === "hold") {
   const originalOpen = fs.openSync;
   fs.openSync = (...args) => {
     const descriptor = originalOpen(...args);
-    if (args[0] === lock && args[1] === "wx") {
+    if (args[0] === lock && args[1] === "wx+") {
       try {
         fs.writeFileSync(ready, "lock_acquired", { flag: "wx" });
         const deadline = Date.now() + 10000;
@@ -1260,7 +1260,7 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
         "openSync",
         (file: fs.PathLike, flags: fs.OpenMode, mode?: fs.Mode) => {
           const descriptor = originalOpen(file, flags, mode);
-          if (String(file) === lockPath && flags === "wx")
+          if (String(file) === lockPath && flags === "wx+")
             lockDescriptor = descriptor;
           return descriptor;
         },

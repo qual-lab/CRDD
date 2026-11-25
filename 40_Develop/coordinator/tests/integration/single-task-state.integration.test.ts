@@ -22,6 +22,8 @@ import {
   initializeExecutionStore,
   type ProjectQueueEntry,
   readState,
+  readExecutionState,
+  readQueueState,
   type SingleTaskRecord,
 } from "../../../execution-model/src/index.ts";
 import {
@@ -249,10 +251,9 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     const released = lease.release();
     assert.equal(released.status, "completed", JSON.stringify(released));
     // 物理解放後・Queue解放保存前の中断を残し、次の入口で再入場する。
-    const interrupted = readState(
+    const interrupted = readExecutionState(
       resolveExecutionStorageDirectory(root),
       binding,
-      "execution",
     );
     assert.equal(interrupted.status, "completed");
     if (interrupted.status === "completed")
@@ -283,10 +284,9 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     }).status,
     "completed",
   );
-  const read = readState(
+  const read = readExecutionState(
     resolveExecutionStorageDirectory(root),
     binding,
-    "execution",
   );
   assert.equal(read.status, "completed");
   if (read.status !== "completed" || !read.value)
@@ -316,13 +316,10 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
       projectId: entry.projectId,
       principalId: record.principalId,
       authorize: () => permitted,
-      resolveSelection: (command) => ({
-        primary: executionSelection(
-          command.mode === "read_only_advice" ? "advice" : "executor",
-        ),
-        taskExecutionSelections:
-          command.mode === "workspace_edit" ? taskExecutionSelections() : null,
-      }),
+      resolveSelection: (command) =>
+        command.mode === "read_only_advice"
+          ? { kind: "advice", selection: executionSelection("advice") }
+          : { kind: "task", selections: taskExecutionSelections() },
       observeRevision: () => entry.repositoryRevision,
       observeLeaseOwner: () => {
         throw new Error("released_owner_must_not_be_observed");
@@ -498,10 +495,9 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   assert.equal(withheld.reason, "coordinator_task_not_available");
   assert.deepEqual(withheld.facts, []);
   assert.equal(withheld.taskId, null);
-  const after = readState(
+  const after = readExecutionState(
     resolveExecutionStorageDirectory(root),
     binding,
-    "execution",
   );
   assert.equal(after.status, "completed");
   if (after.status !== "completed" || !after.value)
@@ -803,8 +799,8 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
         principalId: "synthetic-user",
         authorize: () => true,
         resolveSelection: () => ({
-          primary: executionSelection("advice"),
-          taskExecutionSelections: null,
+          kind: "advice",
+          selection: executionSelection("advice"),
         }),
         observeRevision: () => revision,
         observeLeaseOwner: () => {
@@ -855,10 +851,9 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     assert.equal(peerAccepted.requestId, accepted.requestId);
     assert.ok(accepted.requestId);
     assert.equal(executions, 0);
-    const initial = readState(
+    const initial = readQueueState(
       resolveExecutionStorageDirectory(root),
       binding,
-      "queue",
     );
     assert.equal(initial.status, "completed");
     if (initial.status !== "completed" || !initial.value)
@@ -887,10 +882,9 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     }
     await owner.close();
     assert.equal((await owner.start(command)).status, "blocked");
-    const final = readState(
+    const final = readQueueState(
       resolveExecutionStorageDirectory(root),
       binding,
-      "queue",
     );
     assert.equal(final.status, "completed");
     if (final.status !== "completed" || !final.value)
@@ -921,11 +915,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     requestId: string;
   };
   assert.equal(lost.status, "accepted");
-  const saved = readState(
-    resolveExecutionStorageDirectory(root),
-    binding,
-    "queue",
-  );
+  const saved = readQueueState(resolveExecutionStorageDirectory(root), binding);
   assert.equal(saved.status, "completed");
   if (saved.status !== "completed" || !saved.value)
     throw Error("snapshot_required");
@@ -949,11 +939,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   assert.deepEqual(recovered.secondaryFailures, []);
   assert.equal(executions, 0);
   await owner.close();
-  const end = readState(
-    resolveExecutionStorageDirectory(root),
-    binding,
-    "queue",
-  );
+  const end = readQueueState(resolveExecutionStorageDirectory(root), binding);
   assert.equal(end.status, "completed");
   if (end.status !== "completed" || !end.value)
     throw Error("snapshot_required");
@@ -1015,7 +1001,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
     let settlements = 0;
     const failures = {
       ...snapshotStorage,
-      readState: () => ({
+      readQueueState: () => ({
         status: "completed",
         value: {
           queueEntries: queue ? [queue] : [],
@@ -1120,7 +1106,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
       {
         namedExports: {
           ...snapshotStorage,
-          readState: failures.readState,
+          readQueueState: failures.readQueueState,
           createQueue: failures.createQueue,
           updateQueue: failures.updateQueue,
         },
@@ -1149,8 +1135,8 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
           principalId: "synthetic-user",
           authorize: () => true,
           resolveSelection: () => ({
-            primary: executionSelection("advice"),
-            taskExecutionSelections: null,
+            kind: "advice",
+            selection: executionSelection("advice"),
           }),
           observeRevision: () => "a".repeat(40),
         },
@@ -1174,7 +1160,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
         assert.equal(accepted.requestId, null);
         if (stage === "identity") {
           assert.equal(accepted.reason, "coordinator_task_request_rejected");
-          const stored = failures.readState().value.queueEntries.at(0);
+          const stored = failures.readQueueState().value.queueEntries.at(0);
           assert.equal(stored?.projectId, "different-project");
           assert.equal(stored?.singleTask?.principalId, "different-principal");
           assert.equal(releases, 0);

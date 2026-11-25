@@ -16,13 +16,13 @@ import {
   projectDecisionHistory,
 } from "../decision/validation.ts";
 import type { Decision } from "../decision/types.ts";
-import { decisionHistoryLine, taskHistoryLine } from "./operations.ts";
+import { decisionHistoryLine, taskHistoryLine } from "./records.ts";
 import {
   encodeStateValue,
   hasExecutionStateRecordKeys,
   isSha256Hex,
   ID,
-} from "../state/operations.ts";
+} from "../composition/validation.ts";
 import type { HistoryRow } from "./types.ts";
 
 /**

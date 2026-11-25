@@ -8,12 +8,15 @@
  * @boundary 試験入力と公式SDKのメモリ内HTTP受付。
  */
 import { createMcpHandler, ProtocolError } from "@modelcontextprotocol/server";
+import type { Readable, Writable } from "node:stream";
 import {
   createMcpServerFactory,
   type McpCoordinatorDependencies,
   type McpServerDependencies,
   MCP_COORDINATOR_PROTOCOL_VERSION,
   type McpResponse,
+  runMcpStdio,
+  startMcpStreamableHttp,
 } from "../../src/transport/mcp-server.ts";
 import type { McpRequestSource } from "../../src/transport/mcp-types.ts";
 
@@ -129,4 +132,24 @@ export function invokeMcpCoordinatorRequest(
   signal?: AbortSignal,
 ): Promise<McpResponse> {
   return invokeMcpRequest(raw, { coordinator }, signal);
+}
+
+/** SDKの実HTTPと合成の実行依存を試験内だけで組み合わせる。 @trace EST-ST-003 */
+export function startCoordinatorHttpFixture(
+  coordinator: McpCoordinatorDependencies,
+  options: Parameters<typeof startMcpStreamableHttp>[1],
+) {
+  return startMcpStreamableHttp(
+    createMcpServerFactory({ coordinator }),
+    options,
+  );
+}
+
+/** SDKの実stdioと合成の実行依存を試験内だけで組み合わせる。 @trace EST-ST-012 */
+export function runCoordinatorStdioFixture(
+  coordinator: McpCoordinatorDependencies,
+  input: Readable,
+  output: Writable,
+) {
+  return runMcpStdio(createMcpServerFactory({ coordinator }), input, output);
 }

@@ -17,8 +17,8 @@ export {
 export {
   applyResourceCleanup,
   applyResourceEvent,
-  validateResourceBook,
-} from "./attempt/operations.ts";
+} from "./attempt/transition.ts";
+export { validateResourceBook } from "./attempt/validation.ts";
 export type {
   ExecutionOperationRecord,
   OperationRecord,
@@ -44,7 +44,6 @@ export type {
   Decision,
   DecisionRequest,
 } from "./decision/types.ts";
-export { inspectDecision } from "./decision/validation.ts";
 export {
   retireStateRecords,
   saveRecoveryHistory,
@@ -68,32 +67,36 @@ export { inspectExecutionPlan } from "./objective/validation.ts";
 export {
   initializeExecutionState,
   initializeExecutionStore,
+  readExecutionState,
   readProjectExecutionState,
+  readQueueState,
   readState,
+  readWorkspaceState,
   saveProjectExecutionState,
-} from "./state/crud.ts";
+} from "./composition/crud.ts";
 export {
   acquireLease,
   readLease,
   recoverLease,
   releaseLease,
-} from "./state/lease.ts";
+} from "./lease/crud.ts";
 export {
   createLocalPrincipalId,
   isPrincipalId,
-} from "./state/operations.ts";
+} from "./composition/validation.ts";
 export type {
   ExecutionModelAccess,
-  ExecutionStateSnapshot,
-  LeaseKind,
   ProjectExecutionInitialization,
   ProjectExecutionState,
   StateVersion,
-} from "./state/types.ts";
-export { PROJECT_STATE_CONTRACT } from "./state/types.ts";
+} from "./composition/types.ts";
+export type { LeaseKind } from "./lease/types.ts";
+export { PROJECT_STATE_CONTRACT } from "./composition/types.ts";
 export { readExecutionStorageBinding } from "./storage/lock.ts";
-export { resumeRepairRecordSave } from "./storage/publication.ts";
-export { ExecutionStorageBlockedError } from "./storage/store.ts";
+export {
+  ExecutionStorageBlockedError,
+  resumeRepairRecordSave,
+} from "./storage/store.ts";
 export {
   createQueue,
   createTask,
@@ -101,7 +104,7 @@ export {
   queryQueue,
   queryTasks,
   readQueueEntry,
-  selectQueueEntry,
+  selectNextQueueEntry,
   updateQueue,
   updateTask,
 } from "./task/crud.ts";
@@ -121,13 +124,9 @@ export type {
 } from "./task/types.ts";
 export { TASK_STATES } from "./task/types.ts";
 export {
-  inspectExecutionSelection,
-  inspectTaskExecutionSelections,
-} from "./task/validation.ts";
-export {
-  renameWorkspace,
+  beginWorkspaceOperation,
+  updateWorkspaceMetadata,
   saveIntegrationRecord,
-  saveWorkspaceRecord,
 } from "./workspace/crud.ts";
 export type {
   RepositoryWorktreeResult,

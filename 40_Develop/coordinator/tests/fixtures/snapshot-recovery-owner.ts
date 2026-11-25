@@ -87,7 +87,6 @@ const initialRead = readState(prepareFixtureRecovery(verified.capability), {
 assert.equal(initialRead.status, "completed", initialRead.reason);
 assert.equal(initialRead.lockReleased, true);
 assert.ok(initialRead.value);
-assert.deepEqual(Buffer.from(initialRead.value.sourceText, "utf8"), before);
 assert.equal(
   initialRead.value.payloadSha256,
   createHash("sha256").update(before).digest("hex"),
@@ -149,7 +148,7 @@ const owner = {},
     rootCapability: verified.capability,
     repository,
     recoveryId,
-    before,
+    before: initial.versionEvidence,
     snapshot: initial.snapshot,
     operationStates: initial.operationStates,
     closed: false,
@@ -196,7 +195,7 @@ assert.equal(currentSnapshot.lockReleased, true);
 assert.ok(currentSnapshot.value);
 assert.equal(currentSnapshot.value.payloadSha256, initial.payloadSha256);
 assert.ok(
-  Buffer.from(currentSnapshot.value.sourceText, "utf8").equals(before),
+  currentSnapshot.value.versionEvidence.matches(initial.versionEvidence),
   "fixture_snapshot_must_match_driver_input",
 );
 const driver =

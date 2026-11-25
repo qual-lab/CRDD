@@ -70,6 +70,21 @@ const { consumeTaskRemediation, registerTaskRemediation } = await import(
 );
 // 選定fixtureも同じModuleを読むため、送信方針の代役を登録した後に評価する。
 const { executionSelection } = await import("../../fixtures/ai-selection.ts");
+const claudeExecutor = executionSelection("executor", {
+  provider: "claude",
+  model: "opus",
+  effort: "low",
+});
+const codexReviewer = executionSelection("independent_reviewer", {
+  provider: "codex",
+  model: "gpt-5.5",
+  effort: "medium",
+});
+const claudeReviewer = executionSelection("independent_reviewer", {
+  provider: "claude",
+  model: "opus",
+  effort: "medium",
+});
 const { createSignedGeneralTaskVerificationRequest } = await import(
   "../../system/manual/verify-general-task.ts"
 );
@@ -188,11 +203,6 @@ function operation() {
  */
 function packet() {
   return {
-    executionSelection: executionSelection("executor", {
-      provider: "claude",
-      model: "opus",
-      effort: "low",
-    }),
     objective: "Update the isolated fixture and keep its behavior explicit.",
     acceptanceCriteria: [
       "The requested text is present.",
@@ -224,16 +234,10 @@ function reviewerPacket(
     readPaths: readonly string[];
     reviewerReadProjection: null;
   } = packet(),
-  provider: "codex" | "claude" = "codex",
 ) {
   const candidateSnapshotId = "1".repeat(64);
   return {
     ...source,
-    executionSelection: executionSelection("independent_reviewer", {
-      provider,
-      model: provider === "codex" ? "gpt-5.5" : "opus",
-      effort: "medium",
-    }),
     reviewerReadProjection: {
       status: "projected",
       candidateSnapshotId,
@@ -317,6 +321,7 @@ test("Reviewer Packetは通常の個別パス指定でも作業ツリーだけ�
           0,
           isolated.externalSendPolicyCapability,
           null,
+          codexReviewer,
           invalid,
         ),
         null,
@@ -331,6 +336,7 @@ test("Reviewer Packetは通常の個別パス指定でも作業ツリーだけ�
         0,
         isolated.externalSendPolicyCapability,
         null,
+        claudeExecutor,
         { ...packet(), readPaths: ["."] },
       ),
       null,
@@ -343,6 +349,7 @@ test("Reviewer Packetは通常の個別パス指定でも作業ツリーだけ�
       0,
       isolated.externalSendPolicyCapability,
       null,
+      codexReviewer,
       whole,
     );
     if (issued?.status !== "issued") assert.fail("packet must be issued");
@@ -391,6 +398,7 @@ test("Task PacketとReviewer診断は旧本文・件数上限を再適用しな�
       0,
       isolated.externalSendPolicyCapability,
       null,
+      claudeExecutor,
       { ...packet(), objective, acceptanceCriteria },
     );
     assert.equal(issued?.status, "issued");
@@ -451,6 +459,7 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
       0,
       isolated.externalSendPolicyCapability,
       null,
+      claudeExecutor,
       packet(),
     );
     if (issued?.status !== "issued") assert.fail("packet must be issued");
@@ -526,6 +535,7 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
       0,
       isolated.externalSendPolicyCapability,
       null,
+      codexReviewer,
       reviewerPacket(),
     );
     if (issued?.status !== "issued") assert.fail("packet must be issued");
@@ -640,19 +650,17 @@ test("文書を明示した受入条件は合成Reviewerの確認範囲から除
       0,
       isolated.externalSendPolicyCapability,
       null,
-      reviewerPacket(
-        {
-          objective: "Update the bounded documentation candidate.",
-          acceptanceCriteria: [
-            "README.md explains the current bounded behavior.",
-            "No unstated repository-wide release gate is added.",
-          ],
-          allowedPaths: ["README.md"],
-          readPaths: ["README.md"],
-          reviewerReadProjection: null,
-        },
-        "claude",
-      ),
+      claudeReviewer,
+      reviewerPacket({
+        objective: "Update the bounded documentation candidate.",
+        acceptanceCriteria: [
+          "README.md explains the current bounded behavior.",
+          "No unstated repository-wide release gate is added.",
+        ],
+        allowedPaths: ["README.md"],
+        readPaths: ["README.md"],
+        reviewerReadProjection: null,
+      }),
     );
     if (issued?.status !== "issued") assert.fail("packet must be issued");
     const consumed = consumeProviderTaskPacket(
@@ -704,16 +712,14 @@ test("固定4経路の実TaskからReviewer指示と作業ツリーの読取能�
         0,
         isolated.externalSendPolicyCapability,
         null,
-        reviewerPacket(
-          {
-            objective: request.objective,
-            acceptanceCriteria: request.acceptanceCriteria,
-            allowedPaths: request.allowedPaths,
-            readPaths: request.readPaths,
-            reviewerReadProjection: null,
-          },
-          "claude",
-        ),
+        claudeReviewer,
+        reviewerPacket({
+          objective: request.objective,
+          acceptanceCriteria: request.acceptanceCriteria,
+          allowedPaths: request.allowedPaths,
+          readPaths: request.readPaths,
+          reviewerReadProjection: null,
+        }),
       );
       if (issued?.status !== "issued") assert.fail("packet must be issued");
       const consumed = consumeProviderTaskPacket(
@@ -811,19 +817,22 @@ test("取消はuse aliasも失効し別Operationや動的入力を拒否する",
       0,
       isolated.externalSendPolicyCapability,
       null,
+      codexReviewer,
       reviewerPacket(),
     );
     if (issued?.status !== "issued") assert.fail("packet must be issued");
-    const advice = issueProviderAdvicePacket({
-      operationId: "OP-000001",
-      executionSelection: executionSelection("advice"),
-      provider: "codex",
-      taskHash: "a".repeat(64),
-      projectionHash: "b".repeat(64),
-      providerPrompt: "synthetic",
-      allowedReferences: ["PROJECT_CONTEXT.md"],
-      additionalHosts: [],
-    });
+    const advice = issueProviderAdvicePacket(
+      {
+        operationId: "OP-000001",
+        provider: "codex",
+        taskHash: "a".repeat(64),
+        projectionHash: "b".repeat(64),
+        providerPrompt: "synthetic",
+        allowedReferences: ["PROJECT_CONTEXT.md"],
+        additionalHosts: [],
+      },
+      executionSelection("advice"),
+    );
     assert.equal(advice.status, "issued");
     for (const reference of [issued.controlCapability, issued.useCapability]) {
       assert.equal(revokeProviderAdvicePacket(reference), false);
@@ -901,6 +910,7 @@ test("取消はuse aliasも失効し別Operationや動的入力を拒否する",
         0,
         isolated.externalSendPolicyCapability,
         null,
+        claudeExecutor,
         dynamic,
       ),
       null,
@@ -958,6 +968,7 @@ test("Path、上限、重複、余分fieldとRole差をfail closedにする", ()
           0,
           isolated.externalSendPolicyCapability,
           null,
+          claudeExecutor,
           invalid,
         ),
         null,
@@ -972,6 +983,7 @@ test("Path、上限、重複、余分fieldとRole差をfail closedにする", ()
         0,
         isolated.externalSendPolicyCapability,
         null,
+        claudeExecutor,
         packet(),
       ),
       null,
@@ -1023,6 +1035,7 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
       1,
       isolated.externalSendPolicyCapability,
       normalized.remediationCapability,
+      claudeExecutor,
       packet(),
     );
     if (issued?.status !== "issued") {
@@ -1060,6 +1073,7 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
         1,
         isolated.externalSendPolicyCapability,
         normalized.remediationCapability,
+        claudeExecutor,
         packet(),
       ),
       null,
@@ -1127,6 +1141,7 @@ test("Reviewer由来の秘密用Pathを送信Policy照合前に是正Packetか�
         1,
         externalSendPolicyCapability,
         normalized.remediationCapability,
+        claudeExecutor,
         packet(),
       );
       assert.equal(issued?.status, "blocked");
@@ -1192,6 +1207,7 @@ test("Reviewer由来の認識済みSecret本文を送信Policy照合前に是正
       1,
       externalSendPolicyCapability,
       normalized.remediationCapability,
+      claudeExecutor,
       packet(),
     );
     assert.equal(issued?.status, "blocked");
@@ -1255,6 +1271,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならPolicy照合前�
       1,
       externalSendPolicyCapability,
       normalized.remediationCapability,
+      claudeExecutor,
       packet(),
     );
     assert.equal(issued?.status, "blocked");
@@ -1289,6 +1306,7 @@ test("実Task Packetは発行時に本文を公開せず消費時はstdin専用�
       0,
       isolated.externalSendPolicyCapability,
       null,
+      claudeExecutor,
       packet(),
     );
     if (issued?.status !== "issued") assert.fail("packet must be issued");
@@ -1312,6 +1330,31 @@ test("実Task Packetは発行時に本文を公開せず消費時はstdin専用�
     );
     assert.ok(consumed);
     assert.equal(consumed.taskPacketHash, issued.taskPacketHash);
+    const reordered = Object.fromEntries(
+      Object.entries(claudeExecutor).reverse(),
+    ) as typeof claudeExecutor;
+    const other = issueProviderTaskPacket(
+      current.managementCapability,
+      isolated.repositoryBindingCapability,
+      "claude",
+      "executor",
+      0,
+      isolated.externalSendPolicyCapability,
+      null,
+      Object.freeze(reordered),
+      packet(),
+    );
+    if (other?.status !== "issued")
+      assert.fail("reordered packet must be issued");
+    assert.equal(other.taskPacketHash, issued.taskPacketHash);
+    assert.notEqual(other.taskPacketRef, issued.taskPacketRef);
+    assert.equal(
+      revokeProviderTaskPacket(
+        other.controlCapability,
+        current.managementCapability,
+      ).status,
+      "revoked",
+    );
     assert.equal(consumed.promptTransport, "provider_stdin_only");
     assert.ok(consumed.prompt);
     assert.equal("argv" in consumed, false);

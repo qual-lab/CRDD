@@ -9,23 +9,8 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  captureTaskExecutionUpdate,
-  observeTaskStartCandidates,
-  prepareTaskExecutionUpdate,
-  prepareTaskHandoff,
-  prepareTaskOwnerLoss,
-  prepareTaskPreEffectSettlement,
-  prepareTaskRecoveryRetry,
-  prepareTaskRecoverySettlement,
-  prepareTaskRecoveryStart,
-  prepareTaskReplan,
-  prepareTaskRetry,
-  prepareTaskSettlement,
-  prepareTaskStart,
-  prepareTaskStarted,
-  validState,
-} from "../../../src/task/validation.ts";
+import { validState } from "../../../src/task/validation.ts";
+import { captureTaskExecutionUpdate, observeTaskStartCandidates, prepareTaskExecutionUpdate, prepareTaskHandoff, prepareTaskOwnerLoss, prepareTaskPreEffectSettlement, prepareTaskRecoveryRetry, prepareTaskRecoverySettlement, prepareTaskRecoveryStart, prepareTaskReplan, prepareTaskRetry, prepareTaskSettlement, prepareTaskStart, prepareTaskStarted } from "../../../src/task/transition.ts";
 import { projectExecutionFixture } from "../../fixtures/execution-plan.ts";
 
 /**
@@ -871,16 +856,8 @@ test("開始候補は依存充足・Cleanup不明・回復予約を区別する"
 import type { OperationRecord } from "../../../src/attempt/types.ts";
 import type { Blocker, Decision } from "../../../src/decision/types.ts";
 import type { HistoryRow } from "../../../src/history/types.ts";
-import type {
-  ExecutionOverview,
-  ExecutionStateSnapshot,
-  LeaseEvidenceEnvelope,
-  LeaseKind,
-  ManagedExecution,
-  ProjectDefinition,
-  ProjectExecutionState,
-  Snapshot,
-} from "../../../src/state/types.ts";
+import type { ExecutionOverview, ExecutionStateSnapshot, ManagedExecution, ProjectDefinition, ProjectExecutionState, Snapshot } from "../../../src/composition/types.ts";
+import type { LeaseEvidenceEnvelope, LeaseKind } from "../../../src/lease/types.ts";
 import type { ProjectQueueEntry } from "../../../src/task/types.ts";
 import type {
   ResultRecord,

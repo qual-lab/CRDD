@@ -35,10 +35,8 @@ import {
   ExecutionStorageBlockedError,
   type ExecutionOperationRecord,
   type ExecutionSelection,
-  type ExecutionStateSnapshot,
   type OperationRecord,
   parseDockerTaskRecoveryId,
-  inspectExecutionSelection,
   type RestartCheckpoint,
   type RepairCheckpoint,
   type RepairOperationRecord,
@@ -771,7 +769,6 @@ export async function executeDockerRepair(
     let writing = false;
     const accept = (read: ReturnType<typeof readState>) => {
       historyLockReleased = read.lockReleased;
-      const publication = read.currentHistoryPublication;
       const operation = read.value?.snapshot.operations.find(
         (item): item is RepairOperationRecord =>
           item.kind === "docker_repair" && item.recoveryId === recoveryId,
@@ -780,7 +777,7 @@ export async function executeDockerRepair(
         read.status !== "completed" ||
         !read.lockReleased ||
         read.repairHistoryState !== "publication" ||
-        !publication ||
+        !read.historyPublicationStage ||
         !read.value ||
         !operation ||
         !currentOwner()
@@ -930,7 +927,7 @@ export async function executeDockerRepair(
             item.kind === "docker_repair" && item.recoveryId === recoveryId,
         );
         if (
-          !observed.currentCompletionPublication ||
+          !observed.completionPublicationReady ||
           !operation ||
           !(
             operation.disposition === "not_applicable" ||
@@ -1025,7 +1022,7 @@ export async function executeDockerRepair(
           if (!completion.lockReleased || !currentOwner()) return stopped();
           if (
             completion.status === "completed" &&
-            (completion.currentCompletionPublication ||
+            (completion.completionPublicationReady ||
               completion.repairCompletionAbsent)
           ) {
             if (
@@ -4296,7 +4293,7 @@ type DockerRestartPreparation = Readonly<{
   releaseAttempted: boolean;
   releaseConfirmed: boolean;
   finalizationAttempted: boolean;
-  before: Buffer;
+  before: NonNullable<ReturnType<typeof readState>["value"]>["versionEvidence"];
   checkpoint: RestartCheckpoint | null;
 };
 
@@ -4323,9 +4320,9 @@ type DockerTaskRecoveryPreparation = {
   hostGeneration: object;
   hostRoot: string;
   locks: DockerRestartPreparation["locks"];
-  before: Buffer;
+  before: NonNullable<ReturnType<typeof readState>["value"]>["versionEvidence"];
   /** beforeと同じ版。保存・fresh Readerの相関確認後にだけ一緒に更新する。 */
-  snapshot: ExecutionStateSnapshot;
+  snapshot: NonNullable<ReturnType<typeof readState>["value"]>["snapshot"];
   operationStates: NonNullable<
     ReturnType<typeof readState>["value"]
   >["operationStates"];
@@ -4536,7 +4533,7 @@ export function prepareDockerTaskRecovery(
       repository.revalidate,
       initial.resourcePublication
         ? { kind: "resource_publication", recoveryId: parsed.token }
-        : initial.currentHistoryPublication
+        : initial.historyPublicationStage
           ? {
               kind: "execution_history",
               recoveryId: parsed.token,
@@ -4545,7 +4542,7 @@ export function prepareDockerTaskRecovery(
                 repository.repositoryRoot,
               ),
             }
-          : initial.currentCompletionPublication
+          : initial.completionPublicationReady
             ? { kind: "execution_completion", recoveryId: parsed.token }
             : undefined,
       repository,
@@ -4596,7 +4593,7 @@ export function prepareDockerTaskRecovery(
             recoveryId: parsed.token,
           },
         })
-      : initial.currentHistoryPublication
+      : initial.historyPublicationStage
         ? readState(
             recoveryStorageInput(
               repository,
@@ -4613,7 +4610,7 @@ export function prepareDockerTaskRecovery(
               },
             },
           )
-        : initial.currentCompletionPublication
+        : initial.completionPublicationReady
           ? readState(recoveryStorageInput(repository), {
               scope: "recovery",
               input: {
@@ -4625,19 +4622,14 @@ export function prepareDockerTaskRecovery(
               scope: "recovery",
             });
     cleanupConfirmed &&= current.lockReleased;
-    let before = Buffer.from(initial.value.sourceText, "utf8");
+    let before = initial.value.versionEvidence;
     if (
       current.status !== "completed" ||
       !current.value ||
       !current.lockReleased ||
-      !Buffer.from(current.value.sourceText, "utf8").equals(before) ||
+      !current.value.versionEvidence.matches(before) ||
       (initial.resourcePublication &&
-        (!current.resourcePublication?.before.equals(
-          initial.resourcePublication.before,
-        ) ||
-          !current.resourcePublication.candidate.equals(
-            initial.resourcePublication.candidate,
-          )))
+        !initial.resourcePublication.matches(current.resourcePublication))
     ) {
       reason = "docker_task_recovery_boundary_changed";
       throw new Error(reason);
@@ -4684,14 +4676,14 @@ export function prepareDockerTaskRecovery(
         current.status !== "completed" ||
         !current.value ||
         !current.lockReleased ||
-        !Buffer.from(current.value.sourceText, "utf8").equals(
-          initial.resourcePublication.candidate,
+        !initial.resourcePublication.matchesCandidate(
+          current.value.versionEvidence,
         )
       ) {
         reason = "docker_task_recovery_resource_publication_unconfirmed";
         throw new Error(reason);
       }
-      before = Buffer.from(initial.resourcePublication.candidate);
+      before = current.value.versionEvidence;
     }
     const capability = Object.freeze({});
     const record: DockerTaskRecoveryPreparation = {
@@ -4719,7 +4711,7 @@ export function prepareDockerTaskRecovery(
       releaseConfirmed: false,
       finalizationAttempted: false,
       completionAttempted: false,
-      completionPending: Boolean(initial.currentCompletionPublication),
+      completionPending: initial.completionPublicationReady,
     };
     dockerRecoveryPreparations.set(capability, record);
     if (!assertCurrentRecoveryOwner(capability, record)) {
@@ -4799,7 +4791,7 @@ export function persistDockerTaskRecoveryCheckpoint(
       current.value.payloadSha256 !== saved.payloadSha256
     )
       return false;
-    record.before = Buffer.from(current.value.sourceText, "utf8");
+    record.before = current.value.versionEvidence;
     record.snapshot = current.value.snapshot;
     record.operationStates = current.value.operationStates;
     const confirmed = assertCurrentRecoveryOwner(capability, record);
@@ -4876,7 +4868,7 @@ function retireDockerTaskExecutionOwner(capability: unknown): boolean {
       current.status !== "completed" ||
       !current.value ||
       !current.lockReleased ||
-      !Buffer.from(current.value.sourceText, "utf8").equals(record.before)
+      !current.value.versionEvidence.matches(record.before)
     ) {
       record.persistenceFailed = true;
       return false;
@@ -5022,7 +5014,7 @@ export function finalizeDockerTaskRecoveryPreparation(capability: unknown) {
           )
             return false;
           return isHostOperationRootAbsent(
-            record.repository.root,
+            record.repository.repositoryRoot,
             record.repository.operationId,
           );
         },
@@ -5089,14 +5081,15 @@ export function completeDockerTaskRecoveryHistory(capability: unknown) {
   try {
     writing = true;
     lockReleased = false;
+    const history = historyRepositoryInput(
+      record.rootCapability,
+      record.repository.repositoryRoot,
+    );
     const saved = saveRecoveryHistory(
       {
         ...record.repository,
-        ...withHistoryRetention(
-          record.repository,
-          record.rootCapability,
-          record.repository.repositoryRoot,
-        ),
+        historyRetentionDays: history.historyRetentionDays,
+        revalidateRetention: history.revalidate,
       },
       record.recoveryId,
       () => {
@@ -5109,7 +5102,7 @@ export function completeDockerTaskRecoveryHistory(capability: unknown) {
         )
           return false;
         return isHostOperationRootAbsent(
-          record.repository.root,
+          record.repository.repositoryRoot,
           record.repository.operationId,
         );
       },
@@ -5666,7 +5659,7 @@ export function completeDockerTaskRecovery(capability: unknown) {
         )
           return false;
         return isHostOperationRootAbsent(
-          record.repository.root,
+          record.repository.repositoryRoot,
           record.repository.operationId,
         );
       },
@@ -5767,7 +5760,7 @@ export async function recoverDockerTaskResources(
       read.status !== "completed" ||
       !read.value ||
       !read.lockReleased ||
-      !Buffer.from(read.value.sourceText, "utf8").equals(record.before)
+      !read.value.versionEvidence.matches(record.before)
     ) {
       record.persistenceFailed = true;
       throw Error("docker_task_recovery_boundary_changed");
@@ -5917,7 +5910,7 @@ export async function recoverDockerTaskResources(
           read.value.payloadSha256 !== saved.payloadSha256
         )
           throw Error("docker_task_recovery_checkpoint_unconfirmed");
-        record.before = Buffer.from(read.value.sourceText, "utf8");
+        record.before = read.value.versionEvidence;
         record.snapshot = read.value.snapshot;
         record.operationStates = read.value.operationStates;
         record.persistenceFailed = !assertCurrentRecoveryOwner(
@@ -5998,7 +5991,7 @@ export function cleanupDockerTaskHost(capability: unknown): boolean {
     return false;
   try {
     if (!assertCurrentRecoveryOwner(capability, record)) return false;
-    const current = readState(
+    let current = readState(
       recoveryStorageInput(record.repository),
       record.completionPending
         ? {
@@ -6010,12 +6003,34 @@ export function cleanupDockerTaskHost(capability: unknown): boolean {
           }
         : { scope: "recovery" },
     );
+    if (
+      !record.completionPending &&
+      record.hostCleanup === "absent" &&
+      current.status === "blocked" &&
+      current.lockReleased
+    ) {
+      current = readState(
+        recoveryStorageInput(
+          record.repository,
+          historyRepositoryInput(
+            record.rootCapability,
+            record.repository.repositoryRoot,
+          ),
+        ),
+        {
+          scope: "recovery",
+          input: { kind: "execution_history", recoveryId: record.recoveryId },
+        },
+      );
+      if (!current.lockReleased) record.cleanupUnknown = true;
+      if (!current.historyPublicationStage) return false;
+    }
     if (!current.lockReleased) record.cleanupUnknown = true;
     if (
       current.status !== "completed" ||
       !current.value ||
       !current.lockReleased ||
-      !Buffer.from(current.value.sourceText, "utf8").equals(record.before)
+      !current.value.versionEvidence.matches(record.before)
     )
       return false;
     const state = current.value.operationStates.find(
@@ -6031,11 +6046,12 @@ export function cleanupDockerTaskHost(capability: unknown): boolean {
     )
       return false;
     const operation = state.operation;
-    if (record.completionPending) {
+    if (record.completionPending || current.historyPublicationStage) {
       // Hostは既に終結済み。途中保存の同じ断面を観測するだけで再清掃しない。
       if (
         record.hostCleanup !== "absent" ||
-        operation.lease !== "released" ||
+        (current.historyPublicationStage !== "terminal_checkpoint" &&
+          operation.lease !== "released") ||
         JSON.parse(operation.identityJson).operationId !==
           record.repository.operationId ||
         current.value.snapshot.operations.filter(
@@ -6057,7 +6073,7 @@ export function cleanupDockerTaskHost(capability: unknown): boolean {
         host.record.phase !== "terminal" ||
         host.record.cleanup !== "confirmed" ||
         !isDeepStrictEqual(host.record, hosts[0]) ||
-        !isDeepStrictEqual(host.snapshot, current.value.snapshot) ||
+        !host.versionEvidence.matches(current.value.versionEvidence) ||
         host.payloadSha256 !== current.value.payloadSha256 ||
         observeHostRecoveryRoot(record.hostGeneration) !== "absent"
       )
@@ -6105,7 +6121,7 @@ export function cleanupDockerTaskHost(capability: unknown): boolean {
       )
     )
       return false;
-    record.before = Buffer.from(after.value.sourceText, "utf8");
+    record.before = after.value.versionEvidence;
     record.snapshot = after.value.snapshot;
     record.operationStates = after.value.operationStates;
     return assertCurrentRecoveryOwner(capability, record);
@@ -6303,14 +6319,14 @@ export function prepareDockerRestart(
       },
     });
     observationCleanupConfirmed &&= current.lockReleased;
-    const before = Buffer.from(initial.value.sourceText, "utf8");
+    const before = initial.value.versionEvidence;
     if (
       !locks.every((lock) => lock.assertLive()) ||
       !repository.revalidate() ||
       current.status !== "completed" ||
       !current.value ||
       !current.lockReleased ||
-      !Buffer.from(current.value.sourceText, "utf8").equals(before)
+      !current.value.versionEvidence.matches(before)
     )
       throw new Error("docker_restart_boundary_changed");
     if (!("restartPreparation" in current) || !current.restartPreparation)
@@ -6431,7 +6447,7 @@ export function verifyDockerRestartPreparation(capability: unknown): boolean {
       current.status === "completed" &&
       !!current.value &&
       current.lockReleased &&
-      Buffer.from(current.value.sourceText, "utf8").equals(record.before)
+      current.value.versionEvidence.matches(record.before)
     );
   } catch {
     return false;
@@ -6511,7 +6527,7 @@ export function persistDockerRestartCheckpoint(
       )
     )
       return false;
-    record.before = Buffer.from(observed.value.sourceText, "utf8");
+    record.before = observed.value.versionEvidence;
     record.checkpoint = operation.dockerRestart;
     record.persistenceFailed = false;
     return verifyDockerRestartPreparation(capability);
@@ -7099,7 +7115,7 @@ function abandonAttemptRecovery(
  * @trace ARCH-000008
  * @input plan: ProductionPlan
  * @returns validProductionPlanの計算結果を返す。
- * @precondition 「plan: ProductionPlan」がvalidProductionPlanの入力契約を満たす。
+ * @precondition 選定は発行済みPacketから同じ準備処理が搬送した値。保存モデルの意味検査はEMが所有する。
  * @postcondition validProductionPlanの責務を完了した結果だけを返す。
  * @effect N/A: validProductionPlanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: validProductionPlanは独自の失敗分岐を所有しない。
@@ -7109,9 +7125,19 @@ function abandonAttemptRecovery(
  * @concurrency N/A: validProductionPlanは共有非同期状態を持たない同期処理である。
  */
 function validProductionPlan(plan: ProductionPlan) {
+  if (plan === null || typeof plan !== "object" || types.isProxy(plan))
+    return false;
+  const selected = Object.getOwnPropertyDescriptor(plan, "executionSelection");
+  if (!selected || !Object.hasOwn(selected, "value")) return false;
+  const selection = selected.value as ExecutionSelection;
+  // 開始と終了は同じ準備済み選定を使う。搬送値からコードを実行せず、
+  // 選定そのものの意味検査はPacket受付とEMの保存契約に残す。
+  if (!selection || typeof selection !== "object" || types.isProxy(selection))
+    return false;
+  const prototype = Object.getPrototypeOf(selection);
+  if (prototype !== Object.prototype && prototype !== null) return false;
+  const fields = Object.getOwnPropertyDescriptors(selection);
   return (
-    plan !== null &&
-    typeof plan === "object" &&
     [
       plan.authContainerName,
       plan.internalNetworkName,
@@ -7125,8 +7151,16 @@ function validProductionPlan(plan: ProductionPlan) {
     ["workbench", "coordinator_cli", "coordinator"].includes(plan.consumer) &&
     (plan.provider === "codex" || plan.provider === "claude") &&
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
-    inspectExecutionSelection(plan.executionSelection)?.provider ===
-      plan.provider &&
+    fields.provider?.value === plan.provider &&
+    Reflect.ownKeys(fields).every((key) => {
+      if (typeof key !== "string") return false;
+      const field = fields[key as keyof ExecutionSelection];
+      return (
+        field?.enumerable === true &&
+        Object.hasOwn(field, "value") &&
+        (typeof field.value === "string" || field.value === null)
+      );
+    }) &&
     (plan.taskAttempt === 0 || plan.taskAttempt === 1) &&
     [plan.providerHomeIdentityHash, plan.stableLogicalHomeBindingHash].every(
       (value) => HEX64.test(value),
@@ -7167,15 +7201,13 @@ export function beginDockerRecovery(
     let diagnosticRecoveryId: string | null = null;
     let ready = false;
     try {
-      if (!validProductionPlan(plan)) return null;
-      const nonce = randomBytes(32).toString("hex");
-      const identityJson = prepareRepositoryDockerOperationIdentity(
+      const identity = prepareRepositoryDockerOperationIdentity(
         plan,
         managementCapability,
-        nonce,
-        plan.consumer,
+        () => randomBytes(32).toString("hex"),
       );
-      if (!identityJson) return null;
+      if (!identity) return null;
+      const { identityJson, operationNonce: nonce } = identity;
       stage = "provider_home";
       const observation = inspectWindowsProviderHomeCandidate(plan.provider);
       const home = observation.providerHome;
@@ -7321,11 +7353,11 @@ export function beginDockerRecovery(
  * 現在Repositoryと実Hostから最新の開始Identityを組み立てる。
  * @responsibility AppData RuntimeStateを観測せず、検証済み計画・同じ操作Owner・初期Hostを固定本文へ結合する。
  * @trace ARCH-000008
- * @input plan: Runtimeの固定計画、managementCapability: 同じ操作Owner、operationNonce: 新操作世代、consumer: 本番組立てに固定された利用側。
- * @returns 正規Identity本文、または検証不能のnull。
+ * @input plan: 固定計画、managementCapability: 同じ操作Owner、createOperationNonce: 新操作世代の発行。
+ * @returns 同じ世代と正規Identity本文、または検証不能のnull。
  * @precondition Provider Homeの現在観測・Lease取得は呼出し元の開始Ownerが別途確認する。
  * @postcondition 旧Root結合やCaller supplied Pathを新形式へ持ち込まない。
- * @effect Repositoryと既存Host記録の読取りのみ。保存・Docker要求・Lease取得は行わない。
+ * @effect 計画検査後の世代発行とRepository・Host記録の読取り。保存・Docker要求・Lease取得は行わない。
  * @failure 別操作、不正計画・世代、Root失効、Host観測不能ではnull。
  * @invariant Identityの組立てを保存確定やProvider起動許可と扱わない。
  * @boundary 本番開始OwnerからRepository-local現在状態形式への内部搬送。
@@ -7335,18 +7367,15 @@ export function beginDockerRecovery(
 export function prepareRepositoryDockerOperationIdentity(
   plan: ProductionPlan,
   managementCapability: unknown,
-  operationNonce: unknown,
-  consumer: unknown,
-): string | null {
+  createOperationNonce: () => unknown,
+): Readonly<{ identityJson: string; operationNonce: string }> | null {
+  if (!validProductionPlan(plan)) return null;
+  const operationNonce = createOperationNonce();
+  if (typeof operationNonce !== "string" || !HEX64.test(operationNonce))
+    return null;
   try {
-    if (
-      !validProductionPlan(plan) ||
-      typeof consumer !== "string" ||
-      !["workbench", "coordinator_cli", "coordinator"].includes(consumer) ||
-      consumer !== plan.consumer ||
-      typeof operationNonce !== "string" ||
-      !HEX64.test(operationNonce)
-    )
+    const consumer = plan.consumer;
+    if (!["workbench", "coordinator_cli", "coordinator"].includes(consumer))
       return null;
     const repository = borrowCoordinatorStateRepository(managementCapability);
     if (!repository || repository.operationId !== plan.operationId) return null;
@@ -7382,7 +7411,9 @@ export function prepareRepositoryDockerOperationIdentity(
         : {}),
     };
     const identityJson = `${JSON.stringify(identity)}\n`;
-    return repository.revalidate() ? identityJson : null;
+    return repository.revalidate()
+      ? Object.freeze({ identityJson, operationNonce })
+      : null;
   } catch {
     return null;
   }

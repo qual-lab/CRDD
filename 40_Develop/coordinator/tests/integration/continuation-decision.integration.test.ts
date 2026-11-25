@@ -12,10 +12,10 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
-  type ExecutionStateSnapshot,
   readDecision,
   readProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
+import type { StoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import { submitDecision } from "../../src/lifecycle/decision.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/lifecycle/host.ts";
 import { resolveExecutionStorageDirectory } from "../../src/lifecycle/host.ts";
@@ -122,7 +122,7 @@ test("継続要求から再計画待ち又は取消へ一回適用し履歴だ�
       assert.equal(read.status, "completed");
       if (read.status === "completed")
         assert.deepEqual(read.value, first.decision);
-      const blockers = (snapshot as ExecutionStateSnapshot).blockers.filter(
+      const blockers = (snapshot as StoredExecutionFixture).blockers.filter(
         (b) =>
           b.target.projectId === projectId &&
           b.target.milestoneId === state.milestoneId,
@@ -340,7 +340,7 @@ test("明示無効化は判断を閉じるだけでBlockerとQueueを保持す�
   assert.equal(read.status, "completed");
   if (read.status === "completed") assert.equal(read.value?.status, "pending");
   assert.equal(
-    (after as ExecutionStateSnapshot).blockers.find(
+    (after as StoredExecutionFixture).blockers.find(
       (b) => b.blockerId === "blocker-other-problem",
     )?.status,
     "cancelled",

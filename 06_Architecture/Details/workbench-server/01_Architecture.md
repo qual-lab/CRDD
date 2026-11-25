@@ -139,6 +139,8 @@ AI依頼は旧Profile IDでなく作業分類と任意の明示Provider／Model�
 
 Workbenchは `workbench-ui/src` と `crdd-server` に分け、Expressルートと操作別受付を `src/transport/api-server.ts`、HTTP共通処理を `src/transport/api-http.ts`、表示・リポジトリ・管理の通信契約を各責務フォルダに置く。React＋ViteのCSRを唯一の画面Rendering方式として維持し、ServerのHTTP RoutingをExpress 5、ClientのNavigationをReact Router、Serverデータ取得をTanStack Queryへ移す。Domain・認証認可・実行状態・Git操作の正本は既存専門Packageに維持し、WorkbenchからMCPへ依存しない。UX／IA・Visual再設計はこの移行へ含めない。
 
+Repository別AI設定を単体接続で保存する場合、受付で確定した対象と書込み用に確認したRepositoryの正規パスを完全一致で照合する。構成モデルが要求する保存中の再認可と応答前には、書込み用Repositoryの配置をその時点で一度ずつ観測し、受付時の対象と照合する。共有接続では、設定管理権限および選択Repositoryへの現在認可と、Git操作先の現在配置を別々に確認する。異なる段階への観測結果の持ち越しは行わない。
+
 Frameworkの既定動作を既存保証の代替と推定しない。HTTPの大小文字・末尾slash・HEAD・未知Method、raw Header・Host／Origin、Bodyの形式・容量・圧縮、固定拒否・静的配信、取消・要求join・Owner closeを基準契約へ照合する。認証前のBody読取りや静的fallbackを追加しない。巨大な旧分岐へのcatch-all接続は中間状態であり、移行完了ではない。
 
 Clientは既存の同Origin・非永続資格・接続世代・容量制限・redirect拒否を共通通信境界に維持する。接続・鍵操作の秘密入力と一度だけの鍵応答はQuery／Mutation Cacheへ入れない。Principal／Repository切替、失効、pagehide／pageshowでは旧要求・Tree・Cache・遅延callbackを分離し、取得失敗時の旧内容を現在値として表示しない。Query取消を既発行Effectのrollbackとみなさず、Mutationは自動再送しない。
@@ -150,6 +152,10 @@ Clientは既存の同Origin・非永続資格・接続世代・容量制限・re
 #### 管理・鍵・Workspaceの明示Route接続
 
 Workspace専用の操作準備と単体Repositoryの照合は `service/workspace.ts` が所有する。Workspaceと実行操作が使う共有Repositoryの開発権限・実体の照合は `service/access.ts` で共用し、実行要求の主体との結合は `service/execution.ts` に残す。HTTP共通のフォーム読取り・応答は `transport/api-http.ts`、操作別受付は `transport/api-server.ts`、Workspaceの操作・Git処置の調停はServerが所有し、記録・状態遷移はExecution Modelが所有する。
+
+Workspaceの記録操作には、同じ要求の受付で確定した正規保存先を渡す。改名・保留・解除は短期保存排他内で操作Lease記録と物理Lockの不存在、対象、現在世代を照合して完結する。Gitを介するWorkspace操作は、短期保存排他内で未終了のTask Leaseを確認し、Taskと同じRepository単位の操作Lockを取得する。Git処置・観測中は短期保存排他を保持しない。意図と結果は既存のWorkspace記録へ保存する。廃棄はWorktree・Branch・専用親の解消後に記録を除去する。選択は未割当のQueueを結び、再観測は所属を変更しない。候補終了は採否記録、Ref回収、回収証拠の順で進み、確認済みの同じ候補だけを除去する。正本採用ではRepository単位の操作Lockを一つ保持し、Mergeと採否記録の直前に生存を確認する。固定候補・取込先と保存時CAS、Git成立後の同対象への再入場を維持する。採用専用Leaseやその解放証拠は作らない。操作Lockの解放が不明な場合は共通の解放結果で返す。
+
+取得段階の短期排他の解放不明では、取得した操作Lockの解放を試み、Git処置を行わない。操作Lockが観測されたからといって元Processの不在を推定せず、進行中の可能性があれば終了を待つ。残存する操作Lockは手動確認の対象であり、自動削除やTask用回復IDの発行はしない。作成意図が残った場合は、操作Lockの問題を解消してから同じWorkspaceを観測し、作成済みであれば結果だけを確定する。
 
 `transport/api-server.ts`は `transport/api-http.ts` の生Headerによる公開Origin検査をExpress内部のURL解釈より先に呼び、解析したURLを`href`の絶対URL形式で渡す。二重slashのPathを次の解析でauthorityへ読み替えず、従来のpathname・searchの意味を保つ。URL内のOriginを認証・認可へ転用しない。dot segment・absolute-formをExpressの別の受理集合へ暗黙に変更しない。不正な公開案内は421、案内正常でURL解釈不能なら固定500とし、AM・Body・Ownerを観測しない。大小文字・末尾slashを厳密に扱い、管理HEADはGET処理へ暗黙に接続しない。
 

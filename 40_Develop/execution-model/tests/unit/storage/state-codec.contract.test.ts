@@ -9,7 +9,7 @@
  */
 
 import { hashExecutionProjectDefinition } from "../../../src/objective/validation.ts";
-import { hashExecutionStateContent } from "../../../src/state/operations.ts";
+import { hashExecutionStateContent } from "../../../src/composition/validation.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
@@ -23,7 +23,7 @@ import type { ProjectExecutionState } from "../../../src/index.ts";
 import type {
   ExecutionStateSnapshot,
   ProjectDefinition,
-} from "../../../src/state/types.ts";
+} from "../../../src/composition/types.ts";
 import {
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
@@ -31,10 +31,10 @@ import {
   projectTaskSettlement,
   validateUnifiedTransition,
   validSnapshot,
-} from "../../../src/state/validation.ts";
-import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
-import { encodeStateValue } from "../../../src/state/operations.ts";
-import { prepareUnifiedTaskSnapshot } from "../../../src/state/validation.ts";
+} from "../../../src/composition/transition.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/composition/types.ts";
+import { encodeStateValue } from "../../../src/composition/validation.ts";
+import { prepareUnifiedTaskSnapshot } from "../../../src/composition/transition.ts";
 import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 import { createManagedRuntimeSnapshotFixture } from "../../support/state-fixture.ts";
 
@@ -211,7 +211,7 @@ test("保護Pathの長さだけで正規Identityを拒否しない", () => {
  * @oracle 蓄積量だけで拒否せずIdentity相関を維持する。
  * @cleanup N/A: メモリ内の自己生成値のみ。
  */
-test("内部技術記録は旧64件を超えても正規相関を維持する", () => {
+test("内部技術記録は旧64件を超えても正規相関を維持する", (t) => {
   const fixture = createResourceOperationFixture();
   const initial = decodeStateSnapshot(fixture.bytes, fixture.binding);
   assert.ok(initial);
@@ -315,6 +315,74 @@ test("内部技術記録は旧64件を超えても正規相関を維持する", 
     ),
     null,
   );
+  const settled = state.operations.map((operation) =>
+    operation.kind === "host_operation"
+      ? { ...operation, phase: "terminal", cleanup: "confirmed" }
+      : {
+          ...operation,
+          phase: "settling",
+          lease: "released",
+          execution: { ...operation.execution, ownerEffect: "disabled" },
+        },
+  );
+  for (const count of [1, 16, 129]) {
+    const selectedIds = new Set(
+      [...hosts.slice(0, count), ...operations.slice(0, count)].map(
+        ({ recoveryId }) => recoveryId,
+      ),
+    );
+    const stateWithSettledHosts = Buffer.from(
+      `${encodeStateValue({ ...state, operations: settled.filter((operation) => selectedIds.has(operation.recoveryId)) })}\n`,
+    );
+    let identityParses = 0;
+    const original = JSON.parse;
+    const parse = t.mock.method(
+      JSON,
+      "parse",
+      (...args: Parameters<typeof JSON.parse>) => {
+        if (
+          args[0].startsWith(
+            '{"schema":"crdd-coordinator/operation-identity/v6",',
+          )
+        )
+          identityParses++;
+        return original(...args);
+      },
+    );
+    try {
+      assert.ok(
+        decodeStateSnapshot(stateWithSettledHosts, fixture.binding),
+        `operation count: ${count}`,
+      );
+    } finally {
+      parse.mock.restore();
+    }
+    assert.equal(identityParses, count);
+  }
+  const firstTaskId = operations[0]?.recoveryId;
+  for (const operations of [
+    settled.filter(
+      (operation) => operation.recoveryId !== hosts[0]?.recoveryId,
+    ),
+    settled.flatMap((operation) =>
+      operation.recoveryId === hosts[0]?.recoveryId
+        ? [operation, operation]
+        : [operation],
+    ),
+    settled.map((operation) =>
+      operation.recoveryId === firstTaskId
+        ? { ...operation, lease: "held" }
+        : operation,
+    ),
+  ]) {
+    assert.equal(
+      decodeStateSnapshot(
+        Buffer.from(`${encodeStateValue({ ...state, operations })}\n`),
+        fixture.binding,
+      ),
+      null,
+    );
+  }
 });
 const taskExecutionSelections = () => ({
   executor: {

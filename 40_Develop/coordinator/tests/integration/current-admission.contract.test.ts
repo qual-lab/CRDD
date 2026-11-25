@@ -12,6 +12,7 @@
 import assert from "node:assert/strict";
 import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { mock, test } from "node:test";
@@ -131,7 +132,10 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     assert.equal(read.status, "completed", read.reason);
     assert.equal(read.lockReleased, true);
     assert.ok(read.value);
-    assert.deepEqual(Buffer.from(read.value.sourceText, "utf8"), bytes);
+    assert.equal(
+      read.value.payloadSha256,
+      createHash("sha256").update(bytes).digest("hex"),
+    );
     assert.deepEqual(inspect(root), available);
     fs.writeFileSync(file, "invalid");
     assert.equal(inspect(root).status, "blocked");
@@ -400,7 +404,7 @@ test("現在入場: Task通常・正式診断APIの本番構成式はexact Root�
     ),
     [
       "src/lifecycle/environment.ts",
-      "src/storage/publication.ts",
+      "src/storage/store.ts",
       "src/lifecycle/validation.ts",
     ],
   );

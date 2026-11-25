@@ -433,7 +433,7 @@ export type QueueCreateRequest = Readonly<
       kind: "scheduled";
       input: [
         queue: QueueEnqueueInput,
-        initialization?: import("../state/types.ts").ProjectExecutionInitialization,
+        initialization?: import("../composition/types.ts").ProjectExecutionInitialization,
       ];
     }
   | {

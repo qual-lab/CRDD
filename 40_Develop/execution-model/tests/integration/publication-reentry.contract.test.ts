@@ -18,8 +18,8 @@ import { readState } from "../../src/index.ts";
 import {
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
-} from "../../src/state/validation.ts";
-import { encodeStateValue } from "../../src/state/operations.ts";
+} from "../../src/composition/transition.ts";
+import { encodeStateValue } from "../../src/composition/validation.ts";
 import {
   acquireExecutionStateLock,
   acquireStorageOwner,

@@ -14,20 +14,13 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import {
-  createDockerRestartRequestId,
-  decodeDockerRestartCheckpoint,
-  decodeHostOperation,
-  validHostOperationTransition,
-  isDockerRestartCheckpointSettled,
-  parseDockerTaskRecoveryId,
-  validateDockerRestartCheckpointTransition,
-} from "../../../src/attempt/validation.ts";
-import { decodeStateSnapshot } from "../../../src/state/validation.ts";
+import { createDockerRestartRequestId, decodeDockerRestartCheckpoint, decodeHostOperation, isDockerRestartCheckpointSettled, parseDockerTaskRecoveryId } from "../../../src/attempt/validation.ts";
+import { validHostOperationTransition, validateDockerRestartCheckpointTransition } from "../../../src/attempt/transition.ts";
+import { decodeStateSnapshot } from "../../../src/composition/transition.ts";
 import {
   isSha256Hex,
   snapshotStateRecord,
-} from "../../../src/state/operations.ts";
+} from "../../../src/composition/validation.ts";
 import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
 
@@ -61,7 +54,7 @@ test("再起動準備Readerは同版操作・Scopeと要求IDを結合する", (
     value: null,
   };
   const invoke = runInNewContext(
-    `(dependencies) => { const {snapshotStateRecord,parseDockerTaskRecoveryId,isSha256Hex,observeExecutionRecoveryRepository,readStateSnapshot,createDockerRestartRequestId} = dependencies; ${sourceDeclaration(fs.readFileSync(new URL("../../../src/state/crud.ts", import.meta.url), "utf8"), "readRecoveryState")} return readRecoveryState; }`,
+    `(dependencies) => { const {snapshotStateRecord,parseDockerTaskRecoveryId,isSha256Hex,observeExecutionRecoveryRepository,readStateSnapshot,createDockerRestartRequestId} = dependencies; ${sourceDeclaration(fs.readFileSync(new URL("../../../src/composition/crud.ts", import.meta.url), "utf8"), "readRecoveryState")} return readRecoveryState; }`,
   )({
     snapshotStateRecord,
     parseDockerTaskRecoveryId,

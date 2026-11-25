@@ -9,8 +9,8 @@ import {
   repositoryPathWithin,
   snapshotPlainArray,
   snapshotStateRecord,
-} from "../state/operations.ts";
-import type { ProjectDefinition } from "../state/types.ts";
+} from "../composition/validation.ts";
+import type { ProjectDefinition } from "../composition/types.ts";
 import type { ProjectTaskDefinition } from "../task/types.ts";
 import type {
   ExecutionPlanScope,
@@ -187,12 +187,12 @@ export function inspectCompletePlanDefinition(
   raw: unknown,
 ): ObjectivePlan | null {
   const plan = inspectPlanDefinition(raw);
-  return plan &&
-    plan.objectives.length > 0 &&
-    plan.tasks.length > 0 &&
-    plan.objectives.every((objective) =>
-      plan.tasks.some((task) => task.objectiveId === objective.id),
-    )
+  if (!plan || plan.objectives.length === 0 || plan.tasks.length === 0)
+    return null;
+  const taskObjectiveIds = new Set(plan.tasks.map((task) => task.objectiveId));
+  return plan.objectives.every((objective) =>
+    taskObjectiveIds.has(objective.id),
+  )
     ? plan
     : null;
 }

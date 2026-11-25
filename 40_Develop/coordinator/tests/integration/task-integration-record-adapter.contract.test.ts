@@ -16,11 +16,11 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  beginWorkspaceOperation,
   createQueue,
   initializeExecutionStore,
-  readState,
-  saveWorkspaceRecord,
-  selectQueueEntry,
+  readWorkspaceState,
+  selectNextQueueEntry,
   type WorkspaceRecord,
 } from "../../../execution-model/src/index.ts";
 import {
@@ -32,24 +32,23 @@ import {
   requireReadyRepositoryExecutionDataArea,
   resolveExecutionStorageDirectory,
 } from "../../src/lifecycle/host.ts";
-import { acquireCoordinatorSnapshotLease } from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
 import { saveIntegrationRecord } from "../../../execution-model/src/index.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
 /**
- * 選択観測例外を実Storeで拒否し短期Ownerを解放する。
- * @responsibility 候補throwが元の保存失敗境界と解放へ接続することを確認する。
+ * 外部の選択関数を評価せず、固定優先順で選び短期Ownerを解放する。
+ * @responsibility 旧callbackの注入と、差分がない選択での保存を防ぐ。
  * @trace PRL-IT-005
  * @precondition 自己生成Rootの実Snapshot・Kernel・Reader。任意Snapshot callbackは使用しない。
- * @stimulus Queue選択の最初の観測だけthrowさせ、同Rootを再読し別のfixture結果を保存する。
- * @observation exact拒否・観測一回・state/history bytes又は不存在・後続再取得。
- * @oracle Writerへ候補を渡さず元本文を保全し、解放後の読取りと保存が成功する。
+ * @stimulus 固定Stateのopenを一回失敗させ、復旧後は旧引数位置へthrowする関数を渡す。
+ * @observation Reader拒否、選択ID、外部関数の呼出し数、state/history bytes、後続再取得。
+ * @oracle 観測不明では保存せず、再取得後も外部関数を呼ばず対話Queueを選ぶ。
  * @cleanup 既存fixture hookが今回Rootだけを回収する。
  * @boundary 実短期Storeと用途固定の選択観測。実行・回収・全codec成立の証拠にはしない。
  */
-test("選択観測例外は実Storeの固定拒否と解放へ閉じる", (t) => {
+test("Queueは外部選択を呼ばず実Storeの優先順と解放を維持する", (t) => {
   const { root } = fixture(t);
   const stateFile = path.join(root, ".crdd", "execution-model", "state.json");
   const historyFile = path.join(
@@ -62,28 +61,50 @@ test("選択観測例外は実Storeの固定拒否と解放へ閉じる", (t) =>
   const historyBefore = fs.existsSync(historyFile)
     ? fs.readFileSync(historyFile)
     : null;
-  let clockCalls = 0;
-  const rejected = selectQueueEntry(
-    resolveExecutionStorageDirectory(root),
-    "binding-a",
-    () => {
-      clockCalls++;
-      throw new Error("synthetic_selection_failure");
+  const directory = resolveExecutionStorageDirectory(root);
+  const originalOpen = fs.openSync;
+  let readFailures = 0;
+  const opening = t.mock.method(
+    fs,
+    "openSync",
+    (...args: Parameters<typeof fs.openSync>) => {
+      if (args[0] === stateFile && readFailures === 0) {
+        readFailures++;
+        throw new Error("synthetic_queue_state_unavailable");
+      }
+      return originalOpen(...args);
     },
   );
-  assert.deepEqual(rejected, {
-    status: "blocked",
-    reason: "coordinator_snapshot_operation_invalid_or_unconfirmed",
-    value: null,
-    manualRecoveryRequired: false,
-    recoveryId: null,
-  });
-  assert.equal(clockCalls, 1);
+  try {
+    const refused = selectNextQueueEntry(directory, "binding-a");
+    assert.equal(refused.status, "blocked");
+    assert.equal(refused.reason, "coordinator_state_read_unconfirmed");
+    assert.equal(refused.value, null);
+    assert.equal(refused.manualRecoveryRequired, true);
+    assert.equal(refused.recoveryId, null);
+    assert.equal(readFailures, 1);
+  } finally {
+    opening.mock.restore();
+  }
+  assert.deepEqual(fs.readFileSync(stateFile), before);
+  let callbackCalls = 0;
+  const selected = Reflect.apply(selectNextQueueEntry, undefined, [
+    directory,
+    "binding-a",
+    () => {
+      callbackCalls++;
+      throw new Error("synthetic_selection_failure");
+    },
+  ]);
+  assert.equal(selected.status, "completed");
+  assert.equal(selected.reason, "coordinator_interactive_queue_selected");
+  assert.equal(selected.value?.queueId, "queue-a");
+  assert.equal(callbackCalls, 0);
   assert.deepEqual(fs.readFileSync(stateFile), before);
   if (historyBefore === null) assert.equal(fs.existsSync(historyFile), false);
   else assert.deepEqual(fs.readFileSync(historyFile), historyBefore);
   assert.equal(
-    readState(resolveExecutionStorageDirectory(root), "binding-a", "workspace")
+    readWorkspaceState(resolveExecutionStorageDirectory(root), "binding-a")
       .status,
     "completed",
   );
@@ -91,15 +112,14 @@ test("選択観測例外は実Storeの固定拒否と解放へ閉じる", (t) =>
   assert.equal(
     saveIntegrationRecord(...integrationRecordInput(root), {
       kind: "integration",
-      identity: "after-clock-failure",
+      identity: "after-queue-selection",
       value: { synthetic: true },
     }).status,
     "completed",
   );
-  const after = readState(
+  const after = readWorkspaceState(
     resolveExecutionStorageDirectory(root),
     "binding-a",
-    "workspace",
   );
   assert.equal(after.status, "completed");
   assert.equal(
@@ -112,64 +132,85 @@ test("選択観測例外は実Storeの固定拒否と解放へ閉じる", (t) =>
  * Workspace時計例外を固定保存操作と実Storeへ接続する。
  * @responsibility 元のWorkspace削除候補のthrow・無書込み・解放後再取得を維持する。
  * @trace PRL-IT-005
- * @precondition 自己生成Rootと実Leaseを使用し、Workspace値だけを合成する。
- * @stimulus 実LeaseでWorkspaceを保存後、削除候補の時計を一回throwさせる。
+ * @precondition 自己生成Rootと操作専用Lockを使用し、Workspace値だけを合成する。
+ * @stimulus 用途限定操作でWorkspaceを保存後、削除候補の時計を一回throwさせる。
  * @observation 固定拒否、時計回数、state/history bytes、後続Readerと保存。
  * @oracle 例外で元本文を変更せず、短期Owner解放後の操作が成功する。
- * @cleanup finallyで今回の長期Leaseを解放後、fixtureが今回Rootを清掃する。
+ * @cleanup finallyで今回の操作専用Lockを解放後、fixtureが今回Rootを清掃する。
  * @boundary 固定Workspace操作と実Filesystem。合成結果を実Git回収の証明にしない。
  */
 test("Workspace時計例外は実Storeの固定拒否と解放へ閉じる", (t) => {
   const { root } = fixture(t);
-  const lease = acquireCoordinatorSnapshotLease(
-    root,
+  const repository = resolveExecutionStorageDirectory(root);
+  const id = "22222222-2222-2222-2222-222222222222";
+  const creation = beginWorkspaceOperation(
+    repository,
     "binding-a",
     "project-a",
     "queue-a",
-    "project-operation",
+    id,
+    "create",
+  );
+  assert.equal(creation.status, "completed");
+  assert.ok(creation.value);
+  const workspace: WorkspaceRecord = {
+    workspaceId: id,
+    name: null,
+    candidate: null,
+    generation: 1,
+    baseCommit: "a".repeat(40),
+    head: "a".repeat(40),
+    phase: "creating",
+    holdUntil: null,
+    pending: {
+      operationId: id,
+      kind: "create",
+      expectedHead: "a".repeat(40),
+      discardChanges: false,
+    },
+    primaryFailure: null,
+    lastResult: null,
+  };
+  assert.equal(creation.value.save(0, workspace).status, "completed");
+  assert.equal(creation.value.release().status, "completed");
+  const lease = beginWorkspaceOperation(
+    repository,
+    "binding-a",
+    "project-a",
+    "queue-a",
+    id,
+    "discard",
   );
   assert.equal(lease.status, "completed");
-  if (lease.status !== "completed") throw Error("fixture_lease_invalid");
+  assert.ok(lease.value);
   try {
-    const id = "22222222-2222-2222-2222-222222222222";
-    const workspace: WorkspaceRecord = {
-      workspaceId: id,
-      name: null,
-      candidate: null,
-      generation: 1,
-      baseCommit: "a".repeat(40),
-      head: "a".repeat(40),
-      phase: "ready",
-      holdUntil: null,
-      pending: null,
-      primaryFailure: null,
-      lastResult: {
-        status: "completed",
-        reason: "worktree_removed",
-        workspaceId: id,
-        relativePath: null,
-        branch: null,
-        expectedCommit: null,
-        effectIssued: true,
-        worktreeRemoved: true,
-        branchRemoved: true,
-        workspaceDirectoryRetained: false,
-        observation: null,
-      },
-    };
-
-    const repository = resolveExecutionStorageDirectory(root);
-    const saved = saveWorkspaceRecord(
-      repository,
-      "binding-a",
-      "project-a",
-      "queue-a",
-      lease.value.ownerGeneration,
-      id,
-      0,
-      workspace,
-      { processId: process.pid, now: () => 0 },
+    assert.equal(
+      lease.value.save(1, {
+        ...workspace,
+        generation: 2,
+        phase: "discarding",
+        pending: {
+          operationId: id,
+          kind: "discard",
+          expectedHead: workspace.head,
+          discardChanges: false,
+        },
+      }).status,
+      "completed",
     );
+    const saved = lease.value.saveObservation(2, {
+      status: "completed",
+      reason: "worktree_removed",
+      workspaceId: id,
+      relativePath: null,
+      branch: null,
+      expectedCommit: null,
+      effectIssued: true,
+      worktreeRemoved: true,
+      branchRemoved: true,
+      workspaceDirectoryRetained: false,
+      observation: null,
+    });
     assert.equal(saved.status, "completed", saved.reason);
     const stateFile = path.join(root, ".crdd", "execution-model", "state.json");
     const historyFile = path.join(
@@ -183,23 +224,16 @@ test("Workspace時計例外は実Storeの固定拒否と解放へ閉じる", (t)
       ? fs.readFileSync(historyFile)
       : null;
     let clockCalls = 0;
-    const rejected = saveWorkspaceRecord(
-      repository,
-      "binding-a",
-      "project-a",
-      "queue-a",
-      lease.value.ownerGeneration,
-      id,
-      1,
-      null,
-      {
-        processId: process.pid,
-        now: () => {
-          clockCalls++;
-          throw Error("synthetic_clock_failure");
-        },
-      },
-    );
+    const clock = t.mock.method(Date, "now", () => {
+      clockCalls++;
+      throw Error("synthetic_clock_failure");
+    });
+    let rejected: ReturnType<typeof lease.value.save>;
+    try {
+      rejected = lease.value.save(3, null);
+    } finally {
+      clock.mock.restore();
+    }
     assert.deepEqual(rejected, {
       status: "blocked",
       reason: "coordinator_snapshot_operation_invalid_or_unconfirmed",
@@ -212,7 +246,7 @@ test("Workspace時計例外は実Storeの固定拒否と解放へ閉じる", (t)
     if (historyBefore === null) assert.equal(fs.existsSync(historyFile), false);
     else assert.deepEqual(fs.readFileSync(historyFile), historyBefore);
     assert.equal(
-      readState(repository, "binding-a", "workspace").status,
+      readWorkspaceState(repository, "binding-a").status,
       "completed",
     );
     assert.deepEqual(fs.readFileSync(stateFile), before);
@@ -224,7 +258,7 @@ test("Workspace時計例外は実Storeの固定拒否と解放へ閉じる", (t)
       }).status,
       "completed",
     );
-    const after = readState(repository, "binding-a", "workspace");
+    const after = readWorkspaceState(repository, "binding-a");
     assert.equal(after.status, "completed");
     assert.equal(
       after.value?.snapshotRevision,
@@ -366,10 +400,9 @@ test("integration records are immutable and an identical retry is idempotent", (
   const before = fs.readFileSync(file);
   assert.equal(saveIntegrationRecord(...records, record).status, "completed");
   assert.deepEqual(fs.readFileSync(file), before);
-  const observed = readState(
+  const observed = readWorkspaceState(
     resolveExecutionStorageDirectory(root),
     "binding-a",
-    "workspace",
   );
   assert.equal(observed.status, "completed");
   assert.equal(observed.value?.results.length, 1);
@@ -402,10 +435,9 @@ test("canonical candidate identity is preserved by the integration record", (t) 
     value: { status: "candidate", changedPaths: ["result.txt"] },
   });
   assert.equal(result.status, "completed");
-  const observed = readState(
+  const observed = readWorkspaceState(
     resolveExecutionStorageDirectory(root),
     "binding-a",
-    "workspace",
   );
   assert.equal(observed.status, "completed");
   assert.equal(observed.value?.results.length, 1);
@@ -442,10 +474,9 @@ test("an identity collision is blocked without replacing the first record", (t) 
   assert.equal(collision.status, "blocked");
   assert.equal(collision.reason, "coordinator_result_identity_conflict");
   assert.deepEqual(fs.readFileSync(target), original);
-  const observed = readState(
+  const observed = readWorkspaceState(
     resolveExecutionStorageDirectory(root),
     "binding-a",
-    "workspace",
   );
   assert.equal(observed.status, "completed");
   assert.equal(observed.value?.results.length, 1);
@@ -516,10 +547,9 @@ test("現行結果保存は未知欄・Hash・Queue結合破損を拒否して�
     Object.assign(saved.results[0], change);
     fs.writeFileSync(file, `${canonicalJson(saved)}\n`);
     const before = fs.readFileSync(file);
-    const observed = readState(
+    const observed = readWorkspaceState(
       resolveExecutionStorageDirectory(root),
       "binding-a",
-      "workspace",
     );
     assert.equal(observed.status, "blocked", JSON.stringify(change));
     assert.equal(observed.reason, "coordinator_state_read_unconfirmed");

@@ -5,13 +5,13 @@
  */
 import { hashExecutionProjectDefinition } from "./validation.ts";
 import { createHash } from "node:crypto";
-import type { ProjectDefinition } from "../state/types.ts";
-import { decodeStateSnapshot } from "../state/validation.ts";
+import type { ProjectDefinition } from "../composition/types.ts";
+import { decodeStateSnapshot } from "../composition/transition.ts";
 import {
   validId,
   encodeStateValue,
   snapshotStateRecord,
-} from "../state/operations.ts";
+} from "../composition/validation.ts";
 import type { ProjectTaskDefinition } from "../task/types.ts";
 import type { ProjectObjectiveDefinition } from "./types.ts";
 import {

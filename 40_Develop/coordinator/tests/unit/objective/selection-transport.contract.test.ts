@@ -15,10 +15,7 @@ import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { isDeepStrictEqual } from "node:util";
 import { compileFunction } from "node:vm";
-import {
-  inspectTaskExecutionSelections,
-  isPrincipalId,
-} from "../../../../execution-model/src/index.ts";
+import { isPrincipalId } from "../../../../execution-model/src/index.ts";
 import {
   fixtureTaskExecutionSelections,
   projectExecutionFixture,
@@ -400,7 +397,8 @@ test("Task要求組立てはTask別入力と保存選定を順序通り独立し
     assert.ok(Object.isFrozen(entry));
     const task = entry.taskRequest;
     assert.equal(task.objective, expected.objective);
-    assert.equal(task.taskExecutionSelections, state.taskExecutionSelections);
+    assert.equal(entry.selections, state.taskExecutionSelections);
+    assert.equal(Object.hasOwn(task, "taskExecutionSelections"), false);
     assert.deepEqual(task.acceptanceCriteria, expected.acceptanceCriteria);
     assert.deepEqual(task.readPaths, expected.readPaths);
     assert.deepEqual(task.allowedPaths, [
@@ -894,12 +892,11 @@ test("Objective選定は全四組合せでTask契約へexactに搬送する", ()
         ...(request.choice ? { choice: request.choice } : {}),
       });
       assert.ok(resolved.value);
-      const task = buildObjectiveTaskRequest(request, resolved.value);
+      const task = buildObjectiveTaskRequest(request);
       const snapshot = task;
-      assert.deepEqual(snapshot.taskExecutionSelections, resolved.value);
-      assert.equal(snapshot.taskExecutionSelections, resolved.value);
+      assert.equal(Object.hasOwn(snapshot, "taskExecutionSelections"), false);
       assert.equal(
-        snapshot.taskExecutionSelections.executor.provider,
+        resolved.value.executor.provider,
         mask & 2 ? choice.provider : "codex",
       );
       assert.equal(Object.hasOwn(task, "frontProvider"), false);
@@ -1211,7 +1208,6 @@ test("公開受付は計画を独立凍結し同じ検査済み参照だけを�
     [
       "isPrincipalId",
       "blocked",
-      "inspectTaskExecutionSelections",
       "readQueueEntry",
       "createQueue",
       "inspectCoordinatorSnapshotLeaseAcquisitionOwner",
@@ -1219,11 +1215,11 @@ test("公開受付は計画を独立凍結し同じ検査済み参照だけを�
       "hashCoordinatorContent",
       "getExecutionProcessInstanceIdentity",
       "resolveObjectiveTaskSelections",
+      "objectiveSelectionsMatch",
     ],
   )(
     isPrincipalId,
     (_request: unknown, reason: string) => ({ status: "blocked", reason }),
-    inspectTaskExecutionSelections,
     (actualRepository: unknown, binding: string, queueId: string) => {
       assert.equal(actualRepository, repository);
       assert.equal(binding, "binding");
@@ -1254,6 +1250,7 @@ test("公開受付は計画を独立凍結し同じ検査済み参照だけを�
       assert.equal(typeof actualRequest, "object");
       return selectionResult();
     },
+    () => true,
   ) as (
     deps: object,
     input: object,
@@ -1284,38 +1281,12 @@ test("公開受付は計画を独立凍結し同じ検査済み参照だけを�
   assert.equal(rejected.reason, "fixture_missing");
   assert.equal(reads, 1);
   projectReadAllowed = true;
-  let selectionHooks = 0;
   let enqueues = 0;
-  const accessorSelections = {
-    get executor() {
-      selectionHooks++;
-      throw Error("selection_accessor_must_not_run");
-    },
-    reviewer: null,
-  };
-  const proxySelections = new Proxy(
-    {},
-    {
-      ownKeys() {
-        selectionHooks++;
-        throw Error("selection_proxy_must_not_run");
-      },
-    },
-  );
-  const resolved = resolveTaskExecutionSelections(selectionConfig(), {
-    workType: null,
-  });
-  assert.ok(resolved.value);
-  const missingWorkType = { ...resolved.value.executor };
-  Reflect.deleteProperty(missingWorkType, "workType");
-  for (const value of [
-    accessorSelections,
-    proxySelections,
-    {},
-    { executor: {} },
-    { ...resolved.value, executor: missingWorkType },
+  for (const reason of [
+    "ai_selection_request_invalid",
+    "ai_selection_choice_unsupported",
   ]) {
-    selectionResult = () => ({ status: "resolved", value });
+    selectionResult = () => ({ status: "blocked", value: null, reason });
     const result = await execute(
       {
         authenticatedPrincipalId: "principal-a",
@@ -1335,9 +1306,8 @@ test("公開受付は計画を独立凍結し同じ検査済み参照だけを�
       { ...request, operation: "start" },
       new AbortController().signal,
     );
-    assert.equal(result.reason, "coordinator_input_invalid");
+    assert.equal(result.reason, reason);
   }
-  assert.equal(selectionHooks, 0);
   assert.equal(enqueues, 0);
 });
 
@@ -1377,7 +1347,7 @@ test("保存競合のObjective再送は同版から返し、Queue欠測でも実
   `,
     [
       "resolveExecutionStorageDirectory",
-      "readState",
+      "readExecutionState",
       "blocked",
       "snapshotPlainArray",
       "inspectTaskStartCandidates",
@@ -1415,11 +1385,10 @@ test("保存競合のObjective再送は同版から返し、Queue欠測でも実
     let queueReads = 0;
     const run = replay(
       (root: string) => root,
-      (root: string, binding: string, scope: string) => {
+      (root: string, binding: string) => {
         reads++;
         assert.equal(root, "repo");
         assert.equal(binding, "binding");
-        assert.equal(scope, "execution");
         return {
           status: "completed",
           value: {
@@ -1621,7 +1590,7 @@ test("Objectiveの実行後表示は現在Queueを照合し捕捉済みの結果
       ${source.slice(start, end)}
     };`,
     [
-      "readState",
+      "readQueueState",
       "resolveExecutionStorageDirectory",
       "workspacePlanReadyForAcceptance",
     ],
@@ -1659,12 +1628,9 @@ test("Objectiveの実行後表示は現在Queueを照合し捕捉済みの結果
   ] as const) {
     const calls: string[] = [];
     const project = evaluate(
-      (root: unknown, binding: unknown, scope: unknown) => {
+      (root: unknown, binding: unknown) => {
         calls.push("read");
-        assert.deepEqual(
-          [root, binding, scope],
-          ["repository", "binding", "queue"],
-        );
+        assert.deepEqual([root, binding], ["repository", "binding"]);
         return {
           status: condition === "unknown" ? "unknown" : "completed",
           value: {
@@ -1806,7 +1772,7 @@ test("回復後の再確認はQueue・Project・候補を同じ保存版で比�
       return readCurrentRecoveryState;
     }`) + "\nreturn prepare();",
     [
-      "readState",
+      "readExecutionState",
       "persistence",
       "request",
       "queueId",
@@ -1833,12 +1799,9 @@ test("回復後の再確認はQueue・Project・候補を同じ保存版で比�
     if (scenario === "cancelled") cancellation.abort();
     let reads = 0;
     const observe = compile(
-      (repository: string, binding: string, scope: string) => {
+      (repository: string, binding: string) => {
         reads++;
-        assert.deepEqual(
-          [repository, binding, scope],
-          ["repository", "binding", "execution"],
-        );
+        assert.deepEqual([repository, binding], ["repository", "binding"]);
         return {
           status: "completed",
           value: {
@@ -1892,7 +1855,7 @@ test("共通ループの準備は同版から一度だけ読み、版違いと�
   const compile = compileFunction(
     `return (${stripTypeScriptTypes(sourceDeclaration(source, "prepareScheduledOperation"))});`,
     [
-      "readState",
+      "readExecutionState",
       "captureTaskStartCandidates",
       "taskExecutionMap",
       "blockExecution",
@@ -1933,12 +1896,9 @@ test("共通ループの準備は同版から一度だけ読み、版違いと�
   ] as const) {
     let reads = 0;
     const prepare = compile(
-      (repository: string, binding: string, scope: string) => {
+      (repository: string, binding: string) => {
         reads++;
-        assert.deepEqual(
-          [repository, binding, scope],
-          ["repository", "binding", "execution"],
-        );
+        assert.deepEqual([repository, binding], ["repository", "binding"]);
         return {
           status: "completed",
           value: {

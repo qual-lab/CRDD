@@ -138,7 +138,7 @@ test("CurrentStateの初期化失敗は取得参照・手動回復とdescriptor�
         "openSync",
         (...args: Parameters<typeof fs.openSync>) => {
           const fd = open(...args);
-          if (String(args[1]) === "wx") descriptor = fd;
+          if (args[1] === "wx+") descriptor = fd;
           return fd;
         },
       );

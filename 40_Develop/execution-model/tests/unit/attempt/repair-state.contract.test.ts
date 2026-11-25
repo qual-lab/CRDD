@@ -10,18 +10,8 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  createEnvironmentRepairDisposalCheckpoint,
-  decodeEnvironmentRepairCheckpoint,
-  decodeEnvironmentRepairDisposalCheckpoint,
-  decodeEnvironmentRepairRetentionTargets,
-  isRepairCheckpointSettled,
-  isRepairDisposalSettled,
-  prepareEnvironmentRepairSessionCheckpoint,
-  validateEnvironmentRepairCheckpointTransition,
-  validateEnvironmentRepairDisposalTransition,
-  validateEnvironmentRepairSessionCheckpoint,
-} from "../../../src/attempt/validation.ts";
+import { createEnvironmentRepairDisposalCheckpoint, decodeEnvironmentRepairCheckpoint, decodeEnvironmentRepairDisposalCheckpoint, decodeEnvironmentRepairRetentionTargets, isRepairCheckpointSettled, isRepairDisposalSettled, prepareEnvironmentRepairSessionCheckpoint } from "../../../src/attempt/validation.ts";
+import { validateEnvironmentRepairCheckpointTransition, validateEnvironmentRepairDisposalTransition, validateEnvironmentRepairSessionCheckpoint } from "../../../src/attempt/transition.ts";
 
 /**
  * 保持対象の形検査を元checkpointや実観測と分離する。
@@ -916,6 +906,11 @@ test("回復保存は用途別の必須証拠を混同せず実行Propertyを評
     { kind: "resource_publication", assertOwner: owner },
     { kind: "resource_publication", publication: null, assertOwner: owner },
     {
+      kind: "resource_publication",
+      publication: { before: Buffer.alloc(0), candidate: Buffer.alloc(0) },
+      assertOwner: owner,
+    },
+    {
       kind: "terminal",
       publication: { before: Buffer.alloc(0), candidate: Buffer.alloc(0) },
       assertOwner: owner,
@@ -933,15 +928,17 @@ test("回復保存は用途別の必須証拠を混同せず実行Propertyを評
     },
   ];
   for (const request of invalid) {
-    const result = Reflect.apply(saveRecoveryCheckpoint, undefined, [
-      null,
-      "exact",
-      Buffer.alloc(0),
-      request,
-    ]);
-    assert.equal(result.status, "blocked");
-    assert.equal(result.snapshotConfirmed, false);
-    assert.equal(traps, 0);
-    assert.equal(owners, 0);
+    for (const before of [null, Buffer.alloc(0)]) {
+      const result = Reflect.apply(saveRecoveryCheckpoint, undefined, [
+        null,
+        "exact",
+        before,
+        request,
+      ]);
+      assert.equal(result.status, "blocked");
+      assert.equal(result.snapshotConfirmed, false);
+      assert.equal(traps, 0);
+      assert.equal(owners, 0);
+    }
   }
 });

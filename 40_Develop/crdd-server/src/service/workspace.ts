@@ -11,11 +11,11 @@ import fs, { existsSync, lstatSync } from "node:fs";
 import path from "node:path";
 import { isDeepStrictEqual, types } from "node:util";
 import {
+  beginWorkspaceOperation,
   type RepositoryWorktreeResult,
-  readState,
+  readWorkspaceState,
   saveIntegrationRecord,
-  renameWorkspace,
-  saveWorkspaceRecord,
+  updateWorkspaceMetadata,
   type WorkspaceCandidateRequest,
   type WorkspaceCandidateResult,
   type WorkspaceRecord,
@@ -35,7 +35,6 @@ import {
   readFile,
   readRepositoryLocation,
   readRepositoryRevision,
-  readRepositoryStorageIdentity,
   readWorkingChanges,
   readWorktreeCreationSource,
   removeReference,
@@ -46,10 +45,7 @@ import {
 } from "../../../version-control/src/index.ts";
 import {
   resolveRepositoryExecutionDataPaths,
-  resolveExecutionStorageDirectory,
-  acquireCoordinatorSnapshotLease,
   type PreparedWorkspaceTarget,
-  type CoordinatorLease,
   deriveCoordinatorRepositoryBindingId,
   validIdentity,
   containsRecognizedSecretText,
@@ -65,10 +61,9 @@ export function prepareWorkspaceExecutionTarget(
 ): PreparedWorkspaceTarget | null {
   if (!isWorkspaceId(workspaceId)) return null;
   try {
-    const snapshot = readState(
+    const snapshot = readWorkspaceState(
       { directory: ownerRepositoryRoot },
       deriveCoordinatorRepositoryBindingId(ownerRepositoryRoot),
-      "workspace",
     );
     if (
       snapshot.status !== "completed" ||
@@ -269,7 +264,7 @@ export function executeWorkspace(
   if (readRepositoryLocation(ownerRoot)?.directory !== ownerRoot)
     throw new Error("workspace_access_unavailable");
   const binding = deriveCoordinatorRepositoryBindingId(ownerRoot);
-  const snapshot = readState({ directory: ownerRoot }, binding, "workspace");
+  const snapshot = readWorkspaceState({ directory: ownerRoot }, binding);
   if (snapshot.status !== "completed" || !snapshot.value)
     throw new Error("workspace_state_unavailable");
   const current = snapshot.value;
@@ -406,7 +401,7 @@ export function executeWorkspace(
     const { operation, ...input } = command;
     const result = manageWorkspace({
       ...input,
-      operation: operation === "select" ? "observe" : operation,
+      operation,
       ...(operation === "create" && command.name === null
         ? { name: undefined }
         : {}),
@@ -440,8 +435,6 @@ export function executeWorkspace(
       recoveryId: result.recoveryId,
       releaseFailure: result.releaseFailure,
       releaseRecoveryId: result.releaseRecoveryId,
-      adoptionReleaseFailure: result.adoptionReleaseFailure,
-      adoptionReleaseRecoveryId: result.adoptionReleaseRecoveryId,
     };
   }
   if (!allowed()) throw new Error("workspace_result_unavailable");
@@ -833,7 +826,7 @@ export type WorkspaceManagementRequest = Readonly<{
         referencesReleased: boolean;
         authorize: () => boolean;
       }
-    | { operation: "observe" }
+    | { operation: "observe" | "select" }
     | { operation: "discard"; expectedHead: string; discardChanges?: boolean }
     | { operation: "hold"; until: string | null }
     | { operation: "adopted" }
@@ -867,29 +860,28 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
     recoveryId: null as string | null,
     releaseFailure: null as string | null,
     releaseRecoveryId: null as string | null,
-    adoptionReleaseFailure: null as string | null,
-    adoptionReleaseRecoveryId: null as string | null,
   };
-  let adoptionLease: CoordinatorLease | null = null;
   if (request.operation === "adopted")
     return {
       ...result,
       reason: "coordinator_workspace_adoption_not_connected",
     };
-  if (request.operation === "rename") {
+  if (request.operation === "rename" || request.operation === "hold") {
     const location = readRepositoryLocation(request.ownerRepositoryRoot);
     if (!location || location.linked) return result;
     try {
       if (request.authorize && !request.authorize())
         return { ...result, reason: "coordinator_candidate_not_authorized" };
-      const saved = renameWorkspace(
+      const saved = updateWorkspaceMetadata(
         { directory: location.directory },
         request.repositoryBindingId,
         request.projectId,
         request.queueId,
         request.workspaceId,
         request.expectedGeneration,
-        request.name,
+        request.operation === "rename"
+          ? { kind: "rename", value: request.name }
+          : { kind: "hold", value: request.until },
       );
       return saved.status === "completed"
         ? {
@@ -912,35 +904,22 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
     }
   }
   const verified = getRepository(request.ownerRepositoryRoot);
-  const layout =
+  const location =
     verified.status === "completed"
-      ? readRepositoryStorageIdentity(verified.capability)
+      ? readRepositoryLocation(request.ownerRepositoryRoot)
       : null;
-  if (
-    verified.status !== "completed" ||
-    layout === null ||
-    layout.repositoryForm === "linked"
-  )
+  if (verified.status !== "completed" || location === null || location.linked)
     return result;
-  const initial = readState(
-    resolveExecutionStorageDirectory(request.ownerRepositoryRoot),
-    request.repositoryBindingId,
-    "workspace",
-  );
-  if (initial.status !== "completed" || !initial.value)
-    return {
-      ...result,
-      reason: initial.reason,
-      manualRecoveryRequired:
-        initial.status === "blocked" && initial.manualRecoveryRequired,
-      recoveryId: initial.status === "blocked" ? initial.recoveryId : null,
-    };
-  const lease = acquireCoordinatorSnapshotLease(
-    request.ownerRepositoryRoot,
+  // Gitの操作はVCで確認する。EMへ渡す保存先はこの操作の受付で確定する。
+  const storage = { directory: location.directory };
+  // GitをまたぐWorkspace操作は短期排他内でStateを読み、共通の操作Lockを取る。
+  const lease = beginWorkspaceOperation(
+    storage,
     request.repositoryBindingId,
     request.projectId,
     request.queueId,
-    "project-operation",
+    request.workspaceId,
+    request.operation,
   );
   if (lease.status !== "completed")
     return {
@@ -950,41 +929,16 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
       recoveryId: lease.recoveryId,
     };
   try {
-    const observed = readState(
-      resolveExecutionStorageDirectory(request.ownerRepositoryRoot),
-      request.repositoryBindingId,
-      "workspace",
-    );
-    if (observed.status !== "completed" || !observed.value) {
-      result.manualRecoveryRequired =
-        observed.status === "blocked" && observed.manualRecoveryRequired;
-      result.recoveryId =
-        observed.status === "blocked" ? observed.recoveryId : null;
-      throw new Error(observed.reason);
-    }
-    let record =
-      observed.value.workspaces.find(
-        (entry) => entry.workspaceId === request.workspaceId,
-      ) ?? null;
+    const worktreeChange = lease.value;
+    let record = worktreeChange.record;
     if (
       request.expectedGeneration !== undefined &&
-      request.expectedGeneration !== (record?.generation ?? 0)
+      request.expectedGeneration !== (worktreeChange.generation ?? 0)
     )
       throw new Error("coordinator_workspace_generation_conflict");
     if (request.authorize && !request.authorize())
       throw new Error("coordinator_candidate_not_authorized");
-    const save = (next: WorkspaceRecord | null) => {
-      const saved = saveWorkspaceRecord(
-        resolveExecutionStorageDirectory(request.ownerRepositoryRoot),
-        request.repositoryBindingId,
-        request.projectId,
-        request.queueId,
-        lease.value.ownerGeneration,
-        request.workspaceId,
-        record?.generation ?? 0,
-        next,
-        { processId: process.pid, now: () => Date.now() },
-      );
+    const consumeSave = (saved: ReturnType<typeof worktreeChange.save>) => {
       if (saved.status !== "completed") {
         result.manualRecoveryRequired = saved.manualRecoveryRequired;
         result.recoveryId = saved.recoveryId;
@@ -993,28 +947,25 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
       record = saved.value;
       result.workspace = record;
     };
-    const operationQueue = observed.value.queueEntries.find(
-      (entry) => entry.queueId === request.queueId,
-    );
-    if (
-      !operationQueue ||
-      operationQueue.projectId !== request.projectId ||
-      (record &&
-        !observed.value.queueEntries.some(
-          (entry) =>
-            entry.projectId === request.projectId &&
-            entry.workspaceId === request.workspaceId,
-        ))
-    )
+    const milestoneId = worktreeChange.milestoneId;
+    const assertOperationHeld = () => {
+      if (!worktreeChange.isHeld()) {
+        result.manualRecoveryRequired = true;
+        throw new Error("workspace_operation_lock_requires_manual_review");
+      }
+    };
+    const save = (next: WorkspaceRecord | null) => {
+      consumeSave(worktreeChange.save(record?.generation ?? 0, next));
+    };
+    if (worktreeChange.generation !== null && !worktreeChange.linkedToProject)
       throw new Error("coordinator_workspace_target_mismatch");
-    const operationResults = observed.value.results;
     /**
      * Candidateの採否と固定Identityを既存の不変結果Portへ保存する。
      * @responsibility Ref回収より先に判断結果を確定する。
      * @trace ARCH-000004
      * @input candidate: 同じWorkspaceの確定した採否。
      * @returns N/A: 保存確定だけ正常終了。
-     * @precondition 既存操作Leaseを保持。
+     * @precondition Workspaceの操作Lockを保持。
      * @postcondition 同Identity・同内容だけ再送可能。
      * @effect 既存Snapshotの結果保存。
      * @failure 保存不明はRef回収前に停止。
@@ -1026,17 +977,17 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
     const recordDisposition = (
       candidate: NonNullable<WorkspaceRecord["candidate"]>,
     ) => {
-      const queue = operationQueue;
-      if (!queue || candidate.disposition === null)
+      if (candidate.disposition === null)
         throw new Error("coordinator_candidate_disposition_invalid");
+      assertOperationHeld();
       const recorded = saveIntegrationRecord(
-        resolveExecutionStorageDirectory(request.ownerRepositoryRoot),
+        storage,
         request.repositoryBindingId,
         {
           repositoryBindingId: request.repositoryBindingId,
           projectId: request.projectId,
           queueId: request.queueId,
-          milestoneId: queue.milestoneId,
+          milestoneId,
         },
         {
           kind: "adoption",
@@ -1073,13 +1024,9 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
     const recordCandidateClosure = (
       candidate: NonNullable<WorkspaceRecord["candidate"]>,
     ) => {
-      if (!operationQueue)
-        throw new Error("coordinator_candidate_disposition_invalid");
+      assertOperationHeld();
       const identity = `workspace-candidate-close-${candidate.request.operationId}`;
-      const existing = operationResults.find(
-        (entry) => entry.kind === "adoption" && entry.identity === identity,
-      );
-      let value: unknown = {
+      const value = worktreeChange.closure?.value ?? {
         recordKind: "workspace-candidate-close",
         workspaceId: candidate.request.workspaceId,
         operationId: candidate.request.operationId,
@@ -1088,42 +1035,14 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
         cleanupFailure: candidate.cleanupFailure,
         refAbsent: true,
       };
-      if (existing) {
-        const prior = existing.value as Record<string, unknown>;
-        if (
-          existing.repositoryBindingId !== request.repositoryBindingId ||
-          existing.projectId !== request.projectId ||
-          existing.queueId !== request.queueId ||
-          existing.milestoneId !== operationQueue.milestoneId ||
-          !prior ||
-          typeof prior !== "object" ||
-          Object.keys(prior).sort().join(",") !==
-            "candidateCommit,cleanupFailure,disposition,operationId,recordKind,refAbsent,workspaceId" ||
-          prior.recordKind !== "workspace-candidate-close" ||
-          prior.workspaceId !== candidate.request.workspaceId ||
-          prior.operationId !== candidate.request.operationId ||
-          prior.candidateCommit !== candidate.candidateCommit ||
-          prior.disposition !== candidate.disposition ||
-          prior.refAbsent !== true ||
-          !(
-            prior.cleanupFailure === null ||
-            (typeof prior.cleanupFailure === "string" &&
-              /^(?:candidate|worktree|commit_(?:create|temporary))_[a-z_]+$/u.test(
-                prior.cleanupFailure,
-              ))
-          )
-        )
-          throw new Error("coordinator_candidate_closure_mismatch");
-        value = existing.value;
-      }
       const saved = saveIntegrationRecord(
-        resolveExecutionStorageDirectory(request.ownerRepositoryRoot),
+        storage,
         request.repositoryBindingId,
         {
           repositoryBindingId: request.repositoryBindingId,
           projectId: request.projectId,
           queueId: request.queueId,
-          milestoneId: operationQueue.milestoneId,
+          milestoneId,
         },
         {
           kind: "adoption",
@@ -1135,7 +1054,8 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
         throw new Error("coordinator_candidate_closure_unconfirmed");
     };
     if (request.operation === "create") {
-      if (record) throw new Error("coordinator_workspace_already_recorded");
+      if (worktreeChange.generation !== null)
+        throw new Error("coordinator_workspace_already_recorded");
       if (request.authorize && !request.authorize())
         throw new Error("coordinator_candidate_not_authorized");
       const { dirty, observedBase } = readWorktreeCreationSource(
@@ -1172,6 +1092,10 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
         request.ownerRepositoryRoot,
         request.workspaceId,
       );
+      if (!worktreeChange?.isHeld()) {
+        result.manualRecoveryRequired = true;
+        throw new Error("workspace_operation_lock_requires_manual_review");
+      }
       result.gitResult = workspaceWorktreeResult(
         request.ownerRepositoryRoot,
         request.workspaceId,
@@ -1260,6 +1184,7 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
             throw new Error("coordinator_candidate_not_authorized");
           const accepted = result.workspace?.candidate;
           if (!accepted) throw new Error("coordinator_candidate_input_invalid");
+          assertOperationHeld();
           result.candidateResult = freezeWorkspaceCandidate(
             verified.capability,
             accepted.request,
@@ -1282,19 +1207,6 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
             throw new Error("coordinator_candidate_target_mismatch");
           if (!request.authorize())
             throw new Error("coordinator_candidate_not_authorized");
-          const acquired = acquireCoordinatorSnapshotLease(
-            request.ownerRepositoryRoot,
-            request.repositoryBindingId,
-            request.projectId,
-            "canonical",
-            "canonical-adoption",
-          );
-          if (acquired.status !== "completed") {
-            result.manualRecoveryRequired = acquired.manualRecoveryRequired;
-            result.recoveryId = acquired.recoveryId;
-            throw new Error(acquired.reason);
-          }
-          adoptionLease = acquired.value;
           save({
             ...record,
             generation: record.generation + 1,
@@ -1302,6 +1214,7 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
           });
           if (!request.authorize())
             throw new Error("coordinator_candidate_not_authorized");
+          assertOperationHeld();
           result.candidateResult = mergeWorkspaceCandidate(
             verified.capability,
             c.request,
@@ -1313,12 +1226,7 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
             !c ||
             c.candidateCommit !== request.expectedCommit ||
             !request.referencesReleased ||
-            observed.value.queueEntries.some(
-              (entry) =>
-                entry.workspaceId === record?.workspaceId &&
-                entry.queueId !== request.queueId &&
-                !["completed", "cancelled"].includes(entry.state),
-            ) ||
+            worktreeChange.otherQueuePending ||
             !request.authorize() ||
             (c.phase === "removing" && c.disposition !== request.disposition) ||
             (request.disposition === "adopted" &&
@@ -1339,6 +1247,7 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
           recordDisposition({ ...c, disposition: request.disposition });
           if (!request.authorize())
             throw new Error("coordinator_candidate_not_authorized");
+          assertOperationHeld();
           result.candidateResult = removeWorkspaceCandidate(
             verified.capability,
             c.request,
@@ -1398,18 +1307,6 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
           });
           if (!completed) throw new Error(technical.reason);
         }
-      } else if (request.operation === "hold") {
-        if (
-          record.phase !== "ready" ||
-          (request.until !== null &&
-            !Number.isFinite(Date.parse(request.until)))
-        )
-          throw new Error("coordinator_workspace_hold_invalid");
-        save({
-          ...record,
-          generation: record.generation + 1,
-          holdUntil: request.until,
-        });
       } else if (request.operation === "discard") {
         if (record.candidate)
           throw new Error("coordinator_candidate_still_referenced");
@@ -1437,6 +1334,10 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
         });
         if (request.authorize && !request.authorize())
           throw new Error("coordinator_candidate_not_authorized");
+        if (!worktreeChange?.isHeld()) {
+          result.manualRecoveryRequired = true;
+          throw new Error("workspace_operation_lock_requires_manual_review");
+        }
         result.gitResult = workspaceWorktreeResult(
           request.ownerRepositoryRoot,
           request.workspaceId,
@@ -1447,7 +1348,11 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
           }),
           true,
         );
-      } else
+      } else {
+        if (!worktreeChange?.isHeld()) {
+          result.manualRecoveryRequired = true;
+          throw new Error("workspace_operation_lock_requires_manual_review");
+        }
         result.gitResult = workspaceWorktreeResult(
           request.ownerRepositoryRoot,
           request.workspaceId,
@@ -1456,35 +1361,11 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
             workspaceWorktreeTarget(request.workspaceId),
           ),
         );
+      }
     }
     if (result.gitResult && record) {
       const gitResult = result.gitResult;
-      const git = gitResult.observation;
-      const ready =
-        request.operation !== "discard" &&
-        record.phase !== "discarding" &&
-        gitResult.status === "completed" &&
-        git?.registered === true &&
-        git.directoryPresent &&
-        git.head !== null &&
-        git.head === git.branchHead &&
-        (record.phase !== "creating" ||
-          (git.head === record.baseCommit &&
-            git.head === record.pending?.expectedHead &&
-            (request.operation === "create" || git.dirty === false) &&
-            !git.locked &&
-            !git.prunable));
-      save({
-        ...record,
-        generation: record.generation + 1,
-        head: ready && git?.head ? git.head : record.head,
-        phase: ready ? "ready" : record.phase,
-        pending: ready ? null : record.pending,
-        lastResult: gitResult,
-        primaryFailure:
-          record.primaryFailure ??
-          (gitResult.status === "blocked" ? gitResult.reason : null),
-      });
+      consumeSave(worktreeChange.saveObservation(record.generation, gitResult));
       if (request.operation === "discard" && gitResult.status === "completed") {
         if (gitResult.workspaceDirectoryRetained)
           throw new Error("coordinator_workspace_materials_retained");
@@ -1504,26 +1385,6 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
         : "coordinator_workspace_operation_unconfirmed";
     // 返却値が未確定でも、保存された同UUIDの意図は消さない。
   } finally {
-    if (adoptionLease) {
-      try {
-        const released = adoptionLease.release();
-        if (released.status !== "completed") {
-          if (result.status === "completed") result.reason = released.reason;
-          result.adoptionReleaseFailure = released.reason;
-          result.adoptionReleaseRecoveryId = released.recoveryId;
-          result.manualRecoveryRequired ||= released.manualRecoveryRequired;
-          result.recoveryId ??= released.recoveryId;
-          result.status = "blocked";
-        }
-      } catch {
-        if (result.status === "completed")
-          result.reason = "coordinator_adoption_lease_release_unconfirmed";
-        result.adoptionReleaseFailure =
-          "coordinator_adoption_lease_release_unconfirmed";
-        result.manualRecoveryRequired = true;
-        result.status = "blocked";
-      }
-    }
     try {
       const released = lease.value.release();
       result.leaseReleased = released.status === "completed";

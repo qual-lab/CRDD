@@ -568,7 +568,7 @@ test("正常終了準備は元版・元計画と保存三確認へ再入場す�
   const create = new Function(
     "durableRecord",
     "HEX64",
-    "inspectExecutionSelection",
+    "types",
     "readFixtureOperation",
     "readOwnedHostOperation",
     "isDeepStrictEqual",
@@ -665,7 +665,7 @@ test("正常終了準備は元版・元計画と保存三確認へ再入場す�
     const complete = create(
       (value: unknown) => (value === capability ? record : null),
       /^[0-9a-f]{64}$/u,
-      (value: unknown) => value,
+      types,
       () => {
         const resources = operation.resources.snapshot.resources;
         const observedOperation = {
@@ -1139,8 +1139,8 @@ const prepared = prepareProviderAdviceInput(
     allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
     taskHash: "a".repeat(64),
     projectionHash: "b".repeat(64),
-    executionSelection: selection,
   }),
+  selection,
 );
 if (!prepared) throw new Error("test_execution_plan_required");
 const plan = prepared;
@@ -1367,16 +1367,22 @@ function fixture(
         });
       return Object.freeze({ status: "matched" as const });
     },
-    issuePacket: (input: Readonly<Record<string, unknown>>) => {
+    issuePacket: (
+      input: Readonly<Record<string, unknown>>,
+      selected: unknown,
+    ) => {
       calls.push("issue-packet");
       assert.equal(input.taskHash, plan.taskHash);
       assert.equal(input.projectionHash, plan.projectionHash);
+      assert.equal(selected, plan.executionSelection);
+      assert.equal(Object.hasOwn(input, "executionSelection"), false);
       return Object.freeze({
         status: options.packetIssueInvalid
           ? ("blocked" as const)
           : ("issued" as const),
         ownerCapability: packetOwner,
         useCapability: packetUse,
+        packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
       });
     },
     revokePacket: () => {
@@ -1395,7 +1401,12 @@ function fixture(
       register: unknown,
     ) => {
       assert.strictEqual(input.managementCapability, managementCapability);
-      assert.deepEqual(input.executionSelection, plan.executionSelection);
+      assert.equal(input.purpose, "advice");
+      if (input.purpose !== "advice") throw Error("fixture_purpose_invalid");
+      assert.equal(
+        input.packetRef,
+        "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
+      );
       assert.equal(input.taskAttempt, 0);
       assert.equal(
         input.providerHome.provider,
@@ -2269,6 +2280,7 @@ test("準備計画の開始と計測は元選定と同じExecutor・Operation相
   for (const mode of [
     "provider_invalid",
     "input_invalid",
+    "probe_rejected",
     "preparation_refused",
     "throws",
     "refused",
@@ -2295,7 +2307,16 @@ test("準備計画の開始と計測は元選定と同じExecutor・Operation相
       throw Error("unexpected_effect");
     };
     const input = {
-      purpose: "probe",
+      ...(mode === "probe_rejected"
+        ? {
+            purpose: "probe",
+            executionSelection: executionSelection("independent_reviewer"),
+          }
+        : {
+            purpose: "task",
+            packetCapability: {},
+            packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+          }),
       managementCapability: management,
       mountCapability: {},
       providerHome: {
@@ -2304,7 +2325,6 @@ test("準備計画の開始と計測は元選定と同じExecutor・Operation相
         providerHomeIdentityHash: "a".repeat(64),
         stableLogicalHomeBindingHash: "b".repeat(64),
       },
-      executionSelection: executionSelection("independent_reviewer"),
       taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "workbench",
@@ -2415,6 +2435,7 @@ test("準備計画の開始と計測は元選定と同じExecutor・Operation相
     const preparationFailed =
       mode === "provider_invalid" ||
       mode === "input_invalid" ||
+      mode === "probe_rejected" ||
       mode === "preparation_refused";
     assert.equal(result.preparationFailed, preparationFailed);
     for (const field of ["selectionNotice", "selectedModel", "selectedEffort"])
@@ -2433,7 +2454,7 @@ test("準備計画の開始と計測は元選定と同じExecutor・Operation相
           result.reason,
           mode === "provider_invalid"
             ? "docker_process_controller_plan_invalid"
-            : mode === "input_invalid"
+            : mode === "input_invalid" || mode === "probe_rejected"
               ? "claude_docker_runtime_input_mode_ambiguous"
               : mode === "preparation_refused"
                 ? "synthetic_preparation_refused"
@@ -2446,7 +2467,7 @@ test("準備計画の開始と計測は元選定と同じExecutor・Operation相
     assert.equal(captures, mode === "provider_invalid" ? 0 : 1);
     assert.equal(
       preparationCalls,
-      mode === "provider_invalid" || mode === "input_invalid" ? 0 : 1,
+      mode === "preparation_refused" || !preparationFailed ? 1 : 0,
     );
     assert.equal(getterCalls, 0);
   }

@@ -11,7 +11,7 @@ import type {
   RepairOperationRecord,
 } from "../attempt/types.ts";
 import type { DecisionHistoryEvent } from "../decision/types.ts";
-import { encodeStateValue } from "../state/operations.ts";
+import { encodeStateValue } from "../composition/validation.ts";
 import type {
   HistoryEntry,
   HistoryRetentionReferences,
@@ -36,25 +36,30 @@ import type {
 export function operationSummaryBytes(
   operation: ExecutionOperationRecord,
 ): Buffer {
-  const identity = JSON.parse(operation.identityJson);
-  return Buffer.from(
-    encodeStateValue({
-      schema: "crdd-execution-model/operation-summary/v7",
-      recoveryCorrelationId:
-        identity.recoveryCorrelationId ?? identity.operationId,
-      ...(operation.dockerRestart === null
-        ? {}
-        : { dockerRestart: operation.dockerRestart }),
-      operationId: identity.operationId,
-      operationNonce: identity.operationNonce,
-      recoveryId: operation.recoveryId,
-      identitySha256: operation.identitySha256,
-      primaryFailure: operation.primaryFailure,
-      execution: operation.execution,
-      outcome: operation.outcome,
-      lease: operation.lease,
-    }) + "\n",
-  );
+  return Buffer.from(`${encodeStateValue(operationSummary(operation))}\n`);
+}
+
+/** 技術操作の要約を符号化前の値として組み立てる。 @trace ARCH-000008 */
+function operationSummary(
+  operation: ExecutionOperationRecord,
+  identity = JSON.parse(operation.identityJson),
+) {
+  return {
+    schema: "crdd-execution-model/operation-summary/v7",
+    recoveryCorrelationId:
+      identity.recoveryCorrelationId ?? identity.operationId,
+    ...(operation.dockerRestart === null
+      ? {}
+      : { dockerRestart: operation.dockerRestart }),
+    operationId: identity.operationId,
+    operationNonce: identity.operationNonce,
+    recoveryId: operation.recoveryId,
+    identitySha256: operation.identitySha256,
+    primaryFailure: operation.primaryFailure,
+    execution: operation.execution,
+    outcome: operation.outcome,
+    lease: operation.lease,
+  };
 }
 
 /**
@@ -76,13 +81,7 @@ export function historyLineBytes(
   operation: ExecutionOperationRecord,
   occurredAt: string,
 ): Buffer {
-  return Buffer.from(
-    `${encodeStateValue({
-      schema: "crdd-execution-model/history-row/v3",
-      occurredAt,
-      summary: JSON.parse(operationSummaryBytes(operation).toString("utf8")),
-    })}\n`,
-  );
+  return encodeSummaryLine(operationSummary(operation), occurredAt);
 }
 
 /**
@@ -101,35 +100,40 @@ export function historyLineBytes(
  * @concurrency N/A: 同期構築。
  */
 export function repairSummaryBytes(operation: RepairOperationRecord): Buffer {
-  const identity = JSON.parse(operation.identityJson);
+  return Buffer.from(`${encodeStateValue(repairSummary(operation))}\n`);
+}
+
+/** 修復の要約を符号化前の値として組み立てる。 @trace ARCH-000008 */
+function repairSummary(
+  operation: RepairOperationRecord,
+  identity = JSON.parse(operation.identityJson),
+) {
   const checkpoint = operation.checkpoint;
   if (!checkpoint) throw new Error("repair_checkpoint_missing");
-  return Buffer.from(
-    `${encodeStateValue({
-      schema: "crdd-coordinator/repair-summary/v1",
-      operationId: identity.operationId,
-      operationNonce: identity.operationNonce,
-      recoveryId: operation.recoveryId,
-      identitySha256: operation.identitySha256,
-      primaryFailure: operation.primaryFailure,
-      outcome: operation.outcome,
-      disposition: operation.disposition,
-      ...(operation.retention !== undefined
-        ? { retention: operation.retention }
-        : {}),
-      ...(operation.disposition === "discard"
-        ? { disposal: operation.disposal }
-        : {}),
-      technical: {
-        actions: checkpoint.actions,
-        engine: checkpoint.engine,
-        stale: checkpoint.stale,
-        hostSafety: checkpoint.hostSafety,
-        cleanup: checkpoint.cleanup,
-        cleanupFailure: checkpoint.cleanupFailure,
-      },
-    })}\n`,
-  );
+  return {
+    schema: "crdd-coordinator/repair-summary/v1",
+    operationId: identity.operationId,
+    operationNonce: identity.operationNonce,
+    recoveryId: operation.recoveryId,
+    identitySha256: operation.identitySha256,
+    primaryFailure: operation.primaryFailure,
+    outcome: operation.outcome,
+    disposition: operation.disposition,
+    ...(operation.retention !== undefined
+      ? { retention: operation.retention }
+      : {}),
+    ...(operation.disposition === "discard"
+      ? { disposal: operation.disposal }
+      : {}),
+    technical: {
+      actions: checkpoint.actions,
+      engine: checkpoint.engine,
+      stale: checkpoint.stale,
+      hostSafety: checkpoint.hostSafety,
+      cleanup: checkpoint.cleanup,
+      cleanupFailure: checkpoint.cleanupFailure,
+    },
+  };
 }
 
 /**
@@ -151,12 +155,41 @@ export function repairHistoryLineBytes(
   operation: RepairOperationRecord,
   occurredAt: string,
 ): Buffer {
+  return encodeSummaryLine(repairSummary(operation), occurredAt);
+}
+
+/** 正本と同じ順序と末尾改行で、組立て済み要約から履歴行を符号化する。 @trace ARCH-000008 */
+function encodeSummaryLine(summary: object, occurredAt: string): Buffer {
   return Buffer.from(
     `${encodeStateValue({
       schema: "crdd-execution-model/history-row/v3",
       occurredAt,
-      summary: JSON.parse(repairSummaryBytes(operation).toString("utf8")),
+      summary,
     })}\n`,
+  );
+}
+
+/** 同じ操作・同じIdentityから既存の要約Hashと行Hashの両方を照合する。 @trace ARCH-000008 */
+export function matchesOperationHistory(
+  operation: ExecutionOperationRecord | RepairOperationRecord,
+  identity: Readonly<{
+    operationId: string;
+    operationNonce: string;
+    recoveryCorrelationId?: string | null;
+  }>,
+  history: Readonly<{ occurredAt: string; lineSha256: string }>,
+) {
+  const summary =
+    operation.kind === "docker_task"
+      ? operationSummary(operation, identity)
+      : repairSummary(operation, identity);
+  return (
+    createHash("sha256")
+      .update(`${encodeStateValue(summary)}\n`)
+      .digest("hex") === operation.summarySha256 &&
+    createHash("sha256")
+      .update(encodeSummaryLine(summary, history.occurredAt))
+      .digest("hex") === history.lineSha256
   );
 }
 
@@ -268,6 +301,7 @@ export function retainHistoryRows(
   references: HistoryRetentionReferences,
   now: unknown,
   retentionDays: unknown,
+  publishingRecoveryId?: string,
 ): Buffer | null {
   if (
     typeof now !== "string" ||
@@ -284,6 +318,13 @@ export function retainHistoryRows(
   const byRecovery = new Map(rows.map((row) => [row.recoveryId, row]));
   for (const required of references.requiredRows) {
     const row = byRecovery.get(required.recoveryId);
+    if (
+      !row &&
+      required.unpublishedTask &&
+      publishingRecoveryId !== undefined &&
+      publishingRecoveryId !== required.recoveryId
+    )
+      continue;
     if (
       !row ||
       row.lineSha256 !== required.lineSha256 ||
@@ -342,6 +383,7 @@ export function prepareHistoryPublication(
     input.references,
     input.occurredAt,
     input.retentionDays,
+    input.recoveryId,
   );
   if (
     !historyBytes ||

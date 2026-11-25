@@ -25,21 +25,24 @@ import {
   writeOwnedSettlement,
 } from "../../src/attempt/crud.ts";
 import { createDockerRestartRequestId } from "../../src/attempt/validation.ts";
-import { operationSummaryBytes } from "../../src/history/operations.ts";
+import { operationSummaryBytes } from "../../src/history/records.ts";
 import * as domain from "../../src/index.ts";
 import {
   applyResourceEvent,
   type OperationResources,
 } from "../../src/index.ts";
-import { readState } from "../../src/state/crud.ts";
+import { readRecoveryState, readState } from "../../src/composition/crud.ts";
 import {
   decodeStateSnapshot,
   prepareStateCompletionSnapshot,
-} from "../../src/state/validation.ts";
-import { encodeStateValue } from "../../src/state/operations.ts";
+} from "../../src/composition/transition.ts";
+import { encodeStateValue } from "../../src/composition/validation.ts";
 import * as stateKernelLocks from "../../src/storage/lock.ts";
 import { observeExecutionStorageRepository } from "../../src/storage/lock.ts";
-import { writeOwnedStateSnapshot } from "../../src/storage/publication.ts";
+import {
+  captureStateVersionEvidence,
+  writeOwnedStateSnapshot,
+} from "../../src/storage/store.ts";
 import { ensurePhysicalExecutionDataArea } from "../../src/storage/store.ts";
 import {
   createRepositoryTestDirectory,
@@ -684,9 +687,9 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
   assert.equal(terminalRead.status, "completed");
   assert.equal(terminalRead.lockReleased, true);
   assert.deepEqual(terminalRead.value?.snapshot, beforeTerminal);
-  const cleanedOwnerRecoveryRead = readState(prepareFixtureRecovery(root), {
-    scope: "recovery",
-  });
+  const cleanedOwnerRecoveryRead = readRecoveryState(
+    prepareFixtureRecovery(root),
+  );
   assert.equal(cleanedOwnerRecoveryRead.status, "completed");
   assert.deepEqual(cleanedOwnerRecoveryRead.value, terminalRead.value);
   assert.equal(
@@ -1166,6 +1169,28 @@ test("Host Windows: 正常終端保存は元入力・履歴・単独終了と一
   assert.equal(resumed.snapshotConfirmed, true);
   assert.equal(resumed.lockReleased, true);
   assert.deepEqual(fs.readFileSync(historyFile), firstHistory);
+  const historyRequest = {
+    kind: "execution_history" as const,
+    recoveryId: operation.recoveryId,
+  };
+  const historyOwner = prepareFixtureRecovery(root);
+  const observedHistory = readRecoveryState(historyOwner, historyRequest);
+  assert.equal(observedHistory.status, "completed", observedHistory.reason);
+  assert.equal(observedHistory.lockReleased, true);
+  assert.equal(observedHistory.currentHistoryPublication?.stage, "confirmed");
+  assert.deepEqual(
+    observedHistory.currentHistoryPublication?.historyFile?.bytes,
+    firstHistory,
+  );
+  const publicHistory = readState(historyOwner, {
+    scope: "recovery",
+    input: historyRequest,
+  });
+  assert.equal(publicHistory.historyPublicationStage, "confirmed");
+  assert.equal(
+    Object.hasOwn(publicHistory, "currentHistoryPublication"),
+    false,
+  );
   const confirmedState = JSON.parse(fs.readFileSync(stateFile, "utf8"));
   assert.equal(
     confirmedState.operations.find(
@@ -1762,7 +1787,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     const rejected = worker.saveRecoveryCheckpoint(
       repository,
       operation.recoveryId,
-      before,
+      worker.captureStateVersionEvidence(before.toString("utf8")),
       {
         kind: "authentication_unknown_closure",
         observations: observations,
@@ -1779,7 +1804,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     const saved = domain.saveRecoveryCheckpoint(
       repository,
       operation.recoveryId,
-      before,
+      captureStateVersionEvidence(before.toString("utf8")),
       {
         kind: "authentication_unknown_closure",
         observations: observations,
@@ -1811,4 +1836,4 @@ import {
   prepareStateHostOperationSnapshot,
   prepareStateReferencesSnapshot,
   prepareStateResourceSnapshot,
-} from "../../src/state/validation.ts";
+} from "../../src/composition/transition.ts";

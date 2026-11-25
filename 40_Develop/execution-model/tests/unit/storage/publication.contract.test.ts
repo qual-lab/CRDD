@@ -14,7 +14,7 @@ import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
 
 const source = fs.readFileSync(
-  new URL("../../../src/storage/publication.ts", import.meta.url),
+  new URL("../../../src/storage/store.ts", import.meta.url),
   "utf8",
 );
 const recovery = stripTypeScriptTypes(

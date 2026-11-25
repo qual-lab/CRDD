@@ -8,7 +8,7 @@
  * @security 新規の実行権限を発行せず、Docker要求・Provider送信・永続保存を開始しない。
  */
 import { createHash, randomBytes } from "node:crypto";
-import { isDeepStrictEqual, types } from "node:util";
+import { types } from "node:util";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
@@ -29,7 +29,6 @@ import type {
 } from "./types.ts";
 import {
   type ExecutionSelection,
-  inspectExecutionSelection,
   type TaskExecutionSelections,
 } from "../../../execution-model/src/index.ts";
 import {
@@ -67,9 +66,9 @@ import { consumeTaskRemediation, getIsolationSettings } from "./environment.ts";
 
 /**
  * 完全選定を現在Operationと技術Catalogに照合する。
- * @responsibility 元の完全選定が変更なく検査を通過したかを判定し、実行許可は発行しない。
+ * @responsibility 受付済みの選定が現在の実行に技術的に適合するかを判定し、実行許可は発行しない。
  * @trace ARCH-000010
- * @input 元Operationの管理参照、操作IDと一つ又は二つの完全選定。
+ * @input 元Operationの管理参照、操作IDと一つ又は二つの確定選定。
  * @returns 一致又は固定理由の拒否。Operation IDと選定値は再搬送しない。
  * @effect 現在Operationと技術Catalogの読取りのみ。
  * @failure 操作差、欠測、未対応Model、照合例外を拒否する。
@@ -77,40 +76,27 @@ import { consumeTaskRemediation, getIsolationSettings } from "./environment.ts";
  */
 export function preflightDelegationSelections(
   managementCapability: unknown,
-  rawRequest: unknown,
+  request: Readonly<{
+    operationId: string;
+    executionSelections: readonly ExecutionSelection[];
+  }>,
 ) {
   try {
     const repository = verifyRepositoryOperation(
       managementCapability,
       "selection_preflight",
     );
-    const request = snapshotPlainRecord(
-      rawRequest,
-      new Set(["operationId", "executionSelections"]),
-    );
-    const values = snapshotPlainArray<unknown>(request?.executionSelections, 2);
     if (
       !repository ||
-      !request ||
       request.operationId !== repository.operationId ||
-      values.status !== "ok" ||
-      values.value.length < 1
+      request.executionSelections.length < 1 ||
+      request.executionSelections.length > 2
     )
       return Object.freeze({
         status: "blocked" as const,
         reason: "delegation_slate_selection_invalid",
       });
-    const selections: ExecutionSelection[] = [];
-    for (const value of values.value) {
-      const selection = inspectExecutionSelection(value);
-      if (!selection)
-        return Object.freeze({
-          status: "blocked" as const,
-          reason: "delegation_slate_selection_invalid",
-        });
-      selections.push(selection);
-    }
-    for (const selection of selections) {
+    for (const selection of request.executionSelections) {
       const technical = resolveModelSelection({
         provider: selection.provider,
         modelIdentifier: selection.modelIdentifier,
@@ -128,12 +114,7 @@ export function preflightDelegationSelections(
           reason: "delegation_selection_model_unsupported",
         });
     }
-    return isDeepStrictEqual(selections, values.value)
-      ? Object.freeze({ status: "matched" as const })
-      : Object.freeze({
-          status: "blocked" as const,
-          reason: "delegation_slate_selection_invalid",
-        });
+    return Object.freeze({ status: "matched" as const });
   } catch {
     return Object.freeze({
       status: "blocked" as const,
@@ -177,7 +158,7 @@ export function resolveSingleTaskSelection(
       role: "advice",
     });
     return selected.status === "resolved"
-      ? { primary: selected.value, taskExecutionSelections: null }
+      ? Object.freeze({ kind: "advice" as const, selection: selected.value })
       : null;
   }
   const selected = resolveCheckedTaskExecutionSelections(
@@ -185,10 +166,7 @@ export function resolveSingleTaskSelection(
     request,
   );
   return selected.status === "resolved"
-    ? {
-        primary: selected.value.executor,
-        taskExecutionSelections: selected.value,
-      }
+    ? Object.freeze({ kind: "task" as const, selections: selected.value })
     : null;
 }
 
@@ -396,6 +374,19 @@ function resolveCheckedTaskExecutionSelections(
     workType: request.workType,
   });
   if (reviewer.status !== "resolved") return reviewer;
+  if (
+    executor.value.role !== "executor" ||
+    reviewer.value.role !== "independent_reviewer" ||
+    reviewer.value.source === "explicit" ||
+    executor.value.configIdentity !== reviewer.value.configIdentity ||
+    executor.value.catalogIdentity !== reviewer.value.catalogIdentity ||
+    executor.value.workType !== reviewer.value.workType
+  )
+    return Object.freeze({
+      status: "blocked" as const,
+      value: null,
+      reason: "ai_selection_request_invalid" as const,
+    });
   const value = Object.freeze({
     executor: executor.value,
     reviewer: reviewer.value,
@@ -431,7 +422,7 @@ export type ExecutionSelectionResult = Readonly<
  * @trace ARCH-000004
  * @input value: 受付で検査・独立捕捉済みの十項目の選定、又は受付拒否のnull。
  * @returns 固定field順の正規SHA-256、又はnull。
- * @precondition 未信頼入力は呼出し元でinspectExecutionSelectionにより捕捉する。実行可否・認可は別Ownerが検査する。
+ * @precondition 呼出し元は確定選定を渡す。実行可否・認可は別Ownerが検査する。
  * @postcondition 元値を変更せず当時の値を保持する。
  * @effect N/A: 局所Hash計算のみ。入力検査を繰り返さない。
  * @failure 受付拒否のnullをHashへ変換しない。
@@ -445,23 +436,27 @@ export function hashExecutionSelection(
 ): string | null {
   return value
     ? createHash("sha256")
-        .update(
-          JSON.stringify({
-            provider: value.provider,
-            modelIdentifier: value.modelIdentifier,
-            identifierKind: value.identifierKind,
-            reasoningEffort: value.reasoningEffort,
-            purpose: value.purpose,
-            catalogIdentity: value.catalogIdentity,
-            configIdentity: value.configIdentity,
-            role: value.role,
-            workType: value.workType,
-            source: value.source,
-          }),
-          "utf8",
-        )
+        .update(JSON.stringify(orderExecutionSelection(value)), "utf8")
         .digest("hex")
     : null;
+}
+
+/** 記録済み選定のキー順に依存せず、既存のPacketと選定Hashの直列化順に揃える。 @trace ARCH-000015 */
+function orderExecutionSelection(
+  value: ExecutionSelection,
+): ExecutionSelection {
+  return Object.freeze({
+    provider: value.provider,
+    modelIdentifier: value.modelIdentifier,
+    identifierKind: value.identifierKind,
+    reasoningEffort: value.reasoningEffort,
+    purpose: value.purpose,
+    catalogIdentity: value.catalogIdentity,
+    configIdentity: value.configIdentity,
+    role: value.role,
+    workType: value.workType,
+    source: value.source,
+  });
 }
 
 const preparationCommonKeys = [
@@ -469,18 +464,21 @@ const preparationCommonKeys = [
   "managementCapability",
   "mountCapability",
   "providerHome",
-  "executionSelection",
   "taskAttempt",
   "recoveryCorrelationId",
   "consumer",
 ] as const;
 const preparationKeys = {
-  probe: new Set(preparationCommonKeys),
-  task: new Set([...preparationCommonKeys, "packetCapability"] as const),
+  task: new Set([
+    ...preparationCommonKeys,
+    "packetCapability",
+    "packetRef",
+  ] as const),
   advice: new Set([
     ...preparationCommonKeys,
     "packetCapability",
     "packetOwnerCapability",
+    "packetRef",
   ] as const),
 } as const;
 const providerHomeKeys = new Set([
@@ -491,7 +489,7 @@ const providerHomeKeys = new Set([
 ] as const);
 
 /**
- * 上位準備入力の三用途を実行Propertyなしで捕捉する。
+ * Task／助言の準備入力を実行Propertyなしで捕捉する。
  * @responsibility 欠測・余剰・Proxy・accessorを拒否しCapabilityを再発行しない。
  * @trace ARCH-000015
  * @input 未検査の準備要求。
@@ -510,16 +508,13 @@ export function capturePreparationInput(
   } catch {
     return null;
   }
-  if (purpose !== "probe" && purpose !== "task" && purpose !== "advice")
-    return null;
+  if (purpose !== "task" && purpose !== "advice") return null;
   const result = snapshotPlainRecord(value, preparationKeys[purpose]);
   if (!result || result.purpose !== purpose) return null;
-  const selection = inspectExecutionSelection(result.executionSelection);
   const home = snapshotPlainRecord(result.providerHome, providerHomeKeys);
   if (
-    !selection ||
     !home ||
-    home.provider !== selection.provider ||
+    (home.provider !== "codex" && home.provider !== "claude") ||
     typeof home.providerHomeSourcePath !== "string" ||
     typeof home.providerHomeIdentityHash !== "string" ||
     !/^[a-f0-9]{64}$/u.test(home.providerHomeIdentityHash) ||
@@ -531,24 +526,34 @@ export function capturePreparationInput(
   const common = {
     managementCapability: result.managementCapability,
     mountCapability: result.mountCapability,
-    executionSelection: selection,
     providerHome: home as ProviderHome,
     taskAttempt: result.taskAttempt,
     recoveryCorrelationId: result.recoveryCorrelationId,
     consumer: result.consumer,
   } as const;
-  if (purpose === "probe") return Object.freeze({ ...common, purpose });
+  const { packetRef } = result;
+  if (
+    typeof packetRef !== "string" ||
+    !(
+      purpose === "task"
+        ? /^TASKPKT-[A-F0-9]{32}$/u
+        : /^ADVICEPKT-[A-F0-9]{32}$/u
+    ).test(packetRef)
+  )
+    return null;
   if (purpose === "task")
     return Object.freeze({
       ...common,
       purpose,
       packetCapability: result.packetCapability,
+      packetRef,
     });
   return Object.freeze({
     ...common,
     purpose,
     packetCapability: result.packetCapability,
     packetOwnerCapability: result.packetOwnerCapability,
+    packetRef,
   });
 }
 
@@ -566,7 +571,6 @@ export function capturePreparationInput(
 const EXECUTION_INPUT_KEYS = new Set([
   "allowedReferences",
   "additionalHosts",
-  "executionSelection",
   "projectionHash",
   "providerPrompt",
   "taskHash",
@@ -669,7 +673,7 @@ const packetRecords = new WeakMap<
  * @responsibility 検査済み入力と所有・使用の参照を一回限りのPacketへ結合する。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @input input: 既存の助言実行計画から組み立てた発行候補。
+ * @input input: 既存の助言実行計画から組み立てた発行候補。selection: 同じ計画の確定選定。
  * @returns issuedまたはEffect 0のblocked結果を返す。
  * @precondition 上位が固定選定と技術Catalogの照合を済ませている。
  * @postcondition issuedの場合だけ所有参照で引ける一件の記録が存在する。
@@ -680,12 +684,14 @@ const packetRecords = new WeakMap<
  * @security Promptを戻り値へ含めない。
  * @concurrency 登録を単一同期呼出しで完了する。
  */
-export function issueProviderAdvicePacket(input: ProviderAdvicePacketInput) {
+export function issueProviderAdvicePacket(
+  input: ProviderAdvicePacketInput,
+  selection: ExecutionSelection,
+) {
   const snapshot = snapshotPlainRecord(
     input,
     new Set([
       "operationId",
-      "executionSelection",
       "provider",
       "taskHash",
       "projectionHash",
@@ -694,7 +700,6 @@ export function issueProviderAdvicePacket(input: ProviderAdvicePacketInput) {
       "allowedReferences",
     ]),
   );
-  const fixed = inspectExecutionSelection(snapshot?.executionSelection);
   const allowedReferences = normalizedStrings(
     snapshot?.allowedReferences,
     Number.MAX_SAFE_INTEGER,
@@ -702,7 +707,6 @@ export function issueProviderAdvicePacket(input: ProviderAdvicePacketInput) {
   );
   if (
     !snapshot ||
-    !fixed ||
     !allowedReferences ||
     new Set(allowedReferences).size !== allowedReferences.length
   )
@@ -716,7 +720,6 @@ export function issueProviderAdvicePacket(input: ProviderAdvicePacketInput) {
     });
   input = {
     ...snapshot,
-    executionSelection: fixed,
     allowedReferences,
   } as ProviderAdvicePacketInput;
   const additionalHosts = captureAdditionalHosts(input.additionalHosts);
@@ -733,9 +736,9 @@ export function issueProviderAdvicePacket(input: ProviderAdvicePacketInput) {
     typeof input.projectionHash !== "string" ||
     typeof input.providerPrompt !== "string" ||
     !providerPacketOPERATION_ID.test(input.operationId) ||
-    fixed.role !== "advice" ||
-    fixed.provider !== input.provider ||
-    fixed.purpose !== "advice" ||
+    selection.role !== "advice" ||
+    selection.provider !== input.provider ||
+    selection.purpose !== "advice" ||
     !SHA256.test(input.taskHash) ||
     !SHA256.test(input.projectionHash) ||
     input.providerPrompt.trim() !== input.providerPrompt ||
@@ -752,6 +755,7 @@ export function issueProviderAdvicePacket(input: ProviderAdvicePacketInput) {
       useCapability: null,
       providerEffectIssued: false as const,
     });
+  const fixed = orderExecutionSelection(selection);
   const ownerCapability = Object.freeze({});
   const useCapability = Object.freeze({});
   const packetRef = `ADVICEPKT-${token.toUpperCase()}`;
@@ -877,7 +881,7 @@ export function revokeProviderAdvicePacket(ownerCapability: unknown) {
  * @responsibility 完全選定と実行Identityを確認し、助言の接続に必要な値だけを返す。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @input input: Provider Adapterが生成した完全選定を含む閉じた実行入力。
+ * @input input: 閉じた実行本文と参照・照合値。selection: 配送受付でPacketと照合した不変の選定。
  * @returns 検証済み入力、またはEffect前の拒否を表すnull。
  * @precondition 選定は受付時に固定済みで、現在CatalogはModel・Effort・用途の技術可否だけを確認する。
  * @postcondition 入力が成立してもProvider Effect Authority、認証成立または実行完了を主張しない。
@@ -889,7 +893,8 @@ export function revokeProviderAdvicePacket(ownerCapability: unknown) {
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 export function prepareProviderAdviceInput(
-  input: ProviderAdviceExecutionInput,
+  input: Omit<ProviderAdviceExecutionInput, "executionSelection">,
+  selection: ExecutionSelection,
 ): ProviderAdviceExecutionInput | null {
   const snapshot = snapshotPlainRecord(input, EXECUTION_INPUT_KEYS);
   if (!snapshot) return null;
@@ -916,24 +921,21 @@ export function prepareProviderAdviceInput(
   )
     return null;
 
-  const fixed = inspectExecutionSelection(snapshot.executionSelection);
-  const technical = fixed
-    ? resolveModelSelection({
-        provider: fixed.provider,
-        modelIdentifier: fixed.modelIdentifier,
-        reasoningEffort: fixed.reasoningEffort,
-        purpose: "advice",
-      })
-    : null;
+  if (selection.role !== "advice" || selection.purpose !== "advice")
+    return null;
+  const technical = resolveModelSelection({
+    provider: selection.provider,
+    modelIdentifier: selection.modelIdentifier,
+    reasoningEffort: selection.reasoningEffort,
+    purpose: "advice",
+  });
   if (
-    fixed?.role !== "advice" ||
-    technical?.status !== "resolved" ||
-    technical.value.identifierKind !== fixed.identifierKind ||
-    fixed.purpose !== "advice"
+    technical.status !== "resolved" ||
+    technical.value.identifierKind !== selection.identifierKind
   )
     return null;
   return Object.freeze({
-    executionSelection: fixed,
+    executionSelection: selection,
     providerPrompt,
     allowedReferences,
     taskHash,
@@ -948,7 +950,6 @@ const PACKET_KEYS = new Set([
   "allowedPaths",
   "readPaths",
   "reviewerReadProjection",
-  "executionSelection",
 ]);
 
 const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
@@ -1507,9 +1508,9 @@ function promptFor(packet: TaskPacket) {
  *
  * @responsibility provider-task-packet-runtimeの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000015
- * @input 元管理参照、Repository結合・送信ポリシー参照、Providerと役割・試行、是正参照、未検査Packet。
+ * @input 元管理参照、Repository結合・送信ポリシー参照、Providerと役割・試行、是正参照、確定選定と未検査本文。
  * @returns issueの計算結果を返す。
- * @precondition 検証済み実行から元管理参照と元Repository結合を搬送する。
+ * @precondition 検証済み実行から元管理参照・Repository結合・確定選定を搬送する。
  * @postcondition issueの責務を完了した結果だけを返す。
  * @effect N/A: issueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure issueは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -1526,6 +1527,7 @@ export function issueProviderTaskPacket(
   taskAttempt: unknown,
   externalSendPolicyCapability: unknown,
   remediationCapability: unknown,
+  selection: ExecutionSelection,
   rawPacket: unknown,
 ) {
   try {
@@ -1544,8 +1546,6 @@ export function issueProviderTaskPacket(
       verifyOwnedOperationManagementCapability(managementCapability);
     if (!operation) return null;
     const value = snapshotPlainRecord(rawPacket, PACKET_KEYS);
-    const executionSelection =
-      value && inspectExecutionSelection(value.executionSelection);
     const acceptanceCriteria = value
       ? normalizedStrings(
           value.acceptanceCriteria,
@@ -1561,9 +1561,9 @@ export function issueProviderTaskPacket(
         : null;
     if (
       !value ||
-      !executionSelection ||
-      executionSelection.provider !== provider ||
-      executionSelection.role !==
+      selection.provider !== provider ||
+      selection.purpose !== "task" ||
+      selection.role !==
         (taskRole === "executor" ? "executor" : "independent_reviewer") ||
       !validText(value.objective, Number.MAX_SAFE_INTEGER) ||
       !acceptanceCriteria ||
@@ -1652,6 +1652,7 @@ export function issueProviderTaskPacket(
       )
     )
       return null;
+    const executionSelection = orderExecutionSelection(selection);
     const taskPacketHash = taskHash(
       operation.operationId,
       taskRole,
@@ -1802,11 +1803,7 @@ export const PROVIDER_ADVICE_TASK_CONTRACT_REVISION = 3;
 const REFERENCE_PATTERN =
   /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))(?!.*\\)[^\0#\r\n]+(?:#[^\0#\r\n]+)?$/u;
 
-const inputKeys = new Set([
-  "executionSelection",
-  "prompt",
-  "projection",
-] as const);
+const inputKeys = new Set(["prompt", "projection"] as const);
 
 const projectionKeys = new Set(["reference", "content"] as const);
 
@@ -1866,20 +1863,21 @@ export type AdviceTaskPacket = Readonly<{
  * @security 認識済み秘密情報、越境参照および投影外参照を送信前に拒否する。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
-export function prepareAdviceTask(input: unknown) {
+export function prepareAdviceTask(
+  input: unknown,
+  selection: ExecutionSelection,
+) {
   const captured = snapshotPlainRecord(input, inputKeys);
   if (!captured || Object.getPrototypeOf(input) !== Object.prototype)
     return advicePacketRejected("workbench_ai_advice_task_schema_invalid");
-  const executionSelection = inspectExecutionSelection(
-    captured.executionSelection,
-  );
   const prompt = captured.prompt;
   const projection = snapshotPlainArray(
     captured.projection,
     Number.MAX_SAFE_INTEGER,
   );
   if (
-    executionSelection?.role !== "advice" ||
+    selection.role !== "advice" ||
+    selection.purpose !== "advice" ||
     !validText(prompt) ||
     containsRecognizedSecretText(prompt) ||
     projection.status !== "ok" ||
@@ -1911,6 +1909,7 @@ export function prepareAdviceTask(input: unknown) {
     return advicePacketRejected("workbench_ai_advice_projection_duplicate");
 
   const frozenProjectionItems = Object.freeze(projectionItems);
+  const executionSelection = orderExecutionSelection(selection);
   const projectionHash = sha256(JSON.stringify(frozenProjectionItems));
   const providerPrompt = buildProviderPrompt(
     executionSelection,
@@ -2085,7 +2084,7 @@ function validReference(value: unknown): value is string {
  * @trace ARCH-000015
  * @input provider: 固定二Provider。value: 共通の開始入口で捕捉済みの準備要求。
  * @returns 計画または既存の拒否理由を含む準備結果。
- * @precondition 呼出し側は同じOperationの準備要求を渡す。
+ * @precondition 呼出し側は同じOperationの要求をcapturePreparationInputで捕捉し、選定の役割と用途を確定して渡す。
  * @postcondition Provider別の具体計画型・結果fieldを保持する。
  * @effect 既存Packetを消費し、乱数を取得して技術計画を構成する。
  * @failure 準備例外は固定理由の拒否へ搬送する。
@@ -2107,7 +2106,7 @@ export function prepareProviderAttempt<P extends "codex" | "claude">(
     const management = value.managementCapability;
     const mount = value.mountCapability;
     const authorization = value.providerHome;
-    const { executionSelection: selected, taskAttempt } = value;
+    const { taskAttempt } = value;
     const recovery = value.recoveryCorrelationId ?? null;
     const consumer = value.consumer;
     if (
@@ -2133,7 +2132,7 @@ export function prepareProviderAttempt<P extends "codex" | "claude">(
       return createPreparationFailure(
         `${provider}_docker_runtime_recovery_correlation_invalid`,
       );
-    if (value.purpose !== "probe" && value.packetCapability == null)
+    if (value.packetCapability == null)
       return createPreparationFailure(
         `${provider}_docker_runtime_${value.purpose}_packet_invalid`,
       );
@@ -2161,6 +2160,9 @@ export function prepareProviderAttempt<P extends "codex" | "claude">(
       return createPreparationFailure(
         `${provider}_docker_runtime_advice_packet_invalid`,
       );
+    const executionSelection =
+      taskPacket?.executionSelection ?? advicePacket?.executionSelection;
+    if (!executionSelection) return planRejected();
     if (taskPacket) {
       // 正常時の技術計画はExecutorが一元化する。既存理由の診断は拒否時だけ行う。
       taskPlanningRejection = () => {
@@ -2170,15 +2172,15 @@ export function prepareProviderAttempt<P extends "codex" | "claude">(
           purpose: "task",
           modelSelection: {
             provider,
-            modelIdentifier: selected.modelIdentifier,
-            identifierKind: selected.identifierKind,
-            reasoningEffort: selected.reasoningEffort,
+            modelIdentifier: executionSelection.modelIdentifier,
+            identifierKind: executionSelection.identifierKind,
+            reasoningEffort: executionSelection.reasoningEffort,
           },
           input: {
             provider,
             mode: "isolated_task",
             taskRole: taskPacket.taskRole,
-            effort: selected.reasoningEffort,
+            effort: executionSelection.reasoningEffort,
             ...(provider === "claude" && "taskWorkload" in taskPacket
               ? { taskWorkload: taskPacket.taskWorkload }
               : {}),
@@ -2188,19 +2190,19 @@ export function prepareProviderAttempt<P extends "codex" | "claude">(
       };
     }
     const home = authorization.providerHomeSourcePath;
-    const adviceSelected = advicePacket?.executionSelection;
     if (
-      selected.provider !== provider ||
+      executionSelection.provider !== provider ||
       (taskPacket &&
-        (taskPacket.operationId !== binding.operationId ||
-          !/^TASKPKT-[A-F0-9]{32}$/u.test(taskPacket.taskPacketRef) ||
+        (value.purpose !== "task" ||
+          taskPacket.operationId !== binding.operationId ||
+          taskPacket.taskPacketRef !== value.packetRef ||
           !/^[a-f0-9]{64}$/u.test(taskPacket.taskPacketHash) ||
           taskPacket.promptTransport !== "provider_stdin_only" ||
-          !isDeepStrictEqual(taskPacket.executionSelection, selected) ||
           taskPacket.taskAttempt !== taskAttempt)) ||
       (advicePacket &&
-        (advicePacket.operationId !== binding.operationId ||
-          !/^ADVICEPKT-[A-F0-9]{32}$/u.test(advicePacket.packetRef) ||
+        (value.purpose !== "advice" ||
+          advicePacket.operationId !== binding.operationId ||
+          advicePacket.packetRef !== value.packetRef ||
           !/^[a-f0-9]{64}$/u.test(advicePacket.packetHash) ||
           advicePacket.provider !== provider ||
           advicePacket.repositoryMounted !== false ||
@@ -2208,24 +2210,14 @@ export function prepareProviderAttempt<P extends "codex" | "claude">(
           advicePacket.toolsAllowed !== false ||
           advicePacket.sessionPersistenceAllowed !== false)) ||
       (taskPacket &&
-        selected.role !==
-          (taskPacket.taskRole === "executor"
-            ? "executor"
-            : "independent_reviewer")) ||
+        (executionSelection.purpose !== "task" ||
+          executionSelection.role !==
+            (taskPacket.taskRole === "executor"
+              ? "executor"
+              : "independent_reviewer"))) ||
       (advicePacket &&
-        (selected.role !== "advice" ||
-          !adviceSelected ||
-          !isDeepStrictEqual(selected, adviceSelected))) ||
-      (!["executor", "independent_reviewer"].includes(selected.role)
-        ? selected.purpose !== "advice"
-        : selected.purpose !== "task") ||
-      ![
-        "coordinator",
-        "executor",
-        "independent_reviewer",
-        "result_integration",
-        "advice",
-      ].includes(selected.role)
+        (executionSelection.role !== "advice" ||
+          executionSelection.purpose !== "advice"))
     )
       return planRejected();
     const reviewerWorkspace =
@@ -2239,37 +2231,37 @@ export function prepareProviderAttempt<P extends "codex" | "claude">(
       return planRejected();
     // ロールの相関は上位で検査し、下位にはAI Adapterの五項目だけ渡す。
     const technical = Object.freeze({
-      provider: selected.provider,
-      modelIdentifier: selected.modelIdentifier,
-      identifierKind: selected.identifierKind,
-      reasoningEffort: selected.reasoningEffort,
-      purpose: selected.purpose,
+      provider: executionSelection.provider,
+      modelIdentifier: executionSelection.modelIdentifier,
+      identifierKind: executionSelection.identifierKind,
+      reasoningEffort: executionSelection.reasoningEffort,
+      purpose: executionSelection.purpose,
     });
+    const workload = taskPacket
+      ? {
+          purpose: "task" as const,
+          input: taskPacket.prompt,
+          taskRole: taskPacket.taskRole,
+          ...(provider === "claude"
+            ? {
+                taskWorkload:
+                  "taskWorkload" in taskPacket
+                    ? taskPacket.taskWorkload
+                    : undefined,
+              }
+            : {}),
+          additionalHosts: taskPacket.additionalHosts,
+        }
+      : advicePacket && {
+          purpose: "advice" as const,
+          input: advicePacket.providerPrompt,
+          additionalHosts: advicePacket.additionalHosts,
+          allowedReferences: advicePacket.allowedReferences,
+        };
+    if (!workload) return planRejected();
     const request: ExecutorRequest<"attempt"> = {
       kind: "attempt",
-      ...(taskPacket
-        ? {
-            purpose: "task",
-            input: taskPacket.prompt,
-            taskRole: taskPacket.taskRole,
-            ...(provider === "claude"
-              ? {
-                  taskWorkload:
-                    "taskWorkload" in taskPacket
-                      ? taskPacket.taskWorkload
-                      : undefined,
-                }
-              : {}),
-            additionalHosts: taskPacket.additionalHosts,
-          }
-        : advicePacket
-          ? {
-              purpose: "advice",
-              input: advicePacket.providerPrompt,
-              additionalHosts: advicePacket.additionalHosts,
-              allowedReferences: advicePacket.allowedReferences,
-            }
-          : { purpose: "probe" }),
+      ...workload,
       target: {
         operationId: binding.operationId,
         provider,
@@ -2305,9 +2297,8 @@ export function prepareProviderAttempt<P extends "codex" | "claude">(
       ...request.target,
       ...executor.recordProjection,
       executor,
-      executionSelection: selected,
-      additionalHosts:
-        request.purpose === "probe" ? null : request.additionalHosts,
+      executionSelection,
+      additionalHosts: request.additionalHosts,
       taskRole: request.purpose === "task" ? request.taskRole : null,
       ...(provider === "claude"
         ? {

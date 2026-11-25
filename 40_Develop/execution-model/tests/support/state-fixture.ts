@@ -9,7 +9,7 @@
  */
 
 import { hashExecutionProjectDefinition } from "../../src/objective/validation.ts";
-import type { ProjectDefinition } from "../../src/state/types.ts";
+import type { ProjectDefinition } from "../../src/composition/types.ts";
 
 /**
  * 結合して組み立てた試験Projectを正本の二区画へ配置する。

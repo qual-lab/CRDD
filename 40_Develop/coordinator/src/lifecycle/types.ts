@@ -235,6 +235,7 @@ export type CoordinatorSingleTaskAttemptInput = Readonly<{
   authorityBindingId: string;
   repositoryRevision: string;
   taskRequest: unknown;
+  selections?: TaskExecutionSelections | null | undefined;
   repositoryRoot: unknown;
   cancellationSignal: AbortSignal;
 }> &
@@ -339,6 +340,7 @@ export type CoordinatorTaskExecution = Readonly<{
   taskId: string;
   authorityBindingId: string;
   taskRequest: unknown;
+  selections?: TaskExecutionSelections | undefined;
   repositoryRoot: unknown;
 }>;
 
@@ -566,6 +568,7 @@ export type CoordinatorLeaseResult<T> = Readonly<
 export type CoordinatorLease = Readonly<{
   kind: LeaseKind;
   ownerGeneration: string;
+  isHeld: () => boolean;
   release: () => CoordinatorLeaseResult<Readonly<{ released: true }>>;
 }>;
 
@@ -857,7 +860,7 @@ export type ProviderHome = Readonly<{
 
 /**
  * 全用途で共通の準備入力。用途だけでPacketの所有参照を区別する。
- * @responsibility Task・Advice・Probeを同じ準備入口へ渡す。
+ * @responsibility Task・Adviceを同じ準備入口へ渡す。Doctorの隔離Probeはここを使わない。
  * @trace ARCH-000015
  * @invariant 不透明参照をAuthorityへ変換せず、元Ownerの検証を維持する。
  */
@@ -865,18 +868,21 @@ export type PreparationInput = Readonly<{
   managementCapability: unknown;
   mountCapability: unknown;
   providerHome: ProviderHome;
-  executionSelection: ExecutionSelection;
   taskAttempt: 0 | 1;
   recoveryCorrelationId: unknown;
   consumer: unknown;
 }> &
   (
-    | Readonly<{ purpose: "probe" }>
-    | Readonly<{ purpose: "task"; packetCapability: unknown }>
+    | Readonly<{
+        purpose: "task";
+        packetCapability: unknown;
+        packetRef: string;
+      }>
     | Readonly<{
         purpose: "advice";
         packetCapability: unknown;
         packetOwnerCapability: unknown;
+        packetRef: string;
       }>
   );
 
@@ -1299,7 +1305,6 @@ export type ProviderExecutionOutcome = Readonly<{
 export type ProviderAdvicePacketInput = Readonly<{
   allowedReferences: readonly string[];
   operationId: string;
-  executionSelection: ExecutionSelection;
   provider: "codex" | "claude";
   taskHash: string;
   projectionHash: string;

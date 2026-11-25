@@ -4,7 +4,7 @@
  * @trace ARCH-000004, ARCH-000005
  */
 import path from "node:path";
-import { readState } from "../../../execution-model/src/index.ts";
+import { readWorkspaceState } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
   getWorktree,
@@ -76,10 +76,9 @@ export function workspacePlanReadyForAcceptance(
   planRevision: string,
   currentHead: string,
 ): boolean {
-  const read = readState(
+  const read = readWorkspaceState(
     resolveExecutionStorageDirectory(root),
     binding,
-    "workspace",
   );
   if (read.status !== "completed" || !read.value) return false;
   const plan = read.value.projects.find(
@@ -180,10 +179,9 @@ export function confirmPreparedWorkspaceTarget(
     manualRecoveryRequired: false,
     recoveryId: null,
   });
-  const snapshot = readState(
+  const snapshot = readWorkspaceState(
     resolveExecutionStorageDirectory(ownerRepositoryRoot),
     binding,
-    "workspace",
   );
   if (snapshot.status !== "completed" || !snapshot.value)
     return failed(snapshot.reason);

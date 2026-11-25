@@ -15,6 +15,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { channel } from "node:diagnostics_channel";
 import fs from "node:fs";
+import { readStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import { type ClientRequest, request } from "node:http";
 import { stripTypeScriptTypes } from "node:module";
 import path, { join } from "node:path";
@@ -61,6 +62,7 @@ test("Workspace診断は同じ全履歴Readerの共同成立だけを採用す�
     "value",
     "history",
     "throw",
+    "physical-version-mismatch",
     "malformed",
   ]) {
     const cap = {},
@@ -68,7 +70,7 @@ test("Workspace診断は同じ全履歴Readerの共同成立だけを採用す�
       root = "fixture-root";
     let calls = 0;
     const run = runInNewContext(`(dependencies) => {
-      const { getRepository, prepareFixtureRecovery, readState, root, acceptedRequestId } = dependencies;
+      const { getRepository, prepareFixtureRecovery, readState, readStoredExecutionFixture, root, acceptedRequestId } = dependencies;
       let correlationId = null;
       const identities = [], historyIdentities = [];
       ${body}
@@ -81,6 +83,12 @@ test("Workspace診断は同じ全履歴Readerの共同成立だけを採用す�
     const result = run({
       root,
       acceptedRequestId: "request-a",
+      readStoredExecutionFixture: (fixtureRoot: string, value: string) => {
+        assert.equal(fixtureRoot, root);
+        if (mode === "physical-version-mismatch")
+          throw new Error("fixture_version_changed");
+        return JSON.parse(value);
+      },
       getRepository: (input: unknown) => {
         assert.equal(input, root);
         return {
@@ -100,6 +108,12 @@ test("Workspace診断は同じ全履歴Readerの共同成立だけを採用す�
           JSON.stringify({ scope: "recovery", input: { kind: "history" } }),
         );
         if (mode === "throw") throw new Error("unavailable");
+        const queueEntries = [
+          {
+            queueId: "request-a",
+            singleTask: { operationId: "correlation-a" },
+          },
+        ];
         return {
           status: mode === "reader" ? "blocked" : "completed",
           lockReleased: mode !== "unlock",
@@ -107,13 +121,8 @@ test("Workspace診断は同じ全履歴Readerの共同成立だけを採用す�
             mode === "value"
               ? null
               : {
+                  payloadSha256: JSON.stringify({ queueEntries }),
                   snapshot: {
-                    queueEntries: [
-                      {
-                        queueId: "request-a",
-                        singleTask: { operationId: "correlation-a" },
-                      },
-                    ],
                     operations: [
                       {
                         kind: "docker_task",
@@ -589,11 +598,16 @@ test("Workspace試験はHTTPなしでOwner終了とDomainを照合し失敗時�
       Error,
       Buffer,
       AbortController,
+      JSON,
       process: { stderr: {} },
       assert,
       path,
       mode: "direct",
       root: "synthetic-root",
+      readStoredExecutionFixture: (fixtureRoot: string, value: string) => {
+        assert.equal(fixtureRoot, "synthetic-root");
+        return JSON.parse(value);
+      },
       principalId: "local.email.test@example.invalid",
       parent: "synthetic-parent",
       base: "base",
@@ -655,17 +669,16 @@ test("Workspace試験はHTTPなしでOwner終了とDomainを照合し失敗時�
           ownerGeneration: scenario === "state-owner" ? "live" : null,
           singleTask,
         };
+        const stored = {
+          queueEntries: scenario === "state-missing" ? [] : [queue],
+          leaseIntents:
+            scenario === "state-lease" ? [{ queueId: snapshot.requestId }] : [],
+        };
         return {
           status: "completed",
           lockReleased: scenario !== "state-lock",
           value: {
-            snapshot: {
-              queueEntries: scenario === "state-missing" ? [] : [queue],
-              leaseIntents:
-                scenario === "state-lease"
-                  ? [{ queueId: snapshot.requestId }]
-                  : [],
-            },
+            payloadSha256: JSON.stringify(stored),
           },
         };
       },
@@ -1236,6 +1249,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     "owner",
     "read",
     "release",
+    "ai-physical-version-mismatch",
     ...emptyKeys,
     "queue-duplicate",
     "generation",
@@ -1250,9 +1264,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     "isolated-result-extra",
     "isolated-result-missing",
     "isolated-workspace-mismatch",
-    "isolated-lease-missing",
-    "isolated-lease-duplicate",
-    "isolated-lease-pair-mismatch",
+    "isolated-lease-evidence-unexpected",
     "isolated-lease-parent-unknown",
     "isolated-lease-parent-not-empty",
     "isolated-transfer-expired",
@@ -1268,6 +1280,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     "ai-history-missing",
     "ai-lease-missing",
     "ai-lease-duplicate",
+    "ai-lease-pair-mismatch",
     "ai-extra-queue",
     "ai-maintain-zero",
     "ai-maintain-blocked",
@@ -1363,37 +1376,26 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
       };
       const records = [candidate, closed];
       snapshot.results = records;
-      const leases = Array.from({ length: 6 }, (_, i) =>
-        ["acquired", "released"].map((disposition) => ({
-          repositoryBindingId: "binding",
-          projectId: "project.workspace-verification",
-          content: {
-            kind: i === 5 ? "canonical-adoption" : "project-operation",
-            queueId: i === 5 ? "canonical" : "queue-a",
-            ownerGeneration: `owner-${i}`,
-            ownerProcessId: 7,
-            disposition,
-          },
-        })),
-      ).flat();
-      snapshot.leaseEvidence = leases;
+      if (scenario === "isolated-lease-evidence-unexpected")
+        snapshot.leaseEvidence = ["acquired", "released"].map(
+          (disposition) => ({
+            repositoryBindingId: "binding",
+            projectId: "project.workspace-verification",
+            content: {
+              kind: "project-operation",
+              queueId: "queue-a",
+              ownerGeneration: "owner-workspace",
+              ownerProcessId: 7,
+              disposition,
+            },
+          }),
+        );
       if (scenario === "isolated-history-extra")
         Object.assign(snapshot, {
           historyPending: [...(snapshot.historyPending as unknown[]), {}],
         });
       if (scenario === "isolated-result-extra") records.push(candidate);
       if (scenario === "isolated-result-missing") records.pop();
-      if (scenario === "isolated-lease-missing") leases.pop();
-      if (scenario === "isolated-lease-duplicate") {
-        const first = leases[0];
-        assert.ok(first);
-        leases.splice(1, 1, first);
-      }
-      if (scenario === "isolated-lease-pair-mismatch") {
-        const end = leases[1];
-        assert.ok(end);
-        end.content.ownerGeneration = "other";
-      }
     }
     const isAi = scenario.startsWith("ai-") || scenario.includes("isolated-ai");
     if (isAi) {
@@ -1455,6 +1457,11 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
         assert.ok(first);
         taskLeases.push(first);
       }
+      if (scenario === "ai-lease-pair-mismatch") {
+        const end = taskLeases[1];
+        assert.ok(end);
+        end.content.ownerGeneration = "other";
+      }
       snapshot.leaseEvidence = [
         ...(snapshot.leaseEvidence as unknown[]),
         ...taskLeases,
@@ -1467,10 +1474,11 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
       Object.assign(firstTask, { operationId: "unexpected" });
     let releases = 0;
     let transferCalls = 0;
+    let maintenanceCalls = 0;
     const parentPath = path.resolve("fixture");
     const result = runInNewContext(
       stripTypeScriptTypes(
-        `const snapshot=JSON.parse(snapshotJson); const readState=()=>{if(scenario!=='owner')onSnapshotRead();return {status: ['read','owner'].includes(scenario)?'blocked':'completed',lockReleased:scenario!=='release',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}};}; let configurationReads=0; const Date={now:()=>123456}; const getRepositoryFromWorkingDirectory=()=>scenario==="history-root-unavailable"?{status:"blocked"}:{status:"completed",capability:{}}; const readCoordinatorConfig=()=>{configurationReads++;return scenario==="history-config-missing"?{status:"blocked"}:{status:"ready",config:{historyRetentionDays:scenario==="history-config-changed"&&configurationReads>1?31:30}};}; const retireStateRecords=(input,binding,now)=>{assert.equal(input.historyRetentionDays,30);assert.equal(input.revalidate(30),true);assert.equal(input.revalidate(31),false);assert.equal(binding,"binding");assert.equal(now,123456);onMaintain();if(scenario==='ai-maintain-blocked')return{status:'blocked',reason:'synthetic_save_failure'};if(scenario!=='ai-post-task-retained'){snapshot.queueEntries=snapshot.queueEntries.map(q=>q.queueId==='request-abc'?{...q,historySettled:true}:q);snapshot.historyPending=snapshot.historyPending.filter(q=>q.id!=='request-abc');snapshot.leaseEvidence=snapshot.leaseEvidence.filter(q=>q.content.queueId!=='request-abc');}if(scenario==='isolated-ai-post-result-loss')snapshot.results=[];return{status:'completed',reason:'coordinator_terminal_records_retired',value:scenario==='ai-maintain-zero'?0:scenario==='ai-maintain-two'?2:1};}; const transferHistory=(input,binding,now)=>{assert.equal(input.historyRetentionDays,30);assert.equal(input.revalidate(30),true);assert.equal(input.revalidate(31),false);assert.equal(binding,"binding");assert.equal(now,123456);onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'coordinator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,preflightOnly:!isAi,requestId:scenario==='ai-request-mismatch'?'request-bad':'request-abc',task:{requestId:'request-abc',status:'completed',reason:null,executionStatus:'completed',cleanupConfirmed:true,primaryFailure:null,recoveryIds:[],secondaryFailures:[]},base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
+        `const snapshot=JSON.parse(snapshotJson); const readState=()=>{if(scenario!=='owner')onSnapshotRead();return {status: ['read','owner'].includes(scenario)?'blocked':'completed',lockReleased:scenario!=='release',value:{payloadSha256:JSON.stringify(snapshot)}};}; const readStoredExecutionFixture=(_root,payload)=>{if(scenario==="ai-physical-version-mismatch")throw Error("fixture_version_changed");return JSON.parse(payload);}; let configurationReads=0; const Date={now:()=>123456}; const getRepositoryFromWorkingDirectory=()=>scenario==="history-root-unavailable"?{status:"blocked"}:{status:"completed",capability:{}}; const readCoordinatorConfig=()=>{configurationReads++;return scenario==="history-config-missing"?{status:"blocked"}:{status:"ready",config:{historyRetentionDays:scenario==="history-config-changed"&&configurationReads>1?31:30}};}; const retireStateRecords=(input,binding,now)=>{assert.equal(input.historyRetentionDays,30);assert.equal(input.revalidate(30),true);assert.equal(input.revalidate(31),false);assert.equal(binding,"binding");assert.equal(now,123456);onMaintain();if(scenario==='ai-maintain-blocked')return{status:'blocked',reason:'synthetic_save_failure'};if(scenario!=='ai-post-task-retained'){snapshot.queueEntries=snapshot.queueEntries.map(q=>q.queueId==='request-abc'?{...q,historySettled:true}:q);snapshot.historyPending=snapshot.historyPending.filter(q=>q.id!=='request-abc');snapshot.leaseEvidence=snapshot.leaseEvidence.filter(q=>q.content.queueId!=='request-abc');}if(scenario==='isolated-ai-post-result-loss')snapshot.results=[];return{status:'completed',reason:'coordinator_terminal_records_retired',value:scenario==='ai-maintain-zero'?0:scenario==='ai-maintain-two'?2:1};}; const transferHistory=(input,binding,now)=>{assert.equal(input.historyRetentionDays,30);assert.equal(input.revalidate(30),true);assert.equal(input.revalidate(31),false);assert.equal(binding,"binding");assert.equal(now,123456);onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'coordinator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,preflightOnly:!isAi,requestId:scenario==='ai-request-mismatch'?'request-bad':'request-abc',task:{requestId:'request-abc',status:'completed',reason:null,executionStatus:'completed',cleanupConfirmed:true,primaryFailure:null,recoveryIds:[],secondaryFailures:[]},base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
       ),
       {
         assert,
@@ -1479,7 +1487,9 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
         scenario,
         isIsolated,
         isAi,
-        onMaintain: () => {},
+        onMaintain: () => {
+          maintenanceCalls++;
+        },
         snapshotJson: JSON.stringify(snapshot),
         projectId: "project.workspace-verification",
         onTransfer: () => {
@@ -1589,6 +1599,10 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
               : 1,
       scenario,
     );
+    if (scenario === "ai-physical-version-mismatch") {
+      assert.equal(result.reason, "fixture_cleanup_unconfirmed");
+      assert.equal(maintenanceCalls, 0);
+    }
     if (
       ["canonical", "reparse", "nested-reparse", "unknown-mode"].includes(
         scenario,
@@ -2839,8 +2853,8 @@ for (const transport of ["tool-child-process"] as const) {
         principalId: "local.email.test@example.invalid",
         authorize: () => true,
         resolveSelection: () => ({
-          primary: executionSelection("advice"),
-          taskExecutionSelections: null,
+          kind: "advice",
+          selection: executionSelection("advice"),
         }),
         observeRevision: () =>
           readRepositoryRevision(getRepository(root).capability)
@@ -3039,8 +3053,12 @@ for (const transport of ["tool-child-process"] as const) {
     assert.equal(state.status, "completed");
     if (state.status !== "completed" || !state.value)
       throw Error("snapshot_required");
-    assert.equal(state.value.snapshot.queueEntries.length, 3);
-    assert.deepEqual(state.value.snapshot.leaseIntents, []);
+    const storedBefore = readStoredExecutionFixture(
+      root,
+      state.value.payloadSha256,
+    );
+    assert.equal(storedBefore.queueEntries.length, 3);
+    assert.deepEqual(storedBefore.leaseIntents, []);
     const retirementNow = Date.now();
     const retirementRepository = getRepositoryFromWorkingDirectory(root);
     assert.equal(retirementRepository.status, "completed");
@@ -3077,25 +3095,26 @@ for (const transport of ["tool-child-process"] as const) {
     );
     assert.equal(afterRetirement.status, "completed");
     assert.ok(afterRetirement.value);
-    assert.equal(afterRetirement.value.snapshot.queueEntries.length, 3);
+    const storedAfter = readStoredExecutionFixture(
+      root,
+      afterRetirement.value.payloadSha256,
+    );
+    assert.equal(storedAfter.queueEntries.length, 3);
     assert.ok(
-      afterRetirement.value.snapshot.queueEntries.every(
+      storedAfter.queueEntries.every(
         (entry) =>
           entry.historySettled &&
           entry.singleTask?.phase === "settled" &&
           entry.ownerGeneration === null,
       ),
     );
-    assert.equal(
-      Object.hasOwn(afterRetirement.value.snapshot, "intakeBindings"),
-      false,
-    );
+    assert.equal(Object.hasOwn(storedAfter, "intakeBindings"), false);
     for (const key of [
       "historyPending",
       "leaseIntents",
       "leaseEvidence",
     ] as const)
-      assert.deepEqual(afterRetirement.value.snapshot[key], []);
+      assert.deepEqual(storedAfter[key], []);
     const posts = timings.filter((item) => item.method === "POST");
     assert.equal(posts.length, 3);
     for (const item of posts) {

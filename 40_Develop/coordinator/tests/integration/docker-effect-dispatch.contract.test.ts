@@ -188,35 +188,24 @@ function createPlanFixture(
         managementCapability: managementCapability,
         mountCapability: mountCapability,
         providerHome,
-        executionSelection: selected,
+        packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         taskAttempt: 0,
         recoveryCorrelationId: null,
         consumer: "workbench",
         packetCapability: Object.freeze({}),
         packetOwnerCapability: Object.freeze({}),
       })
-    : taskRole
-      ? adapter.prepare({
-          purpose: "task",
-          managementCapability: managementCapability,
-          mountCapability: mountCapability,
-          providerHome,
-          executionSelection: selected,
-          taskAttempt: 0,
-          recoveryCorrelationId: null,
-          consumer: "coordinator_cli",
-          packetCapability: Object.freeze({}),
-        })
-      : adapter.prepare({
-          purpose: "probe",
-          managementCapability: managementCapability,
-          mountCapability: mountCapability,
-          providerHome,
-          executionSelection: selected,
-          taskAttempt: 0,
-          recoveryCorrelationId: null,
-          consumer: "coordinator_cli",
-        });
+    : adapter.prepare({
+        purpose: "task",
+        managementCapability: managementCapability,
+        mountCapability: mountCapability,
+        providerHome,
+        packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+        taskAttempt: 0,
+        recoveryCorrelationId: null,
+        consumer: "coordinator_cli",
+        packetCapability: Object.freeze({}),
+      });
   assert.equal(prepared.status, "prepared");
   const plan = technicalPlans[0];
   assert.ok(plan);

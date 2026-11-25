@@ -75,7 +75,7 @@ export function mergeCommit(
      * @invariant Shell・外部送信なし。
      * @boundary 実Git。
      * @security hook／親Git環境を遮断。
-     * @concurrency 既存採用Lease下。
+     * @concurrency 呼出し側が対象Repositoryの操作排他を保持する。
      */
     const run = (args: string[]) => ctx.run(ctx.target, args);
     /**

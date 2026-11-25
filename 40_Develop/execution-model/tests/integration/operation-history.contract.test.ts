@@ -20,8 +20,8 @@ import { retireStateRecords, transferHistory } from "../../src/index.ts";
 import {
   initializeExecutionStore,
   writeSnapshot,
-} from "../../src/state/crud.ts";
-import { encodeStateValue } from "../../src/state/operations.ts";
+} from "../../src/composition/crud.ts";
+import { encodeStateValue } from "../../src/composition/validation.ts";
 import { acquireSnapshotPilotLock } from "../../src/storage/lock.ts";
 import {
   ensurePhysicalExecutionDataArea,
@@ -92,8 +92,8 @@ test("Host Windows: 履歴確定後も実行IDと終端を保持し二重搬送�
   const leaseEvidence = (["acquired", "released"] as const).map(
     (disposition) => {
       const content = {
-        kind: "canonical-adoption" as const,
-        queueId: "canonical",
+        kind: "project-operation" as const,
+        queueId: queue.queueId,
         ownerGeneration: "owner-retained",
         ownerProcessId: process.pid,
         disposition,
@@ -149,7 +149,7 @@ test("Host Windows: 履歴確定後も実行IDと終端を保持し二重搬送�
   assert.deepEqual(saved.value.queueEntries, [
     { ...queue, historySettled: true, generation: 2 },
   ]);
-  assert.deepEqual(saved.value.leaseEvidence, leaseEvidence);
+  assert.deepEqual(saved.value.leaseEvidence, []);
   const history = fs.readFileSync(f.current);
   assert.equal(history.toString("utf8").trimEnd().split("\n").length, 1);
   const repeated = retireStateRecords(

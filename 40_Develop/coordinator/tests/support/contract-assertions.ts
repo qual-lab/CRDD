@@ -22,6 +22,17 @@ import { createHash } from "node:crypto";
 
 export type MutableRecord = Record<PropertyKey, unknown>;
 
+/** 有限のReader／Writer代役でのみ保存版の比較を観測する。製品の証拠は発行しない。 @trace ERB-IT-014 */
+export function fixtureVersionEvidence(source: string | Buffer) {
+  const bytes =
+    typeof source === "string"
+      ? Buffer.from(source, "utf8")
+      : Buffer.from(source);
+  return Object.defineProperty(bytes, "matches", {
+    value: (other: unknown) => Buffer.isBuffer(other) && bytes.equals(other),
+  }) as Buffer & { matches(other: unknown): boolean };
+}
+
 /**
  * 既知の試験入力から再起動要求IDの期待値を構築する。
  * @responsibility 固定Envelopeの期待値を生成し、製品の入力検査やReaderを代替しない。

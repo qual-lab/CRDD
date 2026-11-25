@@ -10,7 +10,10 @@
  */
 
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
+import { compileFunction } from "node:vm";
+import { sourceDeclaration } from "../../support/source-declaration.ts";
 import type {
   Blocker,
   DecisionAnswer,
@@ -35,8 +38,8 @@ import {
   validateDecisionRetirement,
   validateDecisionSnapshotTransition,
 } from "../../../src/decision/validation.ts";
-import type { Snapshot } from "../../../src/state/types.ts";
-import { encodeStateValue } from "../../../src/state/operations.ts";
+import type { Snapshot } from "../../../src/composition/types.ts";
+import { encodeStateValue } from "../../../src/composition/validation.ts";
 
 /**
  * 判断モデルの検査を上位要求の検査から分離する。
@@ -72,10 +75,87 @@ test("判断モデルの検査は上位要求に依存せず不正値を拒否�
   assert.equal(reads, 0);
 });
 
+/** 正式な保存操作は不正な判断結果をState保存や新しい履歴の確定へ渡さない。 @trace PRL-UT-015 */
+test("不正な判断候補は保存せず、正常時は同じ完全な判断を一回の保存結果として返す", () => {
+  const { request } = newDecisionFixture();
+  const created = prepareDecisionRequest(request);
+  assert.ok(created);
+  const { current } = fixture();
+  const state = { ...current, decisions: [created.decision] };
+  const source = fs.readFileSync(
+    new URL("../../../src/decision/crud.ts", import.meta.url),
+    "utf8",
+  );
+  const calls: string[] = [];
+  let candidate: unknown;
+  const completed = (reason: string, value: unknown) => ({
+    status: "completed",
+    reason,
+    value,
+  });
+  const save = compileFunction(
+    `${sourceDeclaration(source, "saveDecision")}\nreturn saveDecision;`,
+    [
+      "encodeStateValue",
+      "blocked",
+      "completed",
+      "withSnapshotOperation",
+      "updateHistoryOwned",
+      "prepareDecisionCreation",
+      "inspectDecision",
+      "writeSnapshotOwned",
+    ],
+  )(
+    encodeStateValue,
+    (reason: string) => ({ status: "blocked", reason, value: null }),
+    completed,
+    (
+      _repository: unknown,
+      _binding: unknown,
+      operation: (snapshot: Snapshot, owner: object) => unknown,
+    ) => operation(state, {}),
+    (_owner: unknown, _rows: unknown, _now: number, kind: string) => {
+      calls.push(kind);
+      return completed("history_saved", null);
+    },
+    () => completed("decision_saved", { next: state, value: candidate }),
+    inspectDecision,
+    () => {
+      calls.push("write");
+      return completed("state_saved", null);
+    },
+  );
+  for (const invalid of [
+    { ...created.decision, status: "unknown-state" },
+    { ...created.decision, decisionId: "different-valid-decision" },
+    { ...created.decision, extra: true },
+  ]) {
+    calls.length = 0;
+    candidate = invalid;
+    assert.deepEqual(save({}, "binding-a", { kind: "request", request }), {
+      status: "blocked",
+      reason: "decision_result_invalid",
+      value: null,
+    });
+    assert.deepEqual(calls, ["resume_decision"]);
+  }
+  calls.length = 0;
+  candidate = created.decision;
+  const saved = save({}, "binding-a", { kind: "request", request });
+  assert.equal(saved.status, "completed");
+  assert.deepEqual(saved.value.value, {
+    decision: created.decision,
+    history: { status: "confirmed" },
+  });
+  assert.notStrictEqual(saved.value.value.decision, candidate);
+  assert.ok(Object.isFrozen(saved.value.value.decision));
+  assert.deepEqual(calls, ["resume_decision", "write", "decision"]);
+});
+
 import { decodeHistoryRows } from "../../../src/history/validation.ts";
 
-import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
-import { queueIsClosed } from "../../../src/state/crud.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/composition/types.ts";
+import { queueIsClosed } from "../../../src/composition/crud.ts";
 
 /** 新判断候補に必要な空Stateを作る。保存・認可は含まない。 */
 function fixture() {
@@ -1029,7 +1109,7 @@ test("即時の要求と回答も中間Stateなしで全区画を一候補へま
         tasks: [],
         decisionApplicationId: null,
       },
-    ] as unknown as import("../../../src/state/types.ts").ProjectExecutionState[],
+    ] as unknown as import("../../../src/composition/types.ts").ProjectExecutionState[],
   };
   const acceptance: DecisionRequest = {
     decisionId: request.decisionId,
@@ -1152,7 +1232,7 @@ test("回答・適用・Queue・Blockerを一候補へ結合し片側更新と�
     objectives: [],
     tasks: [],
     decisionApplicationId: null,
-  } as unknown as import("../../../src/state/types.ts").ProjectExecutionState;
+  } as unknown as import("../../../src/composition/types.ts").ProjectExecutionState;
   const source = {
     ...current,
     projects: [project],

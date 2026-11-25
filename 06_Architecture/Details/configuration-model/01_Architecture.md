@@ -99,6 +99,8 @@ Consumerが設定とADの結果から実行Inputへ必要fieldを投影する。
 
 読取り・保存は呼出し側が確認した絶対ディレクトリを受け、固定の設定所在を選ぶ。構成モデルはGit配置を再確認せず、Gitの識別値を受け取らない。AI選定設定の保存前に、CRDD Serverが認可と入力を確認してGit除外登録と設定領域の準備を行う。構成モデルは準備済み領域だけで、ディレクトリとファイルの実体確認、排他、現在値と期待値の照合、保存時の再認可、保存・回収が不明な場合の元参照を扱う。
 
+設定領域の一回の観測では、各ディレクトリの正規パスを一度だけ求めて指定パスと照合し、その正規パスの実体を改めて確認する。所在確認の結果を別の読取り・保存段階に流用しない。
+
 AMのHost RootはAM自身の初期化・保存・FilesystemStoreRoot型が正本。CROS既定所在もAM内部で扱う。AM Rootと構成の私有Rootを相互交換しない。AI選定のJSON重複Key拒否・data-property・Proxy／accessor検査はAI選定契約へ局所化する。Manifestと保持設定は従来のJSON.parse条件を維持し、厳密JSON検査へ統一しない。他設定とAMの既存保存I/O・JSON条件はこの整理で変更しない。
 
 汎用Area enum、全Runtime Path配布、汎用ensure／FromWorkingDirectory Wrapper、汎用Lock／Snapshot Helperは公開しない。State保存・一時Operation・保護Mount・Lease／EI領域・検証Rootの準備は当該Ownerが直接行う。

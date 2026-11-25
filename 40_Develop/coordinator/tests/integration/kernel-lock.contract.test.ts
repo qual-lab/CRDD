@@ -91,11 +91,46 @@ function hostFixture(t: TestContext) {
   };
 }
 
+test("確定済みディレクトリのHost不存在はGitを読まず、観測不能を拒否する", (t) => {
+  const root = fixture(t);
+  const host = path.join(root, ".crdd", "coordinator", "OP-000001");
+  fs.mkdirSync(path.dirname(host), { recursive: true });
+  const observe = fs.lstatSync;
+  let unavailable = false;
+  let gitChecks = 0;
+  const calls = t.mock.method(
+    fs,
+    "lstatSync",
+    (...args: Parameters<typeof observe>) => {
+      if (
+        typeof args[0] === "string" &&
+        path.relative(root, args[0]).split(path.sep).includes(".git")
+      )
+        gitChecks++;
+      if (args[0] === host && unavailable)
+        throw Object.assign(new Error("fixture_observation_denied"), {
+          code: "EPERM",
+        });
+      return observe(...args);
+    },
+  );
+  try {
+    assert.equal(isHostOperationRootAbsent(root, "OP-000001"), true);
+    unavailable = true;
+    assert.equal(isHostOperationRootAbsent(root, "OP-000001"), false);
+    assert.equal(isHostOperationRootAbsent(".", "OP-000001"), false);
+    assert.equal(isHostOperationRootAbsent(root, "../OP-000001"), false);
+    assert.equal(gitChecks, 0);
+  } finally {
+    calls.mock.restore();
+  }
+});
+
 test("Host世代は子Rootの外で保持し、子Root清掃後も元世代だけを解放する", (t) => {
   const { root, capability, lockDirectory, hostDirectory, operationId } =
     hostFixture(t);
   fs.mkdirSync(hostDirectory);
-  assert.equal(isHostOperationRootAbsent(capability, operationId), false);
+  assert.equal(isHostOperationRootAbsent(root, operationId), false);
   assert.equal(
     Reflect.apply(acquireHostOperationLock, undefined, [root, operationId])
       .status,
@@ -114,13 +149,13 @@ test("Host世代は子Rootの外で保持し、子Root清掃後も元世代だ�
     "blocked",
   );
   fs.rmdirSync(hostDirectory);
-  assert.equal(isHostOperationRootAbsent(capability, operationId), true);
+  assert.equal(isHostOperationRootAbsent(root, operationId), true);
   const hostParent = path.dirname(hostDirectory);
   fs.rmdirSync(hostParent);
-  assert.equal(isHostOperationRootAbsent(capability, operationId), false);
+  assert.equal(isHostOperationRootAbsent(root, operationId), false);
   assert.equal(fs.existsSync(hostParent), false);
   fs.writeFileSync(hostParent, "not a directory");
-  assert.equal(isHostOperationRootAbsent(capability, operationId), false);
+  assert.equal(isHostOperationRootAbsent(root, operationId), false);
   assert.equal(first.lock.assertLive(), true);
   assert.equal(first.lock.release(), true);
   assert.equal(first.lock.release(), false);

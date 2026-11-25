@@ -148,7 +148,7 @@ PRL-IT-005は初回保存の同じ新品Rootで、保存Stateと非永続の開�
 
 ## 履歴・退役の完成操作への直接接続 — 2026-11-18
 
-PRL-IT-012の既存実保存試験で、段階退役時の採用証拠、初回作成後の独立採用、終了Queue・実行ID保持と再送時不変を維持する。Coordinatorの履歴・退役専用転送Sourceは撤去し、EM完成操作へ渡すRoot確認・保持設定の初回取得とfresh確認・一呼出し一時刻・理由・保存順序を維持する。WorkbenchのERB-IT-021では既存清掃判断のSourceを有限代役で評価し、Root不明・設定欠測・設定変更は清掃不可、固定時刻と設定再確認の引数を照合する。新しい試験IDは追加せず、実AI・Dockerや実検証Scriptの成功を主張しない。
+PRL-IT-012の既存実保存試験で、参照中の採用結果の保持、Queueの終了と実行IDの保持、再送時不変、通常Task Lease証拠の退役を確認する。Coordinatorの履歴・退役専用転送Sourceは撤去し、EM完成操作へ渡すRoot確認・保持設定の初回取得とfresh確認・一呼出し一時刻・理由・保存順序を維持する。WorkbenchのERB-IT-021では既存清掃判断のSourceを有限代役で評価し、Root不明・設定欠測・設定変更は清掃不可、固定時刻と設定再確認の引数を照合する。新しい試験IDは追加せず、実AI・Dockerや実検証Scriptの成功を主張しない。
 
 ## 実ObjectiveからMCP結果への搬送試験Owner — 2026-11-14
 
@@ -660,11 +660,11 @@ Docker固有記録の移管では、DI Rootの技術回復IDと、Coordinatorの
 
 ## State候補と観測調停の試験Owner — 2026-11-15
 
-既存PRL-UT-006／PRL-UT-007のLease九用途はstate/lease、Queue候補はTask CRUD、履歴候補はHistory CRUDとStateの横断調停の実宣言を確認する。Root・資源不存在・借用Lease・生存確認・時計・保存前通知の位置／回数と、元本文・対象外区画・世代・Owner・失敗理由・exact回復参照を維持する。全StateへのTask組込・投影はState validationで確認し、通常値検査からCRUD／Storageへ戻る依存は認めない。Source試験補助はLeaseを含む固定11Sourceを一回ずつ展開し、専用候補constructorとStorage結果の名前・型を混同せずMap／Ownerを共有しない。代表実保存ではWriter直前の独立候補照合・fresh元版・CAS・解放と履歴再入場を確認する。旧Task operationsのPath／Symbolと試験参照を追従し、公開集合・保存Schema・正式検証項目は不変更とする。
+既存PRL-UT-006／PRL-UT-007のLease九用途はlease/crud.ts、Queue候補はTask CRUD、履歴候補はHistory CRUDとStateの横断調停の実宣言を確認する。Root・資源不存在・借用Lease・生存確認・時計・保存前通知の位置／回数と、元本文・対象外区画・世代・Owner・失敗理由・exact回復参照を維持する。全StateへのTask組込・投影はCompositionの遷移・統合検査で確認し、通常値検査からCRUD／Storageへ戻る依存は認めない。Source試験補助はLeaseを含む固定10Sourceを一回ずつ展開し、専用候補constructorとStorage結果の名前・型を混同せずMap／Ownerを共有しない。代表実保存ではWriter直前の独立候補照合・fresh元版・CAS・解放と履歴再入場を確認する。Task遷移の宣言元・台帳・試験参照を照合し、公開集合・保存Schema・正式検証項目は不変更とする。
 
 ## Lease変更単位の分離 — 2026-11-15
 
-Leaseの既存四操作・九候補はstate/lease.tsの実宣言を検証し、Rootの名前・overload・戻り値とRequest型は維持する。通常State保存への接続は既存withSnapshotOperationだけで、短期排他の保持区間と観測／通知順、元版・CAS・解放確認は変更しない。Source準備の反証は固定11Sourceを一回ずつ読み、Leaseを含むexportと未束縛factoryを毎fixture評価する。従来のMap／Owner非共有、override・変異・失敗後の再生成を維持し、単なる読取り数変更だけを成立根拠にしない。既存Suite・正式QA項目を維持してSymbolのPath／確認対象を追従する。
+Leaseの既存四操作・九候補はlease/crud.tsの実宣言を検証し、Rootの名前・overload・戻り値とRequest型は維持する。通常State保存への接続は既存withSnapshotOperationだけで、短期排他の保持区間と観測／通知順、元版・CAS・解放確認は変更しない。Source準備の反証は固定10Sourceを一回ずつ読み、Leaseを含むexportと未束縛factoryを毎fixture評価する。従来のMap／Owner非共有、override・変異・失敗後の再生成を維持し、単なる読取り数変更だけを成立根拠にしない。既存Suite・正式QA項目を維持してSymbolのPath／確認対象を追従する。
 
 
 

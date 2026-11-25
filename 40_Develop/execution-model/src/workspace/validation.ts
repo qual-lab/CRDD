@@ -3,79 +3,403 @@
  * @responsibility I/Oや新しい権限を発行せず、モデル固有の受入条件を判定する。
  * @trace ARCH-000008
  */
-import { hashStateText } from "../state/operations.ts";
+import { hashStateText } from "../composition/validation.ts";
 import { createHash } from "node:crypto";
-import type { Snapshot } from "../state/types.ts";
+import type { Snapshot } from "../composition/types.ts";
 
 import { historyRow } from "../history/validation.ts";
 import {
   encodeStateValue,
   isStateObject,
   hasStateKeys,
-} from "../state/operations.ts";
+} from "../composition/validation.ts";
 import type {
+  RepositoryWorktreeResult,
   ResultRecord,
   WorkspaceCandidateRequest,
   WorkspaceRecord,
 } from "./types.ts";
 
-/**
- * Workspaceの現在記録を元世代と非使用条件へ限定して更新する。
- * @responsibility Queue・Lease値・世代・未解決参照・破棄確認を元の順序で検査する。
- * @trace ARCH-000004、ARCH-000008
- * @input current: fresh Snapshot、対象ID・期待世代・次値、observations: 同じOwnerが取得するProcess IDと有限時刻観測。
- * @returns 既存結果封筒の変更候補又は投影、拒否時は元の固定理由。
- * @precondition 同じ短期保存Ownerがfresh SnapshotとRepository結合を検証している。
- * @postcondition 入力と対象外区画を変更せず、拒否・非削除では時計を呼ばない。
- * @effect 成功する削除候補の末尾でだけ同期時計を二回観測する。保存・Git操作なし。
- * @failure 元の判定順と拒否理由を維持する。
- * @invariant 候補のcompletedを耐久保存・認可・実資源終了の証明へ読み替えない。
- * @boundary Coordinator専用メモリ投影と、別Ownerが持つ単一Writer。
- * @security 値はAuthorityではなく、保存Ownerや任意Snapshot callbackを公開せず、用途固定の同期clock以外を受けない。
- * @concurrency 保存CASと現在Owner再確認・解放は既存Writerが行う。
- */
-
-export function prepareWorkspaceRecordUpdate(
+/** 観測結果は状態と対象Queueに結合し、選択以外では所属を変更しない。 @trace ARCH-000004 */
+export function prepareWorkspaceObservationUpdate(
   current: Snapshot,
   projectId: string,
   queueId: string,
-  ownerGeneration: string,
   workspaceId: string,
   expectedGeneration: number,
-  nextRecord: WorkspaceRecord | null,
-  observations: Readonly<{ processId: number; now: () => number }>,
+  observation: RepositoryWorktreeResult,
+  operation: "create" | "discard" | "observe" | "select",
 ) {
   const queue = current.queueEntries.find(
-    (entry) => entry.queueId === queueId && entry.projectId === projectId,
+    (entry) => entry.projectId === projectId && entry.queueId === queueId,
   );
-  const owned = current.leaseIntents.some(
-    (intent) =>
-      intent.projectId === projectId &&
-      intent.queueId === queueId &&
-      intent.kind === "project-operation" &&
-      intent.phase === "lock_owned" &&
-      intent.ownerGeneration === ownerGeneration &&
-      intent.ownerProcessId === observations.processId,
+  if (
+    !queue ||
+    current.leaseIntents.some((item) => item.kind === "project-operation")
+  )
+    return blocked("coordinator_workspace_lease_mismatch");
+  const previous = current.workspaces.find(
+    (record) => record.workspaceId === workspaceId,
   );
-  if (!queue || !owned) return blocked("coordinator_workspace_lease_mismatch");
+  if (!previous || previous.generation !== expectedGeneration)
+    return blocked("coordinator_workspace_generation_conflict");
+  if (
+    (operation !== "select" && queue.workspaceId !== workspaceId) ||
+    (operation === "select" &&
+      !current.queueEntries.some(
+        (entry) =>
+          entry.projectId === projectId && entry.workspaceId === workspaceId,
+      ))
+  )
+    return blocked("coordinator_workspace_target_mismatch");
+  const git = observation.observation;
+  const ready =
+    operation !== "discard" &&
+    previous.phase !== "discarding" &&
+    observation.status === "completed" &&
+    git?.registered === true &&
+    git.directoryPresent &&
+    git.head !== null &&
+    git.head === git.branchHead &&
+    (previous.phase !== "creating" ||
+      (git.head === previous.baseCommit &&
+        git.head === previous.pending?.expectedHead &&
+        (operation === "create" || git.dirty === false) &&
+        !git.locked &&
+        !git.prunable));
+  if (
+    operation === "select" &&
+    queue.workspaceId !== workspaceId &&
+    (!ready || !git || git.locked || git.prunable)
+  )
+    return blocked(
+      observation.status === "blocked"
+        ? observation.reason
+        : "coordinator_workspace_selection_unconfirmed",
+    );
+  const next: WorkspaceRecord = {
+    ...previous,
+    generation: expectedGeneration + 1,
+    head: ready && git?.head ? git.head : previous.head,
+    phase: ready ? "ready" : previous.phase,
+    pending: ready ? null : previous.pending,
+    lastResult: observation,
+    primaryFailure:
+      previous.primaryFailure ??
+      (observation.status === "blocked" ? observation.reason : null),
+  };
+  if (operation === "create")
+    return prepareWorkspaceCreationUpdate(
+      current,
+      projectId,
+      queueId,
+      workspaceId,
+      expectedGeneration,
+      next,
+    );
+  if (operation === "discard")
+    return prepareWorkspaceDiscardUpdate(
+      current,
+      projectId,
+      queueId,
+      workspaceId,
+      expectedGeneration,
+      next,
+    );
   return prepareWorkspaceUpdate(
     current,
     queue,
     workspaceId,
     expectedGeneration,
-    nextRecord,
-    () => observations.now(),
+    next,
   );
 }
 
-/** 長期Leaseを発行しない名前更新を、現在のQueue・世代と使用状態で判定する。 @trace ARCH-000004 */
-export function prepareWorkspaceRename(
+/** 候補操作は既存Workspaceの候補欄だけを更新する。 @trace ARCH-000004 */
+export function prepareWorkspaceCandidateUpdate(
+  current: Snapshot,
+  projectId: string,
+  queueId: string,
+  workspaceId: string,
+  expectedGeneration: number,
+  next: WorkspaceRecord,
+  operation: "freeze" | "adopt" | "close-candidate",
+) {
+  const queue = current.queueEntries.find(
+    (entry) =>
+      entry.projectId === projectId &&
+      entry.queueId === queueId &&
+      entry.workspaceId === workspaceId,
+  );
+  const previous = current.workspaces.find(
+    (record) => record.workspaceId === workspaceId,
+  );
+  if (
+    !queue ||
+    current.leaseIntents.some((item) => item.kind === "project-operation")
+  )
+    return blocked("coordinator_workspace_lease_mismatch");
+  if (!previous || previous.generation !== expectedGeneration)
+    return blocked("coordinator_workspace_generation_conflict");
+  if (previous.phase !== "ready" || previous.holdUntil !== null)
+    return blocked("coordinator_workspace_not_ready");
+  const before = previous.candidate;
+  const after = next.candidate;
+  if (
+    encodeStateValue(next) !==
+      encodeStateValue({
+        ...previous,
+        generation: expectedGeneration + 1,
+        candidate: after,
+      }) ||
+    (before &&
+      after &&
+      encodeStateValue(before.request) !== encodeStateValue(after.request))
+  )
+    return blocked("coordinator_workspace_record_invalid");
+  if (operation === "freeze") {
+    if (
+      !after ||
+      (after.phase !== "freezing" && after.phase !== "fixed") ||
+      (before && before.phase !== "freezing" && before.phase !== "fixed") ||
+      (after.phase === "fixed" && before?.phase !== "freezing")
+    )
+      return blocked("coordinator_candidate_pending");
+  } else if (operation === "adopt") {
+    if (
+      !before ||
+      !after ||
+      !["fixed", "merging", "merged"].includes(before.phase) ||
+      (after.phase !== "merging" && after.phase !== "merged") ||
+      (after.phase === "merged" && before.phase !== "merging") ||
+      !after.target ||
+      (before.target &&
+        encodeStateValue(before.target) !== encodeStateValue(after.target)) ||
+      after.candidateCommit !== before.candidateCommit ||
+      after.cleanupFailure !== before.cleanupFailure
+    )
+      return blocked("coordinator_candidate_target_mismatch");
+  } else {
+    if (
+      !before ||
+      current.queueEntries.some(
+        (entry) =>
+          entry.workspaceId === workspaceId &&
+          entry.queueId !== queueId &&
+          entry.state !== "completed" &&
+          entry.state !== "cancelled",
+      )
+    )
+      return blocked("coordinator_candidate_removal_not_authorized");
+    if (after) {
+      if (
+        after.phase !== "removing" ||
+        after.candidateCommit !== before.candidateCommit ||
+        encodeStateValue(after.target) !== encodeStateValue(before.target) ||
+        after.mergeCommit !== before.mergeCommit ||
+        after.primaryFailure !== before.primaryFailure ||
+        (before.phase === "removing" &&
+          after.disposition !== before.disposition) ||
+        (after.disposition === "adopted" && before.disposition !== "adopted") ||
+        (after.disposition === "rejected" &&
+          before.phase !== "freezing" &&
+          before.phase !== "fixed" &&
+          before.phase !== "removing")
+      )
+        return blocked("coordinator_candidate_removal_not_authorized");
+    } else {
+      const closure = readWorkspaceCandidateClosure(current, queue, before);
+      if (
+        before.phase !== "removing" ||
+        closure.status !== "completed" ||
+        !closure.value
+      )
+        return blocked("coordinator_candidate_closure_unconfirmed");
+    }
+  }
+  return prepareWorkspaceUpdate(
+    current,
+    queue,
+    workspaceId,
+    expectedGeneration,
+    next,
+  );
+}
+
+/** 同じ候補の不変な回収記録だけを、再入場し記録を除去する根拠に使う。 @trace ARCH-000004 */
+export function readWorkspaceCandidateClosure(
+  current: Snapshot,
+  queue: Snapshot["queueEntries"][number],
+  candidate: NonNullable<WorkspaceRecord["candidate"]>,
+) {
+  const { workspaceId, operationId } = candidate.request;
+  const existing = current.results.find(
+    (item) =>
+      item.kind === "adoption" &&
+      item.identity === `workspace-candidate-close-${operationId}`,
+  );
+  if (!existing) return completed("coordinator_candidate_closure_absent", null);
+  const prior = existing.value;
+  if (
+    existing.repositoryBindingId !== current.repositoryBindingId ||
+    existing.projectId !== queue.projectId ||
+    existing.queueId !== queue.queueId ||
+    existing.milestoneId !== queue.milestoneId ||
+    !isStateObject(prior) ||
+    !hasStateKeys(prior, [
+      "recordKind",
+      "workspaceId",
+      "operationId",
+      "candidateCommit",
+      "disposition",
+      "cleanupFailure",
+      "refAbsent",
+    ]) ||
+    prior.recordKind !== "workspace-candidate-close" ||
+    prior.workspaceId !== workspaceId ||
+    prior.operationId !== operationId ||
+    prior.candidateCommit !== candidate.candidateCommit ||
+    prior.disposition !== candidate.disposition ||
+    prior.refAbsent !== true ||
+    !(
+      prior.cleanupFailure === null ||
+      (typeof prior.cleanupFailure === "string" &&
+        /^(?:candidate|worktree|commit_(?:create|temporary))_[a-z_]+$/u.test(
+          prior.cleanupFailure,
+        ))
+    )
+  )
+    return blocked("coordinator_candidate_closure_mismatch");
+  return completed("coordinator_candidate_closure_observed", existing);
+}
+
+/** 新規作成の意図とその結果だけを、既存のQueue・世代CASへ接続する。 @trace ARCH-000004 */
+export function prepareWorkspaceCreationUpdate(
+  current: Snapshot,
+  projectId: string,
+  queueId: string,
+  workspaceId: string,
+  expectedGeneration: number,
+  next: WorkspaceRecord,
+) {
+  const queue = current.queueEntries.find(
+    (entry) => entry.projectId === projectId && entry.queueId === queueId,
+  );
+  const previous = current.workspaces.find(
+    (record) => record.workspaceId === workspaceId,
+  );
+  if (
+    !queue ||
+    current.leaseIntents.some((item) => item.kind === "project-operation")
+  )
+    return blocked("coordinator_workspace_lease_mismatch");
+  if ((previous?.generation ?? 0) !== expectedGeneration)
+    return blocked("coordinator_workspace_generation_conflict");
+  if (
+    expectedGeneration === 0
+      ? previous !== undefined ||
+        next.phase !== "creating" ||
+        next.pending?.kind !== "create" ||
+        next.pending.expectedHead !== next.baseCommit ||
+        next.pending.discardChanges ||
+        next.head !== next.baseCommit ||
+        next.candidate !== null ||
+        next.holdUntil !== null ||
+        next.primaryFailure !== null ||
+        next.lastResult !== null
+      : previous?.phase !== "creating" ||
+        previous.pending?.kind !== "create" ||
+        (next.phase !== "creating" && next.phase !== "ready") ||
+        next.baseCommit !== previous.baseCommit ||
+        next.name !== previous.name ||
+        next.candidate !== null ||
+        next.holdUntil !== null ||
+        !next.lastResult ||
+        (next.phase === "creating" &&
+          encodeStateValue(next.pending) !== encodeStateValue(previous.pending))
+  )
+    return blocked("coordinator_workspace_record_invalid");
+  return prepareWorkspaceUpdate(
+    current,
+    queue,
+    workspaceId,
+    expectedGeneration,
+    next,
+  );
+}
+
+/** 廃棄の意図・Git結果・確定済み記録の除去だけを既存CASに接続する。 @trace ARCH-000004 */
+export function prepareWorkspaceDiscardUpdate(
+  current: Snapshot,
+  projectId: string,
+  queueId: string,
+  workspaceId: string,
+  expectedGeneration: number,
+  next: WorkspaceRecord | null,
+  now: () => number = Date.now,
+) {
+  const queue = current.queueEntries.find(
+    (entry) => entry.projectId === projectId && entry.queueId === queueId,
+  );
+  const previous = current.workspaces.find(
+    (record) => record.workspaceId === workspaceId,
+  );
+  if (
+    !queue ||
+    current.leaseIntents.some((item) => item.kind === "project-operation")
+  )
+    return blocked("coordinator_workspace_lease_mismatch");
+  if (!previous || previous.generation !== expectedGeneration)
+    return blocked("coordinator_workspace_generation_conflict");
+  if (previous.candidate)
+    return blocked("coordinator_candidate_still_referenced");
+  if (previous.holdUntil !== null) return blocked("coordinator_workspace_held");
+  if (next === null) {
+    if (previous.phase !== "discarding" || previous.pending?.kind !== "discard")
+      return blocked("coordinator_workspace_disposal_unconfirmed");
+  } else if (
+    next.phase !== "discarding" ||
+    next.pending?.kind !== "discard" ||
+    next.pending.expectedHead !== previous.head ||
+    (previous.pending?.kind === "discard" &&
+      encodeStateValue(next.pending) !== encodeStateValue(previous.pending)) ||
+    encodeStateValue(next) !==
+      encodeStateValue({
+        ...previous,
+        generation: expectedGeneration + 1,
+        phase: "discarding",
+        pending: next.pending,
+        lastResult:
+          previous.phase === "discarding"
+            ? next.lastResult
+            : previous.lastResult,
+        primaryFailure:
+          previous.primaryFailure ??
+          (previous.phase === "discarding" &&
+          next.lastResult?.status === "blocked"
+            ? next.lastResult.reason
+            : null),
+      })
+  )
+    return blocked("coordinator_workspace_record_invalid");
+  return prepareWorkspaceUpdate(
+    current,
+    queue,
+    workspaceId,
+    expectedGeneration,
+    next,
+    now,
+  );
+}
+
+/** 長期Leaseを発行しない表示名・保留の変更を、現在のQueue・世代と使用状態で判定する。 @trace ARCH-000004 */
+export function prepareWorkspaceMetadataUpdate(
   current: Snapshot,
   projectId: string,
   queueId: string,
   workspaceId: string,
   expectedGeneration: number | undefined,
-  name: string | null,
+  update: Readonly<{ kind: "rename" | "hold"; value: string | null }>,
   resourcesAbsent: () => boolean,
 ) {
   const queue = current.queueEntries.find(
@@ -97,8 +421,17 @@ export function prepareWorkspaceRename(
   if (!previous) return blocked("coordinator_workspace_not_found");
   if (queue.workspaceId !== workspaceId)
     return blocked("coordinator_workspace_target_mismatch");
-  if (previous.phase !== "ready" || !validWorkspaceDisplayName(name))
-    return blocked("coordinator_workspace_name_invalid");
+  if (update.kind === "rename") {
+    if (previous.phase !== "ready" || !validWorkspaceDisplayName(update.value))
+      return blocked("coordinator_workspace_name_invalid");
+  } else if (
+    update.kind !== "hold" ||
+    previous.phase !== "ready" ||
+    (update.value !== null &&
+      (typeof update.value !== "string" ||
+        !Number.isFinite(Date.parse(update.value))))
+  )
+    return blocked("coordinator_workspace_hold_invalid");
   return prepareWorkspaceUpdate(
     current,
     queue,
@@ -107,7 +440,9 @@ export function prepareWorkspaceRename(
     {
       ...previous,
       generation: previous.generation + 1,
-      name,
+      ...(update.kind === "rename"
+        ? { name: update.value }
+        : { holdUntil: update.value }),
     },
   );
 }
@@ -855,38 +1190,4 @@ export function validWorkspaceCandidateRequest(
  */
 export function isWorkspaceCommitId(value: unknown): value is string {
   return typeof value === "string" && COMMIT_ID.test(value);
-}
-
-/**
- * 採用呼出し前に確定した拒否記録の閉じた値を確認する。
- * @responsibility 拒否を成功Receiptや未知Effectから区別する。
- * @trace ARCH-000004
- * @input 検証済み採用Record。
- * @returns exact Ownerに結合した既知拒否か。
- * @precondition 値はJSONとして検証済みである。
- * @postcondition 固定理由と全fieldが一致した場合だけtrue。
- * @effect N/A: 局所値だけを検査する。
- * @failure 不正値はfalse。
- * @invariant Receipt不存在からEffect 0を推定しない。
- * @boundary 採用Applicationと保存結果。
- * @security Callerの追加fieldを採用しない。
- * @concurrency N/A: 同期純粋処理。
- */
-export function adoptionWasRejected(record: ResultRecord): boolean {
-  return (
-    record.kind === "adoption" &&
-    isStateObject(record.value) &&
-    hasStateKeys(record.value, [
-      "status",
-      "reason",
-      "ownerGeneration",
-      "effectIssued",
-      "cleanupConfirmed",
-    ]) &&
-    record.value.status === "rejected" &&
-    record.value.reason === "coordinator_adoption_revision_or_scope_mismatch" &&
-    record.value.ownerGeneration === record.identity &&
-    record.value.effectIssued === false &&
-    record.value.cleanupConfirmed === true
-  );
 }

@@ -10,9 +10,9 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import { types } from "node:util";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { beginDockerRecovery } from "../../src/lifecycle/environment.ts";
 import { recoveryEnvironmentFixtureUrl } from "../support/recovery.ts";
@@ -102,32 +102,43 @@ test("資源Identityの非文字列は変換・環境観測・保存前に拒否
   );
   let conversions = 0;
   let effects = 0;
+  let nonces = 0;
   const begin = runInNewContext(
-    stripTypeScriptTypes(
-      sourceDeclaration(source, "validProductionPlan") +
-        "\n" +
-        sourceDeclaration(source, "beginDockerRecovery"),
-    ) + "\nbeginDockerRecovery",
+    `${[
+      "validProductionPlan",
+      "prepareRepositoryDockerOperationIdentity",
+      "beginDockerRecovery",
+    ]
+      .map((name) => sourceDeclaration(source, name))
+      .join("\n")}\nbeginDockerRecovery`,
     {
       getConsumerCompletionPolicy: () => ({}),
-      inspectExecutionSelection: () => ({ provider: "claude" }),
+      types,
+      Object,
       HEX64: /^[a-f0-9]{64}$/u,
-      randomBytes: () => Buffer.alloc(32, 1),
+      randomBytes: () => {
+        nonces++;
+        return Buffer.alloc(32, 1);
+      },
       inspectWindowsProviderHomeCandidate: () => {
         effects++;
       },
-      prepareRepositoryDockerOperationIdentity: () => {
+      borrowCoordinatorStateRepository: () => {
         effects++;
+        return null;
       },
     },
   );
   const valid = {
     ...productionPlan("OP-123456", "5".repeat(64)),
+    executionSelection: Object.freeze({ provider: "claude" }),
     taskAttempt: 0,
   };
   assert.equal(begin(valid, {}), null);
   assert.equal(effects, 1);
   effects = 0;
+  assert.equal(nonces, 1);
+  nonces = 0;
   for (const key of [
     "authContainerName",
     "providerContainerName",
@@ -151,8 +162,32 @@ test("資源Identityの非文字列は変換・環境観測・保存前に拒否
       assert.equal(begin({ ...valid, [key]: replacement }, {}), null);
     }
   }
+  const dynamic = {
+    ...valid,
+    get executionSelection() {
+      conversions++;
+      return valid.executionSelection;
+    },
+  };
+  assert.equal(begin(dynamic, {}), null);
+  assert.equal(
+    begin(
+      {
+        ...valid,
+        executionSelection: new Proxy(valid.executionSelection, {
+          ownKeys() {
+            conversions++;
+            return [];
+          },
+        }),
+      },
+      {},
+    ),
+    null,
+  );
   assert.equal(conversions, 0);
   assert.equal(effects, 0);
+  assert.equal(nonces, 0);
 });
 
 /**

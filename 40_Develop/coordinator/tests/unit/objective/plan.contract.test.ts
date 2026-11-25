@@ -20,7 +20,6 @@ import {
   createCoordinatorObjectiveResult,
   runObjective,
 } from "../../../src/lifecycle/execution.ts";
-import { inspectCoordinatorObjectivePlan } from "../../../src/lifecycle/validation.ts";
 import { buildObjectiveTaskExecutions } from "../../../src/lifecycle/validation.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 
@@ -89,38 +88,38 @@ test("Objective Planは許可Path内の閉じた値だけを受理する", () =>
     }),
     null,
   );
-  assert.deepEqual(
-    inspectCoordinatorObjectivePlan(COORDINATOR_OBJECTIVE_PLAN, request),
-    COORDINATOR_OBJECTIVE_PLAN,
-  );
+  assert.deepEqual(request.plan, objectiveRequest.plan);
   let getters = 0;
   const accessor = {
-    ...COORDINATOR_OBJECTIVE_PLAN,
+    ...objectiveRequest.plan,
     get tasks() {
       getters++;
-      return COORDINATOR_OBJECTIVE_PLAN.tasks;
+      return objectiveRequest.plan.tasks;
     },
   };
   for (const raw of [
     accessor,
-    new Proxy(COORDINATOR_OBJECTIVE_PLAN, {}),
-    { ...COORDINATOR_OBJECTIVE_PLAN, unknown: true },
+    new Proxy(objectiveRequest.plan, {}),
+    { ...objectiveRequest.plan, unknown: true },
   ])
-    assert.equal(inspectCoordinatorObjectivePlan(raw, request), null);
+    assert.equal(
+      inspectCoordinatorObjectiveRequest({ ...objectiveRequest, plan: raw }),
+      null,
+    );
   assert.equal(getters, 0);
   assert.equal(
-    inspectCoordinatorObjectivePlan(
-      {
-        ...COORDINATOR_OBJECTIVE_PLAN,
+    inspectCoordinatorObjectiveRequest({
+      ...objectiveRequest,
+      plan: {
+        ...objectiveRequest.plan,
         tasks: [
           {
-            ...COORDINATOR_OBJECTIVE_PLAN.tasks[0],
+            ...objectiveRequest.plan.tasks[0],
             allowedPaths: ["90_Release"],
           },
         ],
       },
-      request,
-    ),
+    }),
     null,
   );
 });
@@ -163,6 +162,40 @@ test("Objectiveの要求・主体・Signal拒否は内部実行への接続前�
     );
     assert.equal(result.reason, "coordinator_objective_cancelled_before_start");
     assert.equal(result.effectState, "no_effect");
+  }
+});
+
+/** @trace PRL-UT-006 要求の確定後だけ、外部接続へ対象を一度渡す。 */
+test("Objectiveは開始・再開とも完全受付後に対象選択を一度だけ呼ぶ", async () => {
+  const signal = new AbortController().signal;
+  for (const operation of ["start", "resume"] as const) {
+    const raw = { ...objectiveRequest, operation, adoptResult: true };
+    const corrupt = { ...raw, plan: { ...raw.plan, tasks: [] } };
+    const invalid = await runObjective(corrupt, signal, () =>
+      assert.fail("invalid plan must not select a target"),
+    );
+    assert.equal(invalid.reason, "coordinator_objective_request_invalid");
+    let calls = 0;
+    const denied = await runObjective(raw, signal, (target) => {
+      calls++;
+      assert.deepEqual(target, { projectId: raw.projectId });
+      assert.ok(Object.isFrozen(target));
+      return null;
+    });
+    assert.equal(
+      denied.reason,
+      "coordinator_authenticated_principal_not_verified",
+    );
+    assert.equal(calls, 1);
+    const adopted = await runObjective(raw, signal, async () => () => ({
+      directory: "must-not-be-read",
+      principalId: "principal-a",
+    }));
+    assert.equal(
+      adopted.reason,
+      "coordinator_explicit_workspace_adoption_required",
+    );
+    assert.equal(adopted.effectState, "no_effect");
   }
 });
 

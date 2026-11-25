@@ -1,5 +1,5 @@
 /**
- * 保存Identityのfresh二観測と探索重複の撤去を実Filesystemで検証する。
+ * 保存Identityの単一配置観測と次の呼出しでの再観測を実Filesystemで検証する。
  * @responsibility exact Capability、差替え拒否、観測間・呼出し間の鮮度を確認する。
  * @trace RFD-IT-001
  * @trace RFD-IT-002
@@ -110,17 +110,17 @@ function storageIdentityFixture(t: test.TestContext, linked = false) {
 }
 
 /**
- * 一回のIdentity観測が二配置読取りだけで閉じ、別呼出しでは再観測する。
- * @responsibility 公開shapeを維持したfresh二探索と偽Capability拒否を反証する。
+ * 一回のIdentity観測が一つの配置読取りで閉じ、別呼出しでは再観測する。
+ * @responsibility 公開shapeを維持した単一観測と偽Capability拒否を反証する。
  * @trace RFD-IT-001
  * @precondition 通常Repositoryと専用linked worktreeを実Gitで準備する。
  * @stimulus normal／linked、同一呼出し反復、偽Capability、不正化・同一内容でのGit実体置換と復帰。
  * @observation configの実open回数、公開shapeとIdentity。
- * @oracle 各正常観測は二open、不正入力は零、旧値のcacheなし。
+ * @oracle 各正常観測は一open、不正入力は零、旧値のcacheなし。
  * @cleanup FS代役をfinallyで復元しfixtureを回収する。
  * @boundary 本番保存Identity観測とFilesystem読取り。
  */
-test("保存Identityはnormal／linkedをfresh二探索で確認し公開APIを増やさない", (t) => {
+test("保存Identityはnormal／linkedを一つの配置観測で確認し公開APIを増やさない", (t) => {
   assert.equal(
     Object.hasOwn(publicApi, "observeVerifiedRepositoryLayout"),
     false,
@@ -136,7 +136,7 @@ test("保存Identityはnormal／linkedをfresh二探索で確認し公開APIを�
     try {
       const before = readRepositoryStorageIdentity(fixture.capability);
       assert.ok(before);
-      assert.equal(opens, 2);
+      assert.equal(opens, 1);
       assert.deepEqual(Object.keys(before).sort(), [
         "repositoryForm",
         "repositoryIdentity",
@@ -149,7 +149,7 @@ test("保存Identityはnormal／linkedをfresh二探索で確認し公開APIを�
         readRepositoryStorageIdentity(fixture.capability),
         before,
       );
-      assert.equal(opens, 2);
+      assert.equal(opens, 1);
       opens = 0;
       assert.equal(
         readRepositoryStorageIdentity({ ...fixture.capability }),
@@ -192,7 +192,7 @@ test("保存Identityはnormal／linkedをfresh二探索で確認し公開APIを�
           readRepositoryStorageIdentity(fixture.capability),
           before,
         );
-        assert.equal(opens, 2);
+        assert.equal(opens, 1);
       }
     } finally {
       fs.openSync = original;
@@ -201,17 +201,17 @@ test("保存Identityはnormal／linkedをfresh二探索で確認し公開APIを�
 });
 
 /**
- * beforeとafterの間に実体・配置・観測可能性が変われば受理しない。
- * @responsibility 二観測間の実体差と、完全復帰後の再成立を確認する。
+ * 配置観測中に実体・配置・観測可能性が変われば受理しない。
+ * @responsibility 同じ配置観測内の実体差と、完全復帰後の再成立を確認する。
  * @trace RFD-IT-002
  * @precondition 同じCapabilityで正常な保存Identityを取得済みとする。
- * @stimulus 第二fresh観測直前のRoot、commonDir、kind、reparse、不明への変更。
+ * @stimulus 配置観測が設定を開いた後のRoot、commonDir、kind、reparse、不明への変更。
  * @observation null拒否と、完全復帰後の同じCapabilityの再成立。
  * @oracle 変更途中の値は返さず、永続的な失効状態も追加しない。
  * @cleanup 観測代役と実体をfinallyで復元し、所有fixtureだけを回収する。
- * @boundary 本番二観測と実Filesystemの差替え。
+ * @boundary 同一配置観測内の構造再照合と実Filesystemの差替え。
  */
-test("保存Identityは二観測間の差替え・reparse・観測不能を拒否する", (t) => {
+test("保存Identityは配置観測中の差替え・reparse・観測不能を拒否する", (t) => {
   for (const scenario of [
     "root",
     "common",
@@ -223,15 +223,22 @@ test("保存Identityは二観測間の差替え・reparse・観測不能を拒�
     const before = readRepositoryStorageIdentity(fixture.capability);
     assert.ok(before);
     const original = fs.lstatSync;
-    let passes = 0;
+    const open = fs.openSync;
+    let configurationOpened = false;
+    let injected = false;
     let restore = () => {};
+    fs.openSync = ((...args: Parameters<typeof open>) => {
+      if (String(args[0]) === fixture.config) configurationOpened = true;
+      return Reflect.apply(open, fs, args);
+    }) as typeof open;
     Object.defineProperty(fs, "lstatSync", {
       value: ((...args: Parameters<typeof original>) => {
         if (
           String(args[0]) === fixture.root &&
-          args[1] === undefined &&
-          ++passes === 2
+          configurationOpened &&
+          !injected
         ) {
+          injected = true;
           const retired = path.join(fixture.area, "retired");
           if (scenario === "unknown")
             throw Error("synthetic_observation_unavailable");
@@ -266,8 +273,9 @@ test("保存Identityは二観測間の差替え・reparse・観測不能を拒�
         null,
         scenario,
       );
-      assert.equal(passes, 2, scenario);
+      assert.equal(injected, true, scenario);
     } finally {
+      fs.openSync = open;
       Object.defineProperty(fs, "lstatSync", { value: original });
       restore();
     }

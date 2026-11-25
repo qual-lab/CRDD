@@ -24,12 +24,12 @@ import {
   type TaskExecutionSelections,
   createQueue,
   initializeExecutionStore,
-  inspectExecutionSelection,
-  inspectTaskExecutionSelections,
   isPrincipalId,
   readState,
+  readExecutionState,
+  readQueueState,
   saveProjectExecutionState,
-  selectQueueEntry,
+  selectNextQueueEntry,
   updateQueue,
   type ProjectQueueEntry,
   type ProjectExecutionState,
@@ -170,7 +170,6 @@ import {
   registerDockerHandoff,
 } from "./host.ts";
 import {
-  hashExecutionSelection,
   resolveSingleTaskSelection,
   resolveObjectiveTaskSelections,
   preflightDelegationSelections,
@@ -503,6 +502,7 @@ export async function runCoordinatorSingleTaskAttempt(
       workspaceTarget,
       input.executionMetadata,
       startContext?.hostInput,
+      input.selections ?? undefined,
     );
   } catch (error) {
     isNotificationClosed = true;
@@ -885,99 +885,6 @@ export async function resumeExecution(
         recoveryId,
         hostCleanupCompleted: false,
       };
-}
-
-/**
- * 既存優先順位から保存側へ渡す閉じた選択判断を作る。
- * @responsibility interactive優先・実Owner待機・scheduled再開をCoordinatorで決める。
- * @trace ARCH-000004
- * @input entries: 同じ短期Owner内のfresh Queue配列。
- * @returns 選択IDと元世代、固定理由、限定されたQueue更新の値。
- * @precondition 既存短期Ownerがfresh SnapshotとRepository結合を検証済み。
- * @postcondition 元Snapshotと対象外の区画を変更しない。
- * @effect N/A: 同期の値操作だけ。
- * @failure 元の検査順と固定理由で拒否する。
- * @invariant 選択判断だけで実行許可・排他・保存完了を成立させない。
- * @boundary Coordinatorの検証済み値と既存の単一Writer。
- * @security 保存Owner・任意Snapshot callback・実行Authorityを公開しない。
- * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
- */
-
-export function chooseCoordinatorQueueOperation(
-  entries: readonly ProjectQueueEntry[],
-) {
-  const ordered = [...entries].sort((a, b) =>
-    a.queueId < b.queueId ? -1 : a.queueId > b.queueId ? 1 : 0,
-  );
-  const isActive = ordered.some((item) => item.ownerGeneration !== null);
-  const interactive = ordered.find(
-    (item) =>
-      item.originLane === "interactive" &&
-      item.state === "queued" &&
-      item.ownerGeneration === null,
-  );
-  if (isActive || interactive) {
-    const resumeCondition = isActive
-      ? "active_operation_pending"
-      : "interactive_queue_pending";
-    return {
-      reason: isActive
-        ? ("coordinator_active_operation_retained" as const)
-        : ("coordinator_interactive_queue_selected" as const),
-      selectedQueueId: isActive ? null : (interactive?.queueId ?? null),
-      selectedQueueGeneration: isActive
-        ? null
-        : (interactive?.generation ?? null),
-      updates: entries
-        .filter(
-          (item) =>
-            item.originLane === "scheduled" &&
-            item.state === "queued" &&
-            item.ownerGeneration === null,
-        )
-        .map((item) => ({
-          queueId: item.queueId,
-          expectedGeneration: item.generation,
-          state: "waiting_foreground" as const,
-          resumeCondition,
-        })),
-    };
-  }
-  const waiting = ordered.find(
-    (item) =>
-      item.originLane === "scheduled" &&
-      item.state === "waiting_foreground" &&
-      item.ownerGeneration === null,
-  );
-  if (waiting)
-    return {
-      reason: "coordinator_scheduled_queue_selected" as const,
-      selectedQueueId: waiting.queueId,
-      selectedQueueGeneration: waiting.generation,
-      updates: [
-        {
-          queueId: waiting.queueId,
-          expectedGeneration: waiting.generation,
-          state: "queued" as const,
-          resumeCondition: null,
-        },
-      ],
-    };
-  const value =
-    ordered.find(
-      (item) =>
-        item.originLane === "scheduled" &&
-        item.state === "queued" &&
-        item.ownerGeneration === null,
-    ) ?? null;
-  return {
-    reason: value
-      ? ("coordinator_scheduled_queue_selected" as const)
-      : ("coordinator_queue_empty" as const),
-    selectedQueueId: value?.queueId ?? null,
-    selectedQueueGeneration: value?.generation ?? null,
-    updates: [],
-  };
 }
 
 /**
@@ -1576,10 +1483,9 @@ export async function runCoordinatorOperation(
   // Selection made before the binding-wide lease is only advisory. Re-read
   // the complete durable queue population while this process exclusively owns
   // the Project Operation boundary, then bind exactly that selected Queue.
-  const selectedAfterLease = selectQueueEntry(
+  const selectedAfterLease = selectNextQueueEntry(
     persistence.repository,
     persistence.repositoryBindingId,
-    chooseCoordinatorQueueOperation,
   );
   if (selectedAfterLease.status !== "completed")
     return completeQueue(
@@ -1759,6 +1665,7 @@ export async function runCoordinatorOperation(
             },
             repositoryRevision: state.repositoryRevision,
             taskRequest: execution.taskRequest,
+            selections: execution.selections,
             repositoryRoot: execution.repositoryRoot,
             workspaceTarget: target.value,
             cancellationSignal: input.cancellationSignal,
@@ -2064,10 +1971,9 @@ function prepareScheduledOperation(
 ) {
   if (!(input.cancellationSignal instanceof AbortSignal))
     return blockExecution(input, "coordinator_execution_input_invalid");
-  const observed = readState(
+  const observed = readExecutionState(
     persistence.repository,
     persistence.repositoryBindingId,
-    "execution",
   );
   const view = observed.status === "completed" ? observed.value : null;
   const state = view?.projects.find(
@@ -2294,8 +2200,8 @@ async function executeSingleTask(
       cancellationSignal: signal,
       observeStarted: started,
       workspaceTarget: execution.target,
+      selections: execution.taskExecutionSelections,
       taskRequest: {
-        taskExecutionSelections: execution.taskExecutionSelections,
         objective: command.prompt,
         acceptanceCriteria: [
           "Edit the selected working tree only. Do not commit, merge, push, stash, reset, clean, or promote changes.",
@@ -2748,10 +2654,9 @@ export function createCoordinatorTaskRequests(
         "unknown",
         "coordinator_task_not_available",
       );
-    const current = readState(
+    const current = readQueueState(
       resolveExecutionStorageDirectory(deps.root),
       deps.binding,
-      "queue",
     );
     const record =
       current.status === "completed"
@@ -2788,10 +2693,9 @@ export function createCoordinatorTaskRequests(
     );
   };
   const recoverRecord = async (requestId: string) => {
-    const current = readState(
+    const current = readQueueState(
       resolveExecutionStorageDirectory(deps.root),
       deps.binding,
-      "queue",
     );
     const queue =
       current.status === "completed"
@@ -3032,10 +2936,9 @@ export function createCoordinatorTaskRequests(
       const hash = (value: unknown) =>
         createHash("sha256").update(JSON.stringify(value)).digest("hex");
       const requestHash = hash(command);
-      let current = readState(
+      let current = readQueueState(
         resolveExecutionStorageDirectory(deps.root),
         deps.binding,
-        "queue",
       );
       const existing =
         current.status === "completed"
@@ -3131,10 +3034,9 @@ export function createCoordinatorTaskRequests(
               reason: "coordinator_task_previous_cleanup_unconfirmed",
             };
         }
-        current = readState(
+        current = readQueueState(
           resolveExecutionStorageDirectory(deps.root),
           deps.binding,
-          "queue",
         );
       }
       const concurrent =
@@ -3170,10 +3072,9 @@ export function createCoordinatorTaskRequests(
         deps.rootCapability,
         command,
       );
-      const primary = inspectExecutionSelection(selection?.primary);
-      const pair = inspectTaskExecutionSelections(
-        selection?.taskExecutionSelections,
-      );
+      const pair = selection?.kind === "task" ? selection.selections : null;
+      const primary =
+        selection?.kind === "advice" ? selection.selection : pair?.executor;
       const revision =
         readRepositoryRevision(deps.rootCapability)?.revisionIdentity ?? null;
       if (
@@ -3194,10 +3095,7 @@ export function createCoordinatorTaskRequests(
         !primary ||
         primary.role !==
           (command.mode === "read_only_advice" ? "advice" : "executor") ||
-        (command.mode === "workspace_edit" &&
-          (!pair ||
-            hashExecutionSelection(pair.executor) !==
-              hashExecutionSelection(primary))) ||
+        (command.mode === "workspace_edit" && !pair) ||
         !revision
       )
         return {
@@ -3580,10 +3478,9 @@ function readObjectiveReplay(
   intake: ReturnType<typeof createObjectiveIntake>,
   reuseObserved = false,
 ) {
-  const observed = readState(
+  const observed = readExecutionState(
     resolveExecutionStorageDirectory(workingDirectory),
     repositoryBindingId,
-    "execution",
   );
   if (observed.status !== "completed")
     return Object.freeze({
@@ -4153,8 +4050,7 @@ async function executeCoordinatorObjective(
     }
     if (selected.status !== "resolved")
       return blocked(request, selected.reason);
-    const selections = inspectTaskExecutionSelections(selected.value);
-    if (!selections) return blocked(request, "coordinator_input_invalid");
+    const selections = selected.value;
     initialization = Object.freeze({
       taskExecutionSelections: selections,
       projectId: request.projectId,
@@ -4548,10 +4444,9 @@ async function executeCoordinatorObjective(
           getExecutionProcessInstanceIdentity() !== recoveryProcess
         )
           return null;
-        const current = readState(
+        const current = readExecutionState(
           persistence.repository,
           persistence.repositoryBindingId,
-          "execution",
         );
         if (current.status !== "completed" || current.value === null)
           return null;
@@ -4987,10 +4882,9 @@ async function executeCoordinatorObjective(
         manualRecoveryRequired: true,
         effectState: "unknown",
       });
-    const selected = selectQueueEntry(
+    const selected = selectNextQueueEntry(
       persistence.repository,
       persistence.repositoryBindingId,
-      chooseCoordinatorQueueOperation,
     );
     if (selected.status !== "completed")
       return blocked(request, selected.reason, {
@@ -5205,12 +5099,18 @@ export function createCoordinatorObjectiveResult(
   });
 }
 
+type ObjectiveAccess = Readonly<{
+  directory: string;
+  principalId: string;
+  workspaceTarget?: PreparedWorkspaceTarget | null;
+}>;
+
 /**
  * CLI・MCP共通の公開Objectiveを受け付ける。
  *
  * @responsibility Coordinator Public Objectiveの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
- * @input rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
+ * @input 未信頼の要求と取消Signal、又は直接指定の実行先と認証済み主体、又は受付後に実行先を選ぶ接続。
  * @returns 受付・進行・既知の保存境界失敗を公開結果として返す。
  * @precondition 既存Objective要求・取消・Repository・主体の入力契約を満たす。
  * @postcondition 認証済みの同じ要求と回復参照を保持する。
@@ -5224,7 +5124,14 @@ export function createCoordinatorObjectiveResult(
 export function runObjective(
   rawRequest: unknown,
   cancellationSignal: AbortSignal,
-  workingDirectory = process.cwd(),
+  directoryOrAccess:
+    | string
+    | ((
+        target: Readonly<{ projectId: string; workspaceId?: string }>,
+      ) =>
+        | ObjectiveAccess
+        | null
+        | Promise<() => ObjectiveAccess | null>) = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,
   workspaceTarget?: PreparedWorkspaceTarget | null,
 ) {
@@ -5240,12 +5147,33 @@ export function runObjective(
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
       });
-    if (request.adoptResult)
+    let principalId: string | undefined;
+    let directory: string;
+    let suppliedWorkspace = workspaceTarget;
+    if (typeof directoryOrAccess === "function") {
+      const pending = directoryOrAccess(
+        Object.freeze({
+          projectId: request.projectId,
+          ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
+        }),
+      );
+      // 遅延読込み後の認可と観測を、実行直前の同じ同期区間に置く。
+      const access = types.isPromise(pending) ? (await pending)() : pending;
+      directory = access?.directory ?? "";
+      principalId = access?.principalId;
+      suppliedWorkspace = access?.workspaceTarget;
+    } else {
+      directory = directoryOrAccess;
+      principalId = authenticationContext?.principalId;
+    }
+    if (
+      request.adoptResult &&
+      (typeof directoryOrAccess !== "function" || isPrincipalId(principalId))
+    )
       return createCoordinatorObjectiveResult(request, {
         status: "blocked",
         reason: "coordinator_explicit_workspace_adoption_required",
       });
-    const principalId = authenticationContext?.principalId;
     if (!isPrincipalId(principalId))
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
@@ -5263,7 +5191,7 @@ export function runObjective(
     let repositoryRoot: string;
     try {
       repositoryRoot =
-        resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
+        resolveVerifiedRepositoryRootFromWorkingDirectory(directory);
     } catch {
       return Object.freeze({
         contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
@@ -5288,7 +5216,7 @@ export function runObjective(
       intake,
     );
     if (replay) return replay;
-    const preparedWorkspace = capturePreparedWorkspaceTarget(workspaceTarget);
+    const preparedWorkspace = capturePreparedWorkspaceTarget(suppliedWorkspace);
     if (
       request.operation === "start" &&
       request.workspaceId &&
@@ -5394,10 +5322,9 @@ export function runObjective(
         execution.reason !== "coordinator_tasks_completed_integration_pending")
     )
       return execution;
-    const snapshot = readState(
+    const snapshot = readQueueState(
       resolveExecutionStorageDirectory(repositoryRoot),
       repositoryBindingId,
-      "queue",
     );
     const queue =
       snapshot.status === "completed"
@@ -5601,7 +5528,7 @@ function finishAdvice(
  * @trace ARCH-000015
  * @input 検証済みRoot、Repositoryの結合情報、完全ExecutionSelectionを含む要求と取消Signal。
  * @returns 助言結果と、同じ実行の清掃確認・回復参照。
- * @precondition 上位が受付と取消を所有する。
+ * @precondition 単発Taskの受付が保存済み又は新規確定の不変な選定を渡す。
  * @postcondition 固定Contextと完全選定以外へ送信しない。
  * @effect 固定Context読取りと既存の配送処理。
  * @failure 観測・取消・固定選定不成立は停止。
@@ -5616,8 +5543,22 @@ async function executeAdviceRequest(
   request: CoordinatorAiRequestInput,
   cancellationSignal: AbortSignal,
 ) {
-  const selection = inspectExecutionSelection(request.executionSelection);
-  if (selection?.role !== "advice")
+  const selected =
+    request && !types.isProxy(request)
+      ? Object.getOwnPropertyDescriptor(request, "executionSelection")
+      : undefined;
+  if (selected && !Object.hasOwn(selected, "value"))
+    return finishAdvice(
+      createAdviceRejectedResult("workbench_ai_advice_dispatch_input_invalid"),
+    );
+  const selection = selected?.value as ExecutionSelection | undefined;
+  if (
+    !selection ||
+    types.isProxy(selection) ||
+    !Object.isFrozen(selection) ||
+    selection.role !== "advice" ||
+    selection.purpose !== "advice"
+  )
     return finishAdvice(
       createAdviceRejectedResult(
         "coordinator_ai_selection_not_available_for_advice",
@@ -5627,6 +5568,7 @@ async function executeAdviceRequest(
   const packet = await prepareRepositoryAdvicePacket(
     repositoryRootCapability,
     request,
+    selection,
     cancellationSignal,
   );
   if (packet === null)
@@ -5653,7 +5595,6 @@ async function executeAdviceRequest(
     Object.freeze({
       additionalHosts: network.additionalHosts,
       taskPacket: packet,
-      executionSelection: selection,
     }),
     cancellationSignal,
   );
@@ -5679,6 +5620,7 @@ async function executeAdviceRequest(
 function prepareRepositoryAdvicePacket(
   repositoryRootCapability: Repository,
   request: CoordinatorAiRequestInput,
+  selection: ExecutionSelection,
   cancellationSignal: AbortSignal,
 ): AdviceTaskPacket | null {
   if (
@@ -5700,16 +5642,18 @@ function prepareRepositoryAdvicePacket(
     if (observed.status !== "resolved") return null;
     const content = observed.source;
     if (cancellationSignal.aborted) return null;
-    const prepared = prepareAdviceTask({
-      executionSelection: request.executionSelection,
-      prompt: request.prompt,
-      projection: [
-        {
-          reference: PROJECT_CONTEXT_REFERENCE,
-          content,
-        },
-      ],
-    });
+    const prepared = prepareAdviceTask(
+      {
+        prompt: request.prompt,
+        projection: [
+          {
+            reference: PROJECT_CONTEXT_REFERENCE,
+            content,
+          },
+        ],
+      },
+      selection,
+    );
     return prepared.status === "prepared" ? prepared.taskPacket : null;
   } catch {
     return null;
@@ -5753,7 +5697,6 @@ function createAdviceRejectedResult(
 export type AdviceProviderInput = Readonly<{
   additionalHosts: readonly string[];
   taskPacket: AdviceTaskPacket;
-  executionSelection: ExecutionSelection;
 }>;
 
 /**
@@ -5777,8 +5720,13 @@ async function dispatchAdviceRequest(
   input: AdviceProviderInput,
   cancellationSignal: AbortSignal,
 ) {
-  const accepted = captureAdviceDispatchInput(input);
-  if (!accepted)
+  const network = snapshotPlainArray<string>(input.additionalHosts, 32);
+  if (
+    network.status !== "ok" ||
+    !network.value.every(
+      (host) => typeof host === "string" && host.length <= 253,
+    )
+  )
     return finishAdvice(
       createAdviceRejectedResult("workbench_ai_advice_dispatch_input_invalid"),
     );
@@ -5792,7 +5740,10 @@ async function dispatchAdviceRequest(
   try {
     observed = await executeAcceptedAdviceInput(
       context,
-      accepted,
+      Object.freeze({
+        additionalHosts: network.value,
+        taskPacket: input.taskPacket,
+      }),
       cancellationSignal,
     );
     response = projectAdviceOutcome(observed, cancellationSignal);
@@ -5848,41 +5799,6 @@ function projectAdviceOutcome(
     nextOptions: advice.nextOptions,
     candidate: null,
   });
-}
-
-/**
- * 助言の確定選定・Packet相関と追加通信先の値構造を確認する。
- * @responsibility 許可判断とDIのHost技術検査を代替せず、不正な搬送を拒否する。
- * @trace ARCH-000015
- * @input 捕捉済みの単発依頼。
- * @returns 固定選定とPacketの相関が成立する場合だけ、捕捉済み配送入力を返す。
- * @effect N/A: 値検査のみ。
- * @security 秘密・生出力を返さない。
- */
-function captureAdviceDispatchInput(
-  input: AdviceProviderInput,
-): AdviceProviderInput | null {
-  const network = snapshotPlainArray<string>(input.additionalHosts, 32);
-  const fixed = inspectExecutionSelection(input.executionSelection);
-  const taskPacket = input.taskPacket;
-  if (
-    network.status === "ok" &&
-    network.value.every(
-      (host) => typeof host === "string" && host.length <= 253,
-    ) &&
-    fixed !== null &&
-    fixed.role === "advice" &&
-    isDeepStrictEqual(
-      inspectExecutionSelection(taskPacket.executionSelection),
-      fixed,
-    )
-  )
-    return Object.freeze({
-      additionalHosts: network.value,
-      taskPacket,
-      executionSelection: fixed,
-    });
-  return null;
 }
 
 /**
@@ -5960,13 +5876,15 @@ async function executeAcceptedAdviceInput(
 ): Promise<ProviderAdviceRuntimeResult | null> {
   const executionInput = Object.freeze({
     additionalHosts: input.additionalHosts,
-    executionSelection: input.executionSelection,
     providerPrompt: input.taskPacket.providerPrompt,
     allowedReferences: input.taskPacket.allowedReferences,
     taskHash: input.taskPacket.taskHash,
     projectionHash: input.taskPacket.projectionHash,
   });
-  const prepared = prepareProviderAdviceInput(executionInput);
+  const prepared = prepareProviderAdviceInput(
+    executionInput,
+    input.taskPacket.executionSelection,
+  );
   if (!prepared)
     return blockAdviceRuntime(
       "workbench_ai_advice_execution_plan_invalid",
@@ -6233,19 +6151,26 @@ async function executeProviderAdvice(
       throw new AdviceRuntimeError(
         "workbench_ai_advice_provider_home_unavailable",
       );
-    const packet = issueProviderAdvicePacket({
-      operationId: operation.operationId,
-      executionSelection: plan.executionSelection,
-      provider,
-      taskHash: plan.taskHash,
-      projectionHash: plan.projectionHash,
-      providerPrompt: plan.providerPrompt,
-      allowedReferences: plan.allowedReferences,
-      additionalHosts: plan.additionalHosts,
-    }) as RuntimeRecord;
+    const packet = issueProviderAdvicePacket(
+      {
+        operationId: operation.operationId,
+        provider,
+        taskHash: plan.taskHash,
+        projectionHash: plan.projectionHash,
+        providerPrompt: plan.providerPrompt,
+        allowedReferences: plan.allowedReferences,
+        additionalHosts: plan.additionalHosts,
+      },
+      plan.executionSelection,
+    ) as RuntimeRecord;
     packetOwner = objectValue(packet.ownerCapability);
     const packetUse = objectValue(packet.useCapability);
-    if (packet.status !== "issued" || !packetOwner || !packetUse)
+    if (
+      packet.status !== "issued" ||
+      !packetOwner ||
+      !packetUse ||
+      typeof packet.packetRef !== "string"
+    )
       throw new AdviceRuntimeError(
         "workbench_ai_advice_runtime_packet_unavailable",
       );
@@ -6257,10 +6182,10 @@ async function executeProviderAdvice(
         managementCapability: operation.managementCapability,
         mountCapability: operation.mountCapability,
         providerHome,
-        executionSelection: plan.executionSelection,
         taskAttempt: 0,
         packetCapability: packetUse,
         packetOwnerCapability: packetOwner,
+        packetRef: packet.packetRef,
         recoveryCorrelationId: context.recoveryCorrelationId,
         consumer: "workbench",
       },
@@ -6701,7 +6626,8 @@ type TaskRole = "executor" | "reviewer";
 type AcceptedTaskRequest = Extract<
   NonNullable<ReturnType<typeof snapshotCoordinatorTaskRequest>>,
   { status: "accepted" }
->["request"];
+>["request"] &
+  Readonly<{ taskExecutionSelections: TaskExecutionSelections }>;
 
 /**
  * coordinator-task-runtimeで使用するInternal Task Outcomeの値契約を定義する。
@@ -7326,7 +7252,6 @@ function packetRequest(
     allowedPaths: request.allowedPaths,
     readPaths: request.readPaths,
     reviewerReadProjection,
-    executionSelection: request.executionSelection,
   });
 }
 
@@ -7576,8 +7501,9 @@ async function executeStage(
       taskAttempt,
       externalSendPolicyCapability,
       remediationCapability,
+      executionSelection,
       packetRequest(
-        { ...request, executionSelection, taskAttempt },
+        request,
         role === "reviewer" ? reviewerReadProjection : null,
       ),
     );
@@ -7591,7 +7517,12 @@ async function executeStage(
         "coordinator_task_remediation_recognized_secret_rejected",
       );
     }
-    if (packet?.status !== "issued" || !taskControl || !taskUse) {
+    if (
+      packet?.status !== "issued" ||
+      !taskControl ||
+      !taskUse ||
+      typeof packet.taskPacketRef !== "string"
+    ) {
       return revokeUnconsumed("coordinator_task_packet_issue_failed");
     }
     if (control.cancellationRequested) {
@@ -7604,9 +7535,9 @@ async function executeStage(
         managementCapability: operation.managementCapability,
         mountCapability: operation.mountCapability,
         providerHome: providerHome as PreparationInput["providerHome"],
-        executionSelection,
         taskAttempt,
         packetCapability: taskUse,
+        packetRef: packet.taskPacketRef,
         recoveryCorrelationId: control.recoveryCorrelationId,
         consumer: control.consumer,
       },
@@ -7798,6 +7729,7 @@ async function runCoordinatorTaskCore(
   rawRequest: unknown,
   repositoryRoot: unknown,
   control: ControlRecord,
+  selections: TaskExecutionSelections | undefined,
 ) {
   const blocked = (...args: Parameters<typeof blockTaskCompletion>) => {
     const source = blockTaskCompletion(...args);
@@ -7826,6 +7758,7 @@ async function runCoordinatorTaskCore(
   const requestOutcome = snapshotCoordinatorTaskRequest(rawRequest);
   if (
     !requestOutcome ||
+    !selections ||
     typeof repositoryRoot !== "string" ||
     !repositoryRoot
   ) {
@@ -7834,7 +7767,10 @@ async function runCoordinatorTaskCore(
   if (requestOutcome.status === "blocked") {
     return blocked(requestOutcome.reason);
   }
-  const request = requestOutcome.request;
+  const request = Object.freeze({
+    ...requestOutcome.request,
+    taskExecutionSelections: selections,
+  });
   const repositoryPreflight =
     inspectRepositoryObjectFormatCandidate(repositoryRoot);
   if (repositoryPreflight?.status !== "candidate") {
@@ -8215,11 +8151,13 @@ async function runCoordinatorTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
   control: ControlRecord,
+  selections: TaskExecutionSelections | undefined,
 ): Promise<InternalTaskOutcome> {
   const rawResult = await runCoordinatorTaskCore(
     rawRequest,
     repositoryRoot,
     control,
+    selections,
   );
   const snapshot = snapshotRuntimeRecord(rawResult);
   if (!snapshot) {
@@ -8343,6 +8281,7 @@ function startTask(
   workspaceTarget?: BorrowedExecutionTarget,
   executionMetadata: Readonly<Record<string, string>> = {},
   hostInput?: HostOperationRecording,
+  selections?: TaskExecutionSelections,
 ) {
   if (
     consumer !== "coordinator_cli" &&
@@ -8389,6 +8328,7 @@ function startTask(
     rawRequest,
     repositoryRoot,
     control,
+    selections,
   )
     .then(async ({ publicResult, dockerCleanupEligible }) => {
       // runCoordinatorTaskが捕捉した値と整形済みの回復参照だけを受け取る。
@@ -8625,6 +8565,7 @@ export function startCoordinatorTask(
   rawWorkspaceTarget?: BorrowedExecutionTarget,
   executionMetadata: Readonly<Record<string, string>> = {},
   hostInput?: HostOperationRecording,
+  selections?: TaskExecutionSelections,
 ) {
   if (isExecutionProcessPoisoned()) {
     throw new Error("coordinator_task_process_restart_required");
@@ -8656,6 +8597,7 @@ export function startCoordinatorTask(
     workspaceTarget,
     executionMetadata,
     hostInput,
+    selections,
   );
 }
 

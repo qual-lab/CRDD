@@ -8,7 +8,7 @@
  * @boundary PRL-UT-006=Direct Boundary: メモリ内の保存本文。
  */
 
-import { hashExecutionStateContent } from "../../../src/state/operations.ts";
+import { hashExecutionStateContent } from "../../../src/composition/validation.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -18,13 +18,10 @@ import { runInNewContext, runInThisContext } from "node:vm";
 import {
   decodeStateSnapshot,
   prepareHistoryRetention,
-} from "../../../src/state/validation.ts";
-import { encodeStateValue } from "../../../src/state/operations.ts";
-import {
-  validState,
-  captureTaskExecutionUpdate,
-  prepareTaskExecutionUpdate,
-} from "../../../src/task/validation.ts";
+} from "../../../src/composition/transition.ts";
+import { encodeStateValue } from "../../../src/composition/validation.ts";
+import { validState } from "../../../src/task/validation.ts";
+import { captureTaskExecutionUpdate, prepareTaskExecutionUpdate } from "../../../src/task/transition.ts";
 
 /**
  * @responsibility 準備Readerの拒否理由と解放不明を内部結果へ保持する。
@@ -218,7 +215,7 @@ import {
   type OperationResources,
   type ProjectExecutionState,
 } from "../../../src/index.ts";
-import type { ExecutionStateSnapshot } from "../../../src/state/types.ts";
+import type { ExecutionStateSnapshot } from "../../../src/composition/types.ts";
 import {
   classifyResourcePublication,
   EXECUTION_STATE_SCHEMA,
@@ -227,8 +224,8 @@ import {
   projectTaskSettlement,
   validateStateTransition,
   validateUnifiedTransition,
-} from "../../../src/state/validation.ts";
-import { prepareUnifiedTaskSnapshot } from "../../../src/state/validation.ts";
+} from "../../../src/composition/transition.ts";
+import { prepareUnifiedTaskSnapshot } from "../../../src/composition/transition.ts";
 import {
   createResourceBookFixture,
   createResourceOperationFixture,
@@ -856,23 +853,28 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.equal(areTaskResourcesSettled(badEvidence), false);
   // 実Writer外側の値差分guardだけを分離する。Kernel/FSの成立はHost試験が所有する。
   const storeSource = fs.readFileSync(
-    new URL("../../../src/storage/publication.ts", import.meta.url),
+    new URL("../../../src/storage/store.ts", import.meta.url),
     "utf8",
   );
   const helperSource = fs.readFileSync(
-    new URL("../../../src/attempt/operations.ts", import.meta.url),
+    new URL("../../../src/attempt/transition.ts", import.meta.url),
     "utf8",
   );
   const helperStart = helperSource.indexOf(
-    "export function authenticationUnknownAbsenceChanged(",
+    "export function hasAuthenticationUnknownAbsence(",
   );
-  const nextHelper = helperSource.indexOf("\n/**", helperStart);
+  const differenceStart = helperSource.indexOf(
+    "export function authenticationUnknownAbsenceChanged(",
+    helperStart,
+  );
+  assert.ok(differenceStart > helperStart);
+  const nextHelper = helperSource.indexOf("\n/**", differenceStart);
   const helperEnd = nextHelper < 0 ? helperSource.length : nextHelper;
   const guardStart = storeSource.indexOf(
     "  if (\n    !currentAuthenticationClosure &&",
   );
   const guardEnd = storeSource.indexOf(
-    "  const acquisition = acquireStorageOwnerForRepository(repository);",
+    "  const acquisition = historyOwner",
     guardStart,
   );
   assert.ok(
@@ -971,6 +973,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           currentHistory: null,
           currentCompletion: null,
           currentRepair: null,
+          taskHistoryState: null,
           settlement,
           candidate: decodedTarget,
           bytes: targetBytes,
@@ -1025,6 +1028,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       currentDelivery: null,
       currentCompletion: null,
       currentRepair: null,
+      taskHistoryState: null,
       settlement: {},
       candidate: closedDecoded,
       bytes: limitedClosed,
@@ -2032,7 +2036,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       false,
     );
     const modelSource = fs.readFileSync(
-      new URL("../../../src/attempt/validation.ts", import.meta.url),
+      new URL("../../../src/attempt/transition.ts", import.meta.url),
       "utf8",
     );
     const guardStart = modelSource.indexOf("const sameHostContinuation =");
@@ -4493,6 +4497,6 @@ import {
   prepareStateReferencesSnapshot,
   prepareStateResourceSnapshot,
   prepareStateRestartSnapshot,
-} from "../../../src/state/validation.ts";
+} from "../../../src/composition/transition.ts";
 
-import { prepareStateOperationSnapshot } from "../../../src/state/validation.ts";
+import { prepareStateOperationSnapshot } from "../../../src/composition/transition.ts";

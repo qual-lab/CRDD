@@ -245,7 +245,7 @@ async function withExecutionStateSave(
   execute: (
     dispatch: typeof runTestCoordinatorOperation,
   ) => ReturnType<typeof runTestCoordinatorOperation>,
-  read?: typeof executionModel.readState<"execution">,
+  read?: typeof executionModel.readExecutionState,
 ) {
   const storage = mock.module(
     new URL("../../../execution-model/src/index.ts", import.meta.url).href,
@@ -253,7 +253,7 @@ async function withExecutionStateSave(
       namedExports: {
         ...executionModel,
         saveProjectExecutionState: save,
-        ...(read ? { readState: read } : {}),
+        ...(read ? { readExecutionState: read } : {}),
       },
     },
   );
@@ -1889,8 +1889,7 @@ test("開始候補の輸送不正は各保存境界で後続処理を停止す�
         (...args) => {
           assert.strictEqual(args[0], original.repository);
           assert.equal(args[1], original.repositoryBindingId);
-          assert.equal(args[2], "execution");
-          const result = executionModel.readState(...args);
+          const result = executionModel.readExecutionState(...args);
           return stage === "read" &&
             result.status === "completed" &&
             result.value

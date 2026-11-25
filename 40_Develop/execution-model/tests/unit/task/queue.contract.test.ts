@@ -18,17 +18,17 @@ import type {
   QueueEnqueueInput,
   WorkspaceRecord,
 } from "../../../src/index.ts";
-import type { Snapshot } from "../../../src/state/types.ts";
-import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
+import type { Snapshot } from "../../../src/composition/types.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/composition/types.ts";
 import {
   projectCurrentState,
   snapshotRequestMatches,
-} from "../../../src/state/validation.ts";
+} from "../../../src/composition/transition.ts";
 import {
   encodeStateValue,
   snapshotStateArray,
   snapshotStateRecord,
-} from "../../../src/state/operations.ts";
+} from "../../../src/composition/validation.ts";
 import {
   prepareQueueEntryCreation,
   projectQueueEntry,

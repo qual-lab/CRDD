@@ -109,7 +109,7 @@ const storageOwners = new WeakMap<
  * 実発行した保存Ownerの内部結合だけを取得する。
  * @responsibility 私有Mapを外へ渡さず、保存処理の既存照合点へ同じ記録を返す。
  * @trace ARCH-000004、ARCH-000008
- * @input owner: 既存保存Ownerの候補。
+ * @input owner: 既存保存Ownerの候補。repository指定時は登録済み結合との一致も要求する。
  * @returns 実発行記録、又はundefined。
  * @precondition 生存・Root再照合は呼出し側の既存検査点で行う。
  * @postcondition 値が等しいだけのObjectを受け入れない。
@@ -120,8 +120,17 @@ const storageOwners = new WeakMap<
  * @security 入力のPropertyやcallbackを評価しない。
  * @concurrency 取得・消費・解放の順序は変更しない。
  */
-export function readStorageOwnerBinding(owner: object) {
-  return storageOwners.get(owner);
+export function readStorageOwnerBinding(
+  owner: object,
+  repository?: Readonly<{ repositoryRoot: string; repositoryBinding: string }>,
+) {
+  const binding = storageOwners.get(owner);
+  return binding &&
+    (!repository ||
+      (binding.repository.repositoryRoot === repository.repositoryRoot &&
+        binding.repository.repositoryBinding === repository.repositoryBinding))
+    ? binding
+    : undefined;
 }
 
 /**
@@ -225,13 +234,9 @@ export function borrowStorageOwner(
   repository: Readonly<{ repositoryRoot: string; repositoryBinding: string }>,
 ) {
   if (!owner || typeof owner !== "object") return null;
-  const binding = storageOwners.get(owner);
   try {
-    return binding &&
-      binding.repository.repositoryRoot === repository.repositoryRoot &&
-      binding.repository.repositoryBinding === repository.repositoryBinding &&
-      binding.repository.revalidate() &&
-      binding.lock.assertLive()
+    const binding = readStorageOwnerBinding(owner, repository);
+    return binding?.repository.revalidate() && binding.lock.assertLive()
       ? binding
       : null;
   } catch {
@@ -352,6 +357,7 @@ export function readHistoryRetentionDays(
     | {
         historyRetentionDays?: number | null;
         revalidate: (expectedHistoryRetentionDays?: number) => boolean;
+        revalidateRetention?: (expectedHistoryRetentionDays: number) => boolean;
       }
     | undefined,
 ): number | null {
@@ -363,6 +369,12 @@ export function readHistoryRetentionDays(
     !Number.isSafeInteger(days * 86_400_000)
   )
     return null;
+  if (repository && repository.revalidateRetention !== undefined)
+    return typeof repository.revalidateRetention === "function" &&
+      repository.revalidate(undefined) === true &&
+      repository.revalidateRetention(days) === true
+      ? days
+      : null;
   return repository?.revalidate(days) === true ? days : null;
 }
 
@@ -393,14 +405,34 @@ export function normalizeFileId(ino: bigint): bigint {
 /**
  * 保存起点の物理実体に結合する保存識別値を取得する。
  * @trace ARCH-000008
- * @input directory: 利用側が確定した正規絶対ディレクトリ。
- * @returns 保存識別値、または観測不能のnull。
+ * @input directory: 利用側が確定した正規絶対ディレクトリ。expectedBinding: すでに捕捉した同じディレクトリの保存識別値（再照合時）。
+ * @returns 保存識別値、または不一致・観測不能のnull。
  * @effect Filesystem実体の読取りのみ。
  * @security 操作権限を発行せず、Gitや保存本文から対象を復元しない。
  */
-export function readExecutionStorageBinding(directory: string): string | null {
+export function readExecutionStorageBinding(
+  directory: string,
+  expectedBinding?: string,
+): string | null {
+  if (expectedBinding === undefined)
+    return observeStorageBinding(directory, "bind");
+  const current = observeStorageBinding(directory, "verify");
+  return current === expectedBinding ? current : null;
+}
+
+/**
+ * 初回は正規パス確認の前後で実体を固定する。再照合は正規パス確認の後に
+ * 現物を一度観測し、初回の結合値との照合に使う。
+ * @boundary 正規パスと実体は観測であり、非協調Processの置換を原子的に防止しない。
+ */
+function observeStorageBinding(
+  directory: string,
+  phase: "bind" | "verify",
+): string | null {
   try {
     if (!path.isAbsolute(directory) || path.resolve(directory) !== directory)
+      return null;
+    if (phase === "verify" && fs.realpathSync.native(directory) !== directory)
       return null;
     const before = fs.lstatSync(directory, { bigint: true });
     const ino = normalizeFileId(before.ino);
@@ -412,19 +444,21 @@ export function readExecutionStorageBinding(directory: string): string | null {
       typeof ino !== "bigint" ||
       before.dev <= 0n ||
       ino <= 0n ||
-      before.birthtimeNs <= 0n ||
-      fs.realpathSync.native(directory) !== directory
+      before.birthtimeNs <= 0n
     )
       return null;
-    const after = fs.lstatSync(directory, { bigint: true });
-    if (
-      !after.isDirectory() ||
-      after.isSymbolicLink() ||
-      after.dev !== before.dev ||
-      normalizeFileId(after.ino) !== ino ||
-      after.birthtimeNs !== before.birthtimeNs
-    )
-      return null;
+    if (phase === "bind") {
+      if (fs.realpathSync.native(directory) !== directory) return null;
+      const after = fs.lstatSync(directory, { bigint: true });
+      if (
+        !after.isDirectory() ||
+        after.isSymbolicLink() ||
+        after.dev !== before.dev ||
+        normalizeFileId(after.ino) !== ino ||
+        after.birthtimeNs !== before.birthtimeNs
+      )
+        return null;
+    }
     return createHash("sha256")
       .update("crdd-execution-storage-directory/v1\0")
       .update(
@@ -588,7 +622,8 @@ export function observeExecutionStorageRepository(
               data(historyInput, "revalidate"),
               expectedHistoryRetentionDays,
             ) === true) &&
-          readExecutionStorageBinding(repositoryRoot) === repositoryBinding
+          readExecutionStorageBinding(repositoryRoot, repositoryBinding) !==
+            null
         );
       },
     });
@@ -858,12 +893,12 @@ export function observeExecutionContentRepository(
   access: unknown,
   operation:
     | Parameters<
-        import("../state/types.ts").ExecutionModelAccess["revalidate"]
+        import("../composition/types.ts").ExecutionModelAccess["revalidate"]
       >[0]
     | "operation.record",
   target:
     | Parameters<
-        import("../state/types.ts").ExecutionModelAccess["revalidate"]
+        import("../composition/types.ts").ExecutionModelAccess["revalidate"]
       >[1]
     | Readonly<{ operationId: string }>,
 ) {

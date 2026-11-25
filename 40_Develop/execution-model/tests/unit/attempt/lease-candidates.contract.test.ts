@@ -8,15 +8,13 @@
  * @boundary メモリの局所fixtureだけ。実Lock・保存・全体codec・回復完了の根拠ではない。
  */
 
-import { leaseIdentity } from "../../../src/state/operations.ts";
-import { hashStateText } from "../../../src/state/operations.ts";
+import { leaseIdentity } from "../../../src/composition/validation.ts";
+import { hashStateText } from "../../../src/composition/validation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { ProjectQueueEntry } from "../../../src/index.ts";
-import type {
-  LeaseEvidenceEnvelope,
-  Snapshot,
-} from "../../../src/state/types.ts";
+import type { Snapshot } from "../../../src/composition/types.ts";
+import type { LeaseEvidenceEnvelope } from "../../../src/lease/types.ts";
 import {
   prepareLeaseAcquisitionConfirmation,
   prepareLeaseAcquisitionReservation,
@@ -27,9 +25,9 @@ import {
   prepareReleasedLeaseReconciliation,
   projectLeaseAcquisitionOwner,
   projectLeaseOwnerLossState,
-} from "../../../src/state/lease.ts";
-import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
-import { encodeStateValue } from "../../../src/state/operations.ts";
+} from "../../../src/lease/crud.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/composition/types.ts";
+import { encodeStateValue } from "../../../src/composition/validation.ts";
 
 /**
  * 九用途の局所元版を作る。
@@ -267,10 +265,8 @@ test("取得予約は前提拒否・資源不明・Root例外でmarkを発行し
   const run = (state: Snapshot, ops = observations().ops) =>
     prepareLeaseAcquisitionReservation(
       state,
-      "binding-a",
       "project-a",
       "queue-a",
-      "project-operation",
       f.identity,
       f.intent,
       ops,
@@ -827,5 +823,42 @@ test("LeaseとQueueは未捕捉tupleの実行Propertyを評価しない", async 
       );
       assert.equal(traps, 0, name + ":" + kind);
     }
+  }
+});
+
+/** 旧採用専用Leaseを保存先照会より前に拒否する。 @trace PRL-UT-006 */
+test("廃止した採用専用Leaseを公開受付で拒否する", async () => {
+  const model = await import("../../../src/index.ts");
+  const old = "canonical-adoption";
+  const scope = ["project-a", "canonical", old];
+  const cases = [
+    ["readLease", "owner_loss", [...scope, {}]],
+    [
+      "acquireLease",
+      "intent",
+      [...scope, { ownerGeneration: "owner-a", ownerProcessId: 7 }, {}],
+    ],
+    [
+      "acquireLease",
+      "observed",
+      ["binding-a", ...scope, ...Array(6).fill(null)],
+    ],
+    ["recoverLease", "reconcile", [...scope, ...Array(3).fill(null)]],
+    ["recoverLease", "intent", [...scope, ...Array(5).fill(null)]],
+    [
+      "recoverLease",
+      "observed",
+      ["binding-a", ...scope, ...Array(6).fill(null)],
+    ],
+  ] as const;
+  for (const [name, kind, input] of cases) {
+    const result = Reflect.apply(model[name], undefined, [
+      {},
+      "binding-a",
+      { kind, input },
+    ]);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "coordinator_snapshot_input_invalid");
+    assert.equal(result.recoveryId, null);
   }
 });

@@ -3,33 +3,38 @@
  * @responsibility 共通保存処理へ接続し、既存の排他・改訂検査・通知順序を維持する。
  * @trace ARCH-000008
  */
-import { adoptionWasRejected } from "../workspace/validation.ts";
 import type { StorageRootInput } from "../storage/lock.ts";
 import { prepareDecisionRetirement } from "../decision/validation.ts";
 import {
   observeSnapshotObligations,
   withSnapshotOperation,
   queueIsClosed,
-  rejectedAdoptionEvidenceCanRetire,
-  standaloneAdoptionIsClosed,
-} from "../state/crud.ts";
-import { PROJECT_SNAPSHOT_SCHEMA } from "../state/types.ts";
-import { encodeStateValue } from "../state/operations.ts";
+} from "../composition/crud.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../composition/types.ts";
+import {
+  prepareRecoveredHistoryPublication,
+  prepareRepairHistoryPublication,
+} from "../composition/transition.ts";
+import { encodeStateValue } from "../composition/validation.ts";
 import type { HistoryRepositoryInput, StoreResult } from "../storage/lock.ts";
-import { blocked, completed } from "../storage/lock.ts";
+import {
+  acquireStorageOwnerForRepository,
+  blocked,
+  completed,
+  readHistoryRetentionDays,
+  type StorageOwner,
+} from "../storage/lock.ts";
+import type { RecoveryHistoryRepository } from "../storage/store.ts";
 import {
   publishRecoveryState,
   writeStateSnapshot,
-} from "../storage/publication.ts";
-import type { StorageRepository } from "../storage/store.ts";
-import {
   inspectDecisionHistorySettlement,
   inspectHistorySettlement,
   readStateSnapshot,
   updateHistoryOwned,
 } from "../storage/store.ts";
 import type { HistoryRow } from "./types.ts";
-import type { Snapshot, SnapshotObservations } from "../state/types.ts";
+import type { Snapshot, SnapshotObservations } from "../composition/types.ts";
 /**
  * 終了要約の生成、履歴確定、実行IDの保持を接続する。
  * @responsibility 閉じたQueueと専属の終了証拠を現在状態から退役する。
@@ -140,140 +145,232 @@ export function transferHistory(
  * 対象の終了要約固定から履歴確定までを一つの保存操作として実行する。
  * @responsibility 保存段階とfresh確認をHistory内に閉じ、元対象・Ownerを維持する。
  * @trace ARCH-000008
- * @input repository、recoveryId、assertOwner、operationKind: 元保存Ownerとexact対象。
+ * @input repository、recoveryId、assertOwner、operationKind: 元保存Ownerとexact対象。所有者・設定の再確認は同期観測に限定し、保存領域を書き換えない。
  * @returns 履歴確認、最終Snapshot確認、Lock解放、累積Effectを区別した結果。
  * @precondition docker_task又はdocker_repairの終端条件が既存Readerで成立する。
- * @postcondition 最大二回の保存と最終fresh読取りが揃うまで履歴確認済みにしない。
+ * @postcondition 確定済みの再入場、または最大二回の保存と単一Lockの解放後だけ履歴確認済みにする。
  * @effect 既存のRepository-local現在状態と履歴だけ。
  * @failure 段階不変・別対象・保存/読取り/排他不明では次段へ進まず保全する。
  * @invariant 保持判断、Task配送、Operation除去、Host処置は実施しない。
  * @boundary 完成した履歴保存と私有Reader/Writer。
  * @security 任意Path・候補・時刻や用途間fallbackを受け付けない。
- * @concurrency 各段で同じ現在Ownerを確認し、既存短期Lockと単一Writerを使う。
+ * @concurrency 既存短期Lockを操作全体で一度だけ取得・解放する。各段は同じOwnerを借用する。
  */
 export function saveRecoveryHistory(
-  repository: StorageRepository & { operationId: string },
+  repository: RecoveryHistoryRepository,
   recoveryId: string,
   assertOwner: () => boolean,
   operationKind: "docker_task" | "docker_repair",
 ) {
-  let filesystemEffectIssued: boolean | null = false;
-  let writing = false;
-  let lockReleased = true;
+  const progress: { filesystemEffectIssued: boolean | null; writing: boolean } =
+    { filesystemEffectIssued: false, writing: false };
   const refused = () =>
     Object.freeze({
       ...writeStateSnapshot(null, null, null, null),
       historyConfirmed: false,
-      filesystemEffectIssued,
-      lockReleased,
+      filesystemEffectIssued: progress.filesystemEffectIssued,
     });
   if (operationKind !== "docker_task" && operationKind !== "docker_repair")
     return refused();
-  let nextStage: "publish" | "confirmed" | null = null;
-  let identityJson: string | null = null;
-  try {
-    for (let step = 0; step <= 2; step++) {
-      if (typeof assertOwner !== "function" || assertOwner() !== true)
-        return refused();
-      lockReleased = false;
-      const observed = readStateSnapshot(
-        repository,
-        recoveryId,
-        recoveryId,
-        null,
-        operationKind,
-      );
-      lockReleased = observed.lockReleased;
-      const publication = observed.currentHistoryPublication;
-      const operation = observed.value?.snapshot.operations.find(
-        (item) => item.kind === operationKind && item.recoveryId === recoveryId,
-      );
+  const save = (owner: StorageOwner) => {
+    const observed = readStateSnapshot(
+      repository,
+      recoveryId,
+      recoveryId,
+      null,
+      operationKind,
+      "docker_task",
+      false,
+      null,
+      null,
+      owner,
+    );
+    const initial = observed.currentHistoryPublication;
+    const operation = observed.value?.snapshot.operations.find(
+      (item) => item.kind === operationKind && item.recoveryId === recoveryId,
+    );
+    if (
+      observed.status !== "completed" ||
+      !observed.value ||
+      !("ownerHeld" in observed) ||
+      !initial ||
+      !operation ||
+      operation.kind === "host_operation" ||
+      assertOwner() !== true
+    )
+      return Object.freeze({ ...refused(), reason: observed.reason });
+    if (initial.operationKind !== operationKind) return refused();
+    if (!initial.needsWrite) {
       if (
-        observed.status !== "completed" ||
-        !observed.value ||
-        !observed.lockReleased ||
-        !publication ||
-        !operation ||
-        operation.kind === "host_operation" ||
-        assertOwner() !== true
+        initial.stage !== "confirmed" ||
+        operation.history?.confirmed !== true
       )
+        return refused();
+      return Object.freeze({
+        status: "completed" as const,
+        reason: "coordinator_state_snapshot_confirmed",
+        revision: observed.value.snapshot.revision,
+        payloadSha256: observed.value.payloadSha256,
+        snapshotConfirmed: true,
+        filesystemEffectIssued: progress.filesystemEffectIssued,
+        historyConfirmed: true,
+      });
+    }
+    let publication = initial;
+    for (let step = 0; step < 2; step++) {
+      if (
+        publication.stage === "confirmed" ||
+        publication.stage === "terminal_checkpoint"
+      )
+        return refused();
+      progress.writing = true;
+      const saved = publishRecoveryState(
+        {
+          kind: "current_history" as const,
+          operationKind: publication.operationKind,
+          repository,
+          recoveryId,
+          before: Buffer.from(publication.before),
+          candidate: Buffer.from(publication.candidate),
+          stage: publication.stage,
+          historyFile:
+            publication.historyFile === null
+              ? null
+              : {
+                  bytes: Buffer.from(publication.historyFile.bytes),
+                  identity: publication.historyFile.identity,
+                },
+          pendingHistoryFile:
+            publication.pendingHistoryFile === null
+              ? null
+              : {
+                  bytes: Buffer.from(publication.pendingHistoryFile.bytes),
+                  identity: publication.pendingHistoryFile.identity,
+                },
+          retentionDays: publication.retentionDays,
+          ...(publication.taskState
+            ? { taskState: publication.taskState }
+            : {}),
+          assertOwner,
+        },
+        owner,
+      );
+      progress.writing = false;
+      if (saved.filesystemEffectIssued) progress.filesystemEffectIssued = true;
+      if (saved.status !== "completed" || !saved.snapshotConfirmed)
         return Object.freeze({
-          ...refused(),
-          reason: observed.reason,
-          lockReleased: observed.lockReleased,
+          ...saved,
+          filesystemEffectIssued: progress.filesystemEffectIssued,
+          historyConfirmed: false,
         });
-      if (
-        publication.operationKind !== operationKind ||
-        (nextStage !== null && publication.stage !== nextStage) ||
-        (identityJson !== null && operation.identityJson !== identityJson)
-      )
-        return refused();
-      identityJson = operation.identityJson;
-      if (!publication.needsWrite) {
-        if (
-          publication.stage !== "confirmed" ||
-          operation.history?.confirmed !== true
-        )
-          return refused();
+      if (publication.stage === "publish") {
         return Object.freeze({
           status: "completed" as const,
-          reason: "coordinator_state_snapshot_confirmed",
-          revision: observed.value.snapshot.revision,
-          payloadSha256: observed.value.payloadSha256,
+          reason: saved.reason,
+          revision: saved.revision,
+          payloadSha256: saved.payloadSha256,
           snapshotConfirmed: true,
-          lockReleased: true,
-          filesystemEffectIssued,
+          filesystemEffectIssued: progress.filesystemEffectIssued,
           historyConfirmed: true,
         });
       }
-      if (step === 2 || publication.stage === "confirmed") return refused();
-      writing = true;
-      lockReleased = false;
-      const saved = publishRecoveryState({
-        kind: "current_history" as const,
-        operationKind: publication.operationKind,
-        repository,
+      // この呼出しが同じLock内で確定した本文だけを次段の元版にする。
+      // 上位へは渡さず、Writerが次段の現物と元版・履歴・設定を再照合する。
+      if (assertOwner() !== true) return refused();
+      const retentionDays = readHistoryRetentionDays(repository);
+      if (retentionDays === null) return refused();
+      const input = [
+        publication.candidate,
         recoveryId,
-        before: Buffer.from(publication.before),
-        candidate: Buffer.from(publication.candidate),
-        stage: publication.stage,
-        historyFile:
-          publication.historyFile === null
-            ? null
-            : {
-                bytes: Buffer.from(publication.historyFile.bytes),
-                identity: publication.historyFile.identity,
+        publication.historyFile?.bytes ?? Buffer.alloc(0),
+        null,
+        retentionDays,
+        repository.repositoryBinding,
+      ] as const;
+      const taskNext =
+        operationKind === "docker_task"
+          ? prepareRecoveredHistoryPublication(
+              ...input,
+              publication.taskState
+                ? { current: publication.taskState.candidate }
+                : undefined,
+            )
+          : null;
+      const next =
+        operationKind === "docker_task"
+          ? taskNext
+          : prepareRepairHistoryPublication(...input);
+      if (!next) return refused();
+      publication = {
+        ...publication,
+        stage: "publish",
+        before: publication.candidate,
+        candidate: next.snapshotBytes,
+        retentionDays,
+        ...(taskNext && publication.taskState
+          ? {
+              taskState: {
+                ...publication.taskState,
+                owner,
+                before: publication.taskState.candidate,
+                candidate: {
+                  bytes: taskNext.snapshotBytes,
+                  decoded: taskNext.decoded,
+                },
               },
-        pendingHistoryFile:
-          publication.pendingHistoryFile === null
-            ? null
-            : {
-                bytes: Buffer.from(publication.pendingHistoryFile.bytes),
-                identity: publication.pendingHistoryFile.identity,
-              },
-        retentionDays: publication.retentionDays,
-        assertOwner,
-      });
-      writing = false;
-      lockReleased = saved.lockReleased;
-      if (saved.filesystemEffectIssued) filesystemEffectIssued = true;
-      if (
-        saved.status !== "completed" ||
-        !saved.snapshotConfirmed ||
-        !saved.lockReleased
-      )
-        return Object.freeze({
-          ...saved,
-          filesystemEffectIssued,
-          historyConfirmed: false,
-        });
-      nextStage = publication.stage === "checkpoint" ? "publish" : "confirmed";
+            }
+          : {}),
+      };
     }
+    return refused();
+  };
+  let owner: StorageOwner | null = null;
+  let result: ReturnType<typeof save>;
+  let lockReleased = true;
+  try {
+    if (typeof assertOwner !== "function" || assertOwner() !== true)
+      return refused();
+    const acquired = acquireStorageOwnerForRepository(repository);
+    if (acquired.status !== "completed")
+      return Object.freeze({
+        ...refused(),
+        reason: acquired.reason,
+        lockReleased: false,
+      });
+    owner = acquired.value;
+    result = save(owner);
   } catch {
-    if (writing && filesystemEffectIssued !== true)
-      filesystemEffectIssued = null;
+    if (progress.writing && progress.filesystemEffectIssued !== true)
+      progress.filesystemEffectIssued = null;
+    result = refused();
+  } finally {
+    if (owner) {
+      try {
+        lockReleased = owner.release();
+      } catch {
+        lockReleased = false;
+      }
+    }
   }
-  return refused();
+  if (lockReleased && result.historyConfirmed) {
+    // 旧Readerと同じく、解放後の現在Ownerは本文を開き直さず確認する。
+    try {
+      if (assertOwner() !== true) result = refused();
+    } catch {
+      result = refused();
+    }
+  }
+  return Object.freeze({
+    ...result,
+    ...(lockReleased
+      ? {}
+      : {
+          status: "blocked" as const,
+          reason: "coordinator_state_lock_release_unconfirmed",
+          historyConfirmed: false,
+        }),
+    lockReleased,
+  });
 }
 
 /**
@@ -320,24 +417,6 @@ function prepareHistoryPending(
         cleanup: "confirmed",
       }),
     );
-  for (const record of current.results) {
-    if (
-      current.historyPending.some((row) => row.id === record.identity) ||
-      !standaloneAdoptionIsClosed(
-        current,
-        record.identity,
-        observations.obligations(),
-      )
-    )
-      continue;
-    rows.push({
-      id: record.identity,
-      occurredAt: new Date(now).toISOString(),
-      outcome: adoptionWasRejected(record) ? "failed" : "completed",
-      primaryFailure: adoptionWasRejected(record) ? "execution" : null,
-      cleanup: "confirmed",
-    });
-  }
   return historyCandidateCompleted("coordinator_history_prepared", {
     next: rows.length
       ? { ...current, historyPending: [...current.historyPending, ...rows] }
@@ -370,11 +449,7 @@ function prepareTerminalRecordRetirement(
 ) {
   const retired = new Set<string>();
   for (const row of current.historyPending) {
-    if (
-      !queueIsClosed(current, row.id, observations.obligations()) &&
-      !standaloneAdoptionIsClosed(current, row.id, observations.obligations())
-    )
-      continue;
+    if (!queueIsClosed(current, row.id, observations.obligations())) continue;
     const disposition = observations.historySettlement(row);
     if (disposition !== "recorded" && disposition !== "expired")
       return historyCandidateBlocked(
@@ -400,83 +475,20 @@ function prepareTerminalRecordRetirement(
             (item) =>
               !current.queueEntries.some(
                 (queue) =>
-                  item.content.kind === "project-operation" &&
                   retired.has(queue.queueId) &&
                   queue.queueId === item.content.queueId &&
                   queue.projectId === item.projectId,
-              ) &&
-              !rejectedAdoptionEvidenceCanRetire(
-                current,
-                {
-                  ...current,
-                  results: current.results.filter(
-                    (record) => !retired.has(record.identity),
-                  ),
-                },
-                item,
-                observations.obligations(),
-              ) &&
-              !(
-                item.content.kind === "canonical-adoption" &&
-                !current.results.some(
-                  (record) =>
-                    record.kind === "adoption" &&
-                    record.projectId === item.projectId &&
-                    ((!retired.has(record.identity) &&
-                      !current.queueEntries.some(
-                        (queue) =>
-                          retired.has(queue.queueId) &&
-                          queue.queueId === record.queueId &&
-                          queue.projectId === record.projectId &&
-                          queue.milestoneId === record.milestoneId,
-                      )) ||
-                      current.projects.some(
-                        (project) =>
-                          project.milestone.criterionEvidenceIds.includes(
-                            record.identity,
-                          ) ||
-                          project.objectives.some((objective) =>
-                            objective.criterionEvidenceIds.includes(
-                              record.identity,
-                            ),
-                          ),
-                      ) ||
-                      current.queueEntries.some(
-                        (queue) =>
-                          !retired.has(queue.queueId) &&
-                          queue.resultReference === record.identity,
-                      )),
-                ) &&
-                !current.queueEntries.some(
-                  (queue) => queue.projectId === item.projectId,
-                ) &&
-                current.historyPending.some(
-                  (row) =>
-                    retired.has(row.id) &&
-                    (current.queueEntries.some(
-                      (queue) =>
-                        queue.queueId === row.id &&
-                        queue.projectId === item.projectId,
-                    ) ||
-                      current.results.some(
-                        (record) =>
-                          record.identity === row.id &&
-                          record.projectId === item.projectId &&
-                          !adoptionWasRejected(record),
-                      )),
-                )
               ),
           ),
           results: current.results.filter(
             (item) =>
-              (!current.queueEntries.some(
+              !current.queueEntries.some(
                 (queue) =>
                   retired.has(queue.queueId) &&
                   queue.queueId === item.queueId &&
                   queue.projectId === item.projectId &&
                   queue.milestoneId === item.milestoneId,
-              ) &&
-                !retired.has(item.identity)) ||
+              ) ||
               current.projects.some(
                 (project) =>
                   project.milestone.criterionEvidenceIds.includes(

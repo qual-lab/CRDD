@@ -20,12 +20,15 @@ import type {
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
 import {
   applyResourceEvent,
-  type ExecutionStateSnapshot,
   type OperationResources,
 } from "../../../execution-model/src/index.ts";
 import { createResourceOperationFixture } from "../../../execution-model/tests/support/resource-operation.ts";
+import { parseStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { canonicalJson } from "./contract-assertions.ts";
+import {
+  canonicalJson,
+  fixtureVersionEvidence,
+} from "./contract-assertions.ts";
 import { sourceUrl } from "./task-requests.ts";
 
 /**
@@ -137,9 +140,7 @@ export async function createRecoveryFixture(
     })}\n`,
   );
   const read = () => {
-    const snapshot = JSON.parse(
-      bytes.toString("utf8"),
-    ) as ExecutionStateSnapshot;
+    const snapshot = parseStoredExecutionFixture(bytes.toString("utf8"));
     return {
       snapshot,
       // この有限fixtureは再起動なし。回収通知の前後という既知の段階だけを投影する。
@@ -176,7 +177,7 @@ export async function createRecoveryFixture(
         };
       }),
       payloadSha256: createHash("sha256").update(bytes).digest("hex"),
-      sourceText: bytes.toString("utf8"),
+      versionEvidence: fixtureVersionEvidence(bytes),
     };
   };
   const initialObserved = read();
@@ -238,7 +239,7 @@ export async function createRecoveryFixture(
                 payloadSha256: createHash("sha256")
                   .update(previous)
                   .digest("hex"),
-                sourceText: previous.toString("utf8"),
+                versionEvidence: fixtureVersionEvidence(previous),
               }
             : read(),
       }),

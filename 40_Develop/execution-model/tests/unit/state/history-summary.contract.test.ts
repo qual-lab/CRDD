@@ -8,7 +8,7 @@
  * @boundary メモリ内だけ。Filesystem・実行Owner・外部AIを使用しない。
  */
 
-import { hashExecutionStateContent } from "../../../src/state/operations.ts";
+import { hashExecutionStateContent } from "../../../src/composition/validation.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
@@ -16,8 +16,8 @@ import {
   decodeStateSnapshot,
   prepareStateHistorySummary,
   prepareStateOperationSnapshot,
-} from "../../../src/state/validation.ts";
-import { encodeStateValue } from "../../../src/state/operations.ts";
+} from "../../../src/composition/transition.ts";
+import { encodeStateValue } from "../../../src/composition/validation.ts";
 import { createResourceOperationFixture } from "../../support/resource-operation.ts";
 
 const binding = "a".repeat(64);

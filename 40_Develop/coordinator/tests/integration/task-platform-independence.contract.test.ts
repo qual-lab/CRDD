@@ -325,7 +325,6 @@ function assertPureImportEdges(
           "lifecycle/validation.ts": [
             "dockerProcessControllerPublicCompletionReasons",
             "inspectExecutionPlan",
-            "inspectTaskExecutionSelections",
             "PROJECT_STATE_CONTRACT",
             "OBJECTIVE_STATES",
             "parseDockerTaskRecoveryId",

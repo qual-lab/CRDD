@@ -19,7 +19,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   initializeExecutionStore,
-  readState,
+  readExecutionState,
   saveProjectExecutionState,
 } from "../../../execution-model/src/index.ts";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
@@ -465,10 +465,9 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
     },
   };
   // Readerの排他Directoryだけを準備し、実行Stateは真正不存在のまま確認する。
-  const before = readState(
+  const before = readExecutionState(
     resolveExecutionStorageDirectory(workingDirectory),
     "binding-a",
-    "execution",
   );
   assert.equal(before.status, "completed");
   assert.equal(before.value, null);
@@ -1144,6 +1143,70 @@ test("公開Objective受付は余分field・Accessor・Proxy・不正計画をEf
   assert.equal(invalidPlan.reason, "coordinator_objective_request_invalid");
   assert.equal(bindingCalls, 0);
   assert.equal(taskEffects, 0);
+  // 正式local/shared入口が接続する認可callbackまで進めず、再開も同じ受付で拒否する。
+  let accessCalls = 0;
+  const access = () => {
+    accessCalls++;
+    return null;
+  };
+  const base = request();
+  for (const operation of ["start", "resume"] as const) {
+    const first = base.plan.tasks[0];
+    assert.ok(first);
+    const cases = [
+      {
+        plan: { ...base.plan, tasks: [{ ...first, dependencies: [first.id] }] },
+      },
+      {
+        plan: {
+          ...base.plan,
+          tasks: [{ ...first, allowedPaths: ["outside.txt"] }],
+        },
+      },
+      {
+        plan: {
+          ...base.plan,
+          milestoneAcceptanceCriteria: ["Another result."],
+        },
+      },
+      {
+        plan: {
+          ...base.plan,
+          milestoneAcceptanceCriteria: [
+            ...base.acceptanceCriteria,
+            "Another result.",
+          ],
+        },
+      },
+      {
+        acceptanceCriteria: ["First result.", "Second result."],
+        plan: {
+          ...base.plan,
+          milestoneAcceptanceCriteria: ["Second result.", "First result."],
+        },
+      },
+      { taskInputs: [] },
+    ];
+    for (const changes of cases) {
+      const result = await runObjective(
+        { ...base, ...changes, operation },
+        new AbortController().signal,
+        access,
+      );
+      assert.equal(result.reason, "coordinator_objective_request_invalid");
+      assert.equal(result.effectState, "no_effect");
+    }
+    const valid = await runObjective(
+      { ...base, operation },
+      new AbortController().signal,
+      access,
+    );
+    assert.equal(
+      valid.reason,
+      "coordinator_authenticated_principal_not_verified",
+    );
+  }
+  assert.equal(accessCalls, 2);
   const state = readCoordinatorState(
     workingDirectory,
     "binding-a",
@@ -1528,7 +1591,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
         projectId: "project-a",
         recoveries: [{ taskId: "task-a", recoveryId }],
       });
-      const current = readState(repository, binding, "execution");
+      const current = readExecutionState(repository, binding);
       assert.equal(current.status, "completed");
       assert.equal(current.value?.projects[0]?.generation, generation);
       finalizations++;
@@ -1657,10 +1720,9 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   assert.equal(attempts, 1);
   assert.equal(recoveries, 1);
   assert.equal(finalizationDiagnostics, 1);
-  const retained = readState(
+  const retained = readExecutionState(
     resolveExecutionStorageDirectory(workingDirectory),
     "binding-a",
-    "execution",
   );
   assert.equal(retained.status, "completed");
   assert.ok(retained.value);
@@ -2179,4 +2241,7 @@ for (const interruption of [
   });
 }
 
-import { inspectCoordinatorObjectiveRequest } from "../../src/index.ts";
+import {
+  inspectCoordinatorObjectiveRequest,
+  runObjective,
+} from "../../src/index.ts";

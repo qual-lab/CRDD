@@ -14,7 +14,6 @@ import type {
   AiSelectionChoice,
 } from "../../../configuration-model/src/index.ts";
 import type { ExecutionSelection } from "../../../execution-model/src/index.ts";
-import { inspectExecutionSelection } from "../../../execution-model/src/index.ts";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import { validateAiSelectionConfig } from "../../../configuration-model/src/index.ts";
 
@@ -34,31 +33,21 @@ export function resolveFixtureExecutionSelection(
  * @responsibility 上位の役割・保存相関と技術入力を分離し、選定Hashを生成しない。
  * @trace ERB-UT-023
  * @precondition 合成選定だけを使用する。
- * @stimulus 完全選定又は意図した不正値を渡す。
+ * @stimulus 確定済みの完全選定を渡す。
  * @observation roleを含まない技術選定。
- * @oracle 不正選定は補完せず反例のまま返す。
+ * @oracle 技術選定の五項目だけを返す。
  * @cleanup N/A: 値の生成だけ。
  * @boundary 上位fixtureとExecutor。
  */
-export function attemptSelection(candidate: unknown) {
-  const value = inspectExecutionSelection(candidate);
+export function attemptSelection(value: ExecutionSelection) {
   return {
-    executionSelection: value
-      ? Object.freeze({
-          provider: value.provider,
-          modelIdentifier: value.modelIdentifier,
-          identifierKind: value.identifierKind,
-          reasoningEffort: value.reasoningEffort,
-          purpose: value.purpose,
-        })
-      : (candidate as Pick<
-          ExecutionSelection,
-          | "provider"
-          | "modelIdentifier"
-          | "identifierKind"
-          | "reasoningEffort"
-          | "purpose"
-        >),
+    executionSelection: Object.freeze({
+      provider: value.provider,
+      modelIdentifier: value.modelIdentifier,
+      identifierKind: value.identifierKind,
+      reasoningEffort: value.reasoningEffort,
+      purpose: value.purpose,
+    }),
   };
 }
 

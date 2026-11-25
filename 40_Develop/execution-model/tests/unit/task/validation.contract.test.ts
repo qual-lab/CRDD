@@ -14,20 +14,180 @@ import { compileFunction } from "node:vm";
 import { stripTypeScriptTypes } from "node:module";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
 
-import type { ProjectExecutionState } from "../../../src/state/types.ts";
+import type { ProjectExecutionState } from "../../../src/composition/types.ts";
 import {
   fixtureTaskExecutionSelections,
   projectExecutionFixture,
 } from "../../fixtures/execution-plan.ts";
 
-import {
-  inspectSingleTaskRecord,
-  recoveryObligations,
-  validState,
-  validResultReference,
-  captureTaskExecutionUpdate,
-  prepareTaskExecutionUpdate,
-} from "../../../src/task/validation.ts";
+import { inspectExecutionSelection, inspectSingleTaskRecord, inspectTaskExecutionSelections, recoveryObligations, validState, validResultReference } from "../../../src/task/validation.ts";
+import { captureTaskExecutionUpdate, prepareTaskExecutionUpdate } from "../../../src/task/transition.ts";
+
+/** @trace PRL-UT-006 保存時の選定を現在Catalogで引き直さず復元する。 */
+test("単体の保存選定は当時のalias・Model・設定を独立して復元する", () => {
+  const historical = {
+    ...fixtureTaskExecutionSelections().executor,
+    provider: "claude",
+    identifierKind: "alias",
+    modelIdentifier: "retired-model",
+    reasoningEffort: "max",
+    catalogIdentity: "a".repeat(64),
+    configIdentity: "b".repeat(64),
+  };
+  const decoded = inspectExecutionSelection(
+    JSON.parse(JSON.stringify(historical)),
+  );
+  assert.deepEqual(decoded, historical);
+  assert.ok(decoded && Object.isFrozen(decoded));
+  const snapshot = inspectExecutionSelection(historical);
+  historical.modelIdentifier = "changed-later";
+  assert.equal(snapshot?.modelIdentifier, "retired-model");
+  assert.deepEqual(
+    inspectExecutionSelection(Object.assign(Object.create(null), decoded)),
+    decoded,
+  );
+});
+
+/**
+ * 保存codecの閉形式と相関違反を反証する。
+ * @responsibility Authority・旧Profile・暗黙変換を選定値へ混入させない。
+ * @trace RCM-UT-001
+ * @precondition 有効な選定値。
+ * @stimulus 欠測・過剰・未知・Getter／Proxy・暗黙文字列変換・役割用途矛盾を渡す。
+ * @observation nullとhook実行0。
+ * @oracle 不正値は実行可能な代替へ補完されない。
+ * @cleanup N/A: 局所値のみ。
+ * @boundary 未信頼保存値と純粋なcodec。
+ */
+test("保存選定の不足・過剰・相関不正はhookを実行せず拒否する", () => {
+  const value = fixtureTaskExecutionSelections().executor;
+  let hooks = 0;
+  const omitted = { ...value } as Record<string, unknown>;
+  delete omitted.catalogIdentity;
+  const hidden = { ...value };
+  Object.defineProperty(hidden, "modelIdentifier", {
+    value: "opus",
+    enumerable: false,
+  });
+  for (const invalid of [
+    null,
+    [],
+    omitted,
+    hidden,
+    { ...value, profileId: "PROFILE-100001" },
+    { ...value, authority: {} },
+    { ...value, provider: "other" },
+    { ...value, identifierKind: "resolved" },
+    { ...value, modelIdentifier: "" },
+    { ...value, modelIdentifier: "bad\nvalue" },
+    { ...value, reasoningEffort: "extreme" },
+    { ...value, catalogIdentity: "A".repeat(64) },
+    { ...value, configIdentity: "" },
+    { ...value, role: "unknown" },
+    { ...value, purpose: "advice" },
+    { ...value, source: "fallback" },
+    { ...value, source: "work_type_override", workType: null },
+    { ...value, workType: "bad type" },
+    {
+      ...value,
+      source: {
+        toString() {
+          hooks++;
+          return "explicit";
+        },
+      },
+    },
+    {
+      ...value,
+      get modelIdentifier() {
+        hooks++;
+        return "opus";
+      },
+    },
+    Object.create(value),
+    new Proxy(value, {
+      ownKeys() {
+        hooks++;
+        return [];
+      },
+      getPrototypeOf() {
+        hooks++;
+        return null;
+      },
+    }),
+    { ...value, [Symbol("extra")]: true },
+  ])
+    assert.equal(inspectExecutionSelection(invalid), null);
+  assert.equal(hooks, 0);
+  for (const role of ["coordinator", "advice", "result_integration"] as const) {
+    const current = { ...value, role, purpose: "advice" as const };
+    assert.ok(inspectExecutionSelection(current));
+    assert.equal(
+      inspectExecutionSelection({ ...current, purpose: "task" }),
+      null,
+    );
+  }
+});
+
+/**
+ * 保存された選定組の相関と、過去値の復元を確認する。
+ * @responsibility 現在の設定やCatalogへ問い合わせず、保存値だけを検証する。
+ * @trace PRL-UT-006
+ * @precondition 二役割の合成保存値。
+ * @stimulus 過去のモデル名、相関違い、余剰field、getter、Proxyを与える。
+ * @observation 独立復元値とhook実行件数。
+ * @oracle 過去値は保持し、不正値はhook実行なしで拒否する。
+ * @cleanup N/A: I/Oなし。
+ * @boundary EM内部の保存値codec。
+ */
+test("保存選定組は別設定・役割・分類の混在を拒否し過去値を再選定しない", () => {
+  const original = fixtureTaskExecutionSelections();
+  const past = {
+    ...original,
+    executor: { ...original.executor, modelIdentifier: "retired-model" },
+  };
+  const recovered = inspectTaskExecutionSelections(past);
+  assert.ok(recovered);
+  assert.equal(recovered.executor.modelIdentifier, "retired-model");
+  let hooks = 0;
+  const { workType: _workType, ...missingWorkType } = original.executor;
+  for (const invalid of [
+    {},
+    { executor: {} },
+    { ...original, executor: missingWorkType },
+    { ...original, reviewer: { ...original.reviewer, source: "explicit" } },
+    {
+      ...original,
+      reviewer: { ...original.reviewer, configIdentity: "a".repeat(64) },
+    },
+    {
+      ...original,
+      reviewer: { ...original.reviewer, catalogIdentity: "b".repeat(64) },
+    },
+    { ...original, reviewer: { ...original.reviewer, workType: "different" } },
+    { executor: original.reviewer, reviewer: original.executor },
+    { ...original, authority: true },
+    {
+      get executor() {
+        hooks += 1;
+        throw Error("selection_accessor_must_not_run");
+      },
+      reviewer: original.reviewer,
+    },
+    new Proxy(original, {
+      ownKeys() {
+        hooks += 1;
+        throw Error("selection_proxy_must_not_run");
+      },
+    }),
+  ])
+    assert.equal(inspectTaskExecutionSelections(invalid), null);
+  assert.equal(hooks, 0);
+  assert.notEqual(recovered, past);
+  assert.ok(
+    Object.isFrozen(recovered.executor) && Object.isFrozen(recovered.reviewer),
+  );
+});
 
 /**
  * 回復済み参照の確定要求はState全体を受け取らずexactなTaskと回復IDへ限定する。

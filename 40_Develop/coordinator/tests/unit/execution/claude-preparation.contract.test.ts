@@ -102,7 +102,7 @@ function createFixture(
     (_upper, lower) => {
       technicalPlan = lower;
     },
-    prepare,
+    prepare ?? createReviewerWorkspaceReader(() => managementCapability),
   );
   return {
     adapter,
@@ -188,7 +188,7 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
     providerHome: fixture.providerHome,
-    executionSelection: fixture.executionSelection,
+    packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
     taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "workbench",
@@ -241,11 +241,12 @@ test("低推論選定を固定計画と元Executorの再開始拒否へ接続す
     },
   });
   const prepared = fixture.adapter.prepare({
-    purpose: "probe",
+    purpose: "task",
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
     providerHome: fixture.providerHome,
-    executionSelection: fixture.executionSelection,
+    packetCapability: {},
+    packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
     taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",
@@ -416,21 +417,22 @@ test("低推論選定を固定計画と元Executorの再開始拒否へ接続す
   assert.equal(provider.argv.includes("--fallback-model"), false);
   const modelIndex = provider.argv.indexOf("--model");
   const effortIndex = provider.argv.indexOf("--effort");
-  assert.equal(modelIndex, -1);
-  assert.equal(effortIndex, -1);
+  assert.ok(modelIndex >= 0 && effortIndex >= 0);
+  assert.equal(provider.argv[modelIndex + 1], "opus");
+  assert.equal(provider.argv[effortIndex + 1], "low");
   assert.equal(
     provider.argv.some((value) => value.startsWith("HTTPS_PROXY=")),
     true,
   );
   assert.equal(
     provider.argv.some((value) => value.startsWith("HTTP_PROXY=")),
-    false,
+    true,
   );
   assert.equal(
     provider.argv.some((value) => value.startsWith("ALL_PROXY=")),
-    false,
+    true,
   );
-  assert.equal(provider.argv.includes("NO_PROXY="), false);
+  assert.equal(provider.argv.includes("NO_PROXY="), true);
   assert.equal(
     provider.argv.some((value) => value.startsWith("ANTHROPIC_API_KEY=")),
     false,
@@ -489,11 +491,12 @@ test("DI乱数検査の不成立は発行前停止を保つ", () => {
       },
     });
     const prepared = fixture.adapter.prepare({
-      purpose: "probe",
+      purpose: "task",
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
       providerHome: fixture.providerHome,
-      executionSelection: fixture.executionSelection,
+      packetCapability: {},
+      packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
       taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
@@ -526,7 +529,7 @@ test("Task Packetをstdin専用入力と隔離workspace RO mountへ結合する"
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
     providerHome: fixture.providerHome,
-    executionSelection: fixture.executionSelection,
+    packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
     taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",
@@ -623,7 +626,7 @@ test("Executor Task PacketをacceptEditsと隔離workspace RW mountへ結合す�
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
     providerHome: fixture.providerHome,
-    executionSelection: fixture.executionSelection,
+    packetRef: "TASKPKT-FFEEDDCCBBAA99887766554433221100",
     taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",
@@ -718,7 +721,7 @@ test("検証済み作業量を固定argvへ接続し、過大・不明ならPlan
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
       providerHome: fixture.providerHome,
-      executionSelection: fixture.executionSelection,
+      packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
       taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
@@ -774,7 +777,8 @@ test("production adapterは未発行のCapabilityと未接続Selection 選定入
   const prepared = startDockerProcessController(
     "claude",
     {
-      purpose: "probe",
+      purpose: "task",
+      packetCapability: {},
       managementCapability: {},
       mountCapability: {},
       providerHome: {
@@ -783,7 +787,7 @@ test("production adapterは未発行のCapabilityと未接続Selection 選定入
         providerHomeIdentityHash: "a".repeat(64),
         stableLogicalHomeBindingHash: "b".repeat(64),
       },
-      executionSelection: fixedSelection,
+      packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
       taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
@@ -804,7 +808,7 @@ test("production adapterは未発行のCapabilityと未接続Selection 選定入
  * 固定選定を実際のProvider準備へ搬送し、fallbackを追加しない。
  * @trace PRL-UT-014
  * @precondition 固定選定と有限Host代役で準備する。
- * @stimulus probeの技術計画を組み立てる。
+ * @stimulus Taskの技術計画を組み立てる。
  * @observation 元選定、購読種別、Providerの引数と開始前の結果。
  * @oracle 固定選定と隔離・ProxyのProvider差を維持し、公開向け結果に生の引数を出さない。
  * @cleanup N/A: 外部資源を開始しない。
@@ -813,11 +817,12 @@ test("production adapterは未発行のCapabilityと未接続Selection 選定入
 test("固定選定とProxy条件を実計画で確認しfallbackを追加しない", () => {
   const fixture = createFixture();
   const prepared = fixture.adapter.prepare({
-    purpose: "probe",
+    purpose: "task",
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
     providerHome: fixture.providerHome,
-    executionSelection: fixture.executionSelection,
+    packetCapability: {},
+    packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
     taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",
@@ -845,10 +850,11 @@ test("固定選定とProxy条件を実計画で確認しfallbackを追加しな�
     provider.argv[provider.argv.indexOf("--network") + 1] ?? "",
     /^crdd-internal-/u,
   );
-  assert.equal(provider.argv.includes("--model"), false);
-  assert.ok(provider.argv.some((arg) => arg.startsWith("HTTPS_PROXY=")));
   assert.equal(
-    provider.argv.some((arg) => /^(HTTP_PROXY|ALL_PROXY|NO_PROXY)=/u.test(arg)),
-    false,
+    provider.argv[provider.argv.indexOf("--model") + 1],
+    fixture.executionSelection.modelIdentifier,
   );
+  assert.ok(provider.argv.some((arg) => arg.startsWith("HTTPS_PROXY=")));
+  for (const key of ["HTTP_PROXY", "ALL_PROXY", "NO_PROXY"])
+    assert.ok(provider.argv.some((arg) => arg.startsWith(`${key}=`)));
 });

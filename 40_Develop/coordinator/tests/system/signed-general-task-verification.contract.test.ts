@@ -607,7 +607,10 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
 
   const request = createSignedGeneralTaskVerificationRequest();
   const { taskExecutionSelections, ...requestFields } = request;
-  assert.equal(snapshotCoordinatorTaskRequest(request)?.status, "accepted");
+  assert.equal(
+    snapshotCoordinatorTaskRequest(requestFields)?.status,
+    "accepted",
+  );
   assert.equal(taskExecutionSelections.executor.provider, "claude");
   assert.equal(taskExecutionSelections.reviewer.provider, "codex");
   assert.equal(
@@ -2714,7 +2717,11 @@ test("四経路は完全な二役割選定を持つ新Task入力だけを発行�
     const request = createSignedGeneralTaskVerificationRequest(route);
     const expected =
       route === "reverse" || route === "same-codex" ? "codex" : "claude";
-    assert.equal(snapshotCoordinatorTaskRequest(request)?.status, "accepted");
+    const { taskExecutionSelections: _selection, ...requestFields } = request;
+    assert.equal(
+      snapshotCoordinatorTaskRequest(requestFields)?.status,
+      "accepted",
+    );
     assert.equal(request.taskExecutionSelections.executor.provider, expected);
     assert.equal(
       request.taskExecutionSelections.reviewer.provider,

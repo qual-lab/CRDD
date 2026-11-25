@@ -26,10 +26,8 @@ import { fileURLToPath } from "node:url";
 import * as dockerEnvironmentOperations from "../../../docker-isolation/src/docker-cli/environment.ts";
 import * as dockerTrustOperations from "../../../docker-isolation/src/docker-cli/trust.ts";
 import * as dockerRestartOperations from "../../../docker-isolation/src/docker-desktop/restart.ts";
-import type {
-  ExecutionOperationRecord,
-  ExecutionStateSnapshot,
-} from "../../../execution-model/src/index.ts";
+import type { ExecutionOperationRecord } from "../../../execution-model/src/index.ts";
+import type { StoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import { getIsolationSettings } from "../../src/lifecycle/environment.ts";
 
 const fixedImage =
@@ -144,7 +142,9 @@ export function assertRecordedAuthReceipt(
 }
 
 /** 元Snapshotと発行前記録が相関する一つの操作だけを選ぶ。 @trace ERB-IT-014 */
-export function selectAuthCreateTarget(snapshot: ExecutionStateSnapshot) {
+export function selectAuthCreateTarget(
+  snapshot: Pick<StoredExecutionFixture, "operations">,
+) {
   const candidates = snapshot.operations.filter(
     (value): value is ExecutionOperationRecord =>
       value.kind === "docker_task" &&

@@ -15,6 +15,10 @@ import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import {
+  parseStoredExecutionFixture,
+  readStoredExecutionFixture,
+} from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -250,7 +254,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   assert.equal(initialHostState.status, "completed");
   assert.ok(initialHostState.value);
-  const first = initialHostState.value.snapshot;
+  const first = readStoredExecutionFixture(
+    root,
+    initialHostState.value.payloadSha256,
+  );
   const area = requireReadyRepositoryExecutionDataArea(
     ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       root,
@@ -277,17 +284,36 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   });
   assert.equal(readFirst.status, "completed");
   assert.equal(readFirst.lockReleased, true);
+  assert.equal(readFirst.kind, "state");
+  assert.ok(readFirst.value);
+  assert.deepEqual(Object.keys(readFirst.value.snapshot).sort(), [
+    "operations",
+    "revision",
+    "unresolvedRecoveries",
+  ]);
   assert.equal(
     readFirst.value?.payloadSha256,
     createHash("sha256")
       .update(`${canonicalJson(second)}\n`, "utf8")
       .digest("hex"),
   );
-  assert.deepEqual(
-    readState(prepareFixtureRecovery(verifiedRoot.capability), {
+  const sameVersion = readState(
+    prepareFixtureRecovery(verifiedRoot.capability),
+    {
       scope: "recovery",
-    }).value,
-    readFirst.value,
+    },
+  );
+  assert.deepEqual(sameVersion.value, readFirst.value);
+  assert.ok(sameVersion.value);
+  assert.equal(
+    readFirst.value.versionEvidence.matches(sameVersion.value.versionEvidence),
+    true,
+  );
+  assert.equal(
+    readFirst.value.versionEvidence.matches({
+      payloadSha256: readFirst.value.payloadSha256,
+    }),
+    false,
   );
   const identity = {
     schema: "crdd-coordinator/operation-identity/v6",
@@ -630,6 +656,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       );
       assert.equal(prior.status, "completed");
       assert.ok(prior.value);
+      assert.equal(
+        prior.value.payloadSha256,
+        createHash("sha256").update(fixtureBytes).digest("hex"),
+      );
       const cancellation = new AbortController();
       const recovering = recoverDockerTaskFromCurrentRepository(
         recoveryStarted.recoveryId,
@@ -649,7 +679,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       );
       assert.equal(actual.status, "completed");
       assert.ok(actual.value);
-      const expected = JSON.parse(canonicalJson(prior.value.snapshot));
+      const expected = JSON.parse(fixtureBytes.toString("utf8"));
       expected.revision++;
       expected.previous = {
         revision: prior.value.snapshot.revision,
@@ -661,7 +691,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       );
       retired.phase = "settling";
       retired.execution.ownerEffect = "disabled";
-      assert.deepEqual(actual.value.snapshot, expected);
+      assert.deepEqual(
+        readStoredExecutionFixture(root, actual.value.payloadSha256),
+        expected,
+      );
       assert.equal(
         actual.value.payloadSha256,
         createHash("sha256")
@@ -697,7 +730,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.ok(submitted);
     const receiptBefore = Buffer.from(
       `${canonicalJson({
-        ...resourceStart.snapshot,
+        ...readStoredExecutionFixture(root, resourceStart.payloadSha256),
         revision: resourceStart.snapshot.revision + 1,
         previous: {
           revision: resourceStart.snapshot.revision,
@@ -731,13 +764,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         Buffer.from(
           receiptBefore ?? assert.fail("missing_fixture_bytes"),
         ).toString("utf8"),
-      ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+      ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
       payloadSha256: createHash("sha256")
         .update(receiptBefore ?? assert.fail("missing_fixture_bytes"))
         .digest("hex"),
-      sourceText: Buffer.from(
-        receiptBefore ?? assert.fail("missing_fixture_bytes"),
-      ).toString("utf8"),
     };
     assert.ok(submittedState);
     const receiptPending = Buffer.from(
@@ -773,6 +803,27 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       verifiedRoot.capability,
     );
     assert.ok(recoveryBinding);
+    const publicationRead = readState(
+      prepareFixtureRecovery(verifiedRoot.capability),
+      {
+        scope: "recovery",
+        input: {
+          kind: "resource_publication",
+          recoveryId: recoveryStarted.recoveryId,
+        },
+      },
+    );
+    assert.equal(publicationRead.status, "completed", publicationRead.reason);
+    assert.equal(publicationRead.lockReleased, true);
+    const publication = publicationRead.resourcePublication;
+    assert.ok(publication);
+    assert.equal(Object.hasOwn(publication, "before"), false);
+    assert.equal(Object.hasOwn(publication, "candidate"), false);
+    assert.ok(publicationRead.value);
+    assert.equal(
+      publication.matchesCandidate(publicationRead.value.versionEvidence),
+      false,
+    );
     for (const failAt of [1, 2, 3]) {
       for (const shouldThrow of [false, true]) {
         let ownerChecks = 0;
@@ -783,7 +834,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
             null,
             {
               kind: "resource_publication",
-              publication: { before: receiptBefore, candidate: receiptPending },
+              publication,
               assertOwner: () => {
                 ownerChecks++;
                 if (ownerChecks !== failAt) return true;
@@ -842,7 +893,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
           null,
           {
             kind: "resource_publication",
-            publication: { before: receiptBefore, candidate: receiptPending },
+            publication,
             assertOwner: () => {
               checks++;
               if (checks === 1)
@@ -875,6 +926,17 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       assert.deepEqual(
         fs.readFileSync(path.join(area.directory, "state.json")),
         receiptPending,
+      );
+      const persisted = readState(
+        prepareFixtureRecovery(verifiedRoot.capability),
+        {
+          scope: "recovery",
+        },
+      );
+      assert.ok(persisted.value);
+      assert.equal(
+        publication.matchesCandidate(persisted.value.versionEvidence),
+        true,
       );
       assert.equal(
         fs.existsSync(path.join(area.directory, "state.pending.json")),
@@ -979,6 +1041,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       assert.equal(beforeFixed.status, "completed");
       assert.equal(beforeFixed.lockReleased, true);
       assert.ok(beforeFixed.value);
+      const beforeSnapshot = readStoredExecutionFixture(
+        root,
+        beforeFixed.value.payloadSha256,
+      );
       assert.equal(
         persistDockerTaskRecoveryCheckpoint(recoveryPreparation, kind, value),
         true,
@@ -990,27 +1056,22 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       assert.equal(afterFixed.status, "completed");
       assert.equal(afterFixed.lockReleased, true);
       assert.ok(afterFixed.value);
+      const afterSnapshot = readStoredExecutionFixture(
+        root,
+        afterFixed.value.payloadSha256,
+      );
       assert.equal(
         afterFixed.value.snapshot.revision,
         beforeFixed.value.snapshot.revision + 1,
       );
-      assert.deepEqual(afterFixed.value.snapshot.previous, {
+      assert.deepEqual(afterSnapshot.previous, {
         revision: beforeFixed.value.snapshot.revision,
         payloadSha256: beforeFixed.value.payloadSha256,
       });
+      assert.equal(afterSnapshot.schema, beforeSnapshot.schema);
       assert.equal(
-        afterFixed.value.payloadSha256,
-        createHash("sha256")
-          .update(fs.readFileSync(path.join(area.directory, "state.json")))
-          .digest("hex"),
-      );
-      assert.equal(
-        afterFixed.value.snapshot.schema,
-        beforeFixed.value.snapshot.schema,
-      );
-      assert.equal(
-        afterFixed.value.snapshot.repositoryBinding,
-        beforeFixed.value.snapshot.repositoryBinding,
+        afterSnapshot.repositoryBinding,
+        beforeSnapshot.repositoryBinding,
       );
       assert.deepEqual(
         afterFixed.value.snapshot.operations,
@@ -1021,14 +1082,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
               : operation,
         ),
       );
-      assert.equal(
-        Object.hasOwn(afterFixed.value.snapshot, "pendingDeliveries"),
-        false,
-      );
-      assert.equal(
-        Object.hasOwn(beforeFixed.value.snapshot, "pendingDeliveries"),
-        false,
-      );
+      assert.equal(Object.hasOwn(afterSnapshot, "pendingDeliveries"), false);
+      assert.equal(Object.hasOwn(beforeSnapshot, "pendingDeliveries"), false);
       assert.deepEqual(
         afterFixed.value.snapshot.unresolvedRecoveries,
         beforeFixed.value.snapshot.unresolvedRecoveries,
@@ -1041,6 +1096,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       },
     );
     assert.ok(beforeLifecycle.value);
+    const beforeSnapshot = readStoredExecutionFixture(
+      root,
+      beforeLifecycle.value.payloadSha256,
+    );
     for (const invalid of [null, {}, { ...recoveryPreparation }]) {
       assert.equal(
         persistDockerTaskRecoveryCheckpoint(
@@ -1068,28 +1127,23 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     );
     assert.equal(afterRecovery.status, "completed");
     assert.ok(afterRecovery.value);
+    const afterSnapshot = readStoredExecutionFixture(
+      root,
+      afterRecovery.value.payloadSha256,
+    );
     assert.equal(
       afterRecovery.value.snapshot.revision,
       beforeLifecycle.value.snapshot.revision + 1,
     );
     assert.equal(afterRecovery.lockReleased, true);
-    assert.deepEqual(afterRecovery.value.snapshot.previous, {
+    assert.deepEqual(afterSnapshot.previous, {
       revision: beforeLifecycle.value.snapshot.revision,
       payloadSha256: beforeLifecycle.value.payloadSha256,
     });
+    assert.equal(afterSnapshot.schema, beforeSnapshot.schema);
     assert.equal(
-      afterRecovery.value.payloadSha256,
-      createHash("sha256")
-        .update(fs.readFileSync(path.join(area.directory, "state.json")))
-        .digest("hex"),
-    );
-    assert.equal(
-      afterRecovery.value.snapshot.schema,
-      beforeLifecycle.value.snapshot.schema,
-    );
-    assert.equal(
-      afterRecovery.value.snapshot.repositoryBinding,
-      beforeLifecycle.value.snapshot.repositoryBinding,
+      afterSnapshot.repositoryBinding,
+      beforeSnapshot.repositoryBinding,
     );
     assert.deepEqual(
       afterRecovery.value.snapshot.operations,
@@ -1099,14 +1153,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
           : operation,
       ),
     );
-    assert.equal(
-      Object.hasOwn(afterRecovery.value.snapshot, "pendingDeliveries"),
-      false,
-    );
-    assert.equal(
-      Object.hasOwn(beforeLifecycle.value.snapshot, "pendingDeliveries"),
-      false,
-    );
+    assert.equal(Object.hasOwn(afterSnapshot, "pendingDeliveries"), false);
+    assert.equal(Object.hasOwn(beforeSnapshot, "pendingDeliveries"), false);
     assert.deepEqual(
       afterRecovery.value.snapshot.unresolvedRecoveries,
       beforeLifecycle.value.snapshot.unresolvedRecoveries,
@@ -1254,6 +1302,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     scope: "operation",
   });
   assert.ok(beforeCheckpoint.value);
+  const restartBefore = beforeCheckpoint.value.versionEvidence;
   const restartOperation = beforeCheckpoint.value.snapshot.operations.find(
     (item) => item.kind === "docker_task",
   );
@@ -1302,20 +1351,20 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     }
     // 同じ実Ownerの保存接続だけを確認する。fresh Host排他の取得証明ではない。
     for (const [target, before, live] of [
-      [repository, restartBeforeBytes, () => false],
+      [repository, restartBefore, () => false],
       [
         repository,
-        restartBeforeBytes,
+        restartBefore,
         () => {
           throw new Error("private owner failure");
         },
       ],
       [
         { ...repository, operationId: "wrong-operation" },
-        restartBeforeBytes,
+        restartBefore,
         () => true,
       ],
-      [repository, Buffer.from("stale"), () => true],
+      [repository, readFirst.value.versionEvidence, () => true],
     ] as const) {
       const refused: ReturnType<typeof saveRecoveryCheckpoint> =
         saveRecoveryCheckpoint(target, restartOperation.recoveryId, before, {
@@ -1336,7 +1385,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         saveRecoveryCheckpoint(
           repository,
           restartOperation.recoveryId,
-          restartBeforeBytes,
+          restartBefore,
           {
             kind: "restart",
             value: restartRequest,
@@ -1360,7 +1409,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     const saved = saveRecoveryCheckpoint(
       repository,
       restartOperation.recoveryId,
-      restartBeforeBytes,
+      restartBefore,
       {
         kind: "restart",
         value: restartRequest,
@@ -1646,6 +1695,13 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const resourceReaderBytes = fs.readFileSync(
     path.join(area.directory, "state.json"),
   );
+  assert.equal(
+    checkpoint.value.payloadSha256,
+    createHash("sha256").update(resourceReaderBytes).digest("hex"),
+  );
+  const checkpointSnapshot = parseStoredExecutionFixture(
+    resourceReaderBytes.toString("utf8"),
+  );
   try {
     for (const selected of RESOURCE_KEYS)
       for (const state of [
@@ -1694,7 +1750,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         fs.writeFileSync(
           path.join(area.directory, "state.json"),
           `${canonicalJson({
-            ...checkpoint.value.snapshot,
+            ...checkpointSnapshot,
             operations: checkpoint.value.snapshot.operations.map((item) =>
               item.recoveryId === checkpointOperation.recoveryId
                 ? { ...checkpointOperation, resources: book }
@@ -1739,7 +1795,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       fs.writeFileSync(
         path.join(area.directory, "state.json"),
         `${canonicalJson({
-          ...checkpoint.value.snapshot,
+          ...checkpointSnapshot,
           operations: checkpoint.value.snapshot.operations.map((item) =>
             item.recoveryId === checkpointOperation.recoveryId
               ? { ...checkpointOperation, resources: invalid }
@@ -1918,7 +1974,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     (afterLifecycle.value?.snapshot.revision ?? 0) + 1,
   );
   assert.equal(
-    Object.hasOwn(afterReferences.value.snapshot, "pendingDeliveries"),
+    Object.hasOwn(
+      readStoredExecutionFixture(root, afterReferences.value.payloadSha256),
+      "pendingDeliveries",
+    ),
     false,
   );
   assert.deepEqual(
@@ -2077,7 +2136,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(settledOperation, undefined);
   assert.equal(settledRead.historyRows?.[0]?.recoveryId, operation.recoveryId);
   assert.equal(
-    Object.hasOwn(settledRead.value.snapshot, "pendingDeliveries"),
+    Object.hasOwn(
+      readStoredExecutionFixture(root, settledRead.value.payloadSha256),
+      "pendingDeliveries",
+    ),
     false,
   );
   const historyFile = path.join(area.directory, "history.jsonl");
@@ -2165,11 +2227,11 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     const freshIdentity = prepareRepositoryDockerOperationIdentity(
       startPlan,
       freshManagement,
-      "b".repeat(64),
-      "coordinator",
+      () => "b".repeat(64),
     );
     assert.ok(freshIdentity);
-    const freshIdentityValue = JSON.parse(freshIdentity);
+    assert.equal(freshIdentity.operationNonce, "b".repeat(64));
+    const freshIdentityValue = JSON.parse(freshIdentity.identityJson);
     assert.equal(freshIdentityValue.consumer, startPlan.consumer);
     assert.equal(
       freshIdentityValue.operationId,
@@ -2232,12 +2294,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       ],
     ] as const) {
       assert.equal(
-        prepareRepositoryDockerOperationIdentity(
-          plan,
-          owner,
-          nonce,
-          "coordinator",
-        ),
+        prepareRepositoryDockerOperationIdentity(plan, owner, () => nonce),
         null,
       );
     }
@@ -2245,8 +2302,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     const invalidLabelIdentity = prepareRepositoryDockerOperationIdentity(
       { ...startPlan, ownershipLabel: "invalid" },
       freshManagement,
-      "b".repeat(64),
-      "coordinator",
+      () => "b".repeat(64),
     );
     assert.ok(invalidLabelIdentity);
     const beforeInvalidLabel = readState(operationStateInput(freshManagement), {
@@ -2255,7 +2311,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.equal(beforeInvalidLabel.status, "completed");
     const invalidLabelStart = saveOperationStart(
       operationStartInput(freshManagement, () => null),
-      invalidLabelIdentity,
+      invalidLabelIdentity.identityJson,
     );
     assert.equal(invalidLabelStart.status, "blocked");
     assert.equal(invalidLabelStart.filesystemEffectIssued, false);
@@ -2263,36 +2319,12 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       readState(operationStateInput(freshManagement), { scope: "operation" }),
       beforeInvalidLabel,
     );
-    for (const consumer of [
-      undefined,
-      null,
-      "unknown",
-      "coordinator_cli",
-      "workbench",
-    ]) {
-      assert.equal(
-        prepareRepositoryDockerOperationIdentity(
-          startPlan,
-          freshManagement,
-          "b".repeat(64),
-          consumer,
-        ),
-        null,
-      );
-    }
-    for (const consumer of [
-      undefined,
-      null,
-      "unknown",
-      "coordinator_cli",
-      "workbench",
-    ]) {
+    for (const consumer of [undefined, null, "unknown"]) {
       assert.equal(
         prepareRepositoryDockerOperationIdentity(
           { ...startPlan, consumer } as never,
           freshManagement,
-          "b".repeat(64),
-          "coordinator",
+          () => "b".repeat(64),
         ),
         null,
       );
@@ -2301,9 +2333,13 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       scope: "operation",
     }).value;
     assert.ok(freshBeforeStart);
+    const freshBeforeSnapshot = readStoredExecutionFixture(
+      freshRoot,
+      freshBeforeStart.payloadSha256,
+    );
     const freshStarted = saveOperationStart(
       operationStartInput(freshManagement, () => null),
-      freshIdentity,
+      freshIdentity.identityJson,
     );
     assert.equal(freshStarted.status, "completed", freshStarted.reason);
     assert.equal(
@@ -2324,7 +2360,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     freshValidBytes = fs.readFileSync(freshStateFile);
     const freshState = JSON.parse(freshValidBytes.toString("utf8"));
     assert.deepEqual(freshState, {
-      ...freshBeforeStart.snapshot,
+      ...freshBeforeSnapshot,
       revision: freshBeforeStart.snapshot.revision + 1,
       previous: {
         revision: freshBeforeStart.snapshot.revision,
@@ -2335,9 +2371,9 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         {
           kind: "docker_task",
           dockerRestart: null,
-          identityJson: freshIdentity,
+          identityJson: freshIdentity.identityJson,
           identitySha256: createHash("sha256")
-            .update(freshIdentity)
+            .update(freshIdentity.identityJson)
             .digest("hex"),
           recoveryId: freshStarted.recoveryId,
           phase: "executing",
@@ -2637,13 +2673,12 @@ for (const issuedFailure of [false, true]) {
         workspaceMountMode: null,
       },
       management,
-      "b".repeat(64),
-      "workbench",
+      () => "b".repeat(64),
     );
     assert.ok(identity);
     const start = saveOperationStart(
       operationStartInput(management, () => null),
-      identity,
+      identity.identityJson,
     );
     assert.equal(start.status, "completed");
     assert.ok(start.recoveryId);
@@ -2694,6 +2729,10 @@ for (const issuedFailure of [false, true]) {
         );
         assert.equal(previous.status, "completed");
         assert.ok(previous.value);
+        const previousSnapshot = readStoredExecutionFixture(
+          root,
+          previous.value.payloadSha256,
+        );
         assert.equal(
           persistDockerRestartCheckpoint(preparation.capability, {
             requestId: preparation.requestId,
@@ -2710,31 +2749,34 @@ for (const issuedFailure of [false, true]) {
         );
         assert.equal(next.status, "completed");
         assert.ok(next.value);
-        assert.deepEqual(next.value.snapshot, {
-          ...previous.value.snapshot,
-          revision: previous.value.snapshot.revision + 1,
-          previous: {
-            revision: previous.value.snapshot.revision,
-            payloadSha256: previous.value.payloadSha256,
+        assert.deepEqual(
+          readStoredExecutionFixture(root, next.value.payloadSha256),
+          {
+            ...previousSnapshot,
+            revision: previous.value.snapshot.revision + 1,
+            previous: {
+              revision: previous.value.snapshot.revision,
+              payloadSha256: previous.value.payloadSha256,
+            },
+            operations: previous.value.snapshot.operations.map(
+              (item): OperationRecord =>
+                item.kind === "docker_task" &&
+                item.recoveryId === start.recoveryId
+                  ? {
+                      ...item,
+                      dockerRestart: {
+                        requestId: preparation.requestId,
+                        scopeSha256: preparation.scopeSha256,
+                        request,
+                        cleanup:
+                          request === "not_issued" ? "not_required" : "pending",
+                        result: null,
+                      },
+                    }
+                  : item,
+            ),
           },
-          operations: previous.value.snapshot.operations.map(
-            (item): OperationRecord =>
-              item.kind === "docker_task" &&
-              item.recoveryId === start.recoveryId
-                ? {
-                    ...item,
-                    dockerRestart: {
-                      requestId: preparation.requestId,
-                      scopeSha256: preparation.scopeSha256,
-                      request,
-                      cleanup:
-                        request === "not_issued" ? "not_required" : "pending",
-                      result: null,
-                    },
-                  }
-                : item,
-          ),
-        });
+        );
         assert.deepEqual(
           next.value.snapshot.operations.filter(
             (item) => item.kind === "host_operation",
@@ -2819,12 +2861,7 @@ for (const issuedFailure of [false, true]) {
       assert.equal(repeated.alreadyRequested, true);
       assert.equal(repeated.requestId, preparation.requestId);
       assert.equal(repeated.scopeSha256, preparation.scopeSha256);
-      assert.deepEqual(
-        fs.readFileSync(
-          path.join(root, ".crdd", "execution-model", "state.json"),
-        ),
-        Buffer.from(saved.value.sourceText, "utf8"),
-      );
+      readStoredExecutionFixture(root, saved.value.payloadSha256);
     } finally {
       assert.equal(releaseDockerRestartPreparation(repeated.capability), true);
     }
@@ -2855,7 +2892,10 @@ for (const issuedFailure of [false, true]) {
     assert.deepEqual(after.value.snapshot.operations, [endedHost]);
     assert.deepEqual(after.value.snapshot.unresolvedRecoveries, []);
     assert.equal(
-      Object.hasOwn(after.value.snapshot, "pendingDeliveries"),
+      Object.hasOwn(
+        readStoredExecutionFixture(root, after.value.payloadSha256),
+        "pendingDeliveries",
+      ),
       false,
     );
     const rows = fs
@@ -3081,13 +3121,10 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         Buffer.from(before ?? assert.fail("missing_fixture_bytes")).toString(
           "utf8",
         ),
-      ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+      ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
       payloadSha256: createHash("sha256")
         .update(before ?? assert.fail("missing_fixture_bytes"))
         .digest("hex"),
-      sourceText: Buffer.from(
-        before ?? assert.fail("missing_fixture_bytes"),
-      ).toString("utf8"),
     };
     assert.ok(decodedBefore);
     const directory = path.join(root, ".crdd", "execution-model");
@@ -3099,6 +3136,29 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     });
     assert.equal(intake.status, "completed", intake.reason);
     assert.equal(intake.lockReleased, true);
+    assert.ok(intake.value);
+    const priorEvidence = intake.value.versionEvidence;
+    const differentBytes = Buffer.from(
+      `${canonicalJson({
+        ...decodedBefore.snapshot,
+        revision: decodedBefore.snapshot.revision + 1,
+        previous: {
+          revision: decodedBefore.snapshot.revision,
+          payloadSha256: decodedBefore.payloadSha256,
+        },
+      })}\n`,
+    );
+    fs.writeFileSync(file, differentBytes);
+    const differentRead = readState(
+      prepareFixtureRecovery(verified.capability),
+      {
+        scope: "recovery",
+      },
+    );
+    assert.ok(differentRead.value);
+    const staleEvidence = differentRead.value.versionEvidence;
+    assert.equal(priorEvidence.matches(staleEvidence), false);
+    fs.writeFileSync(file, before);
     const observations = [
       { round: 1, name: "absent", name_label: "absent" },
       { round: 2, name: "absent", name_label: "absent" },
@@ -3114,9 +3174,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
           ? { ...repository, operationId: "OP-654321" }
           : repository,
         recoveryId,
-        refusal === "stale_before"
-          ? Buffer.concat([before, Buffer.from("\n")])
-          : before,
+        refusal === "stale_before" ? staleEvidence : priorEvidence,
         {
           kind: "authentication_unknown_closure",
           observations: observations,
@@ -3149,11 +3207,16 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       },
     );
     try {
-      const failed = saveRecoveryCheckpoint(repository, recoveryId, before, {
-        kind: "authentication_unknown_closure",
-        observations: observations,
-        assertOwner: () => true,
-      });
+      const failed = saveRecoveryCheckpoint(
+        repository,
+        recoveryId,
+        priorEvidence,
+        {
+          kind: "authentication_unknown_closure",
+          observations: observations,
+          assertOwner: () => true,
+        },
+      );
       assert.equal(interrupted, 1, JSON.stringify(failed));
       assert.equal(failed.status, "blocked");
       assert.equal(failed.snapshotConfirmed, false);
@@ -3166,7 +3229,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
           Buffer.from(
             candidate ?? assert.fail("missing_fixture_bytes"),
           ).toString("utf8"),
-        ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+        ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
       };
       assert.ok(pending);
       assert.equal(
@@ -3181,11 +3244,16 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       renameFailure.mock.restore();
     }
     assert.ok(candidate);
-    const saved = saveRecoveryCheckpoint(repository, recoveryId, before, {
-      kind: "authentication_unknown_closure",
-      observations: observations,
-      assertOwner: () => true,
-    });
+    const saved = saveRecoveryCheckpoint(
+      repository,
+      recoveryId,
+      priorEvidence,
+      {
+        kind: "authentication_unknown_closure",
+        observations: observations,
+        assertOwner: () => true,
+      },
+    );
     assert.equal(saved.status, "completed", saved.reason);
     assert.equal(saved.snapshotConfirmed, true);
     assert.equal(saved.filesystemEffectIssued, true);
@@ -3198,10 +3266,13 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.equal(read.lockReleased, true);
     assert.ok(read.value);
     assert.equal(read.value.snapshot.revision, 2);
-    assert.deepEqual(read.value.snapshot.previous, {
-      revision: 1,
-      payloadSha256: decodedBefore.payloadSha256,
-    });
+    assert.deepEqual(
+      readStoredExecutionFixture(root, read.value.payloadSha256).previous,
+      {
+        revision: 1,
+        payloadSha256: decodedBefore.payloadSha256,
+      },
+    );
     const operation = read.value.snapshot.operations.find(
       (item) => item.kind === "docker_task",
     );
@@ -3348,7 +3419,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     };
     const beforeHostCleanup = Buffer.from(
       canonicalJson({
-        ...last.snapshot,
+        ...readStoredExecutionFixture(root, last.payloadSha256),
         operations: last.snapshot.operations.map((item) =>
           item.recoveryId === recoveryId ? terminalTask : item,
         ),
@@ -3366,7 +3437,11 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     );
     assert.equal(terminalRead.status, "completed");
     assert.ok(terminalRead.value);
-    const terminalBytes = Buffer.from(terminalRead.value.sourceText, "utf8");
+    const terminalBytes = fs.readFileSync(file);
+    assert.equal(
+      terminalRead.value.payloadSha256,
+      createHash("sha256").update(terminalBytes).digest("hex"),
+    );
     const terminalHost = terminalRead.value.snapshot.operations.find(
       (item) => item.kind === "host_operation",
     );
@@ -3388,7 +3463,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       },
     };
     const corruptBytes = Buffer.from(
-      `${canonicalJson({ ...terminalRead.value.snapshot, operations: terminalRead.value.snapshot.operations.map((item) => (item.recoveryId === recoveryId ? corruptTask : item)) })}\n`,
+      `${canonicalJson({ ...parseStoredExecutionFixture(terminalBytes.toString("utf8")), operations: terminalRead.value.snapshot.operations.map((item) => (item.recoveryId === recoveryId ? corruptTask : item)) })}\n`,
     );
     // Schema検査はEM側で実施し、このCaseでは後続の公開操作と保存本文を検証する。
     fs.writeFileSync(file, corruptBytes);
@@ -3404,6 +3479,205 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.ok(fs.readFileSync(file).equals(corruptBytes));
     assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
     fs.writeFileSync(file, terminalBytes);
+    let fixedHistory: NonNullable<ExecutionOperationRecord["history"]> | null =
+      null;
+    if (consumer === "coordinator_cli") {
+      // 実際の終端Writerを通す。もう一方のケースでは旧来のno-op経路を維持する。
+      assert.ok(terminalTask.outcome);
+      const unfinalized = {
+        ...terminalTask,
+        outcome: { ...terminalTask.outcome, cleanupConfirmed: false },
+      };
+      fs.writeFileSync(
+        file,
+        `${canonicalJson({
+          ...parseStoredExecutionFixture(terminalBytes.toString("utf8")),
+          operations: terminalRead.value.snapshot.operations.map((item) =>
+            item.recoveryId === recoveryId ? unfinalized : item,
+          ),
+        })}\n`,
+      );
+      const prior = readState(prepareFixtureRecovery(verified.capability), {
+        scope: "recovery",
+      });
+      assert.ok(prior.value, prior.reason);
+      const original = fs.readFileSync(file);
+      const originalRename = fs.renameSync;
+      const pendingFile = path.join(directory, "state.pending.json");
+      let renameAttempts = 0;
+      const fault = t.mock.method(
+        fs,
+        "renameSync",
+        (from: fs.PathLike, to: fs.PathLike) => {
+          if (from === pendingFile && to === file) {
+            renameAttempts++;
+            throw new Error("test_terminal_rename");
+          }
+          return originalRename(from, to);
+        },
+      );
+      const terminalRequest = {
+        kind: "terminal" as const,
+        assertOwner: () => true,
+      };
+      let lockAcquisitions = 0;
+      let stateOpens = 0;
+      const pendingOpenModes: (string | number | undefined)[] = [];
+      const originalOpen = fs.openSync;
+      const targetLock = path.join(
+        root,
+        ".crdd",
+        "lock",
+        "execution-model.state.lock",
+      );
+      const lockObservation = t.mock.method(
+        fs,
+        "openSync",
+        (...args: Parameters<typeof fs.openSync>) => {
+          if (args[0] === targetLock && args[1] === "wx+") lockAcquisitions++;
+          if (args[0] === file) stateOpens++;
+          if (args[0] === pendingFile) pendingOpenModes.push(args[1]);
+          return originalOpen(...args);
+        },
+      );
+      try {
+        const heldDirectory = path.join(root, ".crdd", "terminal-held-fixture");
+        let movedArea = false;
+        try {
+          const replaced = saveRecoveryCheckpoint(
+            repository,
+            recoveryId,
+            prior.value.versionEvidence,
+            {
+              ...terminalRequest,
+              assertOwner: () => {
+                if (!movedArea && fs.existsSync(pendingFile)) {
+                  fs.renameSync(directory, heldDirectory);
+                  movedArea = true;
+                  fs.mkdirSync(directory);
+                }
+                return true;
+              },
+            },
+          );
+          assert.equal(movedArea, true);
+          assert.equal(replaced.status, "blocked");
+          assert.equal(renameAttempts, 0);
+          assert.deepEqual(fs.readdirSync(directory), []);
+          assert.ok(
+            fs
+              .readFileSync(path.join(heldDirectory, "state.json"))
+              .equals(original),
+          );
+          assert.ok(
+            fs.existsSync(path.join(heldDirectory, "state.pending.json")),
+          );
+        } finally {
+          if (movedArea) {
+            if (fs.existsSync(directory)) fs.rmdirSync(directory);
+            fs.renameSync(heldDirectory, directory);
+            fs.unlinkSync(pendingFile);
+          }
+        }
+        let changedAfterSync = false;
+        const changed = saveRecoveryCheckpoint(
+          repository,
+          recoveryId,
+          prior.value.versionEvidence,
+          {
+            ...terminalRequest,
+            assertOwner: () => {
+              if (!changedAfterSync && fs.existsSync(pendingFile)) {
+                fs.appendFileSync(pendingFile, " ");
+                changedAfterSync = true;
+              }
+              return true;
+            },
+          },
+        );
+        assert.equal(changedAfterSync, true);
+        assert.equal(changed.status, "blocked");
+        assert.equal(
+          renameAttempts,
+          0,
+          "late pending change must stop before rename",
+        );
+        assert.ok(fs.readFileSync(file).equals(original));
+        fs.unlinkSync(pendingFile);
+        lockAcquisitions = 0;
+        stateOpens = 0;
+        pendingOpenModes.length = 0;
+        const interrupted = saveRecoveryCheckpoint(
+          repository,
+          recoveryId,
+          prior.value.versionEvidence,
+          terminalRequest,
+        );
+        assert.equal(interrupted.status, "blocked");
+        assert.equal(interrupted.filesystemEffectIssued, true);
+        assert.equal(renameAttempts, 1);
+        assert.equal(stateOpens, 2);
+        assert.deepEqual(pendingOpenModes, ["wx", fs.constants.O_RDONLY]);
+        assert.ok(fs.readFileSync(file).equals(original));
+        assert.equal(lockAcquisitions, 1);
+      } finally {
+        fault.mock.restore();
+      }
+      const pending = fs.readFileSync(pendingFile);
+      const premature = saveRecoveryHistory(
+        {
+          ...repository,
+          ...withHistoryRetention(repository, verified.capability),
+        },
+        recoveryId,
+        () => true,
+        "docker_task",
+      );
+      assert.equal(premature.status, "blocked");
+      assert.equal(premature.filesystemEffectIssued, false);
+      assert.ok(fs.readFileSync(pendingFile).equals(pending));
+      const mismatched = Buffer.concat([pending, Buffer.from(" ")]);
+      fs.writeFileSync(pendingFile, mismatched);
+      lockAcquisitions = 0;
+      const refused = saveRecoveryCheckpoint(
+        repository,
+        recoveryId,
+        prior.value.versionEvidence,
+        terminalRequest,
+      );
+      assert.equal(refused.status, "blocked");
+      assert.equal(refused.filesystemEffectIssued, false);
+      assert.equal(lockAcquisitions, 1);
+      assert.ok(fs.readFileSync(pendingFile).equals(mismatched));
+      assert.ok(fs.readFileSync(file).equals(original));
+      fs.writeFileSync(pendingFile, pending);
+      lockAcquisitions = 0;
+      stateOpens = 0;
+      pendingOpenModes.length = 0;
+      const resumed = saveRecoveryCheckpoint(
+        repository,
+        recoveryId,
+        prior.value.versionEvidence,
+        terminalRequest,
+      );
+      assert.equal(resumed.status, "completed", resumed.reason);
+      assert.equal(lockAcquisitions, 1);
+      assert.equal(stateOpens, 3);
+      assert.equal(pendingOpenModes.filter((mode) => mode === "r+").length, 1);
+      assert.ok(!pendingOpenModes.includes("wx"));
+      lockObservation.mock.restore();
+      assert.equal(resumed.revision, prior.value.snapshot.revision + 1);
+      assert.ok(fs.readFileSync(file).equals(pending));
+      assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
+      const saved = parseStoredExecutionFixture(pending.toString("utf8"));
+      fixedHistory =
+        saved.operations.find(
+          (item): item is ExecutionOperationRecord =>
+            item.kind === "docker_task" && item.recoveryId === recoveryId,
+        )?.history ?? null;
+      assert.ok(fixedHistory);
+      assert.equal(fixedHistory.confirmed, false);
+    }
     const historyStart = readState(
       prepareFixtureRecovery(historyRepositoryInput(verified.capability)),
       {
@@ -3413,12 +3687,338 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     );
     assert.equal(historyStart.status, "completed", historyStart.reason);
     assert.equal(historyStart.lockReleased, true);
-    assert.ok(historyStart.currentHistoryPublication);
+    assert.ok(historyStart.historyPublicationStage);
+    const retention = historyRepositoryInput(verified.capability);
+    const historyRepository = {
+      ...repository,
+      historyRetentionDays: retention.historyRetentionDays,
+      revalidateRetention: retention.revalidate,
+    } satisfies Parameters<typeof saveRecoveryHistory>[0];
+    if (fixedHistory) {
+      const historyFile = path.join(directory, "history.jsonl");
+      const pendingFile = path.join(directory, "history.pending.jsonl");
+      const pendingStateFile = path.join(directory, "state.pending.json");
+      const unconfirmed = fs.readFileSync(file);
+      const replacedHistory = Buffer.from("late canonical history");
+      const list = fs.readdirSync;
+      let observedHistoryBoundary = false;
+      let changedAfterReader = false;
+      let listings = 0;
+      const observeListing = t.mock.method(
+        fs,
+        "readdirSync",
+        (...args: Parameters<typeof list>) => {
+          const result = list(...args);
+          if (args[0] === directory && ++listings === 2)
+            observedHistoryBoundary = true;
+          return result;
+        },
+      );
+      try {
+        const refused = saveRecoveryHistory(
+          historyRepository,
+          recoveryId,
+          () => {
+            if (observedHistoryBoundary && !changedAfterReader) {
+              changedAfterReader = true;
+              fs.writeFileSync(historyFile, replacedHistory, { flag: "wx" });
+            }
+            return true;
+          },
+          "docker_task",
+        );
+        assert.equal(changedAfterReader, true);
+        assert.equal(refused.status, "blocked");
+        assert.equal(refused.filesystemEffectIssued, false);
+        assert.equal(refused.lockReleased, true);
+        assert.ok(fs.readFileSync(file).equals(unconfirmed));
+        assert.ok(fs.readFileSync(historyFile).equals(replacedHistory));
+        assert.equal(fs.existsSync(pendingFile), false);
+        assert.equal(fs.existsSync(pendingStateFile), false);
+      } finally {
+        observeListing.mock.restore();
+      }
+      fs.unlinkSync(historyFile);
+      let checkedPendingState = false;
+      let inserted = false;
+      let writerListedFiles = false;
+      let writerCheckedPendingState = false;
+      const unexpectedState = Buffer.from("late state pending");
+      const observePending = t.mock.method(
+        fs,
+        "lstatSync",
+        new Proxy(fs.lstatSync, {
+          apply(target, receiver, args) {
+            if (args[0] === pendingStateFile) checkedPendingState = true;
+            if (writerListedFiles && args[0] === pendingStateFile)
+              writerCheckedPendingState = true;
+            return Reflect.apply(target, receiver, args);
+          },
+        }),
+      );
+      try {
+        const refused = saveRecoveryHistory(
+          historyRepository,
+          recoveryId,
+          () => {
+            if (checkedPendingState && !inserted) {
+              fs.writeFileSync(pendingStateFile, unexpectedState, {
+                flag: "wx",
+              });
+              inserted = true;
+            }
+            return true;
+          },
+          "docker_task",
+        );
+        assert.equal(inserted, true);
+        assert.equal(refused.status, "blocked");
+        assert.equal(refused.filesystemEffectIssued, false);
+        assert.equal(fs.existsSync(pendingFile), false);
+        assert.ok(fs.readFileSync(pendingStateFile).equals(unexpectedState));
+        assert.ok(fs.readFileSync(file).equals(unconfirmed));
+        fs.unlinkSync(pendingStateFile);
+
+        // 候補を導出した後で保持設定が変わっても、新規の途中履歴を作らない。
+        let listingsForRetention = 0;
+        const observeWriterListing = t.mock.method(
+          fs,
+          "readdirSync",
+          (...args: Parameters<typeof list>) => {
+            const result = list(...args);
+            if (args[0] === directory && ++listingsForRetention === 3)
+              writerListedFiles = true; // Readerの入口・末尾に続くWriterの入口。
+            return result;
+          },
+        );
+        let retentionChanged = false;
+        let writerSettingsChecks = 0;
+        const changedRetention = (() => {
+          try {
+            return saveRecoveryHistory(
+              {
+                ...historyRepository,
+                revalidateRetention(days: number) {
+                  if (writerListedFiles) writerSettingsChecks++;
+                  if (writerCheckedPendingState) {
+                    retentionChanged = true;
+                    return false;
+                  }
+                  return historyRepository.revalidateRetention(days);
+                },
+              },
+              recoveryId,
+              () => true,
+              "docker_task",
+            );
+          } finally {
+            observeWriterListing.mock.restore();
+          }
+        })();
+        assert.equal(retentionChanged, true);
+        assert.equal(writerSettingsChecks, 1);
+        assert.equal(changedRetention.status, "blocked");
+        assert.equal(changedRetention.filesystemEffectIssued, false);
+        assert.equal(changedRetention.historyConfirmed, false);
+        assert.equal(changedRetention.lockReleased, true);
+        assert.equal(fs.existsSync(pendingFile), false);
+        assert.equal(fs.existsSync(historyFile), false);
+        assert.ok(fs.readFileSync(file).equals(unconfirmed));
+      } finally {
+        observePending.mock.restore();
+      }
+      const originalOpen = fs.openSync;
+      const originalSync = fs.fsyncSync;
+      const originalRename = fs.renameSync;
+      // 最初の履歴途中ファイルを同期した後の設定編集は、次の保存だけに反映する。
+      const configDirectory = path.join(root, ".crdd", "config");
+      const configFile = path.join(configDirectory, "coordinator.json");
+      const initialDays = historyRepository.historyRetentionDays;
+      assert.ok(initialDays !== null);
+      assert.equal(fs.existsSync(configFile), false);
+      fs.mkdirSync(configDirectory, { recursive: true });
+      let firstHistoryDescriptor: number | null = null;
+      let changedAfterSync = false;
+      let settingsChecksAfterSync = 0;
+      const observeFirstHistory = t.mock.method(
+        fs,
+        "openSync",
+        (...args: Parameters<typeof originalOpen>) => {
+          const fd = originalOpen(...args);
+          if (args[0] === pendingFile && args[1] === "wx")
+            firstHistoryDescriptor = fd;
+          return fd;
+        },
+      );
+      const changeConfigAfterSync = t.mock.method(
+        fs,
+        "fsyncSync",
+        (fd: number) => {
+          originalSync(fd);
+          if (fd !== firstHistoryDescriptor || changedAfterSync) return;
+          changedAfterSync = true;
+          fs.writeFileSync(
+            configFile,
+            JSON.stringify({
+              schemaRevision: 1,
+              historyRetentionDays: initialDays + 1,
+            }),
+            { flag: "wx" },
+          );
+        },
+      );
+      try {
+        const saved = saveRecoveryHistory(
+          {
+            ...historyRepository,
+            revalidateRetention(days: number) {
+              if (changedAfterSync) settingsChecksAfterSync++;
+              return historyRepository.revalidateRetention(days);
+            },
+          },
+          recoveryId,
+          () => true,
+          "docker_task",
+        );
+        assert.equal(changedAfterSync, true);
+        assert.equal(settingsChecksAfterSync, 0);
+        assert.equal(saved.status, "completed", saved.reason);
+        assert.equal(saved.historyConfirmed, true);
+        assert.equal(saved.lockReleased, true);
+        assert.equal(fs.existsSync(pendingFile), false);
+        assert.equal(fs.existsSync(pendingStateFile), false);
+        assert.equal(
+          createHash("sha256")
+            .update(fs.readFileSync(historyFile))
+            .digest("hex"),
+          fixedHistory.lineSha256,
+        );
+        assert.equal(
+          historyRepositoryInput(verified.capability).historyRetentionDays,
+          initialDays + 1,
+        );
+      } finally {
+        observeFirstHistory.mock.restore();
+        changeConfigAfterSync.mock.restore();
+        if (changedAfterSync) fs.unlinkSync(configFile);
+      }
+      // 後続の不正差替え試験を同じ初回追記断面から続ける。
+      fs.unlinkSync(historyFile);
+      fs.writeFileSync(file, unconfirmed);
+
+      const foreignPending = Buffer.from("late history pending");
+      const renameChecks: string[] = [];
+      let pendingDescriptor: number | null = null;
+      let historyDescriptor: number | null = null;
+      let observingRenameChecks = false;
+      let insertedAfterSync = false;
+      const observeHistoryOpen = t.mock.method(
+        fs,
+        "openSync",
+        (...args: Parameters<typeof originalOpen>) => {
+          const fd = originalOpen(...args);
+          if (args[0] === pendingFile && args[1] === "wx")
+            pendingDescriptor = fd;
+          if (args[0] === historyFile && args[1] === "r+")
+            historyDescriptor = fd;
+          return fd;
+        },
+      );
+      const insertAfterHistorySync = t.mock.method(
+        fs,
+        "fsyncSync",
+        (fd: number) => {
+          originalSync(fd);
+          if (fd === pendingDescriptor) {
+            observingRenameChecks = true;
+            pendingDescriptor = null;
+          }
+          if (fd === historyDescriptor && !insertedAfterSync) {
+            insertedAfterSync = true;
+            fs.writeFileSync(pendingFile, foreignPending, { flag: "wx" });
+          }
+        },
+      );
+      const observeHistoryRename = t.mock.method(
+        fs,
+        "renameSync",
+        (...args: Parameters<typeof originalRename>) => {
+          if (args[0] === pendingFile && args[1] === historyFile)
+            observingRenameChecks = false;
+          return originalRename(...args);
+        },
+      );
+      try {
+        const refused = saveRecoveryHistory(
+          {
+            ...historyRepository,
+            revalidate() {
+              if (observingRenameChecks) renameChecks.push("current");
+              return historyRepository.revalidate();
+            },
+            revalidateRetention(days: number) {
+              if (observingRenameChecks) renameChecks.push("settings");
+              return historyRepository.revalidateRetention(days);
+            },
+          },
+          recoveryId,
+          () => {
+            if (observingRenameChecks) renameChecks.push("owner");
+            return true;
+          },
+          "docker_task",
+        );
+        assert.equal(insertedAfterSync, true, refused.reason);
+        assert.deepEqual(renameChecks, ["owner", "current"]);
+        assert.equal(refused.status, "blocked");
+        assert.equal(refused.filesystemEffectIssued, true);
+        assert.equal(refused.historyConfirmed, false);
+        assert.equal(refused.lockReleased, true);
+        assert.ok(fs.readFileSync(file).equals(unconfirmed));
+        assert.ok(fs.readFileSync(pendingFile).equals(foreignPending));
+        assert.equal(fs.existsSync(pendingStateFile), false);
+        assert.equal(
+          createHash("sha256")
+            .update(fs.readFileSync(historyFile))
+            .digest("hex"),
+          fixedHistory.lineSha256,
+        );
+      } finally {
+        observeHistoryOpen.mock.restore();
+        insertAfterHistorySync.mock.restore();
+        observeHistoryRename.mock.restore();
+      }
+      // 自己生成fixtureの初回追記断面を戻し、既存の置換前CAS・再入場試験を続ける。
+      fs.unlinkSync(pendingFile);
+      fs.unlinkSync(historyFile);
+      let candidate: Buffer | null = null;
+      const blocked = saveRecoveryHistory(
+        historyRepository,
+        recoveryId,
+        () => {
+          if (!candidate && fs.existsSync(pendingFile)) {
+            candidate = fs.readFileSync(pendingFile);
+            fs.appendFileSync(file, " ");
+          }
+          return true;
+        },
+        "docker_task",
+      );
+      assert.ok(candidate);
+      assert.equal(blocked.status, "blocked");
+      assert.equal(blocked.filesystemEffectIssued, true);
+      assert.equal(blocked.historyConfirmed, false);
+      assert.equal(fs.existsSync(historyFile), false);
+      assert.ok(fs.readFileSync(pendingFile).equals(candidate));
+      assert.ok(
+        fs
+          .readFileSync(file)
+          .equals(Buffer.concat([unconfirmed, Buffer.from(" ")])),
+      );
+      fs.writeFileSync(file, unconfirmed);
+    }
     const advanced = saveRecoveryHistory(
-      {
-        ...repository,
-        ...withHistoryRetention(repository, verified.capability),
-      },
+      historyRepository,
       recoveryId,
       () => true,
       "docker_task",
@@ -3427,6 +4027,19 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.equal(advanced.snapshotConfirmed, true);
     assert.equal(advanced.lockReleased, true);
     assert.equal(advanced.historyConfirmed, true);
+    if (fixedHistory) {
+      assert.ok(historyStart.value);
+      assert.equal(advanced.revision, historyStart.value.snapshot.revision + 1);
+      const published = fs.readFileSync(path.join(directory, "history.jsonl"));
+      assert.equal(
+        JSON.parse(published.toString("utf8")).occurredAt,
+        fixedHistory.occurredAt,
+      );
+      assert.equal(
+        createHash("sha256").update(published).digest("hex"),
+        fixedHistory.lineSha256,
+      );
+    }
     const completionReady = readState(
       prepareFixtureRecovery(verified.capability),
       {
@@ -3461,7 +4074,10 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       terminalHost,
     ]);
     assert.equal(
-      Object.hasOwn(finishedSnapshot.value.snapshot, "pendingDeliveries"),
+      Object.hasOwn(
+        readStoredExecutionFixture(root, finishedSnapshot.value.payloadSha256),
+        "pendingDeliveries",
+      ),
       false,
     );
     assert.deepEqual(finishedSnapshot.value.snapshot.unresolvedRecoveries, []);

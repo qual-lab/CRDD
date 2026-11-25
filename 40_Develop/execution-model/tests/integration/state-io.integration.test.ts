@@ -22,6 +22,67 @@ import {
 } from "../../src/storage/store.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 
+test("固定ファイルの名前を入口とclose後の各一回だけ観測し、close中の同内容置換を拒否する", (t) => {
+  const fixture = createRepositoryTestDirectory("domain-state-read-");
+  const file = path.join(fixture.path, "state.json");
+  const saved = path.join(fixture.path, "original");
+  const observe = fs.lstatSync;
+  const open = fs.openSync;
+  const close = fs.closeSync;
+  let observations: boolean[] = [];
+  let reader: number | null = null;
+  let closed = false;
+  let linkedOnClose = false;
+  let replaceOnClose = false;
+  try {
+    fs.writeFileSync(file, "snapshot");
+    t.mock.method(fs, "lstatSync", (...args: Parameters<typeof observe>) => {
+      const stat = observe(...args);
+      if (args[0] === file) {
+        observations.push(closed);
+        if (closed && linkedOnClose)
+          Object.defineProperty(stat, "nlink", { value: 2n });
+      }
+      return stat;
+    });
+    t.mock.method(fs, "openSync", (...args: Parameters<typeof open>) => {
+      const fd = open(...args);
+      if (args[0] === file && args[1] === fs.constants.O_RDONLY) reader = fd;
+      return fd;
+    });
+    t.mock.method(fs, "closeSync", (fd: number) => {
+      close(fd);
+      if (fd !== reader) return;
+      reader = null;
+      closed = true;
+      if (replaceOnClose) {
+        replaceOnClose = false;
+        fs.renameSync(file, saved);
+        fs.writeFileSync(file, "snapshot");
+      }
+    });
+    const identities = new Map<string, StableFileIdentity>();
+    const read = () =>
+      readExecutionStateFile(fixture.path, "state.json", identities, () => {});
+    assert.equal(read()?.toString(), "snapshot");
+    assert.deepEqual(observations, [false, true]);
+    observations = [];
+    closed = false;
+    linkedOnClose = true;
+    assert.throws(read, /links/);
+    assert.deepEqual(observations, [false, true]);
+    observations = [];
+    closed = false;
+    linkedOnClose = false;
+    replaceOnClose = true;
+    assert.throws(read, /file_snapshot_changed/);
+    assert.deepEqual(observations, [false, true]);
+  } finally {
+    t.mock.restoreAll();
+    fixture.cleanup();
+  }
+});
+
 /**
  * 三つの出版前flushの評価順と失敗時descriptor終了を確認する。
  * @responsibility Owner・実体・Effect記録の対象別順序を抽出前と比較する。

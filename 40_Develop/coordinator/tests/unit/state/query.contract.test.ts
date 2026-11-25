@@ -566,15 +566,14 @@ test("試験の値Context構成はexecution viewだけを一度取得する", ()
     value: {},
   };
   const create = new Function(
-    "readState",
+    "readExecutionState",
     "resolveExecutionStorageDirectory",
     `${source}; return createTestPersistence;`,
   )(
-    (actual: unknown, binding: string, scope: string) => {
+    (actual: unknown, binding: string) => {
       calls++;
       assert.equal(actual, root);
       assert.equal(binding, "binding-a");
-      assert.equal(scope, "execution");
       return reply;
     },
     () => root,
@@ -587,7 +586,7 @@ test("試験の値Context構成はexecution viewだけを一度取得する", ()
     intake: undefined,
   });
   assert.equal(Object.isFrozen(context), true);
-  assert.equal(Object.hasOwn(context, "readState"), false);
+  assert.equal(Object.hasOwn(context, "readExecutionState"), false);
   for (const [value, expected] of [
     [
       { status: "completed", reason: "absent", value: null },
@@ -660,10 +659,9 @@ test("公開状態照会は同版のProjectを使い採用確認後だけ再取�
       }),
       resolveExecutionStorageDirectory: () => capability,
       deriveCoordinatorRepositoryBindingId: () => "binding-a",
-      readState: (root: unknown, binding: string, scope: string) => {
+      readExecutionState: (root: unknown, binding: string) => {
         assert.strictEqual(root, capability);
         assert.equal(binding, "binding-a");
-        assert.equal(scope, "execution");
         reads++;
         if (storageUnknown)
           return {
@@ -803,7 +801,7 @@ test("公開状態照会は既知の保存例外だけを元の回復情報付�
       readRepositorySnapshot: () => ({ revisionIdentity: revision }),
       resolveExecutionStorageDirectory: () => ({}),
       deriveCoordinatorRepositoryBindingId: () => "binding-a",
-      readState: () => {
+      readExecutionState: () => {
         throw error;
       },
       queryCoordinatorState: () => assert.fail("failed read cannot project"),

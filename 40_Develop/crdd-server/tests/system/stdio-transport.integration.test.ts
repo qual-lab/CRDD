@@ -16,7 +16,7 @@ import { PassThrough, Readable, Writable } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { runMcpCoordinatorStdio } from "../../src/transport/mcp-server.ts";
+import { runCoordinatorStdioFixture } from "../fixtures/sdk-request.ts";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
@@ -109,14 +109,13 @@ test("stdio process transports one bounded MCP request and closes on parent EOF"
       },
     },
   };
-  const pending = runMcpCoordinatorStdio(
+  const pending = runCoordinatorStdioFixture(
     {
       authenticateClient: () => ({
         status: "verified",
         principalId: "principal-a",
       }),
       runObjective: async () => assert.fail("objective not expected"),
-      submitDecision: async () => assert.fail("decision not expected"),
       getProjectState: async () => assert.fail("state query not expected"),
     },
     input,
@@ -202,19 +201,16 @@ test("stdio process rejects trailing and oversized frames without semantic effec
     runObjective: async () => {
       effects += 1;
     },
-    submitDecision: async () => {
-      effects += 1;
-    },
     getProjectState: async () => {
       effects += 1;
     },
   };
-  const trailing = await runMcpCoordinatorStdio(
+  const trailing = await runCoordinatorStdioFixture(
     dependencies,
     Readable.from(["{}"]),
     output().stream,
   );
-  const oversized = await runMcpCoordinatorStdio(
+  const oversized = await runCoordinatorStdioFixture(
     dependencies,
     Readable.from(["x".repeat(128 * 1024 + 1)]),
     output().stream,
@@ -428,7 +424,7 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
   const input = new PassThrough();
   const sink = output();
   let isCancellationObserved = false;
-  const running = runMcpCoordinatorStdio(
+  const running = runCoordinatorStdioFixture(
     {
       authenticateClient: () => ({
         status: "verified",
@@ -470,7 +466,6 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
           if (signal.aborted) cancel();
           else signal.addEventListener("abort", cancel, { once: true });
         }),
-      submitDecision: async () => assert.fail("decision not expected"),
       getProjectState: async () => assert.fail("state query not expected"),
     },
     input,
@@ -555,7 +550,7 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
       }),
     },
   };
-  const pending = runMcpCoordinatorStdio(
+  const pending = runCoordinatorStdioFixture(
     {
       authenticateClient: () => ({
         status: "verified",
@@ -569,7 +564,6 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
         manualRecoveryRequired: true,
         effectState: "unknown",
       }),
-      submitDecision: async () => assert.fail("decision not expected"),
       getProjectState: async () => assert.fail("state query not expected"),
     },
     input,

@@ -116,6 +116,84 @@ test("wxは同じ対象の二重取得を拒否し、通常解放・新世代・
   assert.equal(next.lock.release(), true);
 });
 
+test("保持確認は取得済みハンドルの本文を読み、Lock Fileを開き直さない", (t) => {
+  const request = fixture(t);
+  const result = acquireLock(request);
+  assert.equal(result.status, "acquired");
+  if (result.status !== "acquired") return;
+  const target = path.join(request.directory, request.name);
+  const open = fs.openSync;
+  let reopens = 0;
+  const watch = t.mock.method(
+    fs,
+    "openSync",
+    (...args: Parameters<typeof open>) => {
+      if (args[0] === target) reopens++;
+      return open(...args);
+    },
+  );
+  try {
+    assert.equal(result.lock.assertLive(), true);
+    assert.equal(result.lock.assertLive(), true);
+    assert.equal(reopens, 0);
+  } finally {
+    watch.mock.restore();
+    assert.equal(result.lock.release(), true);
+  }
+});
+
+test("close中に同じ長さの本文へ変われば、解放せず保全する", (t) => {
+  const request = fixture(t);
+  const target = path.join(request.directory, request.name);
+  const result = acquireLock(request);
+  assert.equal(result.status, "acquired");
+  if (result.status !== "acquired") return;
+  const changed = fs.readFileSync(target);
+  changed.writeUInt8(changed.readUInt8(0) ^ 1, 0);
+  const close = fs.closeSync;
+  const fault = t.mock.method(fs, "closeSync", (descriptor: number) => {
+    close(descriptor);
+    fault.mock.restore();
+    fs.writeFileSync(target, changed);
+  });
+  try {
+    assert.equal(result.lock.release(), false);
+    assert.deepEqual(fs.readFileSync(target), changed);
+    assert.equal(result.lock.release(), false);
+  } finally {
+    fault.mock.restore();
+  }
+});
+
+test("親を確認している間に同じ長さの本文へ変われば保持不明にする", (t) => {
+  const request = fixture(t);
+  const target = path.join(request.directory, request.name);
+  const result = acquireLock(request);
+  assert.equal(result.status, "acquired");
+  if (result.status !== "acquired") return;
+  const changed = fs.readFileSync(target);
+  changed.writeUInt8(changed.readUInt8(0) ^ 1, 0);
+  const realpath = fs.realpathSync.native;
+  const fault = t.mock.method(
+    fs.realpathSync,
+    "native",
+    (...args: Parameters<typeof realpath>) => {
+      if (args[0] === request.directory) {
+        fault.mock.restore();
+        fs.writeFileSync(target, changed);
+      }
+      return realpath(...args);
+    },
+  );
+  try {
+    assert.equal(result.lock.assertLive(), false);
+  } finally {
+    fault.mock.restore();
+    assert.equal(result.lock.release(), false);
+    assert.deepEqual(fs.readFileSync(target), changed);
+  }
+});
+
 for (const change of ["identity", "owner", "generation", "file"] as const) {
   test(`通常解放は${change}の置換を観測したら削除せず失敗する`, (t) => {
     const request = fixture(t);
@@ -124,14 +202,19 @@ for (const change of ["identity", "owner", "generation", "file"] as const) {
     if (result.status !== "acquired") return;
     const target = path.join(request.directory, request.name);
     if (change === "file") {
+      const original = fs.readFileSync(target);
       fs.renameSync(target, path.join(request.directory, "original.lock"));
-      fs.writeFileSync(target, "unknown-object", { flag: "wx" });
+      fs.writeFileSync(target, original, { flag: "wx" });
     } else {
       const record = JSON.parse(fs.readFileSync(target, "utf8"));
       record[change] =
         change === "owner"
           ? { processId: process.pid, processIdentity: "different-owner" }
-          : "different-value";
+          : change === "generation"
+            ? record.generation.startsWith("0")
+              ? `1${record.generation.slice(1)}`
+              : `0${record.generation.slice(1)}`
+            : "different-value";
       fs.writeFileSync(target, `${JSON.stringify(record)}\n`);
     }
     const before = fs.readFileSync(target);

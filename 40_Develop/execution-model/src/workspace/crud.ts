@@ -4,33 +4,302 @@
  * @trace ARCH-000008
  */
 
-import type { StorageRootInput } from "../storage/lock.ts";
+import { acquireLock, type Lock } from "../../../lock/src/index.ts";
+import {
+  blocked,
+  completed,
+  type StorageRootInput,
+  type StoreResult,
+} from "../storage/lock.ts";
+import { observePhysicalExecutionDataArea } from "../storage/store.ts";
 import {
   snapshotLeaseResourcesAbsent,
   withSnapshotOperation,
-} from "../state/crud.ts";
-import { leaseIdentity } from "../state/operations.ts";
+} from "../composition/crud.ts";
+import {
+  encodeStateValue,
+  leaseIdentity,
+  snapshotStateRecord,
+  validId,
+} from "../composition/validation.ts";
+import type { Snapshot } from "../composition/types.ts";
+import type { RepositoryWorktreeResult, WorkspaceRecord } from "./types.ts";
 
 import {
   prepareIntegrationRecordCreation,
-  prepareWorkspaceRecordUpdate,
-  prepareWorkspaceRename,
+  prepareWorkspaceCandidateUpdate,
+  readWorkspaceCandidateClosure,
+  prepareWorkspaceCreationUpdate,
+  prepareWorkspaceDiscardUpdate,
+  prepareWorkspaceObservationUpdate,
+  prepareWorkspaceMetadataUpdate,
 } from "./validation.ts";
 
-/** 表示名だけを短期保存排他内で更新する。 @trace ARCH-000004
+/** 正本採用を含むWorkspaceのGit処置と観測をRepository単位の物理排他で保護する。 @trace ARCH-000004 */
+export function beginWorkspaceOperation(
+  repository: StorageRootInput,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  workspaceId: string,
+  operation:
+    | "create"
+    | "discard"
+    | "observe"
+    | "select"
+    | "freeze"
+    | "adopt"
+    | "close-candidate",
+) {
+  type WorktreeChange = Readonly<{
+    generation: number | null;
+    linkedToProject: boolean;
+    record: WorkspaceRecord | null;
+    milestoneId: string | null;
+    otherQueuePending: boolean;
+    closure: Snapshot["results"][number] | null;
+    isHeld(): boolean;
+    save(
+      expectedGeneration: number,
+      next: WorkspaceRecord | null,
+    ): StoreResult<WorkspaceRecord | null>;
+    saveObservation(
+      expectedGeneration: number,
+      result: RepositoryWorktreeResult,
+    ): StoreResult<WorkspaceRecord | null>;
+    release(): StoreResult<Readonly<{ released: true }>>;
+  }>;
+  if (
+    ![binding, projectId, queueId, workspaceId].every(validId) ||
+    (operation !== "create" &&
+      operation !== "discard" &&
+      operation !== "observe" &&
+      operation !== "select" &&
+      operation !== "freeze" &&
+      operation !== "adopt" &&
+      operation !== "close-candidate")
+  )
+    return blocked<WorktreeChange>("coordinator_lease_identity_invalid");
+  const identity = leaseIdentity(
+    binding,
+    projectId,
+    queueId,
+    "project-operation",
+  );
+  let acquired: Lock | null = null;
+  const result = withSnapshotOperation<WorktreeChange>(
+    repository,
+    binding,
+    (current, owner) => {
+      const queue = current.queueEntries.find(
+        (entry) => entry.projectId === projectId && entry.queueId === queueId,
+      );
+      if (!queue) return blocked("coordinator_lease_binding_invalid");
+      if (
+        ((operation === "observe" ||
+          operation === "freeze" ||
+          operation === "adopt" ||
+          operation === "close-candidate") &&
+          queue.workspaceId !== workspaceId) ||
+        (operation === "select" &&
+          queue.workspaceId != null &&
+          queue.workspaceId !== workspaceId)
+      )
+        return blocked("coordinator_workspace_target_mismatch");
+      if (
+        current.leaseIntents.some((item) => item.kind === "project-operation")
+      )
+        return blocked("coordinator_lease_unavailable");
+      if (!snapshotLeaseResourcesAbsent(owner.repositoryRoot, identity))
+        return blocked("workspace_operation_lock_present", true);
+      const area = observePhysicalExecutionDataArea(
+        owner.repositoryRoot,
+        "lock",
+      );
+      if (area.status !== "ready")
+        return blocked("coordinator_workspace_operation_unconfirmed");
+      const locked = acquireLock({
+        directory: area.directory,
+        name: `coordinator.lease.${identity}.lock`,
+        identity,
+      });
+      if (locked.status !== "acquired")
+        return blocked(
+          "workspace_operation_lock_requires_manual_review",
+          !locked.cleanupConfirmed || locked.reason === "lock_exists",
+        );
+      const lock = locked.lock;
+      acquired = lock;
+      const rootHash = owner.repositoryRootHash;
+      const storage = { directory: owner.repositoryRoot };
+      const record =
+        current.workspaces.find((item) => item.workspaceId === workspaceId) ??
+        null;
+      const linkedToProject = current.queueEntries.some(
+        (entry) =>
+          entry.projectId === projectId && entry.workspaceId === workspaceId,
+      );
+      const closure =
+        operation === "close-candidate" && linkedToProject && record?.candidate
+          ? readWorkspaceCandidateClosure(current, queue, record.candidate)
+          : null;
+      if (closure?.status === "blocked") return closure;
+      const save = (
+        update: (
+          fresh: Snapshot,
+        ) => ReturnType<typeof prepareWorkspaceObservationUpdate>,
+      ) =>
+        withSnapshotOperation(storage, binding, (fresh, storageOwner) => {
+          if (
+            storageOwner.repositoryRootHash !== rootHash ||
+            !lock.assertLive()
+          )
+            return blocked(
+              "workspace_operation_lock_requires_manual_review",
+              true,
+            );
+          return update(fresh);
+        });
+      return completed("coordinator_workspace_operation_locked", {
+        next: null,
+        value: Object.freeze({
+          generation: record?.generation ?? null,
+          record: operation !== "create" && linkedToProject ? record : null,
+          linkedToProject,
+          milestoneId: queue.milestoneId,
+          otherQueuePending:
+            operation === "close-candidate" &&
+            current.queueEntries.some(
+              (entry) =>
+                entry.workspaceId === workspaceId &&
+                entry.queueId !== queueId &&
+                entry.state !== "completed" &&
+                entry.state !== "cancelled",
+            ),
+          closure: closure?.value ?? null,
+          isHeld: () => lock.assertLive(),
+          save(expectedGeneration, next) {
+            if (
+              operation === "freeze" ||
+              operation === "adopt" ||
+              operation === "close-candidate"
+            ) {
+              if (!next) return blocked("coordinator_workspace_record_invalid");
+              let captured: WorkspaceRecord;
+              try {
+                captured = JSON.parse(
+                  encodeStateValue(next),
+                ) as WorkspaceRecord;
+              } catch {
+                return blocked("coordinator_workspace_record_invalid");
+              }
+              return save((fresh) =>
+                prepareWorkspaceCandidateUpdate(
+                  fresh,
+                  projectId,
+                  queueId,
+                  workspaceId,
+                  expectedGeneration,
+                  captured,
+                  operation,
+                ),
+              );
+            }
+            if (operation === "discard")
+              return save((fresh) =>
+                prepareWorkspaceDiscardUpdate(
+                  fresh,
+                  projectId,
+                  queueId,
+                  workspaceId,
+                  expectedGeneration,
+                  next,
+                ),
+              );
+            if (operation !== "create" || !next)
+              return blocked("coordinator_workspace_record_invalid");
+            return save((fresh) =>
+              prepareWorkspaceCreationUpdate(
+                fresh,
+                projectId,
+                queueId,
+                workspaceId,
+                expectedGeneration,
+                next,
+              ),
+            );
+          },
+          saveObservation(expectedGeneration, result) {
+            if (
+              operation === "freeze" ||
+              operation === "adopt" ||
+              operation === "close-candidate"
+            )
+              return blocked("coordinator_workspace_record_invalid");
+            let captured: RepositoryWorktreeResult;
+            try {
+              const fixed: unknown = JSON.parse(encodeStateValue(result));
+              if (!fixed || typeof fixed !== "object" || Array.isArray(fixed))
+                return blocked("coordinator_workspace_record_invalid");
+              captured = fixed as RepositoryWorktreeResult;
+            } catch {
+              return blocked("coordinator_workspace_record_invalid");
+            }
+            return save((fresh) =>
+              prepareWorkspaceObservationUpdate(
+                fresh,
+                projectId,
+                queueId,
+                workspaceId,
+                expectedGeneration,
+                captured,
+                operation,
+              ),
+            );
+          },
+          release() {
+            return lock.release()
+              ? completed("coordinator_workspace_operation_unlocked", {
+                  released: true as const,
+                })
+              : blocked(
+                  "workspace_operation_lock_requires_manual_review",
+                  true,
+                );
+          },
+        } satisfies WorktreeChange),
+      });
+    },
+  );
+  if (result.status === "blocked" && acquired) {
+    const lock: Lock = acquired;
+    if (!lock.release()) return blocked<WorktreeChange>(result.reason, true);
+  }
+  return result;
+}
+
+/** 表示名又は保留期限だけを短期保存排他内で更新する。 @trace ARCH-000004
  * @precondition 呼出し側が現在の操作認可を確認している。
  * @effect 既存Stateの比較更新だけ。Worktree・Ref・操作Leaseを作成しない。
  * @failure 既存操作Lease、残存排他、使用中、世代差、保存不明は停止する。
  */
-export function renameWorkspace(
+export function updateWorkspaceMetadata(
   repository: StorageRootInput,
   binding: string,
   projectId: string,
   queueId: string,
   workspaceId: string,
   expectedGeneration: number | undefined,
-  name: string | null,
+  update: Parameters<typeof prepareWorkspaceMetadataUpdate>[5],
 ) {
+  const captured = snapshotStateRecord(update, new Set(["kind", "value"]));
+  if (
+    !captured ||
+    (captured.kind !== "rename" && captured.kind !== "hold") ||
+    (captured.value !== null && typeof captured.value !== "string")
+  )
+    return blocked("coordinator_snapshot_input_invalid");
+  const fixed = { kind: captured.kind, value: captured.value } as const;
   const identity = leaseIdentity(
     binding,
     projectId,
@@ -41,16 +310,16 @@ export function renameWorkspace(
     repository,
     binding,
     (current, owner) =>
-      prepareWorkspaceRename(
+      prepareWorkspaceMetadataUpdate(
         current,
         projectId,
         queueId,
         workspaceId,
         expectedGeneration,
-        name,
+        fixed,
         () => snapshotLeaseResourcesAbsent(owner.repositoryRoot, identity),
       ),
-    "workspace-rename",
+    "workspace-metadata",
   );
 }
 
@@ -86,40 +355,5 @@ export function saveIntegrationRecord(
     >["value"]["value"]
   >(workingDirectory, binding, (current) =>
     prepareIntegrationRecordCreation(current, ...input),
-  );
-}
-
-/**
- * 同じ操作LeaseのWorkspace記録を比較更新する。
- * @responsibility 対象世代・Queue・Leaseを照合し、削除時だけ元の時計二回を使う。
- * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory、binding: 検証対象と既存結合。Project、Queue、Owner世代、Workspace、元世代と次記録。
- * @returns 既存の保存結果又は解放確認付き停止。
- * @precondition 呼出し側が現在の操作認可を確認している。
- * @postcondition 対象外区画と元のCAS・Hash・unknownを保つ。
- * @effect 読取りと必要な場合だけ既存Writerで保存する。
- * @failure 候補不正・競合・保存又は解放不明は停止する。
- * @invariant 任意Snapshot callback・生Ownerを受付又は返却しない。
- * @boundary 固定用途と唯一の保存Owner。
- * @security 保存成功を実行Authorityや資源回収と扱わない。
- * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
- */
-export function saveWorkspaceRecord(
-  workingDirectory: StorageRootInput,
-  binding: string,
-  ...input: Parameters<typeof prepareWorkspaceRecordUpdate> extends [
-    unknown,
-    ...infer Rest,
-  ]
-    ? Rest
-    : never
-) {
-  return withSnapshotOperation<
-    Extract<
-      ReturnType<typeof prepareWorkspaceRecordUpdate>,
-      { status: "completed" }
-    >["value"]["value"]
-  >(workingDirectory, binding, (current) =>
-    prepareWorkspaceRecordUpdate(current, ...input),
   );
 }

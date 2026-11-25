@@ -662,7 +662,7 @@ function activeLeaseIsObserved(activeLease: ActiveLease) {
  * @postcondition 記録の読取りだけでOwner死亡や回収成功を表示しない。
  * @effect 短期排他を取得してSnapshotを読む。状態を保存しない。
  * @failure 複数Owner、Queue結合差、未知Schemaと観測不能を拒否する。
- * @invariant 別ProjectのLeaseや採用Leaseを操作Ownerとして返さない。
+ * @invariant 別ProjectのLeaseを操作Ownerとして返さない。
  * @boundary 現在Snapshotから既存Lease PortのOwner参照へ。
  * @security JSONから実行用opaque LeaseやAuthorityを復元しない。
  * @concurrency 同じ短期Owner内でQueueと取得意図を照合し、解放確認後に返す。
@@ -703,7 +703,7 @@ export function acquireCoordinatorSnapshotLease(
 ): CoordinatorLeaseResult<CoordinatorLease> {
   if (
     ![binding, projectId, queueId].every(validIdentity) ||
-    (kind !== "project-operation" && kind !== "canonical-adoption")
+    kind !== "project-operation"
   )
     return blocked("coordinator_lease_identity_invalid");
   const ownerGeneration = randomUUID();
@@ -810,9 +810,8 @@ export function acquireCoordinatorSnapshotLease(
       recoveryId,
     );
   }
-  let acquired: ReturnType<typeof acquireLease>;
   try {
-    acquired = acquireLease({ directory: storageDirectory }, binding, {
+    const observed = {
       kind: "observed",
       input: [
         binding,
@@ -833,16 +832,21 @@ export function acquireCoordinatorSnapshotLease(
           },
         },
       ],
-    });
-  } catch {
-    physicalLock.release(true);
-    return blocked(
-      "coordinator_lease_acquisition_recovery_required",
-      true,
-      recoveryId,
+    } satisfies Parameters<typeof acquireLease>[2];
+    const acquired = acquireLease(
+      { directory: storageDirectory },
+      binding,
+      observed,
     );
-  }
-  if (acquired.status !== "completed") {
+    if (acquired.status !== "completed") {
+      physicalLock.release(true);
+      return blocked(
+        "coordinator_lease_acquisition_recovery_required",
+        true,
+        recoveryId,
+      );
+    }
+  } catch {
     physicalLock.release(true);
     return blocked(
       "coordinator_lease_acquisition_recovery_required",
@@ -855,6 +859,10 @@ export function acquireCoordinatorSnapshotLease(
   lease = Object.freeze({
     kind,
     ownerGeneration,
+    isHeld() {
+      const active = activeLeases.get(lease);
+      return active !== undefined && activeLeaseIsObserved(active);
+    },
     /**
      * 同じ実排他を解放して終了を保存する。
      * @responsibility 解放意図、実体照合、不存在確認、終了証拠の順を守る。
@@ -953,7 +961,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
 > {
   if (
     ![binding, projectId, queueId].every(validIdentity) ||
-    !["project-operation", "canonical-adoption"].includes(kind) ||
+    kind !== "project-operation" ||
     typeof observeOwner !== "function"
   )
     return blocked("coordinator_lease_recovery_input_invalid");
@@ -3621,6 +3629,7 @@ export function readHostRecoveryOperation(capability: unknown) {
   return {
     record: host.record,
     snapshot: current.snapshot,
+    versionEvidence: current.versionEvidence,
     payloadSha256: current.payloadSha256,
     root: ownedHostRoot(host),
   };
@@ -3666,15 +3675,20 @@ export function observeHostRecoveryRoot(
   }
 }
 
-/** 解放後の保存では、検証済みRepository内の専用Rootの明示不存在だけを肯定する。 @trace ARCH-000008 */
+/**
+ * 解放後の保存では、確定済みディレクトリ内の専用Rootの明示不存在だけを肯定する。
+ * @trace ARCH-000008
+ * @precondition 同じ回復Ownerが直前に保存先の実体結合を再確認している。
+ * @boundary Git配置の再確認や回復資格の発行は行わない。
+ */
 export function isHostOperationRootAbsent(
-  repository: Repository,
+  confirmedDirectory: string,
   operationId: string,
 ): boolean {
   try {
     if (!/^OP-[0-9]{6,}$/u.test(operationId)) return false;
-    const parent = observeRepositoryExecutionDataArea(
-      repository,
+    const parent = observeExecutionDataArea(
+      resolveRepositoryExecutionDataPathsFromValidatedRoot(confirmedDirectory),
       "coordinator",
     );
     return (
@@ -5969,7 +5983,8 @@ export function borrowCoordinatorRecoveryRepository(
        */
       revalidate() {
         return (
-          readExecutionStorageBinding(repositoryRoot) === repositoryBinding
+          readExecutionStorageBinding(repositoryRoot, repositoryBinding) !==
+          null
         );
       },
     };

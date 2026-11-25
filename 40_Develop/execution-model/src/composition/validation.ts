@@ -7,13 +7,15 @@ import { createHash } from "node:crypto";
 import { STORAGE_CONTRACT } from "./types.ts";
 import { types } from "node:util";
 import type {
-  LeaseKind,
-  LeaseEvidenceContent,
-  LeaseEvidenceEnvelope,
   ArraySnapshot,
   DataDescriptor,
   PlainArraySnapshot,
 } from "./types.ts";
+import type {
+  LeaseKind,
+  LeaseEvidenceContent,
+  LeaseEvidenceEnvelope,
+} from "../lease/types.ts";
 
 /** ローカル主体とAM主体を混同しない固定namespace。 */
 const LOCAL_EMAIL_PREFIX = "local.email.";
@@ -703,8 +705,7 @@ export function validLeaseEvidence(value: unknown) {
       "ownerProcessId",
       "disposition",
     ]) &&
-    (value.kind === "project-operation" ||
-      value.kind === "canonical-adoption") &&
+    value.kind === "project-operation" &&
     validId(value.queueId) &&
     validId(value.ownerGeneration) &&
     Number.isSafeInteger(value.ownerProcessId) &&
@@ -775,15 +776,11 @@ export function hashStateText(value: string) {
  */
 export function leaseIdentity(
   repositoryBindingId: string,
-  projectId: string,
-  queueId: string,
+  _projectId: string,
+  _queueId: string,
   kind: LeaseKind,
 ) {
-  return kind === "project-operation"
-    ? `${kind}-${repositoryBindingId}`
-    : kind === "canonical-adoption"
-      ? `${kind}-${repositoryBindingId}-${projectId}`
-      : `${kind}-${projectId}-${queueId}`;
+  return `${kind}-${repositoryBindingId}`;
 }
 
 /**
@@ -804,15 +801,10 @@ export function leaseIdentity(
  */
 export function leaseAcquisitionRecoveryId(
   repositoryBindingId: string,
-  projectId: string,
-  queueId: string,
+  _projectId: string,
+  _queueId: string,
   kind: LeaseKind,
 ) {
-  const identityInput =
-    kind === "project-operation"
-      ? `${repositoryBindingId}\0${kind}`
-      : kind === "canonical-adoption"
-        ? `${repositoryBindingId}\0${projectId}\0${kind}`
-        : `${repositoryBindingId}\0${projectId}\0${queueId}\0${kind}`;
+  const identityInput = `${repositoryBindingId}\0${kind}`;
   return `lease-acquisition-${hashStateText(identityInput).slice(0, 40)}`;
 }

@@ -81,7 +81,7 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 | 判断応答喪失 | 二重記録・二重適用 | 同じIDの要求・回答を再観測し、同じ本文だけ保存不要で再送可能とする。別本文への置換や新しい権限発行を行わない | 同一要求／回答はState保存0。別回答・別本文を拒否し、履歴だけ再入場できる |
 | 人間判断理由の注入・漏洩 | Prompt injection、秘密混入、表示崩れ | bounded UTF-8単一行として検査し、選択肢・対象・認可から分離する。非空commentは判断理由としてStateと履歴へ保存するが、Provider・Task Packet・診断ログへ転送しない。利用者が秘密を入力しない運用を前提とする | 理由からAuthorityやScopeを拡張しない。現在認可された読取りだけに理由を返し、外部AI送信0 |
 | 個別Task成功のProject成功化 | 未統合成果物の採用、受入誤判定 | Task、Objective、Milestoneを別状態・別世代とし、受入EvidenceとCross-task整合を要求 | Integration前のMilestone受入0 |
-| Integration候補の正本混入 | 未承認変更、既存変更の上書き | 隔離Workspace、固定候補hash、Adoption Authority、fresh Revision、短時間Adoption Lock | 採用前の正本Effect 0 |
+| Integration候補の正本混入 | 未承認変更、既存変更の上書き | 隔離Workspace、固定候補hash、Adoption Authority、fresh Revision、Repository単位の共通操作Lock | 採用前の正本Effect 0 |
 | 未対応Platformへの暗黙fallback | 保証低下、別OS機構での未観測Effect | 各技術Ownerの実観測が不成立なら、別OS機構へ切り替えず当該技術操作を拒否 | 当該技術操作のEffect 0。先行取得済み資源は既存回復契約で扱う |
 | Project取消・Parent喪失後の部分残存 | slot誤解放、後続Task起動、Recovery衝突 | 対象Taskごとの終了・cleanup・Project State投影を分離し、unknownをexact Recoveryへ保持 | 全資源照合前のQueue完了0 |
 

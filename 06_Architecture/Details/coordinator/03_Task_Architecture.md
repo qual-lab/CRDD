@@ -225,7 +225,7 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 業務操作の公開面はPackage Rootの`src/index.ts`へ統一する。Objective受付、判断、受入判断、状態照会の六操作は各用途の`lifecycle/execution.ts`、`lifecycle/decision.ts`、`lifecycle/query.ts`から、既存の認証済みPrincipalの搬送は`src/lifecycle/decision.ts`から明示的に公開する。純再exportの業務中継Fileと`./application` subpathは廃止し、MCP配布入口・WorkbenchはRootへ直接接続する。これはSource公開Pathの互換性変更であり、操作名、通信契約、保存形式、Authorityを変更しない。具象組立てはRootを逆参照せず、必要な実体へ依存する。開発用構築関数や診断内部関数を追加公開しない。Coordinator Rootは上位業務操作を再公開しない。CLIと親Directory・保存Root参照は切替済みだが、旧実Runtime Rootの処置と残る実行接続は未完了のため、公開面の接続だけを全移管完成とは扱わない。
 
-現在状態の照会は`lifecycle/query.ts`、Task／Queueの保存接続と長期Leaseは`lifecycle/host.ts`が編成する。状態・Queue候補はExecution Modelの`task/crud.ts`、Leaseは`state/lease.ts`、履歴搬送・退役は`history/crud.ts`が所有する。CoordinatorのObjective終了処理は、既存のRepository確認・保持設定の初回読取りと現在性検査を結合し、EMの`retireStateRecords()`へ直接接続する。履歴・退役だけを転送するSourceは設けない。同じSnapshotを同じ短期Ownerの下で保存し、実Lease・Process・資源不存在の観測と回復発火はCoordinatorに残す。Task回復は`lifecycle/environment.ts`が元のexact世代・Task・Attempt・Operation・結果を照合する。
+現在状態の照会は`lifecycle/query.ts`、Task／Queueの保存接続と長期Leaseは`lifecycle/host.ts`が編成する。状態・Queue候補はExecution Modelの`task/crud.ts`、Leaseは`lease/crud.ts`、履歴搬送・退役は`history/crud.ts`が所有する。CoordinatorのObjective終了処理は、既存のRepository確認・保持設定の初回読取りと現在性検査を結合し、EMの`retireStateRecords()`へ直接接続する。履歴・退役だけを転送するSourceは設けない。同じSnapshotを同じ短期Ownerの下で保存し、実Lease・Process・資源不存在の観測と回復発火はCoordinatorに残す。Task回復は`lifecycle/environment.ts`が元のexact世代・Task・Attempt・Operation・結果を照合する。
 
 操作開始・読取り・途中保存・資源未発行の記録は、同じ操作の識別値とRepositoryの遅延観測を共有する。観測はEMの既存の確認時点に行い、結果を保存呼出し間で使い回さない。回復処理は操作の読取り、途中保存、資源未発行の記録をEMの用途固定操作へ直接渡し、読取りを全体状態の取得に広げない。Host固有の記録権限、終端保存用のRepository観測、履歴保持設定の再確認、清掃の確認はこの観測へ置き換えない。
 
@@ -241,7 +241,7 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 上位Project／Task／Attemptの実行相関と単発実行への委譲と単発実行の技術調停は同じ`lifecycle/execution.ts`が所有する。CoordinatorのTask専用公開入口を呼び、開始時の上位相関を完了待機中に置き換えない。Task開始・取消・完了形状と下位回復参照の検証はCoordinatorが所有する。Coordinator Rootの上位再exportは撤去済みで、共通Task公開面を推移的に読み込む。CLI配送と保存Root参照は切替済みで、全本番利用側と旧実Runtime Rootの処置は継続中であり、この接続だけを全体完成としない。
 
-公開Workspace結果の型は`lifecycle/types.ts`、相関を保った結果捕捉は`lifecycle/validation.ts`、閉じた入力・認可・現在投影、Workspace操作と保存・Gitへの接続はCRDD Serverの`service/workspace.ts`が所有する。完成保存はEMの`workspace/crud.ts`から既存State／Storageへ接続し、保存Codec・内容HashはEMの`state/operations.ts`が所有する。Task終端と関連Operationの除去はEMの同じ保存候補で確定する。利用側別の受領集合・ACK段階は持たない。保存Writerは同じ短期Lock内で最新値を読み直した後に判定し、CAS・出版・読戻し・解放を保持する。値検査だけで保存成功・受領・実適用を主張しない。旧形式移行Readerは本番に残さずフロントAIが移行を扱う。保存統合Bの接続・検証範囲は[詳細設計](04_Task_Detailed_Design.md#unified-storage-lifecycle)と[変更計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#374-source統合の準備と事実の照合)を参照する。
+公開Workspace結果の型は`lifecycle/types.ts`、相関を保った結果捕捉は`lifecycle/validation.ts`、閉じた入力・認可・現在投影、Workspace操作と保存・Gitへの接続はCRDD Serverの`service/workspace.ts`が所有する。完成保存はEMの`workspace/crud.ts`から既存State／Storageへ接続し、保存Codec・内容HashはEMの`composition/validation.ts`が所有する。Task終端と関連Operationの除去はEMの同じ保存候補で確定する。利用側別の受領集合・ACK段階は持たない。保存Writerは同じ短期Lock内で最新値を読み直した後に判定し、CAS・出版・読戻し・解放を保持する。値検査だけで保存成功・受領・実適用を主張しない。旧形式移行Readerは本番に残さずフロントAIが移行を扱う。保存統合Bの接続・検証範囲は[詳細設計](04_Task_Detailed_Design.md#unified-storage-lifecycle)と[変更計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#374-source統合の準備と事実の照合)を参照する。
 
 Taskの時刻・安定識別子とProcess安全操作は既存の実行Adapterへ接続し、技術処理をTask側へ複製しない。`lifecycle/execution.ts` / `lifecycle/types.ts`は固定Repository情報と回復遷移の観測を接続する。技術回収の実処置はExecutionと専門Package、受領の原子確定は共通Storageが所有し、新しい回復機構を作らない。
 
@@ -296,7 +296,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|---|---|---|
 | `orchestrator.task-lifecycle` | State Transition／Failure-Recovery | ObjectiveとTask identity | 許可された状態遷移 | 競合、親喪失、取消、Effect不明 | UT／IT | UT: Direct Boundary<br>IT: Adjacent 1 Block | state、owner、recovery ID | lease／resource 0または義務 | なし |
-| `orchestrator.candidate-adoption` | Interface／State Transition／Failure-Recovery | Workspace・固定Commit・取込先HEAD・明示認可 | 現在のGit状態と選択内容を再確認し、VC標準の二親Mergeと既存結果Writerへ接続する。固定・採用・品質受入は別操作とする | 未選択変更の混入、別Commit、Dirty衝突、無認可、保存失敗、Lease残存 | UT／IT | Related 2 Blocks | Workspace ID、Base／Candidate／Merge Commit、現在認可、Git結果、保存結果 | 不明は同じ参照を保持する。Task完了だけでCommit・Merge・Pushしない | 実Provider編集E2E②は未完了・保持中。旧Evidenceを新版の成立根拠へ流用しない |
+| `orchestrator.candidate-adoption` | Interface／State Transition／Failure-Recovery | Workspace・固定Commit・取込先HEAD・明示認可 | 現在のGit状態と選択内容を再確認し、VC標準の二親Mergeと既存結果Writerへ接続する。固定・採用・品質受入は別操作とする | 未選択変更の混入、別Commit、Dirty衝突、無認可、保存失敗、操作Lockの残存・喪失 | UT／IT | Related 2 Blocks | Workspace ID、Base／Candidate／Merge Commit、現在認可、Git結果、保存結果 | 不明は同じ参照を保持する。Task完了だけでCommit・Merge・Pushしない | 実Provider編集E2E②は未完了・保持中。旧Evidenceを新版の成立根拠へ流用しない |
 | `orchestrator.acceptance-decision` | Interface／State Transition | 対象Identity、根拠Revision、Project運営者の明示判断 | 受入・差戻し・判断待ちを別状態で一度記録し、Objective受入済みだけがMilestone判断へ進む | ProjectionからのAuthority生成、SPEC-000006／000007からの到達、Task作成、Provider Effect、下位完了からの上位受入推定、Objective差戻し／判断待ちからのMilestone判断開始 | UT／IT | Direct Boundary | decision type、owner、source revision、effect count | 対象Decision Record一件またはEffect 0。Objective差戻し／判断待ちではMilestone判断Effect 0 | 物理StoreはDevelopmentで選択 |
 | `orchestrator.public-application` | Interface／Data Flow | 公開DTOとPort | Transport間で同じ意味 | Schemaずれ、内部Path依存 | UT／IT | Adjacent 1 Block | exact result contract | 内部Effectは所有Portだけ | なし |
 

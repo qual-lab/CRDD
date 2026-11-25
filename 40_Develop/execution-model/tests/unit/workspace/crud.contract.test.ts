@@ -14,14 +14,15 @@ import type {
   ProjectExecutionState,
   WorkspaceRecord,
 } from "../../../src/index.ts";
-import type { Snapshot } from "../../../src/state/types.ts";
-import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
-import { projectCurrentState } from "../../../src/state/validation.ts";
-import { encodeStateValue } from "../../../src/state/operations.ts";
+import type { Snapshot } from "../../../src/composition/types.ts";
+import type { WorkspaceCandidateRecord } from "../../../src/workspace/types.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/composition/types.ts";
+import { projectCurrentState } from "../../../src/composition/transition.ts";
+import { encodeStateValue } from "../../../src/composition/validation.ts";
 import {
   prepareIntegrationRecordCreation,
-  prepareWorkspaceRecordUpdate,
-  prepareWorkspaceRename,
+  prepareWorkspaceDiscardUpdate,
+  prepareWorkspaceMetadataUpdate,
   validWorkspace,
 } from "../../../src/workspace/validation.ts";
 
@@ -110,6 +111,70 @@ function fixture() {
   };
   return { id, workspace, current };
 }
+/** 固定候補の正本Codecは遷移ガードとは独立して矛盾を拒否する。 @trace PRL-UT-007 */
+test("Workspace固定候補のCodecは矛盾する段階・結果を拒否する", () => {
+  const { id, workspace } = fixture();
+  const base = workspace.baseCommit;
+  const candidateCommit = "b".repeat(40);
+  const target = { targetBranch: "main", expectedTargetHead: base };
+  const candidate: WorkspaceCandidateRecord = {
+    request: {
+      workspaceId: id,
+      operationId: id,
+      baseCommit: base,
+      expectedWorkspaceHead: base,
+      workspaceName: null,
+      candidateName: null,
+      relatedChangeIds: [],
+      selection: [{ path: "source.txt", mode: "100644", blobId: base }],
+    },
+    phase: "fixed",
+    candidateCommit,
+    target: null,
+    mergeCommit: null,
+    disposition: null,
+    lastResult: {
+      status: "completed",
+      reason: "commit_create_completed",
+      candidateCommit,
+      candidateRef: `refs/heads/crdd/candidate/${id}/${id}`,
+      mergeCommit: null,
+      cleanupConfirmed: true,
+      effectIssued: true,
+      changedPaths: ["source.txt"],
+      temporary: null,
+    },
+    primaryFailure: null,
+    cleanupFailure: null,
+  };
+  assert.equal(validWorkspace({ ...workspace, candidate }), true);
+  for (const invalid of [
+    { ...candidate, target },
+    { ...candidate, disposition: "adopted" },
+    { ...candidate, candidateCommit: null },
+    { ...candidate, lastResult: null },
+    {
+      ...candidate,
+      lastResult: { ...candidate.lastResult, reason: "candidate_fixed" },
+    },
+    {
+      ...candidate,
+      lastResult: {
+        ...candidate.lastResult,
+        reason: "candidate_fixed_existing",
+      },
+    },
+    { ...candidate, primaryFailure: "commit_copy_failed" },
+    { ...candidate, phase: "merged", disposition: "adopted", target },
+    {
+      ...candidate,
+      lastResult: { ...candidate.lastResult, candidateCommit: base },
+    },
+  ]) {
+    assert.equal(validWorkspace({ ...workspace, candidate: invalid }), false);
+  }
+});
+
 /** 名前更新は操作Leaseの全段階・残存排他・世代差を拒否する。 @trace PRL-UT-007 */
 test("Workspace改名は長期Leaseなしで名前と世代だけを更新する", () => {
   const { id, workspace, current } = fixture();
@@ -118,13 +183,13 @@ test("Workspace改名は長期Leaseなしで名前と世代だけを更新する
     generation: number,
     absent: () => boolean,
   ) =>
-    prepareWorkspaceRename(
+    prepareWorkspaceMetadataUpdate(
       snapshot,
       "project-a",
       "queue-a",
       id,
       generation,
-      "改名",
+      { kind: "rename", value: "改名" },
       absent,
     );
   assert.equal(
@@ -245,44 +310,60 @@ test("結果候補は元の本文HashとIdentityを保つ", () => {
  */
 
 test("Workspace候補は非使用・元世代・有限時計を維持する", () => {
-  const { current, workspace, id } = fixture();
+  const fixtureValue = fixture();
+  const id = fixtureValue.id;
+  const workspace: WorkspaceRecord = {
+    ...fixtureValue.workspace,
+    phase: "discarding",
+    pending: {
+      operationId: id,
+      kind: "discard",
+      expectedHead: fixtureValue.workspace.head,
+      discardChanges: false,
+    },
+  };
+  const current = {
+    ...fixtureValue.current,
+    workspaces: [workspace],
+    leaseIntents: [],
+  };
   const before = encodeStateValue(current);
   let calls = 0;
   const times = [
     Date.parse("2026-10-27T00:00:00.000Z"),
     Date.parse("2026-10-27T00:00:00.001Z"),
   ];
-  const observation = {
-    processId: 7,
-    now: () => {
-      const value = times[calls++];
-      assert.equal(typeof value, "number");
-      if (value === undefined) throw new Error("clock_calls_exceeded");
-      return value;
-    },
+  const now = () => {
+    const value = times[calls++];
+    assert.equal(typeof value, "number");
+    if (value === undefined) throw new Error("clock_calls_exceeded");
+    return value;
   };
   const invoke = (
-    snapshot = current,
+    snapshot: Snapshot = current,
     next: WorkspaceRecord | null = null,
     generation = 1,
-    pid = 7,
   ) =>
-    prepareWorkspaceRecordUpdate(
+    prepareWorkspaceDiscardUpdate(
       snapshot,
       "project-a",
       "queue-a",
-      "owner-a",
       id,
       generation,
       next,
-      { ...observation, processId: pid },
+      now,
     );
   const queue = current.queueEntries[0];
   assert.ok(queue);
-  const cases: [Snapshot, WorkspaceRecord | null, number, number, string][] = [
-    [current, null, 1, 8, "lease_mismatch"],
-    [{ ...current, queueEntries: [] }, null, 1, 7, "lease_mismatch"],
-    [current, null, 0, 7, "generation_conflict"],
+  const cases: [Snapshot, WorkspaceRecord | null, number, string][] = [
+    [
+      { ...current, leaseIntents: fixtureValue.current.leaseIntents },
+      null,
+      1,
+      "lease_mismatch",
+    ],
+    [{ ...current, queueEntries: [] }, null, 1, "lease_mismatch"],
+    [current, null, 0, "generation_conflict"],
     [
       {
         ...current,
@@ -290,10 +371,9 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
       },
       null,
       1,
-      7,
       "target_mismatch",
     ],
-    [current, { ...workspace, generation: 4 }, 1, 7, "record_invalid"],
+    [current, { ...workspace, generation: 4 }, 1, "record_invalid"],
     [
       {
         ...current,
@@ -304,7 +384,6 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
       },
       null,
       1,
-      7,
       "other_queue_pending",
     ],
     [
@@ -324,7 +403,6 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
         },
       },
       1,
-      7,
       "held",
     ],
     [
@@ -345,19 +423,17 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
       },
       null,
       1,
-      7,
       "in_use_or_unresolved",
     ],
     [
       { ...current, workspaces: [{ ...workspace, lastResult: null }] },
       null,
       1,
-      7,
       "disposal_unconfirmed",
     ],
   ];
-  for (const [snapshot, next, generation, pid, reason] of cases) {
-    const result = invoke(snapshot, next, generation, pid);
+  for (const [snapshot, next, generation, reason] of cases) {
+    const result = invoke(snapshot, next, generation);
     assert.equal(result.reason, `coordinator_workspace_${reason}`);
     assert.equal(result.status, "blocked");
     assert.equal(calls, 0);
@@ -386,20 +462,16 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
   let throwCalls = 0;
   assert.throws(
     () =>
-      prepareWorkspaceRecordUpdate(
+      prepareWorkspaceDiscardUpdate(
         current,
         "project-a",
         "queue-a",
-        "owner-a",
         id,
         1,
         null,
-        {
-          processId: 7,
-          now: () => {
-            throwCalls++;
-            throw Error("clock");
-          },
+        () => {
+          throwCalls++;
+          throw Error("clock");
         },
       ),
     /clock/u,

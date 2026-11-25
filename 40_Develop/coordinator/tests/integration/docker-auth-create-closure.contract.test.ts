@@ -21,10 +21,7 @@ import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { classifyDockerEngineResult } from "../../../docker-isolation/src/docker-desktop/engine.ts";
 import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
-import type {
-  ExecutionOperationRecord,
-  ExecutionStateSnapshot,
-} from "../../../execution-model/src/index.ts";
+import type { ExecutionOperationRecord } from "../../../execution-model/src/index.ts";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
@@ -997,7 +994,7 @@ function producerFacts() {
   } as unknown as ExecutionOperationRecord;
   const snapshot = {
     operations: [operation],
-  } as unknown as ExecutionStateSnapshot;
+  };
   const packet = {
     pid: 91,
     recoveryId: operation.recoveryId,

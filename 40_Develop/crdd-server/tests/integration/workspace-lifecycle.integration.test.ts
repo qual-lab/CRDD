@@ -20,16 +20,18 @@ import { prepareFixtureRecovery } from "../../../coordinator/tests/support/recov
 import childProcess, { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
+import { readStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test, { mock, type TestContext } from "node:test";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import {
+  beginWorkspaceOperation,
+  createQueue,
   readState,
+  readWorkspaceState,
   saveProjectExecutionState,
-  saveWorkspaceRecord,
-  type WorkspaceRecord,
 } from "../../../execution-model/src/index.ts";
 import { acceptResult } from "../../../coordinator/src/lifecycle/decision.ts";
 import { runTestSingleTaskAttempt } from "../../../coordinator/tests/support/task-requests.ts";
@@ -123,8 +125,75 @@ test("Workspace作成は選択ブランチのHEADを照合し未コミット変�
       };
     return result;
   }) as typeof spawn);
+  const open = fs.openSync;
+  const snapshotLock = path.join(
+    f.root,
+    ".crdd",
+    "lock",
+    "execution-model.state.lock",
+  );
+  let snapshotLockAcquisitions = 0;
+  let operationLeaseAcquisitions = 0;
+  const countSnapshotLock = t.mock.method(
+    fs,
+    "openSync",
+    (...args: Parameters<typeof open>) => {
+      if (args[1] === "wx+" && typeof args[0] === "string") {
+        if (args[0] === snapshotLock) snapshotLockAcquisitions++;
+        if (
+          path.dirname(args[0]) === path.dirname(snapshotLock) &&
+          path.basename(args[0]).startsWith("coordinator.lease.")
+        )
+          operationLeaseAcquisitions++;
+      }
+      return open(...args);
+    },
+  );
   syncBuiltinESMExports();
   try {
+    const stateFile = path.join(
+      f.root,
+      ".crdd",
+      "execution-model",
+      "state.json",
+    );
+    const state = fs.readFileSync(stateFile);
+    try {
+      fs.writeFileSync(stateFile, "{");
+      const previous = readWorkspaceState(
+        { directory: f.root },
+        f.common.repositoryBindingId,
+      );
+      assert.equal(previous.status, "blocked");
+      const beforeInvalid = snapshotLockAcquisitions;
+      const invalid = f.operate(confirmed);
+      assert.equal(snapshotLockAcquisitions - beforeInvalid, 1);
+      assert.equal(operationLeaseAcquisitions, 0);
+      assert.equal(invalid.status, "blocked");
+      assert.equal(invalid.reason, previous.reason);
+      assert.equal(
+        invalid.manualRecoveryRequired,
+        previous.manualRecoveryRequired,
+      );
+      assert.equal(invalid.recoveryId, null);
+      assert.equal(invalid.gitResult, null);
+      assert.equal(commands.length, 0);
+      assert.equal(fs.existsSync(f.tree), false);
+      assert.equal(fs.readFileSync(stateFile, "utf8"), "{");
+    } finally {
+      fs.writeFileSync(stateFile, state);
+    }
+
+    const wrongGeneration = f.operate({ ...confirmed, expectedGeneration: 1 });
+    assert.equal(
+      wrongGeneration.reason,
+      "coordinator_workspace_generation_conflict",
+    );
+    assert.equal(wrongGeneration.leaseReleased, true);
+    assert.equal(wrongGeneration.gitResult, null);
+    assert.equal(commands.length, 0);
+    assert.equal(fs.existsSync(f.tree), false);
+
     const warning = f.operate(create);
     const warningCount = commands.length;
     assert.equal(warningCount, 3);
@@ -169,7 +238,11 @@ test("Workspace作成は選択ブランチのHEADを照合し未コミット変�
     assert.equal(fs.existsSync(f.tree), false);
     git(f.root, ["config", "--unset", "filter.fixture.smudge"]);
     commands.length = 0;
+    const beforeCreateLocks = snapshotLockAcquisitions;
+    const beforeCreateLeases = operationLeaseAcquisitions;
     const created = f.operate(confirmed);
+    assert.equal(snapshotLockAcquisitions - beforeCreateLocks, 3);
+    assert.equal(operationLeaseAcquisitions - beforeCreateLeases, 1);
     assert.equal(commands.length, 9);
     assert.equal(
       commands.filter((args) => args.includes("--get-regexp")).length,
@@ -235,6 +308,7 @@ test("Workspace作成は選択ブランチのHEADを照合し未コミット変�
     assert.equal(created.workspace?.phase, "ready");
     assert.equal(created.gitResult?.observation?.dirty, null);
   } finally {
+    countSnapshotLock.mock.restore();
     probe.mock.restore();
     syncBuiltinESMExports();
   }
@@ -248,6 +322,445 @@ test("Workspace作成は選択ブランチのHEADを照合し未コミット変�
     "base",
   );
   assert.equal(fs.existsSync(path.join(f.tree, "new.txt")), false);
+});
+
+/** 保留と廃棄が短期排他と操作Lockを用途別に取得することを実測する。 @trace PRL-IT-013 */
+test("Workspaceの保留は短期Lock一回で廃棄は物理Lockと短期Lock四回を使う", (t) => {
+  const f = fixture(t);
+  assert.equal(
+    f.operate({ operation: "create", baseCommit: f.base }).status,
+    "completed",
+  );
+  const previousEvidence = f.snapshot().leaseEvidence;
+  const open = fs.openSync;
+  const lockDirectory = path.join(f.root, ".crdd", "lock");
+  const counts = { state: 0, operation: 0 };
+  const probe = t.mock.method(
+    fs,
+    "openSync",
+    (...args: Parameters<typeof open>) => {
+      if (
+        args[1] === "wx+" &&
+        typeof args[0] === "string" &&
+        path.dirname(args[0]) === lockDirectory
+      ) {
+        const name = path.basename(args[0]);
+        if (name === "execution-model.state.lock") counts.state++;
+        if (name.startsWith("coordinator.lease.")) counts.operation++;
+      }
+      return open(...args);
+    },
+  );
+  syncBuiltinESMExports();
+  try {
+    for (const until of ["2099-01-01T00:00:00Z", null]) {
+      const start = counts.state;
+      const held = f.operate({ operation: "hold", until });
+      assert.equal(held.status, "completed", held.reason);
+      assert.equal(held.workspace?.holdUntil, until);
+      assert.equal(held.leaseReleased, null);
+      assert.equal(held.gitResult, null);
+      assert.equal(counts.state - start, 1);
+      assert.equal(counts.operation, 0);
+    }
+    const start = counts.state;
+    const discarded = f.operate({
+      operation: "discard",
+      expectedHead: f.base,
+      discardChanges: true,
+    });
+    assert.equal(discarded.status, "completed", discarded.reason);
+    assert.equal(counts.state - start, 4);
+    assert.equal(counts.operation, 1);
+  } finally {
+    probe.mock.restore();
+    syncBuiltinESMExports();
+  }
+  const after = f.snapshot();
+  assert.equal(after.workspaces.length, 0);
+  assert.equal(after.leaseIntents.length, 0);
+  assert.deepEqual(after.leaseEvidence, previousEvidence);
+  assert.equal(fs.existsSync(f.tree), false);
+});
+
+/** 選択による所属の保存と同じQueueの再観測を分ける。 @trace PRL-IT-013 */
+test("Workspaceの再観測はQueueを割り当てず選択だけが割り当てる", (t) => {
+  const f = fixture(t);
+  assert.equal(
+    f.operate({ operation: "create", baseCommit: f.base }).status,
+    "completed",
+  );
+  const queueId = "queue-b";
+  assert.equal(
+    createQueue({ directory: f.root }, f.binding, {
+      kind: "scheduled",
+      input: [
+        {
+          queueId,
+          projectId: f.common.projectId,
+          milestoneId: "milestone-a",
+          requestHash: "c".repeat(64),
+          originLane: "interactive",
+          repositoryRevision: f.base,
+          scopeHash: "b".repeat(64),
+        },
+      ],
+    }).status,
+    "completed",
+  );
+  const before = f.snapshot();
+  assert.equal(
+    f.operate({ operation: "observe", queueId }).reason,
+    "coordinator_workspace_target_mismatch",
+  );
+  assert.deepEqual(f.snapshot(), before);
+
+  const selectWorkspace = () =>
+    executeWorkspace(
+      f.root,
+      f.common.projectId,
+      {
+        operation: "select",
+        projectId: f.common.projectId,
+        queueId,
+        workspaceId: f.common.workspaceId,
+        expectedGeneration: before.workspaces[0]?.generation,
+      },
+      () => true,
+    );
+  git(f.root, ["worktree", "lock", f.tree]);
+  try {
+    const rejected = selectWorkspace();
+    assert.equal((rejected.data as { status: string }).status, "blocked");
+    assert.deepEqual(f.snapshot(), before);
+  } finally {
+    git(f.root, ["worktree", "unlock", f.tree]);
+  }
+
+  const open = fs.openSync;
+  const lockDirectory = path.join(f.root, ".crdd", "lock");
+  let stateLocks = 0;
+  let operationLocks = 0;
+  const count = t.mock.method(
+    fs,
+    "openSync",
+    (...args: Parameters<typeof open>) => {
+      if (
+        args[1] === "wx+" &&
+        typeof args[0] === "string" &&
+        path.dirname(args[0]) === lockDirectory
+      ) {
+        const name = path.basename(args[0]);
+        if (name === "execution-model.state.lock") stateLocks++;
+        if (name.startsWith("coordinator.lease.")) operationLocks++;
+      }
+      return open(...args);
+    },
+  );
+  syncBuiltinESMExports();
+  try {
+    const select = selectWorkspace();
+    assert.equal(
+      (select.data as { status: string }).status,
+      "completed",
+      JSON.stringify(select),
+    );
+    assert.equal(stateLocks, 3); // 認可済み入口の読取り1＋管理処理2
+    assert.equal(operationLocks, 1);
+    stateLocks = 0;
+    operationLocks = 0;
+    assert.equal(
+      f.operate({ operation: "observe", queueId }).status,
+      "completed",
+    );
+    assert.equal(stateLocks, 2);
+    assert.equal(operationLocks, 1);
+  } finally {
+    count.mock.restore();
+    syncBuiltinESMExports();
+  }
+  const after = f.snapshot();
+  assert.equal(
+    after.queueEntries.find((entry) => entry.queueId === queueId)?.workspaceId,
+    f.common.workspaceId,
+  );
+  assert.deepEqual(after.leaseIntents, before.leaseIntents);
+  assert.deepEqual(after.leaseEvidence, before.leaseEvidence);
+});
+
+/** 候補の固定・採否記録・Ref回収を実Lockの取得数と同時に確認する。 @trace CPR-IT-006 */
+test("Workspace候補固定と終了は操作Lockを一回ずつ取得しLease証拠を残さない", (t) => {
+  const f = fixture(t);
+  assert.equal(
+    f.operate({ operation: "create", baseCommit: f.base }).status,
+    "completed",
+  );
+  const before = f.snapshot();
+  fs.writeFileSync(path.join(f.tree, "source.txt"), "candidate\n");
+  const blobId = git(f.tree, ["hash-object", "--no-filters", "source.txt"]);
+  const lockDirectory = path.join(f.root, ".crdd", "lock");
+  const open = fs.openSync;
+  const counts = { state: 0, operation: 0 };
+  const track = t.mock.method(
+    fs,
+    "openSync",
+    (...args: Parameters<typeof open>) => {
+      if (
+        args[1] === "wx+" &&
+        typeof args[0] === "string" &&
+        path.dirname(args[0]) === lockDirectory
+      ) {
+        const name = path.basename(args[0]);
+        if (name === "execution-model.state.lock") counts.state++;
+        if (name.startsWith("coordinator.lease.")) counts.operation++;
+      }
+      return open(...args);
+    },
+  );
+  syncBuiltinESMExports();
+  try {
+    const fixed = f.operate({
+      operation: "freeze",
+      operationId: randomUUID(),
+      baseCommit: f.base,
+      expectedHead: f.base,
+      selection: [{ path: "source.txt", mode: "100644", blobId }],
+      candidateName: null,
+      relatedChangeIds: [],
+      authorize: () => true,
+    });
+    assert.equal(fixed.status, "completed", fixed.reason);
+    assert.ok(fixed.candidateResult?.candidateCommit);
+    assert.deepEqual(counts, { state: 3, operation: 1 });
+    const closed = f.operate({
+      operation: "close-candidate",
+      expectedCommit: fixed.candidateResult.candidateCommit,
+      disposition: "rejected",
+      referencesReleased: true,
+      authorize: () => true,
+    });
+    assert.equal(closed.status, "completed", closed.reason);
+    assert.deepEqual(counts, { state: 8, operation: 2 });
+  } finally {
+    track.mock.restore();
+    syncBuiltinESMExports();
+  }
+  const after = f.snapshot();
+  assert.equal(after.workspaces[0]?.candidate, null);
+  assert.equal(after.results.length, 2);
+  assert.deepEqual(after.leaseIntents, before.leaseIntents);
+  assert.deepEqual(after.leaseEvidence, before.leaseEvidence);
+});
+
+/** Taskと新規Workspace作成は同じ操作Lockを使い、予約と物理取得の順序にかかわらず競合を拒否する。 @trace CPR-IT-001 */
+test("Workspace作成の操作LockはTaskのLeaseと双方向に競合する", (t) => {
+  const f = fixture(t);
+  const acquireTask = () =>
+    acquireCoordinatorSnapshotLease(
+      f.root,
+      f.binding,
+      f.common.projectId,
+      f.common.queueId,
+      "project-operation",
+    );
+  const task = acquireTask();
+  assert.equal(task.status, "completed", task.reason);
+  assert.ok(task.value);
+  try {
+    const rejected = f.operate({ operation: "create", baseCommit: f.base });
+    assert.equal(rejected.reason, "coordinator_lease_unavailable");
+    assert.equal(rejected.gitResult, null);
+    assert.equal(fs.existsSync(f.tree), false);
+  } finally {
+    assert.equal(task.value.release().status, "completed");
+  }
+  const previousEvidence = f.snapshot().leaseEvidence;
+  let observedTaskConflict = false;
+  const created = f.operate({
+    operation: "create",
+    baseCommit: f.base,
+    authorize() {
+      if (!observedTaskConflict) {
+        observedTaskConflict = true;
+        const competing = acquireTask();
+        assert.equal(competing.status, "blocked", competing.reason);
+        assert.equal(
+          competing.reason,
+          "coordinator_lease_preexisting_resource",
+        );
+      }
+      return true;
+    },
+  });
+  assert.equal(created.status, "completed", created.reason);
+  assert.equal(observedTaskConflict, true);
+  assert.equal(f.snapshot().leaseIntents.length, 0);
+  assert.deepEqual(f.snapshot().leaseEvidence, previousEvidence);
+});
+
+/** 作成意図の保存後に操作Lockを失った場合はGitの作成へ進まない。 @trace PRL-IT-013 */
+test("Workspace作成はGit直前に操作Lockを失うと作成しない", (t) => {
+  const f = fixture(t);
+  const lockDirectory = path.join(f.root, ".crdd", "lock");
+  let lost = false;
+  const result = f.operate({
+    operation: "create",
+    baseCommit: f.base,
+    authorize() {
+      if (!lost && f.snapshot().workspaces[0]?.phase === "creating") {
+        const lock = fs
+          .readdirSync(lockDirectory)
+          .find((name) => name.startsWith("coordinator.lease."));
+        assert.ok(lock);
+        fs.rmSync(path.join(lockDirectory, lock));
+        lost = true;
+      }
+      return true;
+    },
+  });
+  assert.equal(lost, true);
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "workspace_operation_lock_requires_manual_review",
+  );
+  assert.equal(result.gitResult, null);
+  assert.equal(fs.existsSync(f.tree), false);
+  const snapshot = f.snapshot();
+  assert.equal(snapshot.workspaces[0]?.phase, "creating");
+  assert.equal(snapshot.leaseIntents.length, 0);
+});
+
+/** 短期排他の解放不明では操作Lockを解放し、Gitへ進まない。 @trace CPR-IT-001 */
+test("Workspace作成の受付で短期Lock解放不明なら作成しない", (t) => {
+  const f = fixture(t);
+  const lockDirectory = path.join(f.root, ".crdd", "lock");
+  const stateLock = path.join(lockDirectory, "execution-model.state.lock");
+  const remove = fs.rmSync;
+  const spawn = childProcess.spawnSync;
+  let releaseFailures = 0;
+  let gitStarts = 0;
+  const release = t.mock.method(
+    fs,
+    "rmSync",
+    (...args: Parameters<typeof remove>) => {
+      if (args[0] === stateLock) {
+        releaseFailures++;
+        throw new Error("fixture_state_lock_release_unconfirmed");
+      }
+      return remove(...args);
+    },
+  );
+  const commands = t.mock.method(childProcess, "spawnSync", ((
+    ...args: Parameters<typeof spawn>
+  ) => {
+    if (args[0] === "git") gitStarts++;
+    return Reflect.apply(spawn, childProcess, args);
+  }) as typeof spawn);
+  syncBuiltinESMExports();
+  const result = (() => {
+    try {
+      return f.operate({
+        operation: "create",
+        baseCommit: f.base,
+        acceptUncommittedChangesExcluded: true,
+      });
+    } finally {
+      release.mock.restore();
+      commands.mock.restore();
+      syncBuiltinESMExports();
+    }
+  })();
+  assert.equal(releaseFailures, 1);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_snapshot_lock_release_unconfirmed");
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.recoveryId, null);
+  assert.equal(result.gitResult, null);
+  assert.equal(gitStarts, 0);
+  assert.equal(fs.existsSync(f.tree), false);
+  assert.deepEqual(fs.readdirSync(lockDirectory), [
+    "execution-model.state.lock",
+  ]);
+  // 解放故障を注入した試験所有のLockだけを片付け、予約を作っていないことを観測する。
+  remove(stateLock);
+  const snapshot = f.snapshot();
+  assert.equal(snapshot.leaseIntents.length, 0);
+  assert.equal(snapshot.workspaces.length, 0);
+});
+
+/** Gitと結果保存が成功した後、操作Lock解放だけが失敗した状態を確認する。 @trace PRL-IT-013 */
+test("Workspace作成の結果保存後に操作Lock解放が失敗してもreadyを維持する", (t) => {
+  const f = fixture(t);
+  const spawn = childProcess.spawnSync;
+  const remove = fs.rmSync;
+  let worktreesCreated = 0;
+  let releaseFailures = 0;
+  const gitProbe = t.mock.method(childProcess, "spawnSync", ((
+    ...args: Parameters<typeof spawn>
+  ) => {
+    const outcome = Reflect.apply(spawn, childProcess, args);
+    if (
+      args[0] === "git" &&
+      Array.isArray(args[1]) &&
+      args[1].includes("worktree") &&
+      args[1].includes("add") &&
+      outcome.status === 0
+    )
+      worktreesCreated++;
+    return outcome;
+  }) as typeof spawn);
+  const fault = t.mock.method(
+    fs,
+    "rmSync",
+    (...args: Parameters<typeof remove>) => {
+      if (
+        worktreesCreated > 0 &&
+        typeof args[0] === "string" &&
+        path.basename(args[0]).startsWith("coordinator.lease.")
+      ) {
+        releaseFailures++;
+        throw Object.assign(new Error("fixture_workspace_lock_release"), {
+          code: "EACCES",
+        });
+      }
+      return remove(...args);
+    },
+  );
+  syncBuiltinESMExports();
+  let result: ReturnType<typeof f.operate>;
+  try {
+    result = f.operate({ operation: "create", baseCommit: f.base });
+  } finally {
+    fault.mock.restore();
+    gitProbe.mock.restore();
+    syncBuiltinESMExports();
+  }
+  assert.equal(worktreesCreated, 1);
+  assert.equal(releaseFailures, 1);
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "workspace_operation_lock_requires_manual_review",
+  );
+  assert.equal(result.gitResult?.status, "completed");
+  assert.equal(result.workspace?.phase, "ready");
+  assert.equal(result.leaseReleased, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.releaseRecoveryId, null);
+  assert.equal(result.recoveryId, null);
+  const snapshot = f.snapshot();
+  assert.equal(snapshot.workspaces[0]?.phase, "ready");
+  assert.equal(snapshot.workspaces[0]?.pending, null);
+  assert.equal(snapshot.leaseIntents.length, 0);
+  assert.equal(snapshot.leaseEvidence.length, 0);
+  assert.equal(
+    fs
+      .readdirSync(path.join(f.root, ".crdd", "lock"))
+      .filter((name) => name.startsWith("coordinator.lease.")).length,
+    1,
+  );
+  assert.equal(fs.existsSync(f.tree), true);
 });
 
 /**
@@ -1247,8 +1760,51 @@ test("名前付きCandidateを明示固定・採用し結果を保存してRef�
     "coordinator_candidate_not_authorized",
   );
   assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
-  const merged = f.operate(adoption);
+  const beforeAdoption = f.snapshot();
+  const lockDirectory = path.join(f.root, ".crdd", "lock");
+  let stateLocks = 0;
+  let workspaceLocks = 0;
+  let canonicalLocks = 0;
+  const open = fs.openSync;
+  const probe = t.mock.method(
+    fs,
+    "openSync",
+    (...args: Parameters<typeof open>) => {
+      if (
+        args[1] === "wx+" &&
+        typeof args[0] === "string" &&
+        path.dirname(args[0]) === lockDirectory
+      ) {
+        const name = path.basename(args[0]);
+        if (name === "execution-model.state.lock") stateLocks++;
+        if (name.startsWith("coordinator.lease.project-operation-"))
+          workspaceLocks++;
+        if (name.startsWith("coordinator.lease.canonical-adoption-"))
+          canonicalLocks++;
+      }
+      return open(...args);
+    },
+  );
+  syncBuiltinESMExports();
+  let merged: ReturnType<typeof f.operate>;
+  try {
+    merged = f.operate(adoption);
+  } finally {
+    probe.mock.restore();
+    syncBuiltinESMExports();
+  }
   assert.equal(merged.status, "completed", JSON.stringify(merged));
+  assert.deepEqual(
+    { stateLocks, workspaceLocks, canonicalLocks },
+    {
+      stateLocks: 4,
+      workspaceLocks: 1,
+      canonicalLocks: 0,
+    },
+  );
+  const afterAdoption = f.snapshot();
+  assert.deepEqual(afterAdoption.leaseIntents, beforeAdoption.leaseIntents);
+  assert.deepEqual(afterAdoption.leaseEvidence, beforeAdoption.leaseEvidence);
   const head = git(f.root, ["rev-parse", "HEAD"]);
   assert.equal(
     git(f.root, ["rev-list", "--parents", "-n", "1", "HEAD"]),
@@ -1310,6 +1866,83 @@ test("名前付きCandidateを明示固定・採用し結果を保存してRef�
     "completed",
   );
   assert.equal(git(f.root, ["rev-parse", "HEAD"]), head);
+});
+
+/** 採用意図の保存後に操作Lockを失った場合、Mergeを開始しない。 @trace CPR-IT-006 */
+test("正本採用はMerge直前に操作Lockを失うとGitを変更しない", (t) => {
+  const f = fixture(t);
+  assert.equal(
+    f.operate({ operation: "create", baseCommit: f.base }).status,
+    "completed",
+  );
+  fs.writeFileSync(path.join(f.tree, "source.txt"), "candidate\n");
+  const fixed = f.operate({
+    operation: "freeze",
+    operationId: randomUUID(),
+    baseCommit: f.base,
+    expectedHead: f.base,
+    candidateName: null,
+    relatedChangeIds: [],
+    selection: [
+      {
+        path: "source.txt",
+        mode: "100644",
+        blobId: git(f.tree, ["hash-object", "--no-filters", "source.txt"]),
+      },
+    ],
+    authorize: () => true,
+  });
+  assert.ok(fixed.candidateResult?.candidateCommit);
+  const candidateCommit = fixed.candidateResult.candidateCommit;
+  const before = f.snapshot();
+  const lockDirectory = path.join(f.root, ".crdd", "lock");
+  let lost = false;
+  const blocked = f.operate({
+    operation: "adopt",
+    candidateCommit,
+    targetBranch: "main",
+    expectedTargetHead: f.base,
+    authorize() {
+      const during = f.snapshot();
+      if (!lost && during.workspaces[0]?.candidate?.phase === "merging") {
+        const competing = f.operate({
+          operation: "adopt",
+          candidateCommit,
+          targetBranch: "main",
+          expectedTargetHead: f.base,
+          authorize: () => true,
+        });
+        assert.equal(competing.status, "blocked");
+        assert.equal(competing.reason, "workspace_operation_lock_present");
+        assert.equal(competing.candidateResult, null);
+        assert.deepEqual(f.snapshot(), during);
+        const lock = fs
+          .readdirSync(lockDirectory)
+          .find((name) =>
+            name.startsWith("coordinator.lease.project-operation-"),
+          );
+        assert.ok(lock);
+        fs.rmSync(path.join(lockDirectory, lock));
+        lost = true;
+      }
+      return true;
+    },
+  });
+  assert.equal(lost, true);
+  assert.equal(blocked.status, "blocked");
+  assert.equal(
+    blocked.reason,
+    "workspace_operation_lock_requires_manual_review",
+  );
+  assert.equal(blocked.candidateResult, null);
+  assert.equal(blocked.leaseReleased, false);
+  assert.equal(blocked.manualRecoveryRequired, true);
+  assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
+  const current = f.snapshot();
+  assert.equal(current.workspaces[0]?.candidate?.phase, "merging");
+  assert.equal(current.results.length, 0);
+  assert.deepEqual(current.leaseIntents, before.leaseIntents);
+  assert.deepEqual(current.leaseEvidence, before.leaseEvidence);
 });
 
 /**
@@ -1923,82 +2556,42 @@ test("Candidate codecは矛盾した成功を拒否し正当な途中意図を�
     authorize: () => true,
   });
   assert.equal(fixed.status, "completed", JSON.stringify(fixed));
-  const lease = acquireCoordinatorSnapshotLease(
-    f.ports.workingDirectory,
-    f.ports.repositoryBindingId,
+  const workspaceOperation = beginWorkspaceOperation(
+    resolveExecutionStorageDirectory(f.root),
+    f.binding,
     "project-a",
     "queue-a",
-    "project-operation",
+    f.common.workspaceId,
+    "adopt",
   );
-  assert.equal(lease.status, "completed");
-  if (lease.status !== "completed") throw Error("fixture_lease_failed");
+  assert.equal(workspaceOperation.status, "completed");
+  assert.ok(workspaceOperation.value);
   try {
     const before = f.snapshot();
     const workspace = before.workspaces[0];
     const candidate = workspace?.candidate;
     assert.ok(workspace && candidate);
     const target = { targetBranch: "main", expectedTargetHead: f.base };
-    for (const invalid of [
-      { ...candidate, target },
-      { ...candidate, disposition: "adopted" },
-      { ...candidate, candidateCommit: null },
-      { ...candidate, lastResult: null },
-      {
+    const invalid = workspaceOperation.value.save(workspace.generation, {
+      ...workspace,
+      generation: workspace.generation + 1,
+      candidate: {
         ...candidate,
-        lastResult: { ...candidate.lastResult, reason: "candidate_fixed" },
+        phase: "merging",
+        target,
+        disposition: "rejected",
       },
-      {
-        ...candidate,
-        lastResult: {
-          ...candidate.lastResult,
-          reason: "candidate_fixed_existing",
-        },
-      },
-      { ...candidate, primaryFailure: "commit_copy_failed" },
-      { ...candidate, phase: "merged", disposition: "adopted", target },
-      {
-        ...candidate,
-        lastResult: { ...candidate.lastResult, candidateCommit: f.base },
-      },
-    ]) {
-      const attempted: unknown = {
-        ...workspace,
-        generation: workspace.generation + 1,
-        candidate: invalid,
-      };
-      assert.equal(
-        saveWorkspaceRecord(
-          resolveExecutionStorageDirectory(f.root),
-          f.binding,
-          "project-a",
-          "queue-a",
-          lease.value.ownerGeneration,
-          workspace.workspaceId,
-          workspace.generation,
-          attempted as WorkspaceRecord,
-          { processId: process.pid, now: () => Date.now() },
-        ).status,
-        "blocked",
-      );
-      assert.deepEqual(f.snapshot(), before);
-    }
+    });
+    assert.equal(invalid.status, "blocked");
+    assert.equal(invalid.reason, "coordinator_workspace_record_invalid");
+    assert.deepEqual(f.snapshot(), before);
     const pending = {
       ...workspace,
       generation: workspace.generation + 1,
       candidate: { ...candidate, phase: "merging" as const, target },
     };
     assert.equal(
-      saveWorkspaceRecord(
-        resolveExecutionStorageDirectory(f.root),
-        f.binding,
-        "project-a",
-        "queue-a",
-        lease.value.ownerGeneration,
-        workspace.workspaceId,
-        workspace.generation,
-        pending,
-        { processId: process.pid, now: () => Date.now() },
-      ).status,
+      workspaceOperation.value.save(workspace.generation, pending).status,
       "completed",
     );
     assert.deepEqual(f.snapshot(), {
@@ -2018,7 +2611,7 @@ test("Candidate codecは矛盾した成功を拒否し正当な途中意図を�
       ),
     });
   } finally {
-    assert.equal(lease.value.release().status, "completed");
+    assert.equal(workspaceOperation.value.release().status, "completed");
   }
 });
 
@@ -2163,7 +2756,7 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
   assert.equal(physical.status, "completed");
   assert.ok(physical.value);
   const fixtureBytes = Buffer.from(
-    `${canonicalJson({ ...physical.value.snapshot, revision: physical.value.snapshot.revision + 1, previous: { revision: physical.value.snapshot.revision, payloadSha256: physical.value.payloadSha256 }, queueEntries: [...prior.queueEntries, ...terminalQueues] })}\n`,
+    `${canonicalJson({ ...readStoredExecutionFixture(f.root, physical.value.payloadSha256), revision: physical.value.snapshot.revision + 1, previous: { revision: physical.value.snapshot.revision, payloadSha256: physical.value.payloadSha256 }, queueEntries: [...prior.queueEntries, ...terminalQueues] })}\n`,
   );
   fs.writeFileSync(
     path.join(f.root, ".crdd", "execution-model", "state.json"),
@@ -2517,7 +3110,8 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
   assert.ok(start >= 0 && end > start);
   const body = source.slice(start, end).replace("export function", "function");
   for (const saveFails of [true, false]) {
-    let reads = 0;
+    let locations = 0;
+    let observations = 0;
     /**
      * 保存または解放失敗のexact回復参照を返す。
      * @responsibility 保存または解放失敗のexact回復参照を返す。
@@ -2538,55 +3132,52 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
     });
     const execute = new Function(
       "getRepository",
-      "resolveExecutionStorageDirectory",
-      "readRepositoryStorageIdentity",
-      "readState",
-      "acquireCoordinatorSnapshotLease",
-      "saveWorkspaceRecord",
+      "getWorktree",
+      "workspaceWorktreeTarget",
+      "workspaceWorktreeResult",
+      "readRepositoryLocation",
+      "beginWorkspaceOperation",
       `${body}\nreturn manageWorkspace;`,
     )(
       () => ({ status: "completed", capability: {} }),
-      () => Object.freeze({}),
-      () => ({ repositoryForm: "primary" }),
-      () => {
-        reads++;
+      () => ({}),
+      () => ({}),
+      () => ({ status: "completed", observation: null }),
+      (root: string) => {
+        assert.equal(root, "synthetic");
+        locations++;
+        return { directory: "confirmed", linked: false };
+      },
+      (directory: { directory: string }) => {
+        assert.equal(directory.directory, "confirmed");
         return {
           status: "completed",
           value: {
-            queueEntries: [
-              {
-                queueId: "queue-a",
-                projectId: "project-a",
-                workspaceId: "same-id",
-              },
-            ],
-            workspaces: [
-              { workspaceId: "same-id", generation: 1, phase: "ready" },
-            ],
+            generation: 1,
+            linkedToProject: true,
+            record: { workspaceId: "same-id", generation: 1, phase: "ready" },
+            isHeld: () => true,
+            save: () => assert.fail("Workspace intent write"),
+            saveObservation: () => {
+              observations++;
+              return saveFails
+                ? blocked("save_failed", "recovery-a")
+                : { status: "completed", value: {} };
+            },
+            release: () => blocked("release_failed", "recovery-b"),
           },
         };
       },
-      () => ({
-        status: "completed",
-        value: {
-          ownerGeneration: "owner",
-          release: () => blocked("release_failed", "recovery-b"),
-        },
-      }),
-      () =>
-        saveFails
-          ? blocked("save_failed", "recovery-a")
-          : { status: "completed", value: {} },
     );
     const result = execute({
-      operation: "hold",
-      until: null,
+      operation: "observe",
       ownerRepositoryRoot: "synthetic",
       projectId: "project-a",
       queueId: "queue-a",
       workspaceId: "same-id",
     });
-    assert.equal(reads, 2);
+    assert.equal(observations, 1);
+    assert.equal(locations, 1);
     assert.equal(result.reason, saveFails ? "save_failed" : "release_failed");
     assert.equal(result.recoveryId, saveFails ? "recovery-a" : "recovery-b");
     assert.equal(result.releaseRecoveryId, "recovery-b");

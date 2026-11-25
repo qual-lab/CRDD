@@ -260,8 +260,8 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
       workspaceId: null,
     });
     assert.ok(selected);
-    assert.equal(selected.taskExecutionSelections, null);
-    assert.equal(selected.primary.configIdentity, saved.snapshot.identity);
+    assert.equal(selected.kind, "advice");
+    assert.equal(selected.selection.configIdentity, saved.snapshot.identity);
     const base = selectionConfig();
     const next = {
       ...base,
@@ -326,7 +326,7 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
       ...requestDependencies,
       {
         mode: "read_only_advice",
-        executionSelection: selected.primary,
+        executionSelection: selected.selection,
         prompt: "合成情報を説明",
         contextReferences: ["PROJECT_CONTEXT.md"],
         allowedPaths: [],
@@ -341,7 +341,7 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
       ...requestDependencies,
       {
         mode: "read_only_advice",
-        executionSelection: selected.primary,
+        executionSelection: selected.selection,
         prompt: "次の合成情報を説明",
         contextReferences: ["PROJECT_CONTEXT.md"],
         allowedPaths: [],
@@ -356,12 +356,34 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
       false,
     );
     assert.equal(plans[0]?.additionalHosts.includes("next.example.com"), false);
+    let selectionReads = 0;
+    const mismatched = await executeAdviceRequest(
+      ...requestDependencies,
+      {
+        mode: "read_only_advice",
+        get executionSelection() {
+          return ++selectionReads === 1
+            ? selected.selection
+            : { ...selected.selection, configIdentity: "f".repeat(64) };
+        },
+        prompt: "途中で選定がすり替わった場合は配送しない",
+        contextReferences: ["PROJECT_CONTEXT.md"],
+        allowedPaths: [],
+      },
+      new AbortController().signal,
+    );
+    assert.equal(
+      mismatched.reason,
+      "workbench_ai_advice_dispatch_input_invalid",
+    );
+    assert.equal(selectionReads, 0);
+    assert.equal(plans.length, 2);
     await writeFile(policyFile, "{invalid");
     const invalidResult = await executeAdviceRequest(
       ...requestDependencies,
       {
         mode: "read_only_advice",
-        executionSelection: selected.primary,
+        executionSelection: selected.selection,
         prompt: "不正設定では実行しない",
         contextReferences: ["PROJECT_CONTEXT.md"],
         allowedPaths: [],
@@ -370,7 +392,7 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
     );
     assert.equal(invalidResult.status, "blocked");
     assert.equal(plans.length, 2);
-    assert.deepEqual(plans[0]?.executionSelection, selected.primary);
+    assert.deepEqual(plans[0]?.executionSelection, selected.selection);
     assert.equal(plans[0]?.executionSelection.reasoningEffort, "medium");
     assert.equal(
       plans[0]?.executionSelection.configIdentity,

@@ -20,6 +20,7 @@ import { createHostCompletionFixture } from "../fixtures/docker-owned-process-te
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { readStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
@@ -856,6 +857,7 @@ function fixture(
     Readonly<{
       role: "executor" | "reviewer";
       provider: "codex" | "claude";
+      packetRef: string;
     }>
   >();
   const selectionRequests: Array<Record<string, unknown>> = [];
@@ -1244,9 +1246,16 @@ function fixture(
       taskAttempt: 0 | 1,
       externalSendGrant: object,
       _remediationCapability: object | null,
+      selected: import("../../../execution-model/src/index.ts").ExecutionSelection,
       rawPacket: Record<string, unknown>,
     ) => {
       assert.equal(externalSendGrant, externalSendPolicyCapability);
+      assert.equal(selected.provider, provider);
+      assert.equal(
+        selected.role,
+        taskRole === "executor" ? "executor" : "independent_reviewer",
+      );
+      assert.equal(Object.hasOwn(rawPacket, "executionSelection"), false);
       if (taskRole === "reviewer")
         options.reviewerReadProjectionObserver?.(
           rawPacket.reviewerReadProjection,
@@ -1265,15 +1274,17 @@ function fixture(
         });
       }
       const useCapability = Object.freeze({});
+      const packetRef = `TASKPKT-${(taskRole === "reviewer" ? "D" : taskAttempt === 1 ? "C" : "B").repeat(32)}`;
       packetAssignments.set(
         useCapability,
-        Object.freeze({ role: taskRole, provider }),
+        Object.freeze({ role: taskRole, provider, packetRef }),
       );
       options.observePacketIssue?.();
       return Object.freeze({
         status: options.packetIssueInvalid ? "blocked" : "issued",
         controlCapability: Object.freeze({}),
         useCapability,
+        taskPacketRef: packetRef,
       });
     },
     revokeTaskPacket: () => {
@@ -1303,6 +1314,8 @@ function fixture(
       assert.ok(assignment);
       const role = assignment.role;
       assert.equal(provider, assignment.provider);
+      assert.equal(input.packetRef, assignment.packetRef);
+      assert.equal(Object.hasOwn(input, "executionSelection"), false);
       if (options.prepareWorkloadSplit)
         return Object.freeze({
           status: "blocked",
@@ -1778,7 +1791,10 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
     });
     assert.equal(initial.status, "completed", initial.reason);
     assert.ok(initial.value && initial.lockReleased);
-    const binding = initial.value.snapshot.repositoryBinding;
+    const binding = readStoredExecutionFixture(
+      root,
+      initial.value.payloadSha256,
+    ).repositoryBinding;
     const file = path.join(root, ".crdd", "execution-model", "state.json");
     const canonical = createResourceOperationFixture();
     const canonicalHost = JSON.parse(
@@ -1841,13 +1857,10 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
                 Buffer.from(
                   bytes ?? assert.fail("missing_fixture_bytes"),
                 ).toString("utf8"),
-              ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+              ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
               payloadSha256: createHash("sha256")
                 .update(bytes ?? assert.fail("missing_fixture_bytes"))
                 .digest("hex"),
-              sourceText: Buffer.from(
-                bytes ?? assert.fail("missing_fixture_bytes"),
-              ).toString("utf8"),
             }
           : null;
         if (index === 3 && fault !== "none" && bytes) {
@@ -1925,7 +1938,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
             Buffer.from(next ?? assert.fail("missing_fixture_bytes")).toString(
               "utf8",
             ),
-          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+          ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
         );
         assert.ok(snapshot);
         const observed = readState(
@@ -1934,7 +1947,11 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
         );
         assert.equal(observed.status, "completed");
         assert.equal(observed.lockReleased, true);
-        assert.deepEqual(observed.value?.snapshot, snapshot);
+        assert.ok(observed.value);
+        assert.deepEqual(
+          readStoredExecutionFixture(root, observed.value.payloadSha256),
+          snapshot,
+        );
         assert.equal(snapshot.revision, (before?.snapshot.revision ?? 0) + 1);
         assert.deepEqual(snapshot.previous, {
           revision: before?.snapshot.revision,
@@ -2036,7 +2053,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
         Buffer.from(bytes ?? assert.fail("missing_fixture_bytes")).toString(
           "utf8",
         ),
-      ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot
+      ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture
     ).operations ?? []) {
       if (operation.kind !== "docker_task") continue;
       assert.equal(operation.execution.providerStart, "unknown");
@@ -3077,8 +3094,8 @@ test("固定した両Providerの選定をEffect前確認と独立Reviewerへ接�
       typeof selections.executor,
       typeof selections.reviewer,
     ];
-    assert.notEqual(captured[0], selections.executor);
-    assert.notEqual(captured[1], selections.reviewer);
+    assert.equal(captured[0], selections.executor);
+    assert.equal(captured[1], selections.reviewer);
     assert.equal(Object.isFrozen(captured), true);
     for (const [index, selected] of captured.entries()) {
       assert.equal(Object.isFrozen(selected), true);
@@ -3380,6 +3397,13 @@ test("選定の全項目と役割を保持し旧Profileを実行要求へ混入�
       },
     }),
     "C:\\repository",
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    selections,
   ).completion;
   assert.equal(bad.reason, "coordinator_task_request_invalid");
   assert.equal(invalid.operationCreateCount(), 0);
@@ -5975,7 +5999,10 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
   const identity = {
     ...createResourceOperationFixture().identity,
     operationId: operation.operationId,
-    repositoryBinding: state.value.snapshot.repositoryBinding,
+    repositoryBinding: readStoredExecutionFixture(
+      parent,
+      state.value.payloadSha256,
+    ).repositoryBinding,
   };
   const started = saveOperationStart(
     operationStartInput(managementCapability, () => null),

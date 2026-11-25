@@ -1,12 +1,21 @@
 /**
- * 現在状態・履歴の固定保存領域とFilesystem入出力を管理する。
- * @responsibility 実体照合、出版pending、読戻しと失敗・回復情報を保持する。
+ * 現在状態・履歴の固定保存領域、単一Writerと保存途中の再入場を管理する。
+ * @responsibility 実体照合、CAS、短命証拠、pending、読戻しと失敗・回復情報を同じ保存Ownerへ結合する。
  * @trace ARCH-000008
  */
 import fs from "node:fs";
 import path from "node:path";
-import { STORAGE_CONTRACT } from "../state/types.ts";
+import { STORAGE_CONTRACT } from "../composition/types.ts";
 import { createHash } from "node:crypto";
+import { types } from "node:util";
+import {
+  authenticationUnknownAbsenceChanged,
+  hasAuthenticationUnknownAbsence,
+} from "../attempt/transition.ts";
+import type {
+  ExecutionOperationRecord,
+  RepairWritePurpose,
+} from "../attempt/types.ts";
 import {
   areTaskResourcesSettled,
   readOperationHost,
@@ -20,49 +29,68 @@ import {
   inspectDecisionHistoryEvent,
   projectDecisionHistory,
 } from "../decision/validation.ts";
-import { taskHistoryLine } from "../history/operations.ts";
+import { operationHistoryLine, taskHistoryLine } from "../history/records.ts";
 import type { HistoryRow } from "../history/types.ts";
 import {
   decodeHistoryRows,
   historyRow,
   prepareHistoryAppend,
 } from "../history/validation.ts";
-import type { Snapshot } from "../state/types.ts";
+import { prepareExecutionDefinitionChange } from "../objective/transition.ts";
+import type { ExecutionStateSnapshot, Snapshot } from "../composition/types.ts";
 import {
+  classifyRepairPublication,
   classifyResourcePublication,
   decodeStateSnapshot,
+  initialStateOperationsMatch,
+  prepareAuthenticationUnknownClosureSnapshot,
   prepareHistoryRetention,
+  prepareRecoveryTerminalSnapshot,
+  validateDecodedStateTransition,
   prepareRecoveredHistoryPublication,
   prepareRepairHistoryLine,
   prepareRepairHistoryPublication,
   prepareRepairHistorySnapshot,
   prepareRepairHistorySummary,
+  prepareStateCleanupSnapshot,
+  prepareStateHostOperationSnapshot,
   prepareStateCompletionSnapshot,
   prepareStateHistoryLine,
+  prepareTaskHistorySnapshot,
+  type TaskHistorySnapshot,
   prepareStateHistorySnapshot,
   prepareStateRepairCompletionSnapshot,
+  prepareUnifiedTaskSections,
   projectTaskSnapshot,
-} from "../state/validation.ts";
-import { validId, encodeStateValue } from "../state/operations.ts";
+  validateRepairWriteCandidate,
+  validateStateTransition,
+  validateUnifiedTransition,
+} from "../composition/transition.ts";
+import { validId, encodeStateValue } from "../composition/validation.ts";
 import type {
+  ExecutionTerminalStorageObservation,
   SnapshotOwner,
   StorageOwner,
   StoreResult,
-  observeExecutionRecoveryRepository,
-  observeOperationRepository,
 } from "./lock.ts";
 import {
+  acquireExecutionStateLock,
   acquireSnapshotPilotLock,
   acquireStorageOwner,
   acquireStorageOwnerForRepository,
   blocked,
   borrowStorageOwner,
   completed,
+  executionStorageOperationIdentity,
   isLiveSnapshotOwner,
   isLiveStorageOwner,
   normalizeFileId,
+  observeExecutionRecoveryRepository,
+  observeOperationRepository,
+  readExecutionStorageBinding,
   readHistoryRetentionDays,
   readStorageOwnerBinding,
+  storageLockFailure,
 } from "./lock.ts";
 /** 保存先はPackage名でなく既存永続所在の契約。 */
 export const REPOSITORY_AREAS = Object.freeze([
@@ -112,10 +140,43 @@ function resolveRepositoryExecutionDataPathsFromValidatedRoot(
   });
 }
 
-/** 呼出し元が確認したRootに対し、Filesystem上の領域だけを観測する。 @trace ARCH-000011 */
+function directoryIdentity(stat: fs.BigIntStats) {
+  return `${stat.dev}:${stat.ino}:${stat.birthtimeNs}`;
+}
+
+/** 同じTask保存Lockで確定した親・保存領域と、祖先を含む正規パスを照合する。 @trace ARCH-000008 */
+function assertTaskExecutionAreaCurrent(
+  area: Extract<RepositoryExecutionDataAreaObservation, { status: "ready" }>,
+): void {
+  if (fs.realpathSync.native(area.directory) !== area.directory)
+    throw new Error("task_storage_area_changed");
+  const parent = fs.lstatSync(path.dirname(area.directory), { bigint: true });
+  const leaf = fs.lstatSync(area.directory, { bigint: true });
+  if (
+    !parent.isDirectory() ||
+    parent.isSymbolicLink() ||
+    directoryIdentity(parent) !== area.parentIdentity ||
+    !leaf.isDirectory() ||
+    leaf.isSymbolicLink() ||
+    directoryIdentity(leaf) !== area.leafIdentity
+  )
+    throw new Error("task_storage_area_changed");
+}
+
+/**
+ * 呼出し元が確認したRootに対し、Filesystem上の領域だけを観測する。
+ * @trace ARCH-000011
+ * @precondition verifiedAreaは同じWriterの完全観測から渡し、固定ファイルの読取り前後にだけ使う。
+ * @postcondition verifiedArea付きでは固定領域自身の実体を再確認する。親は読取り区間の入口が確認する。
+ * @invariant 書込み・最終確定では正規パスを含む完全観測を別に行う。
+ */
 export function observePhysicalExecutionDataArea(
   repositoryRoot: string | null,
   area: RepositoryExecutionArea,
+  verifiedArea?: Pick<
+    Extract<RepositoryExecutionDataAreaObservation, { status: "ready" }>,
+    "directory" | "boundaryIdentity" | "parentIdentity" | "leafIdentity"
+  >,
 ): RepositoryExecutionDataAreaObservation {
   try {
     const paths =
@@ -130,7 +191,12 @@ export function observePhysicalExecutionDataArea(
       });
     const directory = paths[AREA_PATH_KEYS[area]];
     const identities: string[] = [];
-    for (const target of [paths.repositoryRoot, paths.root, directory]) {
+    let parentIdentity = verifiedArea?.parentIdentity ?? "";
+    let leafIdentity = "";
+    const targets = verifiedArea
+      ? [directory]
+      : [paths.repositoryRoot, paths.root, directory];
+    for (const target of targets) {
       let metadata: fs.BigIntStats;
       try {
         metadata = fs.lstatSync(target, { bigint: true });
@@ -144,36 +210,52 @@ export function observePhysicalExecutionDataArea(
           });
         throw error;
       }
-      if (
-        !metadata.isDirectory() ||
-        metadata.isSymbolicLink() ||
-        fs.realpathSync.native(target) !== target
-      )
+      if (!metadata.isDirectory() || metadata.isSymbolicLink())
         return Object.freeze({
           status: "blocked",
           reason: "repository_runtime_data_area_boundary_invalid",
           effectIssued: false,
         });
-      const canonical = fs.lstatSync(fs.realpathSync.native(target), {
-        bigint: true,
-      });
-      if (canonical.dev !== metadata.dev || canonical.ino !== metadata.ino)
-        return Object.freeze({
-          status: "blocked",
-          reason: "repository_runtime_data_area_boundary_invalid",
-          effectIssued: false,
-        });
-      if (target !== paths.repositoryRoot)
+      if (!verifiedArea) {
+        const canonicalPath = fs.realpathSync.native(target);
+        if (canonicalPath !== target)
+          return Object.freeze({
+            status: "blocked",
+            reason: "repository_runtime_data_area_boundary_invalid",
+            effectIssued: false,
+          });
+        const canonical = fs.lstatSync(canonicalPath, { bigint: true });
+        if (canonical.dev !== metadata.dev || canonical.ino !== metadata.ino)
+          return Object.freeze({
+            status: "blocked",
+            reason: "repository_runtime_data_area_boundary_invalid",
+            effectIssued: false,
+          });
+      }
+      if (target === paths.root) parentIdentity = directoryIdentity(metadata);
+      if (target === directory) leafIdentity = directoryIdentity(metadata);
+      if (!verifiedArea && target !== paths.repositoryRoot)
         identities.push(metadata.dev.toString(), metadata.ino.toString());
     }
-    const boundaryIdentity = createHash("sha256")
-      .update(identities.join("\0"))
-      .digest("hex");
+    if (
+      verifiedArea &&
+      (directory !== verifiedArea.directory ||
+        leafIdentity !== verifiedArea.leafIdentity)
+    )
+      return Object.freeze({
+        status: "blocked",
+        reason: "repository_runtime_data_area_boundary_invalid",
+        effectIssued: false,
+      });
     return Object.freeze({
       status: "ready",
       repositoryRoot: paths.repositoryRoot,
       directory,
-      boundaryIdentity,
+      boundaryIdentity:
+        verifiedArea?.boundaryIdentity ??
+        createHash("sha256").update(identities.join("\0")).digest("hex"),
+      parentIdentity,
+      leafIdentity,
       effectIssued: false,
     });
   } catch {
@@ -193,6 +275,8 @@ export type RepositoryExecutionDataAreaObservation =
       repositoryRoot: string;
       directory: string;
       boundaryIdentity: string;
+      parentIdentity: string;
+      leafIdentity: string;
       effectIssued: false;
     }>
   | Readonly<{
@@ -516,7 +600,7 @@ export function sameStableFileIdentity(
  *
  * @responsibility Stable File Snapshotの読取り元と読取不能時の結果境界を所有する。
  * @trace ARCH-000014
- * @input file: string
+ * @input file: 絶対パス。namedBeforeは固定ファイルReaderが直前に得た通常File・単一Linkの観測。
  * @returns readStableFileSnapshotの計算結果を返す。
  * @precondition 「file: string」がreadStableFileSnapshotの入力契約を満たす。
  * @postcondition readStableFileSnapshotの責務を完了した結果だけを返す。
@@ -527,15 +611,22 @@ export function sameStableFileIdentity(
  * @security readStableFileSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: readStableFileSnapshotは共有非同期状態を持たない同期処理である。
  */
-export function readStableFileSnapshot(file: string) {
+export function readStableFileSnapshot(
+  file: string,
+  namedBefore?: fs.BigIntStats,
+) {
   if (!path.isAbsolute(file)) throw new Error("file_snapshot_invalid");
   const resolved = path.resolve(file);
-  const before = identity(fs.lstatSync(resolved, { bigint: true }));
+  const before = identity(
+    namedBefore ?? fs.lstatSync(resolved, { bigint: true }),
+  );
   if (fs.realpathSync.native(resolved) !== resolved)
     throw new Error("file_snapshot_invalid");
   const descriptor = fs.openSync(resolved, fs.constants.O_RDONLY);
+  let opened: StableFileIdentity;
+  let bytes: Buffer;
   try {
-    const opened = identity(fs.fstatSync(descriptor, { bigint: true }));
+    opened = identity(fs.fstatSync(descriptor, { bigint: true }));
     if (!sameStableFileIdentity(before, opened))
       throw new Error("file_snapshot_changed");
     const chunks: Buffer[] = [];
@@ -548,22 +639,22 @@ export function readStableFileSnapshot(file: string) {
       chunks.push(Buffer.from(buffer.subarray(0, count)));
     }
     const after = identity(fs.fstatSync(descriptor, { bigint: true }));
-    const pathAfter = identity(fs.lstatSync(resolved, { bigint: true }));
     if (
       byteLength !== Number(opened.size) ||
-      !sameStableFileIdentity(opened, after) ||
-      !sameStableFileIdentity(opened, pathAfter) ||
-      fs.realpathSync.native(resolved) !== resolved
+      !sameStableFileIdentity(opened, after)
     )
       throw new Error("file_snapshot_changed");
-    return Object.freeze({
-      path: resolved,
-      identity: opened,
-      bytes: Buffer.concat(chunks, byteLength),
-    });
+    bytes = Buffer.concat(chunks, byteLength);
   } finally {
     fs.closeSync(descriptor);
   }
+  if (fs.realpathSync.native(resolved) !== resolved)
+    throw new Error("file_snapshot_changed");
+  const pathAfter = fs.lstatSync(resolved, { bigint: true });
+  if (!sameStableFileIdentity(opened, identity(pathAfter)))
+    throw new Error("file_snapshot_changed");
+  if (namedBefore && pathAfter.nlink !== 1n) throw new Error("links");
+  return Object.freeze({ path: resolved, identity: opened, bytes });
 }
 
 /**
@@ -1024,6 +1115,14 @@ export type StorageRepository = Pick<
   "repositoryRoot" | "repositoryBinding" | "revalidate"
 >;
 
+/** 履歴保存では設定の観測を保存起点の現在性から分離できる。 */
+export type RecoveryHistoryRepository = StorageRepository &
+  Readonly<{
+    operationId: string;
+    historyRetentionDays?: number | null;
+    revalidateRetention?: (expectedHistoryRetentionDays: number) => boolean;
+  }>;
+
 /**
  * 既存の名前付き領域をEffect0で観測する。
  * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
@@ -1366,13 +1465,8 @@ export function readSnapshotOwned(
       : blocked(observed.reason, true);
   if (!observed.value)
     return blocked("coordinator_snapshot_invalid_or_unconfirmed", true);
-  const decoded = decodeStateSnapshot(
-    Buffer.from(`${encodeStateValue(observed.value.snapshot)}\n`),
-    lock.repositoryBinding,
-  );
-  if (!decoded)
-    return blocked("coordinator_snapshot_invalid_or_unconfirmed", true);
-  const value = projectTaskSnapshot(decoded, lock.repositoryRootHash);
+  // 物理Readerが結合・正規本文・全Stateを検証済み。同じ読取り結果を投影する。
+  const value = projectTaskSnapshot(observed.value, lock.repositoryRootHash);
   if (value && value.repositoryBindingId !== binding)
     return blocked("coordinator_snapshot_binding_invalid", true);
   return completed(
@@ -1400,16 +1494,125 @@ export function readSnapshotOwned(
 export function describeDurableFoundation() {
   return Object.freeze({
     contract: STORAGE_CONTRACT,
-    recordStrategy:
-      "single_current_snapshot_with_pending_atomic_replace_and_exact_readback",
+    recordStrategy: "single_current_snapshot_with_pending_atomic_replace",
     queueMutation: "short_exclusive_repository_local_lock",
     operationLease:
       "exclusive_lock_with_owner_generation_and_no_stale_takeover",
-    adoptionLease: "separate_exclusive_lock_with_no_stale_takeover",
     staleLockDisposition: "blocked_manual_reconciliation_required_before_reuse",
     externalWaitWhileMutationLockHeld: false,
     taskManagementCapabilityComplete: false,
   });
+}
+
+const stateVersionEvidenceKey = Symbol("stateVersionEvidence");
+
+/**
+ * 読取り時の正規保存本文を、完全一致のためだけに独立保持する。
+ * @trace ARCH-000008
+ * @boundary 上位には比較だけを提供し、保存の認可や元版の再確認は既存Writerが所有する。
+ */
+class StateVersionEvidence {
+  readonly #text: string;
+
+  constructor(key: symbol, text: string) {
+    if (key !== stateVersionEvidenceKey)
+      throw Error("state_version_evidence_owner_invalid");
+    this.#text = text;
+    Object.freeze(this);
+  }
+
+  /** 同じ保存本文か、Hashだけに置換せず完全比較する。 @trace ARCH-000008 */
+  matches(other: unknown): boolean {
+    return (
+      this.#text === StateVersionEvidence.read(other, stateVersionEvidenceKey)
+    );
+  }
+
+  /** Writer内部だけが既存の完全一致に使う本文を取得する。 @trace ARCH-000008 */
+  static read(observed: unknown, key: symbol): string | null {
+    return key === stateVersionEvidenceKey &&
+      typeof observed === "object" &&
+      observed !== null &&
+      #text in observed
+      ? observed.#text
+      : null;
+  }
+}
+Object.freeze(StateVersionEvidence.prototype);
+Object.freeze(StateVersionEvidence);
+
+/** 検証した正規本文だけを公開Readerからの比較値にする。 @trace ARCH-000008 */
+export function captureStateVersionEvidence(sourceText: string) {
+  return new StateVersionEvidence(stateVersionEvidenceKey, sourceText);
+}
+
+/** 保存Module内で従来の完全byte比較に使う元版を得る。 @trace ARCH-000008 */
+export function readStateVersionEvidence(observed: unknown): Buffer | null {
+  const text = StateVersionEvidence.read(observed, stateVersionEvidenceKey);
+  return text === null ? null : Buffer.from(text, "utf8");
+}
+
+const resourcePublicationKey = Symbol("resourcePublication");
+type ResourcePublicationBytes = Readonly<{ before: Buffer; candidate: Buffer }>;
+
+/**
+ * 資源回収の途中保存で観測した元版と候補を一組で保持する。
+ * @trace ARCH-000008
+ * @boundary 本文は保存Owner内だけに留め、上位へ完全一致の判定だけを返す。
+ * @invariant この値自体は保存権限ではなく、保存時に元Ownerと現在の組を再確認する。
+ */
+class ResourcePublication {
+  readonly #bytes: ResourcePublicationBytes;
+
+  constructor(key: symbol, before: Buffer, candidate: Buffer) {
+    if (key !== resourcePublicationKey)
+      throw Error("resource_publication_owner_invalid");
+    this.#bytes = {
+      before: Buffer.from(before),
+      candidate: Buffer.from(candidate),
+    };
+    Object.freeze(this);
+  }
+
+  /** 元版と候補の両方の完全一致を確認する。 @trace ARCH-000008 */
+  matches(other: unknown): boolean {
+    const candidate = readResourcePublicationBytes(other);
+    return (
+      candidate !== null &&
+      this.#bytes.before.equals(candidate.before) &&
+      this.#bytes.candidate.equals(candidate.candidate)
+    );
+  }
+
+  /** 従来と同じUTF-8本文の比較で保存直後の候補を確かめる。 @trace ARCH-000008 */
+  matchesCandidate(versionEvidence: unknown): boolean {
+    const bytes = readStateVersionEvidence(versionEvidence);
+    return bytes !== null && this.#bytes.candidate.equals(bytes);
+  }
+
+  /** 同じ保存ModuleだけがWriterへの元版と候補を開ける。 @trace ARCH-000008 */
+  static read(observed: unknown, key: symbol): ResourcePublicationBytes | null {
+    return key === resourcePublicationKey &&
+      typeof observed === "object" &&
+      observed !== null &&
+      #bytes in observed
+      ? observed.#bytes
+      : null;
+  }
+}
+Object.freeze(ResourcePublication.prototype);
+Object.freeze(ResourcePublication);
+
+/** 検査済みの組を独立捕捉し、上位には本文を渡さない。 @trace ARCH-000008 */
+export function captureResourcePublication(before: Buffer, candidate: Buffer) {
+  return new ResourcePublication(resourcePublicationKey, before, candidate);
+}
+
+/** 不正な入力のPropertyを評価せず、実際に発行した組だけをWriterに渡す。 @trace ARCH-000008 */
+export function readResourcePublicationBytes(
+  observed: unknown,
+): ResourcePublicationBytes | null {
+  return ResourcePublication.read(observed, resourcePublicationKey);
 }
 
 /**
@@ -1480,8 +1683,17 @@ export function readStateSnapshot(
       historyRows: null,
     });
   if (!repository) return blocked("coordinator_state_owner_invalid", true);
+  const registeredOwner = storageOwner
+    ? readStorageOwnerBinding(storageOwner)
+    : undefined;
+  const sameHistoryOwner =
+    currentHistoryRecoveryId !== null &&
+    currentHistoryRecoveryId === recoveryId &&
+    registeredOwner?.repository === repository;
   const borrowedOwner = storageOwner
-    ? borrowStorageOwner(storageOwner, repository)
+    ? sameHistoryOwner
+      ? registeredOwner
+      : borrowStorageOwner(storageOwner, repository)
     : null;
   if (storageOwner && !borrowedOwner)
     return blocked("coordinator_state_owner_invalid", false);
@@ -1508,10 +1720,7 @@ export function readStateSnapshot(
       })
     | null = null;
   let historyRows: ReturnType<typeof decodeHistoryRows> = null;
-  let resourcePublication: Readonly<{
-    before: Buffer;
-    candidate: Buffer;
-  }> | null = null;
+  let resourcePublication: ResourcePublication | null = null;
   let reason = "coordinator_state_read_unconfirmed";
   let currentCompletionPublication: Readonly<{
     before: Buffer;
@@ -1525,7 +1734,7 @@ export function readStateSnapshot(
     operationKind: "docker_task" | "docker_repair";
     before: Buffer;
     candidate: Buffer;
-    stage: "checkpoint" | "publish" | "confirmed";
+    stage: "terminal_checkpoint" | "checkpoint" | "publish" | "confirmed";
     needsWrite: boolean;
     historyFile: Readonly<{
       bytes: Buffer;
@@ -1536,6 +1745,7 @@ export function readStateSnapshot(
       identity: StableFileIdentity;
     }> | null;
     retentionDays: number | null;
+    taskState?: TaskHistoryState;
   }> | null = null;
   let repairHistoryState: "technical_state" | "publication" | null = null;
   let recoveryHistory: ReturnType<typeof readStableFileSnapshot> | null = null;
@@ -1547,7 +1757,12 @@ export function readStateSnapshot(
   let repairRetentionReviewAfter: string | null = null;
   try {
     const metadataOnly = borrowedOwner?.metadataOnly === true;
-    if (!repository.revalidate() || !lock.assertLive())
+    // 通常の借用は入口で保存先・Lockを照合済み。履歴専用の登録照合は実体を読まない。
+    // 最後の現在性検査と解放の判定は、この入口の確認と別に維持する。
+    if (
+      (borrowedOwner?.repository !== repository || sameHistoryOwner) &&
+      (!repository.revalidate() || !lock.assertLive())
+    )
       throw new Error("owner");
     const initial = observePhysicalExecutionDataArea(
       repository.repositoryRoot,
@@ -1597,10 +1812,14 @@ export function readStateSnapshot(
       throw new Error("pending_or_unknown_content");
     }
     const file = path.join(initial.directory, "state.json");
-    const metadata = fs.lstatSync(file);
-    if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.nlink !== 1)
+    const metadata = fs.lstatSync(file, { bigint: true });
+    if (
+      !metadata.isFile() ||
+      metadata.isSymbolicLink() ||
+      metadata.nlink !== 1n
+    )
       throw new Error("file");
-    const observed = readStableFileSnapshot(file);
+    const observed = readStableFileSnapshot(file, metadata);
     const decoded = decodeStateSnapshot(
       observed.bytes,
       repository.repositoryBinding,
@@ -1685,10 +1904,10 @@ export function readStateSnapshot(
         )
       )
         throw new Error("resource_publication_candidate_mismatch");
-      resourcePublication = Object.freeze({
-        before: Buffer.from(observed.bytes),
-        candidate: Buffer.from(pending.bytes),
-      });
+      resourcePublication = captureResourcePublication(
+        observed.bytes,
+        pending.bytes,
+      );
     }
     const currentPublicationRecoveryId =
       currentHistoryRecoveryId ?? currentCompletionRecoveryId;
@@ -1803,6 +2022,16 @@ export function readStateSnapshot(
                 !isRepairDisposalSettled(operation.disposal.checkpoint))))) &&
         operation.summarySha256 === null &&
         operation.history === null;
+      const taskTerminalReady =
+        operation?.kind === "docker_task" &&
+        operation.phase !== "executing" &&
+        operation.lease === "released" &&
+        operation.execution.ownerEffect === "disabled" &&
+        operation.outcome?.cleanupConfirmed === true &&
+        readOperationHost(decoded.snapshot.operations, operation)?.cleanup ===
+          "confirmed" &&
+        areTaskResourcesSettled(operation) &&
+        isDockerRestartCheckpointSettled(operation.dockerRestart);
       if (
         !operation ||
         operation.kind === "host_operation" ||
@@ -1816,14 +2045,12 @@ export function readStateSnapshot(
             (repository.operationId !== undefined &&
               JSON.parse(operation.identityJson).operationId !==
                 repository.operationId)
-          : operation.phase === "executing" ||
-            operation.lease !== "released" ||
-            operation.execution.ownerEffect !== "disabled" ||
-            !operation.outcome?.cleanupConfirmed ||
-            readOperationHost(decoded.snapshot.operations, operation)
-              ?.cleanup !== "confirmed" ||
-            !areTaskResourcesSettled(operation) ||
-            !isDockerRestartCheckpointSettled(operation.dockerRestart))
+          : !(
+              currentHistoryRecoveryId !== null &&
+              operation.history === null &&
+              names.includes("state.pending.json") &&
+              !names.includes("history.pending.jsonl")
+            ) && !taskTerminalReady)
       )
         throw new Error("history_terminal_unconfirmed");
       for (const name of [
@@ -1833,22 +2060,30 @@ export function readStateSnapshot(
       ] as const) {
         if (!names.includes(name)) continue;
         const target = path.join(initial.directory, name),
-          metadata = fs.lstatSync(target);
+          metadata = fs.lstatSync(target, { bigint: true });
         if (
           !metadata.isFile() ||
           metadata.isSymbolicLink() ||
-          metadata.nlink !== 1
+          metadata.nlink !== 1n
         )
           throw new Error("history_file");
-        const contents = readStableFileSnapshot(target);
+        const contents = readStableFileSnapshot(target, metadata);
         if (name === "history.jsonl") recoveryHistory = contents;
         else if (name === "history.pending.jsonl")
           recoveryHistoryPending = contents;
         else pending = contents;
       }
-      const before = Buffer.from(`${encodeStateValue(decoded.snapshot)}\n`);
+      // decodeStateSnapshotはこの保存本文の正規表現との一致を確認済み。
+      const before = Buffer.from(observed.bytes);
       let candidate: Buffer | null = null;
-      let stage: "checkpoint" | "publish" | "confirmed" | null = null;
+      let taskCandidate: TaskHistorySnapshot | undefined;
+      let taskHistoryPublication: TaskHistoryState["publication"];
+      let stage:
+        | "terminal_checkpoint"
+        | "checkpoint"
+        | "publish"
+        | "confirmed"
+        | null = null;
       if (technicalState) {
         const rows = decodeHistoryRows(
           recoveryHistory?.bytes ?? Buffer.alloc(0),
@@ -1931,38 +2166,95 @@ export function readStateSnapshot(
         );
         if (pending && (!target?.history || target.history.confirmed))
           throw new Error("history_checkpoint_target_invalid");
-        candidate = (
-          operation.kind === "docker_repair"
-            ? prepareRepairHistorySnapshot
-            : prepareStateHistorySnapshot
-        )(
-          before,
-          currentHistoryRecoveryId,
+        const occurredAt =
           target?.history?.occurredAt ??
-            (operation.kind === "docker_repair"
-              ? operation.retention?.decidedAt
-              : undefined) ??
-            new Date().toISOString(),
-          false,
-          repository.repositoryBinding,
-        );
+          (operation.kind === "docker_repair"
+            ? operation.retention?.decidedAt
+            : undefined) ??
+          new Date().toISOString();
+        if (operation.kind === "docker_repair") {
+          candidate = prepareRepairHistorySnapshot(
+            before,
+            currentHistoryRecoveryId,
+            occurredAt,
+            false,
+            repository.repositoryBinding,
+          );
+        } else if (taskTerminalReady) {
+          taskCandidate =
+            prepareTaskHistorySnapshot(
+              decoded,
+              currentHistoryRecoveryId,
+              occurredAt,
+              false,
+              repository.repositoryBinding,
+              pending && pendingState
+                ? { bytes: pending.bytes, decoded: pendingState }
+                : undefined,
+            ) ?? undefined;
+          candidate = taskCandidate?.bytes ?? null;
+        }
         stage = "checkpoint";
+        if (operation.kind === "docker_task" && pending && target?.history) {
+          const terminal = prepareRecoveryTerminalSnapshot(
+            decoded,
+            operation.recoveryId,
+            repository.operationId,
+            target.history.occurredAt,
+          );
+          if (
+            terminal?.status === "prepared" &&
+            terminal.bytes.equals(pending.bytes) &&
+            validateStateTransition(
+              before,
+              terminal.bytes,
+              repository.repositoryBinding,
+            )
+          ) {
+            candidate = terminal.bytes;
+            taskCandidate = undefined;
+            stage = "terminal_checkpoint";
+          }
+        }
       } else if (!operation.history.confirmed) {
         const configuration = readHistoryRetentionDays(repository);
         if (configuration === null) throw new Error("history_config_invalid");
         recoveryRetentionDays = configuration;
-        const publication = (
-          operation.kind === "docker_repair"
-            ? prepareRepairHistoryPublication
-            : prepareRecoveredHistoryPublication
-        )(
+        const historyInput = [
           before,
           currentHistoryRecoveryId,
           recoveryHistory?.bytes ?? Buffer.alloc(0),
           recoveryHistoryPending?.bytes ?? null,
           recoveryRetentionDays,
           repository.repositoryBinding,
-        );
+        ] as const;
+        const taskPublication =
+          operation.kind === "docker_task"
+            ? prepareRecoveredHistoryPublication(...historyInput, {
+                current: { bytes: before, decoded },
+              })
+            : null;
+        const publication =
+          operation.kind === "docker_task"
+            ? taskPublication
+            : prepareRepairHistoryPublication(...historyInput);
+        if (taskPublication) {
+          taskCandidate = {
+            bytes: taskPublication.snapshotBytes,
+            decoded: taskPublication.decoded,
+          };
+          if (
+            !pending &&
+            !recoveryHistoryPending &&
+            taskPublication.historyChanged
+          )
+            taskHistoryPublication = {
+              recoveryId: operation.recoveryId,
+              before: recoveryHistory?.bytes ?? null,
+              retentionDays: configuration,
+              candidate: taskPublication,
+            };
+        }
         candidate = publication?.snapshotBytes ?? null;
         stage = "publish";
         if (
@@ -1973,11 +2265,14 @@ export function readStateSnapshot(
       } else {
         if (pending || recoveryHistoryPending)
           throw new Error("history_confirmed_pending_invalid");
-        const line = (
-          operation.kind === "docker_repair"
-            ? prepareRepairHistoryLine
-            : prepareStateHistoryLine
-        )(before, currentHistoryRecoveryId, repository.repositoryBinding);
+        const line =
+          operation.kind === "docker_task"
+            ? operationHistoryLine(operation)
+            : prepareRepairHistoryLine(
+                before,
+                currentHistoryRecoveryId,
+                repository.repositoryBinding,
+              );
         const rows = decodeHistoryRows(
           recoveryHistory?.bytes ?? Buffer.alloc(0),
         );
@@ -2031,6 +2326,20 @@ export function readStateSnapshot(
                   identity: recoveryHistoryPending.identity,
                 },
           retentionDays: recoveryRetentionDays,
+          ...(storageOwner && borrowedOwner && taskCandidate
+            ? {
+                taskState: {
+                  [taskHistoryKey]: true as const,
+                  owner: storageOwner,
+                  area: initial,
+                  before: { bytes: before, decoded },
+                  candidate: taskCandidate,
+                  ...(taskHistoryPublication
+                    ? { publication: taskHistoryPublication }
+                    : {}),
+                },
+              }
+            : {}),
         });
       }
     }
@@ -2053,14 +2362,30 @@ export function readStateSnapshot(
         throw new Error("settlement_target");
       }
     }
+    const taskHistoryReader =
+      sameHistoryOwner && currentHistoryKind === "docker_task";
+    const taskHistoryRetentionUnchanged =
+      !taskHistoryReader ||
+      recoveryRetentionDays === null ||
+      readHistoryRetentionDays(repository) === recoveryRetentionDays;
     const finalFile = fs.lstatSync(file, { bigint: true });
-    const fresh = observePhysicalExecutionDataArea(
-      repository.repositoryRoot,
-      "execution-model",
-    );
+    if (taskHistoryReader) assertTaskExecutionAreaCurrent(initial);
+    const fresh = taskHistoryReader
+      ? initial
+      : observePhysicalExecutionDataArea(
+          repository.repositoryRoot,
+          "execution-model",
+        );
+    // 借用中のTask履歴では、同じ一覧を名前ごとに取得し直さない。
+    const finalHistoryNames = taskHistoryReader
+      ? fs.readdirSync(initial.directory)
+      : null;
+    const matchesReadFile = (file: string, previous: StableFileIdentity) => {
+      const stat = fs.lstatSync(file, { bigint: true });
+      return stat.nlink === 1n && sameStableFileIdentity(previous, stat);
+    };
     if (
-      !repository.revalidate() ||
-      !lock.assertLive() ||
+      (!sameHistoryOwner && (!repository.revalidate() || !lock.assertLive())) ||
       (
         [
           ["history.jsonl", recoveryHistory],
@@ -2069,21 +2394,20 @@ export function readStateSnapshot(
       ).some(
         ([name, entry]) =>
           entry !== null &&
-          (!sameStableFileIdentity(
-            entry.identity,
-            fs.lstatSync(path.join(initial.directory, name), { bigint: true }),
-          ) ||
-            fs.lstatSync(path.join(initial.directory, name), { bigint: true })
-              .nlink !== 1n),
+          !matchesReadFile(path.join(initial.directory, name), entry.identity),
       ) ||
       ((currentPublicationRecoveryId !== null || includeHistory) &&
         (names.includes("history.jsonl") !==
-          fs.readdirSync(initial.directory).includes("history.jsonl") ||
+          (finalHistoryNames ?? fs.readdirSync(initial.directory)).includes(
+            "history.jsonl",
+          ) ||
           names.includes("history.pending.jsonl") !==
-            fs
-              .readdirSync(initial.directory)
-              .includes("history.pending.jsonl") ||
-          (recoveryRetentionDays !== null &&
+            (finalHistoryNames ?? fs.readdirSync(initial.directory)).includes(
+              "history.pending.jsonl",
+            ) ||
+          !taskHistoryRetentionUnchanged ||
+          (!taskHistoryReader &&
+            recoveryRetentionDays !== null &&
             (() => {
               const config = readHistoryRetentionDays(repository);
               return config === null || config !== recoveryRetentionDays;
@@ -2094,22 +2418,15 @@ export function readStateSnapshot(
       fresh.directory !== initial.directory ||
       fresh.boundaryIdentity !== initial.boundaryIdentity ||
       (completedHistory !== null &&
-        (!sameStableFileIdentity(
-          completedHistory.identity,
-          fs.lstatSync(completedHistoryFile, { bigint: true }),
-        ) ||
-          fs.lstatSync(completedHistoryFile, { bigint: true }).nlink !== 1n)) ||
-      (pending !== null &&
-        (!sameStableFileIdentity(
-          pending.identity,
-          fs.lstatSync(pendingFile, { bigint: true }),
-        ) ||
-          fs.lstatSync(pendingFile, { bigint: true }).nlink !== 1n)) ||
+        !matchesReadFile(completedHistoryFile, completedHistory.identity)) ||
+      (pending !== null && !matchesReadFile(pendingFile, pending.identity)) ||
       names.includes("state.pending.json") !==
-        fs.readdirSync(initial.directory).includes("state.pending.json") ||
-      fs
-        .readdirSync(initial.directory)
-        .some((name) => !allowedNames.includes(name))
+        (finalHistoryNames ?? fs.readdirSync(initial.directory)).includes(
+          "state.pending.json",
+        ) ||
+      (finalHistoryNames ?? fs.readdirSync(initial.directory)).some(
+        (name) => !allowedNames.includes(name),
+      )
     )
       throw new Error("changed");
     value = Object.freeze({
@@ -2313,23 +2630,22 @@ export function readExecutionStateFile(
     throw new Error("state_file_name_invalid");
   assertBoundary();
   const file = path.join(directory, name);
-  let metadata: fs.Stats;
+  let metadata: fs.BigIntStats;
   try {
-    metadata = fs.lstatSync(file);
+    metadata = fs.lstatSync(file, { bigint: true });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     if (identities.has(name)) throw new Error("file_disappeared");
     assertBoundary();
     return null;
   }
-  if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.nlink !== 1)
+  if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.nlink !== 1n)
     throw new Error("file");
-  const observed = readStableFileSnapshot(file);
+  const observed = readStableFileSnapshot(file, metadata);
   const expected = identities.get(name);
   if (expected && !sameStableFileIdentity(expected, observed.identity))
     throw new Error("file_replaced");
   identities.set(name, observed.identity);
-  if (fs.lstatSync(file).nlink !== 1) throw new Error("links");
   assertBoundary();
   return observed.bytes;
 }
@@ -2383,7 +2699,7 @@ export function createExecutionStatePendingFile(
  * 出版直前の固定ファイルを同じ実体のdescriptorでflushする。
  * @responsibility 三つの既存出版箇所の照合・発行記録・closeの順序を保持する。
  * @trace ARCH-000008
- * @input 検証済み領域、固定対象名、同じ取引の実体Mapと既存Ownerの照合・発行記録。
+ * @input 検証済み領域、固定対象名、実体Map、既存Ownerの照合・発行記録、単一Linkの追加照合要否。
  * @returns 成功時void。Snapshot確定や履歴成立は宣言しない。
  * @precondition 呼出し側が短期排他を保持し、本文と出版条件を確認済みである。
  * @postcondition 同じ実体をflushし、open成功時は必ずcloseを試みる。
@@ -2400,6 +2716,7 @@ export function flushExecutionStateFile(
   identities: Map<string, StableFileIdentity>,
   assertBoundary: () => void,
   markEffect: () => void,
+  requireSingleLink = false,
 ): void {
   if (
     name !== "history.pending.jsonl" &&
@@ -2415,12 +2732,12 @@ export function flushExecutionStateFile(
   try {
     const expected =
       name === "history.jsonl" ? canonicalIdentity : identities.get(name);
+    const opened = expected ? fs.fstatSync(descriptor, { bigint: true }) : null;
     if (
       !expected ||
-      !sameStableFileIdentity(
-        expected,
-        fs.fstatSync(descriptor, { bigint: true }),
-      )
+      !opened ||
+      (requireSingleLink && opened.nlink !== 1n) ||
+      !sameStableFileIdentity(expected, opened)
     )
       throw new Error(
         name === "history.jsonl"
@@ -2435,4 +2752,3048 @@ export function flushExecutionStateFile(
   } finally {
     fs.closeSync(descriptor);
   }
+}
+
+// 一回の保存呼出しのContextに候補・元版・Ownerを結合する。
+// Writerで一度だけ消費し、publishRecoveryStateのfinallyで失効させる。
+// 同じ履歴保存のLock内だけで使う、元本文と候補の検査結果。
+const taskHistoryKey = Symbol("taskHistoryState");
+type TaskHistoryState = Readonly<{
+  [taskHistoryKey]: true;
+  owner: StorageOwner;
+  area: Extract<RepositoryExecutionDataAreaObservation, { status: "ready" }>;
+  before: TaskHistorySnapshot;
+  candidate: TaskHistorySnapshot;
+  publication?: Readonly<{
+    recoveryId: string;
+    before: Buffer | null;
+    retentionDays: number;
+    candidate: NonNullable<
+      ReturnType<typeof prepareRecoveredHistoryPublication>
+    >;
+  }>;
+}>;
+
+const settlements = new WeakMap<
+  object,
+  | {
+      kind: "authentication_unknown_closure";
+      repository: StorageRepository & { operationId: string };
+      recoveryId: string;
+      before: Buffer;
+      candidate: Buffer;
+      observations: unknown;
+      assertOwner: () => boolean;
+      used: boolean;
+    }
+  | {
+      kind: "docker_repair";
+      purpose: RepairWritePurpose;
+      repository: StorageRepository & { operationId: string };
+      recoveryId: string;
+      before: Buffer | null;
+      candidate: Buffer;
+      assertOwner: () => boolean;
+      assertFileOwner?: () => boolean;
+      used: boolean;
+      publication?: Readonly<{
+        boundaryIdentity: string;
+        files: ReadonlyMap<
+          string,
+          Readonly<{ bytes: Buffer; identity: StableFileIdentity }>
+        >;
+      }>;
+    }
+  | {
+      kind: "current_completion";
+      operationKind: "docker_task" | "docker_repair";
+      repository: StorageRepository & { operationId: string };
+      recoveryId: string;
+      before: Buffer;
+      candidate: Buffer;
+      historyFile: Readonly<{
+        bytes: Buffer;
+        identity: StableFileIdentity;
+      }> | null;
+      assertOwner: () => boolean;
+      used: boolean;
+    }
+  | {
+      kind: "current_history";
+      operationKind: "docker_task" | "docker_repair";
+      repository: RecoveryHistoryRepository;
+      recoveryId: string;
+      before: Buffer;
+      candidate: Buffer;
+      stage: "checkpoint" | "publish" | "confirmed";
+      taskState?: TaskHistoryState;
+      historyFile: Readonly<{
+        bytes: Buffer;
+        identity: StableFileIdentity;
+      }> | null;
+      pendingHistoryFile: Readonly<{
+        bytes: Buffer;
+        identity: StableFileIdentity;
+      }> | null;
+      retentionDays: number | null;
+      assertOwner: (
+        expectedHistoryRetentionDays?: number,
+        includeUnscopedRevalidation?: true,
+      ) => boolean;
+      used: boolean;
+    }
+>();
+
+// exact新規領域と初回本文の証拠。準備・解放成功時は後続出版まで保持する。
+// 解放失敗、既存の出版終了またはContext失効条件で削除し、既存領域へ再発行しない。
+const initializations = new WeakMap<
+  object,
+  {
+    repositoryBinding: string;
+    boundaryIdentity: string;
+    payloadSha256: string;
+    publicationIssued: boolean;
+  }
+>();
+
+// 同じ生存Ownerの履歴試行とpending候補を保持する。呼出し間の再入場に
+// 必要なため毎回finallyでは消さず、Owner参照の寿命に従う。
+// Process再起動後の保存正本や、元本文・File・設定のfresh照合の代替ではない。
+const historyAttempts = new WeakMap<
+  object,
+  Map<
+    string,
+    {
+      lineSha256: string;
+      issued: boolean;
+      pending: null | {
+        before: Buffer;
+        after: Buffer;
+        beforeIdentity: StableFileIdentity | null;
+        stateCandidate: Buffer;
+        retentionDays: number;
+        now: string;
+      };
+    }
+  >
+>();
+
+/**
+ * 現在呼出しの種別へ結合した初期本文を準備する。
+ * @responsibility Taskと修復の資格を混同せず同じ領域作成・排他を再利用する。
+ * @trace ARCH-000008
+ * @input managementCapability: 私有の初期化Owner、repository: 検証済み結合、candidateBytes: 固定本文。
+ * @returns 新規領域作成・準備・解放の観測。
+ * @precondition 公開内部wrapperが種別別の真正Ownerを結合済み。
+ * @postcondition 既存の空領域を初期化資格にしない。
+ * @effect 既存Domain Ownerを通した固定領域作成だけ。
+ * @failure Root・本文・Owner・解放不明は停止。
+ * @invariant Task管理Capabilityを修復用に偽造しない。
+ * @boundary 種別別保存Ownerと共通初期化I/O。
+ * @security Repository借用だけで呼べる公開APIにしない。
+ * @concurrency 既存の短期Kernel排他下で領域を作成する。
+ */
+function prepareStateInitialization(
+  managementCapability: unknown,
+  repository:
+    | (Pick<
+        NonNullable<ReturnType<typeof observeOperationRepository>>,
+        "repositoryRoot" | "repositoryBinding" | "revalidate"
+      > & { operationId?: string })
+    | null,
+  candidateBytes: unknown,
+) {
+  const initializationOwner =
+    managementCapability &&
+    typeof managementCapability === "object" &&
+    settlements.get(managementCapability)?.kind === "docker_repair"
+      ? managementCapability
+      : executionStorageOperationIdentity(managementCapability);
+  const candidate = repository
+    ? decodeStateSnapshot(candidateBytes, repository.repositoryBinding)
+    : null;
+  if (
+    !repository ||
+    !candidate ||
+    !managementCapability ||
+    typeof managementCapability !== "object" ||
+    !initializationOwner ||
+    !validateStateTransition(
+      null,
+      candidateBytes,
+      repository.repositoryBinding,
+    ) ||
+    initializations.has(initializationOwner) ||
+    !initialStateOperationsMatch(candidate.snapshot, repository.operationId)
+  )
+    return Object.freeze({
+      status: "blocked",
+      effectIssued: false,
+      lockReleased: true,
+    });
+  const acquisition = acquireStorageOwnerForRepository(repository);
+  const storageOwner =
+    acquisition.status === "completed" ? acquisition.value : null;
+  const lock = storageOwner
+    ? readStorageOwnerBinding(storageOwner)?.lock
+    : null;
+  if (!storageOwner || !lock)
+    return Object.freeze({
+      status: "blocked",
+      effectIssued: false,
+      lockReleased: false,
+    });
+  let effectIssued = false;
+  let isPrepared = false;
+  try {
+    if (!repository.revalidate() || !lock.assertLive())
+      throw new Error("owner");
+    const created = createExecutionDataArea(repository.repositoryRoot);
+    effectIssued = created.effectIssued;
+    if (
+      created.status !== "created" ||
+      !repository.revalidate() ||
+      !lock.assertLive()
+    )
+      throw new Error("created");
+    initializations.set(initializationOwner, {
+      repositoryBinding: repository.repositoryBinding,
+      boundaryIdentity: created.observation.boundaryIdentity,
+      payloadSha256: candidate.payloadSha256,
+      publicationIssued: false,
+    });
+    isPrepared = true;
+  } catch {
+    isPrepared = false;
+  }
+  let lockReleased = false;
+  try {
+    lockReleased = storageOwner.release();
+  } catch {
+    lockReleased = false;
+  }
+  if (!lockReleased) initializations.delete(initializationOwner);
+  return Object.freeze({
+    status: isPrepared && lockReleased ? "prepared" : "blocked",
+    effectIssued,
+    lockReleased,
+  });
+}
+
+/**
+ * 最新現在状態の保存と同じpendingへの再入場を処置する。
+ * @responsibility 保存確定と排他終了を別結果で返し、部分成功を隠さない。
+ * @trace ARCH-000008
+ * @input managementCapability: 現在操作Owner、candidateBytes: 次Snapshotの正規本文。
+ * @returns status、保存確認、排他終了、Effect発行、試行版とHash、exact回復参照。
+ * @precondition 操作OwnerとRepository結合を確認済み。
+ * @postcondition 失敗・観測不能を成功や不存在にしない。
+ * @effect 固定pending/stateの作成・置換・短命物回収だけ。
+ * @failure 不一致やI/O失敗は例外で上位へ返す。
+ * @invariant 本番Producerの全面切替やHost回収成立をこの保存だけから主張しない。
+ * @boundary Coordinator現在状態とFilesystem。
+ * @security 任意Pathや過去JSONから保存先を選択しない。
+ * @concurrency 同じRepositoryの短期排他下で処置する。
+ */
+export function writeOwnedStateSnapshot(
+  managementCapability: unknown,
+  candidateBytes: unknown,
+) {
+  return writeStateSnapshot(
+    managementCapability,
+    observeOperationRepository(managementCapability),
+    candidateBytes,
+    null,
+  );
+}
+
+/**
+ * 現在Ownerがexact修復の短命出版だけを既存Writerへ結合する。
+ * @responsibility 旧初期化Ownerを復元せず、保存途中の同じ本文だけを確定する。
+ * @trace ARCH-000008
+ * @input rootCapability: 検証Root、recoveryId: exact参照、assertInvocation: 現在呼出し確認。
+ * @returns no_pending、または保存・Effect・排他確認を分離したWriter結果。
+ * @precondition 明示修復入口内だけから呼び、技術再開は別に確認する。
+ * @postcondition 観測不明をpending不存在へ変更しない。
+ * @effect 固定保存物の読取り、既存Kernel排他、同じpendingの出版／回収だけ。
+ * @failure 不正・実体差・Owner失効・解放不明は停止し再試行しない。
+ * @invariant 通常初期化の新品証明・WeakMapを変更しない。
+ * @boundary 修復compositionと現在Repositoryの保存途中材料。
+ * @security 任意Path・候補本文・初期化許可boolを受け取らない。
+ * @concurrency 読取りとWriterの両排他下で実体・全文を再照合する。
+ */
+export function resumeRepairRecordSave(
+  rootCapability: unknown,
+  recoveryId: string,
+  assertInvocation: () => unknown,
+) {
+  const refused = () => writeStateSnapshot(null, null, null, null);
+  const repository = observeExecutionRecoveryRepository(rootCapability);
+  /**
+   * metadata出版の現在Ownerだけを再確認する。
+   * @responsibility 取消と保存Ownerを分離する。
+   * @trace ARCH-000008
+   * @input N/A: 現在Rootと同期確認を捕捉済み。
+   * @returns 両方が同期trueの場合だけtrue。
+   * @precondition 内部明示修復呼出し。
+   * @postcondition JSONから旧Ownerを復元しない。
+   * @effect Root／Revision観測と同期確認。
+   * @failure 非同期・Proxy・例外・失効はfalse。
+   * @invariant 出版許可は技術処置許可ではない。
+   * @boundary 呼出しと保存Owner。
+   * @security 未信頼thenableを実行しない。
+   * @concurrency 同期確認。
+   */
+  const assertOwner = () => {
+    try {
+      if (
+        !repository ||
+        typeof assertInvocation !== "function" ||
+        types.isProxy(assertInvocation) ||
+        types.isAsyncFunction(assertInvocation)
+      )
+        return false;
+      const value = assertInvocation();
+      if (types.isPromise(value))
+        void Promise.prototype.then.call(
+          value,
+          () => undefined,
+          () => undefined,
+        );
+      return value === true && repository.revalidate();
+    } catch {
+      return false;
+    }
+  };
+  if (!assertOwner() || !repository) return refused();
+  const acquisition = acquireExecutionStateLock(
+    repository.repositoryBinding,
+    repository.repositoryRoot,
+  );
+  if (acquisition.status !== "acquired")
+    return {
+      ...refused(),
+      reason: storageLockFailure(acquisition).reason,
+      lockReleased: false,
+    };
+  const lock = acquisition.lock;
+  let files: Map<string, ReturnType<typeof readStableFileSnapshot>> | null =
+    null;
+  let boundaryIdentity: string | null = null;
+  let publication: ReturnType<typeof classifyRepairPublication> = null;
+  let noPending = false;
+  let lockReleased = false;
+  try {
+    if (!assertOwner() || !lock.assertLive()) throw new Error("owner");
+    const area = observePhysicalExecutionDataArea(
+      repository.repositoryRoot,
+      "execution-model",
+    );
+    if (
+      area.status !== "ready" ||
+      area.repositoryRoot !== repository.repositoryRoot
+    )
+      throw new Error("area");
+    boundaryIdentity = area.boundaryIdentity;
+    const names = fs.readdirSync(area.directory).sort();
+    if (
+      names.some(
+        (name) =>
+          !["state.json", "state.pending.json", "history.jsonl"].includes(name),
+      )
+    )
+      throw new Error("names");
+    files = new Map();
+    for (const name of names) {
+      const file = path.join(area.directory, name);
+      const stat = fs.lstatSync(file, { bigint: true });
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1n)
+        throw new Error("file");
+      const value = readStableFileSnapshot(file);
+      if (!sameStableFileIdentity(value.identity, stat))
+        throw new Error("changed");
+      files.set(name, value);
+    }
+    const current = files.get("state.json")?.bytes ?? null;
+    const pending = files.get("state.pending.json")?.bytes ?? null;
+    if (current && !decodeStateSnapshot(current, repository.repositoryBinding))
+      throw new Error("current");
+    const history = files.get("history.jsonl");
+    if (history && !decodeHistoryRows(history.bytes))
+      throw new Error("history");
+    if (pending) {
+      publication = classifyRepairPublication(
+        current,
+        pending,
+        recoveryId,
+        repository.repositoryBinding,
+      );
+      if (
+        !publication ||
+        (publication.mode === "initial_publication" &&
+          names.join("|") !== "state.pending.json")
+      )
+        throw new Error("publication");
+    } else {
+      if (!current) throw new Error("current_absent");
+      noPending = true;
+    }
+    for (const [name, previous] of files) {
+      const file = path.join(area.directory, name);
+      const value = readStableFileSnapshot(file);
+      if (
+        !sameStableFileIdentity(previous.identity, value.identity) ||
+        !previous.bytes.equals(value.bytes) ||
+        fs.lstatSync(file, { bigint: true }).nlink !== 1n
+      )
+        throw new Error("changed");
+    }
+    const final = observePhysicalExecutionDataArea(
+      repository.repositoryRoot,
+      "execution-model",
+    );
+    if (
+      !assertOwner() ||
+      !lock.assertLive() ||
+      final.status !== "ready" ||
+      final.boundaryIdentity !== boundaryIdentity ||
+      JSON.stringify(fs.readdirSync(area.directory).sort()) !==
+        JSON.stringify(names)
+    )
+      throw new Error("changed");
+  } catch {
+    files = null;
+    publication = null;
+    noPending = false;
+  } finally {
+    try {
+      lockReleased = lock.release();
+    } catch {
+      lockReleased = false;
+    }
+  }
+  if (!files || !boundaryIdentity || !lockReleased || !assertOwner())
+    return { ...refused(), lockReleased };
+  if (noPending)
+    return {
+      status: "no_pending" as const,
+      snapshotConfirmed: false,
+      filesystemEffectIssued: false,
+      lockReleased: true,
+    };
+  if (!publication) return refused();
+  const target = decodeStateSnapshot(
+    publication.candidate,
+    repository.repositoryBinding,
+  )?.snapshot.operations.find((item) => item.recoveryId === recoveryId);
+  if (target?.kind !== "docker_repair") return refused();
+  const bound = Object.freeze({
+    ...repository,
+    operationId: JSON.parse(target.identityJson).operationId as string,
+    revalidate: assertOwner,
+  });
+  return publishRecoveryState({
+    kind: "docker_repair",
+    purpose:
+      publication.mode === "initial_publication" ||
+      publication.mode === "identity" ||
+      publication.mode === "remove_pending"
+        ? "checkpoint"
+        : publication.mode,
+    repository: bound,
+    recoveryId,
+    before: publication.before,
+    candidate: publication.candidate,
+    assertOwner,
+    publication: { boundaryIdentity, files },
+  });
+}
+
+/**
+ * 通常保存と終端限定保存の候補・用途・短期排他を準備する。
+ * @responsibility 検証済み結合、限定差分と元版を固定し、取得済み排他をOwned確定へ渡す。
+ * @trace ARCH-000008
+ * @input managementCapability: 通常初期化Ownerまたはnull、repository: 検証済み借用、candidateBytes: 次本文、settlement: 終端制約またはnull。
+ * @returns 取得前の停止結果、又は検証済み入力と取得済み排他の私有組。
+ * @precondition 公開内部wrapperが借用を検証している。
+ * @postcondition 終端経路から初期化・新要求・他操作変更を発行しない。
+ * @effect 固定現在状態の読取りと既存短期排他の取得。候補の出版は行わない。
+ * @failure 結合、差分、元版、保存または排他不明はblocked。
+ * @invariant 旧形式fallbackと二重Writerを作らない。
+ * @boundary Coordinator現在状態とFilesystem。
+ * @security 任意PathやCaller supplied借用を受けない。
+ * @concurrency 既存Repository単位排他を短期保持する。
+ */
+function prepareStateWrite(
+  managementCapability: unknown,
+  repository:
+    | (Pick<
+        NonNullable<ReturnType<typeof observeOperationRepository>>,
+        "repositoryRoot" | "repositoryBinding" | "revalidate"
+      > & { operationId?: string })
+    | null,
+  candidateBytes: unknown,
+  settlement: {
+    recoveryId: string;
+    cleanupStatus: string | null;
+    dockerTerminal: ExecutionTerminalStorageObservation | null;
+    historyInitial?: true;
+    historyPublish?: true;
+    recoveryTerminal?: Readonly<{
+      before: Buffer;
+    }>;
+    currentHistory?: object;
+    currentCompletion?: object;
+    consumer?: string;
+    completion?: { before: Buffer; candidate: Buffer };
+    managementCapability?: unknown;
+  } | null,
+  unissued?: Readonly<{
+    recoveryId: string;
+    purpose: string;
+  }>,
+  repairContext?: object,
+  historyOwner?: StorageOwner,
+) {
+  const repairBinding = repairContext ? settlements.get(repairContext) : null;
+  const currentRepair =
+    repairBinding?.kind === "docker_repair" ? repairBinding : null;
+  const currentAuthenticationClosure =
+    repairBinding?.kind === "authentication_unknown_closure"
+      ? repairBinding
+      : null;
+  const initializationOwner =
+    repairContext ?? executionStorageOperationIdentity(managementCapability);
+  const historyBinding = settlement?.currentHistory
+    ? settlements.get(settlement.currentHistory)
+    : null;
+  const currentHistory =
+    historyBinding?.kind === "current_history" ? historyBinding : null;
+  const completionBinding = settlement?.currentCompletion
+    ? settlements.get(settlement.currentCompletion)
+    : null;
+  const currentCompletion =
+    completionBinding?.kind === "current_completion" ? completionBinding : null;
+  const taskHistoryState = currentHistory?.taskState;
+  const taskHistoryMatches =
+    !taskHistoryState ||
+    (taskHistoryState[taskHistoryKey] === true &&
+      currentHistory?.operationKind === "docker_task" &&
+      taskHistoryState.owner === historyOwner &&
+      Buffer.isBuffer(candidateBytes) &&
+      taskHistoryState.candidate.bytes.equals(candidateBytes) &&
+      taskHistoryState.before.bytes.equals(currentHistory.before) &&
+      taskHistoryState.before.decoded.snapshot.repositoryBinding ===
+        repository?.repositoryBinding &&
+      taskHistoryState.candidate.decoded.snapshot.repositoryBinding ===
+        repository?.repositoryBinding);
+  const candidate =
+    repository && taskHistoryMatches && !settlement?.recoveryTerminal
+      ? (taskHistoryState?.candidate.decoded ??
+        decodeStateSnapshot(candidateBytes, repository.repositoryBinding))
+      : null;
+  const bytes = candidate
+    ? (taskHistoryState?.candidate.bytes ??
+      Buffer.from(`${encodeStateValue(candidate.snapshot)}\n`))
+    : null;
+  const attempt = {
+    revision: candidate?.snapshot.revision ?? null,
+    payloadSha256: candidate?.payloadSha256 ?? null,
+    recoveryIds: Object.freeze(
+      candidate?.snapshot.operations.map((operation) => operation.recoveryId) ??
+        [],
+    ),
+  };
+  if (
+    !repository ||
+    (settlement?.recoveryTerminal
+      ? candidateBytes !== null ||
+        !repository.operationId ||
+        repairContext !== undefined ||
+        unissued !== undefined ||
+        managementCapability !== null ||
+        settlement.cleanupStatus !== null ||
+        settlement.dockerTerminal !== null ||
+        settlement.currentHistory ||
+        settlement.currentCompletion ||
+        settlement.historyInitial ||
+        settlement.historyPublish ||
+        settlement.completion
+      : !candidate || !bytes) ||
+    (repairContext &&
+      ((!currentRepair && !currentAuthenticationClosure) ||
+        currentRepair?.used ||
+        currentAuthenticationClosure?.used ||
+        settlement !== null)) ||
+    (settlement?.currentHistory && (!currentHistory || currentHistory.used)) ||
+    (settlement?.currentCompletion &&
+      (!currentCompletion || currentCompletion.used)) ||
+    [currentHistory, currentCompletion].filter((value) => value !== null)
+      .length > 1 ||
+    !taskHistoryMatches
+  )
+    return Object.freeze({
+      ...attempt,
+      status: "blocked",
+      reason: "coordinator_state_input_invalid",
+      filesystemEffectIssued: false,
+      snapshotConfirmed: false,
+      lockReleased: true,
+    });
+  if (
+    !currentAuthenticationClosure &&
+    candidate &&
+    bytes &&
+    hasAuthenticationUnknownAbsence(candidate.snapshot)
+  ) {
+    // 私有pairは差分の基準であり保存資格ではない。元版・実体・Ownerは
+    // 主Kernel内で必ず再検査する。一般入口だけは通常Readerを用いる。
+    const fixedPairs = [
+      currentHistory,
+      currentCompletion,
+      currentRepair,
+      settlement?.completion,
+    ].filter((pair) => pair !== null && pair !== undefined);
+    let previousSnapshot: ExecutionStateSnapshot | null = null;
+    let previousLockReleased = true;
+    if (fixedPairs.length === 1) {
+      const fixed = fixedPairs[0];
+      if (fixed?.candidate.equals(bytes))
+        previousSnapshot =
+          taskHistoryState?.before.decoded.snapshot ??
+          decodeStateSnapshot(fixed.before, repository.repositoryBinding)
+            ?.snapshot ??
+          null;
+    } else if (fixedPairs.length === 0) {
+      const previous = readStateSnapshot(repository, null);
+      previousLockReleased = previous.lockReleased;
+      if (previous.status === "completed" && previous.value)
+        previousSnapshot = previous.value.snapshot;
+    }
+    if (
+      !previousSnapshot ||
+      !previousLockReleased ||
+      authenticationUnknownAbsenceChanged(previousSnapshot, candidate.snapshot)
+    )
+      return Object.freeze({
+        ...attempt,
+        status: "blocked",
+        reason: "coordinator_state_authentication_closure_owner_required",
+        filesystemEffectIssued: false,
+        snapshotConfirmed: false,
+        lockReleased: previousLockReleased,
+      });
+  }
+  const acquisition = historyOwner
+    ? null
+    : acquireStorageOwnerForRepository(repository);
+  const storageOwner =
+    historyOwner ??
+    (acquisition?.status === "completed" ? acquisition.value : null);
+  const historyOwnerBinding = historyOwner
+    ? readStorageOwnerBinding(historyOwner, repository)
+    : undefined;
+  const lock = historyOwner
+    ? currentHistory &&
+      (historyOwnerBinding?.repository === currentHistory.repository
+        ? historyOwnerBinding.lock
+        : borrowStorageOwner(historyOwner, repository)?.lock)
+    : storageOwner && readStorageOwnerBinding(storageOwner)?.lock;
+  if (!storageOwner || !lock)
+    return Object.freeze({
+      ...attempt,
+      status: "blocked",
+      reason:
+        acquisition?.status === "blocked"
+          ? acquisition.reason
+          : "coordinator_state_lock_unavailable",
+      filesystemEffectIssued: false,
+      snapshotConfirmed: false,
+      lockReleased: false,
+    });
+  return {
+    repository,
+    candidate,
+    bytes,
+    settlement,
+    unissued,
+    currentRepair,
+    currentAuthenticationClosure,
+    initializationOwner,
+    currentHistory,
+    currentCompletion,
+    attempt,
+    storageOwner,
+    lock,
+    managementCapability,
+  };
+}
+
+/**
+ * 取得済み保存排他の中で候補を一箇所から物理確定する。
+ * @responsibility 固定I/O、境界照合、pending、rename、読戻しを既存順で所有する。
+ * @trace ARCH-000008
+ * @input prepared: このModuleが検査・取得した私有準備結果。
+ * @returns 保存Effect・本文確認・理由と履歴の確定値。排他解放は含めない。
+ * @precondition 既存短期排他を保持し、呼出し側が解放を所有する。
+ * @postcondition File確認と排他解放を別の事実として返す。
+ * @effect 固定State・履歴Fileと短命Fileの既存I/O。
+ * @failure 途中失敗は候補と元参照を保全し保存未確認を返す。
+ * @invariant Contextの消費順と生存照合を変更しない。
+ * @boundary 同じOwner内の保存確定。新Writerや同期層は作らない。
+ * @security 私有準備結果・任意Path・外部callbackを公開しない。
+ * @concurrency Lockを再取得・解放せず、保持中の固定I/Oだけを行う。
+ */
+function commitStateSnapshotOwned(
+  prepared: Extract<ReturnType<typeof prepareStateWrite>, { lock: unknown }> & {
+    hostPublication?: Readonly<{
+      before: Buffer | null;
+      value: unknown;
+      initialBoundary: string | null;
+    }>;
+    corePublication?: Readonly<{
+      before: Buffer;
+      kind: Parameters<typeof prepareExecutionDefinitionChange>[1];
+      request: unknown;
+      initialSourceRevision: string | null;
+    }>;
+    taskPublication?: Readonly<{
+      before: Buffer | null;
+      view: unknown;
+      facts: readonly Record<string, unknown>[];
+      rootHash: string;
+      initialBoundary: string | null;
+    }>;
+  },
+) {
+  const {
+    repository,
+    settlement,
+    unissued,
+    currentRepair,
+    currentAuthenticationClosure,
+    initializationOwner,
+    currentHistory,
+    currentCompletion,
+    taskPublication,
+    corePublication,
+    hostPublication,
+    lock,
+  } = prepared;
+  let { candidate, attempt } = prepared;
+  let bytes: Buffer | null = prepared.bytes;
+  const taskHistoryState = currentHistory?.taskState;
+  if (currentHistory) currentHistory.used = true;
+  if (currentCompletion) currentCompletion.used = true;
+  if (currentRepair) currentRepair.used = true;
+  if (currentAuthenticationClosure) currentAuthenticationClosure.used = true;
+  let filesystemEffectIssued = false;
+  let snapshotConfirmed = false;
+  let reason = "coordinator_state_storage_unconfirmed";
+  let initialHistoryLine: string | null = null;
+  let historyAlreadyConfirmed = false;
+  let terminalPrepared = false;
+  // 同じLock内の安定した本文を候補生成に使い、確定前は現物のCASを行う。
+  let preparedHistory: Readonly<{
+    before: Buffer | null;
+    pending: Buffer | null;
+    historyBytes: Buffer;
+    retentionDays: number;
+  }> | null = null;
+  let publishedHistoryRows: ReturnType<typeof decodeHistoryRows> = null;
+  let taskHistoryPendingState: Buffer | null | undefined;
+  let freshTaskHistory = false;
+  let taskHistoryRetentionFixed = false;
+  try {
+    const boundOwner =
+      initializationOwner && typeof initializationOwner === "object"
+        ? readStorageOwnerBinding(initializationOwner)
+        : null;
+    const metadataOnly =
+      boundOwner?.repository === repository &&
+      boundOwner?.metadataOnly === true;
+    const observeStorage = (
+      initializing = false,
+      verifiedArea?: Parameters<typeof observePhysicalExecutionDataArea>[2],
+    ) => {
+      if (initializing) {
+        if (metadataOnly) throw new Error("metadata_initialization");
+        assertExecutionStateInitializationBoundary(repository.repositoryRoot);
+      }
+      return observePhysicalExecutionDataArea(
+        repository.repositoryRoot,
+        "execution-model",
+        verifiedArea,
+      );
+    };
+    // Task履歴では同じ実発行OwnerをReader（初回固定後は前段Writer）から借りる。
+    // ここは読取りだけ。処置・確定の直前にはLockを改めて検査する。
+    if (!repository.revalidate() || (!taskHistoryState && !lock.assertLive()))
+      throw new Error("owner");
+    const initial = taskHistoryState?.area ?? observeStorage();
+    if (
+      initial.status !== "ready" ||
+      initial.repositoryRoot !== repository.repositoryRoot
+    )
+      throw new Error("area");
+    if (taskHistoryState) assertTaskExecutionAreaCurrent(initial);
+    const directory = initial.directory;
+    const fileIdentities = new Map<string, StableFileIdentity>();
+    let initializationBoundaryRequired = false;
+    const repairOwnsRevalidation =
+      currentRepair?.assertOwner === repository.revalidate;
+    const assertFileOwner = currentRepair?.assertFileOwner;
+    /**
+     * 保存I/Oの前後で同じ操作Ownerと領域を再確認する。
+     * @responsibility Rootと.crddと保存領域の置換を拒否する。保持日数は履歴候補の判断と書込み側で確認する。
+     * @trace ARCH-000008
+     * @input mode: 読取りの入口・読取り区間・固定ファイルの読取り・物理処置と確定を分ける。
+     * @returns N/A: 一致しなければ例外。
+     * @precondition 操作OwnerとRepository結合を確認済み。
+     * @postcondition 失敗・観測不能を成功や不存在にしない。
+     * @effect 現在Rootと領域metadataの読取り。
+     * @failure 不一致やI/O失敗は例外で上位へ返す。
+     * @invariant LockだけをRoot実体の証明にしない。
+     * @boundary Coordinator現在状態とFilesystem。
+     * @security 任意Pathや過去JSONから保存先を選択しない。
+     * @concurrency 同じRepositoryの短期排他下で処置する。
+     */
+    const assertBoundary = (
+      mode: "effect" | "read" | "read-entry" | "read-group" = "effect",
+    ) => {
+      const fileRead = mode !== "effect" && assertFileOwner !== undefined;
+      // 連続読取りでは固定ファイルと保存領域の実体を照合する。
+      // 終端WriterのOwner・Lock・親領域は物理処置の直前にも確認する。
+      const groupedFileRead =
+        mode === "read" &&
+        (currentHistory !== null || settlement?.recoveryTerminal !== undefined);
+      const taskHistoryReadGroup =
+        mode === "read-group" && taskHistoryState !== undefined;
+      const groupedTaskHistoryEffect = mode === "effect" && freshTaskHistory;
+      if (
+        !groupedFileRead &&
+        !taskHistoryReadGroup &&
+        !groupedTaskHistoryEffect &&
+        ((fileRead
+          ? readExecutionStorageBinding(repository.repositoryRoot) !==
+            repository.repositoryBinding
+          : !repairOwnsRevalidation && !repository.revalidate()) ||
+          (!currentHistory && !lock.assertLive()))
+      )
+        throw new Error("owner");
+      if (
+        currentRepair &&
+        (fileRead ? assertFileOwner() : currentRepair.assertOwner()) !== true
+      )
+        throw new Error("repair_owner");
+      if (currentCompletion && currentCompletion.assertOwner() !== true)
+        throw new Error("current_completion_owner");
+      if (
+        mode === "effect" &&
+        currentHistory &&
+        currentHistory.retentionDays !== null
+      ) {
+        // 新規Task履歴の最初の書込み後は日数を固定し、Ownerと保存先は引き続き確認する。
+        const current = groupedTaskHistoryEffect
+          ? (taskHistoryRetentionFixed
+              ? currentHistory.assertOwner()
+              : currentHistory.assertOwner(
+                  currentHistory.retentionDays,
+                  true,
+                )) === true
+          : readHistoryRetentionDays(repository) ===
+            currentHistory.retentionDays;
+        if (!current) throw new Error("current_history_config_changed");
+      }
+      if (
+        currentHistory &&
+        mode !== "read-group" &&
+        !groupedFileRead &&
+        !lock.assertLive()
+      )
+        throw new Error("owner");
+      // RootはOwnerが確認する。親の実体は区間単位、保存領域自身は各readで照合する。
+      if (mode === "read-group") {
+        const parent = fs.lstatSync(path.dirname(directory), { bigint: true });
+        if (
+          !parent.isDirectory() ||
+          parent.isSymbolicLink() ||
+          directoryIdentity(parent) !== initial.parentIdentity
+        )
+          throw new Error("history_read_parent_changed");
+        return;
+      }
+      if (
+        mode === "effect" &&
+        (taskHistoryState || settlement?.recoveryTerminal)
+      ) {
+        assertTaskExecutionAreaCurrent(initial);
+        return;
+      }
+      const observed = observeStorage(
+        initializationBoundaryRequired,
+        groupedFileRead ? initial : undefined,
+      );
+      if (
+        observed.status !== "ready" ||
+        observed.directory !== directory ||
+        observed.boundaryIdentity !== initial.boundaryIdentity
+      )
+        throw new Error("boundary");
+    };
+    const assertReadBoundary = () => assertBoundary("read");
+    // 履歴の連続読取りでは各Fileと親の実体を照合する。
+    // TaskではOwner・Lock・設定の照合を物理処置と確定の境界で行う。
+    // 修復では従来どおり読取り区間ごとにもOwnerを照合する。
+    const assertHistoryReadGroup = () => {
+      if (currentHistory) assertBoundary("read-group");
+    };
+    const assertCasFileIdentities = (
+      names: readonly StateFileName[],
+      absent: readonly StateFileName[] = [],
+      groupedTaskWrite = false,
+    ) => {
+      if (!groupedTaskWrite && !currentHistory && !settlement?.recoveryTerminal)
+        return;
+      // 直前の境界確認でCAS対象が変わっていないかを本文の再読なしで確認する。
+      for (const name of names) {
+        const observed = fs.lstatSync(path.join(directory, name), {
+          bigint: true,
+        });
+        const expected = fileIdentities.get(name);
+        if (
+          !expected ||
+          !observed.isFile() ||
+          observed.nlink !== 1n ||
+          !sameStableFileIdentity(expected, observed)
+        )
+          throw new Error("history_write_cas_changed");
+      }
+      for (const name of absent) {
+        if (
+          fs.lstatSync(path.join(directory, name), {
+            throwIfNoEntry: false,
+          }) !== undefined
+        )
+          throw new Error("history_write_cas_changed");
+      }
+    };
+    const observeRenamedFile = (
+      name: "state.json" | "history.jsonl",
+      source: StableFileIdentity | undefined,
+      expectedBytes: Buffer,
+    ) => {
+      const file = path.join(directory, name);
+      const stat = fs.lstatSync(file, { bigint: true });
+      if (!source || !stat.isFile() || stat.nlink !== 1n)
+        throw new Error("published_replaced");
+      const renamed = { ...identity(stat), ctimeNs: source.ctimeNs };
+      if (sameStableFileIdentity(source, renamed)) return stat;
+      // Windowsでは置換先の名前に以前の作成時刻が引き継がれることがある。
+      // 同じ実体で作成時刻だけが異なるときに限り、候補本文との照合で補う。
+      if (
+        process.platform !== "win32" ||
+        !sameStableFileIdentity(source, {
+          ...renamed,
+          birthtimeNs: source.birthtimeNs,
+        }) ||
+        !readStableFileSnapshot(file, stat).bytes.equals(expectedBytes)
+      )
+        throw new Error("published_replaced");
+      return stat;
+    };
+    /**
+     * 固定Fileの明示不存在と安定本文を区別する。
+     * @responsibility 通常File・nlink1・bounded本文と前後境界を照合する。
+     * @trace ARCH-000008
+     * @input name: 固定された保存File名。
+     * @returns 安定byte列、または明示不存在のnull。
+     * @precondition 操作OwnerとRepository結合を確認済み。
+     * @postcondition 失敗・観測不能を成功や不存在にしない。
+     * @effect 固定Fileの読取りだけ。
+     * @failure 不一致やI/O失敗は例外で上位へ返す。
+     * @invariant 観測不能や途中消失を不存在にしない。
+     * @boundary Coordinator現在状態とFilesystem。
+     * @security 任意Pathや過去JSONから保存先を選択しない。
+     * @concurrency 同じRepositoryの短期排他下で処置する。
+     */
+    const read = (
+      name:
+        | "state.json"
+        | "state.pending.json"
+        | "history.jsonl"
+        | "history.pending.jsonl",
+      groupedTaskRead = false,
+    ) => {
+      return readExecutionStateFile(
+        directory,
+        name,
+        fileIdentities,
+        groupedTaskRead
+          ? () => assertTaskExecutionAreaCurrent(initial)
+          : assertReadBoundary,
+      );
+    };
+    /**
+     * 固定の短命Fileを排他的に作成してflushする。
+     * @responsibility 既存File非上書きと保存途中の残存保持を所有する。
+     * @trace ARCH-000008
+     * @input name: pendingまたはlock、content: 確定本文。
+     * @returns N/A: 作成とflushを実行する。
+     * @precondition 操作OwnerとRepository結合を確認済み。
+     * @postcondition 失敗・観測不能を成功や不存在にしない。
+     * @effect 固定Fileのwx作成、書込み、fsync、close。
+     * @failure 不一致やI/O失敗は例外で上位へ返す。
+     * @invariant 失敗後にpendingを自動削除しない。
+     * @boundary Coordinator現在状態とFilesystem。
+     * @security 任意Pathや過去JSONから保存先を選択しない。
+     * @concurrency 同じRepositoryの短期排他下で処置する。
+     */
+    const create = (
+      name: "state.pending.json" | "history.pending.jsonl",
+      content: Buffer,
+    ) => {
+      createExecutionStatePendingFile(
+        directory,
+        name,
+        content,
+        fileIdentities,
+        assertBoundary,
+        () => {
+          // createは直前に保持設定・Owner・Lockを確認済み。固定値はこのWriterだけで使う。
+          if (
+            name === "history.pending.jsonl" &&
+            freshTaskHistory &&
+            taskHistoryState?.publication &&
+            currentHistory?.repository.revalidateRetention !== undefined
+          )
+            taskHistoryRetentionFixed = true;
+          filesystemEffectIssued = true;
+        },
+        assertReadBoundary,
+      );
+    };
+    // 現在履歴では、このWriterの開始時点で同じOwner・Lock・領域を既に確認した。
+    if (!currentHistory && !settlement?.recoveryTerminal)
+      assertBoundary("read-entry");
+    const names = fs.readdirSync(directory);
+    if (
+      names.some(
+        (name) =>
+          ![
+            "state.json",
+            "state.pending.json",
+            "history.jsonl",
+            "history.pending.jsonl",
+          ].includes(name),
+      )
+    )
+      throw new Error("unknown_content");
+    let currentBytes = read("state.json");
+    initializationBoundaryRequired = currentBytes === null;
+    if (initializationBoundaryRequired) assertBoundary();
+    let current =
+      currentBytes === null
+        ? null
+        : taskHistoryState
+          ? taskHistoryState.before.bytes.equals(currentBytes)
+            ? taskHistoryState.before.decoded
+            : null
+          : decodeStateSnapshot(currentBytes, repository.repositoryBinding);
+    if (currentBytes !== null && !current) throw new Error("current");
+    const recoveryTerminal = settlement?.recoveryTerminal;
+    let terminalPending: Buffer | null = null;
+    if (recoveryTerminal) {
+      const recoveryId = settlement.recoveryId;
+      if (!current || !currentBytes?.equals(recoveryTerminal.before))
+        throw new Error("recovery_terminal_scope_invalid");
+      terminalPending = names.includes("state.pending.json")
+        ? read("state.pending.json")
+        : null;
+      if (names.includes("state.pending.json") && !terminalPending)
+        throw new Error("recovery_terminal_pending_invalid");
+      const pendingCandidate = terminalPending
+        ? decodeStateSnapshot(terminalPending, repository.repositoryBinding)
+        : null;
+      const pendingOperation = pendingCandidate?.snapshot.operations.find(
+        (item): item is ExecutionOperationRecord =>
+          item.kind === "docker_task" && item.recoveryId === recoveryId,
+      );
+      const terminal = prepareRecoveryTerminalSnapshot(
+        current,
+        recoveryId,
+        repository.operationId,
+        pendingOperation?.history?.occurredAt ?? new Date().toISOString(),
+      );
+      if (!terminal) throw new Error("recovery_terminal_candidate_invalid");
+      if (terminal.status === "unchanged") {
+        // 既存の履歴途中保存は同じLockで用途限定Readerを通し、ここでは確定しない。
+        if (
+          (terminalPending || names.includes("history.pending.jsonl")) &&
+          readStateSnapshot(
+            repository,
+            recoveryId,
+            recoveryId,
+            null,
+            "docker_task",
+            "docker_task",
+            false,
+            null,
+            null,
+            prepared.storageOwner,
+          ).status !== "completed"
+        )
+          throw new Error("recovery_terminal_pending_invalid");
+        assertBoundary();
+        assertCasFileIdentities(["state.json"]);
+        const observedNames = fs.readdirSync(directory);
+        if (
+          observedNames.length !== names.length ||
+          observedNames.some((name) => !names.includes(name))
+        )
+          throw new Error("recovery_terminal_pending_invalid");
+        return {
+          filesystemEffectIssued,
+          snapshotConfirmed: true,
+          reason: "coordinator_state_snapshot_confirmed",
+          initialHistoryLine,
+          attempt: {
+            revision: current.snapshot.revision,
+            payloadSha256: current.payloadSha256,
+            recoveryIds: Object.freeze([recoveryId]),
+          },
+        };
+      }
+      if (names.includes("history.pending.jsonl"))
+        throw new Error("recovery_terminal_history_pending");
+      const history = read("history.jsonl");
+      const rows = decodeHistoryRows(history ?? Buffer.alloc(0));
+      if (
+        (names.includes("history.jsonl") && !history) ||
+        !rows ||
+        rows.some((row) => row.recoveryId === recoveryId)
+      )
+        throw new Error("recovery_terminal_history_invalid");
+      if (
+        terminalPending &&
+        (!pendingOperation?.history ||
+          pendingOperation.history.confirmed ||
+          !terminal.bytes.equals(terminalPending))
+      )
+        throw new Error("recovery_terminal_pending_invalid");
+      bytes = terminal.bytes;
+      candidate =
+        pendingCandidate ??
+        decodeStateSnapshot(bytes, repository.repositoryBinding);
+      if (!candidate) throw new Error("candidate");
+      attempt = {
+        revision: candidate.snapshot.revision,
+        payloadSha256: candidate.payloadSha256,
+        recoveryIds: Object.freeze(
+          candidate.snapshot.operations.map((item) => item.recoveryId),
+        ),
+      };
+      terminalPrepared = true;
+    }
+    if (!candidate || !bytes) throw new Error("candidate");
+    if (currentAuthenticationClosure) {
+      const bound = currentAuthenticationClosure;
+      const beforeTasks = current?.snapshot.operations.filter(
+        (item): item is ExecutionOperationRecord =>
+          item.kind === "docker_task" && item.recoveryId === bound.recoveryId,
+      );
+      const candidateTasks = candidate.snapshot.operations.filter(
+        (item): item is ExecutionOperationRecord =>
+          item.kind === "docker_task" && item.recoveryId === bound.recoveryId,
+      );
+      const expected = prepareAuthenticationUnknownClosureSnapshot(
+        bound.before,
+        bound.recoveryId,
+        bound.observations,
+        repository.repositoryBinding,
+      );
+      if (
+        bound.repository.repositoryRoot !== repository.repositoryRoot ||
+        bound.repository.repositoryBinding !== repository.repositoryBinding ||
+        bound.repository.operationId !== repository.operationId ||
+        beforeTasks?.length !== 1 ||
+        candidateTasks.length !== 1 ||
+        beforeTasks[0]?.identityJson !== candidateTasks[0]?.identityJson ||
+        JSON.parse(beforeTasks[0]?.identityJson ?? "null")?.operationId !==
+          repository.operationId ||
+        JSON.parse(candidateTasks[0]?.identityJson ?? "null")?.operationId !==
+          repository.operationId ||
+        !currentBytes?.equals(bound.before) ||
+        !bytes.equals(bound.candidate) ||
+        !expected?.equals(bytes) ||
+        bound.assertOwner() !== true
+      )
+        throw new Error("authentication_closure_context");
+    } else if (
+      authenticationUnknownAbsenceChanged(
+        current?.snapshot ?? null,
+        candidate.snapshot,
+      )
+    ) {
+      throw new Error("authentication_closure_owner_required");
+    }
+    let repairPublication: ReturnType<typeof classifyRepairPublication> = null;
+    if (currentRepair?.publication) {
+      const observed = currentRepair.publication;
+      if (
+        initial.boundaryIdentity !== observed.boundaryIdentity ||
+        JSON.stringify([...observed.files.keys()].sort()) !==
+          JSON.stringify([...names].sort())
+      )
+        throw new Error("publication_boundary");
+      for (const [name, previous] of observed.files) {
+        const value = read(
+          name as "state.json" | "state.pending.json" | "history.jsonl",
+        );
+        const identity = fileIdentities.get(name);
+        if (
+          !value?.equals(previous.bytes) ||
+          !identity ||
+          !sameStableFileIdentity(previous.identity, identity)
+        )
+          throw new Error("publication_file_changed");
+      }
+      const pending = read("state.pending.json");
+      if (!pending) throw new Error("publication_missing");
+      repairPublication = classifyRepairPublication(
+        currentBytes,
+        pending,
+        currentRepair.recoveryId,
+        repository.repositoryBinding,
+      );
+      if (
+        !repairPublication?.candidate.equals(bytes) ||
+        (!["initial_publication", "identity", "remove_pending"].includes(
+          repairPublication.mode,
+        ) &&
+          repairPublication.mode !== currentRepair.purpose) ||
+        (repairPublication.mode === "initial_publication" &&
+          names.sort().join("|") !== "state.pending.json")
+      )
+        throw new Error("publication_invalid");
+    }
+    if (currentRepair) {
+      const target = candidate.snapshot.operations.find(
+        (operation) => operation.recoveryId === currentRepair.recoveryId,
+      );
+      const beforeTarget = current?.snapshot.operations.find(
+        (operation) => operation.recoveryId === currentRepair.recoveryId,
+      );
+      if (
+        currentRepair.repository.repositoryRoot !== repository.repositoryRoot ||
+        currentRepair.repository.repositoryBinding !==
+          repository.repositoryBinding ||
+        currentRepair.repository.operationId !== repository.operationId ||
+        !bytes.equals(currentRepair.candidate) ||
+        (currentRepair.before === null
+          ? currentBytes !== null
+          : !currentBytes?.equals(currentRepair.before)) ||
+        target?.kind !== "docker_repair" ||
+        (beforeTarget && beforeTarget.kind !== "docker_repair") ||
+        target.summarySha256 !== (beforeTarget?.summarySha256 ?? null) ||
+        encodeStateValue(target.history) !==
+          encodeStateValue(beforeTarget?.history ?? null) ||
+        JSON.parse(target.identityJson).operationId !==
+          repository.operationId ||
+        (beforeTarget && beforeTarget.identityJson !== target.identityJson) ||
+        encodeStateValue(
+          current?.snapshot.operations.filter(
+            (operation) => operation.recoveryId !== currentRepair.recoveryId,
+          ) ?? [],
+        ) !==
+          encodeStateValue(
+            candidate.snapshot.operations.filter(
+              (operation) => operation.recoveryId !== currentRepair.recoveryId,
+            ),
+          ) ||
+        encodeStateValue(current?.snapshot.unresolvedRecoveries ?? []) !==
+          encodeStateValue(candidate.snapshot.unresolvedRecoveries) ||
+        (!currentRepair.assertFileOwner && currentRepair.assertOwner() !== true)
+      )
+        throw new Error("repair_writer_scope_invalid");
+      if (currentRepair.assertFileOwner) assertReadBoundary();
+    }
+    if (corePublication) {
+      const expected = prepareExecutionDefinitionChange(
+        corePublication.before,
+        corePublication.kind,
+        corePublication.request,
+        repository.repositoryBinding,
+        corePublication.initialSourceRevision,
+      );
+      if (
+        taskPublication ||
+        hostPublication ||
+        settlement ||
+        currentRepair ||
+        currentHistory ||
+        currentCompletion ||
+        !currentBytes?.equals(corePublication.before) ||
+        expected.status !== "prepared" ||
+        !expected.bytes.equals(bytes) ||
+        !validateUnifiedTransition(
+          currentBytes,
+          bytes,
+          repository.repositoryBinding,
+        )
+      )
+        throw new Error("core_publication_scope_invalid");
+    }
+    if (hostPublication) {
+      const expected = prepareStateHostOperationSnapshot(
+        hostPublication.before,
+        hostPublication.value,
+        repository.repositoryBinding,
+      );
+      if (
+        taskPublication ||
+        corePublication ||
+        settlement ||
+        currentRepair ||
+        currentHistory ||
+        currentCompletion ||
+        !expected?.equals(bytes) ||
+        (hostPublication.before === null
+          ? currentBytes !== null ||
+            hostPublication.initialBoundary !== initial.boundaryIdentity
+          : !currentBytes?.equals(hostPublication.before))
+      )
+        throw new Error("host_publication_scope_invalid");
+    }
+    let completionConfirmed = false;
+    let savedTerminalConfirmed = false;
+    let repairHistoryScopeConfirmed = false;
+    if (taskPublication) {
+      // 候補作成に元版を再利用しても、書込み時の履歴途中物は通常保存で受け付けない。
+      if (names.includes("history.pending.jsonl"))
+        throw new Error("task_publication_history_pending");
+      const same = currentBytes?.equals(bytes) === true;
+      const expected =
+        same || taskPublication.before === null
+          ? bytes
+          : prepareUnifiedTaskSections(
+              taskPublication.before,
+              taskPublication.view,
+              repository.repositoryBinding,
+              taskPublication.rootHash,
+              taskPublication.facts,
+            );
+      if (
+        !expected?.equals(bytes) ||
+        (!same &&
+          (taskPublication.before === null
+            ? currentBytes !== null ||
+              taskPublication.initialBoundary !== initial.boundaryIdentity ||
+              candidate.snapshot.operations.length !== 0 ||
+              candidate.snapshot.projects.length !== 0 ||
+              candidate.snapshot.queueEntries.length !== 0
+            : !currentBytes?.equals(taskPublication.before))) ||
+        (!same &&
+          !validateUnifiedTransition(
+            currentBytes,
+            bytes,
+            repository.repositoryBinding,
+          ))
+      )
+        throw new Error("task_publication_scope_invalid");
+      const taskDecoded = decodeStateSnapshot(
+        bytes,
+        repository.repositoryBinding,
+      );
+      if (!taskDecoded) throw new Error("task_publication_scope_invalid");
+      const projected = projectTaskSnapshot(
+        taskDecoded,
+        taskPublication.rootHash,
+      );
+      if (
+        encodeStateValue(projected) !== encodeStateValue(taskPublication.view)
+      )
+        throw new Error("task_publication_view_invalid");
+      for (const fact of taskPublication.facts) {
+        const task = candidate.snapshot.managedExecutions
+          .find((p) => p.projectId === fact.projectId)
+          ?.tasks.find(
+            (t) =>
+              t.taskId === fact.taskId &&
+              t.attemptId === fact.attemptId &&
+              t.operationId === fact.operationId,
+          );
+        if (
+          !task ||
+          (task.settlement.kind === "operations"
+            ? task.settlement.resultUnresolved
+            : task.settlement.kind === "executor_result"
+              ? task.settlement.recoveryUnresolved
+              : false) !== fact.recoveryUnresolved
+        )
+          throw new Error("task_result_fact_invalid");
+      }
+      for (const operation of current?.snapshot.operations ?? []) {
+        if (
+          candidate.snapshot.operations.some(
+            (o) => o.recoveryId === operation.recoveryId,
+          )
+        )
+          continue;
+        const line = currentBytes
+          ? prepareStateHistoryLine(
+              currentBytes,
+              operation.recoveryId,
+              repository.repositoryBinding,
+            )
+          : null;
+        const rows = decodeHistoryRows(
+          read("history.jsonl") ?? Buffer.alloc(0),
+        );
+        if (
+          !line ||
+          !rows?.some(
+            (row) =>
+              row.recoveryId === operation.recoveryId &&
+              Buffer.from(row.line).equals(line),
+          )
+        )
+          throw new Error("task_operation_history_unconfirmed");
+      }
+      completionConfirmed = true;
+      savedTerminalConfirmed = true;
+    }
+    if (currentCompletion) {
+      const history = read("history.jsonl"),
+        expectedHistory = currentCompletion.historyFile;
+      const historyIdentity = fileIdentities.get("history.jsonl") ?? null;
+      if (
+        !settlement ||
+        currentCompletion.repository.repositoryRoot !==
+          repository.repositoryRoot ||
+        currentCompletion.repository.repositoryBinding !==
+          repository.repositoryBinding ||
+        currentCompletion.repository.operationId !== repository.operationId ||
+        currentCompletion.recoveryId !== settlement.recoveryId ||
+        !current ||
+        !currentBytes?.equals(currentCompletion.before) ||
+        !bytes.equals(currentCompletion.candidate) ||
+        currentCompletion.assertOwner() !== true ||
+        settlement.currentHistory ||
+        settlement.completion ||
+        settlement.historyInitial ||
+        settlement.historyPublish ||
+        settlement.managementCapability ||
+        settlement.cleanupStatus !== null ||
+        settlement.dockerTerminal !== null ||
+        read("history.pending.jsonl") !== null ||
+        (expectedHistory === null
+          ? history !== null
+          : !history ||
+            !historyIdentity ||
+            !history.equals(expectedHistory.bytes) ||
+            !sameStableFileIdentity(expectedHistory.identity, historyIdentity))
+      )
+        throw new Error("current_completion_scope_invalid");
+      const operation = current.snapshot.operations.find(
+        (item) =>
+          item.kind === currentCompletion.operationKind &&
+          item.recoveryId === settlement.recoveryId,
+      );
+      const identity =
+        operation && operation.kind !== "host_operation"
+          ? JSON.parse(operation.identityJson)
+          : null;
+      const expected = (
+        currentCompletion.operationKind === "docker_repair"
+          ? prepareStateRepairCompletionSnapshot
+          : prepareStateCompletionSnapshot
+      )(currentBytes, settlement.recoveryId, repository.repositoryBinding);
+      const line = (
+        currentCompletion.operationKind === "docker_repair"
+          ? prepareRepairHistoryLine
+          : prepareStateHistoryLine
+      )(currentBytes, settlement.recoveryId, repository.repositoryBinding);
+      const rows = decodeHistoryRows(history ?? Buffer.alloc(0));
+      const row = rows?.find(
+        (item) => item.recoveryId === settlement.recoveryId,
+      );
+      if (
+        operation?.kind === "host_operation" ||
+        !operation?.history?.confirmed ||
+        identity?.operationId !== repository.operationId ||
+        !expected?.equals(bytes) ||
+        !line ||
+        !rows ||
+        (currentCompletion.operationKind === "docker_repair" && !row) ||
+        createHash("sha256").update(line).digest("hex") !==
+          operation.history.lineSha256 ||
+        (row && !Buffer.from(row.line).equals(line)) ||
+        currentCompletion.assertOwner() !== true
+      )
+        throw new Error("current_completion_candidate_invalid");
+      completionConfirmed = true;
+      savedTerminalConfirmed = true;
+    } else if (currentHistory) {
+      // 初回の空履歴だけ、二つの不存在観測の前後で保存領域を一度ずつ照合する。
+      // 各名前は実際に観測し、途中ファイルのある再開では従来の読取りを維持する。
+      const emptyTaskHistory =
+        taskHistoryState !== undefined &&
+        currentHistory.stage === "publish" &&
+        currentHistory.historyFile === null &&
+        currentHistory.pendingHistoryFile === null &&
+        !names.includes("state.pending.json") &&
+        !names.includes("history.jsonl") &&
+        !names.includes("history.pending.jsonl");
+      let observedHistory: Buffer | null = null;
+      let observedPendingHistory: Buffer | null = null;
+      if (emptyTaskHistory) {
+        assertReadBoundary();
+        assertCasFileIdentities([], ["history.jsonl", "history.pending.jsonl"]);
+        assertReadBoundary();
+      } else {
+        observedHistory = read("history.jsonl");
+        observedPendingHistory = read("history.pending.jsonl");
+      }
+      for (const [name, actual, expected] of [
+        ["history.jsonl", observedHistory, currentHistory.historyFile],
+        [
+          "history.pending.jsonl",
+          observedPendingHistory,
+          currentHistory.pendingHistoryFile,
+        ],
+      ] as const) {
+        const identity = fileIdentities.get(name) ?? null;
+        if (
+          expected === null
+            ? actual !== null
+            : actual === null ||
+              identity === null ||
+              !actual.equals(expected.bytes) ||
+              !sameStableFileIdentity(expected.identity, identity)
+        )
+          throw new Error("current_history_file_changed");
+      }
+      if (
+        !settlement ||
+        settlement.recoveryId !== currentHistory.recoveryId ||
+        repository.repositoryRoot !==
+          currentHistory.repository.repositoryRoot ||
+        repository.repositoryBinding !==
+          currentHistory.repository.repositoryBinding ||
+        repository.operationId !== currentHistory.repository.operationId ||
+        settlement.cleanupStatus !== null ||
+        settlement.dockerTerminal !== null ||
+        settlement.completion ||
+        settlement.historyInitial ||
+        settlement.historyPublish ||
+        settlement.managementCapability ||
+        currentHistory.assertOwner() !== true ||
+        !currentBytes?.equals(currentHistory.before) ||
+        !bytes.equals(currentHistory.candidate) ||
+        !current
+      )
+        throw new Error("current_history_scope_invalid");
+      const operation = current.snapshot.operations.find(
+        (item) =>
+          item.kind === currentHistory.operationKind &&
+          item.recoveryId === settlement.recoveryId,
+      );
+      const target = candidate.snapshot.operations.find(
+        (item) =>
+          item.kind === currentHistory.operationKind &&
+          item.recoveryId === settlement.recoveryId,
+      );
+      if (
+        !operation ||
+        !target ||
+        operation.kind === "host_operation" ||
+        target.kind === "host_operation" ||
+        JSON.parse(operation.identityJson).operationId !==
+          repository.operationId ||
+        JSON.parse(target.identityJson).operationId !== repository.operationId
+      )
+        throw new Error("current_history_operation_invalid");
+      let expected: Buffer | null = null;
+      if (currentHistory.stage === "checkpoint") {
+        assertHistoryReadGroup();
+        if (
+          operation?.history !== null ||
+          !target?.history ||
+          target.history.confirmed
+        )
+          throw new Error("current_history_checkpoint_invalid");
+        expected = taskHistoryState
+          ? (prepareTaskHistorySnapshot(
+              current,
+              settlement.recoveryId,
+              target.history.occurredAt,
+              false,
+              repository.repositoryBinding,
+              taskHistoryState.candidate,
+            )?.bytes ?? null)
+          : (currentHistory.operationKind === "docker_repair"
+              ? prepareRepairHistorySnapshot
+              : prepareStateHistorySnapshot)(
+              currentBytes,
+              settlement.recoveryId,
+              target.history.occurredAt,
+              false,
+              repository.repositoryBinding,
+            );
+        if (observedPendingHistory !== null)
+          throw new Error("current_history_checkpoint_order_invalid");
+      } else if (currentHistory.stage === "publish") {
+        const observedPublication = taskHistoryState?.publication;
+        // 同じLockのReaderで作った新規追記候補は、確認済みの日数で照合する。
+        // 保存先の現在性と、物理処置直前の保持設定の照合は残す。
+        const config =
+          observedPublication &&
+          currentHistory.repository.revalidateRetention !== undefined
+            ? repository.revalidate() === true
+              ? observedPublication.retentionDays
+              : null
+            : readHistoryRetentionDays(repository);
+        if (config === null || config !== currentHistory.retentionDays)
+          throw new Error("current_history_config_invalid");
+        assertHistoryReadGroup();
+        const before = observedHistory;
+        const pending = observedPendingHistory;
+        if (
+          observedPublication &&
+          (observedPublication.recoveryId !== settlement.recoveryId ||
+            observedPublication.retentionDays !== config ||
+            pending !== null ||
+            (observedPublication.before === null
+              ? before !== null
+              : !before?.equals(observedPublication.before)))
+        )
+          throw new Error("current_history_publication_changed");
+        const historyInput = [
+          currentBytes,
+          settlement.recoveryId,
+          before ?? Buffer.alloc(0),
+          pending,
+          config,
+          repository.repositoryBinding,
+        ] as const;
+        const publication =
+          currentHistory.operationKind === "docker_repair"
+            ? prepareRepairHistoryPublication(...historyInput)
+            : (observedPublication?.candidate ??
+              prepareRecoveredHistoryPublication(
+                ...historyInput,
+                taskHistoryState
+                  ? {
+                      current: taskHistoryState.before,
+                      candidate: taskHistoryState.candidate,
+                    }
+                  : undefined,
+              ));
+        const observedPendingState = read("state.pending.json");
+        if (taskHistoryState) taskHistoryPendingState = observedPendingState;
+        if (
+          observedPendingState !== null &&
+          publication?.historyChanged !== false
+        )
+          throw new Error("current_history_state_pending_order_invalid");
+        expected = publication?.snapshotBytes ?? null;
+        if (publication)
+          preparedHistory = {
+            before,
+            pending,
+            historyBytes: publication.historyBytes,
+            retentionDays: config,
+          };
+      } else {
+        assertHistoryReadGroup();
+        if (
+          !operation?.history?.confirmed ||
+          read("history.pending.jsonl") !== null ||
+          read("state.pending.json") !== null
+        )
+          throw new Error("current_history_confirmed_invalid");
+        const line = (
+          currentHistory.operationKind === "docker_repair"
+            ? prepareRepairHistoryLine
+            : prepareStateHistoryLine
+        )(currentBytes, settlement.recoveryId, repository.repositoryBinding);
+        const rows = decodeHistoryRows(
+          read("history.jsonl") ?? Buffer.alloc(0),
+        );
+        const row = rows?.find(
+          (item) => item.recoveryId === settlement.recoveryId,
+        );
+        if (!line || !rows || (row && !Buffer.from(row.line).equals(line)))
+          throw new Error("current_history_line_invalid");
+        expected = currentBytes;
+      }
+      if (!expected?.equals(bytes) || currentHistory.assertOwner() !== true)
+        throw new Error("current_history_candidate_invalid");
+      assertHistoryReadGroup();
+      repairHistoryScopeConfirmed =
+        currentHistory.operationKind === "docker_repair";
+      savedTerminalConfirmed = true;
+    } else if (settlement?.completion) {
+      const before = decodeStateSnapshot(
+        settlement.completion.before,
+        repository.repositoryBinding,
+      );
+      const previous = before?.snapshot.operations.find(
+        (operation): operation is ExecutionOperationRecord =>
+          operation.kind === "docker_task" &&
+          operation.recoveryId === settlement.recoveryId,
+      );
+      const expected = prepareStateCompletionSnapshot(
+        settlement.completion.before,
+        settlement.recoveryId,
+        repository.repositoryBinding,
+      );
+      if (
+        !before ||
+        !previous ||
+        JSON.parse(previous.identityJson).operationId !==
+          repository.operationId ||
+        !expected?.equals(bytes) ||
+        !settlement.completion.candidate.equals(bytes) ||
+        !(
+          currentBytes?.equals(settlement.completion.before) ||
+          currentBytes?.equals(bytes)
+        ) ||
+        !settlement.cleanupStatus ||
+        !settlement.dockerTerminal?.homeLeaseReleased ||
+        !settlement.dockerTerminal.recoveryCompleted ||
+        settlement.historyInitial ||
+        settlement.historyPublish
+      )
+        throw new Error("completion_scope_unconfirmed");
+      const observed = prepareStateCleanupSnapshot(
+        settlement.completion.before,
+        settlement.recoveryId,
+        {
+          snapshot: settlement.dockerTerminal.resourceSnapshot,
+          observations: settlement.dockerTerminal.resources,
+        },
+        repository.repositoryBinding,
+      );
+      const observedOperation = observed
+        ? decodeStateSnapshot(
+            observed,
+            repository.repositoryBinding,
+          )?.snapshot.operations.find(
+            (operation): operation is ExecutionOperationRecord =>
+              operation.kind === "docker_task" &&
+              operation.recoveryId === settlement.recoveryId,
+          )
+        : null;
+      if (
+        !observedOperation ||
+        encodeStateValue(observedOperation.resources) !==
+          encodeStateValue(previous.resources)
+      )
+        throw new Error("completion_terminal_or_acceptance_unconfirmed");
+      const fixedLine = prepareStateHistoryLine(
+        settlement.completion.before,
+        settlement.recoveryId,
+        repository.repositoryBinding,
+      );
+      const rows = decodeHistoryRows(read("history.jsonl") ?? Buffer.alloc(0));
+      const row = rows?.find(
+        (entry) => entry.recoveryId === settlement.recoveryId,
+      );
+      if (
+        !fixedLine ||
+        !previous.history?.confirmed ||
+        !rows ||
+        createHash("sha256").update(fixedLine).digest("hex") !==
+          previous.history.lineSha256 ||
+        (row !== undefined && !Buffer.from(row.line).equals(fixedLine)) ||
+        read("history.pending.jsonl") !== null
+      )
+        throw new Error("completion_history_unconfirmed");
+      completionConfirmed = true;
+    }
+    historyAlreadyConfirmed =
+      settlement?.historyPublish === true &&
+      currentBytes?.equals(bytes) === true &&
+      ![...(current?.snapshot.unresolvedRecoveries ?? [])].some(
+        (item) => item.recoveryId === settlement.recoveryId,
+      ) &&
+      current?.snapshot.operations.some(
+        (operation) =>
+          operation.kind !== "host_operation" &&
+          operation.recoveryId === settlement.recoveryId &&
+          operation.history?.confirmed === true,
+      ) === true;
+    const pendingBytes = recoveryTerminal
+      ? terminalPending
+      : taskHistoryPendingState !== undefined
+        ? taskHistoryPendingState
+        : read("state.pending.json");
+    if (taskHistoryPendingState !== undefined)
+      assertCasFileIdentities(
+        taskHistoryPendingState === null ? [] : ["state.pending.json"],
+        taskHistoryPendingState === null ? ["state.pending.json"] : [],
+      );
+    if (pendingBytes !== null && !pendingBytes.equals(bytes))
+      throw new Error("other_pending");
+    const isInitialRoot =
+      currentBytes === null &&
+      (hostPublication?.initialBoundary === initial.boundaryIdentity ||
+        taskPublication?.initialBoundary === initial.boundaryIdentity ||
+        (initializationOwner !== null &&
+          typeof initializationOwner === "object" &&
+          initializations.get(initializationOwner)?.repositoryBinding ===
+            repository.repositoryBinding &&
+          initializations.get(initializationOwner)?.boundaryIdentity ===
+            initial.boundaryIdentity &&
+          initializations.get(initializationOwner)?.payloadSha256 ===
+            candidate.payloadSha256 &&
+          initializations.get(initializationOwner)?.publicationIssued ===
+            false)) &&
+      names.every((name) => name === "state.pending.json");
+    const isInitialRepairPublication =
+      repairPublication?.mode === "initial_publication";
+    if (pendingBytes !== null) {
+      const pending =
+        recoveryTerminal || taskHistoryState
+          ? candidate
+          : decodeStateSnapshot(pendingBytes, repository.repositoryBinding);
+      if (!pending) throw new Error("pending");
+      const treatment = classifyExecutionSnapshotReentry(
+        current
+          ? {
+              status: "present",
+              revision: current.snapshot.revision,
+              repositoryBinding: repository.repositoryBinding,
+              payloadSha256: current.payloadSha256,
+            }
+          : { status: "absent" },
+        { ...pending.snapshot, payloadSha256: pending.payloadSha256 },
+        repository.repositoryBinding,
+        isInitialRoot || isInitialRepairPublication ? "new" : "existing",
+      );
+      if (treatment === "blocked") throw new Error("pending_conflict");
+      if (
+        treatment === "publish_pending" &&
+        !completionConfirmed &&
+        !corePublication &&
+        !(currentRepair
+          ? validateRepairWriteCandidate(
+              currentBytes,
+              pendingBytes,
+              currentRepair.recoveryId,
+              currentRepair.purpose,
+              repository.repositoryBinding,
+            )
+          : recoveryTerminal || taskHistoryState
+            ? validateDecodedStateTransition(current, candidate)
+            : validateStateTransition(
+                currentBytes,
+                pendingBytes,
+                repository.repositoryBinding,
+              ))
+      )
+        throw new Error("transition");
+    } else if (
+      !currentBytes?.equals(bytes) &&
+      !completionConfirmed &&
+      !corePublication &&
+      (!(currentRepair
+        ? validateRepairWriteCandidate(
+            currentBytes,
+            bytes,
+            currentRepair.recoveryId,
+            currentRepair.purpose,
+            repository.repositoryBinding,
+          )
+        : recoveryTerminal || taskHistoryState
+          ? validateDecodedStateTransition(current, candidate)
+          : validateStateTransition(
+              currentBytes,
+              bytes,
+              repository.repositoryBinding,
+            )) ||
+        (currentBytes === null && !isInitialRoot))
+    )
+      throw new Error("transition");
+
+    if (settlement && !recoveryTerminal && !savedTerminalConfirmed) {
+      if (!current) throw new Error("settlement_current_missing");
+      if (
+        !completionConfirmed &&
+        (!current ||
+          current.snapshot.operations.length !==
+            candidate.snapshot.operations.length ||
+          encodeStateValue(current.snapshot.unresolvedRecoveries) !==
+            encodeStateValue(candidate.snapshot.unresolvedRecoveries))
+      )
+        throw new Error("settlement_scope");
+      for (const previous of current.snapshot.operations) {
+        if (previous.kind !== "docker_task") {
+          const retained = candidate.snapshot.operations.find(
+            (value) => value.recoveryId === previous.recoveryId,
+          );
+          if (encodeStateValue(retained) !== encodeStateValue(previous))
+            throw new Error("repair_state_changed_by_task_settlement");
+          continue;
+        }
+        const next = candidate.snapshot.operations.find(
+          (value): value is ExecutionOperationRecord =>
+            value.kind === "docker_task" &&
+            value.recoveryId === previous.recoveryId,
+        );
+        if (!next) {
+          if (
+            completionConfirmed &&
+            previous.recoveryId === settlement.recoveryId
+          )
+            continue;
+          throw new Error("settlement_removal");
+        }
+        if (previous.recoveryId !== settlement.recoveryId) {
+          if (encodeStateValue(previous) !== encodeStateValue(next))
+            throw new Error("settlement_other_operation");
+          continue;
+        }
+        if (
+          encodeStateValue(previous.resources) !==
+          encodeStateValue(next.resources)
+        ) {
+          const observedBytes = settlement.dockerTerminal
+            ? prepareStateCleanupSnapshot(
+                currentBytes,
+                settlement.recoveryId,
+                {
+                  snapshot: settlement.dockerTerminal.resourceSnapshot,
+                  observations: settlement.dockerTerminal.resources,
+                },
+                repository.repositoryBinding,
+              )
+            : null;
+          const observedOperation = observedBytes
+            ? decodeStateSnapshot(
+                observedBytes,
+                repository.repositoryBinding,
+              )?.snapshot.operations.find(
+                (value): value is ExecutionOperationRecord =>
+                  value.kind === "docker_task" &&
+                  value.recoveryId === settlement.recoveryId,
+              )
+            : null;
+          if (
+            !observedOperation ||
+            encodeStateValue(observedOperation.resources) !==
+              encodeStateValue(next.resources)
+          )
+            throw new Error("settlement_resource_observation_invalid");
+        }
+        const nextPrimaryFailure = encodeStateValue(next.primaryFailure);
+        if (
+          settlement.dockerTerminal
+            ? nextPrimaryFailure !==
+              encodeStateValue(settlement.dockerTerminal.primaryFailure)
+            : nextPrimaryFailure !== encodeStateValue(previous.primaryFailure)
+        )
+          throw new Error("settlement_primary_failure_unconfirmed");
+        if (
+          next.phase === "executing" ||
+          next.execution.ownerEffect === "active"
+        )
+          throw new Error("settlement_effect");
+        if (
+          next.lease !== previous.lease &&
+          next.lease === "released" &&
+          settlement.dockerTerminal?.homeLeaseReleased !== true
+        )
+          throw new Error("settlement_lease_observation_invalid");
+        if (
+          next.outcome?.cleanupConfirmed &&
+          (readOperationHost(candidate.snapshot.operations, next)?.cleanup !==
+            "confirmed" ||
+            !settlement.cleanupStatus ||
+            next.lease !== "released" ||
+            settlement.dockerTerminal?.homeLeaseReleased !== true ||
+            settlement.dockerTerminal?.recoveryCompleted !== true ||
+            !areTaskResourcesSettled(next))
+        )
+          throw new Error("settlement_cleanup_unconfirmed");
+      }
+    }
+    // 保存対象を変更する操作だけを現在のOwnerへ結合する。
+    const previousOperations = new Map(
+      current?.snapshot.operations.map((operation) => [
+        operation.recoveryId,
+        operation,
+      ]) ?? [],
+    );
+    for (const operation of candidate.snapshot.operations) {
+      const previous = previousOperations.get(operation.recoveryId);
+      if (operation.kind === "host_operation") {
+        if (
+          (!previous ||
+            encodeStateValue(previous) !== encodeStateValue(operation)) &&
+          !hostPublication
+        )
+          throw new Error("host_writer_unconnected");
+        continue;
+      }
+      if (operation.kind !== "docker_task") {
+        if (
+          (!previous ||
+            encodeStateValue(previous) !== encodeStateValue(operation)) &&
+          currentRepair?.recoveryId !== operation.recoveryId &&
+          !(
+            repairHistoryScopeConfirmed &&
+            currentHistory?.recoveryId === operation.recoveryId
+          )
+        )
+          throw new Error("repair_writer_unconnected");
+        continue;
+      }
+      if (previous && previous.kind !== "docker_task")
+        throw new Error("operation_kind_changed");
+      for (const resource of operation.resources?.checkpoints ?? []) {
+        const before = previous?.resources?.checkpoints.find(
+          (value) => value.key === resource.key,
+        );
+        if (
+          resource.submission === "not_issued" &&
+          before?.submission !== "not_issued" &&
+          (!unissued ||
+            before?.submission !== "intent_saved" ||
+            unissued.recoveryId !== operation.recoveryId ||
+            unissued.purpose !== resource.key)
+        )
+          throw new Error("resource_not_issued_proof_missing");
+      }
+      if (
+        !currentHistory &&
+        !(
+          settlement?.recoveryTerminal &&
+          settlement.recoveryId === operation.recoveryId
+        ) &&
+        (((settlement?.historyInitial || settlement?.historyPublish) &&
+          operation.recoveryId === settlement.recoveryId) ||
+          encodeStateValue(operation.history) !==
+            encodeStateValue(previous?.history ?? null))
+      ) {
+        if (
+          (!settlement?.historyInitial && !settlement?.historyPublish) ||
+          settlement.recoveryId !== operation.recoveryId ||
+          !currentBytes ||
+          !previous ||
+          !operation.history ||
+          (settlement.historyPublish
+            ? !operation.history.confirmed || !previous.history
+            : operation.history.confirmed || previous.history?.confirmed) ||
+          !settlement.cleanupStatus ||
+          settlement.dockerTerminal?.homeLeaseReleased !== true ||
+          settlement.dockerTerminal.recoveryCompleted !== true
+        )
+          throw new Error("history_checkpoint_unconnected");
+        const observedBytes = prepareStateCleanupSnapshot(
+          currentBytes,
+          operation.recoveryId,
+          {
+            snapshot: settlement.dockerTerminal.resourceSnapshot,
+            observations: settlement.dockerTerminal.resources,
+          },
+          repository.repositoryBinding,
+        );
+        const observedOperation = observedBytes
+          ? decodeStateSnapshot(
+              observedBytes,
+              repository.repositoryBinding,
+            )?.snapshot.operations.find(
+              (value): value is ExecutionOperationRecord =>
+                value.kind === "docker_task" &&
+                value.recoveryId === operation.recoveryId,
+            )
+          : null;
+        if (
+          !observedOperation ||
+          encodeStateValue(observedOperation.resources) !==
+            encodeStateValue(previous.resources)
+        )
+          throw new Error("history_resource_observation_invalid");
+        const expected = prepareStateHistorySnapshot(
+          currentBytes,
+          operation.recoveryId,
+          operation.history.occurredAt,
+          settlement.historyPublish === true,
+          repository.repositoryBinding,
+        );
+        if (
+          !expected?.equals(bytes) &&
+          !(
+            settlement.historyPublish &&
+            previous.history?.confirmed &&
+            currentBytes.equals(bytes)
+          )
+        )
+          throw new Error("history_checkpoint_difference_invalid");
+        if (settlement.historyInitial && previous.history === null)
+          initialHistoryLine = operation.history.lineSha256;
+      }
+      if (
+        (!previous ||
+          encodeStateValue(previous) !== encodeStateValue(operation)) &&
+        JSON.parse(operation.identityJson).operationId !==
+          repository.operationId
+      )
+        throw new Error("operation_owner");
+    }
+    for (const collection of ["unresolvedRecoveries"] as const) {
+      for (const item of candidate.snapshot[collection]) {
+        const previous = current?.snapshot[collection].find(
+          (value) => value.operationNonce === item.operationNonce,
+        );
+        if (
+          !previous ||
+          encodeStateValue(previous) !== encodeStateValue(item)
+        ) {
+          const operation = candidate.snapshot.operations.find(
+            (value): value is ExecutionOperationRecord =>
+              value.kind === "docker_task" &&
+              value.recoveryId === item.recoveryId,
+          );
+          if (
+            !operation ||
+            JSON.parse(operation.identityJson).operationId !==
+              repository.operationId
+          )
+            throw new Error("reference_owner");
+        }
+      }
+    }
+    freshTaskHistory =
+      taskHistoryState !== undefined &&
+      currentHistory?.stage === "publish" &&
+      taskHistoryPendingState === null &&
+      preparedHistory !== null &&
+      preparedHistory.pending === null &&
+      !(preparedHistory.before ?? Buffer.alloc(0)).equals(
+        preparedHistory.historyBytes,
+      );
+    if (
+      settlement &&
+      ((settlement.historyPublish && !historyAlreadyConfirmed) ||
+        currentHistory?.stage === "publish")
+    ) {
+      if (!currentBytes || !current) throw new Error("history_current_missing");
+      const target = current.snapshot.operations.find(
+        (value) =>
+          value.kind === (currentHistory?.operationKind ?? "docker_task") &&
+          value.recoveryId === settlement.recoveryId,
+      );
+      const line =
+        taskHistoryState && target?.kind === "docker_task"
+          ? operationHistoryLine(target)
+          : (currentHistory?.operationKind === "docker_repair"
+              ? prepareRepairHistoryLine
+              : prepareStateHistoryLine)(
+              currentBytes,
+              settlement.recoveryId,
+              repository.repositoryBinding,
+            );
+      if (!line || target?.kind === "host_operation" || !target?.history)
+        throw new Error("history_unfixed");
+      const priorHistory = preparedHistory
+        ? preparedHistory.before
+        : read("history.jsonl");
+      const before = priorHistory ?? Buffer.alloc(0);
+      const rows = preparedHistory ? null : decodeHistoryRows(before);
+      if (!preparedHistory && !rows) throw new Error("history_invalid");
+      const sameRow = rows?.find(
+        (row) => row.recoveryId === settlement.recoveryId,
+      );
+      if (sameRow && !Buffer.from(sameRow.line).equals(line))
+        throw new Error("history_row_conflict");
+      const owner = executionStorageOperationIdentity(
+        settlement.managementCapability,
+      );
+      const admission =
+        owner && typeof owner === "object"
+          ? historyAttempts.get(owner)?.get(settlement.recoveryId)
+          : null;
+      const pendingHistory = preparedHistory
+        ? preparedHistory.pending
+        : read("history.pending.jsonl");
+      if (!sameRow && target.history.confirmed)
+        throw new Error("history_confirmed_row_absent");
+      if (!sameRow && !admission && !currentHistory)
+        throw new Error("history_initial_proof_missing");
+      if (admission && admission.lineSha256 !== target.history.lineSha256)
+        throw new Error("history_proof_conflict");
+      // 同じ候補生成で確認した日数を使う。新規候補を作る直前の
+      // assertBoundaryは、設定とOwnerを再観測してからEffectを許可する。
+      const configuration = freshTaskHistory
+        ? (preparedHistory?.retentionDays ?? null)
+        : readHistoryRetentionDays(repository);
+      if (
+        configuration === null ||
+        (currentHistory && configuration !== currentHistory.retentionDays)
+      )
+        throw new Error("history_config_invalid");
+      const days = configuration;
+      const now = currentHistory
+        ? target.history.occurredAt
+        : (admission?.pending?.now ?? new Date().toISOString());
+      let after: Buffer;
+      if (currentHistory) {
+        if (
+          !preparedHistory ||
+          preparedHistory.retentionDays !== days ||
+          currentHistory.assertOwner() !== true
+        )
+          throw new Error("current_history_publication_invalid");
+        after = preparedHistory.historyBytes;
+        assertHistoryReadGroup();
+        assertCasFileIdentities(
+          [
+            "state.json",
+            ...(priorHistory === null ? [] : (["history.jsonl"] as const)),
+            ...(pendingHistory === null
+              ? []
+              : (["history.pending.jsonl"] as const)),
+          ],
+          [
+            ...(priorHistory === null ? (["history.jsonl"] as const) : []),
+            ...(pendingHistory === null
+              ? (["history.pending.jsonl"] as const)
+              : []),
+          ],
+        );
+      } else if (pendingHistory !== null) {
+        const binding = admission?.pending;
+        const originalIdentity = fileIdentities.get("history.jsonl") ?? null;
+        if (
+          !binding?.before.equals(before) ||
+          !binding.after.equals(pendingHistory) ||
+          binding.retentionDays !== days ||
+          (binding.beforeIdentity === null
+            ? originalIdentity !== null
+            : !originalIdentity ||
+              !sameStableFileIdentity(binding.beforeIdentity, originalIdentity))
+        )
+          throw new Error("history_pending_unbound");
+        after = binding.after;
+      } else {
+        if (!sameRow && admission?.issued)
+          throw new Error("history_prior_attempt_unknown");
+        const joined = sameRow ? before : Buffer.concat([before, line]);
+        const retained = prepareHistoryRetention(
+          currentBytes,
+          joined,
+          now,
+          days,
+          repository.repositoryBinding,
+          settlement.recoveryId,
+        );
+        if (!retained) throw new Error("history_retention_invalid");
+        after = retained;
+        if (admission) {
+          admission.pending = {
+            before,
+            after,
+            beforeIdentity: fileIdentities.get("history.jsonl") ?? null,
+            stateCandidate: bytes,
+            retentionDays: days,
+            now,
+          };
+          admission.issued = true;
+        }
+        if (!before.equals(after)) create("history.pending.jsonl", after);
+      }
+      if (!before.equals(after)) {
+        // この場で作成した候補は、createが同じWriter内で既に読戻している。
+        const newHistoryPending =
+          currentHistory !== null && pendingHistory === null;
+        if (newHistoryPending) create("history.pending.jsonl", after);
+        if (newHistoryPending && !freshTaskHistory) assertHistoryReadGroup();
+        // 新規Task候補だけはReaderとWriterで照合済みの元本文を再利用する。
+        // 置換直前はOwner・Lock・設定と、同じ元State／履歴の実体をCASで確認する。
+        if (
+          (!newHistoryPending &&
+            !read("history.pending.jsonl")?.equals(after)) ||
+          (!freshTaskHistory &&
+            (!(read("history.jsonl") ?? Buffer.alloc(0)).equals(before) ||
+              !read("state.json")?.equals(currentBytes)))
+        )
+          throw new Error("history_changed");
+        if (!currentHistory) {
+          const freshConfig = readHistoryRetentionDays(repository);
+          if (freshConfig === null || freshConfig !== days)
+            throw new Error("history_config_changed");
+        }
+        // 今回作った実体は作成時に同期済み。再入場の途中ファイルだけを同期し直す。
+        if (!newHistoryPending)
+          flushExecutionStateFile(
+            directory,
+            "history.pending.jsonl",
+            fileIdentities,
+            assertBoundary,
+            () => {
+              filesystemEffectIssued = true;
+            },
+          );
+        if (!freshTaskHistory) assertHistoryReadGroup();
+        if (!newHistoryPending && !read("history.pending.jsonl")?.equals(after))
+          throw new Error("history_pending_changed");
+        assertBoundary();
+        assertCasFileIdentities(
+          priorHistory === null
+            ? ["history.pending.jsonl", "state.json"]
+            : ["history.pending.jsonl", "history.jsonl", "state.json"],
+          [
+            ...(priorHistory === null ? (["history.jsonl"] as const) : []),
+            ...(taskHistoryState ? (["state.pending.json"] as const) : []),
+          ],
+        );
+        const pendingIdentity = fileIdentities.get("history.pending.jsonl");
+        if (currentHistory && !pendingIdentity)
+          throw new Error("history_pending_changed");
+        filesystemEffectIssued = true;
+        fs.renameSync(
+          path.join(directory, "history.pending.jsonl"),
+          path.join(directory, "history.jsonl"),
+        );
+        fileIdentities.delete("history.pending.jsonl");
+        fileIdentities.delete("history.jsonl");
+        if (currentHistory) {
+          fileIdentities.set(
+            "history.jsonl",
+            observeRenamedFile("history.jsonl", pendingIdentity, after),
+          );
+        } else {
+          const saved = read("history.jsonl");
+          const savedIdentity = fileIdentities.get("history.jsonl");
+          if (
+            !saved?.equals(after) ||
+            !pendingIdentity ||
+            !savedIdentity ||
+            pendingIdentity.dev !== savedIdentity.dev ||
+            pendingIdentity.ino !== savedIdentity.ino
+          )
+            throw new Error("history_publication_unconfirmed");
+        }
+      } else if (currentHistory && pendingHistory !== null) {
+        if (
+          !read("history.pending.jsonl")?.equals(after) ||
+          !read("history.jsonl")?.equals(before) ||
+          !read("state.json")?.equals(currentBytes)
+        )
+          throw new Error("current_history_pending_changed");
+        assertBoundary();
+        assertCasFileIdentities([
+          "history.pending.jsonl",
+          "history.jsonl",
+          "state.json",
+        ]);
+        filesystemEffectIssued = true;
+        fs.unlinkSync(path.join(directory, "history.pending.jsonl"));
+        fileIdentities.delete("history.pending.jsonl");
+      }
+      flushExecutionStateFile(
+        directory,
+        "history.jsonl",
+        fileIdentities,
+        assertBoundary,
+        () => {
+          filesystemEffectIssued = true;
+        },
+      );
+      assertHistoryReadGroup();
+      const savedHistory = read("history.jsonl");
+      if (currentHistory && !savedHistory?.equals(after))
+        throw new Error("history_publication_unconfirmed");
+      const savedRows = decodeHistoryRows(savedHistory);
+      // 履歴本文を読んだ直後なので、同じ領域で途中名の不存在だけ確認する。
+      // 別呼出しからの再開や修復は従来の完全な読取りを維持する。
+      if (freshTaskHistory)
+        assertCasFileIdentities([], ["history.pending.jsonl"]);
+      if (
+        !savedRows?.some(
+          (row) =>
+            row.recoveryId === settlement.recoveryId &&
+            Buffer.from(row.line).equals(line),
+        ) ||
+        (!freshTaskHistory && read("history.pending.jsonl") !== null)
+      )
+        throw new Error("history_readback_unconfirmed");
+      if (currentHistory) publishedHistoryRows = savedRows;
+    }
+    let syncedTaskPending: StableFileIdentity | undefined;
+    if (!currentBytes?.equals(bytes)) {
+      if (currentHistory?.stage === "checkpoint")
+        assertCasFileIdentities([], ["history.pending.jsonl"]);
+      const newStatePendingAlreadySynced =
+        (currentHistory !== null || recoveryTerminal !== undefined) &&
+        pendingBytes === null;
+      // 通常の新規pendingはcreateで同期・読戻し済み。再同期せず、置換直前の本文CASへ進む。
+      const freshTaskWrite =
+        taskPublication?.before != null &&
+        currentBytes !== null &&
+        pendingBytes === null;
+      const skipIntermediate = newStatePendingAlreadySynced || freshTaskWrite;
+      if (pendingBytes === null) create("state.pending.json", bytes);
+      if (pendingBytes === null && !freshTaskHistory) assertHistoryReadGroup();
+      const samePending = skipIntermediate ? null : read("state.pending.json");
+      const skipEarlyCurrent =
+        freshTaskWrite ||
+        currentHistory !== null ||
+        (recoveryTerminal !== undefined && newStatePendingAlreadySynced);
+      const sameCurrent = skipEarlyCurrent ? null : read("state.json");
+      if (
+        (!skipIntermediate && !samePending?.equals(bytes)) ||
+        (!skipEarlyCurrent &&
+          (currentBytes === null
+            ? sameCurrent !== null
+            : !sameCurrent?.equals(currentBytes)))
+      )
+        throw new Error("changed");
+      // 新規の場合も次の本文CASと、置換直前の実体照合は残す。
+      if (!skipIntermediate)
+        flushExecutionStateFile(
+          directory,
+          "state.pending.json",
+          fileIdentities,
+          assertBoundary,
+          () => {
+            filesystemEffectIssued = true;
+          },
+        );
+      assertHistoryReadGroup();
+      if (
+        !newStatePendingAlreadySynced &&
+        !read("state.pending.json", freshTaskWrite)?.equals(bytes)
+      )
+        throw new Error("pending_changed");
+      const target = read("state.json", freshTaskWrite);
+      if (
+        currentBytes === null ? target !== null : !target?.equals(currentBytes)
+      )
+        throw new Error("target_changed");
+      if (
+        freshTaskWrite ||
+        assertFileOwner ||
+        currentHistory ||
+        recoveryTerminal
+      )
+        assertBoundary();
+      assertCasFileIdentities(
+        currentHistory?.stage === "publish"
+          ? ["state.pending.json", "state.json", "history.jsonl"]
+          : ["state.pending.json", "state.json"],
+        ["history.pending.jsonl"],
+        freshTaskWrite,
+      );
+      filesystemEffectIssued = true;
+      const publishedIdentity = fileIdentities.get("state.pending.json");
+      if (
+        initializationOwner !== null &&
+        typeof initializationOwner === "object"
+      ) {
+        const proof = initializations.get(initializationOwner);
+        if (proof) proof.publicationIssued = true;
+      }
+      fs.renameSync(
+        path.join(directory, "state.pending.json"),
+        path.join(directory, "state.json"),
+      );
+      fileIdentities.delete("state.json");
+      fileIdentities.delete("state.pending.json");
+      // 履歴保存とTask回復終端では同じLock内で候補を同期済み。置換先の実体は確認するが、
+      // 通常は今書き込んだ本文を成功確認だけのために開き直さない。
+      if (currentHistory || recoveryTerminal) {
+        fileIdentities.set(
+          "state.json",
+          observeRenamedFile("state.json", publishedIdentity, bytes),
+        );
+        currentBytes = bytes;
+        current = candidate;
+      } else if (freshTaskWrite) {
+        if (!publishedIdentity) throw new Error("published_identity_missing");
+        // 同期済み候補を参照し、成功前に置換先の実体を照合する。正本は開かない。
+        syncedTaskPending = publishedIdentity;
+        currentBytes = bytes;
+        current = candidate;
+      } else {
+        currentBytes = read("state.json");
+        const published = fileIdentities.get("state.json");
+        if (
+          !publishedIdentity ||
+          !published ||
+          published.dev !== publishedIdentity.dev ||
+          published.ino !== publishedIdentity.ino
+        )
+          throw new Error("published_replaced");
+        current =
+          currentBytes === null
+            ? null
+            : decodeStateSnapshot(currentBytes, repository.repositoryBinding);
+      }
+    } else if (pendingBytes !== null) {
+      if (
+        !read("state.pending.json")?.equals(bytes) ||
+        !read("state.json")?.equals(bytes)
+      )
+        throw new Error("changed");
+      assertBoundary();
+      assertCasFileIdentities(
+        ["state.pending.json", "state.json"],
+        ["history.pending.jsonl"],
+      );
+      filesystemEffectIssued = true;
+      fs.unlinkSync(path.join(directory, "state.pending.json"));
+      fileIdentities.delete("state.pending.json");
+    }
+    if (
+      !currentBytes?.equals(bytes) ||
+      !current ||
+      (!currentHistory &&
+        !recoveryTerminal &&
+        read("state.pending.json") !== null)
+    )
+      throw new Error("final");
+    if (
+      settlement &&
+      ((settlement.historyPublish && !historyAlreadyConfirmed) ||
+        currentHistory?.stage === "publish")
+    ) {
+      const finalLine = taskHistoryState
+        ? operationHistoryLine(
+            current.snapshot.operations.find(
+              (item): item is ExecutionOperationRecord =>
+                item.kind === "docker_task" &&
+                item.recoveryId === settlement.recoveryId,
+            ),
+          )
+        : (currentHistory?.operationKind === "docker_repair"
+            ? prepareRepairHistoryLine
+            : prepareStateHistoryLine)(
+            bytes,
+            settlement.recoveryId,
+            repository.repositoryBinding,
+          );
+      const finalRows = currentHistory
+        ? publishedHistoryRows
+        : decodeHistoryRows(read("history.jsonl"));
+      if (
+        !finalLine ||
+        !finalRows?.some(
+          (row) =>
+            row.recoveryId === settlement.recoveryId &&
+            Buffer.from(row.line).equals(finalLine),
+        ) ||
+        (!currentHistory && read("history.pending.jsonl") !== null)
+      )
+        throw new Error("history_final_readback_unconfirmed");
+    }
+    if (currentCompletion) {
+      const history = read("history.jsonl");
+      if (
+        currentCompletion.historyFile === null
+          ? history !== null
+          : !history?.equals(currentCompletion.historyFile.bytes)
+      )
+        throw new Error("current_completion_history_changed");
+    }
+    if (!assertFileOwner) assertBoundary();
+    if (syncedTaskPending) {
+      const stat = fs.lstatSync(path.join(directory, "state.json"), {
+        bigint: true,
+      });
+      const published = identity(stat);
+      if (
+        !stat.isFile() ||
+        stat.nlink !== 1n ||
+        !sameStableFileIdentity(syncedTaskPending, {
+          ...published,
+          ctimeNs: syncedTaskPending.ctimeNs,
+          // Windowsの置換は置換先の作成時刻を保持し得る。ファイルID等は引き続き照合する。
+          birthtimeNs:
+            process.platform === "win32"
+              ? syncedTaskPending.birthtimeNs
+              : published.birthtimeNs,
+        })
+      )
+        throw new Error("published_replaced");
+    } else if (
+      !currentHistory &&
+      !recoveryTerminal &&
+      !read("state.json")?.equals(bytes)
+    )
+      throw new Error("final");
+    if (currentHistory || recoveryTerminal) {
+      const finalNames = fs.readdirSync(directory);
+      if (
+        finalNames.some(
+          (name) => name !== "state.json" && name !== "history.jsonl",
+        ) ||
+        !finalNames.includes("state.json") ||
+        (currentHistory?.stage === "publish" &&
+          !finalNames.includes("history.jsonl"))
+      )
+        throw new Error("history_final_files_changed");
+      const seenHistory = fileIdentities.get("history.jsonl");
+      if (currentHistory?.stage === "publish") {
+        const history = fs.lstatSync(path.join(directory, "history.jsonl"), {
+          bigint: true,
+        });
+        if (
+          !seenHistory ||
+          !sameStableFileIdentity(seenHistory, history) ||
+          history.nlink !== 1n ||
+          !history.isFile()
+        )
+          throw new Error("history_final_files_changed");
+      }
+      const published = fs.lstatSync(path.join(directory, "state.json"), {
+        bigint: true,
+      });
+      const confirmed = fileIdentities.get("state.json");
+      if (
+        !confirmed ||
+        !sameStableFileIdentity(confirmed, published) ||
+        published.nlink !== 1n ||
+        !published.isFile()
+      )
+        throw new Error("published_replaced");
+    }
+    if (assertFileOwner) assertBoundary();
+    snapshotConfirmed = true;
+    if (initializationOwner !== null && typeof initializationOwner === "object")
+      initializations.delete(initializationOwner);
+    reason = "coordinator_state_snapshot_confirmed";
+  } catch (error) {
+    if (
+      settlement?.recoveryTerminal &&
+      !terminalPrepared &&
+      error instanceof Error &&
+      error.message !== "recovery_terminal_history_invalid"
+    ) {
+      reason =
+        error.message === "unknown_content" ||
+        error.message === "recovery_terminal_pending_invalid" ||
+        error.message === "recovery_terminal_history_pending"
+          ? "coordinator_state_reentry_required"
+          : error.message === "recovery_terminal_scope_invalid" ||
+              error.message === "recovery_terminal_candidate_invalid"
+            ? "coordinator_state_input_invalid"
+            : "coordinator_state_read_unconfirmed";
+    } else {
+      reason = "coordinator_state_storage_unconfirmed";
+    }
+  }
+  return {
+    attempt,
+    filesystemEffectIssued,
+    snapshotConfirmed,
+    reason,
+    initialHistoryLine,
+  };
+}
+
+/**
+ * 保存準備・Owned確定・排他解放を既存Writer入口で結合する。
+ * @responsibility 保存確認と解放確認の両方が揃った場合だけ完了を返す。
+ * @trace ARCH-000008
+ * @input input: 既存の操作Owner、固定候補と用途別保存入力。
+ * @returns 保存Effect・Snapshot確認・解放確認を分離した結果。
+ * @precondition 外側の用途別入口が既存の借用を検証する。
+ * @postcondition 取得済みContextを一度だけ確定し、解放失敗を成功へ畳まない。
+ * @effect 既存短期排他と固定保存FileのI/O。
+ * @failure 取得前・保存途中・解放失敗は既存のblocked結果。
+ * @invariant 新しい保存方式・Authority・第三Writerを追加しない。
+ * @boundary 保存公開Wrapperと私有確定処理。
+ * @security 任意Pathや外部callbackを受け付けない。
+ * @concurrency 短期排他の取得と解放をこの入口が所有する。
+ */
+export function writeStateSnapshot(
+  ...input: [
+    Parameters<typeof prepareStateWrite>[0],
+    Parameters<typeof prepareStateWrite>[1],
+    Parameters<typeof prepareStateWrite>[2],
+    Parameters<typeof prepareStateWrite>[3],
+    Parameters<typeof prepareStateWrite>[4]?,
+    Parameters<typeof prepareStateWrite>[5]?,
+  ]
+) {
+  const prepared = prepareStateWrite(...input);
+  if (!("lock" in prepared)) return prepared;
+  const { storageOwner, initializationOwner, settlement } = prepared;
+  let {
+    attempt,
+    filesystemEffectIssued,
+    snapshotConfirmed,
+    reason,
+    initialHistoryLine,
+  } = commitStateSnapshotOwned(prepared);
+  let lockReleased = false;
+  try {
+    lockReleased = storageOwner.release();
+  } catch {
+    lockReleased = false;
+  }
+  if (!lockReleased) {
+    if (initializationOwner !== null && typeof initializationOwner === "object")
+      initializations.delete(initializationOwner);
+    // 書込み不要の経路は旧Reader同様、解放を確認できなければ観測値を返さない。
+    if (
+      settlement?.recoveryTerminal &&
+      snapshotConfirmed &&
+      !filesystemEffectIssued
+    ) {
+      snapshotConfirmed = false;
+      attempt = prepared.attempt;
+    }
+    reason = "coordinator_state_lock_release_unconfirmed";
+  }
+  if (
+    snapshotConfirmed &&
+    lockReleased &&
+    initialHistoryLine &&
+    settlement?.managementCapability &&
+    typeof settlement.managementCapability === "object"
+  ) {
+    let attempts = historyAttempts.get(
+      executionStorageOperationIdentity(
+        settlement.managementCapability,
+      ) as object,
+    );
+    if (!attempts) {
+      attempts = new Map();
+      historyAttempts.set(
+        executionStorageOperationIdentity(
+          settlement.managementCapability,
+        ) as object,
+        attempts,
+      );
+    }
+    if (!attempts.has(settlement.recoveryId))
+      attempts.set(settlement.recoveryId, {
+        lineSha256: initialHistoryLine,
+        issued: false,
+        pending: null,
+      });
+  }
+  return Object.freeze({
+    ...attempt,
+    status: snapshotConfirmed && lockReleased ? "completed" : "blocked",
+    reason,
+    filesystemEffectIssued,
+    snapshotConfirmed,
+    lockReleased,
+  });
+}
+
+/**
+ * 同じ操作の履歴出版で既に固定した再入場候補を参照する。
+ * @responsibility 初回出版の証拠を複製せず、正常終了の再入場へ同じ候補を渡す。
+ * @trace ARCH-000008
+ * @input owner: 元実行Owner、recoveryId: exact回復参照。
+ * @returns 固定済み候補、又はnull。
+ * @precondition 呼出し側が正常終了Contextの真正性を確認する。
+ * @postcondition 新しい証拠・Authorityを生成しない。
+ * @effect N/A: 私有Map読取りだけ。
+ * @failure 未登録又は不正Ownerではnull。
+ * @invariant 候補参照は保存許可や履歴完了を表さない。
+ * @boundary 正常終了Ownerと履歴出版証拠。
+ * @security 可変Mapや証拠recordを返さない。
+ * @concurrency 元の一回出版証拠を同じ寿命で参照する。
+ */
+export function readHistoryResumeCandidate(owner: unknown, recoveryId: string) {
+  return owner && typeof owner === "object"
+    ? historyAttempts.get(owner)?.get(recoveryId)?.pending?.stateCandidate
+    : null;
+}
+type RecoveryPublication = (
+  typeof settlements extends WeakMap<object, infer T>
+    ? T
+    : never
+) extends infer T
+  ? T extends { used: boolean }
+    ? Omit<T, "used">
+    : never
+  : never;
+
+/**
+ * 検査済み回復候補を一回保存し、短命証拠を全終了経路で失効する。
+ * @responsibility 証拠生成・初期化・一回保存・失効を物理Writerへ閉じる。
+ * @trace ARCH-000008
+ * @input request: 閉じた用途別候補と現在Owner。
+ * @returns 保存、初期化Effect、排他解放の観測。
+ * @precondition 意味側のReaderと候補検査を通過している。
+ * @postcondition 私有Contextを返さず破棄する。
+ * @effect 初回領域作成と既存Writerだけ。
+ * @failure 不明用途・失効・元版差・保存不明は停止する。
+ * @invariant 証拠消費と履歴試行登録の既存順序を維持する。
+ * @boundary 意味側候補とStorageの保存。
+ * @security Root公開せず、Map操作の汎用APIを作らない。
+ * @concurrency 既存の短期排他を利用する。
+ */
+export function publishRecoveryState(
+  request: RecoveryPublication,
+  historyOwner?: StorageOwner,
+) {
+  const refused = () => writeStateSnapshot(null, null, null, null);
+  if (
+    !request ||
+    (historyOwner !== undefined && request.kind !== "current_history") ||
+    ![
+      "docker_repair",
+      "current_completion",
+      "current_history",
+      "authentication_unknown_closure",
+    ].includes(request.kind) ||
+    (request.kind === "docker_repair" &&
+      ![
+        "checkpoint",
+        "session_begin",
+        "retention_handoff",
+        "disposal_decision",
+        "disposal_primary",
+        "disposal_failed",
+        "disposal_auxiliary",
+      ].includes(request.purpose)) ||
+    ((request.kind === "current_completion" ||
+      request.kind === "current_history") &&
+      request.operationKind !== "docker_task" &&
+      request.operationKind !== "docker_repair") ||
+    (request.kind === "current_history" &&
+      !["checkpoint", "publish", "confirmed"].includes(request.stage)) ||
+    (request.kind !== "docker_repair" &&
+      ("purpose" in request ||
+        "publication" in request ||
+        "assertFileOwner" in request)) ||
+    (request.kind === "docker_repair" &&
+      request.assertFileOwner !== undefined &&
+      (typeof request.assertFileOwner !== "function" ||
+        request.purpose !== "checkpoint" ||
+        request.before === null ||
+        request.publication !== undefined ||
+        request.repository.revalidate !== request.assertOwner)) ||
+    (request.kind !== "current_history" &&
+      ("stage" in request || "pendingHistoryFile" in request))
+  )
+    return refused();
+  const context = Object.freeze({});
+  let active = true;
+  let initializationEffectIssued = false;
+  const repository = request.repository;
+  const binding = { ...request, used: false };
+  if (binding.kind === "current_history") {
+    const historyRepository = binding.repository;
+    binding.assertOwner = (days?: number, includeUnscopedRevalidation?: true) =>
+      active &&
+      settlements.get(context) === binding &&
+      binding.used &&
+      (days !== undefined && historyRepository.revalidateRetention !== undefined
+        ? // 元Ownerの後に保存起点を一度照合し、設定だけを読む。
+          request.assertOwner() === true &&
+          readHistoryRetentionDays(historyRepository) === days
+        : (!includeUnscopedRevalidation ||
+            historyRepository.revalidate(undefined)) &&
+          request.assertOwner() === true &&
+          historyRepository.revalidate(days));
+  } else if (binding.kind === "authentication_unknown_closure") {
+    binding.assertOwner = () =>
+      active && request.assertOwner() === true && repository.revalidate();
+  }
+  settlements.set(context, binding);
+  try {
+    if (
+      binding.kind === "docker_repair" &&
+      binding.before === null &&
+      !binding.publication
+    ) {
+      const initialized = prepareStateInitialization(
+        context,
+        repository,
+        binding.candidate,
+      );
+      initializationEffectIssued ||= initialized.effectIssued;
+      if (initialized.status !== "prepared" || !initialized.lockReleased)
+        return Object.freeze({
+          ...refused(),
+          reason: "coordinator_state_initialization_unconfirmed",
+          filesystemEffectIssued: initializationEffectIssued,
+          lockReleased: initialized.lockReleased,
+        });
+    }
+    const bound =
+      binding.kind === "authentication_unknown_closure"
+        ? {
+            ...repository,
+            revalidate: (days?: number) =>
+              active &&
+              settlements.get(context) === binding &&
+              binding.used &&
+              binding.assertOwner() &&
+              repository.revalidate(days),
+          }
+        : binding.kind === "current_history"
+          ? { ...repository, revalidate: binding.assertOwner }
+          : repository;
+    const input = [
+      null,
+      bound,
+      binding.candidate,
+      binding.kind === "current_history" ||
+      binding.kind === "current_completion"
+        ? {
+            recoveryId: binding.recoveryId,
+            cleanupStatus: null,
+            dockerTerminal: null,
+            ...(binding.kind === "current_history"
+              ? { currentHistory: context }
+              : { currentCompletion: context }),
+          }
+        : null,
+      undefined,
+      binding.kind === "docker_repair" ||
+      binding.kind === "authentication_unknown_closure"
+        ? context
+        : undefined,
+    ] satisfies Parameters<typeof writeStateSnapshot>;
+    if (historyOwner) {
+      const prepared = prepareStateWrite(...input, historyOwner);
+      if (!("lock" in prepared)) return prepared;
+      const saved = commitStateSnapshotOwned(prepared);
+      return Object.freeze({
+        ...prepared.attempt,
+        status: saved.snapshotConfirmed ? "completed" : "blocked",
+        reason: saved.reason,
+        filesystemEffectIssued: saved.filesystemEffectIssued,
+        snapshotConfirmed: saved.snapshotConfirmed,
+        lockReleased: false,
+      });
+    }
+    const saved = writeStateSnapshot(...input);
+    return Object.freeze({
+      ...saved,
+      filesystemEffectIssued:
+        initializationEffectIssued || saved.filesystemEffectIssued,
+    });
+  } catch (error) {
+    if (historyOwner) throw error;
+    return Object.freeze({
+      ...refused(),
+      filesystemEffectIssued: initializationEffectIssued,
+    });
+  } finally {
+    active = false;
+    settlements.delete(context);
+    initializations.delete(context);
+  }
+}
+
+type OwnedPublication =
+  | Readonly<{
+      kind: "host";
+      before: Buffer | null;
+      value: unknown;
+      initialBoundary: string | null;
+    }>
+  | Readonly<
+      { kind: "task" } & NonNullable<
+        Parameters<typeof commitStateSnapshotOwned>[0]["taskPublication"]
+      >
+    >
+  | Readonly<{
+      kind: "definition";
+      operation: Parameters<typeof prepareExecutionDefinitionChange>[1];
+      before: Buffer;
+      request: unknown;
+      initialSourceRevision: string | null;
+    }>;
+
+/**
+ * 取得済みOwnerでTask又は定義候補を同じWriterへ渡す。
+ * @responsibility 私有commit入力の構築を物理保存Ownerへ閉じる。
+ * @trace ARCH-000008
+ * @input owner: 取得済みOwner、bytes: 候補、publication: 閉じた保存用途。
+ * @returns 既存Writerの保存観測。
+ * @precondition 同じOwner内で現在版と意味の遷移を確認済み。
+ * @postcondition Ownerを再取得・解放しない。
+ * @effect 既存のpending・rename・読戻しだけ。
+ * @failure 偽Owner・不明用途・候補不正はEffect前に拒否する。
+ * @invariant 呼出し元が一回だけOwnerを解放する。
+ * @boundary 意味側候補と単一Writer。
+ * @security preparedやMapを返さない。
+ * @concurrency 元Ownerの保持区間を分割しない。
+ */
+export function publishStateOwned(
+  owner: StorageOwner,
+  bytes: Buffer,
+  publication: OwnedPublication,
+) {
+  const binding = readStorageOwnerBinding(owner);
+  const candidate = binding
+    ? decodeStateSnapshot(bytes, binding.repository.repositoryBinding)
+    : null;
+  if (
+    !binding ||
+    !candidate ||
+    !isLiveStorageOwner(owner) ||
+    (publication.kind !== "task" &&
+      publication.kind !== "definition" &&
+      publication.kind !== "host")
+  )
+    return {
+      filesystemEffectIssued: false,
+      snapshotConfirmed: false,
+      reason: "coordinator_state_storage_unconfirmed",
+      initialHistoryLine: null,
+    };
+  return commitStateSnapshotOwned({
+    repository: binding.repository,
+    candidate,
+    bytes: Buffer.from(bytes),
+    settlement: null,
+    unissued: undefined,
+    managementCapability: null,
+    currentRepair: null,
+    currentAuthenticationClosure: null,
+    initializationOwner: owner,
+    currentHistory: null,
+    currentCompletion: null,
+    attempt: {
+      revision: candidate.snapshot.revision,
+      payloadSha256: candidate.payloadSha256,
+      recoveryIds: Object.freeze(
+        candidate.snapshot.operations.map((o) => o.recoveryId),
+      ),
+    },
+    storageOwner: owner,
+    lock: binding.lock,
+    ...(publication.kind === "task"
+      ? {
+          taskPublication: {
+            before: publication.before,
+            view: publication.view,
+            facts: publication.facts,
+            rootHash: publication.rootHash,
+            initialBoundary: publication.initialBoundary,
+          },
+        }
+      : publication.kind === "host"
+        ? {
+            hostPublication: {
+              before: publication.before,
+              value: publication.value,
+              initialBoundary: publication.initialBoundary,
+            },
+          }
+        : {
+            corePublication: {
+              before: publication.before,
+              kind: publication.operation,
+              request: publication.request,
+              initialSourceRevision: publication.initialSourceRevision,
+            },
+          }),
+  });
 }

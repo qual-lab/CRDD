@@ -17,7 +17,7 @@ import { sourceDeclaration } from "../../../execution-model/tests/support/source
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const RESOLVER_PATH = "40_Develop/execution-model/src/storage/store.ts";
 const RUNTIME_STORAGE_OWNERS = new Set([
-  "40_Develop/execution-model/src/state/crud.ts",
+  "40_Develop/execution-model/src/composition/crud.ts",
   // CurrentState wxの固定所在だけを所有する。任意Consumerのraw Root利用は認めない。
   "40_Develop/execution-model/src/storage/lock.ts",
   "40_Develop/configuration-model/src/ai-selection/crud.ts",
@@ -54,7 +54,7 @@ const HOST_OPERATION_OWNER = "40_Develop/coordinator/src/lifecycle/host.ts";
 const HOST_RECOVERY_OWNER =
   "40_Develop/coordinator/src/lifecycle/environment.ts";
 const ATTEMPT_OWNER = "40_Develop/execution-model/src/attempt/crud.ts";
-const STATE_OWNER = "40_Develop/execution-model/src/state/crud.ts";
+const STATE_OWNER = "40_Develop/execution-model/src/composition/crud.ts";
 const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/benchmark.ts",
 ] as const;

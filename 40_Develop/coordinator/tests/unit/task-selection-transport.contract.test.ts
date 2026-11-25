@@ -65,14 +65,14 @@ test("Objectiveの固定選定は全四組合せでTask契約へexactに搬送�
     });
     assert.equal(selected.status, "resolved");
     if (selected.status !== "resolved") assert.fail("selection_rejected");
-    const task = buildObjectiveTaskRequest(request, selected.value);
-    assert.equal(task.taskExecutionSelections, selected.value);
+    const task = buildObjectiveTaskRequest(request);
+    assert.equal(Object.hasOwn(task, "taskExecutionSelections"), false);
     const normalized = snapshotCoordinatorTaskRequest(task);
     assert.equal(normalized?.status, "accepted");
     if (normalized?.status !== "accepted") assert.fail("task_rejected");
-    assert.deepEqual(
-      normalized.request.taskExecutionSelections,
-      selected.value,
+    assert.equal(
+      Object.hasOwn(normalized.request, "taskExecutionSelections"),
+      false,
     );
     assert.notEqual(task.acceptanceCriteria, request.acceptanceCriteria);
     assert.deepEqual(task.allowedPaths, request.allowedPaths);
@@ -81,6 +81,7 @@ test("Objectiveの固定選定は全四組合せでTask契約へexactに搬送�
       "expectedNetworkPolicyHash",
       "requestedProfileId",
       "requestedExecutorProvider",
+      "taskExecutionSelections",
       "frontProvider",
     ])
       assert.equal(

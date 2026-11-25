@@ -230,7 +230,7 @@ test("明示した構成・準備型は既存必須項目と拒否値を保持�
 /**
  * 回復参照の準備判定をOperation観測より前に行う。
  * @trace ERB-UT-023
- * @precondition 合成のprobe要求と観測に失敗するHost代役。
+ * @precondition 合成のTask要求と観測に失敗するHost代役。
  * @stimulus 不正参照と、参照を持たない既存の二表現を渡す。
  * @observation Operation照合回数、拒否理由と外部要求の有無。
  * @oracle 不正参照は照合前に止まり、参照なしでは元の照合失敗を返す。
@@ -247,7 +247,7 @@ test("準備は不正な回復参照をHost照合前に拒否し参照なしの�
     randomBytes: () => assert.fail("Host照合失敗後に乱数を取得しない"),
   });
   const input = {
-    purpose: "probe" as const,
+    purpose: "task" as const,
     managementCapability: {},
     mountCapability: {},
     providerHome: {
@@ -256,7 +256,8 @@ test("準備は不正な回復参照をHost照合前に拒否し参照なしの�
       providerHomeIdentityHash: "a".repeat(64),
       stableLogicalHomeBindingHash: "b".repeat(64),
     },
-    executionSelection: executionSelection(),
+    packetCapability: {},
+    packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
     taskAttempt: 0 as const,
     consumer: "coordinator_cli" as const,
   };
@@ -266,8 +267,8 @@ test("準備は不正な回復参照をHost照合前に拒否し参照なしの�
       "codex_docker_runtime_recovery_correlation_invalid",
       0,
     ],
-    [null, "codex_docker_runtime_preparation_failed_closed", 1],
-    [undefined, "codex_docker_runtime_preparation_failed_closed", 2],
+    [null, "codex_docker_runtime_task_preparation_failed_closed", 1],
+    [undefined, "codex_docker_runtime_task_preparation_failed_closed", 2],
   ] as const) {
     const prepared = owner.prepare({
       ...input,
@@ -285,7 +286,7 @@ test("準備は不正な回復参照をHost照合前に拒否し参照なしの�
  * @precondition 両Providerの合成選定と呼出し回数を記録する代役を使う。
  * @stimulus Task参照欠測、Adviceの両方又は片側欠測、明示Probeを渡す。
  * @observation 理由、Host観測・指示消費・計画用乱数の取得回数。
- * @oracle 欠測ではすべて0回、明示ProbeだけがHost照合へ進む。
+ * @oracle 欠測と旧Probeのいずれでもすべて0回。
  * @cleanup N/A: メモリのみ。
  */
 test("TaskとAdviceの指示欠測はProbeに変換せず準備前に拒否する", () => {
@@ -314,11 +315,6 @@ test("TaskとAdviceの指示欠測はProbeに変換せず準備前に拒否す�
       model: provider === "codex" ? "gpt-5.5" : "opus",
       effort: "medium",
     });
-    const adviceSelection = executionSelection("advice", {
-      provider,
-      model: provider === "codex" ? "gpt-5.6-sol" : "opus",
-      effort: "low",
-    });
     const common = {
       managementCapability: {},
       mountCapability: {},
@@ -336,7 +332,7 @@ test("TaskとAdviceの指示欠測はProbeに変換せず準備前に拒否す�
       const task = owner.prepare({
         ...common,
         purpose: "task",
-        executionSelection: selection,
+        packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         packetCapability: missing,
       });
       assert.equal(task.status, "blocked");
@@ -354,7 +350,7 @@ test("TaskとAdviceの指示欠測はProbeに変換せず準備前に拒否す�
         const advice = owner.prepare({
           ...common,
           purpose: "advice",
-          executionSelection: adviceSelection,
+          packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
           packetCapability: use,
           packetOwnerCapability: control,
         });
@@ -369,12 +365,12 @@ test("TaskとAdviceの指示欠測はProbeに変換せず準備前に拒否す�
       ...common,
       purpose: "probe",
       executionSelection: selection,
-    });
+    } as never);
     assert.equal(
       probe.reason,
-      `${provider}_docker_runtime_preparation_failed_closed`,
+      `${provider}_docker_runtime_input_mode_ambiguous`,
     );
-    assert.deepEqual(calls, ["host"]);
+    assert.deepEqual(calls, []);
   }
 });
 
@@ -399,7 +395,7 @@ test("用途限定入力は動的値・完全選定・欠測を拒否し技術�
     purpose: "task",
   };
   const input = {
-    purpose: "probe",
+    purpose: "task",
     managementCapability: {},
     mountCapability: {},
     providerHome: {
@@ -408,7 +404,8 @@ test("用途限定入力は動的値・完全選定・欠測を拒否し技術�
       providerHomeIdentityHash: "a".repeat(64),
       stableLogicalHomeBindingHash: "b".repeat(64),
     },
-    executionSelection: executionSelection(),
+    packetCapability: {},
+    packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
     taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",

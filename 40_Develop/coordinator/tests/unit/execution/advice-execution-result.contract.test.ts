@@ -306,21 +306,22 @@ import {
   prepareProviderAdviceInput,
 } from "../../../src/lifecycle/selection.ts";
 const selection = executionSelection("advice");
-const task = prepareAdviceTask({
-  executionSelection: selection,
-  prompt: "固定投影だけを根拠に説明する",
-  projection: [
-    {
-      reference: "PROJECT_CONTEXT.md",
-      content: "# Project Context\n",
-    },
-  ],
-});
+const task = prepareAdviceTask(
+  {
+    prompt: "固定投影だけを根拠に説明する",
+    projection: [
+      {
+        reference: "PROJECT_CONTEXT.md",
+        content: "# Project Context\n",
+      },
+    ],
+  },
+  selection,
+);
 if (!task.taskPacket) throw new Error("test_task_required");
 const dispatchInput = {
   additionalHosts: Object.freeze([]),
   taskPacket: task.taskPacket,
-  executionSelection: selection,
 };
 const executionPlan = prepareProviderAdviceInput(
   Object.freeze({
@@ -329,8 +330,8 @@ const executionPlan = prepareProviderAdviceInput(
     allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
     taskHash: task.taskPacket.taskHash,
     projectionHash: task.taskPacket.projectionHash,
-    executionSelection: selection,
   }),
+  selection,
 );
 if (!executionPlan) throw new Error("test_execution_plan_required");
 const ADVICE = JSON.stringify({

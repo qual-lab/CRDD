@@ -8,27 +8,19 @@
  * @scope Coordinatorの新規選定と実行前照合、実行モデルの保存値検査、AI Adapterの技術選定。
  * @boundary 同一Process内。保存・認証・外部AI・Dockerを使用しない。
  */
-import {
-  inspectExecutionSelection,
-  inspectTaskExecutionSelections,
-  type ExecutionSelection,
-} from "../../../../execution-model/src/index.ts";
+import type { ExecutionSelection } from "../../../../execution-model/src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import { isDeepStrictEqual } from "node:util";
 import { compileFunction } from "node:vm";
 import {
   getModelCatalog,
   resolveModelSelection,
 } from "../../../../ai-adapter/src/index.ts";
 import { validateAiSelectionConfig } from "../../../../configuration-model/src/index.ts";
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../../../src/lifecycle/validation.ts";
+import { snapshotPlainRecord } from "../../../src/lifecycle/validation.ts";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { resolveTaskExecutionSelections } from "../../../src/lifecycle/selection.ts";
 import { resolveFixtureExecutionSelection } from "../../fixtures/ai-selection.ts";
@@ -40,8 +32,8 @@ const catalog = getModelCatalog().catalog;
  * @responsibility 実際の製品宣言で完全一致とEffect非発行を確認する。
  * @trace ERB-UT-023
  * @precondition 有限の管理・Repository観測と実Catalogを使用する。
- * @stimulus 一件・二件、別操作、未信頼入力、技術不一致と照合例外を与える。
- * @observation 読取り順、拒否理由、捕捉値の独立性と返却field。
+ * @stimulus 確定済み選定一件・二件、別操作、技術不一致と照合例外を与える。
+ * @observation 読取り順、拒否理由と返却field。
  * @oracle 完全一致時だけ一致を返し、技術照合の拒否後に後続を照合しない。
  * @cleanup N/A: 局所値のみ。
  * @boundary 現在操作とAI Adapterの値照合。外部AI・Docker・保存なし。
@@ -75,11 +67,7 @@ test("実行前の選定照合は現在操作と技術適合だけを確認す�
   let repositoryThrows = false;
   let managementRevoked = false;
   let catalogThrows = false;
-  let hooks = 0;
   const calls: string[] = [];
-  const captured: ExecutionSelection[] = [];
-  let alterSelection: ((selection: ExecutionSelection) => unknown) | null =
-    null;
   const { preflight: invoke, verify } = compileFunction(
     `${body}\nreturn {
     preflight: preflightDelegationSelections,
@@ -89,11 +77,7 @@ test("実行前の選定照合は現在操作と技術適合だけを確認す�
       "verifyOwnedOperationManagementCapability",
       "bindings",
       "observe",
-      "snapshotPlainRecord",
-      "snapshotPlainArray",
-      "inspectExecutionSelection",
       "resolveModelSelection",
-      "isDeepStrictEqual",
     ],
   )(
     (value: unknown) => {
@@ -114,24 +98,17 @@ test("実行前の選定照合は現在操作と技術適合だけを確認す�
       if (repositoryThrows) throw Error("repository error");
       return current;
     },
-    snapshotPlainRecord,
-    snapshotPlainArray,
-    (value: unknown) => {
-      const selection = inspectExecutionSelection(value);
-      if (!selection) return null;
-      captured.push(selection);
-      return alterSelection ? alterSelection(selection) : selection;
-    },
     (input: { provider: string }) => {
       calls.push(input.provider);
       if (catalogThrows) throw Error("catalog error");
       return resolveModelSelection(input);
     },
-    isDeepStrictEqual,
   ) as {
     preflight: (
       owner: unknown,
-      request: unknown,
+      request: Parameters<
+        typeof import("../../../src/lifecycle/selection.ts").preflightDelegationSelections
+      >[1],
     ) => { status: "matched" } | { status: "blocked"; reason: string };
     verify: typeof import("../../../src/lifecycle/host.ts").verifyRepositoryOperation;
   };
@@ -141,22 +118,16 @@ test("実行前の選定照合は現在操作と技術適合だけを確認す�
   assert.equal(selected.status, "resolved");
   if (selected.status !== "resolved") return;
   const { executor, reviewer } = selected.value;
-  const request = (executionSelections: unknown) => ({
+  const request = (executionSelections: readonly ExecutionSelection[]) => ({
     operationId,
     executionSelections,
   });
   const observations = ["management", "binding", "repository"];
   for (const selections of [[executor], [executor, reviewer]]) {
     calls.length = 0;
-    captured.length = 0;
     const result = invoke(reference, request(selections));
     assert.deepEqual(result, { status: "matched" });
-    assert.deepEqual(captured, selections);
     assert.ok(Object.isFrozen(result));
-    for (const [index, original] of selections.entries()) {
-      assert.notEqual(captured[index], original);
-      assert.ok(Object.isFrozen(captured[index]));
-    }
     assert.deepEqual(calls, [
       ...observations,
       ...selections.map((selection) => selection.provider),
@@ -166,7 +137,7 @@ test("実行前の選定照合は現在操作と技術適合だけを確認す�
   const failed = "delegation_slate_preflight_failed";
   const reject = (
     owner: unknown,
-    input: unknown,
+    input: Parameters<typeof invoke>[1],
     reason: string,
     expectedCalls: string[],
   ) => {
@@ -176,31 +147,10 @@ test("実行前の選定照合は現在操作と技術適合だけを確認す�
   };
   for (const input of [
     { ...request([executor]), operationId: "OP-654321" },
-    { ...request([executor]), extra: true },
     request([]),
     request([executor, reviewer, executor]),
-    request([executor, { ...reviewer, role: "unknown" }]),
-    request([{ ...executor, provider: "unknown" }]),
-    request([
-      {
-        ...executor,
-        get provider() {
-          hooks++;
-          return executor.provider;
-        },
-      },
-    ]),
-    request([
-      new Proxy(executor, {
-        ownKeys() {
-          hooks++;
-          return [];
-        },
-      }),
-    ]),
   ])
     reject(reference, input, invalid, observations);
-  assert.equal(hooks, 0);
   for (const other of [null, { ...bound, operationId: "OP-654321" }]) {
     binding = other;
     reject(reference, request([executor]), invalid, ["management", "binding"]);
@@ -223,30 +173,14 @@ test("実行前の選定照合は現在操作と技術適合だけを確認す�
   reject(reference, request([executor]), failed, ["management"]);
   managementRevoked = false;
   const firstOnly = [...observations, executor.provider];
-  const reordered = Object.fromEntries(Object.entries(executor).reverse());
-  assert.deepEqual(invoke(reference, request([reordered])), {
-    status: "matched",
-  });
-  for (const alter of [
-    (value: ExecutionSelection) => ({
-      ...value,
-      configIdentity: "f".repeat(64),
-    }),
-    (value: ExecutionSelection) => ({ ...value, unknown: true }),
-  ]) {
-    alterSelection = alter;
-    reject(reference, request([executor]), invalid, firstOnly);
-  }
-  alterSelection = () => null;
-  reject(reference, request([executor]), invalid, observations);
-  alterSelection = null;
-  for (const rejected of [
+  const unsupported: ExecutionSelection[] = [
     { ...executor, modelIdentifier: "retired-model" },
     {
       ...executor,
       identifierKind: executor.identifierKind === "exact" ? "alias" : "exact",
     },
-  ])
+  ];
+  for (const rejected of unsupported)
     reject(
       reference,
       request([rejected, reviewer]),
@@ -404,7 +338,7 @@ test("Task選定組は同じ設定から二役割を固定し明示指定を編�
  * @boundary 選定内容と非Authority Identity。
  */
 test("固定選定のHashは移管前のbyteと一致する", () => {
-  const selection = {
+  const selection: ExecutionSelection = {
     provider: "codex",
     modelIdentifier: "historical-model",
     identifierKind: "exact",
@@ -417,23 +351,18 @@ test("固定選定のHashは移管前のbyteと一致する", () => {
     source: "explicit",
   };
   assert.equal(
-    hashExecutionSelection(inspectExecutionSelection(selection)),
+    hashExecutionSelection(selection),
     "5fa860b97b4251d54285de02ae6b0a4c25ecdf967e1d4958cc3dd91c8b06a70e",
   );
   assert.equal(
     hashExecutionSelection(
-      inspectExecutionSelection(
-        Object.fromEntries(Object.entries(selection).reverse()),
-      ),
+      Object.fromEntries(
+        Object.entries(selection).reverse(),
+      ) as ExecutionSelection,
     ),
-    hashExecutionSelection(inspectExecutionSelection(selection)),
+    hashExecutionSelection(selection),
   );
-  assert.equal(
-    hashExecutionSelection(
-      inspectExecutionSelection({ ...selection, authority: true }),
-    ),
-    null,
-  );
+  assert.equal(hashExecutionSelection(null), null);
 });
 
 import { hashExecutionSelection } from "../../../src/lifecycle/selection.ts";
@@ -442,7 +371,7 @@ import { hashExecutionSelection } from "../../../src/lifecycle/selection.ts";
  * 捕捉済み選定のHash生成は受付検査を再実行しない。
  * @responsibility 固定byteと内容差を維持し二重捕捉を防ぐ。
  * @trace RCM-UT-001
- * @precondition 実Hash宣言とEM受付で独立捕捉した値を使用する。
+ * @precondition 実Hash宣言と既存の確定選定を使用する。
  * @stimulus 正常値・nullと入力元の後続変更を与える。
  * @observation 固定Hash、検査関数の未呼出し、元値からの独立。
  * @oracle 検査を呼べば失敗する接続でも同じHashを返す。
@@ -455,84 +384,20 @@ test("捕捉済み選定のHashは受付を繰り返さず固定byteを保つ", 
     "utf8",
   );
   const hash = compileFunction(
-    `return (${stripTypeScriptTypes(sourceDeclaration(source, "hashExecutionSelection"))});`,
-    ["createHash", "inspectExecutionSelection"],
-  )(createHash, () =>
-    assert.fail("duplicate_selection_inspection"),
-  ) as typeof hashExecutionSelection;
+    `${["orderExecutionSelection", "hashExecutionSelection"].map((name) => stripTypeScriptTypes(sourceDeclaration(source, name))).join("\n")}\nreturn hashExecutionSelection;`,
+    ["createHash"],
+  )(createHash) as typeof hashExecutionSelection;
   const resolved = resolveFixtureExecutionSelection(config(), {
     role: "executor",
     workType: "coding",
   });
   assert.ok(resolved.value);
   const raw = { ...resolved.value };
-  const captured = inspectExecutionSelection(raw);
-  assert.ok(captured);
-  const expected = createHash("sha256")
-    .update(JSON.stringify(captured), "utf8")
-    .digest("hex");
+  const captured = resolved.value;
+  const expected = hashExecutionSelection(captured);
   raw.modelIdentifier = "changed-after-intake";
   assert.equal(hash(captured), expected);
   assert.equal(hash(null), null);
-});
-
-/**
- * 保存された選定組の役割と設定相関を検査する。
- * @responsibility 別受付の選定や現在Catalogを役割組へ混入させない。
- * @trace RCM-UT-001
- * @precondition 解決済みの二役割と局所変更値。
- * @stimulus role・設定・Catalog・分類の差、過剰key、getter、Proxyを与える。
- * @observation 復元値又はnull、hook実行数。
- * @oracle 同じ過去値だけ独立復元し、混在と実行Propertyをhook 0で拒否する。
- * @cleanup N/A: I/Oなし。
- * @boundary Task・Objective・Operationの保存値codec。
- */
-test("保存選定組は別設定・役割・分類の混在を拒否し過去値を再選定しない", () => {
-  const original = resolveTaskExecutionSelections(config(), {
-    workType: "coding",
-  }).value;
-  assert.ok(original);
-  const past = {
-    ...original,
-    executor: { ...original.executor, modelIdentifier: "retired-model" },
-  };
-  const recovered = inspectTaskExecutionSelections(past);
-  assert.ok(recovered);
-  assert.equal(recovered.executor.modelIdentifier, "retired-model");
-  let hooks = 0;
-  for (const invalid of [
-    { ...original, reviewer: { ...original.reviewer, source: "explicit" } },
-    {
-      ...original,
-      reviewer: { ...original.reviewer, configIdentity: "a".repeat(64) },
-    },
-    {
-      ...original,
-      reviewer: { ...original.reviewer, catalogIdentity: "b".repeat(64) },
-    },
-    { ...original, reviewer: { ...original.reviewer, workType: null } },
-    { executor: original.reviewer, reviewer: original.executor },
-    { ...original, authority: true },
-    {
-      get executor() {
-        hooks += 1;
-        return original.executor;
-      },
-      reviewer: original.reviewer,
-    },
-    new Proxy(original, {
-      ownKeys() {
-        hooks += 1;
-        return [];
-      },
-    }),
-  ])
-    assert.equal(inspectTaskExecutionSelections(invalid), null);
-  assert.equal(hooks, 0);
-  assert.notEqual(recovered, past);
-  assert.ok(
-    Object.isFrozen(recovered.executor) && Object.isFrozen(recovered.reviewer),
-  );
 });
 
 /**
@@ -573,9 +438,9 @@ test("選定Hashは十項目を固定しキー順によらず内容差を区別�
   assert.match(identity ?? "", /^[a-f0-9]{64}$/u);
   assert.equal(
     hashExecutionSelection(
-      inspectExecutionSelection(
-        Object.fromEntries(Object.entries(source).reverse()),
-      ),
+      Object.fromEntries(
+        Object.entries(source).reverse(),
+      ) as ExecutionSelection,
     ),
     identity,
   );
@@ -591,156 +456,24 @@ test("選定Hashは十項目を固定しキー順によらず内容差を区別�
     { workType: null },
     { source: "role_default" },
   ]) {
-    const changed = hashExecutionSelection(
-      inspectExecutionSelection({ ...source, ...difference }),
-    );
+    const changed = hashExecutionSelection({
+      ...source,
+      ...difference,
+    } as ExecutionSelection);
     assert.ok(changed);
     assert.notEqual(changed, identity);
   }
-  assert.equal(
-    hashExecutionSelection(
-      inspectExecutionSelection({ ...source, authority: true }),
-    ),
-    null,
-  );
+  assert.equal(hashExecutionSelection(null), null);
 });
 
-/**
- * 保存選定の復元と新規技術選定を分離する。
- * @responsibility 現在Catalogから除かれたModelを別Modelへ再解釈しない。
- * @trace RCM-UT-001
- * @precondition 正常な選定結果と合成の当時Identity。
- * @stimulus alias、現在未登録の識別子、旧設定Hashを保存値として戻す。
- * @observation 全十fieldの独立Snapshotと新規解決の拒否。
- * @oracle 復元は当時の値を保持するだけで、実行可否を付与しない。
- * @cleanup N/A: 局所値のみ。
- * @boundary 保存選定codecと現在CatalogによるResolver。
- */
-test("保存選定は現在Catalogで再解釈せずaliasと当時の値を保持する", () => {
-  const resolved = resolveFixtureExecutionSelection(config(), {
-    role: "executor",
-    workType: "coding",
-  });
-  assert.ok(resolved.value);
-  const decoded = inspectExecutionSelection(
-    JSON.parse(JSON.stringify(resolved.value)),
-  );
-  assert.deepEqual({ ...decoded }, { ...resolved.value });
-  assert.equal(decoded?.identifierKind, "alias");
-  assert.equal(decoded?.modelIdentifier, "opus");
-  assert.ok(Object.isFrozen(decoded));
-  const historical = {
-    ...resolved.value,
-    modelIdentifier: "retired-model",
-    reasoningEffort: "max",
-    catalogIdentity: "a".repeat(64),
-    configIdentity: "b".repeat(64),
-  };
-  const snapshot = inspectExecutionSelection(historical);
-  assert.ok(snapshot);
-  assert.equal(snapshot.modelIdentifier, "retired-model");
-  assert.equal(snapshot.reasoningEffort, "max");
-  assert.equal(snapshot.catalogIdentity, "a".repeat(64));
-  historical.modelIdentifier = "changed-later";
-  assert.equal(snapshot.modelIdentifier, "retired-model");
+/** @trace RCM-UT-001 保存できる過去モデルでも、現在の新規選定に補完しない。 */
+test("現在の選定は廃止済みモデルを別モデルへ補完しない", () => {
   const fresh = resolveFixtureExecutionSelection(config(), {
     role: "executor",
     workType: "coding",
     choice: { provider: "claude", model: "retired-model", effort: "max" },
   });
   assert.equal(fresh.status, "blocked");
-  const nullPrototype = Object.assign(Object.create(null), snapshot);
-  assert.deepEqual(inspectExecutionSelection(nullPrototype), snapshot);
-});
-
-/**
- * 保存codecの閉形式と相関違反を反証する。
- * @responsibility Authority・旧Profile・暗黙変換を選定値へ混入させない。
- * @trace RCM-UT-001
- * @precondition 有効な選定値。
- * @stimulus 欠測・過剰・未知・Getter／Proxy・暗黙文字列変換・役割用途矛盾を渡す。
- * @observation nullとhook実行0。
- * @oracle 不正値は実行可能な代替へ補完されない。
- * @cleanup N/A: 局所値のみ。
- * @boundary 未信頼保存値と純粋なcodec。
- */
-test("保存選定の不足・過剰・相関不正はhookを実行せず拒否する", () => {
-  const resolved = resolveFixtureExecutionSelection(config(), {
-    role: "executor",
-    workType: "coding",
-  });
-  assert.ok(resolved.value);
-  const value = resolved.value;
-  let hooks = 0;
-  const omitted = { ...value } as Record<string, unknown>;
-  delete omitted.catalogIdentity;
-  const hidden = { ...value };
-  Object.defineProperty(hidden, "modelIdentifier", {
-    value: "opus",
-    enumerable: false,
-  });
-  for (const invalid of [
-    null,
-    [],
-    omitted,
-    hidden,
-    { ...value, profileId: "PROFILE-100001" },
-    { ...value, authority: {} },
-    { ...value, provider: "other" },
-    { ...value, identifierKind: "resolved" },
-    { ...value, modelIdentifier: "" },
-    { ...value, modelIdentifier: "bad\nvalue" },
-    { ...value, reasoningEffort: "extreme" },
-    { ...value, catalogIdentity: "A".repeat(64) },
-    { ...value, configIdentity: "" },
-    { ...value, role: "unknown" },
-    { ...value, purpose: "advice" },
-    { ...value, source: "fallback" },
-    { ...value, source: "work_type_override", workType: null },
-    { ...value, workType: "bad type" },
-    {
-      ...value,
-      source: {
-        toString() {
-          hooks++;
-          return "explicit";
-        },
-      },
-    },
-    {
-      ...value,
-      get modelIdentifier() {
-        hooks++;
-        return "opus";
-      },
-    },
-    Object.create(value),
-    new Proxy(value, {
-      ownKeys() {
-        hooks++;
-        return [];
-      },
-      getPrototypeOf() {
-        hooks++;
-        return null;
-      },
-    }),
-    { ...value, [Symbol("extra")]: true },
-  ])
-    assert.equal(inspectExecutionSelection(invalid), null);
-  assert.equal(hooks, 0);
-  for (const role of ["coordinator", "advice", "result_integration"] as const) {
-    const current = resolveFixtureExecutionSelection(config(), {
-      role,
-      workType: null,
-    });
-    assert.ok(current.value);
-    assert.ok(inspectExecutionSelection(current.value));
-    assert.equal(
-      inspectExecutionSelection({ ...current.value, purpose: "task" }),
-      null,
-    );
-  }
 });
 
 /**

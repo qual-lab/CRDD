@@ -17,6 +17,7 @@ import {
   revokeProviderAdvicePacket,
 } from "../../../src/lifecycle/selection.ts";
 import type { ProviderAdvicePacketInput } from "../../../src/lifecycle/types.ts";
+const adviceSelection = executionSelection("advice");
 
 /**
  * 合成の確定入力を作る。
@@ -32,7 +33,6 @@ import type { ProviderAdvicePacketInput } from "../../../src/lifecycle/types.ts"
 function input(): ProviderAdvicePacketInput {
   return {
     operationId: "OP-000001",
-    executionSelection: executionSelection("advice"),
     provider: "codex",
     taskHash: "a".repeat(64),
     projectionHash: "b".repeat(64),
@@ -54,11 +54,11 @@ function input(): ProviderAdvicePacketInput {
  * @boundary Packet Ownerと確定入力。
  */
 test("助言Packetは元Ownerだけが一回消費しCommandを含まない", () => {
-  const issued = issueProviderAdvicePacket(input());
+  const issued = issueProviderAdvicePacket(input(), adviceSelection);
   assert.equal(issued.status, "issued");
   assert.equal(issued.providerEffectIssued, false);
   assert.equal(consumeProviderAdvicePacket(issued.useCapability, {}), null);
-  const cancelled = issueProviderAdvicePacket(input());
+  const cancelled = issueProviderAdvicePacket(input(), adviceSelection);
   assert.equal(cancelled.status, "issued");
   assert.notEqual(issued.ownerCapability, cancelled.ownerCapability);
   assert.notEqual(issued.useCapability, cancelled.useCapability);
@@ -121,7 +121,7 @@ test("助言Packetは元Ownerだけが一回消費しCommandを含まない", ()
  */
 test("Packet Hashは操作・完全選定・本文・参照・Policyを固定する", () => {
   const value = input(),
-    issued = issueProviderAdvicePacket(value);
+    issued = issueProviderAdvicePacket(value, adviceSelection);
   const packet = consumeProviderAdvicePacket(
     issued.useCapability,
     issued.ownerCapability,
@@ -132,7 +132,7 @@ test("Packet Hashは操作・完全選定・本文・参照・Policyを固定す
     contractRevision: 3,
     packetRef: packet.packetRef,
     operationId: value.operationId,
-    executionSelection: value.executionSelection,
+    executionSelection: adviceSelection,
     provider: value.provider,
     taskHash: value.taskHash,
     projectionHash: value.projectionHash,
@@ -153,7 +153,7 @@ test("Packet Hashは操作・完全選定・本文・参照・Policyを固定す
     { operationId: "OP-000002" },
     {
       executionSelection: {
-        ...value.executionSelection,
+        ...adviceSelection,
         reasoningEffort: "high",
       },
     },
@@ -190,13 +190,20 @@ test("入力検査は選定・通信条件・旧Command・不正dataを拒否す
     { allowedReferences: ["same", "same"] },
     { providerCommand: { workspaceMountRequired: true } },
   ]) {
-    const issued = issueProviderAdvicePacket({
-      ...input(),
-      ...change,
-    } as ProviderAdvicePacketInput);
+    const issued = issueProviderAdvicePacket(
+      {
+        ...input(),
+        ...change,
+      } as ProviderAdvicePacketInput,
+      adviceSelection,
+    );
     assert.equal(issued.status, "blocked");
     assert.equal(issued.ownerCapability, null);
   }
+  assert.equal(
+    issueProviderAdvicePacket(input(), executionSelection("executor")).status,
+    "blocked",
+  );
   let reads = 0;
   const accessor = { ...input() };
   Object.defineProperty(accessor, "additionalHosts", {
@@ -206,9 +213,12 @@ test("入力検査は選定・通信条件・旧Command・不正dataを拒否す
       throw Error("must not read");
     },
   });
-  assert.equal(issueProviderAdvicePacket(accessor).status, "blocked");
   assert.equal(
-    issueProviderAdvicePacket(new Proxy(input(), {})).status,
+    issueProviderAdvicePacket(accessor, adviceSelection).status,
+    "blocked",
+  );
+  assert.equal(
+    issueProviderAdvicePacket(new Proxy(input(), {}), adviceSelection).status,
     "blocked",
   );
   assert.equal(reads, 0);
@@ -231,11 +241,12 @@ test("Policy・参照・本文は発行時の値で固定する", () => {
     allowedReferences: ["PROJECT_CONTEXT.md"],
     additionalHosts: JSON.parse(JSON.stringify(input().additionalHosts)),
   };
-  const issued = issueProviderAdvicePacket(value);
+  const selected = { ...adviceSelection };
+  const issued = issueProviderAdvicePacket(value, selected);
   value.allowedReferences.push("later");
   value.additionalHosts.push("later.example");
   value.providerPrompt = "later";
-  value.executionSelection = executionSelection("executor");
+  selected.role = "executor";
   const packet = consumeProviderAdvicePacket(
     issued.useCapability,
     issued.ownerCapability,
@@ -258,7 +269,7 @@ test("Policy・参照・本文は発行時の値で固定する", () => {
  * @cleanup Packetを消費する。外部資源なし。
  */
 test("発行した助言Packetは非共有の内容を一回だけ返す", () => {
-  const issued = issueProviderAdvicePacket(input());
+  const issued = issueProviderAdvicePacket(input(), adviceSelection);
   assert.equal(issued.status, "issued");
   assert.equal(issued.providerEffectIssued, false);
   const packet = consumeProviderAdvicePacket(

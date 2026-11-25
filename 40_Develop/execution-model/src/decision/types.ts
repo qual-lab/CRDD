@@ -4,7 +4,7 @@
  * @trace ARCH-000008
  */
 
-import type { Snapshot } from "../state/types.ts";
+import type { Snapshot } from "../composition/types.ts";
 
 /** 同一保存内で判断の意味を検査する区画。保存RootやAuthorityは含めない。 */
 export type DecisionSnapshot = Pick<

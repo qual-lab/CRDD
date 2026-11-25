@@ -20,8 +20,8 @@ import {
   readOperationStateStage,
   readRecoveryState,
   saveAuthenticationClosure,
-} from "../state/crud.ts";
-import type { StateVersion } from "../state/types.ts";
+} from "../composition/crud.ts";
+import type { StateVersion } from "../composition/types.ts";
 import {
   classifyResourcePublication,
   decodeStateSnapshot,
@@ -43,13 +43,13 @@ import {
   prepareStateRestartSnapshot,
   projectTaskSettlement,
   validateRepairWriteCandidate,
-} from "../state/validation.ts";
+} from "../composition/transition.ts";
 import {
   encodeStateValue,
   isPlainRecord,
   isSha256Hex,
   snapshotStateRecord,
-} from "../state/operations.ts";
+} from "../composition/validation.ts";
 import {
   captureExecutionCleanupVerification,
   executionStorageOperationIdentity,
@@ -61,15 +61,18 @@ import {
   readExecutionStorageBinding,
   acquireStorageOwnerForRepository,
 } from "../storage/lock.ts";
+import type {
+  captureStateVersionEvidence,
+  StorageRepository,
+} from "../storage/store.ts";
 import {
   publishStateOwned,
   publishRecoveryState,
   readHistoryResumeCandidate,
+  readResourcePublicationBytes,
+  readStateVersionEvidence,
   writeOwnedStateSnapshot,
   writeStateSnapshot,
-} from "../storage/publication.ts";
-import type { StorageRepository } from "../storage/store.ts";
-import {
   readStateSnapshot,
   readStorageSnapshotOwned,
   assertExecutionStateInitializationBoundary,
@@ -81,13 +84,8 @@ import type {
   OperationCheckpointRequest,
   RecoveryCheckpointRequest,
 } from "./types.ts";
-import {
-  areTaskResourcesSettled,
-  readOperationHost,
-  isDockerRestartCheckpointSettled,
-  decodeHostOperation,
-  validHostOperationTransition,
-} from "./validation.ts";
+import { readOperationHost, decodeHostOperation } from "./validation.ts";
+import { validHostOperationTransition } from "./transition.ts";
 
 /**
  * 作成前Host Intent又は同じ元版のCheckpointを既存OwnerとWriterで保存する。
@@ -1137,7 +1135,7 @@ export function saveRecoveryCheckpoint(
 export function saveRecoveryCheckpoint(
   repository: StorageRepository & { operationId: string },
   recoveryId: string,
-  before: Buffer,
+  before: ReturnType<typeof captureStateVersionEvidence>,
   request: Exclude<
     RecoveryCheckpointRequest,
     {
@@ -1168,7 +1166,7 @@ export function saveRecoveryCheckpoint(
     | [
         repository: StorageRepository & { operationId: string },
         recoveryId: string,
-        before: Buffer,
+        before: ReturnType<typeof captureStateVersionEvidence>,
         request: Exclude<
           RecoveryCheckpointRequest,
           {
@@ -1209,27 +1207,17 @@ export function saveRecoveryCheckpoint(
     return writeStateSnapshot(null, null, null, null);
   const repository = authority as StorageRepository & { operationId: string };
   const recoveryId = recoveryReference as string;
-  const before = rawBefore as Buffer;
+  const before = readStateVersionEvidence(rawBefore);
   switch (captured.kind) {
     case "resource_publication": {
       const input = snapshotStateRecord(
         request,
         new Set(["kind", "publication", "assertOwner"]),
       );
-      const publication = input
-        ? snapshotStateRecord(
-            input.publication,
-            new Set(["before", "candidate"]),
-          )
-        : null;
-      if (
-        rawBefore !== null ||
-        !input ||
-        !publication ||
-        !Buffer.isBuffer(publication.before) ||
-        !Buffer.isBuffer(publication.candidate)
-      )
+      if (rawBefore !== null || !input)
         return writeStateSnapshot(null, null, null, null);
+      const publication = readResourcePublicationBytes(input.publication);
+      if (!publication) return writeStateSnapshot(null, null, null, null);
       const before = publication.before,
         candidate = publication.candidate;
       const assertOwner = input.assertOwner;
@@ -1259,8 +1247,7 @@ export function saveRecoveryCheckpoint(
         if (
           current.status !== "completed" ||
           !current.lockReleased ||
-          !current.resourcePublication?.before.equals(before) ||
-          !current.resourcePublication.candidate.equals(candidate) ||
+          !current.resourcePublication?.matches(input.publication) ||
           assertOwner() !== true
         )
           return Object.freeze({
@@ -1328,6 +1315,7 @@ export function saveRecoveryCheckpoint(
     }
     case "authentication_unknown_closure": {
       if (
+        !before ||
         !Object.hasOwn(captured, "observations") ||
         !Object.hasOwn(captured, "assertOwner")
       )
@@ -1501,100 +1489,32 @@ export function saveRecoveryCheckpoint(
     case "terminal": {
       if (
         !Object.hasOwn(captured, "assertOwner") ||
-        Reflect.ownKeys(captured).length !== 2
+        Reflect.ownKeys(captured).length !== 2 ||
+        !before ||
+        typeof captured.assertOwner !== "function"
       )
         return writeStateSnapshot(null, null, null, null);
       const assertOwner = captured.assertOwner as () => boolean;
-
-      const blocked = () => writeStateSnapshot(null, null, null, null);
       try {
-        if (typeof assertOwner !== "function" || assertOwner() !== true)
-          return blocked();
-        let current = readStateSnapshot(repository, recoveryId);
-        if (current.status !== "completed" && current.lockReleased)
-          current = readStateSnapshot(repository, recoveryId, recoveryId);
-        if (current.status !== "completed" && current.lockReleased)
-          current = readStateSnapshot(repository, recoveryId, null);
-        if (
-          current.status !== "completed" ||
-          !current.value ||
-          !current.lockReleased
-        )
-          return Object.freeze({
-            ...blocked(),
-            reason: current.reason,
-            lockReleased: current.lockReleased,
-          });
-        const bytes = Buffer.from(
-          `${encodeStateValue(current.value.snapshot)}\n`,
-        );
-        const operation = current.value.snapshot.operations.find(
-          (item): item is ExecutionOperationRecord =>
-            item.kind === "docker_task" && item.recoveryId === recoveryId,
-        );
-        if (
-          !Buffer.isBuffer(before) ||
-          !bytes.equals(before) ||
-          !operation ||
-          JSON.parse(operation.identityJson).operationId !==
-            repository.operationId ||
-          readOperationHost(current.value.snapshot.operations, operation)
-            ?.cleanup !== "confirmed" ||
-          operation.execution.ownerEffect !== "disabled" ||
-          operation.phase === "terminal" ||
-          !areTaskResourcesSettled(operation) ||
-          !isDockerRestartCheckpointSettled(operation.dockerRestart) ||
-          assertOwner() !== true
-        )
-          return blocked();
-        if (
-          operation.lease === "released" &&
-          operation.outcome?.cleanupConfirmed === true
-        )
-          return Object.freeze({
-            status: "completed" as const,
-            reason: "coordinator_state_snapshot_confirmed",
-            revision: current.value.snapshot.revision,
-            payloadSha256: current.value.payloadSha256,
-            recoveryIds: Object.freeze([recoveryId]),
-            snapshotConfirmed: true,
-            lockReleased: true,
-            filesystemEffectIssued: false,
-          });
-        const candidate = prepareStateLifecycleSnapshot(
-          bytes,
-          recoveryId,
-          {
-            phase: "settling",
-            lease: "released",
-            execution: operation.execution,
-            primaryFailure: operation.primaryFailure,
-            outcome:
-              operation.outcome === null
-                ? {
-                    status: "blocked",
-                    reason: "docker_process_controller_execution_failed_closed",
-                    cleanupConfirmed: true,
-                  }
-                : { ...operation.outcome, cleanupConfirmed: true },
-            summarySha256: operation.summarySha256,
-          },
-          repository.repositoryBinding,
-        );
-        if (!candidate) return blocked();
+        if (!repository || assertOwner() !== true)
+          return writeStateSnapshot(null, null, null, null);
         return writeStateSnapshot(
           null,
           {
             ...repository,
-            revalidate: (expectedHistoryRetentionDays?: number) =>
-              assertOwner() === true &&
-              repository.revalidate(expectedHistoryRetentionDays),
+            revalidate: (days?: number) =>
+              assertOwner() === true && repository.revalidate(days),
           },
-          candidate,
           null,
+          {
+            recoveryId,
+            cleanupStatus: null,
+            dockerTerminal: null,
+            recoveryTerminal: { before },
+          },
         );
       } catch {
-        return blocked();
+        return writeStateSnapshot(null, null, null, null);
       }
     }
     default:

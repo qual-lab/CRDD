@@ -85,7 +85,7 @@ test("採用記録はexactなCommit長と計画相関を要求し過去失敗を
   let snapshot: unknown;
   const verifiedRoot = Object.freeze({});
   const ready = new Function(
-    "readState",
+    "readWorkspaceState",
     "resolveExecutionStorageDirectory",
     `${code}; return workspacePlanReadyForAcceptance;`,
   )(

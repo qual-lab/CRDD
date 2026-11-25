@@ -19,85 +19,53 @@ import { loadAdviceDispatchFixture } from "../../support/task-requests.ts";
 const { dispatchAdviceRequest } = await loadAdviceDispatchFixture();
 const selection = executionSelection("advice");
 
-const prepared = prepareAdviceTask({
-  executionSelection: selection,
-  prompt: "現在の状況と次の選択肢を整理する",
-  projection: [
-    {
-      reference: "PROJECT_CONTEXT.md",
-      content: "# Project Context\n\nStatus: Current\n",
-    },
-  ],
-});
+const prepared = prepareAdviceTask(
+  {
+    prompt: "現在の状況と次の選択肢を整理する",
+    projection: [
+      {
+        reference: "PROJECT_CONTEXT.md",
+        content: "# Project Context\n\nStatus: Current\n",
+      },
+    ],
+  },
+  selection,
+);
 assert.equal(prepared.status, "prepared");
 assert.ok(prepared.taskPacket);
 if (prepared.taskPacket === null) throw new Error("test_task_packet_required");
 const taskPacket = prepared.taskPacket;
 
 /**
- * 助言Packet側の選定も各完成入口で一回独立捕捉する。
- * @responsibility 検査済み値のHash計算へ切替えても未信頼Packetの受付を省かない。
+ * 選定は受付で確定し、投影本文には選定の差替え入口を持たせない。
  * @trace ERB-UT-023
- * @precondition 本番の配送受付と正常な合成Packetを使う。
- * @stimulus Packet選定の余剰field・Getter・Proxy・欠測を与える。
- * @observation 拒否理由、実行可能PropertyとProvider接続の呼出し数。
- * @oracle 配送受付で拒否し、hook・Provider接続の呼出し0。
- * @cleanup メモリ値のみ。実AI・Dockerを起動しない。
- * @boundary 助言配送の受付境界。
+ * @boundary 未信頼の投影本文と完成Packet。
  */
-test("助言Packet選定の余剰・実行可能Property・欠測は配送受付でEffect前に拒否する", async () => {
+test("助言の投影本文に混入した選定は実行可能な値を評価せず拒否する", () => {
   let hooks = 0;
-  let calls = 0;
-  const dispatchDependencies: [Parameters<typeof dispatchAdviceRequest>[0]] = [
-    async () => {
-      calls++;
-      throw new Error("provider_must_not_run");
-    },
-  ];
-  const accessor = Object.defineProperty({ ...selection }, "modelIdentifier", {
+  const base = {
+    prompt: taskPacket.prompt,
+    projection: taskPacket.projection.map(({ reference, content }) => ({
+      reference,
+      content,
+    })),
+  };
+  const dynamic = Object.defineProperty({ ...base }, "executionSelection", {
     enumerable: true,
     get() {
       hooks++;
-      return selection.modelIdentifier;
+      return selection;
     },
   });
-  const proxy = new Proxy(
-    { ...selection },
-    {
-      ownKeys(target) {
-        hooks++;
-        return Reflect.ownKeys(target);
-      },
-      get(target, key, receiver) {
-        hooks++;
-        return Reflect.get(target, key, receiver);
-      },
-    },
-  );
-  for (const invalid of [
-    { ...selection, authority: true },
-    accessor,
-    proxy,
-    null,
-    {},
+  const other = Object.freeze({ ...selection, configIdentity: "f".repeat(64) });
+  for (const input of [
+    dynamic,
+    { ...base, executionSelection: other },
+    { ...base, executionSelection: null },
   ]) {
-    const input = {
-      ...dispatchInput(),
-      taskPacket: {
-        ...taskPacket,
-        executionSelection: invalid as typeof selection,
-      },
-    };
-    const rejected = await dispatchAdviceRequest(
-      ...dispatchDependencies,
-      input,
-      new AbortController().signal,
-    );
-    assert.equal(rejected.status, "blocked");
-    assert.equal(rejected.reason, "workbench_ai_advice_dispatch_input_invalid");
-    assert.equal(calls, 0);
-    assert.equal(hooks, 0);
+    assert.equal(prepareAdviceTask(input, selection).status, "blocked");
   }
+  assert.equal(hooks, 0);
 });
 
 const RAW_RESULT = JSON.stringify({
@@ -124,7 +92,6 @@ function dispatchInput() {
   return Object.freeze({
     additionalHosts: Object.freeze([]),
     taskPacket,
-    executionSelection: selection,
   });
 }
 
@@ -143,16 +110,17 @@ function dispatchInput() {
 test("確定した一依頼だけをProviderへ渡して根拠付き結果を返す", async () => {
   let calls = 0;
   const hosts = ["example.com"];
-  const suppliedSelection = { ...selection };
   const dispatchDependencies: [Parameters<typeof dispatchAdviceRequest>[0]] = [
     async (accepted) => {
       calls += 1;
       hosts.push("other.example.com");
-      suppliedSelection.modelIdentifier = "different";
       assert.deepEqual(accepted.additionalHosts, ["example.com"]);
-      assert.deepEqual(accepted.executionSelection, selection);
+      assert.deepEqual(accepted.taskPacket.executionSelection, selection);
       assert.equal(Object.isFrozen(accepted.additionalHosts), true);
-      assert.equal(Object.isFrozen(accepted.executionSelection), true);
+      assert.equal(
+        Object.isFrozen(accepted.taskPacket.executionSelection),
+        true,
+      );
       assert.strictEqual(accepted.taskPacket, taskPacket);
       return Object.freeze({
         status: "completed" as const,
@@ -168,7 +136,6 @@ test("確定した一依頼だけをProviderへ渡して根拠付き結果を返
     {
       ...dispatchInput(),
       additionalHosts: hosts,
-      executionSelection: suppliedSelection,
     },
     new AbortController().signal,
   );

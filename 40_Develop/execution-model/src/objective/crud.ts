@@ -7,8 +7,11 @@
 import {
   readExecutionContent,
   saveExecutionDefinition,
-} from "../state/crud.ts";
-import type { ExecutionModelAccess, StateVersion } from "../state/types.ts";
+} from "../composition/crud.ts";
+import type {
+  ExecutionModelAccess,
+  StateVersion,
+} from "../composition/types.ts";
 import type { ObjectivePlan, ProjectObjectiveDefinition } from "./types.ts";
 
 /**

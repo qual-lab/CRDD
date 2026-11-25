@@ -25,7 +25,7 @@ Task／Objective
 - Worktreeが不一致・ロック中ならProviderへの委譲前に拒否する。未コミット変更だけで拒否せず、Reviewer準備でGit一覧・候補Commit・Refを作らない。
 - 実行先を確定する観測と、Task開始後に同じ配置やHEADを再確認する処理は区別する。後者は、同じ時点の観測だけを再利用候補とする。
 - 借用先の配置は前後で照合する。Directは同一Rootの2観測、Isolatedは所属Rootと実行先の各2観測で、共有Git管理領域の一致も確認する。実行先は指定されたフォルダとして扱い、操作への結合を含めてHEADが指すCommit／Treeの実在は確認しない。期待HEADが指定された場合だけHEADを照合する。Commitが必要なIsolatedの作成・候補固定・取込は、Version Controlがその時点で確認する。保護領域の準備は確定したTreeと `.git` の実体・リンク、および保護先の実体を確認し、Git配置を再読取りしない。Provider委譲直前は別時点として確認する。
-- 修復・回復の受付で確定した正規ディレクトリを既存回復処理へ渡す。回復中の読取りと保存は同じEMの物理保存先に結合し、Git配置・HEADを再観測しない。回復ID、元記録の版、Host世代、保持設定、排他の照合は残す。外部送信の固定版や通常実行の改訂照合には適用しない。
+- 修復・回復の受付で確定した正規ディレクトリを既存回復処理へ渡す。回復中の読取りと保存は同じEMの物理保存先に結合し、Git配置・HEADを再観測しない。回復ID、元記録の版、Host世代、保持設定、排他の照合は残す。専用Host解放後の終端保存・履歴確定・回復完了では、直前にEMの保存先の実体を照合し、同じディレクトリの専用Hostが明示的に不存在であることを確認する。存在または観測不能では確定しない。外部送信の固定版や通常実行の改訂照合には適用しない。
 
 ## 共通実行調停の現在Owner
 
@@ -155,7 +155,7 @@ Objectiveの受付・再入場でProjectやQueueの情報を返せない停止�
 
 ObjectiveとTaskのQueue読取り、scheduled受付、Queue回復確定とTask保存も既存EM操作へ直接接続する。構築時に検証した同じRepository参照、bindingと受付情報を値として保持し、読取り・作成・回復・保存の転送Closureは持たない。scheduled受付は初期化ありの二要素と、なしの一要素を区別し、`undefined`を初期化として追加しない。Task保存は元の受付情報を同一参照で第5引数へ渡す。初回だけの未初期化投影、保存中の実Lease観測、優先選択と解放時の資源不存在確認は残る。残るPort全体の撤去は未完了であり、この段階配置を完成形としない。
 
-Queue優先方針は`lifecycle/execution.ts`の値処理が所有し、ObjectiveとTaskはEMの`selectQueueEntry`へ同じ方針を直接渡す。現在Ownerの保持、interactive優先、scheduled待機／再開の判断は変更せず、一つの短期Writer内でfreshな全Queueから選択・差分生成・CASを行う。選択結果を事前読取りから固定せず、Rootへ内部方針を公開しない。採用LeaseのOwner喪失回復は既存の`reconcileCoordinatorSnapshotLeaseOwnerLoss`が所有する。本番利用のない採用回復のPort投影は持たず、固定`canonical`／`canonical-adoption`と元observerの技術契約は維持する。通常Operation回復のQueue相関確認は別に維持する。
+Queueの固定優先順はEMの`selectNextQueueEntry`が所有する。ObjectiveとTaskの両方が同じ完成操作を使い、Coordinatorは返されたQueueが自分の対象かを確認する。EMは同じ短期保存Ownerで全Queueを読み、現在Ownerを保全し、対話・待機中の予約・未開始の予約の順で選択する。同順位はQueue ID順とし、待機／復帰が必要な場合だけ同じ元版でCASする。Project Operation Lease取得後の再選択は維持し、選択結果を実行許可にしない。Workspace正本採用の物理排他はServerがEMの用途限定操作を通して取得する。通常Operation回復のQueue相関確認は別に維持する。
 
 State／LeaseのPortと構築Factory、`persistence.state`の二重階層は持たない。受付で元DirectoryからRepositoryを検証し、bindingの不正を拒否して、元Directory・Repository参照・binding・intakeだけの値Contextを凍結する。通常のProject読取りは既存EMの`readProjectExecutionState`へ直接接続する。Objective初回受付は元intakeがstartかつblocked／未初期化／手動回復不要／回復IDなしの場合だけ未初期化のProjectとして扱い、取得Ownerの初回例外も同じ限定条件を保つ。通常回復の成功Queueは同じProjectと実際に依頼した回復Queue IDへ照合し、主Queueへ誤って固定しない。不一致では元回復IDと従来の公開停止区分を保持する。統一Loopと最終Source配置は未完了である。
 
@@ -358,7 +358,7 @@ Executor通知をEM資源Bookへ適用する検証はCoの`tests/unit/execution/
 
 ## 3モデル分離への接続 — 2026-11-12
 
-Coordinatorは文書・実行・構成モデルを必要な操作に応じて別々に利用する。ConfigとADの結果を実行OwnerのExecutionSelectionへ投影し、文書ReaderへManifestの3期待Identityだけを渡す。保持設定は履歴を消費する操作・枝だけ搬送し、元の確認位置で期待日数付き既存revalidateを呼ぶ。通常Query／非履歴Recoveryへ設定拒否を広げない。Lease／EI領域・保護Mount等の固定準備は既存Coordinator内へ閉じ、全Path集合や旧汎用ensureの公開に依存しない。
+Coordinatorは文書・実行・構成モデルを必要な操作に応じて別々に利用する。ConfigとADの結果を実行OwnerのExecutionSelectionへ投影し、文書ReaderへManifestの3期待Identityだけを渡す。保持設定は履歴を消費する操作・枝だけ搬送する。確認位置と日数の固定は[実行モデルの保存境界](../execution-model/01_Architecture.md#保持設定)が所有する。通常Query／非履歴Recoveryへ設定拒否を広げない。Lease／EI領域・保護Mount等の固定準備は既存Coordinator内へ閉じ、全Path集合や旧汎用ensureの公開に依存しない。
 
 移管後の限定回帰・独立確認は実施中であり、全体回帰・実AI・Docker・過去保持物の操作を今回の確認へ含めない。保存Schema・Path・Lock・既存の公開失敗情報を変更したとは扱わない。
 
@@ -402,7 +402,7 @@ Host保存試験の共有Home親は自己生成Rootへ限定し、実ユーザ�
 
 ## 長期Leaseの共通File排他への接続 — 2026-11-11
 
-長期Task／採用Leaseの物理取得・保持・通常解放は既存共通Lockのwx／assertLive／releaseへ接続する。Leaseの取得・解放Intent、Owner世代、Queue CAS、終了証拠、Owner喪失判断と再入場はCoordinator／Domainの現Ownerへ残す。共通Lockの取得世代とLeaseの業務世代は同一視しない。保存Schema・公開Lease操作・既存の回復ID・固定所在を変更しない。physicalIdentityは新規取得した通常Fileの実体＋元内容Hashを表す不透明値とする。
+長期Task Leaseの物理取得・保持・通常解放は既存共通Lockのwx／assertLive／releaseへ接続する。Leaseの取得・解放Intent、Owner世代、Queue CAS、終了証拠、Owner喪失判断と再入場はCoordinator／Domainの現Ownerへ残す。共通Lockの取得世代とLeaseの業務世代は同一視しない。保存Schema・公開Lease操作・既存の回復ID・固定所在を変更しない。physicalIdentityは新規取得した通常Fileの実体＋元内容Hashを表す不透明値とする。
 
 通常取得はIntent保存→wx取得→元File照合→取得確認保存とし、取得後の検査・confirm失敗でもdescriptorを閉じ元Fileを保全する。通常解放は解放Intent→元共通Lock解放→明示不存在→終了保存の順を維持する。
 
@@ -1226,7 +1226,7 @@ Host Operation
 
 資源名・Label・Imageの技術文法は、Executorが生成・開始時に検査する。CoordinatorはDIの個別Identity validatorへ依存せず、同じ保存対象をDomainの既存Snapshot候補生成で検査する。候補をNative Home観測より前に構築し、不正Identity・重複資源名ではNative観測・耐久Intent保存へ進まない。Host／Repositoryの読取りがHome観測より前になるが、保存Writerの元版・現在性検査とHost開始前の再照合は維持する。
 
-Taskの清掃候補の入力照合と回復結果の公開投影は`src/lifecycle/validation.ts`が所有する。上位の結果・参照相関を検査するだけで、Docker操作や処置の権限を発行しない。現在入場の保存状態は既存の回復処理が実行モデルを通じて観測する。Task回復IDの固定文法は実行モデルの`attempt/operations.ts`へ集約し、現在状態、CLI、回復Callerと結果公開が同じ公開解析を用いる。配置変更を理由に公開理由・DTO・ID文法・清掃条件を変更しない。
+Taskの清掃候補の入力照合と回復結果の公開投影は`src/lifecycle/validation.ts`が所有する。上位の結果・参照相関を検査するだけで、Docker操作や処置の権限を発行しない。現在入場の保存状態は既存の回復処理が実行モデルを通じて観測する。Task回復IDの固定文法は実行モデルの`attempt/validation.ts`へ集約し、現在状態、CLI、回復Callerと結果公開が同じ公開解析を用いる。配置変更を理由に公開理由・DTO・ID文法・清掃条件を変更しない。
 
 Repository読取り、外部送信、Provider起動、候補書込み、候補export、Docker復旧は別Authorityである。RoleはAuthorityを意味しない。
 
@@ -1396,15 +1396,15 @@ AI選定は受付時のRepository設定Snapshotから確定する。五つの役
 
 単発・Objectiveでは、設定モデルが同じ固定Catalogで検査・凍結した設定とIdentityをそのまま選定へ渡す。全設定の再検査・再Hashは行わない。選んだ候補は閉形式へ捕捉し、AI Adapterへ役割ごとに一度照会する。未検査の設定を受ける検証用経路と、選定後の受付・実行許可の検査は維持する。
 
-完全選定は受付時に独立捕捉した不変値として保持する。事前照合は現在のOperationとRepositoryの相関、およびAI Adapterでの技術適合を確認し、独立捕捉した完全値を候補として返す。Providerの利用可否や認可の成立は表さない。Task全体の二役確認と各stage／助言の確認は別時点として区別する。Selection Grantの発行・消費・失効、30秒期限、人工IDと選定Hashによる借戻しは持たない。
+完全選定は新規受付で同じ設定から確定し、再開時は保存Readerが検査した不変値を使う。事前照合はその選定を受け取り、現在のOperationとRepositoryの相関、およびAI Adapterでの技術適合だけを確認する。選定の再捕捉や再発行はせず、Providerの利用可否や認可の成立も表さない。Task全体の二役確認と各stage／助言の確認は別時点として区別する。Selection Grantの発行・消費・失効、30秒期限、人工IDと選定Hashによる借戻しは持たない。
 
 一回の選定事前照合では同じ管理参照のHost実体確認を一度だけ行い、検証した操作IDで登録済みのRepository結合と現在のGit実体・改訂版を照合する。管理参照拒否とRepository観測不能の失敗分類は維持し、操作IDを後続の実行・結果公開・保存の現在性確認へ持ち越さない。
 
 Task・助言の未消費Packetは失効APIの明示的な成功だけを終了確認へ採用する。参照を呼出前に局所解除し、一つの失効拒否・不明・例外で他の失効や必要な終了処理を飛ばさない。未確認は既存Process再利用禁止・清掃未確認と元exact回復参照へ結び、poison通知例外でも一次理由・記録を失わない。Home観測値自体には失効・完了証明を作らず、物理Home Leaseの解放をExecutorが確認する。
 
-Task Packetは役割・試行番号・完全選定を固定本文へ結合し、同期準備で同じ完全値と照合する。助言もrole=advice・purpose=advice・Provider等を直接照合する。実本文・送信範囲の同一性を表すPacket Hashは維持するが、選定Hashを許可tokenとして搬送しない。既存のOperation Identity v5へ完全選定と試行番号を保存し、Owner喪失後は元Identityによる回収・終了だけとする。
+Task・助言のPacket発行には、受付で確定した選定と検査対象の本文を分けて渡す。発行時にProviderと用途、Taskでは役割・試行番号を照合して固定本文へ結合する。同期準備には発行済みPacketの元参照と使用参照を渡し、消費したPacketの選定だけを技術計画へ投影する。別のPacket、操作、Provider、役割・試行の不一致を拒否し、助言では非共有条件も照合する。実本文・送信範囲の同一性を表すPacket Hashは維持し、選定のキー順も従来どおりに揃える。選定Hashを許可tokenとして搬送しない。Operation Identityには完全選定と試行番号を保存し、Owner喪失後は元Identityによる回収・終了だけとする。
 
-助言の計画では、モデル名・推論強度を完全選定から取得し、別フィールドへの複製や購読種別の持ち回しはしない。Providerは同じ選定値から決める。技術カタログによる適合検査、非共有、APIフォールバック禁止を維持し、Packetの相関Hashは文字列だけを受け付ける。
+助言の選定は単発Taskの受付で確定し、現在のProject Contextを検査する準備処理がその選定をPacketへ固定する。配送と技術計画にはPacketを渡し、別の選定を添付しない。Provider、モデル名、推論強度はPacketの選定から取得する。技術カタログによる適合検査、非共有、APIフォールバック禁止を維持し、Packetの相関Hashは文字列だけを受け付ける。
 
 Provider準備・Task Packet・助言準備の保証は、準備済み計画、Packetの発行・消費と外部処置が発行されない結果を直接確認する。試験だけが取得する説明用の契約値は実装に置かない。実Packetの型・改訂値と相関Hashは維持する。
 
@@ -1782,18 +1782,19 @@ Host清掃は既存の`host.cleanup`を使い、`not_requested → pending`の�
 
 解放後も、終端WriterがOwnerを確認する各時点でexact token／Rootの両不存在をfresh観測する。present、unknownまたは例外では保存せず、同Ownerの再試行も許可しない。再起動記録は、記録なし、`not_issued / not_required / result=null`、`confirmed / confirmed / result確定済み`、上位`unknown / confirmed`かつ最終結果が`blocked / request=not_issued / effectOutcomeUnknown=false`、または上位`issued / confirmed`かつ最終結果が`blocked / request=issued / effectOutcomeUnknown=false`の形だけを許可する。後二形は再起動成功ではなく、同じDI操作が確定未発行または発行済み既知失敗として終了し資源回収を確認した事実である。元のblocked理由・要求・Task一次失敗・結果を成功へ書き換えず、再発行許可にも使用しない。終端Writerと履歴Readerは同じ純粋判定を使用し、Task資源終了・Owner退役・Host不存在・Lease・排他・履歴の既存条件を維持する。受付・清掃が確認済みでも結果がnullなら、その義務を消さず同じ参照を保持する。作成結果不明の限定終了に必要な再起動completed条件は別判定であり、この既知失敗をその根拠にしない。
 
-この終了保存単体の確認は、後段の通常CLI接続候補や全体E2Eの完成を意味しない。履歴・配送・用途別終了の接続と現在の限定確認は以下で区別する。
+新しい終了状態を保存する場合は、EMが履歴の固定時刻と行Hashを同じState改訂に入れる。この段階では履歴行を追記せず、履歴確認も返さない。終了保存が不要ならStateを書き直さず、未固定の履歴は後段が固定する。この終了保存単体の確認は、後段の通常CLI接続候補や全体E2Eの完成を意味しない。履歴・配送・用途別終了の接続と現在の限定確認は以下で区別する。
 
 #### 現在回収の履歴出版と用途別返却
 
 現在回収の履歴出版は、保存済み`history.occurredAt`と行Hash、canonical履歴、pending履歴全文および現在の保持設定から候補を再導出する。Process内の旧`historyAttempts`を復元しない。同じ回復IDの行がcanonicalへ既に存在する場合は全文一致を確認して再追加せず、異内容・重複・pending全文差は停止する。出版途中の再入場では固定時刻を現在時刻へ更新せず、保持設定の差で候補を再導出できない場合もpendingを削除・再作成しない。現在時刻による次の期間整理は後続の通常履歴出版が所有する。
 
-既存の`settlements`内の短命Contextと同じ物理Writerへ、現在履歴の専用modeを接続する。旧liveの清掃結果・Controller結果・management・historyAttempts、既存ACK modeと混在させない。stage、時刻と候補はCaller入力ではなく、exact現在操作と物理材料から導出する。Readerが観測した履歴全文・File実体・設定もContextへ固定し、Writer内の再導出と各I/O前後のOwner／Root／Host両不存在・設定確認へ結合する。Contextは一段ごとに破棄する。EMのsaveRecoveryHistoryが既存Reader/Writerで最大二保存と最終fresh確認を所有し、Coordinatorは前後の対象・保持・終端事実とHost両不存在を確認する。途中失敗後は同Ownerを停止し、fresh Ownerだけが同じexact参照から再入場する。新Map、Lock、Schemaと旧実行Authorityは作らない。
+既存の`settlements`内の短命Contextと同じ物理Writerへ、現在履歴の専用modeを接続する。旧liveの清掃結果・Controller結果・management・historyAttempts、既存ACK modeと混在させない。stage、時刻と候補はCaller入力ではなく、exact現在操作と物理材料から導出する。Readerが観測した履歴全文・File実体・設定もContextへ固定し、Writer内の再導出とOwner／Root／Host両不存在の確認へ結合する。保持設定の確認と新規追記での日数固定は[実行モデルの保存境界](../execution-model/01_Architecture.md#保持設定)に従う。Contextは一段ごとに破棄する。EMの`saveRecoveryHistory`が既存Lock一回で最大二段の保存と解放確認を所有し、Coordinatorは前後の対象・保持・終端事実とHost両不存在を確認する。途中失敗後は同Ownerを停止し、fresh Ownerだけが同じexact参照から再入場する。新Map、Lock、Schemaと旧実行Authorityは作らない。
 
 通常Readerの保存途中拒否を維持し、履歴専用Readerは次の有限形だけを受理する。Host清掃の出版途中ReaderはLease解放済み・清掃確認済み結果・履歴ありを受理せず、pendingなしの出版済み状態から別段階の清掃完了を推定しない。
 
 | 現在状態と短命材料 | 履歴専用経路の処置 |
 |---|---|
+| 終了結果の保存前、終了と初回履歴固定を含むexact `state.pending.json` | 履歴専用Readerで元版と候補を照合する。Hostの再清掃はせず、所有者・Host不存在・全排他解放を確認後、終端Writerだけが同じ候補を確定する |
 | 終了結果確定、履歴なし | 時刻を一度固定してcheckpoint候補を作る |
 | exact checkpointのstate.pending | pending内の固定時刻で同じ候補を再導出して出版する |
 | 履歴未確認、短命材料なし | 固定行と保持設定から履歴出版を開始する |

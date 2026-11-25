@@ -20,6 +20,7 @@ import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { parseStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import path from "node:path";
 import test from "node:test";
 import {
@@ -56,7 +57,7 @@ const revision = "a".repeat(40);
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-const hash = (value: string) =>
+const hash = (value: string | Buffer) =>
   createHash("sha256").update(value).digest("hex");
 
 type BoundExecutionDependencies = Omit<
@@ -266,11 +267,10 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.equal(beforeRead.status, "completed", beforeRead.reason);
   assert.equal(beforeRead.lockReleased, true);
   assert.ok(beforeRead.value);
-  assert.deepEqual(
-    Buffer.from(beforeRead.value.sourceText, "utf8"),
-    beforeBytes,
-  );
-  const before = beforeRead.value;
+  assert.equal(beforeRead.value.payloadSha256, hash(beforeBytes));
+  const before = {
+    snapshot: parseStoredExecutionFixture(beforeBytes.toString("utf8")),
+  };
   const definition = before.snapshot.projects[0];
   assert.ok(definition);
   const siblings = [
@@ -291,7 +291,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.equal(mixedRead.status, "completed", mixedRead.reason);
   assert.equal(mixedRead.lockReleased, true);
   assert.ok(mixedRead.value);
-  assert.deepEqual(Buffer.from(mixedRead.value.sourceText, "utf8"), mixedBytes);
+  assert.equal(mixedRead.value.payloadSha256, hash(mixedBytes));
   const result = updateTestTaskAndQueue(input, {
     kind: "task_replan",
     failedTaskId: "task-a",
@@ -351,11 +351,10 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.equal(publishedRead.status, "completed", publishedRead.reason);
   assert.equal(publishedRead.lockReleased, true);
   assert.ok(publishedRead.value);
-  assert.deepEqual(
-    Buffer.from(publishedRead.value.sourceText, "utf8"),
-    publishedBytes,
-  );
-  const published = publishedRead.value;
+  assert.equal(publishedRead.value.payloadSha256, hash(publishedBytes));
+  const published = {
+    snapshot: parseStoredExecutionFixture(publishedBytes.toString("utf8")),
+  };
   assert.deepEqual(
     published.snapshot.projects.map((project) => project.projectId),
     ["core-before", "project-a", "core-after"],
@@ -426,10 +425,8 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     assert.equal(restored.status, "completed", restored.reason);
     assert.equal(restored.lockReleased, true);
     assert.ok(restored.value);
-    assert.deepEqual(
-      Buffer.from(restored.value.sourceText, "utf8"),
-      publishedBytes,
-    );
+    assert.deepEqual(fs.readFileSync(stateFile), publishedBytes);
+    assert.equal(restored.value.payloadSha256, hash(publishedBytes));
   }
   assert.equal(state.status, "completed");
   if (state.status !== "completed" || !state.value) throw new Error("state");

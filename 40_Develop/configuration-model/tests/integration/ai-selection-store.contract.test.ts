@@ -523,7 +523,7 @@ test("temp回収不明とLock終了失敗が重なっても先行参照を失わ
                 "lock",
                 "configuration-model.ai-selection.lock",
               ) &&
-            args[1] === "wx"
+            args[1] === "wx+"
           )
             lockFd = fd;
           return fd;

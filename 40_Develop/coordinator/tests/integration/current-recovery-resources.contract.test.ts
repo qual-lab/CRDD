@@ -11,6 +11,7 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { fixtureVersionEvidence } from "../support/contract-assertions.ts";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { isDeepStrictEqual, types } from "node:util";
@@ -303,9 +304,11 @@ test("現在回復の部分取得は保持済みLockだけを逆順に全解放�
                 ...snapshot,
                 revision: snapshot.revision + (changed ? 1 : 0),
               },
-              sourceText: changed
-                ? fixture.bytes.toString() + " "
-                : fixture.bytes.toString(),
+              versionEvidence: fixtureVersionEvidence(
+                changed
+                  ? fixture.bytes.toString() + " "
+                  : fixture.bytes.toString(),
+              ),
               operationStates: snapshot.operations.map(
                 (operation: { kind: string }) => ({
                   kind: operation.kind,
@@ -499,11 +502,13 @@ test("現在Host回復は前後の現在観測と停止状態を共同確認す�
               : "completed",
           lockReleased: scenario !== (after ? "after_unlock" : "before_unlock"),
           value: {
-            sourceText: after
-              ? "after"
-              : scenario === "before_mismatch"
-                ? "changed"
-                : "before",
+            versionEvidence: fixtureVersionEvidence(
+              after
+                ? "after"
+                : scenario === "before_mismatch"
+                  ? "changed"
+                  : "before",
+            ),
             snapshot: after ? finalSnapshot : originalSnapshot,
             operationStates,
           },
@@ -880,7 +885,9 @@ test("現在回収退役: 元版・HostとHomeの排他・保存読戻しと非�
                   ? null
                   : {
                       snapshot,
-                      sourceText: `${JSON.stringify(snapshot)}\n`,
+                      versionEvidence: fixtureVersionEvidence(
+                        `${JSON.stringify(snapshot)}\n`,
+                      ),
                       payloadSha256: "saved",
                     },
             };
@@ -902,7 +909,9 @@ test("現在回収退役: 元版・HostとHomeの排他・保存読戻しと非�
                   ? null
                   : {
                       snapshot,
-                      sourceText: `${JSON.stringify(snapshot)}\n`,
+                      versionEvidence: fixtureVersionEvidence(
+                        `${JSON.stringify(snapshot)}\n`,
+                      ),
                       payloadSha256: "saved",
                     },
             };
@@ -932,7 +941,9 @@ test("現在回収退役: 元版・HostとHomeの排他・保存読戻しと非�
             lockReleased: scenario !== "read_unlock",
             value: {
               snapshot,
-              sourceText: `${JSON.stringify(snapshot)}\n`,
+              versionEvidence: fixtureVersionEvidence(
+                `${JSON.stringify(snapshot)}\n`,
+              ),
               payloadSha256:
                 reads > 1 && scenario === "readback_hash" ? "changed" : "saved",
             },
@@ -1226,7 +1237,11 @@ test("現在回収終端: 解放確認・一回性・Writer借用の短命性", 
       persistenceFailed: scenario === "persistence_failed",
       cleanupUnknown: scenario === "cleanup_unknown",
       hostCleanup: scenario === "host_present" ? "present" : "absent",
-      repository: { revalidate: () => scenario !== "root_changed" },
+      repository: {
+        repositoryRoot: "C:/confirmed",
+        operationId: "OP-000001",
+        revalidate: () => scenario !== "root_changed",
+      },
       recoveryId: "exact-recovery",
       snapshot: { operations: [] },
       hostRoot: "fixed-root",
@@ -1243,7 +1258,9 @@ test("現在回収終端: 解放確認・一回性・Writer借用の短命性", 
           assert.fail("履歴なし終了で保持設定を読まない");
         },
         dockerRecoveryPreparations: new WeakMap([[capability, record]]),
-        isHostOperationRootAbsent() {
+        isHostOperationRootAbsent(directory: string, operationId: string) {
+          assert.equal(directory, record.repository.repositoryRoot);
+          assert.equal(operationId, record.repository.operationId);
           observations++;
           if (scenario === "observe_throw")
             throw new Error("synthetic observation");
@@ -1500,6 +1517,7 @@ test("現在回収履歴: 完成保存一回・失敗後停止・Effect保持", 
     "save_throw",
     "lock_unknown",
     "host_present",
+    "root_changed",
     "unsettled",
     "unreleased",
   ]) {
@@ -1513,21 +1531,32 @@ test("現在回収履歴: 完成保存一回・失敗後停止・Effect保持", 
       persistenceFailed: false,
       cleanupUnknown: false,
       hostCleanup: "absent",
-      repository: { revalidate: () => true },
+      repository: {
+        repositoryRoot: "C:/confirmed",
+        operationId: "OP-000001",
+        revalidate: () => scenario !== "root_changed",
+      },
       recoveryId: "exact",
       hostRoot: "root",
     };
     let calls = 0;
+    let hostChecks = 0;
     const borrowed: (() => boolean)[] = [];
+    const revalidateRetention = (days: number) => days === 30;
     const complete = runInNewContext(
       `${recoveryCapabilitySource}\n${historyBody}; completeDockerTaskRecoveryHistory`,
       {
-        withHistoryRetention: (repository: object) => ({
-          ...repository,
+        historyRepositoryInput: () => ({
           historyRetentionDays: 30,
+          revalidate: revalidateRetention,
         }),
         dockerRecoveryPreparations: new WeakMap([[capability, record]]),
-        isHostOperationRootAbsent: () => scenario !== "host_present",
+        isHostOperationRootAbsent(directory: string, operationId: string) {
+          hostChecks++;
+          assert.equal(directory, record.repository.repositoryRoot);
+          assert.equal(operationId, record.repository.operationId);
+          return scenario !== "host_present";
+        },
         saveRecoveryHistory(
           repository: unknown,
           recoveryId: string,
@@ -1542,6 +1571,7 @@ test("現在回収履歴: 完成保存一回・失敗後停止・Effect保持", 
             {
               ...record.repository,
               historyRetentionDays: 30,
+              revalidateRetention,
             },
           );
           assert.equal(recoveryId, "exact");
@@ -1571,6 +1601,10 @@ test("現在回収履歴: 完成保存一回・失敗後停止・Effect保持", 
     assert.equal(complete({}).status, "blocked");
     assert.equal(calls, 0);
     const result = complete(capability);
+    if (scenario === "root_changed") {
+      assert.equal(result.status, "blocked");
+      assert.equal(hostChecks, 0);
+    }
     const completed = scenario === "normal" || scenario === "already_confirmed";
     assert.equal(
       result.historyConfirmed,
@@ -1688,7 +1722,9 @@ test("認証不明終了後の保持版は保存とfresh読戻しの共同確認
             status: saves && fault === "read" ? "blocked" : "completed",
             lockReleased: !(saves && fault === "unlock"),
             value: {
-              sourceText: `${JSON.stringify(saves && fault === "stale" ? beforeSnapshot : saves && fault === "revision" ? { ...snapshot, revision: 3 } : snapshot)}\n`,
+              versionEvidence: fixtureVersionEvidence(
+                `${JSON.stringify(observedSnapshot)}\n`,
+              ),
               snapshot: observedSnapshot,
               operationStates: observedSnapshot.operations.map((operation) => ({
                 kind: "docker_task",
@@ -2822,14 +2858,9 @@ test("Objective回復はexact技術終端と待機後の同じ境界を要求す
           repository,
           repositoryBindingId: "binding",
         },
-        readState: (
-          actualRepository: unknown,
-          binding: string,
-          scope: string,
-        ) => {
+        readExecutionState: (actualRepository: unknown, binding: string) => {
           assert.strictEqual(actualRepository, repository);
           assert.equal(binding, "binding");
-          assert.equal(scope, "execution");
           if (scenario === "throw") throw new Error("fixture");
           return {
             status: scenario === "snapshot_blocked" ? "blocked" : "completed",
@@ -2932,7 +2963,11 @@ test("現在回復終了: genuine Owner・一回性・借用失効", () => {
       cleanupUnknown: false,
       hostCleanup: "absent",
       hostRoot: "root",
-      repository: { revalidate: () => scenario !== "root" },
+      repository: {
+        repositoryRoot: "C:/confirmed",
+        operationId: "OP-000001",
+        revalidate: () => scenario !== "root",
+      },
     };
     if (
       [
@@ -2951,14 +2986,19 @@ test("現在回復終了: genuine Owner・一回性・借用失効", () => {
       Object.assign(record, { [scenario]: true });
     if (scenario === "host") record.hostCleanup = "unknown";
     let calls = 0,
+      hostChecks = 0,
       borrowed: (() => boolean) | null = null;
     const complete = runInNewContext(
       `${recoveryCapabilitySource}\n${body}; completeDockerTaskRecovery`,
       {
         Object,
         dockerRecoveryPreparations: new WeakMap([[key, record]]),
-        isHostOperationRootAbsent: () =>
-          !["host_present", "host_unknown"].includes(scenario),
+        isHostOperationRootAbsent(directory: string, operationId: string) {
+          hostChecks++;
+          assert.equal(directory, record.repository.repositoryRoot);
+          assert.equal(operationId, record.repository.operationId);
+          return !["host_present", "host_unknown"].includes(scenario);
+        },
         recoveryStorageInput: (root: unknown) => root,
         completeRecovery(
           receivedRoot: unknown,
@@ -3027,6 +3067,8 @@ test("現在回復終了: genuine Owner・一回性・借用失効", () => {
       "reader_publication_missing",
     ].includes(scenario);
     assert.equal(calls, attempted ? 1 : 0, scenario);
+    if (scenario === "root") assert.equal(hostChecks, 0);
+    if (expected) assert.ok(hostChecks > 0, scenario);
     if (borrowed) assert.equal((borrowed as () => boolean)(), false, scenario);
     const count = calls;
     assert.equal(complete(key).filesystemEffectIssued, false, scenario);
@@ -3231,7 +3273,11 @@ test("終了出版pendingのHost確認は同じ終結断面だけを読みEffect
     "root_present",
     "root_unknown",
     "last_owner",
+    "terminal_pending",
+    "terminal_pending_wrong_version",
+    "terminal_pending_reader_blocked",
   ]) {
+    const terminalPending = fault.startsWith("terminal_pending");
     const owner = {},
       generation = {},
       root = {};
@@ -3241,7 +3287,7 @@ test("終了出版pendingのHost確認は同じ終結断面だけを読みEffect
       identityJson: JSON.stringify({
         operationId: fault === "op" ? "OP-999999" : "OP-123456",
       }),
-      lease: fault === "lease" ? "held" : "released",
+      lease: fault === "lease" || terminalPending ? "held" : "released",
       execution: {
         ownerEffect: fault === "owner_active" ? "active" : "disabled",
       },
@@ -3282,7 +3328,7 @@ test("終了出版pendingのHost確認は同じ終結断面だけを読みEffect
       recoveryId: "exact",
       before,
       snapshot,
-      completionPending: true,
+      completionPending: !terminalPending,
     };
     const effect = () => {
       effects++;
@@ -3305,21 +3351,35 @@ test("終了出版pendingのHost確認は同じ終結断面だけを読みEffect
         assert.equal(value, record.repository);
         return prepared;
       },
-      readState: (value: unknown, request: unknown) => {
+      historyRepositoryInput: () => ({ purpose: "history" }),
+      readState: (value: unknown, request: { input?: { kind: string } }) => {
         assert.equal(value, prepared);
+        if (terminalPending && !request.input)
+          return { status: "blocked", lockReleased: true, value: null };
         assert.equal(
           JSON.stringify(request),
-          '{"scope":"recovery","input":{"kind":"execution_completion","recoveryId":"exact"}}',
+          terminalPending
+            ? '{"scope":"recovery","input":{"kind":"execution_history","recoveryId":"exact"}}'
+            : '{"scope":"recovery","input":{"kind":"execution_completion","recoveryId":"exact"}}',
         );
+        if (fault === "terminal_pending_reader_blocked")
+          return { status: "blocked", lockReleased: true, value: null };
         return {
           status: fault === "reader" ? "blocked" : "completed",
           lockReleased: fault !== "unlock",
+          historyPublicationStage: terminalPending
+            ? "terminal_checkpoint"
+            : null,
           value:
             fault === "reader_value"
               ? null
               : {
-                  sourceText:
-                    fault === "before" ? "different" : before.toString(),
+                  versionEvidence: fixtureVersionEvidence(
+                    fault === "before" ||
+                      fault === "terminal_pending_wrong_version"
+                      ? "different"
+                      : before,
+                  ),
                   payloadSha256: "same-hash",
                   snapshot,
                   operationStates: [
@@ -3347,18 +3407,23 @@ test("終了出版pendingのHost確認は同じ終結断面だけを読みEffect
                 : fault === "host_cleanup"
                   ? { ...host, cleanup: "pending" }
                   : host,
-          snapshot:
-            fault === "snapshot" ? { ...snapshot, extra: true } : snapshot,
+          versionEvidence: fixtureVersionEvidence(
+            fault === "snapshot" ? "different host body" : before,
+          ),
           payloadSha256: fault === "hash" ? "different" : "same-hash",
         };
       },
       persistDockerTaskRecoveryCheckpoint: effect,
       recoverOwnedOperationDirectories: effect,
     }) as (owner: object) => boolean;
-    assert.equal(api(owner), fault === "normal", fault);
+    assert.equal(
+      api(owner),
+      fault === "normal" || fault === "terminal_pending",
+      fault,
+    );
     assert.equal(effects, 0, fault);
     assert.equal(record.before, before, fault);
     assert.equal(record.snapshot, snapshot, fault);
-    assert.equal(record.completionPending, true, fault);
+    assert.equal(record.completionPending, !terminalPending, fault);
   }
 });

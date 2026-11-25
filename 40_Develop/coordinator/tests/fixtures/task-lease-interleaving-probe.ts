@@ -16,7 +16,7 @@ const [
   workingDirectory,
   signalPath,
   mode,
-  requestedKind = "canonical-adoption",
+  requestedKind = "project-operation",
   queueId = "queue-a",
   projectId = "project-a",
 ] = process.argv.slice(2);
@@ -24,8 +24,7 @@ if (
   !workingDirectory ||
   !signalPath ||
   (mode !== "hold" && mode !== "pause-before-publish") ||
-  (requestedKind !== "canonical-adoption" &&
-    requestedKind !== "project-operation") ||
+  requestedKind !== "project-operation" ||
   !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(queueId) ||
   !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(projectId)
 )
@@ -42,7 +41,7 @@ if (mode === "pause-before-publish") {
     if (
       String(target).includes("coordinator.lease.") &&
       String(target).endsWith(".lock") &&
-      flags === "wx"
+      flags === "wx+"
     ) {
       fs.writeFileSync(signalPath, "ready\n", "utf8");
       const deadline = Date.now() + 10_000;

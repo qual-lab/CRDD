@@ -39,10 +39,11 @@ import {
   resolveExecutionStorageDirectory,
 } from "../../src/lifecycle/host.ts";
 import { acceptResult, submitDecision } from "../../src/lifecycle/decision.ts";
+import { COORDINATOR_HUMAN_DECISION_CONTRACT } from "../../src/lifecycle/decision.ts";
 import {
-  COORDINATOR_HUMAN_DECISION_CONTRACT,
-  inspectCoordinatorDecisionResult,
-} from "../../src/lifecycle/decision.ts";
+  snapshotJsonValue,
+  validIdentity,
+} from "../../src/lifecycle/validation.ts";
 import {
   COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX,
   createCoordinatorDiagnosticReporter,
@@ -276,6 +277,24 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
     retryAllowed: false,
     recoveryIds: ["repository-local-ignore.test-reference"],
   });
+  // 私有の完成操作が使う封筒検査だけを代役で照合する。Decisionモデルの負例はEMが所有する。
+  const source = fs.readFileSync(
+    new URL("../../src/lifecycle/decision.ts", import.meta.url),
+    "utf8",
+  );
+  const confirmDecisionResult = compileFunction(
+    `${["validDecisionRequestText", "captureDecisionRequestRecord", "keys", "confirmDecisionResult"].map((name) => sourceDeclaration(source, name)).join("\n")}\nreturn confirmDecisionResult;`,
+    [
+      "snapshotJsonValue",
+      "validIdentity",
+      "COORDINATOR_HUMAN_DECISION_CONTRACT",
+    ],
+  )(snapshotJsonValue, validIdentity, COORDINATOR_HUMAN_DECISION_CONTRACT);
+  let hooks = 0;
+  const convert = () => {
+    hooks++;
+    return "no_effect";
+  };
   for (const effectState of ["unknown", "settled", "no_effect"] as const) {
     const result = {
       contract: COORDINATOR_HUMAN_DECISION_CONTRACT,
@@ -289,19 +308,38 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
       manualRecoveryRequired: true,
       effectState,
     };
-    assert.deepEqual(inspectCoordinatorDecisionResult(result), result);
+    assert.deepEqual(confirmDecisionResult(result), result);
     assert.equal(
-      inspectCoordinatorDecisionResult({ ...result, status: "completed" }),
+      confirmDecisionResult({ ...result, status: "completed" }),
       null,
     );
     assert.equal(
-      inspectCoordinatorDecisionResult({
+      confirmDecisionResult({
         ...result,
         manualRecoveryRequired: false,
       }),
       null,
     );
+    for (const malformed of [
+      {
+        ...result,
+        contract: "crdd-coordinator/human-decision/v1",
+        projection: null,
+      },
+      { ...result, projection: null },
+      {
+        ...result,
+        effectState: {
+          toString: convert,
+          valueOf: convert,
+          [Symbol.toPrimitive]: convert,
+        },
+      },
+      { ...result, effectState: new Proxy({}, { get: () => convert() }) },
+    ])
+      assert.equal(confirmDecisionResult(malformed), null);
   }
+  assert.equal(hooks, 0);
   const domain = await import("../../../execution-model/src/index.ts");
   let currentError = error;
   t.mock.module("../../../execution-model/src/index.ts", {
@@ -365,7 +403,7 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
       result.manualRecoveryRequired,
       expected.manualRecoveryRequired,
     );
-    assert.deepEqual(inspectCoordinatorDecisionResult(result), result);
+    assert.deepEqual(confirmDecisionResult(result), result);
   }
 });
 

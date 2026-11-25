@@ -21,7 +21,6 @@ import {
   type Decision,
   type DecisionRequest,
   ExecutionStorageBlockedError,
-  inspectDecision,
   isPrincipalId,
   readDecision,
   recordDecision,
@@ -218,11 +217,11 @@ export function inspectCoordinatorDecisionRequest(
 
 /**
  * 公開判断結果の状態・履歴・回復要否を相関検査する。
- * @responsibility 部分確定を成功へ丸めず、旧秘密値を公開結果へ通さない。
+ * @responsibility EMが検査した判断を再解釈せず、公開封筒と履歴・回復の相関を確認する。
  * @trace ARCH-000004、ARCH-000008
- * @input value: Coordinatorから搬送された未信頼値。
- * @returns 質問・回答・適用を省略せず、モデル検査で捕捉した判断を持つ結果又はnull。
- * @precondition 返却値を認証・認可として使用しない。
+ * @input value: 正式なsubmitDecisionから搬送された結果。内部のDecisionはEMの保存結果。
+ * @returns 質問・回答・適用を省略せず、同じ判断と確定情報を持つ独立結果又はnull。
+ * @precondition 判断モデルはEMで受付済み。配送結果を認証・認可として使わない。
  * @postcondition 未知fieldと矛盾した確定表示を拒否する。
  * @effect N/A: 値検査のみ。
  * @failure 不正形・判断と履歴の矛盾はnull。
@@ -231,8 +230,8 @@ export function inspectCoordinatorDecisionRequest(
  * @security 秘密値・Host Pathを追加しない。
  * @concurrency 同期の局所計算のみ。
  */
-export function inspectCoordinatorDecisionResult(
-  value: unknown,
+function confirmDecisionResult(
+  value: CoordinatorDecisionResult,
 ): CoordinatorDecisionResult | null {
   const v = captureDecisionRequestRecord(value);
   if (
@@ -275,14 +274,16 @@ export function inspectCoordinatorDecisionResult(
     )
       return null;
   } else {
-    const decision = inspectDecision(v.decision);
     if (
-      decision === null ||
-      decision.decisionId !== v.decisionId ||
+      !v.decision ||
+      typeof v.decision !== "object" ||
+      Array.isArray(v.decision) ||
+      v.decisionId === null ||
+      (v.decision as Decision).decisionId !== v.decisionId ||
       v.effectState !== "settled"
     )
       return null;
-    v.decision = decision;
+    Object.freeze(v.decision);
     const h = v.history as { status?: unknown; reason?: unknown } | null;
     if (
       !h ||
@@ -418,6 +419,23 @@ function continuationBlocked(
 export function submitDecision(
   rawRequest: unknown,
   workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
+): CoordinatorDecisionResult {
+  const result = executeDecision(
+    rawRequest,
+    workingDirectory,
+    authenticationContext,
+  );
+  return (
+    confirmDecisionResult(result) ??
+    continuationBlocked("coordinator_decision_result_unconfirmed", null, true)
+  );
+}
+
+/** 同じ認証主体・対象とDomainの保存操作を接続する。 @trace ARCH-000008 */
+function executeDecision(
+  rawRequest: unknown,
+  workingDirectory: string,
   authenticationContext?: Readonly<{ principalId: string }>,
 ): CoordinatorDecisionResult {
   if (

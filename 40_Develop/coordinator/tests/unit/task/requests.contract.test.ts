@@ -15,10 +15,6 @@ import test from "node:test";
 import { compileFunction, runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import {
-  inspectExecutionSelection,
-  inspectTaskExecutionSelections,
-} from "../../../../execution-model/src/index.ts";
-import {
   snapshotPlainArray,
   snapshotPlainRecord,
   inspectWorkspaceResult,
@@ -91,7 +87,7 @@ test("単発回復は既存Owner観測を直接渡して元回復参照を保持
   );
   assert.equal(declaration.includes("deps.observeLeaseOwner"), false);
   const build = compileFunction(`return (${declaration});`, [
-    "readState",
+    "readQueueState",
     "resolveExecutionStorageDirectory",
     "reconcileCoordinatorSnapshotLeaseOwnerLoss",
     "observeLeaseOwner",
@@ -202,7 +198,7 @@ test("単発回復は保存結果を共通終結へ渡し回復参照と理由�
     "createCoordinatorTaskRequests",
   );
   const build = compileFunction(`return (${declaration});`, [
-    "readState",
+    "readQueueState",
     "resolveExecutionStorageDirectory",
     "reconcileCoordinatorSnapshotLeaseOwnerLoss",
     "observeLeaseOwner",
@@ -1188,8 +1184,8 @@ test("単発選定は同じ設定から用途別に一度だけ解決する", ()
     assert.deepEqual(
       run(root, command),
       mode === "read_only_advice"
-        ? { primary, taskExecutionSelections: null }
-        : { primary: pair.executor, taskExecutionSelections: pair },
+        ? { kind: "advice", selection: primary }
+        : { kind: "task", selections: pair },
     );
     assert.deepEqual(order, [
       "read",
@@ -1348,17 +1344,17 @@ test("単発Workspace結果は一回捕捉して同じ固定観測を再利用�
 });
 
 /**
- * Resolverの未信頼返却値は内部受渡しの簡素化後も受付で拒否する。
+ * 選定不能と用途の取り違えは内部受渡しの簡素化後も受付で拒否する。
  * @responsibility 不正選定がID発行・保存・実行へ到達しないことを確認する。
  * @trace PRL-UT-006
- * @precondition 実受付宣言とEM検査を有限のメモリStateへ接続する。
- * @stimulus Resolverが欠測・空・未知fieldを含む選定を返す。
+ * @precondition 実受付宣言を有限のメモリStateへ接続する。
+ * @stimulus Resolverが選定不能か助言以外の選定を返す。
  * @observation blocked理由とID発行・保存・実行の未呼出し。
  * @oracle configuration_unavailableで拒否し後続Effectを発行しない。
  * @cleanup メモリ値だけ。外部資源なし。
  * @boundary Resolver返却値の受付。実Filesystemは使用しない。
  */
-test("単発受付は不正Resolver選定をID発行・保存・実行前に拒否する", async () => {
+test("単発受付は選定不能と用途の取り違えをID発行・保存・実行前に拒否する", async () => {
   const source = fs.readFileSync(
     new URL("../../../src/lifecycle/execution.ts", import.meta.url),
     "utf8",
@@ -1368,16 +1364,14 @@ test("単発受付は不正Resolver選定をID発行・保存・実行前に拒�
     effects += 1;
     throw new Error("effect_forbidden");
   };
-  let selectedPrimary: unknown;
+  let selected: unknown;
   const order: string[] = [];
   const create = compileFunction(
     `return (${stripTypeScriptTypes(sourceDeclaration(source, "createCoordinatorTaskRequests"))});`,
     [
       "inspectSingleTaskCommand",
-      "readState",
+      "readQueueState",
       "resolveExecutionStorageDirectory",
-      "inspectExecutionSelection",
-      "inspectTaskExecutionSelections",
       "randomUUID",
       "createHash",
       "resolveSingleTaskSelection",
@@ -1391,19 +1385,11 @@ test("単発受付は不正Resolver選定をID発行・保存・実行前に拒�
       value: { queueEntries: [] },
     }),
     (value: unknown) => value,
-    (value: unknown) => {
-      order.push("primary");
-      return inspectExecutionSelection(value);
-    },
-    (value: unknown) => {
-      order.push("pair");
-      return inspectTaskExecutionSelections(value);
-    },
     forbidden,
     createHash,
     () => {
       order.push("selection");
-      return { primary: selectedPrimary, taskExecutionSelections: null };
+      return selected;
     },
     () => {
       order.push("revision");
@@ -1413,8 +1399,12 @@ test("単発受付は不正Resolver選定をID発行・保存・実行前に拒�
   ) as (deps: object) => {
     start: (raw: unknown) => Promise<{ status: string; reason: string }>;
   };
-  for (const primary of [null, {}, { provider: "codex", unknown: true }]) {
-    selectedPrimary = primary;
+  for (const failure of [
+    null,
+    { kind: "advice", selection: null },
+    { kind: "advice", selection: { role: "executor" } },
+  ]) {
+    selected = failure;
     order.length = 0;
     const owner = create({
       authorize: () => true,
@@ -1424,7 +1414,7 @@ test("単発受付は不正Resolver選定をID発行・保存・実行前に拒�
     const result = await owner.start({});
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, "coordinator_task_configuration_unavailable");
-    assert.deepEqual(order, ["selection", "primary", "pair", "revision"]);
+    assert.deepEqual(order, ["selection", "revision"]);
   }
   assert.equal(effects, 0);
 });
@@ -1449,11 +1439,7 @@ test("単発内部実行は捕捉済み選定を渡し認可・Root・取消を�
   let root = "C:/synthetic";
   let calls = 0;
   let received: unknown;
-  const names = [
-    "resolveVerifiedRepositoryRoot",
-    "runRepositoryAdvice",
-    "inspectExecutionSelection",
-  ];
+  const names = ["resolveVerifiedRepositoryRoot", "runRepositoryAdvice"];
   const values = [
     () => root,
     async (_root: unknown, command: { executionSelection: unknown }) => {
@@ -1472,9 +1458,6 @@ test("単発内部実行は捕捉済み選定を渡し認可・Root・取消を�
         hostRecoveryId: null,
         dockerRecoveryId: null,
       };
-    },
-    () => {
-      throw new Error("duplicate_inspection");
     },
   ];
   const execute = compileFunction(
@@ -1658,6 +1641,7 @@ test("単発入力はROとWorkspaceを分け越境・旧Bundle・余剰値を拒
     { ...command, workspaceId: "11111111-1111-4111-8111-111111111111" },
     { ...command, candidateId: "old" },
     { ...command, profileId: "PROFILE-100001" },
+    { ...command, executionSelection: { role: "advice" } },
     { ...command, choice: { provider: "codex" } },
     new Proxy(command, {}),
   ])

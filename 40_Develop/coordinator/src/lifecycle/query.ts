@@ -20,6 +20,7 @@ import {
   parseDockerTaskRecoveryId,
   type ProjectExecutionState,
   readState,
+  readExecutionState,
 } from "../../../execution-model/src/index.ts";
 import {
   getRepository,
@@ -384,10 +385,9 @@ export function queryState(
     );
     const adoptedPlan =
       identity && identity.revisionIdentity !== request.repositoryRevision
-        ? readState(
+        ? readExecutionState(
             resolveExecutionStorageDirectory(repositoryRoot),
             deriveCoordinatorRepositoryBindingId(repositoryRoot),
-            "execution",
           ).value?.projects.find(
             (plan) =>
               plan.projectId === request.projectId &&
@@ -420,10 +420,9 @@ export function queryState(
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
       });
-    const snapshot = readState(
+    const snapshot = readExecutionState(
       resolveExecutionStorageDirectory(repositoryRoot),
       deriveCoordinatorRepositoryBindingId(repositoryRoot),
-      "execution",
     );
     if (
       snapshot.status !== "completed" ||
@@ -664,10 +663,9 @@ export async function queryActivity(
       eventUnknown = true;
       continue;
     }
-    const snapshot = readState(
+    const snapshot = readExecutionState(
       { directory: root },
       deriveCoordinatorRepositoryBindingId(root),
-      "execution",
     );
     if (snapshot.status !== "completed") stateUnknown = true;
     else if (snapshot.value !== null) {
@@ -997,6 +995,7 @@ export function parseExecutionActivityObservation(
       Number.MAX_SAFE_INTEGER,
     );
     if (items.status !== "ok") return null;
+    const requestsByRepository = new Map<string, Set<string>>();
     for (const item of items.value) {
       const task = snapshotPlainRecord(
         item,
@@ -1025,14 +1024,14 @@ export function parseExecutionActivityObservation(
           task.status,
         ) ||
         typeof task.cleanupConfirmed !== "boolean" ||
-        typeof task.recoveryRequired !== "boolean" ||
-        singleTasks.some(
-          (previous) =>
-            previous.repositoryId === task.repositoryId &&
-            previous.requestId === task.requestId,
-        )
+        typeof task.recoveryRequired !== "boolean"
       )
         return null;
+      const requests = requestsByRepository.get(task.repositoryId);
+      if (requests?.has(task.requestId)) return null;
+      if (requests) requests.add(task.requestId);
+      else
+        requestsByRepository.set(task.repositoryId, new Set([task.requestId]));
       singleTasks.push(
         Object.freeze(task) as NonNullable<
           ExecutionActivityObservation["singleTasks"]
@@ -1071,17 +1070,19 @@ export function parseExecutionActivityObservation(
   if (record.eventState === "unknown" && rawEvents.value.length !== 0)
     return null;
   const events: ExecutionActivityEvent[] = [];
+  const eventIds = new Set<string>();
   for (const raw of rawEvents.value) {
     const event = parseExecutionEvent(raw);
     if (
       event === null ||
       !sourceIds.has(event.repositoryId) ||
-      events.some((previous) => previous.eventId === event.eventId)
+      eventIds.has(event.eventId)
     )
       return null;
     const previous = events.at(-1);
     if (previous && compareActivityEventPositions(previous, event) > 0)
       return null;
+    eventIds.add(event.eventId);
     events.push(event);
   }
   if (record.eventContinuation !== null) {

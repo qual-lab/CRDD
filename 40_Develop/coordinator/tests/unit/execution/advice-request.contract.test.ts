@@ -104,16 +104,18 @@ const COMPLETED = Object.freeze({
  */
 test("許可済み投影からEffect 0の読取り助言Task Packetを作る", () => {
   const content = "# Current Project\n\nStatus: At Risk\n";
-  const prepared = prepareAdviceTask({
-    executionSelection: executionSelection("advice"),
-    prompt: "現在地と次の一手を説明する",
-    projection: [
-      {
-        reference: "PROJECT_CONTEXT.md#current-project",
-        content,
-      },
-    ],
-  });
+  const prepared = prepareAdviceTask(
+    {
+      prompt: "現在地と次の一手を説明する",
+      projection: [
+        {
+          reference: "PROJECT_CONTEXT.md#current-project",
+          content,
+        },
+      ],
+    },
+    executionSelection("advice"),
+  );
 
   assert.equal(prepared.status, "prepared");
   assert.equal(prepared.taskPacket?.contract, PROVIDER_ADVICE_TASK_CONTRACT);
@@ -171,11 +173,13 @@ test("助言準備は旧容量超過の正常なPromptと投影を全量保持�
     reference: `${"reference".repeat(65)}-${index}.md`,
     content,
   }));
-  const prepared = prepareAdviceTask({
-    executionSelection: executionSelection("advice"),
-    prompt: "合成".repeat(9000),
-    projection,
-  });
+  const prepared = prepareAdviceTask(
+    {
+      prompt: "合成".repeat(9000),
+      projection,
+    },
+    executionSelection("advice"),
+  );
   assert.equal(prepared.status, "prepared");
   assert.deepEqual(
     prepared.taskPacket?.allowedReferences,
@@ -187,16 +191,18 @@ test("助言準備は旧容量超過の正常なPromptと投影を全量保持�
   );
   assert.equal(prepared.providerEffectIssued, false);
   assert.equal(prepared.filesystemEffectIssued, false);
-  const issued = issueProviderAdvicePacket({
-    operationId: "OP-000999",
-    executionSelection: executionSelection("advice"),
-    provider: "codex",
-    taskHash: "a".repeat(64),
-    projectionHash: "b".repeat(64),
-    providerPrompt: prepared.taskPacket?.providerPrompt ?? "",
-    allowedReferences: projection.map((item) => item.reference),
-    additionalHosts: Object.freeze([]),
-  });
+  const issued = issueProviderAdvicePacket(
+    {
+      operationId: "OP-000999",
+      provider: "codex",
+      taskHash: "a".repeat(64),
+      projectionHash: "b".repeat(64),
+      providerPrompt: prepared.taskPacket?.providerPrompt ?? "",
+      allowedReferences: projection.map((item) => item.reference),
+      additionalHosts: Object.freeze([]),
+    },
+    executionSelection("advice"),
+  );
   assert.equal(issued.status, "issued");
   assert.equal(revokeProviderAdvicePacket(issued.ownerCapability), true);
   for (const field of [
@@ -210,8 +216,8 @@ test("助言準備は旧容量超過の正常なPromptと投影を全量保持�
 
 test("外部指定Hash・秘密Prompt・越境参照をTask Packet生成前に拒否する", () => {
   const content = "# Current Project";
+  const selected = executionSelection("advice");
   const base = {
-    executionSelection: executionSelection("advice"),
     prompt: "現在状態を説明する",
     projection: [
       {
@@ -222,15 +228,18 @@ test("外部指定Hash・秘密Prompt・越境参照をTask Packet生成前に�
   };
 
   assert.equal(
-    prepareAdviceTask({
-      ...base,
-      projection: [
-        {
-          ...base.projection[0],
-          sha256: createHash("sha256").update(content).digest("hex"),
-        },
-      ],
-    }).status,
+    prepareAdviceTask(
+      {
+        ...base,
+        projection: [
+          {
+            ...base.projection[0],
+            sha256: createHash("sha256").update(content).digest("hex"),
+          },
+        ],
+      },
+      selected,
+    ).status,
     "blocked",
   );
   let reads = 0;
@@ -242,27 +251,33 @@ test("外部指定Hash・秘密Prompt・越境参照をTask Packet生成前に�
     },
   });
   assert.equal(
-    prepareAdviceTask({ ...base, projection: [dynamic] }).status,
+    prepareAdviceTask({ ...base, projection: [dynamic] }, selected).status,
     "blocked",
   );
   assert.equal(reads, 0);
   assert.equal(
-    prepareAdviceTask({
-      ...base,
-      prompt: "token=sk-ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
-    }).status,
+    prepareAdviceTask(
+      {
+        ...base,
+        prompt: "token=sk-ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
+      },
+      selected,
+    ).status,
     "blocked",
   );
   assert.equal(
-    prepareAdviceTask({
-      ...base,
-      projection: [
-        {
-          ...base.projection[0],
-          reference: "../PROJECT_CONTEXT.md#current-project",
-        },
-      ],
-    }).status,
+    prepareAdviceTask(
+      {
+        ...base,
+        projection: [
+          {
+            ...base.projection[0],
+            reference: "../PROJECT_CONTEXT.md#current-project",
+          },
+        ],
+      },
+      selected,
+    ).status,
     "blocked",
   );
 });
@@ -278,16 +293,18 @@ test("外部指定Hash・秘密Prompt・越境参照をTask Packet生成前に�
  */
 test("実助言準備はPacketの版を保持し実行結果と外部Effectを発行しない", () => {
   const content = "# Project";
-  const prepared = prepareAdviceTask({
-    executionSelection: executionSelection("advice"),
-    prompt: "現在状態を説明する",
-    projection: [
-      {
-        reference: "PROJECT_CONTEXT.md",
-        content,
-      },
-    ],
-  });
+  const prepared = prepareAdviceTask(
+    {
+      prompt: "現在状態を説明する",
+      projection: [
+        {
+          reference: "PROJECT_CONTEXT.md",
+          content,
+        },
+      ],
+    },
+    executionSelection("advice"),
+  );
   assert.equal(prepared.status, "prepared");
   assert.equal(prepared.taskPacket?.contractRevision, 3);
   assert.equal("resultContract" in prepared, false);
@@ -344,7 +361,7 @@ test("Repository Project Contextを専用Task Packetへ固定してDispatchす�
       assert.equal(receivedSignal, signal);
       observedTask = Object.freeze({
         executionSelection: input.taskPacket.executionSelection,
-        exactModelId: input.executionSelection.modelIdentifier,
+        exactModelId: input.taskPacket.executionSelection.modelIdentifier,
         allowedReferences: input.taskPacket.allowedReferences,
         projectionHash: input.taskPacket.projectionHash,
         taskHash: input.taskPacket.taskHash,

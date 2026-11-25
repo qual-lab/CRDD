@@ -272,10 +272,6 @@ export type CoordinatorExecutionDependencies = Readonly<{
     signal: AbortSignal,
     authentication: Readonly<{ principalId: string }>,
   ) => Promise<unknown>;
-  submitDecision: (
-    request: Readonly<Record<string, unknown>>,
-    authentication: Readonly<{ principalId: string }>,
-  ) => Promise<unknown>;
   getProjectState: (
     request: Readonly<Record<string, unknown>>,
     authentication: Readonly<{ principalId: string }>,
@@ -456,7 +452,6 @@ export async function executeCoordinatorOperation(
   if (signal.aborted) return { kind: "cancelled" } as const;
   const {
     inspectCoordinatorDecisionRequest,
-    inspectCoordinatorDecisionResult,
     inspectCoordinatorObjectiveRequest,
     inspectCoordinatorObjectiveResult,
     inspectCoordinatorStateQuery,
@@ -465,7 +460,6 @@ export async function executeCoordinatorOperation(
   if (
     ![
       inspectCoordinatorDecisionRequest,
-      inspectCoordinatorDecisionResult,
       inspectCoordinatorObjectiveRequest,
       inspectCoordinatorObjectiveResult,
       inspectCoordinatorStateQuery,
@@ -480,6 +474,111 @@ export async function executeCoordinatorOperation(
     ].every((inspect) => typeof inspect === "function")
   )
     return { kind: "unavailable" } as const;
+  const resolveTarget = (projectId: string) =>
+    "scope" in configuration
+      ? configuration.scope === "local"
+        ? resolveLocalExecutionTarget(configuration.repositoryRoot, signal)
+        : configuration.credentials && repositoryId !== null
+          ? resolveSharedExecutionTarget(
+              configuration.credentials.root,
+              configuration.credentials.token,
+              repositoryId,
+              projectId,
+              signal,
+            )
+          : null
+      : null;
+  if (operation === "objective" && scope !== null) {
+    let authorize: (() => boolean) | undefined;
+    const reception: {
+      status: "pending" | "access_denied" | "cancelled" | "accepted";
+      workspaceId: string | null;
+    } = { status: "pending", workspaceId: null };
+    let result:
+      | Awaited<ReturnType<CoordinatorModule["runObjective"]>>
+      | undefined;
+    try {
+      result = await coordinator.runObjective(captured, signal, (request) => {
+        let target: ReturnType<typeof resolveTarget> = null;
+        try {
+          target = resolveTarget(request.projectId);
+          authorize = target?.authorize;
+          if (scope === "shared" && !authorize?.()) target = null;
+        } catch {
+          target = null;
+        }
+        if (signal.aborted) {
+          reception.status = "cancelled";
+          return null;
+        }
+        if (!target || !isPrincipalId(target.principalId)) {
+          reception.status = "access_denied";
+          return null;
+        }
+        reception.status = "accepted";
+        reception.workspaceId = request.workspaceId ?? null;
+        const access = {
+          directory: target.ownerRoot,
+          principalId: target.principalId,
+        };
+        if (request.workspaceId) {
+          const workspaceId = request.workspaceId;
+          return import("./workspace.ts").then(
+            ({ prepareWorkspaceExecutionTarget }) =>
+              () => {
+                if (signal.aborted) {
+                  reception.status = "cancelled";
+                  return null;
+                }
+                if (authorize && !authorize()) {
+                  reception.status = "access_denied";
+                  return null;
+                }
+                return {
+                  ...access,
+                  workspaceTarget: prepareWorkspaceExecutionTarget(
+                    access.directory,
+                    request.projectId,
+                    workspaceId,
+                  ),
+                };
+              },
+          );
+        }
+        return access;
+      });
+    } catch {
+      // 発行済みEffectはここで不存在とみなさない。
+    }
+    if (
+      reception.status === "pending" &&
+      result?.reason === "coordinator_objective_request_invalid"
+    )
+      return { kind: "invalid" } as const;
+    if (
+      reception.status === "cancelled" ||
+      reception.status === "access_denied"
+    )
+      return { kind: reception.status } as const;
+    try {
+      if (authorize && !authorize())
+        return { kind: "publication_denied" } as const;
+    } catch {
+      return { kind: "publication_denied" } as const;
+    }
+    try {
+      if (reception.status === "accepted") {
+        const value = inspectCoordinatorObjectiveResult(
+          result,
+          reception.workspaceId,
+        );
+        if (value) return { kind: "result", value } as const;
+      }
+    } catch {
+      // 結果未確認として返す。
+    }
+    return { kind: "result_unconfirmed" } as const;
+  }
   const args =
     operation === "objective"
       ? inspectCoordinatorObjectiveRequest(captured)
@@ -487,23 +586,14 @@ export async function executeCoordinatorOperation(
         ? inspectCoordinatorDecisionRequest(captured)
         : inspectCoordinatorStateQuery(captured);
   if (!args) return { kind: "invalid" } as const;
+  if (operation === "decision" && scope === null)
+    return { kind: "unavailable" } as const;
   let principalId: unknown;
   let ownerRoot: string | undefined;
   let authorize: (() => boolean) | undefined;
   try {
     if ("scope" in configuration) {
-      const target =
-        configuration.scope === "local"
-          ? resolveLocalExecutionTarget(configuration.repositoryRoot, signal)
-          : configuration.credentials && repositoryId !== null
-            ? resolveSharedExecutionTarget(
-                configuration.credentials.root,
-                configuration.credentials.token,
-                repositoryId,
-                args.projectId,
-                signal,
-              )
-            : null;
+      const target = resolveTarget(args.projectId);
       if (target) {
         ownerRoot = target.ownerRoot;
         principalId = target.principalId;
@@ -547,49 +637,26 @@ export async function executeCoordinatorOperation(
 
   const authentication = Object.freeze({ principalId });
   let result: unknown;
+  let decisionResult: ReturnType<CoordinatorModule["submitDecision"]> | null =
+    null;
   try {
     if ("scope" in configuration) {
-      let workspaceTarget:
-        | import("../../../coordinator/src/index.ts").PreparedWorkspaceTarget
-        | null
-        | undefined;
-      if (
-        operation === "objective" &&
-        ownerRoot &&
-        "workspaceId" in args &&
-        typeof args.workspaceId === "string"
-      ) {
-        const { prepareWorkspaceExecutionTarget } = await import(
-          "./workspace.ts"
-        );
-        if (signal.aborted) return { kind: "cancelled" } as const;
-        if (authorize && !authorize())
-          return { kind: "access_denied" } as const;
-        workspaceTarget = prepareWorkspaceExecutionTarget(
+      if (operation === "decision") {
+        decisionResult = coordinator.submitDecision(
+          args,
           ownerRoot,
-          args.projectId,
-          args.workspaceId,
+          authentication,
         );
+      } else {
+        result = coordinator.queryState(args, ownerRoot, authentication);
       }
-      result =
-        operation === "objective"
-          ? await coordinator.runObjective(
-              args,
-              signal,
-              ownerRoot,
-              authentication,
-              workspaceTarget,
-            )
-          : operation === "decision"
-            ? coordinator.submitDecision(args, ownerRoot, authentication)
-            : coordinator.queryState(args, ownerRoot, authentication);
     } else {
       result =
         operation === "objective"
           ? await configuration.runObjective(args, signal, authentication)
-          : operation === "decision"
-            ? await configuration.submitDecision(args, authentication)
-            : await configuration.getProjectState(args, authentication);
+          : operation === "state"
+            ? await configuration.getProjectState(args, authentication)
+            : null;
     }
   } catch {
     result = null;
@@ -610,7 +677,9 @@ export async function executeCoordinatorOperation(
               : null,
           )
         : operation === "decision"
-          ? inspectCoordinatorDecisionResult(result)
+          ? decisionResult?.reason === "coordinator_decision_result_unconfirmed"
+            ? null
+            : decisionResult
           : inspectCoordinatorStateQueryResult(result);
     if (value) return { kind: "result", value } as const;
   } catch {

@@ -11,13 +11,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { HostOperationRecord } from "../../../src/attempt/types.ts";
-import {
-  decodeHostOperation,
-  validHostOperationTransition,
-} from "../../../src/attempt/validation.ts";
+import { decodeHostOperation } from "../../../src/attempt/validation.ts";
+import { validHostOperationTransition } from "../../../src/attempt/transition.ts";
 import { createRuntimeStorageSourceFixture } from "../../support/storage-source.ts";
 import { createResourceOperationFixture } from "../../support/resource-operation.ts";
-import { encodeStateValue } from "../../../src/state/operations.ts";
+import { encodeStateValue } from "../../../src/composition/validation.ts";
 
 /**
  * 初回資源Intent前の回復終端を、独立Hostの確定後だけ保存する。
@@ -77,7 +75,7 @@ test("初回Intent前の回復終端は同じHost確定後だけ候補を保存�
         revalidate: () => true,
       },
       fixture.recoveryId,
-      before,
+      api.captureStateVersionEvidence(before.toString("utf8")),
       { kind: "terminal", assertOwner: () => true },
     );
     assert.equal(result.snapshotConfirmed, fault === "none", fault);
@@ -192,7 +190,9 @@ test("回復Lease解放は現行executionと同じ元版・結果を要求する
         revalidate: () => true,
       },
       operation.recoveryId,
-      fault === "version" ? Buffer.from("different") : before,
+      api.captureStateVersionEvidence(
+        fault === "version" ? "different" : before.toString("utf8"),
+      ),
       { kind: "lifecycle", value: next, assertOwner: () => true },
     );
     assert.equal(result.snapshotConfirmed, fault === "none", fault);

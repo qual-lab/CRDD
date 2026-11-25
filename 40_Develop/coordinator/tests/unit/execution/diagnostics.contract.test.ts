@@ -117,7 +117,11 @@ test("Probeは同じReceiptと終了・回収・Host保存が揃うまで成功�
       };
       const cleanupOwnedOperationDirectories = () => { calls.push("host_cleanup"); };
       const getIsolationSettings = () => ({});
-      const createExecutor = request => ({
+      const createExecutor = request => {
+        assert.equal(Object.keys(request).sort().join(","), "kind,probeId");
+        assert.equal(request.kind, "isolation_probe");
+        assert.equal(request.probeId, "probe-id");
+        return {
         cancel: async () => ({ status: "accepted" }),
         start(input) {
           const completion = (async () => {
@@ -145,7 +149,8 @@ test("Probeは同じReceiptと終了・回収・Host保存が揃うまで成功�
           })();
           return { status: "started", completion };
         },
-      });
+        };
+      };
       const execute = ${sourceDeclaration(source, "runDockerIsolationProbe")};
       const result = await execute({}, new AbortController().signal);
       return JSON.stringify({ result, calls, saved });

@@ -12,22 +12,22 @@ import {
   encodeStateValue,
   snapshotStateRecord,
   createLeaseEvidence,
-} from "./operations.ts";
+} from "../composition/validation.ts";
 import { types } from "node:util";
 import type { StorageRootInput } from "../storage/lock.ts";
 import type { StoreResult } from "../storage/lock.ts";
 import { blocked } from "../storage/lock.ts";
 import type { ProjectQueueEntry } from "../task/types.ts";
+import type { Snapshot } from "../composition/types.ts";
 import type {
   LeaseAcquisitionRequest,
   LeaseReadRequest,
   LeaseRecoveryRequest,
   LeaseReleaseRequest,
-  Snapshot,
   LeaseKind,
 } from "./types.ts";
-import { PROJECT_SNAPSHOT_SCHEMA } from "./types.ts";
-import { withSnapshotOperation } from "./crud.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../composition/types.ts";
+import { withSnapshotOperation } from "../composition/crud.ts";
 
 /**
  * Leaseの固定処置を同じ保存Ownerで確定する。
@@ -101,7 +101,7 @@ export function readLease(
         !validId(binding) ||
         !validId(input[0]) ||
         !validId(input[1]) ||
-        (input[2] !== "project-operation" && input[2] !== "canonical-adoption")
+        input[2] !== "project-operation"
       )
         return blocked("coordinator_snapshot_input_invalid");
       const recoveryId = leaseAcquisitionRecoveryId(
@@ -196,6 +196,8 @@ export function recoverLease(
       if (tuple.status !== "ok" || tuple.value.length < 6)
         return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
+      if (input[2] !== "project-operation")
+        return blocked("coordinator_snapshot_input_invalid");
 
       return withSnapshotOperation<
         Extract<
@@ -222,6 +224,8 @@ export function recoverLease(
       if (tuple.status !== "ok" || tuple.value.length < 8)
         return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
+      if (input[2] !== "project-operation")
+        return blocked("coordinator_snapshot_input_invalid");
 
       return withSnapshotOperation<
         Extract<
@@ -247,6 +251,8 @@ export function recoverLease(
       if (tuple.status !== "ok" || tuple.value.length < 10)
         return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
+      if (input[3] !== "project-operation")
+        return blocked("coordinator_snapshot_input_invalid");
 
       return withSnapshotOperation<
         Extract<
@@ -431,8 +437,7 @@ export function acquireLease(
         !validId(binding) ||
         !validId(input[0]) ||
         !validId(input[1]) ||
-        (input[2] !== "project-operation" &&
-          input[2] !== "canonical-adoption") ||
+        input[2] !== "project-operation" ||
         !owner ||
         !validId(owner.ownerGeneration) ||
         !Number.isSafeInteger(owner.ownerProcessId) ||
@@ -465,10 +470,8 @@ export function acquireLease(
       >(workingDirectory, binding, (current, owner) =>
         prepareLeaseAcquisitionReservation(
           current,
-          binding,
           input[0],
           input[1],
-          input[2],
           identity,
           intent,
           {
@@ -486,6 +489,8 @@ export function acquireLease(
       if (tuple.status !== "ok" || tuple.value.length < 10)
         return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
+      if (input[3] !== "project-operation")
+        return blocked("coordinator_snapshot_input_invalid");
 
       return withSnapshotOperation<
         Extract<
@@ -587,10 +592,8 @@ export function projectLeaseAcquisitionOwner(
  */
 export function prepareLeaseAcquisitionReservation(
   current: Snapshot,
-  binding: string,
   projectId: string,
   queueId: string,
-  kind: LeaseKind,
   identity: string,
   intent: Snapshot["leaseIntents"][number],
   observations: Readonly<{
@@ -605,20 +608,12 @@ export function prepareLeaseAcquisitionReservation(
   if (
     current.schema !== PROJECT_SNAPSHOT_SCHEMA ||
     !validId(projectId) ||
-    (kind === "project-operation"
-      ? !current.queueEntries.some(
-          (item) => item.queueId === queueId && item.projectId === projectId,
-        )
-      : queueId !== "canonical")
-  )
-    return blockedLeaseCandidate("coordinator_lease_binding_invalid");
-  if (
-    current.leaseIntents.some(
-      (item) =>
-        leaseIdentity(binding, item.projectId, item.queueId, item.kind) ===
-        identity,
+    !current.queueEntries.some(
+      (item) => item.queueId === queueId && item.projectId === projectId,
     )
   )
+    return blockedLeaseCandidate("coordinator_lease_binding_invalid");
+  if (current.leaseIntents.length)
     return blockedLeaseCandidate("coordinator_lease_unavailable");
   if (observations.resourcesAbsent() !== true)
     return blockedLeaseCandidate("coordinator_lease_preexisting_resource");
@@ -843,16 +838,8 @@ export function projectLeaseOwnerLossState(
 ) {
   if (current.schema !== PROJECT_SNAPSHOT_SCHEMA)
     return blockedLeaseCandidate("coordinator_snapshot_schema_invalid");
-  const queue =
-    kind === "project-operation"
-      ? (current.queueEntries.find((item) => item.queueId === queueId) ?? null)
-      : null;
-  if (
-    !validId(projectId) ||
-    (kind === "project-operation"
-      ? queue?.projectId !== projectId
-      : queueId !== "canonical")
-  )
+  const queue = current.queueEntries.find((item) => item.queueId === queueId);
+  if (!validId(projectId) || queue?.projectId !== projectId)
     return blockedLeaseCandidate("coordinator_lease_binding_invalid");
   const intents = current.leaseIntents.filter(
     (item) =>
@@ -1004,10 +991,7 @@ export function prepareLeaseRecoveryReservation(
       ),
     ) !== encodeStateValue(ownIntents) ||
     encodeStateValue(
-      kind === "project-operation"
-        ? (current.queueEntries.find((item) => item.queueId === queueId) ??
-            null)
-        : null,
+      current.queueEntries.find((item) => item.queueId === queueId) ?? null,
     ) !== encodeStateValue(initial.queue)
   )
     return blockedLeaseCandidate(
@@ -1073,10 +1057,7 @@ export function prepareLeaseRecoverySettlement(
     root.repositoryRoot !== initial.repositoryRoot ||
     root.rootIdentity !== initial.rootIdentity ||
     encodeStateValue(
-      kind === "project-operation"
-        ? (current.queueEntries.find((item) => item.queueId === queueId) ??
-            null)
-        : null,
+      current.queueEntries.find((item) => item.queueId === queueId) ?? null,
     ) !== encodeStateValue(initial.queue) ||
     encodeStateValue(
       current.leaseIntents.filter(

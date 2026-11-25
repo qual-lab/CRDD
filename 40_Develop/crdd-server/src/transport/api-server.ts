@@ -1065,12 +1065,7 @@ export async function handleAiSelection({
     const body = JSON.stringify(result);
     await setTimeout(0);
     if (requestSignal.aborted || response.destroyed) return;
-    if (
-      !access.authorize() ||
-      (writeRepository !== null &&
-        resolveVerifiedRepositoryRoot(writeRepository) !==
-          access.repositoryRoot)
-    )
+    if (!access.authorize(writeRepository ?? undefined))
       throw new Error("ai_selection_access_unavailable");
     sendResponseBody(
       response,

@@ -338,7 +338,9 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
   assert.equal(placed.status, "completed", placed.reason);
   assert.equal(placed.lockReleased, true);
   assert.ok(placed.value);
-  assert.deepEqual(Buffer.from(placed.value.sourceText, "utf8"), bytes);
+  const placedBytes = fs.readFileSync(file);
+  assert.deepEqual(placedBytes, bytes);
+  assert.equal(placed.value.payloadSha256, hash(placedBytes));
   const borrowed = borrowCoordinatorRecoveryRepository(verified.capability);
   assert.ok(borrowed);
   assert.equal(borrowed.repositoryBinding, binding);

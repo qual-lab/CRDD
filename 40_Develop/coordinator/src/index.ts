@@ -43,7 +43,6 @@ export {
 export {
   type CoordinatorDecisionRequest,
   inspectCoordinatorDecisionRequest,
-  inspectCoordinatorDecisionResult,
 } from "./lifecycle/decision.ts";
 export { parseExecutionActivityObservation } from "./lifecycle/query.ts";
 export {

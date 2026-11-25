@@ -10,7 +10,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { isDeepStrictEqual } from "node:util";
 import { compileFunction } from "node:vm";
 import { planExecution, type Provider } from "../../../ai-adapter/src/index.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
@@ -62,7 +61,6 @@ const compilePreparation = compileFunction(
     "consumeProviderTaskPacket",
     "consumeAttemptAdvicePacket",
     "planExecution",
-    "isDeepStrictEqual",
     "readOwnedReviewerWorkspace",
     "createExecutor",
     "borrowOwnedDockerExecutionPaths",
@@ -158,7 +156,6 @@ export function createAttemptPreparation<P extends Provider>(
     dependencies.consumeTaskPacket ?? (() => null),
     dependencies.consumeAdvicePacket ?? (() => null),
     dependencies.diagnoseTaskPlanning ?? planExecution,
-    isDeepStrictEqual,
     readReviewerWorkspace,
     create,
     () => undefined,

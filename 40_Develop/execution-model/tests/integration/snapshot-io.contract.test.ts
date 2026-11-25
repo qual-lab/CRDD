@@ -35,12 +35,12 @@ import {
   type ProjectExecutionState,
   readProjectExecutionState,
 } from "../../src/index.ts";
-import * as privateStateCrud from "../../src/state/crud.ts";
+import * as privateStateCrud from "../../src/composition/crud.ts";
 import {
   initializeExecutionStore as initializeSnapshot,
   writeSnapshot,
   writeSnapshotState,
-} from "../../src/state/crud.ts";
+} from "../../src/composition/crud.ts";
 import {
   encodeStateValue,
   hashExecutionStateContent,
@@ -49,14 +49,14 @@ import {
   leaseAcquisitionRecoveryId,
   leaseIdentity,
   snapshotStateRecord,
-} from "../../src/state/operations.ts";
+} from "../../src/composition/validation.ts";
 import {
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
   prepareUnifiedTaskSnapshot,
   projectTaskSnapshot,
   validateUnifiedTransition,
-} from "../../src/state/validation.ts";
+} from "../../src/composition/transition.ts";
 import {
   acquireExecutionStateLock,
   acquireSnapshotPilotLock,
@@ -84,171 +84,109 @@ import {
 import { createRuntimeStorageSourceFixture } from "../support/storage-source.ts";
 import { sourceDeclaration } from "../support/source-declaration.ts";
 
-/**
- * 採用結果の参照保護と段階退役を保存Ownerで検証する。
- * @responsibility Project参照の終了後だけ結果を退役し、別ProjectのLease証拠を保全する。
- * @trace PRL-IT-012
- * @precondition 自己所有Rootと合成のLease技術観測を使う。実Process不存在の証明ではない。
- * @stimulus 二結果の保存、参照あり／なしの候補、段階的な履歴確定・退役。
- * @observation 結果ID、Lease証拠、Project数と保存結果。
- * @oracle 参照中の結果は保持し、参照解除後だけ同結果と対応証拠を整理する。
- * @cleanup fixtureの同一実体限定hookで今回Rootを回収する。
- * @boundary EMの履歴・保持・私有Snapshot Writer。実AI・Dockerなし。
- */
-test("snapshot production: shared adoption evidence survives staged retirement", (t) => {
-  const { root, state } = fixture(t);
-  const cap = { directory: root };
-  assert.equal(
-    domain.initializeExecutionStore(cap, "binding-a").status,
-    "completed",
-  );
-  let otherEvidence: unknown;
-  for (const projectId of ["project-b", "project-a"]) {
-    const owner = {
-      ownerGeneration: `owner-${projectId}`,
-      ownerProcessId: process.pid,
-    };
-    const reserved = domain.acquireLease(cap, "binding-a", {
-      kind: "intent",
-      input: [
-        projectId,
-        "canonical",
-        "canonical-adoption",
-        owner,
-        {
-          resourcesAbsent: () => true,
-          observeRoot: () => ({
-            repositoryRoot: root,
-            rootIdentity: "f".repeat(64),
-          }),
-          markIntentSaveRequested: () => {},
-        },
-      ],
-    });
-    assert.equal(reserved.status, "completed", reserved.reason);
-    assert.ok(reserved.value);
-    const intent = reserved.value.intent,
-      physical = createHash("sha256").update(projectId).digest("hex");
-    const acquired = domain.acquireLease(cap, "binding-a", {
-      kind: "observed",
-      input: [
-        "binding-a",
-        projectId,
-        "canonical",
-        "canonical-adoption",
-        owner.ownerGeneration,
-        intent,
-        physical,
-        intent.recoveryId,
-        process.pid,
-        { physicalIdentityMatches: () => true },
-      ],
-    });
-    assert.equal(acquired.status, "completed", acquired.reason);
+/** 候補作成が元版を再利用しても、Writerは遅れて現れた差分を拒否する。 @trace PRL-IT-005 */
+test("snapshot production: reused state still requires exact current bytes and no pending history", (t) => {
+  for (const fault of ["current-bytes", "pending-history"] as const) {
+    const { root, state: project } = fixture(t);
+    const cap = { directory: root };
     assert.equal(
-      domain.releaseLease(cap, "binding-a", {
-        kind: "intent",
-        input: [intent, physical],
-      }).status,
+      domain.initializeExecutionStore(cap, "binding-a").status,
       "completed",
     );
     assert.equal(
-      domain.releaseLease(cap, "binding-a", {
-        kind: "observed",
-        input: ["binding-a", intent, physical, process.pid],
-      }).status,
-      "completed",
-    );
-    if (projectId === "project-b")
-      otherEvidence = readSnapshot({ directory: root }, "binding-a").value
-        ?.leaseEvidence;
-  }
-  for (const identity of ["receipt-a", "receipt-b"])
-    assert.equal(
-      domain.saveIntegrationRecord(
-        cap,
-        "binding-a",
-        {
-          repositoryBindingId: "binding-a",
-          projectId: "project-a",
-          milestoneId: "milestone-a",
-          queueId: "adoption-a",
-        },
-        {
-          kind: "adoption",
-          identity,
-          value: {
-            status: "completed",
-            receiptId: identity,
-            beforeRevision: "a".repeat(40),
-            afterRevision: "b".repeat(40),
-            changedPaths: ["result.txt"],
-            cleanupConfirmed: true,
+      domain.createQueue(cap, "binding-a", {
+        kind: "scheduled",
+        input: [
+          {
+            queueId: "queue-a",
+            projectId: "project-a",
+            milestoneId: "milestone-a",
+            requestHash: "b".repeat(64),
+            originLane: "interactive",
+            repositoryRevision: "a".repeat(40),
+            scopeHash: "c".repeat(64),
           },
-        },
-      ).status,
+          initialExecutionInput(project),
+        ],
+      }).status,
       "completed",
     );
-  const protectedState = {
-    ...state,
-    milestone: { ...state.milestone, criterionEvidenceIds: ["receipt-b"] },
-  };
-  const before = readSnapshot({ directory: root }, "binding-a").value;
-  assert.ok(before);
-  assert.equal(
-    writeSnapshot(
-      { directory: root },
-      "binding-a",
-      encodeStateValue({
-        ...before,
-        snapshotRevision: before.snapshotRevision + 1,
-        projects: [protectedState],
-      }),
-      before.snapshotRevision,
-    ).status,
-    "completed",
-  );
-  const history = {
-    root: cap,
-    historyRetentionDays: 30,
-    revalidate: () => true,
-  };
-  assert.equal(
-    domain.retireStateRecords(history, "binding-a", Date.now()).value,
-    1,
-  );
-  const retained = readSnapshot({ directory: root }, "binding-a").value;
-  assert.deepEqual(
-    retained?.results.map((item) => item.identity),
-    ["receipt-b"],
-  );
-  assert.ok(retained && retained.leaseEvidence.length > 0);
-  const releasedState = {
-    ...protectedState,
-    generation: protectedState.generation + 1,
-    milestone: { ...protectedState.milestone, criterionEvidenceIds: [] },
-  };
-  assert.equal(
-    writeSnapshot(
-      { directory: root },
-      "binding-a",
-      encodeStateValue({
-        ...retained,
-        snapshotRevision: retained.snapshotRevision + 1,
-        projects: [releasedState],
-      }),
-      retained.snapshotRevision,
-    ).status,
-    "completed",
-  );
-  assert.equal(
-    domain.retireStateRecords(history, "binding-a", Date.now()).value,
-    1,
-  );
-  const closed = readSnapshot({ directory: root }, "binding-a").value;
-  assert.equal(closed?.results.length, 0);
-  assert.deepEqual(closed?.leaseEvidence, otherEvidence);
-  assert.equal(closed?.projects.length, 1);
+    const directory = path.join(root, ".crdd", "execution-model");
+    const state = path.join(directory, "state.json");
+    const pendingState = path.join(directory, "state.pending.json");
+    const pendingHistory = path.join(directory, "history.pending.jsonl");
+    const before = fs.readFileSync(state);
+    const raw = JSON.parse(before.toString("utf8"));
+    const changed = Buffer.from(
+      `${encodeStateValue({ ...raw, repositoryBindingId: "different-binding" })}\n`,
+    );
+    assert.ok(decodeStateSnapshot(changed, raw.repositoryBinding));
+    const retainedHistory = "unconfirmed history\n";
+    let reads = 0;
+    let pendingStateOpens = 0;
+    let injected = false;
+    const open = fs.openSync;
+    const list = fs.readdirSync;
+    const track = t.mock.method(
+      fs,
+      "openSync",
+      (...args: Parameters<typeof open>) => {
+        if (args[0] === state) reads++;
+        if (args[0] === pendingState) pendingStateOpens++;
+        return open(...args);
+      },
+    );
+    const inject = t.mock.method(
+      fs,
+      "readdirSync",
+      (...args: Parameters<typeof list>) => {
+        // Reader内では変更せず、候補を受け取った物理Writerの一覧取得で差を出す。
+        if (
+          !injected &&
+          args[0] === directory &&
+          new Error().stack?.includes("commitStateSnapshotOwned")
+        ) {
+          assert.equal(reads, 2, "候補組立て用の本文再読を行わない");
+          injected = true;
+          if (fault === "current-bytes") fs.writeFileSync(state, changed);
+          else fs.writeFileSync(pendingHistory, retainedHistory);
+        }
+        return list(...args);
+      },
+    );
+    try {
+      const reserved = domain.acquireLease(cap, "binding-a", {
+        kind: "intent",
+        input: [
+          "project-a",
+          "queue-a",
+          "project-operation",
+          { ownerGeneration: "owner-a", ownerProcessId: process.pid },
+          {
+            resourcesAbsent: () => true,
+            observeRoot: () => ({
+              repositoryRoot: root,
+              rootIdentity: "f".repeat(64),
+            }),
+            markIntentSaveRequested: () => {},
+          },
+        ],
+      });
+      assert.equal(reserved.status, "blocked", fault);
+      assert.equal(injected, true, fault);
+      assert.equal(pendingStateOpens, 0, fault);
+    } finally {
+      inject.mock.restore();
+      track.mock.restore();
+    }
+    assert.deepEqual(
+      fs.readFileSync(state),
+      fault === "current-bytes" ? changed : before,
+    );
+    assert.equal(fs.existsSync(pendingState), false);
+    if (fault === "pending-history")
+      assert.equal(fs.readFileSync(pendingHistory, "utf8"), retainedHistory);
+  }
 });
 
 /**
@@ -368,91 +306,43 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
         "completed",
       );
     }
-    const owner = {
-      ownerGeneration: `owner-${projectId}`,
-      ownerProcessId: process.pid,
-    };
-    const reserved = domain.acquireLease(cap, "binding-a", {
-      kind: "intent",
-      input: [
-        projectId,
-        "canonical",
-        "canonical-adoption",
-        owner,
-        {
-          resourcesAbsent: () => true,
-          observeRoot: () => ({
-            repositoryRoot: root,
-            rootIdentity: "f".repeat(64),
-          }),
-          markIntentSaveRequested: () => {},
-        },
-      ],
-    });
-    assert.equal(reserved.status, "completed", reserved.reason);
-    assert.ok(reserved.value);
-    const intent = reserved.value.intent,
-      physical = createHash("sha256").update(projectId).digest("hex");
-    const acquired = domain.acquireLease(cap, "binding-a", {
-      kind: "observed",
-      input: [
-        "binding-a",
-        projectId,
-        "canonical",
-        "canonical-adoption",
-        owner.ownerGeneration,
-        intent,
-        physical,
-        intent.recoveryId,
-        process.pid,
-        { physicalIdentityMatches: () => true },
-      ],
-    });
-    assert.equal(acquired.status, "completed", acquired.reason);
-    assert.equal(
-      domain.releaseLease(cap, "binding-a", {
-        kind: "intent",
-        input: [intent, physical],
-      }).status,
-      "completed",
-    );
-    assert.equal(
-      domain.releaseLease(cap, "binding-a", {
-        kind: "observed",
-        input: ["binding-a", intent, physical, process.pid],
-      }).status,
-      "completed",
-    );
-    const identity = projectId === "project-a" ? "receipt-a" : "receipt-b";
-    assert.equal(
-      domain.saveIntegrationRecord(
-        cap,
-        "binding-a",
-        {
-          repositoryBindingId: "binding-a",
-          projectId,
-          milestoneId: "milestone-a",
-          queueId: projectId === "project-a" ? "canonical" : "adoption-b",
-        },
-        {
-          kind: "adoption",
-          identity,
-          value: {
-            status: "completed",
-            receiptId: identity,
-            beforeRevision: "a".repeat(40),
-            afterRevision: "b".repeat(40),
-            changedPaths: ["result.txt"],
-            cleanupConfirmed: true,
+    // 別Projectの結果IDが退役Queue IDと一致しても、Queue所属が違えば退役しない。
+    const identities =
+      projectId === "project-a" ? ["receipt-a"] : ["receipt-b", input.queueId];
+    for (const identity of identities) {
+      assert.equal(
+        domain.saveIntegrationRecord(
+          cap,
+          "binding-a",
+          {
+            repositoryBindingId: "binding-a",
+            projectId,
+            milestoneId: "milestone-a",
+            queueId: projectId === "project-a" ? "canonical" : "adoption-b",
           },
-        },
-      ).status,
-      "completed",
-    );
+          {
+            kind: "adoption",
+            identity,
+            value: {
+              recordKind: "workspace-candidate",
+              operationId: identity,
+              candidateCommit: "b".repeat(40),
+              mergeCommit: "c".repeat(40),
+              target: {
+                targetBranch: "main",
+                expectedTargetHead: "a".repeat(40),
+              },
+              disposition: "adopted",
+              primaryFailure: null,
+            },
+          },
+        ).status,
+        "completed",
+      );
+    }
   }
   const queued = readSnapshot({ directory: root }, "binding-a").value;
   assert.ok(queued);
-  const canonicalEvidence = queued.leaseEvidence;
   const file = path.join(root, ".crdd/execution-model/state.json"),
     before = fs.readFileSync(file, "utf8");
   assert.equal(
@@ -491,8 +381,14 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
   assert.equal(snapshot?.queueEntries.length, 1);
   assert.equal(snapshot?.queueEntries[0]?.historySettled, true);
   assert.equal(snapshot?.projects.length, 2);
-  assert.equal(snapshot?.results.length, 2);
-  assert.deepEqual(snapshot?.leaseEvidence, canonicalEvidence);
+  assert.equal(snapshot?.results.length, 3);
+  assert.ok(
+    snapshot?.results.some(
+      (record) =>
+        record.projectId === "project-b" && record.identity === input.queueId,
+    ),
+  );
+  assert.deepEqual(snapshot?.leaseEvidence, []);
   assert.equal(snapshot?.historyPending.length, 0);
   assert.equal(
     domain.retireStateRecords(history, "binding-a", Date.now()).value,
@@ -820,6 +716,48 @@ test("資源再保存は元pairの一致とOwner三位置を同じ受付で保�
   ).replaceAll("export function", "function");
   const before = Buffer.from("before"),
     candidate = Buffer.from("candidate");
+  const mutable = Buffer.from(candidate);
+  const captured = privateStorageStore.captureResourcePublication(
+    before,
+    mutable,
+  );
+  mutable.fill(0);
+  assert.equal(
+    captured.matchesCandidate(
+      privateStorageStore.captureStateVersionEvidence("candidate"),
+    ),
+    true,
+  );
+  assert.equal(
+    captured.matchesCandidate(
+      privateStorageStore.captureStateVersionEvidence("before"),
+    ),
+    false,
+  );
+  assert.equal(captured.matchesCandidate("candidate"), false);
+  assert.equal(
+    captured.matches(
+      privateStorageStore.captureResourcePublication(before, candidate),
+    ),
+    true,
+  );
+  assert.equal(captured.matches({ before, candidate }), false);
+  assert.equal(
+    captured.matches(Object.create(Object.getPrototypeOf(captured))),
+    false,
+  );
+  let traps = 0;
+  const rejectProxyTrap = () => {
+    traps++;
+    throw Error("publication proxy must not run");
+  };
+  const proxied = new Proxy(captured, {
+    get: rejectProxyTrap,
+    getPrototypeOf: rejectProxyTrap,
+    ownKeys: rejectProxyTrap,
+  });
+  assert.equal(captured.matches(proxied), false);
+  assert.equal(Reflect.get(captured, "read"), undefined);
   for (const mode of [
     "valid",
     "owner1",
@@ -832,8 +770,12 @@ test("資源再保存は元pairの一致とOwner三位置を同じ受付で保�
     "candidate_changed",
     "classification",
     "reader_unknown",
+    "forged_pair",
+    "forged_prototype",
+    "proxied_pair",
   ] as const) {
     let owners = 0,
+      classifications = 0,
       reads = 0,
       writes = 0,
       effects = 0;
@@ -848,7 +790,11 @@ test("資源再保存は元pairの一致とOwner三位置を同じ受付で保�
     const execute = runInNewContext(`${body}; saveRecoveryCheckpoint`, {
       Buffer,
       snapshotStateRecord,
+      readResourcePublicationBytes:
+        privateStorageStore.readResourcePublicationBytes,
+      readStateVersionEvidence: privateStorageStore.readStateVersionEvidence,
       classifyResourcePublication: (...args: unknown[]) => {
+        classifications++;
         assert.deepEqual(args, [before, candidate, "exact", "binding"]);
         return mode !== "classification";
       },
@@ -867,11 +813,10 @@ test("資源再保存は元pairの一致とOwner三位置を同じ受付で保�
         return {
           status: mode === "reader_unknown" ? "blocked" : "completed",
           lockReleased: mode !== "reader_unknown",
-          resourcePublication: {
-            before: mode === "before_changed" ? Buffer.from("other") : before,
-            candidate:
-              mode === "candidate_changed" ? Buffer.from("other") : candidate,
-          },
+          resourcePublication: privateStorageStore.captureResourcePublication(
+            mode === "before_changed" ? Buffer.from("other") : before,
+            mode === "candidate_changed" ? Buffer.from("other") : candidate,
+          ),
         };
       },
       writeStateSnapshot: (
@@ -881,7 +826,7 @@ test("資源再保存は元pairの一致とOwner三位置を同じ受付で保�
       ) => {
         if (target) {
           writes++;
-          assert.strictEqual(bytes, candidate);
+          assert.deepEqual(bytes, candidate);
           if (target.revalidate(7)) {
             effects++;
             return {
@@ -902,7 +847,14 @@ test("資源再保存は元pairの一致とOwner三位置を同じ受付で保�
     });
     const result = execute(repository, "exact", null, {
       kind: "resource_publication",
-      publication: { before, candidate },
+      publication:
+        mode === "forged_pair"
+          ? { before, candidate }
+          : mode === "forged_prototype"
+            ? Object.create(Object.getPrototypeOf(captured))
+            : mode === "proxied_pair"
+              ? proxied
+              : captured,
       assertOwner: () => {
         owners++;
         if (mode === `throw${owners}`) throw Error("synthetic");
@@ -911,6 +863,22 @@ test("資源再保存は元pairの一致とOwner三位置を同じ受付で保�
     });
     assert.equal(effects, mode === "valid" ? 1 : 0, mode);
     assert.equal(result.snapshotConfirmed, mode === "valid", mode);
+    if (["forged_pair", "forged_prototype", "proxied_pair"].includes(mode)) {
+      assert.equal(result.status, "blocked", mode);
+      assert.equal(result.filesystemEffectIssued, false, mode);
+      assert.deepEqual(
+        { owners, classifications, reads, writes, traps },
+        {
+          owners: 0,
+          classifications: 0,
+          reads: 0,
+          writes: 0,
+          traps: 0,
+        },
+        mode,
+      );
+      continue;
+    }
     assert.equal(
       reads,
       ["owner1", "throw1", "classification"].includes(mode) ? 0 : 1,
@@ -1097,7 +1065,7 @@ test("終了観測は同じReaderで相関と排他終了を共同確認する",
   const body = stripTypeScriptTypes(
     sourceDeclaration(
       fs.readFileSync(
-        new URL("../../src/state/crud.ts", import.meta.url),
+        new URL("../../src/composition/crud.ts", import.meta.url),
         "utf8",
       ),
       "readRecoveryState",
@@ -1201,26 +1169,28 @@ test("終了観測は同じReaderで相関と排他終了を共同確認する",
 
 /**
  * State複合取得の固定範囲と単一読取りを確認する。
- * @responsibility 返却型だけでなく実fieldの限定、未知scopeの無Effect拒否を検証する。
+ * @responsibility 返却型だけでなく実fieldの限定と対象不正の無Effect拒否を検証する。
  * @trace PRL-IT-005
  * @precondition 既知Snapshotの有限代役を使い、実保存の成立とは区別する。
- * @stimulus 二範囲、不正scope、不存在、読取り又は解放不明を与える。
+ * @stimulus 三入口、不正Root、不存在、読取り又は解放不明を与える。
  * @observation 元Reader呼出し数、返却field、元失敗の同一性。
  * @oracle 技術区画を返さず、不明を不存在へ畳まず、範囲の既定補完をしない。
  * @cleanup N/A: Source読取りとメモリ値だけ。
  * @boundary Stateの公開取得本文と既存保存Readerの有限返却契約。
  */
 test("複合State取得は固定範囲だけを一回のReaderから返す", () => {
-  const source = stripTypeScriptTypes(
-    sourceDeclaration(
-      fs.readFileSync(
-        new URL("../../src/state/crud.ts", import.meta.url),
-        "utf8",
-      ),
-      "readState",
-    ),
-    { mode: "strip" },
+  const crud = fs.readFileSync(
+    new URL("../../src/composition/crud.ts", import.meta.url),
+    "utf8",
   );
+  const source = [
+    "readStateView",
+    "readQueueState",
+    "readExecutionState",
+    "readWorkspaceState",
+  ]
+    .map((name) => stripTypeScriptTypes(sourceDeclaration(crud, name)))
+    .join("\n");
   const root = {};
   const snapshot = {
     projects: [{ projectId: "project-a" }],
@@ -1244,9 +1214,8 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
     "readSnapshot",
     "blocked",
     "completed",
-    "snapshotStateRecord",
     "observeTaskStartCandidates",
-    `${source}; return readState;`,
+    `${source}; return { queue: readQueueState, execution: readExecutionState, workspace: readWorkspaceState };`,
   )(
     (actualRoot: unknown, binding: string, mode?: unknown) => {
       assert.strictEqual(actualRoot, root);
@@ -1261,7 +1230,6 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
       reason,
       value,
     }),
-    snapshotStateRecord,
     (project: unknown) => {
       assert.strictEqual(project, snapshot.projects[0]);
       return candidate;
@@ -1279,7 +1247,7 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
     ],
   ] as const) {
     const before = reads;
-    const actual = read(root, "binding-a", scope);
+    const actual = read[scope](root, "binding-a");
     assert.equal(reads, before + 1);
     assert.equal(readModes.at(-1), undefined);
     assert.equal(actual.status, "completed");
@@ -1293,40 +1261,46 @@ test("複合State取得は固定範囲だけを一回のReaderから返す", () 
     }
   }
   const beforeInvalid = reads;
-  for (const scope of [undefined, null, "unknown", {}]) {
-    assert.equal(
-      read(root, "binding-a", scope).reason,
-      "coordinator_state_read_scope_invalid",
-    );
+  for (const scope of ["queue", "execution", "workspace"] as const) {
+    for (const invalid of [null, undefined, "legacy-root"]) {
+      assert.equal(
+        read[scope](invalid, "binding-a").reason,
+        "coordinator_repository_root_invalid",
+      );
+    }
   }
   assert.equal(reads, beforeInvalid);
   reply = { status: "completed", reason: "absent", value: null };
-  assert.deepEqual(read(root, "binding-a", "execution"), reply);
+  assert.deepEqual(read.execution(root, "binding-a"), reply);
   reply = {
     status: "blocked",
     reason: "lock_release_unconfirmed",
     value: null,
     recoveryId: "exact-fixture",
   };
-  assert.strictEqual(read(root, "binding-a", "workspace"), reply);
+  assert.strictEqual(read.workspace(root, "binding-a"), reply);
 });
 
 /**
- * 既存保存Readerへ二つの複合取得範囲を接続する。
+ * 既存保存Readerへ三つの複合取得を接続する。
  * @responsibility 実Repositoryの不存在・同版取得・破損拒否を確認する。
  * @trace PRL-IT-005
  * @precondition 今回のCaseが生成するRepositoryだけを使う。
- * @stimulus 初期化前、初期化後、自己生成本文の破損後に二範囲を読む。
+ * @stimulus 初期化前、初期化後、自己生成本文の破損後に三範囲を読む。
  * @observation field集合、改訂、保存結果とLock Fileの残存。
- * @oracle 拒否を空集合にせず、旧三入口と新しい公開型を追加しない。
+ * @oracle 拒否を空集合にせず、通常の固定投影は技術区画や生Snapshotを含まない。
  * @cleanup fixtureの既存hookが今回のRootだけを確認・回収する。
  * @boundary EM公開Readerと実Filesystem・共通Lock。
  */
 test("複合State取得は実保存の不存在・同版・破損を区別する", (t) => {
   const { root } = fixture(t);
-  for (const scope of ["queue", "execution", "workspace"] as const) {
-    const empty: ReturnType<typeof domain.readState<typeof scope>> =
-      domain.readState({ directory: root }, "binding-a", scope);
+  const readers = [
+    domain.readQueueState,
+    domain.readExecutionState,
+    domain.readWorkspaceState,
+  ];
+  for (const read of readers) {
+    const empty = read({ directory: root }, "binding-a");
     assert.equal(empty.status, "completed");
     assert.equal(empty.value, null);
   }
@@ -1334,17 +1308,9 @@ test("複合State取得は実保存の不存在・同版・破損を区別する
     domain.initializeExecutionStore({ directory: root }, "binding-a").status,
     "completed",
   );
-  const execution = domain.readState(
-    { directory: root },
-    "binding-a",
-    "execution",
-  );
-  const workspace = domain.readState(
-    { directory: root },
-    "binding-a",
-    "workspace",
-  );
-  const queue = domain.readState({ directory: root }, "binding-a", "queue");
+  const execution = domain.readExecutionState({ directory: root }, "binding-a");
+  const workspace = domain.readWorkspaceState({ directory: root }, "binding-a");
+  const queue = domain.readQueueState({ directory: root }, "binding-a");
   assert.equal(execution.status, "completed");
   assert.equal(workspace.status, "completed");
   assert.ok(execution.value && workspace.value);
@@ -1375,22 +1341,14 @@ test("複合State取得は実保存の不存在・同版・破損を区別する
   );
   fs.writeFileSync(marker, fs.readFileSync(file));
   try {
-    assert.deepEqual(
-      domain.readState({ directory: root }, "binding-a", "queue").status,
-      "blocked",
-    );
-    for (const scope of ["execution", "workspace"] as const)
-      assert.equal(
-        domain.readState({ directory: root }, "binding-a", scope).status,
-        "blocked",
-      );
+    for (const read of readers)
+      assert.equal(read({ directory: root }, "binding-a").status, "blocked");
   } finally {
     fs.rmSync(marker);
   }
   fs.writeFileSync(file, "invalid fixture");
-  for (const scope of ["queue", "execution", "workspace"] as const) {
-    const rejected: ReturnType<typeof domain.readState<typeof scope>> =
-      domain.readState({ directory: root }, "binding-a", scope);
+  for (const read of readers) {
+    const rejected = read({ directory: root }, "binding-a");
     assert.equal(rejected.status, "blocked");
     assert.equal(rejected.value, null);
     assert.equal(fs.readFileSync(file, "utf8"), "invalid fixture");
@@ -1716,7 +1674,7 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
 test("保存観測はControllerに依存せず有限Repository観測へ接続する", () => {
   const runtime = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/state/crud.ts", import.meta.url),
+      new URL("../../src/composition/crud.ts", import.meta.url),
       "utf8",
     ),
   );
@@ -1724,7 +1682,7 @@ test("保存観測はControllerに依存せず有限Repository観測へ接続す
   assert.match(runtime, /from\s+["'][^"']*storage\/lock\.ts["']/);
   const publication = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/storage/publication.ts", import.meta.url),
+      new URL("../../src/storage/store.ts", import.meta.url),
       "utf8",
     ),
   );
@@ -2304,18 +2262,14 @@ test("現在Stateと同一の途中保存を通常照会で成功扱いしない
   const pending = path.join(path.dirname(state), "state.pending.json");
   fs.writeFileSync(pending, committed, { flag: "wx" });
 
-  const result = domain.readState(
-    { directory: root },
-    "binding-a",
-    "execution",
-  );
+  const result = domain.readExecutionState({ directory: root }, "binding-a");
   assert.equal(result.status, "blocked");
   assert.equal(result.value, null);
   assert.deepEqual(fs.readFileSync(state), committed);
   assert.deepEqual(fs.readFileSync(pending), committed);
 });
 
-import { prepareStateResourceSnapshot } from "../../src/state/validation.ts";
+import { prepareStateResourceSnapshot } from "../../src/composition/transition.ts";
 
 /**
  * 初回計画の拒否をStore作成前に閉じ、ProjectとQueueを同じ保存へ組み込む。
@@ -3693,13 +3647,20 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
  */
 test("Task保存のpending故障は現在値と未確定物を保全する", async (t) => {
   for (const mode of [
+    "normal",
     "open",
     "partial",
+    "create_fsync",
     "unobservable",
     "replaced",
     "existing",
     "history_late",
     "current_unobservable",
+    "history_before_rename",
+    "same_bytes_replaced_before_rename",
+    "readback_not_requested",
+    "published_unobservable",
+    "same_bytes_replaced_after_rename",
   ] as const)
     await t.test(mode, (t) => {
       const { root, state } = fixture(t);
@@ -3737,16 +3698,41 @@ test("Task保存のpending故障は現在値と未確定物を保全する", asy
         pending = path.join(directory, "state.pending.json"),
         history = path.join(directory, "history.pending.jsonl");
       const before = fs.readFileSync(current);
+      const retainedCurrent = path.join(root, "original-current");
       if (mode === "existing") fs.writeFileSync(pending, "foreign");
       const open = fs.openSync,
         lstat = fs.lstatSync,
+        rename = fs.renameSync,
         sync = fs.fsyncSync;
       let injected = false,
         replaced = false,
+        renamed = false,
+        postRenameOpens = 0,
+        pendingSyncs = 0,
+        finalCurrentRead = false,
+        lateFault = false,
         observationFaults = 0;
       const opening = t.mock.method(fs, "openSync", ((
         ...args: Parameters<typeof open>
       ) => {
+        if (
+          renamed &&
+          args[0] === current &&
+          args[1] === fs.constants.O_RDONLY
+        ) {
+          postRenameOpens++;
+          if (mode === "readback_not_requested")
+            throw Object.assign(new Error("final_read_unknown"), {
+              code: "EACCES",
+            });
+        }
+        if (
+          (mode === "same_bytes_replaced_before_rename" ||
+            mode === "history_before_rename") &&
+          pendingSyncs === 1 &&
+          args[0] === current
+        )
+          finalCurrentRead = true;
         if (String(args[0]) === pending && args[1] === "wx") {
           injected = true;
           if (mode === "partial") fs.writeFileSync(pending, "{");
@@ -3761,6 +3747,42 @@ test("Task保存のpending故障は現在値と未確定物を保全する", asy
         ...args: Parameters<typeof lstat>
       ) => {
         if (
+          (mode === "same_bytes_replaced_after_rename" ||
+            mode === "published_unobservable") &&
+          renamed &&
+          !lateFault &&
+          args[0] === current
+        ) {
+          lateFault = true;
+          if (mode === "published_unobservable")
+            throw Object.assign(new Error("published_stat_unknown"), {
+              code: "EACCES",
+            });
+          rename(current, retainedCurrent);
+          fs.writeFileSync(current, fs.readFileSync(retainedCurrent));
+        }
+        if (
+          (mode === "same_bytes_replaced_before_rename" ||
+            mode === "history_before_rename") &&
+          finalCurrentRead &&
+          !lateFault &&
+          args[0] === root
+        ) {
+          const stack = new Error().stack;
+          if (
+            stack?.includes("assertBoundary") &&
+            !stack.includes("readExecutionStateFile")
+          ) {
+            lateFault = true;
+            if (mode === "history_before_rename")
+              fs.writeFileSync(history, "foreign-history");
+            else {
+              fs.renameSync(current, retainedCurrent);
+              fs.writeFileSync(current, before);
+            }
+          }
+        }
+        if (
           injected &&
           ((mode === "unobservable" && String(args[0]) === pending) ||
             (mode === "current_unobservable" && String(args[0]) === current))
@@ -3770,7 +3792,18 @@ test("Task保存のpending故障は現在値と未確定物を保全する", asy
         }
         return Reflect.apply(lstat, fs, args);
       }) as typeof lstat);
+      const publishing = t.mock.method(
+        fs,
+        "renameSync",
+        (...args: Parameters<typeof rename>) => {
+          rename(...args);
+          if (args[0] === pending && args[1] === current) renamed = true;
+        },
+      );
       const syncing = t.mock.method(fs, "fsyncSync", (fd: number) => {
+        if (injected) pendingSyncs++;
+        if (mode === "create_fsync" && pendingSyncs === 1)
+          throw Object.assign(new Error("pending_fsync"), { code: "EIO" });
         sync(fd);
         if (mode === "replaced" && injected && !replaced) {
           replaced = true;
@@ -3787,12 +3820,46 @@ test("Task保存のpending故障は現在値と未確定物を保全する", asy
           state.generation,
         );
       } finally {
+        publishing.mock.restore();
         opening.mock.restore();
         observing.mock.restore();
         syncing.mock.restore();
       }
       assert.equal(injected, mode !== "existing");
+      if (mode === "normal" || mode === "readback_not_requested") {
+        assert.equal(saved.status, "completed", saved.reason);
+        assert.equal(pendingSyncs, 1);
+        assert.equal(renamed, true);
+        assert.equal(postRenameOpens, 0);
+        assert.notDeepEqual(fs.readFileSync(current), before);
+        assert.equal(fs.existsSync(pending), false);
+        return;
+      }
+      if (
+        mode === "published_unobservable" ||
+        mode === "same_bytes_replaced_after_rename"
+      ) {
+        assert.equal(saved.status, "blocked");
+        assert.equal(renamed, true);
+        assert.equal(postRenameOpens, 0);
+        assert.equal(lateFault, true);
+        assert.notDeepEqual(fs.readFileSync(current), before);
+        assert.equal(fs.existsSync(pending), false);
+        if (mode === "same_bytes_replaced_after_rename") {
+          assert.deepEqual(
+            fs.readFileSync(current),
+            fs.readFileSync(retainedCurrent),
+          );
+        }
+        return;
+      }
+      if (mode === "create_fsync") assert.equal(pendingSyncs, 1);
       assert.equal(replaced, mode === "replaced");
+      assert.equal(
+        lateFault,
+        mode === "history_before_rename" ||
+          mode === "same_bytes_replaced_before_rename",
+      );
       assert.equal(
         observationFaults,
         ["unobservable", "current_unobservable"].includes(mode) ? 1 : 0,
@@ -3804,7 +3871,14 @@ test("Task保存のpending故障は現在値と未確定物を保全する", asy
         fs.existsSync(pending),
         !["open", "history_late"].includes(mode),
       );
-      assert.equal(fs.existsSync(history), mode === "history_late");
+      assert.equal(
+        fs.existsSync(history),
+        mode === "history_late" || mode === "history_before_rename",
+      );
+      if (mode === "history_before_rename")
+        assert.equal(fs.readFileSync(history, "utf8"), "foreign-history");
+      if (mode === "same_bytes_replaced_before_rename")
+        assert.deepEqual(fs.readFileSync(retainedCurrent), before);
       assert.equal(
         readSnapshot({ directory: root }, "binding-a").status,
         mode === "open" ? "completed" : "blocked",
@@ -3979,12 +4053,10 @@ test("describes the durable foundation without claiming the upper Runtime comple
   const contract = describeDurableFoundation();
   assert.deepEqual(contract, {
     contract: "crdd-execution-model/storage-envelope/v2",
-    recordStrategy:
-      "single_current_snapshot_with_pending_atomic_replace_and_exact_readback",
+    recordStrategy: "single_current_snapshot_with_pending_atomic_replace",
     queueMutation: "short_exclusive_repository_local_lock",
     operationLease:
       "exclusive_lock_with_owner_generation_and_no_stale_takeover",
-    adoptionLease: "separate_exclusive_lock_with_no_stale_takeover",
     staleLockDisposition: "blocked_manual_reconciliation_required_before_reuse",
     externalWaitWhileMutationLockHeld: false,
     taskManagementCapabilityComplete: false,
@@ -4691,7 +4763,7 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
   const end = text.length;
   assert.ok(start > 0 && end > start);
   const validationSource = fs.readFileSync(
-    new URL("../../src/state/validation.ts", import.meta.url),
+    new URL("../../src/composition/transition.ts", import.meta.url),
     "utf8",
   );
   const dispatchStart = validationSource.indexOf(
@@ -4717,7 +4789,7 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
   assert.ok(guardStart > 0 && guardEnd > guardStart);
   const wrapperMutant = wrapper.slice(0, guardStart) + wrapper.slice(guardEnd);
   const writerText = fs.readFileSync(
-    new URL("../../src/storage/publication.ts", import.meta.url),
+    new URL("../../src/storage/store.ts", import.meta.url),
     "utf8",
   );
   const writer = writerText.indexOf("function commitStateSnapshotOwned(");
@@ -4891,7 +4963,7 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
  */
 test("認証限定Writerの二重対象相関は別操作Ownerを拒否する", () => {
   const text = fs.readFileSync(
-    new URL("../../src/state/crud.ts", import.meta.url),
+    new URL("../../src/composition/crud.ts", import.meta.url),
     "utf8",
   );
   const start = text.indexOf("export function saveAuthenticationClosure(");
@@ -4909,7 +4981,7 @@ test("認証限定Writerの二重対象相関は別操作Ownerを拒否する", 
   assert.ok(guardStart > 0 && guardEnd > guardStart);
   const wrapperMutant = wrapper.slice(0, guardStart) + wrapper.slice(guardEnd);
   const writerText = fs.readFileSync(
-    new URL("../../src/storage/publication.ts", import.meta.url),
+    new URL("../../src/storage/store.ts", import.meta.url),
     "utf8",
   );
   const innerStart = writerText.indexOf(
@@ -5084,7 +5156,7 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
     "utf8",
   );
   const publicationSource = fs.readFileSync(
-    new URL("../../src/storage/publication.ts", import.meta.url),
+    new URL("../../src/storage/store.ts", import.meta.url),
     "utf8",
   );
   const body = stripTypeScriptTypes(
@@ -5093,7 +5165,7 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
       sourceDeclaration(text, "saveRepairRecord"),
   ).replaceAll("export function", "function");
   const validationSource = fs.readFileSync(
-    new URL("../../src/state/validation.ts", import.meta.url),
+    new URL("../../src/composition/transition.ts", import.meta.url),
     "utf8",
   );
   const dispatchStart = validationSource.indexOf(
@@ -5241,7 +5313,7 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
  */
 test("Task Writerの修復保全guardは新規・変更・除去を拒否する", () => {
   const text = fs.readFileSync(
-    new URL("../../src/storage/publication.ts", import.meta.url),
+    new URL("../../src/storage/store.ts", import.meta.url),
     "utf8",
   );
   const functionStart = text.indexOf("function commitStateSnapshotOwned(");
@@ -5427,6 +5499,9 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
     "completed",
     "cancelled",
     "before_changed",
+    "forged_before",
+    "forged_before_prototype",
+    "proxied_before",
     "operation_changed",
     "missing",
     "host_pending",
@@ -5606,7 +5681,7 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
       `${writerBody}; ${mutantBody}; saveRecoveryCheckpoint.mutant = mutatedRecoveryTerminal; saveRecoveryCheckpoint`,
       {
         snapshotStateRecord,
-
+        readStateVersionEvidence: privateStorageStore.readStateVersionEvidence,
         Buffer,
         isDockerRestartCheckpointSettled,
         areTaskResourcesSettled,
@@ -5668,20 +5743,36 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
     ) as ((
       repo: unknown,
       recoveryId: string,
-      bytes: Buffer,
+      evidence: unknown,
       request: import("../../src/attempt/types.ts").RecoveryCheckpointRequest,
     ) => { snapshotConfirmed: boolean }) & {
       mutant: (...args: unknown[]) => { snapshotConfirmed: boolean };
     };
-    const result = writer(
-      repository,
-      fixture.recoveryId,
-      scenario === "before_changed" ? Buffer.from("different") : before,
-      {
-        kind: "terminal",
-        assertOwner: () => ++ownerChecks === 1 || scenario !== "owner_changed",
-      },
+    const issued = privateStorageStore.captureStateVersionEvidence(
+      scenario === "before_changed" ? "different" : before.toString("utf8"),
     );
+    let traps = 0;
+    const beforeEvidence =
+      scenario === "forged_before"
+        ? before
+        : scenario === "forged_before_prototype"
+          ? Object.create(Object.getPrototypeOf(issued))
+          : scenario === "proxied_before"
+            ? new Proxy(issued, {
+                get() {
+                  traps++;
+                  throw new Error("must_not_observe_version_evidence_proxy");
+                },
+                getPrototypeOf() {
+                  traps++;
+                  throw new Error("must_not_observe_version_evidence_proxy");
+                },
+              })
+            : issued;
+    const result = writer(repository, fixture.recoveryId, beforeEvidence, {
+      kind: "terminal",
+      assertOwner: () => ++ownerChecks === 1 || scenario !== "owner_changed",
+    });
     const accepted = [
       "null",
       "blocked",
@@ -5695,6 +5786,7 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
     assert.equal(result.snapshotConfirmed, accepted, scenario);
     assert.equal(candidates, accepted ? 1 : 0, scenario);
     assert.equal(writes, accepted ? 1 : 0, scenario);
+    assert.equal(traps, 0, scenario);
     assert.equal(before.toString(), `${JSON.stringify(snapshot)}\n`);
     if (
       [
@@ -5703,10 +5795,17 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
       ].includes(scenario)
     ) {
       assert.equal(
-        writer.mutant(repository, fixture.recoveryId, before, {
-          kind: "terminal",
-          assertOwner: () => true,
-        }).snapshotConfirmed,
+        writer.mutant(
+          repository,
+          fixture.recoveryId,
+          privateStorageStore.captureStateVersionEvidence(
+            before.toString("utf8"),
+          ),
+          {
+            kind: "terminal",
+            assertOwner: () => true,
+          },
+        ).snapshotConfirmed,
         true,
       );
       assert.equal(candidates, 1);
@@ -5797,9 +5896,9 @@ test("全履歴Readerは全件検査・明示不存在・実体変化・解放�
   assert.equal(absent.lockReleased, true);
   assert.ok(absent.value);
   assert.equal(Object.isFrozen(absent.value), true);
-  assert.deepEqual(Buffer.from(absent.value.sourceText, "utf8"), state);
-  assert.equal(absent.value.sourceText.endsWith("\n"), true);
-  assert.equal(absent.value.sourceText.includes("保存原文"), true);
+  assert.deepEqual(fs.readFileSync(stateFile), state);
+  assert.equal(state.toString("utf8").endsWith("\n"), true);
+  assert.equal(state.toString("utf8").includes("保存原文"), true);
   assert.equal(
     createHash("sha256").update(state).digest("hex"),
     absent.value.payloadSha256,
@@ -5838,7 +5937,11 @@ test("全履歴Readerは全件検査・明示不存在・実体変化・解放�
   });
   assert.equal(complete.status, "completed", complete.reason);
   assert.equal(complete.lockReleased, true);
-  assert.equal(complete.value?.sourceText, absent.value.sourceText);
+  assert.ok(complete.value);
+  assert.equal(
+    complete.value.versionEvidence.matches(absent.value.versionEvidence),
+    true,
+  );
   assert.deepEqual(
     complete.historyRows?.map((row) => row.recoveryId),
     ["task-history.history-first", "task-history.unrelated-history"],

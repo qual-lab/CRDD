@@ -37,10 +37,7 @@ import {
 } from "../../../src/lifecycle/selection.ts";
 import { startDockerProcessController } from "../../../src/lifecycle/execution.ts";
 import { cancelExecutorAttempt } from "../../../src/lifecycle/environment.ts";
-import {
-  executionSelection,
-  taskExecutionSelections,
-} from "../../fixtures/ai-selection.ts";
+import { executionSelection } from "../../fixtures/ai-selection.ts";
 import {
   createAttemptPreparation,
   createReviewerWorkspaceReader,
@@ -79,14 +76,20 @@ test("準備入力は用途ごとの正確な形だけを捕捉しCapabilityを�
     recoveryCorrelationId: null,
     consumer: "workbench",
   };
-  const task = { ...probe, purpose: "task", packetCapability };
+  const { executionSelection: _selection, ...common } = probe;
+  const task = {
+    ...common,
+    purpose: "task",
+    packetCapability,
+    packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+  };
   const advice = {
     ...task,
     purpose: "advice",
-    executionSelection: executionSelection("advice"),
+    packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
     packetOwnerCapability,
   };
-  for (const input of [probe, task, advice]) {
+  for (const input of [task, advice]) {
     const result = capturePreparationInput(input);
     assert.ok(result);
     assert.equal(result.purpose, input.purpose);
@@ -96,8 +99,7 @@ test("準備入力は用途ごとの正確な形だけを捕捉しCapabilityを�
     assert.deepEqual({ ...result.providerHome }, providerHome);
     assert.strictEqual(result.managementCapability, managementCapability);
     assert.strictEqual(result.mountCapability, mountCapability);
-    if (result.purpose !== "probe")
-      assert.strictEqual(result.packetCapability, packetCapability);
+    assert.strictEqual(result.packetCapability, packetCapability);
     if (result.purpose === "advice")
       assert.strictEqual(result.packetOwnerCapability, packetOwnerCapability);
   }
@@ -107,10 +109,18 @@ test("準備入力は用途ごとの正確な形だけを捕捉しCapabilityを�
     throw Error("gated input executed code");
   };
   for (const input of [
+    probe,
     { ...task, purpose: "other" },
     { ...task, purpose: "advice" },
     { ...probe, purpose: "task" },
     { ...advice, purpose: "probe" },
+    { ...probe, executionSelection: { ...selection, role: "unknown" } },
+    { ...task, executionSelection: { ...selection, purpose: "advice" } },
+    {
+      ...advice,
+      executionSelection: selection,
+    },
+    { ...task, packetRef: advice.packetRef },
     { ...advice, unexpected: true },
     {
       ...task,
@@ -214,7 +224,6 @@ test("借用PathとReviewerの作業ツリー証拠を検査し旧本文投影�
   assert.equal(api.scope({ ...scope, readPaths: [0] }), null);
   const request = {
     ...scope,
-    taskExecutionSelections: taskExecutionSelections(),
     workClass: "bounded_implementation",
     planState: "complete",
     risk: "low",
@@ -452,7 +461,7 @@ test("共通Provider本番組立てはStoreを共有せず固定依存とEffect�
 test("本番の準備は上位計画を直接返し技術実行と記録投影を分離する", () => {
   let management = Object.freeze({});
   const reviewerPreparation = createReviewerWorkspaceReader(() => management);
-  for (const mode of ["probe", "executor", "reviewer"] as const) {
+  for (const mode of ["executor", "reviewer"] as const) {
     let observedPlan:
       | import("../../../src/lifecycle/types.ts").PreparedAttemptPlan<"codex">
       | null = null;
@@ -462,19 +471,18 @@ test("本番の準備は上位計画を直接返し技術実行と記録投影�
           observedPlan = plan;
         },
       },
-      mode !== "probe",
+      true,
       mode === "reviewer" ? "reviewer" : "executor",
       mode === "reviewer" ? reviewerPreparation : undefined,
     );
     management = fixture.managementCapability;
     const prepared = fixture.adapter.prepare({
-      ...(mode === "probe"
-        ? { purpose: "probe" as const }
-        : { purpose: "task" as const, packetCapability: Object.freeze({}) }),
+      purpose: "task",
+      packetCapability: Object.freeze({}),
+      packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
       providerHome: fixture.providerHome,
-      executionSelection: fixture.executionSelection,
       taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
@@ -556,7 +564,7 @@ function createFixture(
       plan: import("../../../src/lifecycle/types.ts").PreparedAttemptPlan<"codex">,
     ) => void;
   } = {},
-  isTaskMode = false,
+  isTaskMode = true,
   taskRole: "executor" | "reviewer" = "executor",
   createPreparation?: ReturnType<typeof createReviewerWorkspaceReader>,
 ) {
@@ -748,9 +756,7 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
       managementCapability: rejected.managementCapability,
       mountCapability: rejected.mountCapability,
       providerHome: rejected.providerHome,
-
-      executionSelection: rejected.executionSelection,
-
+      packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
       taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "workbench",
@@ -767,7 +773,7 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
     providerHome: fixture.providerHome,
-    executionSelection: fixture.executionSelection,
+    packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
     taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "workbench",
@@ -820,7 +826,7 @@ test("Codex Executorの正規seccomp commandをDocker Effect利用側も同じ�
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
     providerHome: fixture.providerHome,
-    executionSelection: fixture.executionSelection,
+    packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
     taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",
@@ -901,11 +907,12 @@ test("低推論選定を固定計画と元Executorの再開始拒否へ接続す
     },
   });
   const prepared = fixture.adapter.prepare({
-    purpose: "probe",
+    purpose: "task",
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
     providerHome: fixture.providerHome,
-    executionSelection: fixture.executionSelection,
+    packetCapability: {},
+    packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
     taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",
@@ -1075,7 +1082,7 @@ test("低推論選定を固定計画と元Executorの再開始拒否へ接続す
   assert.equal(provider.argv.includes("--read-only"), true);
   assert.equal(provider.argv.includes("--fallback-model"), false);
   const modelIndex = provider.argv.indexOf("--model");
-  assert.equal(provider.argv[modelIndex + 1], "gpt-5.6-sol");
+  assert.equal(provider.argv[modelIndex + 1], "gpt-5.5");
   assert.equal(provider.argv.includes('model_reasoning_effort="low"'), true);
   const proxyUrl = provider.argv
     .find((value) => value.startsWith("HTTPS_PROXY="))
@@ -1142,11 +1149,12 @@ test("DI乱数検査の不成立は発行前停止を保つ", () => {
       },
     });
     const prepared = fixture.adapter.prepare({
-      purpose: "probe",
+      purpose: "task",
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
       providerHome: fixture.providerHome,
-      executionSelection: fixture.executionSelection,
+      packetCapability: {},
+      packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
       taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
@@ -1176,13 +1184,17 @@ test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する"
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
     providerHome: fixture.providerHome,
-    executionSelection: fixture.executionSelection,
+    packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
     taskAttempt: 0,
     recoveryCorrelationId: "recovery.fixture-executor",
     consumer: "coordinator_cli",
     packetCapability: Object.freeze({}),
   });
   assert.equal(prepared.status, "prepared");
+  assert.strictEqual(
+    prepared.plan.executionSelection,
+    fixture.executionSelection,
+  );
   assert.equal(prepared.plan.executionSelection.modelIdentifier, "gpt-5.5");
   const plan = fixture.getTechnicalPlan();
   assert.ok(plan);
@@ -1263,7 +1275,7 @@ test("Reviewerは読み取り専用Workspaceと固定seccompを使う", () => {
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
     providerHome: fixture.providerHome,
-    executionSelection: fixture.executionSelection,
+    packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
     taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",
@@ -1311,7 +1323,7 @@ test("Reviewerは読み取り専用Workspaceと固定seccompを使う", () => {
 /**
  * Packet相関の拒否を上位へ移してもEffect前停止を維持する。
  *
- * @responsibility Operation・完全選定・試行番号・本文搬送の相関拒否を固定する。
+ * @responsibility Operation・発行済み参照・試行番号・本文搬送の相関拒否を固定する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Packetの四相関を一件ずつ差し替える。
@@ -1343,6 +1355,7 @@ test("Task Packetの相関不一致は上位準備で拒否しPlanを発行し�
   for (const change of [
     { operationId: "OP-654321" },
     {
+      taskPacketRef: "TASKPKT-FFEEDDCCBBAA99887766554433221100",
       executionSelection: {
         ...base.executionSelection,
         configIdentity: "f".repeat(64),
@@ -1363,7 +1376,7 @@ test("Task Packetの相関不一致は上位準備で拒否しPlanを発行し�
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
       providerHome: fixture.providerHome,
-      executionSelection: fixture.executionSelection,
+      packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
       taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
@@ -1404,7 +1417,7 @@ test("Executor seccomp profileを検証できなければProvider planを発行�
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
       providerHome: fixture.providerHome,
-      executionSelection: fixture.executionSelection,
+      packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
       taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
@@ -1435,7 +1448,8 @@ test("production adapterは未発行のCapabilityと未接続Selection 選定入
   const prepared = startDockerProcessController(
     "codex",
     {
-      purpose: "probe",
+      purpose: "task",
+      packetCapability: {},
       managementCapability: {},
       mountCapability: {},
       providerHome: {
@@ -1444,7 +1458,7 @@ test("production adapterは未発行のCapabilityと未接続Selection 選定入
         providerHomeIdentityHash: "a".repeat(64),
         stableLogicalHomeBindingHash: "b".repeat(64),
       },
-      executionSelection: fixedSelection,
+      packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
       taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
@@ -1465,7 +1479,7 @@ test("production adapterは未発行のCapabilityと未接続Selection 選定入
  * 固定選定を実際のProvider準備へ搬送し、fallbackを追加しない。
  * @trace PRL-UT-014
  * @precondition 固定選定と有限Host代役で準備する。
- * @stimulus probeの技術計画を組み立てる。
+ * @stimulus Taskの技術計画を組み立てる。
  * @observation 元選定、購読種別、Providerの引数と開始前の結果。
  * @oracle 固定選定と隔離・ProxyのProvider差を維持し、公開向け結果に生の引数を出さない。
  * @cleanup N/A: 外部資源を開始しない。
@@ -1474,11 +1488,12 @@ test("production adapterは未発行のCapabilityと未接続Selection 選定入
 test("固定選定とProxy条件を実計画で確認しfallbackを追加しない", () => {
   const fixture = createFixture();
   const prepared = fixture.adapter.prepare({
-    purpose: "probe",
+    purpose: "task",
     managementCapability: fixture.managementCapability,
     mountCapability: fixture.mountCapability,
     providerHome: fixture.providerHome,
-    executionSelection: fixture.executionSelection,
+    packetCapability: {},
+    packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
     taskAttempt: 0,
     recoveryCorrelationId: null,
     consumer: "coordinator_cli",
@@ -1511,7 +1526,7 @@ test("固定選定とProxy条件を実計画で確認しfallbackを追加しな�
   );
   assert.equal(
     provider.argv[provider.argv.indexOf("--model") + 1],
-    "gpt-5.6-sol",
+    fixture.executionSelection.modelIdentifier,
   );
   for (const key of ["HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY"])
     assert.ok(provider.argv.some((arg) => arg.startsWith(`${key}=`)));
@@ -1519,7 +1534,7 @@ test("固定選定とProxy条件を実計画で確認しfallbackを追加しな�
 });
 
 /**
- * 入力とPacketの操作・役割・試行・完全選定の差替えを起動前に拒否する。
+ * 他の発行済みPacketや操作・役割・試行の差替えを起動前に拒否する。
  * @responsibility 完全選定の各fieldとstage相関を独立に反証する。
  * @trace PRL-UT-014
  * @precondition 正規Executor選定と同じPacket基準Hashを合成する。
@@ -1529,7 +1544,7 @@ test("固定選定とProxy条件を実計画で確認しfallbackを追加しな�
  * @cleanup N/A: 実Docker・Processを作らない。
  * @boundary PRL-UT-014=N/A: 局所準備の代役。
  */
-test("入力とPacketの完全選定・stage差替えをProvider Effect前に拒否する", () => {
+test("別の発行済みPacket・stage差替えをProvider Effect前に拒否する", () => {
   const original = executionSelection("executor", {
     provider: "codex",
     model: "gpt-5.5",
@@ -1560,7 +1575,7 @@ test("入力とPacketの完全選定・stage差替えをProvider Effect前に拒
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
       providerHome: fixture.providerHome,
-      executionSelection: fixture.executionSelection,
+      packetRef: "TASKPKT-FFEEDDCCBBAA99887766554433221100",
       taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
@@ -1573,7 +1588,7 @@ test("入力とPacketの完全選定・stage差替えをProvider Effect前に拒
   for (const changed of [
     { operationId: "OP-999999" },
     { taskAttempt: 1 },
-    { executionSelection: { ...original, configIdentity: "d".repeat(64) } },
+    { taskPacketRef: "TASKPKT-FFEEDDCCBBAA99887766554433221100" },
     { taskRole: "reviewer" },
   ]) {
     const fixture = createFixture(
@@ -1605,7 +1620,7 @@ test("入力とPacketの完全選定・stage差替えをProvider Effect前に拒
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
       providerHome: fixture.providerHome,
-      executionSelection: fixture.executionSelection,
+      packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
       taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: "coordinator_cli",
@@ -1640,7 +1655,7 @@ test("固定利用側は相関IDと独立し不正値はOperation観測前に拒
         managementCapability: fixture.managementCapability,
         mountCapability: fixture.mountCapability,
         providerHome: fixture.providerHome,
-        executionSelection: fixture.executionSelection,
+        packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         taskAttempt: 0,
         recoveryCorrelationId: correlation,
         consumer: consumer,
@@ -1678,7 +1693,7 @@ test("固定利用側は相関IDと独立し不正値はOperation観測前に拒
       managementCapability: fixture.managementCapability,
       mountCapability: fixture.mountCapability,
       providerHome: fixture.providerHome,
-      executionSelection: fixture.executionSelection,
+      packetRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
       taskAttempt: 0,
       recoveryCorrelationId: null,
       consumer: consumer,

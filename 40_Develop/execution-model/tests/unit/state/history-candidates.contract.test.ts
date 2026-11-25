@@ -13,24 +13,16 @@ import fs from "node:fs";
 import test from "node:test";
 import { compileFunction } from "node:vm";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
-import * as stateValidation from "../../../src/state/validation.ts";
-import {
-  queueIsClosed,
-  rejectedAdoptionEvidenceCanRetire,
-  standaloneAdoptionIsClosed,
-} from "../../../src/state/crud.ts";
+import * as stateValidation from "../../../src/composition/transition.ts";
+import { queueIsClosed } from "../../../src/composition/crud.ts";
 import type { HistoryRow } from "../../../src/history/types.ts";
 import type { ProjectQueueEntry } from "../../../src/index.ts";
 import type {
-  LeaseEvidenceEnvelope,
   Snapshot,
   SnapshotObservations,
-} from "../../../src/state/types.ts";
-import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
-import { encodeStateValue } from "../../../src/state/operations.ts";
-import type { ResultRecord } from "../../../src/workspace/types.ts";
-import { EXECUTION_INTEGRATION_CONTRACT } from "../../../src/workspace/validation.ts";
-import { adoptionWasRejected } from "../../../src/workspace/validation.ts";
+} from "../../../src/composition/types.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/composition/types.ts";
+import { encodeStateValue } from "../../../src/composition/validation.ts";
 
 type Candidate<T> =
   | {
@@ -63,12 +55,9 @@ const candidateNames = [
   "prepareHistoryTransfer",
 ];
 const candidateDependencies = {
-  adoptionWasRejected,
   ...stateValidation,
   PROJECT_SNAPSHOT_SCHEMA,
   queueIsClosed,
-  rejectedAdoptionEvidenceCanRetire,
-  standaloneAdoptionIsClosed,
 };
 const {
   prepareHistoryPending,
@@ -182,8 +171,8 @@ function observations() {
         return {
           schema: PROJECT_SNAPSHOT_SCHEMA,
           processId: 7,
-          leaseResourcesAbsent: () => {
-            calls.push("lease");
+          leaseResourcesAbsent: (identity: string) => {
+            calls.push(`lease:${identity}`);
             return true;
           },
           historySettlement: () => {
@@ -228,7 +217,10 @@ test("pending生成は時刻・Schemaを先に検査し既存対象の観測を�
   assert.deepEqual(o.calls, []);
   const result = prepareHistoryPending(current, 1000, o.ops);
   assert.equal(result.status, "completed");
-  assert.deepEqual(o.calls, ["obligations", "lease", "lease"]);
+  assert.deepEqual(o.calls, [
+    "obligations",
+    "lease:project-operation-binding-a",
+  ]);
   if (result.status === "completed")
     assert.deepEqual(result.value.next, { ...current, historyPending: [row] });
   const existing = observations();
@@ -271,8 +263,7 @@ test("履歴確定は閉鎖・再読後だけ実行記録を確定しIDと受付
   assert.equal(result.status, "completed");
   assert.deepEqual(o.calls, [
     "obligations",
-    "lease",
-    "lease",
+    "lease:project-operation-binding-a",
     "history:queue-a",
   ]);
   if (result.status === "completed")
@@ -343,7 +334,11 @@ test("退役は観測不能・非同期の履歴を拒否し終了記録を保�
       },
     });
     assert.equal(result.reason, "coordinator_history_transfer_unconfirmed");
-    assert.deepEqual(o.calls, ["obligations", "lease", "lease", "history"]);
+    assert.deepEqual(o.calls, [
+      "obligations",
+      "lease:project-operation-binding-a",
+      "history",
+    ]);
   }
   const o = observations();
   assert.throws(
@@ -411,63 +406,8 @@ test("搬送候補は先頭不明で後続を読まず、全行確認後だけpe
  * @boundary Domain値候補と用途固定同期観測。
  */
 
-test("独立採用の退役と退役零件は対象外の結合を変更しない", () => {
-  const f = fixture(),
-    id = "adoption-a";
-  const record: ResultRecord = {
-    contract: EXECUTION_INTEGRATION_CONTRACT,
-    kind: "adoption",
-    repositoryBindingId: "binding-a",
-    projectId: "project-adoption",
-    milestoneId: null,
-    queueId: "canonical",
-    identity: id,
-    contentHash: "a".repeat(64),
-    value: {
-      status: "completed",
-      receiptId: id,
-      beforeRevision: "a".repeat(40),
-      afterRevision: "b".repeat(40),
-      changedPaths: ["source.ts"],
-      cleanupConfirmed: true,
-    },
-  };
-  const evidence = (
-    disposition: "acquired" | "released",
-  ): LeaseEvidenceEnvelope => ({
-    schema: "crdd-execution-model/storage-envelope/v2",
-    schemaRevision: 1,
-    recordKind: "lease-evidence",
-    repositoryBindingId: "binding-a",
-    projectId: "project-adoption",
-    createdGeneration: 1,
-    updatedGeneration: disposition === "acquired" ? 1 : 2,
-    contentHash: "a".repeat(64),
-    content: {
-      kind: "canonical-adoption",
-      queueId: "canonical",
-      ownerGeneration: "owner-adoption",
-      ownerProcessId: 7,
-      disposition,
-    },
-  });
-  const current = {
-    ...f.current,
-    results: [record],
-    leaseEvidence: [evidence("acquired"), evidence("released")],
-    historyPending: [{ ...f.row, id }],
-  };
-  const o = observations(),
-    result = prepareTerminalRecordRetirement(current, o.ops);
-  assert.equal(result.status, "completed");
-  if (result.status === "completed") {
-    assert.equal(
-      result.value.next?.repositoryBindingId,
-      current.repositoryBindingId,
-    );
-    assert.deepEqual(result.value.next?.results, []);
-    assert.deepEqual(result.value.next?.queueEntries, current.queueEntries);
-  }
+test("退役零件は対象外の結合を変更しない", () => {
+  const f = fixture();
   const zero = observations(),
     none = prepareTerminalRecordRetirement(f.current, zero.ops);
   assert.equal(none.status, "completed");

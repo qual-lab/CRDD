@@ -1338,7 +1338,6 @@ test("公開状態照会は世代取得なしで現行DTOと旧形式拒否を�
       principalId: "principal-a",
     }),
     runObjective: async () => assert.fail("unexpected_execution"),
-    submitDecision: async () => assert.fail("unexpected_decision"),
     getProjectState: async () => {
       reads++;
       return returned;

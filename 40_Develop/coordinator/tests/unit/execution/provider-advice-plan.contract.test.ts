@@ -12,6 +12,8 @@ import test from "node:test";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { prepareProviderAdviceInput } from "../../../src/lifecycle/selection.ts";
 import type { ProviderAdviceExecutionInput } from "../../../src/lifecycle/types.ts";
+
+type AdviceContent = Omit<ProviderAdviceExecutionInput, "executionSelection">;
 /**
  * 正規の助言選定から計画入力を合成する。
  * @responsibility Provider・Model・推論強度・購読を一致させる。
@@ -23,18 +25,18 @@ import type { ProviderAdviceExecutionInput } from "../../../src/lifecycle/types.
  * @cleanup N/A: 値だけ。
  * @boundary ERB-UT-023=N/A: 合成入力。
  */
-function executionInput(
-  provider: "codex" | "claude",
-): ProviderAdviceExecutionInput {
-  const selected = executionSelection("advice", {
+function selectedFor(provider: "codex" | "claude") {
+  return executionSelection("advice", {
     provider,
     model: provider === "codex" ? "gpt-5.6-sol" : "opus",
     effort: "medium",
   });
+}
+
+function executionInput(): AdviceContent {
   return {
     allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
     additionalHosts: Object.freeze([]),
-    executionSelection: selected,
     providerPrompt: "固定投影だけを説明する",
     taskHash: "a".repeat(64),
     projectionHash: "b".repeat(64),
@@ -54,12 +56,14 @@ function executionInput(
  */
 test("CodexとClaudeの固定選定を助言入力へ渡す", () => {
   for (const provider of ["codex", "claude"] as const) {
-    const input = executionInput(provider);
-    const result = prepareProviderAdviceInput(input);
+    const input = executionInput();
+    const selection = selectedFor(provider);
+    const result = prepareProviderAdviceInput(input, selection);
     assert.ok(result);
     assert.equal(Object.isFrozen(result), true);
     assert.equal(result.executionSelection.provider, provider);
-    assert.deepEqual(result, input);
+    assert.deepEqual(result, { ...input, executionSelection: selection });
+    assert.equal(result.executionSelection, selection);
   }
 });
 
@@ -75,24 +79,19 @@ test("CodexとClaudeの固定選定を助言入力へ渡す", () => {
  * @boundary ERB-UT-023=N/A: 局所計画生成。
  */
 test("旧改訂・任意引数と不整合な計画を拒否する", () => {
-  const input = executionInput("codex");
+  const input = executionInput();
+  const selection = selectedFor("codex");
   for (const change of [
     { offering: "chatgpt_subscription_oauth" },
-    { exactModelId: input.executionSelection.modelIdentifier },
-    { reasoningEffort: input.executionSelection.reasoningEffort },
+    { exactModelId: selection.modelIdentifier },
+    { reasoningEffort: selection.reasoningEffort },
     { provider: "claude" },
     { taskHash: "invalid" },
     { catalogRevision: -1 },
     { catalogRevision: 0 },
     { command: "arbitrary-command" },
     { profileId: "PROFILE-100001" },
-    {
-      executionSelection: {
-        ...input.executionSelection,
-        identifierKind: "alias",
-      },
-    },
-    { executionSelection: { ...input.executionSelection, role: "executor" } },
+    { executionSelection: selection },
     { providerPrompt: "" },
     { repositoryMounted: true },
     { workspaceMounted: true },
@@ -102,12 +101,26 @@ test("旧改訂・任意引数と不整合な計画を拒否する", () => {
     { paidApiFallbackAllowed: true },
     { promptTransport: "argv" },
   ]) {
-    const result = prepareProviderAdviceInput({
-      ...input,
-      ...change,
-    } as ProviderAdviceExecutionInput);
+    const result = prepareProviderAdviceInput(
+      {
+        ...input,
+        ...change,
+      },
+      selection,
+    );
     assert.equal(result, null, JSON.stringify(change));
   }
+  assert.equal(
+    prepareProviderAdviceInput(input, {
+      ...selection,
+      identifierKind: "alias",
+    }),
+    null,
+  );
+  assert.equal(
+    prepareProviderAdviceInput(input, { ...selection, role: "executor" }),
+    null,
+  );
 });
 
 /**
@@ -123,24 +136,21 @@ test("旧改訂・任意引数と不整合な計画を拒否する", () => {
  */
 test("Getter、Proxy、Hashの暗黙変換を実行せず拒否する", () => {
   let calls = 0;
-  const getter = Object.defineProperty(
-    executionInput("codex"),
-    "providerPrompt",
-    {
-      get() {
-        calls++;
-        return "injected";
-      },
+  const selection = selectedFor("codex");
+  const getter = Object.defineProperty(executionInput(), "providerPrompt", {
+    get() {
+      calls++;
+      return "injected";
     },
-  );
-  assert.equal(prepareProviderAdviceInput(getter), null);
-  const proxy = new Proxy(executionInput("codex"), {
+  });
+  assert.equal(prepareProviderAdviceInput(getter, selection), null);
+  const proxy = new Proxy(executionInput(), {
     ownKeys() {
       calls++;
       throw Error();
     },
   });
-  assert.equal(prepareProviderAdviceInput(proxy), null);
+  assert.equal(prepareProviderAdviceInput(proxy, selection), null);
   const hashObject = {
     toString() {
       calls++;
@@ -149,10 +159,13 @@ test("Getter、Proxy、Hashの暗黙変換を実行せず拒否する", () => {
   };
   for (const key of ["taskHash", "projectionHash"])
     assert.equal(
-      prepareProviderAdviceInput({
-        ...executionInput("codex"),
-        [key]: hashObject,
-      }),
+      prepareProviderAdviceInput(
+        {
+          ...executionInput(),
+          [key]: hashObject,
+        },
+        selection,
+      ),
       null,
     );
   assert.equal(calls, 0);
@@ -170,8 +183,8 @@ test("Getter、Proxy、Hashの暗黙変換を実行せず拒否する", () => {
  * @boundary ERB-UT-023=N/A: 局所計画生成。
  */
 test("選定値を後の設定再読取りなしに固定する", () => {
-  const input = executionInput("codex");
-  const result = prepareProviderAdviceInput(input);
+  const input = executionInput();
+  const result = prepareProviderAdviceInput(input, selectedFor("codex"));
   assert.ok(result);
   assert.equal(Object.isFrozen(result.executionSelection), true);
   assert.equal(Object.isFrozen(result.allowedReferences), true);

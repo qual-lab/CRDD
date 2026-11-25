@@ -74,7 +74,7 @@ RFD-IT-029では空選択の既定拒否と明示`allowEmpty:true`を対照し�
 
 ## 保存Identity観測の検証条件
 
-RFD-IT-001／002の既存責務として、normal／linked Repositoryの一回のIdentity観測がfreshなbefore／after二探索で同じ結果shapeを返すこと、偽CapabilityはFilesystem探索前に拒否すること、Root／common directory／配置種別の途中差替え・reparse・観測不能を拒否することを実Filesystemで確認する。呼出し間の実体変化を旧観測のcacheで受理せず、完全復帰後の再成立は従来どおり許す。内部の配置観測をPackage公開APIに追加しない。Coordinator利用側の再検証も二探索へ接続し、別phaseのOwner／Lock失効、書込み・atomic確定・読戻しの拒否条件は既存の保存試験で引き続き確認する。所要時間は計測器なしの同じ合成fixtureで別比較し、性能改善だけを安全条件の成立根拠にしない。
+RFD-IT-001／002では、normal／linked RepositoryのIdentityを一つの現在配置観測から既存の結果形状で返すこと、偽CapabilityはFilesystem探索前に拒否することを実Filesystemで確認する。構造グラフの照合までの間にRoot／共通管理領域／配置種別の差替え・reparse・観測不能があれば拒否する。次の呼出しでは改めて観測し、完全復帰後の再成立を許す。内部の配置観測をPackage公開APIに追加しない。利用側の別段階でのOwner／Lock失効、書込み・置換・読戻しの拒否条件は既存の保存試験で引き続き確認する。所要時間は計数器なしの同じ合成fixtureで別比較し、性能改善だけを安全条件の成立根拠にしない。
 
 ## Workspace方式の追加検証条件（2026-10-17）
 

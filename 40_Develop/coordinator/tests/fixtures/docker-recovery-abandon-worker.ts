@@ -269,14 +269,13 @@ if (mode !== "recovery") {
       stableLogicalHomeBindingHash: randomBytes(32).toString("hex"),
     },
     other,
-    randomBytes(32).toString("hex"),
-    "workbench",
+    () => randomBytes(32).toString("hex"),
   );
   assert.ok(otherIdentity);
   assert.equal(
     domain.saveOperationStart(
       host.operationStartInput(other, () => null),
-      otherIdentity,
+      otherIdentity.identityJson,
     ).status,
     "completed",
   );
@@ -562,8 +561,10 @@ if (mode !== "recovery") {
             observation: "unobserved",
             absenceEvidenceSha256: null,
           });
-          authExpectedBytes = Buffer.from(
-            `${canonicalJson(savedIntent.value.snapshot)}\n`,
+          authExpectedBytes = fs.readFileSync(statePath);
+          assert.equal(
+            savedIntent.value.payloadSha256,
+            createHash("sha256").update(authExpectedBytes).digest("hex"),
           );
           authHostBefore = captureHostRoot(owned.root);
           const executable =
@@ -712,9 +713,9 @@ if (mode !== "recovery") {
           assert.equal(savedUnknown.status, "completed");
           assert.equal(savedUnknown.lockReleased, true);
           assert.ok(savedUnknown.value);
-          assert.deepEqual(
-            Buffer.from(`${canonicalJson(savedUnknown.value.snapshot)}\n`),
-            expectedUnknown,
+          assert.equal(
+            savedUnknown.value.payloadSha256,
+            createHash("sha256").update(expectedUnknown).digest("hex"),
           );
           authExpectedBytes = expectedUnknown;
           const unknownOperation: ExecutionOperationRecord | undefined =
@@ -883,13 +884,12 @@ if (mode !== "recovery") {
                 baseline.prepareRepositoryDockerOperationIdentity(
                   { ...plan, operationId: otherBinding.operationId },
                   other,
-                  randomBytes(32).toString("hex"),
-                  "workbench",
+                  () => randomBytes(32).toString("hex"),
                 );
               assert.ok(concurrentIdentity);
               const injected = domain.saveOperationStart(
                 host.operationStartInput(other, () => null),
-                concurrentIdentity,
+                concurrentIdentity.identityJson,
               );
               assert.equal(injected.status, "completed");
               assert.equal(injected.snapshotConfirmed, true);

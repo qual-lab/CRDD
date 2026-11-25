@@ -312,7 +312,7 @@ type VerificationDependencies = Readonly<{
     baseCommit: string,
   ) => VerificationWorkspacePreparation;
   startTask: (
-    request: RuntimeRecord,
+    request: ReturnType<typeof createSignedGeneralTaskVerificationRequest>,
     repositoryRoot: string,
     target: BorrowedExecutionTarget,
   ) => unknown;
@@ -443,8 +443,9 @@ const productionDependencies: VerificationDependencies = Object.freeze({
     const repository = location.capability;
     if (resolveVerifiedRepositoryRoot(repository) !== root)
       throw Error("repository_identity_unavailable");
+    const { taskExecutionSelections, ...taskRequest } = request;
     return startCoordinatorTask(
-      request,
+      taskRequest,
       root,
       null,
       undefined,
@@ -456,6 +457,7 @@ const productionDependencies: VerificationDependencies = Object.freeze({
         recordingCurrent: () =>
           resolveVerifiedRepositoryRoot(repository) === root,
       },
+      taskExecutionSelections,
     );
   },
   cancelTask: cancelCoordinatorTask,

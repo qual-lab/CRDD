@@ -125,9 +125,7 @@ export function updateAiSelection(
       temporary: null,
     });
   }
-  const authorizeWrite = () =>
-    access.authorize() &&
-    resolveVerifiedRepositoryRoot(repository) === access.repositoryRoot;
+  const authorizeWrite = () => access.authorize(repository);
   return saveRepositoryAiSelection(
     access.repositoryRoot,
     {
@@ -483,7 +481,7 @@ export function resolveAiSelectionAccess(
   signal: AbortSignal,
 ): Readonly<{
   repositoryRoot: string;
-  authorize: () => boolean;
+  authorize: (writeRepository?: Repository) => boolean;
 }> {
   if (!accessRoot) {
     if (repositoryId !== null) throw new Error("ai_selection_input_invalid");
@@ -491,9 +489,9 @@ export function resolveAiSelectionAccess(
     if (!initial) throw new Error("ai_selection_access_unavailable");
     return {
       repositoryRoot: initial,
-      authorize: () =>
+      authorize: (writeRepository = capability) =>
         !signal.aborted &&
-        resolveVerifiedRepositoryRoot(capability) === initial,
+        resolveVerifiedRepositoryRoot(writeRepository) === initial,
     };
   }
   if (
@@ -519,7 +517,7 @@ export function resolveAiSelectionAccess(
   const initialPath = initial.access.root;
   return {
     repositoryRoot: initialPath,
-    authorize: () => {
+    authorize: (writeRepository) => {
       if (signal.aborted || !permission()) return false;
       const fresh = resolveRepositoryAccess(
         administration.root,
@@ -533,7 +531,9 @@ export function resolveAiSelectionAccess(
         fresh.access.bindingId === initial.access.bindingId &&
         JSON.stringify(fresh.access.manifest) ===
           JSON.stringify(initial.access.manifest) &&
-        fresh.access.root === initialPath
+        fresh.access.root === initialPath &&
+        (writeRepository === undefined ||
+          resolveVerifiedRepositoryRoot(writeRepository) === initialPath)
       );
     },
   };

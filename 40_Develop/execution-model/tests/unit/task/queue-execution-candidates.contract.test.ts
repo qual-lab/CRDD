@@ -14,9 +14,9 @@ import type {
   ProjectQueueEntry,
   SingleTaskRecord,
 } from "../../../src/index.ts";
-import type { Snapshot } from "../../../src/state/types.ts";
-import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/state/types.ts";
-import { encodeStateValue } from "../../../src/state/operations.ts";
+import type { Snapshot } from "../../../src/composition/types.ts";
+import { PROJECT_SNAPSHOT_SCHEMA } from "../../../src/composition/types.ts";
+import { encodeStateValue } from "../../../src/composition/validation.ts";
 import {
   prepareQueueLeaseReleaseSettlement,
   prepareQueueOperationUpdate,
@@ -753,76 +753,112 @@ test("exact回復後Queue候補は別ID・世代・Owner・状態を拒否する
     );
 });
 /**
- * Scheduling方針を持たず、閉じた選択判断の適用範囲を確認する。
- * @responsibility 固定候補と観測順・拒否・対象外保持を反証する。
+ * Queue集合だけから待機差分と次の一件を決め、配列順と他区画を保全する。
+ * @responsibility 現在Owner、対話、待機中の予約実行、未開始の予約実行、空の順を検証する。
  * @trace PRL-UT-006
- * @precondition 値操作用の合成Snapshot。実Owner・実資源・全体codecの根拠ではない。
- * @stimulus 成功値と世代・Identity・観測の不一致を渡す。
- * @observation 固定結果、候補全文、元値、観測順と回数。
- * @oracle 認可・資源観測を代用せず、元条件と対象外区画を維持する。
- * @cleanup N/A: メモリ値だけ。
- * @boundary Domain候補と有限同期観測。実保存は結合試験が所有する。
+ * @precondition 自己生成した合成Snapshotを使う。実codec・Lock・CASは結合試験で確認する。
+ * @effect N/A: メモリ値の比較だけ。
  */
-
-test("Queue選択適用は旧世代・誤ID・重複・対象外更新を拒否する", () => {
+test("Queue選択は固定優先順とID順を使い必要な待機と復帰だけを更新する", () => {
   const { current, regular } = fixture();
-  const state = {
-    ...current,
-    queueEntries: [
-      regular,
-      {
-        ...regular,
-        queueId: "queue-scheduled",
-        originLane: "scheduled" as const,
-      },
-    ],
+  const later = { ...regular, queueId: "queue-z" };
+  const scheduled = {
+    ...regular,
+    queueId: "queue-b",
+    originLane: "scheduled" as const,
   };
-  const decision = {
-    reason: "coordinator_interactive_queue_selected" as const,
-    selectedQueueId: "queue-a",
-    selectedQueueGeneration: 1,
-    updates: [
-      {
-        queueId: "queue-scheduled",
-        expectedGeneration: 1,
-        state: "waiting_foreground" as const,
-        resumeCondition: "interactive_queue_pending",
-      },
-    ],
+  const another = { ...scheduled, queueId: "queue-c" };
+  const waiting = {
+    ...scheduled,
+    queueId: "queue-w",
+    state: "waiting_foreground" as const,
+    resumeCondition: "interactive_queue_pending",
   };
-  const before = encodeStateValue(state);
-  const result = prepareQueueSelection(state, decision);
-  assert.equal(result.status, "completed");
-  if (result.status === "completed") {
-    assert.strictEqual(result.value.value, regular);
-    assert.equal(result.value.next?.queueEntries[1]?.generation, 2);
-    assert.strictEqual(result.value.next?.results, state.results);
-  }
-  assert.ok(decision.updates[0]);
-  const update = decision.updates[0];
-  for (const change of [
-    { selectedQueueId: "missing" },
-    { selectedQueueGeneration: 2 },
-    { updates: [{ ...update, queueId: "missing" }] },
-    { updates: [...decision.updates, ...decision.updates] },
-    { updates: [{ ...update, expectedGeneration: 2 }] },
-    { updates: [{ ...update, queueId: "queue-a" }] },
-  ])
-    assert.equal(
-      prepareQueueSelection(state, { ...decision, ...change }).reason,
-      "coordinator_queue_selection_invalid",
-    );
-  assert.equal(
-    prepareQueueSelection(state, {
-      ...decision,
+  const waitLater = { ...waiting, queueId: "queue-x" };
+  const active = {
+    ...regular,
+    queueId: "queue-running",
+    ownerGeneration: "owner-a",
+  };
+  const closed = {
+    ...regular,
+    queueId: "queue-closed",
+    state: "cancelled" as const,
+  };
+  for (const { entries, reason, expected, updates } of [
+    {
+      entries: [later, scheduled, active, waiting, regular],
+      reason: "coordinator_active_operation_retained",
+      expected: null,
+      updates: [scheduled],
+    },
+    {
+      entries: [scheduled, later, regular, waiting, another],
+      reason: "coordinator_interactive_queue_selected",
+      expected: regular,
+      updates: [scheduled, another],
+    },
+    {
+      entries: [scheduled, waitLater, closed, waiting],
+      reason: "coordinator_scheduled_queue_selected",
+      expected: waiting,
+      updates: [waiting],
+    },
+    {
+      entries: [another, closed, scheduled],
+      reason: "coordinator_scheduled_queue_selected",
+      expected: scheduled,
+      updates: [],
+    },
+    {
+      entries: [closed],
       reason: "coordinator_queue_empty",
-      selectedQueueId: null,
-      selectedQueueGeneration: null,
-    }).status,
-    "blocked",
-  );
-  assert.equal(encodeStateValue(state), before);
+      expected: null,
+      updates: [],
+    },
+  ]) {
+    const state = { ...current, queueEntries: entries };
+    const previous = encodeStateValue(state);
+    const result = prepareQueueSelection(state);
+    assert.equal(result.status, "completed");
+    assert.equal(result.reason, reason);
+    if (result.status !== "completed") throw Error("queue_selection_failed");
+    const { value, next } = result.value;
+    assert.equal(value?.queueId ?? null, expected?.queueId ?? null);
+    if (updates.length === 0) {
+      assert.equal(next, null);
+      assert.strictEqual(value, expected);
+    } else {
+      assert.ok(next);
+      assert.strictEqual(next.results, state.results);
+      assert.deepEqual(
+        next.queueEntries.map((item) => item.queueId),
+        entries.map((item) => item.queueId),
+      );
+      for (const [index, item] of entries.entries()) {
+        const updated: ProjectQueueEntry | undefined = next.queueEntries[index];
+        if (!updates.some((candidate) => candidate === item)) {
+          assert.strictEqual(updated, item);
+          continue;
+        }
+        assert.deepEqual(updated, {
+          ...item,
+          generation: item.generation + 1,
+          state: item === waiting ? "queued" : "waiting_foreground",
+          resumeCondition:
+            item === waiting
+              ? null
+              : expected
+                ? "interactive_queue_pending"
+                : "active_operation_pending",
+          resultReference: null,
+        });
+      }
+    }
+    assert.equal(encodeStateValue(state), previous);
+  }
 });
+
 /**
  * 解放確定は元世代を確認してから資源観測し、同じ解放証拠だけに結合する。
  * @responsibility 固定候補と観測順・拒否・対象外保持を反証する。

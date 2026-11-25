@@ -48,7 +48,7 @@ export type HistoryEntry = Readonly<{
  * 同じ現在Stateが参照する履歴と必須行の照合条件。
  * @responsibility Stateの参照投影をHistoryの保持規則へ渡す内部値契約。
  * @trace ARCH-000008
- * @invariant requiredRowsはconfirmedによらず全件照合する。
+ * @invariant 存在する行は全件照合し、他Taskの未出版行だけを追記時に許す。
  */
 export type HistoryRetentionReferences = Readonly<{
   protectedRecoveries: ReadonlySet<string>;
@@ -56,5 +56,6 @@ export type HistoryRetentionReferences = Readonly<{
     recoveryId: string;
     lineSha256: string;
     summarySha256: string | null;
+    unpublishedTask?: true;
   }>[];
 }>;

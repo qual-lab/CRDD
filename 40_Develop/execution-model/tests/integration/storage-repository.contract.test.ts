@@ -25,6 +25,7 @@ import {
   createExecutionDataArea,
   observePhysicalExecutionDataArea,
 } from "../../src/storage/store.ts";
+import { readStoredExecutionFixture } from "../fixtures/stored-execution.ts";
 import {
   createRepositoryTestDirectory,
   prepareFixtureRecovery,
@@ -92,6 +93,70 @@ test("確認済みRootの物理保存領域はGitなしで観測と排他的作�
   ]);
 });
 
+test("確定済みRootは正規パスの後に一度だけ実体を照合し、途中の差替えを拒否する", (t) => {
+  const owned = createRepositoryTestDirectory("storage-root-revalidate-");
+  t.after(owned.cleanup);
+  const root = path.join(owned.path, "root");
+  fs.mkdirSync(root);
+  const observe = fs.lstatSync;
+  const realpath = fs.realpathSync.native;
+  const events: string[] = [];
+  let fault: "none" | "alias" | "replace" = "none";
+  const stat = t.mock.method(
+    fs,
+    "lstatSync",
+    (...args: Parameters<typeof observe>) => {
+      if (args[0] === root) events.push("stat");
+      return observe(...args);
+    },
+  );
+  const resolve = t.mock.method(
+    fs.realpathSync,
+    "native",
+    (name: fs.PathLike) => {
+      const resolved = realpath(name);
+      if (name !== root) return resolved;
+      events.push("realpath");
+      if (fault === "alias") return path.join(owned.path, "alias");
+      if (fault === "replace") {
+        fault = "none";
+        fs.renameSync(root, path.join(owned.path, "previous"));
+        fs.mkdirSync(root);
+      }
+      return resolved;
+    },
+  );
+  try {
+    const repository = observeExecutionStorageRepository({ directory: root });
+    assert.ok(repository);
+    assert.deepEqual(events.splice(0), ["stat", "realpath", "stat"]);
+    assert.equal(repository.revalidate(), true);
+    assert.deepEqual(events.splice(0), ["realpath", "stat"]);
+    assert.equal(
+      domain.readExecutionStorageBinding(root, repository.repositoryBinding),
+      repository.repositoryBinding,
+    );
+    assert.deepEqual(events.splice(0), ["realpath", "stat"]);
+    assert.equal(domain.readExecutionStorageBinding(root, "other"), null);
+    assert.deepEqual(events.splice(0), ["realpath", "stat"]);
+    fault = "alias";
+    assert.equal(
+      domain.readExecutionStorageBinding(root, repository.repositoryBinding),
+      null,
+    );
+    assert.deepEqual(events.splice(0), ["realpath"]);
+    fault = "replace";
+    assert.equal(
+      domain.readExecutionStorageBinding(root, repository.repositoryBinding),
+      null,
+    );
+    assert.deepEqual(events.splice(0), ["realpath", "stat"]);
+  } finally {
+    stat.mock.restore();
+    resolve.mock.restore();
+  }
+});
+
 /**
  * Gitを持たない保存先で、定義の初期化・保存・再読取りを実行する。
  * @responsibility 上位が渡した保存先と参照値だけで完成操作が成立することを確認する。
@@ -146,15 +211,61 @@ test("確定したディレクトリでGitなしに定義を保存・再読取�
     root: access.root,
     revalidate: () => recoveryCurrent,
   };
+  const observed = domain.readState(recovery, { scope: "recovery" });
+  assert.equal(observed.status, "completed");
+  assert.equal(observed.lockReleased, true);
+  assert.ok(observed.value);
+  assert.deepEqual(Object.keys(observed.value).sort(), [
+    "operationStates",
+    "payloadSha256",
+    "snapshot",
+    "versionEvidence",
+  ]);
+  assert.deepEqual(Object.keys(observed.value.snapshot).sort(), [
+    "operations",
+    "revision",
+    "unresolvedRecoveries",
+  ]);
+  assert.equal(observed.value.snapshot.revision, saved.version.revision);
+  assert.equal(observed.value.payloadSha256, saved.version.payloadSha256);
+  const versionEvidence = observed.value.versionEvidence;
+  const forged = Object.create(Object.getPrototypeOf(versionEvidence));
+  let traps = 0;
+  const proxy = new Proxy(versionEvidence, {
+    get() {
+      traps++;
+      throw new Error("must_not_observe_version_evidence_proxy");
+    },
+    getPrototypeOf() {
+      traps++;
+      throw new Error("must_not_observe_version_evidence_proxy");
+    },
+  });
+  assert.equal(versionEvidence.matches(versionEvidence), true);
+  assert.equal(versionEvidence.matches(forged), false);
+  assert.equal(versionEvidence.matches(proxy), false);
+  assert.equal(traps, 0);
   assert.equal(
-    domain.readState(recovery, { scope: "recovery" }).status,
-    "completed",
+    readStoredExecutionFixture(owned.path, observed.value.payloadSha256)
+      .revision,
+    observed.value.snapshot.revision,
   );
+  assert.throws(
+    () =>
+      readStoredExecutionFixture(owned.path, initialized.version.payloadSha256),
+    { code: "ERR_ASSERTION" },
+  );
+  assert.ok(Object.isFrozen(observed.value.snapshot));
+  assert.equal(observed.historyPublicationStage, null);
+  assert.equal(observed.completionPublicationReady, false);
+  assert.equal(Object.hasOwn(observed, "currentHistoryPublication"), false);
+  assert.equal(Object.hasOwn(observed, "currentCompletionPublication"), false);
   recoveryCurrent = false;
-  assert.equal(
-    domain.readState(recovery, { scope: "recovery" }).status,
-    "blocked",
-  );
+  const refused = domain.readState(recovery, { scope: "recovery" });
+  assert.equal(refused.status, "blocked");
+  assert.equal(refused.value, null);
+  assert.equal(refused.historyPublicationStage, null);
+  assert.equal(refused.completionPublicationReady, false);
   const missing = path.join(owned.path, "missing");
   assert.equal(
     domain.queryPlan({ ...access, root: { directory: missing } }, target)
@@ -181,9 +292,9 @@ test("技術保存の全入口は生Path・偽RootをEffect前に拒否する", 
   const before = fs.readdirSync(directory.path);
   const names = [
     "initializeExecutionStore",
-    "renameWorkspace",
+    "updateWorkspaceMetadata",
+    "beginWorkspaceOperation",
     "saveIntegrationRecord",
-    "saveWorkspaceRecord",
     "readLease",
     "acquireLease",
     "releaseLease",
@@ -202,7 +313,7 @@ test("技術保存の全入口は生Path・偽RootをEffect前に拒否する", 
     "updateQueue",
     "updateQueue",
     "updateQueue",
-    "selectQueueEntry",
+    "selectNextQueueEntry",
     "retireStateRecords",
     "transferHistory",
     "readState",

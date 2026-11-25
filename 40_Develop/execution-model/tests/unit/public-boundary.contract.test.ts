@@ -19,7 +19,7 @@ import {
   REPAIR_DIRECTORIES,
 } from "../../src/attempt/validation.ts";
 import * as domainLibrary from "../../src/index.ts";
-import { readExecutionContent } from "../../src/state/crud.ts";
+import { readExecutionContent } from "../../src/composition/crud.ts";
 
 /**
  * 廃止した特殊投影を残る通常読取りへ暗黙配送しない。
@@ -381,6 +381,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "applyDecision",
     "applyResourceCleanup",
     "applyResourceEvent",
+    "beginWorkspaceOperation",
     "closeDecision",
     "completeOperation",
     "completeRecovery",
@@ -393,10 +394,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "dockerProcessControllerPublicCompletionReasons",
     "initializeExecutionState",
     "initializeExecutionStore",
-    "inspectDecision",
     "inspectExecutionPlan",
-    "inspectExecutionSelection",
-    "inspectTaskExecutionSelections",
     "isPrincipalId",
     "parseDockerTaskRecoveryId",
     "queryObjectives",
@@ -404,15 +402,17 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "queryQueue",
     "queryTasks",
     "readDecision",
+    "readExecutionState",
     "readExecutionStorageBinding",
     "readLease",
     "readProjectExecutionState",
     "readQueueEntry",
+    "readQueueState",
     "readState",
+    "readWorkspaceState",
     "recordDecision",
     "recoverLease",
     "releaseLease",
-    "renameWorkspace",
     "requestDecision",
     "resumeRepairRecordSave",
     "retireStateRecords",
@@ -424,12 +424,12 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "saveRecoveryCheckpoint",
     "saveRecoveryHistory",
     "saveRepairRecord",
-    "saveWorkspaceRecord",
-    "selectQueueEntry",
+    "selectNextQueueEntry",
     "transferHistory",
     "updateObjective",
     "updateQueue",
     "updateTask",
+    "updateWorkspaceMetadata",
     "validateResourceBook",
   ]);
   assert.deepEqual(exportedNames("../../src/index.ts"), [
@@ -440,7 +440,6 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "ExecutionModelAccess",
     "ExecutionOperationRecord",
     "ExecutionSelection",
-    "ExecutionStateSnapshot",
     "ExecutionStorageBlockedError",
     "LeaseKind",
     "OBJECTIVE_STATES",
@@ -478,6 +477,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "applyDecision",
     "applyResourceCleanup",
     "applyResourceEvent",
+    "beginWorkspaceOperation",
     "closeDecision",
     "completeOperation",
     "completeRecovery",
@@ -490,10 +490,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "dockerProcessControllerPublicCompletionReasons",
     "initializeExecutionState",
     "initializeExecutionStore",
-    "inspectDecision",
     "inspectExecutionPlan",
-    "inspectExecutionSelection",
-    "inspectTaskExecutionSelections",
     "isPrincipalId",
     "parseDockerTaskRecoveryId",
     "queryObjectives",
@@ -501,15 +498,17 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "queryQueue",
     "queryTasks",
     "readDecision",
+    "readExecutionState",
     "readExecutionStorageBinding",
     "readLease",
     "readProjectExecutionState",
     "readQueueEntry",
+    "readQueueState",
     "readState",
+    "readWorkspaceState",
     "recordDecision",
     "recoverLease",
     "releaseLease",
-    "renameWorkspace",
     "requestDecision",
     "resumeRepairRecordSave",
     "retireStateRecords",
@@ -521,12 +520,12 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "saveRecoveryCheckpoint",
     "saveRecoveryHistory",
     "saveRepairRecord",
-    "saveWorkspaceRecord",
-    "selectQueueEntry",
+    "selectNextQueueEntry",
     "transferHistory",
     "updateObjective",
     "updateQueue",
     "updateTask",
+    "updateWorkspaceMetadata",
     "validateResourceBook",
   ]);
   const metadata = JSON.parse(
@@ -554,13 +553,17 @@ test("srcのDirectoryはCapability-firstかつ二階層以内に保つ", () => {
   );
   const prohibitedNames = new Set(["common", "helpers", "internal", "utils"]);
   const violations: string[] = [];
+  const files: string[] = [];
   const visit = (directory: string): void => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
       const target = path.join(directory, entry.name);
       const relativePath = path
         .relative(sourceRoot, target)
         .replaceAll("\\", "/");
+      if (!entry.isDirectory()) {
+        files.push(relativePath);
+        continue;
+      }
       const depth = relativePath.split("/").length;
       if (depth > 2 || prohibitedNames.has(entry.name))
         violations.push(relativePath);
@@ -569,6 +572,26 @@ test("srcのDirectoryはCapability-firstかつ二階層以内に保つ", () => {
   };
   visit(sourceRoot);
   assert.deepEqual(violations, []);
+  const layout = {
+    objective: ["crud", "transition", "validation", "types"],
+    task: ["crud", "transition", "validation", "types"],
+    attempt: ["crud", "transition", "validation", "types"],
+    decision: ["crud", "validation", "types"],
+    workspace: ["crud", "validation", "types"],
+    history: ["crud", "records", "validation", "types"],
+    lease: ["crud", "types"],
+    composition: ["crud", "transition", "validation", "types"],
+    storage: ["store", "lock"],
+  };
+  assert.deepEqual(
+    files.sort(),
+    [
+      "index.ts",
+      ...Object.entries(layout).flatMap(([owner, names]) =>
+        names.map((name) => `${owner}/${name}.ts`),
+      ),
+    ].sort(),
+  );
 });
 /**
  * Execution Modelの利用側は宣言済み公開indexだけを利用するを検証する。
@@ -622,8 +645,8 @@ test("Execution Modelの利用側は宣言済み公開indexだけを利用する
       [],
     );
     assert.deepEqual(
-      imports(`${prefix}"../../../execution-model/src/state/crud.ts"`),
-      ["../../../execution-model/src/state/crud.ts"],
+      imports(`${prefix}"../../../execution-model/src/composition/crud.ts"`),
+      ["../../../execution-model/src/composition/crud.ts"],
     );
     assert.deepEqual(
       imports(
@@ -690,7 +713,7 @@ test("Execution Modelの利用側は宣言済み公開indexだけを利用する
     reachesPrivate(
       syntheticEntry,
       new Set(),
-      new Map([[syntheticEntry, 'import "../src/state/crud.ts";']]),
+      new Map([[syntheticEntry, 'import "../src/composition/crud.ts";']]),
     ),
     true,
   );
@@ -700,7 +723,7 @@ test("Execution Modelの利用側は宣言済み公開indexだけを利用する
       new Set(),
       new Map([
         [syntheticEntry, 'import "../../neutral-fixture.ts";'],
-        [syntheticHop, 'import "./execution-model/src/state/crud.ts";'],
+        [syntheticHop, 'import "./execution-model/src/composition/crud.ts";'],
       ]),
     ),
     true,
@@ -779,6 +802,9 @@ test("統合Reader・Checkpointは未知範囲と実行Propertyを受付で拒�
   };
   for (const request of [
     { scope: "unknown" },
+    { scope: "queue" },
+    { scope: "execution" },
+    { scope: "workspace" },
     { scope: "recovery", extra: true },
     {
       get scope() {
@@ -789,7 +815,28 @@ test("統合Reader・Checkpointは未知範囲と実行Propertyを受付で拒�
   ]) {
     const result = domainLibrary.readState(null, request as never);
     assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "coordinator_state_read_scope_invalid");
     assert.equal(result.value, null);
+  }
+  for (const scope of ["queue", "execution", "workspace"]) {
+    assert.deepEqual(
+      Reflect.apply(domainLibrary.readState, undefined, [
+        {
+          get directory() {
+            return action();
+          },
+        },
+        "binding-a",
+        scope,
+      ]),
+      {
+        status: "blocked",
+        reason: "coordinator_state_read_scope_invalid",
+        value: null,
+        manualRecoveryRequired: false,
+        recoveryId: null,
+      },
+    );
   }
   const saved = domainLibrary.saveRecoveryCheckpoint(null, "unknown", null, {
     kind: "unknown",

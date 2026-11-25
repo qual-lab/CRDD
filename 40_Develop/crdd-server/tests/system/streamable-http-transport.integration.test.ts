@@ -63,8 +63,9 @@ import {
   type McpCoordinatorDependencies,
   readMcpServerConfiguration,
   startMcpAuthenticatedStreamableHttp,
-  startMcpCoordinatorStreamableHttp,
 } from "../../src/transport/mcp-server.ts";
+
+import { startCoordinatorHttpFixture } from "../fixtures/sdk-request.ts";
 
 const TOKEN = "local-development-token-0123456789abcdef";
 const revision = "a".repeat(40);
@@ -466,7 +467,6 @@ function dependencies(
       principalId: "principal-a",
     }),
     runObjective: async () => assert.fail("objective not expected"),
-    submitDecision: async () => assert.fail("decision not expected"),
     getProjectState: async (request) => ({
       contract: "crdd-coordinator/state-query/v2",
       status: "completed",
@@ -1528,7 +1528,7 @@ for (const mode of [
  * @boundary EST-ST-003=Direct Boundary: mcp Test Source→対象契約
  */
 test("localhost HTTPは認証済み状態参照を同じ公開契約へ搬送する", async () => {
-  const server = await startMcpCoordinatorStreamableHttp(dependencies(), {
+  const server = await startCoordinatorHttpFixture(dependencies(), {
     port: 0,
     bearerToken: TOKEN,
   });
@@ -1585,7 +1585,7 @@ test("localhost HTTPは認証済み状態参照を同じ公開契約へ搬送す
  */
 test("HTTP終了は受信途中のbodyとidle socketを回収して冪等に完了する", async () => {
   let semanticEffects = 0;
-  const server = await startMcpCoordinatorStreamableHttp(
+  const server = await startCoordinatorHttpFixture(
     dependencies({
       runObjective: async () => {
         semanticEffects += 1;
@@ -1650,7 +1650,7 @@ test("HTTP終了は受信途中のbodyとidle socketを回収して冪等に完�
  */
 test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否する", async () => {
   let effects = 0;
-  const server = await startMcpCoordinatorStreamableHttp(
+  const server = await startCoordinatorHttpFixture(
     dependencies({
       getProjectState: async () => {
         effects += 1;
@@ -1720,7 +1720,7 @@ test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否�
  */
 test("HTTPは不正UTF-8・重複key・容量超過を意味処理前に拒否する", async () => {
   let effects = 0;
-  const server = await startMcpCoordinatorStreamableHttp(
+  const server = await startCoordinatorHttpFixture(
     dependencies({
       getProjectState: async () => {
         effects += 1;
@@ -1768,7 +1768,7 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
   const started = new Promise<void>((resolve) => {
     markStarted = resolve;
   });
-  const server = await startMcpCoordinatorStreamableHttp(
+  const server = await startCoordinatorHttpFixture(
     dependencies({
       runObjective: async (_request, signal) =>
         new Promise((resolve) => {
@@ -1873,7 +1873,7 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
   const aborted = new Promise<void>((resolve) => {
     markAborted = resolve;
   });
-  const server = await startMcpCoordinatorStreamableHttp(
+  const server = await startCoordinatorHttpFixture(
     dependencies({
       runObjective: async (_request, signal) =>
         new Promise((resolve) => {

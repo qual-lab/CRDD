@@ -123,13 +123,11 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const before=fs.readFileSync(statePath);
         const observed=store.readState(historyInputs.recoveryStorageInput(historyInputs.borrowCoordinatorRecoveryRepository(verified.capability), historyInputs.historyRepositoryInput(verified.capability)),{scope:'recovery',input:{kind:'execution_history',recoveryId:id}});
         assert.equal(observed.status,'completed');assert.equal(observed.lockReleased,true);
-        assert.equal(observed.currentHistoryPublication?.stage,'confirmed');assert.ok(observed.value);
+        assert.equal(observed.historyPublicationStage,'confirmed');assert.ok(observed.value);
         assert.equal(observed.value.payloadSha256,createHash('sha256').update(before).digest('hex'));
         const target=observed.value.snapshot.operations.find(item=>item.recoveryId===id);
         assert.ok(target?.kind==='docker_task'&&target.history?.confirmed);
         const bytes=fs.readFileSync(path.join(path.dirname(statePath),'history.jsonl'));
-        const confirmed=observed.currentHistoryPublication.historyFile;assert.ok(confirmed);
-        assert.deepEqual(confirmed.bytes,bytes);
         const lines=bytes.toString('utf8').split('\\n');assert.equal(lines.length,2);assert.equal(lines[1],'');
         assert.equal(JSON.parse(lines[0]).summary.recoveryId,id);
         assert.equal(createHash('sha256').update(bytes).digest('hex'),target.history.lineSha256);
@@ -447,7 +445,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const hasTemporary = ['state.lock', 'state.pending.json', 'history.pending.jsonl'].some(name => fs.existsSync(path.join(path.dirname(statePath), name)));
         assert.equal(store.readState(historyInputs.recoveryStorageInput(historyInputs.borrowCoordinatorRecoveryRepository(verified.capability)),{scope:'recovery'}).status, hasTemporary ? 'blocked' : 'completed');
         const observed = store.readState(historyInputs.recoveryStorageInput(historyInputs.borrowCoordinatorRecoveryRepository(verified.capability), historyInputs.historyRepositoryInput(verified.capability)),{scope:'recovery',input:{kind:"execution_history",recoveryId:id}});
-        assert.equal(observed.status, 'completed'); assert.ok(observed.currentHistoryPublication);
+        assert.equal(observed.status, 'completed'); assert.ok(observed.historyPublicationStage);
         const fixedState = fs.readFileSync(statePath);
         if(process.argv[4] === 'history_confirm_pending') {
           const historyPath = path.join(path.dirname(statePath), 'history.jsonl');
@@ -495,6 +493,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         }
         const prepared = recovery.prepareDockerTaskRecovery(id, verified.capability);
         assert.equal(prepared.status, 'prepared', prepared.reason);
+        assert.equal(recovery.cleanupDockerTaskHost(prepared.capability), true);
         assert.equal(recovery.releaseDockerTaskRecoveryPreparation(prepared.capability), true);
         assert.equal(recovery.finalizeDockerTaskRecoveryPreparation(prepared.capability).snapshotConfirmed, true);
         const history = recovery.completeDockerTaskRecoveryHistory(prepared.capability);
@@ -615,7 +614,8 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const statePath=path.join(process.cwd(),'.crdd','execution-model','state.json');
       const versions=[],rename=fs.renameSync;
       let capability=null,capabilityReleased=false;
-      let expectedStateBytes=Buffer.from(before.value.sourceText,'utf8');
+      let expectedStateBytes=fs.readFileSync(statePath);
+      assert.equal(before.value.payloadSha256,createHash('sha256').update(expectedStateBytes).digest('hex'));
       function expectStateUpdate(change) {
         const previous=JSON.parse(expectedStateBytes);
         const next={...previous,revision:previous.revision+1,previous:{revision:previous.revision,payloadSha256:createHash('sha256').update(expectedStateBytes).digest('hex')},operations:previous.operations.map(change)};
@@ -625,7 +625,6 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const leaseBytes=expectStateUpdate(item=>item.recoveryId===id?{...item,phase:'settling',lease:'released',execution:operation.execution,primaryFailure:operation.primaryFailure,outcome:operation.outcome,summarySha256:operation.summarySha256}:item);
       const pendingBytes=expectStateUpdate(item=>item.kind==='host_operation' && item.operationId===identity.operationId?{...item,cleanup:'pending'}:item);
       const cleanupFinalBytes=expectStateUpdate(item=>item.kind==='host_operation' && item.operationId===identity.operationId?{...item,phase:'terminal',cleanup:'confirmed'}:item);
-      const cleanupFinal=JSON.parse(cleanupFinalBytes);
       try {
         {
           const prepared=recovery.prepareDockerTaskRecovery(id,verified.capability);
@@ -645,7 +644,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.throws(()=>fs.lstatSync(hostRoot),{code:'ENOENT'});
         const confirmed=store.readState(historyInputs.recoveryStorageInput(historyInputs.borrowCoordinatorRecoveryRepository(verified.capability)),{scope:'recovery'});
         assert.equal(confirmed.status,'completed');assert.equal(confirmed.lockReleased,true);
-        assert.deepEqual(confirmed.value.snapshot,cleanupFinal);
+        assert.equal(confirmed.value.payloadSha256,createHash('sha256').update(cleanupFinalBytes).digest('hex'));
         assert.equal(recovery.cleanupDockerTaskHost(capability),true);assert.equal(versions.length,3);
         assert.equal(recovery.releaseDockerTaskRecoveryPreparation(capability),true);capability=null;
         const settledCleanup=recovery.prepareDockerTaskRecovery(id,verified.capability);
@@ -663,19 +662,12 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(terminalOwner.status,'prepared');capability=terminalOwner.capability;capabilityReleased=false;
         assert.equal(recovery.cleanupDockerTaskHost(capability),true);assert.equal(versions.length,3);
         assert.equal(recovery.releaseDockerTaskRecoveryPreparation(capability),true);capabilityReleased=true;
-        const terminal=recovery.finalizeDockerTaskRecoveryPreparation(capability);
-        assert.equal(terminal.status,'completed');assert.equal(terminal.snapshotConfirmed,true);assert.equal(terminal.lockReleased,true);
-        const terminalExpectedBytes=expectStateUpdate(item=>item.recoveryId===id?{...item,phase:'settling',lease:'released',outcome:item.outcome===null?{status:'blocked',reason:'docker_process_controller_execution_failed_closed',cleanupConfirmed:true}:{...item.outcome,cleanupConfirmed:true}}:item);
-        const terminalExpected=JSON.parse(terminalExpectedBytes);
-        assert.equal(versions.length,4);assert.deepEqual(versions[3],terminalExpectedBytes);
-        assert.deepEqual(fs.readFileSync(statePath),terminalExpectedBytes);
-        assert.equal(recovery.finalizeDockerTaskRecoveryPreparation(capability).snapshotConfirmed,false);
-        assert.equal(versions.length,4);
         const historyFault = process.argv[3].startsWith('history_') ? process.argv[3] : null;
+        const terminalFault = historyFault?.startsWith('history_checkpoint_') === true;
         if(historyFault) {
           const nonce='f'.repeat(64),identitySha256='e'.repeat(64);
           assert.notEqual(id.split('.')[2],nonce);
-          const terminalTarget=terminalExpected.operations.find(item=>item.recoveryId===id);assert.ok(terminalTarget);assert.notEqual(terminalTarget.identitySha256,identitySha256);
+          assert.notEqual(operation.identitySha256,identitySha256);
           const row={schema:'crdd-execution-model/history-row/v3',occurredAt:new Date(Date.now()-45*86400000).toISOString(),summary:{
             schema:'crdd-execution-model/operation-summary/v7',operationId:'OP-999999',recoveryCorrelationId:'OP-999999',operationNonce:nonce,
             recoveryId:'docker-task.'+id.split('.')[1]+'.'+nonce+'.'+identitySha256,identitySha256,primaryFailure:null,
@@ -696,16 +688,49 @@ export const currentHostTransitionWorkerSource = `(async () => {
         fs.renameSync = (from, to) => {
           const statePublication = to === statePath, historyPublication = to === path.join(path.dirname(statePath), 'history.jsonl');
           const hit = !historyInjected && (
-            ((historyFault === 'history_checkpoint_pending' || historyFault === 'history_checkpoint_published') && statePublication && versions.length === 4) ||
+            (terminalFault && statePublication && versions.length === 3) ||
             ((historyFault === 'history_pending' || historyFault === 'history_published') && historyPublication) ||
-            ((historyFault === 'history_confirm_pending' || historyFault === 'history_confirm_published') && statePublication && versions.length === 5));
+            ((historyFault === 'history_confirm_pending' || historyFault === 'history_confirm_published') && statePublication && versions.length === 4));
           if(hit && historyFault.endsWith('_pending')) { historyInjected = true; throw new Error('injected before publication'); }
           const result = historyRename(from, to);
           if(hit) { historyInjected = true; throw new Error('injected after publication'); }
           return result;
         };
-        let history;
-        try { history = recovery.completeDockerTaskRecoveryHistory(capability); } finally { fs.renameSync = historyRename; }
+        let terminal, history;
+        try {
+          terminal=recovery.finalizeDockerTaskRecoveryPreparation(capability);
+          assert.equal(terminal.status,terminalFault?'blocked':'completed',terminal.reason);
+          assert.equal(terminal.snapshotConfirmed,!terminalFault);
+          assert.equal(terminal.lockReleased,true);
+          const terminalBytes = historyFault === 'history_checkpoint_pending'
+            ? fs.readFileSync(path.join(path.dirname(statePath), 'state.pending.json'))
+            : fs.readFileSync(statePath);
+          const fixed=JSON.parse(terminalBytes).operations.find(item=>item.recoveryId===id)?.history;
+          assert.ok(fixed); assert.equal(fixed.confirmed,false);
+          assert.equal(new Date(fixed.occurredAt).toISOString(),fixed.occurredAt);
+          const outcome=operation.outcome===null
+            ? {status:'blocked',reason:'docker_process_controller_execution_failed_closed',cleanupConfirmed:true}
+            : {...operation.outcome,cleanupConfirmed:true};
+          const summary={
+            schema:'crdd-execution-model/operation-summary/v7',
+            recoveryCorrelationId:identity.recoveryCorrelationId??identity.operationId,
+            ...(operation.dockerRestart===null?{}:{dockerRestart:operation.dockerRestart}),
+            operationId:identity.operationId,operationNonce:identity.operationNonce,
+            recoveryId:id,identitySha256:operation.identitySha256,primaryFailure:operation.primaryFailure,
+            execution:operation.execution,outcome,lease:'released',
+          };
+          const digest=value=>createHash('sha256').update(canonicalJson(value)+'\\n').digest('hex');
+          const terminalExpectedBytes=expectStateUpdate(item=>item.recoveryId===id
+            ? {...item,phase:'settling',lease:'released',outcome,summarySha256:digest(summary),
+              history:{occurredAt:fixed.occurredAt,confirmed:false,lineSha256:digest({
+                schema:'crdd-execution-model/history-row/v3',occurredAt:fixed.occurredAt,summary})}}
+            : item);
+          assert.deepEqual(terminalBytes,terminalExpectedBytes);
+          assert.equal(versions.length,historyFault === 'history_checkpoint_pending'?3:4);
+          if(!terminalFault) assert.deepEqual(versions[3],terminalExpectedBytes);
+          assert.equal(recovery.finalizeDockerTaskRecoveryPreparation(capability).snapshotConfirmed,false);
+          history = recovery.completeDockerTaskRecoveryHistory(capability);
+        } finally { fs.renameSync = historyRename; }
         if(historyFault) {
           assert.equal(historyInjected, true); assert.equal(history.status, 'blocked'); assert.equal(history.historyConfirmed, false);
           const beforeRetry = fs.readFileSync(statePath), beforeRetryVersions = versions.length;
@@ -717,11 +742,10 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.equal(resumed.error, undefined); assert.equal(resumed.signal, null); assert.equal(resumed.status, 0, resumed.stderr); assert.equal(resumed.stdout, 'history_publication_recovered');
         } else {
           assert.equal(history.status, 'completed', history.reason); assert.equal(history.historyConfirmed, true); assert.equal(history.lockReleased, true);
-          assert.equal(versions.length, 6);
+          assert.equal(versions.length, 5);
         }
         const historyBytes=fs.readFileSync(statePath),historyRead=store.readState(historyInputs.recoveryStorageInput(historyInputs.borrowCoordinatorRecoveryRepository(verified.capability)),{scope:'recovery'});
         assert.equal(historyRead.status,'completed',historyRead.reason);assert.equal(historyRead.lockReleased,true);assert.ok(historyRead.value);
-        assert.deepEqual(Buffer.from(historyRead.value.sourceText,'utf8'),historyBytes);
         assert.equal(historyRead.value.payloadSha256,createHash('sha256').update(historyBytes).digest('hex'));
         assert.deepEqual(fs.readFileSync(statePath),historyBytes);
         const historyState=historyRead.value;
@@ -730,7 +754,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const historyLine = readConfirmedHistoryFixture();
         assert.ok(historyLine); assert.deepEqual(fs.readFileSync(path.join(path.dirname(statePath), 'history.jsonl')), historyLine);
         const historyBefore = fs.readFileSync(statePath);
-        if(!historyFault) { assert.equal(recovery.completeDockerTaskRecoveryHistory(capability).historyConfirmed, true); assert.equal(versions.length, 6); }
+        if(!historyFault) { assert.equal(recovery.completeDockerTaskRecoveryHistory(capability).historyConfirmed, true); assert.equal(versions.length, 5); }
         assert.deepEqual(fs.readFileSync(statePath), historyBefore);
         assert.deepEqual(fs.readFileSync(path.join(path.dirname(statePath), 'history.jsonl')), historyLine);
         capability = null;

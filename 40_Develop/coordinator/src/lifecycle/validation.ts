@@ -15,7 +15,6 @@ import type {
 import {
   dockerProcessControllerPublicCompletionReasons,
   inspectExecutionPlan,
-  inspectTaskExecutionSelections,
   OBJECTIVE_STATES,
   type ObjectivePlan,
   parseDockerTaskRecoveryId,
@@ -23,7 +22,6 @@ import {
   type ProjectTaskState,
   TASK_STATES,
   type TaskStartCandidates,
-  type TaskExecutionSelections,
 } from "../../../execution-model/src/index.ts";
 import type {
   CallerTaskInput,
@@ -825,15 +823,15 @@ export function createCandidateValidationFailureDiagnostic(
  *
  * @responsibility Coordinator Coordinator Task Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
- * @input request: CoordinatorObjectiveRequest、taskExecutionSelections: 保存済みの役割選定組。
- * @returns buildObjectiveTaskRequestの計算結果を返す。
- * @precondition 選定組は同じObjective受付の不変値である。
- * @postcondition 完全な選定組を搬送し、現在設定・Catalogによる再選定を行わない。
+ * @input request: 受付済みObjectiveの実行内容と対象Path。
+ * @returns 選定を含まないTask本文。
+ * @precondition 呼出し元がObjectiveの実行内容と対象Pathを確定済みである。
+ * @postcondition 保存済みの選定組は本文へ埋め込まず、Task実行を組み立てる側が別に搬送する。
  * @effect N/A: buildObjectiveTaskRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: buildObjectiveTaskRequestは独自の失敗分岐を所有しない。
  * @invariant buildObjectiveTaskRequestは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: buildObjectiveTaskRequestはProcess内の同一Subsystemで完結する。
- * @security 選定値はGrant、送信同意、現在の利用可能性または隔離を代替しない。
+ * @security Task本文を実行許可や送信同意として扱わない。
  * @concurrency N/A: buildObjectiveTaskRequestは共有非同期状態を持たない同期処理である。
  */
 export function buildObjectiveTaskRequest(
@@ -841,10 +839,8 @@ export function buildObjectiveTaskRequest(
     CoordinatorObjectiveRequest,
     "objective" | "acceptanceCriteria" | "allowedPaths" | "readPaths"
   >,
-  taskExecutionSelections: TaskExecutionSelections,
 ) {
   return Object.freeze({
-    taskExecutionSelections,
     objective: request.objective,
     acceptanceCriteria: Object.freeze([...request.acceptanceCriteria]),
     allowedPaths: Object.freeze([...request.allowedPaths]),
@@ -908,15 +904,13 @@ export function buildObjectiveTaskExecutions(
           taskId,
           authorityBindingId,
           repositoryRoot,
-          taskRequest: buildObjectiveTaskRequest(
-            {
-              objective: input.objective,
-              readPaths: input.readPaths,
-              acceptanceCriteria: input.acceptanceCriteria,
-              allowedPaths: task.definition.allowedPaths,
-            },
-            state.taskExecutionSelections,
-          ),
+          selections: state.taskExecutionSelections,
+          taskRequest: buildObjectiveTaskRequest({
+            objective: input.objective,
+            readPaths: input.readPaths,
+            acceptanceCriteria: input.acceptanceCriteria,
+            allowedPaths: task.definition.allowedPaths,
+          }),
         });
       }),
   );
@@ -2668,22 +2662,6 @@ export function containsRecognizedSecretMaterial(
 }
 
 /**
- * 受付済み要求の範囲と、外部入力の計画を照合する。
- * @responsibility 要求を捕捉し直さず、未知の計画だけをDomain値検査へ接続する。
- * @trace ARCH-000004
- * @input 未信頼の計画と、既存要求受付で捕捉済みのCoordinator要求。
- * @returns 不正入力はnull。正常時だけ検査済み計画。
- * @effect 外部Effectなし。
- * @security 入力検査を実行Authorityとして扱わない。
- */
-export function inspectCoordinatorObjectivePlan(
-  raw: unknown,
-  request: CoordinatorObjectiveRequest,
-): ObjectivePlan | null {
-  return inspectExecutionPlan(raw, { allowedPaths: request.allowedPaths });
-}
-
-/**
  * Textが有効か判定する。
  *
  * @responsibility Textの有効条件、拒否条件、判定結果境界を所有する。
@@ -3604,7 +3582,6 @@ export function safeRecoveryReason(error: unknown, fallback: string) {
 }
 
 const TASK_STAGE_REQUEST_KEYS = new Set([
-  "taskExecutionSelections",
   "objective",
   "acceptanceCriteria",
   "allowedPaths",
@@ -3627,9 +3604,9 @@ const TASK_STAGE_REQUEST_KEYS = new Set([
  * @input rawRequest: unknown
  * @returns 正常時はacceptedとSnapshot、認識済み秘密情報はblocked、それ以外の入力不正はnull。
  * @precondition 任意値として受け取り、検査前には信頼しない。
- * @postcondition 明示field・固定選定の文法と配列の実体を検査し、許可Pathを読取り範囲へ含める。
+ * @postcondition 明示fieldと配列の実体を検査し、許可Pathを読取り範囲へ含める。選定は別の確定済み入力として扱う。
  * @effect N/A: snapshotCoordinatorTaskRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure 不正な形・固定選定はnull、認識済み秘密情報は固定blocked結果で拒否する。
+ * @failure 不正な形はnull、認識済み秘密情報は固定blocked結果で拒否する。
  * @invariant snapshotCoordinatorTaskRequestは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: snapshotCoordinatorTaskRequestはProcess内の同一Subsystemで完結する。
  * @security snapshotCoordinatorTaskRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
@@ -3637,9 +3614,6 @@ const TASK_STAGE_REQUEST_KEYS = new Set([
  */
 export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
   const request = snapshotPlainRecord(rawRequest, TASK_STAGE_REQUEST_KEYS);
-  const taskExecutionSelections = request
-    ? inspectTaskExecutionSelections(request.taskExecutionSelections)
-    : null;
   const acceptance = request
     ? snapshotPlainArray<string>(
         request.acceptanceCriteria,
@@ -3655,7 +3629,6 @@ export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
       : paths;
   if (
     !request ||
-    !taskExecutionSelections ||
     typeof request.objective !== "string" ||
     request.objective.length === 0 ||
     acceptance?.status !== "ok" ||
@@ -3681,7 +3654,6 @@ export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
   ];
   const normalized = Object.freeze({
     ...request,
-    taskExecutionSelections,
     objective: request.objective,
     acceptanceCriteria: acceptance.value,
     allowedPaths: paths.value,
@@ -3821,8 +3793,10 @@ export function inspectCoordinatorObjectiveRequest(
   const plan = inspectExecutionPlan(request.plan, { allowedPaths });
   if (
     !plan ||
-    JSON.stringify(plan.milestoneAcceptanceCriteria) !==
-      JSON.stringify(acceptanceCriteria)
+    plan.milestoneAcceptanceCriteria.length !== acceptanceCriteria.length ||
+    !plan.milestoneAcceptanceCriteria.every(
+      (criterion, index) => criterion === acceptanceCriteria[index],
+    )
   )
     return null;
   const taskInputs = inspectCallerTaskInputs(

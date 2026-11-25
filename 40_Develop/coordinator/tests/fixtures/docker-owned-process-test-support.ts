@@ -14,6 +14,7 @@ import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
+import { parseStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import { createServer } from "node:http";
 import path from "node:path";
 import type { TestContext } from "node:test";
@@ -789,24 +790,6 @@ export async function verifyNormalOwnerLifecycle(
       ).length,
       2,
     );
-    if (repeatCount === 1) {
-      assert.ok(repairCompletedState);
-      const previous = JSON.parse(repairCompletedState.toString("utf8"));
-      const actual = initialized.value.snapshot;
-      assert.deepEqual(
-        actual.operations.filter((item) => item.kind !== "host_operation"),
-        previous.operations,
-      );
-      assert.deepEqual(
-        {
-          ...actual,
-          operations: previous.operations,
-          revision: previous.revision,
-          previous: previous.previous,
-        },
-        previous,
-      );
-    }
     const hash = randomBytes(32).toString("hex"),
       suffix = randomBytes(8).toString("hex");
     const resolvedSelection = executionSelection("executor", {
@@ -841,8 +824,7 @@ export async function verifyNormalOwnerLifecycle(
         stableLogicalHomeBindingHash: randomBytes(32).toString("hex"),
       },
       otherManagement,
-      randomBytes(32).toString("hex"),
-      "workbench",
+      () => randomBytes(32).toString("hex"),
     );
     assert.ok(otherIdentity);
     const currentFile = path.join(
@@ -852,14 +834,35 @@ export async function verifyNormalOwnerLifecycle(
       "state.json",
     );
     const beforeStart = fs.readFileSync(currentFile);
-    assert.equal(beforeStart.toString("utf8"), initialized.value.sourceText);
+    assert.equal(
+      initialized.value.payloadSha256,
+      createHash("sha256").update(beforeStart).digest("hex"),
+    );
+    if (repeatCount === 1) {
+      assert.ok(repairCompletedState);
+      const previous = JSON.parse(repairCompletedState.toString("utf8"));
+      const actual = parseStoredExecutionFixture(beforeStart.toString("utf8"));
+      assert.deepEqual(
+        actual.operations.filter((item) => item.kind !== "host_operation"),
+        previous.operations,
+      );
+      assert.deepEqual(
+        {
+          ...actual,
+          operations: previous.operations,
+          revision: previous.revision,
+          previous: previous.previous,
+        },
+        previous,
+      );
+    }
     if (repairActiveState) {
       assert.ok(repairCompletedState);
       const activeRepair = JSON.parse(
         Buffer.from(repairActiveState).toString("utf8"),
       ).operations[0];
       assert.equal(activeRepair.kind, "docker_repair");
-      const current = initialized.value.snapshot;
+      const current = parseStoredExecutionFixture(beforeStart.toString("utf8"));
       const ordered = current.operations.map((value) => {
         assert.equal(value.kind, "host_operation");
         assert.ok("operationId" in value);
@@ -893,7 +896,7 @@ export async function verifyNormalOwnerLifecycle(
         );
         const refused = stateModel.saveOperationStart(
           operationStartInput(otherManagement, () => null),
-          otherIdentity,
+          otherIdentity.identityJson,
         );
         assert.equal(refused.status, "blocked");
         assert.equal(refused.startSaved, false);
@@ -917,7 +920,7 @@ export async function verifyNormalOwnerLifecycle(
     }
     const otherStarted = stateModel.saveOperationStart(
       operationStartInput(otherManagement, () => null),
-      otherIdentity,
+      otherIdentity.identityJson,
     );
     assert.equal(otherStarted.status, "completed");
     assert.ok(otherStarted.recoveryId);
@@ -934,10 +937,18 @@ export async function verifyNormalOwnerLifecycle(
       }).value;
       assert.ok(prior && next);
       assert.equal(next.snapshot.revision, prior.snapshot.revision + 1);
-      assert.deepEqual(next.snapshot.previous, {
-        revision: prior.snapshot.revision,
-        payloadSha256: prior.payloadSha256,
-      });
+      const nextBytes = fs.readFileSync(currentFile);
+      assert.equal(
+        next.payloadSha256,
+        createHash("sha256").update(nextBytes).digest("hex"),
+      );
+      assert.deepEqual(
+        parseStoredExecutionFixture(nextBytes.toString("utf8")).previous,
+        {
+          revision: prior.snapshot.revision,
+          payloadSha256: prior.payloadSha256,
+        },
+      );
     }
     const otherBefore = stateModel
       .readState(operationStateInput(management), { scope: "operation" })

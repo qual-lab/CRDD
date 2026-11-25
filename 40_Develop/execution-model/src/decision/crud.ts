@@ -4,8 +4,11 @@
  * @trace ARCH-000008
  */
 import type { StorageRootInput } from "../storage/lock.ts";
-import { withSnapshotOperation, writeSnapshotOwned } from "../state/crud.ts";
-import { validId, encodeStateValue } from "../state/operations.ts";
+import {
+  withSnapshotOperation,
+  writeSnapshotOwned,
+} from "../composition/crud.ts";
+import { validId, encodeStateValue } from "../composition/validation.ts";
 import type { HistoryRepositoryInput, StoreResult } from "../storage/lock.ts";
 import { blocked, completed } from "../storage/lock.ts";
 import {
@@ -19,6 +22,7 @@ import type {
   DecisionSaveValue,
 } from "./types.ts";
 import {
+  inspectDecision,
   prepareDecisionApplying,
   prepareDecisionClosing,
   prepareDecisionCreation,
@@ -357,6 +361,13 @@ function saveDecision(
                     new Date().toISOString(),
                   );
       if (candidate.status !== "completed") return candidate;
+      const decision = inspectDecision(candidate.value.value);
+      const decisionId =
+        input.kind === "request" || input.kind === "record"
+          ? input.request.decisionId
+          : input.decisionId;
+      if (!decision || decision.decisionId !== decisionId)
+        return blocked("decision_result_invalid");
       if (candidate.value.next !== null) {
         const saved = writeSnapshotOwned(
           owner,
@@ -377,7 +388,7 @@ function saveDecision(
         {
           next: null,
           value: {
-            decision: candidate.value.value,
+            decision,
             history:
               history.status === "completed"
                 ? { status: "confirmed" as const }

@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
+import { parseStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import path from "node:path";
 import test, { after, mock, type TestContext } from "node:test";
 import { isDeepStrictEqual } from "node:util";
@@ -403,7 +404,7 @@ function fixture(
     prefaceReadFault: "none" as "none" | "reject" | "release",
     prefaceReadFaultHits: 0,
     completionReadFaultHits: 0,
-    historyReadFault: "reject" as "reject" | "release" | "throw" | "owner",
+    historyReadFault: "reject" as "reject" | "throw" | "owner",
     historyFaultAt: 0,
     historyFault: "reject" as
       | "reject"
@@ -543,9 +544,9 @@ function fixture(
       remove = fs.rmSync,
       rename = fs.renameSync,
       lstat = fs.lstatSync;
-    let boundaries = 0,
-      writer = false,
-      selectedRead = false,
+    let acquisitions = 0,
+      stateReadsInStage = 0,
+      writerEntered = false,
       selectedWrite = false,
       renamed = false;
     const hooks = [
@@ -553,13 +554,32 @@ function fixture(
         fs,
         "openSync",
         (target: fs.PathLike, flags: fs.OpenMode, mode?: fs.Mode) => {
-          if (String(target) === lockPath && flags === "wx") {
-            boundaries++;
-            writer = boundaries % 2 === 0;
-            renamed = false;
-            selectedRead = false;
-            selectedWrite = false;
-            if (writer) {
+          if (String(target) === lockPath && flags === "wx+") {
+            acquisitions++;
+            assert.equal(acquisitions, 1);
+          }
+          if (String(target) === stateFile && flags === fs.constants.O_RDONLY) {
+            stateReadsInStage++;
+            if (stateReadsInStage === 1) {
+              selectedWrite = false;
+              state.historyReads++;
+              const selectedRead =
+                state.historyReads === state.historyReadFaultAt;
+              if (selectedRead && state.historyReadFault === "owner")
+                state.alive = false;
+              if (
+                selectedRead &&
+                ["reject", "throw"].includes(state.historyReadFault)
+              )
+                throw Object.assign(
+                  new Error("history_state_observation_fault"),
+                  {
+                    code: "EACCES",
+                  },
+                );
+            }
+            if (!writerEntered && stateReadsInStage === (renamed ? 1 : 2)) {
+              writerEntered = true;
               state.historyWrites++;
               selectedWrite = state.historyWrites === state.historyFaultAt;
               if (selectedWrite && state.historyFault === "owner")
@@ -571,18 +591,7 @@ function fixture(
                 throw Object.assign(new Error("history_lock_acquire_fault"), {
                   code: "EACCES",
                 });
-            } else {
-              state.historyReads++;
-              selectedRead = state.historyReads === state.historyReadFaultAt;
-              if (selectedRead && state.historyReadFault === "owner")
-                state.alive = false;
-              if (
-                selectedRead &&
-                ["reject", "throw"].includes(state.historyReadFault)
-              )
-                throw Object.assign(new Error("history_read_acquire_fault"), {
-                  code: "EACCES",
-                });
+              renamed = false;
             }
           }
           return open(target, flags, mode);
@@ -590,16 +599,22 @@ function fixture(
       ),
       t.mock.method(fs, "renameSync", (from: fs.PathLike, to: fs.PathLike) => {
         rename(from, to);
-        if (writer && String(from) === pending && String(to) === stateFile) {
+        if (String(from) === pending && String(to) === stateFile) {
           renamed = true;
-          historySaved.push(fs.readFileSync(stateFile));
+          stateReadsInStage = 0;
+          writerEntered = false;
+          const descriptor = open(stateFile, "r");
+          try {
+            historySaved.push(fs.readFileSync(descriptor));
+          } finally {
+            fs.closeSync(descriptor);
+          }
         }
       }),
       t.mock.method(fs, "lstatSync", ((
         ...args: Parameters<typeof fs.lstatSync>
       ) => {
         if (
-          writer &&
           selectedWrite &&
           state.historyFault === "after_effect" &&
           renamed &&
@@ -617,8 +632,8 @@ function fixture(
           remove(target, options);
           if (
             String(target) === lockPath &&
-            ((writer && selectedWrite && state.historyFault === "release") ||
-              (!writer && selectedRead && state.historyReadFault === "release"))
+            selectedWrite &&
+            state.historyFault === "release"
           )
             throw new Error("history_lock_release_unknown");
         },
@@ -870,7 +885,10 @@ function fixture(
       if (current) {
         assert.equal(observed.status, "completed");
         assert.ok(state.bytes);
-        assert.equal(current.sourceText, state.bytes.toString("utf8"));
+        assert.equal(
+          current.payloadSha256,
+          createHash("sha256").update(state.bytes).digest("hex"),
+        );
       } else {
         assert.equal(state.bytes, null);
         assert.equal(observed.status, initial.status);
@@ -1153,13 +1171,17 @@ function fixture(
         assert.equal(observed.status, "completed");
         assert.ok(observed.value);
         assert.equal(
-          observed.value.sourceText,
-          Buffer.from(
-            state.bytes ?? assert.fail("missing_fixture_bytes"),
-          ).toString("utf8"),
+          observed.value.payloadSha256,
+          createHash("sha256")
+            .update(state.bytes ?? assert.fail("missing_fixture_bytes"))
+            .digest("hex"),
         );
-        return observed.value;
-      })()?.snapshot,
+        return parseStoredExecutionFixture(
+          (state.bytes ?? assert.fail("missing_fixture_bytes")).toString(
+            "utf8",
+          ),
+        );
+      })(),
   };
 }
 
@@ -1234,7 +1256,7 @@ for (const failure of ["none", "unknown", "save"] as const) {
             Buffer.from(
               f.state.completionBefore ?? assert.fail("missing_fixture_bytes"),
             ).toString("utf8"),
-          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+          ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
         }?.snapshot.operations[0];
       assert.ok(original?.kind === "docker_repair" && original.disposal);
       assert.equal(original.disposition, "discard");
@@ -1262,7 +1284,7 @@ for (const failure of ["none", "unknown", "save"] as const) {
           Buffer.from(
             f.state.completionBefore ?? assert.fail("missing_fixture_bytes"),
           ).toString("utf8"),
-        ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+        ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
       }?.snapshot.operations[0];
       assert.ok(final?.kind === "docker_repair" && final.disposal);
       assert.deepEqual(
@@ -1451,7 +1473,8 @@ test("修復履歴接続: 成功・保持・取消後のexact確定を分ける"
       "throw",
       "owner",
       "after_effect",
-    ] as const)
+    ] as const) {
+      if (stage === 1 && fault === "release") continue;
       test(
         "修復失敗履歴接続: 失敗と取消を記録し技術再実行しない — " +
           `失敗履歴 stage=${stage} fault=${fault}`,
@@ -1482,6 +1505,7 @@ test("修復履歴接続: 成功・保持・取消後のexact確定を分ける"
           assert.equal(f.state.entries, entries);
         },
       );
+    }
   test(
     "修復失敗履歴接続: 失敗と取消を記録し技術再実行しない — " +
       "失敗履歴 retained cleanup=unknown",
@@ -1793,7 +1817,8 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
         "throw",
         "owner",
         "after_effect",
-      ] as const)
+      ] as const) {
+        if (stage === 1 && fault === "release") continue;
         test(
           "修復履歴接続: 保存失敗でも技術結果と保持判断を失わない — " +
             "retained=" +
@@ -1832,6 +1857,7 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
             );
           },
         );
+      }
 }
 
 /**
@@ -1839,15 +1865,15 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
  * @responsibility 書込み結果だけで履歴完了としない。
  * @trace ERB-IT-014
  * @precondition 新規recovered結果の保存後。
- * @stimulus 初回・一段後・二段後Readerの拒否・解放不明・例外・Owner失効。
+ * @stimulus 初回Reader／一段後Writerの現物観測拒否・例外・Owner失効。最終解放は保存故障側で検証する。
  * @observation 実モデルの保存事実と履歴確認の分離。
  * @oracle 先行outcomeと既知Effect保持、後段0。
  * @cleanup N/A: 自己生成Rootは既存終了hookで回収する。
  * @boundary fresh観測と呼出し生存。
  */
 {
-  for (const stage of [1, 2, 3])
-    for (const fault of ["reject", "release", "throw", "owner"] as const)
+  for (const stage of [1, 2])
+    for (const fault of ["reject", "throw", "owner"] as const)
       test(
         "修復履歴接続: 各段後のfresh確認不明で停止する — " +
           `履歴fresh stage=${stage} fault=${fault}`,
@@ -1860,7 +1886,11 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
           assert.equal(result.outcomeConfirmed, true);
           assert.equal(result.historyConfirmed, false);
           assert.equal(result.historyEffectIssued, stage > 1);
-          assert.equal(f.state.historyWrites, stage - 1);
+          assert.equal(
+            f.state.historyWrites,
+            stage === 2 && fault === "owner" ? stage : stage - 1,
+          );
+          assert.equal(f.historySaved.length, stage - 1);
           assert.equal(f.state.entries, 1);
           assert.equal(
             f
@@ -1957,7 +1987,7 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
           );
           assert.equal(read.status, "completed", `${stage}: ${read.reason}`);
           if (stage === "checkpoint") {
-            assert.equal(read.currentHistoryPublication?.stage, "publish");
+            assert.equal(read.historyPublicationStage, "publish");
             assert.equal(
               read.value?.snapshot.operations.find(
                 (
@@ -2109,7 +2139,7 @@ for (const cancelAfterWrite of [false, true]) {
           Buffer.from(
             f.saved.at(-1) ?? assert.fail("missing_fixture_bytes"),
           ).toString("utf8"),
-        ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+        ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
       }?.snapshot.operations.find(
         (item) => item.recoveryId === target.recoveryId,
       );
@@ -2188,10 +2218,10 @@ for (const fault of ["observation", "before", "fresh", "legacy"] as const) {
             assert.equal(observed.status, "completed");
             assert.ok(observed.value);
             assert.equal(
-              observed.value.sourceText,
-              Buffer.from(
-                f.state.bytes ?? assert.fail("missing_fixture_bytes"),
-              ).toString("utf8"),
+              observed.value.payloadSha256,
+              createHash("sha256")
+                .update(f.state.bytes ?? assert.fail("missing_fixture_bytes"))
+                .digest("hex"),
             );
             return observed.value;
           })(),
@@ -2484,7 +2514,7 @@ for (const mode of [
                 f.state.completionBefore ??
                   assert.fail("missing_fixture_bytes"),
               ).toString("utf8"),
-            ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+            ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
           }?.snapshot.operations[0];
         assert.equal(target?.kind, "docker_repair");
         if (target?.kind !== "docker_repair") throw new Error("wrong_target");
@@ -2526,7 +2556,7 @@ for (const mode of [
               Buffer.from(
                 f.saved.at(-2) ?? assert.fail("missing_fixture_bytes"),
               ).toString("utf8"),
-            ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+            ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
           }?.snapshot.operations[0];
           assert.equal(previous?.kind, "docker_repair");
           if (previous?.kind !== "docker_repair")
@@ -2828,10 +2858,10 @@ for (const close of ["clean", "unknown"] as const) {
         assert.equal(observed.status, "completed");
         assert.ok(observed.value);
         assert.equal(
-          observed.value.sourceText,
-          Buffer.from(
-            f.state.bytes ?? assert.fail("missing_fixture_bytes"),
-          ).toString("utf8"),
+          observed.value.payloadSha256,
+          createHash("sha256")
+            .update(f.state.bytes ?? assert.fail("missing_fixture_bytes"))
+            .digest("hex"),
         );
         return observed.value;
       })();
@@ -2995,10 +3025,10 @@ for (const mode of [
           assert.equal(observed.status, "completed");
           assert.ok(observed.value);
           assert.equal(
-            observed.value.sourceText,
-            Buffer.from(
-              f.state.bytes ?? assert.fail("missing_fixture_bytes"),
-            ).toString("utf8"),
+            observed.value.payloadSha256,
+            createHash("sha256")
+              .update(f.state.bytes ?? assert.fail("missing_fixture_bytes"))
+              .digest("hex"),
           );
           return observed.value;
         })(),

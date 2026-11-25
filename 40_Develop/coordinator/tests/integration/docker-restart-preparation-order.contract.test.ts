@@ -31,6 +31,7 @@ import {
 import { snapshotJsonValue } from "../../src/lifecycle/validation.ts";
 import {
   canonicalJson,
+  fixtureVersionEvidence,
   restartRequestIdFixture,
 } from "../support/contract-assertions.ts";
 
@@ -269,7 +270,9 @@ function fixture() {
                     }
                   : { kind: value.kind, operation: value },
               ),
-              sourceText: `${canonicalJson(snapshot)}\n`,
+              versionEvidence: fixtureVersionEvidence(
+                `${canonicalJson(snapshot)}\n`,
+              ),
               payloadSha256: createHash("sha256")
                 .update(`${canonicalJson(snapshot)}\n`)
                 .digest("hex"),

@@ -420,7 +420,7 @@ function readLayoutRevision(
  * @input capability: 検証済みRoot。
  * @returns 論理・実体Identityと配置種別、又はnull。
  * @precondition 呼出し側は保存用途に限り、実行対象Commitは別途検証する。
- * @postcondition HEADを推測せず、前後で同じRootとGit管理実体を確認する。
+ * @postcondition HEADを推測せず、同じ配置観測内で照合済みのRootとGit管理実体を使う。
  * @effect Git配置とFilesystem実体の読取りだけ。
  * @failure 不正配置、実体変更、観測不能はnull。
  * @invariant 成功をRevision観測や実行Authorityへ昇格しない。
@@ -430,36 +430,26 @@ function readLayoutRevision(
  */
 export function readRepositoryStorageIdentity(capability: Repository) {
   try {
-    const initial = observeVerifiedRepositoryLayout(capability);
-    if (initial === null) return null;
-    const before = initial.layout;
-    const value = {
+    const observed = observeVerifiedRepositoryLayout(capability);
+    if (observed === null) return null;
+    // 配置観測は返却前に同じ構造グラフを照合済み。この後は値の投影だけを行う。
+    const { layout } = observed;
+    return Object.freeze({
       repositoryIdentity: identity(
         "crdd-logical-repository-v1",
-        before.commonDirectory,
+        layout.commonDirectory,
       ),
       repositoryInstanceIdentity: identity(
         "crdd-repository-instance-v1",
-        before.root,
+        layout.root,
       ),
       repositoryForm:
-        before.kind === "normal_worktree"
+        layout.kind === "normal_worktree"
           ? "primary"
-          : before.kind === "linked_worktree"
+          : layout.kind === "linked_worktree"
             ? "linked"
             : "embedded",
-    };
-    const final = observeVerifiedRepositoryLayout(capability);
-    if (final === null) return null;
-    const after = final.layout;
-    return final.root === initial.root &&
-      before.kind === after.kind &&
-      value.repositoryIdentity ===
-        identity("crdd-logical-repository-v1", after.commonDirectory) &&
-      value.repositoryInstanceIdentity ===
-        identity("crdd-repository-instance-v1", after.root)
-      ? Object.freeze(value)
-      : null;
+    });
   } catch {
     return null;
   }

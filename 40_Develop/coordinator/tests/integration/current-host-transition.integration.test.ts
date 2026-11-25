@@ -363,7 +363,6 @@ test("認証終了の保存順序: 専用Ownerを先に選び不成立時は一�
           value: {
             snapshot: { revision: 2 },
             operationStates: [],
-            sourceText: '{"revision":2}\n',
             payloadSha256: scenario === "readback_failed" ? "changed" : "saved",
           },
         };
@@ -2259,8 +2258,8 @@ for (const publicationFault of [
         assert.equal(
           finalState.revision,
           before.value.snapshot.revision +
-            // 通常の終端・履歴・除去は8更新。Restartは要求4版と結果1版を加える。
-            (publicationFault.startsWith("restart_") ? 13 : 8),
+            // 終端と履歴固定は一更新。Restartは要求4版と結果1版を加える。
+            (publicationFault.startsWith("restart_") ? 12 : 7),
         );
         const rows = fs
           .readFileSync(
@@ -2297,7 +2296,7 @@ for (const publicationFault of [
         finalState.revision,
         before.value.snapshot.revision +
           // Driverは技術資源の回収結果を一保存してから同じHost／終端／履歴へ進む。
-          (publicationFault === "driver" ? 7 : terminalSaved ? 6 : 4),
+          (publicationFault === "driver" ? 6 : terminalSaved ? 5 : 4),
       );
       assert.equal(finalOperation.phase, "settling");
       assert.equal(

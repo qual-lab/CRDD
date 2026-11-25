@@ -316,19 +316,36 @@ test("共有MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
           "../../../coordinator/src/index.ts",
           import.meta.url,
         ).href;
-        const fixtureSource = `export {inspectCoordinatorDecisionRequest,inspectCoordinatorDecisionResult,inspectCoordinatorObjectiveRequest,inspectCoordinatorObjectiveResult,inspectCoordinatorStateQuery,inspectCoordinatorStateQueryResult,submitDecision,queryState} from ${JSON.stringify(real)}; export const runObjective = globalThis[${JSON.stringify(key)}];`;
+        const fixtureSource = `export {inspectCoordinatorDecisionRequest,inspectCoordinatorObjectiveRequest,inspectCoordinatorObjectiveResult,inspectCoordinatorStateQuery,inspectCoordinatorStateQueryResult,submitDecision,queryState} from ${JSON.stringify(real)}; export const runObjective = globalThis[${JSON.stringify(key)}];`;
         const fixtureUrl = `data:text/javascript,${encodeURIComponent(fixtureSource)}`;
         const calls: { ownerRoot: string; principalId: string }[] = [];
+        const { inspectCoordinatorObjectiveRequest } = await import(
+          "../../../coordinator/src/index.ts"
+        );
+        type SelectTarget = Exclude<
+          Parameters<
+            typeof import("../../../coordinator/src/index.ts").runObjective
+          >[2],
+          string | undefined
+        >;
         Reflect.set(
           globalThis,
           key,
           async (
-            _input: unknown,
+            input: unknown,
             _signal: AbortSignal,
-            ownerRoot: string,
-            authentication: { principalId: string },
+            selectTarget: SelectTarget,
           ) => {
-            calls.push({ ownerRoot, principalId: authentication.principalId });
+            const accepted = inspectCoordinatorObjectiveRequest(input);
+            assert.ok(accepted);
+            const target = await selectTarget({
+              projectId: accepted.projectId,
+            });
+            assert.ok(target && typeof target !== "function");
+            calls.push({
+              ownerRoot: target.directory,
+              principalId: target.principalId,
+            });
             started();
             await finish;
             return null;

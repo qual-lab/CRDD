@@ -16,18 +16,44 @@ import { compileFunction } from "node:vm";
 import { readHistoryRetentionDays } from "../../../src/storage/lock.ts";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
 
+test("保存起点と保持設定を分けた確認は同じ観測を繰り返さない", () => {
+  const checks: string[] = [];
+  let current = true;
+  let configured = 30;
+  const repository = {
+    historyRetentionDays: 30,
+    revalidate(days?: number) {
+      assert.equal(days, undefined);
+      checks.push("root");
+      return current;
+    },
+    revalidateRetention(days: number) {
+      checks.push("retention");
+      return configured === days;
+    },
+  };
+  assert.equal(readHistoryRetentionDays(repository), 30);
+  assert.deepEqual(checks.splice(0), ["root", "retention"]);
+  configured = 31;
+  assert.equal(readHistoryRetentionDays(repository), null);
+  assert.deepEqual(checks.splice(0), ["root", "retention"]);
+  current = false;
+  assert.equal(readHistoryRetentionDays(repository), null);
+  assert.deepEqual(checks.splice(0), ["root"]);
+});
+
 /**
  * 完成履歴保存が段階・対象・Owner・累積Effectを内部で確認する。
  * @responsibility 一段公開を使わず、実Sourceの有限Reader/Writer列を反証する。
  * @trace PRL-UT-006
  * @precondition 現行History宣言と非秘密の合成値だけを用いる。
- * @stimulus 初回/再入場/no-op、段階差・別Identity、各保存/最終観測の故障。
+ * @stimulus 初回/再入場/no-op、段階差・別Identity、各保存/最終解放の故障。
  * @observation Reader/Writer回数、段階、履歴確認、累積EffectとLock。
  * @oracle 失敗後の再試行0、確認前成功0、前段Effectの喪失0。
  * @cleanup N/A: 有限の局所VMだけ。
  * @boundary 実保存・実Lockの成立は実Filesystem試験へ分離する。
  */
-test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉じる", () => {
+test("履歴完成保存は最大二保存を一回のLockに閉じる", () => {
   const source = fs.readFileSync(
     new URL("../../../src/history/crud.ts", import.meta.url),
     "utf8",
@@ -41,6 +67,9 @@ test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉
       "readStateSnapshot",
       "writeStateSnapshot",
       "publishRecoveryState",
+      "acquireStorageOwnerForRepository",
+      "readHistoryRetentionDays",
+      "prepareRepairHistoryPublication",
     ],
   );
   for (const mode of [
@@ -51,37 +80,47 @@ test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉
     "second_failure",
     "first_throw",
     "second_throw",
-    "reader_failure",
-    "reader_release",
+    "resume_reader_failure",
+    "release_unknown",
+    "release_throw",
+    "owner_lost_after_release",
     "reader_throw",
-    "changed_identity",
-    "unchanged_stage",
+    "continuation_unavailable",
+    "continuation_retention_unavailable",
     "owner_lost",
     "wrong_kind",
   ] as const) {
     let reads = 0,
       writes = 0,
+      acquisitions = 0,
+      releases = 0,
       ownerLive = true;
+    const lockOwner = {
+      release() {
+        releases++;
+        if (mode === "release_throw") throw new Error("release_unknown");
+        if (mode === "owner_lost_after_release") ownerLive = false;
+        return mode !== "release_unknown";
+      },
+    };
     let stage: "checkpoint" | "publish" | "confirmed" =
-      mode === "resume"
+      mode === "resume" || mode === "resume_reader_failure"
         ? "publish"
         : mode === "confirmed"
           ? "confirmed"
           : "checkpoint";
     const operation = createHistoryOperation(
       Buffer,
-      () => {
+      (...input: unknown[]) => {
+        assert.equal(input.at(-1), lockOwner);
         reads++;
-        if (mode === "reader_throw" && reads === 3)
-          throw new Error("read_unknown");
-        const failed =
-          ["reader_failure", "reader_release"].includes(mode) && reads === 3;
-        const actual =
-          mode === "unchanged_stage" && reads === 2 ? "checkpoint" : stage;
+        if (mode === "reader_throw") throw new Error("read_unknown");
+        const failed = mode === "resume_reader_failure";
         return {
           status: failed ? "blocked" : "completed",
           reason: "observed",
-          lockReleased: !(mode === "reader_release" && reads === 3),
+          ownerHeld: true,
+          lockReleased: false,
           value: {
             snapshot: {
               revision: reads,
@@ -89,11 +128,8 @@ test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉
                 {
                   kind: "docker_repair",
                   recoveryId: "id",
-                  identityJson:
-                    mode === "changed_identity" && reads === 2
-                      ? "other"
-                      : "identity",
-                  history: { confirmed: actual === "confirmed" },
+                  identityJson: "identity",
+                  history: { confirmed: stage === "confirmed" },
                 },
               ],
             },
@@ -101,8 +137,8 @@ test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉
           },
           currentHistoryPublication: {
             operationKind: "docker_repair",
-            stage: actual,
-            needsWrite: actual !== "confirmed",
+            stage,
+            needsWrite: stage !== "confirmed",
             before: Buffer.from("before"),
             candidate: Buffer.from("candidate"),
             historyFile: null,
@@ -118,14 +154,25 @@ test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉
         lockReleased: true,
         filesystemEffectIssued: false,
       }),
-      (input: {
-        stage: string;
-        assertOwner: () => boolean;
-        retentionDays: number;
-      }) => {
+      (
+        input: {
+          stage: string;
+          assertOwner: () => boolean;
+          retentionDays: number;
+          before: Buffer;
+          candidate: Buffer;
+        },
+        borrowed: unknown,
+      ) => {
+        assert.equal(borrowed, lockOwner);
         writes++;
         assert.equal(input.assertOwner(), true);
         assert.equal(input.retentionDays, 30);
+        if (writes === 2) {
+          assert.equal(input.stage, "publish");
+          assert.equal(input.before.toString(), "candidate");
+          assert.equal(input.candidate.toString(), "continued");
+        }
         if (
           (mode === "first_throw" && writes === 1) ||
           (mode === "second_throw" && writes === 2)
@@ -145,10 +192,23 @@ test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉
         if (mode === "owner_lost") ownerLive = false;
         return {
           status: "completed",
+          revision: 2,
+          payloadSha256: "hash",
           snapshotConfirmed: true,
           lockReleased: true,
           filesystemEffectIssued: true,
         };
+      },
+      () => {
+        acquisitions++;
+        return { status: "completed", value: lockOwner };
+      },
+      () => (mode === "continuation_retention_unavailable" ? null : 30),
+      (checkpoint: Buffer) => {
+        assert.equal(checkpoint.toString(), "candidate");
+        return mode === "continuation_unavailable"
+          ? null
+          : { snapshotBytes: Buffer.from("continued") };
       },
     );
     const result = operation(
@@ -162,14 +222,19 @@ test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉
     assert.equal(result.historyConfirmed, success, mode);
     assert.equal(
       writes,
-      mode === "wrong_kind" || mode === "confirmed"
+      [
+        "wrong_kind",
+        "confirmed",
+        "reader_throw",
+        "resume_reader_failure",
+      ].includes(mode)
         ? 0
         : mode === "resume" ||
             [
               "first_failure",
               "first_throw",
-              "changed_identity",
-              "unchanged_stage",
+              "continuation_unavailable",
+              "continuation_retention_unavailable",
               "owner_lost",
             ].includes(mode)
           ? 1
@@ -180,20 +245,23 @@ test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉
       result.filesystemEffectIssued,
       mode === "first_throw"
         ? null
-        : !["confirmed", "first_failure", "wrong_kind"].includes(mode),
+        : ![
+            "confirmed",
+            "first_failure",
+            "wrong_kind",
+            "reader_throw",
+            "resume_reader_failure",
+          ].includes(mode),
       mode,
     );
     assert.equal(
       result.lockReleased,
-      ![
-        "reader_release",
-        "reader_throw",
-        "first_throw",
-        "second_throw",
-      ].includes(mode),
+      mode !== "release_unknown" && mode !== "release_throw",
       mode,
     );
-    if (success) assert.equal(reads, writes + 1, mode);
+    assert.equal(acquisitions, mode === "wrong_kind" ? 0 : 1, mode);
+    assert.equal(releases, acquisitions, mode);
+    assert.equal(reads, mode === "wrong_kind" ? 0 : 1, mode);
   }
 });
 
@@ -210,28 +278,42 @@ test("履歴完成保存は最大二保存とfresh確認を一回の操作へ閉
  */
 test("履歴出版の一回Contextは保持日数と元Ownerの現在性を結合する", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/storage/publication.ts", import.meta.url),
+    new URL("../../../src/storage/store.ts", import.meta.url),
     "utf8",
   );
   const settlements = new WeakMap<object, { used: boolean }>(),
     initializations = new WeakMap();
   let currentDays = 30,
     ownerLive = true,
+    repositoryCurrent = true,
+    split = false,
     calls = 0,
     key: object | null = null;
   let late: ((days?: number) => boolean) | null = null;
   const received: (number | undefined)[] = [];
+  const observations: string[] = [];
   const publish = compileFunction(
     stripTypeScriptTypes(sourceDeclaration(source, "publishRecoveryState")) +
       "; return publishRecoveryState;",
-    ["Object", "settlements", "initializations", "writeStateSnapshot"],
+    [
+      "Object",
+      "settlements",
+      "initializations",
+      "writeStateSnapshot",
+      "readHistoryRetentionDays",
+    ],
   )(
     Object,
     settlements,
     initializations,
     (
       _before: unknown,
-      bound: { revalidate: (days?: number) => boolean } | null,
+      bound: {
+        revalidate: (
+          days?: number,
+          includeUnscopedRevalidation?: true,
+        ) => boolean;
+      } | null,
       _candidate: unknown,
       admission: { currentHistory: object } | null,
     ) => {
@@ -242,6 +324,25 @@ test("履歴出版の一回Contextは保持日数と元Ownerの現在性を結�
       const binding = settlements.get(key);
       assert.ok(binding);
       late = bound.revalidate;
+      if (split) {
+        assert.equal(bound.revalidate(30, true), false);
+        assert.deepEqual(observations.splice(0), []);
+        binding.used = true;
+        assert.equal(bound.revalidate(30, true), true);
+        assert.deepEqual(observations.splice(0), [
+          "owner",
+          "current",
+          "settings",
+        ]);
+        ownerLive = false;
+        assert.equal(bound.revalidate(30, true), false);
+        assert.deepEqual(observations.splice(0), ["owner"]);
+        ownerLive = true;
+        repositoryCurrent = false;
+        assert.equal(bound.revalidate(30, true), false);
+        assert.deepEqual(observations.splice(0), ["owner", "current"]);
+        return { status: "blocked", filesystemEffectIssued: false };
+      }
       assert.equal(bound.revalidate(30), false);
       binding.used = true;
       assert.equal(bound.revalidate(30), true);
@@ -250,16 +351,38 @@ test("履歴出版の一回Contextは保持日数と元Ownerの現在性を結�
       currentDays = 30;
       ownerLive = false;
       assert.equal(bound.revalidate(30), false);
+      assert.deepEqual(received, [30, 30]);
+
+      observations.length = 0;
+      const allChecks = ["current", "owner", "settings"];
+      ownerLive = true;
+      assert.equal(bound.revalidate(30, true), true);
+      assert.deepEqual(observations.splice(0), allChecks);
+      repositoryCurrent = false;
+      assert.equal(bound.revalidate(30, true), false);
+      assert.deepEqual(observations.splice(0), ["current"]);
+      repositoryCurrent = true;
+      ownerLive = false;
+      assert.equal(bound.revalidate(30, true), false);
+      assert.deepEqual(observations.splice(0), ["current", "owner"]);
+      ownerLive = true;
+      currentDays = 31;
+      assert.equal(bound.revalidate(30, true), false);
+      assert.deepEqual(observations.splice(0), allChecks);
       return { status: "blocked", filesystemEffectIssued: false };
     },
+    readHistoryRetentionDays,
   );
-  publish({
+  const request = {
     kind: "current_history",
-    operationKind: "docker_repair",
+    operationKind: "docker_task",
     repository: {
-      revalidate: (days?: number) => {
+      revalidate: (...args: [days?: number]) => {
+        assert.equal(args.length, 1);
+        const [days] = args;
         received.push(days);
-        return days === currentDays;
+        observations.push(days === undefined ? "current" : "settings");
+        return days === undefined ? repositoryCurrent : days === currentDays;
       },
     },
     recoveryId: "id",
@@ -269,15 +392,35 @@ test("履歴出版の一回Contextは保持日数と元Ownerの現在性を結�
     historyFile: null,
     pendingHistoryFile: null,
     retentionDays: 30,
-    assertOwner: () => ownerLive,
-  });
+    assertOwner: () => {
+      observations.push("owner");
+      return ownerLive;
+    },
+  };
+  publish(request);
   assert.equal(calls, 1);
-  assert.deepEqual(received, [30, 30]);
   assert.ok(key);
   assert.equal(settlements.has(key), false);
   ownerLive = true;
   assert.ok(late);
   assert.equal((late as (days: number) => boolean)(30), false);
+  split = true;
+  currentDays = 30;
+  observations.length = 0;
+  publish({
+    ...request,
+    repository: {
+      ...request.repository,
+      historyRetentionDays: 30,
+      revalidateRetention(days: number) {
+        observations.push("settings");
+        return days === currentDays;
+      },
+    },
+  });
+  assert.equal(calls, 2);
+  assert.ok(key);
+  assert.equal(settlements.has(key), false);
 });
 
 /**
@@ -340,6 +483,8 @@ test("EMのRepository観測は保持日数を転送し通常照合とRevision条
   );
   let revision = "a".repeat(40);
   const initialRevision = revision;
+  const binding = "fixture-physical-binding";
+  const bindingChecks: (string | undefined)[] = [];
   const factories = compileFunction(
     stripTypeScriptTypes(
       [
@@ -353,7 +498,11 @@ test("EMのRepository観測は保持日数を転送し通常照合とRevision条
     ) +
       "\nreturn {observeExecutionStorageRepository,observeExecutionRecoveryRepository};",
     ["types", "readExecutionStorageBinding"],
-  )(types, () => "fixture-physical-binding") as {
+  )(types, (directory: string, expectedBinding?: string) => {
+    assert.equal(directory, "C:/synthetic-unused");
+    bindingChecks.push(expectedBinding);
+    return binding;
+  }) as {
     observeExecutionStorageRepository: (value: object) => {
       revalidate: (days?: number) => boolean;
       historyRetentionDays: number | null;
@@ -380,10 +529,12 @@ test("EMのRepository観測は保持日数を転送し通常照合とRevision条
     directory: "C:/synthetic-unused",
   });
   assert.equal(normal.revalidate(), true);
+  assert.deepEqual(bindingChecks.splice(0), [undefined, binding]);
   assert.equal(policyChecks, 0);
   assert.equal(readHistoryRetentionDays(normal), null);
   const bound = factories.observeExecutionRecoveryRepository(input);
   assert.equal(bound.revalidate(), true);
+  assert.deepEqual(bindingChecks.splice(0), [undefined, binding]);
   assert.equal(policyChecks, 0);
   assert.equal(readHistoryRetentionDays(bound), 30);
   assert.equal(policyChecks, 1);

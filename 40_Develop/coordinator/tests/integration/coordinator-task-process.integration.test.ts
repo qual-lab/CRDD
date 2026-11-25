@@ -211,7 +211,12 @@ function createProcessHarness(
     controls.add(controlCapability);
     const useCapability = capability();
     controlsByUse.set(useCapability, controlCapability);
-    return { status: "issued", controlCapability, useCapability };
+    return {
+      status: "issued",
+      controlCapability,
+      useCapability,
+      taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+    };
   };
   /**
    * revokeのTest準備責務を実行する。
@@ -358,7 +363,7 @@ function createProcessHarness(
       if (input.purpose !== "task") throw Error("fixture_purpose_invalid");
       const role = assignments.get(input.packetCapability as object);
       assert.ok(role);
-      assert.equal(input.executionSelection.provider, _provider);
+      assert.equal(input.packetRef, "TASKPKT-00112233445566778899AABBCCDDEEFF");
       assert.equal(input.providerHome.provider, _provider);
       consume(input.packetCapability as object);
       const management = input.managementCapability as object;

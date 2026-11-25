@@ -14,6 +14,7 @@ import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
+import { parseStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import path from "node:path";
 import test, { mock, type TestContext } from "node:test";
 import { isDeepStrictEqual } from "node:util";
@@ -537,7 +538,7 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
   );
   assert.equal(historyBefore.status, "completed");
   assert.equal(historyBefore.repairHistoryState, "technical_state");
-  assert.equal(historyBefore.currentHistoryPublication, null);
+  assert.equal(historyBefore.historyPublicationStage, null);
   const completionBefore = stateStore.readState(
     prepareFixtureRecovery(f.capability),
     {
@@ -548,7 +549,7 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
       },
     },
   );
-  assert.equal(completionBefore.currentCompletionPublication, null);
+  assert.equal(completionBefore.completionPublicationReady, false);
   const acquired = acquireCount,
     entries = runtimeEntries;
   pauseBeforeDisposal = false;
@@ -591,7 +592,7 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
       Buffer.from(
         lastRepairCompletionBefore ?? assert.fail("missing_fixture_bytes"),
       ).toString("utf8"),
-    ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot
+    ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture
   ).operations.find((operation) => operation.recoveryId === id);
   assert.ok(final?.kind === "docker_repair" && final.disposal);
   assert.deepEqual(
@@ -651,7 +652,7 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
       },
     },
   );
-  assert.equal(completionAfter.currentCompletionPublication, null);
+  assert.equal(completionAfter.completionPublicationReady, false);
   assert.equal(completionAfter.status, "completed");
   assert.equal(completionAfter.repairCompletionAbsent, true);
   const reentry = await executeDockerRepair(
@@ -716,7 +717,7 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
       Buffer.from(original ?? assert.fail("missing_fixture_bytes")).toString(
         "utf8",
       ),
-    ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot
+    ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture
   ).operations.find((item) => item.recoveryId === id);
   assert.ok(operation?.kind === "docker_repair");
   const repository = {
@@ -837,7 +838,7 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
       Buffer.from(
         currentBytes ?? assert.fail("missing_fixture_bytes"),
       ).toString("utf8"),
-    ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+    ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
   };
   assert.ok(snapshot);
   fs.writeFileSync(
@@ -890,13 +891,10 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
         Buffer.from(before ?? assert.fail("missing_fixture_bytes")).toString(
           "utf8",
         ),
-      ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+      ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
       payloadSha256: createHash("sha256")
         .update(before ?? assert.fail("missing_fixture_bytes"))
         .digest("hex"),
-      sourceText: Buffer.from(
-        before ?? assert.fail("missing_fixture_bytes"),
-      ).toString("utf8"),
     };
     const operation = value?.snapshot.operations.find(
       (item) => item.recoveryId === id,
@@ -966,7 +964,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
           Buffer.from(
             candidate ?? assert.fail("missing_fixture_bytes"),
           ).toString("utf8"),
-        ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+        ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
       };
       assert.ok(decodedCandidate);
       const changed = Buffer.from(
@@ -1095,10 +1093,17 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
     );
     assert.ok(actual && value && next?.kind === "docker_repair");
     assert.equal(actual.snapshot.revision, value.snapshot.revision + 1);
-    assert.deepEqual(actual.snapshot.previous, {
-      revision: value.snapshot.revision,
-      payloadSha256: value.payloadSha256,
-    });
+    assert.equal(
+      actual.payloadSha256,
+      createHash("sha256").update(candidate).digest("hex"),
+    );
+    assert.deepEqual(
+      parseStoredExecutionFixture(candidate.toString("utf8")).previous,
+      {
+        revision: value.snapshot.revision,
+        payloadSha256: value.payloadSha256,
+      },
+    );
     assert.deepEqual(next, {
       ...operation,
       phase: "settling",
@@ -1174,7 +1179,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       assert.equal(ready.lockReleased, true);
       assert.equal(ready.repairCompletionAbsent, false);
       assert.equal(ready.repairRetentionReviewAfter, receipt.reviewAfter);
-      assert.ok(ready.currentCompletionPublication);
+      assert.ok(ready.completionPublicationReady);
       for (const fault of [
         "missing_receipt",
         "bad_deadline",
@@ -1343,49 +1348,35 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   );
   assert.equal(completionRead.status, "completed");
   assert.equal(completionRead.lockReleased, true);
-  assert.ok(completionRead.currentCompletionPublication);
-  assert.ok(
-    completionRead.currentCompletionPublication.before.equals(original),
-  );
-  const candidate = completionRead.currentCompletionPublication.candidate;
-  const beforeCompletion = {
-    snapshot: JSON.parse(
-      Buffer.from(original ?? assert.fail("missing_fixture_bytes")).toString(
-        "utf8",
-      ),
-    ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
-    payloadSha256: createHash("sha256")
-      .update(original ?? assert.fail("missing_fixture_bytes"))
-      .digest("hex"),
-    sourceText: Buffer.from(
-      original ?? assert.fail("missing_fixture_bytes"),
-    ).toString("utf8"),
-  };
-  const afterCompletion = {
-    snapshot: JSON.parse(
-      Buffer.from(candidate ?? assert.fail("missing_fixture_bytes")).toString(
-        "utf8",
-      ),
-    ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
-  };
-  assert.ok(beforeCompletion && afterCompletion);
+  assert.ok(completionRead.completionPublicationReady);
   assert.equal(
-    beforeCompletion.snapshot.operations.filter(
-      (item) => item.recoveryId === id,
-    ).length,
+    Object.hasOwn(completionRead, "currentCompletionPublication"),
+    false,
+  );
+  assert.ok(completionRead.value);
+  assert.equal(
+    completionRead.value.payloadSha256,
+    createHash("sha256").update(original).digest("hex"),
+  );
+  const beforeCompletion = parseStoredExecutionFixture(
+    original.toString("utf8"),
+  );
+  assert.equal(
+    beforeCompletion.operations.filter((item) => item.recoveryId === id).length,
     1,
   );
-  assert.deepEqual(afterCompletion.snapshot, {
-    ...beforeCompletion.snapshot,
-    revision: beforeCompletion.snapshot.revision + 1,
+  const expectedCompleted = {
+    ...beforeCompletion,
+    revision: beforeCompletion.revision + 1,
     previous: {
-      revision: beforeCompletion.snapshot.revision,
-      payloadSha256: beforeCompletion.payloadSha256,
+      revision: beforeCompletion.revision,
+      payloadSha256: createHash("sha256").update(original).digest("hex"),
     },
-    operations: beforeCompletion.snapshot.operations.filter(
+    operations: beforeCompletion.operations.filter(
       (item) => item.recoveryId !== id,
     ),
-  });
+  };
+  const candidate = Buffer.from(`${canonicalJson(expectedCompleted)}\n`);
   const markerFile = path.join(directory, "state.lock");
   const pendingFile = path.join(directory, "state.pending.json");
   const marker = Buffer.from(
@@ -1455,7 +1446,7 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
           },
         );
         assert.equal(rejected.status, "blocked");
-        assert.equal(rejected.currentCompletionPublication, null);
+        assert.equal(rejected.completionPublicationReady, false);
       }
       const saved = worker.completeRecovery(
         prepareFixtureRecovery(f.capability),
@@ -1520,7 +1511,7 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   assert.equal(absent.status, "completed");
   assert.equal(absent.repairCompletionAbsent, true);
   assert.equal(absent.repairRetentionReviewAfter, null);
-  assert.equal(absent.currentCompletionPublication, null);
+  assert.equal(absent.completionPublicationReady, false);
   const cleaned = stateStore.readState(prepareFixtureRecovery(f.capability), {
     scope: "recovery",
     input: { kind: "history" },
@@ -1993,11 +1984,7 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
           assert.equal(read.lockReleased, true);
           assert.ok(read.value);
           assert.equal(read.repairHistoryState, "publication");
-          assert.equal(read.currentHistoryPublication?.stage, "publish");
-          const publication =
-            read.currentHistoryPublication?.pendingHistoryFile;
-          assert.ok(publication);
-          assert.deepEqual(publication.bytes, pendingBytes);
+          assert.equal(read.historyPublicationStage, "publish");
           const lines = pendingBytes.toString("utf8").split("\n");
           assert.equal(lines.length, 2);
           assert.equal(lines[1], "");
@@ -2042,7 +2029,7 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
             Buffer.from(
               expected ?? assert.fail("missing_fixture_bytes"),
             ).toString("utf8"),
-          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot
+          ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture
         ).operations.find(
           (operation) => operation.recoveryId === first.recoveryId,
         );
@@ -2824,7 +2811,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
             Buffer.from(
               candidate ?? assert.fail("missing_fixture_bytes"),
             ).toString("utf8"),
-          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot
+          ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture
         ).operations.find((item) => item.recoveryId !== first.recoveryId);
         assert.ok(added?.kind === "docker_repair");
         assert.equal(added.recoveryId, id);
@@ -2857,7 +2844,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
             Buffer.from(
               candidate ?? assert.fail("missing_fixture_bytes"),
             ).toString("utf8"),
-          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot
+          ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture
         ).operations.find((item) => item.recoveryId === id);
         assert.ok(result?.kind === "docker_repair");
         assert.deepEqual(result, { ...original, checkpoint });
@@ -2867,20 +2854,17 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
             Buffer.from(
               before ?? assert.fail("missing_fixture_bytes"),
             ).toString("utf8"),
-          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+          ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
           payloadSha256: createHash("sha256")
             .update(before ?? assert.fail("missing_fixture_bytes"))
             .digest("hex"),
-          sourceText: Buffer.from(
-            before ?? assert.fail("missing_fixture_bytes"),
-          ).toString("utf8"),
         },
         recorded = {
           snapshot: JSON.parse(
             Buffer.from(
               candidate ?? assert.fail("missing_fixture_bytes"),
             ).toString("utf8"),
-          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+          ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
         };
       assert.ok(beforeCandidate && recorded);
       assert.equal(
@@ -3000,20 +2984,17 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
             Buffer.from(
               before ?? assert.fail("missing_fixture_bytes"),
             ).toString("utf8"),
-          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+          ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
           payloadSha256: createHash("sha256")
             .update(before ?? assert.fail("missing_fixture_bytes"))
             .digest("hex"),
-          sourceText: Buffer.from(
-            before ?? assert.fail("missing_fixture_bytes"),
-          ).toString("utf8"),
         },
         next = {
           snapshot: JSON.parse(
             Buffer.from(
               candidate ?? assert.fail("missing_fixture_bytes"),
             ).toString("utf8"),
-          ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+          ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
         };
       assert.ok(prior && next);
       assert.equal(next.snapshot.revision, prior.snapshot.revision + 1);
@@ -3119,7 +3100,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
       Buffer.from(original ?? assert.fail("missing_fixture_bytes")).toString(
         "utf8",
       ),
-    ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+    ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
   };
   const operation = decoded?.snapshot.operations.find(
     (item) => item.recoveryId === id,
@@ -3161,10 +3142,11 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     },
   );
   assert.equal(observed.status, "completed");
-  assert.equal(observed.currentHistoryPublication?.stage, "checkpoint");
-  assert.equal(
-    observed.currentHistoryPublication?.operationKind,
-    "docker_repair",
+  assert.equal(observed.historyPublicationStage, "checkpoint");
+  assert.ok(
+    observed.value?.snapshot.operations.some(
+      (item) => item.kind === "docker_repair" && item.recoveryId === id,
+    ),
   );
   const fixed = first.saveRecoveryHistory(
     { ...repository, ...withHistoryRetention(repository, f.capability) },
@@ -3202,7 +3184,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
           recoveryId: id,
         },
       },
-    ).currentHistoryPublication?.stage,
+    ).historyPublicationStage,
     "publish",
   );
   const published = second.saveRecoveryHistory(
@@ -3306,7 +3288,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
       const valid = historyCase === "empty" || historyCase === "other";
       assert.equal(read.status, valid ? "completed" : "blocked");
       assert.equal(read.repairHistoryState, valid ? "technical_state" : null);
-      assert.equal(read.currentHistoryPublication, null);
+      assert.equal(read.historyPublicationStage, null);
       if (!valid) {
         const beforeCalls = writeCalls;
         const stopped = await executeDockerRepair(
@@ -3407,13 +3389,10 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
           Buffer.from(
             currentBytes ?? assert.fail("missing_fixture_bytes"),
           ).toString("utf8"),
-        ) as import("../../../execution-model/src/index.ts").ExecutionStateSnapshot,
+        ) as import("../../../execution-model/tests/fixtures/stored-execution.ts").StoredExecutionFixture,
         payloadSha256: createHash("sha256")
           .update(currentBytes ?? assert.fail("missing_fixture_bytes"))
           .digest("hex"),
-        sourceText: Buffer.from(
-          currentBytes ?? assert.fail("missing_fixture_bytes"),
-        ).toString("utf8"),
       };
       assert.ok(confirmedState);
       assert.equal(

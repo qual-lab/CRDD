@@ -29,13 +29,13 @@ test("計画・選定・履歴の局所検査は全State候補と保存層を解
     new URL(`../../src/${name}/validation.ts`, import.meta.url).href;
   const code = `import assert from "node:assert/strict";
 import {registerHooks} from "node:module";
-registerHooks({resolve(s,c,next){const r=next(s,c);if(["/src/state/validation.ts","/src/state/crud.ts","/src/storage/"].some(p=>r.url.includes(p)))throw Error("aggregate_forbidden");return r;}});
+registerHooks({resolve(s,c,next){const r=next(s,c);if(["/src/composition/transition.ts","/src/composition/crud.ts","/src/storage/"].some(p=>r.url.includes(p)))throw Error("aggregate_forbidden");return r;}});
 const objective=await import(${JSON.stringify(entry("objective"))});
 const task=await import(${JSON.stringify(entry("task"))});
 const history=await import(${JSON.stringify(entry("history"))});
 const workspace=await import(${JSON.stringify(entry("workspace"))});
-const stateValues=await import(${JSON.stringify(new URL("../../src/state/operations.ts", import.meta.url).href)});
-const resources=await import(${JSON.stringify(new URL("../../src/attempt/operations.ts", import.meta.url).href)});
+const stateValues=await import(${JSON.stringify(new URL("../../src/composition/validation.ts", import.meta.url).href)});
+const resources=await import(${JSON.stringify(new URL("../../src/attempt/transition.ts", import.meta.url).href)});
 const plan={milestoneAcceptanceCriteria:["done"],objectives:[{id:"objective",acceptanceCriteria:["done"]}],tasks:[{id:"task",objectiveId:"objective",dependencies:[],allowedPaths:["src"],conflictKeys:[]}]};
 assert.ok(objective.inspectExecutionPlan(plan,{allowedPaths:["src"]}));
 assert.equal(objective.inspectExecutionPlan(null,{allowedPaths:["src"]}),null);
@@ -46,10 +46,10 @@ assert.equal(history.historyRow({id:"task",occurredAt:at,outcome:"completed",pri
 assert.equal(history.decodeHistoryRows(Buffer.from("invalid\\n")),null);
 assert.equal(stateValues.hashStateText("abc"),"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
 assert.equal(stateValues.validLeaseEvidence({kind:"project-operation",queueId:"q",ownerGeneration:"g",ownerProcessId:1,disposition:"acquired"}),true);
+assert.equal(stateValues.validLeaseEvidence({kind:"canonical-adoption",queueId:"canonical",ownerGeneration:"g",ownerProcessId:1,disposition:"acquired"}),false);
 assert.equal(stateValues.validLeaseEvidence(null),false);
 assert.equal(stateValues.leaseIdentity("binding","project","queue","project-operation"),"project-operation-binding");
 assert.equal(resources.authenticationUnknownAbsenceChanged(null,{operations:[]}),false);
-assert.equal(workspace.adoptionWasRejected({kind:"adoption",identity:"g",value:{status:"rejected",reason:"coordinator_adoption_revision_or_scope_mismatch",ownerGeneration:"g",effectIssued:false,cleanupConfirmed:true}}),true);
 assert.equal(objective.hashExecutionProjectDefinition({projectId:"p",milestoneId:"m",milestone:{acceptanceCriteria:["done"]},objectives:[],tasks:[]}),stateValues.hashExecutionStateContent({projectId:"p",milestoneId:"m",definition:{milestoneAcceptanceCriteria:["done"],objectives:[],tasks:[]}}));
 console.log("LOCAL_VALIDATION");`;
   const result = spawnSync(
@@ -75,13 +75,14 @@ console.log("LOCAL_VALIDATION");`;
  * @boundary 値検査とModule解決のみ。認証や保存成功の証明ではない。
  */
 test("主体値とDecision検査は全体State検査と保存層を解決しない", () => {
-  const value = new URL("../../src/state/operations.ts", import.meta.url).href;
+  const value = new URL("../../src/composition/validation.ts", import.meta.url)
+    .href;
   const decision = new URL("../../src/decision/validation.ts", import.meta.url)
     .href;
   const code = `import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 registerHooks({resolve(s,c,next){const r=next(s,c);
- if(["/src/state/validation.ts","/src/state/crud.ts","/src/storage/"].some(p=>r.url.includes(p))) throw Error("whole_state_forbidden");
+ if(["/src/composition/transition.ts","/src/composition/crud.ts","/src/storage/"].some(p=>r.url.includes(p))) throw Error("whole_state_forbidden");
  return r;
 }});
 const api=await import(${JSON.stringify(value)});
@@ -181,23 +182,26 @@ test("EMはDocker Isolationなしで公開Rootを開始する", () => {
  * @boundary Module解決と純粋な値操作。保存・Docker・外部AIは対象外。
  */
 test("資源の純粋操作はState候補と保存層を解決しない", () => {
-  const entry = new URL("../../src/attempt/operations.ts", import.meta.url)
+  const entry = new URL("../../src/attempt/transition.ts", import.meta.url)
+    .href;
+  const validation = new URL("../../src/attempt/validation.ts", import.meta.url)
     .href;
   const code = `import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 registerHooks({resolve(s,c,next){
   const result=next(s,c);
-  if(["/src/storage/","/src/state/crud.ts","/src/state/validation.ts","/src/attempt/crud.ts","/src/attempt/validation.ts"].some(target=>result.url.includes(target)))
+  if(["/src/storage/","/src/composition/crud.ts","/src/composition/transition.ts","/src/attempt/crud.ts"].some(target=>result.url.includes(target)))
     throw Error("persistence_dependency_forbidden");
   return result;
 }});
 const api=await import(${JSON.stringify(entry)});
+const checks=await import(${JSON.stringify(validation)});
 const snapshot={resources:[{key:"one",identity:{kind:"container",dockerId:null,name:"fixed",ownershipLabel:"fixed=owner"},request:"not_issued",configuration:{image:null,command:null,environmentNames:null,mounts:null,networks:null,internal:null}}]};
 const cleanup={cleanupOrder:["one"],setupTimeoutMs:1000,unreceiptedAbsence:"observe",verifyLabelAbsence:true};
 const book=api.applyResourceEvent(null,{event:"submission",key:"one",snapshot,cleanup});
 assert.ok(book);
-assert.equal(api.validateResourceBook(book),true);
-assert.equal(api.validateResourceBookTransition(null,book),true);
+assert.equal(checks.validateResourceBook(book),true);
+assert.equal(checks.validateResourceBookTransition(null,book),true);
 assert.equal(book.checkpoints[0].submission,"intent_saved");
 const changed=api.applyResourceCleanup(book,snapshot,[{key:"one",observation:"unknown"}],{recoveryId:"same",previousPayloadSha256:"b".repeat(64)});
 assert.ok(changed);
@@ -227,13 +231,12 @@ console.log("PURE_RESOURCES");`;
  * @boundary 実Node Module解決とメモリ値だけ。保存成功の証明ではない。
  */
 test("履歴の純粋操作はState復号と保存層を解決しない", () => {
-  const entry = new URL("../../src/history/operations.ts", import.meta.url)
-    .href;
+  const entry = new URL("../../src/history/records.ts", import.meta.url).href;
   const code = `import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 registerHooks({resolve(s,c,next){
  const result=next(s,c);
- if(["/src/storage/","/src/state/validation.ts","/src/state/crud.ts","/src/attempt/validation.ts","/src/history/validation.ts"].some(target=>result.url.includes(target))) throw Error("history_dependency_forbidden");
+ if(["/src/storage/","/src/composition/transition.ts","/src/composition/crud.ts","/src/attempt/validation.ts","/src/history/validation.ts"].some(target=>result.url.includes(target))) throw Error("history_dependency_forbidden");
  return result;
 }});
 const api=await import(${JSON.stringify(entry)});

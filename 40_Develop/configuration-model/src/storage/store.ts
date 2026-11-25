@@ -48,17 +48,17 @@ export function observeConfigurationDirectory(repositoryRoot: string | null) {
           });
         throw error;
       }
-      if (
-        !metadata.isDirectory() ||
-        metadata.isSymbolicLink() ||
-        fs.realpathSync.native(target) !== target
-      )
+      const canonicalPath =
+        metadata.isDirectory() && !metadata.isSymbolicLink()
+          ? fs.realpathSync.native(target)
+          : null;
+      if (canonicalPath !== target)
         return Object.freeze({
           status: "blocked" as const,
           reason: "repository_runtime_data_area_boundary_invalid",
           effectIssued: false as const,
         });
-      const canonical = fs.lstatSync(fs.realpathSync.native(target), {
+      const canonical = fs.lstatSync(canonicalPath, {
         bigint: true,
       });
       if (canonical.dev !== metadata.dev || canonical.ino !== metadata.ino)

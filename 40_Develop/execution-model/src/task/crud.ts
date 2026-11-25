@@ -13,7 +13,7 @@ import {
   readExecutionContent,
   saveExecutionDefinition,
   withSnapshotOperation,
-} from "../state/crud.ts";
+} from "../composition/crud.ts";
 import {
   encodeStateValue,
   leaseIdentity,
@@ -22,18 +22,18 @@ import {
   snapshotStateArray,
   snapshotStateRecord,
   validId,
-} from "../state/operations.ts";
+} from "../composition/validation.ts";
 import type {
   ExecutionModelAccess,
   ProjectExecutionInitialization,
   ProjectExecutionState,
   Snapshot,
   StateVersion,
-} from "../state/types.ts";
+} from "../composition/types.ts";
 import {
   PROJECT_SNAPSHOT_SCHEMA,
   PROJECT_STATE_CONTRACT,
-} from "../state/types.ts";
+} from "../composition/types.ts";
 import type { StoreResult } from "../storage/lock.ts";
 import { blocked } from "../storage/lock.ts";
 import type {
@@ -89,9 +89,9 @@ export function readQueueEntry(
 
 /**
  * fresh Queue集合から実行順の選択差分を保存する。
- * @responsibility Coordinatorの同期選択を元の短期排他内で呼び、対象ID・世代・限定差分を再検査する。
+ * @responsibility 元の短期排他内でEMの固定優先順を適用し、必要な待機・復帰だけを保存する。
  * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory、binding: 検証対象と既存結合。Queue集合から閉じた選択差分を返す同期選択。
+ * @input workingDirectory、binding: 検証対象と既存結合。
  * @returns 元の候補結果を保存・解放確認後に返す。
  * @precondition 操作認可は呼出し側が現在確認している。
  * @postcondition 未知・元参照・候補外区画を保つ。
@@ -99,24 +99,19 @@ export function readQueueEntry(
  * @failure 競合・観測不能・例外・解放不明は元の停止へ返す。
  * @invariant 生Owner・任意Snapshot callbackを公開しない。
  * @boundary 固定操作と唯一の短期保存Owner。
- * @security 観測関数を保存又は登録しない。
+ * @security 外部の選択関数を受け取らず、選択を実行許可として扱わない。
  * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
  */
-export function selectQueueEntry(
+export function selectNextQueueEntry(
   workingDirectory: StorageRootInput,
   binding: string,
-  select: (
-    entries: readonly ProjectQueueEntry[],
-  ) => Parameters<typeof prepareQueueSelection>[1],
 ) {
   return withSnapshotOperation<
     Extract<
       ReturnType<typeof prepareQueueSelection>,
       { status: "completed" }
     >["value"]["value"]
-  >(workingDirectory, binding, (current) =>
-    prepareQueueSelection(current, select(current.queueEntries)),
-  );
+  >(workingDirectory, binding, prepareQueueSelection);
 }
 
 /**
@@ -708,156 +703,89 @@ export function prepareQueueLeaseReleaseSettlement(
 }
 
 /**
- * Coordinatorの閉じた選択判断をfresh Queueへ適用する。
- * @responsibility 対象ID・元世代・重複更新・限定遷移を検査し、優先順位を判断しない。
+ * freshな全Queueから次の一件と待機差分を導出する。
+ * @responsibility 現在Owner、対話、待機中の予約実行、未開始の予約実行の順を所有する。
  * @trace ARCH-000004、ARCH-000008
- * @input current: fresh元版、decision: 同Owner内のCoordinator選択判断。
- * @returns 元の結果封筒で固定候補又は投影を返す。
- * @precondition 既存短期Ownerがfresh SnapshotとRepository結合を検証済み。
- * @postcondition 元Snapshotと対象外の区画を変更しない。
- * @effect N/A: 同期の値操作だけ。
- * @failure stale世代・重複・対象外更新・不正な選択差分をcoordinator_queue_selection_invalidで拒否する。
- * @invariant 候補を保存完了、現在認可、実行順序決定や回復成立にしない。
- * @boundary Coordinatorの検証済み値と既存の単一Writer。
- * @security 保存Owner・任意Snapshot callback・実行Authorityを公開しない。
- * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
+ * @precondition 既存の短期Ownerが全Queueの構造・ID一意性と元版を確認済み。
+ * @invariant 選択はLease取得・実行許可・保存確定ではない。
+ * @effect N/A: 値操作のみ。CAS・短期排他は呼出し側の共通保存が所有する。
  */
-
-export function prepareQueueSelection(
-  current: Snapshot,
-  decision: Readonly<{
-    reason:
-      | "coordinator_active_operation_retained"
-      | "coordinator_interactive_queue_selected"
-      | "coordinator_scheduled_queue_selected"
-      | "coordinator_queue_empty";
-    selectedQueueId: string | null;
-    selectedQueueGeneration: number | null;
-    updates: readonly Readonly<{
-      queueId: string;
-      expectedGeneration: number;
-      state: "queued" | "waiting_foreground";
-      resumeCondition: string | null;
-    }>[];
-  }>,
-) {
-  const invalid = blockedQueueCandidate("coordinator_queue_selection_invalid");
-  if (
-    ![
-      "coordinator_active_operation_retained",
-      "coordinator_interactive_queue_selected",
-      "coordinator_scheduled_queue_selected",
-      "coordinator_queue_empty",
-    ].includes(decision.reason)
-  )
-    return invalid;
-  const selected =
-    decision.selectedQueueId === null
-      ? null
-      : current.queueEntries.find(
-          (item) => item.queueId === decision.selectedQueueId,
-        );
-  if (
-    (decision.selectedQueueId === null &&
-      decision.selectedQueueGeneration !== null) ||
-    (decision.selectedQueueId !== null &&
-      (!selected ||
-        selected.generation !== decision.selectedQueueGeneration ||
-        selected.ownerGeneration !== null))
-  )
-    return invalid;
-  if (
-    decision.reason === "coordinator_active_operation_retained" ||
-    decision.reason === "coordinator_queue_empty"
-      ? selected !== null
-      : !selected
-  )
-    return invalid;
-  if (
-    new Set(decision.updates.map((item) => item.queueId)).size !==
-    decision.updates.length
-  )
-    return invalid;
-  const waitingReason =
-    decision.reason === "coordinator_active_operation_retained"
+export function prepareQueueSelection(current: Snapshot) {
+  const entries = current.queueEntries;
+  const ordered = [...entries].sort((a, b) =>
+    a.queueId < b.queueId ? -1 : a.queueId > b.queueId ? 1 : 0,
+  );
+  const isActive = ordered.some((item) => item.ownerGeneration !== null);
+  const interactive = ordered.find(
+    (item) =>
+      item.originLane === "interactive" &&
+      item.state === "queued" &&
+      item.ownerGeneration === null,
+  );
+  if (isActive || interactive) {
+    const resumeCondition = isActive
       ? "active_operation_pending"
-      : decision.reason === "coordinator_interactive_queue_selected"
-        ? "interactive_queue_pending"
-        : null;
-  if (
-    (waitingReason !== null &&
-      decision.updates.some(
-        (update) =>
-          update.state !== "waiting_foreground" ||
-          update.resumeCondition !== waitingReason,
-      )) ||
-    (decision.reason === "coordinator_queue_empty" &&
-      decision.updates.length !== 0) ||
-    (decision.reason === "coordinator_scheduled_queue_selected" &&
-      (decision.updates.length > 1 ||
-        decision.updates.some(
-          (update) =>
-            update.queueId !== decision.selectedQueueId ||
-            update.state !== "queued" ||
-            update.resumeCondition !== null,
-        )))
-  )
-    return invalid;
-  for (const update of decision.updates) {
-    const prior = current.queueEntries.find(
-      (item) => item.queueId === update.queueId,
-    );
-    if (
-      !prior ||
-      prior.generation !== update.expectedGeneration ||
-      prior.ownerGeneration !== null ||
-      prior.originLane !== "scheduled" ||
-      !(
-        (prior.state === "queued" &&
-          update.state === "waiting_foreground" &&
-          ["active_operation_pending", "interactive_queue_pending"].includes(
-            update.resumeCondition ?? "",
-          )) ||
-        (prior.state === "waiting_foreground" &&
-          update.state === "queued" &&
-          update.resumeCondition === null)
+      : "interactive_queue_pending";
+    let changed = false;
+    const queueEntries = entries.map((item) => {
+      if (
+        item.originLane !== "scheduled" ||
+        item.state !== "queued" ||
+        item.ownerGeneration !== null
       )
-    )
-      return invalid;
-  }
-  const queueEntries = current.queueEntries.map((item) => {
-    const update = decision.updates.find(
-      (value) => value.queueId === item.queueId,
+        return item;
+      changed = true;
+      return {
+        ...item,
+        state: "waiting_foreground" as const,
+        generation: item.generation + 1,
+        resumeCondition,
+        resultReference: null,
+      };
+    });
+    return completedQueueCandidate(
+      isActive
+        ? "coordinator_active_operation_retained"
+        : "coordinator_interactive_queue_selected",
+      {
+        next: changed ? { ...current, queueEntries } : null,
+        value: isActive ? null : (interactive ?? null),
+      },
     );
-    return update
-      ? {
-          ...item,
-          state: update.state,
-          generation: item.generation + 1,
-          resumeCondition: update.resumeCondition,
-          resultReference: null,
-        }
-      : item;
-  });
+  }
+  const waiting = ordered.find(
+    (item) =>
+      item.originLane === "scheduled" &&
+      item.state === "waiting_foreground" &&
+      item.ownerGeneration === null,
+  );
+  if (waiting) {
+    const value = {
+      ...waiting,
+      state: "queued" as const,
+      generation: waiting.generation + 1,
+      resumeCondition: null,
+      resultReference: null,
+    };
+    return completedQueueCandidate("coordinator_scheduled_queue_selected", {
+      next: {
+        ...current,
+        queueEntries: entries.map((item) => (item === waiting ? value : item)),
+      },
+      value,
+    });
+  }
   const value =
-    decision.selectedQueueId === null
-      ? null
-      : (queueEntries.find(
-          (item) => item.queueId === decision.selectedQueueId,
-        ) ?? null);
-  if (
-    value &&
-    ((decision.reason === "coordinator_interactive_queue_selected" &&
-      value.originLane !== "interactive") ||
-      (decision.reason === "coordinator_scheduled_queue_selected" &&
-        value.originLane !== "scheduled") ||
-      value.state !== "queued")
-  )
-    return invalid;
-  return completedQueueCandidate(decision.reason, {
-    next: decision.updates.length ? { ...current, queueEntries } : null,
-    value,
-  });
+    ordered.find(
+      (item) =>
+        item.originLane === "scheduled" &&
+        item.state === "queued" &&
+        item.ownerGeneration === null,
+    ) ?? null;
+  return completedQueueCandidate(
+    value ? "coordinator_scheduled_queue_selected" : "coordinator_queue_empty",
+    { next: null, value },
+  );
 }
 
 /**

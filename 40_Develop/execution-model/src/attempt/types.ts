@@ -4,7 +4,10 @@
  * @trace ARCH-000008
  */
 
-import type { ExecutionModelAccess, StateVersion } from "../state/types.ts";
+import type {
+  ExecutionModelAccess,
+  StateVersion,
+} from "../composition/types.ts";
 import type { REPAIR_ACTIONS, REPAIR_DIRECTORIES } from "./validation.ts";
 
 /** Provider応答の失敗理由。公開完了理由と内部要約検査が共有する値契約。 */
@@ -592,7 +595,7 @@ export type RecoveryCheckpointRequest =
       kind: "resource_publication";
       publication: NonNullable<
         ReturnType<
-          typeof import("../state/crud.ts").readRecoveryState
+          typeof import("../composition/crud.ts").readRecoveryState
         >["resourcePublication"]
       >;
       assertOwner: () => boolean;

@@ -249,10 +249,6 @@ test("MCP application publishes runtime and context tools without conflating the
         calls.objective += 1;
         return {};
       },
-      submitDecision: async () => {
-        calls.decision += 1;
-        return {};
-      },
       getProjectState: async () => {
         calls.state += 1;
         return {};
