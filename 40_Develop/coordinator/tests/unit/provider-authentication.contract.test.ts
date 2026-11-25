@@ -337,6 +337,96 @@ test("既存active記録は元回復参照を保持し不明読取りでfresh実
     });
 });
 
+test("認証の清掃再入場は管理実体の失効・下位準備拒否を新規認証にしない", async (t) => {
+  for (const mode of [
+    "changed_during_read",
+    "sync_refusal",
+    "async_unknown",
+    "changed_after_settle",
+  ] as const)
+    await t.test(mode, async (t) => {
+      const f = await createAuthenticationFixture(t);
+      assert.equal((await f.run()).status, "completed");
+      const previous = f.record;
+      assert.ok(previous?.resources);
+      f.seed({
+        ...previous,
+        state: "active",
+        resources: mode === "changed_after_settle" ? null : previous.resources,
+      });
+      f.resetLease();
+      const callCount = f.f.calls.length;
+      const releaseCount = f.events.filter(
+        (event) => event === "release",
+      ).length;
+      let current = true,
+        admissions = 0,
+        dispatches = 0;
+      const result = await authenticateProvider(
+        "claude",
+        "login",
+        f.home,
+        f.hash,
+        {
+          ...f.dependencies,
+          createManagementDirectory: (_record, directory) => ({
+            directory,
+            assertCurrent: () => current,
+          }),
+          beginRecovery: (record) => {
+            admissions++;
+            return f.dependencies.beginRecovery(record);
+          },
+          readResources: (record) => {
+            const value = f.dependencies.readResources(record);
+            if (mode === "changed_during_read") current = false;
+            return value;
+          },
+          cleanupAuthentication: (target, callbacks) => {
+            dispatches++;
+            if (mode === "sync_refusal")
+              throw Error("cleanup_preparation_refused");
+            if (mode === "async_unknown")
+              return {
+                cancel: async () => ({
+                  cancellationRequested: true,
+                  processTerminationObserved: false,
+                }),
+                completion: Promise.reject(Error("cleanup_completion_unknown")),
+              };
+            return f.dependencies.cleanupAuthentication(target, callbacks);
+          },
+          completeRecovery: (record) => {
+            const complete = f.dependencies.completeRecovery(record);
+            if (mode === "changed_after_settle") current = false;
+            return complete;
+          },
+        },
+      );
+      assert.equal(result.status, "blocked");
+      assert.equal(result.cleanupConfirmed, false);
+      assert.ok("recoveryId" in result);
+      assert.equal(result.recoveryId, previous.recoveryId);
+      assert.equal(result.providerEffectIssued, false);
+      assert.equal(admissions, 1);
+      assert.equal(
+        dispatches,
+        mode === "changed_during_read" || mode === "changed_after_settle"
+          ? 0
+          : 1,
+      );
+      assert.equal(f.f.calls.length, callCount);
+      assert.equal(
+        f.record?.state,
+        mode === "changed_after_settle" ? "settled" : "active",
+      );
+      assert.equal(
+        f.events.filter((event) => event === "release").length - releaseCount,
+        mode === "async_unknown" ? 0 : 1,
+      );
+    });
+});
+
 test("技術Completion直前のHome Owner喪失は最終記録・settleを発行しない", async (t) => {
   const f = await createAuthenticationFixture(t);
   let finalRecords = 0,

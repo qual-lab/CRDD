@@ -23,7 +23,7 @@ import {
   verifyTrustedDesktopCliSnapshot,
 } from "../docker-cli/trust.ts";
 
-/** 非秘密の観測出力だけを受理する。不明・新形式を停止へ畳まない。 */
+/** 固定の状態出力だけを受理する。SessionIDは形式照合だけに使い、結果へ渡さない。 */
 export function parseDesktopStatus(
   output: string,
 ): "running" | "stopped" | "unknown" {
@@ -33,9 +33,21 @@ export function parseDesktopStatus(
       return "unknown";
     const record = value as Record<string, unknown>;
     const keys = Object.keys(record);
-    if (keys.length !== 1 || (keys[0] !== "Status" && keys[0] !== "status"))
-      return "unknown";
-    const status = record[keys[0]];
+    const legacyStatus =
+      keys.length === 1 && (keys[0] === "Status" || keys[0] === "status");
+    const sessionStatus =
+      keys.length === 2 &&
+      Object.hasOwn(record, "Status") &&
+      Object.hasOwn(record, "SessionID") &&
+      typeof record.SessionID === "string" &&
+      record.SessionID.length === 36 &&
+      /^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/iu.test(
+        record.SessionID,
+      );
+    if (!legacyStatus && !sessionStatus) return "unknown";
+    const status = Object.hasOwn(record, "Status")
+      ? record.Status
+      : record.status;
     return status === "running" || status === "stopped" ? status : "unknown";
   } catch {
     return "unknown";

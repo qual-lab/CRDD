@@ -34,7 +34,7 @@ DIの製品Source・公開APIはFixを維持する。Domain公開整理の前提
 
 Desktop再起動・修復は、PAの専用Native Helperを使用せず、既存のCLI検証・子Process所有処理と公式`docker desktop`操作へ接続する。Rootの公開関数は増減しない。停止は同期`stop --timeout 30`の正常終了と`status --format json`の停止状態を別に確認する。起動は`start --detach`の受理後に既存Engine待機へ進む。停止のCLI待機35秒、状態観測5秒、元CLI終了確認5秒、既存Engine待機期限を有限に保つ。未対応CLI・非0・取消・観測不能を成功へ補完しない。
 
-検査した固定Desktop Pluginを直接起動し、ユーザー設定のPlugin探索に実行先を委ねない。Engine CLIと同じ署名・内容Hash・操作内実体検査を共用するが、そのHashを修復記録へ追加しない。全Desktop／Backend Processの不存在、全Directoryアクセス終了、Nativeの実行物群・deny-share Handle・Job Object・SID Mutexと同等の保証は主張しない。Backend停止は既存のWSL登録実体の稼働一覧観測であり、Process不存在やAPI接続失敗ではない。初回・失敗起動後とも、Directory処置の直前にEngine・Desktop status・WSL Backendを必要条件として再確認する。独自の強制終了fallbackは設けない。
+検査した固定Desktop Pluginを直接起動し、ユーザー設定のPlugin探索に実行先を委ねない。Engine CLIと同じ署名・内容Hash・操作内実体検査を共用するが、そのHashを修復記録へ追加しない。Desktopの状態出力は既知の状態のみの形と、`Status`およびUUID形式の`SessionID`だけの形を受け付ける。セッションIDを結果へ渡さず、不正形や未知の状態を停止とみなさない。全Desktop／Backend Processの不存在、全Directoryアクセス終了、Nativeの実行物群・deny-share Handle・Job Object・SID Mutexと同等の保証は主張しない。Backend停止は既存のWSL登録実体の稼働一覧観測であり、Process不存在やAPI接続失敗ではない。初回・失敗起動後とも、Directory処置の直前にEngine・Desktop status・WSL Backendを必要条件として再確認する。独自の強制終了fallbackは設けない。
 
 Directoryは既存の固定対象、Link拒否、元実体・退避先実体の前後照合、元Path再出現の拒否を維持する。部分処置・不明・終了未確認は既存checkpointへ保持する。修復記録からNative所有Hash・Helper実行物Hash・重複Scope Hashを除き、Identity v2はnonce・Operation ID・Repository binding・consumerと既存の内容完全性Hashで相関する。nonce由来の固定退避名は維持する。旧Identity v1や旧9処置を自動読替え・移行せず保全する。
 

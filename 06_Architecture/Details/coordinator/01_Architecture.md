@@ -515,7 +515,9 @@ recoverDockerIsolationProbeは旧記録・Root／Host世代・exact Container ID
 
 ## AIツール認証の保存と技術実行の境界（2026-11-01）
 
-認証のDocker設定用managementDirectoryは上位で確定する。既存Home Lock下で元Recovery記録を受け付けた後、recordPathの隣の`<provider>.<fullHomeHash>.management`をexclusive作成し、Executorへ固定所在として渡す。unknown・別操作active・既存in_flightでは作成しない。既存領域を名前だけで再利用せず同じRecovery参照で停止する。DIがProcess・Docker資源・子configの終了を確認した後、自作した元実体と空を確認して非recursiveに除去し、明示不存在を確認してからsettledへ進む。保存失敗と、技術的に終了確認できたHome Lockの解放は分ける。保存Schema・Lock・Registryは追加しない。
+認証のDocker設定用managementDirectoryは上位で確定する。既存Home Lock下で元Recovery記録を受け付けた後、recordPathの隣に入場ごとに異なる`<provider>.<fullHomeHash>.management-<nonce>`をexclusive作成し、同じ所在をExecutorへ渡す。unknown・別操作active・既存in_flightでは作成しない。記録探索から除くのは、同じ完全Hashに対応する既知の名前を持ち、リンクでないDirectoryと確認できた管理領域だけであり、その内容は使用しない。探索途中の観測失敗は初回の親領域不存在とは区別して停止する。
+
+既存idleへの再入場では、新しい空の領域を使って元Recovery参照の資源だけを回収する。回収の委譲直前と、旧記録確定後の新規受付直前にも、同じHome Lockと自作領域の実体を再確認する。過去の領域は再利用・削除せず、同じ記録の管理領域が上限に達した場合や生成に失敗した場合は停止する。DIがProcess・Docker資源・子configの終了を確認した後、自作した元実体と空を確認して非recursiveに除去し、明示不存在を確認する。下位の同期準備拒否と、開始後に終了を確認できない場合を区別し、保存失敗と技術的に終了確認できたHome Lockの解放は分ける。保存Schema・Lock・Registryは追加しない。
 
 `lifecycle/authentication.ts`はExecutor.createExecutorへ選定済みProvider・操作・Home・安定suffix・短命Proxy tokenを渡す。prepareProviderAuthenticationは元の資源投影と短命認証操作を既存Mapへ結合し、Recovery記録の原本照合を維持する。Docker配布物・構成・Command実行・生出力解析・所有照合・削除・不存在確認は構築せず、Executor／AI Adapter／DIの既存正本へ委譲する。
 

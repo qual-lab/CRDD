@@ -188,7 +188,9 @@ AI AdapterへTask State、Consumer ACK、Recovery Registry、認証Home Lockを�
 
 認証の記述やエラー分類だけから再試行・Docker再起動・回収・Authorityを発行しない。
 
-Claudeの非0終了では、NULなし・曖昧でない単一`result` JSONだけを解釈する。既存の予算・Turn・構造化再試行上限の三subtypeを優先し、次にNULを拒否する既存stderr分類を維持する。stderrで理由を特定できない場合だけ、`error_during_execution`かつ`is_error: true`の非空`errors`配列にある非空・NULなし文字列を既存理由へ変換する。Codexも既知のエラーイベントだけを分類材料とし、通常agent_messageを採用しない。受領済みstdout／stderr、行・説明件数、個別・結合本文の独自容量拒否を撤去する。不正stdoutは分類材料にせず、既知stderrの判定を妨げない。通常回答・未知subtype・`result`本文・未知fieldはエラー説明として使わない。解析例外はstdoutの解釈不能へ閉じる。本文は呼出し内の短命な値に限り、公開／保存するのは従来のProviderと固定理由だけである。
+Claudeの非0終了では、NULなし・曖昧でない単一`result` JSONだけを解釈する。既存の予算・Turn・構造化再試行上限の三subtypeを優先し、次にNULを拒否する既存stderr分類を維持する。stderrで理由を特定できない場合だけ、`error_during_execution`かつ`is_error: true`の非空`errors`配列にある非空・NULなし文字列を既存理由へ変換する。Codexも既知のエラーイベントだけを分類材料とし、通常agent_messageを採用しない。受領済みstdout／stderr、行・説明件数、個別・結合本文の独自容量拒否を撤去する。不正stdoutは分類材料にせず、既知stderrの判定を妨げない。通常回答・未知subtype・`result`本文・未知fieldはエラー説明として使わない。解析例外はstdoutの解釈不能へ閉じる。
+
+Claude助言の一般的な非0終了には、既存の固定理由を変えず、標準出力の形式だけを`claudeFailureOutput`の固定値で付加できる。空、利用可能なJSONなし、`result`型でない、未対応の結果種別、実行エラーの構造不正、構造は有効だが理由未分類を区別する。標準エラーにNULがある場合の早期拒否、既知理由、認証・Task・Codexには適用しない。元のsubtype値・本文・認証情報を公開・保存せず、Executorの一次失敗診断と検証ツールの受付だけに搬送する。
 
 ## 7. Provider差の公開契約と実行境界
 

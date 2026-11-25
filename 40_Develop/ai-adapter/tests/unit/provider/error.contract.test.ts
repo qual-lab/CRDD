@@ -11,6 +11,51 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { convertProviderError } from "../../../src/provider/error.ts";
 
+test("Claude助言の非0終了を固定の出力形式だけで識別する", () => {
+  const failure = {
+    type: "result",
+    subtype: "error_during_execution",
+    is_error: true,
+  };
+  for (const [stdout, claudeFailureOutput] of [
+    ["", "empty"],
+    ["{private-text", "no_usable_json"],
+    ['{"message":"private-text"}', "not_result"],
+    [
+      JSON.stringify({ ...failure, subtype: "private-text" }),
+      "unexpected_result_subtype",
+    ],
+    [JSON.stringify(failure), "invalid_execution_error"],
+    [
+      JSON.stringify({ ...failure, errors: ["private-text"] }),
+      "unclassified_execution_error",
+    ],
+  ] as const) {
+    assert.deepEqual(
+      convertProviderError("claude", { stdout, stderr: "" }, true),
+      {
+        provider: "claude",
+        reason: "provider_process_exit_nonzero",
+        claudeFailureOutput,
+      },
+    );
+  }
+  assert.deepEqual(
+    convertProviderError(
+      "claude",
+      {
+        stdout: JSON.stringify({
+          ...failure,
+          errors: ["authentication failed"],
+        }),
+        stderr: "",
+      },
+      true,
+    ),
+    { provider: "claude", reason: "provider_authentication_expired" },
+  );
+});
+
 /**
  * 受領済み異常出力の量だけで既知理由を失わない。
  * @responsibility 大きい既知・未知の同量対照と既存優先順位を確認する。

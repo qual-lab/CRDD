@@ -31,11 +31,18 @@ test("認証管理領域は自作した元の空Directoryだけを終了する",
     "utf8",
   );
   const recordPath = `C:\\runtime\\Recovery\\provider-authentication\\codex.${"a".repeat(64)}.json`;
-  const directory = recordPath.replace(/\.json$/u, ".management");
+  const prefix = path.win32.basename(recordPath, ".json") + ".management-";
+  const parent = path.win32.dirname(recordPath);
+  const directory = path.win32.join(parent, prefix + "b".repeat(32));
   let state = "absent",
     nonempty = false,
     parentLink = false,
-    lstatUnknown = false;
+    lstatUnknown = false,
+    parentIno = 4n;
+  let generations = [
+    path.win32.basename(recordPath, ".json") + ".management",
+    prefix + "c".repeat(32),
+  ];
   const effects: string[] = [];
   /**
    * inodeとlink属性を持つ合成metadataを構築する。
@@ -63,8 +70,7 @@ test("認証管理領域は自作した元の空Directoryだけを終了する",
       fs: {
         realpathSync: (value: string) => value,
         lstatSync: (value: string) => {
-          if (value === path.win32.dirname(recordPath))
-            return metadata(4n, parentLink);
+          if (value === parent) return metadata(parentIno, parentLink);
           assert.equal(value, directory);
           if (lstatUnknown)
             throw Object.assign(Error("unavailable"), { code: "EACCES" });
@@ -80,7 +86,12 @@ test("認証管理領域は自作した元の空Directoryだけを終了する",
           effects.push("mkdir");
           state = "original";
         },
-        readdirSync: () => (nonempty ? ["docker-cli-config"] : []),
+        readdirSync: (value: string) =>
+          value === parent
+            ? generations
+            : nonempty
+              ? ["docker-cli-config"]
+              : [],
         rmdirSync: (value: string) => {
           assert.equal(value, directory);
           effects.push("rmdir");
@@ -89,28 +100,45 @@ test("認証管理領域は自作した元の空Directoryだけを終了する",
       },
     },
   ) as {
-    create(record: {
-      recordPath: string;
-    }): { directory: string; identity: string } | null;
-    remove(owned: { directory: string; identity: string }): boolean;
+    create(
+      record: { recordPath: string },
+      directory: string,
+    ): { directory: string; assertCurrent(): boolean } | null;
+    remove(owned: { directory: string; assertCurrent(): boolean }): boolean;
   };
-  const owned = api.create({ recordPath });
+  const owned = api.create({ recordPath }, directory);
   assert.ok(owned);
   assert.equal(owned.directory, directory);
+  assert.equal(owned.assertCurrent(), true);
   assert.deepEqual(effects, ["mkdir"]);
-  assert.equal(api.create({ recordPath }), null, "既存を採用しない");
+  assert.equal(api.create({ recordPath }, directory), null, "既存を採用しない");
   nonempty = true;
   assert.equal(api.remove(owned), false);
   nonempty = false;
   state = "replacement";
+  assert.equal(owned.assertCurrent(), false);
   assert.equal(api.remove(owned), false);
   state = "original";
   lstatUnknown = true;
   assert.equal(api.remove(owned), false);
   lstatUnknown = false;
+  parentIno = 5n;
+  assert.equal(owned.assertCurrent(), false);
+  assert.equal(api.remove(owned), false);
+  parentIno = 4n;
   assert.equal(api.remove(owned), true);
   assert.deepEqual(effects, ["mkdir", "rmdir"]);
   parentLink = true;
-  assert.equal(api.create({ recordPath }), null);
+  assert.equal(api.create({ recordPath }, directory), null);
+  parentLink = false;
+  assert.equal(
+    api.create({ recordPath }, path.win32.join(parent, "unknown")),
+    null,
+  );
+  generations = Array.from(
+    { length: 96 },
+    (_, index) => prefix + index.toString(16).padStart(32, "0"),
+  );
+  assert.equal(api.create({ recordPath }, directory), null);
   assert.deepEqual(effects, ["mkdir", "rmdir"]);
 });

@@ -842,6 +842,8 @@ export type PrimaryFailureDiagnostic = Readonly<{
   authenticationStatus?: "confirmed" | "unconfirmed" | "unknown";
   /** Claude助言のTurn拒否だけに付く非秘密metadata。 */
   turnCountDiagnostic?: TurnCountDiagnostic;
+  /** Claude助言の分類不能な非0終了で、出力形式だけを固定値で記録する。 */
+  claudeFailureOutput?: ExecutionResult<"advice">["claudeFailureOutput"];
   commandObservation: Readonly<{
     exitCode: number | null;
     stdoutBytes: number;

@@ -69,6 +69,7 @@ type Dependencies = Readonly<{
   ) => Executor<"authentication"> | null;
   createManagementDirectory: (
     record: AuthenticationRecoveryRecord,
+    directory: string,
   ) => AuthenticationManagementDirectory | null;
   removeManagementDirectory: (
     directory: AuthenticationManagementDirectory,
@@ -109,28 +110,56 @@ type Dependencies = Readonly<{
 /** 同じHome Lock下で自作した管理Directoryの短命実体。保存・権限ではない。 */
 type AuthenticationManagementDirectory = Readonly<{
   directory: string;
-  identity: string;
+  assertCurrent(): boolean;
 }>;
 
 /**
- * 既存Recovery親領域の固定子だけをexclusive作成する。
+ * 既存Recovery親に、この入場専用の子だけをexclusive作成する。
  * @responsibility 記録受付前の書込みと由来不明の既存領域の採用を避ける。
  * @trace ARCH-000010
- * @input record: 同じHomeと完全Hashから構築した元記録。
+ * @input record: 同じHomeと完全Hashから構築した元記録。directory: 同じFactoryに渡した今回専用Path。
  * @returns 自作した元実体。既存・Link・観測不能はnull。
  * @effect 上位管理領域の固定子Directoryを一つ作成する。
- * @invariant Provider Home・任意Path・recursive作成・既存削除を使わない。
+ * @invariant 既存の管理領域を使用・削除せず、同じ記録の世代数を96未満に抑えてから新規取得する。
  */
 function createAuthenticationManagementDirectory(
   record: AuthenticationRecoveryRecord,
+  directory: string,
 ): AuthenticationManagementDirectory | null {
   try {
     const parent = path.win32.dirname(record.recordPath);
-    const directory = record.recordPath.replace(/\.json$/u, ".management");
-    if (directory === record.recordPath || fs.realpathSync(parent) !== parent)
+    const recordName = path.win32.basename(record.recordPath);
+    const prefix = recordName.replace(/\.json$/u, ".management-");
+    const name = path.win32.basename(directory);
+    if (
+      prefix === recordName ||
+      path.win32.dirname(directory) !== parent ||
+      !name.startsWith(prefix) ||
+      !/^[a-f0-9]{32}$/u.test(name.slice(prefix.length)) ||
+      fs.realpathSync(parent) !== parent
+    )
       return null;
     const parentMetadata = fs.lstatSync(parent, { bigint: true });
     if (!parentMetadata.isDirectory() || parentMetadata.isSymbolicLink())
+      return null;
+    const parentIdentity = `${parentMetadata.dev}:${parentMetadata.ino}:${parentMetadata.birthtimeNs}`;
+    const sameParent = () => {
+      const current = fs.lstatSync(parent, { bigint: true });
+      return (
+        current.isDirectory() &&
+        !current.isSymbolicLink() &&
+        fs.realpathSync(parent) === parent &&
+        `${current.dev}:${current.ino}:${current.birthtimeNs}` ===
+          parentIdentity
+      );
+    };
+    if (
+      fs
+        .readdirSync(parent)
+        .filter((entry) => entry.toLowerCase().startsWith(prefix)).length >=
+        96 ||
+      !sameParent()
+    )
       return null;
     fs.mkdirSync(directory, { recursive: false, mode: 0o700 });
     const metadata = fs.lstatSync(directory, { bigint: true });
@@ -140,12 +169,28 @@ function createAuthenticationManagementDirectory(
       metadata.isSymbolicLink() ||
       metadata.dev <= 0n ||
       metadata.ino <= 0n ||
-      metadata.birthtimeNs <= 0n
+      metadata.birthtimeNs <= 0n ||
+      !sameParent()
     )
       return null;
+    const identity = `${metadata.dev}:${metadata.ino}:${metadata.birthtimeNs}`;
     return Object.freeze({
       directory,
-      identity: `${metadata.dev}:${metadata.ino}:${metadata.birthtimeNs}`,
+      assertCurrent() {
+        try {
+          const current = fs.lstatSync(directory, { bigint: true });
+          return (
+            current.isDirectory() &&
+            !current.isSymbolicLink() &&
+            fs.realpathSync(directory) === directory &&
+            `${current.dev}:${current.ino}:${current.birthtimeNs}` ===
+              identity &&
+            sameParent()
+          );
+        } catch {
+          return false;
+        }
+      },
     });
   } catch {
     return null;
@@ -165,14 +210,10 @@ function removeAuthenticationManagementDirectory(
   owned: AuthenticationManagementDirectory,
 ): boolean {
   try {
-    if (fs.realpathSync(owned.directory) !== owned.directory) return false;
-    const metadata = fs.lstatSync(owned.directory, { bigint: true });
     if (
-      !metadata.isDirectory() ||
-      metadata.isSymbolicLink() ||
-      `${metadata.dev}:${metadata.ino}:${metadata.birthtimeNs}` !==
-        owned.identity ||
-      fs.readdirSync(owned.directory).length !== 0
+      !owned.assertCurrent() ||
+      fs.readdirSync(owned.directory).length !== 0 ||
+      !owned.assertCurrent()
     )
       return false;
     fs.rmdirSync(owned.directory);
@@ -259,14 +300,10 @@ export function createProviderAuthenticationRecoveryRecord(
   const suffix = stableLogicalHomeBindingHash.slice(0, 16);
   if (plan.ownershipLabel !== `crdd.coordinator.authentication=${suffix}`)
     return null;
-  const runtimeRoot = path.win32.dirname(
-    path.win32.dirname(providerHomeSourcePath),
-  );
-  const recordPath = path.win32.join(
-    runtimeRoot,
-    "Recovery",
-    "provider-authentication",
-    `${plan.provider}.${stableLogicalHomeBindingHash}.json`,
+  const recordPath = authenticationRecoveryRecordPath(
+    providerHomeSourcePath,
+    plan.provider,
+    stableLogicalHomeBindingHash,
   );
   return Object.freeze({
     contract: "crdd-coordinator/provider-authentication-recovery",
@@ -283,6 +320,20 @@ export function createProviderAuthenticationRecoveryRecord(
     resources: null,
     recordPath,
   });
+}
+
+/** @trace ARCH-000010 認証記録と管理領域の同じRecovery親を導出する。 */
+function authenticationRecoveryRecordPath(
+  home: string,
+  provider: Provider,
+  homeHash: string,
+) {
+  return path.win32.join(
+    path.win32.dirname(path.win32.dirname(home)),
+    "Recovery",
+    "provider-authentication",
+    `${provider}.${homeHash}.json`,
+  );
 }
 
 /**
@@ -363,26 +414,45 @@ export function beginProviderAuthenticationRecovery(
   try {
     const temporary = `${record.recordPath}.pending`;
     const recoveryDirectory = path.win32.dirname(record.recordPath);
+    let metadata: fs.Stats | undefined;
     try {
-      const metadata = fs.lstatSync(recoveryDirectory);
+      metadata = fs.lstatSync(recoveryDirectory);
+    } catch (error) {
+      // 親そのものの不存在だけが初回作成を許す。列挙と子の観測失敗は外側で拒否する。
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") return "unknown";
+    }
+    if (metadata) {
       if (!metadata.isDirectory() || metadata.isSymbolicLink())
         return "unknown";
       const allowed = new Set([
         path.win32.basename(record.recordPath),
         path.win32.basename(temporary),
       ]);
+      const managementName = path.win32
+        .basename(record.recordPath)
+        .replace(/\.json$/u, ".management");
       if (
-        fs
-          .readdirSync(recoveryDirectory)
-          .some(
-            (name) =>
-              name.toLowerCase().startsWith(`${record.provider}.`) &&
-              !allowed.has(name.toLowerCase()),
+        fs.readdirSync(recoveryDirectory).some((name) => {
+          const normalized = name.toLowerCase();
+          if (
+            !normalized.startsWith(`${record.provider}.`) ||
+            allowed.has(normalized)
           )
+            return false;
+          if (
+            normalized !== managementName &&
+            (!normalized.startsWith(`${managementName}-`) ||
+              !/^[a-f0-9]{32}$/u.test(
+                normalized.slice(managementName.length + 1),
+              ))
+          )
+            return true;
+          // 同じ記録の管理領域は記録ではない。実体の種別だけを確認し、中には入らない。
+          const entry = fs.lstatSync(path.win32.join(recoveryDirectory, name));
+          return !entry.isDirectory() || entry.isSymbolicLink();
+        })
       )
         return "unknown";
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") return "unknown";
     }
     const previous = fs.existsSync(record.recordPath)
       ? fs.readFileSync(record.recordPath, "utf8")
@@ -885,16 +955,19 @@ async function cleanAuthenticationResources(
     },
     cleanup: book.cleanup,
   };
-  const execution = dependencies.cleanupAuthentication(
-    {
-      ...book.cleanup,
-      resources: material.snapshot,
-      managementDirectory: authentication.managementDirectory,
-      previouslyAbsent: book.checkpoints
-        .filter((item) => item.observation === "absent")
-        .map((item) => item.key),
-    },
-    {
+  const target = {
+    ...book.cleanup,
+    resources: material.snapshot,
+    managementDirectory: authentication.managementDirectory,
+    previouslyAbsent: book.checkpoints
+      .filter((item) => item.observation === "absent")
+      .map((item) => item.key),
+  };
+  if (!authorityLive())
+    return { confirmed: false, processCompletionConfirmed: true };
+  let execution: ReturnType<Dependencies["cleanupAuthentication"]>;
+  try {
+    execution = dependencies.cleanupAuthentication(target, {
       onCleanupSubmitting: (key) => {
         if (
           !authorityLive() ||
@@ -938,9 +1011,17 @@ async function cleanAuthenticationResources(
         )
           throw Error("provider_authentication_resource_receipt_unconfirmed");
       },
-    },
-  );
-  const result = await execution.completion;
+    });
+  } catch {
+    // 下位の同期拒否は準備段階。CleanupのProcessはまだ発行されていない。
+    return { confirmed: false, processCompletionConfirmed: true };
+  }
+  let result: Awaited<typeof execution.completion>;
+  try {
+    result = await execution.completion;
+  } catch {
+    return { confirmed: false, processCompletionConfirmed: false };
+  }
   return {
     confirmed:
       result.cleanup.confirmed &&
@@ -1043,9 +1124,15 @@ export async function authenticateProvider(
   const suffix = stableLogicalHomeBindingHash.slice(0, 16);
   let plan: RecordProjection<"authentication"> | null = null;
   let recovery: AuthenticationRecoveryRecord | null = null;
+  let managementDirectory: string;
   try {
     const proxyToken =
       action === "login" ? activeDependencies.randomHex(32) : null;
+    managementDirectory = authenticationRecoveryRecordPath(
+      providerHomeSourcePath,
+      provider,
+      stableLogicalHomeBindingHash,
+    ).replace(/\.json$/u, `.management-${randomBytes(16).toString("hex")}`);
     plan = prepareProviderAuthentication(
       provider,
       action,
@@ -1053,12 +1140,7 @@ export async function authenticateProvider(
       suffix,
       proxyToken,
       activeDependencies.createAuthentication,
-      path.win32.join(
-        path.win32.dirname(path.win32.dirname(providerHomeSourcePath)),
-        "Recovery",
-        "provider-authentication",
-        `${provider}.${stableLogicalHomeBindingHash}.management`,
-      ),
+      managementDirectory,
     );
     recovery = plan
       ? createProviderAuthenticationRecoveryRecord(
@@ -1128,9 +1210,12 @@ export async function authenticateProvider(
     });
   }
   const management = providerHomeLock.assertLive()
-    ? activeDependencies.createManagementDirectory(recovery)
+    ? activeDependencies.createManagementDirectory(
+        recovery,
+        managementDirectory,
+      )
     : null;
-  if (!management) {
+  if (!management || management.directory !== managementDirectory) {
     providerHomeLock.release();
     return Object.freeze({
       status: "blocked",
@@ -1152,15 +1237,18 @@ export async function authenticateProvider(
       return false;
     }
   };
+  const managementCurrent = () =>
+    providerHomeLock.assertLive() && management.assertCurrent();
   if (recoveryState === "existing_idle") {
     const recoveryCleanupConfirmed = await cleanAuthenticationResources(
       plan,
       activeDependencies,
-      providerHomeLock.assertLive,
+      managementCurrent,
       recovery,
     );
     if (
       !recoveryCleanupConfirmed.confirmed ||
+      !managementCurrent() ||
       !activeDependencies.completeRecovery(recovery)
     ) {
       if (recoveryCleanupConfirmed.processCompletionConfirmed) {
@@ -1177,7 +1265,9 @@ export async function authenticateProvider(
         effectStateUnknown: true,
       });
     }
-    recoveryState = activeDependencies.beginRecovery(recovery);
+    recoveryState = managementCurrent()
+      ? activeDependencies.beginRecovery(recovery)
+      : "unknown";
     if (recoveryState !== "created") {
       closeManagement();
       providerHomeLock.release();
@@ -1199,14 +1289,14 @@ export async function authenticateProvider(
     providerEffectIssued = false;
   let processCompletionUnknown = authentication === undefined;
   let cleanup = { confirmed: false, processCompletionConfirmed: false };
-  if (authentication) {
+  if (authentication && managementCurrent()) {
     try {
       const started = authentication.executor.start({
         ...(signal ? { signal } : {}),
         callbacks: authenticationCallbacks(
           recovery,
           activeDependencies,
-          providerHomeLock.assertLive,
+          managementCurrent,
         ),
       });
       if (started.status !== "started") {
@@ -1218,7 +1308,7 @@ export async function authenticateProvider(
         const result = await started.completion;
         const resourcesSaved =
           result.resourceSnapshot === null ||
-          (providerHomeLock.assertLive() &&
+          (managementCurrent() &&
             activeDependencies.recordResource(recovery, {
               event: "cleanup",
               snapshot: result.resourceSnapshot,
@@ -1238,6 +1328,9 @@ export async function authenticateProvider(
       processCompletionUnknown = true;
       reason = "provider_authentication_process_completion_unconfirmed";
     }
+  } else if (authentication) {
+    reason = "provider_authentication_management_directory_unconfirmed";
+    cleanup = { confirmed: false, processCompletionConfirmed: true };
   }
   processCompletionUnknown ||= !cleanup.processCompletionConfirmed;
   let cleanupConfirmed = cleanup.confirmed;

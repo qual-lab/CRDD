@@ -45,6 +45,13 @@ export type ProviderErrorReason =
 export type ProviderError = Readonly<{
   provider: Provider;
   reason: ProviderErrorReason;
+  claudeFailureOutput?:
+    | "empty"
+    | "no_usable_json"
+    | "not_result"
+    | "unexpected_result_subtype"
+    | "invalid_execution_error"
+    | "unclassified_execution_error";
 }>;
 
 /**
@@ -66,8 +73,10 @@ export type ProviderError = Readonly<{
 export function convertProviderError(
   provider: Provider,
   execution: Readonly<{ stdout: string; stderr: string }>,
+  includeClaudeFailureOutput = false,
 ): ProviderError {
   let claudeEnvelope: Record<string, unknown> | null = null;
+  let claudeFailureOutput: ProviderError["claudeFailureOutput"];
   if (provider === "claude") {
     let envelope: unknown = null;
     if (!execution.stdout.includes("\0")) {
@@ -101,6 +110,17 @@ export function convertProviderError(
           reason: "provider_structured_output_retry_exhausted",
         });
     }
+    if (includeClaudeFailureOutput)
+      claudeFailureOutput =
+        execution.stdout.trim().length === 0
+          ? "empty"
+          : envelope === null
+            ? "no_usable_json"
+            : !claudeEnvelope
+              ? "not_result"
+              : claudeEnvelope.subtype !== "error_during_execution"
+                ? "unexpected_result_subtype"
+                : "invalid_execution_error";
   }
   if (execution.stderr.includes("\0"))
     return Object.freeze({ provider, reason: "provider_process_exit_nonzero" });
@@ -111,9 +131,20 @@ export function convertProviderError(
     provider === "claude"
       ? claudeErrorMessages(claudeEnvelope)
       : codexErrorMessages(execution.stdout);
+  const reason =
+    messages === null ? stderrReason : classifyDiagnostic(messages);
   return Object.freeze({
     provider,
-    reason: messages === null ? stderrReason : classifyDiagnostic(messages),
+    reason,
+    ...(claudeFailureOutput !== undefined &&
+    reason === "provider_process_exit_nonzero"
+      ? {
+          claudeFailureOutput:
+            messages === null
+              ? claudeFailureOutput
+              : "unclassified_execution_error",
+        }
+      : {}),
   });
 }
 

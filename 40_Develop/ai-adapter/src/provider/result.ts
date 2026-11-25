@@ -18,7 +18,7 @@ import {
 } from "../codex/observation.ts";
 import { normalizeCodexStructuredResult } from "../codex/result.ts";
 import { type AdviceResult, parseAdviceResult } from "./advice-result.ts";
-import { convertProviderError } from "./error.ts";
+import { convertProviderError, type ProviderError } from "./error.ts";
 
 import { snapshotPlainArray, snapshotPlainRecord } from "./input.ts";
 import { parseUnambiguousJsonDocument } from "./json.ts";
@@ -149,6 +149,7 @@ export type ProviderResultParseResult<
     providerExecutionObservation?: NonNullable<CodexExecutionObservationResult>;
     providerTurnObservation?: Readonly<Record<string, unknown>>;
     turnCountDiagnostic?: TurnCountDiagnostic;
+    claudeFailureOutput?: ProviderError["claudeFailureOutput"];
     reviewFindings?: readonly TaskReviewFinding[] | null;
     rawOutputReported?: false;
     untrustedProviderTextReported?: false;
@@ -626,15 +627,19 @@ export function parseProviderResult(
     )
       return blocked;
   }
-  if (output.exitCode !== 0)
+  if (output.exitCode !== 0) {
+    const { reason, claudeFailureOutput } = convertProviderError(
+      provider,
+      { stdout: output.stdout, stderr: output.stderr },
+      purpose === "advice",
+    );
     return Object.freeze({
       status: "blocked" as const,
-      reason: convertProviderError(provider, {
-        stdout: output.stdout,
-        stderr: output.stderr,
-      }).reason,
+      reason,
       normalizedResult: null,
+      ...(claudeFailureOutput === undefined ? {} : { claudeFailureOutput }),
     });
+  }
   const keys =
     purpose === "probe"
       ? ["provider", "purpose"]

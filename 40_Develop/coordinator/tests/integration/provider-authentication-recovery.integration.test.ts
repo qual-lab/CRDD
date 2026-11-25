@@ -14,6 +14,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
+import type { LockReference } from "../../../lock/src/index.ts";
 import {
   authenticationResourceFixture,
   createAuthenticationFixture,
@@ -68,6 +69,130 @@ test("認証は旧keyの別名記録と旧revisionを保全して新規Effect前
     const before = fs.readFileSync(record.recordPath, "utf8");
     assert.equal(beginProviderAuthenticationRecovery(record), "unknown");
     assert.equal(fs.readFileSync(record.recordPath, "utf8"), before);
+  } finally {
+    root.cleanup();
+  }
+});
+
+test("認証記録の再入場は同じ完全Hashの通常管理領域だけを別記録とみなさない", (t) => {
+  const root = createRepositoryTestDirectory(
+    "provider-auth-management-record-",
+  );
+  try {
+    const hash = "b".repeat(64);
+    const home = path.join(root.path, "ProviderHomes", "claude");
+    const plan = prepareAuthenticationProjection(
+      "claude",
+      "status",
+      home,
+      hash.slice(0, 16),
+      null,
+    );
+    assert.ok(plan);
+    const record = createProviderAuthenticationRecoveryRecord(home, hash, plan);
+    assert.ok(record);
+    assert.equal(beginProviderAuthenticationRecovery(record), "created");
+    const original = fs.readFileSync(record.recordPath);
+    const legacy = record.recordPath.replace(/\.json$/u, ".management");
+    const current = `${legacy}-${"a".repeat(32)}`;
+    fs.mkdirSync(legacy);
+    fs.mkdirSync(current);
+    const sentinel = path.join(current, "untouched");
+    fs.writeFileSync(sentinel, "existing management");
+    assert.equal(beginProviderAuthenticationRecovery(record), "existing_idle");
+    assert.deepEqual(fs.readFileSync(record.recordPath), original);
+    assert.equal(fs.readFileSync(sentinel, "utf8"), "existing management");
+
+    const validName = `${legacy}-${"c".repeat(32)}`;
+    fs.writeFileSync(validName, "not a directory");
+    assert.equal(beginProviderAuthenticationRecovery(record), "unknown");
+    fs.unlinkSync(validName);
+    fs.mkdirSync(validName);
+    const lstat = fs.lstatSync;
+    const pretendLink = t.mock.method(
+      fs,
+      "lstatSync",
+      (candidate: unknown, ...args: unknown[]) =>
+        candidate === validName
+          ? { isDirectory: () => true, isSymbolicLink: () => true }
+          : Reflect.apply(lstat, fs, [candidate, ...args]),
+    );
+    try {
+      assert.equal(beginProviderAuthenticationRecovery(record), "unknown");
+    } finally {
+      pretendLink.mock.restore();
+      fs.rmdirSync(validName);
+    }
+    for (const unexpected of [
+      `${legacy}-malformed`,
+      path.join(path.dirname(legacy), `claude.${"d".repeat(64)}.management`),
+    ]) {
+      fs.mkdirSync(unexpected);
+      assert.equal(beginProviderAuthenticationRecovery(record), "unknown");
+      fs.rmdirSync(unexpected);
+    }
+    assert.equal(beginProviderAuthenticationRecovery(record), "existing_idle");
+    assert.deepEqual(fs.readFileSync(record.recordPath), original);
+    assert.equal(fs.readFileSync(sentinel, "utf8"), "existing management");
+  } finally {
+    root.cleanup();
+  }
+});
+
+test("認証記録探索で列挙後に管理領域が消えても初回不存在にせず元記録を保全する", (t) => {
+  const root = createRepositoryTestDirectory("provider-auth-management-race-");
+  try {
+    const hash = "b".repeat(64);
+    const home = path.join(root.path, "ProviderHomes", "claude");
+    const plan = prepareAuthenticationProjection(
+      "claude",
+      "status",
+      home,
+      hash.slice(0, 16),
+      null,
+    );
+    assert.ok(plan);
+    const record = createProviderAuthenticationRecoveryRecord(home, hash, plan);
+    assert.ok(record);
+    assert.equal(beginProviderAuthenticationRecovery(record), "created");
+    const original = fs.readFileSync(record.recordPath);
+    const parent = path.dirname(record.recordPath);
+    const child = record.recordPath.replace(/\.json$/u, ".management");
+    const other = path.join(parent, `claude.${"c".repeat(64)}.json`);
+    fs.mkdirSync(child);
+    fs.writeFileSync(other, "unresolved other record");
+    const readdir = fs.readdirSync;
+    const lstat = fs.lstatSync;
+    const order = t.mock.method(
+      fs,
+      "readdirSync",
+      (candidate: unknown, ...args: unknown[]) =>
+        candidate === parent
+          ? [
+              path.basename(child),
+              path.basename(other),
+              path.basename(record.recordPath),
+            ]
+          : Reflect.apply(readdir, fs, [candidate, ...args]),
+    );
+    const disappearance = t.mock.method(
+      fs,
+      "lstatSync",
+      (candidate: unknown, ...args: unknown[]) => {
+        if (candidate === child) fs.rmdirSync(child);
+        return Reflect.apply(lstat, fs, [candidate, ...args]);
+      },
+    );
+    try {
+      assert.equal(beginProviderAuthenticationRecovery(record), "unknown");
+    } finally {
+      disappearance.mock.restore();
+      order.mock.restore();
+    }
+    assert.equal(fs.existsSync(child), false);
+    assert.equal(fs.existsSync(`${record.recordPath}.pending`), false);
+    assert.deepEqual(fs.readFileSync(record.recordPath), original);
+    assert.equal(fs.readFileSync(other, "utf8"), "unresolved other record");
   } finally {
     root.cleanup();
   }
@@ -337,20 +462,32 @@ test("Windows Process Gate: 認証は初回Intent前のProcess喪失から同じ
       [fixture, hash, home, hash.slice(0, 16), token],
       { encoding: "utf8", windowsHide: true, timeout: 15000 },
     );
+    assert.equal(child.error, undefined);
+    assert.equal(child.signal, null);
     assert.equal(child.status, 0, child.stderr);
-    const f = await createAuthenticationFixture(t);
-    const result = await authenticateProvider("claude", "login", home, hash, {
-      ...f.dependencies,
-      randomHex: () => token,
-      acquireProviderHomeLock: acquireProviderHomeLock,
-      beginRecovery: beginProviderAuthenticationRecovery,
-      setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
-      recordResource: recordProviderAuthenticationResource,
-      readResources: readProviderAuthenticationResources,
-      completeRecovery: settleProviderAuthenticationRecovery,
+    const receipt: LockReference = JSON.parse(child.stdout);
+    const homes = path.dirname(home);
+    const name = `executor.provider-home.${hash}.lock`;
+    const identity = `provider-home:${hash}`;
+    assert.equal(receipt.directory, homes);
+    assert.equal(receipt.name, name);
+    assert.equal(receipt.identity, identity);
+    assert.equal(receipt.owner.processId, child.pid);
+    const lockPath = path.join(homes, name);
+    const observed = fs.lstatSync(lockPath, { bigint: true });
+    assert.ok(observed.isFile() && !observed.isSymbolicLink());
+    assert.equal(observed.nlink, 1n);
+    assert.deepEqual(receipt.fileIdentity, {
+      device: observed.dev.toString(),
+      inode: observed.ino.toString(),
     });
-    assert.equal(result.status, "completed", JSON.stringify(result));
-    assert.equal(f.f.ids.size, 0);
+    const expectedLock = `${JSON.stringify({
+      schema: "crdd-lock/v1",
+      identity,
+      owner: receipt.owner,
+      generation: receipt.generation,
+    })}\n`;
+    assert.equal(fs.readFileSync(lockPath, "utf8"), expectedLock);
     const projection = prepareAuthenticationProjection(
       "claude",
       "login",
@@ -365,6 +502,76 @@ test("Windows Process Gate: 認証は初回Intent前のProcess喪失から同じ
       projection,
     );
     assert.ok(record);
+    const active = fs.readFileSync(record.recordPath);
+    assert.equal(JSON.parse(active.toString("utf8")).state, "active");
+    const f = await createAuthenticationFixture(t);
+    const admissions: ReturnType<typeof beginProviderAuthenticationRecovery>[] =
+      [];
+    const dependencies = {
+      ...f.dependencies,
+      randomHex: () => token,
+      acquireProviderHomeLock: acquireProviderHomeLock,
+      beginRecovery: (candidate: typeof record) => {
+        assert.equal(candidate.recoveryId, record.recoveryId);
+        assert.equal(candidate.recordPath, record.recordPath);
+        const current = fs.readFileSync(candidate.recordPath);
+        if (admissions.length === 0) assert.deepEqual(current, active);
+        else
+          assert.equal(JSON.parse(current.toString("utf8")).state, "settled");
+        const state = beginProviderAuthenticationRecovery(candidate);
+        admissions.push(state);
+        return state;
+      },
+      setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
+      recordResource: recordProviderAuthenticationResource,
+      readResources: readProviderAuthenticationResources,
+      completeRecovery: settleProviderAuthenticationRecovery,
+    };
+    const before = await authenticateProvider(
+      "claude",
+      "login",
+      home,
+      hash,
+      dependencies,
+    );
+    assert.equal(before.status, "blocked");
+    assert.equal(
+      before.reason,
+      "provider_authentication_provider_home_active_or_unknown",
+    );
+    assert.equal(before.providerEffectIssued, false);
+    assert.equal(f.f.calls.length, 0);
+    assert.deepEqual(admissions, []);
+    assert.deepEqual(fs.readFileSync(record.recordPath), active);
+    // 終了済み子の同じ試験Fileだけを試験Root内へ退避する。本番の放棄Lock処置ではない。
+    const currentHomes = fs.lstatSync(homes, { bigint: true });
+    assert.ok(currentHomes.isDirectory() && !currentHomes.isSymbolicLink());
+    assert.equal(fs.realpathSync.native(homes), homes);
+    assert.deepEqual(receipt.directoryIdentity, {
+      device: currentHomes.dev.toString(),
+      inode: currentHomes.ino.toString(),
+    });
+    const current = fs.lstatSync(lockPath, { bigint: true });
+    assert.ok(current.isFile() && !current.isSymbolicLink());
+    assert.equal(current.dev, observed.dev);
+    assert.equal(current.ino, observed.ino);
+    assert.equal(current.birthtimeNs, observed.birthtimeNs);
+    assert.equal(current.nlink, 1n);
+    assert.equal(fs.readFileSync(lockPath, "utf8"), expectedLock);
+    const retired = path.join(homes, "exited-owner.lock");
+    assert.equal(fs.lstatSync(retired, { throwIfNoEntry: false }), undefined);
+    fs.renameSync(lockPath, retired);
+    assert.equal(fs.lstatSync(lockPath, { throwIfNoEntry: false }), undefined);
+    const result = await authenticateProvider(
+      "claude",
+      "login",
+      home,
+      hash,
+      dependencies,
+    );
+    assert.equal(result.status, "completed", JSON.stringify(result));
+    assert.equal(f.f.ids.size, 0);
+    assert.deepEqual(admissions, ["existing_idle", "created"]);
     assert.equal(
       JSON.parse(fs.readFileSync(record.recordPath, "utf8")).state,
       "settled",

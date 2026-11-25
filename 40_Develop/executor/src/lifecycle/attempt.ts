@@ -207,6 +207,7 @@ async function executeAttempt(
   let commandObservation: PrimaryFailureDiagnostic["commandObservation"] = null;
   let authenticationStatus: PrimaryFailureDiagnostic["authenticationStatus"];
   let turnCountDiagnostic: PrimaryFailureDiagnostic["turnCountDiagnostic"];
+  let claudeFailureOutput: PrimaryFailureDiagnostic["claudeFailureOutput"];
   let primaryFailure: PrimaryFailureDiagnostic | null = null;
   let startNotification: Promise<void> | null = null;
   let startNotificationAccepted = false;
@@ -256,6 +257,7 @@ async function executeAttempt(
       commandObservation,
       ...(authenticationStatus === undefined ? {} : { authenticationStatus }),
       ...(turnCountDiagnostic === undefined ? {} : { turnCountDiagnostic }),
+      ...(claudeFailureOutput === undefined ? {} : { claudeFailureOutput }),
     });
     return false;
   }
@@ -322,6 +324,7 @@ async function executeAttempt(
       commandObservation = null;
       authenticationStatus = undefined;
       turnCountDiagnostic = undefined;
+      claudeFailureOutput = undefined;
       diagnosticStage = "submission_record";
       try {
         if (!resourcePreparation)
@@ -493,6 +496,8 @@ async function executeAttempt(
       lastStdoutBytes =
         "stdoutBytes" in classification ? classification.stdoutBytes : 0;
       if (!classified.ok) {
+        if ("claudeFailureOutput" in classified)
+          claudeFailureOutput = classified.claudeFailureOutput;
         reject(
           (BLOCKED_COMPLETION_REASONS.has(classified.reason)
             ? classified.reason
@@ -2573,30 +2578,38 @@ export function convertCommandResult(
   if (classified.category === "nonzero_exit") {
     if (execution === null)
       throw new Error("docker_command_classification_inconsistent");
-    return Object.freeze({
-      ok: false,
-      reason: isProvider
-        ? (() => {
-            if (
-              !providerPlan ||
-              (providerPlan.status === "ready" &&
-                providerPlan.plan.provider !== provider)
-            )
-              return "provider_process_exit_nonzero" as const;
-            const parsed = parseProviderResult(providerPlan, {
-              stdout: execution.stdout,
-              stderr: execution.stderr,
-              exitCode: execution.status,
-            });
-            return parsed.status === "blocked"
-              ? parsed.reason
-              : ("provider_process_exit_nonzero" as const);
-          })()
-        : Object.hasOwn(SETUP_COMMAND_FAILURE_REASONS, purpose)
+    if (!isProvider)
+      return Object.freeze({
+        ok: false,
+        reason: Object.hasOwn(SETUP_COMMAND_FAILURE_REASONS, purpose)
           ? SETUP_COMMAND_FAILURE_REASONS[
               purpose as keyof typeof SETUP_COMMAND_FAILURE_REASONS
             ]
           : "docker_setup_command_failed",
+      });
+    if (
+      !providerPlan ||
+      (providerPlan.status === "ready" &&
+        providerPlan.plan.provider !== provider)
+    )
+      return Object.freeze({
+        ok: false,
+        reason: "provider_process_exit_nonzero",
+      });
+    const parsed = parseProviderResult(providerPlan, {
+      stdout: execution.stdout,
+      stderr: execution.stderr,
+      exitCode: execution.status,
+    });
+    return Object.freeze({
+      ok: false,
+      reason:
+        parsed.status === "blocked"
+          ? parsed.reason
+          : "provider_process_exit_nonzero",
+      ...(parsed.claudeFailureOutput === undefined
+        ? {}
+        : { claudeFailureOutput: parsed.claudeFailureOutput }),
     });
   }
   return Object.freeze({

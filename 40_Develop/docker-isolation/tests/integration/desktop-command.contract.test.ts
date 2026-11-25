@@ -17,6 +17,8 @@ import { parseDesktopStatus } from "../../src/docker-desktop/command.ts";
 import type { acquireDesktopOperations } from "../../src/docker-desktop/command.ts";
 import type { OwnedCommandHandle } from "../../src/process/start.ts";
 
+const desktopSessionId = "00000000-0000-4000-8000-000000000001";
+
 function fixture(fault = "") {
   const controller = new AbortController();
   let releases = 0,
@@ -115,7 +117,13 @@ function fixture(fault = "") {
           return {
             status: fault === "exit" ? 1 : 0,
             signal: null,
-            stdout: fault === "status" ? "{}" : '{"Status":"stopped"}',
+            stdout:
+              fault === "status"
+                ? "{}"
+                : JSON.stringify({
+                    SessionID: desktopSessionId,
+                    Status: "stopped",
+                  }),
             stderr: "",
             outputExceeded: fault === "output",
           };
@@ -152,6 +160,13 @@ function fixture(fault = "") {
 test("statusは既知の二状態だけを受理し、曖昧値をstoppedにしない", () => {
   assert.equal(parseDesktopStatus('{"Status":"stopped"}'), "stopped");
   assert.equal(parseDesktopStatus('{"status":"running"}'), "running");
+  for (const status of ["running", "stopped"] as const)
+    assert.equal(
+      parseDesktopStatus(
+        JSON.stringify({ SessionID: desktopSessionId, Status: status }),
+      ),
+      status,
+    );
   for (const output of [
     "",
     "stopped",
@@ -160,6 +175,17 @@ test("statusは既知の二状態だけを受理し、曖昧値をstoppedにし�
     "[]",
     '{"Status":"unknown"}',
     '{"Status":"stopped","extra":1}',
+    JSON.stringify({ SessionID: desktopSessionId }),
+    JSON.stringify({ SessionID: desktopSessionId, Status: "unknown" }),
+    JSON.stringify({ SessionID: desktopSessionId, status: "stopped" }),
+    JSON.stringify({
+      SessionID: desktopSessionId,
+      Status: "stopped",
+      extra: 1,
+    }),
+    '{"SessionID":"invalid","Status":"stopped"}',
+    '{"SessionID":null,"Status":"stopped"}',
+    JSON.stringify({ SessionID: `${desktopSessionId}\n`, Status: "stopped" }),
   ])
     assert.equal(parseDesktopStatus(output), "unknown");
 });

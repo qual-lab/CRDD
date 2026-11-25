@@ -52,8 +52,12 @@ test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを�
       new URL("../../../docker-isolation/src/index.ts", import.meta.url),
     ),
   ).href;
+  const trustModuleUrl = new URL(
+    "../../../docker-isolation/src/docker-cli/trust.ts",
+    import.meta.url,
+  ).href;
   const source = [
-    `import { observeTrustedDockerCli, initializeIsolation } from ${JSON.stringify(moduleUrl)}; const getIsolationSettings=()=>initializeIsolation(${JSON.stringify(getIsolationSettings())});`,
+    `import { initializeIsolation } from ${JSON.stringify(moduleUrl)}; import { observeTrustedDockerCli } from ${JSON.stringify(trustModuleUrl)}; const getIsolationSettings=()=>initializeIsolation(${JSON.stringify(getIsolationSettings())});`,
     "try{const observed=observeTrustedDockerCli(getIsolationSettings());process.stdout.write(JSON.stringify({status:'completed',trustBasis:observed.trustBasis,publisherOrganization:observed.publisherOrganization,bytesPositive:observed.bytes>0,sha256Length:observed.sha256.length}));}catch(error){process.stdout.write(JSON.stringify({status:'blocked',reason:error instanceof Error?error.message:String(error)}));process.exitCode=2;}",
   ].join("");
   const result = childProcess.spawnSync(

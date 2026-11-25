@@ -9,6 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { planExecution } from "../../../../ai-adapter/src/index.ts";
 import { classifyDockerCommandExecution } from "../../../../docker-isolation/src/execution/result.ts";
 import { isPrimaryFailureDiagnostic } from "../../support/provider-diagnostic.ts";
 import {
@@ -18,6 +19,88 @@ import {
   PURPOSES,
   SETUP_COMMAND_FAILURE_REASONS,
 } from "../../../src/lifecycle/attempt.ts";
+
+test("Claude助言の非0終了だけに固定診断を搬送し自由文を拒否する", () => {
+  const plan = planExecution({
+    provider: "claude",
+    purpose: "advice",
+    modelSelection: {
+      provider: "claude",
+      modelIdentifier: "opus",
+      identifierKind: "alias",
+      reasoningEffort: "low",
+    },
+    allowedReferences: ["synthetic-reference"],
+  });
+  assert.equal(plan.status, "ready");
+  const observation = {
+    status: 1,
+    signal: null,
+    stdout: '{"type":"untrusted-marker"}',
+    stderr: "",
+    outputExceeded: false,
+  };
+  const purpose = "start_provider_attached";
+  const failure = convertCommandResult(
+    observation,
+    purpose,
+    "claude",
+    classifyDockerCommandExecution(observation),
+    plan,
+  );
+  assert.deepEqual(failure, {
+    ok: false,
+    reason: "provider_process_exit_nonzero",
+    claudeFailureOutput: "not_result",
+  });
+  for (const candidate of [
+    convertCommandResult(
+      observation,
+      purpose,
+      "codex",
+      classifyDockerCommandExecution(observation),
+      plan,
+    ),
+    convertCommandResult(
+      observation,
+      "create_provider",
+      "claude",
+      classifyDockerCommandExecution(observation),
+      plan,
+    ),
+  ])
+    assert.equal(Object.hasOwn(candidate, "claudeFailureOutput"), false);
+  const diagnostic = {
+    purpose,
+    stage: "execution_classification",
+    reason: failure.reason,
+    exceptionCode: null,
+    commandHandleObtained: true,
+    responseObserved: true,
+    receiptRecorded: false,
+    commandObservation: {
+      exitCode: 1,
+      stdoutBytes: observation.stdout.length,
+      stderrBytes: 0,
+    },
+    claudeFailureOutput: "not_result",
+  };
+  assert.equal(isPrimaryFailureDiagnostic(diagnostic), true);
+  assert.equal(
+    isPrimaryFailureDiagnostic({
+      ...diagnostic,
+      claudeFailureOutput: "untrusted-marker",
+    }),
+    false,
+  );
+  assert.equal(
+    isPrimaryFailureDiagnostic({
+      ...diagnostic,
+      commandObservation: { ...diagnostic.commandObservation, exitCode: 0 },
+    }),
+    false,
+  );
+});
 
 /**
  * ターン数の不正報告診断をProvider側の現行条件へ照合する。

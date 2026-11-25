@@ -32,9 +32,7 @@ const repository = fileURLToPath(new URL("../../../../", import.meta.url)),
 assert.equal(path.dirname(fs.realpathSync(directory)), parent);
 assert.ok(path.basename(directory).startsWith("claude-authentication-record-"));
 const home = path.join(directory, "ProviderHomes", "claude"),
-  token = randomBytes(32).toString("hex"),
-  management = path.join(directory, "management");
-fs.mkdirSync(management);
+  token = randomBytes(32).toString("hex");
 const projection = prepareAuthenticationProjection(
   "claude",
   "login",
@@ -49,6 +47,16 @@ const record = createProviderAuthenticationRecoveryRecord(
   projection,
 );
 assert.ok(record);
+const deps = createProviderAuthenticationDependencies(),
+  acquisition = deps.acquireProviderHomeLock(hash, path.dirname(home));
+assert.ok(acquisition.status === "acquired");
+const lock = acquisition.lock;
+assert.equal(deps.beginRecovery(record), "created");
+const management = record.recordPath.replace(
+  /\.json$/u,
+  `.management-${"a".repeat(32)}`,
+);
+assert.ok(deps.createManagementDirectory(record, management));
 const material = authenticationResourceFixture(
   "claude",
   "login",
@@ -63,11 +71,6 @@ const input = {
 };
 const prepared = prepareIsolation(input, getIsolationSettings());
 assert.ok(prepared);
-const deps = createProviderAuthenticationDependencies(),
-  acquisition = deps.acquireProviderHomeLock(hash, path.dirname(home));
-assert.ok(acquisition.status === "acquired");
-const lock = acquisition.lock;
-assert.equal(deps.beginRecovery(record), "created");
 let snapshot: ResourceSnapshot = prepared.resources;
 const last = input.steps.at(-1);
 assert.ok(last?.action === "create");

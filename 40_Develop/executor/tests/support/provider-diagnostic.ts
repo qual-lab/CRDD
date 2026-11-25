@@ -18,6 +18,7 @@ export function isPrimaryFailureDiagnostic(value: unknown): boolean {
   const hasObservation = Object.hasOwn(record, "commandObservation");
   const hasAuthenticationStatus = Object.hasOwn(record, "authenticationStatus");
   const hasTurnCountDiagnostic = Object.hasOwn(record, "turnCountDiagnostic");
+  const hasClaudeFailureOutput = Object.hasOwn(record, "claudeFailureOutput");
   const hasIsolationFailure = Object.hasOwn(record, "isolationFailure");
   const isolation = record.isolationFailure as
     | Record<string, unknown>
@@ -44,6 +45,7 @@ export function isPrimaryFailureDiagnostic(value: unknown): boolean {
         ...(hasObservation ? ["commandObservation"] : []),
         ...(hasAuthenticationStatus ? ["authenticationStatus"] : []),
         ...(hasTurnCountDiagnostic ? ["turnCountDiagnostic"] : []),
+        ...(hasClaudeFailureOutput ? ["claudeFailureOutput"] : []),
         ...(hasIsolationFailure ? ["isolationFailure"] : []),
       ].sort(),
     ) &&
@@ -127,6 +129,22 @@ export function isPrimaryFailureDiagnostic(value: unknown): boolean {
             ? record.authenticationStatus
             : "",
         ))) &&
+    (!hasClaudeFailureOutput ||
+      (record.purpose === "start_provider_attached" &&
+        record.stage === "execution_classification" &&
+        record.reason === "provider_process_exit_nonzero" &&
+        record.responseObserved === true &&
+        typeof observation?.exitCode === "number" &&
+        observation.exitCode > 0 &&
+        typeof record.claudeFailureOutput === "string" &&
+        [
+          "empty",
+          "no_usable_json",
+          "not_result",
+          "unexpected_result_subtype",
+          "invalid_execution_error",
+          "unclassified_execution_error",
+        ].includes(record.claudeFailureOutput))) &&
     (!hasTurnCountDiagnostic ||
       (record.purpose === "start_provider_attached" &&
         record.stage === "provider_result_normalization" &&

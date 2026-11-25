@@ -170,9 +170,9 @@ export async function createAuthenticationFixture(
           options.managementDirectory,
           getIsolationSettings(),
         ),
-      createManagementDirectory: () => ({
-        directory: f.request.managementDirectory,
-        identity: "finite-management",
+      createManagementDirectory: (_record, directory) => ({
+        directory,
+        assertCurrent: () => true,
       }),
       removeManagementDirectory: () => true,
       acquireProviderHomeLock: () =>

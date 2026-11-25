@@ -950,8 +950,8 @@ test("Windows Process Gate: 未起動認証五資源の実構成と作成Receipt
  * @trace ERB-IT-017
  * @precondition 起動済みDockerと自己生成Provider Home、固定Imageを使う。
  * @stimulus 子が未起動五資源を保存し終了、親が本番依存構成でexisting_idleへ再入場する。
- * @observation 保存実ID、構成確認、一回削除、ID／名前不存在、settledと排他解放。
- * @oracle 五資源の全確認後だけ完了し、Providerを開始しない。
+ * @observation 旧configの元実体、fresh管理領域、保存実ID、一回削除、ID／名前不存在、settledと排他解放。
+ * @oracle 旧configを採用せず、五資源の全確認後だけ完了し、Providerを開始しない。
  * @cleanup 全不存在・保存完了・排他解放後だけ自己生成Rootを削除する。
  * @boundary 別Process→既存認証記録→実Docker清掃。
  */
@@ -1012,6 +1012,19 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
   let released = false;
   try {
     assert.equal(dependencies.beginRecovery(record), "existing_idle");
+    const oldConfig = path.join(
+      record.recordPath.replace(/\.json$/u, `.management-${"a".repeat(32)}`),
+      "docker-cli-config",
+    );
+    const oldConfigIdentity = fs.lstatSync(oldConfig, { bigint: true });
+    assert.ok(
+      oldConfigIdentity.isDirectory() && !oldConfigIdentity.isSymbolicLink(),
+    );
+    const management = dependencies.createManagementDirectory(
+      record,
+      record.recordPath.replace(/\.json$/u, `.management-${"b".repeat(32)}`),
+    );
+    assert.ok(management);
     const observed = readProviderAuthenticationResources(record);
     assert.ok(observed?.resources);
     let book = observed.resources;
@@ -1025,7 +1038,7 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
       {
         ...book.cleanup,
         resources: book.snapshot,
-        managementDirectory: path.join(directory, "management"),
+        managementDirectory: management.directory,
         previouslyAbsent: [],
       },
       getIsolationSettings(),
@@ -1071,9 +1084,23 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
       },
     );
     const result = await session.completion;
-    assert.equal(result.cleanup.confirmed, true);
+    assert.equal(
+      result.cleanup.confirmed,
+      true,
+      JSON.stringify({
+        failure: result.failure,
+        cleanup: result.cleanup,
+        notificationDeliveryConfirmed: result.notificationDeliveryConfirmed,
+      }),
+    );
     assert.equal(result.processTerminationConfirmed, true);
     assert.notEqual(result.notificationDeliveryConfirmed, false);
+    assert.equal(dependencies.removeManagementDirectory(management), true);
+    assert.equal(fs.existsSync(management.directory), false);
+    const oldAfter = fs.lstatSync(oldConfig, { bigint: true });
+    assert.equal(oldAfter.dev, oldConfigIdentity.dev);
+    assert.equal(oldAfter.ino, oldConfigIdentity.ino);
+    assert.equal(oldAfter.birthtimeNs, oldConfigIdentity.birthtimeNs);
     const closed = readProviderAuthenticationResources(record);
     assert.ok(closed?.resources);
     book = closed.resources;
