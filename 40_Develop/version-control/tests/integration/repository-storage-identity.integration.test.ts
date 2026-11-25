@@ -145,6 +145,19 @@ test("保存Identityはnormal／linkedを一つの配置観測で確認し公開
       assert.equal(Object.isFrozen(before), true);
       assert.equal(before.repositoryForm, linked ? "linked" : "primary");
       opens = 0;
+      const accepted = publicApi.getRepository(fixture.root, "placement");
+      assert.equal(accepted.status, "completed", accepted.reason);
+      assert.deepEqual(accepted.placement, { directory: fixture.root, linked });
+      assert.equal(opens, 1);
+      opens = 0;
+      const originalShape = publicApi.getRepository(fixture.root);
+      assert.deepEqual(Object.keys(originalShape).sort(), [
+        "capability",
+        "reason",
+        "status",
+      ]);
+      assert.equal(opens, 1);
+      opens = 0;
       assert.deepEqual(
         readRepositoryStorageIdentity(fixture.capability),
         before,
@@ -160,6 +173,10 @@ test("保存Identityはnormal／linkedを一つの配置観測で確認し公開
       try {
         fs.writeFileSync(fixture.config, "[extensions]\nunsupported=true\n");
         assert.equal(readRepositoryStorageIdentity(fixture.capability), null);
+        assert.equal(
+          publicApi.getRepository(fixture.root, "placement").status,
+          "blocked",
+        );
       } finally {
         fs.writeFileSync(fixture.config, config);
       }

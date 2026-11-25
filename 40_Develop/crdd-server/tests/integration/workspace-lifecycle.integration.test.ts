@@ -1755,6 +1755,9 @@ test("名前付きCandidateを明示固定・採用し結果を保存してRef�
     expectedTargetHead: f.base,
     authorize: () => true,
   };
+  const linkedOwner = f.operate({ ...adoption, ownerRepositoryRoot: f.tree });
+  assert.equal(linkedOwner.status, "blocked");
+  assert.equal(linkedOwner.candidateResult, null);
   assert.equal(
     f.operate({ ...adoption, authorize: () => false }).reason,
     "coordinator_candidate_not_authorized",
@@ -1765,6 +1768,7 @@ test("名前付きCandidateを明示固定・採用し結果を保存してRef�
   let stateLocks = 0;
   let workspaceLocks = 0;
   let canonicalLocks = 0;
+  let worktreeLists = 0;
   const open = fs.openSync;
   const probe = t.mock.method(
     fs,
@@ -1785,15 +1789,32 @@ test("名前付きCandidateを明示固定・採用し結果を保存してRef�
       return open(...args);
     },
   );
+  const spawn = childProcess.spawnSync;
+  const gitProbe = t.mock.method(
+    childProcess,
+    "spawnSync",
+    (...args: Parameters<typeof spawn>) => {
+      if (
+        args[0] === "git" &&
+        Array.isArray(args[1]) &&
+        args[1].includes("worktree") &&
+        args[1].includes("list")
+      )
+        worktreeLists++;
+      return Reflect.apply(spawn, childProcess, args);
+    },
+  );
   syncBuiltinESMExports();
   let merged: ReturnType<typeof f.operate>;
   try {
     merged = f.operate(adoption);
   } finally {
     probe.mock.restore();
+    gitProbe.mock.restore();
     syncBuiltinESMExports();
   }
   assert.equal(merged.status, "completed", JSON.stringify(merged));
+  assert.equal(worktreeLists, 1);
   assert.deepEqual(
     { stateLocks, workspaceLocks, canonicalLocks },
     {
@@ -3135,19 +3156,22 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
       "getWorktree",
       "workspaceWorktreeTarget",
       "workspaceWorktreeResult",
-      "readRepositoryLocation",
       "beginWorkspaceOperation",
       `${body}\nreturn manageWorkspace;`,
     )(
-      () => ({ status: "completed", capability: {} }),
+      (root: string, observation: string) => {
+        assert.equal(root, "synthetic");
+        assert.equal(observation, "placement");
+        locations++;
+        return {
+          status: "completed",
+          capability: {},
+          placement: { directory: "confirmed", linked: false },
+        };
+      },
       () => ({}),
       () => ({}),
       () => ({ status: "completed", observation: null }),
-      (root: string) => {
-        assert.equal(root, "synthetic");
-        locations++;
-        return { directory: "confirmed", linked: false };
-      },
       (directory: { directory: string }) => {
         assert.equal(directory.directory, "confirmed");
         return {

@@ -46,7 +46,12 @@ export type WorktreeGitContext = {
   run: (
     at: string,
     args: readonly string[],
-    options?: { indexFile?: string; input?: string | Buffer },
+    options?: {
+      indexFile?: string;
+      input?: string | Buffer;
+      reuseMergeLayout?: true;
+    },
   ) => { status: number | null; stdout: string; stderr: string };
+  mergeDirectory?: () => string;
   inspect: (phase?: "before-create" | "after-create") => WorktreeObservation;
 };

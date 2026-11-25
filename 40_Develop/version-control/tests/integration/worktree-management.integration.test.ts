@@ -1977,13 +1977,256 @@ test("createCommitはMain／Linkedで通常IndexとHEADとRefを更新しない"
 });
 
 /**
+ * 固定候補の読取りに可変Worktreeの準備が入らないことを検証する。
+ * @trace RFD-IT-029
+ * @boundary 自己生成Repositoryと実Git。固定親・差分・Blob照合と無変更を検証する。
+ */
+test("既存の固定CommitはWorktree準備なしで親・差分・Blobを照合する", (t) => {
+  const f = fixture(t);
+  const temporaryDirectory = ".crdd/fixed-commit-check";
+  fs.mkdirSync(path.join(f.root, temporaryDirectory), { recursive: true });
+  fs.writeFileSync(path.join(f.root, "source.txt"), "selected\n");
+  const blob = git(f.root, ["hash-object", "--no-filters", "source.txt"]);
+  const selection = [
+    { path: "source.txt", blobId: blob, mode: "100644" },
+  ] as const;
+  const request = {
+    baseCommit: f.base,
+    expectedHead: f.base,
+    selection,
+    message: "fixed selection",
+    temporaryDirectory,
+  };
+  const fixed = createCommit(f.capability, request);
+  assert.equal(fixed.status, "completed", fixed.reason);
+  assert.ok(fixed.commitId);
+  git(f.root, ["config", "filter.audit.process", "must-not-run"]);
+  git(f.root, ["config", "diff.external", "must-not-run"]);
+  const index = path.join(f.root, ".git", "index");
+  const originalIndex = fs.readFileSync(index);
+  fs.writeFileSync(
+    path.join(f.root, "source.txt"),
+    "working tree has since changed\n",
+  );
+  const commandNames = [
+    "rev-list",
+    "diff-tree",
+    "ls-tree",
+    "worktree",
+    "config",
+    "check-ref-format",
+    "symbolic-ref",
+    "show",
+    "merge-base",
+  ];
+  const commands: string[] = [];
+  const config = path.join(f.root, ".git", "config");
+  const common = path.join(f.root, ".git", "commondir");
+  const exclude = path.join(f.root, ".git", "info", "exclude");
+  const headFile = path.join(f.root, ".git", "HEAD");
+  const configBytes = fs.readFileSync(config);
+  let fault:
+    | "config"
+    | "commondir"
+    | "exclude"
+    | "HEAD"
+    | "missing HEAD"
+    | null = null;
+  let mutateAfter: "rev-list" | "ls-tree" | "worktree" | "show" = "rev-list";
+  let configReads = 0;
+  let configReadsAtFault = 0;
+  const open = fs.openSync;
+  const configProbe = t.mock.method(
+    fs,
+    "openSync",
+    (...args: Parameters<typeof open>) => {
+      if (
+        String(args[0]) === config &&
+        (args[1] === "r" || args[1] === fs.constants.O_RDONLY)
+      )
+        configReads++;
+      return Reflect.apply(open, fs, args);
+    },
+  );
+  const spawn = childProcess.spawnSync;
+  const probe = t.mock.method(
+    childProcess,
+    "spawnSync",
+    (...args: Parameters<typeof spawn>) => {
+      const name =
+        args[0] === "git" && Array.isArray(args[1])
+          ? args[1].find((item) => commandNames.includes(item))
+          : undefined;
+      if (name) commands.push(name);
+      const result = Reflect.apply(spawn, childProcess, args);
+      if (name === mutateAfter && fault !== null) {
+        configReadsAtFault = configReads;
+        if (fault === "config")
+          fs.appendFileSync(config, "\n# observed change\n");
+        else if (fault === "exclude")
+          fs.appendFileSync(exclude, "\n# observed change\n");
+        else if (fault === "HEAD") fs.writeFileSync(headFile, `${f.base}\n`);
+        else if (fault === "missing HEAD") fs.unlinkSync(headFile);
+        else fs.writeFileSync(common, ".\n", { flag: "wx" });
+      }
+      return result;
+    },
+  );
+  syncBuiltinESMExports();
+  try {
+    const verified = createCommit(f.capability, {
+      ...request,
+      previousCommit: fixed.commitId,
+    });
+    assert.equal(verified.status, "completed", verified.reason);
+    assert.equal(verified.commitId, fixed.commitId);
+    assert.equal(verified.effectIssued, false);
+    assert.deepEqual(verified.changedPaths, ["source.txt"]);
+    assert.deepEqual(commands.splice(0), ["rev-list", "diff-tree", "ls-tree"]);
+    assert.equal(configReads, 2);
+    for (const [modify, reason] of [
+      [{ baseCommit: fixed.commitId }, "commit_create_parent_mismatch"],
+      [
+        { selection: [{ ...selection[0], path: "not-selected.txt" }] },
+        "commit_create_selection_mismatch",
+      ],
+      [
+        { selection: [{ ...selection[0], blobId: "d".repeat(40) }] },
+        "commit_create_content_mismatch",
+      ],
+      [
+        { selection: [{ ...selection[0], mode: "100755" as const }] },
+        "commit_create_content_mismatch",
+      ],
+    ] as const) {
+      const rejected = createCommit(f.capability, {
+        ...request,
+        previousCommit: fixed.commitId,
+        ...modify,
+      });
+      assert.equal(rejected.status, "blocked");
+      assert.equal(rejected.reason, reason);
+      assert.equal(rejected.effectIssued, false);
+      assert.equal(rejected.commitId, null);
+    }
+    for (const [target, phase, expected] of [
+      ["config", "rev-list", ["rev-list"]],
+      ["commondir", "rev-list", ["rev-list"]],
+      ["config", "ls-tree", ["rev-list", "diff-tree", "ls-tree"]],
+    ] as const) {
+      commands.length = 0;
+      fault = target;
+      mutateAfter = phase;
+      try {
+        const stopped = createCommit(f.capability, {
+          ...request,
+          previousCommit: fixed.commitId,
+        });
+        assert.equal(stopped.status, "blocked", target);
+        assert.equal(stopped.commitId, null);
+        assert.equal(stopped.effectIssued, false);
+        assert.deepEqual(stopped.changedPaths, []);
+        assert.deepEqual(commands, expected);
+      } finally {
+        fault = null;
+        if (target === "config") fs.writeFileSync(config, configBytes);
+        else if (fs.existsSync(common)) fs.unlinkSync(common);
+      }
+    }
+    commands.length = 0;
+    fault = "commondir";
+    mutateAfter = "worktree";
+    try {
+      const stopped = mergeCommit(f.capability, {
+        baseCommit: f.base,
+        sourceCommit: fixed.commitId,
+        targetBranch: "main",
+        expectedHead: f.base,
+        message: "must not issue after layout changes",
+      });
+      assert.equal(stopped.status, "blocked");
+      assert.equal(stopped.reason, "worktree_repository_invalid");
+      assert.equal(stopped.effectIssued, false);
+      assert.deepEqual(commands, ["worktree"]);
+    } finally {
+      fault = null;
+      if (fs.existsSync(common)) fs.unlinkSync(common);
+    }
+    git(f.root, ["config", "--unset", "filter.audit.process"]);
+    const mergeConfig = fs.readFileSync(config);
+    const mergeHeadFile = fs.readFileSync(headFile);
+    fs.mkdirSync(path.dirname(exclude), { recursive: true });
+    assert.equal(fs.existsSync(exclude), false);
+    mutateAfter = "show";
+    for (const changed of [
+      "config",
+      "commondir",
+      "exclude",
+      "HEAD",
+      "missing HEAD",
+    ] as const) {
+      commands.length = 0;
+      configReads = 0;
+      fault = changed;
+      try {
+        const stopped = mergeCommit(f.capability, {
+          baseCommit: f.base,
+          sourceCommit: fixed.commitId,
+          targetBranch: "main",
+          expectedHead: f.base,
+          message: "must not continue with changed merge layout",
+        });
+        assert.equal(stopped.status, "blocked", changed);
+        assert.equal(
+          stopped.reason,
+          changed === "missing HEAD"
+            ? "commit_merge_outcome_unknown"
+            : "worktree_repository_invalid",
+        );
+        assert.equal(stopped.commitId, null);
+        assert.equal(stopped.effectIssued, false);
+        assert.deepEqual(commands, [
+          "worktree",
+          "config",
+          "check-ref-format",
+          "config",
+          "symbolic-ref",
+          "show",
+        ]);
+        assert.equal(configReadsAtFault, 4);
+      } finally {
+        fault = null;
+        if (changed === "config") fs.writeFileSync(config, mergeConfig);
+        if (changed === "HEAD" || changed === "missing HEAD")
+          fs.writeFileSync(headFile, mergeHeadFile);
+        if (changed === "exclude" && fs.existsSync(exclude))
+          fs.unlinkSync(exclude);
+        if (changed === "commondir" && fs.existsSync(common))
+          fs.unlinkSync(common);
+      }
+    }
+  } finally {
+    probe.mock.restore();
+    configProbe.mock.restore();
+    syncBuiltinESMExports();
+  }
+  assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
+  assert.deepEqual(fs.readFileSync(index), originalIndex);
+  assert.equal(
+    fs.readFileSync(path.join(f.root, "source.txt"), "utf8"),
+    "working tree has since changed\n",
+  );
+  assert.deepEqual(fs.readdirSync(path.join(f.root, temporaryDirectory)), []);
+});
+
+/**
  * LinkedへのMergeをMainのHEAD／Index／MERGE_HEADへ誤配送しない。
  * @responsibility 現在Worktree固有の技術対象を維持する。
  * @trace RFD-IT-029
  * @precondition MainとLinkedが同じBaseを共有する。
- * @stimulus 選択Commitを生成しLinkedへ二親Merge。
- * @observation 双方のHEAD・File内容と実Merge親。
- * @oracle Linkedだけが二親Commitへ進み、Mainは不変。
+ * @stimulus Linkedの二親Merge後の一括観測を一度だけ拒否し、同じ要求で再入場する。
+ * @observation 双方のHEAD・Index、公開結果と実Merge親。
+ * @oracle 読取り不明を成功にせず、再入場で既存の二親Commitを確定する。Mainは不変。
  * @cleanup fixture afterで今回Rootだけ回収する。
  * @boundary 実Git、外部送信なし。
  */
@@ -2016,14 +2259,65 @@ test("mergeCommitは入力LinkedのHEADとIndexだけを更新する", (t) => {
   const linked = getRepository(path.join(f.root, target.relativePath));
   assert.equal(linked.status, "completed");
   if (linked.status !== "completed") throw Error("linked_missing");
-  const merged = mergeCommit(linked.capability, {
+  const request = {
     baseCommit: f.base,
     sourceCommit: fixed.commitId,
     targetBranch: target.branch,
     expectedHead: f.base,
     message: "m".repeat(4097),
-  });
+  };
+  const spawn = childProcess.spawnSync;
+  let headObservations = 0;
+  let worktreeLists = 0;
+  const probe = t.mock.method(
+    childProcess,
+    "spawnSync",
+    (...args: Parameters<typeof spawn>) => {
+      if (
+        args[0] === "git" &&
+        Array.isArray(args[1]) &&
+        args[1].includes("worktree") &&
+        args[1].includes("list")
+      )
+        worktreeLists++;
+      if (
+        args[0] === "git" &&
+        Array.isArray(args[1]) &&
+        args[1].includes("--format=%H%x00%P%x00%T") &&
+        ++headObservations === 2
+      )
+        return {
+          pid: 0,
+          status: 1,
+          signal: null,
+          output: [],
+          stdout: Buffer.alloc(0),
+          stderr: Buffer.alloc(0),
+        };
+      return Reflect.apply(spawn, childProcess, args);
+    },
+  );
+  syncBuiltinESMExports();
+  let unconfirmed: ReturnType<typeof mergeCommit>;
+  try {
+    unconfirmed = mergeCommit(linked.capability, request);
+  } finally {
+    probe.mock.restore();
+    syncBuiltinESMExports();
+  }
+  assert.equal(headObservations, 2);
+  assert.equal(worktreeLists, 2);
+  assert.equal(unconfirmed.status, "blocked");
+  assert.equal(unconfirmed.reason, "commit_merge_unconfirmed");
+  assert.equal(unconfirmed.effectIssued, true);
+  assert.equal(unconfirmed.commitId, null);
+  const linkedRoot = path.join(f.root, target.relativePath);
+  const issuedCommit = git(linkedRoot, ["rev-parse", "HEAD"]);
+  assert.notEqual(issuedCommit, f.base);
+  const merged = mergeCommit(linked.capability, request);
   assert.equal(merged.status, "completed", merged.reason);
+  assert.equal(merged.reason, "commit_merge_existing_confirmed");
+  assert.equal(merged.commitId, issuedCommit);
   assert.ok(merged.commitId);
   assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
   assert.deepEqual(
@@ -2051,4 +2345,23 @@ test("mergeCommitは入力LinkedのHEADとIndexだけを更新する", (t) => {
     ),
     "selected\n",
   );
+  const repeated = mergeCommit(linked.capability, request);
+  assert.equal(repeated.reason, "commit_merge_existing_confirmed");
+  assert.equal(repeated.commitId, merged.commitId);
+  const wrongTree = git(linkedRoot, ["rev-parse", `${f.base}^{tree}`]);
+  const wrong = git(linkedRoot, [
+    "commit-tree",
+    wrongTree,
+    "-p",
+    f.base,
+    "-p",
+    fixed.commitId,
+    "-m",
+    "wrong tree fixture",
+  ]);
+  git(linkedRoot, ["update-ref", "HEAD", wrong, merged.commitId]);
+  const rejected = mergeCommit(linked.capability, request);
+  assert.equal(rejected.status, "blocked");
+  assert.equal(rejected.reason, "commit_merge_tree_mismatch");
+  assert.equal(git(linkedRoot, ["rev-parse", "HEAD"]), wrong);
 });

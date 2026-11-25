@@ -9,7 +9,17 @@ import { createHash } from "node:crypto";
 import type { WorktreeGitContext } from "../worktree/types.ts";
 import { executeGit } from "../git/execute.ts";
 import { createWorktreeGitContext } from "../worktree/crud.ts";
-import { resolveVerifiedRepositoryRoot, type Repository } from "./location.ts";
+import {
+  isEnoent,
+  resolveRepositoryGitLayout,
+  verifyEntitySnapshot,
+  verifySnapshot,
+} from "./layout.ts";
+import {
+  observeVerifiedRepositoryLayout,
+  resolveVerifiedRepositoryRoot,
+  type Repository,
+} from "./location.ts";
 import type {
   ChangesCommitRequest,
   ChangesResult,
@@ -97,29 +107,11 @@ export function createCommit(
   repository: Repository,
   request: CommitCreateRequest,
 ): CommitCreateResult {
-  const previousCommit = request.previousCommit ?? null;
   const previousTemporary = request.temporary ?? null;
   return operateCommit(
     repository,
     request,
     (ctx, result) => {
-      if (result.temporary) {
-        cleanCommitTemporary(ctx, request.temporaryDirectory, result.temporary);
-        result.temporary = null;
-        result.cleanupConfirmed = true;
-      }
-      if (previousCommit !== null) {
-        if (!isCommitId(previousCommit))
-          throw new Error("commit_create_input_invalid");
-        result.changedPaths = verifyCommitSelection(
-          ctx,
-          request,
-          previousCommit,
-        );
-        result.commitId = previousCommit;
-        result.reason = "commit_create_existing_confirmed";
-        return;
-      }
       const observation = ctx.inspect();
       if (
         !observation.registered ||
@@ -287,10 +279,86 @@ function operateCommit(
   try {
     if (!validCommitCreateRequest(request))
       throw Error("commit_create_input_invalid");
+    const previousCommit = request.previousCommit ?? null;
+    // 固定Objectだけの確認に、可変Worktreeの登録・filter・Branch観測は使わない。
+    if (
+      previousCommit !== null &&
+      previousTemporary === null &&
+      !request.worktree
+    ) {
+      const observed = observeVerifiedRepositoryLayout(repository);
+      if (observed === null) throw Error("worktree_repository_invalid");
+      const { layout } = observed;
+      if (
+        layout.kind === "normal_worktree" &&
+        layout.commonDirectory === layout.gitDirectory
+      ) {
+        const deadline = performance.now() + 30_000;
+        // HEADの値は固定Objectの選択条件ではない。実体、設定、共通管理領域の結び付きを守る。
+        const assertObjectLayout = () => {
+          verifyEntitySnapshot(layout.root);
+          verifyEntitySnapshot(layout.gitDirectory);
+          verifySnapshot(layout.configSnapshot);
+          try {
+            fs.lstatSync(path.join(layout.gitDirectory.realPath, "commondir"));
+            throw Error("worktree_repository_invalid");
+          } catch (error) {
+            if (!isEnoent(error)) throw error;
+          }
+        };
+        const changedPaths = verifyCommitSelection(
+          {
+            owner: observed.root,
+            run: (at, args) => {
+              const timeout = Math.ceil(deadline - performance.now());
+              if (timeout <= 0) throw Error("worktree_deadline_exceeded");
+              assertObjectLayout();
+              const raw = executeGit(at, args, {
+                gitDirectory: layout.gitDirectory.realPath,
+                timeout,
+                maxBuffer: 2 * 1024 * 1024,
+              });
+              if (raw.error || raw.signal)
+                throw Error("worktree_git_outcome_unknown");
+              return {
+                ...raw,
+                stdout: raw.stdout.toString("utf8"),
+                stderr: raw.stderr.toString("utf8"),
+              };
+            },
+          },
+          request,
+          previousCommit,
+        );
+        const after = resolveRepositoryGitLayout(observed.root);
+        if (
+          after.kind !== "normal_worktree" ||
+          after.commonDirectory !== after.gitDirectory
+        )
+          throw Error("worktree_repository_invalid");
+        assertObjectLayout();
+        return {
+          ...result,
+          status: "completed",
+          reason: "commit_create_existing_confirmed",
+          commitId: previousCommit,
+          changedPaths,
+        };
+      }
+    }
     const ctx = createWorktreeGitContext(repository, request.worktree);
-    if (request.previousCommit == null || previousTemporary !== null)
+    if (previousCommit === null || previousTemporary !== null)
       commitTemporaryParent(ctx, request.temporaryDirectory);
-    action(ctx, result);
+    if (previousTemporary !== null) {
+      cleanCommitTemporary(ctx, request.temporaryDirectory, previousTemporary);
+      result.temporary = null;
+      result.cleanupConfirmed = true;
+    }
+    if (previousCommit !== null) {
+      result.changedPaths = verifyCommitSelection(ctx, request, previousCommit);
+      result.commitId = previousCommit;
+      result.reason = "commit_create_existing_confirmed";
+    } else action(ctx, result);
     if (result.cleanupConfirmed) result.status = "completed";
     else result.reason = "commit_temporary_cleanup_unconfirmed";
   } catch (error) {
@@ -341,7 +409,7 @@ export function inspectWorktreeFileAncestors(
 
 /** 生成Commitの親と変更Pathを要求へ再照合し、不一致では成功にしない。 */
 function verifyCommitSelection(
-  ctx: WorktreeGitContext,
+  ctx: Pick<WorktreeGitContext, "owner" | "run">,
   request: CommitCreateRequest,
   commit: string,
 ) {
@@ -359,6 +427,8 @@ function verifyCommitSelection(
     throw new Error("commit_create_parent_mismatch");
   const diff = ctx.run(ctx.owner, [
     "diff-tree",
+    "--no-ext-diff",
+    "--no-textconv",
     "--no-commit-id",
     "--name-only",
     "--no-renames",
@@ -399,7 +469,7 @@ function verifyCommitSelection(
  * @boundary GitのNUL区切り出力と内部のexact照合。
  */
 export function readSelectedTreeEntries(
-  ctx: WorktreeGitContext,
+  ctx: Pick<WorktreeGitContext, "owner" | "run">,
   commit: string,
   paths: readonly string[],
 ) {

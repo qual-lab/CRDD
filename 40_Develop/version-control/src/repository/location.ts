@@ -22,6 +22,12 @@ export const REPOSITORY_LOCATION_CONTRACT_REVISION = 1 as const;
 
 const roots = new WeakMap<object, string>();
 
+type VerifiedRepository = Extract<RepositoryResult, { status: "completed" }>;
+type RepositoryWithPlacement =
+  | (VerifiedRepository &
+      Readonly<{ placement: Readonly<{ directory: string; linked: boolean }> }>)
+  | Exclude<RepositoryResult, VerifiedRepository>;
+
 /**
  * Pathが同一かを判定する。
  *
@@ -155,7 +161,7 @@ export function observeExactRepositoryLayout(
  * @security 未検証Rootの受付や公開は行わない。
  * @concurrency 同期処理であり、観測から発行まで待機を挟まない。
  */
-function issueRepository(root: string): RepositoryResult {
+function issueRepository(root: string): VerifiedRepository {
   const capability = Object.freeze({
     contract: REPOSITORY_LOCATION_CONTRACT,
   });
@@ -183,10 +189,18 @@ function issueRepository(root: string): RepositoryResult {
  * @security N/A: getRepositoryはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: getRepositoryは共有非同期状態を持たない同期処理である。
  */
-export function getRepository(candidate: unknown): RepositoryResult {
-  const root = observeExactRepositoryLayout(candidate)?.root.realPath ?? null;
+export function getRepository(candidate: unknown): RepositoryResult;
+export function getRepository(
+  candidate: unknown,
+  observation: "placement",
+): RepositoryWithPlacement;
+export function getRepository(
+  candidate: unknown,
+  observation?: "placement",
+): RepositoryResult | RepositoryWithPlacement {
+  const layout = observeExactRepositoryLayout(candidate);
   // 形式診断は操作用Root検証でもCapabilityでもない。SHA-1限定は維持する。
-  if (root === null && validAbsoluteDirectory(candidate)) {
+  if (layout === null && validAbsoluteDirectory(candidate)) {
     const format = inspectRepositoryGitObjectFormat(path.resolve(candidate));
     if (format?.objectFormat === "sha256") {
       return Object.freeze({
@@ -197,13 +211,22 @@ export function getRepository(candidate: unknown): RepositoryResult {
       });
     }
   }
-  return root === null
+  if (layout === null)
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "repository_root_invalid" as const,
+      capability: null,
+    });
+  const verified = issueRepository(layout.root.realPath);
+  return observation === "placement"
     ? Object.freeze({
-        status: "blocked" as const,
-        reason: "repository_root_invalid" as const,
-        capability: null,
+        ...verified,
+        placement: Object.freeze({
+          directory: layout.root.realPath,
+          linked: layout.kind === "linked_worktree",
+        }),
       })
-    : issueRepository(root);
+    : verified;
 }
 
 /**

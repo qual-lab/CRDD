@@ -64,6 +64,7 @@ RFD-IT-029では空選択の既定拒否と明示`allowEmpty:true`を対照し�
 - 明示Base＋選択内容だけの固定Commitを確認し、利用者indexの前後同一性、未選択dirty／未追跡の保全、未選択過去Commit非混入を観測する。
 - Fast-forward可能時も新Mergeが二親を持つことと、分岐時の通常Mergeの両方を実Gitで確認する。親一覧は順序を含め取込前HEAD・固定Candidateと完全一致させる。
 - MERGE_HEADの先頭が候補OIDでも、複数行・別親・通常file以外・観測不能ではCommitしない。一時index回収失敗は同じ限定Pathと実体照合値を保持し、既存Refを再利用する場合も元一時物の不存在確認を省略しない。
+- 通常Mergeの確認済み配置を再利用する区間で初回の設定・HEAD制御ファイルが変化、または未存在だった共通管理領域指定・除外ファイルが出現した場合に、次のGit起動を拒否する。Linkedの宛先、正常採用・中断継続・採用済み再入場、Git発行と結果の境界は別途照合する。
 - 固定Candidate Commitが取込先履歴の祖先である既取込では、新Commit／Mergeを発行しない。同Tree／Message一致だけの判定を拒否し、祖先観測不能では停止する。Merge前競合は発行0とし、実発行後の競合／応答喪失／読戻し不能を別結果として保持する。
 - 非衝突dirtyを保全し、既存staged混入・dirty衝突・未追跡上書き・確認後HEAD変更・候補範囲不一致では停止する。自動Rebase／Cherry-pick／Stash／Reset／Cleanは0。
 - Messageの名前・ID・Commit・許可済みCHGが一致し、名前なしでも正確な対象を追跡できる。Messageだけを認可・品質・操作終了の証拠にしない。
@@ -77,6 +78,10 @@ RFD-IT-029では空選択の既定拒否と明示`allowEmpty:true`を対照し�
 RFD-IT-001／002では、normal／linked RepositoryのIdentityを一つの現在配置観測から既存の結果形状で返すこと、偽CapabilityはFilesystem探索前に拒否することを実Filesystemで確認する。構造グラフの照合までの間にRoot／共通管理領域／配置種別の差替え・reparse・観測不能があれば拒否する。次の呼出しでは改めて観測し、完全復帰後の再成立を許す。内部の配置観測をPackage公開APIに追加しない。利用側の別段階でのOwner／Lock失効、書込み・置換・読戻しの拒否条件は既存の保存試験で引き続き確認する。所要時間は計数器なしの同じ合成fixtureで別比較し、性能改善だけを安全条件の成立根拠にしない。
 
 ## Workspace方式の追加検証条件（2026-10-17）
+
+`RFD-IT-029`では、通常Repositoryの既存CommitをWorktreeの準備なしで読み、別親・未選択差分・Blob／modeの不一致を拒否し、現在のHEAD・Index・作業内容を変更しないことを確認する。Linked Mergeでは対象Worktreeだけを進め、同じ二親と期待Treeを確認できる場合だけ再適用なしで成功する。親が一致してもTreeが違えば拒否する。上位のMerge中断・保存失敗からの再入場はServerの既存試験で確認する。
+
+配置付き受付は通常／Linkedの両方で一度の観測と既定形の維持を`RFD-IT-001`／002で確認する。固定Objectの検査が正常時に設定本文を初末の二度だけ読み、途中の設定変更・`commondir`出現を発見した場合は後続のGit読取りを発行せず、最後の読取り後の変更でも成功しないことを`RFD-IT-029`で確認する。Merge準備の登録一覧は通常の正本採用で一回、Linkedでは従来の二回を確認する。
 
 前提となる二AdapterのGit読取りは、既存`RFD-IT-005`／008の局所断面として`git-read-command.integration.test.ts`で確認する。外部Diff・textconv・fsmonitorの発火対照→新経路での非発火、元差分とindex bytes、親Git環境／core.worktree差替え、literal Path、linked worktreeを実Gitで観測する。起動失敗・期限・上限と既存理由の保持はProcess差替えで別確認する。新公開API・管理State・実Dockerは使わず、この局所改善をGit Worktree管理や新方式Local Item全体のPassへ昇格しない。
 

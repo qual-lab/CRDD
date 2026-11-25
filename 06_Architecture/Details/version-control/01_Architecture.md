@@ -89,6 +89,12 @@ Push    → 検証済みの送信先・期待OIDを受け取る → rev-parse HE
 
 変更前と読戻し、回復の再入場、別権限や別時点の再確認、ファイルの読取り前後は統合しない。要求をまたぐキャッシュや、目的を問わずあらゆる情報を集める検査は作らない。
 
+`getRepository(candidate, "placement")`は、受付時の一つの観測から操作用Capabilityと正規Directory・Linked区分を返す。既定の戻り値は変更しない。返した配置はその後のGit操作の生存確認を代替しない。通常Repository自身へMergeする準備では、初回の登録一覧と同じRootの配置を再利用する。Linkedや別の共通管理領域では従来どおり所有元と対象を観測する。
+
+通常Repositoryで作業領域指定や一時Indexの回収がない既存Commitの再検査は、固定Objectから親・変更集合・選択Pathのmode／Blobだけを読む。別の共通管理領域がない場合は開始時と終了時に配置を検査し、途中の各Git呼出しではRootと管理領域の同一実体、設定ファイルの不変、`commondir`の明示不存在を確認する。作業領域の登録、Branch構文、外部filterの有効設定はこの読取りだけの処理では調べない。新規生成・一時Index回収・Linkedの既存経路、およびMerge実行前のWorktree・外部filter／driver確認は維持する。Mergeの開始時とCommit後の観測では、それぞれ同じHEADから親順とTreeを一括取得する。Merge直前の作業状態比較とCommit直前のHEAD・MERGE_HEAD・Index Tree照合は別時点として保つ。
+
+通常Repositoryの主WorktreeへのMergeでは、準備で確定したGit管理領域を、一つの要求内のGit呼出し・MERGE_HEAD読取りで再利用する。再利用時はRootと管理領域の実体、HEAD制御ファイル・設定・除外の観測値、`commondir`と欠測していた除外設定の明示不存在を照合する。期待Tree計算、Merge、Commit、Commit後の結果確認の直前では完全な配置観測も行う。Linkedは従来どおり完全観測し、MERGE_HEADの内容はどちらも開始前・Merge後／再開時・Commit直前に別々に読む。
+
 ## 実行断面の固定に使う既存Commit契約
 
 `createCommit`は通常の空選択拒否を維持し、明示した`allowEmpty:true`の場合だけ基準と同一Treeでも独立Commitを生成する。新しいRef・HEAD・通常Indexは更新しない。`previousCommit`の再確認でも元Base・選択内容・現在HEADの照合を維持する。`readCommitFile`は内容とmodeに加え、RepositoryのObject Formatによる実Blob OIDを返す。OIDを独自Manifestや固定長SHA-256へ変換しない。

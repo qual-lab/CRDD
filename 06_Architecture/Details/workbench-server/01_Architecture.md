@@ -153,6 +153,8 @@ Clientは既存の同Origin・非永続資格・接続世代・容量制限・re
 
 Workspace専用の操作準備と単体Repositoryの照合は `service/workspace.ts` が所有する。Workspaceと実行操作が使う共有Repositoryの開発権限・実体の照合は `service/access.ts` で共用し、実行要求の主体との結合は `service/execution.ts` に残す。HTTP共通のフォーム読取り・応答は `transport/api-http.ts`、操作別受付は `transport/api-server.ts`、Workspaceの操作・Git処置の調停はServerが所有し、記録・状態遷移はExecution Modelが所有する。
 
+Workspace管理の受付では、操作Capability・正規Directory・Linked判定をVersion Controlの同じ配置観測から受け取る。Linkedの管理操作は保存排他を取得する前に拒否する。
+
 Workspaceの記録操作には、同じ要求の受付で確定した正規保存先を渡す。改名・保留・解除は短期保存排他内で操作Lease記録と物理Lockの不存在、対象、現在世代を照合して完結する。Gitを介するWorkspace操作は、短期保存排他内で未終了のTask Leaseを確認し、Taskと同じRepository単位の操作Lockを取得する。Git処置・観測中は短期保存排他を保持しない。意図と結果は既存のWorkspace記録へ保存する。廃棄はWorktree・Branch・専用親の解消後に記録を除去する。選択は未割当のQueueを結び、再観測は所属を変更しない。候補終了は採否記録、Ref回収、回収証拠の順で進み、確認済みの同じ候補だけを除去する。正本採用ではRepository単位の操作Lockを一つ保持し、Mergeと採否記録の直前に生存を確認する。固定候補・取込先と保存時CAS、Git成立後の同対象への再入場を維持する。採用専用Leaseやその解放証拠は作らない。操作Lockの解放が不明な場合は共通の解放結果で返す。
 
 取得段階の短期排他の解放不明では、取得した操作Lockの解放を試み、Git処置を行わない。操作Lockが観測されたからといって元Processの不在を推定せず、進行中の可能性があれば終了を待つ。残存する操作Lockは手動確認の対象であり、自動削除やTask用回復IDの発行はしない。作成意図が残った場合は、操作Lockの問題を解消してから同じWorkspaceを観測し、作成済みであれば結果だけを確定する。

@@ -37,15 +37,19 @@ export function mergeCommit(
       /[\x00\x7f]/u.test(request.message)
     )
       throw Error("commit_merge_input_invalid");
-    const ctx = createWorktreeGitContext(repository);
-    const drivers = ctx.run(ctx.target, [
-      "config",
-      "--includes",
-      "--null",
-      "--name-only",
-      "--get-regexp",
-      "^merge\\..*\\.driver$",
-    ]);
+    const ctx = createWorktreeGitContext(repository, undefined, "merge");
+    const drivers = ctx.run(
+      ctx.target,
+      [
+        "config",
+        "--includes",
+        "--null",
+        "--name-only",
+        "--get-regexp",
+        "^merge\\..*\\.driver$",
+      ],
+      { reuseMergeLayout: true },
+    );
     if (drivers.status !== 1 || drivers.stdout !== "")
       throw Error("commit_merge_driver_unsupported");
     const target = {
@@ -77,7 +81,41 @@ export function mergeCommit(
      * @security hook／親Git環境を遮断。
      * @concurrency 呼出し側が対象Repositoryの操作排他を保持する。
      */
-    const run = (args: string[]) => ctx.run(ctx.target, args);
+    const run = (args: string[], fullLayout = false) =>
+      ctx.run(
+        ctx.target,
+        args,
+        fullLayout ? undefined : { reuseMergeLayout: true },
+      );
+    // 同じHEADからCommit・親順・Treeを一度に読む。後続段階のHEAD確認とは共有しない。
+    const readHeadCommit = (fullLayout = false) => {
+      const observed = run(
+        [
+          "show",
+          "--no-patch",
+          "--no-notes",
+          "--no-decorate",
+          "--no-show-signature",
+          "--no-color",
+          "--format=%H%x00%P%x00%T",
+          "HEAD",
+          "--",
+        ],
+        fullLayout,
+      );
+      const fields = observed.stdout.replace(/\r?\n$/u, "").split("\0");
+      const [commit, parentField, tree] = fields;
+      const parents = parentField === "" ? [] : parentField?.split(" ");
+      return observed.status === 0 &&
+        fields.length === 3 &&
+        typeof commit === "string" &&
+        isCommitId(commit) &&
+        typeof tree === "string" &&
+        isCommitId(tree) &&
+        parents?.every((parent) => isCommitId(parent))
+        ? { commit, parents, tree }
+        : null;
+    };
     /**
      * 同じ固定二Commitから期待Merge Treeを再計算する。
      * @responsibility 初回と再入場の内容判定を共用する。
@@ -95,12 +133,15 @@ export function mergeCommit(
      */
     const expectedMergeTree = () => {
       result.effectIssued = true;
-      const preview = run([
-        "merge-tree",
-        "--write-tree",
-        target.expectedTargetHead,
-        target.sourceCommit,
-      ]);
+      const preview = run(
+        [
+          "merge-tree",
+          "--write-tree",
+          target.expectedTargetHead,
+          target.sourceCommit,
+        ],
+        true,
+      );
       if (preview.status === 1) throw new Error("commit_merge_conflict");
       if (preview.status !== 0 || !isCommitId(preview.stdout.trim()))
         throw new Error("commit_merge_preview_unavailable");
@@ -112,21 +153,16 @@ export function mergeCommit(
       branch.stdout.trim() !== `refs/heads/${target.targetBranch}`
     )
       throw new Error("commit_merge_target_mismatch");
-    const head = run(["rev-parse", "--verify", "HEAD"]);
-    if (head.status !== 0 || !isCommitId(head.stdout.trim()))
-      throw new Error("commit_merge_target_unavailable");
-    const current = head.stdout.trim();
-    const parents = run(["rev-list", "--parents", "-n", "1", current]);
-    if (parents.status !== 0)
-      throw new Error("commit_merge_target_unavailable");
+    const head = readHeadCommit();
+    if (!head) throw new Error("commit_merge_target_unavailable");
+    const current = head.commit;
     if (
-      parents.stdout.trim() ===
-      `${current} ${target.expectedTargetHead} ${target.sourceCommit}`
+      head.parents.length === 2 &&
+      head.parents[0] === target.expectedTargetHead &&
+      head.parents[1] === target.sourceCommit
     ) {
       const expected = expectedMergeTree();
-      const actual = run(["rev-parse", `${current}^{tree}`]);
-      if (actual.status !== 0 || actual.stdout.trim() !== expected)
-        throw new Error("commit_merge_tree_mismatch");
+      if (head.tree !== expected) throw new Error("commit_merge_tree_mismatch");
       result.commitId = current;
       result.reason = "commit_merge_existing_confirmed";
       return { ...result, status: "completed" };
@@ -155,7 +191,12 @@ export function mergeCommit(
     }
     if (ancestor.status !== 1)
       throw new Error("commit_merge_ancestry_unavailable");
-    const inProgress = readCommitMergeHead(ctx.target);
+    const readMergeHead = () =>
+      readCommitMergeHead(
+        ctx.mergeDirectory?.() ??
+          resolveRepositoryGitLayout(ctx.target).gitDirectory.realPath,
+      );
+    const inProgress = readMergeHead();
     const resuming = inProgress === target.sourceCommit;
     if (!resuming && inProgress !== null)
       throw new Error("commit_merge_in_progress");
@@ -184,22 +225,25 @@ export function mergeCommit(
       throw new Error("commit_merge_target_changed");
     result.effectIssued = true;
     if (!resuming) {
-      const merged = run([
-        "-c",
-        "merge.renormalize=false",
-        "merge",
-        "--no-ff",
-        "--no-commit",
-        "--no-edit",
-        "--no-autostash",
-        "--no-gpg-sign",
-        "-m",
-        message,
-        target.sourceCommit,
-      ]);
+      const merged = run(
+        [
+          "-c",
+          "merge.renormalize=false",
+          "merge",
+          "--no-ff",
+          "--no-commit",
+          "--no-edit",
+          "--no-autostash",
+          "--no-gpg-sign",
+          "-m",
+          message,
+          target.sourceCommit,
+        ],
+        true,
+      );
       if (merged.status !== 0) throw new Error("commit_merge_failed");
     }
-    if (readCommitMergeHead(ctx.target) !== target.sourceCommit)
+    if (readMergeHead() !== target.sourceCommit)
       throw new Error("commit_merge_in_progress");
     const stagedTree = run(["write-tree"]);
     const commitHead = run(["rev-parse", "HEAD"]);
@@ -210,25 +254,19 @@ export function mergeCommit(
       commitHead.stdout.trim() !== current
     )
       throw new Error("commit_merge_content_changed");
-    if (readCommitMergeHead(ctx.target) !== target.sourceCommit)
+    if (readMergeHead() !== target.sourceCommit)
       throw new Error("commit_merge_in_progress");
-    const committed = run(["commit", "--no-gpg-sign", "-m", message]);
+    const committed = run(["commit", "--no-gpg-sign", "-m", message], true);
     if (committed.status !== 0) throw new Error("commit_merge_commit_failed");
-    const after = run(["rev-parse", "HEAD"]);
-    const observed = after.stdout.trim();
-    const afterParents = run(["rev-list", "--parents", "-n", "1", observed]);
-    const tree = run(["rev-parse", `${observed}^{tree}`]);
+    const after = readHeadCommit(true);
     if (
-      after.status !== 0 ||
-      !isCommitId(observed) ||
-      afterParents.status !== 0 ||
-      afterParents.stdout.trim() !==
-        `${observed} ${current} ${target.sourceCommit}` ||
-      tree.status !== 0 ||
-      tree.stdout.trim() !== expectedTree
+      after?.parents.length !== 2 ||
+      after.parents[0] !== current ||
+      after.parents[1] !== target.sourceCommit ||
+      after.tree !== expectedTree
     )
       throw new Error("commit_merge_unconfirmed");
-    result.commitId = observed;
+    result.commitId = after.commit;
     result.reason = "commit_merge_completed";
     result.status = "completed";
   } catch (error) {
@@ -245,7 +283,7 @@ export function mergeCommit(
  * Git管理領域のMerge親を一行の実fileとして読む。
  * @responsibility rev-parseが先頭OIDだけを返す場合も複数親を拒否する。
  * @trace ARCH-000009
- * @input owner: 検証済み所属Root。
+ * @input directory: この時点で確認済みのGit管理領域。
  * @returns 不存在又は単一OID。
  * @precondition 既存採用排他下。
  * @postcondition 欠測・不明・複数行を候補一致へ丸めない。
@@ -256,11 +294,8 @@ export function mergeCommit(
  * @security 通常単linkfileだけを読む。
  * @concurrency descriptor前後の実体・更新を照合する。
  */
-function readCommitMergeHead(owner: string): string | null {
-  const file = path.join(
-    resolveRepositoryGitLayout(owner).gitDirectory.realPath,
-    "MERGE_HEAD",
-  );
+function readCommitMergeHead(directory: string): string | null {
+  const file = path.join(directory, "MERGE_HEAD");
   let info: fs.Stats;
   try {
     info = fs.lstatSync(file);

@@ -28,8 +28,11 @@ import {
   type Repository,
 } from "../repository/location.ts";
 import {
+  isEnoent,
   resolveRepositoryGitLayout,
   type EntitySnapshot,
+  verifyEntitySnapshot,
+  verifySnapshot,
 } from "../repository/layout.ts";
 
 /** Git worktree一覧から得た登録対象の内部表現。 */
@@ -62,6 +65,7 @@ export function createWorktreeGitContext(
   targetInput?: WorktreeTarget,
   purpose:
     | "operation"
+    | "merge"
     | "create"
     | "selection-read"
     | "target-read" = "operation",
@@ -92,20 +96,86 @@ export function createWorktreeGitContext(
   const observed = observeVerifiedRepositoryLayout(capability);
   if (observed === null) throw new Error("worktree_repository_invalid");
   const { root, layout } = observed;
+  const normalMerge =
+    purpose === "merge" &&
+    !targetInput &&
+    checkedConfiguration === null &&
+    layout.kind === "normal_worktree" &&
+    layout.commonDirectory === layout.gitDirectory;
   const deadline = performance.now() + 30_000;
   let commandRoot = root;
+  let reuseNormalMergeLayout = false;
+  const mergeDirectory = () => {
+    const gitDirectory = layout.gitDirectory.realPath;
+    const requireAbsent = (file: string) => {
+      try {
+        fs.lstatSync(file);
+      } catch (error) {
+        if (isEnoent(error)) return;
+        throw error;
+      }
+      throw new Error("worktree_repository_invalid");
+    };
+    try {
+      for (const snapshot of layout.structuralGraph) {
+        if (snapshot.identity.type === "directory")
+          verifyEntitySnapshot(snapshot);
+        else verifySnapshot(snapshot);
+      }
+      requireAbsent(path.join(gitDirectory, "commondir"));
+      if (layout.excludeSnapshot) verifySnapshot(layout.excludeSnapshot);
+      else if (layout.infoDirectory)
+        requireAbsent(path.join(layout.infoDirectory.realPath, "exclude"));
+      else requireAbsent(path.join(gitDirectory, "info"));
+      return gitDirectory;
+    } catch {
+      // 従来から観測不能・不正な配置として失敗する場合は、その理由を維持する。
+      resolveRepositoryGitLayout(root);
+      throw new Error("worktree_repository_invalid");
+    }
+  };
   const run = (
     at: string,
     args: readonly string[],
-    options: { indexFile?: string; input?: string | Buffer } = {},
+    {
+      reuseMergeLayout,
+      ...options
+    }: NonNullable<Parameters<WorktreeGitContext["run"]>[2]> = {},
   ) => {
     const timeout = selectionRead
       ? 30_000
       : Math.ceil(deadline - performance.now());
     if (timeout <= 0) throw new Error("worktree_deadline_exceeded");
+    const atMergeRoot = normalMerge && pathKey(at) === pathKey(root);
+    const pinned = atMergeRoot && reuseNormalMergeLayout;
+    let gitDirectory =
+      pinned && reuseMergeLayout ? mergeDirectory() : undefined;
+    if (!gitDirectory) {
+      const currentLayout = resolveRepositoryGitLayout(at);
+      // 準備の最初の一覧から、同じ通常Root・管理領域にだけ接続する。
+      if (
+        atMergeRoot &&
+        (currentLayout.kind !== "normal_worktree" ||
+          currentLayout.commonDirectory !== currentLayout.gitDirectory ||
+          !(["root", "gitDirectory"] as const).every((key) => {
+            const before = layout[key];
+            const after = currentLayout[key];
+            return (
+              before.realPath === after.realPath &&
+              before.identity.dev === after.identity.dev &&
+              before.identity.ino === after.identity.ino &&
+              before.identity.birthtimeNs === after.identity.birthtimeNs
+            );
+          }))
+      )
+        throw new Error("worktree_repository_invalid");
+      gitDirectory = pinned
+        ? mergeDirectory()
+        : currentLayout.gitDirectory.realPath;
+    }
     const raw = executeGit(at, args, {
       ...options,
-      gitDirectory: resolveRepositoryGitLayout(at).gitDirectory.realPath,
+      gitDirectory,
       timeout,
       maxBuffer: 2 * 1024 * 1024,
     });
@@ -164,10 +234,10 @@ export function createWorktreeGitContext(
   const initialEntries = list();
   const primary = initialEntries[0];
   if (!primary || primary.bare) throw new Error("worktree_owner_invalid");
-  const owner = resolveRepositoryGitLayout(
-    primary.root,
-    checkedConfiguration !== null,
-  );
+  const sameRootMerge = normalMerge && pathKey(primary.root) === pathKey(root);
+  const owner = sameRootMerge
+    ? layout
+    : resolveRepositoryGitLayout(primary.root, checkedConfiguration !== null);
   if (
     pathKey(owner.commonDirectory.realPath) !==
       pathKey(layout.commonDirectory.realPath) ||
@@ -191,9 +261,11 @@ export function createWorktreeGitContext(
     if (filters.status !== 1 || filters.stdout !== "")
       throw new Error("worktree_external_filter_unsupported");
   }
-  const current = (purpose === "operation" ? list() : initialEntries).find(
-    (entry) => pathKey(entry.root) === pathKey(root),
-  );
+  const current = (
+    !sameRootMerge && (purpose === "operation" || purpose === "merge")
+      ? list()
+      : initialEntries
+  ).find((entry) => pathKey(entry.root) === pathKey(root));
   if (!current) throw new Error("worktree_target_mismatch");
   const relativePath =
     targetInput?.relativePath ??
@@ -335,6 +407,8 @@ export function createWorktreeGitContext(
       dirty,
     };
   };
+  // 準備完了後、登録された主Root自身を使うMergeに限り再利用する。
+  reuseNormalMergeLayout = sameRootMerge;
   return {
     root: commandRoot,
     owner: owner.root.realPath,
@@ -343,6 +417,7 @@ export function createWorktreeGitContext(
     branch,
     run,
     inspect,
+    ...(reuseNormalMergeLayout ? { mergeDirectory } : {}),
   };
 }
 

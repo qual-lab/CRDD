@@ -903,15 +903,11 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
       };
     }
   }
-  const verified = getRepository(request.ownerRepositoryRoot);
-  const location =
-    verified.status === "completed"
-      ? readRepositoryLocation(request.ownerRepositoryRoot)
-      : null;
-  if (verified.status !== "completed" || location === null || location.linked)
+  const verified = getRepository(request.ownerRepositoryRoot, "placement");
+  if (verified.status !== "completed" || verified.placement.linked)
     return result;
   // Gitの操作はVCで確認する。EMへ渡す保存先はこの操作の受付で確定する。
-  const storage = { directory: location.directory };
+  const storage = { directory: verified.placement.directory };
   // GitをまたぐWorkspace操作は短期排他内でStateを読み、共通の操作Lockを取る。
   const lease = beginWorkspaceOperation(
     storage,
