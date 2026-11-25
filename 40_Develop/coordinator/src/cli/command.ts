@@ -10,7 +10,7 @@ import fs from "node:fs";
 import {
   parseDockerTaskRecoveryId,
   isPrincipalId,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   parseUnambiguousJsonDocument,
   snapshotPlainArray,
@@ -38,8 +38,8 @@ import {
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   getRepository,
-} from "../../../version-control/src/index.ts";
-import { parseRepositoryProjectContextMarkdown } from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-version-control";
+import { parseRepositoryProjectContextMarkdown } from "@qual-lab/crdd-document-model";
 import { fileURLToPath } from "node:url";
 
 /**

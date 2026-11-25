@@ -18,12 +18,12 @@ import fs, {
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
-import { ExecutionStorageBlockedError } from "../../execution-model/src/index.ts";
+import { ExecutionStorageBlockedError } from "@qual-lab/crdd-execution-model";
 import {
   getRepository,
   type RepositoryResult,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-} from "../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   runTask,
   type TaskRunResult,

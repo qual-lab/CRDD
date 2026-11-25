@@ -8,7 +8,7 @@
  */
 import type { TestAttemptPlan } from "../support/executor-test.ts";
 import { PURPOSES } from "../../src/lifecycle/attempt.ts";
-import { planExecution } from "../../../ai-adapter/src/index.ts";
+import { planExecution } from "@qual-lab/crdd-ai-adapter";
 
 /**
  * 共通の拒否反例へ使う有効な基本計画を返す。

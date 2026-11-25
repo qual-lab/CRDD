@@ -5,7 +5,7 @@
  * @trace ARCH-000012
  * @boundary 各通信の受付とDocument ModelのMeeting操作。
  */
-import type { TopicMeetingAccess } from "../../../document-model/src/index.ts";
+import type { TopicMeetingAccess } from "@qual-lab/crdd-document-model";
 import type { RecordWriteCommand } from "./topic.ts";
 
 type MeetingOutcomeAction = Readonly<{

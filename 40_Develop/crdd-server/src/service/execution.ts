@@ -6,25 +6,23 @@
  * @trace ARCH-000013
  * @boundary 通信方式に依存しない実行・定義受付とCoordinator・Execution Model・AM。
  */
-import type {
-  ExecutionSelection,
-  WorkspaceResult,
-} from "../../../coordinator/src/index.ts";
-import type { AuthorizedRepository } from "../../../access-management/src/index.ts";
+import type { AuthorizedRepository } from "@qual-lab/crdd-access-management";
 import type {
   ExecutionActivityObservation,
   ExecutionActivityRequest,
+  ExecutionSelection,
   SingleTaskCommand,
-} from "../../../coordinator/src/index.ts";
-import type { RepositoryProjectContext } from "../../../document-model/src/index.ts";
-import { inspectAiSelectionChoice } from "../../../configuration-model/src/index.ts";
+  WorkspaceResult,
+} from "@qual-lab/crdd-coordinator";
+import type { RepositoryProjectContext } from "@qual-lab/crdd-document-model";
+import { inspectAiSelectionChoice } from "@qual-lab/crdd-configuration-model";
 
 import { types } from "node:util";
 import {
   resolveConnectionAuthentication,
   resolveRuntimeContentAccess,
   type FilesystemStoreRoot,
-} from "../../../access-management/src/index.ts";
+} from "@qual-lab/crdd-access-management";
 import {
   createLocalPrincipalId,
   createObjective,
@@ -41,7 +39,7 @@ import {
   savePlan,
   updateObjective,
   updateTask,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   getRepository,
   readGitUser,
@@ -49,7 +47,7 @@ import {
   registerRepositoryLocalIgnore,
   resolveVerifiedRepositoryRoot,
   type Repository,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import type { CredentialAdministration } from "./access.ts";
 import { resolveSharedDevelopmentAccess } from "./access.ts";
 
@@ -127,7 +125,7 @@ export function resolveSharedDefinitionAccess(
 export const definitionReadFields = {
   plan: [],
   objectives: [],
-  tasks: [],
+  tasks: ["queueId"],
 } as const;
 
 export const definitionWriteFields = {
@@ -182,7 +180,7 @@ export function validateExecutionDefinitionCommand(
     ? fieldsByOperation[operation]
     : undefined;
   if (!operationFields) return null;
-  const requiredFields = [
+  const allowedFields = [
     "operation",
     "projectId",
     "milestoneId",
@@ -190,8 +188,12 @@ export function validateExecutionDefinitionCommand(
   ];
   const receivedFields = Object.keys(command);
   if (
-    receivedFields.length !== requiredFields.length ||
-    receivedFields.some((key) => !requiredFields.includes(key))
+    allowedFields.some(
+      (key) =>
+        (operation !== "tasks" || key !== "queueId") &&
+        !Object.hasOwn(command, key),
+    ) ||
+    receivedFields.some((key) => !allowedFields.includes(key))
   )
     return null;
   const { operation: _operation, projectId, milestoneId, ...input } = command;
@@ -290,7 +292,7 @@ export type CoordinatorExecutionConfiguration =
       credentials: CredentialAdministration | undefined;
     }>;
 
-type CoordinatorModule = typeof import("../../../coordinator/src/index.ts");
+type CoordinatorModule = typeof import("@qual-lab/crdd-coordinator");
 
 /**
  * 現在の開発権限と本人を同じ改訂の実行対象に結び付ける。
@@ -445,7 +447,7 @@ export async function executeCoordinatorOperation(
   }
   let coordinator: CoordinatorModule;
   try {
-    coordinator = await import("../../../coordinator/src/index.ts");
+    coordinator = await import("@qual-lab/crdd-coordinator");
   } catch {
     return { kind: signal.aborted ? "cancelled" : "unavailable" } as const;
   }
@@ -464,13 +466,7 @@ export async function executeCoordinatorOperation(
       inspectCoordinatorObjectiveResult,
       inspectCoordinatorStateQuery,
       inspectCoordinatorStateQueryResult,
-      ...(scope
-        ? [
-            coordinator.runObjective,
-            coordinator.submitDecision,
-            coordinator.queryState,
-          ]
-        : []),
+      ...(scope ? [coordinator.submitDecision, coordinator.queryState] : []),
     ].every((inspect) => typeof inspect === "function")
   )
     return { kind: "unavailable" } as const;
@@ -489,72 +485,76 @@ export async function executeCoordinatorOperation(
           : null
       : null;
   if (operation === "objective" && scope !== null) {
-    let authorize: (() => boolean) | undefined;
+    // 子を起動する前は配送先だけを確定する。計画の検査はCoordinatorだけが行う。
+    if (
+      !captured ||
+      typeof captured !== "object" ||
+      !("projectId" in captured) ||
+      typeof captured.projectId !== "string"
+    )
+      return { kind: "invalid" } as const;
+    let target: ReturnType<typeof resolveTarget>;
+    try {
+      target = resolveTarget(captured.projectId);
+      if (
+        !target ||
+        !isPrincipalId(target.principalId) ||
+        (scope === "shared" && !target.authorize?.())
+      )
+        target = null;
+    } catch {
+      target = null;
+    }
+    if (signal.aborted) return { kind: "cancelled" } as const;
+    if (!target) return { kind: "access_denied" } as const;
+    const { authorize, ownerRoot, principalId } = target;
     const reception: {
       status: "pending" | "access_denied" | "cancelled" | "accepted";
       workspaceId: string | null;
     } = { status: "pending", workspaceId: null };
-    let result:
-      | Awaited<ReturnType<CoordinatorModule["runObjective"]>>
-      | undefined;
+    const canGrant = () => {
+      if (signal.aborted) {
+        reception.status = "cancelled";
+        return false;
+      }
+      try {
+        if (!authorize || authorize()) return true;
+      } catch {
+        /* 認可の観測不能は拒否する。 */
+      }
+      reception.status = "access_denied";
+      return false;
+    };
+    let result: unknown;
     try {
-      result = await coordinator.runObjective(captured, signal, (request) => {
-        let target: ReturnType<typeof resolveTarget> = null;
-        try {
-          target = resolveTarget(request.projectId);
-          authorize = target?.authorize;
-          if (scope === "shared" && !authorize?.()) target = null;
-        } catch {
-          target = null;
-        }
-        if (signal.aborted) {
-          reception.status = "cancelled";
-          return null;
-        }
-        if (!target || !isPrincipalId(target.principalId)) {
-          reception.status = "access_denied";
-          return null;
-        }
-        reception.status = "accepted";
-        reception.workspaceId = request.workspaceId ?? null;
-        const access = {
-          directory: target.ownerRoot,
-          principalId: target.principalId,
-        };
-        if (request.workspaceId) {
-          const workspaceId = request.workspaceId;
-          return import("./workspace.ts").then(
-            ({ prepareWorkspaceExecutionTarget }) =>
-              () => {
-                if (signal.aborted) {
-                  reception.status = "cancelled";
-                  return null;
-                }
-                if (authorize && !authorize()) {
-                  reception.status = "access_denied";
-                  return null;
-                }
-                return {
-                  ...access,
-                  workspaceTarget: prepareWorkspaceExecutionTarget(
-                    access.directory,
-                    request.projectId,
-                    workspaceId,
-                  ),
-                };
-              },
-          );
-        }
-        return access;
-      });
+      const { runObjectiveInChild } = await import("./execution-child.ts");
+      result = await runObjectiveInChild(
+        captured,
+        signal,
+        (request) => {
+          if (!canGrant()) return null;
+          reception.status = "accepted";
+          reception.workspaceId = request.workspaceId ?? null;
+          return {
+            directory: ownerRoot,
+            principalId,
+          };
+        },
+        () => canGrant() && reception.status === "accepted",
+      );
     } catch {
       // 発行済みEffectはここで不存在とみなさない。
     }
     if (
       reception.status === "pending" &&
-      result?.reason === "coordinator_objective_request_invalid"
+      result &&
+      typeof result === "object" &&
+      "reason" in result &&
+      result.reason === "coordinator_objective_request_invalid"
     )
       return { kind: "invalid" } as const;
+    if (reception.status === "pending" && signal.aborted)
+      return { kind: "cancelled" } as const;
     if (
       reception.status === "cancelled" ||
       reception.status === "access_denied"
@@ -568,9 +568,17 @@ export async function executeCoordinatorOperation(
     }
     try {
       if (reception.status === "accepted") {
+        const request = captured as Record<string, unknown>;
         const value = inspectCoordinatorObjectiveResult(
           result,
           reception.workspaceId,
+          {
+            repositoryRoot: ownerRoot,
+            principalId,
+            requestId: request.requestId,
+            projectId: request.projectId,
+            milestoneId: request.milestoneId,
+          },
         );
         if (value) return { kind: "result", value } as const;
       }
@@ -681,6 +689,17 @@ export async function executeCoordinatorOperation(
             ? null
             : decisionResult
           : inspectCoordinatorStateQueryResult(result);
+    if (operation === "state" && value) {
+      if (
+        !("observationState" in value) ||
+        !("requestId" in args) ||
+        value.requestId !== args.requestId ||
+        value.projectId !== args.projectId ||
+        value.repositoryRevision !== args.repositoryRevision ||
+        value.queueId !== ("queueId" in args ? args.queueId : undefined)
+      )
+        return { kind: "result_unconfirmed" } as const;
+    }
     if (value) return { kind: "result", value } as const;
   } catch {
     // A processing fault is not proof that no effects occurred.
@@ -701,7 +720,7 @@ export async function readAuthorizedExecutionActivity(
   authorize: () => boolean,
   signal: AbortSignal,
 ): Promise<ExecutionActivityObservation> {
-  const { queryActivity } = await import("../../../coordinator/src/index.ts");
+  const { queryActivity } = await import("@qual-lab/crdd-coordinator");
   if (signal.aborted || !authorize())
     throw new Error("runtime_activity_unavailable");
   const repositories = selected.map((entry) => {
@@ -800,9 +819,7 @@ export function createRepositoryWorkbenchActivityReader(
           events: Object.freeze([]),
           eventContinuation: null,
         });
-      const { queryActivity } = await import(
-        "../../../coordinator/src/index.ts"
-      );
+      const { queryActivity } = await import("@qual-lab/crdd-coordinator");
       const observation = await queryActivity({
         projectId: fixedIdentity.projectId,
         repositories: [
@@ -984,6 +1001,7 @@ export function projectExecutionActivityForWorkbench(
     ),
     eventContinuation: observation.eventContinuation,
     singleTasks: observation.singleTasks ?? [],
+    graphs: observation.graphs ?? [],
   });
 }
 
@@ -1073,6 +1091,7 @@ export type WorkbenchExecutionActivityPageRequest = Readonly<{
  */
 export type WorkbenchExecutionActivityObservation = Readonly<{
   singleTasks?: ExecutionActivityObservation["singleTasks"];
+  graphs?: ExecutionActivityObservation["graphs"];
   state: "observed" | "absent" | "unknown";
   reason: string;
   projection: WorkbenchExecutionActivityProjection | null;

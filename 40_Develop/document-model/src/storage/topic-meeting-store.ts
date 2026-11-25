@@ -22,7 +22,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
-import { acquireLock } from "../../../lock/src/index.ts";
+import { acquireLock } from "@qual-lab/crdd-lock";
 import type {
   ProjectOperationRecord,
   ProjectOperationRecordKind,

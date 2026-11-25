@@ -88,7 +88,7 @@ Serverを所有する検証Processは、100msの短命Timerで最も大きい一
 
 ## Core定義の直接操作と任意Automation — 2026-10-28
 
-`GET /api/execution/definition`は`operation=plan/objectives/tasks`、`projectId`、`milestoneId`を受ける。`POST /api/execution/definition`は既存Origin・Action Token保護のFormで`command` JSONを一度だけ受け、MCPと同じ実行定義の受付を経由してExecution Modelの初期化・Plan保存・Objective／Task CRUDへ接続する。共有接続では`repositoryId`も指定し、Access Managementの現在development内容権限へ結合する。ローカルは起動Host利用者が同じ検証済みRootを操作し、Action TokenをユーザーIdentityと解釈しない。
+`GET /api/execution/definition`は`operation=plan/objectives/tasks`、`projectId`、`milestoneId`を受ける。`tasks`でのみ任意の`queueId`を一つ指定でき、MCPの`crdd.get_execution_definition`も同じ条件で受け付ける。指定時の所属・実行の相関と省略時の共有定義の投影はExecution Modelが所有する。`POST /api/execution/definition`は既存Origin・Action Token保護のFormで`command` JSONを一度だけ受け、MCPと同じ実行定義の受付を経由してExecution Modelの初期化・Plan保存・Objective／Task CRUDへ接続する。共有接続では`repositoryId`も指定し、Access Managementの現在development内容権限へ結合する。ローカルは起動Host利用者が同じ検証済みRootを操作し、Action TokenをユーザーIdentityと解釈しない。
 
 閉入力、全体CAS・対象Hash、Domainの保存結果・unknown・exact参照を保持し、競合の再送、AI実行、判断承認、Queue投入、文書計画の同期は行わない。Form受信上限は保存容量と分離し、従来と同じ48MiB＋16KiBをHTTP入口のローカル定数で維持する。内部Stateの固定容量上限撤去からHTTP受信の無制限化を推定しない。計画編集用の新UIは追加せず、公開HTTP操作の接続を扱う。
 
@@ -157,7 +157,7 @@ Workspace管理の受付では、操作Capability・正規Directory・Linked判�
 
 Workspaceの詳細（変更一覧）・ファイル・固定候補差分の読取りでは、受付で確定した親Repositoryの正規Directoryと操作Capabilityを同じ観測から受け取る。詳細では子Worktreeの所属・現在HEADを確認してから変更を読む。ファイルでは子の相対Path・Branch・期待HEADをVersion Controlの単件読取りに渡し、所属・HEAD確認と読取りを同じ操作で完結させる。固定候補差分は固定Commitと元の選択を照合し、現在の子Worktreeから組み直さない。返却時の認可は各経路で確認する。
 
-Workspaceの記録操作には、同じ要求の受付で確定した正規保存先を渡す。改名・保留・解除は短期保存排他内で操作Lease記録と物理Lockの不存在、対象、現在世代を照合して完結する。Gitを介するWorkspace操作は、短期保存排他内で未終了のTask Leaseを確認し、Taskと同じRepository単位の操作Lockを取得する。Git処置・観測中は短期保存排他を保持しない。意図と結果は既存のWorkspace記録へ保存する。廃棄はWorktree・Branch・専用親の解消後に記録を除去する。選択は未割当のQueueを結び、再観測は所属を変更しない。候補終了は採否記録、Ref回収、回収証拠の順で進み、確認済みの同じ候補だけを除去する。正本採用ではRepository単位の操作Lockを一つ保持し、Mergeと採否記録の直前に生存を確認する。固定候補・取込先と保存時CAS、Git成立後の同対象への再入場を維持する。採用専用Leaseやその解放証拠は作らない。操作Lockの解放が不明な場合は共通の解放結果で返す。
+Workspaceの記録操作には、同じ要求の受付で確定した正規保存先を渡す。改名・保留・解除は短期保存排他内で競合する実行・操作、対象と現在世代を照合して完結する。Gitを介するWorkspace操作は、短期保存排他内で対象Workspaceと競合する実行・回復を確認してから、Workspace管理同士を直列化するRepository共通の操作Lockを取得する。Directまたは実行先不明は競合扱いとし、同じProjectでも別Workspaceで確定した実行は、それだけでは管理操作を止めない。Git処置・観測中は短期保存排他を保持しない。意図と結果は既存のWorkspace記録へ保存する。廃棄はWorktree・Branch・専用親の解消後に記録を除去する。選択は未割当のQueueを結び、再観測は所属を変更しない。候補終了は採否記録、Ref回収、回収証拠の順で進み、確認済みの同じ候補だけを除去する。正本採用ではRepository単位の操作Lockを一つ保持し、Mergeと採否記録の直前に生存を確認する。固定候補・取込先と保存時CAS、Git成立後の同対象への再入場を維持する。採用専用Leaseやその解放証拠は作らない。操作Lockの解放が不明な場合は共通の解放結果で返す。
 
 取得段階の短期排他の解放不明では、取得した操作Lockの解放を試み、Git処置を行わない。操作Lockが観測されたからといって元Processの不在を推定せず、進行中の可能性があれば終了を待つ。残存する操作Lockは手動確認の対象であり、自動削除やTask用回復IDの発行はしない。作成意図が残った場合は、操作Lockの問題を解消してから同じWorkspaceを観測し、作成済みであれば結果だけを確定する。
 
@@ -218,6 +218,16 @@ Repository操作の入力規則と処置結果の意味検査はGit操作を担�
 `src/api/mutations.ts`は既存六業務POSTを一回実行する。Mutationはretryなし・always・gcTime0で、variables／data／metaへForm・HTTP応答を保存せず、応答を既存の操作別検査へ返した後に記録を除去する。接続専用POSTと発行・失効・交換の鍵専用POSTはMutationへ入れない。二重送信拒否、Signal、処置後観測と保存結果保持は既存Componentが所有し、新しい業務Stateや共通Recoveryを追加しない。
 
 初回接続・鍵管理のフォーム受付と一度限りの鍵応答は `transport/api-server.ts`、初回接続の確認保存・通常のアクセス管理・鍵操作と提示記録は `service/access.ts` からAMへ接続する。管理応答の描画前検査はWorkbench UIが所有する。AM・Domain等のCanonical型はtype importで参照し、Workbenchで複製しない。共有Repositoryの照合は `service/access.ts`、実行主体との結合・実行定義・活動照会・AI依頼の準備は `service/execution.ts` が担当する。Projectと成果物の読取りは `service/project-context.ts`、Gitの観測は `service/repository.ts`、ビューのHTTP応答は `transport/api-server.ts` が担当する。Server接続設定と専用設定領域の検査は `service/configuration.ts` に置き、HTTPで設定読取りを公開しない。用途別の公開 `./api` は既存の起動・Reader・型の集合を維持する。
+
+設定済みのHTTP／MCPのObjective要求は、`service/execution-child.ts` が一件につき一つの子Processで既存のCoordinator受付へ接続する。親が元要求と対象を照合し、対象ディレクトリと主体を子の認可済みContextへ渡す。親は子の初回受付時、短期保存Lock待ちなどで子から認可の再確認を求められたとき、結果公開前に現在の認可を照合する。Graph内の各Taskのたびに親へ問い合わせる契約ではない。子が結果を返しても、正常終了まで確認できない限り確定結果として公開しない。取消は対象子だけへ通知し、切断や強制停止から清掃完了を推定しない。再入場と回復の正本は既存のExecution Modelに置き、親は別の実行台帳を持たない。
+
+親子ともCoordinatorの参照は `@qual-lab/crdd-coordinator` の公開ルートを使う。Serverは同じ配布版のローカル依存を宣言し、Coordinatorの内部Sourceを実行時に直接参照しない。型参照だけで子Processや実行Sessionを起動せず、既存の遅延読込みの位置を維持する。
+
+親は正式結果と進捗投影が認可済みの元Queueに一致することを確認する。Queue行が未確定でも、同じ元Queueに結合できるLease取得回復参照は返す。元Queueとの結合を確認できない参照は公開しない。実行状態照会の任意の `queueId` は絞り込みにだけ使い、Repository・Projectの認可を代替しない。指定のない照会で複数の実行が該当する場合は別Graphを選ばず、観測不能を返す。
+
+Workbenchの実行状況は、認可済みRepositoryから一回の活動照会で取得したGraphの要約を、Repository IDとQueue IDの組で選択する。同じMilestoneの複数実行を混ぜず、状態を特定できない行は観測不能として表示する。取消済み、または履歴への退役が確定したGraphは現在の選択肢から外す。元の選択が消えても別の実行へ読み替えない。複数Graphの存在は、観測済みの単発AI依頼を表示から外す理由にしない。選択でServerへ状態照会を追加発行しない。実行履歴はProject全体の別観測であり、画面で選んだGraphの履歴として扱わない。
+
+共有MCPの活動照会も、読取り前と結果をRPCへ引き渡す前に、今回の認可済みRepository集合が現在も同一かを確認する。読取り中に失効・集合変更が起きた場合は部分集合で続行せず、Graph識別子・状態・履歴を含めて返さない。共有HTTPは活動照会を含む画面応答全体の既存公開直前確認を維持する。
 
 全Client TSXをRoot Biomeの既存ルールへ接続する。Hookの再取得関数は実依存でuseCallbackへ固定し、Token／Repository切替時の既存Owner再生成を維持する。識別子を持たず同値行・セルを許容する静的text表だけは、位置が表示Identityで状態を持たない理由を局所コメントで明示する。状態付き行のindex keyや全体ルールの無効化へ一般化しない。
 

@@ -15,7 +15,7 @@ import {
 } from "../fixtures/task-persistence-fixture.ts";
 
 import assert from "node:assert/strict";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -26,8 +26,10 @@ import test from "node:test";
 import {
   saveProjectExecutionState,
   initializeExecutionStore,
+  queryTasks,
+  readProjectExecutionState,
   readState,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   initialExecutionInput,
   projectExecutionFixture,
@@ -59,6 +61,14 @@ const revision = "a".repeat(40);
  */
 const hash = (value: string | Buffer) =>
   createHash("sha256").update(value).digest("hex");
+
+const fixtureIntake = {
+  operation: "resume" as const,
+  queueId: "queue-a",
+  projectId: "project-a",
+  milestoneId: "milestone-a",
+  requestHash: hash("request"),
+};
 
 type BoundExecutionDependencies = Omit<
   Parameters<typeof runTestCoordinatorOperation>[0],
@@ -159,6 +169,7 @@ function fixture(t: test.TestContext) {
   );
   return {
     root,
+    initialization: initialExecutionInput(created.state),
     input: {
       workingDirectory: root,
       repositoryBindingId: "binding-a",
@@ -181,7 +192,7 @@ function fixture(t: test.TestContext) {
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-async function failTask(root: string) {
+async function failTask(root: string, queueId = "queue-a") {
   return runCoordinatorOperation(
     {
       runSingleTaskAttempt: async (input) => {
@@ -208,7 +219,7 @@ async function failTask(root: string) {
       repositoryBindingId: "binding-a",
       projectId: "project-a",
       milestoneId: "milestone-a",
-      queueId: "queue-a",
+      queueId,
       taskExecutions: [
         {
           taskId: "task-a",
@@ -234,7 +245,7 @@ async function failTask(root: string) {
  * @boundary PRL-IT-005=再計画→公開Reader／Writerと実Filesystem。実AI・Dockerは使わない。
  */
 test("bounded partial replan supersedes the failed task and returns the queue to ready", async (t) => {
-  const { root, input } = fixture(t);
+  const { root, input, initialization } = fixture(t);
   // 回復Readerは固定Revisionを確認するため、この自己生成RootだけにHEADを用意する。
   execFileSync(
     "git",
@@ -258,6 +269,32 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     { windowsHide: true },
   );
   assert.equal((await failTask(root)).reason, "coordinator_replan_required");
+  const otherQueueId = "queue-b";
+  const other = enqueueProjectOperation(
+    root,
+    input.repositoryBindingId,
+    {
+      queueId: otherQueueId,
+      projectId: input.projectId,
+      milestoneId: input.milestoneId,
+      requestHash: hash("other-request"),
+      scopeHash: hash("other-scope"),
+      originLane: "interactive",
+      repositoryRevision: revision,
+    },
+    {
+      ...initialization,
+      tasks: initialization.tasks.map((task) => ({
+        ...task,
+        allowedPaths: ["other.txt"],
+      })),
+    },
+  );
+  assert.equal(other.status, "completed", other.reason);
+  assert.equal(
+    (await failTask(root, otherQueueId)).reason,
+    "coordinator_replan_required",
+  );
   const stateFile = path.join(root, ".crdd/execution-model/state.json");
   const beforeBytes = fs.readFileSync(stateFile);
   const capability = getRepository(root).capability;
@@ -306,7 +343,12 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     ],
   });
   assert.equal(result.status, "completed");
-  const state = readCoordinatorState(root, "binding-a", "project-a");
+  const state = readProjectExecutionState(
+    resolveExecutionStorageDirectory(root),
+    input.repositoryBindingId,
+    input.projectId,
+    input.queueId,
+  );
   const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
   assert.deepEqual(
     state.status === "completed" &&
@@ -338,6 +380,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
       ],
     },
     state.value.generation - 1,
+    fixtureIntake,
   );
   assert.equal(replay.status, "completed", replay.reason);
   assert.deepEqual(replay.status === "completed" && replay.taskUpdateTaskIds, [
@@ -361,9 +404,51 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   );
   assert.deepEqual(published.snapshot.projects[0], siblings[0]);
   assert.deepEqual(published.snapshot.projects[2], siblings[1]);
-  const replanned = published.snapshot.projects[1];
+  const sharedProject = published.snapshot.projects[1];
   const execution = published.snapshot.managedExecutions[0];
-  assert.ok(replanned && execution);
+  assert.ok(sharedProject && execution);
+  assert.deepEqual(sharedProject, definition);
+  for (const section of ["queueEntries", "managedExecutions"] as const)
+    assert.deepEqual(
+      published.snapshot[section].filter(
+        (entry) => entry.queueId === otherQueueId,
+      ),
+      before.snapshot[section].filter(
+        (entry) => entry.queueId === otherQueueId,
+      ),
+    );
+  assert.deepEqual(
+    published.snapshot.decisions.filter(
+      (entry) =>
+        entry.target.queueId === otherQueueId ||
+        (entry.kind === "continuation" && entry.queueId === otherQueueId),
+    ),
+    before.snapshot.decisions.filter(
+      (entry) =>
+        entry.target.queueId === otherQueueId ||
+        (entry.kind === "continuation" && entry.queueId === otherQueueId),
+    ),
+  );
+  assert.deepEqual(
+    published.snapshot.leaseEvidence.filter(
+      ({ content }) => content.queueId === otherQueueId,
+    ),
+    before.snapshot.leaseEvidence.filter(
+      ({ content }) => content.queueId === otherQueueId,
+    ),
+  );
+  const replanned = published.snapshot.planVersions.find(
+    (version) => version.definitionHash === execution.definitionHash,
+  );
+  assert.ok(replanned);
+  assert.deepEqual(
+    replanned.definition.tasks.map((task) => task.id),
+    ["task-a", "task-b"],
+  );
+  assert.notEqual(
+    execution.definitionHash,
+    before.snapshot.managedExecutions[0]?.definitionHash,
+  );
   assert.equal(
     execution.definitionHash,
     createHash("sha256")
@@ -371,13 +456,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
         canonicalJson({
           projectId: replanned.projectId,
           milestoneId: replanned.milestoneId,
-          definition: {
-            milestoneAcceptanceCriteria: replanned.milestone.acceptanceCriteria,
-            objectives: replanned.objectives.map(
-              (objective) => objective.definition,
-            ),
-            tasks: replanned.tasks,
-          },
+          definition: replanned.definition,
         }),
       )
       .update("\n", "utf8")
@@ -386,6 +465,54 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.deepEqual(
     execution.tasks.map((task) => task.taskId),
     ["task-a", "task-b"],
+  );
+  const access = {
+    root: { directory: root },
+    principalId: "operator-a",
+    revalidate: () => true,
+  };
+  const target = { projectId: input.projectId, milestoneId: input.milestoneId };
+  const taskQuery = queryTasks(access, { ...target, queueId: input.queueId });
+  assert.equal(taskQuery.status, "available");
+  if (taskQuery.status !== "available")
+    throw new Error("query_tasks_unavailable");
+  assert.deepEqual(
+    taskQuery.value.map((task) => [task.definition.id, task.execution?.state]),
+    [
+      ["task-a", "superseded"],
+      ["task-b", "ready"],
+    ],
+  );
+  const otherTasks = queryTasks(access, { ...target, queueId: otherQueueId });
+  assert.equal(otherTasks.status, "available");
+  assert.deepEqual(
+    otherTasks.value?.map((task) => [
+      task.definition.id,
+      task.definition.allowedPaths,
+      task.execution?.state,
+    ]),
+    [["task-a", ["other.txt"], "failed"]],
+  );
+  const sharedTasks = queryTasks(access, target);
+  assert.equal(sharedTasks.status, "available");
+  assert.deepEqual(
+    sharedTasks.value?.map((task) => [
+      task.definition.id,
+      task.definition.allowedPaths,
+      task.execution,
+    ]),
+    [["task-a", ["result.txt"], null]],
+  );
+  assert.equal(
+    queryTasks(access, { ...target, queueId: "missing-queue" }).status,
+    "absent",
+  );
+  assert.deepEqual(
+    queryTasks(
+      { ...access, revalidate: () => false },
+      { ...target, queueId: otherQueueId },
+    ),
+    { status: "blocked", value: null, reason: "not_authorized" },
   );
   const failed = before.snapshot.managedExecutions[0]?.tasks[0];
   const superseded = execution.tasks[0];
@@ -405,7 +532,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     { ...execution, tasks: [...execution.tasks].reverse() },
   ]) {
     const invalidBytes = Buffer.from(
-      `${canonicalJson({ ...published.snapshot, managedExecutions: [invalid] })}\n`,
+      `${canonicalJson({ ...published.snapshot, managedExecutions: [invalid, ...published.snapshot.managedExecutions.slice(1)] })}\n`,
     );
     try {
       fs.writeFileSync(stateFile, invalidBytes);
@@ -450,6 +577,7 @@ test("bounded partial replan supersedes the failed task and returns the queue to
         ],
       },
       0,
+      fixtureIntake,
     ).status,
     "blocked",
   );
@@ -502,7 +630,7 @@ test("maintaining the plan creates a fresh attempt and enforces the retry limit"
     ports.repositoryBindingId,
     request,
     beforeRetry.value.generation - 1,
-    ports.intake,
+    fixtureIntake,
   );
   assert.equal(replay.status, "completed", replay.reason);
   assert.deepEqual(replay.status === "completed" && replay.taskUpdateTaskIds, [
@@ -514,7 +642,7 @@ test("maintaining the plan creates a fresh attempt and enforces the retry limit"
       ports.repositoryBindingId,
       { ...request, previousRetryCount: 1 },
       beforeRetry.value.generation - 1,
-      ports.intake,
+      fixtureIntake,
     ).status,
     "blocked",
   );

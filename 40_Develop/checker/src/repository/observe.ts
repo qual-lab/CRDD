@@ -6,7 +6,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { readRepositorySubmodules } from "../../../version-control/src/index.ts";
+import { readRepositorySubmodules } from "@qual-lab/crdd-version-control";
 
 /**
  * error Codeを決定する。

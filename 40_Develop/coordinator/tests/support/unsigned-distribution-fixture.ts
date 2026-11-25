@@ -108,6 +108,22 @@ export function withUnsignedRuntimeFixture<T>(verify: (root: string) => T): T {
       fs.mkdirSync(path.dirname(destination), { recursive: true });
       fs.copyFileSync(source, destination);
     }
+    const scope = path.join(root, "40_Develop", "node_modules", "@qual-lab");
+    fs.mkdirSync(scope, { recursive: true });
+    for (const component of components) {
+      const owner = path.join(root, "40_Develop", component);
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(owner, "package.json"), "utf8"),
+      );
+      assert.equal(manifest.name, `@qual-lab/crdd-${component}`);
+      const alias = path.join(scope, `crdd-${component}`);
+      fs.symlinkSync(
+        owner,
+        alias,
+        process.platform === "win32" ? "junction" : "dir",
+      );
+      assert.equal(fs.realpathSync.native(alias), owner);
+    }
     assert.equal(
       fs.existsSync(
         path.join(

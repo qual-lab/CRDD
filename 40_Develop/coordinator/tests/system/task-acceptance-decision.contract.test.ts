@@ -14,11 +14,11 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { readProjectExecutionState } from "../../../execution-model/src/index.ts";
+import { readProjectExecutionState } from "@qual-lab/crdd-execution-model";
 import type {
   AcceptanceDecision,
   ProjectExecutionState,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { acceptResult } from "../../src/lifecycle/decision.ts";
 import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/lifecycle/decision.ts";
 import { queryState } from "../../src/index.ts";

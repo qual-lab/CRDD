@@ -121,7 +121,10 @@ function importedVersionControlNames(source: string): readonly string[] {
     const next = tokens[index + 1] ?? "";
     if (next === "(" || /^["'`]/u.test(next)) {
       const literal = next === "(" ? (tokens[index + 2] ?? "") : next;
-      if (literal.includes("version-control/src/") && next === "(") {
+      const targetsVersionControl =
+        literal.includes("version-control/src/") ||
+        literal.includes("@qual-lab/crdd-version-control");
+      if (targetsVersionControl && next === "(") {
         assert.equal(
           kind,
           "import",
@@ -129,7 +132,7 @@ function importedVersionControlNames(source: string): readonly string[] {
         );
         assert.ok(
           /^["']/u.test(literal) &&
-            literal.slice(1, -1).endsWith("version-control/src/index.ts"),
+            literal.slice(1, -1) === "@qual-lab/crdd-version-control",
           "Version Control Root is the only Package entrypoint",
         );
         assert.equal(
@@ -166,7 +169,7 @@ function importedVersionControlNames(source: string): readonly string[] {
         continue;
       }
       assert.ok(
-        !literal.includes("version-control/src/"),
+        !targetsVersionControl,
         "Version Control Root requires a static Named import",
       );
       continue;
@@ -179,9 +182,13 @@ function importedVersionControlNames(source: string): readonly string[] {
       const literal = tokens[cursor + 1] ?? "";
       if (!/^["']/u.test(literal)) break;
       const specifier = literal.slice(1, -1);
-      if (!specifier.includes("version-control/src/")) break;
+      if (
+        !specifier.includes("version-control/src/") &&
+        !specifier.startsWith("@qual-lab/crdd-version-control")
+      )
+        break;
       assert.ok(
-        specifier.endsWith("version-control/src/index.ts"),
+        specifier === "@qual-lab/crdd-version-control",
         "Version Control Root is the only Package entrypoint",
       );
       assert.equal(
@@ -249,7 +256,7 @@ function productionSources(root: string): readonly string[] {
  * @boundary N/A: 同一Process内のSource検査である。
  */
 test("用途別Consumer抽出はNamed importを保持しRoot迂回を拒否する", () => {
-  const root = "../../../version-control/src/index.ts";
+  const root = "@qual-lab/crdd-version-control";
   assert.deepEqual(
     importedVersionControlNames(
       `import { getRepository as verify, type Repository } from "${root}";\nimport type { RepositoryEntryObservation } from "${root}";`,
@@ -320,6 +327,8 @@ test("用途別Consumer抽出はNamed importを保持しRoot迂回を拒否す�
     `export { getRepository } from "${root}";`,
     `export * from "${root}";`,
     `export * as versionControl from "${root}";`,
+    'import { getRepository } from "../../../version-control/src/index.ts";',
+    `import { getRepository } from "${root}/src/index.ts";`,
     'import { getRepository } from "../../../version-control/src/repository/location.ts";',
     'import type { Repository } from "../../../version-control/src/repository/location.ts";',
     'import { getRepository as verify } from "../../../version-control/src/repository/location.ts";',
@@ -447,7 +456,7 @@ test("保護対象Runtimeは正式公開契約を使いGit内部実装へ直接�
   );
   assert.match(
     coordinatorChild,
-    /new URL\("\.\.\/\.\.\/\.\.\/version-control\/src\/index\.ts", import\.meta\.url\)/u,
+    /import\.meta\.resolve\("@qual-lab\/crdd-version-control"\)/u,
     "上位の実Git観測を行う子だけがVCの公開Rootを使う",
   );
 });
@@ -645,7 +654,7 @@ test("Checkerは同じ基準版RootのVersion Control公開入口だけを使う
   );
   assert.equal(checkerSource.includes('from "../../src/index.ts"'), false);
   assert.equal(
-    checkerSource.includes('from "../../../version-control/src/index.ts"'),
+    checkerSource.includes('from "@qual-lab/crdd-version-control"'),
     true,
   );
   const distributedEntry = fs.readFileSync(

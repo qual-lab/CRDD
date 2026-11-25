@@ -136,6 +136,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     ...{
       repositoryBindingId: null,
       projects: [],
+      planVersions: [],
       managedExecutions: [],
       queueEntries: [],
       workspaces: [],
@@ -1295,8 +1296,13 @@ test("Coreだけで初期化・一般CRUD・現在認可とCASを同じ実Store�
   const file = path.join(root, ".crdd", "execution-model", "state.json");
   const before = fs.readFileSync(file);
   const state = JSON.parse(before.toString("utf8"));
-  assert.equal(state.schema, "crdd-execution-model/state/v9");
-  for (const key of ["managedExecutions", "operations", "unresolvedRecoveries"])
+  assert.equal(state.schema, "crdd-execution-model/state/v10");
+  for (const key of [
+    "managedExecutions",
+    "operations",
+    "planVersions",
+    "unresolvedRecoveries",
+  ])
     assert.deepEqual(state[key], []);
   for (const key of ["pendingDeliveries", "resultReceipts"])
     assert.equal(Object.hasOwn(state, key), false);
@@ -1340,6 +1346,32 @@ test("Coreだけで初期化・一般CRUD・現在認可とCASを同じ実Store�
   );
   assert.equal(preparationCalls, 0);
   assert.deepEqual(fs.readFileSync(file), legacy);
+  assert.equal(
+    fs.existsSync(path.join(path.dirname(file), "state.pending.json")),
+    false,
+  );
+  const { planVersions: _planVersions, ...oldState } = state;
+  const previousFormat = Buffer.from(
+    `${JSON.stringify({
+      ...oldState,
+      schema: "crdd-execution-model/state/v9",
+    })}\n`,
+  );
+  fs.writeFileSync(file, previousFormat);
+  assert.equal(queryPlan(access, target).status, "unknown");
+  assert.notEqual(
+    initializeExecutionState(
+      access,
+      { ...target, expectedAbsence: true },
+      () => {
+        preparationCalls++;
+        return true;
+      },
+    ).status,
+    "saved",
+  );
+  assert.equal(preparationCalls, 0);
+  assert.deepEqual(fs.readFileSync(file), previousFormat);
   assert.equal(
     fs.existsSync(path.join(path.dirname(file), "state.pending.json")),
     false,

@@ -4,7 +4,7 @@
  * @trace ARCH-000008
  * @boundary Operation固有の許可確認とProcess取消接続。
  */
-import type { IsolationExecution } from "../../../docker-isolation/src/index.ts";
+import type { IsolationExecution } from "@qual-lab/crdd-docker-isolation";
 import type { CancelResult, LifecycleControl } from "./types.ts";
 
 /**

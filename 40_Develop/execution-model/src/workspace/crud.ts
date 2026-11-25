@@ -4,7 +4,7 @@
  * @trace ARCH-000008
  */
 
-import { acquireLock, type Lock } from "../../../lock/src/index.ts";
+import { acquireLock, type Lock } from "@qual-lab/crdd-lock";
 import {
   blocked,
   completed,
@@ -18,11 +18,16 @@ import {
 import {
   encodeStateValue,
   leaseIdentity,
+  leaseScopeOccupied,
   snapshotStateRecord,
   validId,
 } from "../composition/validation.ts";
 import type { Snapshot } from "../composition/types.ts";
-import type { RepositoryWorktreeResult, WorkspaceRecord } from "./types.ts";
+import type {
+  RepositoryWorktreeResult,
+  WorkspaceCandidateResult,
+  WorkspaceRecord,
+} from "./types.ts";
 
 import {
   prepareIntegrationRecordCreation,
@@ -61,6 +66,7 @@ export function beginWorkspaceOperation(
     save(
       expectedGeneration: number,
       next: WorkspaceRecord | null,
+      unissuedAdoption?: WorkspaceCandidateResult,
     ): StoreResult<WorkspaceRecord | null>;
     saveObservation(
       expectedGeneration: number,
@@ -105,15 +111,26 @@ export function beginWorkspaceOperation(
           queue.workspaceId !== workspaceId)
       )
         return blocked("coordinator_workspace_target_mismatch");
-      if (
-        current.leaseIntents.some((item) => item.kind === "project-operation")
-      )
+      if (leaseScopeOccupied(current, workspaceId))
         return blocked("coordinator_lease_unavailable");
       const { absent, area } = observeSnapshotLeaseResources(
         owner.repositoryRoot,
         identity,
       );
       if (!absent) return blocked("workspace_operation_lock_present", true);
+      if (
+        !observeSnapshotLeaseResources(
+          owner.repositoryRoot,
+          leaseIdentity(
+            binding,
+            projectId,
+            queueId,
+            "project-operation",
+            workspaceId,
+          ),
+        ).absent
+      )
+        return blocked("workspace_operation_lock_present", true);
       if (area.status !== "ready")
         return blocked("coordinator_workspace_operation_unconfirmed");
       const locked = acquireLock({
@@ -176,7 +193,9 @@ export function beginWorkspaceOperation(
             ),
           closure: closure?.value ?? null,
           isHeld: () => lock.assertLive(),
-          save(expectedGeneration, next) {
+          save(expectedGeneration, next, unissuedAdoption) {
+            if (unissuedAdoption !== undefined && operation !== "adopt")
+              return blocked("coordinator_workspace_record_invalid");
             if (
               operation === "freeze" ||
               operation === "adopt" ||
@@ -184,10 +203,15 @@ export function beginWorkspaceOperation(
             ) {
               if (!next) return blocked("coordinator_workspace_record_invalid");
               let captured: WorkspaceRecord;
+              let observation: WorkspaceCandidateResult | undefined;
               try {
                 captured = JSON.parse(
                   encodeStateValue(next),
                 ) as WorkspaceRecord;
+                if (unissuedAdoption !== undefined)
+                  observation = JSON.parse(
+                    encodeStateValue(unissuedAdoption),
+                  ) as WorkspaceCandidateResult;
               } catch {
                 return blocked("coordinator_workspace_record_invalid");
               }
@@ -200,6 +224,9 @@ export function beginWorkspaceOperation(
                   expectedGeneration,
                   captured,
                   operation,
+                  observation === undefined
+                    ? undefined
+                    : { initial: record, observation },
                 ),
               );
             }
@@ -316,7 +343,18 @@ export function updateWorkspaceMetadata(
         expectedGeneration,
         fixed,
         () =>
-          observeSnapshotLeaseResources(owner.repositoryRoot, identity).absent,
+          observeSnapshotLeaseResources(owner.repositoryRoot, identity)
+            .absent &&
+          observeSnapshotLeaseResources(
+            owner.repositoryRoot,
+            leaseIdentity(
+              binding,
+              projectId,
+              queueId,
+              "project-operation",
+              workspaceId,
+            ),
+          ).absent,
       ),
     "workspace-metadata",
   );

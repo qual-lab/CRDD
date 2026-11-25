@@ -12,7 +12,7 @@ import {
   type Repository,
   registerRepositoryLocalIgnore,
   resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 
 const REPOSITORY_AREAS = Object.freeze(["tests"] as const);
 const AREA_PATH_KEYS = Object.freeze({ tests: "tests" } as const);

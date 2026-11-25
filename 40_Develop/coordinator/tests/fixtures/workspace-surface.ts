@@ -11,7 +11,7 @@
  */
 
 import assert from "node:assert/strict";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -25,7 +25,7 @@ import {
   initializeExecutionStore,
   readState,
   readWorkspaceState,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   projectExecutionFixture,
   initialExecutionInput,
@@ -107,8 +107,9 @@ export function prepareWorkspaceSurface(
           ports.repository,
           ports.repositoryBindingId,
           projectId,
+          queueId,
         ).value,
-        created.state,
+        { ...created.state, queueId },
       );
   }
   return binding;
@@ -263,11 +264,18 @@ export function fixture(t: TestContext, independent = false) {
     ownerGeneration: "owner-a",
   });
   assert.ok(created.state);
+  const intake = Object.freeze({
+    operation: "resume" as const,
+    queueId: "queue-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    requestHash: "a".repeat(64),
+  });
   const ports = Object.freeze({
     workingDirectory: root,
     repository: resolveExecutionStorageDirectory(root),
     repositoryBindingId: binding,
-    intake: undefined,
+    intake,
   });
   const queued = createQueue(ports.repository, ports.repositoryBindingId, {
     kind: "scheduled",
@@ -290,8 +298,9 @@ export function fixture(t: TestContext, independent = false) {
       ports.repository,
       ports.repositoryBindingId,
       "project-a",
+      intake.queueId,
     ).value,
-    created.state,
+    { ...created.state, queueId: intake.queueId },
   );
   const workspaceId = randomUUID();
   const common = {

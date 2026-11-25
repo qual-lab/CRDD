@@ -14,12 +14,12 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import type { SemanticIr } from "../../../../document-model/src/index.ts";
+import type { SemanticIr } from "@qual-lab/crdd-document-model";
 import {
   observeRealitySymbolRepository,
   parseRealitySymbolManifest,
-} from "../../../../document-model/src/index.ts";
-import { getRepository } from "../../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-document-model";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import {
   compileQualitySemanticRelationsFromRepository,
   compileSemanticIrFromRepository,

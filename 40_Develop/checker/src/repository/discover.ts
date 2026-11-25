@@ -10,7 +10,7 @@ import {
   getRepository,
   readRepositoryRevision,
   readRepositoryEntries,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   errorCode,
   isWithin,

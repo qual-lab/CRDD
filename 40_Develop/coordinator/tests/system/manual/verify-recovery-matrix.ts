@@ -19,7 +19,7 @@ import { createOwnedOperationDirectories } from "../../../src/lifecycle/host.ts"
 import {
   getRepositoryFromWorkingDirectory,
   resolveVerifiedRepositoryRoot,
-} from "../../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import { createDynamicFakeProviderRecoverableResidue } from "../../support/probe-verification.ts";
 import {
   displayVerificationRecording,

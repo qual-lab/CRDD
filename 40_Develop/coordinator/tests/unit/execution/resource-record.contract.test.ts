@@ -13,7 +13,7 @@ import {
   applyResourceCleanup,
   applyResourceEvent,
   type OperationResources,
-} from "../../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { createAttemptExecutionFixture } from "../../../../executor/tests/fixtures/attempt-execution.ts";
 
 /**

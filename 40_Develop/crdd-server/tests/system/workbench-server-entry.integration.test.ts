@@ -44,8 +44,8 @@ import {
   readHostInitializationState,
   resolveHostRootInput,
   type FilesystemStoreRoot,
-} from "../../../access-management/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-access-management";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import { startCrddServer } from "../../src/app.ts";
 import { inspectServerPublicOrigin } from "../../src/service/configuration.ts";
 import {

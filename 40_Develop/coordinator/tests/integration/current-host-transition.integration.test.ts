@@ -24,7 +24,7 @@ import {
   readState,
   saveOperationCheckpoint,
   saveOperationStart,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   createResourceBookFixture,
   createResourceOperationFixture,
@@ -46,7 +46,7 @@ import {
   operationStartInput,
   operationStateInput,
 } from "../../src/lifecycle/host.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import {
   currentAuthenticationRecoveryCliSource,
@@ -1203,7 +1203,10 @@ test("回収子の技術代役は現行Moduleへ接続し旧Rootへ注入しな�
   ]) {
     assert.doesNotThrow(() => new Script(source));
     assert.match(source, /docker-isolation\/src\/docker-desktop\/restart\.ts/u);
-    assert.doesNotMatch(source, /docker-isolation\/src\/index\.ts/u);
+    assert.doesNotMatch(
+      source,
+      /docker-isolation\/src\/index\.ts|@qual-lab\/crdd-docker-isolation/u,
+    );
     assert.doesNotMatch(source, /createDockerTaskRecoveryExecutor/u);
     assert.doesNotMatch(source, /--host-terminal-/u);
     assert.doesNotMatch(source, /--system-windows-directory/u);

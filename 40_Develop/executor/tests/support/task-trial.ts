@@ -13,8 +13,8 @@ import path from "node:path";
 import {
   planExecution,
   resolveModelSelection,
-} from "../../../ai-adapter/src/index.ts";
-import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
+import { describeIsolationConfiguration } from "@qual-lab/crdd-docker-isolation";
 import type { ExecutorRequest } from "../../src/index.ts";
 
 export type TrialMode = "advice" | "edit" | "review" | "cancel";

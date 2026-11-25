@@ -14,7 +14,7 @@ import type { McpServerDependencies } from "../../src/transport/mcp-server.ts";
 import { createMcpServerFactory } from "../../src/transport/mcp-server.ts";
 import test from "node:test";
 
-import type { PortfolioProjection } from "../../../document-model/src/index.ts";
+import type { PortfolioProjection } from "@qual-lab/crdd-document-model";
 import {
   handleMcpProjectContextRequest,
   MCP_PROJECT_CONTEXT_GET_TOOL,

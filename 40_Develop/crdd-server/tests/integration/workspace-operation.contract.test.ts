@@ -23,7 +23,7 @@ import type {
   RepositoryWorktreeResult,
   WorkspaceCandidateRequest,
   WorkspaceCandidateResult,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   createWorktree,
   getRepository,
@@ -31,7 +31,7 @@ import {
   type Repository,
   readRepositoryEntries,
   readFile,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   closeVerificationWorkspace,
   prepareVerificationWorkspace,

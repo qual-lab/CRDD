@@ -1,5 +1,10 @@
 # CRDD内部ツールの品質の現在状態
 
+## 並列Workspace・パッケージ公開参照の回帰 — 2026-11-26
+
+15パッケージとWindowsホストの通常回帰4,064件を実施し、初回の失敗1件はCheckerの試験準備だけを是正して再確認した。既定スキップは9件。実Docker15件、実AI8件はすべて成功。初回と是正後の区別、実施範囲および対象改訂版は[Quality Integration](04_Quality_Integration.md#並列workspaceパッケージ公開参照の回帰--2026-11-26)を参照する。リリース判定や既存保存物の移行は対象外。
+
+
 ## 実Docker・実AIを除く全体回帰 — 2026-11-25
 
 全15 Packageの静的検査と試験、CoordinatorのWindowsホスト試験およびWindows Process Gateを、同じ作業ツリーで実行した。対象は基準Commit `c0e3b428d`にステージ済みの変更と回帰中の是正を加えた未Commitの状態であり、固定Commitの結果ではない。

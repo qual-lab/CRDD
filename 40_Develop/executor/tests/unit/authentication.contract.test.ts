@@ -12,7 +12,7 @@ import test, { type TestContext } from "node:test";
 import { setImmediate } from "node:timers/promises";
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
 import { captureIsolationRequest } from "../../../docker-isolation/src/execution/preparation.ts";
-import type { IsolationRequest } from "../../../docker-isolation/src/index.ts";
+import type { IsolationRequest } from "@qual-lab/crdd-docker-isolation";
 
 /**
  * 実認証構成を実共通DIへ接続し、外部Processの端だけを有限化する。
@@ -31,7 +31,7 @@ async function fixture(
   action: "status" | "login" = "status",
 ) {
   const f = await createIsolationFixture(t);
-  const original = await import("../../../docker-isolation/src/index.ts");
+  const original = await import("@qual-lab/crdd-docker-isolation");
   f.observation = {
     status: 0,
     signal: null,
@@ -48,7 +48,7 @@ async function fixture(
     stderr: provider === "codex" ? "Logged in using ChatGPT" : "",
     outputExceeded: false,
   };
-  t.mock.module("../../../docker-isolation/src/index.ts", {
+  t.mock.module("@qual-lab/crdd-docker-isolation", {
     namedExports: {
       ...original,
       prepareIsolation: (request: IsolationRequest) => {

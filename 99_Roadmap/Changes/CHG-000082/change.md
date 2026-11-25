@@ -3,7 +3,11 @@
 変更ID: `CHG-000082`
 状態（Status）: `In Progress`
 担当責任者: Qual-Lab
-最終更新日: 2026-11-24
+最終更新日: 2026-11-26
+
+## 同じProject内の複数Workspace実行
+
+同じProject・Milestoneでも、別Workspaceに結合したGraphを独立して実行する。状態の正本・保存排他・回復参照・認可を維持したまま変更するため、[並列実行の変更計画](workspace-parallel-execution-plan.md)で既存保証、利用側、切替条件と反証を追跡する。基準は `9c1f5ca60`。設計と実装・検証の完了は区別する。
 
 ## 試験の所有者とカバレッジの分離 — 2026-11-24
 

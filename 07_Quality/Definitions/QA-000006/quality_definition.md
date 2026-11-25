@@ -789,6 +789,10 @@ Evidenceには各段階のCommit／Tree、固定Path、Asset Hash、Git追跡判
 
 `ERB-ST-022`の機械観測部分は、[Phase 5 Workbench実Browser Visual Gate](../../../99_Roadmap/Changes/CHG-000082/Evidence/260928-1028_phase5-workbench-actual-browser-visual.md)で15画面、3表示Profile、3 Zoomの27条件を不適合0・許容例外0で完了し、[純粋CSR移行](../../../99_Roadmap/Changes/CHG-000082/Evidence/260928-1745_phase5-workbench-pure-csr.md)で全画面DOMのBrowser React所有への移行後も同じ27条件を再観測した。人間UAT、実Provider E2EまたはShared Server配置の成立へは読み替えない。
 
+活動表示の限定Browser試験は、専用Chromeで本番の活動Panelへ合成の取得断面を順に渡す。別Repositoryに同じQueue IDを与え、順序変更で元の選択を保ち、一時的な一覧欠測と他方だけが戻る場合のどちらでも自動切替せず、明示選択後だけ表示を切り替えることをDOMで確認する。専用ProcessとProfileを回収する。合成の取得断面を使うため、通信、全画面のVisual Gate、人間UATの成立には数えない。
+
+再実行は`CRDD_WORKBENCH_ACTIVITY_BROWSER=1`を設定し、[既存のBrowser試験](../../../40_Develop/workbench-ui/tests/system/credential-administration-browser.contract.test.ts)の「Workbenchは活動再取得」を名前で絞る。設定しない場合、このケースは既定でスキップする。
+
 公式CLI移行では内部改造024～029の成立を現行保証として要求しない。公開配布と起動は031、通知分類は023、公開取消・親喪失と終了後資源は030で確認する。公式設定だけを操作不存在の証明にせず、Docker境界の観測と実Provider E2Eを別々に保持する。
 
 `ERB-UT-016`の状態確認は、両Providerの終了0／1とAI Adapterが認識する正規未ログイン出力を組み合わせて、`completed / unconfirmed / authenticationConfirmed:false`を返すことを確認する。Codexのstderr通知と既存の固定read-only警告、ClaudeのJSON否定と空stderrを同じ結果へ変換する。終了1の肯定出力・未知stderr、他の終了値、終了欠測、不正・曖昧・混在出力、起動失敗、Signalは確認不能として拒否する。取消・Process終了不明・回収不明は確認完了にせず、既存回復参照を保持する。loginの非0とTask実行許可にはこの受理条件を適用しない。生Provider出力・資格値・認証期限の推測を結果へ追加しない。

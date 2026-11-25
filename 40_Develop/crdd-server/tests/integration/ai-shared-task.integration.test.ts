@@ -21,12 +21,12 @@ import {
   resolveConnectionAuthentication,
   resolveRepositoryAccess,
   resolveRepositoryAccessCollection,
-} from "../../../access-management/src/index.ts";
+} from "@qual-lab/crdd-access-management";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { executionSelection } from "../../../coordinator/tests/fixtures/ai-selection.ts";
-import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import { resolveVerifiedRepositoryRoot } from "@qual-lab/crdd-version-control";
 import { startWorkbench } from "../../src/app.ts";
 import { prepareAiRequestStart } from "../../src/service/execution.ts";
 import type { AiRequestSnapshot } from "../../src/app.ts";
@@ -95,7 +95,7 @@ test("Workbenchの活動Readerは業務Ownerへ直接接続する", () => {
   );
   assert.match(
     source,
-    /export function createRepositoryWorkbenchActivityReader[\s\S]*?const \{ queryActivity \} = await import\(\s*"\.\.\/\.\.\/\.\.\/coordinator\/src\/index\.ts"/u,
+    /export function createRepositoryWorkbenchActivityReader[\s\S]*?const \{ queryActivity \} = await import\(\s*"@qual-lab\/crdd-coordinator"/u,
   );
 });
 

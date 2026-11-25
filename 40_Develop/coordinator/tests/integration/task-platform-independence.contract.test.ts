@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   isCallExpression,
   isExportDeclaration,
@@ -289,16 +290,21 @@ function assertPureImportEdges(
       );
       continue;
     }
-    assert.ok(
-      specifier.startsWith("./") || specifier.startsWith("../"),
-      "non-relative dependency",
-    );
+    const isPackage = /^@qual-lab\/crdd-[a-z-]+$/u.test(specifier);
+    assert.ok(isPackage || specifier.startsWith("."), "unknown dependency");
     const resolved = normalize(
       path.relative(
         repositoryRoot,
-        path.resolve(repositoryRoot, path.dirname(module), specifier),
+        isPackage
+          ? fileURLToPath(import.meta.resolve(specifier))
+          : path.resolve(repositoryRoot, path.dirname(module), specifier),
       ),
     );
+    if (!isPackage)
+      assert.ok(
+        resolved.startsWith(SOURCE_PREFIX),
+        "relative import crosses package",
+      );
     if (typeOnly) {
       assert.ok(
         coreModules.includes(resolved) ||
@@ -310,14 +316,14 @@ function assertPureImportEdges(
       );
     } else if (
       module === `${SOURCE_PREFIX}lifecycle/validation.ts` &&
-      specifier === "../../../configuration-model/src/index.ts" &&
+      specifier === "@qual-lab/crdd-configuration-model" &&
       resolved === "40_Develop/configuration-model/src/index.ts" &&
       names.length === 1 &&
       names[0] === "inspectAiSelectionChoice"
     ) {
       // 単発入力のモデル選択値だけを同期検査し、設定の読取り・保存は参照しない。
     } else if (
-      specifier === "../../../execution-model/src/index.ts" &&
+      specifier === "@qual-lab/crdd-execution-model" &&
       resolved === "40_Develop/execution-model/src/index.ts" &&
       names.length > 0 &&
       names.every((name) => {
@@ -325,6 +331,7 @@ function assertPureImportEdges(
           "lifecycle/validation.ts": [
             "dockerProcessControllerPublicCompletionReasons",
             "inspectExecutionPlan",
+            "leaseAcquisitionRecoveryId",
             "PROJECT_STATE_CONTRACT",
             "OBJECTIVE_STATES",
             "parseDockerTaskRecoveryId",
@@ -522,9 +529,9 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
     );
   }
   const snapshotEdge = {
-    specifier: "../../../execution-model/src/index.ts",
+    specifier: "@qual-lab/crdd-execution-model",
     typeOnly: false,
-    names: ["inspectExecutionPlan"],
+    names: ["inspectExecutionPlan", "leaseAcquisitionRecoveryId"],
   };
   assert.doesNotThrow(() =>
     assertPureImportEdges(`${SOURCE_PREFIX}lifecycle/validation.ts`, {
@@ -546,7 +553,7 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
       /outside pure runtime closure/u,
     );
   const choiceEdge = {
-    specifier: "../../../configuration-model/src/index.ts",
+    specifier: "@qual-lab/crdd-configuration-model",
     typeOnly: false,
     names: ["inspectAiSelectionChoice"],
   };
@@ -768,10 +775,10 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
     "void import(target);",
     'const x = require("./module.ts");',
     'import x = require("./module.ts");',
-    'import { snapshotPlainRecord } from "../../../execution-model/src/index.ts";',
+    'import { snapshotPlainRecord } from "@qual-lab/crdd-execution-model";',
     'import type { T } from "../../src/execution/task.ts";',
-    'import type { Repository } from "../../../version-control/src/index.ts";',
-    'import { getRepository } from "../../../version-control/src/index.ts";',
+    'import type { Repository } from "@qual-lab/crdd-version-control";',
+    'import { getRepository } from "@qual-lab/crdd-version-control";',
     'import { randomUUID as random } from "node:crypto";',
     'import { readCurrentCoordinatorState } from "../storage/state.ts";',
     'import { queryCoordinatorState } from "./query.ts";',
@@ -783,7 +790,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
     'export {} from "../storage/state.ts";',
     'import { type T } from "../storage/state.ts";',
     'export { type T } from "../storage/state.ts";',
-    'export type { Repository } from "../../../version-control/src/index.ts";',
+    'export type { Repository } from "@qual-lab/crdd-version-control";',
   ];
   const files = examples.map((_, index) =>
     path.join(root, `.crdd-import-${index}.ts`).replaceAll("\\", "/"),

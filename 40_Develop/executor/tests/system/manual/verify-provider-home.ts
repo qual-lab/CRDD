@@ -10,11 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { observeProviderHome } from "../../support/provider-home.ts";
-import {
-  acquireLock,
-  type Lock,
-  type LockRequest,
-} from "../../../../lock/src/index.ts";
+import { acquireLock, type Lock, type LockRequest } from "@qual-lab/crdd-lock";
 import { prepareRepositoryTestParent } from "../../support/repository-test-directory.ts";
 import { writeReport, readReport, removeReport } from "../../support/report.ts";
 

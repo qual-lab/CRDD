@@ -53,7 +53,7 @@ test("Home技術排他は共通wx Requestと元Leaseを使用する", () => {
   }) as (
     hash: unknown,
     home: string,
-  ) => import("../../../lock/src/index.ts").LockResult<typeof lease>;
+  ) => import("@qual-lab/crdd-lock").LockResult<typeof lease>;
   for (const value of [null, undefined, {}, "a".repeat(63), "A".repeat(64)])
     assert.equal(acquire(value, home).status, "blocked");
   assert.equal(calls, 0);

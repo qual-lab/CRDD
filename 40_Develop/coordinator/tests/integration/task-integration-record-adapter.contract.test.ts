@@ -22,7 +22,7 @@ import {
   readWorkspaceState,
   selectNextQueueEntry,
   type WorkspaceRecord,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   projectExecutionFixture,
   initialExecutionInput,
@@ -33,7 +33,7 @@ import {
   resolveExecutionStorageDirectory,
 } from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
-import { saveIntegrationRecord } from "../../../execution-model/src/index.ts";
+import { saveIntegrationRecord } from "@qual-lab/crdd-execution-model";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
@@ -76,7 +76,17 @@ test("Queueは外部選択を呼ばず実Storeの優先順と解放を維持す�
     },
   );
   try {
-    const refused = selectNextQueueEntry(directory, "binding-a");
+    for (const args of [
+      [directory, "binding-a"],
+      [directory, "binding-a", ""],
+      [directory, "binding-a", "other/repository"],
+    ]) {
+      const invalid = Reflect.apply(selectNextQueueEntry, undefined, args);
+      assert.equal(invalid.status, "blocked");
+      assert.equal(invalid.reason, "coordinator_snapshot_input_invalid");
+    }
+    assert.equal(readFailures, 0);
+    const refused = selectNextQueueEntry(directory, "binding-a", "queue-a");
     assert.equal(refused.status, "blocked");
     assert.equal(refused.reason, "coordinator_state_read_unconfirmed");
     assert.equal(refused.value, null);
@@ -88,7 +98,7 @@ test("Queueは外部選択を呼ばず実Storeの優先順と解放を維持す�
   }
   assert.deepEqual(fs.readFileSync(stateFile), before);
   let callbackCalls = 0;
-  const selected = Reflect.apply(selectNextQueueEntry, undefined, [
+  const invalid = Reflect.apply(selectNextQueueEntry, undefined, [
     directory,
     "binding-a",
     () => {
@@ -96,6 +106,10 @@ test("Queueは外部選択を呼ばず実Storeの優先順と解放を維持す�
       throw new Error("synthetic_selection_failure");
     },
   ]);
+  assert.equal(invalid.status, "blocked");
+  assert.equal(invalid.reason, "coordinator_snapshot_input_invalid");
+  assert.equal(callbackCalls, 0);
+  const selected = selectNextQueueEntry(directory, "binding-a", "queue-a");
   assert.equal(selected.status, "completed");
   assert.equal(selected.reason, "coordinator_interactive_queue_selected");
   assert.equal(selected.value?.queueId, "queue-a");

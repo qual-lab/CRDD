@@ -39,6 +39,13 @@
   "dependencies": {
     "@modelcontextprotocol/node": "2.1.1",
     "@modelcontextprotocol/server": "2.3.1",
+    "@qual-lab/crdd-access-management": "file:../access-management",
+    "@qual-lab/crdd-ai-adapter": "file:../ai-adapter",
+    "@qual-lab/crdd-configuration-model": "file:../configuration-model",
+    "@qual-lab/crdd-coordinator": "file:../coordinator",
+    "@qual-lab/crdd-document-model": "file:../document-model",
+    "@qual-lab/crdd-execution-model": "file:../execution-model",
+    "@qual-lab/crdd-version-control": "file:../version-control",
     "express": "5.3.0"
   }
 }

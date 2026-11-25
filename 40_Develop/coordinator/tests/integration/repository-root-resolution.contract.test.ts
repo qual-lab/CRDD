@@ -17,7 +17,7 @@ import test from "node:test";
 import {
   getRepository,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 

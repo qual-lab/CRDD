@@ -10,14 +10,14 @@
 import type {
   AiSelectionReadResult,
   AiSelectionSnapshot,
-} from "../../../configuration-model/src/index.ts";
+} from "@qual-lab/crdd-configuration-model";
 import type {
   AiRequestSnapshot,
   ManagementResult,
   ManagementView,
   ViewResponse,
-} from "../../../crdd-server/src/app.ts";
-import type { FederatedProjectProjection } from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-server/api";
+import type { FederatedProjectProjection } from "@qual-lab/crdd-document-model";
 
 export type {
   AiRequestMode,
@@ -30,7 +30,7 @@ export type {
   ProjectPlanObservation,
   ProjectQualityObservation,
   ViewResponse,
-} from "../../../crdd-server/src/app.ts";
+} from "@qual-lab/crdd-server/api";
 
 // 各画面の型は公開された応答から取り出し、別の通信仕様を定義しない。
 export type AccessViewResponse = Extract<ViewResponse, { view: "access" }>;
@@ -256,6 +256,38 @@ export function validateArtifactResponse(value: unknown): ArtifactViewResponse {
  */
 function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
+}
+
+/** 表示する実行の識別と、状態が不明な行を区別する。 @trace ARCH-000012 */
+function activityGraphsAreValid(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!Array.isArray(value)) return false;
+  const ids = new Set<string>();
+  return value.every((row: unknown) => {
+    if (
+      !isRecord(row) ||
+      typeof row.repositoryId !== "string" ||
+      typeof row.queueId !== "string" ||
+      typeof row.milestoneId !== "string" ||
+      !isNullableString(row.workspaceId) ||
+      ![
+        row.repositoryId,
+        row.queueId,
+        row.milestoneId,
+        ...(row.workspaceId === null ? [] : [row.workspaceId]),
+      ].every((id) => /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(id)) ||
+      (row.progress !== null &&
+        (!isRecord(row.progress) ||
+          typeof row.progress.milestoneState !== "string" ||
+          typeof row.progress.workProgress !== "string" ||
+          typeof row.progress.nextAction !== "string"))
+    )
+      return false;
+    const id = `${row.repositoryId}\0${row.queueId}`;
+    if (ids.has(id)) return false;
+    ids.add(id);
+    return true;
+  });
 }
 
 /**
@@ -684,6 +716,7 @@ function isMainViewResponse(value: Record<string, unknown>): boolean {
     isNullableString(value.aiRequest.notice) &&
     (value.executionActivity === null ||
       (isRecord(value.executionActivity) &&
+        activityGraphsAreValid(value.executionActivity.graphs) &&
         ["observed", "absent", "unknown"].includes(
           String(value.executionActivity.state),
         ) &&

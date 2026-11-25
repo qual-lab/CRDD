@@ -184,6 +184,7 @@ export type LeaseAcquisitionRequest = Readonly<
           ) => Readonly<{ repositoryRoot: string; rootIdentity: string }>;
           markIntentSaveRequested: (recoveryId: string) => void;
         }>,
+        recoveryGeneration?: number | undefined,
       ];
     }
   | {

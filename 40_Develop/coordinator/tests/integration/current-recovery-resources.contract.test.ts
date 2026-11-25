@@ -20,7 +20,7 @@ import { sourceDeclaration } from "../../../execution-model/tests/support/source
 import {
   applyResourceEvent,
   parseDockerTaskRecoveryId,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { createResourceOperationFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import path from "node:path";
 import {
@@ -955,7 +955,7 @@ test("現在回収退役: 元版・HostとHomeの排他・保存読戻しと非�
           recoveryId: string,
           before: Buffer,
           request: Parameters<
-            typeof import("../../../execution-model/src/index.ts").saveRecoveryCheckpoint
+            typeof import("@qual-lab/crdd-execution-model").saveRecoveryCheckpoint
           >[3],
         ) => {
           switch (request.kind) {
@@ -1275,7 +1275,7 @@ test("現在回収終端: 解放確認・一回性・Writer借用の短命性", 
           recoveryId: string,
           before: Buffer,
           request: Parameters<
-            typeof import("../../../execution-model/src/index.ts").saveRecoveryCheckpoint
+            typeof import("@qual-lab/crdd-execution-model").saveRecoveryCheckpoint
           >[3],
         ) => {
           switch (request.kind) {
@@ -2824,6 +2824,7 @@ test("Objective回復はexact技術終端と待機後の同じ境界を要求す
   ]) {
     const state = {
       projectId: "project",
+      queueId: "queue",
       generation: 5,
       tasks: [
         {
@@ -2874,6 +2875,7 @@ test("Objective回復はexact技術終端と待機後の同じ境界を要求す
                         : [
                             {
                               projectId: state.projectId,
+                              queueId: state.queueId,
                               generation:
                                 scenario === "candidates_generation"
                                   ? state.generation + 1

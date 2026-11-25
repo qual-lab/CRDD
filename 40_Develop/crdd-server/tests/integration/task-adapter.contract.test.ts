@@ -10,26 +10,33 @@
  * @boundary メモリ内の公式SDK受付から実行操作の有限依存まで。
  */
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { registerHooks } from "node:module";
+import path from "node:path";
 import { Readable, Writable } from "node:stream";
 import test from "node:test";
 import { compileFunction } from "node:vm";
 import {
   createExecutionProcessRecoveryIdentity,
+  isCleanStateContention,
   observeObjectiveLeaseOwner,
 } from "../../../coordinator/src/lifecycle/host.ts";
 import {
   inspectCoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveResult,
-} from "../../../coordinator/src/index.ts";
-import * as coordinatorOperations from "../../../coordinator/src/index.ts";
+} from "@qual-lab/crdd-coordinator";
+import * as coordinatorOperations from "@qual-lab/crdd-coordinator";
 import { inspectWorkspaceCommand } from "../../src/service/workspace.ts";
 import { executeCoordinatorOperation } from "../../src/service/execution.ts";
+import { runObjectiveInChild } from "../../src/service/execution-child.ts";
 import { createCoordinatorObjectiveResult } from "../../../coordinator/src/lifecycle/execution.ts";
+
 import {
+  deriveCoordinatorRepositoryBindingId,
   inspectTaskStartCandidates,
+  objectiveQueueId,
   projectCoordinatorState,
 } from "../../../coordinator/src/lifecycle/validation.ts";
 import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
@@ -37,6 +44,7 @@ import {
   projectExecutionFixture,
   withCallerPlan,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import { leaseAcquisitionRecoveryId } from "@qual-lab/crdd-execution-model";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 import {
@@ -54,6 +62,20 @@ const MCP_COORDINATOR_OBJECTIVE_TOOL = "crdd.run_objective";
 const MCP_COORDINATOR_STATE_TOOL = "crdd.get_execution_state";
 
 const revision = "a".repeat(40);
+
+/** @trace PRL-IT-012 Nodeのパッケージ解決で既存の公開入口を使用する。 */
+test("ServerはCoordinatorの宣言済みパッケージ公開入口を解決する", () => {
+  const name = "@qual-lab/crdd-coordinator";
+  const manifest = JSON.parse(
+    fs.readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+  );
+  assert.equal(manifest.dependencies[name], "file:../coordinator");
+  assert.equal(typeof coordinatorOperations.runObjective, "function");
+  assert.match(import.meta.resolve(name), /\/coordinator\/src\/index\.ts$/u);
+  assert.throws(() => import.meta.resolve(`${name}/src/index.ts`), {
+    code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
+  });
+});
 
 /**
  * 候補不明の公開停止をMCPでも欠落なく搬送する。
@@ -568,27 +590,11 @@ test("設定済みObjectiveはServerで計画を再検査せず正式受付で�
       ["config", "user.email", "objective@example.invalid"],
     ])
       execFileSync("git", command, { cwd: directory.path, windowsHide: true });
-    const mocked = t.mock.module("../../../coordinator/src/index.ts", {
+    const mocked = t.mock.module("@qual-lab/crdd-coordinator", {
       namedExports: {
         ...coordinatorOperations,
         inspectCoordinatorObjectiveRequest: () =>
           assert.fail("server must not inspect the plan"),
-      },
-    });
-    let workspaceReads = 0;
-    const workspace = t.mock.module("../../src/service/workspace.ts", {
-      namedExports: {
-        prepareWorkspaceExecutionTarget: (
-          root: string,
-          projectId: string,
-          workspaceId: string,
-        ) => {
-          workspaceReads++;
-          assert.equal(root, directory.path);
-          assert.equal(projectId, "project-a");
-          assert.equal(workspaceId, "11111111-1111-1111-1111-111111111111");
-          return null;
-        },
       },
     });
     try {
@@ -626,30 +632,16 @@ test("設定済みObjectiveはServerで計画を再検査せず正式受付で�
         workspaceId: "11111111-1111-1111-1111-111111111111",
       };
       const cancelled = new AbortController();
-      const hook = registerHooks({
-        resolve(specifier, context, next) {
-          if (
-            specifier === "./workspace.ts" &&
-            context.parentURL?.endsWith("/src/service/execution.ts")
-          )
-            cancelled.abort();
-          return next(specifier, context);
-        },
-      });
-      try {
-        assert.deepEqual(
-          await executeCoordinatorOperation(
-            "objective",
-            isolated,
-            configuration,
-            cancelled.signal,
-          ),
-          { kind: "cancelled" },
-        );
-        assert.equal(workspaceReads, 0);
-      } finally {
-        hook.deregister();
-      }
+      cancelled.abort();
+      assert.deepEqual(
+        await executeCoordinatorOperation(
+          "objective",
+          isolated,
+          configuration,
+          cancelled.signal,
+        ),
+        { kind: "cancelled" },
+      );
       assert.equal(
         (
           await executeCoordinatorOperation(
@@ -661,12 +653,293 @@ test("設定済みObjectiveはServerで計画を再検査せず正式受付で�
         ).kind,
         "result",
       );
-      assert.equal(workspaceReads, 1);
+      assert.equal(
+        fs.existsSync(
+          path.join(directory.path, ".crdd", "execution-model", "state.json"),
+        ),
+        false,
+      );
     } finally {
-      workspace.restore();
       mocked.restore();
     }
   } finally {
+    directory.cleanup();
+  }
+});
+
+/** @trace PRL-IT-012 子への権限通知直前の取消・失効を実プロセスで観測する。 */
+test("Objective子プロセスは取消・再認可拒否をEffectなしで返す", async () => {
+  for (const cancelDuringGrant of [true, false]) {
+    const controller = new AbortController();
+    let grants = 0;
+    let confirmations = 0;
+    const result = await runObjectiveInChild(
+      { ...objective(), adoptResult: true },
+      controller.signal,
+      () => {
+        grants++;
+        if (cancelDuringGrant) controller.abort();
+        return { directory: "", principalId: "user-owner" };
+      },
+      () => {
+        confirmations++;
+        return false;
+      },
+    );
+    assert.equal(grants, 1);
+    assert.equal(confirmations, cancelDuringGrant ? 0 : 1);
+    assert.equal(
+      (result as { reason?: string } | undefined)?.reason,
+      "coordinator_authenticated_principal_not_verified",
+    );
+    assert.equal((result as { effectState: string }).effectState, "no_effect");
+  }
+});
+
+/** @trace PRL-IT-012 保存Lock待ちの再開で、子は同じ要求の現在認可を親へ戻して確認する。 */
+test("Objective子プロセスは保存Lock待ちからの再開前に親の認可を再確認する", async () => {
+  const directory = createRepositoryTestDirectory("objective-child-lock-");
+  try {
+    execFileSync("git", ["init", "--quiet"], {
+      cwd: directory.path,
+      windowsHide: true,
+    });
+    const lockDirectory = path.join(directory.path, ".crdd", "lock");
+    fs.mkdirSync(lockDirectory, { recursive: true });
+    const lockFile = path.join(lockDirectory, "execution-model.state.lock");
+    for (const revoked of [false, true]) {
+      fs.writeFileSync(lockFile, "test-owned lock slot", { flag: "wx" });
+      let confirmations = 0;
+      try {
+        const outcome = await runObjectiveInChild(
+          { ...objective(), operation: "resume" },
+          new AbortController().signal,
+          () => ({ directory: directory.path, principalId: "user-owner" }),
+          () => {
+            confirmations++;
+            if (confirmations === 2 && !revoked) fs.unlinkSync(lockFile);
+            return confirmations === 1 || !revoked;
+          },
+        );
+        assert.equal(confirmations, 2);
+        assert.equal(
+          (outcome as { reason?: string } | undefined)?.reason,
+          revoked
+            ? "coordinator_authenticated_principal_not_verified"
+            : "coordinator_objective_request_not_found",
+        );
+        assert.equal(
+          fs.existsSync(
+            path.join(directory.path, ".crdd", "execution-model", "state.json"),
+          ),
+          false,
+        );
+      } finally {
+        if (fs.existsSync(lockFile)) fs.unlinkSync(lockFile);
+      }
+    }
+  } finally {
+    directory.cleanup();
+  }
+});
+
+/** @trace PRL-IT-012 切断だけ・認可前応答・異常終了を正常結果として返さない。 */
+test("Objective子プロセスの切断・確認前の応答・異常終了を確定しない", async (t) => {
+  const processes: ReturnType<typeof spawn>[] = [];
+  let condition = "";
+  const fixture = `
+    process.on("message", (m) => {
+      if (m.kind === "execute") process.send({
+        kind: "authorize", projectId: m.request.projectId
+      });
+      if (m.kind === "grant") {
+        if (condition === "unconfirmed") {
+          process.send({ kind: "result", value: { status: "completed" } });
+        } else {
+          process.send({ kind: "confirm" });
+        }
+      }
+      if (m.kind === "confirmed") {
+        if (condition === "disconnect") process.disconnect();
+        else process.send({ kind: "result", value: { status: "completed" } },
+          () => { process.exitCode = 1; process.disconnect(); });
+      }
+    });
+    if (condition !== "abnormal") setInterval(() => {}, 1000);
+  `;
+  const mock = t.mock.module("node:child_process", {
+    namedExports: {
+      spawn: (
+        binary: string,
+        _argv: readonly string[],
+        options: Parameters<typeof spawn>[2],
+      ) => {
+        const child = spawn(
+          binary,
+          [
+            "--input-type=module",
+            "--eval",
+            `const condition = ${JSON.stringify(condition)};\n${fixture}`,
+          ],
+          options,
+        );
+        processes.push(child);
+        return child;
+      },
+    },
+  });
+  try {
+    const worker: typeof import("../../src/service/execution-child.ts") =
+      await import(
+        new URL(
+          "../../src/service/execution-child.ts?failure-fixture",
+          import.meta.url,
+        ).href
+      );
+    for (condition of ["disconnect", "unconfirmed", "abnormal"]) {
+      assert.equal(
+        await worker.runObjectiveInChild(
+          objective(),
+          new AbortController().signal,
+          () => ({ directory: "", principalId: "user-owner" }),
+          () => true,
+        ),
+        undefined,
+        condition,
+      );
+      const child = processes.at(-1);
+      assert.ok(child);
+      assert.ok(
+        child.exitCode !== null || child.signalCode !== null,
+        condition,
+      );
+    }
+  } finally {
+    mock.restore();
+    for (const child of processes)
+      if (child.exitCode === null && child.signalCode === null) child.kill();
+  }
+});
+
+/** @trace PRL-IT-012 正しい形式でも、回復参照を別Queueから公開しない。 */
+test("Objectiveの回復参照は認可済みの元Queueだけを公開する", async () => {
+  const directory = createRepositoryTestDirectory("objective-queue-result-");
+  const fixtureKey = `objective-child-result-${randomUUID()}`;
+  const url = `data:text/javascript,${encodeURIComponent(
+    `export const runObjectiveInChild = (...args) => globalThis[${JSON.stringify(fixtureKey)}](...args);`,
+  )}`;
+  const hooks = registerHooks({
+    resolve(specifier, context, next) {
+      if (
+        specifier === "./execution-child.ts" &&
+        context.parentURL?.endsWith("/src/service/execution.ts")
+      )
+        return { url, shortCircuit: true };
+      return next(specifier, context);
+    },
+  });
+  try {
+    for (const command of [
+      ["init", "--quiet"],
+      ["config", "user.name", "Objective Fixture"],
+      ["config", "user.email", "objective@example.invalid"],
+    ])
+      execFileSync("git", command, { cwd: directory.path, windowsHide: true });
+    const input = objective();
+    for (const mode of [
+      "matched",
+      "wrong_queue",
+      "missing_queue",
+      "anonymous",
+      "matching_lease",
+      "other_lease",
+    ]) {
+      let expectedRecoveryId = "host-operation.OP-000001";
+      const fixture: typeof runObjectiveInChild = async (
+        _input,
+        _signal,
+        authorize,
+        confirm,
+      ) => {
+        const grant = authorize({ projectId: input.projectId });
+        assert.ok(grant);
+        assert.equal(confirm(), true);
+        const binding = deriveCoordinatorRepositoryBindingId(grant.directory);
+        const queueId = objectiveQueueId(
+          binding,
+          grant.principalId,
+          input.requestId,
+        );
+        if (mode === "matching_lease")
+          expectedRecoveryId = leaseAcquisitionRecoveryId(
+            binding,
+            input.projectId,
+            queueId,
+            "project-operation",
+          );
+        const details = {
+          status: "blocked",
+          reason: "coordinator_external_recovery_required",
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+          recoveryIds: ["host-operation.OP-000001"],
+        } as const;
+        return mode === "anonymous" || mode.endsWith("_lease")
+          ? {
+              contract: "crdd-coordinator/public-runtime/v2",
+              ...details,
+              ...(mode.endsWith("_lease")
+                ? {
+                    reason: "coordinator_lease_owner_observation_unknown",
+                    recoveryIds: [
+                      leaseAcquisitionRecoveryId(
+                        binding,
+                        input.projectId,
+                        mode === "matching_lease" ? queueId : "queue-b",
+                        "project-operation",
+                      ),
+                    ],
+                  }
+                : {}),
+            }
+          : {
+              contract: "crdd-coordinator/objective-intake/v4",
+              ...details,
+              requestId: input.requestId,
+              projectId: input.projectId,
+              milestoneId: input.milestoneId,
+              queueId:
+                mode === "matched"
+                  ? queueId
+                  : mode === "wrong_queue"
+                    ? "queue-b"
+                    : null,
+              projection: null,
+              recoveryObligations: [
+                { kind: "host", recoveryId: details.recoveryIds[0] },
+              ],
+              processRestartRequired: false,
+            };
+      };
+      Reflect.set(globalThis, fixtureKey, fixture);
+      const result = await executeCoordinatorOperation(
+        "objective",
+        input,
+        { scope: "local", repositoryRoot: directory.path },
+        new AbortController().signal,
+      );
+      if (mode === "matched" || mode === "matching_lease") {
+        assert.equal(result.kind, "result");
+        assert.ok("recoveryIds" in result.value);
+        const ids = result.value.recoveryIds;
+        assert.ok(Array.isArray(ids) && ids.length === 1);
+        assert.deepEqual(ids, [expectedRecoveryId]);
+      } else assert.deepEqual(result, { kind: "result_unconfirmed" }, mode);
+    }
+  } finally {
+    hooks.deregister();
+    Reflect.deleteProperty(globalThis, fixtureKey);
     directory.cleanup();
   }
 });
@@ -685,7 +958,7 @@ test("MCPはCoordinator読込み待ちの入力変更を実行へ渡さない", 
   const hooks = registerHooks({
     resolve(specifier, context, next) {
       if (
-        specifier === "../../../coordinator/src/index.ts" &&
+        specifier === "@qual-lab/crdd-coordinator" &&
         context.parentURL?.endsWith("/src/service/execution.ts")
       ) {
         changedDuringLoad = true;
@@ -1007,7 +1280,7 @@ async function invokeConfiguredDecision(
       ["config", "user.email", "decision@example.invalid"],
     ])
       execFileSync("git", command, { cwd: directory.path, windowsHide: true });
-    const mocked = t.mock.module("../../../coordinator/src/index.ts", {
+    const mocked = t.mock.module("@qual-lab/crdd-coordinator", {
       namedExports: { ...coordinatorOperations, submitDecision: submit },
     });
     try {
@@ -1304,12 +1577,72 @@ test("MCP state tool returns the canonical read-only result", async () => {
       },
     }),
   );
-  assert.deepEqual(authentication, { principalId: "principal-a" });
+  assert.deepEqual(
+    authentication,
+    { principalId: "principal-a" },
+    JSON.stringify(response),
+  );
   assert.equal(
     (response.result as { structuredContent: { observationState: string } })
       .structuredContent.observationState,
     "absent",
   );
+});
+
+/** @trace PRL-IT-012 元Queueを配送し、別Queueの正しい形式の結果は公開しない。 */
+test("MCPの状態照会は元Queueと応答を照合する", async () => {
+  for (const responseQueue of ["queue-a", "queue-b"]) {
+    const result = await invokeMcpCoordinatorRequest(
+      request("tools/call", {
+        _meta: META,
+        name: MCP_COORDINATOR_STATE_TOOL,
+        arguments: {
+          requestId: "state-a",
+          projectId: "project-a",
+          repositoryRevision: revision,
+          queueId: "queue-a",
+        },
+      }),
+      dependencies({
+        getProjectState: async (input) => {
+          assert.equal(input.queueId, "queue-a");
+          return {
+            ...input,
+            queueId: responseQueue,
+            contract: "crdd-coordinator/state-query/v2",
+            status: "completed",
+            reason: "coordinator_state_absent",
+            observationState: "absent",
+            projection: null,
+            cleanupConfirmed: true,
+            manualRecoveryRequired: false,
+            effectState: "no_effect",
+          };
+        },
+      }),
+    );
+    if (responseQueue === "queue-b") {
+      assert.equal(
+        (
+          result.result as {
+            structuredContent: { reason: string; queueId?: string };
+          }
+        ).structuredContent.reason,
+        "mcp_coordinator_result_invalid",
+      );
+      assert.equal(
+        (result.result as { structuredContent: { queueId?: string } })
+          .structuredContent.queueId,
+        undefined,
+      );
+    } else {
+      assert.equal(
+        (result.result as { structuredContent: { queueId: string } })
+          .structuredContent.queueId,
+        "queue-a",
+      );
+    }
+  }
 });
 
 /**
@@ -1725,6 +2058,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
   };
   const state = {
     projectId: input.projectId,
+    queueId: queue.queueId,
     generation: 1,
     milestoneId: input.milestoneId,
     repositoryRevision: input.repositoryRevision,
@@ -1740,6 +2074,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
   };
   const candidates = Object.freeze({
     projectId: state.projectId,
+    queueId: queue.queueId,
     generation: state.generation,
     taskIds: Object.freeze([]),
   });
@@ -1820,9 +2155,9 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
   assert.deepEqual(recovering.recoveryIds, ["host-original"]);
   const identity = compileFunction(
     `return (${sourceDeclaration(source, "createObjectiveIntake")});`,
-    ["createCoordinatorStableId", "hashCoordinatorContent"],
+    ["objectiveQueueId", "hashCoordinatorContent"],
   )(
-    () => "queue",
+    () => queue.queueId,
     () => "hash",
   );
   const failedRead = compileFunction(
@@ -1875,10 +2210,13 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
         "observeObjectiveLeaseOwner",
         "updateCoordinatorQueue",
         "readProjectExecutionState",
+        "isCleanStateContention",
+        "leaseAcquisitionRecoveryId",
         "wasObjectiveStateUninitialized",
         "hashCoordinatorContent",
         "getExecutionProcessInstanceIdentity",
         "runCoordinatorOperation",
+        "blocked",
       ],
     )(
       () => true,
@@ -1897,6 +2235,8 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
       () => assert.fail("Queue mutation forbidden"),
       operations.readProjectExecutionState ??
         (() => assert.fail("state must not be created")),
+      isCleanStateContention,
+      leaseAcquisitionRecoveryId,
       compileFunction(
         `return (${sourceDeclaration(source, "wasObjectiveStateUninitialized")});`,
         [],
@@ -1904,6 +2244,14 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
       () => "hash",
       () => "owner",
       () => assert.fail("execution forbidden after Store refusal"),
+      (
+        request: Parameters<typeof createCoordinatorObjectiveResult>[0],
+        reason: string,
+      ) =>
+        createCoordinatorObjectiveResult(request, {
+          status: "blocked",
+          reason,
+        }),
     ) as (
       deps: object,
       input: object,
@@ -2042,6 +2390,12 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     manualRecoveryRequired: true,
     recoveryId: "original-store-reference",
   };
+  const scopedLeaseId = leaseAcquisitionRecoveryId(
+    "binding",
+    input.projectId,
+    queue.queueId,
+    "project-operation",
+  );
   for (const [stage, outcome, pure] of [
     ["enqueue", ordinary, true],
     ["acquisition", { ...ordinary, reason: "lease_inspection_blocked" }, true],
@@ -2052,6 +2406,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     ["reconciliation", uncertain, false],
     ["reconciliation", ordinary, true],
     ["queue_read", uncertain, false],
+    ["queue_read", { ...uncertain, recoveryId: scopedLeaseId }, false],
     ["queue_read", ordinary, false],
   ] as const) {
     let stateReads = 0;
@@ -2069,6 +2424,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
               value: state,
               taskStartCandidates: {
                 projectId: state.projectId,
+                queueId: state.queueId,
                 generation: state.generation,
                 taskIds: [],
               },
@@ -2107,7 +2463,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
           : {
               status: "completed",
               value: {
-                queue: { ...queue, queueId: "queue" },
+                queue,
                 recoveryId: null,
               },
             };
@@ -2138,7 +2494,11 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     assert.equal(captured.manualRecoveryRequired, !pure);
     assert.deepEqual(
       captured.recoveryIds,
-      outcome.recoveryId ? [outcome.recoveryId] : [],
+      outcome.recoveryId &&
+        stage !== "acquisition_other" &&
+        (stage !== "queue_read" || outcome.recoveryId === scopedLeaseId)
+        ? [outcome.recoveryId]
+        : [],
     );
     assert.equal(
       captured.reason,

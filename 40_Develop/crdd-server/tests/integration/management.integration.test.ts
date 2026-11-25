@@ -31,7 +31,7 @@ import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
-import { resolveRepositoryAccessCollection } from "../../../access-management/src/index.ts";
+import { resolveRepositoryAccessCollection } from "@qual-lab/crdd-access-management";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
@@ -42,8 +42,8 @@ import {
   createPortfolioProjection,
   type ProjectContextSource,
   readRepositoryProjectContext,
-} from "../../../document-model/src/index.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-document-model";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import { startWorkbench } from "../../src/app.ts";
 import { authenticateLocalConnectionForm } from "../../src/transport/api-server.ts";
 import {

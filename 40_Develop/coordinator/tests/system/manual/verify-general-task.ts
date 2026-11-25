@@ -14,7 +14,7 @@ import {
   resolveVerifiedRepositoryRoot,
   readRepositorySnapshot,
   getRepository,
-} from "../../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import { resolveTaskExecutionSelections } from "../../../src/lifecycle/selection.ts";
 import type { BorrowedExecutionTarget } from "../../../src/lifecycle/types.ts";
 import {

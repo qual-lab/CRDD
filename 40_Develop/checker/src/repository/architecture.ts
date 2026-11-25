@@ -18,7 +18,7 @@ import {
   parseArchitectureDetail,
   parseArchitectureDetailMap,
   parseArchitectureIndex,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { mapArchitectureDomainIssueToFinding } from "../report/convert.ts";
 import type { DocumentFinding } from "../report/types.ts";
 import { lstatIfPresent } from "../repository/observe.ts";

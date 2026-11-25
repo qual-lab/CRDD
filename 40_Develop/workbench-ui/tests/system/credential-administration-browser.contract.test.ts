@@ -30,22 +30,142 @@ import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { pathToFileURL } from "node:url";
+import { build } from "vite";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import {
   closeOwnedBrowserProcessTree,
   observeLocalListener,
-} from "../../../visual-preview/src/index.ts";
-import { startWorkbench } from "../../../crdd-server/src/app.ts";
+} from "@qual-lab/crdd-visual-preview";
+import { startWorkbench } from "@qual-lab/crdd-server/api";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
 );
+
+/** @trace ERB-ST-022 同じQueue IDを持つ別Repositoryを区別する実DOMの対照。 */
+test("Workbenchは活動再取得で消えた実行を別Graphへ自動切替しない", {
+  skip: process.env.CRDD_WORKBENCH_ACTIVITY_BROWSER !== "1",
+}, async () => {
+  assert.ok(repositoryRoot);
+  const executable = [
+    process.env.PROGRAMFILES,
+    process.env["PROGRAMFILES(X86)"],
+  ]
+    .filter((value): value is string => value !== undefined)
+    .map((value) =>
+      path.join(value, "Google", "Chrome", "Application", "chrome.exe"),
+    )
+    .find(existsSync);
+  assert.ok(executable, "activity_browser_chrome_unavailable");
+  const testRoot = await prepareCredentialBrowserTestRoot(repositoryRoot);
+  const directory = await mkdtemp(path.join(testRoot, "activity-browser-"));
+  const page = path.join(directory, "index.html");
+  const profile = path.join(directory, "profile");
+  let child: ChildProcess | undefined;
+  let endpoint: Awaited<ReturnType<typeof readBrowserEndpoint>> | undefined;
+  try {
+    await writeFile(
+      page,
+      '<!doctype html><meta charset="utf-8"><body><div id="activity-fixture"></div><script>window.addEventListener("error",event=>{document.body.dataset.activityResult=JSON.stringify({error:event.message});});</script><script src="probe.js" onerror="document.body.dataset.activityResult=JSON.stringify({error:\'probe.js unavailable\'})"></script>',
+      { flag: "wx" },
+    );
+    await build({
+      configFile: false,
+      root: path.resolve(import.meta.dirname, "../.."),
+      oxc: { jsx: { runtime: "automatic" } },
+      define: { "process.env.NODE_ENV": JSON.stringify("production") },
+      logLevel: "error",
+      build: {
+        outDir: directory,
+        emptyOutDir: false,
+        lib: {
+          entry: path.resolve(
+            import.meta.dirname,
+            "../support/activity-reselection.ts",
+          ),
+          name: "ActivityFixture",
+          formats: ["iife"],
+          fileName: () => "probe.js",
+        },
+      },
+    });
+    child = spawn(
+      executable,
+      [
+        `--user-data-dir=${profile}`,
+        "--remote-debugging-address=127.0.0.1",
+        "--remote-debugging-port=0",
+        "--no-first-run",
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-default-apps",
+        "--disable-extensions",
+        "--disable-sync",
+        "--headless=new",
+        pathToFileURL(page).href,
+      ],
+      { stdio: "ignore", windowsHide: true },
+    );
+    endpoint = await readBrowserEndpoint(profile, child);
+    const listing = `http://127.0.0.1:${endpoint.port}/json/list`;
+    let result: unknown;
+    for (
+      let attempt = 0;
+      attempt < 50 && typeof result !== "string";
+      attempt++
+    ) {
+      const targets = (await (await fetch(listing)).json()) as {
+        url: string;
+        webSocketDebuggerUrl: string;
+      }[];
+      const target = targets.find(
+        ({ url }) => url === pathToFileURL(page).href,
+      );
+      if (target)
+        result = await requestBrowser(
+          target.webSocketDebuggerUrl,
+          "Runtime.evaluate",
+          {
+            expression: "document.body?.dataset.activityResult",
+            returnByValue: true,
+          },
+        );
+      if (typeof result !== "string") await delay(100);
+    }
+    assert.equal(typeof result, "string");
+    assert.deepEqual(JSON.parse(String(result)), {
+      selected: true,
+      restored: true,
+      missing: true,
+      notSubstituted: true,
+      explicit: true,
+    });
+  } finally {
+    try {
+      if (child) {
+        const cleanup = await closeOwnedBrowserProcessTree(child, async () => {
+          if (!endpoint) throw Error("activity_browser_endpoint_unavailable");
+          await requestBrowser(
+            `ws://127.0.0.1:${endpoint.port}${endpoint.browserPath}`,
+            "Browser.close",
+          );
+        });
+        assert.equal(cleanup.processTreeExitConfirmed, true);
+        assert.equal(cleanup.cleanupErrors.length, 0);
+      }
+    } finally {
+      assert.equal(path.dirname(directory), testRoot);
+      await rm(directory, { recursive: true });
+    }
+  }
+});
 
 /**
  * 試験内の固定Rootを先行試験なしで準備する。

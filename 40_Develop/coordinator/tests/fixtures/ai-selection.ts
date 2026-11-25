@@ -12,10 +12,10 @@ import {
 import type {
   AiSelectionRole,
   AiSelectionChoice,
-} from "../../../configuration-model/src/index.ts";
-import type { ExecutionSelection } from "../../../execution-model/src/index.ts";
-import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
-import { validateAiSelectionConfig } from "../../../configuration-model/src/index.ts";
+} from "@qual-lab/crdd-configuration-model";
+import type { ExecutionSelection } from "@qual-lab/crdd-execution-model";
+import { getModelCatalog } from "@qual-lab/crdd-ai-adapter";
+import { validateAiSelectionConfig } from "@qual-lab/crdd-configuration-model";
 
 /** 合成設定を正式な設定検査へ通し、本番選定が受け取る断面を作る。 @trace RCM-UT-001 */
 export function resolveFixtureExecutionSelection(

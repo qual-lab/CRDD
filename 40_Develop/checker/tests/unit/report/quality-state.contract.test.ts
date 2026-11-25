@@ -16,7 +16,7 @@ import {
   inspectDocumentRelations,
   inspectQualityConsistency,
   parseArtifact,
-} from "../../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { mapQualityDesignStateIssueToFinding } from "../../../src/report/quality.ts";
 
 /**

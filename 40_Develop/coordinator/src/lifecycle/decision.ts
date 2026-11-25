@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import {
   EXTERNAL_SEND_POLICY_RELATIVE_PATH,
   readNetworkPolicy,
-} from "../../../configuration-model/src/index.ts";
+} from "@qual-lab/crdd-configuration-model";
 import {
   type AcceptanceDecision,
   type AcceptanceTarget,
@@ -25,7 +25,7 @@ import {
   readDecision,
   recordDecision,
   requestDecision,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   getRepository,
   readCommitFile,
@@ -33,7 +33,7 @@ import {
   type Repository,
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   borrowRepositorySource,
   verifyOwnedOperationManagementCapability,
@@ -319,6 +319,7 @@ export const COORDINATOR_ACCEPTANCE_DECISION_CONTRACT =
  */
 export type CoordinatorAcceptanceDecisionRequest = Readonly<{
   contract: typeof COORDINATOR_ACCEPTANCE_DECISION_CONTRACT;
+  queueId?: string;
   decisionId: string;
   blockerId: string;
   sourceSpecId: string;
@@ -367,6 +368,8 @@ function validRequest(
       candidate.targetId,
     ].every(validIdentity) &&
     validRevision(candidate.repositoryRevision) &&
+    (!Object.hasOwn(candidate, "queueId") ||
+      validIdentity(candidate.queueId)) &&
     Number.isSafeInteger(candidate.expectedGeneration) &&
     Number(candidate.expectedGeneration) >= 1 &&
     (candidate.target === "objective" || candidate.target === "milestone") &&
@@ -738,6 +741,7 @@ export function acceptResult(
             candidate.milestoneId,
             candidate.repositoryRevision,
             identity.revisionIdentity,
+            candidate.queueId,
           )
         ))
     )
@@ -757,6 +761,9 @@ export function acceptResult(
       kind: "acceptance",
       respondentPrincipalId: authenticationContext.principalId,
       target: {
+        ...(rawRequest.queueId === undefined
+          ? {}
+          : { queueId: rawRequest.queueId }),
         projectId: rawRequest.projectId,
         milestoneId: rawRequest.milestoneId,
         kind: rawRequest.target,

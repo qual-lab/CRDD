@@ -14,7 +14,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import * as semanticCoverage from "../../../../document-model/src/index.ts";
+import * as semanticCoverage from "@qual-lab/crdd-document-model";
 import * as checker from "../../../src/index.ts";
 
 /**
@@ -76,10 +76,10 @@ test("Semantic Coverage CLIはSubsystem公開入口だけを利用する", () =>
   );
   const subsystemImports = [
     ...source.matchAll(
-      /from\s+["']([^"']*(?:document|execution|configuration)-model[^"']+)["']/gu,
+      /from\s+["']([^"']*(?:document|execution|configuration)-model[^"']*)["']/gu,
     ),
   ].map((match) => match[1]);
-  assert.deepEqual(subsystemImports, ["../../../document-model/src/index.ts"]);
+  assert.deepEqual(subsystemImports, ["@qual-lab/crdd-document-model"]);
 });
 
 /**

@@ -9,13 +9,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { captureIsolationRequest } from "../../../docker-isolation/src/execution/preparation.ts";
-import type { IsolationRequest } from "../../../docker-isolation/src/index.ts";
+import type { IsolationRequest } from "@qual-lab/crdd-docker-isolation";
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
 import {
   applyResourceCleanup,
   applyResourceEvent,
   type OperationResources,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 
 const ISOLATION_SETTINGS = Object.freeze({
   windowsDirectory: "C:\\Windows",
@@ -167,14 +167,12 @@ test("作成Receiptは構成検査前に確定し拒否・取消後も回収記�
  */
 test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有限CLIへ接続する", async (t) => {
   const f = await createIsolationFixture(t);
-  const di = await import("../../../docker-isolation/src/index.ts");
+  const di = await import("@qual-lab/crdd-docker-isolation");
   let selected: "codex" | "claude" = "codex",
     released = 0;
-  t.mock.module(new URL("../../../lock/src/index.ts", import.meta.url).href, {
+  t.mock.module(import.meta.resolve("@qual-lab/crdd-lock"), {
     namedExports: {
-      ...(await import(
-        new URL("../../../lock/src/index.ts", import.meta.url).href
-      )),
+      ...(await import(import.meta.resolve("@qual-lab/crdd-lock"))),
       acquireLock: () => ({
         status: "acquired",
         lock: {
@@ -187,7 +185,7 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
       }),
     },
   });
-  t.mock.module("../../../docker-isolation/src/index.ts", {
+  t.mock.module("@qual-lab/crdd-docker-isolation", {
     namedExports: {
       ...di,
       prepareIsolation: (request: IsolationRequest) => {
@@ -197,9 +195,12 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
       executeIsolation: f.api.executeIsolation,
     },
   });
-  const { createExecutor }: typeof import("../../../executor/src/index.ts") =
+  const { createExecutor }: typeof import("@qual-lab/crdd-executor") =
     await import(
-      `../../../executor/src/index.ts?common-chain=${Math.random()}`
+      new URL(
+        `?common-chain=${Math.random()}`,
+        import.meta.resolve("@qual-lab/crdd-executor"),
+      ).href
     );
   for (const provider of ["codex", "claude"] as const)
     for (const mode of [
@@ -216,7 +217,7 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
         let mutated = false,
           closed = false;
         let diagnostic:
-          | import("../../../executor/src/index.ts").PrimaryFailureDiagnostic
+          | import("@qual-lab/crdd-executor").PrimaryFailureDiagnostic
           | null = null;
         f.observationFilter = (argv, result) => {
           if (
@@ -387,7 +388,7 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
           assert.equal(closed, true);
           assert.ok(diagnostic);
           const captured =
-            diagnostic as import("../../../executor/src/index.ts").PrimaryFailureDiagnostic;
+            diagnostic as import("@qual-lab/crdd-executor").PrimaryFailureDiagnostic;
           assert.equal(captured.receiptRecorded, true);
           assert.equal(captured.isolationFailure?.stage, "observation");
           assert.equal(

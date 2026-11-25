@@ -8,7 +8,7 @@
 import type {
   RemoteTarget,
   WorkingChanges,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   lstat,
   open,
@@ -33,13 +33,13 @@ import {
   type RepositoryQualityProjection,
   type RepositoryReleaseProjection,
   type TopicRecord,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { readRepositoryChangeSet } from "./repository.ts";
 
 import {
   resolveRepositoryAccessCollection,
   type AuthorizedRepository,
-} from "../../../access-management/src/index.ts";
+} from "@qual-lab/crdd-access-management";
 import type { CredentialAdministration } from "./access.ts";
 
 /**

@@ -20,16 +20,16 @@ import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
 import { compileFunction } from "node:vm";
-import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
-import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
+import { getModelCatalog } from "@qual-lab/crdd-ai-adapter";
+import { saveRepositoryAiSelection } from "@qual-lab/crdd-configuration-model";
 import {
   ExecutionStorageBlockedError,
   initializeExecutionStore,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
-import { getGroup } from "../../../execution-intelligence/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
+import { getGroup } from "@qual-lab/crdd-execution-intelligence";
 import { capturePreparedWorkspaceTarget } from "../../src/lifecycle/workspace.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
@@ -134,6 +134,10 @@ test("公開Objectiveは既定cwdと受付・実行の既知例外を区別す�
       assert.strictEqual(identity, intake);
       return null;
     },
+    resolveExecutionStorageDirectory: (root: string) => ({ directory: root }),
+    readExecutionState: () => ({ status: "completed", value: null }),
+    waitForStateContention: (_signal: AbortSignal, read: () => unknown) =>
+      read(),
     createObjectiveIntake: (
       _request: unknown,
       id: string,
@@ -340,9 +344,9 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
       assert.equal(confirmDecisionResult(malformed), null);
   }
   assert.equal(hooks, 0);
-  const domain = await import("../../../execution-model/src/index.ts");
+  const domain = await import("@qual-lab/crdd-execution-model");
   let currentError = error;
-  t.mock.module("../../../execution-model/src/index.ts", {
+  t.mock.module("@qual-lab/crdd-execution-model", {
     namedExports: {
       ...domain,
       readDecision: () => {

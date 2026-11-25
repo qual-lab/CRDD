@@ -6,11 +6,11 @@
  */
 
 import { isAbsolute } from "node:path";
-import { readRepositoryManifest } from "../../../configuration-model/src/index.ts";
+import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
 import {
   createFilesystemRepositoryObservationPort,
   parseRepositoryProjectContextMarkdown,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import {
   evaluateManagementPermission,
   projectManagementOperationResult,

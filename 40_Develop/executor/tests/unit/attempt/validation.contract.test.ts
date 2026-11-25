@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { planExecution } from "../../../../ai-adapter/src/index.ts";
+import { planExecution } from "@qual-lab/crdd-ai-adapter";
 import { classifyDockerCommandExecution } from "../../../../docker-isolation/src/execution/result.ts";
 import { isPrimaryFailureDiagnostic } from "../../support/provider-diagnostic.ts";
 import {

@@ -13,12 +13,12 @@ import {
   parseRealityTestCatalog,
   type RealitySymbolGraph,
   type RepositoryObservationPort,
-} from "../../../document-model/src/index.ts";
-import type { Repository } from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-document-model";
+import type { Repository } from "@qual-lab/crdd-version-control";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import { mapRealityDomainIssueToCheckerFinding } from "../report/reality.ts";
 import type { CheckerFinding, CheckerRealityFinding } from "../report/types.ts";
 /**

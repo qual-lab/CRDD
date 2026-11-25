@@ -19,7 +19,7 @@ import { runInNewContext } from "node:vm";
 import {
   getAuthenticationDefinition,
   planExecution,
-} from "../../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/network/policy.ts";
 import {

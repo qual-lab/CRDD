@@ -10,11 +10,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
+import { setTimeout } from "node:timers/promises";
+import { performance } from "node:perf_hooks";
 import {
   readCoordinatorConfig,
   readExecutionIntelligenceConfig,
-} from "../../../configuration-model/src/index.ts";
-import type { StoreOptions } from "../../../execution-intelligence/src/index.ts";
+} from "@qual-lab/crdd-configuration-model";
+import type { StoreOptions } from "@qual-lab/crdd-execution-intelligence";
 import {
   acquireLease,
   ExecutionStorageBlockedError,
@@ -30,12 +32,8 @@ import {
   saveOperationCheckpoint,
   type OperationRecord,
   type StateVersion,
-} from "../../../execution-model/src/index.ts";
-import {
-  acquireLock,
-  type Lock,
-  type LockResult,
-} from "../../../lock/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
+import { acquireLock, type Lock, type LockResult } from "@qual-lab/crdd-lock";
 import {
   getRepository,
   getRepositoryFromWorkingDirectory,
@@ -47,7 +45,7 @@ import {
   readRepositoryLocation,
   readRepositoryRevision,
   removeReference,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import type {
   CoordinatorLease,
   CoordinatorLeaseAcquisitionResolution,
@@ -69,6 +67,99 @@ import {
   snapshotJsonValue,
 } from "./validation.ts";
 import { isDeepStrictEqual, types } from "node:util";
+
+/** 保存待機後の現在認可。nullは期限切れ、falseは取消・拒否・観測不能。 @trace ARCH-000008 */
+export async function confirmStorageContinuation(
+  signal: AbortSignal,
+  check: () => Promise<boolean>,
+  windowMs = 750,
+): Promise<boolean | null> {
+  if (signal.aborted) return false;
+  const timer = new AbortController();
+  try {
+    const decision = await Promise.race([
+      check(),
+      setTimeout(windowMs, null, {
+        signal: AbortSignal.any([signal, timer.signal]),
+      }),
+    ]);
+    return signal.aborted
+      ? false
+      : decision === null
+        ? null
+        : decision === true;
+  } catch {
+    return false;
+  } finally {
+    timer.abort();
+  }
+}
+
+/**
+ * 未発行と確認された短期保存Lockの競合だけを、取消可能に待つ。 @trace ARCH-000008
+ * 呼出し元は一つの保存操作だけを渡し、複数の保存・外部処置のやり直しに使わない。
+ */
+export async function waitForStateContention<T extends StateContentionResult>(
+  signal: AbortSignal,
+  attempt: () => T,
+  beforeRetry?: () => Promise<boolean>,
+): Promise<T | null> {
+  if (signal.aborted) return null;
+  let result = attempt();
+  const deadline = performance.now() + 750;
+  for (
+    let delay = 10;
+    isCleanStateContention(result);
+    delay = Math.min(delay * 2, 80)
+  ) {
+    const remaining = deadline - performance.now();
+    if (signal.aborted) return null;
+    if (remaining < 1) break;
+    try {
+      await setTimeout(Math.min(delay, remaining), undefined, { signal });
+    } catch (error) {
+      if (signal.aborted) return null;
+      throw error;
+    }
+    if (signal.aborted) return null;
+    const retryWindow = deadline - performance.now();
+    if (retryWindow < 1) break;
+    if (beforeRetry) {
+      const decision = await confirmStorageContinuation(
+        signal,
+        beforeRetry,
+        retryWindow,
+      );
+      if (decision === null) break;
+      if (!decision) return null;
+    }
+    if (signal.aborted) return null;
+    if (performance.now() >= deadline) break;
+    result = attempt();
+  }
+  return result;
+}
+
+/** 未発行と保全停止を区別できる保存結果。 @trace ARCH-000008 */
+export type StateContentionResult = Readonly<
+  | { status: "completed"; reason: string }
+  | {
+      status: "blocked";
+      reason: string;
+      manualRecoveryRequired: boolean;
+      recoveryId: string | null;
+    }
+>;
+
+/** 前段で保存を発行していない短期Lock競合だけを識別する。 @trace ARCH-000008 */
+export function isCleanStateContention(result: StateContentionResult) {
+  return (
+    result.status === "blocked" &&
+    result.reason === "coordinator_snapshot_lock_contended" &&
+    !result.manualRecoveryRequired &&
+    result.recoveryId === null
+  );
+}
 
 /**
  * 一回のWriter呼出しに、借用した実Leaseとその現在観測を結び付ける。
@@ -670,12 +761,13 @@ function activeLeaseIsObserved(activeLease: ActiveLease) {
 export function inspectCoordinatorSnapshotLeaseAcquisitionOwner(
   repositoryRoot: string,
   binding: string,
+  queueId: string,
 ): CoordinatorLeaseResult<
   Readonly<{ acquisition: CoordinatorLeaseAcquisitionResolution | null }>
 > {
   return readLease({ directory: repositoryRoot }, binding, {
     kind: "acquisition",
-    input: [binding],
+    input: [binding, queueId],
   });
 }
 
@@ -700,238 +792,340 @@ export function acquireCoordinatorSnapshotLease(
   projectId: string,
   queueId: string,
   kind: LeaseKind,
-): CoordinatorLeaseResult<CoordinatorLease> {
+  recoveryGeneration: number | undefined,
+  wait: Readonly<{ signal: AbortSignal; revalidate?: () => Promise<boolean> }>,
+): Promise<CoordinatorLeaseResult<CoordinatorLease>>;
+export function acquireCoordinatorSnapshotLease(
+  storageDirectory: string,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+  recoveryGeneration?: number,
+): CoordinatorLeaseResult<CoordinatorLease>;
+export function acquireCoordinatorSnapshotLease(
+  storageDirectory: string,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+  recoveryGeneration?: number,
+  wait?: Readonly<{ signal: AbortSignal; revalidate?: () => Promise<boolean> }>,
+):
+  | CoordinatorLeaseResult<CoordinatorLease>
+  | Promise<CoordinatorLeaseResult<CoordinatorLease>> {
   if (
     ![binding, projectId, queueId].every(validIdentity) ||
     kind !== "project-operation"
-  )
-    return blocked("coordinator_lease_identity_invalid");
-  const ownerGeneration = randomUUID();
-  let recoveryId: string | null = null;
-  let intentSaveRequested = false;
-  const reserved = acquireLease({ directory: storageDirectory }, binding, {
-    kind: "intent",
-    input: [
-      projectId,
-      queueId,
-      kind,
-      { ownerGeneration, ownerProcessId: process.pid },
-      {
-        resourcesAbsent: (repositoryRoot: string, identity: string) =>
-          snapshotLeaseResourcesAbsent(repositoryRoot, identity),
-        observeRoot: (repositoryRoot: string) => {
-          const metadata = fs.lstatSync(repositoryRoot);
-          return {
-            repositoryRoot: repositoryRoot,
-            rootIdentity: createHash("sha256")
-              .update(
-                JSON.stringify([
-                  metadata.dev,
-                  metadata.ino,
-                  metadata.birthtimeMs,
-                ]),
-                "utf8",
-              )
-              .digest("hex"),
-          };
-        },
-        markIntentSaveRequested: (id: string) => {
-          recoveryId = id;
-          intentSaveRequested = true;
-        },
-      },
-    ],
-  });
-  if (reserved.status !== "completed")
-    return intentSaveRequested && reserved.manualRecoveryRequired
-      ? blocked(reserved.reason, true, recoveryId)
-      : reserved;
-  const { repositoryRoot, rootIdentity, identity, intent } = reserved.value;
-  recoveryId = reserved.value.recoveryId;
-  const leasePaths =
-    resolveRepositoryExecutionDataPathsFromValidatedRoot(storageDirectory);
-  if (!leasePaths || leasePaths.repositoryRoot !== repositoryRoot)
-    return blocked(
-      "coordinator_lease_acquisition_recovery_required",
-      true,
-      recoveryId,
+  ) {
+    const invalid = blocked<CoordinatorLease>(
+      "coordinator_lease_identity_invalid",
     );
-  const lock = path.join(
-    leasePaths.locks,
-    "coordinator.lease." + identity + ".lock",
-  );
-  let physicalIdentity: string;
-  let physicalLock: Lock | null = null;
-  try {
-    const rootMetadata = fs.lstatSync(repositoryRoot);
-    if (
-      !rootMetadata.isDirectory() ||
-      rootMetadata.isSymbolicLink() ||
-      fs.realpathSync.native(repositoryRoot) !== repositoryRoot ||
-      createHash("sha256")
-        .update(
-          JSON.stringify([
-            rootMetadata.dev,
-            rootMetadata.ino,
-            rootMetadata.birthtimeMs,
-          ]),
-          "utf8",
-        )
-        .digest("hex") !== rootIdentity
-    )
-      throw new Error("lease_root_changed");
-    ensureCanonicalDirectory(leasePaths.root);
-    const locks = leasePaths.locks;
-    ensureCanonicalDirectory(locks);
-    const boundary = assertArea(repositoryRoot, "lock", locks);
-    assertDirectory(locks);
-    const acquiredLock = acquireLock({
-      directory: locks,
-      name: path.basename(lock),
-      identity,
+    return wait ? Promise.resolve(invalid) : invalid;
+  }
+  const ownerGeneration = randomUUID();
+  let requestedRecoveryId: string | null = null;
+  let intentSaveRequested = false;
+  const reserve = () =>
+    acquireLease({ directory: storageDirectory }, binding, {
+      kind: "intent",
+      input: [
+        projectId,
+        queueId,
+        kind,
+        { ownerGeneration, ownerProcessId: process.pid },
+        {
+          resourcesAbsent: (repositoryRoot: string, identity: string) =>
+            snapshotLeaseResourcesAbsent(repositoryRoot, identity),
+          observeRoot: (repositoryRoot: string) => {
+            const metadata = fs.lstatSync(repositoryRoot);
+            return {
+              repositoryRoot: repositoryRoot,
+              rootIdentity: createHash("sha256")
+                .update(
+                  JSON.stringify([
+                    metadata.dev,
+                    metadata.ino,
+                    metadata.birthtimeMs,
+                  ]),
+                  "utf8",
+                )
+                .digest("hex"),
+            };
+          },
+          markIntentSaveRequested: (id: string) => {
+            requestedRecoveryId = id;
+            intentSaveRequested = true;
+          },
+        },
+        recoveryGeneration,
+      ],
     });
-    if (acquiredLock.status !== "acquired") {
-      // 初期化途中・descriptor終了不明も既存Intentと同じ回復IDで保全する。
+  const acquirePhysical = (
+    reserved: ReturnType<typeof reserve>,
+  ):
+    | CoordinatorLeaseResult<CoordinatorLease>
+    | Promise<CoordinatorLeaseResult<CoordinatorLease>> => {
+    if (reserved.status !== "completed")
+      return intentSaveRequested && reserved.manualRecoveryRequired
+        ? blocked(reserved.reason, true, requestedRecoveryId)
+        : reserved;
+    const { repositoryRoot, rootIdentity, identity, intent, recoveryId } =
+      reserved.value;
+    if (wait?.signal.aborted)
+      return blocked(
+        "coordinator_lease_acquisition_recovery_required",
+        true,
+        recoveryId,
+      );
+    const leasePaths =
+      resolveRepositoryExecutionDataPathsFromValidatedRoot(storageDirectory);
+    if (!leasePaths || leasePaths.repositoryRoot !== repositoryRoot)
+      return blocked(
+        "coordinator_lease_acquisition_recovery_required",
+        true,
+        recoveryId,
+      );
+    const lock = path.join(
+      leasePaths.locks,
+      "coordinator.lease." + identity + ".lock",
+    );
+    let physicalIdentity: string;
+    let physicalLock: Lock | null = null;
+    try {
+      const rootMetadata = fs.lstatSync(repositoryRoot);
+      if (
+        !rootMetadata.isDirectory() ||
+        rootMetadata.isSymbolicLink() ||
+        fs.realpathSync.native(repositoryRoot) !== repositoryRoot ||
+        createHash("sha256")
+          .update(
+            JSON.stringify([
+              rootMetadata.dev,
+              rootMetadata.ino,
+              rootMetadata.birthtimeMs,
+            ]),
+            "utf8",
+          )
+          .digest("hex") !== rootIdentity
+      )
+        throw new Error("lease_root_changed");
+      ensureCanonicalDirectory(leasePaths.root);
+      const locks = leasePaths.locks;
+      ensureCanonicalDirectory(locks);
+      const boundary = assertArea(repositoryRoot, "lock", locks);
+      assertDirectory(locks);
+      const acquiredLock = acquireLock({
+        directory: locks,
+        name: path.basename(lock),
+        identity,
+      });
+      if (acquiredLock.status !== "acquired") {
+        // 初期化途中・descriptor終了不明も既存Intentと同じ回復IDで保全する。
+        return blocked(
+          "coordinator_lease_acquisition_recovery_required",
+          true,
+          recoveryId,
+        );
+      }
+      physicalLock = acquiredLock.lock;
+      assertDirectory(locks);
+      physicalIdentity = observePhysicalLeaseFile(lock);
+      assertAreaUnchanged(repositoryRoot, "lock", boundary);
+    } catch {
+      physicalLock?.release(true);
       return blocked(
         "coordinator_lease_acquisition_recovery_required",
         true,
         recoveryId,
       );
     }
-    physicalLock = acquiredLock.lock;
-    assertDirectory(locks);
-    physicalIdentity = observePhysicalLeaseFile(lock);
-    assertAreaUnchanged(repositoryRoot, "lock", boundary);
-  } catch {
-    physicalLock?.release(true);
-    return blocked(
-      "coordinator_lease_acquisition_recovery_required",
-      true,
-      recoveryId,
-    );
-  }
-  try {
-    const observed = {
-      kind: "observed",
-      input: [
+    const acquiredPhysicalLock = physicalLock;
+    const unconfirmed = () => {
+      acquiredPhysicalLock.release(true);
+      return blocked<CoordinatorLease>(
+        "coordinator_lease_acquisition_recovery_required",
+        true,
+        recoveryId,
+      );
+    };
+    let evidenceWaited = false;
+    const observe = () => {
+      const observed = {
+        kind: "observed",
+        input: [
+          binding,
+          projectId,
+          queueId,
+          kind,
+          ownerGeneration,
+          intent,
+          physicalIdentity,
+          recoveryId,
+          process.pid,
+          {
+            physicalIdentityMatches: () => {
+              return (
+                acquiredPhysicalLock.assertLive() === true &&
+                observePhysicalLeaseFile(lock) === physicalIdentity
+              );
+            },
+          },
+        ],
+      } satisfies Parameters<typeof acquireLease>[2];
+      const result = acquireLease(
+        { directory: storageDirectory },
         binding,
+        observed,
+      );
+      if (
+        result.status === "blocked" &&
+        result.reason === "coordinator_snapshot_lock_contended"
+      )
+        evidenceWaited = true;
+      return result;
+    };
+    const finishAcquisition = (acquired: ReturnType<typeof observe> | null) => {
+      if (acquired?.status !== "completed") return unconfirmed();
+      let releaseStarted = false;
+      let lease!: CoordinatorLease;
+      /** 取得済みの同じLeaseだけを終了する。公開の処置は同期・待機付きとも一つ。 @trace ARCH-000008 */
+      const release = (waitForWriter: boolean) => {
+        if (releaseStarted)
+          return blocked<Readonly<{ released: true }>>(
+            "coordinator_lease_already_released",
+          );
+        releaseStarted = true;
+        const active = activeLeases.get(lease);
+        // 現在の実体は終了処置だけが保持し、待機中の新規借用は認めない。
+        activeLeases.delete(lease);
+        let physicalReleaseStarted = false;
+        const preserve = () => {
+          if (!physicalReleaseStarted) acquiredPhysicalLock.release(true);
+          return blocked<Readonly<{ released: true }>>(
+            "coordinator_lease_release_unknown",
+            true,
+            recoveryId,
+          );
+        };
+        const reserveRelease = () =>
+          releaseLease({ directory: storageDirectory }, binding, {
+            kind: "intent",
+            input: [intent, physicalIdentity],
+          });
+        const finishPhysicalRelease = (
+          pending: ReturnType<typeof reserveRelease> | null,
+        ) => {
+          if (pending?.status !== "completed") return preserve();
+          try {
+            if (!active || !activeLeaseIsObserved(active)) return preserve();
+            const area = assertArea(repositoryRoot, "lock", leasePaths.locks);
+            physicalReleaseStarted = true;
+            if (!acquiredPhysicalLock.release()) return preserve();
+            assertAreaUnchanged(repositoryRoot, "lock", area);
+            if (!snapshotLeaseResourcesAbsent(repositoryRoot, identity))
+              return preserve();
+            const settle = () =>
+              releaseLease({ directory: storageDirectory }, binding, {
+                kind: "observed",
+                input: [binding, intent, physicalIdentity, process.pid],
+              });
+            const finished = (value: ReturnType<typeof settle> | null) =>
+              value?.status === "completed" ? value : preserve();
+            return waitForWriter
+              ? waitForStateContention(
+                  new AbortController().signal,
+                  settle,
+                ).then(finished, preserve)
+              : finished(settle());
+          } catch {
+            return preserve();
+          }
+        };
+        try {
+          if (!active || !activeLeaseIsObserved(active)) return preserve();
+          return waitForWriter
+            ? waitForStateContention(
+                new AbortController().signal,
+                reserveRelease,
+              ).then(finishPhysicalRelease, preserve)
+            : finishPhysicalRelease(reserveRelease());
+        } catch {
+          return preserve();
+        }
+      };
+      lease = Object.freeze({
+        kind,
+        ownerGeneration,
+        ...(wait && evidenceWaited ? { evidenceWaited: true as const } : {}),
+        ...(wait ? { releaseWithWait: async () => release(true) } : {}),
+        isHeld() {
+          const active = activeLeases.get(lease);
+          return active !== undefined && activeLeaseIsObserved(active);
+        },
+        /**
+         * 同じ実排他を解放して終了を保存する。
+         * @responsibility 解放意図、実体照合、不存在確認、終了証拠の順を守る。
+         * @trace ARCH-000004
+         * @input N/A: opaque Leaseの取得時結合を使う。
+         * @returns 解放確定またはexact回復参照付き停止。
+         * @precondition 同じ実体を保持するLeaseである。
+         * @postcondition 成功時は実排他が不在でintentが終了している。
+         * @effect 元共通Lockのdescriptor・Fileを解放し保存を更新する。
+         * @failure 別実体、観測不能、保存失敗を保全停止する。
+         * @invariant 要求発行を解放完了にしない。
+         * @boundary opaque Lease、Filesystem、統合保存。
+         * @security 別Ownerの実体を処置しない。
+         * @concurrency 短期保存Ownerを物理操作の前後で分離する。
+         */
+        release(): CoordinatorLeaseResult<Readonly<{ released: true }>> {
+          // falseでは同期の保存段階だけを通る。
+          return release(false) as CoordinatorLeaseResult<
+            Readonly<{ released: true }>
+          >;
+        },
+      });
+      activeLeases.set(lease, {
+        repositoryRoot,
+        repositoryBindingId: binding,
         projectId,
         queueId,
         kind,
         ownerGeneration,
-        intent,
-        physicalIdentity,
-        recoveryId,
-        process.pid,
-        {
-          physicalIdentityMatches: () => {
-            return (
-              physicalLock?.assertLive() === true &&
-              observePhysicalLeaseFile(lock) === physicalIdentity
-            );
-          },
-        },
-      ],
-    } satisfies Parameters<typeof acquireLease>[2];
-    const acquired = acquireLease(
-      { directory: storageDirectory },
-      binding,
-      observed,
-    );
-    if (acquired.status !== "completed") {
-      physicalLock.release(true);
-      return blocked(
-        "coordinator_lease_acquisition_recovery_required",
-        true,
-        recoveryId,
-      );
+        lock,
+        recoveryMarker: "",
+        acquisitionMarker: "",
+        lockOwnershipMarker: "",
+        evidenceDirectory: "",
+        identity,
+        snapshotPhysicalIdentity: physicalIdentity,
+        physicalLock: acquiredPhysicalLock,
+      });
+      return completed("coordinator_lease_acquired", lease);
+    };
+    try {
+      // 物理取得済み。取消されてもこの同じ取得の証拠保存は中断しない。
+      return wait
+        ? waitForStateContention(new AbortController().signal, observe).then(
+            finishAcquisition,
+            unconfirmed,
+          )
+        : finishAcquisition(observe());
+    } catch {
+      return unconfirmed();
     }
-  } catch {
-    physicalLock.release(true);
-    return blocked(
-      "coordinator_lease_acquisition_recovery_required",
-      true,
-      recoveryId,
-    );
-  }
-  let released = false;
-  let lease!: CoordinatorLease;
-  lease = Object.freeze({
-    kind,
-    ownerGeneration,
-    isHeld() {
-      const active = activeLeases.get(lease);
-      return active !== undefined && activeLeaseIsObserved(active);
-    },
-    /**
-     * 同じ実排他を解放して終了を保存する。
-     * @responsibility 解放意図、実体照合、不存在確認、終了証拠の順を守る。
-     * @trace ARCH-000004
-     * @input N/A: opaque Leaseの取得時結合を使う。
-     * @returns 解放確定またはexact回復参照付き停止。
-     * @precondition 同じ実体を保持するLeaseである。
-     * @postcondition 成功時は実排他が不在でintentが終了している。
-     * @effect 元共通Lockのdescriptor・Fileを解放し保存を更新する。
-     * @failure 別実体、観測不能、保存失敗を保全停止する。
-     * @invariant 要求発行を解放完了にしない。
-     * @boundary opaque Lease、Filesystem、統合保存。
-     * @security 別Ownerの実体を処置しない。
-     * @concurrency 短期保存Ownerを物理操作の前後で分離する。
-     */
-    release(): CoordinatorLeaseResult<Readonly<{ released: true }>> {
-      if (released) return blocked("coordinator_lease_already_released");
-      try {
-        const active = activeLeases.get(lease);
-        if (!active || !activeLeaseIsObserved(active))
-          throw new Error("lease_identity_changed");
-        const pending = releaseLease({ directory: storageDirectory }, binding, {
-          kind: "intent",
-          input: [intent, physicalIdentity],
-        });
-        if (pending.status !== "completed")
-          throw new Error("lease_release_intent_unknown");
-        if (!activeLeaseIsObserved(active))
-          throw new Error("lease_identity_changed");
-        const boundary = assertArea(repositoryRoot, "lock", leasePaths.locks);
-        if (!physicalLock.release())
-          throw new Error("lease_release_unconfirmed");
-        assertAreaUnchanged(repositoryRoot, "lock", boundary);
-        if (!snapshotLeaseResourcesAbsent(repositoryRoot, identity))
-          throw new Error("lease_release_unconfirmed");
-        activeLeases.delete(lease);
-        const settled = releaseLease({ directory: storageDirectory }, binding, {
-          kind: "observed",
-          input: [binding, intent, physicalIdentity, process.pid],
-        });
-        if (settled.status !== "completed")
-          throw new Error("lease_release_settlement_unknown");
-        released = true;
-        return settled;
-      } catch {
-        // 失敗したLeaseは再利用せず、descriptorを閉じて元Fileと回復参照を保全する。
-        activeLeases.delete(lease);
-        physicalLock.release(true);
-        return blocked("coordinator_lease_release_unknown", true, recoveryId);
-      }
-    },
-  });
-  activeLeases.set(lease, {
-    repositoryRoot,
-    repositoryBindingId: binding,
-    projectId,
-    queueId,
-    kind,
-    ownerGeneration,
-    lock,
-    recoveryMarker: "",
-    acquisitionMarker: "",
-    lockOwnershipMarker: "",
-    evidenceDirectory: "",
-    identity,
-    snapshotPhysicalIdentity: physicalIdentity,
-    physicalLock,
-  });
-  return completed("coordinator_lease_acquired", lease);
+  };
+  if (!wait) return acquirePhysical(reserve());
+  return waitForStateContention(wait.signal, reserve, wait.revalidate).then(
+    (reserved) =>
+      reserved === null
+        ? blocked<CoordinatorLease>(
+            wait.signal.aborted
+              ? "coordinator_lease_acquisition_cancelled"
+              : "coordinator_authenticated_principal_not_verified",
+          )
+        : acquirePhysical(reserved),
+  );
 }
 
 /**
@@ -956,16 +1150,82 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
   queueId: string,
   kind: LeaseKind,
   observeOwner: CoordinatorLeaseOwnerObservation,
-): CoordinatorLeaseResult<
-  Readonly<{ queue: ProjectQueueEntry | null; recoveryId: string | null }>
-> {
+  wait:
+    | Readonly<{ signal: AbortSignal; revalidate?: () => Promise<boolean> }>
+    | undefined,
+): LeaseOwnerLossResult | Promise<LeaseOwnerLossResult | null>;
+export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
+  storageDirectory: string,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+  observeOwner: CoordinatorLeaseOwnerObservation,
+): LeaseOwnerLossResult;
+export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
+  storageDirectory: string,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+  observeOwner: CoordinatorLeaseOwnerObservation,
+  wait?: Readonly<{ signal: AbortSignal; revalidate?: () => Promise<boolean> }>,
+): LeaseOwnerLossResult | Promise<LeaseOwnerLossResult | null> {
   if (
     ![binding, projectId, queueId].every(validIdentity) ||
     kind !== "project-operation" ||
     typeof observeOwner !== "function"
-  )
-    return blocked("coordinator_lease_recovery_input_invalid");
-  const inspected = readLease({ directory: storageDirectory }, binding, {
+  ) {
+    const invalid: LeaseOwnerLossResult = blocked(
+      "coordinator_lease_recovery_input_invalid",
+    );
+    return wait ? Promise.resolve(invalid) : invalid;
+  }
+  const observe = () =>
+    readCoordinatorSnapshotLeaseOwnerLoss(
+      storageDirectory,
+      binding,
+      projectId,
+      queueId,
+      kind,
+    );
+  const settle = (
+    inspected: ReturnType<typeof observe>,
+  ): LeaseOwnerLossResult =>
+    inspected.status === "completed"
+      ? settleCoordinatorSnapshotLeaseOwnerLoss(
+          storageDirectory,
+          binding,
+          projectId,
+          queueId,
+          kind,
+          observeOwner,
+          inspected.value,
+        )
+      : isCleanStateContention(inspected)
+        ? inspected
+        : blocked(inspected.reason, true, inspected.recoveryId);
+  // Owner観測や物理回復を再試行せず、最初の短期Lock付き読取りだけを待ち直す。
+  return wait
+    ? waitForStateContention(wait.signal, observe, wait.revalidate).then(
+        (inspected) =>
+          inspected === null || wait.signal.aborted ? null : settle(inspected),
+      )
+    : settle(observe());
+}
+
+type LeaseOwnerLossResult = CoordinatorLeaseResult<
+  Readonly<{ queue: ProjectQueueEntry | null; recoveryId: string | null }>
+>;
+
+function readCoordinatorSnapshotLeaseOwnerLoss(
+  storageDirectory: string,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+) {
+  return readLease({ directory: storageDirectory }, binding, {
     kind: "owner_loss",
     input: [
       projectId,
@@ -991,9 +1251,20 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
       },
     ],
   });
-  if (inspected.status !== "completed")
-    return blocked(inspected.reason, true, inspected.recoveryId);
-  const initial = inspected.value;
+}
+
+function settleCoordinatorSnapshotLeaseOwnerLoss(
+  storageDirectory: string,
+  binding: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+  observeOwner: CoordinatorLeaseOwnerObservation,
+  initial: Extract<
+    ReturnType<typeof readCoordinatorSnapshotLeaseOwnerLoss>,
+    { status: "completed" }
+  >["value"],
+): LeaseOwnerLossResult {
   const { recoveryId, identity } = initial;
   const leasePaths =
     resolveRepositoryExecutionDataPathsFromValidatedRoot(storageDirectory);
@@ -1028,20 +1299,27 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
             })
           : blocked(settled.reason, true, recoveryId);
       }
-      return recoverLease({ directory: storageDirectory }, binding, {
-        kind: "reconcile",
-        input: [
-          projectId,
-          queueId,
-          kind,
-          initial.queue,
-          recoveryId,
-          {
-            resourcesAbsent: (repositoryRoot: string) =>
-              snapshotLeaseResourcesAbsent(repositoryRoot, identity),
-          },
-        ],
-      });
+      const reconciled = recoverLease(
+        { directory: storageDirectory },
+        binding,
+        {
+          kind: "reconcile",
+          input: [
+            projectId,
+            queueId,
+            kind,
+            initial.queue,
+            recoveryId,
+            {
+              resourcesAbsent: (repositoryRoot: string) =>
+                snapshotLeaseResourcesAbsent(repositoryRoot, identity),
+            },
+          ],
+        },
+      );
+      return isCleanStateContention(reconciled)
+        ? blocked(reconciled.reason, true, recoveryId)
+        : reconciled;
     }
     try {
       if (

@@ -759,6 +759,44 @@ test("exact回復後Queue候補は別ID・世代・Owner・状態を拒否する
  * @precondition 自己生成した合成Snapshotを使う。実codec・Lock・CASは結合試験で確認する。
  * @effect N/A: メモリ値の比較だけ。
  */
+test("Queue選択は対象Workspace内だけを待たせ、Directとは競合する", () => {
+  const { current, regular } = fixture();
+  const a = {
+    ...regular,
+    queueId: "queue-a",
+    workspaceId: "workspace-a",
+    ownerGeneration: "owner-a",
+  };
+  const b = {
+    ...regular,
+    queueId: "queue-b",
+    workspaceId: "workspace-b",
+    originLane: "scheduled" as const,
+  };
+  const same = { ...b, queueId: "queue-c", workspaceId: a.workspaceId };
+  const direct = { ...b, queueId: "queue-d", workspaceId: null };
+  const state = { ...current, queueEntries: [a, b, same, direct] };
+  const unrelated = prepareQueueSelection(state, b.queueId);
+  assert.equal(unrelated.status, "completed");
+  assert.deepEqual(unrelated.value, { next: null, value: b });
+  const missing = prepareQueueSelection(state, "queue-missing");
+  assert.equal(missing.status, "completed");
+  assert.deepEqual(missing.value, { next: null, value: null });
+  for (const target of [same, direct]) {
+    const blocked = prepareQueueSelection(state, target.queueId);
+    assert.equal(blocked.status, "completed");
+    assert.equal(blocked.value?.value, null);
+    const rows = blocked.value?.next?.queueEntries;
+    assert.ok(rows);
+    assert.strictEqual(rows[0], a);
+    assert.strictEqual(rows[1], b);
+    assert.equal(
+      rows.find(({ queueId }) => queueId === target.queueId)?.state,
+      "waiting_foreground",
+    );
+  }
+});
+
 test("Queue選択は固定優先順とID順を使い必要な待機と復帰だけを更新する", () => {
   const { current, regular } = fixture();
   const later = { ...regular, queueId: "queue-z" };
@@ -819,7 +857,10 @@ test("Queue選択は固定優先順とID順を使い必要な待機と復帰だ�
   ]) {
     const state = { ...current, queueEntries: entries };
     const previous = encodeStateValue(state);
-    const result = prepareQueueSelection(state);
+    const result = prepareQueueSelection(
+      state,
+      entries[0]?.queueId ?? "absent",
+    );
     assert.equal(result.status, "completed");
     assert.equal(result.reason, reason);
     if (result.status !== "completed") throw Error("queue_selection_failed");

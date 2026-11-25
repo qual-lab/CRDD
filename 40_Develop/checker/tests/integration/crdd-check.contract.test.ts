@@ -23,7 +23,7 @@ import { pathToFileURL } from "node:url";
 import {
   inspectDocumentRelations,
   parseArtifact,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 
 /**
  * 公開Parseとモデル間評価から試験用の観測列を組み立てる。
@@ -14250,6 +14250,19 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     path.join(source, "40_Develop", "lock", "src"),
     { recursive: true },
   );
+  const runtimePackages = [
+    "checker",
+    "document-model",
+    "configuration-model",
+    "version-control",
+    "lock",
+  ];
+  write(path.join(source, ".gitignore"), "node_modules/\n");
+  for (const owner of runtimePackages)
+    fs.copyFileSync(
+      path.join(repositoryRoot, "40_Develop", owner, "package.json"),
+      path.join(source, "40_Develop", owner, "package.json"),
+    );
   assert.equal(
     spawnSync("git", ["init", "--quiet", source], { encoding: "utf8" }).status,
     0,
@@ -14303,6 +14316,40 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     { encoding: "utf8" },
   );
   assert.equal(added.status, 0, added.stderr);
+  const installedDevelop = path.join(root, "00_CRDD", "40_Develop");
+  for (const consumer of runtimePackages) {
+    const consumerRoot = path.join(installedDevelop, consumer);
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(consumerRoot, "package.json"), "utf8"),
+    );
+    for (const [name, specifier] of Object.entries(
+      manifest.dependencies ?? {},
+    )) {
+      const owner = runtimePackages.find(
+        (candidate) => specifier === `file:../${candidate}`,
+      );
+      assert.ok(owner, name);
+      assert.equal(name, `@qual-lab/crdd-${owner}`);
+      const target = path.join(installedDevelop, owner);
+      assert.equal(fs.realpathSync.native(target), target);
+      const alias = path.join(consumerRoot, "node_modules", name);
+      fs.mkdirSync(path.dirname(alias), { recursive: true });
+      assert.equal(fs.existsSync(alias), false);
+      fs.symlinkSync(
+        target,
+        alias,
+        process.platform === "win32" ? "junction" : "dir",
+      );
+      assert.equal(fs.realpathSync.native(alias), target);
+    }
+  }
+  const installedStatus = spawnSync(
+    "git",
+    ["-C", path.dirname(installedDevelop), "status", "--porcelain"],
+    { encoding: "utf8" },
+  );
+  assert.equal(installedStatus.status, 0, installedStatus.stderr);
+  assert.equal(installedStatus.stdout, "");
   write(
     path.join(root, "README.md"),
     "[Rule](00_CRDD/01_Principles.md#actual-submodule-rule)\n",

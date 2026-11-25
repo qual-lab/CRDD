@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test, { mock } from "node:test";
 import { runInNewContext } from "node:vm";
-import * as di from "../../../docker-isolation/src/index.ts";
+import * as di from "@qual-lab/crdd-docker-isolation";
 import type { DockerResourceReceipts } from "../../../docker-isolation/tests/support/cleanup.ts";
 import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
 import type { IsolationRuntime } from "../support/executor-test.ts";
@@ -213,10 +213,10 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
  * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
  */
 test("開始通知を待つ間も技術清掃し、通知成功後だけProvider内容を受理する", async () => {
-  const ai = await import("../../../ai-adapter/src/index.ts");
+  const ai = await import("@qual-lab/crdd-ai-adapter");
   let parses = 0;
   const mocked = mock.module(
-    new URL("../../../ai-adapter/src/index.ts", import.meta.url).href,
+    new URL(import.meta.resolve("@qual-lab/crdd-ai-adapter")).href,
     {
       namedExports: {
         ...ai,
@@ -669,13 +669,13 @@ test("通知待機中の取消は未発行を通知し、Home競合は同IDの�
  * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
  */
 test("不正な選定・参照は乱数と隔離構築より前に拒否する", async () => {
-  const ai = await import("../../../ai-adapter/src/index.ts");
+  const ai = await import("@qual-lab/crdd-ai-adapter");
   let runtimes = 0,
     randoms = 0,
     homes = 0,
     traps = 0;
   const mocked = mock.module(
-    new URL("../../../docker-isolation/src/index.ts", import.meta.url).href,
+    new URL(import.meta.resolve("@qual-lab/crdd-docker-isolation")).href,
     {
       namedExports: {
         ...di,

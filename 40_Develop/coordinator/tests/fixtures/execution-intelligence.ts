@@ -13,8 +13,8 @@ import {
   createExecution,
   completeExecution,
   type Execution,
-} from "../../../execution-intelligence/src/index.ts";
-import type { Repository } from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-execution-intelligence";
+import type { Repository } from "@qual-lab/crdd-version-control";
 import { getExecutionIntelligenceStore } from "../../src/lifecycle/host.ts";
 /** 外部Activity契約の固定IDを、EIの不透明IDから独立に算出する。
  * @trace PPR-IT-012

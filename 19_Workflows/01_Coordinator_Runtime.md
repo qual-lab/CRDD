@@ -280,13 +280,17 @@ Repository・Workspace・追加通信Allowlistは認証へ接続しない。実C
 
 この操作は修復技術Sessionを再取得せず、必要な既存metadataの出版とstate marker清掃を確定した上で、保持判断と既存履歴を保存する。Docker／Native技術処置を再取得せず、退避物を削除しない。保持確認と履歴確認が成立しても「保持済み・終了整理待ち」／exit 2であり、退避物の引渡し・状態除去・Task回復の完了ではない。開始前取消では判断を保存せず、保存成立後の取消で既存判断を巻き戻さない。保存や現在状態が不明なら同じIDを保持し、記録の手動編集や新しい修復で上書きしない。
 
-## Docker Desktopの旧復旧記録を扱うとき
+## 実行モデルの保存形式を切り替えるとき
 
-### v0.22責務再編後の移行方針
+並列Workspace対応後の物理保存形式は `.crdd/execution-model/state.json` の `crdd-execution-model/state/v10`。Coordinatorが使う内部投影の `project-snapshot/v9` とは別の版番号である。仕様は[実行モデルの保存設計](../06_Architecture/Details/execution-model/03_Repository_Storage.md)を正本とする。旧 `state/v6` は過去版の形式であり、以下の旧署名に関する記録を現行手順へ流用しない。
 
-統合Coordinatorの保存正本はstate/v6、内部投影はproject-snapshot/v9だけを使用し、新規初期化にはWorkspace空集合を含む。旧形式や未確定pendingを実行時に補完・移行しない。フロントAIが下表の非使用・現在参照・必要成果・未解決義務を確認し、承認された範囲の保全と清掃を終える。新規startの有効な初回受付だけが既存Writerで内部初期化し、状態照会や未知IDのresumeから初期化しない。Snapshotを書き換えて新しい版番号を付ける処置は行わない。実データの移行・削除はexact Rootと対象の承認を得て実施し、合成試験の成功を移行済みの根拠にしない。
+同じ保存先の `state/v9` は新版では読めず、空の状態として再初期化もしない。切替の前に対象Repositoryと新旧版を固定し、受付を停止して、旧版で未解決の実行・回復・履歴確定を処置する。所有者の生存や資源の所在、元Queueとの相関が不明なら切り替えない。全Writerを停止した状態で、終了済みQueueのID・要求照合値、未解決参照、履歴と必要な結果を保持できる別途承認済みの移行だけを行う。形式名の書換え、空状態への置換、新旧Writerの併用は行わない。
 
-以下の旧署名由来を採用・引継ぐ操作は切替前Runtimeの運用履歴であり、新Runtimeの手順として実行しない。新形式への移行はフロントAIが[縮小設計の処置表](../06_Architecture/Details/coordinator/01_Architecture.md#正常復帰後の検証付き再起動)に従って行う。新Runtimeに旧形式Reader、旧Release chain採用または旧Container再利用を追加しない。
+新版の初回書込み前なら、全Writerの停止と旧正本が不変であることを確認して旧版へ戻せる。書込み後は旧版をそのまま再起動せず、新版の履歴を保全したうえで逆移行を別判断とする。状態照会・未知IDの `resume` から初期化しない。既存保存物の変換・退避・削除はこの実装の承認に含めず、合成試験の成功を実移行済みの根拠にしない。
+
+## Docker Desktopの旧復旧記録（当時の手順）
+
+以下は旧署名・Docker復旧のための運用履歴であり、現行の保存形式の切替には使用しない。[当時の縮小設計の処置表](../06_Architecture/Details/coordinator/01_Architecture.md#正常復帰後の検証付き再起動)に対応する。現行版に旧形式Reader、旧Release chain採用または旧Container再利用は追加しない。
 
 | 順序 | 移行時の確認・処置 | 停止条件 |
 |---|---|---|

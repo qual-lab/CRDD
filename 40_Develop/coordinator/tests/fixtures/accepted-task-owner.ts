@@ -9,12 +9,12 @@ import assert from "node:assert/strict";
 import {
   getRepository,
   readRepositoryRevision,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import fs from "node:fs";
 import path from "node:path";
 import { selectionConfig } from "./ai-selection.ts";
-import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
-import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
+import { getModelCatalog } from "@qual-lab/crdd-ai-adapter";
+import { saveRepositoryAiSelection } from "@qual-lab/crdd-configuration-model";
 import { createCoordinatorTaskRequests } from "../../src/lifecycle/execution.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
 

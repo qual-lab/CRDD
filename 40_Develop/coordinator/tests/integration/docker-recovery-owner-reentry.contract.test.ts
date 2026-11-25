@@ -21,7 +21,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext, runInThisContext } from "node:vm";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { acquireLock } from "../../../lock/src/index.ts";
+import { acquireLock } from "@qual-lab/crdd-lock";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,

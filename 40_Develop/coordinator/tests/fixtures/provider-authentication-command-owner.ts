@@ -5,7 +5,7 @@
  * @level IT
  * @scope 実記録・Kernel Lock、有限CLI／Process。実Docker・AIは使わない。
  */
-import type { Lock } from "../../../lock/src/index.ts";
+import type { Lock } from "@qual-lab/crdd-lock";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import readline from "node:readline";

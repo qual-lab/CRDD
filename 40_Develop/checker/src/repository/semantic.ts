@@ -14,9 +14,9 @@ import {
   type QualitySemanticRelation,
   type SemanticCoverageGraph,
   type SemanticIr,
-} from "../../../document-model/src/index.ts";
-import type { Repository } from "../../../version-control/src/index.ts";
-import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-document-model";
+import type { Repository } from "@qual-lab/crdd-version-control";
+import { resolveVerifiedRepositoryRoot } from "@qual-lab/crdd-version-control";
 import { mapSemanticDomainIssueToDiagnostic } from "../report/semantic.ts";
 import type { SemanticCoverageDiagnostic } from "../report/types.ts";
 

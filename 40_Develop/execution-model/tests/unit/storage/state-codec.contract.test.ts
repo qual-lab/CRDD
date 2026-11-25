@@ -8,7 +8,10 @@
  * @boundary 実保存・Host・AI・Dockerは使用しない。
  */
 
-import { hashExecutionProjectDefinition } from "../../../src/objective/validation.ts";
+import {
+  hashExecutionProjectDefinition,
+  projectPlanDefinition,
+} from "../../../src/objective/validation.ts";
 import { hashExecutionStateContent } from "../../../src/composition/validation.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -29,6 +32,7 @@ import {
   EXECUTION_STATE_SCHEMA,
   prepareStateOperationSnapshot,
   prepareUnifiedTaskSections,
+  projectCurrentState,
   projectTaskSnapshot,
   projectTaskSettlement,
   validateDecodedUnifiedTransition,
@@ -432,7 +436,7 @@ const taskExecutionSelections = () => ({
  */
 function emptyExecutionStateSnapshot(): ExecutionStateSnapshot {
   return {
-    schema: "crdd-execution-model/state/v9",
+    schema: "crdd-execution-model/state/v10",
     revision: 1,
     previous: null,
     repositoryBinding: binding,
@@ -440,6 +444,7 @@ function emptyExecutionStateSnapshot(): ExecutionStateSnapshot {
     operations: [],
     unresolvedRecoveries: [],
     projects: [],
+    planVersions: [],
     managedExecutions: [],
     queueEntries: [],
     workspaces: [],
@@ -474,8 +479,9 @@ const empty = {
 test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", () => {
   const empty = {
     ...emptyExecutionStateSnapshot(),
-    schema: "crdd-execution-model/state/v9",
+    schema: "crdd-execution-model/state/v10",
     repositoryBindingId: "binding-a",
+    planVersions: [],
     managedExecutions: [],
   };
   const core: ProjectDefinition = {
@@ -545,7 +551,22 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
   const managed = {
     projectId: core.projectId,
     milestoneId: core.milestoneId,
+    queueId: null,
     definitionHash: hashExecutionProjectDefinition(definition),
+    repositoryRevision: core.repositoryRevision,
+    generation: core.generation,
+    decisionApplicationId: core.decisionApplicationId,
+    milestone: {
+      state: core.milestone.state,
+      criterionEvidenceIds: core.milestone.criterionEvidenceIds,
+    },
+    objectives: [
+      {
+        objectiveId: "objective-a",
+        state: "planned",
+        criterionEvidenceIds: [],
+      },
+    ],
     taskExecutionSelections: taskExecutionSelections(),
     ownerGeneration: "owner-a",
     maximumConcurrency: 1,
@@ -568,8 +589,50 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
   const complete = {
     ...empty,
     projects: [definition],
+    planVersions: [
+      {
+        projectId: definition.projectId,
+        milestoneId: definition.milestoneId,
+        definitionHash: managed.definitionHash,
+        definition: projectPlanDefinition(definition),
+      },
+    ],
     managedExecutions: [managed],
   };
+  const version = complete.planVersions[0];
+  assert.ok(version);
+  for (const value of [
+    {
+      ...complete,
+      schema: "crdd-execution-model/state/v9",
+      planVersions: undefined,
+    },
+    { ...complete, planVersions: [] },
+    { ...complete, planVersions: [version, version] },
+    { ...complete, planVersions: [{ ...version, milestoneId: "other" }] },
+    {
+      ...complete,
+      planVersions: [
+        {
+          ...version,
+          definition: {
+            ...version.definition,
+            milestoneAcceptanceCriteria: ["changed"],
+          },
+        },
+      ],
+    },
+    { ...complete, managedExecutions: [] },
+  ]) {
+    const { planVersions, ...rest } = value;
+    assert.equal(
+      decodeStateSnapshot(
+        encode(planVersions === undefined ? rest : value),
+        binding,
+      ),
+      null,
+    );
+  }
   const unassigned = {
     ...definition,
     objectives: [
@@ -586,6 +649,13 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
       encode({
         ...complete,
         projects: [unassigned],
+        planVersions: [
+          {
+            ...version,
+            definitionHash: hashExecutionProjectDefinition(unassigned),
+            definition: projectPlanDefinition(unassigned),
+          },
+        ],
         managedExecutions: [
           {
             ...managed,
@@ -604,6 +674,105 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
     projected.projects[0]?.tasks[0]?.definition,
     definition.tasks[0],
   );
+  const queue = {
+    historySettled: false,
+    workspaceId: null,
+    queueId: "queue-a",
+    projectId: definition.projectId,
+    milestoneId: definition.milestoneId,
+    requestHash: "b".repeat(64),
+    originLane: "interactive",
+    repositoryRevision: definition.repositoryRevision,
+    scopeHash: "c".repeat(64),
+    state: "queued",
+    generation: 1,
+    ownerGeneration: null,
+    resumeCondition: null,
+    resultReference: null,
+  };
+  const planB = {
+    ...definition,
+    tasks: definition.tasks.map((task) => ({
+      ...task,
+      allowedPaths: ["src/b.ts"],
+    })),
+  };
+  const versionB = {
+    ...version,
+    definitionHash: hashExecutionProjectDefinition(planB),
+    definition: projectPlanDefinition(planB),
+  };
+  const graphA = { ...managed, queueId: queue.queueId };
+  const graphB = {
+    ...managed,
+    queueId: "queue-b",
+    definitionHash: versionB.definitionHash,
+    generation: 3,
+    ownerGeneration: "owner-b",
+  };
+  const twoGraphs = {
+    ...complete,
+    queueEntries: [
+      queue,
+      { ...queue, queueId: "queue-b", requestHash: "d".repeat(64) },
+    ],
+    planVersions: [version, versionB],
+    managedExecutions: [graphA, graphB],
+  };
+  const beforeGraphs = encode(twoGraphs);
+  const observedGraphs = decodeStateSnapshot(beforeGraphs, binding);
+  assert.ok(observedGraphs);
+  const snapshot = projectTaskSnapshot(observedGraphs, binding);
+  assert.ok(snapshot);
+  assert.equal(
+    validSnapshot(snapshot, coreOnly.repositoryBindingId, binding),
+    true,
+  );
+  assert.equal(
+    projectCurrentState(snapshot, definition.projectId).status,
+    "blocked",
+  );
+  const readB = projectCurrentState(snapshot, definition.projectId, "queue-b");
+  assert.equal(readB.status, "completed");
+  if (readB.status !== "completed") throw new Error("queue-b");
+  const stateB = readB.value.value;
+  assert.ok(stateB);
+  assert.equal(stateB.generation, 3);
+  assert.deepEqual(stateB.tasks[0]?.definition.allowedPaths, ["src/b.ts"]);
+  const update = prepareUnifiedTaskSnapshot(
+    beforeGraphs,
+    { ...stateB, generation: 4 },
+    3,
+    binding,
+  );
+  assert.ok(update);
+  const updatedGraphs = decodeStateSnapshot(update, binding);
+  assert.ok(updatedGraphs);
+  assert.deepEqual(updatedGraphs.snapshot.projects, [definition]);
+  assert.deepEqual(updatedGraphs.snapshot.managedExecutions[0], graphA);
+  assert.deepEqual(updatedGraphs.snapshot.managedExecutions[1], {
+    ...graphB,
+    generation: 4,
+  });
+  for (const rows of [
+    [graphA, { ...graphB, queueId: "queue-a" }],
+    [graphA, { ...graphB, queueId: "unknown" }],
+    [graphA, { ...graphB, repositoryRevision: "f".repeat(40) }],
+    [
+      graphA,
+      {
+        ...graphB,
+        objectives: [{ ...graphB.objectives[0], objectiveId: "other" }],
+      },
+    ],
+  ])
+    assert.equal(
+      decodeStateSnapshot(
+        encode({ ...twoGraphs, managedExecutions: rows }),
+        binding,
+      ),
+      null,
+    );
   const firstDefinition = definition.tasks[0];
   const firstManaged = managed.tasks[0];
   assert.ok(firstDefinition && firstManaged);
@@ -619,6 +788,13 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
   const ordered = {
     ...complete,
     projects: [twoDefinitions],
+    planVersions: [
+      {
+        ...version,
+        definitionHash: twoManaged.definitionHash,
+        definition: projectPlanDefinition(twoDefinitions),
+      },
+    ],
     managedExecutions: [twoManaged],
   };
   assert.ok(decodeStateSnapshot(encode(ordered), binding));
@@ -637,6 +813,8 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
   for (const changed of [
     { ...managed, definitionHash: "f".repeat(64) },
     { ...managed, milestoneId: "other" },
+    { ...managed, generation: managed.generation + 1 },
+    { ...managed, repositoryRevision: "f".repeat(40) },
     { ...managed, tasks: [] },
     { ...managed, tasks: [managed.tasks[0], managed.tasks[0]] },
     { ...managed, ownerGeneration: null },

@@ -6,13 +6,13 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { REPOSITORY_MANIFEST_RELATIVE_PATH } from "../../../configuration-model/src/index.ts";
+import { REPOSITORY_MANIFEST_RELATIVE_PATH } from "@qual-lab/crdd-configuration-model";
 import {
   inspectDocumentRelations,
   parseRepositoryProjectContextMarkdown,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 
-import { readRepositoryLocation } from "../../../version-control/src/index.ts";
+import { readRepositoryLocation } from "@qual-lab/crdd-version-control";
 import type { DocumentFinding } from "../report/types.ts";
 import {
   lstatIfPresent,

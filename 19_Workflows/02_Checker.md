@@ -34,6 +34,15 @@ CRDD公式Repositoryの開発に限り、各Packageの`npm run check`、`npm run
 
 検証済みNode.jsと対象リポジトリを使う。以下は公式CRDDリポジトリの実行例。採用先では、版を固定した完全なCRDDチェックアウトを`00_CRDD/`に置き、適用先のルートから`node 00_CRDD/template/tools/crdd-check.ts --root . --json --summary`を実行する。
 
+新しいチェックアウトでは、実行前に同じチェックアウト内で依存を導入する。採用先のルートから導入する例は次のとおり。公式リポジトリを直接使う場合は `00_CRDD/` を外す。Checkerの通常利用に開発依存は不要で、自作依存は同じチェックアウトへリンクする。
+
+```powershell
+foreach ($package in @('lock', 'version-control', 'configuration-model', 'document-model', 'checker')) {
+  npm --prefix "00_CRDD/40_Develop/$package" ci --omit=dev --install-links=false
+  if ($LASTEXITCODE -ne 0) { throw "$package の依存を導入できませんでした" }
+}
+```
+
 ```powershell
 & "C:\Program Files\nodejs\node.exe" "C:\project\CRDD\40_Develop\checker\bin\checker.ts" --root "C:\project\CRDD" --json --summary
 ```

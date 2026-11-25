@@ -32,7 +32,7 @@
 | Provider認証 | `auth status codex\|claude [--json]`、`auth login codex\|claude` | 状態確認と公式対話ログインを区別する | Loginだけはstdin／stdoutを直接端末へ接続し、JSON出力を受け付けない。生対話をTask本文・診断・Snapshotへ保存しない |
 | 取消 | 実行中のCLIへSIGINT／SIGTERM | 取消要求後も終端結果を待つ | 要求受付、Process終了、回収確認、Listener解除を区別する |
 | 回復・保守 | `recovery inspect <id>`、`recovery resume <id>`、`recovery resume <id> --restart-docker`、`maintenance repair`、`maintenance repair --retain <id>` | exactな対象と結果を確認する | 表示だけで再送・再起動・削除を許可しない。明示的なDocker再起動の前に、[同じDockerを使う他の実行・回復を止める](../19_Workflows/01_Coordinator_Runtime.md#正常なdockerで作成結果不明のtaskを回復するとき) |
-| Workspace候補 | Workbench／MCPとCoordinatorのWorkspace操作 | Workspace ID、Base／Candidate Commit、固定・採用・回収結果を分ける | 旧CLIのcandidate export／discardを現行入口として案内しない。採用はTask完了と別判断 |
+| Workspace候補 | Workbench／MCPからCRDD Serverの共通Workspace操作 | 元Queue、Workspace ID、Base／Candidate Commit、固定・採用・回収結果を分ける | 旧CLIのcandidate export／discardを現行入口として案内しない。採用はTask完了と別判断 |
 | Checker | 対象、`--json`、`--summary`、Scope | 診断、対象、未確認範囲を読む | 指摘0を全範囲検証済みやRelease可としない |
 
 上表の構文は[能力一覧の実装](../40_Develop/coordinator/src/lifecycle/environment.ts)と[CLI契約試験](../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts)に接続する。本書の更新では操作を実行しておらず、認証・実Task・Docker・回復の成功を新たに確認したものではない。
@@ -80,6 +80,7 @@ Task／ProjectのJSONキー・状態・理由・回復参照を、表示都合�
 | Provider認証 | 状態確認と対話Loginを分け、秘密を表示記録へ複製しない | [認証受付](../40_Develop/coordinator/src/cli/command.ts) |
 | Workspace候補 | 固定・確認・採用・回収をTask完了と分ける | [候補昇格の振る舞い](../05_SPEC/Details/BHV-000027/behavior.md)、[Workspace結合試験](../40_Develop/crdd-server/tests/integration/workspace-lifecycle.integration.test.ts) |
 | Workspace作成 | 選択ブランチのHEADから作成する。元の未コミット変更がある場合は、引き継がないことを案内して確認を待つ | [Workspace横断契約](../06_Architecture/Details/coordinator/05_Workspace.md) |
+| 並行Graphの表示 | 同一Projectに複数の進行中Graphがあれば、対象実行を選んでTaskとWorkspaceを照合する。元Queueを確認できない履歴を選択したGraphに付け替えない | [Serverの実行状態照会](../06_Architecture/Details/workbench-server/01_Architecture.md) |
 | 取消・回復 | 要求・終端・回収確認を区別する | [取消試験](../40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts)、[回復CLI試験](../40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts) |
 | Workbench表示 | 画面の状態・次行動とBehaviorを同じ意味で示す | [UI／SPEC対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)、§9 |
 | Checker | 指摘・検査範囲・未検査を読み分ける | [Checker契約](../05_SPEC/07_Current_Behavior_Reference.md#checker-contract)、[操作手順](../19_Workflows/02_Checker.md) |

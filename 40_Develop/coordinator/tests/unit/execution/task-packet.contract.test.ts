@@ -17,8 +17,8 @@ import test, { mock } from "node:test";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
-} from "../../../../version-control/src/index.ts";
-import { planExecution } from "../../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-version-control";
+import { planExecution } from "@qual-lab/crdd-ai-adapter";
 import { createRepositoryTestDirectory } from "../../../../execution-model/tests/support/repository-test-directory.ts";
 import * as decision from "../../../src/lifecycle/decision.ts";
 

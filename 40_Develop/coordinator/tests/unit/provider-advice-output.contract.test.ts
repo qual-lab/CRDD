@@ -12,7 +12,7 @@ import { PROVIDER_ADVICE_OUTPUT_REASONS } from "../../../ai-adapter/src/provider
  * @scope coordinator、contract、node_process
  * @boundary Provider固有Transportと共通助言Normalizerの局所境界。
  */
-import { dockerProcessControllerPublicCompletionReasons } from "../../../execution-model/src/index.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "@qual-lab/crdd-execution-model";
 // 実Producerの列そのものとのexact比較に限定した試験参照。製品向けの深い依存ではない。
 import { ATTEMPT_COMPLETION_REASONS } from "../../../executor/src/lifecycle/attempt.ts";
 import { coordinatorTaskPublicReasons } from "../../src/lifecycle/validation.ts";

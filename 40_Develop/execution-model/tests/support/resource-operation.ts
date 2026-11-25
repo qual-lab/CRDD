@@ -160,6 +160,7 @@ export function createResourceOperationFixture() {
           summarySha256: null,
         },
       ],
+      planVersions: [],
       previous: null,
       projects: [],
       queueEntries: [],
@@ -167,7 +168,7 @@ export function createResourceOperationFixture() {
       repositoryBindingId: null,
       results: [],
       revision: 1,
-      schema: "crdd-execution-model/state/v9",
+      schema: "crdd-execution-model/state/v10",
       unresolvedRecoveries: [],
       workspaces: [],
     };

@@ -7,6 +7,7 @@
 import {
   leaseAcquisitionRecoveryId,
   leaseIdentity,
+  leaseScopeAvailable,
   snapshotStateArray,
   validId,
   encodeStateValue,
@@ -78,8 +79,13 @@ export function readLease(
   if (!captured) return blocked("coordinator_snapshot_input_invalid");
   switch (captured.kind) {
     case "acquisition": {
-      const tuple = snapshotStateArray(captured.input, 1);
-      if (tuple.status !== "ok" || tuple.value.length < 1)
+      const tuple = snapshotStateArray(captured.input, 2);
+      if (
+        tuple.status !== "ok" ||
+        tuple.value.length !== 2 ||
+        tuple.value[0] !== binding ||
+        !validId(tuple.value[1])
+      )
         return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
 
@@ -121,12 +127,17 @@ export function readLease(
           observeRoot: () => input[3].observeRoot(owner.repositoryRoot),
         }),
       );
-      return result.status === "completed"
-        ? result
-        : Object.freeze({
-            ...result,
-            recoveryId: result.recoveryId ?? recoveryId,
-          });
+      if (
+        result.status === "completed" ||
+        (result.reason === "coordinator_snapshot_lock_contended" &&
+          !result.manualRecoveryRequired &&
+          result.recoveryId === null)
+      )
+        return result;
+      return Object.freeze({
+        ...result,
+        recoveryId: result.recoveryId ?? recoveryId,
+      });
     }
   }
   return blocked("coordinator_snapshot_input_invalid");
@@ -425,8 +436,8 @@ export function acquireLease(
   if (!captured) return blocked("coordinator_snapshot_input_invalid");
   switch (captured.kind) {
     case "intent": {
-      const tuple = snapshotStateArray(captured.input, 5);
-      if (tuple.status !== "ok" || tuple.value.length !== 5)
+      const tuple = snapshotStateArray(captured.input, 6);
+      if (tuple.status !== "ok" || tuple.value.length < 5)
         return blocked("coordinator_snapshot_input_invalid");
       const input = tuple.value as unknown as typeof captured.input;
       const owner = snapshotStateRecord(
@@ -439,12 +450,13 @@ export function acquireLease(
         !validId(input[1]) ||
         input[2] !== "project-operation" ||
         !owner ||
+        (input[5] !== undefined &&
+          (!Number.isSafeInteger(input[5]) || Number(input[5]) < 1)) ||
         !validId(owner.ownerGeneration) ||
         !Number.isSafeInteger(owner.ownerProcessId) ||
         (owner.ownerProcessId as number) <= 0
       )
         return blocked("coordinator_snapshot_input_invalid");
-      const identity = leaseIdentity(binding, input[0], input[1], input[2]);
       const recoveryId = leaseAcquisitionRecoveryId(
         binding,
         input[0],
@@ -458,6 +470,7 @@ export function acquireLease(
         ownerGeneration: owner.ownerGeneration,
         ownerProcessId: owner.ownerProcessId as number,
         recoveryId,
+        ...(input[5] === undefined ? {} : { recoveryGeneration: input[5] }),
         phase: "acquisition_reserved",
         physicalIdentity: null,
       };
@@ -467,8 +480,18 @@ export function acquireLease(
           ReturnType<typeof prepareLeaseAcquisitionReservation>,
           { status: "completed" }
         >["value"]["value"]
-      >(workingDirectory, binding, (current, owner) =>
-        prepareLeaseAcquisitionReservation(
+      >(workingDirectory, binding, (current, owner) => {
+        const workspaceId = current.queueEntries.find(
+          (queue) => queue.queueId === input[1],
+        )?.workspaceId;
+        const identity = leaseIdentity(
+          binding,
+          input[0],
+          input[1],
+          input[2],
+          workspaceId,
+        );
+        return prepareLeaseAcquisitionReservation(
           current,
           input[0],
           input[1],
@@ -476,13 +499,18 @@ export function acquireLease(
           intent,
           {
             resourcesAbsent: () =>
-              input[4].resourcesAbsent(owner.repositoryRoot, identity),
+              input[4].resourcesAbsent(owner.repositoryRoot, identity) &&
+              (workspaceId == null ||
+                input[4].resourcesAbsent(
+                  owner.repositoryRoot,
+                  leaseIdentity(binding, input[0], input[1], input[2]),
+                )),
             observeRoot: () => input[4].observeRoot(owner.repositoryRoot),
             markIntentSaveRequested: () =>
               input[4].markIntentSaveRequested(recoveryId),
           },
-        ),
-      );
+        );
+      });
     }
     case "observed": {
       const tuple = snapshotStateArray(captured.input, 10);
@@ -523,11 +551,12 @@ export function acquireLease(
 export function projectLeaseAcquisitionOwner(
   current: Snapshot,
   binding: string,
+  queueId: string,
 ) {
   if (current.schema !== PROJECT_SNAPSHOT_SCHEMA)
     return blockedLeaseCandidate("coordinator_snapshot_schema_invalid");
   const intents = current.leaseIntents.filter(
-    (item) => item.kind === "project-operation",
+    (item) => item.kind === "project-operation" && item.queueId === queueId,
   );
   const first = intents[0];
   if (!first)
@@ -605,15 +634,15 @@ export function prepareLeaseAcquisitionReservation(
     markIntentSaveRequested: () => void;
   }>,
 ) {
+  const queue = current.queueEntries.find((item) => item.queueId === queueId);
   if (
     current.schema !== PROJECT_SNAPSHOT_SCHEMA ||
     !validId(projectId) ||
-    !current.queueEntries.some(
-      (item) => item.queueId === queueId && item.projectId === projectId,
-    )
+    !queue ||
+    queue.projectId !== projectId
   )
     return blockedLeaseCandidate("coordinator_lease_binding_invalid");
-  if (current.leaseIntents.length)
+  if (!leaseScopeAvailable(current, queue, intent.recoveryGeneration))
     return blockedLeaseCandidate("coordinator_lease_unavailable");
   if (observations.resourcesAbsent() !== true)
     return blockedLeaseCandidate("coordinator_lease_preexisting_resource");
@@ -661,6 +690,20 @@ export function prepareLeaseAcquisitionConfirmation(
 ) {
   if (
     current.schema !== PROJECT_SNAPSHOT_SCHEMA ||
+    intent.queueId !== queueId ||
+    intent.projectId !== projectId ||
+    intent.kind !== kind ||
+    intent.ownerGeneration !== ownerGeneration ||
+    intent.ownerProcessId !== ownerProcessId ||
+    intent.recoveryId !== recoveryId ||
+    (intent.recoveryGeneration !== undefined &&
+      !current.queueEntries.some(
+        (queue) =>
+          queue.queueId === queueId &&
+          queue.generation === intent.recoveryGeneration &&
+          queue.state === "recovery_required" &&
+          queue.singleTask !== undefined,
+      )) ||
     !current.leaseIntents.some(
       (item) => encodeStateValue(item) === encodeStateValue(intent),
     )
@@ -722,6 +765,11 @@ export function prepareLeaseReleaseIntent(
     !current.leaseIntents.some(
       (item) =>
         item.ownerGeneration === ownerGeneration &&
+        item.queueId === intent.queueId &&
+        item.projectId === intent.projectId &&
+        item.kind === intent.kind &&
+        item.ownerProcessId === intent.ownerProcessId &&
+        item.recoveryGeneration === intent.recoveryGeneration &&
         item.phase === "lock_owned" &&
         item.physicalIdentity === physicalIdentity,
     )
@@ -775,6 +823,12 @@ export function prepareLeaseReleaseSettlement(
     !current.leaseIntents.some(
       (item) =>
         item.ownerGeneration === ownerGeneration &&
+        item.queueId === queueId &&
+        item.projectId === projectId &&
+        item.kind === kind &&
+        item.ownerProcessId === intent.ownerProcessId &&
+        ownerProcessId === intent.ownerProcessId &&
+        item.recoveryGeneration === intent.recoveryGeneration &&
         item.phase === "release_pending" &&
         item.physicalIdentity === physicalIdentity,
     )
@@ -858,6 +912,7 @@ export function projectLeaseOwnerLossState(
         projectId,
         queueId,
         kind,
+        queue.workspaceId,
       ),
       recoveryId: leaseAcquisitionRecoveryId(
         current.repositoryBindingId,
@@ -1100,6 +1155,20 @@ export function prepareLeaseRecoverySettlement(
       true,
       recoveryId,
     );
+  if (
+    initial.queue?.ownerGeneration != null &&
+    initial.queue.ownerGeneration !== first.ownerGeneration
+  )
+    return blockedLeaseCandidate(
+      "coordinator_lease_recovery_state_mismatch",
+      true,
+      recoveryId,
+    );
+  const releaseOnly =
+    initial.queue?.ownerGeneration === first.ownerGeneration &&
+    (initial.queue.state === "completed" ||
+      initial.queue.state === "cancelled" ||
+      initial.queue.state === "integration_pending");
   const evidence = createLeaseEvidence(binding, projectId, 2, {
     kind,
     queueId,
@@ -1115,14 +1184,16 @@ export function prepareLeaseRecoverySettlement(
       : Object.freeze({
           ...initial.queue,
           generation: initial.queue.generation + 1,
-          ...(initial.queue.ownerGeneration === null
-            ? {}
-            : {
-                state: "recovery_required" as const,
-                ownerGeneration: null,
-                resumeCondition: "owner_loss" as const,
-              }),
-          resultReference: recoveryId,
+          ...(releaseOnly
+            ? { ownerGeneration: null }
+            : initial.queue.ownerGeneration === null
+              ? { resultReference: recoveryId }
+              : {
+                  state: "recovery_required" as const,
+                  ownerGeneration: null,
+                  resumeCondition: "owner_loss" as const,
+                  resultReference: recoveryId,
+                }),
         });
   return completedLeaseCandidate("coordinator_lease_owner_loss_reconciled", {
     next: {

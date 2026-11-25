@@ -480,10 +480,10 @@ test("共通公開型は用途と開始・取消・結果・通知の対応を�
  */
 function cancellationSession(
   handler: () => Promise<boolean>,
-): import("../../../docker-isolation/src/index.ts").IsolationExecution {
+): import("@qual-lab/crdd-docker-isolation").IsolationExecution {
   return {
     completion: Promise.resolve(
-      {} as import("../../../docker-isolation/src/index.ts").IsolationExecutionResult,
+      {} as import("@qual-lab/crdd-docker-isolation").IsolationExecutionResult,
     ),
     cancel: async () => ({
       cancellationRequested: true,

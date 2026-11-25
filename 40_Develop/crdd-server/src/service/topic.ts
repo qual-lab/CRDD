@@ -14,15 +14,15 @@ import type {
   TopicMeetingRelation,
   TopicMeetingWriteResult,
   TopicPromotionCommandResult,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 
-import type { AuthorizedRepository } from "../../../access-management/src/index.ts";
+import type { AuthorizedRepository } from "@qual-lab/crdd-access-management";
 import {
   createMeetingOperations,
   createTopicOperations,
   federateTopicMeetingRelations,
   type TopicMeetingAccess,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 
 /** TopicとMeetingが共用する種別確定済みの書込み入力。 @trace ARCH-000006 */
 export type RecordWriteCommand =

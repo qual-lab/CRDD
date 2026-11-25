@@ -116,12 +116,12 @@ export type {
   ResourceInspection,
   ResourceSnapshot,
   ResourceTarget,
-} from "../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 export {
   inspectDockerEnvironment,
   restartDockerEnvironment,
   startDockerEnvironment,
-} from "../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 export { cleanupResources, inspectResources } from "./lifecycle/cleanup.ts";
 export type {
   AttemptCancelInput,

@@ -36,14 +36,14 @@ import {
   updateCredentialPresentationState,
   registerUser,
   revokeCredential,
-} from "../../../access-management/src/index.ts";
+} from "@qual-lab/crdd-access-management";
 import {
   createInitialAdministrator,
   createInitialCredential,
   initializeAccessManagementState,
 } from "../../../access-management/src/initialization/execution.ts";
 import { readAccessManagementState } from "../../../access-management/src/storage/store.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 
 import {
   closeMcpHttpOnProcessSignal,
@@ -680,7 +680,7 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
   const hook =
     "data:text/javascript," +
     encodeURIComponent(
-      `import {registerHooks} from 'node:module';registerHooks({resolve(s,c,n){if(s.includes('coordinator/')||s.includes('executor/'))throw Error('automation_unavailable');return n(s,c);}});`,
+      `import {registerHooks} from 'node:module';registerHooks({resolve(s,c,n){if(s==='@qual-lab/crdd-coordinator'||s==='@qual-lab/crdd-executor'||s.includes('coordinator/')||s.includes('executor/'))throw Error('automation_unavailable');return n(s,c);}});`,
     );
   const child = spawn(
     process.execPath,

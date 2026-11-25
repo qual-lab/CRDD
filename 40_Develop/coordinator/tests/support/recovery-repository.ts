@@ -6,7 +6,7 @@
  * @boundary 試験専用。製品の許可や保存は行わない。
  */
 import { types } from "node:util";
-import * as versionControl from "../../../version-control/src/index.ts";
+import * as versionControl from "@qual-lab/crdd-version-control";
 
 /**
  * 合成Repositoryに対する上位の回復受付を試験内で組み立てる。

@@ -13,7 +13,7 @@ import {
   inspectChangeNavigation,
   parseChangeDocument,
   parseChangeIndex,
-} from "../../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { mapChangeDomainIssueToFinding } from "../../../src/report/convert.ts";
 
 /**

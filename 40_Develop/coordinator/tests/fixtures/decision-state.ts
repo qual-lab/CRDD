@@ -16,7 +16,7 @@ import {
   createQueue,
   initializeExecutionStore,
   type ProjectExecutionState,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   projectExecutionFixture,
   initialExecutionInput,
@@ -140,9 +140,19 @@ export function persistAcceptancePendingState(
     "completed",
   );
   const ports = createTestPersistence(root, repositoryBindingId);
-  const port = ports;
   let current: ProjectExecutionState = state.state;
   const queueId = `queue-${projectId}`;
+  const requestHash = createHash("sha256").update(queueId).digest("hex");
+  const port = {
+    ...ports,
+    intake: {
+      operation: "resume" as const,
+      queueId,
+      projectId,
+      milestoneId: current.milestone.id,
+      requestHash,
+    },
+  };
   const queued = createQueue(port.repository, port.repositoryBindingId, {
     kind: "scheduled",
     input: [
@@ -150,7 +160,7 @@ export function persistAcceptancePendingState(
         queueId,
         projectId,
         milestoneId: current.milestone.id,
-        requestHash: createHash("sha256").update(queueId).digest("hex"),
+        requestHash,
         originLane: "interactive",
         repositoryRevision: revision,
         scopeHash: createHash("sha256").update(projectId).digest("hex"),
@@ -164,8 +174,9 @@ export function persistAcceptancePendingState(
       port.repository,
       port.repositoryBindingId,
       projectId,
+      queueId,
     ).value,
-    current,
+    { ...current, queueId },
   );
   for (const command of [
     {

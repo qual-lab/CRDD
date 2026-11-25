@@ -42,6 +42,7 @@ import {
   validateOperationTransitions,
 } from "../attempt/transition.ts";
 import {
+  blockerAppliesToQueue,
   projectDecisionHistory,
   validateDecisionCollections,
   validateDecisionRetirement,
@@ -61,7 +62,9 @@ import {
 import type { HistoryRetentionReferences } from "../history/types.ts";
 import { decodeHistoryRows, historyRow } from "../history/validation.ts";
 import {
+  hashExecutionPlanDefinition,
   hashExecutionProjectDefinition,
+  projectPlanDefinition,
   inspectCompletePlanDefinition,
   inspectExecutionProjectDefinition,
 } from "../objective/validation.ts";
@@ -74,6 +77,7 @@ import { associateTaskOperations } from "../task/transition.ts";
 import { validResultRecord, validWorkspace } from "../workspace/validation.ts";
 import type {
   ExecutionStateSnapshot,
+  ExecutionPlanVersion,
   ExecutionStoredManagedProject,
   ProjectDefinition,
   ProjectExecutionState,
@@ -86,7 +90,6 @@ import type { LeaseEvidenceEnvelope } from "../lease/types.ts";
 import {
   validLeaseEvidence,
   hashStateText,
-  leaseIdentity,
   leaseAcquisitionRecoveryId,
   encodeStateValue,
   hasExecutionStateRecordKeys,
@@ -163,8 +166,16 @@ export function decodeExecutionStateBytes(input: unknown) {
  * @concurrency 保存CASと現在Owner再確認・解放は既存Writerが行う。
  */
 
-export function projectCurrentState(current: Snapshot, projectId: string) {
-  if (current.schema !== PROJECT_SNAPSHOT_SCHEMA || !validId(projectId))
+export function projectCurrentState(
+  current: Snapshot,
+  projectId: string,
+  queueId?: string,
+) {
+  if (
+    current.schema !== PROJECT_SNAPSHOT_SCHEMA ||
+    !validId(projectId) ||
+    (queueId !== undefined && !validId(queueId))
+  )
     return Object.freeze({
       status: "blocked" as const,
       reason:
@@ -175,13 +186,25 @@ export function projectCurrentState(current: Snapshot, projectId: string) {
       manualRecoveryRequired: false,
       recoveryId: null,
     });
+  const matching = current.projects.filter(
+    (item) =>
+      item.projectId === projectId &&
+      (queueId === undefined || item.queueId === queueId),
+  );
+  if (matching.length > 1)
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "coordinator_state_identity_invalid" as const,
+      value: null,
+      manualRecoveryRequired: false,
+      recoveryId: null,
+    });
   return Object.freeze({
     status: "completed" as const,
     reason: "coordinator_state_observed",
     value: {
       next: null,
-      value:
-        current.projects.find((item) => item.projectId === projectId) ?? null,
+      value: matching[0] ?? null,
     },
   });
 }
@@ -2098,6 +2121,7 @@ export function validateDecodedStateTransition(
       );
       const businessKeys = [
         "repositoryBindingId",
+        "planVersions",
         "queueEntries",
         "workspaces",
         "leaseEvidence",
@@ -2122,6 +2146,7 @@ export function validateDecodedStateTransition(
     } else if (
       next.snapshot.repositoryBindingId !== null ||
       next.snapshot.projects.length !== 0 ||
+      next.snapshot.planVersions.length !== 0 ||
       next.snapshot.managedExecutions.length !== 0
     )
       return false;
@@ -2143,6 +2168,7 @@ export function validateDecodedStateTransition(
 const EMPTY_EXECUTION_TASK_SECTIONS = {
   repositoryBindingId: null,
   projects: [],
+  planVersions: [],
   managedExecutions: [],
   queueEntries: [],
   workspaces: [],
@@ -2216,10 +2242,33 @@ export function validateDecodedUnifiedTransition(
           current.snapshot.repositoryBindingId)
     )
       return false;
+    const nextExecutionByQueue = new Map(
+      next.snapshot.managedExecutions.map((execution) => [
+        execution.queueId === null
+          ? `project:${execution.projectId}`
+          : `queue:${execution.queueId}`,
+        execution,
+      ]),
+    );
+    for (const old of current.snapshot.managedExecutions) {
+      if (old.queueId === null) continue;
+      const successor = nextExecutionByQueue.get(`queue:${old.queueId}`);
+      if (
+        !successor ||
+        old.projectId !== successor.projectId ||
+        old.milestoneId !== successor.milestoneId ||
+        old.repositoryRevision !== successor.repositoryRevision
+      )
+        return false;
+    }
     for (const project of next.snapshot.managedExecutions)
       for (const task of project.tasks) {
         const prior = current.snapshot.managedExecutions
-          .find((p) => p.projectId === project.projectId)
+          .find(
+            (p) =>
+              p.projectId === project.projectId &&
+              p.queueId === project.queueId,
+          )
           ?.tasks.find((t) => t.taskId === task.taskId);
         for (const obligation of task.recoveryObligations) {
           if (
@@ -2245,7 +2294,11 @@ export function validateDecodedUnifiedTransition(
             )
               continue;
             const beforeTask = current.projects
-              .find((p) => p.projectId === project.projectId)
+              .find(
+                (p) =>
+                  p.projectId === project.projectId &&
+                  (p.queueId ?? null) === project.queueId,
+              )
               ?.tasks.find((t) => t.definition.id === task.taskId);
             const retry =
               prior.state === "recovery_required" &&
@@ -2328,15 +2381,16 @@ export function validateDecodedUnifiedTransition(
         current.snapshot.blockers.some(
           (blocker) =>
             blocker.status === "active" &&
-            blocker.target.projectId === queue.projectId &&
-            blocker.target.milestoneId === queue.milestoneId,
+            blockerAppliesToQueue(current.snapshot.decisions, blocker, queue),
         )
       )
         return false;
     }
     for (const project of next.projects) {
       const previous = current.projects.find(
-        (item) => item.projectId === project.projectId,
+        (item) =>
+          item.projectId === project.projectId &&
+          item.queueId === project.queueId,
       );
       for (const task of project.tasks) {
         if (!["reserved", "handoff_prepared"].includes(task.startPhase))
@@ -2354,8 +2408,11 @@ export function validateDecodedUnifiedTransition(
           current.snapshot.blockers.some(
             (blocker) =>
               blocker.status === "active" &&
-              blocker.target.projectId === project.projectId &&
-              blocker.target.milestoneId === project.milestoneId &&
+              blockerAppliesToQueue(
+                current.snapshot.decisions,
+                blocker,
+                project,
+              ) &&
               (blocker.target.kind === "milestone" ||
                 (blocker.target.kind === "objective" &&
                   blocker.target.id === task.definition.objectiveId) ||
@@ -2394,7 +2451,9 @@ function validateSettlementTransition(
   try {
     for (const old of current.snapshot.managedExecutions) {
       const replacement = next.snapshot.managedExecutions.find(
-        (project) => project.projectId === old.projectId,
+        (project) =>
+          project.projectId === old.projectId &&
+          project.queueId === old.queueId,
       );
       if (
         replacement &&
@@ -2454,7 +2513,11 @@ function validateSettlementTransition(
           )
             continue;
           const replacement = next.snapshot.managedExecutions
-            .find((entry) => entry.projectId === project.projectId)
+            .find(
+              (entry) =>
+                entry.projectId === project.projectId &&
+                entry.queueId === project.queueId,
+            )
             ?.tasks.find((entry) => entry.taskId === task.taskId);
           if (
             !replacement ||
@@ -2601,6 +2664,7 @@ export function decodeStateSnapshot(
         "unresolvedRecoveries",
         "repositoryBindingId",
         "projects",
+        "planVersions",
         "managedExecutions",
         "queueEntries",
         "workspaces",
@@ -2615,7 +2679,7 @@ export function decodeStateSnapshot(
       return null;
     const snapshot = value as ExecutionStateSnapshot;
     if (
-      snapshot.schema !== "crdd-execution-model/state/v9" ||
+      snapshot.schema !== EXECUTION_STATE_SCHEMA ||
       snapshot.repositoryBinding !== repositoryBinding ||
       !Number.isSafeInteger(snapshot.revision) ||
       snapshot.revision < 1 ||
@@ -2628,6 +2692,8 @@ export function decodeStateSnapshot(
           snapshot.previous?.revision !== snapshot.revision - 1 ||
           !isSha256Hex(snapshot.previous?.payloadSha256)) ||
       !Array.isArray(snapshot.projects) ||
+      !Array.isArray(snapshot.planVersions) ||
+      !Array.isArray(snapshot.queueEntries) ||
       !Array.isArray(snapshot.managedExecutions)
     )
       return null;
@@ -2652,37 +2718,95 @@ export function decodeStateSnapshot(
       return null;
     const projects: ExecutionStoredManagedProject[] = [];
     const seen = new Set<string>();
+    const queues = new Map(
+      snapshot.queueEntries.map((queue) => [queue.queueId, queue]),
+    );
+    const planVersions = new Map<string, ExecutionPlanVersion>();
+    for (const row of snapshot.planVersions) {
+      if (
+        !hasExecutionStateRecordKeys(row, [
+          "projectId",
+          "milestoneId",
+          "definitionHash",
+          "definition",
+        ]) ||
+        !validId(row.projectId) ||
+        !validId(row.milestoneId) ||
+        !isSha256Hex(row.definitionHash) ||
+        planVersions.has(row.definitionHash) ||
+        !inspectCompletePlanDefinition(row.definition) ||
+        row.definitionHash !==
+          hashExecutionPlanDefinition(
+            row.projectId,
+            row.milestoneId,
+            row.definition,
+          )
+      )
+        return null;
+      planVersions.set(row.definitionHash, row);
+    }
+    const referencedPlans = new Set<string>();
     for (const execution of snapshot.managedExecutions) {
       if (
         !hasExecutionStateRecordKeys(execution, [
           "projectId",
           "milestoneId",
+          "queueId",
           "definitionHash",
+          "repositoryRevision",
+          "generation",
+          "decisionApplicationId",
+          "milestone",
+          "objectives",
           "taskExecutionSelections",
           "ownerGeneration",
           "maximumConcurrency",
           "tasks",
         ]) ||
-        seen.has(execution.projectId) ||
+        !validId(execution.projectId) ||
+        !(execution.queueId === null || validId(execution.queueId)) ||
+        !hasExecutionStateRecordKeys(execution.milestone, [
+          "state",
+          "criterionEvidenceIds",
+        ]) ||
+        !Array.isArray(execution.objectives) ||
         !Array.isArray(execution.tasks)
       )
         return null;
+      const scope =
+        execution.queueId === null
+          ? `project:${execution.projectId}`
+          : `queue:${execution.queueId}`;
+      if (seen.has(scope)) return null;
       const definition = definitionsByProjectId.get(execution.projectId);
+      const version = planVersions.get(execution.definitionHash);
+      const queue =
+        execution.queueId === null ? null : queues.get(execution.queueId);
       if (
         !definition ||
         definition.milestoneId !== execution.milestoneId ||
-        !inspectCompletePlanDefinition({
-          milestoneAcceptanceCriteria: definition.milestone.acceptanceCriteria,
-          objectives: definition.objectives.map(
-            (objective) => objective.definition,
-          ),
-          tasks: definition.tasks,
-        }) ||
-        execution.definitionHash !==
-          hashExecutionProjectDefinition(definition) ||
-        execution.tasks.length !== definition.tasks.length
+        (execution.queueId !== null &&
+          (!validId(execution.queueId) ||
+            !queue ||
+            queue.projectId !== execution.projectId ||
+            queue.milestoneId !== execution.milestoneId ||
+            queue.repositoryRevision !== execution.repositoryRevision ||
+            queue.singleTask !== undefined)) ||
+        !version ||
+        version.projectId !== execution.projectId ||
+        version.milestoneId !== execution.milestoneId
       )
         return null;
+      const plan = version.definition;
+      if (
+        (execution.queueId === null &&
+          execution.definitionHash !==
+            hashExecutionProjectDefinition(definition)) ||
+        execution.objectives.length !== plan.objectives.length ||
+        execution.tasks.length !== plan.tasks.length
+      )
+        return null;
+      referencedPlans.add(execution.definitionHash);
       const taskIds = new Set<string>();
       const tasks: StoredTask[] = [];
       for (const task of execution.tasks) {
@@ -2703,18 +2827,60 @@ export function decodeStateSnapshot(
           taskIds.has(task.taskId)
         )
           return null;
-        const taskDefinition = definition.tasks[tasks.length];
+        const taskDefinition = plan.tasks[tasks.length];
         if (!taskDefinition || taskDefinition.id !== task.taskId) return null;
         taskIds.add(task.taskId);
         const { taskId: _taskId, ...record } = task;
         tasks.push(Object.freeze({ ...record, definition: taskDefinition }));
       }
-      seen.add(execution.projectId);
-      const { contract: _contract, tasks: _definitions, ...core } = definition;
+      const objectives: ProjectExecutionState["objectives"][number][] = [];
+      for (const objective of execution.objectives) {
+        const objectiveDefinition = plan.objectives[objectives.length];
+        if (
+          !hasExecutionStateRecordKeys(objective, [
+            "objectiveId",
+            "state",
+            "criterionEvidenceIds",
+          ]) ||
+          !objectiveDefinition ||
+          objectiveDefinition.id !== objective.objectiveId
+        )
+          return null;
+        objectives.push({
+          definition: objectiveDefinition,
+          state: objective.state,
+          criterionEvidenceIds: objective.criterionEvidenceIds,
+        });
+      }
+      if (
+        execution.queueId === null &&
+        (execution.repositoryRevision !== definition.repositoryRevision ||
+          execution.generation !== definition.generation ||
+          execution.decisionApplicationId !==
+            definition.decisionApplicationId ||
+          execution.milestone.state !== definition.milestone.state ||
+          encodeStateValue(execution.milestone.criterionEvidenceIds) !==
+            encodeStateValue(definition.milestone.criterionEvidenceIds) ||
+          encodeStateValue(objectives) !==
+            encodeStateValue(definition.objectives))
+      )
+        return null;
+      seen.add(scope);
       projects.push(
         Object.freeze({
-          ...core,
           contract: "crdd-execution-model/project-state/v3",
+          projectId: execution.projectId,
+          milestoneId: execution.milestoneId,
+          repositoryRevision: execution.repositoryRevision,
+          generation: execution.generation,
+          decisionApplicationId: execution.decisionApplicationId,
+          milestone: {
+            id: execution.milestoneId,
+            acceptanceCriteria: plan.milestoneAcceptanceCriteria,
+            ...execution.milestone,
+          },
+          objectives,
+          ...(execution.queueId === null ? {} : { queueId: execution.queueId }),
           taskExecutionSelections: execution.taskExecutionSelections,
           ownerGeneration: execution.ownerGeneration,
           maximumConcurrency: execution.maximumConcurrency,
@@ -2722,6 +2888,15 @@ export function decodeStateSnapshot(
         }),
       );
     }
+    if (
+      referencedPlans.size !== planVersions.size ||
+      projects.some(
+        (project) =>
+          project.queueId !== undefined &&
+          seen.has(`project:${project.projectId}`),
+      )
+    )
+      return null;
     const projection = projectExecutionSnapshotSections(
       snapshot,
       Object.freeze(projects),
@@ -2874,7 +3049,43 @@ export function validTaskState(
 ): boolean {
   if (!Array.isArray(snapshot.projects) || !snapshot.projects.every(validState))
     return false;
-  return validExecutionTaskReferences(snapshot, binding);
+  const queues = new Map(
+    snapshot.queueEntries.map((queue) => [queue.queueId, queue]),
+  );
+  const projects = new Map<string, { projectId: string }>();
+  const graphs = new Set<string>();
+  for (const project of snapshot.projects) {
+    const queue =
+      project.queueId === undefined ? undefined : queues.get(project.queueId);
+    const key =
+      project.queueId === undefined
+        ? `project:${project.projectId}`
+        : `queue:${project.queueId}`;
+    if (
+      graphs.has(key) ||
+      (project.queueId !== undefined &&
+        (!queue ||
+          queue.singleTask !== undefined ||
+          queue.projectId !== project.projectId ||
+          queue.milestoneId !== project.milestoneId ||
+          queue.repositoryRevision !== project.repositoryRevision))
+    )
+      return false;
+    graphs.add(key);
+    projects.set(project.projectId, project);
+  }
+  if (
+    snapshot.projects.some(
+      (project) =>
+        project.queueId !== undefined &&
+        graphs.has(`project:${project.projectId}`),
+    )
+  )
+    return false;
+  return validExecutionTaskReferences(
+    { ...snapshot, projects: [...projects.values()] },
+    binding,
+  );
 }
 
 /**
@@ -2909,6 +3120,7 @@ function validExecutionTaskReferences(
       snapshot.decisions,
       snapshot.blockers,
       snapshot.projects.map((project) => project.projectId),
+      snapshot.queueEntries,
     )
   )
     return false;
@@ -2981,7 +3193,7 @@ function validExecutionTaskReferences(
       queues.get(record.content.queueId)?.projectId !== record.projectId
     )
       return false;
-    const key = `${leaseIdentity(binding, record.projectId, record.content.queueId, record.content.kind)}\0${record.content.ownerGeneration}`;
+    const key = `${record.content.queueId}\0${record.content.ownerGeneration}`;
     const groups = evidenceGroups.get(key) ?? [];
     groups.push(record);
     evidenceGroups.set(key, groups);
@@ -3024,7 +3236,14 @@ function validExecutionTaskReferences(
         "recoveryId",
         "phase",
         "physicalIdentity",
+        ...(Object.hasOwn(item, "recoveryGeneration")
+          ? ["recoveryGeneration"]
+          : []),
       ]) ||
+      (Object.hasOwn(item, "recoveryGeneration") &&
+        (!Number.isSafeInteger(item.recoveryGeneration) ||
+          Number(item.recoveryGeneration) < 1 ||
+          !queues.get(item.queueId)?.singleTask)) ||
       !validId(item.projectId) ||
       queues.get(item.queueId)?.projectId !== item.projectId ||
       item.kind !== "project-operation" ||
@@ -3060,14 +3279,9 @@ function validExecutionTaskReferences(
       )
     )
       return false;
-    const leaseKey = leaseIdentity(
-      binding,
-      item.projectId,
-      item.queueId,
-      item.kind,
-    );
+    const leaseKey = item.queueId;
     const key = `${leaseKey}\0${item.ownerGeneration}\0${item.phase}`;
-    const ownerKey = `${item.ownerGeneration}\0${item.ownerProcessId}\0${item.queueId}\0${item.projectId}`;
+    const ownerKey = `${item.ownerGeneration}\0${item.ownerProcessId}\0${item.queueId}\0${item.projectId}\0${item.recoveryGeneration ?? ""}`;
     const evidence = evidenceGroups.get(`${leaseKey}\0${item.ownerGeneration}`);
     if (
       evidence?.some(
@@ -3083,6 +3297,19 @@ function validExecutionTaskReferences(
     intentOwners.set(leaseKey, ownerKey);
     if (intents.has(key)) return false;
     intents.add(key);
+  }
+  const activeScopes = new Set<string | null>();
+  for (const queue of snapshot.queueEntries) {
+    if (!intentOwners.has(queue.queueId) && queue.ownerGeneration === null)
+      continue;
+    const scope = queue.workspaceId ?? null;
+    if (
+      activeScopes.has(null) ||
+      activeScopes.has(scope) ||
+      (scope === null && activeScopes.size > 0)
+    )
+      return false;
+    activeScopes.add(scope);
   }
   const results = new Set<string>();
   for (const item of snapshot.results) {
@@ -3132,7 +3359,7 @@ function validExecutionTaskReferences(
  * @trace ARCH-000004、ARCH-000008
  */
 
-export const EXECUTION_STATE_SCHEMA = "crdd-execution-model/state/v9";
+export const EXECUTION_STATE_SCHEMA = "crdd-execution-model/state/v10";
 
 // Queue results may carry an exact opaque candidate or recovery reference.
 // These references use the same closed character set as stable IDs, but can
@@ -3875,8 +4102,15 @@ export function prepareUnifiedTaskSnapshot(
       !Number.isSafeInteger(expectedGeneration) ||
       Number(expectedGeneration) < 0 ||
       state.generation !== Number(expectedGeneration) + 1 ||
-      (current.snapshot.projects.find((p) => p.projectId === state.projectId)
-        ?.generation ?? 0) !== expectedGeneration ||
+      (current.projects.find(
+        (p) => p.projectId === state.projectId && p.queueId === state.queueId,
+      )?.generation ??
+        (state.queueId === undefined
+          ? current.snapshot.projects.find(
+              (p) => p.projectId === state.projectId,
+            )?.generation
+          : undefined) ??
+        0) !== expectedGeneration ||
       !Array.isArray(facts) ||
       !facts.every((f) =>
         hasExecutionStateRecordKeys(f, [
@@ -3888,15 +4122,20 @@ export function prepareUnifiedTaskSnapshot(
       )
     )
       return null;
-    const states = current.projects.some((p) => p.projectId === state.projectId)
-      ? current.projects.map((p) =>
-          p.projectId === state.projectId ? state : p,
-        )
+    const prior = current.projects.find(
+      (p) => p.projectId === state.projectId && p.queueId === state.queueId,
+    );
+    const states = prior
+      ? current.projects.map((p) => (p === prior ? state : p))
       : [...current.projects, state];
     const sections = normalizeTaskProjects(
       current,
       states,
-      facts.map((f) => ({ ...f, projectId: state.projectId })),
+      facts.map((f) => ({
+        ...f,
+        projectId: state.projectId,
+        ...(state.queueId === undefined ? {} : { queueId: state.queueId }),
+      })),
     );
     if (!sections) return null;
     const next = {
@@ -3913,7 +4152,9 @@ export function prepareUnifiedTaskSnapshot(
     return decoded &&
       validateDecodedUnifiedTransition(current, decoded) &&
       encodeStateValue(
-        decoded.projects.find((p) => p.projectId === state.projectId),
+        decoded.projects.find(
+          (p) => p.projectId === state.projectId && p.queueId === state.queueId,
+        ),
       ) === encodeStateValue(state)
       ? bytes
       : null;
@@ -3947,20 +4188,29 @@ export function normalizeTaskProjects(
     !Array.isArray(facts) ||
     !facts.every(
       (f, i) =>
+        isStateObject(f) &&
         hasExecutionStateRecordKeys(f, [
           "projectId",
           "taskId",
           "attemptId",
           "operationId",
           "recoveryUnresolved",
+          ...(Object.hasOwn(f, "queueId") ? ["queueId"] : []),
         ]) &&
+        (!Object.hasOwn(f, "queueId") || validId(f.queueId)) &&
         typeof f.recoveryUnresolved === "boolean" &&
         !facts
           .slice(0, i)
-          .some((p) => p.projectId === f.projectId && p.taskId === f.taskId) &&
+          .some(
+            (p) =>
+              p.projectId === f.projectId &&
+              p.queueId === f.queueId &&
+              p.taskId === f.taskId,
+          ) &&
         states.some(
           (p) =>
             p.projectId === f.projectId &&
+            p.queueId === f.queueId &&
             p.tasks.some(
               (t) =>
                 t.definition.id === f.taskId &&
@@ -3999,9 +4249,15 @@ export function normalizeTaskProjects(
   );
   const completed = new Set<string>();
   for (const priorProject of current.snapshot.managedExecutions) {
-    const project = states.find((p) => p.projectId === priorProject.projectId);
+    const project = states.find(
+      (p) =>
+        p.projectId === priorProject.projectId &&
+        (p.queueId ?? null) === priorProject.queueId,
+    );
     const priorGeneration = current.projects.find(
-      (p) => p.projectId === priorProject.projectId,
+      (p) =>
+        p.projectId === priorProject.projectId &&
+        (p.queueId ?? null) === priorProject.queueId,
     )?.generation;
     if (
       !project ||
@@ -4055,7 +4311,11 @@ export function normalizeTaskProjects(
     const tasks: StoredTask[] = [];
     for (const task of state.tasks) {
       const previous = current.snapshot.managedExecutions
-        .find((p) => p.projectId === state.projectId)
+        .find(
+          (p) =>
+            p.projectId === state.projectId &&
+            p.queueId === (state.queueId ?? null),
+        )
         ?.tasks.find(
           (t) =>
             t.taskId === task.definition.id &&
@@ -4064,7 +4324,9 @@ export function normalizeTaskProjects(
         )?.settlement;
       const explicit = facts.find(
         (f) =>
-          f.projectId === state.projectId && f.taskId === task.definition.id,
+          f.projectId === state.projectId &&
+          f.queueId === state.queueId &&
+          f.taskId === task.definition.id,
       );
       const resultUnresolved =
         explicit?.recoveryUnresolved ??
@@ -4110,6 +4372,7 @@ export function normalizeTaskProjects(
       taskExecutionSelections: _selection,
       ownerGeneration: _owner,
       maximumConcurrency: _maximum,
+      queueId: _queueId,
       tasks,
       contract: _contract,
       ...core
@@ -4119,40 +4382,70 @@ export function normalizeTaskProjects(
       tasks: tasks.map((task) => task.definition),
     }),
   );
-  const managedExecutions: ManagedExecution[] = projects.map((project) => {
-    const definition = definitions.find(
-      (item) => item.projectId === project.projectId,
-    );
-    if (!definition) throw new Error("definition");
-    return {
-      projectId: project.projectId,
-      milestoneId: project.milestoneId,
-      definitionHash: hashExecutionProjectDefinition(definition),
-      taskExecutionSelections: project.taskExecutionSelections,
-      ownerGeneration: project.ownerGeneration,
-      maximumConcurrency: project.maximumConcurrency,
-      tasks: project.tasks.map(({ definition: taskDefinition, ...task }) => ({
-        ...task,
-        taskId: taskDefinition.id,
-      })),
-    };
-  });
-  const retainedDefinitions = current.snapshot.projects.map(
-    (project) =>
-      definitions.find((item) => item.projectId === project.projectId) ??
-      project,
+  const acceptedPlans = new Map(
+    current.snapshot.planVersions.map((version) => [
+      version.definitionHash,
+      version,
+    ]),
+  );
+  const planVersions = new Map<string, ExecutionPlanVersion>();
+  const canonicalDefinitions = new Map(
+    current.snapshot.projects.map((project) => [project.projectId, project]),
+  );
+  const managedExecutions: ManagedExecution[] = projects.map(
+    (project, index) => {
+      const definition = definitions[index];
+      if (!definition) throw new Error("definition");
+      if (
+        project.queueId === undefined ||
+        !canonicalDefinitions.has(project.projectId)
+      )
+        canonicalDefinitions.set(project.projectId, definition);
+      const plan = projectPlanDefinition(definition);
+      const definitionHash = hashExecutionPlanDefinition(
+        definition.projectId,
+        definition.milestoneId,
+        plan,
+      );
+      planVersions.set(
+        definitionHash,
+        acceptedPlans.get(definitionHash) ?? {
+          projectId: definition.projectId,
+          milestoneId: definition.milestoneId,
+          definitionHash,
+          definition: plan,
+        },
+      );
+      return {
+        projectId: project.projectId,
+        milestoneId: project.milestoneId,
+        queueId: project.queueId ?? null,
+        definitionHash,
+        repositoryRevision: project.repositoryRevision,
+        generation: project.generation,
+        decisionApplicationId: project.decisionApplicationId,
+        milestone: {
+          state: project.milestone.state,
+          criterionEvidenceIds: project.milestone.criterionEvidenceIds,
+        },
+        objectives: project.objectives.map(({ definition, ...progress }) => ({
+          ...progress,
+          objectiveId: definition.id,
+        })),
+        taskExecutionSelections: project.taskExecutionSelections,
+        ownerGeneration: project.ownerGeneration,
+        maximumConcurrency: project.maximumConcurrency,
+        tasks: project.tasks.map(({ definition: taskDefinition, ...task }) => ({
+          ...task,
+          taskId: taskDefinition.id,
+        })),
+      };
+    },
   );
   return {
-    projects: [
-      ...retainedDefinitions,
-      ...definitions.filter(
-        (project) =>
-          !current.snapshot.projects.some(
-            (item) => item.projectId === project.projectId,
-          ),
-      ),
-    ],
+    projects: [...canonicalDefinitions.values()],
     managedExecutions,
+    planVersions: [...planVersions.values()],
     operations,
     unresolvedRecoveries: current.snapshot.unresolvedRecoveries.filter(
       (r) => !completed.has(r.recoveryId),
@@ -4239,10 +4532,17 @@ export function prepareUnifiedTaskSections(
       projects: _projects,
       ...taskSections
     } = view;
+    const sharedProjects = projectAppliedAcceptance(
+      current,
+      view,
+      sections.projects,
+    );
+    if (!sharedProjects) return null;
     const next = {
       ...current.snapshot,
       ...taskSections,
       ...sections,
+      projects: sharedProjects,
       revision: current.snapshot.revision + 1,
       previous: {
         revision: current.snapshot.revision,
@@ -4263,4 +4563,108 @@ export function prepareUnifiedTaskSections(
   } catch {
     return null;
   }
+}
+
+/** 正式な受入で確定した進捗だけを共有定義へ反映する。計画本文と通常の実行進捗は更新しない。 @trace ARCH-000004 */
+function projectAppliedAcceptance(
+  current: DecodedExecutionState,
+  view: Snapshot,
+  definitions: readonly ProjectDefinition[],
+): readonly ProjectDefinition[] | null {
+  const alreadyApplied = new Set(
+    current.snapshot.decisions
+      .filter((entry) => entry.status === "applied")
+      .map((entry) => entry.decisionId),
+  );
+  const changes = new Map<string, ProjectDefinition>();
+  for (const decision of view.decisions) {
+    if (
+      decision.kind !== "acceptance" ||
+      decision.status !== "applied" ||
+      alreadyApplied.has(decision.decisionId)
+    )
+      continue;
+    const application = decision.result.application;
+    if (application.beforeGeneration === application.afterGeneration) continue;
+    const { target } = decision;
+    const rows = current.projects.filter(
+      (project) =>
+        project.projectId === target.projectId &&
+        project.milestoneId === target.milestoneId &&
+        (target.queueId === undefined || project.queueId === target.queueId),
+    );
+    if (rows.length !== 1) return null;
+    const previous = rows[0];
+    if (previous?.queueId === undefined) continue;
+    const graph = view.projects.find(
+      (project) =>
+        project.projectId === previous.projectId &&
+        project.queueId === previous.queueId,
+    );
+    const definition =
+      changes.get(target.projectId) ??
+      definitions.find((project) => project.projectId === target.projectId);
+    if (
+      !definition ||
+      !graph ||
+      previous.generation !== application.beforeGeneration ||
+      graph.generation !== application.afterGeneration
+    )
+      return null;
+    const next = { ...definition, generation: definition.generation + 1 };
+    if (target.kind === "milestone") {
+      if (
+        definition.milestone.state === "accepted" ||
+        graph.milestone.state !== application.nextState ||
+        encodeStateValue(graph.milestone.acceptanceCriteria) !==
+          encodeStateValue(definition.milestone.acceptanceCriteria)
+      )
+        return null;
+      next.milestone = {
+        ...definition.milestone,
+        state: graph.milestone.state,
+        criterionEvidenceIds: graph.milestone.criterionEvidenceIds,
+      };
+    } else if (target.kind === "objective") {
+      const accepted = graph.objectives.find(
+        (item) => item.definition.id === target.id,
+      );
+      const shared = definition.objectives.find(
+        (item) => item.definition.id === target.id,
+      );
+      if (
+        !accepted ||
+        !shared ||
+        shared.state === "accepted" ||
+        accepted.state !== application.nextState ||
+        encodeStateValue(shared.definition) !==
+          encodeStateValue(accepted.definition)
+      )
+        return null;
+      next.objectives = definition.objectives.map((item) =>
+        item === shared
+          ? {
+              ...item,
+              state: accepted.state,
+              criterionEvidenceIds: accepted.criterionEvidenceIds,
+            }
+          : item,
+      );
+      if (
+        next.objectives.every((item) => item.state === "accepted") &&
+        graph.milestone.state === "integrating"
+      )
+        next.milestone = { ...definition.milestone, state: "integrating" };
+    } else return null;
+    // 同じ適用に複数の賛同記録が結合する場合も、共有行の世代は一度だけ進める。
+    changes.set(
+      target.projectId,
+      changes.has(target.projectId)
+        ? { ...next, generation: definition.generation }
+        : next,
+    );
+  }
+  return changes.size === 0
+    ? definitions
+    : definitions.map((project) => changes.get(project.projectId) ?? project);
 }

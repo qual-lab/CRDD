@@ -11,13 +11,13 @@ import {
   readTestCatalog,
   type TestLevel,
   testLevels,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import {
   getRepository,
   getRepositoryFromWorkingDirectory,
   readWorkingChanges,
   resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   buildRegressionStagePlan,
   normalizeExplicitChangedPaths,

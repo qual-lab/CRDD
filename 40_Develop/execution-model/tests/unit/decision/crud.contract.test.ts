@@ -21,6 +21,7 @@ import type {
   DecisionRequest,
 } from "../../../src/decision/types.ts";
 import {
+  blockerAppliesToQueue,
   inspectDecision,
   inspectDecisionHistoryEvent,
   prepareDecisionAnswer,
@@ -39,7 +40,10 @@ import {
   validateDecisionSnapshotTransition,
 } from "../../../src/decision/validation.ts";
 import type { Snapshot } from "../../../src/composition/types.ts";
-import { encodeStateValue } from "../../../src/composition/validation.ts";
+import {
+  createLeaseEvidence,
+  encodeStateValue,
+} from "../../../src/composition/validation.ts";
 
 /**
  * 判断モデルの検査を上位要求の検査から分離する。
@@ -221,6 +225,219 @@ function newDecisionFixture() {
   };
   return { request, answer, application };
 }
+
+/** 同一Project・Milestone・世代の継続判断でも、現在値・阻止・取消は元Queueだけに及ぶ。 @trace PRL-UT-015 */
+test("別Queueの継続判断と共有Blockerを片方の取消で変更しない", () => {
+  const { current } = fixture();
+  const { request, answer } = newDecisionFixture();
+  assert.equal(request.kind, "continuation");
+  if (request.kind !== "continuation") throw Error("fixture");
+  const requestB = {
+    ...request,
+    queueId: "queue-b",
+    decisionId: "decision-b",
+    blockerId: "blocker-b",
+  };
+  const projects = ["queue-b", "queue-a"].map((queueId) => ({
+    queueId,
+    projectId: request.target.projectId,
+    milestoneId: request.target.milestoneId,
+    generation: request.target.generation,
+    repositoryRevision: request.target.repositoryRevision,
+    decisionApplicationId: null,
+    milestone: {
+      id: request.target.milestoneId,
+      state: "human_decision_required",
+      criterionEvidenceIds: [],
+    },
+    objectives: [],
+    tasks: [],
+  })) as unknown as Snapshot["projects"];
+  const queues = projects.map((project) => ({
+    queueId: project.queueId,
+    projectId: project.projectId,
+    milestoneId: project.milestoneId,
+    repositoryRevision: project.repositoryRevision,
+    generation: 1,
+    state: "human_decision_required",
+    ownerGeneration: null,
+    resumeCondition: null,
+    resultReference: null,
+  })) as unknown as Snapshot["queueEntries"];
+  const source = { ...current, projects, queueEntries: queues };
+  const a = prepareDecisionCreation(source, request);
+  if (a.status !== "completed" || !a.value.next) throw Error("queue-a request");
+  const b = prepareDecisionCreation(a.value.next, requestB);
+  if (b.status !== "completed" || !b.value.next) throw Error("queue-b request");
+  const shared: Blocker = {
+    blockerId: "blocker-shared",
+    kind: "input",
+    currentDecisionId: null,
+    target: request.target,
+    reason: "共有入力待ち",
+    status: "active",
+  };
+  const before = {
+    ...b.value.next,
+    blockers: [...b.value.next.blockers, shared],
+  };
+  const [queueB, queueA] = queues;
+  const [blockerA, blockerB] = before.blockers;
+  assert.ok(queueA && queueB && blockerA && blockerB);
+  assert.equal(
+    blockerAppliesToQueue(before.decisions, blockerA, queueB),
+    false,
+  );
+  assert.equal(blockerAppliesToQueue(before.decisions, blockerA, queueA), true);
+  assert.equal(blockerAppliesToQueue(before.decisions, shared, queueB), true);
+  const resume = prepareDecisionSubmission(
+    b.value.next,
+    request.decisionId,
+    answer,
+    answer.answeredAt,
+  );
+  assert.equal(resume.status, "completed");
+  assert.equal(
+    resume.status === "completed" && resume.value.value.status,
+    "applied",
+  );
+  const blockedByShared = prepareDecisionSubmission(
+    before,
+    request.decisionId,
+    answer,
+    answer.answeredAt,
+  );
+  assert.equal(blockedByShared.status, "completed");
+  assert.equal(
+    blockedByShared.status === "completed" &&
+      blockedByShared.value.value.status,
+    "answered",
+  );
+  const answerA = { ...answer, selectedOption: "cancel" as const };
+  const cancelled = prepareDecisionSubmission(
+    before,
+    request.decisionId,
+    answerA,
+    answerA.answeredAt,
+  );
+  if (cancelled.status !== "completed" || !cancelled.value.next)
+    throw Error("queue-a cancelled");
+  const after = cancelled.value.next;
+  assert.equal(after.queueEntries[1]?.state, "cancelled");
+  assert.equal(after.projects[1]?.milestone.state, "cancelled");
+  assert.deepEqual(after.queueEntries[0], before.queueEntries[0]);
+  assert.deepEqual(after.projects[0], before.projects[0]);
+  assert.deepEqual(after.decisions[1], before.decisions[1]);
+  assert.deepEqual(after.blockers.slice(1), [blockerB, shared]);
+  const owner = {
+    schema: after.schema,
+    leaseResourcesAbsent: () => true,
+  } as unknown as Parameters<typeof queueIsClosed>[2];
+  assert.equal(queueIsClosed(after, queueA.queueId, owner), true);
+  assert.equal(
+    queueIsClosed(
+      { ...after, decisions: before.decisions },
+      queueA.queueId,
+      owner,
+    ),
+    false,
+  );
+  assert.equal(
+    queueIsClosed(
+      { ...after, blockers: [blockerA, blockerB, shared] },
+      queueA.queueId,
+      owner,
+    ),
+    false,
+  );
+  assert.equal(
+    queueIsClosed(after, queueA.queueId, {
+      ...owner,
+      leaseResourcesAbsent: () => false,
+    }),
+    false,
+  );
+  assert.equal(validateDecisionSnapshotTransition(before, after), true);
+  const check = (
+    blockers = after.blockers,
+    queueEntries = after.queueEntries,
+  ) =>
+    validateDecisionCollections(
+      after.decisions,
+      blockers,
+      [request.target.projectId],
+      queueEntries,
+    );
+  assert.equal(check(), true);
+  assert.equal(
+    check(
+      after.blockers.map((blocker) =>
+        blocker === blockerB
+          ? {
+              ...blocker,
+              status: "cancelled",
+              cancelledByDecisionId: request.decisionId,
+            }
+          : blocker,
+      ),
+    ),
+    false,
+  );
+  assert.equal(check(after.blockers, [queueA]), false);
+
+  const { queueId: _continuationQueue, ...sharedFields } = request;
+  const acceptance: DecisionRequest = {
+    ...sharedFields,
+    kind: "acceptance",
+    decisionId: "acceptance-b",
+    blockerId: "acceptance-b-blocker",
+    options: [{ value: "accept", label: "受け入れる" }],
+    target: { ...request.target, queueId: requestB.queueId },
+  };
+  const pendingAcceptance = {
+    ...source,
+    projects: projects.map((project) => ({
+      ...project,
+      milestone: {
+        ...project.milestone,
+        state: "integrating" as const,
+        acceptanceCriteria: ["受入の証拠"],
+      },
+    })),
+  };
+  assert.equal(
+    prepareDecisionCreation(pendingAcceptance, {
+      ...acceptance,
+      target: request.target,
+    }).status,
+    "blocked",
+  );
+  assert.equal(
+    prepareDecisionCreation(pendingAcceptance, {
+      ...acceptance,
+      target: { ...request.target, queueId: "unknown" },
+    }).status,
+    "blocked",
+  );
+  const accepted = prepareDecisionRecording(
+    pendingAcceptance,
+    acceptance,
+    { ...answer, selectedOption: "accept" },
+    answer.answeredAt,
+  );
+  if (accepted.status !== "completed" || !accepted.value.next)
+    throw Error("queue-b acceptance");
+  assert.equal(accepted.value.next.projects[0]?.milestone.state, "accepted");
+  assert.deepEqual(
+    accepted.value.next.projects[1],
+    pendingAcceptance.projects[1],
+  );
+  assert.deepEqual(accepted.value.next.queueEntries, queues);
+  assert.equal(
+    validateDecisionSnapshotTransition(pendingAcceptance, accepted.value.next),
+    true,
+  );
+});
 
 /**
  * 判断の自由本文と根拠集合を旧上限で拒否しない。
@@ -948,6 +1165,56 @@ test("無効化後の再提案を中止すると解消扱いにせず古い提�
     leaseResourcesAbsent: () => true,
   } as unknown as Parameters<typeof queueIsClosed>[2];
   assert.equal(queueIsClosed(done, "queue-a", owner), true);
+  const closedQueue = done.queueEntries.find(
+    (item) => item.queueId === "queue-a",
+  );
+  assert.ok(closedQueue);
+  const newOwner: Snapshot = {
+    ...done,
+    queueEntries: [
+      ...done.queueEntries,
+      {
+        ...closedQueue,
+        queueId: "queue-successor",
+        state: "running",
+        ownerGeneration: "second-owner",
+      },
+    ],
+    leaseIntents: [
+      {
+        projectId: closedQueue.projectId,
+        queueId: "queue-successor",
+        kind: "project-operation",
+        ownerGeneration: "second-owner",
+        ownerProcessId: 2,
+        phase: "lock_owned",
+        physicalIdentity: "a".repeat(64),
+        recoveryId: "recovery-b",
+      },
+    ],
+  };
+  const lookupOnSamePath = { ...owner, leaseResourcesAbsent: () => false };
+  assert.equal(queueIsClosed(newOwner, "queue-a", lookupOnSamePath), false);
+  const oldRelease = createLeaseEvidence(
+    done.repositoryBindingId,
+    closedQueue.projectId,
+    2,
+    {
+      queueId: "queue-a",
+      kind: "project-operation",
+      ownerGeneration: "old-owner",
+      ownerProcessId: 1,
+      disposition: "released",
+    },
+  );
+  assert.equal(
+    queueIsClosed(
+      { ...newOwner, leaseEvidence: [oldRelease] },
+      "queue-a",
+      lookupOnSamePath,
+    ),
+    true,
+  );
   assert.equal(
     queueIsClosed(
       {

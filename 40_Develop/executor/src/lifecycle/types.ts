@@ -4,7 +4,7 @@
  * @responsibility 上位の判断・永続化とDIの技術実行を再実装しない。
  * @trace ARCH-000008
  */
-import type { LockResult } from "../../../lock/src/index.ts";
+import type { LockResult } from "@qual-lab/crdd-lock";
 import type {
   IsolationRequest,
   IsolationSettings,
@@ -13,14 +13,14 @@ import type {
   ResourceTarget,
   PreparedIsolation,
   executeIsolation,
-} from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 import type {
   ModelSelection,
   Provider,
   ExecutionResult,
   TurnCountDiagnostic,
   ExecutionPlan,
-} from "../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import type { ATTEMPT_COMPLETION_REASONS, PURPOSES } from "./attempt.ts";
 
 /**
@@ -246,7 +246,7 @@ export interface LifecycleControl {
   start(signal?: AbortSignal): boolean;
   cancel(): Promise<CancelResult>;
   bind(
-    session: import("../../../docker-isolation/src/index.ts").IsolationExecution,
+    session: import("@qual-lab/crdd-docker-isolation").IsolationExecution,
   ): void;
   finish(): void;
 }

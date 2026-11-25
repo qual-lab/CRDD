@@ -25,7 +25,7 @@
   ],
   "resources": [
     {"id":"RES-PROJECT-QUEUE","owner":"durable_operation_queue","terminalCondition":"terminal_record_retained_or_policy_deletion_observed"},
-    {"id":"RES-PROJECT-OPERATION-LEASE","owner":"parent_coordinator","scope":"one_operation_per_repository_binding","terminalCondition":"all_child_tasks_reconciled_and_os_exclusion_release_observed"},
+    {"id":"RES-PROJECT-OPERATION-LEASE","owner":"parent_coordinator","scope":"one_operation_per_workspace_with_repository_wide_direct_conflict","terminalCondition":"all_child_tasks_reconciled_and_os_exclusion_release_observed"},
     {"id":"RES-PROJECT-STATE","owner":"project_state_store","terminalCondition":"expected_generation_atomic_replace_observed"},
     {"id":"RES-SCHEDULER-SLOT","owner":"project_scheduler","terminalCondition":"task_process_absent_and_cleanup_confirmed"},
     {"id":"RES-CONFLICT-RESERVATION","owner":"project_scheduler","terminalCondition":"effect_candidate_and_recovery_impact_reconciled"},
@@ -37,7 +37,7 @@
   ],
   "locks": [
     {"id":"LOCK-QUEUE-MUTATION","owner":"durable_operation_queue","order":1,"mayNest":[],"heldAcrossExternalWait":false},
-    {"id":"LOCK-PROJECT-OPERATION","owner":"parent_coordinator","scope":"repository_binding","order":2,"mayNest":["LOCK-PROJECT-STATE"],"heldAcrossExternalWait":true},
+    {"id":"LOCK-PROJECT-OPERATION","owner":"parent_coordinator","scope":"workspace_with_repository_wide_direct_conflict","order":2,"mayNest":["LOCK-PROJECT-STATE"],"heldAcrossExternalWait":true},
     {"id":"LOCK-PROJECT-STATE","owner":"project_state_store","order":3,"mayNest":[],"heldAcrossExternalWait":false}
   ],
   "authorities": [
@@ -93,7 +93,7 @@
     {"id":"BIND-QUEUE-ENQUEUE-LEASE","transitionIds":["TRANS-QUEUE-ENQUEUE-LEASE"],"lockIds":["LOCK-QUEUE-MUTATION","LOCK-PROJECT-OPERATION"],"authorityIds":["AUTH-MILESTONE"],"effectIds":["EFFECT-QUEUE-STATE"],"ordering":"queue intent is durable before operation lease and locks are not held together","verificationIds":["PR-D-N-01","PR-D-Q-01","PR-Q-03","PR-Q-05","PR-A-06"]},
     {"id":"BIND-QUEUE-DECISION-ACCEPTED-REPLAN","transitionIds":["TRANS-QUEUE-DECISION-ACCEPTED-REPLAN"],"lockIds":["LOCK-PROJECT-STATE"],"authorityIds":["AUTH-HUMAN-DECISION"],"effectIds":["EFFECT-DECISION-STATE"],"ordering":"判断適用と同じState CASで確定する投影。独立した後段書込みは禁止。","verificationIds":["PR-H-02","PR-Q-06"],"transactionId":"decision_application","projectionRole":"queue","standaloneAllowed":false},
     {"id":"BIND-QUEUE-REPLAN-QUEUED","transitionIds":["TRANS-QUEUE-REPLAN-QUEUED"],"lockIds":["LOCK-QUEUE-MUTATION"],"authorityIds":["AUTH-MILESTONE"],"effectIds":["EFFECT-QUEUE-STATE"],"ordering":"bounded replanning is durably complete before the queue returns to queued for a fresh selection","verificationIds":["PR-Q-02","PR-Q-06"]},
-    {"id":"BIND-QUEUE-WAITING-QUEUED","transitionIds":["TRANS-QUEUE-WAITING-QUEUED"],"lockIds":["LOCK-QUEUE-MUTATION"],"authorityIds":["AUTH-MILESTONE"],"effectIds":["EFFECT-QUEUE-STATE"],"ordering":"a fresh binding-wide scan confirms no foreground owner before the scheduled queue returns to queued","verificationIds":["PR-Q-05"]},
+    {"id":"BIND-QUEUE-WAITING-QUEUED","transitionIds":["TRANS-QUEUE-WAITING-QUEUED"],"lockIds":["LOCK-QUEUE-MUTATION"],"authorityIds":["AUTH-MILESTONE"],"effectIds":["EFFECT-QUEUE-STATE"],"ordering":"a fresh scan confirms no foreground owner in a conflicting execution scope before the scheduled queue returns to queued","verificationIds":["PR-Q-05"]},
     {"id":"BIND-QUEUE-RECOVERY-SETTLED-QUEUED","transitionIds":["TRANS-QUEUE-RECOVERY-SETTLED-QUEUED"],"lockIds":["LOCK-QUEUE-MUTATION"],"authorityIds":["AUTH-RECOVERY"],"effectIds":["EFFECT-RECOVERY","EFFECT-QUEUE-STATE"],"ordering":"技術終端・cleanup・実履歴確認の後、Task結果・回復義務と関連Operationの除去を同一Snapshot CASで確定し、readback・排他解放後にQueue整理とfresh retry条件を確認する","verificationIds":["PR-A-04","PR-A-05","PR-A-06"]},
     {"id":"BIND-QUEUE-LEASE-RUN","transitionIds":["TRANS-QUEUE-LEASE-RUN"],"lockIds":["LOCK-QUEUE-MUTATION","LOCK-PROJECT-OPERATION"],"authorityIds":["AUTH-MILESTONE"],"effectIds":["EFFECT-QUEUE-STATE"],"ordering":"lease identity is revalidated before running projection","verificationIds":["PR-N-01","PR-A-06"]},
     {"id":"BIND-QUEUE-RUN-INTEGRATE","transitionIds":["TRANS-QUEUE-RUN-INTEGRATE"],"lockIds":["LOCK-QUEUE-MUTATION","LOCK-PROJECT-OPERATION"],"authorityIds":["AUTH-INTEGRATION"],"effectIds":["EFFECT-INTEGRATION-CANDIDATE","EFFECT-QUEUE-STATE"],"ordering":"all task cleanup precedes integration and queue projection","verificationIds":["PR-I-01"]},

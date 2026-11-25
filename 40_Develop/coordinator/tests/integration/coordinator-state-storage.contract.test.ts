@@ -35,9 +35,9 @@ import {
   saveOperationStart,
   saveRecoveryCheckpoint,
   saveRecoveryHistory,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   historyRepositoryInput,
@@ -119,6 +119,7 @@ const RESOURCE_KEYS = [
 const emptyTaskSections = {
   repositoryBindingId: null,
   projects: [],
+  planVersions: [],
   managedExecutions: [],
   queueEntries: [],
   workspaces: [],
@@ -489,8 +490,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
          const path=await import("node:path");
          const calls = [];
          // CLIを評価する前にHostとProbeの処置だけを有限代役へ結合する。
-         const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-         const store = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
+         const vc = await import(${JSON.stringify(new URL(import.meta.resolve("@qual-lab/crdd-version-control")).href)});
+         const store = await import(${JSON.stringify(new URL(import.meta.resolve("@qual-lab/crdd-execution-model")).href)});
          const verified = vc.getRepository(process.cwd());
          const host = await import(${JSON.stringify(hostModule)});
          const before = store.readState(host.recoveryStorageInput(host.borrowCoordinatorRecoveryRepository(verified.capability)),{scope:"recovery"});
@@ -2836,7 +2837,7 @@ for (const issuedFailure of [false, true]) {
     const checkpoint = saved.value.snapshot.operations.find(
       (
         x,
-      ): x is import("../../../execution-model/src/index.ts").ExecutionOperationRecord =>
+      ): x is import("@qual-lab/crdd-execution-model").ExecutionOperationRecord =>
         x.kind === "docker_task" && x.recoveryId === start.recoveryId,
     )?.dockerRestart;
     assert.deepEqual(checkpoint, {
@@ -3047,7 +3048,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.ok(requestId);
     const snapshot = {
       ...emptyTaskSections,
-      schema: "crdd-execution-model/state/v9",
+      schema: "crdd-execution-model/state/v10",
       revision: 1,
       previous: null,
       repositoryBinding: repository.repositoryBinding,

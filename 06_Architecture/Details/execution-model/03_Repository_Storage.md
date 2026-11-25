@@ -7,7 +7,19 @@
 
 ## Operation Identityと終了保存の現在契約
 
-実行モデルが書き出す現在状態は `crdd-execution-model/state/v9`、保存包絡は `crdd-execution-model/storage-envelope/v2`、履歴行と操作要約はそれぞれ `crdd-execution-model/history-row/v3` と `crdd-execution-model/operation-summary/v7` とする。保存される呼出し元 `coordinator` はCLIの `coordinator_cli`・画面の `workbench` と区別する。Docker環境修復および実行プロセス回復の種別は `docker_repair`・`execution_process`、回復参照の接頭辞は `docker-repair.`・`execution-process.` とする。Docker照合で取得した受領情報の由来は `docker_observation` とする。
+実行モデルが書き出す現在状態は `crdd-execution-model/state/v10`、保存包絡は `crdd-execution-model/storage-envelope/v2`、履歴行と操作要約はそれぞれ `crdd-execution-model/history-row/v3` と `crdd-execution-model/operation-summary/v7` とする。保存される呼出し元 `coordinator` はCLIの `coordinator_cli`・画面の `workbench` と区別する。Docker環境修復および実行プロセス回復の種別は `docker_repair`・`execution_process`、回復参照の接頭辞は `docker-repair.`・`execution-process.` とする。Docker照合で取得した受領情報の由来は `docker_observation` とする。
+
+管理実行の計画本文は同じ `state.json` 内の `planVersions` に置く。Project・Milestone・計画本文から算出した定義Hashを管理実行が参照する。Readerは欠測、重複、所属・Hashの不一致と参照されていない計画版を拒否する。技術記録専用の保存はこの区画を変更しない。
+
+受付と同時に作る管理実行には `queueId` を記録し、所属・基準改訂とQueue種別を同じSnapshot内で照合する。業務世代・判断適用参照・Milestone／Objective／Taskの進捗は管理実行自身が保持する。再計画は対象Queueの計画参照だけを更新し、共有Projectの正式定義を上書きしない。正式な受入判断では、同じ保存で対象の状態と根拠を共有Projectへ反映する。結合済みの更新には元Queueを指定し、付け替えを許さない。
+
+同じProject・Milestoneの別受付は、独立したGraphとして同じSnapshotに保存する。Task照会は管理実行が一意な場合、その固定計画と同じ実行の進捗を返す。Projectだけの実行照会で複数行が一致した場合は、一つを推測して返さない。旧v9を未初期化扱いして上書きする経路は設けない。
+
+長期実行Leaseの競合と物理ロック名は登録済みWorkspaceで決める。DirectはRepository内のすべての長期実行と競合する。保存の短期LockとCASはRepository単位のまま。取得Intentから解放・回復の終結まで元QueueのWorkspace割当を変更せず、回復参照・Owner世代・物理実体を元Queueへ結び付ける。物理Lockの解放だけでは、回復待ちのQueueや未解決のTaskの回収義務を解消しない。その範囲で新規実行・管理操作を引き続き止める。元Queue・世代が一致する単発Taskの回復は、自身の回収義務だけを競合から除外してLeaseを取得できる。Workspace管理のGit処置に使う既存の共有ロックは別のWorkspace管理処置と競合し、対象WorkspaceまたはDirectの長期実行中は管理処置を開始しない。
+
+正本採用で取込先が古く、Gitの変更要求を発行していないことを確定できた場合、同じWorkspace操作Lockで固定済み候補から開始した初回要求だけが、今回の採用意図を外して元の固定済み候補へ戻せる。元候補とその固定証拠、既存の採否結果は変更しない。再入場、発行済み、結果不明では取込先を固定したままとし、別HEADへの置換を認めない。新しいHEADでの採用は別の明示要求とする。
+
+継続判断と対応するBlockerは、判断に記録済みの `queueId` から元の実行を特定する。QueueをBlockerへ重複保存しない。別QueueのBlockerは開始・終了を妨げず、取消でも変更されない。Queueを特定できない問題は共有として扱い、複数実行がある場合は片方の取消で閉じない。ただし、元Queueの取消判断の適用が確定した場合、その実行の履歴確定は共有Blockerの解消を待たない。元Queue固有のBlocker、清掃および排他の条件は維持する。正式な受入は、複数のGraphがある場合は対象に `queueId` を含める。分離Workspaceでは元QueueのGit採用証拠と現在HEADを照合し、DirectではGit採用を要求せず計画改訂と現在HEADを照合する。共有Projectで既に受入済みの状態と根拠を、別Graphの結果で上書きしない。
 
 旧書式は自動変換せず、新形式の読取り入口では拒否する。既存記録が必要な場合は、停止中に未解決の回復記録と元資源の対応を確認したうえで、別途移行する。旧記録を空の新状態として初期化しない。
 
@@ -18,6 +30,8 @@
 保存本体の読取り・確定、初期化領域の作成、Lease実体の観測では、保存Ownerに結合済みの絶対ディレクトリを使う。ファイル操作ごとにGitを探索せず、Node.jsで起点と固定領域を観測して、観測不能と領域の真正不存在を区別する。保存形式v8では保存識別値を正規ディレクトリの実体から導出し、Gitの管理実体からは導出しない。上位が修復・再起動などで同じ値を必要とする場合も、実行モデルの同じ観測を使う。排他・Ownerの現在性は別の条件として維持し、旧形式を不存在として初期化しない。
 
 明示の初期化・実行Queue受付・Host操作の開始記録で必要なローカルGit除外の登録は、CoordinatorまたはCRDD Serverが担当する。実行モデルは、排他のもとで状態の不存在と初期化候補を確認した場合に限り、利用側が渡した同期の準備処理を呼ぶ。内容認可を伴う入口では既存の認可確認も維持する。準備の失敗や結果不明では新しい状態を作らない。すでに準備済みの環境では処理を渡さなくてよい。これらの入口の既存状態の読取りや更新では準備を呼び直さない。修復の初回保存は既存の別経路のままとする。
+
+Graphの初回Queue受付では、初期版が必要な場合の確定と、Queue・計画・進行の確定を、一回の短期保存Lock内で順に行う。初期版とQueue版は別々のCASで確定するため、後段の保存に失敗した場合、初期版と残った保留物を維持する。呼出し全体を再試行できるのは、短期Lockを取れず、どちらの保存も未発行と確認できた場合だけとする。
 
 サーバーのHTTP／MCP定義操作とCoordinatorの通常のHost開始・終端記録は、利用側が確定した絶対ディレクトリを渡す。実行モデルは文字列の起動位置から保存先を探さず、その絶対ディレクトリの実体だけを確認する。ローカルGit除外、定義の参照元改訂と内容認可は利用側に残す。
 
@@ -65,7 +79,7 @@ Docker修復の技術実行から戻った後に、最後の観測と初回の�
 
 旧`domain-model/state.lock`は廃止した。排他配置は共通Lock設計へ従い、pendingの元版と現在値・履歴を照合して再入場する。旧markerの自動清掃や互換読取りはしない。保持設定は上位が構成モデルから取得し、履歴処理のInputと既存再検証へ結合する。通常Queryへ設定要件を広げない。
 
-[Workspace配置契約](../coordinator/05_Workspace.md#4-配置とroot解決)に従い、Repository Identity／Manifestと共通の名前付き領域は本領域、Workspace利用・寿命はOrchestrator、Git Worktreeの物理配置はVersion Controlが所有する。`workspaces`を既存の名前付き領域集合へ含める。上位はVC観測のWorkspace ID・relativePath・登録・実体・HEADを照合し、配置文字列を再定義しない。Tool RuntimeやWorktree内へRuntime正本を重複生成しない。以下の一般候補の配置は維持するが、コード変更候補の独自Bundle Storeは置換対象であり新しい常設Storeを作る指示ではない。旧データ移行・全体実境界の完了は別に判定する。
+[Workspace配置契約](../coordinator/05_Workspace.md#4-配置とroot解決)に従い、実行とWorkspaceの所属・状態保存は実行モデル、Workspaceの管理操作はCRDD Server、Git Worktreeの物理配置はVersion Controlが所有する。`workspaces`を既存の名前付き領域集合へ含める。上位はVC観測のWorkspace ID・相対パス・登録・実体・HEADを照合し、配置文字列を再定義しない。ToolやWorktree内へ実行状態の正本を重複生成しない。以下の一般候補の配置は維持するが、コード変更候補の独自Bundle Storeは置換対象であり新しい常設Storeを作る指示ではない。旧データ移行・全体実境界の完了は別に判定する。
 
 借用実行Treeの内部Directory保護はCoordinatorの既存実行処理内へ局所化する。検証Root能力とobserve／prepareを受け、ready／absent／blockedだけを返しraw Rootは公開しない。observeは作成0、prepareは真正不存在の場合だけ空Directory一件を作り、既存内容・子領域・状態・Ignore・台帳・Lockを変更しない。link・File・観測不能は停止する。この空Mount先をWorktree内へのRuntime正本保存許可と扱わない。
 

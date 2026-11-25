@@ -60,7 +60,7 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
           stableLogicalHomeBindingHash:observations===2&&mode==='changed'?'e'.repeat(64):'d'.repeat(64)};
       },
       }});
-    mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock: name=>{
+    mock.module(${JSON.stringify(new URL(import.meta.resolve("@qual-lab/crdd-lock")).href)}, {namedExports:{...await import(${JSON.stringify(new URL(import.meta.resolve("@qual-lab/crdd-lock")).href)}), acquireLock: name=>{
         acquisitions++;pipe=name;
         if(mode==='acquire_throw')throw Error('synthetic_acquire_throw');
         if(mode==='acquire_unknown')return {status:'blocked',cleanupConfirmed:false,descriptorClosed:false,reference:null};

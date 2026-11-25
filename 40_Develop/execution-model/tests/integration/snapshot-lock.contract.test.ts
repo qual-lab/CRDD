@@ -71,7 +71,9 @@ test("Host Windows: Snapshot排他は同じ保存先で競合しCrash後の残�
     const contender = acquireSnapshotPilotLock({ directory: root });
     try {
       assert.equal(contender.status, "blocked");
-      assert.equal(contender.reason, "coordinator_snapshot_lock_unavailable");
+      assert.equal(contender.reason, "coordinator_snapshot_lock_contended");
+      assert.equal(contender.manualRecoveryRequired, false);
+      assert.equal(contender.recoveryId, null);
     } finally {
       if (contender.status === "completed") {
         assert.equal(contender.value.release(), true);

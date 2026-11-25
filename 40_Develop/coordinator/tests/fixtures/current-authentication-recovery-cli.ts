@@ -195,7 +195,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
         }};
       },
     }});
-    const executorUrl=${JSON.stringify(new URL("../../../executor/src/index.ts", import.meta.url).href)};
+    const executorUrl=${JSON.stringify(new URL(import.meta.resolve("@qual-lab/crdd-executor")).href)};
     const executor=await import(executorUrl);
     executorMock=mock.module(executorUrl,{namedExports:{...executor,cleanupResources:(...args)=>{
       technicalObservation={stage:'constructing'};
@@ -210,7 +210,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
       },()=>{technicalObservation={stage:'completion_rejected'};}).catch(()=>{technicalObservation={stage:'observer_failed'};});
       return execution;
     }}});
-    const storeUrl = ${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)};
+    const storeUrl = ${JSON.stringify(new URL(import.meta.resolve("@qual-lab/crdd-execution-model")).href)};
     const store = await import(storeUrl);
     const historyInputs = await import(${JSON.stringify(new URL("../../src/lifecycle/host.ts", import.meta.url).href)});
     let lastVersion = null;
@@ -257,7 +257,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
     }});
     const lifecycle = await import(${JSON.stringify(new URL("../../src/lifecycle/environment.ts?auth-unknown-cli-fixture", import.meta.url).href)});
     lifecycleMock = mock.module(${JSON.stringify(new URL("../../src/lifecycle/environment.ts", import.meta.url).href)},{namedExports:{...lifecycle}});
-    const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
+    const vc = await import(${JSON.stringify(new URL(import.meta.resolve("@qual-lab/crdd-version-control")).href)});
     const verified = vc.getRepository(process.cwd()); assert.equal(verified.status,'completed'); assert.ok(verified.capability);
     const read = store.readState(historyInputs.recoveryStorageInput(historyInputs.borrowCoordinatorRecoveryRepository(verified.capability)),{scope:'recovery'});
     assert.equal(read.status,'completed'); assert.equal(read.lockReleased,true); assert.equal(read.value.payloadSha256,createHash('sha256').update(initialBytes).digest('hex'));

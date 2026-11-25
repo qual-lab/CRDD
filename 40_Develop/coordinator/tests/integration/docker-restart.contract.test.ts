@@ -93,7 +93,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     assert.doesNotMatch(callerSource, /\brestartDockerRuntime\b/u);
     assert.match(
       callerSource,
-      /import\s*\{[^}]*\brestartDockerEnvironment\b[^}]*\}\s*from ["']\.\.\/\.\.\/\.\.\/executor\/src\/index\.ts["']/u,
+      /import\s*\{[^}]*\brestartDockerEnvironment\b[^}]*\}\s*from ["']@qual-lab\/crdd-executor["']/u,
     );
     assert.match(callerSource, /\btype DockerEnvironmentRestartEvent\b/u);
     assert.deepEqual(
@@ -111,8 +111,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
           ]
             .map((match) => match[1])
             .filter(
-              (specifier) =>
-                specifier !== "../../../docker-isolation/src/index.ts",
+              (specifier) => specifier !== "@qual-lab/crdd-docker-isolation",
             ),
         ),
       ],
@@ -120,7 +119,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     );
     assert.match(
       callerSource,
-      /import\s*\{[^}]*\btype RestartCheckpoint\b[^}]*\}\s*from ["']\.\.\/\.\.\/\.\.\/execution-model\/src\/index\.ts["']/u,
+      /import\s*\{[^}]*\btype RestartCheckpoint\b[^}]*\}\s*from ["']@qual-lab\/crdd-execution-model["']/u,
     );
     assert.doesNotMatch(
       callerSource,
@@ -137,7 +136,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     assertCurrentRestartBoundary(hostFacade, missingPreparation),
   );
   const privateDriver = composition.replace(
-    "../../../executor/src/index.ts",
+    "@qual-lab/crdd-executor",
     "../../../docker-isolation/src/docker-desktop/restart.ts",
   );
   assert.notEqual(privateDriver, composition);

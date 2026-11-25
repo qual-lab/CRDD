@@ -14,7 +14,7 @@ import { runDockerIsolationProbe } from "../../../src/lifecycle/environment.ts";
 import {
   getRepositoryFromWorkingDirectory,
   resolveVerifiedRepositoryRoot,
-} from "../../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 
 /**
  * 開発用の固定故障シナリオと期待する診断結果。

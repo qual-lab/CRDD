@@ -25,16 +25,16 @@ import { inspectServerPublicOrigin } from "./service/configuration.ts";
 import {
   resolveConnectionAuthentication,
   resolveRepositoryAccess,
-} from "../../access-management/src/index.ts";
+} from "@qual-lab/crdd-access-management";
 import {
   createMeetingOperations,
   createTopicOperations,
-} from "../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import {
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   getRepository,
-} from "../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import { createRepositoryWorkbenchActivityReader } from "./service/execution.ts";
 import type { AiRequests } from "./service/execution.ts";
 import type { CredentialAdministration } from "./service/access.ts";

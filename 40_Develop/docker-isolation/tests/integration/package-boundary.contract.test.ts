@@ -100,14 +100,14 @@ function assertDependencyBoundary(file: string, text: string) {
     const specifier = match[1];
     assert.ok(specifier);
     if (isBuiltin(specifier)) continue;
+    if (specifier === "@qual-lab/crdd-lock") continue;
     assert.ok(specifier.startsWith("."), `unknown_dependency:${specifier}`);
     const resolved = path.resolve(path.dirname(file), specifier);
     const relative = path.relative(sourceRoot, resolved);
     assert.ok(
-      resolved === path.resolve(sourceRoot, "../../lock/src/index.ts") ||
-        (relative !== ".." &&
-          !relative.startsWith(`..${path.sep}`) &&
-          !path.isAbsolute(relative)),
+      relative !== ".." &&
+        !relative.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relative),
       `dependency_outside_owner:${specifier}`,
     );
   }
@@ -161,7 +161,7 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
   for (const text of [
     'import fs from "node:fs";',
     'import type { Value } from "./execution/plan.ts";',
-    'export { Value } from "../../lock/src/index.ts";',
+    'export { Value } from "@qual-lab/crdd-lock";',
     'const selected = import("./execution/plan.ts");',
     'const marker = Buffer.from("CRDDDR06");',
   ])

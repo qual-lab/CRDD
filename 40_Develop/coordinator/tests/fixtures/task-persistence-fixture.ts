@@ -24,7 +24,7 @@ import {
   saveProjectExecutionState,
   updateQueue,
   selectNextQueueEntry,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { resolveExecutionStorageDirectory } from "../../src/lifecycle/host.ts";
 import { taskExecutionSelections } from "./ai-selection.ts";
 import { randomUUID } from "node:crypto";
@@ -34,7 +34,7 @@ import * as selection from "../../src/lifecycle/selection.ts";
 import * as kernel from "../../src/lifecycle/host.ts";
 import * as objectiveValidation from "../../src/lifecycle/validation.ts";
 import * as environment from "../../src/lifecycle/environment.ts";
-import * as executionModel from "../../../execution-model/src/index.ts";
+import * as executionModel from "@qual-lab/crdd-execution-model";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -164,12 +164,35 @@ export async function runTestCoordinatorOperation(
   input: Parameters<Operation>[0]["input"],
 ) {
   const { runSingleTaskAttempt, ...values } = dependencies;
+  const context = values.persistence;
+  const observed =
+    context.intake === undefined
+      ? readQueueEntry(
+          context.repository,
+          context.repositoryBindingId,
+          input.queueId,
+        )
+      : null;
+  const queue = observed?.status === "completed" ? observed.value : null;
+  const persistence = queue
+    ? {
+        ...context,
+        intake: {
+          operation: "resume" as const,
+          queueId: queue.queueId,
+          projectId: input.projectId,
+          milestoneId: input.milestoneId,
+          requestHash: queue.requestHash,
+        },
+      }
+    : context;
   return withTestAttempt(runSingleTaskAttempt, async (url) => {
     const actual = (await import(
       url
     )) as typeof import("../../src/lifecycle/execution.ts");
     return actual.runCoordinatorOperation({
       ...values,
+      persistence,
       kind: "scheduled",
       input,
     });
@@ -225,8 +248,8 @@ export async function runTestCoordinatorObjective(
     null;
   let executionModelReplacement: ReturnType<typeof mock.module> | null = null;
   const executionModelUrl = new URL(
-    `../../../execution-model/src/index.ts?objective-fixture=${randomUUID()}`,
-    import.meta.url,
+    `?objective-fixture=${randomUUID()}`,
+    import.meta.resolve("@qual-lab/crdd-execution-model"),
   ).href;
   try {
     if (finalizeRecoveryWrite) {
@@ -406,12 +429,7 @@ export async function runTestCoordinatorObjective(
         ["./host.ts", ownerUrl],
         ["./environment.ts", environmentUrl],
         ...(finalizeRecoveryWrite
-          ? [
-              [
-                "../../../execution-model/src/index.ts",
-                executionModelUrl,
-              ] as const,
-            ]
+          ? [["@qual-lab/crdd-execution-model", executionModelUrl] as const]
           : []),
       ]),
     );
@@ -575,9 +593,17 @@ export function enqueueProjectOperation(
  * @cleanup Repository全体を試験hookで回収する。
  * @boundary PRL-IT-005=Direct Boundary: 試験からEM正式Queue選択とCoordinator優先方針。
  */
-export function selectNextProjectOperation(root: string, binding: string) {
+export function selectNextProjectOperation(
+  root: string,
+  binding: string,
+  queueId: string,
+) {
   const state = createTestPersistence(root, binding);
-  return selectNextQueueEntry(state.repository, state.repositoryBindingId);
+  return selectNextQueueEntry(
+    state.repository,
+    state.repositoryBindingId,
+    queueId,
+  );
 }
 /**
  * EMのQueue回復確定を試験Repositoryへ直接接続する。
@@ -707,6 +733,7 @@ export function updateTestTaskAndQueue(
     repository,
     binding,
     request.projectId,
+    queueId,
   );
   const queue = readQueueEntry(repository, binding, queueId);
   if (
@@ -720,6 +747,13 @@ export function updateTestTaskAndQueue(
     binding,
     request,
     project.value.generation,
+    {
+      operation: "resume",
+      queueId,
+      projectId: request.projectId,
+      milestoneId: project.value.milestoneId,
+      requestHash: queue.value.requestHash,
+    },
   );
   if (saved.status === "completed") {
     const updated = updateQueue(repository, binding, {

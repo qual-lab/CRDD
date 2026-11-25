@@ -4,7 +4,7 @@
  * @level IT
  * @boundary 親試験から受け取ったRepository-localのexact Rootだけ。
  */
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import { acquireHostOperationLock } from "../../src/lifecycle/host.ts";
 const repository = getRepository(process.argv[2]);
 if (repository.status !== "completed") process.exit(2);

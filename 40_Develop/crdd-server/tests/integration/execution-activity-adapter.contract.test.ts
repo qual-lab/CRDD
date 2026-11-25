@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { resolveExecutionStorageDirectory } from "../../../coordinator/src/lifecycle/host.ts";
-import { inspectCoordinatorObjectiveResult } from "../../../coordinator/src/index.ts";
+import { inspectCoordinatorObjectiveResult } from "@qual-lab/crdd-coordinator";
 import { runTestCoordinatorObjective } from "../../../coordinator/tests/fixtures/task-persistence-fixture.ts";
 
 import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/lifecycle/validation.ts";
@@ -24,14 +24,58 @@ import {
   git,
   readFixtureSnapshot,
 } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
-import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
+import { initializeExecutionStore } from "@qual-lab/crdd-execution-model";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import { projectExecutionActivityForWorkbench } from "../../src/service/execution.ts";
 import {
   getExecutionActivityToolDefinitions,
   MCP_COORDINATOR_PROTOCOL_VERSION,
   EXECUTION_ACTIVITY_TOOL,
 } from "../../src/transport/mcp-server.ts";
 import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
+
+/** @trace EST-IT-014 Workbenchは認可済みの別実行を一つの投影に畳まない。 */
+test("Workbench活動応答は実行の出所と観測不能を保つ", () => {
+  const graphs = [
+    {
+      repositoryId: "repo-a",
+      queueId: "queue-a",
+      workspaceId: "workspace-a",
+      milestoneId: "milestone-a",
+      progress: {
+        milestoneState: "executing",
+        workProgress: "in_progress",
+        nextAction: "wait_for_task",
+      },
+    },
+    {
+      repositoryId: "repo-b",
+      queueId: "queue-a",
+      workspaceId: "workspace-b",
+      milestoneId: "milestone-a",
+      progress: null,
+    },
+  ] as const;
+  const view = projectExecutionActivityForWorkbench({
+    projectId: "project-a",
+    state: "unknown",
+    reason: "runtime_activity_state_unknown",
+    projection: null,
+    currentSourceRepositoryId: null,
+    sources: [
+      { repositoryId: "repo-a", revision: null },
+      { repositoryId: "repo-b", revision: null },
+    ],
+    eventState: "observed",
+    eventReason: "runtime_activity_events_observed",
+    events: [],
+    eventContinuation: null,
+    graphs,
+  });
+  assert.deepEqual(view.graphs, graphs);
+  assert.equal(view.projection, null);
+  assert.equal(view.eventState, "observed");
+});
 
 /**
  * 配布MCPが統合Serverを経由してCoordinatorの公開Rootへ接続することを確認する。
@@ -62,14 +106,14 @@ test("配布MCPの活動照会は統合Server経由で業務Ownerへ接続する
     new URL("../../src/transport/mcp-server.ts", import.meta.url),
     "utf8",
   );
-  assert.match(server, /return readAuthorizedExecutionActivity\(/u);
+  assert.match(server, /await readAuthorizedExecutionActivity\(/u);
   const activity = fs.readFileSync(
     new URL("../../src/service/execution.ts", import.meta.url),
     "utf8",
   );
   assert.match(
     activity,
-    /export async function readAuthorizedExecutionActivity[\s\S]*?const \{ queryActivity \} = await import\(\s*"\.\.\/\.\.\/\.\.\/coordinator\/src\/index\.ts"/u,
+    /export async function readAuthorizedExecutionActivity[\s\S]*?const \{ queryActivity \} = await import\(\s*"@qual-lab\/crdd-coordinator"/u,
   );
 });
 

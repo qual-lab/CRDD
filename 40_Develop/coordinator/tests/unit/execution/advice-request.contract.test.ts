@@ -8,7 +8,7 @@
  * @scope coordinator、contract、node_process
  * @boundary Workbench Application PortとCoordinator依頼種別別Executorの局所境界。
  */
-import type { ExecutionSelection } from "../../../../execution-model/src/index.ts";
+import type { ExecutionSelection } from "@qual-lab/crdd-execution-model";
 import assert from "node:assert/strict";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 
@@ -22,7 +22,7 @@ import { loadAdviceDispatchFixture } from "../../support/task-requests.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   getRepository,
-} from "../../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 
 const { executeAdviceRequest } = await loadAdviceDispatchFixture();
 import {

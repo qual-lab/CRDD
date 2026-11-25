@@ -15,8 +15,8 @@ import type {
   IsolationRequest,
   PreparedIsolation,
   ResourceSnapshot,
-} from "../../../docker-isolation/src/index.ts";
-import * as original from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
+import * as original from "@qual-lab/crdd-docker-isolation";
 
 /**
  * 有限DI代役に対するProbe構成・通知・取消・結果の接続を反証する。
@@ -97,7 +97,7 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
       ],
     });
   }
-  t.mock.module("../../../docker-isolation/src/index.ts", {
+  t.mock.module("@qual-lab/crdd-docker-isolation", {
     namedExports: {
       ...original,
       prepareIsolation(request: IsolationRequest): PreparedIsolation | null {

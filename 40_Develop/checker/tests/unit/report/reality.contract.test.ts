@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseRealityTestCatalog } from "../../../../document-model/src/index.ts";
+import { parseRealityTestCatalog } from "@qual-lab/crdd-document-model";
 import { mapRealityDomainIssueToCheckerFinding } from "../../../src/report/reality.ts";
 
 /**

@@ -16,7 +16,7 @@ import {
   getRepository,
   getRepositoryFromWorkingDirectory,
   readRepositoryLocation,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   checkRepositoryRuntimeDataProtectionDirectory,
   ensureRepositoryExecutionDataArea,

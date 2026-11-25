@@ -20,7 +20,7 @@ import {
 import {
   getAuthenticationDefinition,
   planExecution,
-} from "../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import { describeProviderExecution } from "../../../ai-adapter/src/provider/plan.ts";
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",

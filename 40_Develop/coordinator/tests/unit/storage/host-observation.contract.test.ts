@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import type { ExecutionOperationRecord } from "../../../../execution-model/src/index.ts";
+import type { ExecutionOperationRecord } from "@qual-lab/crdd-execution-model";
 import { createResourceOperationFixture } from "../../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 

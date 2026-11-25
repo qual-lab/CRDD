@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
-import * as isolation from "../../../docker-isolation/src/index.ts";
+import * as isolation from "@qual-lab/crdd-docker-isolation";
 import type { ResourceTarget } from "../../src/index.ts";
 
 /**
@@ -36,7 +36,7 @@ test("既存資源APIは単一Containerを用途判断なしで観測・回収�
     checks = 0;
   const calls: string[] = [];
   const lower = mock.module(
-    new URL("../../../docker-isolation/src/index.ts", import.meta.url).href,
+    new URL(import.meta.resolve("@qual-lab/crdd-docker-isolation")).href,
     {
       namedExports: {
         ...isolation,

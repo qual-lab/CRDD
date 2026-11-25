@@ -58,7 +58,9 @@ export function validState(value: unknown): value is ProjectExecutionState {
       "milestone",
       "objectives",
       "tasks",
+      ...(Object.hasOwn(value, "queueId") ? ["queueId"] : []),
     ]) ||
+    (Object.hasOwn(value, "queueId") && !validId(value.queueId)) ||
     value.contract !== "crdd-execution-model/project-state/v3" ||
     !inspectTaskExecutionSelections(value.taskExecutionSelections) ||
     !validId(value.projectId) ||

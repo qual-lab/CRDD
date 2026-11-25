@@ -15,11 +15,13 @@ import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
+import { setTimeout as delay } from "node:timers/promises";
 import fs from "node:fs";
 import { parseStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { acquireLock } from "@qual-lab/crdd-lock";
 import {
   readProjectExecutionState,
   readQueueEntry,
@@ -38,7 +40,7 @@ import {
   saveIntegrationRecord,
   savePlan,
   saveProjectExecutionState,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   initialExecutionInput,
   projectExecutionFixture,
@@ -47,7 +49,7 @@ import {
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
@@ -62,6 +64,10 @@ import {
   updateCoordinatorQueue,
 } from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
+import {
+  finishOperationLease,
+  runCoordinatorOperation,
+} from "../../src/lifecycle/execution.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
@@ -115,7 +121,7 @@ function seedSnapshot(
         "binding-a",
         state.projectId,
       ).value,
-      state,
+      { ...state, queueId: queue?.queueId ?? `queue-${state.projectId}` },
     );
   }
   const bytes = fs.readFileSync(file);
@@ -445,10 +451,7 @@ test("snapshot production: removed initialization command cannot create state", 
 test("初回StateとQueueの受付は二Processの古い観測でも一組だけを保存する", {
   timeout: 60000,
 }, async (t) => {
-  const domainUrl = new URL(
-    "../../../execution-model/src/index.ts",
-    import.meta.url,
-  ).href;
+  const domainUrl = import.meta.resolve("@qual-lab/crdd-execution-model");
   const worker = `
     import {createQueue,readExecutionState} from ${JSON.stringify(domainUrl)};
     const [root,json]=process.argv.slice(1);
@@ -1374,6 +1377,7 @@ test("Host Windows: 統合結果記録とLease終了を同じStateへ保存す�
   const ownerRead = inspectCoordinatorSnapshotLeaseAcquisitionOwner(
     ports.workingDirectory,
     ports.repositoryBindingId,
+    "queue-a",
   );
   assert.equal(ownerRead.status, "completed");
   assert.deepEqual(ownerRead.value, {
@@ -1383,7 +1387,7 @@ test("Host Windows: 統合結果記録とLease終了を同じStateへ保存す�
       queueId: "queue-a",
       ownerGeneration: operation.value.ownerGeneration,
       ownerProcessId: process.pid,
-      recoveryId: `lease-acquisition-${createHash("sha256").update("binding-a\0project-operation").digest("hex").slice(0, 40)}`,
+      recoveryId: `lease-acquisition-${createHash("sha256").update("binding-a\0project-a\0queue-a\0project-operation").digest("hex").slice(0, 40)}`,
     },
   });
   assert.deepEqual(fs.readFileSync(file), beforeOwnerRead);
@@ -1449,7 +1453,11 @@ test("Host Windows: 統合結果記録とLease終了を同じStateへ保存す�
   assert.equal(operation.value.release().status, "completed");
   assert.equal(operation.value.release().status, "blocked");
   assert.deepEqual(
-    inspectCoordinatorSnapshotLeaseAcquisitionOwner(root, "binding-a").value,
+    inspectCoordinatorSnapshotLeaseAcquisitionOwner(
+      root,
+      "binding-a",
+      "queue-a",
+    ).value,
     { acquisition: null },
   );
   assert.equal(
@@ -1522,10 +1530,28 @@ test("Host Windows: 通常Task終端を保存し旧受領fieldを拒否する", 
   skip: process.platform !== "win32",
 }, (t) => {
   const { root, ports } = currentQueueFixture(t);
+  const existing = readQueueEntry(
+    ports.repository,
+    ports.repositoryBindingId,
+    "queue-a",
+  );
+  assert.ok(
+    existing.status === "completed" && existing.value.milestoneId !== null,
+    existing.reason,
+  );
+  const { queueId, projectId, milestoneId, requestHash } = existing.value;
+  const intake = {
+    operation: "start" as const,
+    queueId,
+    projectId,
+    milestoneId,
+    requestHash,
+  };
   const observed = readProjectExecutionState(
     ports.repository,
     ports.repositoryBindingId,
-    "project-a",
+    projectId,
+    queueId,
   );
   assert.ok(observed.value);
   let state = observed.value;
@@ -1557,34 +1583,26 @@ test("Host Windows: 通常Task終端を保存し旧受領fieldを拒否する", 
       ports.repositoryBindingId,
       command,
       state.generation,
-      ports.intake,
+      intake,
     );
     assert.equal(next.status, "completed", next.reason);
     if (next.status !== "completed")
       throw Error("fixture_task_transition_failed");
     state = next.value;
   }
-  // 余分な受領fieldを試す既知候補。終端の規則自体はEM単体と完成保存の試験が所有する。
-  const settled = {
-    state: {
-      ...state,
-      generation: state.generation + 1,
-      objectives: state.objectives.map((item) => ({
-        ...item,
-        state: "integration_pending" as const,
-      })),
-      tasks: state.tasks.map((item) => ({
-        ...item,
-        state: "completed" as const,
-        startPhase: "settled" as const,
-        cleanupConfirmed: true,
-        recoveryObligations: [],
-        recoveryUnresolved: false,
-        candidateId: null,
-      })),
-    },
+  const settle = {
+    kind: "task_settle" as const,
+    projectId: state.projectId,
+    taskId: "task-a",
+    attemptId: "attempt-a",
+    operationId: "operation-a",
+    authorityBindingId: "authority-a",
+    outcome: "completed" as const,
+    cleanupConfirmed: true,
+    recoveryObligations: [],
+    recoveryUnresolved: false,
+    resultUnresolved: false,
   };
-  assert.ok(settled.state);
   const acceptance = {
     repositoryBindingId: "binding-a",
     projectId: "project-a",
@@ -1593,7 +1611,7 @@ test("Host Windows: 通常Task終端を保存し旧受領fieldを拒否する", 
     attemptId: "attempt-a",
     operationId: "operation-a",
     recoveryId: "recovery-a",
-    settlementGeneration: settled.state.generation,
+    settlementGeneration: state.generation + 1,
     repositoryBinding: "a".repeat(64),
     resultId: "b".repeat(64),
     consumer: "coordinator" as const,
@@ -1603,47 +1621,42 @@ test("Host Windows: 通常Task終端を保存し旧受領fieldを拒否する", 
   for (const resultAcceptances of [
     [acceptance],
     [acceptance, { ...acceptance, recoveryId: "recovery-b" }],
-    [{ ...acceptance, settlementGeneration: settled.state.generation + 1 }],
+    [{ ...acceptance, settlementGeneration: state.generation + 2 }],
     [{ ...acceptance, extra: true }],
   ]) {
-    const candidate: unknown = {
-      ...settled.state,
-      tasks: settled.state.tasks.map((task) => ({
-        ...task,
-        resultAcceptances,
-      })),
-    };
+    const rejected = Reflect.apply(saveProjectExecutionState, undefined, [
+      resolveExecutionStorageDirectory(root),
+      "binding-a",
+      { ...settle, resultAcceptances },
+      state.generation,
+      intake,
+    ]);
+    assert.equal(rejected.status, "blocked");
     assert.equal(
-      Reflect.apply(saveProjectExecutionState, undefined, [
-        resolveExecutionStorageDirectory(root),
-        "binding-a",
-        candidate,
-        state.generation,
-      ]).status,
-      "blocked",
+      rejected.reason,
+      "coordinator_snapshot_input_invalid",
       "退役した受領fieldを現行Task契約へ混入させない",
     );
     assert.deepEqual(fs.readFileSync(file), bytes);
   }
+  const saved = saveProjectExecutionState(
+    ports.repository,
+    ports.repositoryBindingId,
+    settle,
+    state.generation,
+    intake,
+  );
+  assert.ok(saved.status === "completed", saved.reason);
+  const readBack = readProjectExecutionState(
+    ports.repository,
+    ports.repositoryBindingId,
+    projectId,
+    queueId,
+  );
   assert.equal(
-    saveProjectExecutionState(
-      resolveExecutionStorageDirectory(root),
-      "binding-a",
-      {
-        kind: "task_settle",
-        projectId: state.projectId,
-        taskId: "task-a",
-        attemptId: "attempt-a",
-        operationId: "operation-a",
-        authorityBindingId: "authority-a",
-        outcome: "completed",
-        cleanupConfirmed: true,
-        recoveryObligations: [],
-        recoveryUnresolved: false,
-        resultUnresolved: false,
-      },
-      state.generation,
-    ).status,
+    readBack.value?.tasks.find(
+      ({ definition }) => definition.id === settle.taskId,
+    )?.state,
     "completed",
   );
 });
@@ -1663,38 +1676,44 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
   skip: process.platform !== "win32",
 }, (t) => {
   const { root, state } = fixture(t);
-  const repositoryRootHash = fixtureRepositoryHash(root);
-  const payload = {
-    schema: "crdd-execution-model/project-snapshot/v9",
-    schemaRevision: 9,
-    workspaces: [],
-    repositoryRootHash,
-    repositoryBindingId: "binding-a",
-    snapshotRevision: 1,
-    projects: [state],
-    queueEntries: [],
-    leaseEvidence: [],
-    leaseIntents: [],
-    results: [],
-    historyPending: [],
-    decisions: [],
-    blockers: [],
+  const input = {
+    queueId: "queue-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    requestHash: "b".repeat(64),
+    originLane: "scheduled" as const,
+    repositoryRevision: "a".repeat(40),
+    scopeHash: "c".repeat(64),
   };
-  assert.equal(seedSnapshot(root, payload).status, "completed");
   const ports = Object.freeze({
     workingDirectory: root,
     repository: resolveExecutionStorageDirectory(root),
     repositoryBindingId: "binding-a",
-    intake: undefined,
+    intake: {
+      operation: "start" as const,
+      queueId: input.queueId,
+      projectId: input.projectId,
+      milestoneId: input.milestoneId,
+      requestHash: input.requestHash,
+    },
   });
   const port = ports;
+  assert.equal(
+    initializeExecutionStore(port.repository, port.repositoryBindingId).status,
+    "completed",
+  );
+  const seeded = createQueue(port.repository, port.repositoryBindingId, {
+    kind: "scheduled",
+    input: [input, initialExecutionInput(state)],
+  });
+  assert.equal(seeded.status, "completed", seeded.reason);
   assert.deepEqual(
     readProjectExecutionState(
       port.repository,
       port.repositoryBindingId,
       "project-a",
     ).value,
-    state,
+    { ...state, queueId: input.queueId },
   );
   assert.equal(
     readProjectExecutionState(
@@ -1720,15 +1739,6 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
     ).status,
     "completed",
   );
-  const input = {
-    queueId: "queue-a",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    requestHash: "b".repeat(64),
-    originLane: "scheduled" as const,
-    repositoryRevision: "a".repeat(40),
-    scopeHash: "c".repeat(64),
-  };
   assert.equal(
     createQueue(port.repository, port.repositoryBindingId, {
       kind: "scheduled",
@@ -1781,8 +1791,8 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
     "completed",
   );
   assert.equal(
-    selectNextQueueEntry(port.repository, port.repositoryBindingId).value
-      ?.queueId,
+    selectNextQueueEntry(port.repository, port.repositoryBindingId, "queue-a")
+      .value?.queueId,
     "queue-i",
   );
   assert.equal(
@@ -1820,7 +1830,8 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
       "completed",
     );
     assert.equal(
-      selectNextQueueEntry(port.repository, port.repositoryBindingId).value,
+      selectNextQueueEntry(port.repository, port.repositoryBindingId, "queue-a")
+        .value,
       null,
     );
     assert.equal(
@@ -1887,6 +1898,7 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
     const scheduled = selectNextQueueEntry(
       port.repository,
       port.repositoryBindingId,
+      "queue-a",
     );
     assert.equal(scheduled.value?.queueId, "queue-a");
     assert.equal(scheduled.value?.state, "queued");
@@ -2030,13 +2042,21 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
       "authority-a",
     );
     assert.ok(prepared.state);
-    const updatedState = prepared.state;
+    const updatedState = { ...prepared.state, queueId: "queue-a" };
+    const intake = {
+      operation: "resume" as const,
+      queueId: "queue-a",
+      projectId: state.projectId,
+      milestoneId: state.milestoneId,
+      requestHash: "b".repeat(64),
+    };
     assert.equal(
       saveProjectExecutionState(
         resolveExecutionStorageDirectory(root),
         "binding-a",
         command,
         state.generation,
+        intake,
       ).status,
       "blocked",
     );
@@ -2048,6 +2068,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
       "binding-a",
       command,
       state.generation,
+      intake,
     );
     assert.equal(changed.status, "completed");
     assert.deepEqual(changed.value, updatedState);
@@ -2064,6 +2085,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
         "binding-a",
         command,
         state.generation,
+        intake,
       ).status,
       "completed",
     );
@@ -2093,7 +2115,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
     assert.deepEqual(readFixtureSnapshot(root, "binding-a").value, {
       ...expected,
       snapshotRevision: payload.snapshotRevision + 2,
-      projects: [updatedState, additional],
+      projects: [updatedState, { ...additional, queueId: "queue-b" }],
       queueEntries: [...expected.queueEntries, additionalQueue.value],
     });
     const previousBytes = fs.readFileSync(current, "utf8");
@@ -2112,6 +2134,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
           operationId: "operation-a",
         },
         updatedState.generation,
+        intake,
       );
       assert.equal(interrupted.status, "blocked");
       assert.equal(interrupted.manualRecoveryRequired, true);
@@ -2288,11 +2311,468 @@ function currentQueueFixture(t: test.TestContext, binding = "binding-a") {
       ports.repository,
       ports.repositoryBindingId,
       state.projectId,
+      "queue-a",
     ).value,
-    state,
+    { ...state, queueId: "queue-a" },
   );
-  return { root, ports };
+  const intake = {
+    operation: "start" as const,
+    queueId: "queue-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    requestHash: "b".repeat(64),
+  };
+  return { root, ports, intake };
 }
+
+/** @trace PRL-IT-005 競合が取得段階を一周させず、取消後も既発行の取得を確定する。 */
+test("Lease取得は短期Lock競合で予約・物理取得をやり直さない", async (t) => {
+  for (const mode of [
+    "reservation",
+    "cancel_after_reservation",
+    "evidence",
+    "cancel_after_lock",
+    "evidence_timeout",
+    "graph_evidence_timeout",
+    "revoked_after_evidence",
+    "cancel_graph_after_lock",
+  ] as const) {
+    const { root, ports } = currentQueueFixture(t);
+    const binding = ports.repositoryBindingId;
+    const controller = new AbortController();
+    const directory = path.join(root, ".crdd", "lock");
+    const file = path.join(root, ".crdd", "execution-model", "state.json");
+    const stored = () =>
+      parseStoredExecutionFixture(fs.readFileSync(file, "utf8"));
+    const before = stored().revision;
+    const holdStorage = () => {
+      const other = acquireLock({
+        directory,
+        name: "execution-model.state.lock",
+        identity: "temporary-priority-fixture",
+      });
+      if (other.status !== "acquired") throw Error(other.reason);
+      return delay(mode.endsWith("timeout") ? 900 : 40).then(() =>
+        assert.equal(other.lock.release(), true),
+      );
+    };
+    let otherRelease: Promise<void> | undefined;
+    let physicalStarts = 0;
+    let revalidated = 0;
+    let reservedGeneration: string | undefined;
+    if (mode === "reservation") otherRelease = holdStorage();
+    const open = fs.openSync;
+    const instrument = t.mock.method(
+      fs,
+      "openSync",
+      (...args: Parameters<typeof open>) => {
+        const descriptor = open(...args);
+        if (
+          args[1] === "wx+" &&
+          path.basename(String(args[0])).startsWith("coordinator.lease.")
+        ) {
+          physicalStarts++;
+          const current = stored();
+          assert.equal(current.revision, before + 1);
+          assert.equal(current.leaseIntents.length, 1);
+          reservedGeneration = current.leaseIntents[0]?.ownerGeneration;
+          if (mode !== "reservation") otherRelease = holdStorage();
+          if (
+            mode === "cancel_after_lock" ||
+            mode === "cancel_graph_after_lock"
+          )
+            controller.abort();
+        }
+        return descriptor;
+      },
+    );
+    const rename = fs.renameSync;
+    const cancelReservation =
+      mode === "cancel_after_reservation"
+        ? t.mock.method(
+            fs,
+            "renameSync",
+            (...args: Parameters<typeof rename>) => {
+              rename(...args);
+              if (String(args[1]) === file && stored().revision === before + 1)
+                controller.abort();
+            },
+          )
+        : null;
+    try {
+      if (
+        mode === "revoked_after_evidence" ||
+        mode === "graph_evidence_timeout" ||
+        mode === "cancel_graph_after_lock"
+      ) {
+        const state = readProjectExecutionState(
+          ports.repository,
+          binding,
+          "project-a",
+          "queue-a",
+        ).value;
+        assert.ok(state);
+        const result = await runCoordinatorOperation({
+          kind: "scheduled",
+          persistence: ports,
+          leaseWait: {
+            revalidate: async () => {
+              revalidated++;
+              return false;
+            },
+          },
+          input: {
+            projectId: "project-a",
+            milestoneId: "milestone-a",
+            queueId: "queue-a",
+            taskExecutions: state.tasks.map((task) => ({
+              taskId: task.definition.id,
+              authorityBindingId: "fixture-binding",
+              taskRequest: null,
+              repositoryRoot: root,
+            })),
+            cancellationSignal: controller.signal,
+          },
+        });
+        const after = stored();
+        assert.equal(physicalStarts, 1);
+        assert.equal(result.status, "blocked");
+        assert.equal(after.queueEntries[0]?.state, "queued");
+        assert.equal(after.queueEntries[0]?.generation, 1);
+        assert.equal(after.operations.length, 0);
+        if (mode !== "graph_evidence_timeout") {
+          assert.equal(revalidated, mode === "revoked_after_evidence" ? 1 : 0);
+          assert.equal(
+            result.reason,
+            mode === "revoked_after_evidence"
+              ? "coordinator_authenticated_principal_not_verified"
+              : "coordinator_lease_acquisition_cancelled",
+          );
+          assert.equal(result.cleanupConfirmed, true);
+          assert.equal(result.effectState, "no_effect");
+          assert.equal(after.leaseIntents.length, 0);
+        } else {
+          assert.equal(revalidated, 0);
+          assert.equal(
+            result.reason,
+            "coordinator_lease_acquisition_recovery_required",
+          );
+          assert.equal(result.cleanupConfirmed, false);
+          assert.equal(result.effectState, "unknown");
+          assert.deepEqual(result.recoveryIds, [
+            after.leaseIntents[0]?.recoveryId,
+          ]);
+        }
+        continue;
+      }
+      const acquired = await acquireCoordinatorSnapshotLease(
+        root,
+        binding,
+        "project-a",
+        "queue-a",
+        "project-operation",
+        undefined,
+        {
+          signal: controller.signal,
+          revalidate: async () => {
+            revalidated++;
+            return true;
+          },
+        },
+      );
+      if (mode === "evidence_timeout" || mode === "cancel_after_reservation") {
+        assert.equal(acquired.status, "blocked");
+        if (acquired.status !== "blocked")
+          throw Error("unexpected_acquisition");
+        assert.equal(
+          acquired.reason,
+          "coordinator_lease_acquisition_recovery_required",
+        );
+        assert.equal(acquired.manualRecoveryRequired, true);
+        const after = stored();
+        const expectedPhysicalStarts = mode === "evidence_timeout" ? 1 : 0;
+        assert.equal(physicalStarts, expectedPhysicalStarts);
+        assert.equal(after.revision, before + 1);
+        assert.deepEqual(
+          after.leaseIntents.map((intent) => intent.phase),
+          ["acquisition_reserved"],
+        );
+        assert.equal(acquired.recoveryId, after.leaseIntents[0]?.recoveryId);
+        assert.equal(
+          fs
+            .readdirSync(directory)
+            .filter((name) => name.startsWith("coordinator.lease.")).length,
+          expectedPhysicalStarts,
+        );
+        continue;
+      }
+      assert.equal(
+        acquired.status,
+        "completed",
+        `${mode}: ${acquired.reason}; opens=${physicalStarts}; revision=${stored().revision}; before=${before}`,
+      );
+      assert.equal(physicalStarts, 1);
+      assert.equal(revalidated > 0, mode === "reservation");
+      const after = stored();
+      assert.equal(after.revision, before + 2);
+      assert.deepEqual(
+        after.leaseIntents.map(
+          (intent: { ownerGeneration: string }) => intent.ownerGeneration,
+        ),
+        [reservedGeneration, reservedGeneration],
+      );
+      if (acquired.status === "completed") {
+        assert.equal(acquired.value.isHeld(), true);
+        assert.equal(
+          acquired.value.evidenceWaited === true,
+          mode !== "reservation",
+        );
+        assert.equal(acquired.value.release().status, "completed");
+      }
+    } finally {
+      cancelReservation?.mock.restore();
+      instrument.mock.restore();
+      await otherRelease;
+    }
+  }
+});
+
+/** @trace PRL-IT-005 解放Intent・物理解放・終了証拠・Queue確定を一周だけ実行する。 */
+test("Lease解放は競合した保存段階だけを待ち、物理Lockを二度解放しない", async (t) => {
+  for (const mode of [
+    "intent",
+    "evidence",
+    "queue",
+    "intent_timeout",
+    "evidence_timeout",
+    "queue_timeout",
+  ] as const) {
+    const { root, ports } = currentQueueFixture(t);
+    const binding = ports.repositoryBindingId;
+    const directory = path.join(root, ".crdd", "lock");
+    const file = path.join(root, ".crdd", "execution-model", "state.json");
+    const stored = () =>
+      parseStoredExecutionFixture(fs.readFileSync(file, "utf8"));
+    const acquired = await acquireCoordinatorSnapshotLease(
+      root,
+      binding,
+      "project-a",
+      "queue-a",
+      "project-operation",
+      undefined,
+      { signal: new AbortController().signal },
+    );
+    assert.equal(acquired.status, "completed", acquired.reason);
+    const lease = acquired.value;
+    const leased = updateCoordinatorQueue(ports, "queue-a", 1, {
+      state: "leased",
+      lease,
+      resumeCondition: null,
+      resultReference: null,
+    });
+    assert.equal(leased.status, "completed", leased.reason);
+    const cancelled = updateCoordinatorQueue(
+      ports,
+      "queue-a",
+      leased.value.generation,
+      {
+        state: "cancelled",
+        lease,
+        resumeCondition: null,
+        resultReference: null,
+      },
+    );
+    assert.equal(cancelled.status, "completed", cancelled.reason);
+    const before = stored();
+    const originalRecoveryId = before.leaseIntents[0]?.recoveryId;
+    assert.ok(originalRecoveryId);
+    let otherRelease: Promise<void> | undefined;
+    let removals = 0;
+    const hold = () => {
+      const lock = acquireLock({
+        directory,
+        name: "execution-model.state.lock",
+        identity: "temporary-release-fixture",
+      });
+      if (lock.status !== "acquired") throw Error(lock.reason);
+      return delay(mode.endsWith("_timeout") ? 900 : 40).then(() =>
+        assert.equal(lock.lock.release(), true),
+      );
+    };
+    if (mode.startsWith("intent")) otherRelease = hold();
+    const rm = fs.rmSync;
+    const hook = t.mock.method(
+      fs,
+      "rmSync",
+      (...args: Parameters<typeof rm>) => {
+        const name = path.basename(String(args[0]));
+        rm(...args);
+        if (name.startsWith("coordinator.lease.")) {
+          removals++;
+          if (!otherRelease && mode.startsWith("evidence"))
+            otherRelease = hold();
+        } else if (
+          name === "execution-model.state.lock" &&
+          removals === 1 &&
+          !otherRelease &&
+          mode.startsWith("queue")
+        ) {
+          otherRelease = hold();
+        }
+      },
+    );
+    try {
+      const pending = finishOperationLease(lease, {
+        kind: "scheduled",
+        repository: ports.repository,
+        binding,
+        queueId: "queue-a",
+        queue: cancelled.value,
+      });
+      assert.equal(lease.isHeld(), false);
+      assert.equal(borrowCoordinatorActiveLease(lease), undefined);
+      assert.equal(
+        lease.release().reason,
+        "coordinator_lease_already_released",
+      );
+      const result = await pending;
+      assert.ok(otherRelease, mode);
+      await otherRelease;
+      assert.equal(removals, mode === "intent_timeout" ? 0 : 1, mode);
+      const after = stored();
+      if (mode.endsWith("_timeout")) {
+        assert.equal(result.status, "blocked");
+        assert.ok("recoveryId" in result);
+        assert.equal(result.recoveryId, originalRecoveryId);
+        assert.equal(
+          after.queueEntries[0]?.ownerGeneration,
+          lease.ownerGeneration,
+        );
+        assert.equal(
+          after.leaseIntents.length,
+          mode === "intent_timeout" ? 2 : mode === "evidence_timeout" ? 3 : 0,
+        );
+        if (mode === "intent_timeout")
+          assert.equal(
+            fs
+              .readdirSync(directory)
+              .filter((name) => name.startsWith("coordinator.lease.")).length,
+            1,
+          );
+      } else {
+        assert.equal(result.status, "completed", `${mode}: ${result.reason}`);
+        assert.equal(after.leaseIntents.length, 0);
+        assert.equal(after.queueEntries[0]?.ownerGeneration, null);
+        assert.equal(after.revision, before.revision + 3);
+      }
+    } finally {
+      hook.mock.restore();
+      await otherRelease;
+    }
+  }
+});
+
+/** @trace PRL-IT-005 所有済みGraphの取消終端を、短期Lock待ち後に元世代だけへ保存する。 */
+test("Graph取消のQueue終端は短期Lock競合を待ちTaskを始めない", async (t) => {
+  for (const mode of [
+    "released_before_deadline",
+    "terminal_and_recovery_timeout",
+  ] as const) {
+    const { root, ports } = currentQueueFixture(t);
+    const binding = ports.repositoryBindingId;
+    const state = readProjectExecutionState(
+      ports.repository,
+      binding,
+      "project-a",
+      "queue-a",
+    ).value;
+    assert.ok(state);
+    const file = path.join(root, ".crdd", "execution-model", "state.json");
+    const stored = () =>
+      parseStoredExecutionFixture(fs.readFileSync(file, "utf8"));
+    const directory = path.join(root, ".crdd", "lock");
+    const controller = new AbortController();
+    let otherRelease: Promise<void> | undefined;
+    let expectedRecoveryId: string | undefined;
+    let oldOwner: string | null | undefined;
+    const rm = fs.rmSync;
+    const hook = t.mock.method(
+      fs,
+      "rmSync",
+      (...args: Parameters<typeof rm>) => {
+        rm(...args);
+        if (
+          !otherRelease &&
+          path.basename(String(args[0])) === "execution-model.state.lock" &&
+          stored().queueEntries[0]?.state === "leased"
+        ) {
+          const lock = acquireLock({
+            directory,
+            name: "execution-model.state.lock",
+            identity: "temporary-terminal-fixture",
+          });
+          if (lock.status !== "acquired") throw Error(lock.reason);
+          const current = stored();
+          expectedRecoveryId = current.leaseIntents[0]?.recoveryId;
+          oldOwner = current.queueEntries[0]?.ownerGeneration;
+          otherRelease = delay(
+            mode === "terminal_and_recovery_timeout" ? 1700 : 40,
+          ).then(() => assert.equal(lock.lock.release(), true));
+          controller.abort();
+        }
+      },
+    );
+    try {
+      const result = await runCoordinatorOperation({
+        kind: "scheduled",
+        persistence: ports,
+        leaseWait: {},
+        input: {
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          queueId: "queue-a",
+          taskExecutions: state.tasks.map((task) => ({
+            taskId: task.definition.id,
+            authorityBindingId: "fixture-binding",
+            taskRequest: null,
+            repositoryRoot: root,
+          })),
+          cancellationSignal: controller.signal,
+        },
+      });
+      assert.ok(otherRelease);
+      const after = stored();
+      if (mode === "terminal_and_recovery_timeout") {
+        assert.ok(expectedRecoveryId && oldOwner);
+        assert.equal(result.status, "blocked", result.reason);
+        assert.equal(result.effectState, "unknown");
+        assert.equal(result.cleanupConfirmed, false);
+        assert.deepEqual(result.recoveryIds, [expectedRecoveryId]);
+        assert.equal(after.queueEntries[0]?.state, "leased");
+        assert.equal(after.queueEntries[0]?.ownerGeneration, oldOwner);
+        assert.ok(
+          after.leaseEvidence.some(
+            ({ content }) =>
+              content.queueId === "queue-a" &&
+              content.ownerGeneration === oldOwner &&
+              content.disposition === "released",
+          ),
+        );
+      } else {
+        assert.equal(result.status, "cancelled", result.reason);
+        assert.equal(result.cleanupConfirmed, true);
+        assert.equal(result.effectState, "no_effect");
+        assert.equal(after.queueEntries[0]?.state, "cancelled");
+        assert.equal(after.queueEntries[0]?.ownerGeneration, null);
+      }
+      assert.equal(after.operations.length, 0);
+      assert.equal(after.leaseIntents.length, 0);
+    } finally {
+      hook.mock.restore();
+      await otherRelease;
+    }
+  }
+});
 
 /**
  * 一般定義の保存が既存管理実行と受付を保持する。
@@ -2401,7 +2881,7 @@ test("一般CRUDは既存の管理実行・待機受付・技術区画を保全�
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) => {
-  const { root, ports } = currentQueueFixture(t);
+  const { root, ports, intake } = currentQueueFixture(t);
   const initial = readProjectExecutionState(
     ports.repository,
     ports.repositoryBindingId,
@@ -2422,7 +2902,7 @@ test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) =
     ports.repositoryBindingId,
     command,
     generation,
-    ports.intake,
+    intake,
   );
   assert.equal(write.status, "completed");
   assert.ok(write.value);
@@ -2449,7 +2929,7 @@ test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) =
     ports.repositoryBindingId,
     command,
     generation,
-    ports.intake,
+    intake,
   );
   assert.equal(replay.status, "completed");
   assert.equal(Object.isFrozen(replay.value?.taskExecutionSelections), true);
@@ -2459,7 +2939,7 @@ test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) =
     ports.repositoryBindingId,
     { ...command, authorityBindingId: "different-authority" },
     generation,
-    ports.intake,
+    intake,
   );
   assert.equal(stale.status, "blocked");
   assert.equal(stale.reason, "coordinator_generation_or_identity_mismatch");
@@ -2480,13 +2960,10 @@ test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) =
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Repository RootとBindingを構成時に閉じた平坦なState接続を返す", (t) => {
-  const { root, ports } = currentQueueFixture(t);
+  const { root, ports, intake: originalIntake } = currentQueueFixture(t);
   const intake = Object.freeze({
+    ...originalIntake,
     operation: "resume" as const,
-    queueId: "queue-a",
-    requestHash: "a".repeat(64),
-    projectId: "project-a",
-    milestoneId: "milestone-a",
   });
   const bound = Object.freeze({
     workingDirectory: root,
@@ -2534,7 +3011,7 @@ test("Repository RootとBindingを構成時に閉じた平坦なState接続を�
       authorityBindingId: "authority-a",
     },
     initial.value.generation,
-    ports.intake,
+    nestedBound.intake,
   );
   assert.equal(write.status, "completed");
   const read = readProjectExecutionState(
@@ -2654,6 +3131,7 @@ test("PR-D-Q-00 selects only queues owned by the requested Project binding", (t)
   const selectedA = selectNextQueueEntry(
     ports.repository,
     ports.repositoryBindingId,
+    "queue-a",
   );
   const selectedB = readFixtureSnapshot(root, "binding-b");
   assert.equal(selectedA.status, "completed");
@@ -3168,16 +3646,27 @@ if (queued.status !== "completed") process.exit(21);`,
     recovered.status === "completed" && recovered.value.queue?.resumeCondition,
     "owner_loss",
   );
-  const reacquired = acquireCoordinatorSnapshotLease(
-    ports.workingDirectory,
+  assert.ok(recovered.status === "completed" && recovered.value.queue);
+  // Graphの回復は正式な再開で元Queueを整合させる。Leaseだけでは通過できない。
+  for (const generation of [undefined, recovered.value.queue.generation]) {
+    const reacquired = acquireCoordinatorSnapshotLease(
+      ports.workingDirectory,
+      ports.repositoryBindingId,
+      "project-a",
+      "queue-a",
+      "project-operation",
+      generation,
+    );
+    assert.equal(reacquired.reason, "coordinator_lease_unavailable");
+    assert.equal(reacquired.status, "blocked");
+  }
+  const after = readQueueEntry(
+    ports.repository,
     ports.repositoryBindingId,
-    "project-a",
     "queue-a",
-    "project-operation",
   );
-  assert.equal(reacquired.status, "completed");
-  if (reacquired.status === "completed")
-    assert.equal(reacquired.value.release().status, "completed");
+  assert.ok(after.status === "completed", after.reason);
+  assert.deepEqual(after.value, recovered.value.queue);
 });
 
 /**
@@ -4008,6 +4497,201 @@ test("PR-A-04 preserves an exact long recovery reference in Queue terminal inten
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
+/** @trace PRL-IT-012 解放証拠を残す前に元Ownerが消失しても取消・採用待ちを再実行に戻さない。 */
+test("Owner喪失でLeaseを回収しても取消・採用待ちのQueue結果を保持する", async (t) => {
+  for (const disposition of ["cancelled", "integration_pending"] as const) {
+    const { root, ports } = currentQueueFixture(t);
+    const signal = path.join(root, "release-interrupted-ready");
+    const probe = fileURLToPath(
+      new URL("../fixtures/task-lease-interleaving-probe.ts", import.meta.url),
+    );
+    const child = spawn(
+      process.execPath,
+      [
+        probe,
+        root,
+        signal,
+        "hold",
+        "project-operation",
+        "queue-a",
+        "project-a",
+        disposition,
+      ],
+      { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    const closed = once(child, "close");
+    let errors = "";
+    child.stderr.on("data", (chunk) => {
+      errors += String(chunk);
+    });
+    try {
+      const deadline = performance.now() + 8000;
+      while (
+        !fs.existsSync(signal) &&
+        child.exitCode === null &&
+        child.signalCode === null &&
+        performance.now() < deadline
+      )
+        await delay(20);
+      assert.ok(fs.existsSync(signal), errors);
+      const original = readQueueEntry(
+        ports.repository,
+        ports.repositoryBindingId,
+        "queue-a",
+      );
+      assert.ok(
+        original.status === "completed" && original.value.ownerGeneration,
+      );
+      assert.equal(original.value.state, disposition);
+      const baseline = parseStoredExecutionFixture(
+        fs.readFileSync(
+          path.join(root, ".crdd", "execution-model", "state.json"),
+          "utf8",
+        ),
+      );
+      assert.ok(
+        baseline.leaseIntents.some(
+          (intent) =>
+            intent.phase === "lock_owned" &&
+            intent.ownerProcessId === child.pid,
+        ),
+      );
+      assert.equal(
+        baseline.leaseEvidence.some(
+          (evidence) =>
+            evidence.content.ownerGeneration ===
+              original.value.ownerGeneration &&
+            evidence.content.disposition !== "acquired",
+        ),
+        false,
+      );
+      assert.ok(child.kill("SIGKILL"));
+      await closed;
+      const finished = reconcileCoordinatorSnapshotLeaseOwnerLoss(
+        root,
+        ports.repositoryBindingId,
+        "project-a",
+        "queue-a",
+        "project-operation",
+        (owner) => {
+          assert.equal(owner.ownerProcessId, child.pid);
+          assert.throws(() => process.kill(owner.ownerProcessId, 0), {
+            code: "ESRCH",
+          });
+          return { ...owner, status: "absent" };
+        },
+      );
+      assert.ok(finished.status === "completed", finished.reason);
+      assert.deepEqual(finished.value.queue, {
+        ...original.value,
+        ownerGeneration: null,
+        generation: original.value.generation + 1,
+      });
+      const final = parseStoredExecutionFixture(
+        fs.readFileSync(
+          path.join(root, ".crdd", "execution-model", "state.json"),
+          "utf8",
+        ),
+      );
+      assert.equal(final.leaseIntents.length, 0);
+      assert.ok(
+        final.leaseEvidence.some(
+          (evidence) =>
+            evidence.content.ownerGeneration ===
+              original.value.ownerGeneration &&
+            evidence.content.disposition === "recovered_after_owner_loss",
+        ),
+      );
+      assert.deepEqual(final.projects, baseline.projects);
+    } finally {
+      if (child.exitCode === null && child.signalCode === null)
+        child.kill("SIGKILL");
+      await closed;
+    }
+  }
+});
+
+/** @trace PRL-IT-005 回復の初回読取りの競合と、回復処置後の不明を混同しない。 */
+test("GraphのLease回復は初回読取りだけ短期Lockを待ち、取消・認可喪失では処置しない", async (t) => {
+  const { root, ports } = currentQueueFixture(t);
+  const binding = ports.repositoryBindingId;
+  const lease = acquireCoordinatorSnapshotLease(
+    root,
+    binding,
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.ok(lease.status === "completed", lease.reason);
+  const state = path.join(root, ".crdd", "execution-model", "state.json");
+  const before = fs.readFileSync(state, "utf8");
+  let calls = 0;
+  const observe = (owner: {
+    ownerProcessId: number;
+    ownerGeneration: string;
+  }) => {
+    calls += 1;
+    return { ...owner, status: "alive" as const };
+  };
+  const args = [
+    root,
+    binding,
+    "project-a",
+    "queue-a",
+    "project-operation",
+    observe,
+  ] as const;
+  try {
+    for (const mode of ["cancelled", "revoked", "released"] as const) {
+      const other = acquireLock({
+        directory: path.join(root, ".crdd", "lock"),
+        name: "execution-model.state.lock",
+        identity: "recovery-read-contention-fixture",
+      });
+      assert.ok(
+        other.status === "acquired",
+        other.status === "acquired" ? undefined : other.reason,
+      );
+      let releaseNeeded = true;
+      try {
+        assert.deepEqual(reconcileCoordinatorSnapshotLeaseOwnerLoss(...args), {
+          status: "blocked",
+          reason: "coordinator_snapshot_lock_contended",
+          value: null,
+          manualRecoveryRequired: false,
+          recoveryId: null,
+        });
+        const controller = new AbortController();
+        const result = reconcileCoordinatorSnapshotLeaseOwnerLoss(...args, {
+          signal: controller.signal,
+          revalidate: async () => {
+            if (mode === "revoked") return false;
+            assert.equal(other.lock.release(), true);
+            releaseNeeded = false;
+            return true;
+          },
+        });
+        if (mode === "cancelled") controller.abort();
+        if (mode !== "released") {
+          assert.equal(await result, null);
+          assert.equal(calls, 0);
+        } else {
+          assert.equal(
+            (await result)?.reason,
+            "coordinator_lease_owner_still_active",
+          );
+          assert.equal(calls, 1);
+        }
+        assert.equal(fs.readFileSync(state, "utf8"), before);
+      } finally {
+        if (releaseNeeded) assert.equal(other.lock.release(), true);
+      }
+    }
+  } finally {
+    assert.equal(lease.value.release().status, "completed");
+  }
+});
+
 test("PR-A-04 reconciles a released terminal intent after owner settlement was interrupted", (t) => {
   const { ports } = currentQueueFixture(t);
   assert.equal(
@@ -4756,6 +5440,7 @@ test("長期Leaseの既存ID域はGitなしでもwx取得・通常解放・Crash
       const observed = inspectCoordinatorSnapshotLeaseAcquisitionOwner(
         root,
         binding,
+        "queue-a",
       );
       assert.equal(observed.status, "completed");
       assert.equal(

@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import {
   parseRealitySymbolManifest,
   type RealitySymbolManifest,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { createRepositoryTestDirectory } from "../../../document-model/tests/support/repository-test-directory.ts";
 
 import {
@@ -163,7 +163,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
   {
     relativePath: "40_Develop/executor/src/index.ts",
     exportedModules: [
-      "../../docker-isolation/src/index.ts",
+      "@qual-lab/crdd-docker-isolation",
       "./lifecycle/cleanup.ts",
       "./lifecycle/types.ts",
     ],

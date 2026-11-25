@@ -20,7 +20,7 @@ import { runInThisContext } from "node:vm";
 import {
   parseDockerTaskRecoveryId,
   type ExecutionOperationRecord,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import {
   persistDockerRestartCheckpoint,

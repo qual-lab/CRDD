@@ -26,8 +26,8 @@ import type {
   PreparedIsolation,
   ResourceSnapshot,
   ResourceTarget,
-} from "../../../docker-isolation/src/index.ts";
-import * as original from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
+import * as original from "@qual-lab/crdd-docker-isolation";
 
 /** 同じRoot入口の全認証構成と、通知拒否・未終了の負例を確認する。
  * @responsibility 当該Caseの入力・通知・技術結果の対応を確認する。
@@ -47,7 +47,7 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
   const requests: IsolationRequest[] = [];
   const cleanupRequests: ResourceTarget<"snapshot">[] = [];
   const capabilityInputs: unknown[][] = [];
-  t.mock.module("../../../docker-isolation/src/index.ts", {
+  t.mock.module("@qual-lab/crdd-docker-isolation", {
     namedExports: {
       ...original,
       describeIsolationConfiguration(...args: ["codex" | "claude", unknown?]) {

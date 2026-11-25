@@ -25,7 +25,7 @@ import {
   parseQualityVerificationDesign,
   parseQualityVerificationResult,
   type QualityDefinitionModel,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { mapArtifactDomainIssueToCheckerFinding } from "../report/convert.ts";
 import {
   mapQualityAnalysisIssueToFinding,

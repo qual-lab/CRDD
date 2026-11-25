@@ -6,7 +6,7 @@
  * @boundary 非秘密の表示ModelとBrowser DOM。
  * @security Reactのtext escapingと既存の資格非永続化を維持する。
  */
-import type { ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { EmptyState, WorkbenchPanel } from "./elements.ts";
 import type { MainViewResponse } from "../api/response.ts";
 
@@ -31,12 +31,30 @@ export function ExecutionActivity({
   model: MainViewResponse;
 }): ReactElement {
   const observation = model.executionActivity;
+  const graphs = observation?.graphs ?? [];
+  const [selection, setSelection] = useState("");
+  const graphKey = (graph: (typeof graphs)[number]) =>
+    JSON.stringify([graph.repositoryId, graph.queueId]);
+  const selected =
+    graphs.find((graph) => graphKey(graph) === selection) ??
+    (selection === "" && graphs.length === 1 ? graphs[0] : undefined);
+  const choosingGraph = selection !== "" || graphs.length > 0;
+  const progress = choosingGraph ? selected?.progress : observation?.projection;
+  const milestoneId = choosingGraph
+    ? selected?.milestoneId
+    : observation?.projection?.milestoneId;
   return (
     <WorkbenchPanel
       id="runtime-activity"
       eyebrow="Runtime activity"
       title="現在の実行状況"
-      status={observation?.state ?? "Not connected"}
+      status={
+        graphs.length > 0
+          ? selected
+            ? (progress?.milestoneState ?? "観測不能")
+            : "実行を選択"
+          : (observation?.state ?? "Not connected")
+      }
     >
       {(observation?.singleTasks ?? []).length ? (
         <section>
@@ -53,33 +71,62 @@ export function ExecutionActivity({
           </ul>
         </section>
       ) : null}
+      {graphs.length > 0 && (
+        <label>
+          実行
+          <select
+            value={selected ? graphKey(selected) : ""}
+            onChange={(event) => setSelection(event.target.value)}
+          >
+            {(graphs.length > 1 || !selected) && (
+              <option value="">実行を選択</option>
+            )}
+            {graphs.map((graph) => (
+              <option key={graphKey(graph)} value={graphKey(graph)}>
+                {graph.milestoneId} / {graph.workspaceId ?? "Workspace未指定"} /{" "}
+                {graph.repositoryId} / {graph.queueId}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {observation === null ? (
         <EmptyState>Task状態の観測は未接続です。</EmptyState>
-      ) : observation.state !== "observed" ||
-        observation.projection === null ? (
+      ) : choosingGraph && !selected ? (
         <EmptyState>
-          Runtime状態を現在値として観測できません: {observation.reason}
+          {graphs.length > 0
+            ? "状態を表示する実行を選択してください。"
+            : "選択した実行は現在の一覧にありません。"}
+        </EmptyState>
+      ) : !progress ? (
+        <EmptyState>
+          {selected
+            ? "選択した実行の状態を確認できません。"
+            : `実行状態を現在値として観測できません: ${observation.reason}`}
         </EmptyState>
       ) : (
-        <>
-          <dl className="quality-facts">
-            <div>
-              <dt>Milestone</dt>
-              <dd>{observation.projection.milestoneId}</dd>
-            </div>
-            <div>
-              <dt>State</dt>
-              <dd>{observation.projection.milestoneState}</dd>
-            </div>
-            <div>
-              <dt>Work progress</dt>
-              <dd>{observation.projection.workProgress}</dd>
-            </div>
-            <div>
-              <dt>Next action</dt>
-              <dd>{observation.projection.nextAction}</dd>
-            </div>
-          </dl>
+        <dl className="quality-facts">
+          <div>
+            <dt>Milestone</dt>
+            <dd>{milestoneId}</dd>
+          </div>
+          <div>
+            <dt>State</dt>
+            <dd>{progress.milestoneState}</dd>
+          </div>
+          <div>
+            <dt>Work progress</dt>
+            <dd>{progress.workProgress}</dd>
+          </div>
+          <div>
+            <dt>Next action</dt>
+            <dd>{progress.nextAction}</dd>
+          </div>
+        </dl>
+      )}
+      {observation && (
+        <section>
+          <h3>Project全体の実行履歴</h3>
           {observation.eventState !== "observed" ? (
             <EmptyState>
               実行履歴を完全に観測できません: {observation.eventReason}
@@ -104,7 +151,7 @@ export function ExecutionActivity({
               次の実行履歴
             </a>
           )}
-        </>
+        </section>
       )}
     </WorkbenchPanel>
   );

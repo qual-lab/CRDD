@@ -23,11 +23,11 @@ import { DIAGNOSTIC_IMAGE } from "../../../docker-isolation/src/image/assets.ts"
 import {
   type IsolationRequest,
   prepareIsolation,
-} from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 import type {
   ExecutionOperationRecord,
   OperationRecord,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { getIsolationSettings } from "../../src/lifecycle/environment.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 import { sourceUrl } from "../support/task-requests.ts";
@@ -79,7 +79,7 @@ if (mode === "auth_create_failure") {
   assert.match(path.basename(root), /^auth-create-failure-[a-zA-Z0-9]+$/u);
   assert.equal(fs.lstatSync(root).isSymbolicLink(), false);
 }
-const vc = await import("../../../version-control/src/index.ts");
+const vc = await import("@qual-lab/crdd-version-control");
 const verified = vc.getRepository(root);
 assert.equal(verified.status, "completed");
 assert.ok(verified.capability);
@@ -198,7 +198,7 @@ function captureHostRoot(target: string) {
 }
 
 if (mode !== "recovery") {
-  const domain = await import("../../../execution-model/src/index.ts");
+  const domain = await import("@qual-lab/crdd-execution-model");
   const host = await import("../../src/lifecycle/host.ts");
   const repository = await import("../../src/lifecycle/host.ts");
   const observeOperation = (owner: unknown) =>
@@ -356,7 +356,7 @@ if (mode !== "recovery") {
       typeof domain.saveOperationCheckpoint
     >[] = [];
     const domainMock = mock.module(
-      new URL("../../../execution-model/src/index.ts", import.meta.url).href,
+      import.meta.resolve("@qual-lab/crdd-execution-model"),
       {
         namedExports: {
           ...domain,
@@ -1368,7 +1368,7 @@ if (mode !== "recovery") {
     assert.deepEqual(violations, [...originals.keys()]);
     violations.splice(0);
     if (admissionVerification === "verify_admission") {
-      const actualStore = await import("../../../execution-model/src/index.ts");
+      const actualStore = await import("@qual-lab/crdd-execution-model");
       const actualHost = await import("../../src/lifecycle/host.ts");
       // 公開回復が呼び得る保存・出版入口を明示する。安全なRepository借用と実Readerは代役にしない。
       const mutationNames = [
@@ -1380,7 +1380,7 @@ if (mode !== "recovery") {
         "completeOperation",
       ] as const;
       admissionStoreMock = mock.module(
-        new URL("../../../execution-model/src/index.ts", import.meta.url).href,
+        import.meta.resolve("@qual-lab/crdd-execution-model"),
         {
           namedExports: {
             ...actualStore,
@@ -1418,13 +1418,13 @@ if (mode !== "recovery") {
       );
     }
     if (interruption !== undefined && interruption !== "none") {
-      const actualStore = await import("../../../execution-model/src/index.ts");
+      const actualStore = await import("@qual-lab/crdd-execution-model");
       const refused = actualStore.saveOperationCheckpoint(null, null, {
         kind: "host_operation",
         value: null,
       });
       recoveryStoreMock = mock.module(
-        new URL("../../../execution-model/src/index.ts", import.meta.url).href,
+        import.meta.resolve("@qual-lab/crdd-execution-model"),
         {
           namedExports: {
             ...actualStore,
@@ -1576,7 +1576,7 @@ if (mode !== "recovery") {
       fixtureHomeDirectory,
     );
     if (admissionVerification === "verify_admission") {
-      const model = await import("../../../execution-model/src/index.ts");
+      const model = await import("@qual-lab/crdd-execution-model");
       const baselineBytes = fs.readFileSync(statePath);
       const baselineFiles = captureCoordinatorFiles();
       const pendingPath = path.join(

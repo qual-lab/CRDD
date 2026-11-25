@@ -233,6 +233,9 @@ test("TaskのWorkspace直接観測は元対象を照合し取消では観測し�
         const taskId = "task-a", state = { tasks: [], repositoryRevision: "revision-a" };
         const execution = { authorityBindingId: "authority-a" };
         const observeStarted = () => {};
+        const waitForPreparation = async (observe) => observe();
+        const preparationRefusal = (signal) => signal.aborted ? "cancelled" : "denied";
+        const isCleanStateContention = () => false;
         ${source.slice(start, end)}
         return { delegated, stoppedBeforeDelegation, outcome };
       }`)}\nreturn inspectTarget();`,
@@ -266,7 +269,12 @@ test("TaskのWorkspace直接観測は元対象を照合し取消では観測し�
           workspaceTarget,
         ]);
         if (profile === "blocked" || profile === "unknown")
-          return { status: profile, value: null };
+          return {
+            status: profile,
+            value: null,
+            manualRecoveryRequired: false,
+            recoveryId: null,
+          };
         if (profile === "observation_throws") throw Error("synthetic");
         return {
           status: "completed",

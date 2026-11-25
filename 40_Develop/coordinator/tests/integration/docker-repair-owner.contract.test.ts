@@ -21,12 +21,12 @@ import { isDeepStrictEqual } from "node:util";
 import { runInThisContext } from "node:vm";
 import * as directoryOperations from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { runRepairSessionWithDependencies } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
-import * as isolation from "../../../docker-isolation/src/index.ts";
-import * as model from "../../../execution-model/src/index.ts";
-import * as domain from "../../../execution-model/src/index.ts";
-import * as stateStore from "../../../execution-model/src/index.ts";
+import * as isolation from "@qual-lab/crdd-docker-isolation";
+import * as model from "@qual-lab/crdd-execution-model";
+import * as domain from "@qual-lab/crdd-execution-model";
+import * as stateStore from "@qual-lab/crdd-execution-model";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   historyRepositoryInput,

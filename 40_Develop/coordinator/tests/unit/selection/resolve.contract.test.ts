@@ -8,7 +8,7 @@
  * @scope Coordinatorの新規選定と実行前照合、実行モデルの保存値検査、AI Adapterの技術選定。
  * @boundary 同一Process内。保存・認証・外部AI・Dockerを使用しない。
  */
-import type { ExecutionSelection } from "../../../../execution-model/src/index.ts";
+import type { ExecutionSelection } from "@qual-lab/crdd-execution-model";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -18,8 +18,8 @@ import { compileFunction } from "node:vm";
 import {
   getModelCatalog,
   resolveModelSelection,
-} from "../../../../ai-adapter/src/index.ts";
-import { validateAiSelectionConfig } from "../../../../configuration-model/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
+import { validateAiSelectionConfig } from "@qual-lab/crdd-configuration-model";
 import { snapshotPlainRecord } from "../../../src/lifecycle/validation.ts";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { resolveTaskExecutionSelections } from "../../../src/lifecycle/selection.ts";

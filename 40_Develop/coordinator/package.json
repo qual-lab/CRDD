@@ -42,6 +42,17 @@
   "engines": {
     "node": ">=24.12.0"
   },
+  "dependencies": {
+    "@qual-lab/crdd-ai-adapter": "file:../ai-adapter",
+    "@qual-lab/crdd-configuration-model": "file:../configuration-model",
+    "@qual-lab/crdd-docker-isolation": "file:../docker-isolation",
+    "@qual-lab/crdd-document-model": "file:../document-model",
+    "@qual-lab/crdd-execution-intelligence": "file:../execution-intelligence",
+    "@qual-lab/crdd-execution-model": "file:../execution-model",
+    "@qual-lab/crdd-executor": "file:../executor",
+    "@qual-lab/crdd-lock": "file:../lock",
+    "@qual-lab/crdd-version-control": "file:../version-control"
+  },
   "devDependencies": {
     "@biomejs/biome": "2.5.6",
     "@types/node": "22.18.0",

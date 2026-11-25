@@ -18,8 +18,8 @@ import {
   inspectDocumentRelations,
   observeRealitySymbolRepository,
   parseArtifact,
-} from "../../../document-model/src/index.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-document-model";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import { runChecker, runSemanticCoverage } from "../../src/index.ts";
 import { mapArtifactDomainIssueToCheckerFinding } from "../../src/report/convert.ts";
 import { mapRealityDomainIssueToCheckerFinding } from "../../src/report/reality.ts";

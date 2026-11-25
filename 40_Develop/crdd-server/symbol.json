@@ -1049,6 +1049,12 @@
       "archIds": ["ARCH-000012", "ARCH-000013"]
     },
     {
+      "symbolId": "crdd-server.execution.objective-child",
+      "kind": "file",
+      "path": "src/service/execution-child.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
       "symbolId": "workbench.http.workspace",
       "kind": "file",
       "path": "src/transport/api-server.ts",

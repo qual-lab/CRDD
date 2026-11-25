@@ -22,7 +22,7 @@ import { createCredentialMaterial } from "../../../access-management/src/credent
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import { startWorkbench } from "../../src/app.ts";
 
 /**

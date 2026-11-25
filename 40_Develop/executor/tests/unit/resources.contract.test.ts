@@ -25,7 +25,7 @@ import type { ResourceTarget } from "../../src/index.ts";
 import type {
   IsolationCallbacks,
   IsolationExecutionResult,
-} from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 
 /**
  * 保存済みSnapshotを用途別の旧投影へ変換せず共通DIへ搬送する。
@@ -74,9 +74,9 @@ test("Snapshot入口は元DI入力・通知・取消とCompletionを直接搬送
   const callbacks: IsolationCallbacks = { onResourceIdentified: () => {} };
   const controller = new AbortController();
   const options = { signal: controller.signal, stopOnUnknownAbsence: true };
-  const original = await import("../../../docker-isolation/src/index.ts");
+  const original = await import("@qual-lab/crdd-docker-isolation");
   const lower = t.mock.module(
-    new URL("../../../docker-isolation/src/index.ts", import.meta.url).href,
+    new URL(import.meta.resolve("@qual-lab/crdd-docker-isolation")).href,
     {
       namedExports: {
         ...original,
@@ -301,9 +301,9 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
   const unexpected = () => {
     throw Error("unexpected_attempt_operation");
   };
-  const original = await import("../../../docker-isolation/src/index.ts");
+  const original = await import("@qual-lab/crdd-docker-isolation");
   const lower = mock.module(
-    new URL("../../../docker-isolation/src/index.ts", import.meta.url).href,
+    new URL(import.meta.resolve("@qual-lab/crdd-docker-isolation")).href,
     {
       namedExports: {
         ...original,

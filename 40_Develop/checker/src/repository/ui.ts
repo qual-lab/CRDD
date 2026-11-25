@@ -6,7 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import type { UiDefinition } from "../../../document-model/src/index.ts";
+import type { UiDefinition } from "@qual-lab/crdd-document-model";
 import {
   inspectUiConsistency,
   parseUiAnalysis,
@@ -19,7 +19,7 @@ import {
   parseUiScreen,
   parseUiVisualBaseline,
   type UiAnalysis,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { mapUiDomainIssueToFinding } from "../report/convert.ts";
 import type { DocumentFinding } from "../report/types.ts";
 import {

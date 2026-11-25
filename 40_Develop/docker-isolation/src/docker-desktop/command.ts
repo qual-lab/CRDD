@@ -5,7 +5,7 @@
  * @boundary Windowsの固定インストール先。Process群の不存在は観測しない。
  */
 import path from "node:path";
-import { acquireLock } from "../../../lock/src/index.ts";
+import { acquireLock } from "@qual-lab/crdd-lock";
 import type { IsolationSettings } from "../docker-cli/environment.ts";
 import { createDesktopCommandEnvironment } from "../docker-cli/environment.ts";
 import {

@@ -17,9 +17,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { mock, test } from "node:test";
 import { runInNewContext } from "node:vm";
-import * as domain from "../../../execution-model/src/index.ts";
+import * as domain from "@qual-lab/crdd-execution-model";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import * as areas from "../../src/lifecycle/host.ts";
 import { borrowCoordinatorRecoveryRepository } from "../../src/lifecycle/host.ts";
 import { coordinatorDataBoundaryBlocked } from "../../src/lifecycle/host.ts";
@@ -105,12 +105,13 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     const file = path.join(current, "state.json");
     const bytes = Buffer.from(
       `${canonicalJson({
-        schema: "crdd-execution-model/state/v9",
+        schema: "crdd-execution-model/state/v10",
         revision: 1,
         previous: null,
         repositoryBinding: binding.repositoryBinding,
         repositoryBindingId: null,
         projects: [],
+        planVersions: [],
         managedExecutions: [],
         workspaces: [],
         queueEntries: [],
@@ -489,7 +490,7 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
   let observed: unknown;
   const roots: (string | null)[] = [];
   const mocked = mock.module(
-    new URL("../../../execution-model/src/index.ts", import.meta.url).href,
+    import.meta.resolve("@qual-lab/crdd-execution-model"),
     {
       namedExports: {
         ...domain,

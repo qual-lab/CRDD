@@ -5,7 +5,7 @@
  * @boundary 試験専用。Docker処置・保存・Authorityを発行しない。
  */
 
-import type { ExecutionOperationRecord } from "../../../execution-model/src/index.ts";
+import type { ExecutionOperationRecord } from "@qual-lab/crdd-execution-model";
 
 export function readRecoveryResourceSnapshots(
   operation: ExecutionOperationRecord,

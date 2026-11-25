@@ -16,7 +16,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { compileFunction } from "node:vm";
-import type { OperationResources } from "../../../execution-model/src/index.ts";
+import type { OperationResources } from "@qual-lab/crdd-execution-model";
 import { sourceDeclaration } from "../../../executor/tests/support/source-declaration.ts";
 
 /**
@@ -82,7 +82,7 @@ test("単段検証結果Readerは旧4,096件上限を再適用しない", () => 
 
 /** 合成Receiptを実Domainイベントへ通し、保存Reader試験に使う同じBook列を作る。 @trace ERB-IT-004 */
 function createResourceRecords(
-  domain: typeof import("../../../execution-model/src/index.ts"),
+  domain: typeof import("@qual-lab/crdd-execution-model"),
   resources: readonly {
     purpose: string;
     plannedResourceName: string;
@@ -198,20 +198,21 @@ test("固定Task試験は両Providerの計画と実Fileの相関を検査する"
       );
       assert.equal(request.purpose, "task");
       assert.equal(request.purpose === "task" && request.input, spec.prompt);
-      const executor = (
-        await import("../../../executor/src/index.ts")
-      ).createExecutor(request, {
-        ...{
-          paths: {
-            tmp: path.join(root, "tmp"),
-            management: path.join(root, "management"),
+      const executor = (await import("@qual-lab/crdd-executor")).createExecutor(
+        request,
+        {
+          ...{
+            paths: {
+              tmp: path.join(root, "tmp"),
+              management: path.join(root, "management"),
+            },
           },
+          settings: Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
         },
-        settings: Object.freeze({
-          windowsDirectory: "C:\\Windows",
-          userHomeDirectory: "C:\\Users\\test",
-        }),
-      });
+      );
       assert.ok(executor);
       const plan = executor.recordProjection;
       assert.equal(
@@ -292,7 +293,7 @@ test("単段CLIの計画・Effect前拒否を確認する", () => {
     const platform=await import(${JSON.stringify(platform)});let calls=0;
     const forbidden=()=>{calls++;throw Error('platform_forbidden');};
     mock.module(${JSON.stringify(platform)},{namedExports:{...platform,observeProviderHome:forbidden,}});
-    mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:forbidden}});
+    mock.module(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-lock"))}, {namedExports:{...await import(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-lock"))}), acquireLock:forbidden}});
     const api=await import(${JSON.stringify(entry)});
     for(const provider of ['codex','claude']){const spec=api.describeStandaloneProviderTrial(provider);assert.equal(spec.model,provider==='codex'?'gpt-6.1-sol':'claude-opus-5-5');assert.equal(spec.effort,'medium');assert.equal(spec.maximumProviderRequests,1);assert.equal(spec.repositoryMounted,false);assert.equal(spec.workspaceMounted,false);assert.equal(spec.toolsAllowed,false);assert.equal(spec.sessionPersistenceAllowed,false);assert.match(spec.providerImageDigest,/^sha256:[a-f0-9]{64}$/);}
     assert.throws(()=>api.describeStandaloneProviderTrial('other'));
@@ -399,20 +400,20 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
     for(const name of ['spawn','spawnSync','fork','exec','execSync','execFile','execFileSync'])cp[name]=()=>{throw Error('external_process_forbidden');};syncBuiltinESMExports();
     const {createIsolationFixture}=await import(${JSON.stringify(url("../../../docker-isolation/tests/support/isolation.ts"))});
     const f=await createIsolationFixture({mock});
-    const di=await import(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))});
+    const di=await import(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-docker-isolation"))});
     const {captureIsolationRequest}=await import(${JSON.stringify(url("../../../docker-isolation/src/execution/preparation.ts"))});
     const platform=await import(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))});
-    const domain=await import(${JSON.stringify(url("../../../execution-model/src/index.ts"))});
+    const domain=await import(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-execution-model"))});
     const createResourceRecords = ${createResourceRecords.toString()};
     let fixture=null,live=false,releases=0;
     process.env.LOCALAPPDATA='C:/fixture'.replaceAll('/',String.fromCharCode(92));
     mock.module(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))},{namedExports:{...platform,
       observeProviderHome:provider=>({status:'candidate',provider,processEffectIssued:false,manualRecoveryRequired:false,filesystemEffectIssued:false,providerHomeIdentityHash:'a'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)}),
       }});
-    mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:()=>{live=true;return {status:'acquired',lock:{assertLive:()=>live,release:()=>{releases++;live=false;return true;}}};}
+    mock.module(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-lock"))}, {namedExports:{...await import(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-lock"))}), acquireLock:()=>{live=true;return {status:'acquired',lock:{assertLive:()=>live,release:()=>{releases++;live=false;return true;}}};}
     }});
     const purposes=['create_subscription_auth_probe','start_subscription_auth_probe_attached','create_internal_network','create_egress_network','create_proxy','connect_proxy_egress','create_provider','start_proxy','start_provider_attached'];
-    mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
+    mock.module(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-docker-isolation"))},{namedExports:{...di,
       prepareIsolation:(request,settings)=>{f.useRequest(captureIsolationRequest(request),fixture.provider);return f.api.prepareIsolation(request,settings);},
       executeIsolation:f.api.executeIsolation
     }});
@@ -424,7 +425,7 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
     };
     f.observationFilter=(argv,result)=>argv[0]==='start'&&argv.includes('--attach')&&argv.at(-1)===String(f.request.resources.findIndex(r=>r.key==='create_provider')+1).repeat(64)?{...result,stdout:fixture.output}:result;
     const api=await import(${JSON.stringify(url("../system/manual/verify-provider-real.ts"))});
-    const executor=await import(${JSON.stringify(url("../../../executor/src/index.ts"))});
+    const executor=await import(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-executor"))});
     const repository=fileURLToPath(${JSON.stringify(url("../../../../"))});
     const schema=(await import(${JSON.stringify(url("../../../ai-adapter/src/provider/advice-result.ts"))})).describeAdviceResultSchema();
     for(const provider of ['codex','claude'])for(const mode of ['normal','extra','missing','contract','revision','status','empty','item','reference','transport',...(provider==='codex'?['duplicate']:[]),'task_edit','task_review',...(provider==='codex'?['task_review_command']:[]),'task_cancel']){
@@ -482,18 +483,18 @@ test("単段CLI子は製品Executorの排他・再観測・取消・保持を確
  import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {randomUUID} from 'node:crypto';import {fileURLToPath} from 'node:url';import {mock} from 'node:test';
  const {createIsolationFixture}=await import(${JSON.stringify(url("../../../docker-isolation/tests/support/isolation.ts"))});
  const f=await createIsolationFixture({mock});
- const di=await import(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))});
+ const di=await import(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-docker-isolation"))});
  const {captureIsolationRequest}=await import(${JSON.stringify(url("../../../docker-isolation/src/execution/preparation.ts"))});
  const platform=await import(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))});
  let mode='normal',observations=0,acquisitions=0,releases=0,live=false,controller=null;
  process.env.LOCALAPPDATA='C:\\\\fixture';
- mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
+ mock.module(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-docker-isolation"))},{namedExports:{...di,
    prepareIsolation:(request,settings)=>{f.useRequest(captureIsolationRequest(request),'claude');return f.api.prepareIsolation(request,settings);},executeIsolation:f.api.executeIsolation
  }});
  mock.module(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))},{namedExports:{...platform,
    observeProviderHome:provider=>{observations++;if(mode==='unexpected_error')throw Error('private');if(observations===2)assert.equal(live,true);return {status:mode==='home_unknown'||(observations===2&&mode==='home_unavailable')?'blocked':'candidate',provider,processEffectIssued:false,filesystemEffectIssued:false,providerHomeIdentityHash:(observations===2&&mode==='changed'?'e':'a').repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)};},
    }});
-    mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:()=>{acquisitions++;if(mode==='acquire_unknown')return {status:'blocked',reason:'lock_exists',reference:null,cleanupConfirmed:true,descriptorClosed:true};live=true;return {status:'acquired',lock:{assertLive:()=>live,release:()=>{releases++;if(mode==='release_unknown')return false;live=false;return true;}}};}
+    mock.module(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-lock"))}, {namedExports:{...await import(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-lock"))}), acquireLock:()=>{acquisitions++;if(mode==='acquire_unknown')return {status:'blocked',reason:'lock_exists',reference:null,cleanupConfirmed:true,descriptorClosed:true};live=true;return {status:'acquired',lock:{assertLive:()=>live,release:()=>{releases++;if(mode==='release_unknown')return false;live=false;return true;}}};}
  }});
  f.waitGate=async argv=>{if(argv[0]==='start'&&argv.includes('--attach')&&argv.at(-1)==='2'.repeat(64)){if(mode==='cancel')controller.abort();await new Promise(resolve=>setImmediate(resolve));}};
  f.observationFilter=(argv,result)=>{if(argv[0]==='start'&&argv.includes('--attach')&&argv.at(-1)==='2'.repeat(64)){
@@ -559,7 +560,7 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
         "-e",
         `
     import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {createHash,randomUUID} from 'node:crypto';import {EventEmitter} from 'node:events';import {PassThrough} from 'node:stream';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';import {mock} from 'node:test';
-    const platform=await import(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))});const domain=await import(${JSON.stringify(url("../../../execution-model/src/index.ts"))});
+    const platform=await import(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))});const domain=await import(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-execution-model"))});
     const report=await import(${JSON.stringify(url("../../../executor/tests/support/report.ts"))});
     const awaitTaskApi=await import(${JSON.stringify(url("../../../executor/tests/support/task-trial.ts"))});
     const createResourceRecords = ${createResourceRecords.toString()};
@@ -568,7 +569,7 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
     mock.method(process.stdout,'write',function(value,...rest){const text=String(value);assert.equal(/この端末に|入力してください/.test(text),false);if(text.startsWith('{'))output.push(JSON.parse(text));const callback=rest.find(v=>typeof v==='function');if(callback)callback(null);return true;});
     mock.module(${JSON.stringify(url("../../../executor/tests/support/provider-home.ts"))},{namedExports:{...platform,
       observeProviderHome:()=>{throw Error('native_forbidden');},}});
-    mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:()=>{throw Error('lock_forbidden');}
+    mock.module(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-lock"))}, {namedExports:{...await import(${JSON.stringify(import.meta.resolve("@qual-lab/crdd-lock"))}), acquireLock:()=>{throw Error('lock_forbidden');}
     }});
     const repository=fileURLToPath(${JSON.stringify(url("../../../../"))});let root=null;
     const actualTimeout=globalThis.setTimeout;let timeoutDelay=null;
@@ -681,10 +682,7 @@ test("単段CLIの先行hookは静的依存変異を拒否する", () => {
   ).href;
   const host = new URL("../support/provider-attempt-host.ts", import.meta.url)
     .href;
-  const coordinator = new URL(
-    "../../../coordinator/src/index.ts",
-    import.meta.url,
-  ).href;
+  const coordinator = new URL("../../src/index.ts", import.meta.url).href;
   for (const mutate of [false, true]) {
     const child = spawnSync(
       process.execPath,

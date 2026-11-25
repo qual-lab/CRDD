@@ -356,7 +356,7 @@ test("隔離の明示契約は必須構成と未観測分類を保持する", as
   // @ts-expect-error 試験表示は通常Sessionの契約に含めない。
   const candidateFlag = session.productionAuthority;
   assert.equal(Object.hasOwn(session, "productionAuthority"), false);
-  const namespace = await import("../../../docker-isolation/src/index.ts");
+  const namespace = await import("@qual-lab/crdd-docker-isolation");
   for (const name of [
     "DockerIsolationRuntimeOptions",
     "DockerIsolationRuntime",

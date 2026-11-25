@@ -21,7 +21,7 @@ import { evaluateProviderTaskScope } from "../../../ai-adapter/src/provider/plan
 import {
   type ExecutionRequest,
   planExecution,
-} from "../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/image/assets.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");

@@ -13,7 +13,7 @@
 import { executionSelection, attemptSelection } from "./ai-selection.ts";
 
 import assert from "node:assert/strict";
-import { planExecution } from "../../../ai-adapter/src/index.ts";
+import { planExecution } from "@qual-lab/crdd-ai-adapter";
 import {
   createExecutorTestCandidate,
   projectAttemptStartResult,

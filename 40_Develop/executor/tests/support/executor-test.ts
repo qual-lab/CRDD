@@ -13,7 +13,7 @@ import type {
   IsolationCallbacks,
   IsolationExecutionResult,
   ResourceSnapshot,
-} from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 import type { DockerResourceCleanupObservation } from "../../../docker-isolation/tests/support/cleanup.ts";
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/tests/support/cleanup.ts";
 import type {
@@ -24,7 +24,7 @@ import type {
   DockerSessionCommandHandle,
 } from "../../../docker-isolation/tests/support/session.ts";
 import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
-import type { LockResult } from "../../../lock/src/index.ts";
+import type { LockResult } from "@qual-lab/crdd-lock";
 import {
   abandon,
   cancel,

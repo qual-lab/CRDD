@@ -15,7 +15,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { planExecution } from "../../../ai-adapter/src/index.ts";
+import { planExecution } from "@qual-lab/crdd-ai-adapter";
 import {
   describeDockerProviderAssets,
   describeDockerProviderExecutionLocations,

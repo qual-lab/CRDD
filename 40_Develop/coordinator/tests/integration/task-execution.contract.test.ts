@@ -16,14 +16,20 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test, { mock } from "node:test";
-import * as executionModel from "../../../execution-model/src/index.ts";
-import { readProjectExecutionState } from "../../../execution-model/src/index.ts";
-import type { ProjectTaskDefinition } from "../../../execution-model/src/index.ts";
-import { initializeExecutionStore } from "../../../execution-model/src/index.ts";
+import { setTimeout as delay } from "node:timers/promises";
+import * as executionModel from "@qual-lab/crdd-execution-model";
+import {
+  leaseAcquisitionRecoveryId,
+  readProjectExecutionState,
+} from "@qual-lab/crdd-execution-model";
+import type { ProjectTaskDefinition } from "@qual-lab/crdd-execution-model";
+import { initializeExecutionStore } from "@qual-lab/crdd-execution-model";
+import { acquireLock } from "@qual-lab/crdd-lock";
 import {
   projectExecutionFixture,
   initialExecutionInput,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import { parseStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import { runTestSingleTaskAttempt } from "../support/task-requests.ts";
 import * as host from "../../src/lifecycle/host.ts";
 import { resolveExecutionStorageDirectory } from "../../src/lifecycle/host.ts";
@@ -39,6 +45,403 @@ import { settleSyntheticOperations } from "../fixtures/task-result-fixture.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
 const revision = "a".repeat(40);
+
+/** @trace PRL-IT-012 実EMの競合をTask保存の各段階に入れ、代役Executorの呼出しを証明する。 */
+test("Taskの予約・通知・終端は競合した保存だけを待ちExecutorを呼び直さない", async (t) => {
+  for (const mode of [
+    "all_stages",
+    "handoff_revoked",
+    "target_revoked",
+    "target_unknown",
+    "target_transient_unknown",
+    "reservation_cancelled",
+    "settlement_cancelled",
+    "settlement_timeout",
+    "next_task_revoked",
+    "next_task_cancelled",
+  ] as const) {
+    const { root, input } = fixture(
+      t,
+      mode === "next_task_revoked" || mode === "next_task_cancelled"
+        ? [task("task-a"), task("task-b", ["task-a"])]
+        : [task("task-a")],
+      1,
+    );
+    const controller = new AbortController();
+    const stages =
+      mode === "all_stages"
+        ? new Set(["task_start", "task_handoff", "task_started", "task_settle"])
+        : new Set([
+            {
+              handoff_revoked: "task_handoff",
+              target_revoked: "target",
+              target_unknown: "target",
+              target_transient_unknown: "target",
+              reservation_cancelled: "task_start",
+              settlement_cancelled: "task_settle",
+              settlement_timeout: "task_settle",
+              next_task_revoked: "task_settle",
+              next_task_cancelled: "task_settle",
+            }[mode],
+          ]);
+    const held = new Map<string, Promise<void>>();
+    const applied = new Map<string, number>();
+    const revalidated = new Set<string>();
+    let blockedStage = "";
+    let starts = 0;
+    let notices = 0;
+    const pending = path.join(
+      root,
+      ".crdd",
+      "execution-model",
+      "state.pending.json",
+    );
+    let fixturePending = false;
+    let transientFailures = 0;
+    const open = fs.openSync;
+    let transientFault: ReturnType<typeof t.mock.method> | undefined;
+    let releaseTarget: (() => void) | undefined;
+    try {
+      const outcome = await withExecutionStateSave(
+        (...args) => {
+          const stage = args[2].kind;
+          if (stages.has(stage) && !held.has(stage)) {
+            const acquired = acquireLock({
+              directory: path.join(root, ".crdd", "lock"),
+              name: "execution-model.state.lock",
+              identity: "temporary-task-fixture",
+            });
+            if (acquired.status !== "acquired") throw Error(acquired.reason);
+            held.set(
+              stage,
+              delay(mode === "settlement_timeout" ? 900 : 40).then(() =>
+                assert.equal(acquired.lock.release(), true),
+              ),
+            );
+            if (
+              mode === "reservation_cancelled" ||
+              mode === "settlement_cancelled" ||
+              mode === "next_task_cancelled"
+            )
+              controller.abort();
+          }
+          const value = executionModel.saveProjectExecutionState(...args);
+          if (stage === "task_handoff" && value.status === "completed") {
+            if (mode === "target_revoked") {
+              const owner = acquireLock({
+                directory: path.join(root, ".crdd", "lock"),
+                name: "execution-model.state.lock",
+                identity: "temporary-target-fixture",
+              });
+              if (owner.status !== "acquired") throw Error(owner.reason);
+              blockedStage = "target";
+              releaseTarget = () => {
+                assert.equal(owner.lock.release(), true);
+                releaseTarget = undefined;
+              };
+              held.set("target", Promise.resolve());
+            } else if (mode === "target_unknown") {
+              fs.writeFileSync(pending, "fixture-unknown-pending", {
+                flag: "wx",
+              });
+              fixturePending = true;
+              held.set("target", Promise.resolve());
+            } else if (mode === "target_transient_unknown") {
+              transientFault = t.mock.method(fs, "openSync", ((
+                target,
+                flags,
+                permissions,
+              ) => {
+                if (
+                  String(target) ===
+                    path.join(path.dirname(pending), "state.json") &&
+                  transientFailures === 0
+                ) {
+                  transientFailures++;
+                  throw Object.assign(
+                    Error("fixture_snapshot_observation_unavailable"),
+                    { code: "EACCES" },
+                  );
+                }
+                return Reflect.apply(open, fs, [target, flags, permissions]);
+              }) as typeof open);
+              held.set("target", Promise.resolve());
+            }
+          }
+          if (value.status === "completed")
+            applied.set(stage, 1 + (applied.get(stage) ?? 0));
+          else if (value.reason === "coordinator_snapshot_lock_contended")
+            blockedStage = stage;
+          return value;
+        },
+        (dispatch) =>
+          runCoordinatorOperation(
+            {
+              leaseWait: {
+                revalidate: async () => {
+                  revalidated.add(blockedStage);
+                  releaseTarget?.();
+                  return (
+                    mode !== "handoff_revoked" &&
+                    mode !== "next_task_revoked" &&
+                    mode !== "target_revoked"
+                  );
+                },
+              },
+              runSingleTaskAttempt: async (attempt) => {
+                starts++;
+                notices++;
+                await attempt.observeStarted?.();
+                const result = completedAfterStart(attempt);
+                return mode === "settlement_cancelled"
+                  ? {
+                      ...result,
+                      status: "cancelled",
+                      reason: "coordinator_cancelled",
+                    }
+                  : result;
+              },
+            },
+            { ...input, cancellationSignal: controller.signal },
+            dispatch,
+          ),
+      );
+      assert.equal(held.size, stages.size);
+      if (mode === "target_unknown" || mode === "target_transient_unknown") {
+        assert.equal(outcome.status, "blocked");
+        assert.equal(outcome.effectState, "unknown");
+        assert.equal(outcome.cleanupConfirmed, false);
+        assert.equal(outcome.manualRecoveryRequired, true);
+        assert.equal(starts, 0, mode);
+        assert.equal(notices, 0);
+        assert.deepEqual([...applied.keys()], ["task_start", "task_handoff"]);
+        assert.deepEqual([...revalidated], []);
+        if (mode === "target_unknown") {
+          assert.equal(
+            fs.readFileSync(pending, "utf8"),
+            "fixture-unknown-pending",
+          );
+        } else {
+          assert.equal(transientFailures, 1);
+          const final = parseStoredExecutionFixture(
+            fs.readFileSync(
+              path.join(path.dirname(pending), "state.json"),
+              "utf8",
+            ),
+          );
+          assert.equal(final.queueEntries[0]?.state, "running");
+          assert.ok(final.queueEntries[0]?.ownerGeneration);
+          assert.equal(final.leaseIntents.length, 0);
+          const reconciled = host.reconcileCoordinatorSnapshotLeaseOwnerLoss(
+            root,
+            "binding-a",
+            "project-a",
+            input.queueId,
+            "project-operation",
+            () =>
+              assert.fail("解放証拠があるため元Processの不存在を要求しない"),
+          );
+          assert.equal(reconciled.status, "completed", reconciled.reason);
+          assert.equal(reconciled.value?.queue?.resumeCondition, "owner_loss");
+        }
+        continue;
+      }
+      const persisted = readCoordinatorState(root, "binding-a", "project-a");
+      assert.equal(persisted.status, "completed", persisted.reason);
+      const task = persisted.value?.tasks[0];
+      if (mode === "target_revoked") {
+        assert.equal(outcome.status, "cancelled", outcome.reason);
+        assert.equal(
+          outcome.reason,
+          "coordinator_authenticated_principal_not_verified",
+        );
+        assert.equal(outcome.effectState, "no_effect");
+        assert.equal(outcome.cleanupConfirmed, true);
+        assert.equal(outcome.manualRecoveryRequired, false);
+        assert.equal(starts, 0);
+        assert.equal(notices, 0);
+        assert.deepEqual([...revalidated], ["target"]);
+        assert.deepEqual(
+          [...applied.keys()],
+          ["task_start", "task_handoff", "task_settle_before_effect"],
+        );
+        assert.equal(task?.state, "cancelled");
+      } else if (mode === "settlement_timeout") {
+        assert.equal(starts, 1);
+        assert.equal(notices, 1);
+        assert.equal(applied.has("task_settle"), false);
+        assert.equal(task?.startPhase, "running");
+        assert.equal(outcome.status, "blocked");
+        assert.equal(outcome.effectState, "unknown");
+        assert.equal(outcome.cleanupConfirmed, false);
+        assert.deepEqual([...revalidated], []);
+      } else if (
+        mode === "next_task_revoked" ||
+        mode === "next_task_cancelled"
+      ) {
+        assert.equal(starts, 1);
+        assert.equal(notices, 1);
+        assert.deepEqual(
+          [...revalidated],
+          mode === "next_task_revoked" ? ["task_settle"] : [],
+        );
+        assert.deepEqual(outcome.completedTaskIds, ["task-a"]);
+        assert.equal(
+          outcome.reason,
+          mode === "next_task_revoked"
+            ? "coordinator_authenticated_principal_not_verified"
+            : "coordinator_cancelled_before_task_effect",
+        );
+        assert.equal(outcome.status, "cancelled");
+        assert.equal(outcome.effectState, "settled");
+        assert.equal(outcome.cleanupConfirmed, true);
+        assert.equal(outcome.manualRecoveryRequired, false);
+        assert.deepEqual(outcome.recoveryIds, []);
+        assert.equal(task?.state, "completed");
+        assert.equal(persisted.value?.tasks[1]?.state, "ready");
+      } else if (mode === "all_stages" || mode === "settlement_cancelled") {
+        assert.equal(starts, 1);
+        assert.equal(notices, 1);
+        assert.deepEqual(
+          [...applied.keys()],
+          ["task_start", "task_handoff", "task_started", "task_settle"],
+        );
+        assert.ok([...applied.values()].every((count) => count === 1));
+        assert.equal(
+          outcome.status,
+          mode === "all_stages" ? "completed" : "cancelled",
+          outcome.reason,
+        );
+        assert.equal(task?.state, outcome.status);
+        assert.deepEqual(
+          [...revalidated],
+          mode === "all_stages" ? ["task_start", "task_handoff"] : [],
+        );
+      } else {
+        assert.equal(starts, 0);
+        assert.equal(notices, 0);
+        assert.deepEqual(
+          [...applied.keys()],
+          mode === "handoff_revoked" ? ["task_start"] : [],
+        );
+        assert.deepEqual(
+          [...revalidated],
+          mode === "handoff_revoked" ? ["task_handoff"] : [],
+        );
+        assert.equal(
+          outcome.reason,
+          mode === "handoff_revoked"
+            ? "coordinator_authenticated_principal_not_verified"
+            : "coordinator_cancelled_before_task_effect",
+        );
+        assert.equal(
+          task?.startPhase,
+          mode === "handoff_revoked" ? "reserved" : "none",
+        );
+      }
+    } finally {
+      releaseTarget?.();
+      transientFault?.mock.restore();
+      await Promise.all(held.values());
+      if (fixturePending) fs.unlinkSync(pending);
+    }
+  }
+});
+
+/** @trace PRL-IT-012 Queue選択と開始の短期競合を、実Leaseと新規Effectの間で反証する。 */
+test("Queue開始の競合は元Scopeの再認可が通った場合だけTaskへ進む", async (t) => {
+  for (const mode of ["select", "running_revoked"] as const) {
+    const { root, input } = fixture(t, [task("task-a")], 1);
+    const file = path.join(root, ".crdd", "execution-model", "state.json");
+    let held: Promise<void> | undefined;
+    let checks = 0;
+    let delegated = 0;
+    const rm = fs.rmSync;
+    const hook = t.mock.method(
+      fs,
+      "rmSync",
+      (...args: Parameters<typeof rm>) => {
+        rm(...args);
+        if (
+          held ||
+          path.basename(String(args[0])) !== "execution-model.state.lock"
+        )
+          return;
+        const original = parseStoredExecutionFixture(
+          fs.readFileSync(file, "utf8"),
+        );
+        const queue = original.queueEntries.find(
+          (value) => value.queueId === input.queueId,
+        );
+        if (
+          !queue ||
+          !original.leaseIntents.some(
+            (intent) =>
+              intent.queueId === input.queueId && intent.phase === "lock_owned",
+          ) ||
+          queue.state !== (mode === "select" ? "queued" : "leased")
+        )
+          return;
+        const blocker = acquireLock({
+          directory: path.join(root, ".crdd", "lock"),
+          name: "execution-model.state.lock",
+          identity: "temporary-queue-start-fixture",
+        });
+        if (blocker.status !== "acquired") throw Error(blocker.reason);
+        held = delay(45).then(() => assert.equal(blocker.lock.release(), true));
+      },
+    );
+    try {
+      const result = await runCoordinatorOperation(
+        {
+          leaseWait: {
+            revalidate: async () => {
+              checks++;
+              return mode === "select";
+            },
+          },
+          runSingleTaskAttempt: async (attempt) => {
+            delegated++;
+            await attempt.observeStarted?.();
+            return completedAfterStart(attempt);
+          },
+        },
+        input,
+      );
+      assert.ok(held, mode);
+      assert.ok(checks > 0, mode);
+      const final = parseStoredExecutionFixture(fs.readFileSync(file, "utf8"));
+      if (mode === "select") {
+        assert.equal(result.status, "completed", result.reason);
+        assert.equal(delegated, 1);
+        assert.deepEqual(result.completedTaskIds, ["task-a"]);
+      } else {
+        assert.equal(
+          result.reason,
+          "coordinator_authenticated_principal_not_verified",
+        );
+        assert.equal(delegated, 0);
+        const current = readCoordinatorState(
+          root,
+          "binding-a",
+          "project-a",
+        ).value;
+        assert.equal(current?.tasks[0]?.startPhase, "none");
+        assert.equal(result.status, "cancelled");
+        assert.equal(result.effectState, "no_effect");
+        assert.equal(result.cleanupConfirmed, true);
+        assert.equal(result.manualRecoveryRequired, false);
+        assert.deepEqual(result.recoveryIds, []);
+        assert.equal(final.queueEntries[0]?.state, "cancelled");
+        assert.equal(final.operations.length, 0);
+      }
+      assert.equal(final.leaseIntents.length, 0);
+    } finally {
+      hook.mock.restore();
+      await held;
+    }
+  }
+});
 
 /**
  * 通常Taskの終端と結合Operationの除去を単一CASで保存する。
@@ -248,7 +651,7 @@ async function withExecutionStateSave(
   read?: typeof executionModel.readExecutionState,
 ) {
   const storage = mock.module(
-    new URL("../../../execution-model/src/index.ts", import.meta.url).href,
+    import.meta.resolve("@qual-lab/crdd-execution-model"),
     {
       namedExports: {
         ...executionModel,
@@ -640,18 +1043,30 @@ test("PR-N-01 connects one durable Project task to the Single Task boundary", as
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("interactive Queue wins a fresh binding-wide selection before a scheduled caller can claim", async (t) => {
+test("interactive Queue wins a fresh same-scope selection before a scheduled caller can claim", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
+  const state = readProjectExecutionState(
+    resolveExecutionStorageDirectory(root),
+    "binding-a",
+    "project-a",
+    input.queueId,
+  );
+  assert.ok(state.status === "completed" && state.value, state.reason);
   assert.equal(
-    enqueueProjectOperation(root, "binding-a", {
-      queueId: "queue-scheduled",
-      projectId: "project-a",
-      milestoneId: "milestone-a",
-      requestHash: hash("scheduled-request"),
-      originLane: "scheduled",
-      repositoryRevision: revision,
-      scopeHash: hash("scheduled-scope"),
-    }).status,
+    enqueueProjectOperation(
+      root,
+      "binding-a",
+      {
+        queueId: "queue-scheduled",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        requestHash: hash("scheduled-request"),
+        originLane: "scheduled",
+        repositoryRevision: revision,
+        scopeHash: hash("scheduled-scope"),
+      },
+      initialExecutionInput(state.value),
+    ).status,
     "completed",
   );
   let effects = 0;
@@ -1938,7 +2353,19 @@ test("開始候補の輸送不正は各保存境界で後続処理を停止す�
       assert.equal(outcome.processRestartRequired, true);
       assert.equal(outcome.cleanupConfirmed, false);
       assert.equal(outcome.manualRecoveryRequired, true);
-      assert.deepEqual(outcome.recoveryIds, [expectedRecoveryId]);
+      assert.deepEqual(outcome.recoveryIds, [
+        expectedRecoveryId,
+        ...(stage === "started_queue_failed"
+          ? [
+              leaseAcquisitionRecoveryId(
+                original.repositoryBindingId,
+                input.projectId,
+                input.queueId,
+                "project-operation",
+              ),
+            ]
+          : []),
+      ]);
       assert.deepEqual(outcome.recoveryObligations, [
         { kind: "execution_process", recoveryId: expectedRecoveryId },
       ]);

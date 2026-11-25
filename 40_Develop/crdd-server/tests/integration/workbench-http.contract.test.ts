@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import { startWorkbench } from "../../src/app.ts";
 import { requestRaw } from "../support/workbench-http.ts";
 import { assertManagementResponse } from "../support/workbench-wire.ts";

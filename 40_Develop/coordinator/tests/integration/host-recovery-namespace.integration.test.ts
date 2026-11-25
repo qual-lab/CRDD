@@ -15,7 +15,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import {
   classifyOwnedOperationDirectoryCreationFailure,
   cleanupOwnedOperationDirectories,

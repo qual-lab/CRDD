@@ -16,6 +16,7 @@ import {
   parseDockerTaskRecoveryId,
 } from "../attempt/validation.ts";
 import {
+  hasQueueClosureBlocker,
   validateDecisionRetirement,
   validateDecisionSnapshotTransition,
 } from "../decision/validation.ts";
@@ -82,6 +83,7 @@ import {
   isSha256Hex,
   isStateObject,
   leaseIdentity,
+  leaseScopeAvailable,
   snapshotStateRecord,
   validId,
 } from "./validation.ts";
@@ -247,7 +249,7 @@ export function writeSnapshotState(
         ]
       : [];
   const acquired = acquireSnapshotPilotLock(workingDirectory);
-  if (acquired.status !== "completed") return blocked(acquired.reason);
+  if (acquired.status !== "completed") return acquired;
   const lock = acquired.value;
   let outcome: StoreResult<ProjectExecutionState>;
   let taskUpdateTaskIds: readonly string[] | null = null;
@@ -267,7 +269,9 @@ export function writeSnapshotState(
         outcome = blocked("coordinator_queue_identity_conflict");
       else {
         const previous = current.projects.find(
-          (item) => item.projectId === taskUpdate.projectId,
+          (item) =>
+            item.projectId === taskUpdate.projectId &&
+            (item.queueId === undefined || item.queueId === intake?.queueId),
         );
         if (!previous)
           outcome = blocked("coordinator_state_generation_conflict");
@@ -285,6 +289,9 @@ export function writeSnapshotState(
             const facts = taskResultFacts.map((fact) => ({
               ...fact,
               projectId: state.projectId,
+              ...(state.queueId === undefined
+                ? {}
+                : { queueId: state.queueId }),
             }));
             if (
               previous.generation === expectedGeneration + 1 &&
@@ -311,7 +318,7 @@ export function writeSnapshotState(
                   ...current,
                   snapshotRevision: current.snapshotRevision + 1,
                   projects: current.projects.map((item) =>
-                    item.projectId === state.projectId ? state : item,
+                    item === previous ? state : item,
                   ),
                 }),
                 current.snapshotRevision,
@@ -483,9 +490,9 @@ export function writeSnapshotOwned(
  * @trace ARCH-000004
  * @input workingDirectory、binding、Module内部の同期操作。
  * @returns 操作値、または元の停止結果。
- * @precondition 初期Snapshotは全入力照合によって別途確定している。
+ * @precondition 初期Snapshotは別途確定済み、または初回作成の入力が照合済み。
  * @postcondition 保存・解放確認後だけ成功し、変更しない読取りは保存しない。
- * @effect 操作が変更を返した場合に限り固定Snapshotを保存する。
+ * @effect 初回作成は真正不存在からだけ初期化し、操作が変更を返した場合に固定Snapshotを保存する。
  * @failure 操作例外、保存停止、解放未確認を停止へ戻す。
  * @invariant 外部公開callback、非同期待機と旧形式Fallbackを持たない。
  * @boundary 保存Module内部の操作とFilesystem。
@@ -499,7 +506,11 @@ export function withSnapshotOperation<T>(
     current: Snapshot,
     owner: SnapshotOwner,
   ) => StoreResult<Readonly<{ next: Snapshot | null; value: T }>>,
-  mode: false | "history" | "workspace-metadata" = false,
+  mode:
+    | false
+    | "history"
+    | "workspace-metadata"
+    | Readonly<{ prepareDirectory: (() => boolean) | undefined }> = false,
 ): StoreResult<T> {
   if (typeof workingDirectory !== "object" || workingDirectory === null)
     return blocked("coordinator_repository_root_invalid");
@@ -513,15 +524,35 @@ export function withSnapshotOperation<T>(
   const acquired = repository
     ? acquireStorageOwnerForRepository(repository, true)
     : acquireSnapshotPilotLock(workingDirectory);
-  if (acquired.status !== "completed") return blocked(acquired.reason);
+  if (acquired.status !== "completed") return acquired;
   const owner = acquired.value;
   let result: StoreResult<T>;
+  let boundaryError: ExecutionStorageBlockedError | null = null;
+  let initialized: StoreResult<null> | undefined;
+  if (typeof mode === "object") {
+    try {
+      initialized = initializeExecutionSnapshotOwned(
+        owner,
+        binding,
+        mode.prepareDirectory,
+      );
+    } catch (error) {
+      if (error instanceof ExecutionStorageBlockedError) boundaryError = error;
+      initialized = blocked(
+        "coordinator_snapshot_initialization_unconfirmed",
+        true,
+      );
+    }
+  }
   try {
-    const observed = readSnapshotOwned(
-      owner,
-      binding,
-      mode === "history" ? "history" : false,
-    );
+    const observed =
+      initialized?.status === "blocked"
+        ? initialized
+        : readSnapshotOwned(
+            owner,
+            binding,
+            mode === "history" ? "history" : false,
+          );
     if (observed.status !== "completed") result = observed;
     else if (observed.value === null)
       result = blocked("coordinator_snapshot_absent");
@@ -549,12 +580,17 @@ export function withSnapshotOperation<T>(
   } catch {
     result = blocked("coordinator_snapshot_operation_invalid_or_unconfirmed");
   }
+  let released = false;
   try {
-    if (!owner.release())
-      return blocked("coordinator_snapshot_lock_release_unconfirmed", true);
-  } catch {
-    return blocked("coordinator_snapshot_lock_release_unconfirmed", true);
+    released = owner.release();
+  } catch {}
+  if (boundaryError) {
+    if (!released)
+      boundaryError.cause = "coordinator_snapshot_lock_release_unconfirmed";
+    throw boundaryError;
   }
+  if (!released)
+    return blocked("coordinator_snapshot_lock_release_unconfirmed", true);
   return result;
 }
 
@@ -752,19 +788,23 @@ function writeStorageTaskSnapshotOwned(
                 "attemptId",
                 "operationId",
                 "recoveryUnresolved",
+                ...(Object.hasOwn(fact, "queueId") ? ["queueId"] : []),
               ].sort(),
             ) &&
+          (!Object.hasOwn(fact, "queueId") || validId(fact.queueId)) &&
           typeof fact.recoveryUnresolved === "boolean" &&
           !facts
             .slice(0, index)
             .some(
               (prior) =>
                 prior.projectId === fact.projectId &&
+                prior.queueId === fact.queueId &&
                 prior.taskId === fact.taskId,
             ) &&
           view.projects.some(
             (project) =>
               project.projectId === fact.projectId &&
+              project.queueId === fact.queueId &&
               project.tasks.some(
                 (task) =>
                   task.definition.id === fact.taskId &&
@@ -829,6 +869,7 @@ function writeStorageTaskSnapshotOwned(
           operations: [],
           unresolvedRecoveries: [],
           managedExecutions: [],
+          planVersions: [],
         })}\n`,
       );
       if (!decodeStateSnapshot(bytes, issued.repositoryBinding))
@@ -1520,16 +1561,30 @@ export function initializeExecutionState(
 export function readExecutionContent<K extends keyof ExecutionContentViews>(
   access: ExecutionModelAccess,
   kind: K,
-  request: Readonly<{ projectId: string; milestoneId: string }>,
+  request: Readonly<{
+    projectId: string;
+    milestoneId: string;
+    queueId?: string;
+  }>,
 ): ExecutionModelReadResult<ExecutionContentViews[K]> {
   if (!["plan", "objectives", "tasks", "queue"].includes(kind))
     return { status: "blocked", value: null, reason: "input_invalid" };
-  const input = snapshotStateRecord(
+  const unscoped = snapshotStateRecord(
     request,
     new Set(["projectId", "milestoneId"]),
   );
+  const scoped =
+    !unscoped && kind === "tasks"
+      ? snapshotStateRecord(
+          request,
+          new Set(["projectId", "milestoneId", "queueId"]),
+        )
+      : null;
+  const input = unscoped ?? scoped;
   const target = executionContentTarget(input);
-  if (!target)
+  const explicitQueue = scoped !== null;
+  const queueId = scoped?.queueId;
+  if (!target || (explicitQueue && !validId(queueId)))
     return { status: "blocked", value: null, reason: "input_invalid" };
   const operation = kind === "queue" ? "queue.read" : "definition.read";
   const repository = observeExecutionContentRepository(
@@ -1582,14 +1637,33 @@ export function readExecutionContent<K extends keyof ExecutionContentViews>(
           p.projectId === target.projectId &&
           p.milestoneId === target.milestoneId,
       );
-      if (!project) result = { status: "absent", value: null, version };
+      const selectedQueue = explicitQueue
+        ? snapshot.queueEntries.find(
+            (entry) =>
+              entry.queueId === queueId &&
+              entry.projectId === target.projectId &&
+              entry.milestoneId === target.milestoneId &&
+              !entry.singleTask,
+          )
+        : undefined;
+      if (!project || (explicitQueue && !selectedQueue))
+        result = { status: "absent", value: null, version };
       else {
-        const execution =
-          snapshot.managedExecutions.find(
-            (p) =>
-              p.projectId === project.projectId &&
-              p.milestoneId === project.milestoneId,
-          ) ?? null;
+        const executions =
+          kind === "tasks"
+            ? snapshot.managedExecutions.filter(
+                (p) =>
+                  p.projectId === project.projectId &&
+                  p.milestoneId === project.milestoneId &&
+                  (!explicitQueue || p.queueId === queueId),
+              )
+            : [];
+        const execution = executions.length === 1 ? executions[0] : undefined;
+        const executionPlan = execution
+          ? snapshot.planVersions.find(
+              (plan) => plan.definitionHash === execution.definitionHash,
+            )
+          : undefined;
         const queues = snapshot.queueEntries.filter(
           (q) =>
             q.projectId === project.projectId &&
@@ -1615,24 +1689,32 @@ export function readExecutionContent<K extends keyof ExecutionContentViews>(
             ),
           }));
         else if (kind === "tasks")
-          value = project.tasks.map((definition) => ({
-            definition,
-            definitionHash: hashExecutionEntityDefinition(
-              project,
-              "task",
+          value = (executionPlan?.definition.tasks ?? project.tasks).map(
+            (definition) => ({
               definition,
-            ),
-            execution:
-              execution?.tasks.find((t) => t.taskId === definition.id) ?? null,
-          }));
+              definitionHash: hashExecutionEntityDefinition(
+                project,
+                "task",
+                definition,
+              ),
+              execution:
+                execution?.tasks.find((t) => t.taskId === definition.id) ??
+                null,
+            }),
+          );
         else value = queues;
-        result = repository.revalidate()
-          ? {
-              status: "available",
-              value: value as ExecutionContentViews[K],
-              version,
-            }
-          : { status: "blocked", value: null, reason: "not_authorized" };
+        result = !repository.revalidate()
+          ? { status: "blocked", value: null, reason: "not_authorized" }
+          : (execution && !executionPlan) ||
+              (explicitQueue && executions.length > 1)
+            ? { status: "unknown", value: null, reason: "state_unavailable" }
+            : explicitQueue && !execution
+              ? { status: "absent", value: null, version }
+              : {
+                  status: "available",
+                  value: value as ExecutionContentViews[K],
+                  version,
+                };
       }
     }
   } catch {
@@ -2004,6 +2086,7 @@ export function assertSnapshotTransition(
   }
   if (payload.snapshotRevision !== (current?.snapshotRevision ?? 0) + 1)
     throw new Error("snapshot_revision_conflict");
+  let newReservation = false;
   for (const intent of payload.leaseIntents) {
     if (intent.phase !== "acquisition_reserved") continue;
     if (
@@ -2012,20 +2095,37 @@ export function assertSnapshotTransition(
       )
     )
       continue;
+    const queue = current?.queueEntries.find(
+      (item) => item.queueId === intent.queueId,
+    );
     const identity = leaseIdentity(
       payload.repositoryBindingId,
       intent.projectId,
       intent.queueId,
       intent.kind,
+      queue?.workspaceId,
     );
     if (
       intent.physicalIdentity !== null ||
       intent.ownerProcessId !== owner.processId ||
-      payload.leaseIntents.length !== 1 ||
-      current?.leaseIntents.length ||
-      !owner.leaseResourcesAbsent(identity)
+      newReservation ||
+      !current ||
+      !queue ||
+      queue.projectId !== intent.projectId ||
+      !leaseScopeAvailable(current, queue, intent.recoveryGeneration) ||
+      !owner.leaseResourcesAbsent(identity) ||
+      (queue.workspaceId != null &&
+        !owner.leaseResourcesAbsent(
+          leaseIdentity(
+            payload.repositoryBindingId,
+            intent.projectId,
+            intent.queueId,
+            intent.kind,
+          ),
+        ))
     )
       throw new Error("snapshot_acquisition_reservation_invalid");
+    newReservation = true;
   }
   if (current) {
     if (payload.schema !== current.schema)
@@ -2041,6 +2141,18 @@ export function assertSnapshotTransition(
       const before = current.queueEntries.find(
         (item) => item.queueId === queue.queueId,
       );
+      if (
+        before?.workspaceId !== queue.workspaceId &&
+        (current.leaseIntents.some(
+          (intent) => intent.queueId === queue.queueId,
+        ) ||
+          payload.leaseIntents.some(
+            (intent) => intent.queueId === queue.queueId,
+          ) ||
+          before?.ownerGeneration != null ||
+          queue.ownerGeneration !== null)
+      )
+        throw new Error("snapshot_lease_workspace_changed");
       if (!before && queue.historySettled)
         throw new Error("snapshot_execution_history_not_settled");
       if (
@@ -2150,6 +2262,8 @@ export function assertSnapshotTransition(
         old.projectId,
         old.queueId,
         old.kind,
+        current.queueEntries.find((queue) => queue.queueId === old.queueId)
+          ?.workspaceId,
       );
       if (end && end.content.disposition !== "released") {
         const recovery = current.leaseIntents.find(
@@ -2290,7 +2404,8 @@ export function assertSnapshotTransition(
     }
     for (const old of current.projects) {
       const next = payload.projects.find(
-        (item) => item.projectId === old.projectId,
+        (item) =>
+          item.projectId === old.projectId && item.queueId === old.queueId,
       );
       if (
         next &&
@@ -2367,7 +2482,9 @@ export function queueIsClosed(
       );
     }
     const project = current.projects.find(
-      (item) => item.projectId === queue.projectId,
+      (item) =>
+        item.projectId === queue.projectId &&
+        (item.queueId === undefined || item.queueId === queue.queueId),
     );
     if (
       !project ||
@@ -2385,13 +2502,8 @@ export function queueIsClosed(
     )
       return false;
     if (
-      current.leaseIntents.some((item) => item.projectId === queue.projectId) ||
-      current.blockers.some(
-        (item) =>
-          item.target.projectId === queue.projectId &&
-          item.target.milestoneId === queue.milestoneId &&
-          item.status === "active",
-      )
+      current.leaseIntents.some((item) => item.queueId === queueId) ||
+      hasQueueClosureBlocker(current, queue)
     )
       return false;
     if (project.tasks.some((task) => task.candidateId !== null)) {
@@ -2419,12 +2531,32 @@ export function queueIsClosed(
       )
         return false;
     }
+    const anotherLeaseOnSamePath = current.queueEntries.some(
+      (entry) =>
+        entry.queueId !== queueId &&
+        (entry.workspaceId ?? null) === (queue.workspaceId ?? null) &&
+        current.leaseIntents.some(
+          (intent) =>
+            intent.queueId === entry.queueId && intent.phase === "lock_owned",
+        ),
+    );
+    if (
+      anotherLeaseOnSamePath &&
+      current.leaseEvidence.some(
+        (item) =>
+          item.projectId === queue.projectId &&
+          item.content.queueId === queueId &&
+          item.content.disposition !== "acquired",
+      )
+    )
+      return true;
     return owner.leaseResourcesAbsent(
       leaseIdentity(
         current.repositoryBindingId,
         queue.projectId,
         queueId,
         "project-operation",
+        queue.workspaceId,
       ),
     );
   } catch {

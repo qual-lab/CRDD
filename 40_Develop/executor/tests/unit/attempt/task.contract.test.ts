@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluateProviderTaskScope } from "../../../../ai-adapter/src/provider/plan.ts";
 import { parseExecutionContent } from "../../../../ai-adapter/src/provider/result.ts";
-import { planExecution } from "../../../../ai-adapter/src/index.ts";
+import { planExecution } from "@qual-lab/crdd-ai-adapter";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
 
 const EXECUTOR = JSON.stringify({

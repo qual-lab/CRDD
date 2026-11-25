@@ -17,7 +17,7 @@ import test from "node:test";
 import {
   initializeExecutionStore,
   readProjectExecutionState,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 
 import { acceptResult, submitDecision } from "../../src/lifecycle/decision.ts";

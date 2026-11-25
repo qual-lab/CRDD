@@ -60,7 +60,7 @@ Taskが観測した結果不明と、技術Operationのcleanup不明を区別す
 | 技術Operation | Task終端の同時保存まで保持。単独操作は既存の終了Writerで整理する |
 | 結果受領・配送 | 独立した受領本文・resultReceipts・resultAcceptanceIds・pendingDeliveries・ACK段階は持たない |
 
-状態はcrdd-execution-model/state/v9として、改訂・元Hash・保存ディレクトリの実体結合・各区画を一つのstate.jsonへ保存する。Task未使用の単独操作では業務結合と受付世代をnull、Task区画を空にする。旧二Snapshotを内包するEnvelopeや互換Readerは作らない。旧データの移行はフロントAIが担当する。
+実行モデルは[現行保存形式](../execution-model/03_Repository_Storage.md)に従い、改訂・元Hash・保存ディレクトリの実体結合・各区画を一つの `state.json` へ保存する。Task未使用の単独操作では業務結合と受付世代をnull、Task区画を空にする。旧二Snapshotを内包するEnvelopeや互換Readerは作らない。旧データの移行はフロントAIが担当する。
 
 ### 履歴とTask終端の保存順序
 
@@ -95,7 +95,7 @@ state.jsonとhistory.jsonlの確定は別更新であり、原子的な二File�
 
 今回の条件で追加保証を成立させられない場合は、管理機構を増築する前に不足する保証と代替案を人間へ返す。実AI・実Docker・②の保持物を使用した検証は本設計から許可されない。旧設計の機械対応と過去Evidenceは移管元保証として維持し、新方式のSource・本番接続・新しい観測が揃うまで完成を表示しない。
 
-Workspace方式の目標は[作業領域の横断契約](05_Workspace.md)に従う。現行のTask／Attempt／Queue／保存・判断を再利用し、RepositoryとWorkspaceの対象結合、Workspace単位の競合変更と共有Git／正本／Provider資源の排他を分ける。下記の現Schema、Bundle参照、binding-wide Lease、同Process配送閉包は移行元の能力であり、新方式の確定API・保存形式ではない。旧状態を機械コピーせず、元Effect・未解決・結果参照を失わない切替契約を設計する。実装・移行・新方式検証は未完了。
+Workspace方式の横断契約は[作業領域の設計](05_Workspace.md)を参照する。並列実行では既存のTask／Attempt／Queue／保存・判断を再利用する。実行の長期排他は登録済みWorkspaceに結合し、共有Git・正本・Provider資源の排他は別に維持する。ServerはGraphごとに子Processへ委譲し、取消・結果・回復を元Queueに返す。開始通知後の取消では、子からの確認済み清掃を待ち、未発行とは扱わない。別Queueの所有や結果は変更しない。旧状態を機械コピーしない。新方式の保存契約は[EMの保存設計](../execution-model/03_Repository_Storage.md)、移行対象と検証状況は[並列実行の変更計画](../../../99_Roadmap/Changes/CHG-000082/workspace-parallel-execution-plan.md)に記録する。
 
 状態: 設計候補
 担当責任者: Qual-Lab
@@ -103,7 +103,7 @@ Workspace方式の目標は[作業領域の横断契約](05_Workspace.md)に従�
 
 ### Repository別AI選定の保存境界
 
-Project状態の値契約は`crdd-coordinator/project-state/v2`、内部の表示・更新Snapshotは`crdd-coordinator/project-snapshot/v5`とする。物理Fileは単一の`execution-model/state.json`であり、旧配置と並行して書き込まない。
+この節の初期設計で用いたProject状態`v2`・内部Snapshot`v5`は履歴上の契約である。現在の値契約と単一の`.crdd/execution-model/state.json`の物理形式は[実行モデルの保存設計](../execution-model/03_Repository_Storage.md)を正本とし、旧版と併用しない。
 
 | 所有する値 | 寿命と更新条件 |
 |---|---|
@@ -141,14 +141,16 @@ VCのWorktree技術APIは`9c462a2e`で実装・実Git試験済み。これはOrc
 | 4. 保存先と実行先の分離 | `lifecycle/execution.ts`、`lifecycle/types.ts` | 所属Repository Rootは状態保存・認可・回復・結果受領へ維持する。AIの実行Treeは別の入力として渡し、Rootを単純にWorktreeへ差し替えない。Coordinator／DI側の入力と保護を接続するまで新方式の本番Task開始を有効化しない |
 | 5. 採否・終了 | Serverの`service/workspace.ts`と既存Snapshot結果Writer、既存Decision・回復参照→VC削除 | 旧Bundleの採用ReceiptをGit取込完了の証拠にしない。新Git成果の取込又は不採用・破棄を確認→非使用→終了意図保存→Worktree／専用Ref削除の段階別保存→必要判断資料の処置→履歴確定・現在記録整理とする。採用後の自動片付けは実取込確認の実装と一体で接続する |
 
-移行元の`repositoryRoot`一値は状態保存と実行の両方に使われ、SnapshotにはWorkspace集合がなかった。現在の接続では次の新形式と操作を使う。使用中は既存Task・Queue・Lease・未解決回復から導出し、新たな監視・使用中台帳を追加しない。binding-wideの既存直列化をWorkspace導入だけで解除せず、異なるWorkspaceの並行保証は別途実接続で確認する。
+移行元の`repositoryRoot`一値は状態保存と実行の両方に使われ、SnapshotにはWorkspace集合がなかった。現在は実行の長期Leaseを登録済みWorkspaceごとに分け、Directは同じRepositoryの他の実行と競合する。保存と共有Git操作はRepository単位の排他を維持する。使用中は既存Task・Queue・Lease・未解決回復から導出し、新たな監視・使用中台帳を追加しない。
+
+同一Project・Milestoneでも、開始・再送・回復では受付で固定したQueueだけを読む。別Queueの取得回復参照、完了、採用Receiptを再使用しない。採用ReceiptによるRepository改訂の例外も、元のQueueに属する証拠に限定する。
 
 | 現在の具体契約 | 値・処置 |
 |---|---|
-| 保存形式 | `crdd-coordinator/project-snapshot/v5`、schemaRevision=5。新規初期化はworkspaces空集合を含む。旧版・欠落集合を補完しない |
+| 保存形式 | 物理状態は `crdd-execution-model/state/v10`、内部投影は `project-snapshot/v9`。[保存設計](../execution-model/03_Repository_Storage.md)を正本とする。旧版・欠落集合を補完しない |
 | Workspace現在値 | 実行モデルの`WorkspaceRecord`。UUID、generation、baseCommit、head、phase（creating／ready／discarding）、holdUntil、pending、lastResult、primaryFailure。専用Branch／PathはUUIDからVCが導出。Task一覧は持たない |
 | Queue対象 | 新形式の保存QueueはworkspaceIdを必ず持つ。nullは所属Repositoryの現在Tree、UUIDはIsolatedの参照。新規受付時の指定省略はnullを記録するが、旧保存値の欠落をDirectへ補完しない。Taskは取得した同Queueの対象を継承する |
-| 内部操作入口 | CRDD Serverの`manageWorkspace`。実在するProject／Queueの既存project-operation Lease内でcreate／observe／discard／holdを処置する。架空Queue・独立したWorkspace専用Leaseは作らない。adoptedは取込証拠未接続としてVC要求前に拒否する |
+| 内部操作入口 | CRDD Serverの`manageWorkspace`。実在するProject／Queueで対象Workspaceを確定し、Gitを伴う操作はRepository共通の管理Lock、保留・表示名は短期保存排他で処置する。架空Queue・採用専用Leaseは作らない。採用の証拠は元Queueに結合する |
 | 意図と保存 | 同ID・元世代・固定入力の意図保存→短期保存Lock解放→VC→同Lease・世代を再確認して結果保存。作成不明を別IDで再試行しない。初回Git失敗はprimaryFailureへ保持し、解決時は既存historyへcleanup失敗有無を要約する |
 | 終了 | 不採用・破棄の明示要求だけで専用資源を削除。別の未終了Queue参照・Task実行中・未解決回復・明示保留を拒否する。未終端の対象Queueはcancelledへ閉じ、既にcompleted／cancelledの結果は維持して参照だけ解除する。対象を暗黙にDirect実行へ切り替えない。必要資料の親Directoryが残る間は現在記録を保持する |
 | Task搬送 | Serverが選択済み対象を渡し、`confirmPreparedWorkspaceTarget`がTaskごとに実行モデル（EM）の保存状態と登録を再照合する。所属Root・実行Tree・Workspace ID・`baseCommit`・`head`を共通Attemptへ渡す。`repositoryRevision`でWorkspaceのHEADを代用しない |
@@ -310,7 +312,7 @@ Project状態更新は入力・上限・期待世代を取得前に検証し、�
 
 #### Queue終了と成果根拠の参照保護
 
-通常Queueの終了記録はProject・Milestone・Queueの結合で照合する。終了確認では同じRepository単位の操作Lockの不存在を確認する。一般保存と固定pending再入場にも同じ除去条件を適用し、現在値と保存候補が参照する成果根拠を保護する。現行の[Workspace正本採用](05_Workspace.md)は採否をWorkspaceと統合結果へ記録し、専用Leaseや単独採用履歴を生成しない。
+通常Queueの終了記録はProject・Milestone・Queueの結合で照合する。終了確認では元Queueの取得意図が残っていないことを確かめ、対象の実行Leaseの物理的不存在を観測する。別Queueが同じWorkspaceのロックを引き継いだ場合は、元Queueの解放・回復証拠と新しい所有を分け、物理ロックの存在だけで元Queueの終了を否定しない。一般保存と固定pending再入場にも同じ除去条件を適用し、現在値と保存候補が参照する成果根拠を保護する。現行の[Workspace正本採用](05_Workspace.md)は採否をWorkspaceと統合結果へ記録し、専用Leaseや単独採用履歴を生成しない。
 
 #### 操作と保存の接続範囲
 
@@ -352,7 +354,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | ID | 所有者 | 範囲／保存境界 | 終了条件 |
 |---|---|---|---|
 | `RES-PROJECT-QUEUE` | `durable_operation_queue` | `—` | `terminal_record_retained_or_policy_deletion_observed` |
-| `RES-PROJECT-OPERATION-LEASE` | `parent_coordinator` | `one_operation_per_repository_binding` | `all_child_tasks_reconciled_and_os_exclusion_release_observed` |
+| `RES-PROJECT-OPERATION-LEASE` | `parent_coordinator` | `one_operation_per_workspace_with_repository_wide_direct_conflict` | `all_child_tasks_reconciled_and_os_exclusion_release_observed` |
 | `RES-PROJECT-STATE` | `project_state_store` | `—` | `expected_generation_atomic_replace_observed` |
 | `RES-SCHEDULER-SLOT` | `project_scheduler` | `—` | `task_process_absent_and_cleanup_confirmed` |
 | `RES-CONFLICT-RESERVATION` | `project_scheduler` | `—` | `effect_candidate_and_recovery_impact_reconciled` |
@@ -509,7 +511,7 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 | `BIND-QUEUE-ENQUEUE-LEASE` | `TRANS-QUEUE-ENQUEUE-LEASE` | `LOCK-QUEUE-MUTATION`<br>`LOCK-PROJECT-OPERATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `queue intent is durable before operation lease and locks are not held together` | `PR-D-N-01`<br>`PR-D-Q-01`<br>`PR-Q-03`<br>`PR-Q-05`<br>`PR-A-06` |
 | `BIND-QUEUE-DECISION-ACCEPTED-REPLAN` | `TRANS-QUEUE-DECISION-ACCEPTED-REPLAN` | `LOCK-PROJECT-STATE` | `AUTH-HUMAN-DECISION` | `EFFECT-DECISION-STATE` | `判断適用と同じState CASで確定する投影。独立した後段書込みは禁止。` | `PR-H-02`<br>`PR-Q-06` |
 | `BIND-QUEUE-REPLAN-QUEUED` | `TRANS-QUEUE-REPLAN-QUEUED` | `LOCK-QUEUE-MUTATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `bounded replanning is durably complete before the queue returns to queued for a fresh selection` | `PR-Q-02`<br>`PR-Q-06` |
-| `BIND-QUEUE-WAITING-QUEUED` | `TRANS-QUEUE-WAITING-QUEUED` | `LOCK-QUEUE-MUTATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `a fresh binding-wide scan confirms no foreground owner before the scheduled queue returns to queued` | `PR-Q-05` |
+| `BIND-QUEUE-WAITING-QUEUED` | `TRANS-QUEUE-WAITING-QUEUED` | `LOCK-QUEUE-MUTATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `a fresh scan confirms no foreground owner in a conflicting execution scope before the scheduled queue returns to queued` | `PR-Q-05` |
 | `BIND-QUEUE-RECOVERY-SETTLED-QUEUED` | `TRANS-QUEUE-RECOVERY-SETTLED-QUEUED` | `LOCK-QUEUE-MUTATION` | `AUTH-RECOVERY` | `EFFECT-RECOVERY`<br>`EFFECT-QUEUE-STATE` | `技術終端・cleanup・実履歴確認の後、Task結果・回復義務と関連Operationの除去を同一Snapshot CASで確定し、readback・排他解放後にQueue整理とfresh retry条件を確認する` | `PR-A-04`<br>`PR-A-05`<br>`PR-A-06` |
 | `BIND-QUEUE-LEASE-RUN` | `TRANS-QUEUE-LEASE-RUN` | `LOCK-QUEUE-MUTATION`<br>`LOCK-PROJECT-OPERATION` | `AUTH-MILESTONE` | `EFFECT-QUEUE-STATE` | `lease identity is revalidated before running projection` | `PR-N-01`<br>`PR-A-06` |
 | `BIND-QUEUE-RUN-INTEGRATE` | `TRANS-QUEUE-RUN-INTEGRATE` | `LOCK-QUEUE-MUTATION`<br>`LOCK-PROJECT-OPERATION` | `AUTH-INTEGRATION` | `EFFECT-INTEGRATION-CANDIDATE`<br>`EFFECT-QUEUE-STATE` | `all task cleanup precedes integration and queue projection` | `PR-I-01` |

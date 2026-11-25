@@ -9,12 +9,12 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { types } from "node:util";
-import { ExecutionStorageBlockedError } from "../../../execution-model/src/index.ts";
+import { ExecutionStorageBlockedError } from "@qual-lab/crdd-execution-model";
 import {
   getRepository,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   ensureRepositoryExecutionDataArea,
   requireReadyRepositoryExecutionDataArea,

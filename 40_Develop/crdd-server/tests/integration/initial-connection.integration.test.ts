@@ -15,7 +15,7 @@ import fs from "node:fs";
 import { request as httpRequest } from "node:http";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { updateCredentialPresentationState } from "../../../access-management/src/index.ts";
+import { updateCredentialPresentationState } from "@qual-lab/crdd-access-management";
 import {
   createInitialAdministrator,
   createInitialCredential,

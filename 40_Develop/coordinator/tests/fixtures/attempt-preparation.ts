@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { compileFunction } from "node:vm";
-import { planExecution, type Provider } from "../../../ai-adapter/src/index.ts";
+import { planExecution, type Provider } from "@qual-lab/crdd-ai-adapter";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import type { TestAttemptPlan } from "../../../executor/tests/support/executor-test.ts";
 import { prepareAttempt } from "../../../executor/tests/support/executor-test.ts";
@@ -19,7 +19,7 @@ import {
   createExecutor,
   type Executor,
   type ExecutorRequest,
-} from "../../../executor/src/index.ts";
+} from "@qual-lab/crdd-executor";
 import {
   capturePreparationInput,
   createPreparationFailure,

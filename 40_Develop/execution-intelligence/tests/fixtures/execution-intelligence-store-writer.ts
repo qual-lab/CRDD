@@ -8,7 +8,7 @@
  * @boundary stdoutは有限結果又はreadyだけ。Crash時のLock残存は親が観測し、exact Rootを回収する。
  */
 import { createExecution } from "../../src/index.ts";
-import { acquireLock } from "../../../lock/src/index.ts";
+import { acquireLock } from "@qual-lab/crdd-lock";
 const directory = process.argv[2];
 if (!directory) throw Error("fixture_directory_required");
 if (process.argv[3] === "hold") {

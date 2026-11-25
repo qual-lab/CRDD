@@ -20,6 +20,7 @@ import {
   GET_EXECUTION_DEFINITION_TOOL,
 } from "../../src/transport/mcp-server.ts";
 import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
+import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 
 const META = {
   "io.modelcontextprotocol/protocolVersion": MCP_COORDINATOR_PROTOCOL_VERSION,
@@ -108,6 +109,8 @@ test("Core定義Toolは不正・未許可操作・開始前取消を配送しな
     { ...command, operation: "queue.enqueue" },
     { ...command, operation: "initialize", expectedAbsence: true },
     { ...command, authority: true },
+    { ...command, queueId: "queue-a" },
+    { ...command, operation: "objectives", queueId: "queue-a" },
     { operation: "plan", projectId: "project" },
     [command],
   ]) {
@@ -174,7 +177,8 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     runtime: new URL("../../src/transport/mcp-server.ts", import.meta.url).href,
     sdk: new URL("../fixtures/sdk-request.ts", import.meta.url).href,
     definition: new URL("../../src/service/execution.ts", import.meta.url).href,
-    vc: new URL("../../../version-control/src/index.ts", import.meta.url).href,
+    vc: new URL(import.meta.resolve("@qual-lab/crdd-version-control")).href,
+    em: new URL(import.meta.resolve("@qual-lab/crdd-execution-model")).href,
   };
   const output = execFileSync(
     process.execPath,
@@ -182,9 +186,10 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
       "--eval",
       `
     import assert from "node:assert/strict";
+    import { readFileSync } from "node:fs";
     import { registerHooks } from "node:module";
     registerHooks({resolve(specifier, context, next) {
-      if (specifier.includes("coordinator/") || specifier.includes("executor/")) throw new Error("automation_unavailable");
+      if (specifier === "@qual-lab/crdd-coordinator" || specifier.includes("coordinator/") || specifier === "@qual-lab/crdd-executor" || specifier.includes("executor/")) throw new Error("automation_unavailable");
       return next(specifier, context);
     }});
     const runtime = await import(${JSON.stringify(modules.runtime)});
@@ -238,8 +243,27 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     const observed = await read("objectives");
     assert.equal(observed.status,"available"); assert.equal(observed.value.length,1);
     assert.equal((await read("tasks")).value.length,1);
+    assert.equal((await call(runtime.GET_EXECUTION_DEFINITION_TOOL,{operation:"tasks",queueId:"missing"})).status,"absent");
+    const {createQueue}=await import(${JSON.stringify(modules.em)});
+    const repositoryRevision="1".repeat(40);
+    const fixtureRoot=${JSON.stringify(root)};
+    const {repositoryBindingId}=JSON.parse(readFileSync(fixtureRoot+'/.crdd/execution-model/state.json','utf8'));
+    const graphTarget={...target,projectId:"parallel-project"};
+    for(const [queueId,hash] of [["queue-a","a"],["queue-b","b"]]){
+      const savedGraph=createQueue({directory:fixtureRoot},repositoryBindingId,{kind:"scheduled",input:[
+        {...graphTarget,queueId,repositoryRevision,requestHash:hash.repeat(64),scopeHash:hash.repeat(64),originLane:"scheduled"},
+        {...graphTarget,...plan,repositoryRevision,maximumConcurrency:1,ownerGeneration:"fixture-owner",taskExecutionSelections:${JSON.stringify(taskExecutionSelections())},tasks:[{...plan.tasks[0],allowedPaths:[queueId+".ts"]}]}
+      ]});
+      assert.equal(savedGraph.status,"completed",savedGraph.reason);
+      const exact=await call(runtime.GET_EXECUTION_DEFINITION_TOOL,{...graphTarget,operation:"tasks",queueId});
+      assert.equal(exact.status,"available");assert.deepEqual(exact.value[0].definition.allowedPaths,[queueId+".ts"]);assert.equal(exact.value[0].execution.state,"ready");
+    }
+    const shared=await call(runtime.GET_EXECUTION_DEFINITION_TOOL,{...graphTarget,operation:"tasks"});
+    assert.deepEqual(shared.value.map(task=>[task.definition.allowedPaths,task.execution]),[[["queue-a.ts"],null]]);
+    assert.equal((await call(runtime.GET_EXECUTION_DEFINITION_TOOL,{operation:"tasks",queueId:"queue-b"})).status,"absent");
     authorized = false;
     assert.equal((await read("plan")).status,"blocked");
+    assert.equal((await call(runtime.GET_EXECUTION_DEFINITION_TOOL,{operation:"tasks",queueId:"missing"})).reason,"not_authorized");
     process.stdout.write("core_tool_crud_passed");
   `,
     ],
@@ -257,7 +281,7 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     const controller=new AbortController();
     let imports=0,calls=0;
     registerHooks({resolve(specifier,context,next){
-      if(specifier.includes("coordinator/")){imports++;controller.abort();}
+      if(specifier==="@qual-lab/crdd-coordinator"){imports++;controller.abort();}
       return next(specifier,context);
     }});
     const runtime=await import(${JSON.stringify(modules.runtime)});
@@ -309,7 +333,7 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
   const hook =
     "data:text/javascript," +
     encodeURIComponent(
-      `import {registerHooks} from 'node:module';registerHooks({resolve(s,c,n){if(s.includes('coordinator/')||s.includes('executor/'))throw Error('automation_unavailable');return n(s,c);}});`,
+      `import {registerHooks} from 'node:module';registerHooks({resolve(s,c,n){if(s==='@qual-lab/crdd-coordinator'||s.includes('coordinator/')||s==='@qual-lab/crdd-executor'||s.includes('executor/'))throw Error('automation_unavailable');return n(s,c);}});`,
     );
   const entry = fileURLToPath(
     new URL("../../../../template/tools/crdd-server.ts", import.meta.url),
@@ -494,7 +518,7 @@ test("Workspaceは読込み待機前の入力を捕捉し取消失敗を区別�
       const mode=${JSON.stringify(mode)}, controller=new AbortController();
       let reads=0,imports=0,selected;
       const command={operation:"freeze",projectId:"project",queueId:"queue",workspaceId:"11111111-1111-4111-8111-111111111111",expectedGeneration:1,operationId:"22222222-2222-4222-8222-222222222222",baseCommit:"a".repeat(40),expectedHead:"a".repeat(40),selection:[{path:"src/code.ts",blobId:"a".repeat(40),mode:"100644"}],candidateName:null,relatedChangeIds:["CHG-000001"]};
-      registerHooks({resolve(s,c,next){if(s.includes("coordinator/")){
+      registerHooks({resolve(s,c,next){if(s==="@qual-lab/crdd-coordinator"){
         imports++;
         if(mode==="cancel"){controller.abort();throw Error("unavailable");}
         command.operation="invalid";command.expectedGeneration=-1;

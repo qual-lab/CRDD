@@ -18,18 +18,21 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  beginWorkspaceOperation,
   readProjectExecutionState,
   createQueue,
   readQueueEntry,
+  readQueueState,
   selectNextQueueEntry,
   initializeExecutionStore,
   readExecutionState,
   type ProjectExecutionInitialization,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   projectExecutionFixture,
   initialExecutionInput,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import { parseStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
@@ -38,12 +41,363 @@ import {
 import {
   inspectCoordinatorSnapshotLeaseAcquisitionOwner,
   acquireCoordinatorSnapshotLease,
+  reconcileCoordinatorSnapshotLeaseOwnerLoss,
   updateCoordinatorQueue,
 } from "../../src/lifecycle/host.ts";
 import { createTestPersistence } from "../fixtures/task-persistence-fixture.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 
 const revision = "a".repeat(40);
+
+/** 同一Projectの別Workspaceが物理Leaseを共存させ、片側回復で相手を変えない。 @trace PRL-IT-011 */
+test("Workspace別の別Process Leaseは同時に保持し片方だけを回復できる", async (t) => {
+  const { root, ports, children, initializations } = fixture(t);
+  const binding = ports.repositoryBindingId;
+  const wsA = "11111111-1111-4111-8111-111111111111";
+  const wsB = "22222222-2222-4222-8222-222222222222";
+  const wsFree = "33333333-3333-4333-8333-333333333333";
+  const wsInterleaved = "44444444-4444-4444-8444-444444444444";
+  const targets = [
+    ["queue-a", wsA],
+    ["queue-b", wsB],
+    ["queue-c", wsA],
+    ["queue-free", wsFree],
+    ["queue-interleaved", wsInterleaved],
+    ["queue-direct", null],
+  ] as const;
+  const initial = initializations["project-a"];
+  assert.ok(initial);
+  for (const [queueId] of targets) {
+    assert.equal(
+      createQueue(ports.repository, binding, {
+        kind: "scheduled",
+        input: [
+          {
+            queueId,
+            projectId: initial.projectId,
+            milestoneId: initial.milestoneId,
+            requestHash: hash(queueId),
+            originLane: "scheduled",
+            repositoryRevision: revision,
+            scopeHash: hash(queueId),
+          },
+          initial,
+        ],
+      }).status,
+      "completed",
+    );
+  }
+  const statePath = path.join(root, ".crdd", "execution-model", "state.json");
+  // Workspaceの登録だけを合成。取得・保存・wx・子Process・回復は本番経路を使う。
+  const raw = JSON.parse(fs.readFileSync(statePath, "utf8"));
+  fs.writeFileSync(
+    statePath,
+    `${canonicalJson({
+      ...raw,
+      workspaces: [wsA, wsB, wsFree, wsInterleaved].map((workspaceId) => ({
+        workspaceId,
+        name: null,
+        candidate: null,
+        generation: 1,
+        baseCommit: revision,
+        head: revision,
+        phase: "ready",
+        holdUntil: null,
+        pending: null,
+        lastResult: null,
+        primaryFailure: null,
+      })),
+      queueEntries: raw.queueEntries.map((queue: { queueId: string }) => ({
+        ...queue,
+        workspaceId: targets.find(([id]) => id === queue.queueId)?.[1] ?? null,
+      })),
+    })}\n`,
+  );
+  const probe = fileURLToPath(
+    new URL("../fixtures/task-lease-interleaving-probe.ts", import.meta.url),
+  );
+  const launch = async (
+    queueId: string,
+    claim = false,
+    reportRelease = false,
+  ) => {
+    const signal = path.join(root, `${queueId}.ready`);
+    const child = spawn(
+      process.execPath,
+      [
+        probe,
+        root,
+        signal,
+        "hold",
+        "project-operation",
+        queueId,
+        "project-a",
+        ...(claim ? ["claim"] : []),
+      ],
+      {
+        windowsHide: true,
+        stdio: ["ignore", "pipe", "pipe"],
+        ...(reportRelease
+          ? { env: { ...process.env, CRDD_LEASE_PROBE_RELEASE_MARKER: "1" } }
+          : {}),
+      },
+    );
+    children.push(child);
+    let errors = "";
+    child.stderr.on("data", (chunk) => {
+      errors += String(chunk);
+    });
+    let output = "";
+    child.stdout.on("data", (chunk) => {
+      output += String(chunk);
+    });
+    const closed = once(child, "close", {
+      signal: AbortSignal.timeout(15_000),
+    });
+    // wait loop advances while the child is starting, but fails immediately on observed exit.
+    const deadline = Date.now() + 6_000;
+    while (
+      !fs.existsSync(signal) &&
+      child.exitCode === null &&
+      child.signalCode === null &&
+      Date.now() < deadline
+    ) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(fs.existsSync(signal), true, `${queueId}: ${output}${errors}`);
+    return { child, signal, closed, output: () => output };
+  };
+  const a = await launch("queue-a", true);
+  assert.equal(
+    selectNextQueueEntry(ports.repository, binding, "queue-b").value?.queueId,
+    "queue-b",
+  );
+  assert.equal(
+    selectNextQueueEntry(ports.repository, binding, "queue-c").value,
+    null,
+  );
+  const b = await launch("queue-b", false, true);
+  const lockDir = path.join(root, ".crdd", "lock");
+  const leaseFiles = () =>
+    fs
+      .readdirSync(lockDir)
+      .filter((name) => name.startsWith("coordinator.lease."));
+  assert.equal(leaseFiles().length, 2);
+  const before = readQueueState(ports.repository, binding);
+  const originalB = before.value?.leaseIntents.filter(
+    (intent) => intent.queueId === "queue-b",
+  );
+  assert.deepEqual(originalB?.map((intent) => intent.phase).sort(), [
+    "acquisition_reserved",
+    "lock_owned",
+  ]);
+  assert.ok(
+    originalB?.every((intent) => intent.ownerProcessId === b.child.pid),
+  );
+  for (const queueId of ["queue-c", "queue-direct"]) {
+    const blocked = acquireCoordinatorSnapshotLease(
+      root,
+      binding,
+      "project-a",
+      queueId,
+      "project-operation",
+    );
+    assert.equal(blocked.reason, "coordinator_lease_unavailable");
+  }
+  assert.equal(
+    beginWorkspaceOperation(
+      ports.repository,
+      binding,
+      "project-a",
+      "queue-c",
+      wsA,
+      "observe",
+    ).reason,
+    "coordinator_lease_unavailable",
+  );
+  a.child.kill("SIGKILL");
+  await a.closed;
+  const recovered = reconcileCoordinatorSnapshotLeaseOwnerLoss(
+    root,
+    binding,
+    "project-a",
+    "queue-a",
+    "project-operation",
+    (owner) => {
+      assert.equal(owner.ownerProcessId, a.child.pid);
+      return { ...owner, status: "absent" };
+    },
+  );
+  assert.equal(recovered.status, "completed", recovered.reason);
+  assert.equal(recovered.value?.queue?.state, "recovery_required");
+  assert.equal(recovered.value?.queue?.ownerGeneration, null);
+  const after = readQueueState(ports.repository, binding);
+  assert.deepEqual(after.value?.leaseIntents, originalB);
+  assert.deepEqual(
+    after.value?.queueEntries.find((queue) => queue.queueId === "queue-b"),
+    before.value?.queueEntries.find((queue) => queue.queueId === "queue-b"),
+  );
+  assert.equal(leaseFiles().length, 1);
+  assert.equal(
+    acquireCoordinatorSnapshotLease(
+      root,
+      binding,
+      "project-a",
+      "queue-c",
+      "project-operation",
+    ).reason,
+    "coordinator_lease_unavailable",
+  );
+  assert.equal(
+    beginWorkspaceOperation(
+      ports.repository,
+      binding,
+      "project-a",
+      "queue-c",
+      wsA,
+      "discard",
+    ).reason,
+    "coordinator_lease_unavailable",
+  );
+  const workspaceOperation = beginWorkspaceOperation(
+    ports.repository,
+    binding,
+    "project-a",
+    "queue-free",
+    wsFree,
+    "observe",
+  );
+  assert.equal(
+    workspaceOperation.status,
+    "completed",
+    workspaceOperation.reason,
+  );
+  assert.equal(workspaceOperation.value?.release().status, "completed");
+  // 別回復を予約した直後に、Bの実物解放と証拠出版を先に確定させる。
+  const interleaved = await launch("queue-interleaved", true);
+  assert.ok(interleaved.child.kill("SIGKILL"));
+  await interleaved.closed;
+  const stored = () =>
+    parseStoredExecutionFixture(fs.readFileSync(statePath, "utf8"));
+  const shortLock = path.join(lockDir, "execution-model.state.lock");
+  const releaseMarker = `${b.signal}.released`;
+  const remove = fs.rmSync;
+  let overlapped = false;
+  let releaseDuringRecovery: string | null = null;
+  const barrier = t.mock.method(
+    fs,
+    "rmSync",
+    (...args: Parameters<typeof remove>) => {
+      const recoveryReserved =
+        args[0] === shortLock &&
+        !overlapped &&
+        stored().leaseIntents.some(
+          (entry) =>
+            entry.queueId === "queue-interleaved" &&
+            entry.phase === "recovery_pending",
+        );
+      remove(...args);
+      if (!recoveryReserved) return;
+      overlapped = true;
+      fs.writeFileSync(`${b.signal}.go`, "release\n", { flag: "wx" });
+      const until = performance.now() + 2500;
+      const sleep = new Int32Array(new SharedArrayBuffer(4));
+      while (performance.now() < until) {
+        if (fs.existsSync(releaseMarker)) {
+          const observed = fs.readFileSync(releaseMarker, "utf8");
+          if (observed.endsWith("\n")) {
+            releaseDuringRecovery = observed.trim();
+            return;
+          }
+        }
+        Atomics.wait(sleep, 0, 0, 5);
+      }
+    },
+  );
+  let recovery: ReturnType<typeof reconcileCoordinatorSnapshotLeaseOwnerLoss>;
+  try {
+    recovery = reconcileCoordinatorSnapshotLeaseOwnerLoss(
+      root,
+      binding,
+      "project-a",
+      "queue-interleaved",
+      "project-operation",
+      (owner) => {
+        assert.equal(owner.ownerProcessId, interleaved.child.pid);
+        assert.throws(() => process.kill(owner.ownerProcessId, 0), {
+          code: "ESRCH",
+        });
+        return { ...owner, status: "absent" };
+      },
+    );
+    assert.ok(overlapped);
+  } finally {
+    barrier.mock.restore();
+  }
+  assert.equal((await b.closed)[0], 0, b.output());
+  assert.equal(
+    recovery.status,
+    "completed",
+    JSON.stringify({
+      reason: recovery.reason,
+      b: b.output(),
+      releaseDuringRecovery,
+      files: fs.readdirSync(path.dirname(statePath)),
+      phases: stored().leaseIntents.map(({ queueId, phase }) => [
+        queueId,
+        phase,
+      ]),
+    }),
+  );
+  assert.equal(recovery.value?.queue?.state, "recovery_required");
+  assert.equal(recovery.value?.queue?.ownerGeneration, null);
+  assert.deepEqual(JSON.parse(b.output()), {
+    acquired: true,
+    released: "completed",
+  });
+  assert.equal(
+    releaseDuringRecovery,
+    "completed:coordinator_lease_released",
+    "Bの実解放が回復の予約段階と確定段階の間に収まらなかった",
+  );
+  assert.deepEqual(
+    readQueueState(ports.repository, binding).value?.leaseIntents,
+    [],
+  );
+  assert.deepEqual(leaseFiles(), []);
+  for (const [queueId, disposition] of [
+    ["queue-b", "released"],
+    ["queue-interleaved", "recovered_after_owner_loss"],
+  ] as const)
+    assert.equal(
+      stored().leaseEvidence.filter(
+        ({ content }) =>
+          content.queueId === queueId && content.disposition === disposition,
+      ).length,
+      1,
+    );
+  const unrelated = acquireCoordinatorSnapshotLease(
+    root,
+    binding,
+    "project-a",
+    "queue-free",
+    "project-operation",
+  );
+  assert.equal(unrelated.status, "completed", unrelated.reason);
+  if (unrelated.status !== "completed") throw Error("unrelated lease");
+  assert.equal(unrelated.value.release().status, "completed");
+  assert.equal(
+    acquireCoordinatorSnapshotLease(
+      root,
+      binding,
+      "project-a",
+      "queue-direct",
+      "project-operation",
+    ).reason,
+    "coordinator_lease_unavailable",
+  );
+});
 
 /**
  * Domain固定候補を実Queue Portの受付・読取り・保存へ接続する。
@@ -400,6 +754,7 @@ test("interactive queue parks scheduled work without preempting an active owner"
   const first = selectNextQueueEntry(
     ports.repository,
     ports.repositoryBindingId,
+    "queue-scheduled",
   );
   assert.equal(
     first.status === "completed" && first.value?.queueId,
@@ -462,6 +817,7 @@ test("interactive queue parks scheduled work without preempting an active owner"
   const second = selectNextQueueEntry(
     ports.repository,
     ports.repositoryBindingId,
+    "queue-scheduled",
   );
   assert.equal(
     second.status === "completed" && second.value?.queueId,
@@ -581,6 +937,7 @@ test("scheduled work arriving after an interactive operation starts remains effe
   const selected = selectNextQueueEntry(
     ports.repository,
     ports.repositoryBindingId,
+    "queue-scheduled",
   );
   assert.equal(selected.status, "completed");
   assert.equal(selected.status === "completed" && selected.value, null);
@@ -808,6 +1165,7 @@ test("separate processes cannot both own one Repository Binding operation", asyn
           [
             "coordinator_lease_unavailable",
             "coordinator_snapshot_lock_unavailable",
+            "coordinator_snapshot_lock_contended",
           ].includes(result.reason),
       ),
     JSON.stringify({
@@ -818,6 +1176,7 @@ test("separate processes cannot both own one Repository Binding operation", asyn
   const owner = inspectCoordinatorSnapshotLeaseAcquisitionOwner(
     ports.workingDirectory,
     ports.repositoryBindingId,
+    "queue-a",
   );
   assert.equal(owner.status, "completed");
   assert.equal(owner.value?.acquisition, null);

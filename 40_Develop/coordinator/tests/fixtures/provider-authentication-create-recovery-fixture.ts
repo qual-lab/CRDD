@@ -13,8 +13,8 @@ import { fileURLToPath } from "node:url";
 import {
   prepareIsolation,
   executeIsolation,
-} from "../../../docker-isolation/src/index.ts";
-import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
+import type { ResourceSnapshot } from "@qual-lab/crdd-docker-isolation";
 import {
   authenticationResourceFixture,
   prepareAuthenticationProjection,

@@ -7,7 +7,7 @@
  */
 import { mock } from "node:test";
 import { extractProviderResult } from "../../../ai-adapter/tests/support/ai-adapter-test.ts";
-import * as original from "../../../ai-adapter/src/index.ts";
+import * as original from "@qual-lab/crdd-ai-adapter";
 import {
   type ProviderResultInput,
   type ProviderResultParseResult,
@@ -265,7 +265,7 @@ export function installTaskSummaryObservation(secret: Dependencies["secret"]) {
     secret,
   });
   const replacement = mock.module(
-    new URL("../../../ai-adapter/src/index.ts", import.meta.url).href,
+    new URL(import.meta.resolve("@qual-lab/crdd-ai-adapter")).href,
     {
       namedExports: {
         ...original,

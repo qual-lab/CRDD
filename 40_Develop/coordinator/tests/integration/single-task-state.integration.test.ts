@@ -16,7 +16,7 @@ import fs from "node:fs";
 import { devNull } from "node:os";
 import path from "node:path";
 import test, { mock } from "node:test";
-import * as snapshotStorage from "../../../execution-model/src/index.ts";
+import * as snapshotStorage from "@qual-lab/crdd-execution-model";
 import {
   createQueue,
   initializeExecutionStore,
@@ -24,7 +24,7 @@ import {
   readExecutionState,
   readQueueState,
   type SingleTaskRecord,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   acquireCoordinatorSnapshotLease,
   settleCoordinatorSnapshotQueueLeaseRelease,
@@ -33,6 +33,7 @@ import {
 } from "../../src/lifecycle/host.ts";
 import { resolveExecutionStorageDirectory } from "../../src/lifecycle/host.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 import type { createCoordinatorTaskRequests } from "../../src/lifecycle/execution.ts";
 import {
   executionSelection,
@@ -580,6 +581,34 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
         },
         recover: async () => {
           recoveries++;
+          const bytes = fs.readFileSync(stateFile);
+          const raw = JSON.parse(bytes.toString("utf8"));
+          const held = raw.leaseIntents.find(
+            (item: { phase: string }) => item.phase === "lock_owned",
+          );
+          assert.ok(held && Number.isSafeInteger(held.recoveryGeneration));
+          for (const changed of [undefined, held.recoveryGeneration + 1]) {
+            const damaged = {
+              ...raw,
+              leaseIntents: raw.leaseIntents.map((item: typeof held) => {
+                if (item !== held) return item;
+                const { recoveryGeneration: _generation, ...rest } = item;
+                return changed === undefined
+                  ? rest
+                  : { ...rest, recoveryGeneration: changed };
+              }),
+            };
+            try {
+              fs.writeFileSync(stateFile, `${canonicalJson(damaged)}\n`);
+              assert.equal(
+                readQueueState(resolveExecutionStorageDirectory(root), binding)
+                  .status,
+                "blocked",
+              );
+            } finally {
+              fs.writeFileSync(stateFile, bytes);
+            }
+          }
           return {
             cleanupConfirmed: true,
             recoveryIds: [],
@@ -711,6 +740,18 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     );
   } finally {
     recoveryLease.value.release();
+  }
+  for (const staleGeneration of [undefined, recoveryEntry.generation]) {
+    const refused = acquireCoordinatorSnapshotLease(
+      root,
+      binding,
+      recoveryEntry.projectId,
+      recoveryEntry.queueId,
+      "project-operation",
+      staleGeneration,
+    );
+    assert.equal(refused.status, "blocked");
+    assert.equal(refused.reason, "coordinator_lease_unavailable");
   }
   const recovered = await reentry.cancel(recoveryEntry.queueId);
   assert.equal(recovered.cleanupConfirmed, true, JSON.stringify(recovered));
@@ -1101,7 +1142,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
       },
     };
     const storage = mock.module(
-      new URL("../../../execution-model/src/index.ts", import.meta.url).href,
+      import.meta.resolve("@qual-lab/crdd-execution-model"),
       {
         namedExports: {
           ...snapshotStorage,

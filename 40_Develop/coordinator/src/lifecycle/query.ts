@@ -12,22 +12,23 @@ import { types } from "node:util";
 import {
   type Execution,
   listExecutions,
-} from "../../../execution-intelligence/src/index.ts";
+} from "@qual-lab/crdd-execution-intelligence";
 import {
   ExecutionStorageBlockedError,
   isPrincipalId,
   type OperationRecord,
   parseDockerTaskRecoveryId,
   type ProjectExecutionState,
+  type ProjectQueueEntry,
   readState,
   readExecutionState,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   getRepository,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   borrowCoordinatorRecoveryRepository,
   coordinatorDataBoundaryBlocked,
@@ -47,6 +48,7 @@ import {
   readExecutionCancellation,
   snapshotPlainArray,
   snapshotPlainRecord,
+  validIdentity,
 } from "./validation.ts";
 import type {
   ActivityRepository,
@@ -268,14 +270,30 @@ export function queryCoordinatorState(
   current: Readonly<{
     projects: readonly ProjectExecutionState[];
     taskStartCandidates: unknown;
+    queueEntries?: readonly ProjectQueueEntry[];
   }>,
   request: CoordinatorStateQuery,
 ): CoordinatorStateQueryResult {
-  const state =
-    current.projects.find((item) => item.projectId === request.projectId) ??
-    null;
+  const matching = current.projects.filter(
+    (item) =>
+      item.projectId === request.projectId &&
+      (request.queueId === undefined || item.queueId === request.queueId),
+  );
+  const state = matching.length === 1 ? (matching[0] ?? null) : null;
+  const queueId = request.queueId ?? state?.queueId;
+  const cancelled =
+    queueId === undefined
+      ? undefined
+      : current.queueEntries?.find(
+          (queue) =>
+            queue.queueId === queueId &&
+            queue.projectId === request.projectId &&
+            queue.repositoryRevision === request.repositoryRevision &&
+            queue.state === "cancelled" &&
+            !queue.singleTask,
+        );
   let projection: CoordinatorStateQueryResult["projection"] = null;
-  if (state !== null) {
+  if (state !== null && !cancelled) {
     try {
       const records = snapshotPlainArray(
         current.taskStartCandidates,
@@ -287,20 +305,31 @@ export function queryCoordinatorState(
               .map((item) => inspectTaskStartCandidates(state, item))
               .filter((item) => item !== null)
           : [];
-      if (matches.length === 1)
+      if (matches.length === 1) {
         projection = projectCoordinatorState(state, matches[0] ?? null);
+        if (request.queueId === undefined && projection.queueId !== undefined) {
+          const { queueId: _queueId, ...project } = projection;
+          projection = Object.freeze(project);
+        }
+      }
     } catch {
       // 不正・欠測の候補を空の開始候補へ補完しない。
     }
   }
   const reason =
-    state === null
-      ? "coordinator_state_absent"
-      : projection === null
-        ? "coordinator_state_observation_unknown"
-        : state.repositoryRevision !== request.repositoryRevision
-          ? "coordinator_state_revision_mismatch"
-          : "coordinator_state_observed";
+    matching.length > 1
+      ? "coordinator_state_observation_unknown"
+      : cancelled
+        ? cancelled.ownerGeneration === null
+          ? "coordinator_state_queue_cancelled"
+          : "coordinator_state_queue_release_unconfirmed"
+        : state === null
+          ? "coordinator_state_absent"
+          : projection === null
+            ? "coordinator_state_observation_unknown"
+            : state.repositoryRevision !== request.repositoryRevision
+              ? "coordinator_state_revision_mismatch"
+              : "coordinator_state_observed";
   const observationState =
     reason === "coordinator_state_absent"
       ? "absent"
@@ -314,6 +343,7 @@ export function queryCoordinatorState(
     requestId: request.requestId,
     projectId: request.projectId,
     repositoryRevision: request.repositoryRevision,
+    ...(request.queueId === undefined ? {} : { queueId: request.queueId }),
     observationState,
     projection: observationState === "observed" ? projection : null,
     cleanupConfirmed: true,
@@ -383,28 +413,48 @@ export function queryState(
     const identity = readRepositorySnapshot(
       getRepository(repositoryRoot).capability,
     );
-    const adoptedPlan =
-      identity && identity.revisionIdentity !== request.repositoryRevision
-        ? readExecutionState(
-            resolveExecutionStorageDirectory(repositoryRoot),
-            deriveCoordinatorRepositoryBindingId(repositoryRoot),
-          ).value?.projects.find(
+    const storage = resolveExecutionStorageDirectory(repositoryRoot);
+    const binding = deriveCoordinatorRepositoryBindingId(repositoryRoot);
+    const revised =
+      identity && identity.revisionIdentity !== request.repositoryRevision;
+    const observed = revised ? readExecutionState(storage, binding) : null;
+    const exactObservationBlocked =
+      request.queueId !== undefined && observed?.status === "blocked";
+    const isolatedQueue =
+      request.queueId !== undefined &&
+      observed?.value?.queueEntries.some(
+        (queue) =>
+          queue.queueId === request.queueId &&
+          queue.projectId === request.projectId &&
+          queue.workspaceId != null &&
+          !queue.singleTask &&
+          queue.repositoryRevision === request.repositoryRevision,
+      );
+    const adoptedPlans =
+      revised && !isolatedQueue
+        ? observed?.value?.projects.filter(
             (plan) =>
               plan.projectId === request.projectId &&
-              plan.repositoryRevision === request.repositoryRevision,
+              plan.repositoryRevision === request.repositoryRevision &&
+              (request.queueId === undefined ||
+                plan.queueId === request.queueId),
           )
-        : null;
+        : undefined;
+    const adoptedPlan = adoptedPlans?.length === 1 ? adoptedPlans[0] : null;
     if (
       !identity ||
-      (identity.revisionIdentity !== request.repositoryRevision &&
+      (revised &&
+        !isolatedQueue &&
+        !exactObservationBlocked &&
         (!adoptedPlan ||
           !workspacePlanReadyForAcceptance(
             repositoryRoot,
-            deriveCoordinatorRepositoryBindingId(repositoryRoot),
+            binding,
             request.projectId,
             adoptedPlan.milestoneId,
             request.repositoryRevision,
             identity.revisionIdentity,
+            adoptedPlan.queueId,
           )))
     )
       return Object.freeze({
@@ -414,16 +464,18 @@ export function queryState(
         requestId: request.requestId,
         projectId: request.projectId,
         repositoryRevision: request.repositoryRevision,
+        ...(request.queueId === undefined ? {} : { queueId: request.queueId }),
         observationState: "unknown" as const,
         projection: null,
         cleanupConfirmed: true as const,
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
       });
-    const snapshot = readExecutionState(
-      resolveExecutionStorageDirectory(repositoryRoot),
-      deriveCoordinatorRepositoryBindingId(repositoryRoot),
-    );
+    // 分離Queueは同じ保存断面で照合する。別読取りを伴う既存の採用確認後はfreshな状態を読む。
+    const snapshot =
+      (isolatedQueue || exactObservationBlocked) && observed
+        ? observed
+        : readExecutionState(storage, binding);
     if (
       snapshot.status !== "completed" ||
       snapshot.value === null ||
@@ -432,10 +484,13 @@ export function queryState(
       return Object.freeze({
         contract: COORDINATOR_STATE_QUERY_CONTRACT,
         status: "blocked" as const,
-        reason: "coordinator_snapshot_not_initialized",
+        reason: exactObservationBlocked
+          ? "coordinator_state_observation_unknown"
+          : "coordinator_snapshot_not_initialized",
         requestId: request.requestId,
         projectId: request.projectId,
         repositoryRevision: request.repositoryRevision,
+        ...(request.queueId === undefined ? {} : { queueId: request.queueId }),
         observationState: "unknown" as const,
         projection: null,
         cleanupConfirmed: true as const,
@@ -643,6 +698,7 @@ export async function queryActivity(
   const cursor = decodeActivityCursor(request.cursor, sourceHash);
   const sources: ActivitySource[] = [];
   let stateUnknown = false,
+    snapshotsUnknown = false,
     eventUnknown = false;
   const observed: {
     repositoryId: string;
@@ -652,6 +708,8 @@ export async function queryActivity(
   const singleTasks: NonNullable<
     ExecutionActivityObservation["singleTasks"]
   >[number][] = [];
+  const graphs: NonNullable<ExecutionActivityObservation["graphs"]>[number][] =
+    [];
   for (const { repository, root } of targets) {
     const source = {
       repositoryId: repository.repositoryId,
@@ -660,6 +718,7 @@ export async function queryActivity(
     sources.push(source);
     if (root === null) {
       stateUnknown = true;
+      snapshotsUnknown = true;
       eventUnknown = true;
       continue;
     }
@@ -667,15 +726,38 @@ export async function queryActivity(
       { directory: root },
       deriveCoordinatorRepositoryBindingId(root),
     );
-    if (snapshot.status !== "completed") stateUnknown = true;
-    else if (snapshot.value !== null) {
+    if (snapshot.status !== "completed") {
+      stateUnknown = true;
+      snapshotsUnknown = true;
+    } else if (snapshot.value !== null) {
       const value = snapshot.value;
-      const project = value.projects.find(
-        (entry) => entry.projectId === request.projectId,
+      const inactive = new Set(
+        value.queueEntries
+          .filter(
+            (entry) => entry.historySettled || entry.state === "cancelled",
+          )
+          .map((entry) => entry.queueId),
+      );
+      const projects = value.projects.filter(
+        (entry) =>
+          entry.projectId === request.projectId &&
+          (entry.queueId === undefined || !inactive.has(entry.queueId)),
+      );
+      const soleProject = projects.length === 1 ? projects[0] : undefined;
+      let soleProjection: ExecutionActivityObservation["projection"] = null;
+      const byQueue = new Map(
+        projects.map((project) => [project.queueId, project]),
+      );
+      const candidates = new Map(
+        value.taskStartCandidates.map((candidate) => [
+          candidate.queueId,
+          candidate,
+        ]),
       );
       for (const queue of value.queueEntries) {
+        if (queue.projectId !== request.projectId) continue;
         const record = queue.singleTask;
-        if (queue.projectId === request.projectId && record)
+        if (record) {
           singleTasks.push({
             repositoryId: repository.repositoryId,
             requestId: queue.queueId,
@@ -685,19 +767,51 @@ export async function queryActivity(
             cleanupConfirmed: record.cleanupConfirmed,
             recoveryRequired: queue.state === "recovery_required",
           });
-      }
-      if (project) {
-        source.revision = project.repositoryRevision;
-        const result = queryCoordinatorState(value, {
-          requestId: "runtime-activity-observation",
-          projectId: request.projectId,
-          repositoryRevision: project.repositoryRevision,
+          continue;
+        }
+        if (queue.milestoneId === null || inactive.has(queue.queueId)) continue;
+        const project = byQueue.get(queue.queueId);
+        let progress: (typeof graphs)[number]["progress"] = null;
+        if (project?.milestoneId === queue.milestoneId) {
+          const candidate = inspectTaskStartCandidates(
+            project,
+            candidates.get(queue.queueId),
+          );
+          if (candidate) {
+            try {
+              const { queueId: _queueId, ...projection } =
+                projectCoordinatorState(project, candidate);
+              const { milestoneState, workProgress, nextAction } = projection;
+              progress = { milestoneState, workProgress, nextAction };
+              if (project === soleProject) soleProjection = projection;
+            } catch {
+              // 対象の投影不能を他のGraphや履歴へ波及させない。
+            }
+          }
+        }
+        graphs.push({
+          repositoryId: repository.repositoryId,
+          queueId: queue.queueId,
+          workspaceId: queue.workspaceId ?? null,
+          milestoneId: queue.milestoneId,
+          progress,
         });
-        if (result.observationState === "unknown") stateUnknown = true;
-        else if (result.projection !== null)
+      }
+      if (projects.length > 1) stateUnknown = true;
+      if (soleProject) {
+        source.revision = soleProject.repositoryRevision;
+        if (soleProject.queueId === undefined) {
+          soleProjection = queryCoordinatorState(value, {
+            requestId: "runtime-activity-observation",
+            projectId: request.projectId,
+            repositoryRevision: soleProject.repositoryRevision,
+          }).projection;
+        }
+        if (soleProjection === null) stateUnknown = true;
+        else
           observed.push({
             repositoryId: repository.repositoryId,
-            projection: result.projection,
+            projection: soleProjection,
           });
       }
     }
@@ -742,7 +856,8 @@ export async function queryActivity(
         : "absent";
   const result = parseExecutionActivityObservation({
     projectId: request.projectId,
-    singleTasks: stateUnknown ? [] : singleTasks,
+    singleTasks: snapshotsUnknown ? [] : singleTasks,
+    graphs,
     state,
     reason:
       state === "unknown"
@@ -926,23 +1041,8 @@ export function parseExecutionActivityObservation(
     "currentSourceRepositoryId",
   ]);
   const record =
-    snapshotPlainRecord(value, keys) ??
-    snapshotPlainRecord(
-      value,
-      new Set([
-        "projectId",
-        "state",
-        "reason",
-        "projection",
-        "eventState",
-        "eventReason",
-        "events",
-        "eventContinuation",
-        "sources",
-        "currentSourceRepositoryId",
-        "singleTasks",
-      ]),
-    );
+    snapshotPlainRecord(value, keys, "graphs") ??
+    snapshotPlainRecord(value, new Set([...keys, "singleTasks"]), "graphs");
   if (!record) return null;
   if (
     typeof record.projectId !== "string" ||
@@ -986,6 +1086,11 @@ export function parseExecutionActivityObservation(
   const sources = parseActivitySources(record.sources);
   if (sources === null) return null;
   const sourceIds = new Set(sources.map((source) => source.repositoryId));
+  const graphs =
+    "graphs" in record
+      ? parseActivityGraphs(record.graphs, sourceIds)
+      : undefined;
+  if (graphs === null) return null;
   const singleTasks: NonNullable<
     ExecutionActivityObservation["singleTasks"]
   >[number][] = [];
@@ -1111,6 +1216,7 @@ export function parseExecutionActivityObservation(
   return Object.freeze({
     projectId: record.projectId,
     singleTasks: Object.freeze(singleTasks),
+    ...(graphs === undefined ? {} : { graphs }),
     state: record.state as ExecutionActivityObservation["state"],
     reason: record.reason,
     projection,
@@ -1123,6 +1229,77 @@ export function parseExecutionActivityObservation(
     events: Object.freeze(events),
     eventContinuation: record.eventContinuation,
   });
+}
+
+/** 認可済みの出所とQueueを分離せず、状態不明はnullとして保持する。 @trace ARCH-000004 */
+function parseActivityGraphs(raw: unknown, sources: ReadonlySet<string>) {
+  const items = snapshotPlainArray(raw, Number.MAX_SAFE_INTEGER);
+  if (items.status !== "ok") return null;
+  const seen = new Set<string>();
+  const graphs: NonNullable<ExecutionActivityObservation["graphs"]>[number][] =
+    [];
+  const keys = new Set([
+    "repositoryId",
+    "queueId",
+    "workspaceId",
+    "milestoneId",
+    "progress",
+  ]);
+  const progressKeys = new Set([
+    "milestoneState",
+    "workProgress",
+    "nextAction",
+  ]);
+  for (const item of items.value) {
+    const graph = snapshotPlainRecord(item, keys);
+    if (
+      !graph ||
+      !validIdentity(graph.repositoryId) ||
+      !sources.has(graph.repositoryId) ||
+      !validIdentity(graph.queueId) ||
+      !validIdentity(graph.milestoneId) ||
+      (graph.workspaceId !== null && !validIdentity(graph.workspaceId))
+    )
+      return null;
+    const id = `${graph.repositoryId}\0${graph.queueId}`;
+    if (seen.has(id)) return null;
+    seen.add(id);
+    const progress =
+      graph.progress === null
+        ? null
+        : snapshotPlainRecord(graph.progress, progressKeys);
+    if (
+      graph.progress !== null &&
+      (!progress ||
+        ![
+          "planned",
+          "executing",
+          "integrating",
+          "human_decision_required",
+          "recovery_required",
+          "accepted",
+          "returned",
+          "cancelled",
+        ].some((state) => state === progress.milestoneState) ||
+        !["not_started", "in_progress", "tasks_complete"].some(
+          (state) => state === progress.workProgress,
+        ) ||
+        ![
+          "schedule_task",
+          "wait_for_task",
+          "verify_objective_integration",
+          "verify_milestone_integration",
+          "human_decision",
+          "recover",
+          "complete",
+        ].some((state) => state === progress.nextAction))
+    )
+      return null;
+    graphs.push(
+      Object.freeze({ ...graph, progress }) as (typeof graphs)[number],
+    );
+  }
+  return Object.freeze(graphs);
 }
 
 /**

@@ -14,7 +14,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import { types } from "node:util";
 import { runInThisContext } from "node:vm";
-import * as sharedLock from "../../../lock/src/index.ts";
+import * as sharedLock from "@qual-lab/crdd-lock";
 import * as attemptOperations from "../../src/attempt/transition.ts";
 import * as attemptValidation from "../../src/attempt/validation.ts";
 import * as decisionValidation from "../../src/decision/validation.ts";

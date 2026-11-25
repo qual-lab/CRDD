@@ -14,12 +14,12 @@ import type {
   Executor,
   ExecutorRequest,
   IsolationProbeOptions,
-} from "../../../executor/src/index.ts";
+} from "@qual-lab/crdd-executor";
 import {
   applyResourceCleanup,
   applyResourceEvent,
   type OperationResources,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { observeExecutionCompletion } from "../../src/lifecycle/environment.ts";

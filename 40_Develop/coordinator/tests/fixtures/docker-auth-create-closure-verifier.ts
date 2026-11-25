@@ -26,7 +26,7 @@ import { fileURLToPath } from "node:url";
 import * as dockerEnvironmentOperations from "../../../docker-isolation/src/docker-cli/environment.ts";
 import * as dockerTrustOperations from "../../../docker-isolation/src/docker-cli/trust.ts";
 import * as dockerRestartOperations from "../../../docker-isolation/src/docker-desktop/restart.ts";
-import type { ExecutionOperationRecord } from "../../../execution-model/src/index.ts";
+import type { ExecutionOperationRecord } from "@qual-lab/crdd-execution-model";
 import type { StoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import { getIsolationSettings } from "../../src/lifecycle/environment.ts";
 
@@ -374,7 +374,7 @@ async function executeApprovedAuthCreateClosure() {
     fileURLToPath(new URL("../../../..", import.meta.url)),
   );
   const root = path.join(distribution, ".crdd", "tests", "auth-create-closure");
-  const vc = await import("../../../version-control/src/index.ts");
+  const vc = await import("@qual-lab/crdd-version-control");
   const distributionVerified = vc.getRepository(distribution);
   assert.equal(distributionVerified.status, "completed");
   assert.equal(
@@ -419,7 +419,7 @@ async function executeApprovedAuthCreateClosure() {
   const recoveryOperations = await import(
     "../../../docker-isolation/src/cleanup/execute.ts"
   );
-  const store = await import("../../../execution-model/src/index.ts");
+  const store = await import("@qual-lab/crdd-execution-model");
   let recoveryMock: { restore(): void } | null = null;
   let restartMock: { restore(): void } | null = null;
   let lifecycleMock: { restore(): void } | null = null;
@@ -933,7 +933,7 @@ async function executeApprovedAuthCreateClosure() {
     );
     if (absentAuth)
       storeMock = mock.module(
-        new URL("../../../execution-model/src/index.ts", import.meta.url).href,
+        import.meta.resolve("@qual-lab/crdd-execution-model"),
         {
           namedExports: {
             ...store,

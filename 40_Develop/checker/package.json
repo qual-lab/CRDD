@@ -20,6 +20,11 @@
   "engines": {
     "node": ">=24.12"
   },
+  "dependencies": {
+    "@qual-lab/crdd-configuration-model": "file:../configuration-model",
+    "@qual-lab/crdd-document-model": "file:../document-model",
+    "@qual-lab/crdd-version-control": "file:../version-control"
+  },
   "devDependencies": {
     "@biomejs/biome": "2.5.6",
     "@types/node": "22.18.0",

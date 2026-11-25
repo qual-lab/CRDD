@@ -19,7 +19,7 @@ import test from "node:test";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { readServerConnectionConfiguration } from "../../src/service/configuration.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import {
   readWorkbenchServerConfiguration,
   startWorkbench,

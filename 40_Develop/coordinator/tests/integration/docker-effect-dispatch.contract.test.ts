@@ -15,7 +15,7 @@ import path from "node:path";
 import test, { mock } from "node:test";
 import type { DockerExecutionCallbacks } from "../../../docker-isolation/tests/support/session.ts";
 import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import {
   bindIsolationRuntime,
   describeIsolationContract,
@@ -672,10 +672,10 @@ test("Host Windows: 清掃後の上位所在取得拒否と固定値の技術搬
  * @boundary 共通Lock生存観測の模擬故障・実Filesystem・本番世代。実Kernel故障やDaemon終端は証明しない。
  */
 test("Host Windows: 世代失効は上位で拒否し固定値から上位を再照会しない", async () => {
-  const lockUrl = new URL("../../../lock/src/index.ts", import.meta.url);
+  const lockUrl = new URL(import.meta.resolve("@qual-lab/crdd-lock"));
   const lock = (await import(
     lockUrl.href
-  )) as typeof import("../../../lock/src/index.ts");
+  )) as typeof import("@qual-lab/crdd-lock");
   let live = true,
     falseObservations = 0,
     releases = 0;

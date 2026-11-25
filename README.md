@@ -373,6 +373,8 @@ For CRDD-standard maintenance in this repository, run `node 40_Develop/checker/b
 
 When the complete CRDD checkout is at `00_CRDD/`, run the launcher from the adopting project root and identify that root explicitly:
 
+Install the Checker dependencies in that pinned checkout first, as described in the [Checker workflow](19_Workflows/02_Checker.md).
+
 ```text
 node 00_CRDD/template/tools/crdd-check.ts --root . --json --summary
 node 00_CRDD/template/tools/crdd-check.ts --root . --references <PATH> --summary
@@ -800,6 +802,8 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 このリポジトリでCRDD標準を保守するときは、`node 40_Develop/checker/bin/checker.ts --json --summary`を実行する。
 
 完全なCRDDチェックアウトを`00_CRDD/`へ配置した場合は、適用先のプロジェクトルートから対象ルートを明示して実行する。
+
+初回は[チェッカーの手順](19_Workflows/02_Checker.md)に従って、版を固定した同じチェックアウト内に依存を導入する。
 
 ```text
 node 00_CRDD/template/tools/crdd-check.ts --root . --json --summary

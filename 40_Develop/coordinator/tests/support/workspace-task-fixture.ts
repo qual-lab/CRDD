@@ -13,7 +13,7 @@ import {
   getRepository,
   readFile,
   removeWorktree,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import { resolveRepositoryExecutionDataPaths } from "../../src/lifecycle/host.ts";
 import type { BorrowedExecutionTarget } from "../../src/lifecycle/types.ts";
 

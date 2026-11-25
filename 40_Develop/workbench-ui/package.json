@@ -22,6 +22,12 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.6",
+    "@qual-lab/crdd-ai-adapter": "file:../ai-adapter",
+    "@qual-lab/crdd-configuration-model": "file:../configuration-model",
+    "@qual-lab/crdd-document-model": "file:../document-model",
+    "@qual-lab/crdd-server": "file:../crdd-server",
+    "@qual-lab/crdd-version-control": "file:../version-control",
+    "@qual-lab/crdd-visual-preview": "file:../visual-preview",
     "@types/node": "22.18.0",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",

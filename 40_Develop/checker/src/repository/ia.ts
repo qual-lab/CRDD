@@ -16,7 +16,7 @@ import {
   parseIaObjectRelation,
   parseIaStateVisibility,
   parseIaStructureNavigation,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { mapIaDomainIssueToFinding } from "../report/convert.ts";
 import type { DocumentFinding } from "../report/types.ts";
 import { lstatIfPresent } from "../repository/observe.ts";

@@ -17,7 +17,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { parseRepositoryProjectContextMarkdown } from "../../../../document-model/src/index.ts";
+import { parseRepositoryProjectContextMarkdown } from "@qual-lab/crdd-document-model";
 import { readCurrentAccessState } from "../../../src/authorization/current.ts";
 import {
   resolveRepositoryAccess,

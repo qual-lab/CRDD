@@ -13,7 +13,7 @@ import { createIsolationFixture } from "../../../../docker-isolation/tests/suppo
 import type {
   ResourceTarget,
   IsolationCallbacks,
-} from "../../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 
 const ID = "a".repeat(64);
 
@@ -30,8 +30,8 @@ const ID = "a".repeat(64);
  */
 async function fixture(t: TestContext) {
   const f = await createIsolationFixture(t);
-  const original = await import("../../../../docker-isolation/src/index.ts");
-  t.mock.module("../../../../docker-isolation/src/index.ts", {
+  const original = await import("@qual-lab/crdd-docker-isolation");
+  t.mock.module("@qual-lab/crdd-docker-isolation", {
     namedExports: { ...original, cleanupIsolation: f.api.cleanupIsolation },
   });
   const api: typeof import("../../../src/lifecycle/cleanup.ts") = await import(

@@ -22,11 +22,11 @@ import path, { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { readCoordinatorConfig } from "../../../configuration-model/src/index.ts";
+import { readCoordinatorConfig } from "@qual-lab/crdd-configuration-model";
 import {
   createLocalPrincipalId,
   retireStateRecords,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 
 /**
  * 診断の現在状態・全履歴取得を一つのEM Reader結果へ結合する。
@@ -257,9 +257,9 @@ test("WorkspaceのPackage直結事前確認はHTTPなしで実GitとDomainまで
   assert.equal(fs.existsSync(root), false);
 });
 
-import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
-import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
-import { readRepositoryNetworkHosts } from "../../../coordinator/src/index.ts";
+import { getModelCatalog } from "@qual-lab/crdd-ai-adapter";
+import { saveRepositoryAiSelection } from "@qual-lab/crdd-configuration-model";
+import { readRepositoryNetworkHosts } from "@qual-lab/crdd-coordinator";
 import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/lifecycle/validation.ts";
 import type { createCoordinatorTaskRequests } from "../../../coordinator/src/lifecycle/execution.ts";
 import {
@@ -269,12 +269,12 @@ import {
 import {
   initializeExecutionStore,
   readState,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   getRepository,
   getRepositoryFromWorkingDirectory,
   readRepositoryRevision,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   assessVerificationDockerInventory,
   projectVerificationTransportFailure,
@@ -2740,7 +2740,7 @@ for (const transport of ["tool-child-process"] as const) {
           );
         }
         assert.deepEqual(state.unresolvedRecoveries, []);
-        assert.equal(state.schema, "crdd-execution-model/state/v9");
+        assert.equal(state.schema, "crdd-execution-model/state/v10");
         assert.deepEqual(state.historyPending, []);
         assert.deepEqual(state.leaseIntents, []);
         assert.ok(

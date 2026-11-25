@@ -18,7 +18,7 @@ import {
   applyResourceEvent,
   type OperationResources,
   validateResourceBook,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { snapshotJsonValue } from "../../src/lifecycle/validation.ts";
 

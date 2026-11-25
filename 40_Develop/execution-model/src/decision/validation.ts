@@ -38,15 +38,96 @@ function decisionTargetState(
   );
 }
 
+/** 継続は元Queueへ、正式受入は一意に特定できる実行へだけ結合する。 @trace ARCH-000004 */
+function decisionProject(current: DecisionSnapshot, record: DecisionRequest) {
+  const projects = current.projects.filter(
+    (item) =>
+      item.projectId === record.target.projectId &&
+      item.milestoneId === record.target.milestoneId,
+  );
+  if (record.kind === "continuation") {
+    const exact = projects.find((item) => item.queueId === record.queueId);
+    if (exact) return exact;
+    if (projects.length !== 1 || projects[0]?.queueId !== undefined)
+      return undefined;
+  } else if (record.target.queueId !== undefined) {
+    return projects.find((item) => item.queueId === record.target.queueId);
+  } else if (projects.length !== 1) return undefined;
+  return projects[0];
+}
+
+/** 継続Blockerは元の判断が固定しているQueueに限る。Queue不明の問題は共有扱いとする。 @trace ARCH-000004 */
+export function blockerAppliesToQueue(
+  decisions: DecisionSnapshot["decisions"],
+  blocker: Blocker,
+  target: Readonly<{
+    projectId: string;
+    milestoneId: string | null;
+    queueId?: string | undefined;
+  }>,
+): boolean {
+  return (
+    blocker.target.projectId === target.projectId &&
+    blocker.target.milestoneId === target.milestoneId &&
+    (target.queueId === undefined ||
+      (blockerQueueId(decisions, blocker) ?? target.queueId) === target.queueId)
+  );
+}
+
+/** Queueを再保存せず、Blockerの現在の継続判断から取得する。 @trace ARCH-000004 */
+function blockerQueueId(
+  decisions: DecisionSnapshot["decisions"],
+  blocker: Blocker,
+) {
+  if (blocker.target.queueId !== undefined) return blocker.target.queueId;
+  if (blocker.kind !== "human_decision") return undefined;
+  const record = decisions.find(
+    (item) => item.decisionId === blocker.currentDecisionId,
+  );
+  return record?.kind === "continuation" ? record.queueId : undefined;
+}
+
+/** 取消済みの実行を閉じる際、共有Blockerは残すが元Queueの未解決問題は許さない。 @trace ARCH-000004 */
+export function hasQueueClosureBlocker(
+  current: Pick<DecisionSnapshot, "decisions" | "blockers">,
+  queue: DecisionSnapshot["queueEntries"][number],
+): boolean {
+  const confirmedCancellation =
+    queue.state === "cancelled" &&
+    current.decisions.some(
+      (decision) =>
+        decision.decisionId === queue.resultReference &&
+        decision.kind === "continuation" &&
+        decision.queueId === queue.queueId &&
+        decision.target.projectId === queue.projectId &&
+        decision.target.milestoneId === queue.milestoneId &&
+        decision.target.repositoryRevision === queue.repositoryRevision &&
+        decision.result?.status === "applied" &&
+        decision.result.answer.selectedOption === "cancel" &&
+        decision.result.application.nextState === "cancelled",
+    );
+  return current.blockers.some(
+    (blocker) =>
+      blocker.status === "active" &&
+      blockerAppliesToQueue(current.decisions, blocker, queue) &&
+      (!confirmedCancellation ||
+        blockerQueueId(current.decisions, blocker) === queue.queueId),
+  );
+}
+
 /** 進行対象に関わる既知の問題だけを選ぶ。Task所属不明は無関係と推測しない。 */
 function blockerAffectsDecision(
+  current: DecisionSnapshot,
   blocker: Blocker,
   record: Decision,
   project: ProjectExecutionState,
 ): boolean {
   if (
-    blocker.target.projectId !== record.target.projectId ||
-    blocker.target.milestoneId !== record.target.milestoneId
+    !blockerAppliesToQueue(current.decisions, blocker, {
+      ...record.target,
+      queueId:
+        record.kind === "continuation" ? record.queueId : project.queueId,
+    })
   )
     return false;
   if (record.kind === "continuation" || record.target.kind === "milestone")
@@ -96,9 +177,7 @@ export function prepareDecisionCreation<T extends DecisionSnapshot>(
       ? completed("decision_already_requested", { next: null, value: existing })
       : storeBlocked("decision_identity_conflict");
   }
-  const project = current.projects.find(
-    (item) => item.projectId === record.target.projectId,
-  );
+  const project = decisionProject(current, record);
   const blocker = current.blockers.find(
     (item) => item.blockerId === record.blockerId,
   );
@@ -143,6 +222,7 @@ export function prepareDecisionCreation<T extends DecisionSnapshot>(
     ) ||
     (record.kind === "continuation" &&
       (record.target.kind !== "milestone" ||
+        (project.queueId !== undefined && project.queueId !== record.queueId) ||
         (project.milestone.state !== "human_decision_required" &&
           project.milestone.state !== "executing") ||
         !current.queueEntries.some(
@@ -366,9 +446,7 @@ export function prepareDecisionSubmission<T extends DecisionSnapshot>(
     reply.answeredAt > observedAt
   )
     return storeBlocked("decision_observation_time_invalid");
-  const project = current.projects.find(
-    (item) => item.projectId === record.target.projectId,
-  );
+  const project = decisionProject(current, record);
   const queue =
     record.kind === "continuation"
       ? current.queueEntries.find((item) => item.queueId === record.queueId)
@@ -376,6 +454,7 @@ export function prepareDecisionSubmission<T extends DecisionSnapshot>(
   const queueValid =
     record.kind !== "continuation" ||
     (queue &&
+      (project?.queueId === undefined || project.queueId === record.queueId) &&
       queue.projectId === record.target.projectId &&
       queue.milestoneId === record.target.milestoneId &&
       queue.repositoryRevision === record.target.repositoryRevision &&
@@ -402,7 +481,7 @@ export function prepareDecisionSubmission<T extends DecisionSnapshot>(
     for (const blocker of current.blockers) {
       if (
         blocker.status !== "active" ||
-        !blockerAffectsDecision(blocker, record, project) ||
+        !blockerAffectsDecision(current, blocker, record, project) ||
         blocker.blockerId === record.blockerId
       )
         continue;
@@ -494,17 +573,33 @@ export function prepareDecisionSubmission<T extends DecisionSnapshot>(
       )
       .map((item) => item.blockerId),
   );
+  const cancelQueue =
+    application &&
+    record.kind === "continuation" &&
+    reply.selectedOption === "cancel"
+      ? record.queueId
+      : null;
+  const onlyGraph =
+    cancelQueue !== null &&
+    !current.projects.some(
+      (item) =>
+        item.projectId === record.target.projectId &&
+        item.milestoneId === record.target.milestoneId &&
+        item !== project,
+    );
   const next = {
     ...current,
     decisions: current.decisions.map(
       (item) => updated.get(item.decisionId) ?? item,
     ),
     blockers: current.blockers.map((item) =>
-      application &&
-      reply.selectedOption === "cancel" &&
+      cancelQueue !== null &&
       item.status === "active" &&
-      item.target.projectId === record.target.projectId &&
-      item.target.milestoneId === record.target.milestoneId
+      blockerAppliesToQueue(current.decisions, item, {
+        ...record.target,
+        queueId: cancelQueue,
+      }) &&
+      (onlyGraph || blockerQueueId(current.decisions, item) === cancelQueue)
         ? {
             ...item,
             status: "cancelled" as const,
@@ -523,7 +618,7 @@ export function prepareDecisionSubmission<T extends DecisionSnapshot>(
     ),
     projects: applied
       ? current.projects.map((item) =>
-          item.projectId === applied.project.projectId ? applied.project : item,
+          item === project ? applied.project : item,
         )
       : current.projects,
     queueEntries:
@@ -1098,7 +1193,11 @@ function validTarget(target: DecisionTarget): boolean {
   return Boolean(
     target &&
       Object.keys(target).sort().join() ===
-        "generation,id,kind,milestoneId,projectId,repositoryRevision" &&
+        (Object.hasOwn(target, "queueId")
+          ? "generation,id,kind,milestoneId,projectId,queueId,repositoryRevision"
+          : "generation,id,kind,milestoneId,projectId,repositoryRevision") &&
+      (!Object.hasOwn(target, "queueId") ||
+        (typeof target.queueId === "string" && ID.test(target.queueId))) &&
       [target.projectId, target.milestoneId, target.id].every(
         (id) => typeof id === "string" && ID.test(id),
       ) &&
@@ -1122,7 +1221,9 @@ function validRequest(value: DecisionRequest): boolean {
         : "blockerId,decisionId,kind,options,question,requestedAt,respondentPrincipalId,target") ||
     !isPrincipalId(value.respondentPrincipalId) ||
     (value.kind === "continuation" &&
-      (typeof value.queueId !== "string" || !ID.test(value.queueId))) ||
+      (typeof value.queueId !== "string" ||
+        !ID.test(value.queueId) ||
+        target?.queueId !== undefined)) ||
     typeof value.decisionId !== "string" ||
     !ID.test(value.decisionId) ||
     typeof value.blockerId !== "string" ||
@@ -1595,6 +1696,7 @@ export function validateDecisionCollections(
   decisions: unknown,
   blockers: unknown,
   projectIds: readonly string[],
+  queues?: DecisionSnapshot["queueEntries"],
 ): boolean {
   try {
     const value = capture({ decisions, blockers });
@@ -1617,6 +1719,34 @@ export function validateDecisionCollections(
     const byDecisionId = new Map(
       records.map((record) => [record.decisionId, record]),
     );
+    const queuesById =
+      queues && new Map(queues.map((queue) => [queue.queueId, queue]));
+    const matchesQueue = (
+      target: DecisionTarget,
+      queueId: string | undefined,
+    ) => {
+      if (!queuesById || queueId === undefined) return true;
+      const queue = queuesById.get(queueId);
+      return (
+        queue !== undefined &&
+        queue.singleTask === undefined &&
+        queue.projectId === target.projectId &&
+        queue.milestoneId === target.milestoneId &&
+        queue.repositoryRevision === target.repositoryRevision
+      );
+    };
+    if (
+      records.some(
+        (record) =>
+          !matchesQueue(
+            record.target,
+            record.kind === "continuation"
+              ? record.queueId
+              : record.target.queueId,
+          ),
+      )
+    )
+      return false;
     const firstByBlockerId = new Map<string, Decision>();
     for (const record of records)
       if (!firstByBlockerId.has(record.blockerId))
@@ -1637,16 +1767,24 @@ export function validateDecisionCollections(
         !text(condition.reason) ||
         !["active", "resolved", "cancelled"].includes(condition.status) ||
         !validTarget(condition.target) ||
-        !knownProjects.has(condition.target.projectId)
+        !knownProjects.has(condition.target.projectId) ||
+        !matchesQueue(condition.target, condition.target.queueId)
       )
         return false;
       if (condition.status === "cancelled") {
         const cause = byDecisionId.get(condition.cancelledByDecisionId);
+        const owner =
+          condition.currentDecisionId === null
+            ? undefined
+            : byDecisionId.get(condition.currentDecisionId);
         if (
           cause?.kind !== "continuation" ||
           cause.target.kind !== "milestone" ||
           cause.target.projectId !== condition.target.projectId ||
           cause.target.milestoneId !== condition.target.milestoneId ||
+          (owner?.kind === "continuation" && cause.queueId !== owner.queueId) ||
+          (condition.target.queueId !== undefined &&
+            cause.queueId !== condition.target.queueId) ||
           cause.target.generation < condition.target.generation ||
           cause.result?.status !== "applied" ||
           cause.result.answer.selectedOption !== "cancel"
@@ -1732,6 +1870,7 @@ export function sameDecisionSubject(
   return (
     left.projectId === right.projectId &&
     left.milestoneId === right.milestoneId &&
+    left.queueId === right.queueId &&
     left.kind === right.kind &&
     left.id === right.id
   );

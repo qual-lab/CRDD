@@ -22,7 +22,7 @@ import {
   readCommitFile,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import { resolveRepositoryGitLayout } from "../../../version-control/src/repository/layout.ts";
 import { getRepository } from "../../../version-control/src/repository/location.ts";
 import {

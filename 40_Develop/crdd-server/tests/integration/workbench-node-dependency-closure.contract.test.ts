@@ -10,9 +10,10 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 const packageRoot = path.resolve(import.meta.dirname, "../..");
 const repositoryRoot = path.resolve(packageRoot, "../..");
@@ -164,6 +165,37 @@ function resolveLocalSource(importer: string, specifier: string): string {
   return resolved;
 }
 
+// 公開名は利用側の宣言、同一Checkoutのリンク、所有側exportsを照合して追跡する。
+function resolveOwnedPackage(importer: string, specifier: string) {
+  const match = /^(@qual-lab\/crdd-([a-z-]+))(\/[^?#]+)?$/u.exec(specifier);
+  if (!match) return undefined;
+  const [, name, suffix, subpath] = match;
+  assert.ok(name && suffix);
+  const directory = name === "@qual-lab/crdd-server" ? "crdd-server" : suffix;
+  const consumer = path.relative(repositoryRoot, importer).split(path.sep)[1];
+  assert.ok(consumer);
+  const consumerRoot = path.join(repositoryRoot, "40_Develop", consumer);
+  const ownerRoot = path.join(repositoryRoot, "40_Develop", directory);
+  const manifest = JSON.parse(
+    readFileSync(path.join(consumerRoot, "package.json"), "utf8"),
+  );
+  if (consumer !== directory) {
+    assert.equal(manifest.dependencies?.[name], `file:../${directory}`);
+    assert.equal(
+      realpathSync(path.join(consumerRoot, "node_modules", name)),
+      realpathSync(ownerRoot),
+    );
+  }
+  const owner = JSON.parse(
+    readFileSync(path.join(ownerRoot, "package.json"), "utf8"),
+  );
+  assert.equal(owner.name, name);
+  const entry = owner.exports?.[subpath ? `.${subpath}` : "."];
+  const target = typeof entry === "string" ? entry : entry?.import;
+  assert.equal(typeof target, "string", specifier);
+  return resolveLocalSource(path.join(ownerRoot, "package.json"), target);
+}
+
 /**
  * Node Server入口がBrowser React valueをRuntime依存に含めないことを検証する。
  *
@@ -178,6 +210,13 @@ function resolveLocalSource(importer: string, specifier: string): string {
  */
 test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () => {
   const entry = path.join(packageRoot, "bin", "crdd-server.ts");
+  const coordinatorRoot = fileURLToPath(
+    import.meta.resolve("@qual-lab/crdd-coordinator"),
+  );
+  assert.equal(
+    coordinatorRoot,
+    path.resolve(packageRoot, "../coordinator/src/index.ts"),
+  );
   const pending = [entry];
   const visited = new Set<string>();
   const external = new Set<string>();
@@ -190,12 +229,15 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
       if (specifier.startsWith(".")) {
         pending.push(resolveLocalSource(current, specifier));
       } else {
-        external.add(specifier);
+        const owned = resolveOwnedPackage(current, specifier);
+        if (owned) pending.push(owned);
+        else external.add(specifier);
       }
     }
   }
   assert.ok(visited.has(path.join(packageRoot, "src", "cli", "command.ts")));
   assert.ok(visited.has(path.join(packageRoot, "src", "app.ts")));
+  assert.ok(visited.has(coordinatorRoot));
   assert.equal(
     [...visited].some((value) => {
       const relative = path.relative(repositoryRoot, value).split(path.sep);
@@ -236,7 +278,11 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
     for (const specifier of runtimeSpecifiers(current, false)) {
       if (specifier.startsWith("."))
         pending.push(resolveLocalSource(current, specifier));
-      else assert.ok(!specifier.startsWith("@modelcontextprotocol/"));
+      else {
+        const owned = resolveOwnedPackage(current, specifier);
+        if (owned) pending.push(owned);
+        else assert.ok(!specifier.startsWith("@modelcontextprotocol/"));
+      }
     }
   }
   const transport = path.join(packageRoot, "src", "transport");
@@ -277,10 +323,33 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
  */
 test("Workbench BrowserはUIパッケージ内だけをRuntimeで参照する", () => {
   const clientRoot = path.join(repositoryRoot, "40_Develop/workbench-ui/src");
+  const clientPackageRoot = path.dirname(clientRoot);
+  const clientManifest = JSON.parse(
+    readFileSync(path.join(clientPackageRoot, "package.json"), "utf8"),
+  );
+  assert.equal(
+    clientManifest.dependencies?.["@qual-lab/crdd-server"],
+    undefined,
+  );
+  assert.equal(
+    clientManifest.devDependencies?.["@qual-lab/crdd-server"],
+    "file:../crdd-server",
+  );
+  assert.equal(
+    realpathSync(
+      path.join(clientPackageRoot, "node_modules/@qual-lab/crdd-server"),
+    ),
+    realpathSync(packageRoot),
+  );
   const { exports } = JSON.parse(
     readFileSync(path.join(packageRoot, "package.json"), "utf8"),
   );
   const publicHttpEntry = path.resolve(packageRoot, exports["./api"]);
+  assert.equal(
+    fileURLToPath(import.meta.resolve("@qual-lab/crdd-server/api")),
+    publicHttpEntry,
+  );
+  let serverTypeImports = 0;
   const pending = [path.join(clientRoot, "main.tsx")];
   const visited = new Set<string>();
   const external = new Set([
@@ -300,15 +369,18 @@ test("Workbench BrowserはUIパッケージ内だけをRuntimeで参照する", 
       "browser_runtime_owner",
     );
     for (const [, specifier] of readFileSync(current, "utf8").matchAll(
-      /\bfrom\s+["'](\.[^"']+)["']/gu,
+      /\bfrom\s+["'](\.[^"']+|@qual-lab\/crdd-server[^"']*)["']/gu,
     )) {
       assert.ok(specifier);
+      if (specifier.startsWith("@qual-lab/")) {
+        assert.equal(specifier, "@qual-lab/crdd-server/api");
+        serverTypeImports++;
+        continue;
+      }
       const target = resolveLocalSource(current, specifier);
       if (target.startsWith(packageRoot + path.sep))
-        assert.equal(
-          target,
-          publicHttpEntry,
-          "browser_server_type_public_entry",
+        assert.fail(
+          `browser_server_type_must_use_public_package: ${specifier}`,
         );
     }
     for (const specifier of runtimeSpecifiers(current)) {
@@ -322,6 +394,7 @@ test("Workbench BrowserはUIパッケージ内だけをRuntimeで参照する", 
     }
   }
   assert.ok(visited.has(path.join(clientRoot, "api/response.ts")));
+  assert.ok(serverTypeImports > 0);
   assert.ok(visited.has(path.join(clientRoot, "api/repository.ts")));
   assert.ok(visited.has(path.join(clientRoot, "api/queries.ts")));
 });

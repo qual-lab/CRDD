@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import { getEventListeners } from "node:events";
 import test from "node:test";
-import type { CompletionResult } from "../../../executor/src/index.ts";
+import type { CompletionResult } from "@qual-lab/crdd-executor";
 import { createProbeExecutionFixture } from "../support/probe-executor.ts";
 
 /**

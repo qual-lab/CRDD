@@ -10,11 +10,11 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { DocumentIssue } from "../../../../document-model/src/index.ts";
+import type { DocumentIssue } from "@qual-lab/crdd-document-model";
 import {
   inspectQualityLocalItemOwnership,
   parseQualityDefinition,
-} from "../../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { mapQualityDefinitionIssueToFinding } from "../../../src/report/quality.ts";
 
 /**

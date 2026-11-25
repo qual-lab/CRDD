@@ -171,7 +171,8 @@ export const openApiDocument = {
       get: {
         operationId: "getExecutionDefinition",
         summary: "実行計画またはObjective・Task定義を取得",
-        description: "起動リポジトリのProjectとMilestoneを指定する。",
+        description:
+          "起動リポジトリのProjectとMilestoneを指定する。Task照会だけqueueIdで実行を特定できる。複数Graphで省略した場合は共有Task定義だけを返す。",
         security: localAccess,
         parameters: [
           query("operation", true, {
@@ -180,6 +181,10 @@ export const openApiDocument = {
           }),
           query("projectId", true),
           query("milestoneId", true),
+          query("queueId", false, {
+            type: "string",
+            pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          }),
         ],
         responses: readResponses,
       },
@@ -239,12 +244,17 @@ export const openApiDocument = {
       get: {
         operationId: "getExecutionState",
         summary: "対象リポジトリの実行状態を取得",
-        description: "起動リポジトリの実行状態を照会する。",
+        description:
+          "認可済みProjectの実行状態を照会する。分離WorkspaceのQueueを明示した場合は、そのQueueの受付時改訂を指定する。Queueを省略して複数Graphが該当する場合は一つを推定しない。取消済みQueueを実行可能とは表示しない。",
         security: localAccess,
         parameters: [
           query("requestId", true),
           query("projectId", true),
           query("repositoryRevision", true),
+          query("queueId", false, {
+            type: "string",
+            pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          }),
         ],
         responses: writeResponses,
       },

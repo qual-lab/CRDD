@@ -25,13 +25,13 @@ import { parseDockerTaskRecoveryId } from "../../../docker-isolation/tests/suppo
 import type {
   RepairOperationRecord,
   RepairSaveRequest,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import type {
   Repository,
   RepositoryRevisionObservation,
-} from "../../../version-control/src/index.ts";
-import * as versionControl from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
+import * as versionControl from "@qual-lab/crdd-version-control";
 import type { executeDockerRepair } from "../../src/lifecycle/environment.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 
@@ -52,7 +52,7 @@ let delegatedRevisionReads = 0;
 let delegatedRootReads = 0;
 let delegatedRepositoryReads = 0;
 const revisionMock = mock.module(
-  new URL("../../../version-control/src/index.ts", import.meta.url).href,
+  import.meta.resolve("@qual-lab/crdd-version-control"),
   {
     namedExports: {
       ...versionControl,
@@ -112,7 +112,7 @@ after(() => {
   revisionMock.restore();
 });
 // validationの間接依存も、VCの試験代役を登録してから読み込む。
-const model = await import("../../../execution-model/src/index.ts");
+const model = await import("@qual-lab/crdd-execution-model");
 const { snapshotJsonValue } = await import("../../src/lifecycle/validation.ts");
 const bindings = await import("../../src/lifecycle/host.ts");
 const { createRepository } = await import("../fixtures/decision-state.ts");
@@ -120,9 +120,7 @@ const { renderDockerRecoveryDoctorReport } = await import(
   "../../src/cli/command.ts"
 );
 const { getRepository } = versionControl;
-const projectedVersionControl = await import(
-  "../../../version-control/src/index.ts"
-);
+const projectedVersionControl = await import("@qual-lab/crdd-version-control");
 
 const repairSource = sourceDeclaration(
   fs.readFileSync(

@@ -12,8 +12,8 @@ import { registerHooks, stripTypeScriptTypes } from "node:module";
 import { mock } from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../docker-isolation/tests/support/source-declaration.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
-import * as versionControl from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
+import * as versionControl from "@qual-lab/crdd-version-control";
 import * as selection from "../../src/lifecycle/selection.ts";
 import type * as recovery from "../../src/lifecycle/environment.ts";
 import type * as kernel from "../../src/lifecycle/host.ts";
@@ -25,11 +25,11 @@ import type {
   SingleTaskExecution,
   SingleTaskOutcome,
 } from "../../src/lifecycle/types.ts";
-import type { SingleTaskRecord } from "../../../execution-model/src/index.ts";
+import type { SingleTaskRecord } from "@qual-lab/crdd-execution-model";
 import type {
   CompletionResult,
   ProcessStartedNotice,
-} from "../../../executor/src/index.ts";
+} from "@qual-lab/crdd-executor";
 import type { ProviderBoundaryDiagnosticNotice } from "../../src/lifecycle/validation.ts";
 import type {
   HostOperationRecording,
@@ -128,7 +128,9 @@ export function sourceUrl(
       }
       return specifier.startsWith(".")
         ? `${prefix}${quote}${new URL(specifier, origin).href}${quote}`
-        : match;
+        : specifier.startsWith("@qual-lab/")
+          ? `${prefix}${quote}${import.meta.resolve(specifier)}${quote}`
+          : match;
     },
   );
   assert.deepEqual([...used].sort(), [...replacements.keys()].sort());
@@ -786,8 +788,8 @@ export async function createTaskRequestsFixture(
       }),
     );
     const revisionUrl = new URL(
-      `../../../version-control/src/index.ts?single-task-fixture=${randomUUID()}`,
-      import.meta.url,
+      `?single-task-fixture=${randomUUID()}`,
+      import.meta.resolve("@qual-lab/crdd-version-control"),
     ).href;
     replacements.push(
       mock.module(revisionUrl, {
@@ -853,7 +855,7 @@ export async function createTaskRequestsFixture(
       new Map([
         ["single-task-fixture", executionUrl],
         ["./selection.ts", selectionUrl],
-        ["../../../version-control/src/index.ts", revisionUrl],
+        ["@qual-lab/crdd-version-control", revisionUrl],
         ["single-task-recovery-fixture", recoveryUrl],
         ["./host.ts", kernelUrl],
       ]),

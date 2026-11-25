@@ -14,20 +14,22 @@ import {
   resolveVerifiedRepositoryRoot,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   createGroup,
   completeGroup,
-} from "../../../execution-intelligence/src/index.ts";
+} from "@qual-lab/crdd-execution-intelligence";
 import {
   type SingleTaskRecord,
   type TaskExecutionSelections,
   createQueue,
   initializeExecutionStore,
   isPrincipalId,
+  leaseAcquisitionRecoveryId,
   readState,
   readExecutionState,
   readQueueState,
+  readWorkspaceState,
   saveProjectExecutionState,
   selectNextQueueEntry,
   updateQueue,
@@ -43,7 +45,7 @@ import {
   parseDockerTaskRecoveryId,
   type TaskStartCandidates,
   type ExecutionSelection,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   snapshotPlainRecord,
   snapshotSingleTaskOutcome,
@@ -61,6 +63,7 @@ import {
   inspectSingleTaskCommand,
   readExecutionCancellation,
   deriveCoordinatorRepositoryBindingId,
+  objectiveQueueId,
   buildObjectiveTaskExecutions,
   COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
@@ -91,6 +94,7 @@ import {
   COORDINATOR_EXECUTION_CONTRACT,
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
   type CoordinatorSingleTaskAttemptInput,
+  type CoordinatorLease,
   type CoordinatorExecutionDependencies,
   type CoordinatorExecutionResult,
   type CoordinatorSingleTaskResult,
@@ -127,7 +131,7 @@ import type {
   ExecutorCallbacks,
   StartResult,
   AttemptTerminalObservation,
-} from "../../../executor/src/index.ts";
+} from "@qual-lab/crdd-executor";
 import {
   getExecutionIntelligenceStore,
   type HostOperationRecording,
@@ -153,6 +157,10 @@ import {
   historyRepositoryInput,
   getExecutionProcessInstanceIdentity,
   inspectCoordinatorSnapshotLeaseAcquisitionOwner,
+  waitForStateContention,
+  type StateContentionResult,
+  isCleanStateContention,
+  confirmStorageContinuation,
   inspectExecutionProcessRecoveryIdentity,
   observeObjectiveLeaseOwner,
   prepareExecutionStorageIgnore,
@@ -223,7 +231,7 @@ import {
   confirmPreparedWorkspaceTarget,
   workspacePlanReadyForAcceptance,
 } from "./workspace.ts";
-import { createFilesystemRepositoryObservationPort } from "../../../document-model/src/index.ts";
+import { createFilesystemRepositoryObservationPort } from "@qual-lab/crdd-document-model";
 import {
   readRepositoryNetworkHosts,
   resolveExternalSendPolicy,
@@ -1277,12 +1285,44 @@ export async function runCoordinatorOperation(
 ): Promise<CoordinatorExecutionResult | undefined> {
   // 耐久受付の返却と実行準備を分離し、取消も同じpendingをjoinする。
   if (operation.kind === "single") await setImmediate();
+  const waitForPreparation = <T extends StateContentionResult>(
+    attempt: () => T,
+  ) =>
+    operation.kind === "scheduled" && operation.leaseWait
+      ? waitForStateContention(
+          operation.input.cancellationSignal,
+          attempt,
+          operation.leaseWait.revalidate,
+        )
+      : attempt();
+  const preparationRefusal = (signal: AbortSignal) =>
+    signal.aborted
+      ? "coordinator_cancelled_before_task_effect"
+      : "coordinator_authenticated_principal_not_verified";
+  const observed =
+    operation.kind === "scheduled" && operation.leaseWait
+      ? await waitForPreparation(() =>
+          readExecutionState(
+            operation.persistence.repository,
+            operation.persistence.repositoryBindingId,
+          ),
+        )
+      : undefined;
+  if (operation.kind === "scheduled" && observed === null)
+    return blockExecution(
+      operation.input,
+      preparationRefusal(operation.input.cancellationSignal),
+    );
   const prepared =
     operation.kind === "scheduled"
-      ? prepareScheduledOperation(operation.persistence, operation.input)
+      ? prepareScheduledOperation(
+          operation.persistence,
+          operation.input,
+          observed ?? undefined,
+        )
       : null;
   if (prepared && !("kind" in prepared)) return prepared;
-  const leaseResult = acquireCoordinatorSnapshotLease(
+  const leaseInput = [
     operation.kind === "single"
       ? operation.deps.root
       : operation.persistence.repository.directory,
@@ -1294,7 +1334,14 @@ export async function runCoordinatorOperation(
       : operation.input.projectId,
     operation.kind === "single" ? operation.requestId : operation.input.queueId,
     "project-operation",
-  );
+  ] as const;
+  const leaseResult =
+    operation.kind === "scheduled" && operation.leaseWait
+      ? await acquireCoordinatorSnapshotLease(...leaseInput, undefined, {
+          signal: operation.input.cancellationSignal,
+          ...operation.leaseWait,
+        })
+      : acquireCoordinatorSnapshotLease(...leaseInput);
   if (operation.kind === "single") {
     await executeSingleOperation(operation, leaseResult);
     return;
@@ -1308,7 +1355,9 @@ export async function runCoordinatorOperation(
   if (leaseResult.status !== "completed")
     return blockExecution(input, leaseResult.reason, {
       state,
+      cleanupConfirmed: !leaseResult.manualRecoveryRequired,
       manualRecoveryRequired: leaseResult.manualRecoveryRequired,
+      effectState: leaseResult.manualRecoveryRequired ? "unknown" : "no_effect",
       ...(leaseResult.recoveryId === null
         ? {}
         : { recoveryIds: Object.freeze([leaseResult.recoveryId]) }),
@@ -1328,7 +1377,7 @@ export async function runCoordinatorOperation(
   const completeQueue = (
     terminal: CoordinatorExecutionResult,
     terminalQueue: typeof queue | null,
-  ): CoordinatorExecutionResult => {
+  ) => {
     const finished = finishOperationLease(lease, {
       kind: "scheduled",
       repository: persistence.repository,
@@ -1336,22 +1385,44 @@ export async function runCoordinatorOperation(
       queueId: input.queueId,
       queue: terminalQueue,
     });
-    return withWorkspaceResults(
-      finished.status === "completed"
-        ? terminal
-        : result(input, {
-            status: "blocked",
-            reason: finished.reason,
-            stateGeneration: terminal.stateGeneration,
-            completedTaskIds: terminal.completedTaskIds,
-            cleanupConfirmed: false,
-            manualRecoveryRequired: true,
-            processRestartRequired: terminal.processRestartRequired,
-            recoveryIds: terminal.recoveryIds,
-            recoveryObligations: terminal.recoveryObligations,
-            effectState: "unknown",
-          }),
-    );
+    const project = (outcome: LeaseFinishResult) =>
+      withWorkspaceResults(
+        outcome.status === "completed"
+          ? terminal
+          : result(input, {
+              status: "blocked",
+              reason: outcome.reason,
+              stateGeneration: terminal.stateGeneration,
+              completedTaskIds: terminal.completedTaskIds,
+              cleanupConfirmed: false,
+              manualRecoveryRequired: true,
+              processRestartRequired: terminal.processRestartRequired,
+              recoveryIds:
+                "recoveryId" in outcome &&
+                typeof outcome.recoveryId === "string"
+                  ? [...new Set([...terminal.recoveryIds, outcome.recoveryId])]
+                  : terminal.recoveryIds,
+              recoveryObligations: terminal.recoveryObligations,
+              effectState: "unknown",
+            }),
+      );
+    return finished instanceof Promise
+      ? finished.then(project)
+      : project(finished);
+  };
+  // 新しい実行ではなく、取得済みQueueの終端だけを同じ世代で保存する。
+  const writeTerminalQueue = (
+    next: Omit<Parameters<typeof updateCoordinatorQueue>[3], "lease">,
+  ) => {
+    const expectedGeneration = queue.generation;
+    const write = () =>
+      updateCoordinatorQueue(persistence, input.queueId, expectedGeneration, {
+        ...next,
+        lease,
+      });
+    return lease.releaseWithWait
+      ? waitForStateContention(new AbortController().signal, write)
+      : write();
   };
   const finalizeOwnedFailure = (
     reason: string,
@@ -1362,7 +1433,7 @@ export async function runCoordinatorOperation(
       recoveryIds?: readonly string[];
       recoveryObligations?: CoordinatorExecutionResult["recoveryObligations"];
     }>,
-  ): CoordinatorExecutionResult => {
+  ): ReturnType<typeof completeQueue> => {
     const recoveryObligations = [
       ...options.state.tasks.flatMap((task) =>
         task.recoveryObligations
@@ -1393,31 +1464,50 @@ export async function runCoordinatorOperation(
       recoveryObligations,
       effectState: "unknown" as const,
     };
-    const recoveryQueue = updateCoordinatorQueue(
-      persistence,
-      input.queueId,
-      queue.generation,
-      {
-        state: "recovery_required",
-        lease,
-        resumeCondition: "owned_operation_failure",
-        resultReference: createCoordinatorStableId(
-          "project-operation-recovery",
-          [input.projectId, input.queueId, lease.ownerGeneration],
+    const recoveryQueue = writeTerminalQueue({
+      state: "recovery_required",
+      resumeCondition: "owned_operation_failure",
+      resultReference: createCoordinatorStableId("project-operation-recovery", [
+        input.projectId,
+        input.queueId,
+        lease.ownerGeneration,
+      ]),
+    });
+    const finish = (
+      written: ReturnType<typeof updateCoordinatorQueue> | null,
+    ) => {
+      const confirmedQueue =
+        written?.status === "completed" ? written.value : null;
+      if (confirmedQueue !== null) queue = confirmedQueue;
+      // 物理解放だけ成功しても、元Queueの所有世代は未確定のまま残り得る。
+      const pendingRecoveryIds =
+        confirmedQueue !== null
+          ? recoveryIds
+          : [
+              ...new Set([
+                ...recoveryIds,
+                leaseAcquisitionRecoveryId(
+                  persistence.repositoryBindingId,
+                  input.projectId,
+                  input.queueId,
+                  lease.kind,
+                ),
+              ]),
+            ];
+      return completeQueue(
+        blockExecution(
+          input,
+          written?.status === "completed"
+            ? reason
+            : (written?.reason ?? "coordinator_queue_recovery_unconfirmed"),
+          { ...terminalOptions, recoveryIds: pendingRecoveryIds },
         ),
-      },
-    );
-    const confirmedQueue =
-      recoveryQueue.status === "completed" ? recoveryQueue.value : null;
-    if (confirmedQueue !== null) queue = confirmedQueue;
-    return completeQueue(
-      blockExecution(
-        input,
-        recoveryQueue.status === "completed" ? reason : recoveryQueue.reason,
-        terminalOptions,
-      ),
-      confirmedQueue,
-    );
+        confirmedQueue,
+      );
+    };
+    return recoveryQueue instanceof Promise
+      ? recoveryQueue.then(finish)
+      : finish(recoveryQueue);
   };
 
   // 所有済みQueueの終端は、更新成功後だけ同じ世代の解放確定へ渡す。
@@ -1428,20 +1518,23 @@ export async function runCoordinatorOperation(
       Parameters<typeof finalizeOwnedFailure>[1],
       "completedTaskIds" | "processRestartRequired"
     > = {},
-  ): CoordinatorExecutionResult => {
-    const written = updateCoordinatorQueue(
-      persistence,
-      input.queueId,
-      queue.generation,
-      { ...next, lease },
-    );
-    if (written.status !== "completed")
-      return finalizeOwnedFailure(written.reason, { state, ...progress });
-    return completeQueue(project(), written.value);
+  ): ReturnType<typeof completeQueue> => {
+    const pending = writeTerminalQueue(next);
+    const finish = (
+      written: ReturnType<typeof updateCoordinatorQueue> | null,
+    ) =>
+      written?.status === "completed"
+        ? completeQueue(project(), written.value)
+        : finalizeOwnedFailure(
+            written?.reason ?? "coordinator_queue_settlement_unconfirmed",
+            { state, ...progress },
+          );
+    return pending instanceof Promise ? pending.then(finish) : finish(pending);
   };
 
   // 開始側では保存済みの版を回復に使う。終端側では候補も照合できた場合だけ次へ進める。
-  const saveTaskProgress = (
+  let waitedAfterDelegation = false;
+  const saveTaskProgress = async (
     request: Extract<
       Parameters<typeof saveProjectExecutionState>[2],
       {
@@ -1454,13 +1547,31 @@ export async function runCoordinatorOperation(
       }
     >,
   ) => {
-    const written = saveProjectExecutionState(
-      persistence.repository,
-      persistence.repositoryBindingId,
-      request,
-      state.generation,
-      persistence.intake,
-    );
+    const expectedGeneration = state.generation;
+    const preparing =
+      request.kind === "task_start" || request.kind === "task_handoff";
+    const save = () => {
+      const saved = saveProjectExecutionState(
+        persistence.repository,
+        persistence.repositoryBindingId,
+        request,
+        expectedGeneration,
+        persistence.intake,
+      );
+      if (!preparing && isCleanStateContention(saved))
+        waitedAfterDelegation = true;
+      return saved;
+    };
+    const written = preparing
+      ? await waitForPreparation(save)
+      : operation.leaseWait
+        ? await waitForStateContention(new AbortController().signal, save)
+        : save();
+    if (written === null)
+      return {
+        status: "interrupted" as const,
+        reason: preparationRefusal(input.cancellationSignal),
+      };
     if (written.status !== "completed")
       return { status: "blocked" as const, reason: written.reason };
     const settling =
@@ -1480,20 +1591,50 @@ export async function runCoordinatorOperation(
     return { status: "completed" as const, candidates };
   };
 
-  // Selection made before the binding-wide lease is only advisory. Re-read
-  // the complete durable queue population while this process exclusively owns
-  // the Project Operation boundary, then bind exactly that selected Queue.
-  const selectedAfterLease = selectNextQueueEntry(
-    persistence.repository,
-    persistence.repositoryBindingId,
+  if (
+    lease.evidenceWaited &&
+    (input.cancellationSignal.aborted ||
+      (operation.leaseWait?.revalidate &&
+        (await confirmStorageContinuation(
+          input.cancellationSignal,
+          operation.leaseWait.revalidate,
+        )) !== true))
+  )
+    return completeQueue(
+      blockExecution(
+        input,
+        input.cancellationSignal.aborted
+          ? "coordinator_lease_acquisition_cancelled"
+          : "coordinator_authenticated_principal_not_verified",
+        { state },
+      ),
+      null,
+    );
+
+  // 先行選択は仮判定。同じ実行ScopeのLease取得後に対象Queueを再選択する。
+  const selectedAfterLease = await waitForPreparation(() =>
+    selectNextQueueEntry(
+      persistence.repository,
+      persistence.repositoryBindingId,
+      input.queueId,
+    ),
   );
+  if (!selectedAfterLease)
+    return completeQueue(
+      blockExecution(input, preparationRefusal(input.cancellationSignal), {
+        state,
+      }),
+      null,
+    );
   if (selectedAfterLease.status !== "completed")
     return completeQueue(
       blockExecution(input, selectedAfterLease.reason, {
         state,
-        cleanupConfirmed: false,
+        cleanupConfirmed: !selectedAfterLease.manualRecoveryRequired,
         manualRecoveryRequired: selectedAfterLease.manualRecoveryRequired,
-        effectState: "unknown",
+        effectState: selectedAfterLease.manualRecoveryRequired
+          ? "unknown"
+          : "no_effect",
       }),
       null,
     );
@@ -1511,30 +1652,52 @@ export async function runCoordinatorOperation(
       null,
     );
 
-  const leaseQueue = updateCoordinatorQueue(
-    persistence,
-    input.queueId,
-    queue.generation,
-    {
+  const selectedGeneration = queue.generation;
+  const leaseQueue = await waitForPreparation(() =>
+    updateCoordinatorQueue(persistence, input.queueId, selectedGeneration, {
       state: "leased",
       lease,
       resumeCondition: null,
       resultReference: null,
-    },
+    }),
   );
+  if (!leaseQueue)
+    return completeQueue(
+      blockExecution(input, preparationRefusal(input.cancellationSignal), {
+        state,
+      }),
+      null,
+    );
   if (leaseQueue.status !== "completed")
     return completeQueue(
       blockExecution(input, leaseQueue.reason, {
         state,
-        cleanupConfirmed: false,
+        cleanupConfirmed: !leaseQueue.manualRecoveryRequired,
         manualRecoveryRequired: leaseQueue.manualRecoveryRequired,
-        effectState: "unknown",
+        effectState: leaseQueue.manualRecoveryRequired
+          ? "unknown"
+          : "no_effect",
+        ...(leaseQueue.manualRecoveryRequired
+          ? {
+              recoveryIds: [
+                leaseAcquisitionRecoveryId(
+                  persistence.repositoryBindingId,
+                  input.projectId,
+                  input.queueId,
+                  lease.kind,
+                ),
+              ],
+            }
+          : {}),
       }),
       null,
     );
   queue = leaseQueue.value;
-  if (input.cancellationSignal.aborted) {
-    return settleOwnedQueue(
+  const cancelBeforeTask = (
+    completedTaskIds: readonly string[],
+    reason = "coordinator_cancelled_before_task_effect",
+  ) =>
+    settleOwnedQueue(
       {
         state: "cancelled",
         resumeCondition: null,
@@ -1543,26 +1706,27 @@ export async function runCoordinatorOperation(
       () =>
         result(input, {
           status: "cancelled",
-          reason: "coordinator_cancelled_before_task_effect",
+          reason,
           stateGeneration: state.generation,
-          completedTaskIds: [],
+          completedTaskIds,
           cleanupConfirmed: true,
           manualRecoveryRequired: false,
-          effectState: "no_effect",
+          effectState: completedTaskIds.length ? "settled" : "no_effect",
         }),
+      { completedTaskIds },
     );
-  }
-  const runningQueue = updateCoordinatorQueue(
-    persistence,
-    input.queueId,
-    queue.generation,
-    {
+  if (input.cancellationSignal.aborted) return cancelBeforeTask([]);
+  const leasedGeneration = queue.generation;
+  const runningQueue = await waitForPreparation(() =>
+    updateCoordinatorQueue(persistence, input.queueId, leasedGeneration, {
       state: "running",
       lease,
       resumeCondition: null,
       resultReference: null,
-    },
+    }),
   );
+  if (!runningQueue)
+    return cancelBeforeTask([], preparationRefusal(input.cancellationSignal));
   if (runningQueue.status !== "completed")
     return finalizeOwnedFailure(runningQueue.reason, { state });
   queue = runningQueue.value;
@@ -1573,6 +1737,23 @@ export async function runCoordinatorOperation(
     // 初回読取りか直前の終端保存で照合済みの候補から、一件ずつ進める。
     const taskId = startCandidates.taskIds[0];
     if (taskId === undefined) break;
+    if (input.cancellationSignal.aborted)
+      return cancelBeforeTask(completedTaskIds);
+    if (waitedAfterDelegation) {
+      waitedAfterDelegation = false;
+      if (
+        operation.leaseWait?.revalidate &&
+        (await confirmStorageContinuation(
+          input.cancellationSignal,
+          operation.leaseWait.revalidate,
+        )) !== true
+      ) {
+        return cancelBeforeTask(
+          completedTaskIds,
+          preparationRefusal(input.cancellationSignal),
+        );
+      }
+    }
     const execution = executions.get(taskId);
     if (!execution)
       return finalizeOwnedFailure("coordinator_task_execution_missing", {
@@ -1600,12 +1781,14 @@ export async function runCoordinatorOperation(
         operationId,
       },
     ] as const) {
-      const progress = saveTaskProgress({
+      const progress = await saveTaskProgress({
         ...phase,
         projectId: state.projectId,
         taskId,
         attemptId,
       });
+      if (progress.status === "interrupted" && phase.kind === "task_start")
+        return cancelBeforeTask(completedTaskIds, progress.reason);
       if (progress.status !== "completed")
         return finalizeOwnedFailure(progress.reason, {
           state,
@@ -1616,7 +1799,7 @@ export async function runCoordinatorOperation(
     let delegated = false;
     // 共通の試行本体が初回通知だけを搬送し、この保存と元completionを待つ。
     const observeStarted = async () => {
-      const progress = saveTaskProgress({
+      const progress = await saveTaskProgress({
         kind: "task_started",
         projectId: state.projectId,
         taskId,
@@ -1628,18 +1811,34 @@ export async function runCoordinatorOperation(
       effectStarted = true;
     };
     let stoppedBeforeDelegation: "cancelled" | "blocked" | null = null;
+    let preparationStopReason: string | undefined;
+    let targetObservationFailure: string | undefined;
     let outcome: unknown = null;
     try {
       if (input.cancellationSignal.aborted) {
         stoppedBeforeDelegation = "cancelled";
       } else {
-        const target = confirmPreparedWorkspaceTarget(
-          persistence.workingDirectory,
-          persistence.repositoryBindingId,
-          input.queueId,
-          operation.workspaceTarget,
+        const target = await waitForPreparation(() =>
+          confirmPreparedWorkspaceTarget(
+            persistence.workingDirectory,
+            persistence.repositoryBindingId,
+            input.queueId,
+            operation.workspaceTarget,
+          ),
         );
         if (
+          target?.status === "blocked" &&
+          (target.manualRecoveryRequired || target.recoveryId !== null)
+        ) {
+          // 取消が重なっても保存観測不明を成功へ変換せず、元の予約と保留物を保全する。
+          targetObservationFailure = target.reason;
+        } else if (target === null || input.cancellationSignal.aborted) {
+          stoppedBeforeDelegation = "cancelled";
+          preparationStopReason = preparationRefusal(input.cancellationSignal);
+        } else if (isCleanStateContention(target)) {
+          stoppedBeforeDelegation = "cancelled";
+          preparationStopReason = target.reason;
+        } else if (
           target.status !== "completed" ||
           target.value.workspaceId !== (queue.workspaceId ?? null)
         ) {
@@ -1676,6 +1875,27 @@ export async function runCoordinatorOperation(
     } catch {
       // 委譲後なら不明、委譲前の例外なら結果欠測として下で扱う。
     }
+    if (targetObservationFailure)
+      // Queueの元世代を残す。解放証拠または元Intentから既存owner-loss再入場が確定する。
+      return completeQueue(
+        blockExecution(input, targetObservationFailure, {
+          state,
+          completedTaskIds,
+          processRestartRequired,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          effectState: "unknown",
+          recoveryIds: [
+            leaseAcquisitionRecoveryId(
+              persistence.repositoryBindingId,
+              input.projectId,
+              input.queueId,
+              lease.kind,
+            ),
+          ],
+        }),
+        null,
+      );
     const capturedOutcome = delegated
       ? snapshotSingleTaskResult(outcome)
       : null;
@@ -1810,7 +2030,7 @@ export async function runCoordinatorOperation(
             recoveryObligations: settlementInput.recoveryObligations,
             recoveryUnresolved: settlementInput.recoveryUnresolved,
           };
-    const settlement = saveTaskProgress(settlementRequest);
+    const settlement = await saveTaskProgress(settlementRequest);
     if (settlement.status !== "completed")
       return finalizeOwnedFailure(settlement.reason, {
         state,
@@ -1822,6 +2042,8 @@ export async function runCoordinatorOperation(
         recoveryObligations: normalizedRecoveryObligations,
       });
     startCandidates = settlement.candidates;
+    if (preparationStopReason !== undefined)
+      return cancelBeforeTask(completedTaskIds, preparationStopReason);
     if (settlementOutcome === "completed") completedTaskIds.push(taskId);
     const terminalState = recoveryRequired
       ? "recovery_required"
@@ -1968,17 +2190,17 @@ type ScheduledOperation = CoordinatorExecutionDependencies &
 function prepareScheduledOperation(
   persistence: CoordinatorStateContext,
   input: ExecutionInput,
+  alreadyObserved?: ReturnType<typeof readExecutionState>,
 ) {
   if (!(input.cancellationSignal instanceof AbortSignal))
     return blockExecution(input, "coordinator_execution_input_invalid");
-  const observed = readExecutionState(
-    persistence.repository,
-    persistence.repositoryBindingId,
-  );
+  const observed =
+    alreadyObserved ??
+    readExecutionState(persistence.repository, persistence.repositoryBindingId);
+  if (isCleanStateContention(observed))
+    return blockExecution(input, observed.reason);
   const view = observed.status === "completed" ? observed.value : null;
-  const state = view?.projects.find(
-    (entry) => entry.projectId === input.projectId,
-  );
+  const state = view?.projects.find((entry) => entry.queueId === input.queueId);
   const queue = view?.queueEntries.find(
     (entry) => entry.queueId === input.queueId,
   );
@@ -2059,43 +2281,83 @@ function prepareScheduledOperation(
  * @invariant Graphは元Repository参照、単発は解放後にRoot再検証。running短絡は通常単発に限る。
  * @boundary 共通実行制御と既存Lease／保存Owner。
  */
+type LeaseFinishTarget =
+  | Readonly<{
+      kind: "single" | "single-recovery";
+      root: string;
+      binding: string;
+      queueId: string;
+      queue: ProjectQueueEntry;
+    }>
+  | Readonly<{
+      kind: "scheduled";
+      repository: CoordinatorStateContext["repository"];
+      binding: string;
+      queueId: string;
+      queue: ProjectQueueEntry | null;
+    }>;
+type LeaseFinishResult =
+  | ReturnType<CoordinatorLease["release"]>
+  | ReturnType<typeof settleCoordinatorSnapshotQueueLeaseRelease>
+  | Readonly<{ status: "blocked"; reason: string }>;
+
 export function finishOperationLease(
-  lease: Extract<
-    ReturnType<typeof acquireCoordinatorSnapshotLease>,
-    { status: "completed" }
-  >["value"],
-  target:
-    | Readonly<{
-        kind: "single" | "single-recovery";
-        root: string;
-        binding: string;
-        queueId: string;
-        queue: ProjectQueueEntry;
-      }>
-    | Readonly<{
-        kind: "scheduled";
-        repository: CoordinatorStateContext["repository"];
-        binding: string;
-        queueId: string;
-        queue: ProjectQueueEntry | null;
-      }>,
-) {
-  const released = lease.release();
-  if (released.status !== "completed" || target.queue === null) return released;
-  if (target.kind === "single" && target.queue.state === "running")
-    return {
-      status: "blocked" as const,
-      reason: "coordinator_task_lease_release_unconfirmed",
-    };
-  return settleCoordinatorSnapshotQueueLeaseRelease(
-    target.kind === "scheduled"
-      ? target.repository
-      : { directory: target.root },
-    target.binding,
-    target.queueId,
-    target.queue.generation,
-    lease.ownerGeneration,
-  );
+  lease: CoordinatorLease,
+  target: Exclude<LeaseFinishTarget, { kind: "scheduled" }>,
+): LeaseFinishResult;
+export function finishOperationLease(
+  lease: CoordinatorLease,
+  target: Extract<LeaseFinishTarget, { kind: "scheduled" }>,
+): LeaseFinishResult | Promise<LeaseFinishResult>;
+export function finishOperationLease(
+  lease: CoordinatorLease,
+  target: LeaseFinishTarget,
+): LeaseFinishResult | Promise<LeaseFinishResult> {
+  const finish = (released: ReturnType<CoordinatorLease["release"]>) => {
+    if (released.status !== "completed" || target.queue === null)
+      return released;
+    if (target.kind === "single" && target.queue.state === "running")
+      return {
+        status: "blocked" as const,
+        reason: "coordinator_task_lease_release_unconfirmed",
+      };
+    const queue = target.queue;
+    const settle = () =>
+      settleCoordinatorSnapshotQueueLeaseRelease(
+        target.kind === "scheduled"
+          ? target.repository
+          : { directory: target.root },
+        target.binding,
+        target.queueId,
+        queue.generation,
+        lease.ownerGeneration,
+      );
+    if (target.kind === "scheduled" && lease.releaseWithWait)
+      return waitForStateContention(new AbortController().signal, settle).then(
+        (result) => {
+          if (result?.status === "completed") return result;
+          return {
+            status: "blocked" as const,
+            reason:
+              result?.reason ?? "coordinator_task_lease_release_unconfirmed",
+            value: null,
+            manualRecoveryRequired: true,
+            recoveryId:
+              result?.recoveryId ??
+              leaseAcquisitionRecoveryId(
+                target.binding,
+                queue.projectId,
+                target.queueId,
+                lease.kind,
+              ),
+          };
+        },
+      );
+    return settle();
+  };
+  return target.kind === "scheduled" && lease.releaseWithWait
+    ? lease.releaseWithWait().then(finish)
+    : finish(lease.release());
 }
 
 /**
@@ -2803,6 +3065,7 @@ export function createCoordinatorTaskRequests(
       deps.projectId,
       requestId,
       "project-operation",
+      observed.state === "recovery_required" ? observed.generation : undefined,
     );
     if (acquired.status !== "completed")
       return {
@@ -3450,11 +3713,11 @@ function createObjectiveIntake(
     operation: request.operation,
     projectId: request.projectId,
     milestoneId: request.milestoneId,
-    queueId: createCoordinatorStableId("queue", [
+    queueId: objectiveQueueId(
       repositoryBindingId,
       principalId,
       request.requestId,
-    ]),
+    ),
     requestHash: hashCoordinatorContent(
       JSON.stringify({ ...content, authenticatedPrincipalId: principalId }),
     ),
@@ -3477,11 +3740,21 @@ function readObjectiveReplay(
   repositoryBindingId: string,
   intake: ReturnType<typeof createObjectiveIntake>,
   reuseObserved = false,
+  alreadyObserved?: ReturnType<typeof readExecutionState>,
 ) {
-  const observed = readExecutionState(
-    resolveExecutionStorageDirectory(workingDirectory),
-    repositoryBindingId,
-  );
+  const observed =
+    alreadyObserved ??
+    readExecutionState(
+      resolveExecutionStorageDirectory(workingDirectory),
+      repositoryBindingId,
+    );
+  if (
+    observed.status === "blocked" &&
+    observed.reason === "coordinator_snapshot_lock_contended" &&
+    !observed.manualRecoveryRequired &&
+    observed.recoveryId === null
+  )
+    return blocked(request, observed.reason);
   if (observed.status !== "completed")
     return Object.freeze({
       contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
@@ -3509,14 +3782,39 @@ function readObjectiveReplay(
   )
     return blocked(request, "coordinator_objective_request_identity_conflict");
   const terminal = queue.state === "completed" || queue.state === "cancelled";
-  if (!reuseObserved && request.operation === "resume" && !terminal)
+  const releasePending =
+    queue.ownerGeneration != null &&
+    (terminal || queue.state === "integration_pending");
+  if (
+    !reuseObserved &&
+    request.operation === "resume" &&
+    (!terminal || releasePending)
+  )
     return null;
   const state = observed.value?.projects.find(
     (entry) =>
+      entry.queueId === queue.queueId &&
       entry.projectId === queue.projectId &&
       entry.milestoneId === queue.milestoneId &&
       entry.repositoryRevision === queue.repositoryRevision,
   );
+  if (releasePending)
+    return blocked(
+      request,
+      "coordinator_queue_release_settlement_unconfirmed",
+      {
+        queueId: queue.queueId,
+        knownState: state ?? null,
+        recoveryIds: [
+          leaseAcquisitionRecoveryId(
+            repositoryBindingId,
+            queue.projectId,
+            queue.queueId,
+            "project-operation",
+          ),
+        ],
+      },
+    );
   return projectObjectiveReplay(
     request,
     queue,
@@ -3543,7 +3841,8 @@ function projectObjectiveReplay(
   candidates: TaskStartCandidates | null,
 ) {
   const state =
-    observedState?.projectId === queue.projectId &&
+    observedState?.queueId === queue.queueId &&
+    observedState.projectId === queue.projectId &&
     observedState.milestoneId === queue.milestoneId &&
     observedState.repositoryRevision === queue.repositoryRevision
       ? observedState
@@ -3890,6 +4189,7 @@ function wasObjectiveStateUninitialized(
 /** 元の一件の回復参照を、技術終端不明又は保存拒否と共に返す。 @trace ARCH-000008 */
 function blockObjectiveRecoveryItem(
   request: CoordinatorObjectiveRequest,
+  queueId: string,
   reason: string,
   {
     kind,
@@ -3897,6 +4197,7 @@ function blockObjectiveRecoveryItem(
   }: Pick<ProjectTaskRecoveryObligation, "kind" | "recoveryId">,
 ) {
   return blocked(request, reason, {
+    queueId,
     cleanupConfirmed: false,
     manualRecoveryRequired: true,
     effectState: "unknown",
@@ -3904,6 +4205,9 @@ function blockObjectiveRecoveryItem(
     recoveryObligations: [Object.freeze({ kind, recoveryId })],
   });
 }
+
+/** 解放だけを確定し、実行・採用へ進まない保存状態。 @trace ARCH-000004 */
+type ObjectiveReleaseState = "completed" | "cancelled" | "integration_pending";
 
 /**
  * 捕捉済みObjectiveを既存の保存・実行Lifecycleへ接続する。
@@ -3925,6 +4229,7 @@ async function executeCoordinatorObjective(
   dependencies: CoordinatorObjectiveExecutionDependencies,
   request: CoordinatorObjectiveRequest,
   cancellationSignal: AbortSignal,
+  expectedTerminalState?: ObjectiveReleaseState,
 ) {
   if (request.adoptResult)
     return blocked(request, "coordinator_explicit_workspace_adoption_required");
@@ -3938,6 +4243,18 @@ async function executeCoordinatorObjective(
   if (!persistence.intake)
     return blocked(request, "coordinator_objective_request_invalid");
   const { queueId, requestHash } = persistence.intake;
+  const wait = dependencies.execution?.leaseWait;
+  const prepare = <T extends StateContentionResult>(attempt: () => T) =>
+    wait
+      ? waitForStateContention(cancellationSignal, attempt, wait.revalidate)
+      : attempt();
+  const interrupted = () =>
+    blocked(
+      request,
+      cancellationSignal.aborted
+        ? "coordinator_objective_cancelled_before_start"
+        : "coordinator_authenticated_principal_not_verified",
+    );
   const scopeHash = hashCoordinatorContent(
     JSON.stringify({
       allowedPaths: request.allowedPaths,
@@ -3950,6 +4267,7 @@ async function executeCoordinatorObjective(
     reason: string,
     recoveryId: string | null,
     manualRecoveryRequired = false,
+    recoverySettled = false,
   ) => {
     const needsRecovery = manualRecoveryRequired || recoveryId !== null;
     return Object.freeze({
@@ -3960,28 +4278,36 @@ async function executeCoordinatorObjective(
       manualRecoveryRequired: needsRecovery,
       effectState: needsRecovery
         ? ("unknown" as const)
-        : ("no_effect" as const),
+        : recoverySettled
+          ? ("settled" as const)
+          : ("no_effect" as const),
       recoveryIds: Object.freeze(recoveryId ? [recoveryId] : []),
     });
   };
 
   if (request.operation === "resume") {
-    const existing = readQueueEntry(
-      persistence.repository,
-      persistence.repositoryBindingId,
-      queueId,
+    const existing = await prepare(() =>
+      readQueueEntry(
+        persistence.repository,
+        persistence.repositoryBindingId,
+        queueId,
+      ),
     );
+    if (existing === null) return interrupted();
     if (existing.status !== "completed") {
       if (existing.manualRecoveryRequired || existing.recoveryId)
         return blockWithoutProject(existing.reason, existing.recoveryId, true);
       return blocked(request, existing.reason);
     }
   }
-  const observedAcquisitionOwner =
+  const observedAcquisitionOwner = await prepare(() =>
     inspectCoordinatorSnapshotLeaseAcquisitionOwner(
       persistence.repository.directory,
       persistence.repositoryBindingId,
-    );
+      queueId,
+    ),
+  );
+  if (observedAcquisitionOwner === null) return interrupted();
   if (
     observedAcquisitionOwner.status !== "completed" &&
     !wasObjectiveStateUninitialized(
@@ -4000,7 +4326,8 @@ async function executeCoordinatorObjective(
       : null;
   if (
     resolvedAcquisition !== null &&
-    resolvedAcquisition.projectId !== request.projectId
+    (resolvedAcquisition.projectId !== request.projectId ||
+      resolvedAcquisition.queueId !== queueId)
   )
     return Object.freeze({
       contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
@@ -4008,14 +4335,18 @@ async function executeCoordinatorObjective(
       reason: "coordinator_lease_acquisition_project_identity_mismatch",
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
-      recoveryIds: Object.freeze([resolvedAcquisition.recoveryId]),
+      recoveryIds: Object.freeze([]),
       effectState: "unknown" as const,
     });
-  const observedProject = readProjectExecutionState(
-    persistence.repository,
-    persistence.repositoryBindingId,
-    request.projectId,
+  const observedProject = await prepare(() =>
+    readProjectExecutionState(
+      persistence.repository,
+      persistence.repositoryBindingId,
+      request.projectId,
+      queueId,
+    ),
   );
+  if (observedProject === null) return interrupted();
   if (
     observedProject.status !== "completed" &&
     !wasObjectiveStateUninitialized(persistence.intake, observedProject)
@@ -4023,7 +4354,7 @@ async function executeCoordinatorObjective(
     return blockWithoutProject(
       observedProject.reason,
       observedProject.recoveryId,
-      true,
+      !isCleanStateContention(observedProject),
     );
   let state: Readonly<{
     value: ProjectExecutionState | null;
@@ -4065,6 +4396,7 @@ async function executeCoordinatorObjective(
     if (!objectiveSelectionsMatch(request, selections, true))
       return blocked(request, "coordinator_objective_selection_mismatch");
   } else if (
+    state.value.queueId !== queueId ||
     state.value.milestoneId !== request.milestoneId ||
     state.value.repositoryRevision !== request.repositoryRevision
   ) {
@@ -4106,7 +4438,7 @@ async function executeCoordinatorObjective(
     repositoryRevision: request.repositoryRevision,
     scopeHash,
   };
-  const queued =
+  const queued = await prepare(() =>
     request.operation === "resume"
       ? readQueueEntry(
           persistence.repository,
@@ -4121,7 +4453,9 @@ async function executeCoordinatorObjective(
             input: initialization ? [queueInput, initialization] : [queueInput],
           },
           persistence.prepareStorage,
-        );
+        ),
+  );
+  if (queued === null) return interrupted();
   if (queued.status !== "completed")
     return blockWithoutProject(
       queued.reason,
@@ -4133,15 +4467,26 @@ async function executeCoordinatorObjective(
     (queued.value.singleTask !== undefined ||
       queued.value.projectId !== request.projectId ||
       queued.value.milestoneId !== request.milestoneId ||
-      queued.value.requestHash !== requestHash)
+      queued.value.requestHash !== requestHash ||
+      (expectedTerminalState !== undefined &&
+        queued.value.state !== expectedTerminalState))
   )
     return blocked(request, "coordinator_queue_identity_conflict");
   if (
     request.operation === "resume"
-      ? queued.value.state === "completed" || queued.value.state === "cancelled"
+      ? queued.value.ownerGeneration == null &&
+        (queued.value.state === "completed" ||
+          queued.value.state === "cancelled")
       : queued.reason === "coordinator_queue_request_reused"
   ) {
     // 保存時に競合を観測した場合も、QueueとProjectを同じ保存版から返す。
+    const observed = await prepare(() =>
+      readExecutionState(
+        persistence.repository,
+        persistence.repositoryBindingId,
+      ),
+    );
+    if (observed === null) return interrupted();
     return (
       readObjectiveReplay(
         request,
@@ -4149,6 +4494,7 @@ async function executeCoordinatorObjective(
         persistence.repositoryBindingId,
         persistence.intake,
         true,
+        observed,
       ) ??
       blocked(request, "coordinator_state_observation_unknown", {
         knownState: null,
@@ -4157,16 +4503,20 @@ async function executeCoordinatorObjective(
     );
   }
   if (initialization) {
-    const observed = readProjectExecutionState(
-      persistence.repository,
-      persistence.repositoryBindingId,
-      request.projectId,
+    const observed = await prepare(() =>
+      readProjectExecutionState(
+        persistence.repository,
+        persistence.repositoryBindingId,
+        request.projectId,
+        queueId,
+      ),
     );
+    if (observed === null) return interrupted();
     if (observed.status !== "completed" || observed.value === null)
       return blockWithoutProject(
         observed.reason,
         observed.status === "blocked" ? observed.recoveryId : null,
-        true,
+        !isCleanStateContention(observed),
       );
     const candidates = inspectTaskStartCandidates(
       observed.value,
@@ -4184,33 +4534,37 @@ async function executeCoordinatorObjective(
   }
   let queue = queued.value;
   const recoveryQueueId =
-    resolvedAcquisition?.queueId ??
-    (queue.ownerGeneration === null ? null : queueId);
+    resolvedAcquisition !== null || queue.ownerGeneration !== null
+      ? queueId
+      : null;
   if (recoveryQueueId !== null) {
-    const reconciled = reconcileCoordinatorSnapshotLeaseOwnerLoss(
+    const reconciled = await reconcileCoordinatorSnapshotLeaseOwnerLoss(
       persistence.repository.directory,
       persistence.repositoryBindingId,
       request.projectId,
       recoveryQueueId,
       "project-operation",
       observeObjectiveLeaseOwner,
+      wait ? { signal: cancellationSignal, ...wait } : undefined,
     );
+    if (reconciled === null) return interrupted();
     if (
       reconciled.status === "completed" &&
       (!reconciled.value.queue ||
         reconciled.value.queue.projectId !== request.projectId ||
         reconciled.value.queue.queueId !== recoveryQueueId)
     ) {
-      const recoveryId = reconciled.value.recoveryId;
       return blockWithoutProject(
         "coordinator_lease_recovery_queue_mismatch",
-        recoveryId,
+        null,
+        true,
       );
     }
     if (
       reconciled.status !== "completed" &&
       reconciled.reason === "coordinator_lease_owner_still_active" &&
       recoveryQueueId === queueId &&
+      expectedTerminalState === undefined &&
       state.value
     )
       return createCoordinatorObjectiveResult(request, {
@@ -4228,18 +4582,94 @@ async function executeCoordinatorObjective(
     )
       return blockWithoutProject(
         reconciled.reason,
-        reconciled.recoveryId,
+        reconciled.recoveryId ??
+          (isCleanStateContention(reconciled)
+            ? (resolvedAcquisition?.recoveryId ?? null)
+            : null),
         reconciled.manualRecoveryRequired,
       );
-    const reread = readQueueEntry(
-      persistence.repository,
-      persistence.repositoryBindingId,
-      queueId,
-    );
-    if (reread.status !== "completed")
-      return blockWithoutProject(reread.reason, reread.recoveryId, true);
+    const recoveringQueue =
+      reconciled.status === "completed" &&
+      reconciled.value.queue?.state === "recovery_required"
+        ? reconciled.value.queue
+        : null;
+    const recoverySettled =
+      reconciled.status === "completed" &&
+      reconciled.reason !== "coordinator_lease_acquisition_resources_absent";
+    const read = () =>
+      readQueueEntry(
+        persistence.repository,
+        persistence.repositoryBindingId,
+        queueId,
+      );
+    let authorizationUnconfirmed = false;
+    const revalidate = wait?.revalidate;
+    const reread = wait
+      ? await waitForStateContention(
+          cancellationSignal,
+          read,
+          revalidate &&
+            (async () => {
+              authorizationUnconfirmed = true;
+              const allowed = await revalidate();
+              if (allowed) authorizationUnconfirmed = false;
+              return allowed;
+            }),
+        )
+      : read();
+    if (authorizationUnconfirmed)
+      return blocked(
+        request,
+        "coordinator_authenticated_principal_not_verified",
+      );
+    if (reread?.status !== "completed") {
+      const reason =
+        reread?.reason ?? "coordinator_objective_cancelled_before_start";
+      const leaseRecoveryId = leaseAcquisitionRecoveryId(
+        persistence.repositoryBindingId,
+        request.projectId,
+        queueId,
+        "project-operation",
+      );
+      const hasLeaseRecoveryId =
+        reread?.recoveryId === leaseRecoveryId ||
+        recoveringQueue?.resultReference === leaseRecoveryId;
+      // Queueの内部参照を公開回復IDにしない。元Queueと、そのTaskの型付き義務を返す。
+      if (recoveringQueue)
+        return blocked(request, reason, {
+          queueId,
+          knownState: state.value?.queueId === queueId ? state.value : null,
+          ...(hasLeaseRecoveryId ? { recoveryIds: [leaseRecoveryId] } : {}),
+        });
+      return blockWithoutProject(
+        reason,
+        hasLeaseRecoveryId ? leaseRecoveryId : null,
+        reread !== null && !isCleanStateContention(reread),
+        recoverySettled,
+      );
+    }
     queue = reread.value;
   }
+  if (
+    expectedTerminalState !== undefined &&
+    (queue.state !== expectedTerminalState || queue.ownerGeneration !== null)
+  )
+    return blocked(
+      request,
+      "coordinator_queue_release_settlement_unconfirmed",
+      {
+        knownState: state.value,
+        queueId,
+        recoveryIds: [
+          leaseAcquisitionRecoveryId(
+            persistence.repositoryBindingId,
+            request.projectId,
+            queueId,
+            "project-operation",
+          ),
+        ],
+      },
+    );
   if (
     queue.state === "recovery_required" &&
     queue.resumeCondition === "owner_loss" &&
@@ -4309,6 +4739,7 @@ async function executeCoordinatorObjective(
       );
       if (boundWrite.status !== "completed")
         return blocked(request, boundWrite.reason, {
+          queueId,
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
           effectState: "unknown",
@@ -4451,7 +4882,8 @@ async function executeCoordinatorObjective(
         if (current.status !== "completed" || current.value === null)
           return null;
         const currentState = current.value.projects.find(
-          (entry) => entry.projectId === request.projectId,
+          (entry) =>
+            entry.projectId === request.projectId && entry.queueId === queueId,
         );
         const currentQueue = current.value.queueEntries.find(
           (entry) => entry.queueId === queueId,
@@ -4521,6 +4953,7 @@ async function executeCoordinatorObjective(
     };
     if (unresolvedTasks.length > 0)
       return blocked(request, "coordinator_recovery_result_unresolved", {
+        queueId,
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         effectState: "unknown",
@@ -4529,6 +4962,7 @@ async function executeCoordinatorObjective(
       });
     if (!recoveryApplication || queue.resultReference !== recoveryApplication)
       return blocked(request, "coordinator_recovery_identity_mismatch", {
+        queueId,
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         effectState: "unknown",
@@ -4554,7 +4988,12 @@ async function executeCoordinatorObjective(
         persistence.intake,
       );
       if (written.status !== "completed")
-        return blockObjectiveRecoveryItem(request, written.reason, item);
+        return blockObjectiveRecoveryItem(
+          request,
+          queueId,
+          written.reason,
+          item,
+        );
       state = captureObjectiveRecoveryWrite(written);
       if (!state.taskStartCandidates)
         return blocked(request, "coordinator_state_observation_unknown", {
@@ -4645,6 +5084,7 @@ async function executeCoordinatorObjective(
         if (!exactRecoveryCompleted(recovery, item.kind, item.recoveryId))
           return blockObjectiveRecoveryItem(
             request,
+            queueId,
             "coordinator_task_recovery_not_settled",
             item,
           );
@@ -4662,6 +5102,7 @@ async function executeCoordinatorObjective(
           )
             return blockObjectiveRecoveryItem(
               request,
+              queueId,
               "coordinator_task_recovery_not_settled",
               item,
             );
@@ -4776,6 +5217,7 @@ async function executeCoordinatorObjective(
       )
     )
       return blocked(request, "coordinator_external_recovery_required", {
+        queueId,
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
         effectState: "unknown",
@@ -4882,10 +5324,16 @@ async function executeCoordinatorObjective(
         manualRecoveryRequired: true,
         effectState: "unknown",
       });
-    const selected = selectNextQueueEntry(
-      persistence.repository,
-      persistence.repositoryBindingId,
+    const selected = await prepare(() =>
+      selectNextQueueEntry(
+        persistence.repository,
+        persistence.repositoryBindingId,
+        queueId,
+      ),
     );
+    if (selected === null) return interrupted();
+    if (isCleanStateContention(selected))
+      return blocked(request, selected.reason);
     if (selected.status !== "completed")
       return blocked(request, selected.reason, {
         cleanupConfirmed: false,
@@ -4928,7 +5376,10 @@ async function executeCoordinatorObjective(
             ? "coordinator_objective_already_accepted"
             : "coordinator_objective_already_cancelled",
       queueId,
-      projection,
+      projection:
+        queue.state !== "cancelled" || projection.milestoneState === "cancelled"
+          ? projection
+          : null,
     });
   }
   if (queue.state !== "queued" && state.value) {
@@ -4995,16 +5446,38 @@ async function executeCoordinatorObjective(
       cancellationSignal,
     },
   });
-  const latest = readProjectExecutionState(
-    persistence.repository,
-    persistence.repositoryBindingId,
-    request.projectId,
-  );
+  const readLatest = () =>
+    readProjectExecutionState(
+      persistence.repository,
+      persistence.repositoryBindingId,
+      request.projectId,
+      queueId,
+    );
+  // 委譲済みの結果観測は取消後も放棄しない。読取り不明を結果保存の再発行へはつなげない。
+  const latest = wait
+    ? await waitForStateContention(new AbortController().signal, readLatest)
+    : readLatest();
+  if (
+    latest?.status === "blocked" &&
+    (latest.manualRecoveryRequired || latest.recoveryId !== null)
+  )
+    return blocked(request, latest.reason, {
+      queueId,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectState: "unknown",
+      processRestartRequired: execution.processRestartRequired,
+      recoveryIds: execution.recoveryIds,
+      recoveryObligations: execution.recoveryObligations,
+      ...(execution.workspaceResults === undefined
+        ? {}
+        : { workspaceResults: execution.workspaceResults }),
+    });
   const latestCandidates =
-    latest.status === "completed" && latest.value
+    latest?.status === "completed" && latest.value
       ? inspectTaskStartCandidates(latest.value, latest.taskStartCandidates)
       : null;
-  if (latest.status === "completed" && latest.value && !latestCandidates)
+  if (latest?.status === "completed" && latest.value && !latestCandidates)
     return blocked(request, "coordinator_state_observation_unknown", {
       knownState: latest.value,
       queueId,
@@ -5015,15 +5488,19 @@ async function executeCoordinatorObjective(
         ? {}
         : { workspaceResults: execution.workspaceResults }),
     });
-  const projection =
-    latest.status === "completed" && latest.value
+  const projected =
+    latest?.status === "completed" && latest.value
       ? projectCoordinatorState(latest.value, latestCandidates)
       : null;
   return createCoordinatorObjectiveResult(request, {
     status: execution.status,
     reason: execution.reason,
     queueId,
-    projection,
+    projection:
+      execution.status !== "cancelled" ||
+      projected?.milestoneState === "cancelled"
+        ? projected
+        : null,
     cleanupConfirmed: execution.cleanupConfirmed,
     manualRecoveryRequired: execution.manualRecoveryRequired,
     processRestartRequired: execution.processRestartRequired,
@@ -5103,6 +5580,11 @@ type ObjectiveAccess = Readonly<{
   directory: string;
   principalId: string;
   workspaceTarget?: PreparedWorkspaceTarget | null;
+  prepareWorkspaceTarget?: () => StateContentionResult &
+    Readonly<{
+      value: PreparedWorkspaceTarget | null;
+    }>;
+  revalidate?: () => Promise<boolean>;
 }>;
 
 /**
@@ -5150,6 +5632,8 @@ export function runObjective(
     let principalId: string | undefined;
     let directory: string;
     let suppliedWorkspace = workspaceTarget;
+    let prepareWorkspaceTarget: ObjectiveAccess["prepareWorkspaceTarget"];
+    let revalidate: ObjectiveAccess["revalidate"];
     if (typeof directoryOrAccess === "function") {
       const pending = directoryOrAccess(
         Object.freeze({
@@ -5162,6 +5646,8 @@ export function runObjective(
       directory = access?.directory ?? "";
       principalId = access?.principalId;
       suppliedWorkspace = access?.workspaceTarget;
+      prepareWorkspaceTarget = access?.prepareWorkspaceTarget;
+      revalidate = access?.revalidate;
     } else {
       directory = directoryOrAccess;
       principalId = authenticationContext?.principalId;
@@ -5209,13 +5695,82 @@ export function runObjective(
       repositoryBindingId,
       principalId,
     );
+    const storage = resolveExecutionStorageDirectory(repositoryRoot);
+    const read = () => readExecutionState(storage, repositoryBindingId);
+    const observed =
+      typeof directoryOrAccess === "string" || revalidate
+        ? await waitForStateContention(cancellationSignal, read, revalidate)
+        : read();
+    if (observed === null) {
+      if (cancellationSignal.aborted)
+        return blocked(request, "coordinator_objective_cancelled_before_start");
+      return Object.freeze({
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: "coordinator_authenticated_principal_not_verified",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
+    }
     const replay = readObjectiveReplay(
       request,
       repositoryRoot,
       repositoryBindingId,
       intake,
+      false,
+      observed,
     );
     if (replay) return replay;
+    const queueForRelease =
+      request.operation === "resume" && observed.status === "completed"
+        ? observed.value?.queueEntries.find(
+            (queue) =>
+              queue.queueId === intake.queueId &&
+              queue.projectId === request.projectId &&
+              queue.milestoneId === request.milestoneId &&
+              queue.requestHash === intake.requestHash &&
+              queue.singleTask === undefined &&
+              queue.ownerGeneration !== null,
+          )
+        : undefined;
+    const expectedTerminalState =
+      queueForRelease?.state === "completed" ||
+      queueForRelease?.state === "cancelled" ||
+      queueForRelease?.state === "integration_pending"
+        ? queueForRelease.state
+        : undefined;
+    if (
+      !expectedTerminalState &&
+      request.workspaceId &&
+      prepareWorkspaceTarget
+    ) {
+      const target = await waitForStateContention(
+        cancellationSignal,
+        prepareWorkspaceTarget,
+        revalidate,
+      );
+      if (target === null)
+        return blocked(
+          request,
+          cancellationSignal.aborted
+            ? "coordinator_objective_cancelled_before_start"
+            : "coordinator_authenticated_principal_not_verified",
+        );
+      if (target.status !== "completed")
+        return blocked(request, target.reason, {
+          // 受付がまだQueueへ相関していないため、保存領域の回復参照は公開しない。
+          cleanupConfirmed:
+            !target.manualRecoveryRequired && target.recoveryId === null,
+          manualRecoveryRequired:
+            target.manualRecoveryRequired || target.recoveryId !== null,
+          effectState:
+            target.manualRecoveryRequired || target.recoveryId !== null
+              ? "unknown"
+              : "no_effect",
+        });
+      suppliedWorkspace = target.value;
+    }
     const preparedWorkspace = capturePreparedWorkspaceTarget(suppliedWorkspace);
     if (
       request.operation === "start" &&
@@ -5223,9 +5778,9 @@ export function runObjective(
       !preparedWorkspace
     )
       return blocked(request, "coordinator_workspace_target_changed");
-    const identity = readRepositorySnapshot(
-      getRepository(repositoryRoot).capability,
-    );
+    const identity = expectedTerminalState
+      ? null
+      : readRepositorySnapshot(getRepository(repositoryRoot).capability);
     if (cancellationSignal.aborted)
       return blocked(
         Object.freeze({
@@ -5235,9 +5790,9 @@ export function runObjective(
         }) as CoordinatorObjectiveRequest,
         "coordinator_objective_request_invalid",
       );
-    let revisionConfirmed = false;
+    let revisionConfirmed = expectedTerminalState !== undefined;
     try {
-      revisionConfirmed =
+      revisionConfirmed ||=
         identity?.status === "observed" &&
         (identity.revisionIdentity === request.repositoryRevision ||
           workspacePlanReadyForAcceptance(
@@ -5247,6 +5802,7 @@ export function runObjective(
             request.milestoneId,
             request.repositoryRevision,
             identity.revisionIdentity,
+            intake.queueId,
           ));
     } catch {
       // 改訂または採用済みWorkspaceの観測不能は従来のBinding拒否へ閉じる。
@@ -5279,16 +5835,31 @@ export function runObjective(
         execution: {
           recording: groupState,
           workspaceTarget: preparedWorkspace,
+          ...(typeof directoryOrAccess === "string" || revalidate
+            ? { leaseWait: revalidate ? { revalidate } : {} }
+            : {}),
         },
       },
       request,
       cancellationSignal,
+      observed,
+      expectedTerminalState,
     );
     if (
       execution.contract === COORDINATOR_PUBLIC_RUNTIME_CONTRACT ||
       execution.reason === "coordinator_objective_request_reused"
     )
       return execution;
+    if (
+      expectedTerminalState === "integration_pending" &&
+      execution.status === "completed"
+    )
+      // この再開は解放確定だけ。採用可否を観測済みとして扱わない。
+      return Object.freeze({
+        ...execution,
+        status: "blocked" as const,
+        projection: null,
+      });
     const eiGroup = groupState.group;
     if (eiGroup) {
       try {
@@ -5322,25 +5893,47 @@ export function runObjective(
         execution.reason !== "coordinator_tasks_completed_integration_pending")
     )
       return execution;
-    const snapshot = readQueueState(
-      resolveExecutionStorageDirectory(repositoryRoot),
-      repositoryBindingId,
-    );
-    const queue =
-      snapshot.status === "completed"
-        ? snapshot.value?.queueEntries.find(
-            (q) =>
-              q.queueId === execution.queueId &&
-              q.projectId === request.projectId &&
-              q.milestoneId === request.milestoneId,
+    const readWorkspace = () =>
+      readWorkspaceState(
+        resolveExecutionStorageDirectory(repositoryRoot),
+        repositoryBindingId,
+      );
+    const snapshot =
+      typeof directoryOrAccess === "string" || revalidate
+        ? await waitForStateContention(
+            new AbortController().signal,
+            readWorkspace,
           )
-        : null;
-    if (!queue || (queue.workspaceId ?? undefined) !== request.workspaceId)
+        : readWorkspace();
+    if (
+      snapshot?.status === "blocked" &&
+      (snapshot.manualRecoveryRequired || snapshot.recoveryId !== null)
+    )
       return Object.freeze({
         ...execution,
         status: "blocked" as const,
         reason: "coordinator_workspace_target_unconfirmed",
+        projection: null,
         cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        effectState: "unknown" as const,
+      });
+    const current = snapshot?.status === "completed" ? snapshot.value : null;
+    const queue = current?.queueEntries.find(
+      (q) =>
+        q.queueId === execution.queueId &&
+        q.projectId === request.projectId &&
+        q.milestoneId === request.milestoneId,
+    );
+    if (
+      !current ||
+      !queue ||
+      (queue.workspaceId ?? undefined) !== request.workspaceId
+    )
+      return Object.freeze({
+        ...execution,
+        status: "blocked" as const,
+        reason: "coordinator_workspace_target_unconfirmed",
       });
     const ready = workspacePlanReadyForAcceptance(
       repositoryRoot,
@@ -5349,6 +5942,8 @@ export function runObjective(
       request.milestoneId,
       request.repositoryRevision,
       identity?.revisionIdentity ?? "",
+      queue.queueId,
+      current,
     );
     return Object.freeze({
       ...execution,
@@ -5393,6 +5988,8 @@ async function executeAcceptedCoordinatorObjective(
   }>,
   request: CoordinatorObjectiveRequest,
   cancellationSignal: AbortSignal,
+  alreadyObserved?: ReturnType<typeof readExecutionState>,
+  expectedTerminalState?: ObjectiveReleaseState,
 ) {
   if (
     !(cancellationSignal instanceof AbortSignal) ||
@@ -5409,15 +6006,33 @@ async function executeAcceptedCoordinatorObjective(
     );
 
   const { binding, intake } = dependencies;
+  const repository = resolveExecutionStorageDirectory(binding.workingDirectory);
+  const read = () =>
+    readExecutionState(repository, binding.repositoryBindingId);
+  const wait = dependencies.execution?.leaseWait;
+  // 公開受付は同じ要求に対する保存断面を検査済み。競合中に発生した新規受付はcreateQueueがLock内で照合する。
+  const observed =
+    alreadyObserved ??
+    (wait
+      ? await waitForStateContention(cancellationSignal, read, wait.revalidate)
+      : read());
+  if (observed === null)
+    return blocked(
+      request,
+      cancellationSignal.aborted
+        ? "coordinator_objective_cancelled_before_start"
+        : "coordinator_authenticated_principal_not_verified",
+    );
   const replay = readObjectiveReplay(
     request,
     binding.workingDirectory,
     binding.repositoryBindingId,
     intake,
+    false,
+    observed,
   );
   if (replay) return replay;
 
-  const repository = resolveExecutionStorageDirectory(binding.workingDirectory);
   const result = await executeCoordinatorObjective(
     {
       authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
@@ -5439,8 +6054,10 @@ async function executeAcceptedCoordinatorObjective(
     },
     request,
     cancellationSignal,
+    expectedTerminalState,
   );
   if (
+    expectedTerminalState !== undefined ||
     result.status === "blocked" ||
     result.reason === "coordinator_objective_request_reused"
   )

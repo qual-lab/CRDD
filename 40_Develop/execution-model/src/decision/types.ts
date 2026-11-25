@@ -24,6 +24,8 @@ export type DecisionSnapshot = Pick<
  * @boundary Repository内の判断値。認可・実資源の所在を表さない。
  */
 export type DecisionTarget = Readonly<{
+  /** 正式受入の元Graph。一意な単一実行では省略できる。 */
+  queueId?: string;
   projectId: string;
   milestoneId: string;
   kind: "objective" | "task" | "milestone";

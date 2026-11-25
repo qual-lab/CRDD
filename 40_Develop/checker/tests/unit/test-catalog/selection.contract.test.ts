@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { readTestCatalog } from "../../../../document-model/src/index.ts";
+import { readTestCatalog } from "@qual-lab/crdd-document-model";
 import { buildRegressionStagePlan } from "../../../src/test-catalog/plan.ts";
 import {
   inspectResourceIntensiveTestAuthority,

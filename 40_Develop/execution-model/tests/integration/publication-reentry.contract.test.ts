@@ -12,7 +12,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import type { Lock } from "../../../lock/src/index.ts";
+import type { Lock } from "@qual-lab/crdd-lock";
 import * as model from "../../src/index.ts";
 import { readState } from "../../src/index.ts";
 import {
@@ -130,7 +130,7 @@ test("Host Windows: markerなしの読取り・残存保全と同Owner借用", {
     const state = path.join(storage.directory, "state.json"),
       pending = path.join(storage.directory, "state.pending.json");
     const bytes = Buffer.from(
-      `${encodeStateValue({ schema: EXECUTION_STATE_SCHEMA, revision: 1, repositoryBindingId: null, projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [] })}\n`,
+      `${encodeStateValue({ schema: EXECUTION_STATE_SCHEMA, revision: 1, repositoryBindingId: null, projects: [], planVersions: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], decisions: [], blockers: [], previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [] })}\n`,
     );
     fs.writeFileSync(state, bytes, { flag: "wx" });
     const before = fs.lstatSync(state, { bigint: true });

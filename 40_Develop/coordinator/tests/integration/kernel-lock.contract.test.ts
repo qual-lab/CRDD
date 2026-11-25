@@ -12,8 +12,8 @@ import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import { getRepository } from "../../../version-control/src/index.ts";
-import { acquireLock } from "../../../lock/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
+import { acquireLock } from "@qual-lab/crdd-lock";
 import {
   acquireHostOperationLock,
   acquireProviderHomeLock,
@@ -66,6 +66,54 @@ test("HomeはRepository横断で同一対象を排他し、Executorと同じRequ
   assert.ok(next);
   assert.notEqual(next.reference.generation, first.reference.generation);
   assert.equal(next.release(), true);
+});
+
+/** @trace ERB-IT-003 GraphごとにProcessが分かれても、同じProvider Homeは物理資源として排他する。 */
+test("別Node子は同じProvider Homeを取得できず、別Homeと解放後のHomeを取得できる", (t) => {
+  const directory = fixture(t);
+  const home = randomBytes(32).toString("hex");
+  const independent = randomBytes(32).toString("hex");
+  const entry = new URL("../../src/lifecycle/host.ts", import.meta.url).href;
+  const probe = (binding: string) =>
+    JSON.parse(
+      execFileSync(
+        process.execPath,
+        [
+          "--input-type=module",
+          "--eval",
+          `import { acquireProviderHomeLock } from ${JSON.stringify(entry)};
+     const [binding, directory] = process.argv.slice(1);
+     const result = acquireProviderHomeLock(binding, directory);
+     const released = result.status === "acquired" ? result.lock.release() : null;
+     process.stdout.write(JSON.stringify({ pid: process.pid, status: result.status, reason: result.status === "blocked" ? result.reason : null, released }));`,
+          binding,
+          directory,
+        ],
+        { encoding: "utf8", timeout: 5000, windowsHide: true },
+      ),
+    );
+  const acquired = acquireProviderHomeLock(home, directory);
+  assert.ok(acquired.status === "acquired");
+  const file = path.join(directory, `executor.provider-home.${home}.lock`);
+  const before = fs.readFileSync(file);
+  try {
+    const same = probe(home);
+    const other = probe(independent);
+    assert.notEqual(same.pid, process.pid);
+    assert.equal(same.status, "blocked");
+    assert.equal(same.reason, "lock_exists");
+    assert.equal(same.released, null);
+    assert.equal(other.status, "acquired");
+    assert.equal(other.released, true);
+    assert.deepEqual(fs.readFileSync(file), before);
+    assert.deepEqual(fs.readdirSync(directory), [path.basename(file)]);
+  } finally {
+    assert.equal(acquired.lock.release(), true);
+  }
+  const next = probe(home);
+  assert.equal(next.status, "acquired");
+  assert.equal(next.released, true);
+  assert.deepEqual(fs.readdirSync(directory), []);
 });
 
 /** 新品Git Rootに、既存LockとHost領域の親だけを用意する。 */

@@ -18,13 +18,10 @@ import { sourceDeclaration } from "../../../execution-model/tests/support/source
 import {
   getExecution,
   listExecutions,
-} from "../../../execution-intelligence/src/index.ts";
+} from "@qual-lab/crdd-execution-intelligence";
 import { fixture } from "../../../execution-intelligence/tests/fixtures/store.ts";
-import { ExecutionStorageBlockedError } from "../../../execution-model/src/index.ts";
-import {
-  getRepository,
-  type Repository,
-} from "../../../version-control/src/index.ts";
+import { ExecutionStorageBlockedError } from "@qual-lab/crdd-execution-model";
+import { getRepository, type Repository } from "@qual-lab/crdd-version-control";
 import {
   getExecutionIntelligenceStore,
   RepositoryDataBlockedError,

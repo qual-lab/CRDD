@@ -13,7 +13,7 @@ import {
   type ResourceTarget,
   type ResourceInspection,
   type ResourceCleanupResult,
-} from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 import type { HomeLease } from "./types.ts";
 
 /** 元Leaseの一回解放を試み、非同期値・例外を成功へ変換しない。 @trace ARCH-000008 */

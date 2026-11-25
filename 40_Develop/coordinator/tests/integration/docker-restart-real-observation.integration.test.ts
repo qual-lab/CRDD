@@ -49,7 +49,7 @@ test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを�
   );
   const moduleUrl = pathToFileURL(
     fileURLToPath(
-      new URL("../../../docker-isolation/src/index.ts", import.meta.url),
+      new URL(import.meta.resolve("@qual-lab/crdd-docker-isolation")),
     ),
   ).href;
   const trustModuleUrl = new URL(

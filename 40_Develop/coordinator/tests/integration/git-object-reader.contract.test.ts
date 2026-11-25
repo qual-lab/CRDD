@@ -18,10 +18,7 @@ import { runInNewContext } from "node:vm";
 import { crc32, deflateSync } from "node:zlib";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 
-import {
-  readCommitFile,
-  getRepository,
-} from "../../../version-control/src/index.ts";
+import { readCommitFile, getRepository } from "@qual-lab/crdd-version-control";
 
 /**
  * 固定Snapshotの旧容量上限撤去と構造検査の維持を検証する。

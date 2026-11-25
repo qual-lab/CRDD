@@ -8,7 +8,7 @@
  * @scope Repository別選定、Context読取り、助言の一回実行境界。
  * @boundary RCM-IT-005=Direct Boundary: Repository Catalog Store→Workbench AI Application→Advice Dispatch
  */
-import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "@qual-lab/crdd-ai-adapter";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
@@ -16,14 +16,14 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { selectionConfig } from "../fixtures/ai-selection.ts";
 import {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
-} from "../../../configuration-model/src/index.ts";
+} from "@qual-lab/crdd-configuration-model";
 import { resolveSingleTaskSelection } from "../../src/lifecycle/selection.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import { loadAdviceDispatchFixture } from "../support/task-requests.ts";
 import type { ProviderAdviceExecutionInput } from "../../src/lifecycle/types.ts";
 
@@ -33,6 +33,13 @@ const canonicalRepositoryRoot = path.resolve(
 );
 const { executeAdviceRequest, executeAcceptedAdviceInput } =
   await loadAdviceDispatchFixture();
+const dependencyUrls = Object.fromEntries(
+  Object.keys(
+    JSON.parse(
+      readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+    ).dependencies,
+  ).map((name) => [name, import.meta.resolve(name)]),
+);
 
 /**
  * 公開助言入口のReader・取消・元回復参照を実接続で検査する。
@@ -129,7 +136,11 @@ for (const [original, replacement] of [
   assert.equal([...adviceSource.matchAll(original)].length, 1);
   adviceSource = adviceSource.replace(original, replacement);
 }
-adviceSource = adviceSource.replace(/from "(\\.[^"]+)"/g, (_, specifier) => "from " + JSON.stringify(new URL(specifier, adviceUrl).href));
+const dependencyUrls = ${JSON.stringify(dependencyUrls)};
+adviceSource = adviceSource.replace(/from "([^"]+)"/g, (match, specifier) => {
+  const resolved = specifier.startsWith(".") ? new URL(specifier, adviceUrl).href : dependencyUrls[specifier];
+  return resolved ? "from " + JSON.stringify(resolved) : match;
+});
 const adviceFixture = await import("data:text/javascript;base64," + Buffer.from(adviceSource).toString("base64"));
 mock.module(adviceUrl, { namedExports: adviceFixture });
 const { runRepositoryAdvice } = await import(${JSON.stringify(moduleUrl("40_Develop/coordinator/src/lifecycle/execution.ts"))});

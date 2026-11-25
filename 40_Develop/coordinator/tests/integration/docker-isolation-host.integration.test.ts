@@ -23,7 +23,7 @@ import { runInNewContext } from "node:vm";
 import {
   getAuthenticationDefinition,
   planExecution,
-} from "../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
 };
@@ -47,7 +47,7 @@ import {
   createDockerIsolationRuntime,
   type DockerIsolationRuntimePlan,
 } from "../../../executor/tests/support/isolation-execution.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import {
   createProviderAuthenticationDependencies,
   createProviderAuthenticationRecoveryRecord,
@@ -1033,7 +1033,7 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
         /^[a-f0-9]{64}$/u.test(item.identity.dockerId ?? ""),
       ),
     );
-    const { cleanupResources } = await import("../../../executor/src/index.ts");
+    const { cleanupResources } = await import("@qual-lab/crdd-executor");
     const session = cleanupResources(
       {
         ...book.cleanup,

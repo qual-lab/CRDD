@@ -408,7 +408,7 @@ test("ObjectiveはWorkspace観測をsnapshotし一次失敗を上書きしない
   assert.equal(unknown.cleanupConfirmed, false);
 });
 
-import { inspectExecutionPlan } from "../../../../execution-model/src/index.ts";
+import { inspectExecutionPlan } from "@qual-lab/crdd-execution-model";
 import {
   normalizeRepositoryRelativePath,
   inspectCoordinatorWorkspaceResults,

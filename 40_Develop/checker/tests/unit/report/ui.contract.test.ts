@@ -16,7 +16,7 @@ import {
   parseUiComponent,
   parseUiScreen,
   parseUiVisualBaseline,
-} from "../../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { mapSpecDomainIssueToFinding } from "../../../src/report/convert.ts";
 
 /**
@@ -105,7 +105,7 @@ import {
   parseUiDefinition,
   parseUiDetailIndex,
   parseUiIndex,
-} from "../../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { mapUiDomainIssueToFinding } from "../../../src/report/convert.ts";
 
 /**

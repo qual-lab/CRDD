@@ -2,9 +2,9 @@
 
 成果物種別: Architecture詳細設計（横断契約）
 詳細設計領域: coordinator
-状態: Candidate（採用済み目標を具体化。Source・Schema・実境界は未実装／未検証）
+状態: Candidate（現行実装と限定検証は並列実行の変更計画を参照。旧データ切替・実AI・Docker・全体回帰は未評価）
 維持責任者・決定権限: Qual-Lab
-最終更新日: 2026-10-17
+最終更新日: 2026-11-26
 対象: ARCH-000004／ARCH-000008／ARCH-000009／ARCH-000011／ARCH-000012／ARCH-000013／ARCH-000015
 
 ## 1. 目的と適用範囲
@@ -13,7 +13,9 @@
 
 入力はCHG-000082で人間が提示・採用したWorkspace再編方針と、[現物の棚卸し](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md)。旧方式を削除可能とする根拠ではなく、旧能力から本目標へ切り替えるための契約とする。新操作に必要な上流UI／SPECの具体化、API・保存Schemaと実行許可が未確定の間は、Architecture Ready・実装Ready・公開能力完成を主張しない。
 
-| 区分 | 現在の扱い |
+次の表と直後の記述は2026-10-17の設計時点を示す。現在の対応状況と限定検証は[並列実行の変更計画](../../../99_Roadmap/Changes/CHG-000082/workspace-parallel-execution-plan.md)を参照する。
+
+| 区分 | 当時の扱い |
 |---|---|
 | 採用済み目標 | Direct標準、必要時だけIsolated、Repository所有、通常AI実行はOrchestrator経由、Coordinatorは単発実行へ縮小 |
 | 基準実装 | `a04ecb70`のDI分離は完成。独自Bundle Store、Workspaceを識別しないQueue、Workbench専用AI経路は残存 |
@@ -89,11 +91,11 @@ Workspace IDは上位の選択・管理・結果対応に用いる。Coordinator
 
 Git Worktreeの物理配置はVersion Controlが所有する。Orchestratorが既存`observeRepositoryWorktree`のWorkspace ID・相対配置と必要なGit観測の相関から対象を解決し、Coordinatorは上位から受領した解決済み対象と安全確認材料を再検証する。欠測時に独自の固定Pathへ戻らない。Domain Modelの名前付き`workspaces`は採用済み領域の宣言でありGit操作を所有しない。借用Treeの内部状態保護先だけはDomainの用途限定観測／準備へ委譲し、raw Rootを上位へ公開しない。
 
-CRDD ServerはHTTPとMCP共通の管理入口でWorkspaceを選択・作成・採用・廃棄し、Taskと競合するRepository単位の操作Lockを使う。Serverは認可済みProjectと保存済みWorkspaceの対応を確認し、保存記録と既定配置が一致した実行候補だけを渡す。この段階では実Gitを起動せず、通信上の要求本文にHost Pathを加えない。準備した対象にHEADは含めない。Coordinatorは取得済みの排他の下でQueueとの相関・状態、指定したWorkspaceの所属、登録状態、専用Branch、実体、現在HEADを実行前に確認する。Workspaceの保存記録に対象パスや専用Branchがなければ実行先を確定せず、既存のWorkspace観測操作で照合し直す。専用Branch上の現在の内容を作業対象とし、保存済みHEADとの差や未Commit変更を理由に実行先の選択を拒否しない。レビュー処理にはその時点で観測した改訂を渡すが、これを採用許可とは扱わない。作成・採用・廃棄で対象を固定する条件は別に維持する。未指定のDirectは自身の実行先を用いるが、明示したWorkspaceの欠測・不一致をDirectへ代替しない。Coordinator単体CLIで新規のWorkspace指定実行は開始せず、確定済みの対象を所持する呼出し元は同Process APIで渡す。保存済み依頼の再送と、未終了依頼の既存資源回復は、新しい実行許可とは区別する。
+CRDD ServerはHTTPとMCP共通の管理入口でWorkspaceを選択・作成・採用・廃棄する。EMは対象Workspaceと競合する実行Lease・取得意図・回復義務を照合する。Directは全Workspaceと競合する。Git管理操作には共有の物理操作Lockを用い、別Workspaceの実行Leaseだけを理由に拒否しない。Serverは認可済みProjectと保存済みWorkspaceの対応を確認し、保存記録と既定配置が一致した実行候補だけを渡す。この段階では実Gitを起動せず、通信上の要求本文にHost Pathを加えない。準備した対象にHEADは含めない。Coordinatorは取得済みの排他の下でQueueとの相関・状態、指定したWorkspaceの所属、登録状態、専用Branch、実体、現在HEADを実行前に確認する。Workspaceの保存記録に対象パスや専用Branchがなければ実行先を確定せず、既存のWorkspace観測操作で照合し直す。専用Branch上の現在の内容を作業対象とし、保存済みHEADとの差や未Commit変更を理由に実行先の選択を拒否しない。レビュー処理にはその時点で観測した改訂を渡すが、これを採用許可とは扱わない。作成・採用・廃棄で対象を固定する条件は別に維持する。未指定のDirectは自身の実行先を用いるが、明示したWorkspaceの欠測・不一致をDirectへ代替しない。Coordinator単体CLIで新規のWorkspace指定実行は開始せず、確定済みの対象を所持する呼出し元は同Process APIで渡す。保存済み依頼の再送と、未終了依頼の既存資源回復は、新しい実行許可とは区別する。
 
 新規作成の`baseBranch`と`baseCommit`は、選択したローカルBranchとその期待HEADを表す。Serverは既存の排他内で直接参照を照合し、確定したCommitから作業領域を作る。元の作業Treeにステージ済み・未ステージ・無視対象外の未追跡変更があれば、既定では`workspace_creation_confirmation_required`を返して作成しない。利用者がそれらを引き継がないことを了承した場合だけ、同じBranch・期待HEADに`acceptUncommittedChangesExcluded: true`を加えて再送する。HEADが変わった場合や観測できない場合は了承済みでも作成しない。作成処理は元Treeと通常Indexを書き換えず、この契約はTask開始時の変更切り分けには適用しない。
 
-新規作成・廃棄・選択・再観測・候補固定・候補終了・正本採用はWorkspace側でTaskと同じ物理操作Lockを使うが、Task用の取得・解放記録を保存しない。処置の意図と結果は既存のWorkspace記録で扱い、操作Lockの残存時は手動で確認する。候補終了は採否の確定、Refの回収、回収証拠の確定、候補の除去を分ける。選択は確認済みの作業領域を受付へ割り当て、再観測は同じ割当の回復や状態更新だけを行う。正本採用にも別のLeaseは設けず、固定候補・取込先・採否は既存のWorkspace記録と統合結果に保持する。詳細は[ServerのWorkspace保存境界](../workbench-server/01_Architecture.md)を参照する。
+新規作成・廃棄・選択・再観測・候補固定・候補終了・正本採用は、Workspaceの管理操作同士をRepository単位の物理操作Lockで直列化する。実行用の取得・解放記録は作らず、処置の意図と結果は既存のWorkspace記録で扱う。排他の残存時は手動で確認する。候補終了は採否の確定、Refの回収、回収証拠の確定、候補の除去を分ける。選択は確認済みの作業領域を受付へ割り当て、再観測は同じ割当の回復や状態更新だけを行う。正本採用にも別のLeaseは設けず、固定候補・取込先・採否は既存のWorkspace記録と統合結果に保持する。詳細は[ServerのWorkspace保存境界](../workbench-server/01_Architecture.md)を参照する。
 
 新規作成の完了は、Gitの正常終了と指定先の登録・実体・基準HEADの一致で確認する。完了時に新しいTreeの変更有無は観測せず、変更なしとは記録しない。途中失敗後の再観測や廃棄に使う既存の変更確認は維持する。
 
@@ -225,7 +227,7 @@ Source・実Gitの成立範囲と残件は[変更計画の実装結果](../../..
 
 一覧は上限と継続位置を持ち、現在Queue／Workspaceの所属と世代、固定CandidateのBase・Commit・名前・採否と処置結果を公開する。内部一時物・絶対Path・資格・保存Snapshot全体を返さない。変更確認はVCがBaseと現在fileのraw内容・Blob・modeを相関し、固定直前に内容変更を再検出する。削除・binary・欠測・切詰めを全文確認済みへ変換しない。
 
-作成・選択・改名・保留・終了、候補固定・採用・候補終了は明示操作として分離する。既存世代は排他取得後にも照合し、同Queue／Workspaceの利用・保留・回復条件を既存Writerで再評価する。表示名・保留期限の変更はGitを操作しないため、短期保存排他だけで完結する。その保持中にRepository単位の操作Lease記録・残存排他がないことを確認し、WorkspaceとQueueの世代更新を同じ一版で保存する。Gitの配置は受付時に現在値を確認し、保存中は物理Root・保存領域・ファイル実体・Lock・状態版を検査する。外部referencesReleasedや採用済み申告を判定の代用にしない。MCPでは人間の指示をFront AIが代行できるが、Task完了から自動固定／自動採用しない。Serverは本人認証を人間指示の証明と表示せず、新しい確認Tokenや承認Storeを作らない。
+作成・選択・改名・保留・終了、候補固定・採用・候補終了は明示操作として分離する。既存世代は排他取得後にも照合し、同Queue／Workspaceの利用・保留・回復条件を既存Writerで再評価する。表示名・保留期限の変更はGitを操作しないため、短期保存排他だけで完結する。その保持中に対象と競合する実行および残存排他を照合し、WorkspaceとQueueの世代更新を同じ一版で保存する。Gitの配置は受付時に現在値を確認し、保存中は物理Root・保存領域・ファイル実体・Lock・状態版を検査する。外部referencesReleasedや採用済み申告を判定の代用にしない。MCPでは人間の指示をFront AIが代行できるが、Task完了から自動固定／自動採用しない。Serverは本人認証を人間指示の証明と表示せず、新しい確認Tokenや承認Storeを作らない。
 
 送信前取消はOwner処置0。Ownerへ開始後は同期Git／Writerの終端まで待ち、取消・応答喪失をRollback・未処置へ丸めない。明示再観測・同操作再入場を利用し、自動再送しない。公開時にも現在許可とSignalを再確認する。旧BundleのcandidateActionsと新Workspace候補を区別し、Source切替・実公開結合・人間UATの成立範囲を別に記録する。
 

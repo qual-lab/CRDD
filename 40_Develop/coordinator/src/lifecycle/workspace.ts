@@ -4,11 +4,8 @@
  * @trace ARCH-000004, ARCH-000005
  */
 import path from "node:path";
-import { readWorkspaceState } from "../../../execution-model/src/index.ts";
-import {
-  getRepository,
-  getWorktree,
-} from "../../../version-control/src/index.ts";
+import { readWorkspaceState } from "@qual-lab/crdd-execution-model";
+import { getRepository, getWorktree } from "@qual-lab/crdd-version-control";
 import { resolveExecutionStorageDirectory } from "./host.ts";
 import type { PreparedWorkspaceTarget } from "./types.ts";
 import { snapshotPlainRecord } from "./validation.ts";
@@ -64,7 +61,7 @@ export function capturePreparedWorkspaceTarget(
  * @trace ARCH-000004
  * @input 所属Root、Repository結合、Project／Milestone、元計画Revision、現在HEAD。
  * @returns Direct又は同じ計画の明示採用を確認できた場合だけtrue。
- * @effect 既存Snapshotの読取りのみ。Git変更・Task開始なし。
+ * @effect 同じ断面が渡された場合は読取りなし。そうでなければ既存Snapshotの読取りのみ。
  * @failure 欠測・別対象・採用前・別HEADはfalse。
  * @invariant 候補Refの現存を要求せず、Git採用を品質受入へ昇格しない。
  */
@@ -75,27 +72,41 @@ export function workspacePlanReadyForAcceptance(
   milestoneId: string,
   planRevision: string,
   currentHead: string,
+  queueId?: string,
+  observed?: NonNullable<ReturnType<typeof readWorkspaceState>["value"]>,
 ): boolean {
-  const read = readWorkspaceState(
-    resolveExecutionStorageDirectory(root),
-    binding,
-  );
-  if (read.status !== "completed" || !read.value) return false;
-  const plan = read.value.projects.find(
-    (p) => p.projectId === projectId && p.milestoneId === milestoneId,
-  );
-  if (!plan || plan.repositoryRevision !== planRevision) return false;
-  const queues = read.value.queueEntries.filter(
+  const current =
+    observed ??
+    readWorkspaceState(resolveExecutionStorageDirectory(root), binding).value;
+  if (!current) return false;
+  const queues = current.queueEntries.filter(
     (q) =>
       q.projectId === projectId &&
       q.milestoneId === milestoneId &&
+      (queueId === undefined || q.queueId === queueId) &&
       q.state === "integration_pending",
   );
   if (queues.length !== 1) return false;
   const queue = queues[0];
   if (!queue || queue.ownerGeneration !== null) return false;
+  const plans = current.projects.filter(
+    (p) => p.projectId === projectId && p.milestoneId === milestoneId,
+  );
+  const plan =
+    plans.find((p) => p.queueId === queue.queueId) ??
+    (queueId === undefined &&
+    plans.length === 1 &&
+    plans[0]?.queueId === undefined
+      ? plans[0]
+      : undefined);
+  if (
+    !plan ||
+    plan.repositoryRevision !== planRevision ||
+    queue.repositoryRevision !== planRevision
+  )
+    return false;
   if (queue.workspaceId == null) return currentHead === planRevision;
-  const adopted = read.value.results.filter((entry) => {
+  const adopted = current.results.filter((entry) => {
     if (
       entry.kind !== "adoption" ||
       entry.repositoryBindingId !== binding ||
@@ -183,8 +194,8 @@ export function confirmPreparedWorkspaceTarget(
     resolveExecutionStorageDirectory(ownerRepositoryRoot),
     binding,
   );
-  if (snapshot.status !== "completed" || !snapshot.value)
-    return failed(snapshot.reason);
+  if (snapshot.status !== "completed") return snapshot;
+  if (!snapshot.value) return failed(snapshot.reason);
   const queue = snapshot.value.queueEntries.find(
     (entry) => entry.queueId === queueId,
   );

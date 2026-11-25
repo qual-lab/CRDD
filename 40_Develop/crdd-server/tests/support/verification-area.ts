@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import {
   resolveVerifiedRepositoryRoot,
   type Repository,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 
 /**
  * runtime-data-path-resolverで使用するRepository Runtime Areaの値契約を定義する。

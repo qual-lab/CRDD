@@ -5,8 +5,8 @@
  * @boundary 試験限定。EM規則・耐久保存・実Process・Dockerを所有しない。
  */
 import assert from "node:assert/strict";
-import * as di from "../../../docker-isolation/src/index.ts";
-import type { LockResult } from "../../../lock/src/index.ts";
+import * as di from "@qual-lab/crdd-docker-isolation";
+import type { LockResult } from "@qual-lab/crdd-lock";
 import * as boundary from "../../src/lifecycle/attempt.ts";
 import { PURPOSES } from "../../src/lifecycle/attempt.ts";
 import { attemptPlan } from "./attempt-plan.ts";

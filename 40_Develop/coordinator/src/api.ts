@@ -10,7 +10,7 @@
 import {
   type Repository,
   resolveVerifiedRepositoryRoot,
-} from "../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import type { AuthenticationRequest } from "./lifecycle/authentication.ts";
 import { runProviderAuthenticationRequest } from "./lifecycle/authentication.ts";
 import {
@@ -73,7 +73,7 @@ export function authenticateProvider(
   return runProviderAuthenticationRequest("login", request, signal);
 }
 
-export type { ExecutionSelection } from "../../execution-model/src/index.ts";
+export type { ExecutionSelection } from "@qual-lab/crdd-execution-model";
 export {
   acceptResult,
   inspectCoordinatorDecisionRequest,

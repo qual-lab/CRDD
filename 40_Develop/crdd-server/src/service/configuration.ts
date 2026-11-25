@@ -8,12 +8,9 @@ import {
   evaluateAiProfileManagementPermission,
   resolveRepositoryAccess,
   type FilesystemStoreRoot,
-} from "../../../access-management/src/index.ts";
+} from "@qual-lab/crdd-access-management";
 import type { CredentialAdministration } from "./access.ts";
-import {
-  getModelCatalog,
-  type ModelCatalog,
-} from "../../../ai-adapter/src/index.ts";
+import { getModelCatalog, type ModelCatalog } from "@qual-lab/crdd-ai-adapter";
 import {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
@@ -21,7 +18,7 @@ import {
   type AiSelectionCatalog,
   type AiSelectionReadResult,
   type AiSelectionSaveResult,
-} from "../../../configuration-model/src/index.ts";
+} from "@qual-lab/crdd-configuration-model";
 import { createHash } from "node:crypto";
 import fs, { type Stats } from "node:fs";
 import * as asyncFs from "node:fs/promises";
@@ -31,7 +28,7 @@ import {
   registerRepositoryLocalIgnore,
   resolveVerifiedRepositoryRoot,
   type Repository,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 
 type ServerConnection = "workbench" | "mcp";
 

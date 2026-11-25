@@ -16,18 +16,30 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import {
+  createQueue,
   initializeExecutionStore,
+  leaseAcquisitionRecoveryId,
+  type ProjectExecutionState,
   readExecutionState,
+  readProjectExecutionState,
+  readQueueEntry,
   saveProjectExecutionState,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
+import { acquireLock } from "@qual-lab/crdd-lock";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
   resolveExecutionStorageDirectory,
+  waitForStateContention,
 } from "../../src/lifecycle/host.ts";
+import {
+  deriveCoordinatorRepositoryBindingId,
+  objectiveQueueId,
+} from "../../src/lifecycle/validation.ts";
 import { runTestCoordinatorObjective } from "../fixtures/task-persistence-fixture.ts";
 import type {
   CoordinatorSingleTaskAttemptInput,
@@ -49,6 +61,266 @@ import {
 import { canonicalJson } from "../support/contract-assertions.ts";
 
 const revision = "a".repeat(40);
+
+/** @trace PRL-IT-013 取消保存後に元世代の清掃が中断した状態を、公開再開から終結する。 */
+test("取消済み・採用待ちQueueは明示再開だけがHEAD変更後も元の解放を確定する", async (t) => {
+  for (const closing of ["cancelled", "integration_pending"] as const) {
+    const directory = root(t, false);
+    const binding = deriveCoordinatorRepositoryBindingId(directory);
+    const initialized = initializeExecutionStore(
+      resolveExecutionStorageDirectory(directory),
+      binding,
+    );
+    assert.equal(initialized.status, "completed", initialized.reason);
+    const principalId = "local-user";
+    const actualRevision = execFileSync(
+      "git",
+      ["-C", directory, "rev-parse", "HEAD"],
+      { encoding: "utf8", windowsHide: true },
+    ).trim();
+    const original = request({ repositoryRevision: actualRevision });
+    const parsed = inspectCoordinatorObjectiveRequest(original);
+    assert.ok(parsed);
+    const { operation: _operation, ...content } = parsed;
+    const queueId = objectiveQueueId(binding, principalId, parsed.requestId);
+    const stored = enqueueProjectOperation(directory, binding, {
+      queueId,
+      projectId: parsed.projectId,
+      milestoneId: parsed.milestoneId,
+      repositoryRevision: actualRevision,
+      requestHash: createHash("sha256")
+        .update(
+          JSON.stringify({ ...content, authenticatedPrincipalId: principalId }),
+          "utf8",
+        )
+        .digest("hex"),
+      scopeHash: createHash("sha256")
+        .update(
+          JSON.stringify({
+            allowedPaths: parsed.allowedPaths,
+            readPaths: parsed.readPaths,
+          }),
+          "utf8",
+        )
+        .digest("hex"),
+      originLane: parsed.originLane,
+    });
+    assert.equal(stored.status, "completed", stored.reason);
+    const lease = acquireCoordinatorLease(
+      directory,
+      binding,
+      parsed.projectId,
+      queueId,
+      "project-operation",
+    );
+    assert.ok(lease.status === "completed", lease.reason);
+    try {
+      let generation = 1;
+      for (const state of ["leased", "running", closing] as const) {
+        const written = updateProjectOperationQueueState(
+          directory,
+          binding,
+          queueId,
+          generation,
+          {
+            state,
+            lease: lease.value,
+            resumeCondition:
+              state === "integration_pending" ? "objective_integration" : null,
+            resultReference:
+              state === "integration_pending" ? "fixture-result" : null,
+          },
+        );
+        assert.ok(written.status === "completed", written.reason);
+        generation = written.value.generation;
+      }
+    } finally {
+      assert.equal(lease.value.release().status, "completed");
+    }
+    const read = () =>
+      readQueueEntry(
+        resolveExecutionStorageDirectory(directory),
+        binding,
+        queueId,
+      );
+    const pending = read();
+    assert.ok(pending.status === "completed" && pending.value.ownerGeneration);
+    execFileSync(
+      "git",
+      [
+        "-C",
+        directory,
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=test@example.invalid",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "--allow-empty",
+        "--quiet",
+        "-m",
+        "advance HEAD",
+      ],
+      { windowsHide: true },
+    );
+    assert.notEqual(
+      execFileSync("git", ["-C", directory, "rev-parse", "HEAD"], {
+        encoding: "utf8",
+        windowsHide: true,
+      }).trim(),
+      actualRevision,
+    );
+    const call = (raw: unknown) =>
+      runObjective(raw, new AbortController().signal, () => ({
+        directory,
+        principalId,
+      }));
+    const replayed = await call(original);
+    assert.equal(
+      replayed.reason,
+      "coordinator_queue_release_settlement_unconfirmed",
+    );
+    assert.equal(replayed.cleanupConfirmed, false);
+    assert.equal(replayed.effectState, "unknown");
+    assert.ok("recoveryIds" in replayed);
+    assert.deepEqual(replayed.recoveryIds, [
+      leaseAcquisitionRecoveryId(
+        binding,
+        parsed.projectId,
+        queueId,
+        "project-operation",
+      ),
+    ]);
+    assert.deepEqual(read(), pending);
+    const staleStart = await call({
+      ...original,
+      requestId: "stale-start-request",
+    });
+    assert.equal(staleStart.reason, "coordinator_binding_not_verified");
+    assert.deepEqual(read(), pending);
+    const resumed = await call({ ...original, operation: "resume" });
+    assert.equal(
+      resumed.status,
+      closing === "cancelled" ? "cancelled" : "blocked",
+      resumed.reason,
+    );
+    if (closing === "integration_pending")
+      assert.equal(
+        resumed.reason,
+        "coordinator_tasks_already_integration_pending",
+      );
+    assert.equal(resumed.cleanupConfirmed, true);
+    const finished = read();
+    assert.ok(finished.status === "completed");
+    assert.equal(finished.value.state, closing);
+    assert.equal(finished.value.ownerGeneration, null);
+  }
+});
+
+/** @trace PRL-IT-013 Queue受付が先行読取り後に競合した場合、Writerが元の要求に照合する。 */
+test("読取り後に同じQueueが先に保存された場合は、同内容を再利用し異内容を拒否する", async (t) => {
+  for (const matching of [true, false]) {
+    const directory = root(t, false);
+    const binding = "binding-a";
+    const principal = "principal-a";
+    const raw = request();
+    const candidate = inspectCoordinatorObjectiveRequest(raw);
+    assert.ok(candidate);
+    const queueId = objectiveQueueId(binding, principal, candidate.requestId);
+    const { operation: _operation, ...content } = candidate;
+    const capturedHash = createHash("sha256")
+      .update(
+        JSON.stringify({ ...content, authenticatedPrincipalId: principal }),
+        "utf8",
+      )
+      .digest("hex");
+    const competingHash = matching ? capturedHash : "d".repeat(64);
+    const scopeHash = createHash("sha256")
+      .update(
+        JSON.stringify({
+          allowedPaths: candidate.allowedPaths,
+          readPaths: candidate.readPaths,
+        }),
+        "utf8",
+      )
+      .digest("hex");
+    const repository = resolveExecutionStorageDirectory(directory);
+    const statePath = path.join(
+      directory,
+      ".crdd",
+      "execution-model",
+      "state.json",
+    );
+    let won: Buffer | undefined;
+    let calls = 0;
+    const selections = taskExecutionSelections();
+    const outcome = await runCoordinatorObjective(
+      {
+        authenticatedPrincipalId: principal,
+        verifyProjectBinding: () => ({
+          status: "verified",
+          repositoryBindingId: binding,
+          repositoryRevision: revision,
+          workingDirectory: directory,
+          repositoryRoot: directory,
+        }),
+        observeLeaseOwner: () =>
+          assert.fail("新規受付の再送でLease回復を始めない"),
+        resolveTaskSelections: () => {
+          calls++;
+          assert.equal(fs.existsSync(statePath), false);
+          const result = createQueue(repository, binding, {
+            kind: "scheduled",
+            input: [
+              {
+                queueId,
+                projectId: candidate.projectId,
+                milestoneId: candidate.milestoneId,
+                repositoryRevision: revision,
+                requestHash: competingHash,
+                originLane: candidate.originLane,
+                scopeHash,
+              },
+              {
+                projectId: candidate.projectId,
+                milestoneId: candidate.milestoneId,
+                repositoryRevision: revision,
+                maximumConcurrency: candidate.maximumConcurrency,
+                milestoneAcceptanceCriteria:
+                  candidate.plan.milestoneAcceptanceCriteria,
+                objectives: candidate.plan.objectives,
+                tasks: candidate.plan.tasks,
+                ownerGeneration: "winner-owner",
+                taskExecutionSelections: selections,
+              },
+            ],
+          });
+          assert.equal(result.status, "completed", result.reason);
+          won = fs.readFileSync(statePath);
+          return { status: "resolved", value: selections, reason: null };
+        },
+        createTaskExecutions: () => assert.fail("受付の競合で別Taskを作らない"),
+        execution: {
+          runSingleTaskAttempt: async () =>
+            assert.fail("受付の競合でExecutorを発行しない"),
+        },
+      },
+      raw,
+      new AbortController().signal,
+    );
+    assert.equal(calls, 1);
+    assert.equal(
+      outcome.reason,
+      matching
+        ? "coordinator_objective_request_reused"
+        : "coordinator_queue_identity_conflict",
+    );
+    assert.equal(outcome.effectState, "no_effect");
+    assert.ok(won);
+    assert.deepEqual(fs.readFileSync(statePath), won);
+  }
+});
 /**
  * 上位受付試験の技術回収済み診断を構成する。
  * @responsibility exact回復参照と技術終端の共同条件を固定する。
@@ -294,6 +566,314 @@ function request(overrides: Record<string, unknown> = {}) {
     ...overrides,
   });
 }
+
+/** @trace PRL-IT-005 実保存Lock競合は受付の未発行と解放不明を区別する。 */
+test("公開Objectiveは短期保存Lockの競合だけを有界に待ち、取消・失効は受付を開始しない", async (t) => {
+  const repo = root(t, false);
+  const binding = deriveCoordinatorRepositoryBindingId(repo);
+  const directory = resolveExecutionStorageDirectory(repo);
+  const init = initializeExecutionStore(directory, binding);
+  assert.equal(init.status, "completed", init.reason);
+  const stateFile = path.join(repo, ".crdd", "execution-model", "state.json");
+  const before = fs.readFileSync(stateFile);
+  const ownerRoot = path.join(repo, ".crdd", "lock");
+  for (const mode of ["release", "cancel", "denied", "timeout"] as const) {
+    const owner = acquireLock({
+      directory: ownerRoot,
+      name: "execution-model.state.lock",
+      identity: `current-state:${binding}`,
+    });
+    assert.equal(owner.status, "acquired");
+    if (owner.status !== "acquired") return;
+    const controller = new AbortController();
+    let checks = 0;
+    let release: Promise<void> | undefined;
+    let released = false;
+    const releaseOwner = () => {
+      if (!released) assert.equal(owner.lock.release(), true);
+      released = true;
+    };
+    try {
+      const output = runObjective(
+        request({
+          operation: "resume",
+          workspaceId: "11111111-1111-4111-8111-111111111111",
+        }),
+        controller.signal,
+        () => ({
+          directory: repo,
+          principalId: "local-user",
+          revalidate: async () => {
+            checks++;
+            return mode !== "denied";
+          },
+        }),
+      );
+      if (mode === "release") release = delay(35).then(releaseOwner);
+      if (mode === "cancel") release = delay(1).then(() => controller.abort());
+      const observed = await output;
+      assert.equal(
+        observed.reason,
+        {
+          release: "coordinator_objective_request_not_found",
+          cancel: "coordinator_objective_cancelled_before_start",
+          denied: "coordinator_authenticated_principal_not_verified",
+          timeout: "coordinator_snapshot_lock_contended",
+        }[mode],
+      );
+      assert.equal(observed.effectState, "no_effect");
+      assert.equal(observed.manualRecoveryRequired, false);
+      assert.ok(checks > 0 || mode === "cancel", mode);
+      assert.deepEqual(fs.readFileSync(stateFile), before);
+    } finally {
+      await release;
+      releaseOwner();
+    }
+  }
+  for (const [reason, manualRecoveryRequired, recoveryId] of [
+    [
+      "coordinator_snapshot_lock_release_unconfirmed",
+      true,
+      "original-recovery",
+    ],
+    ["coordinator_snapshot_lock_unavailable", false, null],
+    ["coordinator_snapshot_lock_contended", true, "original-recovery"],
+  ] as const) {
+    let calls = 0;
+    const refused = {
+      status: "blocked",
+      reason,
+      manualRecoveryRequired,
+      recoveryId,
+    } as const;
+    assert.strictEqual(
+      await waitForStateContention(new AbortController().signal, () => {
+        calls++;
+        return refused;
+      }),
+      refused,
+    );
+    assert.equal(calls, 1, reason);
+  }
+  const contended = {
+    status: "blocked",
+    reason: "coordinator_snapshot_lock_contended",
+    manualRecoveryRequired: false,
+    recoveryId: null,
+  } as const;
+  let lateChecks = 0;
+  let lateReads = 0;
+  let approve = (_allowed: boolean) => {};
+  const authorization = new Promise<boolean>((resolve) => {
+    approve = resolve;
+  });
+  const expired = await waitForStateContention(
+    new AbortController().signal,
+    () => {
+      lateReads++;
+      return contended;
+    },
+    () => {
+      lateChecks++;
+      return authorization;
+    },
+  );
+  assert.strictEqual(expired, contended);
+  approve(true);
+  await Promise.resolve();
+  assert.equal(lateReads, 1, "期限後の認可で再読取りしない");
+  assert.equal(lateChecks, 1);
+});
+
+/** @trace PRL-IT-013 Workspace観測の未発行競合を、真正の対象なしと区別する。 */
+test("Workspace受付は保存競合を対象なしにせず再認可してから観測する", async (t) => {
+  for (const allowed of [true, false]) {
+    const directory = root(t, false);
+    const binding = deriveCoordinatorRepositoryBindingId(directory);
+    const ownerRoot = path.join(directory, ".crdd", "lock");
+    let lock:
+      | Extract<ReturnType<typeof acquireLock>, { status: "acquired" }>
+      | undefined;
+    let reads = 0;
+    let approvals = 0;
+    const release = () => {
+      if (!lock) return;
+      assert.equal(lock.lock.release(), true);
+      lock = undefined;
+    };
+    try {
+      const outcome = await runObjective(
+        request({
+          workspaceId: "11111111-1111-4111-8111-111111111111",
+        }),
+        new AbortController().signal,
+        () => ({
+          directory,
+          principalId: "local-user",
+          prepareWorkspaceTarget: () => {
+            if (++reads === 1) {
+              const acquired = acquireLock({
+                directory: ownerRoot,
+                name: "execution-model.state.lock",
+                identity: `current-state:${binding}`,
+              });
+              if (acquired.status !== "acquired") throw Error(acquired.reason);
+              lock = acquired;
+            }
+            const observed = readExecutionState(
+              resolveExecutionStorageDirectory(directory),
+              binding,
+            );
+            return { ...observed, value: null };
+          },
+          revalidate: async () => {
+            approvals++;
+            release();
+            return allowed;
+          },
+        }),
+      );
+      assert.equal(approvals, 1);
+      assert.equal(reads, allowed ? 2 : 1);
+      assert.equal(
+        outcome.reason,
+        allowed
+          ? "coordinator_workspace_target_changed"
+          : "coordinator_authenticated_principal_not_verified",
+      );
+      assert.equal(outcome.effectState, "no_effect");
+      assert.equal(
+        fs.existsSync(
+          path.join(directory, ".crdd", "execution-model", "state.json"),
+        ),
+        false,
+      );
+    } finally {
+      release();
+    }
+  }
+  const directory = root(t, false);
+  const refused = await runObjective(
+    request({
+      workspaceId: "11111111-1111-4111-8111-111111111111",
+    }),
+    new AbortController().signal,
+    () => ({
+      directory,
+      principalId: "local-user",
+      prepareWorkspaceTarget: () => ({
+        status: "blocked",
+        reason: "coordinator_snapshot_lock_release_unconfirmed",
+        manualRecoveryRequired: true,
+        recoveryId: "internal-storage-lock",
+        value: null,
+      }),
+      revalidate: async () => assert.fail("観測不能を競合待ちに入れない"),
+    }),
+  );
+  assert.equal(refused.manualRecoveryRequired, true);
+  assert.equal(refused.cleanupConfirmed, false);
+  assert.equal(refused.effectState, "unknown");
+  assert.ok("recoveryIds" in refused);
+  assert.deepEqual(refused.recoveryIds, []);
+});
+
+/** @trace PRL-IT-013 初回Queueの未発行競合では選定を繰り返さず、許可された場合だけ初期化する。 */
+test("初回Queueは保存競合後に再認可し、選定と実行をやり直さない", async (t) => {
+  for (const allowed of [true, false]) {
+    const directory = root(t, false);
+    const binding = "binding-a";
+    const stateFile = path.join(
+      directory,
+      ".crdd",
+      "execution-model",
+      "state.json",
+    );
+    let lock:
+      | Extract<ReturnType<typeof acquireLock>, { status: "acquired" }>
+      | undefined;
+    let checks = 0;
+    let selections = 0;
+    let effects = 0;
+    const release = () => {
+      if (!lock) return;
+      assert.equal(lock.lock.release(), true);
+      lock = undefined;
+    };
+    try {
+      const outcome = await runCoordinatorObjective(
+        {
+          authenticatedPrincipalId: "principal-a",
+          verifyProjectBinding: () => ({
+            status: "verified",
+            repositoryBindingId: binding,
+            repositoryRevision: revision,
+            workingDirectory: directory,
+            repositoryRoot: directory,
+          }),
+          observeLeaseOwner: (owner) => ({ ...owner, status: "absent" }),
+          resolveTaskSelections: () => {
+            selections++;
+            const acquired = acquireLock({
+              directory: path.join(directory, ".crdd", "lock"),
+              name: "execution-model.state.lock",
+              identity: `current-state:${binding}`,
+            });
+            if (acquired.status !== "acquired") throw Error(acquired.reason);
+            lock = acquired;
+            return {
+              status: "resolved",
+              value: taskExecutionSelections(),
+              reason: null,
+            };
+          },
+          createTaskExecutions: () => [
+            { taskId: "task-a", taskRequest: {}, repositoryRoot: directory },
+          ],
+          execution: {
+            leaseWait: {
+              revalidate: async () => {
+                checks++;
+                assert.equal(fs.existsSync(stateFile), false);
+                release();
+                return allowed;
+              },
+            },
+            runSingleTaskAttempt: async (attempt) => {
+              effects++;
+              return completed(attempt);
+            },
+          },
+        },
+        request(),
+        new AbortController().signal,
+      );
+      assert.equal(checks, 1);
+      assert.equal(selections, 1);
+      assert.equal(effects, allowed ? 1 : 0, outcome.reason);
+      assert.equal(fs.existsSync(stateFile), allowed);
+      if (allowed) {
+        const stored = readExecutionState(
+          resolveExecutionStorageDirectory(directory),
+          binding,
+        );
+        assert.equal(stored.status, "completed", stored.reason);
+        assert.equal(stored.value?.queueEntries.length, 1);
+        assert.equal(stored.value?.projects[0]?.tasks[0]?.state, "completed");
+      } else {
+        assert.equal(
+          outcome.reason,
+          "coordinator_authenticated_principal_not_verified",
+        );
+        assert.equal(outcome.effectState, "no_effect");
+        assert.equal(outcome.manualRecoveryRequired, false);
+      }
+    } finally {
+      release();
+    }
+  }
+});
+
 /**
  * completedのTest準備責務を実行する。
  *
@@ -328,6 +908,27 @@ async function completed(input: {
     processRestartRequired: false,
     candidateId: "candidate-a",
     recoveryIds: [],
+  };
+}
+
+/** 回復fixtureの書込みにも元Queueの受付を渡す。 @trace PRL-IT-005 */
+function fixtureIntakeForState(
+  root: string,
+  binding: string,
+  state: ProjectExecutionState,
+): NonNullable<Parameters<typeof saveProjectExecutionState>[4]> {
+  assert.ok(state.queueId);
+  const current = readProjectOperationQueueState(root, binding, state.queueId);
+  assert.equal(current.status, "completed");
+  if (current.status !== "completed") throw Error("fixture_queue_unavailable");
+  assert.equal(current.value.projectId, state.projectId);
+  assert.equal(current.value.milestoneId, state.milestoneId);
+  return {
+    operation: "resume",
+    queueId: state.queueId,
+    projectId: state.projectId,
+    milestoneId: state.milestoneId,
+    requestHash: current.value.requestHash,
   };
 }
 
@@ -380,6 +981,7 @@ function settleExecutionProcessAsFreshProcess(
         recoveryId: obligation.recoveryId,
       },
       state.generation,
+      fixtureIntakeForState(workingDirectory, repositoryBindingId, state),
     );
     assert.equal(write.status, "completed");
     assert.ok(write.value);
@@ -396,6 +998,7 @@ function settleExecutionProcessAsFreshProcess(
       recoveryId: obligation.recoveryId,
     },
     state.generation,
+    fixtureIntakeForState(workingDirectory, repositoryBindingId, state),
   );
   assert.equal(write.status, "completed");
 }
@@ -440,8 +1043,6 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
     }),
     resolveTaskSelections: () => {
       selectionReads += 1;
-      if (selectionReads > 1)
-        throw new Error("config_must_not_be_read_on_reentry");
       return { status: "resolved" as const, value: selected, reason: null };
     },
     createTaskExecutions: () => [
@@ -546,12 +1147,13 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
     assert.equal(rejected.effectState, "no_effect");
     assert.deepEqual(runtimeSnapshot(workingDirectory), savedBytes);
   }
-  for (const change of [
+  const invalidSelections = [
     { workType: "coding" },
     { choice: { provider: "claude", model: "gpt-5.5", effort: "high" } },
     { choice: { provider: "codex", model: "different-model", effort: "high" } },
     { choice: { provider: "codex", model: "gpt-5.5", effort: "medium" } },
-  ]) {
+  ];
+  for (const [index, change] of invalidSelections.entries()) {
     const rejected = await runCoordinatorObjective(
       dependencies,
       { ...explicitRequest, requestId: "request-changed", ...change },
@@ -560,21 +1162,43 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
     assert.equal(rejected.reason, "coordinator_objective_selection_mismatch");
     assert.equal(rejected.effectState, "no_effect");
     assert.deepEqual(runtimeSnapshot(workingDirectory), savedBytes);
-    assert.equal(selectionReads, 1);
+    assert.equal(selectionReads, 2 + index);
     assert.equal(effects, 1);
   }
-  const inherited = await runCoordinatorObjective(
-    dependencies,
+  const independent = await runCoordinatorObjective(
+    {
+      ...dependencies,
+      resolveTaskSelections: () => {
+        selectionReads += 1;
+        return { status: "resolved" as const, value: defaults, reason: null };
+      },
+    },
     { ...request(), requestId: "request-inherited" },
     new AbortController().signal,
   );
-  assert.equal(inherited.status, "completed", JSON.stringify(inherited));
-  assert.equal(selectionReads, 1);
-  assert.equal(effects, 1);
-  const state = readCoordinatorState(
-    workingDirectory,
+  assert.equal(independent.status, "completed", JSON.stringify(independent));
+  assert.equal(selectionReads, 2 + invalidSelections.length);
+  assert.equal(effects, 2);
+  assert.ok(
+    first.queueId &&
+      independent.queueId &&
+      first.queueId !== independent.queueId,
+  );
+  const repository = resolveExecutionStorageDirectory(workingDirectory);
+  assert.deepEqual(
+    readProjectExecutionState(
+      repository,
+      "binding-a",
+      "project-a",
+      independent.queueId,
+    ).value?.taskExecutionSelections,
+    defaults,
+  );
+  const state = readProjectExecutionState(
+    repository,
     "binding-a",
     "project-a",
+    first.queueId,
   );
   const queue = readProjectOperationQueueState(
     workingDirectory,
@@ -786,7 +1410,7 @@ test("public Objective re-entry preserves malformed snapshot without inventing a
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("public Objective classifies foreign, missing, and mismatched acquisition queues before durable mutation", async (t) => {
+test("Objective leaves unrelated acquisition untouched and refuses damaged acquisition records", async (t) => {
   for (const scenario of [
     "foreign-project",
     "missing-queue",
@@ -843,7 +1467,13 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
           value: taskExecutionSelections(),
           reason: null,
         }),
-        createTaskExecutions: () => [],
+        createTaskExecutions: () => [
+          {
+            taskId: "task-a",
+            taskRequest: {},
+            repositoryRoot: workingDirectory,
+          },
+        ],
         observeLeaseOwner: (owner) => ({ ...owner, status: "absent" }),
         execution: {
           runSingleTaskAttempt: async (input) => {
@@ -856,23 +1486,38 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
       new AbortController().signal,
     );
     assert.equal(result.status, "blocked", scenario);
-    assert.equal(result.manualRecoveryRequired, true, scenario);
-    assert.equal(result.cleanupConfirmed, false, scenario);
+    const after = runtimeSnapshot(workingDirectory);
     if (scenario === "foreign-project") {
-      assert.match(
-        result.recoveryIds[0] ?? "",
-        /^lease-acquisition-[0-9a-f]{40}$/u,
-      );
       assert.equal(
-        result.reason,
-        "coordinator_lease_acquisition_project_identity_mismatch",
+        result.manualRecoveryRequired,
+        false,
+        JSON.stringify(result),
       );
+      assert.deepEqual("recoveryIds" in result ? result.recoveryIds : [], []);
+      assert.equal(result.effectState, "no_effect");
+      const statePath = "execution-model/state.json";
+      const oldState = JSON.parse(before.get(statePath) ?? "null");
+      const newState = JSON.parse(after.get(statePath) ?? "null");
+      assert.deepEqual(newState.leaseIntents, oldState.leaseIntents);
+      assert.deepEqual(
+        newState.queueEntries.find(
+          (item: { queueId: string }) => item.queueId === residualQueueId,
+        ),
+        oldState.queueEntries.find(
+          (item: { queueId: string }) => item.queueId === residualQueueId,
+        ),
+      );
+      after.delete(statePath);
+      before.delete(statePath);
+      assert.deepEqual(after, before);
     } else {
+      assert.equal(result.manualRecoveryRequired, true, scenario);
+      assert.equal(result.cleanupConfirmed, false, scenario);
       assert.deepEqual(result.recoveryIds, []);
       assert.equal(result.reason, "coordinator_state_read_unconfirmed");
+      assert.deepEqual(after, before, scenario);
     }
     assert.equal(effects, 0, scenario);
-    assert.deepEqual(runtimeSnapshot(workingDirectory), before, scenario);
   }
 });
 
@@ -939,23 +1584,30 @@ test("a scheduled Objective arriving during interactive execution waits without 
     request({ requestId: "request-interactive" }),
     new AbortController().signal,
   );
-  await started;
-  const scheduled = await runCoordinatorObjective(
-    dependencies,
-    request({ requestId: "request-scheduled", originLane: "scheduled" }),
-    new AbortController().signal,
-  );
-  assert.equal(scheduled.status, "blocked");
-  assert.equal(
-    scheduled.reason,
-    "coordinator_objective_queued_waiting_foreground",
-  );
-  assert.equal(scheduled.cleanupConfirmed, true);
-  assert.equal(scheduled.manualRecoveryRequired, false);
-  assert.equal(scheduled.effectState, "no_effect");
-  assert.equal(effects, 1);
-
-  releaseEffect();
+  try {
+    await Promise.race([
+      started,
+      interactive.then((result) =>
+        assert.fail(`interactive_did_not_start:${JSON.stringify(result)}`),
+      ),
+    ]);
+    const scheduled = await runCoordinatorObjective(
+      dependencies,
+      request({ requestId: "request-scheduled", originLane: "scheduled" }),
+      new AbortController().signal,
+    );
+    assert.equal(scheduled.status, "blocked");
+    assert.equal(
+      scheduled.reason,
+      "coordinator_objective_queued_waiting_foreground",
+    );
+    assert.equal(scheduled.cleanupConfirmed, true);
+    assert.equal(scheduled.manualRecoveryRequired, false);
+    assert.equal(scheduled.effectState, "no_effect");
+    assert.equal(effects, 1);
+  } finally {
+    releaseEffect();
+  }
   assert.equal((await interactive).status, "completed");
   assert.equal(effects, 1);
 });
@@ -1407,6 +2059,7 @@ test("async recovery interruption preserves technical and Task settlement bounda
             recoveryId,
           },
           before.value.generation,
+          fixtureIntakeForState(workingDirectory, "binding-a", before.value),
         );
         assert.equal(written.status, "completed");
         if (written.status !== "completed")
@@ -2022,6 +2675,7 @@ test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjec
   const selectedQueue = selectNextProjectOperation(
     workingDirectory,
     "binding-a",
+    objectiveQueueId("binding-a", "principal-a", "request-a"),
   );
   assert.ok(selectedQueue.value);
   const queueId = selectedQueue.value.queueId;
@@ -2042,6 +2696,7 @@ test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjec
       authorityBindingId: "authority-owner-loss",
     },
     stateRead.value.generation,
+    fixtureIntakeForState(workingDirectory, "binding-a", stateRead.value),
   );
   assert.equal(reserved.status, "completed", reserved.reason);
   const queueRead = readProjectOperationQueueState(
@@ -2226,6 +2881,7 @@ for (const interruption of [
             ),
           },
           state.generation,
+          fixtureIntakeForState(workingDirectory, "binding-a", state),
         ).status,
         "completed",
       );

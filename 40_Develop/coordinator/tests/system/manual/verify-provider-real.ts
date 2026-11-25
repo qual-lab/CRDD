@@ -14,7 +14,7 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
-import type { AttemptDiagnosticNotice } from "../../../../executor/src/index.ts";
+import type { AttemptDiagnosticNotice } from "@qual-lab/crdd-executor";
 import {
   readReport,
   removeReport,
@@ -68,16 +68,14 @@ registerHooks({
   },
 });
 
-const { resolveModelSelection } = await import(
-  "../../../../ai-adapter/src/index.ts"
-);
+const { resolveModelSelection } = await import("@qual-lab/crdd-ai-adapter");
 
 const { describeIsolationConfiguration } = await import(
-  "../../../../docker-isolation/src/index.ts"
+  "@qual-lab/crdd-docker-isolation"
 );
 
 const { validateResourceBook, ExecutionStorageBlockedError } = await import(
-  "../../../../execution-model/src/index.ts"
+  "@qual-lab/crdd-execution-model"
 );
 const {
   ensureRepositoryRuntimeDataArea,
@@ -88,7 +86,7 @@ const {
   getRepositoryFromWorkingDirectory,
   getRepository,
   resolveVerifiedRepositoryRoot,
-} = await import("../../../../version-control/src/index.ts");
+} = await import("@qual-lab/crdd-version-control");
 
 const { observeProviderHome } = await import(
   "../../../../executor/tests/support/provider-home.ts"
@@ -197,7 +195,7 @@ export function buildStandaloneTrialRequest(
     { status: "candidate" }
   >,
   homePath: string,
-): import("../../../../executor/src/index.ts").ExecutorRequest<"attempt"> {
+): import("@qual-lab/crdd-executor").ExecutorRequest<"attempt"> {
   if (
     JSON.stringify(spec) !==
     JSON.stringify(describeStandaloneProviderTrial(spec.provider, spec.mode))
@@ -803,7 +801,7 @@ export function cleanupStandaloneTrialRoot(
     let operationId: string | null = null;
     let ownershipLabel: string | null = null;
     let priorResources:
-      | import("../../../../execution-model/src/index.ts").OperationResources
+      | import("@qual-lab/crdd-execution-model").OperationResources
       | null = null;
     const kinds: string[] = [];
     for (const [i, name] of files.entries()) {

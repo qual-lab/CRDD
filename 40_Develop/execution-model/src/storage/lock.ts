@@ -8,8 +8,8 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { types } from "node:util";
-import type { Lock, LockResult } from "../../../lock/src/index.ts";
-import { acquireLock } from "../../../lock/src/index.ts";
+import type { Lock, LockResult } from "@qual-lab/crdd-lock";
+import { acquireLock } from "@qual-lab/crdd-lock";
 import type { OperationResources } from "../attempt/types.ts";
 
 /** Rootを再検証し、保存OwnerとしてRepository内の固定Lock所在を準備する。 */
@@ -288,7 +288,11 @@ export function acquireSnapshotPilotLock(
   return result.status === "completed"
     ? completed("coordinator_snapshot_lock_acquired", result.value)
     : result.reason === "coordinator_state_lock_unavailable"
-      ? blocked("coordinator_snapshot_lock_unavailable", false)
+      ? blocked(
+          "coordinator_snapshot_lock_unavailable",
+          result.manualRecoveryRequired,
+          result.recoveryId,
+        )
       : result;
 }
 
@@ -327,6 +331,13 @@ export function isLiveSnapshotOwner(owner: unknown): owner is SnapshotOwner {
 export function storageLockFailure<T>(result: LockResult): StoreResult<T> {
   if (result.status === "acquired")
     throw Error("storage_lock_failure_requires_blocked");
+  if (
+    result.reason === "lock_exists" &&
+    result.descriptorClosed &&
+    result.cleanupConfirmed &&
+    result.reference === null
+  )
+    return blocked("coordinator_snapshot_lock_contended");
   const retained = result.reference !== null || !result.cleanupConfirmed;
   return blocked(
     !result.descriptorClosed

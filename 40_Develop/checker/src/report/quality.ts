@@ -3,7 +3,7 @@
  * @responsibility 既存の診断shape・code・文言・必要値検査を所有する。
  * @trace ARCH-000001
  */
-import type { DocumentIssue } from "../../../document-model/src/index.ts";
+import type { DocumentIssue } from "@qual-lab/crdd-document-model";
 import type { CheckerFinding, DocumentFinding } from "./types.ts";
 /**
  * 品質設計状態の中立Issueを既存の表示へ変換する。

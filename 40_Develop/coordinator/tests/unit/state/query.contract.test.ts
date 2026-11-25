@@ -17,7 +17,7 @@ import test from "node:test";
 import {
   ExecutionStorageBlockedError,
   type ProjectExecutionState,
-} from "../../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { projectExecutionFixture } from "../../../../execution-model/tests/fixtures/execution-plan.ts";
 import { sourceDeclaration } from "../../../../execution-model/tests/support/source-declaration.ts";
 import { queryState } from "../../../src/index.ts";
@@ -29,12 +29,90 @@ import { queryCoordinatorState } from "../../../src/lifecycle/query.ts";
 import { snapshotPlainArray } from "../../../src/lifecycle/validation.ts";
 import {
   COORDINATOR_STATE_QUERY_CONTRACT,
+  deriveCoordinatorRepositoryBindingId,
   inspectCoordinatorObjectiveResult,
   inspectCoordinatorProjection,
   inspectTaskStartCandidates,
+  objectiveQueueId,
   projectCoordinatorState,
 } from "../../../src/lifecycle/validation.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
+
+/** 同一Project・同世代でも別Queueの開始候補を流用しない。 @trace PPR-UT-006 */
+test("開始候補は同じProjectと世代でも別Queueを拒否する", () => {
+  const state = { ...runtimeState(), queueId: "queue-a" };
+  const base = {
+    projectId: state.projectId,
+    generation: state.generation,
+    taskIds: ["task-a"],
+  };
+  assert.deepEqual(
+    inspectTaskStartCandidates(state, { ...base, queueId: "queue-a" }),
+    { ...base, queueId: "queue-a" },
+  );
+  assert.equal(
+    inspectTaskStartCandidates(state, { ...base, queueId: "queue-b" }),
+    null,
+  );
+  assert.equal(inspectTaskStartCandidates(state, base), null);
+});
+
+/** 同じProjectとMilestoneでも、別Queueの進捗を元Graphの結果として返さない。 @trace PPR-UT-006 */
+test("Objective結果は外側と進捗投影のQueueを照合する", () => {
+  const base = runtimeState();
+  const expected = {
+    repositoryRoot: "fixture-root",
+    principalId: "principal-a",
+    requestId: "request-a",
+    projectId: base.projectId,
+    milestoneId: base.milestoneId,
+  };
+  const queueId = objectiveQueueId(
+    deriveCoordinatorRepositoryBindingId(expected.repositoryRoot),
+    expected.principalId,
+    expected.requestId,
+  );
+  const projectionFor = (scope: string) =>
+    projectCoordinatorState(
+      { ...base, queueId: scope },
+      {
+        projectId: base.projectId,
+        queueId: scope,
+        generation: base.generation,
+        taskIds: ["task-a"],
+      },
+    );
+  const result = {
+    contract: "crdd-coordinator/objective-intake/v4",
+    status: "blocked",
+    reason: "coordinator_objective_already_running",
+    requestId: expected.requestId,
+    projectId: expected.projectId,
+    milestoneId: expected.milestoneId,
+    queueId,
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    processRestartRequired: false,
+    effectState: "no_effect",
+    recoveryIds: [],
+    recoveryObligations: [],
+  };
+  assert.ok(
+    inspectCoordinatorObjectiveResult(
+      { ...result, projection: projectionFor(queueId) },
+      null,
+      expected,
+    ),
+  );
+  assert.equal(
+    inspectCoordinatorObjectiveResult(
+      { ...result, projection: projectionFor("queue-b") },
+      null,
+      expected,
+    ),
+    null,
+  );
+});
 
 /**
  * 照会は同じ断面の候補を完成投影で一度だけ受け付ける。
@@ -130,7 +208,7 @@ test("終端保存失敗は既知義務と今回分をQueue・Lease失敗後も�
     "utf8",
   );
   const start = source.indexOf("  const completeQueue =");
-  const end = source.indexOf("  // Selection made before", start);
+  const end = source.indexOf("  const saveTaskProgress =", start);
   assert.ok(start > 0 && end > start);
   const run = new Function(
     "mode",
@@ -172,6 +250,7 @@ test("終端保存失敗は既知義務と今回分をQueue・Lease失敗後も�
       return mode==='settlement' ? {status:'blocked',reason:'settlement_failed'} : {status:'completed'};
     };
     const createCoordinatorStableId=()=> 'existing-id';
+    const leaseAcquisitionRecoveryId=()=> 'queue-lease-exact';
     const withWorkspaceResults=value=>value;
     ${sourceDeclaration(source, "finishOperationLease")}
     ${stripTypeScriptTypes(source.slice(start, end))}
@@ -221,10 +300,11 @@ test("終端保存失敗は既知義務と今回分をQueue・Lease失敗後も�
         recoveryObligations: explicit ? [old, current, current] : [],
         processRestartRequired: explicit,
       });
-      assert.deepEqual(
-        output.recoveryIds,
-        explicit ? [old.recoveryId, current.recoveryId] : [old.recoveryId],
-      );
+      assert.deepEqual(output.recoveryIds, [
+        old.recoveryId,
+        ...(explicit ? [current.recoveryId] : []),
+        ...(mode.startsWith("queue") ? ["queue-lease-exact"] : []),
+      ]);
       assert.deepEqual(
         output.recoveryObligations,
         explicit ? [old, current] : [old],
@@ -294,7 +374,14 @@ test("終端保存失敗は既知義務と今回分をQueue・Lease失敗後も�
     assert.equal(outcome.status, failed ? "blocked" : "completed");
     assert.equal(outcome.cleanupConfirmed, !failed);
     assert.equal(outcome.processRestartRequired, failed);
-    assert.deepEqual(outcome.recoveryIds, failed ? ["known-recovery"] : []);
+    assert.deepEqual(
+      outcome.recoveryIds,
+      mode === "integration_failed_recovery_failed"
+        ? ["known-recovery", "queue-lease-exact"]
+        : failed
+          ? ["known-recovery"]
+          : [],
+    );
   }
 });
 
@@ -1370,6 +1457,47 @@ test("取得済み断面から指定Projectと同版の候補だけを選ぶ", (
   );
   assert.equal(duplicate.reason, "coordinator_state_observation_unknown");
   assert.equal(duplicate.projection, null);
+  const twoQueues = {
+    projects: [
+      { ...state, queueId: "queue-a" },
+      { ...state, queueId: "queue-b" },
+    ],
+    taskStartCandidates: [
+      { ...base, queueId: "queue-a" },
+      { ...base, queueId: "queue-b", taskIds: [] },
+    ],
+  };
+  const ambiguous = queryCoordinatorState(twoQueues, request);
+  assert.equal(ambiguous.observationState, "unknown");
+  assert.equal(ambiguous.projection, null);
+  const resultA = queryCoordinatorState(twoQueues, {
+    ...request,
+    queueId: "queue-a",
+  });
+  const resultB = queryCoordinatorState(twoQueues, {
+    ...request,
+    queueId: "queue-b",
+  });
+  assert.equal(resultA.projection?.nextAction, "schedule_task");
+  assert.equal(resultB.projection?.nextAction, "wait_for_task");
+  assert.equal(resultA.queueId, "queue-a");
+  assert.equal(
+    inspectCoordinatorStateQueryResult(resultB)?.projection?.queueId,
+    "queue-b",
+  );
+  assert.equal(
+    inspectCoordinatorStateQueryResult({ ...resultB, queueId: "queue-a" }),
+    null,
+  );
+  assert.equal(
+    queryCoordinatorState(twoQueues, { ...request, queueId: "queue-other" })
+      .observationState,
+    "absent",
+  );
+  assert.equal(
+    inspectCoordinatorStateQuery({ ...request, queueId: "../queue-a" }),
+    null,
+  );
 });
 
 import { parseExecutionActivityObservation } from "../../../src/lifecycle/query.ts";

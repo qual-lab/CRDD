@@ -15,24 +15,38 @@
  */
 
 import assert from "node:assert/strict";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import { prepareFixtureRecovery } from "../../../coordinator/tests/support/recovery-repository.ts";
-import childProcess, { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import childProcess, {
+  execFile,
+  execFileSync,
+  spawn,
+} from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
-import { readStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
+import {
+  parseStoredExecutionFixture,
+  readStoredExecutionFixture,
+} from "../../../execution-model/tests/fixtures/stored-execution.ts";
+import {
+  initialExecutionInput,
+  withCallerPlan,
+} from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test, { mock, type TestContext } from "node:test";
-import { pathToFileURL } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import {
   beginWorkspaceOperation,
   createQueue,
+  leaseAcquisitionRecoveryId,
   readState,
   readWorkspaceState,
+  retireStateRecords,
   saveProjectExecutionState,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { acceptResult } from "../../../coordinator/src/lifecycle/decision.ts";
 import { runTestSingleTaskAttempt } from "../../../coordinator/tests/support/task-requests.ts";
 import { acquireCoordinatorSnapshotLease } from "../../../coordinator/src/lifecycle/host.ts";
@@ -44,7 +58,7 @@ import {
   type WorkspaceManagementRequest,
   type WorkspaceView,
 } from "../../src/service/workspace.ts";
-import { queryState } from "../../../coordinator/src/index.ts";
+import { queryState } from "@qual-lab/crdd-coordinator";
 import { runTestCoordinatorOperation } from "../../../coordinator/tests/fixtures/task-persistence-fixture.ts";
 import {
   confirmPreparedWorkspaceTarget,
@@ -76,6 +90,1026 @@ function fixture(t: TestContext, independent = false) {
       } as WorkspaceManagementRequest),
   };
 }
+
+/** @trace PRL-IT-012 正式Server受付で同一Project・Milestoneの別Workspaceを実行し、別親から元Queueへ戻る。 */
+test("Serverの別Workspace実行は同時に進み、片側の異常終了で相手の所有を失わない", async (t) => {
+  const f = fixture(t);
+  const startState = f
+    .snapshot()
+    .projects.find(({ queueId }) => queueId === f.common.queueId);
+  assert.ok(startState);
+  const ids = [randomUUID(), randomUUID()] as const;
+  const shutdownWorkspace = randomUUID();
+  const registerWorkspace = (workspaceId: string, index: number) => {
+    const queueId = `workspace-setup-${index}`;
+    const seeded: { status: string; reason: string } = createQueue(
+      f.ports.repository,
+      f.binding,
+      {
+        kind: "scheduled",
+        input: [
+          {
+            queueId,
+            projectId: f.common.projectId,
+            milestoneId: startState.milestoneId,
+            repositoryRevision: f.base,
+            requestHash: String(index + 1).repeat(64),
+            scopeHash: "e".repeat(64),
+            originLane: "scheduled",
+          },
+          initialExecutionInput(startState),
+        ],
+      },
+    );
+    assert.equal(seeded.status, "completed", seeded.reason);
+    const created = f.operate({
+      operation: "create",
+      queueId,
+      workspaceId,
+      baseCommit: f.base,
+    });
+    assert.equal(created.status, "completed", created.reason);
+  };
+  for (const [index, workspaceId] of ids.entries())
+    registerWorkspace(workspaceId, index);
+  const [treeA, treeB] = ids.map((id) =>
+    path.join(f.root, ".crdd", "workspaces", id, "worktree"),
+  );
+  assert.ok(treeA && treeB);
+  const targetB = prepareWorkspaceExecutionTarget(
+    f.root,
+    f.common.projectId,
+    ids[1],
+  );
+  assert.ok(targetB);
+  await t.test("別IDが同じ実体を指すWorktreeを拒否する", (aliasTest) => {
+    const confirmB = () =>
+      confirmPreparedWorkspaceTarget(
+        f.root,
+        f.binding,
+        "workspace-setup-1",
+        targetB,
+      );
+    assert.equal(confirmB().status, "completed");
+    const beforeAlias = f.snapshot();
+    const displacedB = path.join(
+      path.dirname(treeB),
+      "fixture-displaced-worktree",
+    );
+    for (const tree of [treeA, treeB]) {
+      assert.equal(fs.realpathSync.native(tree), tree);
+      assert.ok(fs.lstatSync(tree).isDirectory());
+    }
+    fs.renameSync(treeB, displacedB);
+    let aliasCreated = false;
+    try {
+      try {
+        fs.symlinkSync(
+          treeA,
+          treeB,
+          process.platform === "win32" ? "junction" : "dir",
+        );
+      } catch (error) {
+        if (
+          !["EPERM", "EACCES"].includes(
+            (error as NodeJS.ErrnoException).code ?? "",
+          )
+        )
+          throw error;
+        aliasTest.skip("実リンクを作成できない実行環境");
+        return;
+      }
+      aliasCreated = true;
+      assert.equal(fs.realpathSync.native(treeB), treeA);
+      const alias = confirmB();
+      assert.equal(alias.status, "blocked");
+      assert.equal(alias.reason, "coordinator_workspace_target_changed");
+      assert.deepEqual(f.snapshot(), beforeAlias);
+    } finally {
+      if (aliasCreated) {
+        assert.ok(fs.lstatSync(treeB).isSymbolicLink());
+        assert.equal(fs.realpathSync.native(treeB), treeA);
+        fs.unlinkSync(treeB);
+      }
+      fs.renameSync(displacedB, treeB);
+      assert.equal(confirmB().status, "completed");
+    }
+  });
+  const control = path.join(f.root, ".crdd", "parallel-fixture");
+  fs.mkdirSync(control);
+  fs.writeFileSync(path.join(control, `${ids[0]}.before-start`), "", {
+    flag: "wx",
+  });
+  const workerUrl = new URL(
+    "../../src/service/execution-child.ts",
+    import.meta.url,
+  );
+  const workerEntry = fileURLToPath(workerUrl);
+  const preload = new URL(
+    "../support/workspace-graph-child.ts",
+    import.meta.url,
+  ).href;
+  const children: ReturnType<typeof spawn>[] = [];
+  const closed: Promise<void>[] = [];
+  const errors = new Map<number, string>();
+  const intercept = t.mock.module("node:child_process", {
+    namedExports: {
+      spawn: (
+        executable: string,
+        argv: readonly string[],
+        options: Parameters<typeof spawn>[2],
+      ) => {
+        assert.equal(executable, process.execPath);
+        assert.deepEqual(argv, [workerEntry]);
+        const child = spawn(
+          executable,
+          ["--experimental-test-module-mocks", "--import", preload, ...argv],
+          {
+            ...options,
+            stdio: ["ignore", "ignore", "pipe", "ipc"],
+            env: {
+              ...(options?.env ?? process.env),
+              CRDD_GRAPH_FIXTURE_DIRECTORY: control,
+            },
+          },
+        );
+        children.push(child);
+        closed.push(
+          new Promise((resolve) => child.once("close", () => resolve())),
+        );
+        child.stderr?.on("data", (chunk: Buffer) => {
+          if (child.pid !== undefined)
+            errors.set(
+              child.pid,
+              (errors.get(child.pid) ?? "") + chunk.toString(),
+            );
+        });
+        return child;
+      },
+    },
+  });
+  const loaded = await import(
+    new URL("?workspace-parallel-fixture", workerUrl).href
+  );
+  const bridge = t.mock.module(workerUrl.href, {
+    namedExports: { runObjectiveInChild: loaded.runObjectiveInChild },
+  });
+  const { executeCoordinatorOperation } = await import(
+    "../../src/service/execution.ts"
+  );
+  const requests = ids.map((workspaceId, index) =>
+    withCallerPlan({
+      operation: "start",
+      requestId: `request-parallel-${index}`,
+      projectId: f.common.projectId,
+      milestoneId: startState.milestoneId,
+      repositoryRevision: f.base,
+      objective: "Execute the workspace fixture.",
+      acceptanceCriteria: ["done"],
+      allowedPaths: ["source.txt"],
+      readPaths: ["source.txt"],
+      maximumConcurrency: 1,
+      maximumReplans: 0,
+      originLane: "interactive",
+      adoptResult: false,
+      workspaceId,
+    } as const),
+  );
+  const execute = (request: unknown, signal = new AbortController().signal) =>
+    executeCoordinatorOperation(
+      "objective",
+      request,
+      { scope: "local", repositoryRoot: f.root },
+      signal,
+    );
+  const launchFreshServer = (request: unknown, unknownPid?: number) => {
+    const server = fileURLToPath(
+      new URL("../support/workspace-graph-server.ts", import.meta.url),
+    );
+    const command = promisify(execFile)(
+      process.execPath,
+      [
+        "--experimental-test-module-mocks",
+        server,
+        f.root,
+        control,
+        JSON.stringify(request),
+        ...(unknownPid === undefined ? [] : [String(unknownPid)]),
+      ],
+      { encoding: "utf8", windowsHide: true, timeout: 15_000 },
+    );
+    const result = command.then(({ stdout }) => {
+      const response = JSON.parse(stdout) as {
+        pid: number;
+        outcome: Awaited<ReturnType<typeof execute>>;
+      };
+      assert.equal(response.pid, command.child.pid);
+      assert.notEqual(response.pid, process.pid);
+      return response.outcome;
+    });
+    return { process: command.child, result };
+  };
+  const executeFromFreshServer = (request: unknown, unknownPid?: number) =>
+    launchFreshServer(request, unknownPid).result;
+  // 起動が止まった時だけ自己生成Fixtureを観測し、取得未確定の段階を絞る。
+  const startFailure = (id: string) => {
+    const root = path.join(f.root, ".crdd");
+    try {
+      const stored = parseStoredExecutionFixture(
+        fs.readFileSync(
+          path.join(root, "execution-model", "state.json"),
+          "utf8",
+        ),
+      );
+      const queues = stored.queueEntries.filter(
+        (queue) => queue.workspaceId === id,
+      );
+      const scope = createHash("sha256").update(id).digest("hex").slice(0, 40);
+      return {
+        revision: stored.revision,
+        physicalLeasePresent: fs
+          .readdirSync(path.join(root, "lock"))
+          .some(
+            (file) =>
+              file.startsWith("coordinator.lease.") &&
+              file.endsWith(`-workspace-${scope}.lock`),
+          ),
+        queues: queues.map(({ queueId, state, ownerGeneration }) => ({
+          queueId,
+          state,
+          ownerPresent: ownerGeneration !== null,
+          pendingPhases: stored.leaseIntents
+            .filter((intent) => intent.queueId === queueId)
+            .map(({ phase }) => phase),
+          evidence: stored.leaseEvidence
+            .filter(({ content }) => content.queueId === queueId)
+            .map(({ content }) => content.disposition),
+        })),
+      };
+    } catch (error) {
+      return {
+        observation: "unavailable",
+        code: (error as NodeJS.ErrnoException).code ?? null,
+      };
+    }
+  };
+  const ready = async (id: string) => {
+    const until = performance.now() + 14_000;
+    while (performance.now() < until) {
+      const file = fs
+        .readdirSync(control)
+        .find((name) => name.startsWith(`${id}.`) && name.endsWith(".ready"));
+      if (file) {
+        const processId = Number(file.split(".")[1]);
+        const child = children.find(({ pid }) => pid === processId);
+        assert.ok(child);
+        return child;
+      }
+      if (
+        children.length >= 2 &&
+        children.every(
+          (child) => child.exitCode !== null || child.signalCode !== null,
+        )
+      )
+        break;
+      await delay(30);
+    }
+    throw Error(
+      `fixture_workspace_not_started: ${JSON.stringify({ errors: [...errors.values()], observed, failedScope: startFailure(id) })}`,
+    );
+  };
+  const jobs: ReturnType<typeof execute>[] = [];
+  const observed: Awaited<ReturnType<typeof execute>>[] = [];
+  const assertAdoptionRequired = (
+    outcome: Awaited<ReturnType<typeof execute>> | undefined,
+    queueId: string,
+  ) => {
+    assert.equal(outcome?.kind, "result", JSON.stringify(outcome));
+    assert.ok(outcome?.kind === "result");
+    assert.equal(outcome.value.status, "blocked");
+    assert.equal(
+      outcome.value.reason,
+      "coordinator_workspace_adoption_required",
+    );
+    assert.equal(outcome.value.effectState, "settled");
+    assert.equal(outcome.value.cleanupConfirmed, true);
+    assert.equal(outcome.value.manualRecoveryRequired, false);
+    assert.ok("queueId" in outcome.value);
+    assert.equal(outcome.value.queueId, queueId);
+    assert.equal(outcome.value.projectId, f.common.projectId);
+    assert.equal(outcome.value.milestoneId, startState.milestoneId);
+    assert.deepEqual(outcome.value.recoveryIds, []);
+  };
+  try {
+    jobs.push(
+      ...requests.map(async (request) => {
+        const result = await execute(request);
+        observed.push(result);
+        return result;
+      }),
+    );
+    const [a, b] = await Promise.all(ids.map(ready));
+    assert.ok(a && b && a.pid !== b.pid);
+    const before = f.snapshot();
+    const owned = ids.map((workspaceId) =>
+      before.queueEntries.find(
+        (q) => q.workspaceId === workspaceId && q.state === "running",
+      ),
+    );
+    const [queueA, queueB] = owned;
+    assert.ok(queueA?.ownerGeneration && queueB?.ownerGeneration);
+    assert.notEqual(queueA.queueId, queueB.queueId);
+    assert.equal(
+      before.projects.find((p) => p.queueId === queueA.queueId)?.tasks[0]
+        ?.startPhase,
+      "handoff_prepared",
+    );
+    assert.equal(
+      before.projects.find((p) => p.queueId === queueB.queueId)?.tasks[0]
+        ?.state,
+      "running",
+    );
+    const liveSourceB = fs.readFileSync(path.join(treeB, "source.txt"));
+    const discard = f.operate({
+      operation: "discard",
+      queueId: queueB.queueId,
+      workspaceId: ids[1],
+      expectedHead: f.base,
+      discardChanges: true,
+    });
+    assert.equal(discard.status, "blocked");
+    assert.equal(discard.reason, "coordinator_lease_unavailable");
+    assert.equal(discard.gitResult, null);
+    assert.deepEqual(
+      fs.readFileSync(path.join(treeB, "source.txt")),
+      liveSourceB,
+    );
+    assert.deepEqual(f.snapshot(), before);
+    // Gitの共有排他は維持し、別ScopeのWorkspace準備自体は止めない。
+    registerWorkspace(shutdownWorkspace, 2);
+    const afterCreate = f.snapshot();
+    for (const q of [queueA, queueB]) {
+      assert.deepEqual(
+        afterCreate.queueEntries.find((item) => item.queueId === q.queueId),
+        q,
+      );
+      assert.deepEqual(
+        afterCreate.leaseIntents.find((item) => item.queueId === q.queueId),
+        before.leaseIntents.find((item) => item.queueId === q.queueId),
+      );
+    }
+    const originalB = requests[1];
+    assert.ok(originalB);
+    const competitor = execute({
+      ...originalB,
+      requestId: "same-workspace-competitor",
+    });
+    jobs.push(competitor);
+    const rejected = await competitor;
+    assert.equal(rejected.kind, "result", JSON.stringify(rejected));
+    assert.equal(rejected.value.status, "blocked");
+    assert.equal(rejected.value.effectState, "no_effect");
+    assert.equal(rejected.value.manualRecoveryRequired, false);
+    const replay = { ...originalB, operation: "resume" };
+    const prior = f.snapshot();
+    const live = await executeFromFreshServer(replay);
+    assert.equal(live.kind, "result", JSON.stringify(live));
+    assert.equal(live.value.reason, "coordinator_objective_already_running");
+    assert.equal(live.value.effectState, "no_effect");
+    assert.equal(live.value.manualRecoveryRequired, false);
+    assert.ok("queueId" in live.value);
+    assert.equal(live.value.queueId, queueB.queueId);
+    assert.deepEqual(f.snapshot(), prior);
+    assert.ok(b.pid);
+    const unknown = await executeFromFreshServer(replay, b.pid);
+    assert.equal(unknown.kind, "result", JSON.stringify(unknown));
+    assert.equal(
+      unknown.value.reason,
+      "coordinator_lease_owner_observation_unknown",
+    );
+    assert.equal(unknown.value.effectState, "unknown");
+    assert.equal(unknown.value.manualRecoveryRequired, true);
+    assert.equal(unknown.value.cleanupConfirmed, false);
+    assert.ok("recoveryIds" in unknown.value);
+    assert.deepEqual(unknown.value.recoveryIds, [
+      leaseAcquisitionRecoveryId(
+        f.binding,
+        f.common.projectId,
+        queueB.queueId,
+        "project-operation",
+      ),
+    ]);
+    assert.deepEqual(f.snapshot(), prior);
+    assert.ok(a.kill("SIGKILL"));
+    assert.deepEqual(await jobs[0], { kind: "result_unconfirmed" });
+    const retained = f.snapshot();
+    assert.deepEqual(
+      retained.queueEntries.find((q) => q.queueId === queueB.queueId),
+      queueB,
+    );
+    assert.ok(
+      retained.leaseIntents.some((lease) => lease.queueId === queueB.queueId),
+    );
+    const originalA = requests[0];
+    assert.ok(originalA);
+    const cancelRecovery = new AbortController();
+    const recoveryArm = path.join(control, "cancel-after-recovery.arm");
+    const attemptMarkers = () =>
+      fs
+        .readdirSync(control)
+        .filter(
+          (name) => name.endsWith(".ready") && name.startsWith(`${ids[0]}.`),
+        );
+    const originalAttempts = attemptMarkers();
+    fs.writeFileSync(recoveryArm, queueA.queueId, { flag: "wx" });
+    try {
+      const interruptedRecovery = execute(
+        { ...originalA, operation: "resume" },
+        cancelRecovery.signal,
+      );
+      jobs.push(interruptedRecovery);
+      const deadline = Date.now() + 8_000;
+      while (
+        !fs.existsSync(path.join(control, "cancel-after-recovery.ready"))
+      ) {
+        assert.ok(
+          Date.now() < deadline,
+          "fixture_waiting_for_durable_recovery",
+        );
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      cancelRecovery.abort();
+      fs.writeFileSync(path.join(control, "cancel-after-recovery.sent"), "", {
+        flag: "wx",
+      });
+      const interrupted = await interruptedRecovery;
+      assert.equal(interrupted.kind, "result", JSON.stringify(interrupted));
+      assert.equal(
+        interrupted.value.reason,
+        "coordinator_objective_cancelled_before_start",
+      );
+      assert.equal(interrupted.value.manualRecoveryRequired, true);
+      assert.equal(interrupted.value.effectState, "unknown");
+      assert.ok(
+        "queueId" in interrupted.value && "recoveryIds" in interrupted.value,
+      );
+      assert.equal(interrupted.value.queueId, queueA.queueId);
+      assert.deepEqual(interrupted.value.recoveryIds, [
+        leaseAcquisitionRecoveryId(
+          f.binding,
+          f.common.projectId,
+          queueA.queueId,
+          "project-operation",
+        ),
+      ]);
+      const after = f.snapshot();
+      assert.deepEqual(
+        after.queueEntries.find((q) => q.queueId === queueB.queueId),
+        queueB,
+      );
+      assert.deepEqual(
+        after.projects.find((item) => item.queueId === queueB.queueId),
+        retained.projects.find((item) => item.queueId === queueB.queueId),
+      );
+      assert.deepEqual(
+        after.leaseIntents.filter((item) => item.queueId === queueB.queueId),
+        retained.leaseIntents.filter((item) => item.queueId === queueB.queueId),
+      );
+      assert.deepEqual(
+        after.leaseEvidence.filter(
+          (item) => item.content.queueId === queueB.queueId,
+        ),
+        retained.leaseEvidence.filter(
+          (item) => item.content.queueId === queueB.queueId,
+        ),
+      );
+      assert.equal(
+        after.queueEntries.find((q) => q.queueId === queueA.queueId)?.state,
+        "recovery_required",
+      );
+      assert.equal(
+        after.leaseIntents.some((lease) => lease.queueId === queueA.queueId),
+        false,
+      );
+      assert.equal(
+        after.leaseEvidence.filter(
+          ({ content }) =>
+            content.queueId === queueA.queueId &&
+            content.disposition === "recovered_after_owner_loss",
+        ).length,
+        1,
+      );
+      assert.deepEqual(attemptMarkers(), originalAttempts);
+      assert.equal(
+        fs.existsSync(
+          path.join(f.root, ".crdd", "lock", "execution-model.state.lock"),
+        ),
+        false,
+      );
+    } finally {
+      fs.rmSync(recoveryArm, { force: true });
+    }
+    fs.unlinkSync(path.join(control, `${ids[0]}.before-start`));
+    fs.writeFileSync(path.join(control, `${ids[0]}.continue`), "", {
+      flag: "wx",
+    });
+    const resume = executeFromFreshServer({
+      ...originalA,
+      operation: "resume",
+    });
+    jobs.push(resume);
+    const recovery = await resume;
+    assertAdoptionRequired(recovery, queueA.queueId);
+    const resumed = f.snapshot();
+    assert.deepEqual(
+      resumed.queueEntries.find((q) => q.queueId === queueB.queueId),
+      queueB,
+    );
+    assert.equal(
+      resumed.projects.find((p) => p.queueId === queueB.queueId)?.tasks[0]
+        ?.state,
+      "running",
+    );
+    assert.equal(
+      resumed.projects.find((p) => p.queueId === queueA.queueId)?.tasks[0]
+        ?.state,
+      "completed",
+      JSON.stringify(recovery),
+    );
+    assert.equal(
+      resumed.leaseIntents.some((lease) => lease.queueId === queueA.queueId),
+      false,
+    );
+    // 実開始通知済みの別実行をServerから取り消しても、Bの実行を止めない。
+    const cancelWorkspace = randomUUID();
+    registerWorkspace(cancelWorkspace, 3);
+    const cancellation = new AbortController();
+    const cancelRequest = {
+      ...originalB,
+      workspaceId: cancelWorkspace,
+      requestId: "cancel-after-start-notification",
+    };
+    const cancelling = execute(cancelRequest, cancellation.signal);
+    jobs.push(cancelling);
+    await ready(cancelWorkspace);
+    const beforeCancel = f.snapshot();
+    const cancelQueue = beforeCancel.queueEntries.find(
+      (q) => q.workspaceId === cancelWorkspace && q.state === "running",
+    );
+    assert.ok(cancelQueue?.ownerGeneration);
+    const findTask = (state: typeof beforeCancel, queueId: string) =>
+      state.projects.find((project) => project.queueId === queueId)?.tasks[0];
+    assert.equal(
+      findTask(beforeCancel, cancelQueue.queueId)?.startPhase,
+      "running",
+    );
+    cancellation.abort();
+    const cancelled = await cancelling;
+    assert.equal(cancelled.kind, "result", JSON.stringify(cancelled));
+    assert.equal(
+      cancelled.value.status,
+      "cancelled",
+      JSON.stringify(cancelled),
+    );
+    assert.equal(cancelled.value.effectState, "settled");
+    assert.equal(cancelled.value.cleanupConfirmed, true);
+    assert.equal(cancelled.value.manualRecoveryRequired, false);
+    assert.ok("queueId" in cancelled.value);
+    assert.equal(cancelled.value.queueId, cancelQueue.queueId);
+    const afterCancel = f.snapshot();
+    const cancelledQueue = afterCancel.queueEntries.find(
+      (q) => q.queueId === cancelQueue.queueId,
+    );
+    assert.equal(cancelledQueue?.state, "cancelled");
+    assert.equal(cancelledQueue?.ownerGeneration, null);
+    assert.equal(
+      findTask(afterCancel, cancelQueue.queueId)?.state,
+      "cancelled",
+    );
+    assert.deepEqual(
+      afterCancel.leaseIntents,
+      beforeCancel.leaseIntents.filter(
+        (lease) => lease.queueId !== cancelQueue.queueId,
+      ),
+    );
+    assert.deepEqual(
+      afterCancel.queueEntries.find((q) => q.queueId === queueB.queueId),
+      queueB,
+    );
+    assert.deepEqual(
+      findTask(afterCancel, queueB.queueId),
+      findTask(beforeCancel, queueB.queueId),
+    );
+    const historyAccess = {
+      root: f.ports.repository,
+      historyRetentionDays: 30,
+      revalidate: () => true,
+    };
+    const evidenceB = afterCancel.leaseEvidence.filter(
+      ({ content }) => content.queueId === queueB.queueId,
+    );
+    assert.ok(
+      evidenceB.some(({ content }) => content.disposition === "acquired"),
+    );
+    assert.ok(
+      beforeCancel.leaseEvidence.some(
+        ({ content }) =>
+          content.queueId === cancelQueue.queueId &&
+          content.disposition === "acquired",
+      ),
+    );
+    // 正式の取消結果は、同じ経路で履歴出版と退役まで済ませて返る。
+    assert.equal(cancelledQueue.historySettled, true);
+    assert.deepEqual(
+      afterCancel.leaseEvidence,
+      beforeCancel.leaseEvidence.filter(
+        ({ content }) => content.queueId !== cancelQueue.queueId,
+      ),
+    );
+    const historyPath = path.join(
+      f.root,
+      ".crdd",
+      "execution-model",
+      "history.jsonl",
+    );
+    const historyBytes = fs.readFileSync(historyPath, "utf8");
+    const history = historyBytes
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    assert.deepEqual(
+      history
+        .filter(({ summary }) => summary?.record?.id === cancelQueue.queueId)
+        .map(({ summary }) => summary.record.outcome),
+      ["cancelled"],
+    );
+    assert.ok(
+      !history.some(({ summary }) => summary?.record?.id === queueB.queueId),
+    );
+    const repeatRetirement = retireStateRecords(
+      historyAccess,
+      f.binding,
+      Date.now(),
+    );
+    assert.equal(repeatRetirement.status, "completed", repeatRetirement.reason);
+    assert.equal(repeatRetirement.value, 0);
+    const taskMarkers = fs
+      .readdirSync(control)
+      .filter((name) => name.startsWith(`${cancelWorkspace}.`));
+    const replayed = await execute(cancelRequest);
+    assert.equal(replayed.kind, "result", JSON.stringify(replayed));
+    assert.equal(replayed.value.status, "cancelled");
+    assert.ok("queueId" in replayed.value);
+    assert.equal(replayed.value.queueId, cancelQueue.queueId);
+    assert.deepEqual(
+      fs
+        .readdirSync(control)
+        .filter((name) => name.startsWith(`${cancelWorkspace}.`)),
+      taskMarkers,
+    );
+    assert.equal(fs.readFileSync(historyPath, "utf8"), historyBytes);
+    assert.deepEqual(f.snapshot(), afterCancel);
+    assert.equal(
+      fs.readFileSync(
+        path.join(
+          f.root,
+          ".crdd",
+          "workspaces",
+          cancelWorkspace,
+          "worktree",
+          "source.txt",
+        ),
+        "utf8",
+      ),
+      "base\n",
+    );
+    fs.writeFileSync(path.join(control, `${ids[1]}.continue`), "", {
+      flag: "wx",
+    });
+    const completion = await jobs[1];
+    assertAdoptionRequired(completion, queueB.queueId);
+    const final = f.snapshot();
+    assert.equal(
+      final.projects.find((p) => p.queueId === queueB.queueId)?.tasks[0]?.state,
+      "completed",
+    );
+    assert.equal(
+      final.projects.find((p) => p.queueId === queueA.queueId)?.tasks[0]?.state,
+      "completed",
+    );
+    assert.equal(
+      final.queueEntries.find((q) => q.queueId === queueB.queueId)
+        ?.ownerGeneration,
+      null,
+    );
+    assert.ok(
+      !final.leaseIntents.some((lease) => lease.queueId === queueA.queueId),
+    );
+    assert.equal(final.leaseIntents.length, 0);
+    assert.equal(
+      fs.readFileSync(path.join(f.root, "source.txt"), "utf8"),
+      "base\n",
+    );
+    for (const [index, id] of ids.entries()) {
+      const markers = fs
+        .readdirSync(control)
+        .filter((name) => name.startsWith(`${id}.`) && name.endsWith(".ready"));
+      assert.equal(markers.length, index === 0 ? 2 : 1);
+      const tree = path.join(f.root, ".crdd", "workspaces", id, "worktree");
+      assert.ok(
+        markers.every(
+          (name) => fs.readFileSync(path.join(control, name), "utf8") === tree,
+        ),
+      );
+      assert.equal(
+        fs.readFileSync(path.join(tree, "source.txt"), "utf8"),
+        `${id}\n`,
+      );
+    }
+    // 親だけが異常終了する場合も、IPC切断で当該子が未発行のAttemptを閉じる。
+    fs.writeFileSync(
+      path.join(control, `${shutdownWorkspace}.before-start`),
+      "",
+      { flag: "wx" },
+    );
+    const shutdownRequest = {
+      ...originalA,
+      requestId: "parent-exits-before-provider",
+      workspaceId: shutdownWorkspace,
+    };
+    const oldServer = launchFreshServer(shutdownRequest);
+    jobs.push(oldServer.result);
+    // 強制終了の失敗は、このProcessの結果を待つ前に合成しない。
+    const parentExit = oldServer.result.then(
+      () => null,
+      (error: unknown) => error,
+    );
+    const findMarker = (id: string) =>
+      fs
+        .readdirSync(control)
+        .find((name) => name.startsWith(`${id}.`) && name.endsWith(".ready"));
+    const until = async (condition: () => boolean) => {
+      const end = performance.now() + 8_000;
+      while (performance.now() < end) {
+        if (condition()) return;
+        await delay(25);
+      }
+      assert.fail("fixture_parent_exit_deadline");
+    };
+    await until(() => findMarker(shutdownWorkspace) !== undefined);
+    const marker = findMarker(shutdownWorkspace);
+    assert.ok(marker);
+    const childPid = Number(marker.split(".")[1]);
+    const active = f.snapshot();
+    const queueC = active.queueEntries.find(
+      (q) => q.workspaceId === shutdownWorkspace && q.state === "running",
+    );
+    assert.ok(queueC?.ownerGeneration);
+    assert.equal(
+      active.projects.find((p) => p.queueId === queueC.queueId)?.tasks[0]
+        ?.startPhase,
+      "handoff_prepared",
+    );
+    assert.ok(
+      active.leaseIntents.some(
+        (lease) =>
+          lease.queueId === queueC.queueId && lease.ownerProcessId === childPid,
+      ),
+    );
+    assert.notEqual(childPid, oldServer.process.pid);
+    assert.ok(oldServer.process.kill("SIGKILL"));
+    const parentFailure = await parentExit;
+    assert.ok(parentFailure instanceof Error && "signal" in parentFailure);
+    assert.equal(parentFailure.signal, "SIGKILL");
+    // 当該PIDは名指しの観測だけ。残存や観測不能を停止済みに丸めない。
+    await until(() => {
+      try {
+        process.kill(childPid, 0);
+        return false;
+      } catch (error) {
+        if ((error as { code?: string }).code === "ESRCH") return true;
+        throw error;
+      }
+    });
+    const closedState = f.snapshot();
+    const afterExit = closedState.queueEntries.find(
+      (q) => q.queueId === queueC.queueId,
+    );
+    assert.ok(afterExit);
+    assert.equal(
+      fs.readFileSync(
+        path.join(
+          f.root,
+          ".crdd",
+          "workspaces",
+          shutdownWorkspace,
+          "worktree",
+          "source.txt",
+        ),
+        "utf8",
+      ),
+      "base\n",
+    );
+    // OSの強制終了時は子が取消保存まで進む場合と、元世代を残したまま終了する場合を区別する。
+    const cancellationPersisted =
+      afterExit.state === "cancelled" && afterExit.ownerGeneration === null;
+    const cancellationDecided = afterExit.state === "cancelled";
+    if (cancellationPersisted) assert.equal(closedState.leaseIntents.length, 0);
+    else assert.equal(afterExit.ownerGeneration, queueC.ownerGeneration);
+    if (!cancellationDecided) {
+      assert.notEqual(afterExit.state, "completed");
+      fs.unlinkSync(path.join(control, `${shutdownWorkspace}.before-start`));
+      fs.writeFileSync(
+        path.join(control, `${shutdownWorkspace}.continue`),
+        "",
+        { flag: "wx" },
+      );
+    }
+    const replacement = await executeFromFreshServer({
+      ...shutdownRequest,
+      operation: "resume",
+    });
+    if (cancellationDecided) {
+      assert.equal(replacement.kind, "result", JSON.stringify(replacement));
+      assert.equal(replacement.value.status, "cancelled");
+      assert.equal(replacement.value.effectState, "no_effect");
+      assert.equal(replacement.value.cleanupConfirmed, true);
+      assert.ok("queueId" in replacement.value);
+      assert.equal(replacement.value.queueId, queueC.queueId);
+      if (cancellationPersisted) assert.deepEqual(f.snapshot(), closedState);
+      else {
+        const recovered = f.snapshot();
+        assert.equal(recovered.leaseIntents.length, 0);
+        assert.equal(
+          recovered.queueEntries.find((q) => q.queueId === queueC.queueId)
+            ?.ownerGeneration,
+          null,
+        );
+      }
+    } else {
+      assertAdoptionRequired(replacement, queueC.queueId);
+      const recovered = f.snapshot();
+      assert.equal(recovered.leaseIntents.length, 0);
+      for (const priorQueue of [queueA, queueB])
+        assert.deepEqual(
+          recovered.queueEntries.find((q) => q.queueId === priorQueue.queueId),
+          closedState.queueEntries.find(
+            (q) => q.queueId === priorQueue.queueId,
+          ),
+        );
+    }
+    // 固定時の基準は同じでも、別Graphの採用で取込先が進んだ場合はBだけ再判定する。
+    fs.writeFileSync(
+      path.join(treeB, "second.txt"),
+      "second workspace change\n",
+      { flag: "wx" },
+    );
+    const freeze = (
+      queueId: string,
+      workspaceId: string,
+      tree: string,
+      file: string,
+    ) => {
+      const fixed = f.operate({
+        operation: "freeze",
+        queueId,
+        workspaceId,
+        operationId: randomUUID(),
+        baseCommit: f.base,
+        expectedHead: f.base,
+        selection: [
+          {
+            path: file,
+            mode: "100644",
+            blobId: git(tree, ["hash-object", "--no-filters", file]),
+          },
+        ],
+        candidateName: file,
+        relatedChangeIds: [],
+        authorize: () => true,
+      });
+      assert.equal(fixed.status, "completed", JSON.stringify(fixed));
+      assert.ok(fixed.workspace?.candidate?.candidateCommit);
+      return fixed.workspace.candidate;
+    };
+    const candidateA = freeze(queueA.queueId, ids[0], treeA, "source.txt");
+    const candidateB = freeze(queueB.queueId, ids[1], treeB, "second.txt");
+    const adopt = (
+      queueId: string,
+      workspaceId: string,
+      candidateCommit: string | null,
+      expectedTargetHead: string,
+    ) =>
+      f.operate({
+        operation: "adopt",
+        queueId,
+        workspaceId,
+        candidateCommit,
+        expectedTargetHead,
+        targetBranch: "main",
+        authorize: () => true,
+      });
+    const beforeAdopt = f.snapshot();
+    const first = adopt(
+      queueA.queueId,
+      ids[0],
+      candidateA.candidateCommit,
+      f.base,
+    );
+    assert.equal(first.status, "completed", JSON.stringify(first));
+    const headA = git(f.root, ["rev-parse", "HEAD"]);
+    assert.equal(first.candidateResult?.mergeCommit, headA);
+    const readyForAcceptance = (queueId: string | undefined, head: string) =>
+      workspacePlanReadyForAcceptance(
+        f.root,
+        f.binding,
+        f.common.projectId,
+        startState.milestoneId,
+        f.base,
+        head,
+        queueId,
+      );
+    assert.equal(readyForAcceptance(queueA.queueId, headA), true);
+    assert.equal(readyForAcceptance(queueB.queueId, headA), false);
+    assert.equal(readyForAcceptance(undefined, headA), false);
+    const afterA = f.snapshot();
+    assert.deepEqual(
+      afterA.workspaces.find((entry) => entry.workspaceId === ids[1]),
+      beforeAdopt.workspaces.find((entry) => entry.workspaceId === ids[1]),
+    );
+    assert.deepEqual(
+      afterA.projects.find((entry) => entry.queueId === queueB.queueId),
+      beforeAdopt.projects.find((entry) => entry.queueId === queueB.queueId),
+    );
+    const stale = adopt(
+      queueB.queueId,
+      ids[1],
+      candidateB.candidateCommit,
+      f.base,
+    );
+    assert.equal(stale.status, "blocked");
+    assert.equal(stale.reason, "commit_merge_target_changed");
+    assert.equal(stale.candidateResult?.effectIssued, false);
+    assert.equal(git(f.root, ["rev-parse", "HEAD"]), headA);
+    const afterStale = f.snapshot();
+    const retryable = afterStale.workspaces.find(
+      (entry) => entry.workspaceId === ids[1],
+    )?.candidate;
+    assert.equal(retryable?.candidateCommit, candidateB.candidateCommit);
+    assert.equal(retryable?.phase, "fixed");
+    assert.equal(retryable.target, null);
+    assert.deepEqual(retryable, candidateB);
+    assert.deepEqual(afterStale.results, afterA.results);
+    const second = adopt(
+      queueB.queueId,
+      ids[1],
+      candidateB.candidateCommit,
+      headA,
+    );
+    assert.equal(second.status, "completed", JSON.stringify(second));
+    const headB = git(f.root, ["rev-parse", "HEAD"]);
+    assert.equal(readyForAcceptance(queueA.queueId, headB), false);
+    assert.equal(readyForAcceptance(queueB.queueId, headB), true);
+    assert.equal(
+      git(f.root, ["rev-list", "--parents", "-n", "1", "HEAD"]),
+      `${headB} ${headA} ${candidateB.candidateCommit}`,
+    );
+    const afterB = f.snapshot();
+    assert.deepEqual(
+      afterB.workspaces.find((entry) => entry.workspaceId === ids[0]),
+      afterA.workspaces.find((entry) => entry.workspaceId === ids[0]),
+    );
+    assert.deepEqual(afterB.leaseEvidence, afterA.leaseEvidence);
+    for (const [queue, candidate] of [
+      [queueA, candidateA],
+      [queueB, candidateB],
+    ] as const)
+      assert.equal(
+        afterB.results.find(
+          (entry) =>
+            entry.identity ===
+            `workspace-candidate-${candidate.request.operationId}`,
+        )?.queueId,
+        queue.queueId,
+      );
+    for (const result of afterA.results)
+      assert.ok(
+        afterB.results.some(
+          (entry) =>
+            entry.identity === result.identity &&
+            JSON.stringify(entry) === JSON.stringify(result),
+        ),
+      );
+  } finally {
+    for (const child of children)
+      if (child.exitCode === null && child.signalCode === null)
+        child.kill("SIGKILL");
+    await Promise.all(closed);
+    await Promise.allSettled(jobs);
+    bridge.restore();
+    intercept.restore();
+  }
+});
 
 /** 選択Branchの固定、未コミット除外の確認と作成Effectの境界を実Gitで検証する。 @trace CPR-IT-001 */
 test("Workspace作成は選択ブランチのHEADを照合し未コミット変更を持ち込まない", (t) => {
@@ -1499,6 +2533,41 @@ test("未完了Mergeは拒否・応答喪失後も同操作でCommitだけを継
     assert.equal(git(f.root, ["rev-parse", "MERGE_HEAD"]), candidateCommit);
     const primary = failed.candidateResult?.reason;
     assert.ok(primary);
+    const merging = f.snapshot().workspaces[0]?.candidate;
+    assert.equal(merging?.phase, "merging");
+    // 再入場で今回のVC観測だけが未発行を示しても、過去のMerge意図を解除しない。
+    const staleProbe = t.mock.method(childProcess, "spawnSync", ((
+      ...args: Parameters<typeof spawn>
+    ) => {
+      const command = args[1];
+      if (
+        args[0] === "git" &&
+        Array.isArray(command) &&
+        command.includes("--format=%H%x00%P%x00%T") &&
+        command.at(-2) === "HEAD" &&
+        command.at(-1) === "--"
+      )
+        return Reflect.apply(spawn, childProcess, [
+          args[0],
+          [...command.slice(0, -2), candidateCommit, "--"],
+          args[2],
+        ]);
+      return Reflect.apply(spawn, childProcess, args);
+    }) as typeof spawn);
+    syncBuiltinESMExports();
+    try {
+      const stale = f.operate(request);
+      assert.equal(stale.reason, "commit_merge_target_changed");
+      assert.equal(stale.candidateResult?.effectIssued, false);
+      const retained = f.snapshot().workspaces[0]?.candidate;
+      assert.equal(retained?.phase, "merging");
+      assert.deepEqual(retained.target, merging.target);
+      assert.equal(retained.primaryFailure, primary);
+    } finally {
+      staleProbe.mock.restore();
+      syncBuiltinESMExports();
+    }
+    assert.equal(git(f.root, ["rev-parse", "MERGE_HEAD"]), candidateCommit);
     const module = pathToFileURL(
       path.resolve(import.meta.dirname, "../../src/service/workspace.ts"),
     ).href;
@@ -2243,6 +3312,7 @@ test("同Workspaceを二Taskで継続し保存Rootを分けて不採用後に回
         f.binding,
         command,
         state.generation,
+        f.ports.intake,
       );
       assert.equal(next.status, "completed", next.reason);
       if (next.status !== "completed")
@@ -2278,6 +3348,7 @@ test("同Workspaceを二Taskで継続し保存Rootを分けて不採用後に回
         resultUnresolved: false,
       },
       state.generation,
+      f.ports.intake,
     );
     assert.equal(terminal.status, "completed", terminal.reason);
     assert.equal(fs.existsSync(f.tree), true);

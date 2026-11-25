@@ -7,14 +7,15 @@
  */
 import { createHash } from "node:crypto";
 import { types } from "node:util";
-import { inspectAiSelectionChoice } from "../../../configuration-model/src/index.ts";
+import { inspectAiSelectionChoice } from "@qual-lab/crdd-configuration-model";
 import type {
   AttemptDiagnosticNotice,
   CompletionResult,
-} from "../../../executor/src/index.ts";
+} from "@qual-lab/crdd-executor";
 import {
   dockerProcessControllerPublicCompletionReasons,
   inspectExecutionPlan,
+  leaseAcquisitionRecoveryId,
   OBJECTIVE_STATES,
   type ObjectivePlan,
   parseDockerTaskRecoveryId,
@@ -22,7 +23,7 @@ import {
   type ProjectTaskState,
   TASK_STATES,
   type TaskStartCandidates,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import type {
   CallerTaskInput,
   CoordinatorObjectiveRequest,
@@ -1248,6 +1249,19 @@ export function createCoordinatorStableId(
   return `${prefix}-${createHash("sha256").update(parts.join("\0")).digest("hex").slice(0, 40)}`;
 }
 
+/** 受付と結果確認が同じ元Queueを選ぶための純粋計算。 @trace ARCH-000004 */
+export function objectiveQueueId(
+  repositoryBindingId: string,
+  principalId: string,
+  requestId: string,
+): string {
+  return createCoordinatorStableId("queue", [
+    repositoryBindingId,
+    principalId,
+    requestId,
+  ]);
+}
+
 /**
  * 呼出し側が選んだ既存回復記録から、Queueの回復相関IDを生成する。
  * @responsibility Task・義務種別・元参照の組を順序に依存せず同じ形式へ固定する。
@@ -1619,6 +1633,7 @@ function dataDescriptor(
 export function snapshotPlainRecord<const K extends string>(
   value: unknown,
   allowedKeys: ReadonlySet<K>,
+  optionalKey?: K,
 ): Readonly<Record<K, unknown>> | null {
   try {
     if (
@@ -1632,9 +1647,15 @@ export function snapshotPlainRecord<const K extends string>(
     if (prototype !== Object.prototype && prototype !== null) return null;
     const descriptors = Object.getOwnPropertyDescriptors(value);
     const keys = Reflect.ownKeys(descriptors);
+    const hasOptional =
+      optionalKey !== undefined && Object.hasOwn(descriptors, optionalKey);
     if (
-      keys.length !== allowedKeys.size ||
-      keys.some((key) => typeof key !== "string" || !allowedKeys.has(key as K))
+      keys.length !== allowedKeys.size + Number(hasOptional) ||
+      keys.some(
+        (key) =>
+          typeof key !== "string" ||
+          (!allowedKeys.has(key as K) && key !== optionalKey),
+      )
     )
       return null;
     const snapshot = Object.create(null) as Record<K, unknown>;
@@ -1642,6 +1663,12 @@ export function snapshotPlainRecord<const K extends string>(
       const descriptor = descriptors[key];
       if (!dataDescriptor(descriptor)) return null;
       snapshot[key] = descriptor.value;
+    }
+    if (hasOptional && optionalKey !== undefined) {
+      const descriptor = descriptors[optionalKey];
+      if (!dataDescriptor(descriptor) || descriptor.value === undefined)
+        return null;
+      snapshot[optionalKey] = descriptor.value;
     }
     return Object.freeze(snapshot);
   } catch {
@@ -3948,11 +3975,17 @@ export function inspectTaskStartCandidates(
 ): TaskStartCandidates | null {
   const record = snapshotPlainRecord(
     input,
-    new Set(["projectId", "generation", "taskIds"]),
+    new Set([
+      "projectId",
+      "generation",
+      "taskIds",
+      ...(state.queueId === undefined ? [] : ["queueId"]),
+    ]),
   );
   if (
     !record ||
     record.projectId !== state.projectId ||
+    record.queueId !== state.queueId ||
     record.generation !== state.generation
   )
     return null;
@@ -3967,6 +4000,7 @@ export function inspectTaskStartCandidates(
   }
   return Object.freeze({
     projectId: state.projectId,
+    ...(state.queueId === undefined ? {} : { queueId: state.queueId }),
     generation: state.generation,
     taskIds: Object.freeze([...seen]),
   });
@@ -4013,6 +4047,7 @@ export function projectCoordinatorState(
 ): CoordinatorProjection {
   if (
     candidates?.projectId !== state.projectId ||
+    candidates.queueId !== state.queueId ||
     candidates.generation !== state.generation
   )
     throw new Error("coordinator_state_observation_unknown");
@@ -4057,6 +4092,7 @@ export function projectCoordinatorState(
       : ("wait_for_task" as const));
   const projection = Object.freeze({
     projectId: state.projectId,
+    ...(state.queueId === undefined ? {} : { queueId: state.queueId }),
     milestoneId: state.milestoneId,
     generation: state.generation,
     milestoneState: state.milestone.state,
@@ -4243,7 +4279,7 @@ function countSnapshot<T extends string>(
 export function inspectCoordinatorProjection(
   value: unknown,
 ): CoordinatorProjection | null {
-  const record = snapshotPlainRecord(value, projectionKeys);
+  const record = snapshotPlainRecord(value, projectionKeys, "queueId");
   if (!record) return null;
   if (
     typeof record.milestoneState !== "string" ||
@@ -4289,6 +4325,7 @@ export function inspectCoordinatorProjection(
   }
   if (
     !validIdentity(record.projectId) ||
+    (record.queueId !== undefined && !validIdentity(record.queueId)) ||
     !validIdentity(record.milestoneId) ||
     !Number.isSafeInteger(record.generation) ||
     Number(record.generation) < 1 ||
@@ -4323,6 +4360,7 @@ export function inspectCoordinatorProjection(
     return null;
   const projection = Object.freeze({
     projectId: record.projectId,
+    ...(record.queueId === undefined ? {} : { queueId: record.queueId }),
     milestoneId: record.milestoneId,
     generation: Number(record.generation),
     milestoneState: record.milestoneState,
@@ -4359,7 +4397,7 @@ export function inspectCoordinatorProjection(
 export function inspectCoordinatorStateQueryResult(
   value: unknown,
 ): CoordinatorStateQueryResult | null {
-  const result = snapshotPlainRecord(value, resultKeys);
+  const result = snapshotPlainRecord(value, resultKeys, "queueId");
   if (
     !result ||
     typeof result.status !== "string" ||
@@ -4369,6 +4407,7 @@ export function inspectCoordinatorStateQueryResult(
     !validReason(result.reason) ||
     !validIdentity(result.requestId) ||
     !validIdentity(result.projectId) ||
+    (result.queueId !== undefined && !validIdentity(result.queueId)) ||
     !validRevision(result.repositoryRevision) ||
     !["observed", "absent", "unknown"].includes(result.observationState) ||
     result.cleanupConfirmed !== true ||
@@ -4383,7 +4422,9 @@ export function inspectCoordinatorStateQueryResult(
   if (
     (result.projection !== null && !projection) ||
     (result.observationState === "observed" &&
-      (!projection || projection.projectId !== result.projectId)) ||
+      (!projection ||
+        projection.projectId !== result.projectId ||
+        projection.queueId !== result.queueId)) ||
     (result.observationState !== "observed" && result.projection !== null) ||
     (result.status === "completed" && result.observationState === "unknown") ||
     (result.status === "blocked" && result.observationState !== "unknown") ||
@@ -4674,7 +4715,11 @@ function objectiveResultText(value: unknown, maximum: number): value is string {
  * @boundary 未信頼の搬送結果とCoordinatorの公開値契約。
  * @security 元参照の変更を結果へ持ち込まず、未許可fieldを透過しない。
  */
-function recoverySnapshot(rawIds: unknown, rawObligations: unknown) {
+function recoverySnapshot(
+  rawIds: unknown,
+  rawObligations: unknown,
+  scopedLeaseReference?: string,
+) {
   const ids = snapshotPlainArray(rawIds, Number.MAX_SAFE_INTEGER);
   const obligations = snapshotPlainArray(
     rawObligations,
@@ -4715,16 +4760,18 @@ function recoverySnapshot(rawIds: unknown, rawObligations: unknown) {
       }),
     );
   }
+  const expectedIds = new Set(
+    copiedObligations.map((entry) => entry.recoveryId),
+  );
+  if (scopedLeaseReference && copiedIds.includes(scopedLeaseReference))
+    expectedIds.add(scopedLeaseReference);
   if (
     new Set(copiedIds).size !== copiedIds.length ||
     new Set(
       copiedObligations.map((entry) => `${entry.kind}\0${entry.recoveryId}`),
     ).size !== copiedObligations.length ||
-    copiedIds.length !==
-      new Set(copiedObligations.map((entry) => entry.recoveryId)).size ||
-    copiedIds.some(
-      (id) => !copiedObligations.some((entry) => entry.recoveryId === id),
-    )
+    copiedIds.length !== expectedIds.size ||
+    copiedIds.some((id) => !expectedIds.has(id))
   )
     return null;
   return Object.freeze({
@@ -4800,7 +4847,7 @@ function publicBlockedSnapshot(
  * Objectiveの完成結果を同期で受け付ける。
  * @responsibility 投影・終了・回復義務・Workspaceの相関をOwner内で完結させる。
  * @trace ARCH-000004
- * @input 未信頼結果と要求したWorkspace ID（省略時も結果内の同一性を検査）。
+ * @input 未信頼結果、要求したWorkspace ID、Process間搬送時の認可済み元要求。
  * @returns 不正・不明ならnull又はfalse、成立時だけ所有済み値。
  * @effect 外部Effect・認可・保存を行わない。
  * @failure Getter・Proxy・欠測・相関不整合を正常結果へ補完しない。
@@ -4810,12 +4857,48 @@ function publicBlockedSnapshot(
 export function inspectCoordinatorObjectiveResult(
   raw: unknown,
   expectedWorkspaceId?: string | null,
+  expected?: Readonly<{
+    repositoryRoot: string;
+    principalId: string;
+    requestId: unknown;
+    projectId: unknown;
+    milestoneId: unknown;
+  }>,
 ): Readonly<Record<string, unknown>> | null {
+  const expectedBinding = expected
+    ? deriveCoordinatorRepositoryBindingId(expected.repositoryRoot)
+    : null;
+  const expectedQueue =
+    expected && expectedBinding && validIdentity(expected.requestId)
+      ? objectiveQueueId(
+          expectedBinding,
+          expected.principalId,
+          expected.requestId,
+        )
+      : null;
+  const scopedLeaseReference =
+    expected &&
+    expectedBinding &&
+    expectedQueue &&
+    validIdentity(expected.projectId)
+      ? leaseAcquisitionRecoveryId(
+          expectedBinding,
+          expected.projectId,
+          expectedQueue,
+          "project-operation",
+        )
+      : undefined;
   const simple = publicBlockedSnapshot(
     raw,
     new Set([COORDINATOR_PUBLIC_RUNTIME_CONTRACT]),
   );
-  if (simple) return simple;
+  if (simple)
+    return expected &&
+      "recoveryIds" in simple &&
+      Array.isArray(simple.recoveryIds) &&
+      simple.recoveryIds.some((id) => id !== scopedLeaseReference)
+      ? null
+      : simple;
   const objective =
     snapshotPlainRecord(raw, OBJECTIVE_RESULT_KEYS) ??
     snapshotPlainRecord(
@@ -4837,6 +4920,7 @@ export function inspectCoordinatorObjectiveResult(
     const recoveries = recoverySnapshot(
       objective.recoveryIds,
       objective.recoveryObligations,
+      scopedLeaseReference,
     );
     const projection =
       objective.projection === null
@@ -4881,10 +4965,22 @@ export function inspectCoordinatorObjectiveResult(
       !validIdentity(objective.projectId) ||
       !validIdentity(objective.milestoneId) ||
       (objective.queueId !== null && !validIdentity(objective.queueId)) ||
+      (expected !== undefined &&
+        (objective.requestId !== expected.requestId ||
+          objective.projectId !== expected.projectId ||
+          objective.milestoneId !== expected.milestoneId ||
+          (objective.queueId === null
+            ? hasRecovery
+            : objective.queueId !== expectedQueue))) ||
       (objective.projection !== null && !projection) ||
       (projection !== null &&
         (projection.projectId !== objective.projectId ||
-          projection.milestoneId !== objective.milestoneId)) ||
+          projection.milestoneId !== objective.milestoneId ||
+          (projection.queueId !== undefined &&
+            projection.queueId !== objective.queueId) ||
+          (expected !== undefined &&
+            objective.queueId !== null &&
+            projection.queueId !== objective.queueId))) ||
       typeof objective.cleanupConfirmed !== "boolean" ||
       typeof objective.manualRecoveryRequired !== "boolean" ||
       typeof objective.processRestartRequired !== "boolean" ||
@@ -4961,11 +5057,12 @@ const queryKeys = new Set([
 export function inspectCoordinatorStateQuery(
   value: unknown,
 ): CoordinatorStateQuery | null {
-  const request = snapshotPlainRecord(value, queryKeys);
+  const request = snapshotPlainRecord(value, queryKeys, "queueId");
   if (
     !request ||
     !validIdentity(request.requestId) ||
     !validIdentity(request.projectId) ||
+    (request.queueId !== undefined && !validIdentity(request.queueId)) ||
     !validRevision(request.repositoryRevision)
   )
     return null;

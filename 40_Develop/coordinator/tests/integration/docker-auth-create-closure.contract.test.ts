@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { classifyDockerEngineResult } from "../../../docker-isolation/src/docker-desktop/engine.ts";
 import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
-import type { ExecutionOperationRecord } from "../../../execution-model/src/index.ts";
+import type { ExecutionOperationRecord } from "@qual-lab/crdd-execution-model";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,

@@ -24,12 +24,12 @@ import test from "node:test";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import {
   observeLocalListener,
   verifyLocalWebApplicationVisual,
-} from "../../../visual-preview/src/index.ts";
-import { startWorkbench } from "../../../crdd-server/src/app.ts";
+} from "@qual-lab/crdd-visual-preview";
+import { startWorkbench } from "@qual-lab/crdd-server/api";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,

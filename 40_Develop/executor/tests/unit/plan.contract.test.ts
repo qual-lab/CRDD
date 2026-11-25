@@ -13,7 +13,7 @@ import test from "node:test";
 import {
   planExecution,
   resolveModelSelection,
-} from "../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import {
   describeDockerProviderAssets,
   describeDockerProviderExecutionLocations,

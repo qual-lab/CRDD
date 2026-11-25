@@ -16,7 +16,7 @@ import {
   parseCommunication,
   parseSpecSequence,
   parseUiIndex,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { mapChangeDomainIssueToFinding } from "../report/convert.ts";
 import {
   mapStableReleaseIssueToFinding,

@@ -842,6 +842,48 @@ test("Main表示は未信頼JSONの状態と相関を検証する", () => {
     events: [],
     eventContinuation: null,
   };
+  const graphModel = {
+    ...model,
+    executionActivity: {
+      ...observedWithoutProjection.executionActivity,
+      state: "unknown",
+      graphs: [
+        {
+          repositoryId: "repo-a",
+          queueId: "queue-a",
+          milestoneId: "MILESTONE-1",
+          workspaceId: "workspace-a",
+          progress: {
+            milestoneState: "executing",
+            workProgress: "in_progress",
+            nextAction: "wait_for_task",
+          },
+        },
+        {
+          repositoryId: "repo-a",
+          queueId: "queue-b",
+          milestoneId: "MILESTONE-1",
+          workspaceId: "workspace-b",
+          progress: null,
+        },
+      ],
+    },
+  };
+  assert.doesNotThrow(() => validateViewResponse(graphModel));
+  assert.throws(
+    () =>
+      validateViewResponse({
+        ...graphModel,
+        executionActivity: {
+          ...graphModel.executionActivity,
+          graphs: [
+            ...graphModel.executionActivity.graphs,
+            graphModel.executionActivity.graphs[0],
+          ],
+        },
+      }),
+    /workbench_client_model_invalid/u,
+  );
   const absentWithProjection = structuredClone(model) as unknown as {
     executionActivity: Record<string, unknown> | null;
   };

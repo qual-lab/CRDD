@@ -182,6 +182,7 @@ export async function simulateAuthCreateClosure(
     "manifestCompleted(); return entries;",
   );
   body = stripTypeScriptTypes(body)
+    .replaceAll("import.meta.resolve", "resolveFixtureModule")
     .replaceAll("import.meta.url", "fixtureUrl")
     .replaceAll("dockerTrustOperations.", "technicalOperations().")
     .replaceAll("dockerEnvironmentOperations.", "technicalOperations().")
@@ -804,12 +805,22 @@ export async function simulateAuthCreateClosure(
     "../../../docker-isolation/src/docker-desktop/restart.ts",
   );
   const lifecycleUrl = moduleUrl("../../src/lifecycle/environment.ts");
+  const ownerUrls = new Map(
+    ["@qual-lab/crdd-version-control", "@qual-lab/crdd-execution-model"].map(
+      (name) => [name, import.meta.resolve(name)],
+    ),
+  );
+  const resolveFixtureModule = (specifier: string) => {
+    const resolved = ownerUrls.get(specifier);
+    assert.ok(resolved, specifier);
+    return resolved;
+  };
   const loads: string[] = [];
   const expectedLoads = [
-    moduleUrl("../../../version-control/src/index.ts"),
+    import.meta.resolve("@qual-lab/crdd-version-control"),
     moduleUrl("../../src/lifecycle/host.ts"),
     recoveryUrl,
-    moduleUrl("../../../execution-model/src/index.ts"),
+    import.meta.resolve("@qual-lab/crdd-execution-model"),
     `${lifecycleUrl}?auth-create-parent`,
     moduleUrl("./recovery-resource-expectations.ts"),
     moduleUrl("../../src/lifecycle/environment.ts?auth-create-parent"),
@@ -826,6 +837,7 @@ export async function simulateAuthCreateClosure(
    * @boundary module解決代役。実Runtime module cacheへ接続しない。
    */
   async function loadFixtureModule(url: string) {
+    if (url.startsWith("@qual-lab/")) url = resolveFixtureModule(url);
     const resolved = new URL(url, fixtureUrl).href;
     assert.equal(resolved, expectedLoads[loads.length]);
     loads.push(resolved);
@@ -1185,7 +1197,7 @@ export async function simulateAuthCreateClosure(
                 return { status: "blocked" };
             }
             const writer = mocks.get(
-              moduleUrl("../../../execution-model/src/index.ts"),
+              import.meta.resolve("@qual-lab/crdd-execution-model"),
             )?.saveRecoveryCheckpoint as (...args: unknown[]) => {
               status: string;
             };
@@ -1353,7 +1365,7 @@ export async function simulateAuthCreateClosure(
           recoveryUrl,
           restartUrl,
           lifecycleUrl,
-          moduleUrl("../../../execution-model/src/index.ts"),
+          import.meta.resolve("@qual-lab/crdd-execution-model"),
         ].includes(url),
       );
       assert.equal(mocks.has(url), false);
@@ -1366,7 +1378,7 @@ export async function simulateAuthCreateClosure(
     },
   };
   const factory = runInThisContext(`(function(context) {
-    const { assert, cp, execFileSync, createHash, fs, path, mock, setTimeout, setImmediate, fileURLToPath, fixedImage, fixedImageId, endpoint, fixtureUrl, process, AbortController, loadFixtureModule, technicalOperations, Buffer, URL, Object, manifestCompleted, prepareFixtureRecovery } = context;
+    const { assert, cp, execFileSync, createHash, fs, path, mock, setTimeout, setImmediate, fileURLToPath, fixedImage, fixedImageId, endpoint, fixtureUrl, process, AbortController, loadFixtureModule, resolveFixtureModule, technicalOperations, Buffer, URL, Object, manifestCompleted, prepareFixtureRecovery } = context;
     const getIsolationSettings = () => Object.freeze({ windowsDirectory: "C:\\\\Windows", userHomeDirectory: "C:\\\\Users\\\\fixture" });
     let spawnSync = cp.spawnSync;
     const syncBuiltinESMExports = () => { spawnSync = cp.spawnSync; context.synced(); };
@@ -1565,6 +1577,7 @@ export async function simulateAuthCreateClosure(
       process: fakeProcess,
       AbortController: FakeAbort,
       loadFixtureModule,
+      resolveFixtureModule,
       prepareFixtureRecovery: (input: unknown) => {
         assert.equal(input, capability);
         return recoveryInput;

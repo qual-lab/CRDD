@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../../version-control/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import { inspectWindowsProviderHomeCandidate } from "../../../src/lifecycle/environment.ts";
 import { observeLeaseOwner } from "../../../src/lifecycle/host.ts";
 

@@ -24,7 +24,7 @@ import {
   type IsolationRequest,
   type ResourceTarget,
   prepareIsolation,
-} from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 import { types } from "node:util";
 import { createLifecycleControl } from "./execute.ts";
 

@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as isolation from "../../../docker-isolation/src/index.ts";
+import * as isolation from "@qual-lab/crdd-docker-isolation";
 import * as executor from "../../src/index.ts";
 
 /**

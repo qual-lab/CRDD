@@ -15,7 +15,7 @@ import { describeAdviceResultSchema } from "../../../ai-adapter/src/provider/adv
 import {
   planExecution,
   type ExecutionRequest,
-} from "../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
 };

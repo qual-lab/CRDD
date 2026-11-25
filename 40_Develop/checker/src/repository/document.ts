@@ -27,11 +27,11 @@ import {
   parseSpecIndex,
   parseUiIndex,
   parseUxIndex,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import {
   getRepository,
   readRepositoryRevision,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import { createFindingCollector } from "../report/collect.ts";
 import { mapChangeDomainIssueToFinding } from "../report/convert.ts";
 import {

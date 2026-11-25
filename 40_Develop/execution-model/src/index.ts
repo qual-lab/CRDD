@@ -83,6 +83,7 @@ export {
 export {
   createLocalPrincipalId,
   isPrincipalId,
+  leaseAcquisitionRecoveryId,
 } from "./composition/validation.ts";
 export type {
   ExecutionModelAccess,

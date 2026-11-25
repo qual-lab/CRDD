@@ -413,7 +413,7 @@ Sourceの新設・実質変更・再編では、次を評価し、`Applicable: �
 - [ ] File Header、import、型、File直下の変数・定数、関数・実装の順序と同一参照先のimport統合を確認し、依存評価・初期化の意味を変えていない。
 - [ ] `index.ts`が`src/index.ts`だけに存在し、別名の再export専用集約もCapability配下に残っていない。正式Subpathは実責務を所有する具体Fileへ接続し、明示exportとNamed Exportの原則を評価した。
 - [ ] `bin/`の主要File名がPackage Folder名と一致し、`bin/`、`scripts/`、`src/`、`tests/`の所有範囲と参照経路が整合する。追加CLIがある場合は独立理由を明示した。
-- [ ] Package間deep importがなく、Script／Testによる同Package内部参照は、それぞれの許可範囲に閉じる。
+- [ ] パッケージ間はパッケージ名と `exports` の公開入口で参照し、利用側の `package.json` とロックファイルに直接依存を宣言する。相対パスによる公開入口の直読みも行わない。Script／Testの同一パッケージ内部参照は許可範囲に閉じる。
 - [ ] Store／Registry／Catalog、Adapter、Runtime・Portの名称が実責務と一致する。
 - [ ] 変更する場合は公開Symbol、全Consumer、試験・配布・設定・現在文書への伝播を照合した。
 - [ ] 未移行Source、未実装の機械検査、判断不能な責務を完成扱いせず追跡した。

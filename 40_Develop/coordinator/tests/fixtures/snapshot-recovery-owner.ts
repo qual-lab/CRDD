@@ -19,16 +19,16 @@ import type {
   IsolationCallbacks,
   ResourceSnapshot,
   ResourceTarget,
-} from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
-import type { OperationResources } from "../../../execution-model/src/index.ts";
+import type { OperationResources } from "@qual-lab/crdd-execution-model";
 import {
   type OperationRecord,
   readState,
   saveRecoveryCheckpoint,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import { snapshotJsonValue } from "../../src/lifecycle/validation.ts";
 
 const [root, operationId, recoveryId, scenario] = process.argv.slice(2);

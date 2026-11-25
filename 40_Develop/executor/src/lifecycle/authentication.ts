@@ -8,7 +8,7 @@ import { types } from "node:util";
 import {
   getAuthenticationDefinition,
   parseProviderResult,
-} from "../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import {
   type IsolationSettings,
   describeIsolationConfiguration,
@@ -16,7 +16,7 @@ import {
   type IsolationExecution,
   type IsolationRequest,
   prepareIsolation,
-} from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 import { createLifecycleControl } from "./execute.ts";
 import type {
   ResourcePreparation,

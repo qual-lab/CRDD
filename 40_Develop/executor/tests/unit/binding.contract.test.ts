@@ -15,9 +15,9 @@ import { runInNewContext } from "node:vm";
 import {
   getAuthenticationDefinition,
   resolveModelSelection,
-} from "../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import { prepareProviderEnvironment } from "../../../ai-adapter/src/provider/validation.ts";
-import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
+import { describeIsolationConfiguration } from "@qual-lab/crdd-docker-isolation";
 import type { TestAttemptPlan } from "../support/executor-test.ts";
 import {
   prepareAttempt,

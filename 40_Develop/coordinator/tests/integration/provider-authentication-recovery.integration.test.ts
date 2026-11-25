@@ -14,7 +14,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
-import type { LockReference } from "../../../lock/src/index.ts";
+import type { LockReference } from "@qual-lab/crdd-lock";
 import {
   authenticationResourceFixture,
   createAuthenticationFixture,

@@ -10,8 +10,7 @@ import assert from "node:assert/strict";
 import { mock } from "node:test";
 
 const coordinatorUrl = new URL(
-  "../../../coordinator/src/index.ts",
-  import.meta.url,
+  import.meta.resolve("@qual-lab/crdd-coordinator"),
 );
 const coordinator = await import(coordinatorUrl.href);
 let workspaceCalls = 0;

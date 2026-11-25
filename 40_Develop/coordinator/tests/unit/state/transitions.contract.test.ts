@@ -15,7 +15,7 @@ import { describe, it } from "node:test";
 import type {
   ProjectExecutionState,
   ProjectTaskDefinition,
-} from "../../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   projectExecutionFixture,
   taskHandoffFixture,

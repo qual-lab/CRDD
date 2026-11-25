@@ -12,17 +12,17 @@ import { isDeepStrictEqual, types } from "node:util";
 import {
   getAuthenticationDefinition,
   type Provider,
-} from "../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import type {
   IsolationCallbacks,
   IsolationExecution,
-} from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 import {
   applyResourceCleanup,
   applyResourceEvent,
   type OperationResources,
   validateResourceBook,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   type AuthenticationOptions,
   cleanupResources,
@@ -32,8 +32,8 @@ import {
   type ExecutorRequest,
   type RecordProjection,
   type ResourceTarget,
-} from "../../../executor/src/index.ts";
-import type { LockResult } from "../../../lock/src/index.ts";
+} from "@qual-lab/crdd-executor";
+import type { LockResult } from "@qual-lab/crdd-lock";
 import { snapshotJsonValue, readExecutionCancellation } from "./validation.ts";
 import {
   getIsolationSettings,

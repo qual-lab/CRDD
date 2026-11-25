@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   readDecision,
   readProjectExecutionState,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import type { StoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import { submitDecision } from "../../src/lifecycle/decision.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/lifecycle/host.ts";
@@ -109,9 +109,9 @@ test("継続要求から再計画待ち又は取消へ一回適用し履歴だ�
         "human_decision_required",
       );
       assert.equal(
-        snapshot.projects.find(
-          (p: { projectId: string }) => p.projectId === projectId,
-        ).generation,
+        (snapshot as StoredExecutionFixture).managedExecutions.find(
+          (execution) => execution.queueId === request.queueId,
+        )?.generation,
         state.generation,
       );
       const read = readDecision(

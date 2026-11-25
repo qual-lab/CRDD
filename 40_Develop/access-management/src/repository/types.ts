@@ -5,7 +5,7 @@
  * @trace ARCH-000013
  */
 
-import type { RepositoryManifest } from "../../../configuration-model/src/index.ts";
+import type { RepositoryManifest } from "@qual-lab/crdd-configuration-model";
 
 /**
  * 現在認証済みの内容操作を同じ要求内で再照合する。

@@ -94,12 +94,12 @@ export const currentHostTransitionWorkerSource = `(async () => {
           return {...observation,delivery:'confirmed'};
         }}});
       }
-      const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
+      const vc = await import(${JSON.stringify(new URL(import.meta.resolve("@qual-lab/crdd-version-control")).href)});
       const { canonicalJson } = await import(${JSON.stringify(new URL("../support/contract-assertions.ts", import.meta.url).href)});
-      const store = await import(${JSON.stringify(new URL("../../../execution-model/src/index.ts", import.meta.url).href)});
+      const store = await import(${JSON.stringify(new URL(import.meta.resolve("@qual-lab/crdd-execution-model")).href)});
       const historyInputs = await import(${JSON.stringify(new URL("../../src/lifecycle/host.ts", import.meta.url).href)});
       if (['none','null_outcome','workbench_transient'].includes(process.argv[3]) || process.argv[3].startsWith('history_')) {
-        const executorUrl = ${JSON.stringify(new URL("../../../executor/src/index.ts", import.meta.url).href)};
+        const executorUrl = ${JSON.stringify(new URL(import.meta.resolve("@qual-lab/crdd-executor")).href)};
         const executor = await import(executorUrl);
         const { mock } = await import('node:test');
         const rejectEffect=()=>{rejectedEffects++;throw new Error('unrelated_docker_effect_forbidden');};

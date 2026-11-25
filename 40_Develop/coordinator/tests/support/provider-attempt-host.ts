@@ -11,12 +11,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { initializeIsolation } from "../../../docker-isolation/src/index.ts";
+import { initializeIsolation } from "@qual-lab/crdd-docker-isolation";
 import {
   applyResourceCleanup,
   applyResourceEvent,
   type OperationResources,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { observeProviderHome } from "../../../executor/tests/support/provider-home.ts";
 import {
   readReport,
@@ -30,8 +30,8 @@ import {
   createExecutor,
   type ExecutorCallbacks,
   type ExecutorRequest,
-} from "../../../executor/src/index.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-executor";
+import { getRepository } from "@qual-lab/crdd-version-control";
 
 /** 元要求と同じRootに必要な通知を保存し、公開ExecutorのCompletionをjoinする。 @trace ERB-IT-004 */
 export function createStandaloneProviderAttemptHost(

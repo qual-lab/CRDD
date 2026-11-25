@@ -10,7 +10,9 @@ import type {
   ArraySnapshot,
   DataDescriptor,
   PlainArraySnapshot,
+  Snapshot,
 } from "./types.ts";
+import type { ProjectQueueEntry } from "../task/types.ts";
 import type {
   LeaseKind,
   LeaseEvidenceContent,
@@ -779,8 +781,112 @@ export function leaseIdentity(
   _projectId: string,
   _queueId: string,
   kind: LeaseKind,
+  workspaceId?: string | null,
 ) {
-  return `${kind}-${repositoryBindingId}`;
+  return workspaceId == null
+    ? `${kind}-${repositoryBindingId}`
+    : `${kind}-${repositoryBindingId}-workspace-${hashStateText(workspaceId).slice(0, 40)}`;
+}
+
+/** Directまたは対象未確定の実行を、Workspaceと非競合にしない。 @trace ARCH-000004 */
+export function leaseScopesConflict(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
+  return left == null || right == null || left === right;
+}
+
+/** Lease取得とWriterが同じ保存断面から登録Workspaceと排他を確認する。 @trace ARCH-000004 */
+export function leaseScopeAvailable(
+  current: Pick<
+    Snapshot,
+    "leaseIntents" | "queueEntries" | "workspaces" | "projects"
+  >,
+  queue: ProjectQueueEntry,
+  recoveryGeneration?: number,
+): boolean {
+  if (
+    recoveryGeneration !== undefined &&
+    (queue.generation !== recoveryGeneration ||
+      queue.state !== "recovery_required" ||
+      !queue.singleTask ||
+      queue.singleTask.phase === "accepted" ||
+      (queue.singleTask.phase === "settled" &&
+        queue.singleTask.cleanupConfirmed &&
+        queue.singleTask.recoveryIds.length === 0))
+  )
+    return false;
+  if (
+    queue.workspaceId != null &&
+    !current.workspaces.some(
+      (workspace) =>
+        workspace.workspaceId === queue.workspaceId &&
+        workspace.phase === "ready" &&
+        workspace.holdUntil === null,
+    )
+  )
+    return false;
+  return !leaseScopeOccupied(
+    current,
+    queue.workspaceId,
+    recoveryGeneration === undefined ? undefined : queue.queueId,
+  );
+}
+
+/** Workspace操作と実行は、割当済みの長期Lease・未確定Intentを同じ範囲で扱う。 @trace ARCH-000004 */
+export function leaseScopeOccupied(
+  current: Pick<Snapshot, "leaseIntents" | "queueEntries" | "projects">,
+  workspaceId: string | null | undefined,
+  recoveringQueueId?: string,
+): boolean {
+  const blockedQueues = new Set(
+    current.leaseIntents.map((intent) => intent.queueId),
+  );
+  const recovering = queuesWithOutstandingRecovery(current);
+  for (const entry of current.queueEntries) {
+    const intent = blockedQueues.delete(entry.queueId);
+    if (
+      (intent ||
+        entry.ownerGeneration !== null ||
+        (entry.queueId !== recoveringQueueId &&
+          recovering.has(entry.queueId))) &&
+      leaseScopesConflict(workspaceId, entry.workspaceId)
+    )
+      return true;
+  }
+  return blockedQueues.size !== 0;
+}
+
+/** Queue表示だけで、残っているTaskの回収義務を解除しない。 @trace ARCH-000004 */
+export function queuesWithOutstandingRecovery(
+  current: Pick<Snapshot, "queueEntries" | "projects">,
+): ReadonlySet<string> {
+  const owners = new Set<string>();
+  const unbound = new Set<string>();
+  for (const project of current.projects) {
+    if (
+      !project.tasks.some(
+        (task) =>
+          task.recoveryUnresolved ||
+          task.recoveryObligations.some(
+            (obligation) => obligation.phase !== "settled",
+          ),
+      )
+    )
+      continue;
+    if (project.queueId === undefined)
+      unbound.add(`${project.projectId}\0${project.milestoneId}`);
+    else owners.add(project.queueId);
+  }
+  for (const entry of current.queueEntries) {
+    if (
+      entry.state === "recovery_required" ||
+      (entry.milestoneId !== null &&
+        unbound.has(`${entry.projectId}\0${entry.milestoneId}`))
+    )
+      owners.add(entry.queueId);
+  }
+  return owners;
 }
 
 /**
@@ -801,10 +907,10 @@ export function leaseIdentity(
  */
 export function leaseAcquisitionRecoveryId(
   repositoryBindingId: string,
-  _projectId: string,
-  _queueId: string,
+  projectId: string,
+  queueId: string,
   kind: LeaseKind,
 ) {
-  const identityInput = `${repositoryBindingId}\0${kind}`;
+  const identityInput = `${repositoryBindingId}\0${projectId}\0${queueId}\0${kind}`;
   return `lease-acquisition-${hashStateText(identityInput).slice(0, 40)}`;
 }

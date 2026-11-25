@@ -21,7 +21,7 @@ import { createRepositoryTestDirectory } from "../../../execution-model/tests/su
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import { bindTaskCliCancellationSignals } from "../../src/cli/command.ts";
 import { cancelCoordinatorTask } from "../../src/lifecycle/execution.ts";
 import {

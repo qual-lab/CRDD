@@ -6,7 +6,7 @@
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../../version-control/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import {
   isExecutionProcessPoisoned,
   poisonExecutionProcessAfterCleanupUnknown,

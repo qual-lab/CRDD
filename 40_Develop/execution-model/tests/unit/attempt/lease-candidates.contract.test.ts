@@ -220,12 +220,12 @@ function assertEvidence(
 test("取得Owner投影は不存在・同じ参照・混在Ownerを分離する", () => {
   const { current, intent } = fixture();
   assert.equal(
-    projectLeaseAcquisitionOwner(current, "binding-a").reason,
+    projectLeaseAcquisitionOwner(current, "binding-a", "queue-a").reason,
     "coordinator_lease_acquisition_absent",
   );
   const state = { ...current, leaseIntents: [intent] };
   const before = encodeStateValue(state);
-  const result = projectLeaseAcquisitionOwner(state, "binding-a");
+  const result = projectLeaseAcquisitionOwner(state, "binding-a", "queue-a");
   assert.equal(result.status, "completed");
   if (result.status === "completed")
     assert.equal(result.value.value.acquisition?.recoveryId, "recovery-a");
@@ -235,6 +235,7 @@ test("取得Owner投影は不存在・同じ参照・混在Ownerを分離する"
       leaseIntents: [intent, { ...intent, ownerGeneration: "other" }],
     },
     "binding-a",
+    "queue-a",
   );
   assert.equal(mismatch.reason, "coordinator_lease_acquisition_owner_mismatch");
   assert.equal(
@@ -242,9 +243,16 @@ test("取得Owner投影は不存在・同じ参照・混在Ownerを分離する"
     "recovery-a",
   );
   assert.equal(
-    projectLeaseAcquisitionOwner({ ...state, queueEntries: [] }, "binding-a")
-      .status,
+    projectLeaseAcquisitionOwner(
+      { ...state, queueEntries: [] },
+      "binding-a",
+      "queue-a",
+    ).status,
     "blocked",
+  );
+  assert.equal(
+    projectLeaseAcquisitionOwner(state, "binding-a", "other-queue").reason,
+    "coordinator_lease_acquisition_absent",
   );
   assert.equal(encodeStateValue(state), before);
 });
@@ -516,7 +524,7 @@ test("Owner-loss初回照会は値結合の後だけRootを一回観測する", 
       intents: [f.intent],
       queue: f.queue,
       identity: "project-operation-binding-a",
-      recoveryId: "lease-acquisition-beca53628fa8df5e62cfb429478812053280ef5a",
+      recoveryId: "lease-acquisition-f215568b4a0177b6b8f6d430ec3c2d22d57632e5",
       ...f.root,
     });
 });

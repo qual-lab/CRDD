@@ -11,12 +11,12 @@ import {
   createSemanticBundle,
   observeRealitySymbolRepository,
   publishSemanticCoverage,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import {
   getRepository,
   getRepositoryFromWorkingDirectory,
   resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   compileQualitySemanticRelationsFromRepository,
   compileSemanticIrFromRepository,

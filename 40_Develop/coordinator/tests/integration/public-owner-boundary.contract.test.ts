@@ -18,11 +18,11 @@ import { runInNewContext } from "node:vm";
 import {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
-} from "../../../configuration-model/src/index.ts";
+} from "@qual-lab/crdd-configuration-model";
 import {
   createLocalPrincipalId,
   isPrincipalId,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
 import { readExecutionCancellation } from "../../src/lifecycle/validation.ts";
 import * as coordinator from "../../src/index.ts";

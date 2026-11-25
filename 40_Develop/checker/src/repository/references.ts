@@ -11,12 +11,12 @@ import path from "node:path";
 import {
   parseArtifact,
   parseMarkdownLinkReference,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import {
   getRepository,
   readCommitFile,
   type Repository,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import type { DocumentReferenceMap } from "../report/types.ts";
 import { isWithin, pathContainsSymbolicLink, samePath } from "./observe.ts";
 import type { LinkRecord, LinkResolution } from "./types.ts";

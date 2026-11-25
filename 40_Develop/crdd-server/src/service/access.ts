@@ -8,8 +8,8 @@
  * @boundary 通信受付の当該要求とAccess Management・Version Control。
  */
 import { randomUUID } from "node:crypto";
-import type { PortfolioProjection } from "../../../document-model/src/index.ts";
-import type { CredentialAdministrationSnapshot } from "../../../access-management/src/index.ts";
+import type { PortfolioProjection } from "@qual-lab/crdd-document-model";
+import type { CredentialAdministrationSnapshot } from "@qual-lab/crdd-access-management";
 import {
   readCredentialAdministrationState,
   issueCredential,
@@ -31,12 +31,12 @@ import {
   type ManagementOperationOutcome,
   type CurrentAccessOutcome,
   type ManagementReadOutcome,
-} from "../../../access-management/src/index.ts";
+} from "@qual-lab/crdd-access-management";
 import {
   getRepository,
   readRepositoryLocation,
   resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 
 /**
  * 認可済みの登録要求からexact Git Rootを確認する。

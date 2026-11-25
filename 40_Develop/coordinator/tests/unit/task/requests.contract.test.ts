@@ -434,6 +434,12 @@ test("ObjectiveのModule代役は元要求とStateを保持し全終了経路で
       "return (" +
         declaration
           .replace(imports, "await importModule(url)")
+          .replaceAll(
+            'import.meta.resolve("@qual-lab/crdd-execution-model")',
+            JSON.stringify(
+              import.meta.resolve("@qual-lab/crdd-execution-model"),
+            ),
+          )
           .replaceAll("import.meta.url", JSON.stringify(import.meta.url)) +
         ");",
       [
@@ -681,6 +687,10 @@ test("単発fixtureは全Moduleを逆順解除し未指定Owner観測への到�
   assert.equal(original.split(dynamicKernel).length, 2);
   const declaration = original
     .replace(dynamicKernel, "kernel")
+    .replaceAll(
+      'import.meta.resolve("@qual-lab/crdd-version-control")',
+      JSON.stringify(import.meta.resolve("@qual-lab/crdd-version-control")),
+    )
     .replaceAll(
       "import.meta.url",
       JSON.stringify(

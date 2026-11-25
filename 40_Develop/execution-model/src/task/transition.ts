@@ -93,6 +93,7 @@ export function observeTaskStartCandidates(
 ): TaskStartCandidates {
   return Object.freeze({
     projectId: state.projectId,
+    ...(state.queueId === undefined ? {} : { queueId: state.queueId }),
     generation: state.generation,
     taskIds: selectSchedulableProjectTasks(state),
   });

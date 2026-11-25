@@ -20,6 +20,10 @@ MCPはCoordinatorのsubcommandではない。OrchestratorやPlatform Accessに�
 
 採用Repositoryでは、公式Release tagへ固定した完全な`00_CRDD` cloneまたはsubmoduleと、Serverの依存・Workbench UIの生成済み配布物を同じ版で用意する。公式Repository内の開発確認では `template/tools/crdd-server.ts` を使用する。ポートの省略または `0` で自動割当てする。stdio時は標準出力をMCP専用とし、起動URLと診断は標準エラーへ出す。stdin EOFまたは終了シグナルでMCPとHTTPの所有資源を閉じる。
 
+自作パッケージの依存は同じチェックアウトへのローカルリンクであり、外部レジストリの同名パッケージへ置換しない。新しいチェックアウトでの初回導入では、`40_Develop/` 配下でパッケージの各 `package-lock.json` を使い、依存先と利用側の両方で `npm ci --install-links=false` を実行する。Serverだけの導入では推移依存先のリンクは揃わない。
+
+Serverの準備には `lock`、`ai-adapter`、`version-control`、`configuration-model`、`document-model`、`execution-model`、`execution-intelligence`、`docker-isolation`、`executor`、`access-management`、`coordinator`、`crdd-server` を含める。Workbenchのビルド・試験を行う場合は `visual-preview` と `workbench-ui` も対象にする。固定チェックアウトを指す `template/tools/crdd-server.ts` の起動先は変えない。
+
 単体と共有のどちらでも、Objective実行・判断送信・実行状態照会は通常のToolとして利用する。単体は起動Repository、共有は指定した `repositoryId` と開発権限に結び付ける。単体HTTPのMCPには既存の `CRDD_MCP_HTTP_BEARER_TOKEN` が必要で、未設定でもWorkbenchを起動するが `/mcp` の要求は拒否する。起動や一覧取得だけで実行Ownerを開始しない。旧MCP単独コマンド・旧フラグの互換入口は設けない。
 
 ## 共有Host上のMCP設定

@@ -82,7 +82,6 @@ test("初回Stateの捕捉はGetterとProxyを拒否し元参照を共有しな�
       "createProjectExecutionState",
       "createQueuedEntry",
       "validQueueEntry",
-      "initializeExecutionStore",
       "withSnapshotOperation",
       "prepareQueueEntryCreation",
     ],
@@ -97,13 +96,14 @@ test("初回Stateの捕捉はGetterとProxyを拒否し元参照を共有しな�
       assert.deepEqual(input, queue);
       return true;
     },
-    () => ({ status: "completed" }),
     (
       _root: unknown,
       _binding: string,
       operation: (current: object) => unknown,
+      mode: unknown,
     ) => {
       calls++;
+      assert.deepEqual(mode, { prepareDirectory: undefined });
       raw.projectId = "changed";
       raw.tasks[0]?.values.push(2);
       return operation({});

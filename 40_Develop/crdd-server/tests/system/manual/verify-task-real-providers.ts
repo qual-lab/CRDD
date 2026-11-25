@@ -11,18 +11,18 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getModelCatalog } from "../../../../ai-adapter/src/index.ts";
-import { readRepositoryAiSelection } from "../../../../configuration-model/src/index.ts";
+import { getModelCatalog } from "@qual-lab/crdd-ai-adapter";
+import { readRepositoryAiSelection } from "@qual-lab/crdd-configuration-model";
 import { resolveRepositoryExecutionDataPaths } from "../../../../coordinator/src/lifecycle/host.ts";
 import { observeServerDevelopmentSource } from "../../support/task-real-provider-contract.ts";
 import { resolveTaskExecutionSelections } from "../../../../coordinator/src/lifecycle/selection.ts";
-import { createFilesystemRepositoryObservationPort } from "../../../../document-model/src/index.ts";
+import { createFilesystemRepositoryObservationPort } from "@qual-lab/crdd-document-model";
 import {
   getRepository,
   readRepositorySnapshot,
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-} from "../../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   buildCoordinatorRealProviderReport,
   captureCanonicalRepositorySnapshot,

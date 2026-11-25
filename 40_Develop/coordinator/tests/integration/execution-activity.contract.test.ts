@@ -14,28 +14,33 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import type { Execution } from "../../../execution-intelligence/src/index.ts";
+import type { Execution } from "@qual-lab/crdd-execution-intelligence";
+import { acquireLock } from "@qual-lab/crdd-lock";
 import {
   createQueue,
   initializeExecutionStore,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   initialExecutionInput,
   projectExecutionFixture,
 } from "../../../execution-model/tests/fixtures/execution-plan.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import {
   ensureRepositoryExecutionDataArea,
   requireReadyRepositoryExecutionDataArea,
   resolveExecutionStorageDirectory,
 } from "../../src/lifecycle/host.ts";
-import { queryActivity } from "../../src/index.ts";
+import { queryActivity, queryState } from "../../src/index.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/lifecycle/validation.ts";
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+import {
+  executionSelection,
+  taskExecutionSelections,
+} from "../fixtures/ai-selection.ts";
 import {
   activityId,
   storeFixtureExecution,
 } from "../fixtures/execution-intelligence.ts";
+import { canonicalJson } from "../support/contract-assertions.ts";
 
 const projectId = "project-a";
 
@@ -118,7 +123,7 @@ function repository(t: test.TestContext, repositoryId: string, commit = true) {
  * @cleanup 登録済みhookで今回Fixtureを削除し不存在を確認する。
  * @boundary PPR-IT-012=Adjacent 1 Block: 実Store Reader→活動投影。
  */
-function state(root: string, revision: string) {
+function state(root: string, revision: string, queueId = "queue-a") {
   const binding = `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`;
   assert.equal(
     initializeExecutionStore(resolveExecutionStorageDirectory(root), binding)
@@ -150,11 +155,11 @@ function state(root: string, revision: string) {
       kind: "scheduled",
       input: [
         {
-          queueId: "queue-a",
+          queueId,
           projectId,
           milestoneId: "milestone-a",
           requestHash: createHash("sha256")
-            .update("activity-request")
+            .update(`activity-request:${queueId}`)
             .digest("hex"),
           originLane: "interactive",
           repositoryRevision: revision,
@@ -316,6 +321,242 @@ test("AI成功後のTask清掃失敗を活動の成功へ読み替えない", as
   assert.equal(observed.events[0]?.reason, "host_cleanup_failed");
   assert.equal(observed.events[0]?.cleanupConfirmed, false);
   assert.equal(observed.events[0]?.manualRecoveryRequired, true);
+});
+
+/** @trace PPR-IT-012 同じ保存版の同Project・同MilestoneをQueue別に返す。 */
+test("実保存の同一Milestoneにある2つのGraphを活動照会で区別する", async (t) => {
+  const bound = repository(t, "repo-a");
+  assert.ok(bound.revision);
+  state(bound.root, bound.revision, "queue-a");
+  state(bound.root, bound.revision, "queue-b");
+  const storage = resolveExecutionStorageDirectory(bound.root);
+  const binding = deriveCoordinatorRepositoryBindingId(bound.root);
+  for (const [offset, queueId] of [
+    "queue-unknown",
+    "queue-retired",
+  ].entries()) {
+    const created: Readonly<{ status: string; reason: string }> = createQueue(
+      storage,
+      binding,
+      {
+        kind: "scheduled",
+        input: [
+          {
+            queueId,
+            projectId,
+            milestoneId: "milestone-a",
+            requestHash: String(3 + offset).repeat(64),
+            originLane: "scheduled",
+            repositoryRevision: bound.revision,
+            scopeHash: String(5 + offset).repeat(64),
+          },
+        ],
+      },
+    );
+    assert.equal(created.status, "completed", created.reason);
+  }
+  const single = createQueue(storage, binding, {
+    kind: "single",
+    input: [
+      {
+        historySettled: false,
+        queueId: "request-advice",
+        projectId,
+        milestoneId: null,
+        requestHash: "1".repeat(64),
+        originLane: "interactive",
+        repositoryRevision: bound.revision,
+        scopeHash: "2".repeat(64),
+        state: "queued",
+        generation: 1,
+        ownerGeneration: null,
+        resumeCondition: null,
+        resultReference: null,
+        workspaceId: null,
+        singleTask: {
+          principalId: "local-user",
+          mode: "read_only_advice",
+          executionSelection: executionSelection("advice"),
+          taskId: "task-advice",
+          attemptId: "attempt-advice",
+          operationId: "operation-advice",
+          phase: "accepted",
+          status: "pending",
+          reason: null,
+          cleanupConfirmed: false,
+          recoveryIds: [],
+        },
+      },
+    ],
+  });
+  assert.equal(single.status, "completed", single.reason);
+  const wsA = "11111111-1111-4111-8111-111111111111";
+  const wsB = "22222222-2222-4222-8222-222222222222";
+  const file = path.join(bound.root, ".crdd", "execution-model", "state.json");
+  const payload = JSON.parse(fs.readFileSync(file, "utf8"));
+  // Workspaceの登録と履歴退役後の行だけを合成し、活動は正規Readerで観測する。
+  fs.writeFileSync(
+    file,
+    `${canonicalJson({
+      ...payload,
+      workspaces: [wsA, wsB].map((workspaceId) => ({
+        workspaceId,
+        name: null,
+        candidate: null,
+        generation: 1,
+        baseCommit: bound.revision,
+        head: bound.revision,
+        phase: "ready",
+        holdUntil: null,
+        pending: null,
+        lastResult: null,
+        primaryFailure: null,
+      })),
+      queueEntries: payload.queueEntries.map((entry: { queueId: string }) =>
+        entry.queueId === "queue-retired"
+          ? {
+              ...entry,
+              historySettled: true,
+              generation: 2,
+              state: "cancelled",
+            }
+          : {
+              ...entry,
+              workspaceId:
+                entry.queueId === "queue-a"
+                  ? wsA
+                  : entry.queueId === "queue-b"
+                    ? wsB
+                    : null,
+            },
+      ),
+    })}\n`,
+  );
+  const observed = await queryActivity({
+    projectId,
+    repositories: [bound.input],
+    limit: 20,
+  });
+  assert.equal(observed.state, "unknown", "旧単数投影では暗黙に選ばない");
+  assert.equal(observed.projection, null);
+  assert.equal(observed.eventState, "observed");
+  assert.deepEqual(
+    observed.graphs?.map((entry) => [
+      entry.queueId,
+      entry.milestoneId,
+      entry.workspaceId,
+      entry.progress?.milestoneState ?? null,
+    ]),
+    [
+      ["queue-a", "milestone-a", wsA, "planned"],
+      ["queue-b", "milestone-a", wsB, "planned"],
+      ["queue-unknown", "milestone-a", null, null],
+    ],
+  );
+  assert.ok(observed.graphs?.every((entry) => entry.repositoryId === "repo-a"));
+  assert.deepEqual(
+    observed.singleTasks?.map((entry) => entry.requestId),
+    ["request-advice"],
+  );
+  const after = JSON.parse(fs.readFileSync(file, "utf8"));
+  fs.writeFileSync(
+    file,
+    `${canonicalJson({
+      ...after,
+      queueEntries: after.queueEntries.map((entry: { queueId: string }) =>
+        entry.queueId === "queue-b"
+          ? {
+              ...entry,
+              historySettled: false,
+              generation: 2,
+              state: "cancelled",
+            }
+          : entry,
+      ),
+    })}\n`,
+  );
+  const remaining = await queryActivity({
+    projectId,
+    repositories: [bound.input],
+    limit: 20,
+  });
+  assert.equal(
+    remaining.state,
+    "observed",
+    "取消済み実行は履歴退役前でも現在Graphに含めない",
+  );
+  assert.equal(remaining.projection?.milestoneState, "planned");
+  assert.deepEqual(
+    remaining.graphs?.map((entry) => entry.queueId),
+    ["queue-a", "queue-unknown"],
+  );
+  const request = {
+    requestId: "state-observation",
+    projectId,
+    repositoryRevision: bound.revision,
+  };
+  const stateOf = (queueId: string, repositoryRevision = bound.revision) =>
+    queryState({ ...request, repositoryRevision, queueId }, bound.root, {
+      principalId: "local-user",
+    });
+  const cancelled = stateOf("queue-b");
+  assert.equal(cancelled.reason, "coordinator_state_queue_cancelled");
+  assert.ok("projection" in cancelled);
+  assert.equal(cancelled.projection, null);
+  execFileSync(
+    "git",
+    [
+      "-C",
+      bound.root,
+      "-c",
+      "user.name=Activity Fixture",
+      "-c",
+      "user.email=activity@example.invalid",
+      "commit",
+      "--allow-empty",
+      "--quiet",
+      "-m",
+      "advance main",
+    ],
+    { windowsHide: true },
+  );
+  const current = execFileSync("git", ["-C", bound.root, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+    windowsHide: true,
+  }).trim();
+  assert.notEqual(current, bound.revision);
+  const isolated = stateOf("queue-a");
+  assert.equal(isolated.reason, "coordinator_state_observed");
+  assert.ok("projection" in isolated);
+  assert.equal(isolated.projection?.queueId, "queue-a");
+  assert.equal(
+    stateOf("queue-a", current).reason,
+    "coordinator_state_revision_mismatch",
+  );
+  assert.equal(stateOf("queue-b").reason, "coordinator_state_queue_cancelled");
+  const blocker = acquireLock({
+    directory: path.join(bound.root, ".crdd", "lock"),
+    name: "execution-model.state.lock",
+    identity: "snapshot-read-conflict-fixture",
+  });
+  assert.equal(blocker.status, "acquired");
+  try {
+    const unobserved = stateOf("queue-a");
+    assert.equal(unobserved.reason, "coordinator_state_observation_unknown");
+    assert.ok("projection" in unobserved);
+    assert.equal(unobserved.projection, null);
+    assert.equal(unobserved.manualRecoveryRequired, false);
+  } finally {
+    assert.equal(blocker.lock.release(), true);
+  }
+  assert.equal(
+    stateOf("queue-unknown").reason,
+    "coordinator_state_revision_mismatch",
+  );
+  assert.equal(
+    queryState(request, bound.root, { principalId: "local-user" }).reason,
+    "coordinator_state_revision_mismatch",
+  );
 });
 
 test("実状態の不存在・単一Owner・複数競合を区別しHEAD変更後も状態を読む", async (t) => {

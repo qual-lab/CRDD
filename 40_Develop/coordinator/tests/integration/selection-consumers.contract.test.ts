@@ -14,16 +14,16 @@ import {
   type ModelSelection,
   planExecution,
   type TurnCountDiagnostic,
-} from "../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import {
   describeIsolationConfiguration,
   type ResourceSnapshot,
-} from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 import type {
   ExecutionOperationRecord,
   ExecutionSelection,
   OperationResources,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { resolveFixtureExecutionSelection } from "../fixtures/ai-selection.ts";
 
 /**

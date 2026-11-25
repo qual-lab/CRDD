@@ -19,6 +19,7 @@ const [
   requestedKind = "project-operation",
   queueId = "queue-a",
   projectId = "project-a",
+  claim,
 ] = process.argv.slice(2);
 if (
   !workingDirectory ||
@@ -26,7 +27,10 @@ if (
   (mode !== "hold" && mode !== "pause-before-publish") ||
   requestedKind !== "project-operation" ||
   !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(queueId) ||
-  !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(projectId)
+  !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(projectId) ||
+  (claim !== undefined &&
+    (!["claim", "cancelled", "integration_pending"].includes(claim) ||
+      mode !== "hold"))
 )
   throw new Error("coordinator_lease_interleaving_probe_input_invalid");
 
@@ -66,6 +70,54 @@ if (result.status !== "completed") {
   process.stdout.write(`${JSON.stringify(result)}\n`);
   process.exitCode = 20;
 } else {
+  if (claim !== undefined) {
+    const { createTestPersistence } = await import(
+      "./task-persistence-fixture.ts"
+    );
+    const saved = foundation.updateCoordinatorQueue(
+      createTestPersistence(workingDirectory, "binding-a"),
+      queueId,
+      1,
+      {
+        state: "leased",
+        lease: result.value,
+        resumeCondition: null,
+        resultReference: null,
+      },
+    );
+    if (saved.status !== "completed") throw Error(saved.reason);
+    if (claim === "cancelled" || claim === "integration_pending") {
+      const persistence = createTestPersistence(workingDirectory, "binding-a");
+      const running = foundation.updateCoordinatorQueue(
+        persistence,
+        queueId,
+        saved.value.generation,
+        {
+          state: "running",
+          lease: result.value,
+          resumeCondition: null,
+          resultReference: null,
+        },
+      );
+      if (running.status !== "completed") throw Error(running.reason);
+      const terminal = foundation.updateCoordinatorQueue(
+        persistence,
+        queueId,
+        running.value.generation,
+        {
+          state: claim,
+          lease: result.value,
+          resumeCondition:
+            claim === "integration_pending" ? "objective_integration" : null,
+          resultReference:
+            claim === "integration_pending"
+              ? "original-integration-reference"
+              : null,
+        },
+      );
+      if (terminal.status !== "completed") throw Error(terminal.reason);
+    }
+  }
   if (mode === "hold") {
     fs.writeFileSync(signalPath, "ready\n", "utf8");
     const deadline = Date.now() + 10_000;
@@ -75,6 +127,12 @@ if (result.status !== "completed") {
     }
   }
   const released = result.value.release();
+  if (mode === "hold" && process.env.CRDD_LEASE_PROBE_RELEASE_MARKER === "1")
+    fs.writeFileSync(
+      `${signalPath}.released`,
+      `${released.status}:${released.reason}\n`,
+      { flag: "wx" },
+    );
   process.stdout.write(
     `${JSON.stringify({ acquired: true, released: released.status })}\n`,
   );

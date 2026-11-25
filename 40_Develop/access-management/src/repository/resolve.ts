@@ -5,7 +5,7 @@
  * @trace ARCH-000013
  */
 
-import { readRepositoryManifest } from "../../../configuration-model/src/index.ts";
+import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
 import { resolveCredentialAuthentication } from "../credential/authentication.ts";
 import { readCredentialId } from "../credential/token.ts";
 import type { AuthenticatedRequest } from "../credential/types.ts";

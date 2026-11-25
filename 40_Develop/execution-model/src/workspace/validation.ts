@@ -12,11 +12,14 @@ import {
   encodeStateValue,
   isStateObject,
   hasStateKeys,
+  leaseScopeOccupied,
+  leaseScopesConflict,
 } from "../composition/validation.ts";
 import type {
   RepositoryWorktreeResult,
   ResultRecord,
   WorkspaceCandidateRequest,
+  WorkspaceCandidateResult,
   WorkspaceRecord,
 } from "./types.ts";
 
@@ -33,10 +36,7 @@ export function prepareWorkspaceObservationUpdate(
   const queue = current.queueEntries.find(
     (entry) => entry.projectId === projectId && entry.queueId === queueId,
   );
-  if (
-    !queue ||
-    current.leaseIntents.some((item) => item.kind === "project-operation")
-  )
+  if (!queue || leaseScopeOccupied(current, workspaceId))
     return blocked("coordinator_workspace_lease_mismatch");
   const previous = current.workspaces.find(
     (record) => record.workspaceId === workspaceId,
@@ -124,6 +124,10 @@ export function prepareWorkspaceCandidateUpdate(
   expectedGeneration: number,
   next: WorkspaceRecord,
   operation: "freeze" | "adopt" | "close-candidate",
+  unissuedAdoption?: Readonly<{
+    initial: WorkspaceRecord | null;
+    observation: WorkspaceCandidateResult;
+  }>,
 ) {
   const queue = current.queueEntries.find(
     (entry) =>
@@ -134,10 +138,7 @@ export function prepareWorkspaceCandidateUpdate(
   const previous = current.workspaces.find(
     (record) => record.workspaceId === workspaceId,
   );
-  if (
-    !queue ||
-    current.leaseIntents.some((item) => item.kind === "project-operation")
-  )
+  if (!queue || leaseScopeOccupied(current, workspaceId))
     return blocked("coordinator_workspace_lease_mismatch");
   if (!previous || previous.generation !== expectedGeneration)
     return blocked("coordinator_workspace_generation_conflict");
@@ -157,6 +158,42 @@ export function prepareWorkspaceCandidateUpdate(
       encodeStateValue(before.request) !== encodeStateValue(after.request))
   )
     return blocked("coordinator_workspace_record_invalid");
+  if (unissuedAdoption !== undefined) {
+    const { initial, observation } = unissuedAdoption;
+    const fixed = initial?.candidate;
+    if (
+      operation !== "adopt" ||
+      initial === null ||
+      fixed?.phase !== "fixed" ||
+      initial.generation + 1 !== expectedGeneration ||
+      before?.phase !== "merging" ||
+      before.target === null ||
+      encodeStateValue(before) !==
+        encodeStateValue({
+          ...fixed,
+          phase: "merging",
+          target: before.target,
+        }) ||
+      encodeStateValue(after) !== encodeStateValue(fixed) ||
+      observation?.status !== "blocked" ||
+      observation.reason !== "commit_merge_target_changed" ||
+      observation.effectIssued !== false ||
+      observation.cleanupConfirmed !== true ||
+      observation.mergeCommit !== null ||
+      observation.temporary !== null ||
+      observation.candidateCommit !== fixed.candidateCommit ||
+      observation.candidateRef !== fixed.lastResult?.candidateRef ||
+      observation.candidateRef === null
+    )
+      return blocked("coordinator_candidate_target_mismatch");
+    return prepareWorkspaceUpdate(
+      current,
+      queue,
+      workspaceId,
+      expectedGeneration,
+      next,
+    );
+  }
   if (operation === "freeze") {
     if (
       !after ||
@@ -288,10 +325,7 @@ export function prepareWorkspaceCreationUpdate(
   const previous = current.workspaces.find(
     (record) => record.workspaceId === workspaceId,
   );
-  if (
-    !queue ||
-    current.leaseIntents.some((item) => item.kind === "project-operation")
-  )
+  if (!queue || leaseScopeOccupied(current, workspaceId))
     return blocked("coordinator_workspace_lease_mismatch");
   if ((previous?.generation ?? 0) !== expectedGeneration)
     return blocked("coordinator_workspace_generation_conflict");
@@ -344,10 +378,7 @@ export function prepareWorkspaceDiscardUpdate(
   const previous = current.workspaces.find(
     (record) => record.workspaceId === workspaceId,
   );
-  if (
-    !queue ||
-    current.leaseIntents.some((item) => item.kind === "project-operation")
-  )
+  if (!queue || leaseScopeOccupied(current, workspaceId))
     return blocked("coordinator_workspace_lease_mismatch");
   if (!previous || previous.generation !== expectedGeneration)
     return blocked("coordinator_workspace_generation_conflict");
@@ -406,7 +437,7 @@ export function prepareWorkspaceMetadataUpdate(
     (entry) => entry.queueId === queueId && entry.projectId === projectId,
   );
   if (!queue) return blocked("coordinator_lease_binding_invalid");
-  if (current.leaseIntents.some((item) => item.kind === "project-operation"))
+  if (leaseScopeOccupied(current, workspaceId))
     return blocked("coordinator_lease_unavailable");
   if (!resourcesAbsent())
     return blocked("coordinator_lease_preexisting_resource");
@@ -456,7 +487,7 @@ function prepareWorkspaceUpdate(
   nextRecord: WorkspaceRecord | null,
   now?: () => number,
 ) {
-  const { projectId, queueId } = queue;
+  const { queueId } = queue;
   const previous = current.workspaces.find(
     (entry) => entry.workspaceId === workspaceId,
   );
@@ -471,16 +502,15 @@ function prepareWorkspaceUpdate(
       nextRecord.generation !== expectedGeneration + 1)
   )
     return blocked("coordinator_workspace_record_invalid");
-  // binding-wide操作Leaseを維持し、既存Task／回復参照から非使用を導く。
-  const affectedProjects = new Set(
+  // 対象Queueから実行先を判定する。Directと帰属不明のTaskは競合扱いにする。
+  const unrelatedQueues = new Set(
     current.queueEntries
-      .filter((entry) => entry.workspaceId === workspaceId)
-      .map((entry) => entry.projectId),
+      .filter((entry) => !leaseScopesConflict(workspaceId, entry.workspaceId))
+      .map((entry) => entry.queueId),
   );
-  affectedProjects.add(projectId);
   const singleTaskBusy = current.queueEntries.some(
     (entry) =>
-      affectedProjects.has(entry.projectId) &&
+      !unrelatedQueues.has(entry.queueId) &&
       entry.singleTask &&
       (entry.singleTask.phase !== "settled" ||
         !entry.singleTask.cleanupConfirmed ||
@@ -489,7 +519,10 @@ function prepareWorkspaceUpdate(
   const busy =
     singleTaskBusy ||
     current.projects
-      .filter((entry) => affectedProjects.has(entry.projectId))
+      .filter(
+        (entry) =>
+          entry.queueId === undefined || !unrelatedQueues.has(entry.queueId),
+      )
       .some((entry) =>
         entry.tasks.some(
           (task) =>

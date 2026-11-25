@@ -23,7 +23,7 @@ import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
 } from "../../../docker-isolation/src/docker-cli/trust.ts";
-import type { IsolationSettings } from "../../../docker-isolation/src/index.ts";
+import type { IsolationSettings } from "@qual-lab/crdd-docker-isolation";
 import { captureDockerProcessEnvironment } from "../../../docker-isolation/src/process/environment.ts";
 import {
   finishOwnedProcess,
@@ -44,8 +44,8 @@ import type {
   DockerSessionCleanup,
 } from "../../../docker-isolation/tests/support/session.ts";
 import { startDockerCommandSession } from "../../../docker-isolation/tests/support/session.ts";
-import type { Lock, LockResult } from "../../../lock/src/index.ts";
-import { acquireLock } from "../../../lock/src/index.ts";
+import type { Lock, LockResult } from "@qual-lab/crdd-lock";
+import { acquireLock } from "@qual-lab/crdd-lock";
 import type { DockerIsolationCommandInput } from "../../src/lifecycle/types.ts";
 import { planDockerIsolationCommands } from "./isolation-plan.ts";
 

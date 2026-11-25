@@ -16,7 +16,7 @@ import test from "node:test";
 import {
   getAuthenticationDefinition,
   planExecution,
-} from "../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import { describeProviderExecution } from "../../../ai-adapter/src/provider/plan.ts";
 import { projectCodexExecutionBoundary } from "../../../ai-adapter/src/codex/plan.ts";
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {

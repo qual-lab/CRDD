@@ -20,7 +20,7 @@ import type {
   ExecutorCallbacks,
   StartInput,
   AttemptCancelInput,
-} from "../../../../executor/src/index.ts";
+} from "@qual-lab/crdd-executor";
 
 import test from "node:test";
 import fs from "node:fs";
@@ -45,7 +45,7 @@ import {
 import { types, isDeepStrictEqual } from "node:util";
 import { createResourceOperationFixture } from "../../../../execution-model/tests/support/resource-operation.ts";
 import { snapshotPlainRecord } from "../../../src/lifecycle/validation.ts";
-import { parseDockerTaskRecoveryId } from "../../../../execution-model/src/index.ts";
+import { parseDockerTaskRecoveryId } from "@qual-lab/crdd-execution-model";
 import { snapshotReadyRecovery } from "../../../src/lifecycle/validation.ts";
 
 const { executeProviderAdvice, classifyProviderAdviceHostFailure } =

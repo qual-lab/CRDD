@@ -23,9 +23,10 @@ import {
   initializeExecutionState,
   queryPlan,
   type savePlan,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
+import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 
 /**
  * 非導入の実行機能を読込拒否しても定義を編集できる。
@@ -82,6 +83,9 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
   git("add", ".");
   git("commit", "--quiet", "-m", "fixture");
   const module = new URL("../../src/app.ts", import.meta.url).href;
+  const em = new URL(import.meta.resolve("@qual-lab/crdd-execution-model"))
+    .href;
+  const head = git("rev-parse", "HEAD").toString("utf8").trim();
   const output = execFileSync(
     process.execPath,
     [
@@ -90,7 +94,7 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
     import assert from 'node:assert/strict';
     import {readFileSync} from 'node:fs';
     import {registerHooks} from 'node:module';
-      registerHooks({resolve(s,c,n){if(s.includes('coordinator/')||s.includes('executor/')||/^(?:mcp-|tools-)/.test(s.split('/').at(-1))||s.startsWith('@modelcontextprotocol/'))throw new Error('optional_runtime_unavailable');return n(s,c);}});
+      registerHooks({resolve(s,c,n){if(s==='@qual-lab/crdd-coordinator'||s.includes('coordinator/')||s==='@qual-lab/crdd-executor'||s.includes('executor/')||/^(?:mcp-|tools-)/.test(s.split('/').at(-1))||s.startsWith('@modelcontextprotocol/'))throw new Error('optional_runtime_unavailable');return n(s,c);}});
     const {startWorkbench}=await import(${JSON.stringify(module)});
     let server=await startWorkbench({workingDirectory:${JSON.stringify(root)}});
     const target={projectId:'project.fixture',milestoneId:'milestone'};
@@ -114,6 +118,12 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
       assert.equal((await write({operation:'plan.save',expected:initial.version,expectedDefinitionHash:null,definition:plan},token)).value.status,'conflict');
       const created=(await write({operation:'task.create',expected:saved.version,definition:{id:'extra',objectiveId:'objective',dependencies:[],allowedPaths:['extra.ts'],conflictKeys:[]}},token)).value;assert.equal(created.status,'saved',JSON.stringify(created));
       const deleted=(await write({operation:'task.delete',expected:created.version,taskId:'extra',expectedDefinitionHash:created.value.definitionHash},token)).value;assert.equal(deleted.status,'saved',JSON.stringify(deleted));
+      const definitionUrl=server.baseUrl+'/api/execution/definition?'+new URLSearchParams(target);
+      const missing=await fetch(definitionUrl+'&operation=tasks&queueId=missing');
+      assert.equal(missing.status,200);assert.equal((await missing.json()).status,'absent');
+      assert.equal((await fetch(definitionUrl+'&operation=tasks&queueId=a&queueId=b')).status,400);
+      assert.equal((await fetch(definitionUrl+'&operation=plan&queueId=a')).status,400);
+      assert.equal((await write({operation:'initialize',expectedAbsence:true,queueId:'a'},token)).status,400);
       const large={...plan,tasks:Array.from({length:128},(_,i)=>({id:'large-'+i,objectiveId:'objective',dependencies:[],allowedPaths:Array.from({length:128},(_,j)=>'src/'+i+'-'+j+'-'+ 'p'.repeat(200)),conflictKeys:[]}))};
       assert.ok(Buffer.byteLength(JSON.stringify(large))>3*1024*1024);
       const largeSaved=(await write({operation:'plan.save',expected:deleted.version,expectedDefinitionHash:deleted.value.definitionHash??(await query()).value.definitionHash,definition:large},token)).value;
@@ -124,6 +134,21 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
       assert.equal(rejected,403);assert.deepEqual(await query(),before);
       await server.close();server=await startWorkbench({workingDirectory:${JSON.stringify(root)}});
       assert.deepEqual(await query(),before);
+      const {createQueue}=await import(${JSON.stringify(em)});
+      const repositoryRevision=${JSON.stringify(head)};
+      const fixtureRoot=${JSON.stringify(root)};
+      const {repositoryBindingId}=JSON.parse(readFileSync(fixtureRoot+'/.crdd/execution-model/state.json','utf8'));
+      for(const [queueId,hash] of [['queue-a','a'],['queue-b','b']]){
+        const queued=createQueue({directory:fixtureRoot},repositoryBindingId,{kind:'scheduled',input:[
+          {...target,queueId,repositoryRevision,requestHash:hash.repeat(64),scopeHash:hash.repeat(64),originLane:'scheduled'},
+          {...target,...plan,repositoryRevision,maximumConcurrency:1,ownerGeneration:'fixture-owner',taskExecutionSelections:${JSON.stringify(taskExecutionSelections())},tasks:[{...plan.tasks[0],allowedPaths:[queueId+'.ts']}]}
+        ]});
+        assert.equal(queued.status,'completed',queued.reason);
+        const response=await(await fetch(server.baseUrl+'/api/execution/definition?'+new URLSearchParams({...target,operation:'tasks',queueId}))).json();
+        assert.equal(response.status,'available');assert.deepEqual(response.value[0].definition.allowedPaths,[queueId+'.ts']);assert.equal(response.value[0].execution.state,'ready');
+      }
+      const shared=await(await fetch(server.baseUrl+'/api/execution/definition?'+new URLSearchParams({...target,operation:'tasks'}))).json();
+      assert.equal(shared.status,'available');assert.equal(shared.value.length,large.tasks.length);assert.ok(shared.value.every(task=>task.execution===null));
     }finally{await server.close();}
     await assert.rejects(fetch(server.baseUrl+'/.well-known/crdd-workbench-health'));
     process.stdout.write('workbench_core_crud_passed');
@@ -377,8 +402,9 @@ test("Server binは既定で統合しAI Sessionを起動だけでは作らない
       registerHooks({resolve(s,c,n){
         if(c.parentURL===command&&s==='../transport/mcp-server.ts')return {shortCircuit:true,url:moduleUrl("export const createMcpServerFactory=()=>({});export const readMcpServerConfiguration=async()=>({});export const runMcpStdio=async()=>({status:'completed',cleanupConfirmed:true})")};
         if(c.parentURL===command&&s==='../app.ts')return {shortCircuit:true,url:moduleUrl("export async function readProjectViewData(){return {context:{projectId:'fixture'}}};export async function readWorkbenchServerConfiguration(){return {}};export async function startWorkbench(input){if(input.aiRequests)throw Error('docs_ai');process.stdout.write('DOCS_STARTED|');return {publicUrl:'http://127.0.0.1:1',close:async()=>{}}};export async function startCrddServer(input){if(!input.localMcp&&!input.localAccessRoot)throw Error('mcp_missing');if(input.sharedAiRequestsFactory)input.sharedAiRequestsFactory({},'fixture','host',()=>true);process.stdout.write('CORE_STARTED|');setImmediate(()=>process.emit('SIGTERM'));return {publicUrl:'http://127.0.0.1:1',close:async()=>{}}}")};
-        if(c.parentURL===command&&s.includes('access-management/src/index.ts'))return {shortCircuit:true,url:moduleUrl("export const resolveHostRootInput=()=>({});export const readExistingHostRoot=()=>({});export const readHostInitializationState=()=>({status:'completed'});")};
-        if(s.includes('coordinator/src/index.ts'))return {shortCircuit:true,url:moduleUrl("process.stdout.write('AUTOMATION_LOADED|');export function openTaskSession(input){if(!input.rootCapability||!input.authorize())throw Error('binding');process.stdout.write('SESSION_CREATED|');return {}}")};
+        if(c.parentURL===command&&s==='@qual-lab/crdd-access-management')return {shortCircuit:true,url:moduleUrl("export const resolveHostRootInput=()=>({});export const readExistingHostRoot=()=>({});export const readHostInitializationState=()=>({status:'completed'});")};
+        if(s==='@qual-lab/crdd-coordinator')return {shortCircuit:true,url:moduleUrl("process.stdout.write('AUTOMATION_LOADED|');export function openTaskSession(input){if(!input.rootCapability||!input.authorize())throw Error('binding');process.stdout.write('SESSION_CREATED|');return {}}")};
+        if(s.includes('coordinator/'))throw Error('coordinator_source_path_not_allowed');
         return n(s,c);
       }});
       process.argv=['node',new URL(entry).pathname,...${JSON.stringify(args)}];
@@ -427,7 +453,7 @@ test("Server binは既定で統合しAI Sessionを起動だけでは作らない
     ),
     "createAiRequests",
   ).replace(
-    /await import\(\s*"[^"]+coordinator\/src\/index\.ts"\s*,?\s*\)/u,
+    /await import\(\s*"@qual-lab\/crdd-coordinator"\s*,?\s*\)/u,
     "await loadCoordinator()",
   );
   assert.ok(declaration.includes("await loadCoordinator()"));

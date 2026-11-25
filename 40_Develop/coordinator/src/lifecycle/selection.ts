@@ -13,7 +13,7 @@ import {
   getRepository,
   resolveVerifiedRepositoryRoot,
   type Repository,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import type {
   AdvicePacket,
   AttemptBinding,
@@ -30,13 +30,13 @@ import type {
 import type {
   ExecutionSelection,
   TaskExecutionSelections,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   readRepositoryAiSelection,
   validateAiSelectionConfig,
   type AiSelectionSnapshot,
   type AiSelectionRole,
-} from "../../../configuration-model/src/index.ts";
+} from "@qual-lab/crdd-configuration-model";
 import {
   borrowOwnedDockerExecutionPaths,
   readBorrowedExecutionBinding,
@@ -56,11 +56,8 @@ import {
   resolveModelSelection,
   getModelCatalog,
   planExecution,
-} from "../../../ai-adapter/src/index.ts";
-import {
-  createExecutor,
-  type ExecutorRequest,
-} from "../../../executor/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
+import { createExecutor, type ExecutorRequest } from "@qual-lab/crdd-executor";
 import { verifyExternalSendPolicy } from "./decision.ts";
 import { consumeTaskRemediation, getIsolationSettings } from "./environment.ts";
 

@@ -5,7 +5,7 @@
  * @boundary 確認済みの要求、既存の実行・採用排他、Worktreeの操作。
  */
 
-import { readRepositoryManifest } from "../../../configuration-model/src/index.ts";
+import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
 import { randomUUID } from "node:crypto";
 import fs, { existsSync, lstatSync } from "node:fs";
 import path from "node:path";
@@ -19,7 +19,7 @@ import {
   type WorkspaceCandidateRequest,
   type WorkspaceCandidateResult,
   type WorkspaceRecord,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   type CommitSelection,
   type CommitTemporary,
@@ -41,7 +41,7 @@ import {
   resolveVerifiedRepositoryRoot,
   type WorktreeResult,
   type WorktreeTarget,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   resolveRepositoryExecutionDataPaths,
   type PreparedWorkspaceTarget,
@@ -50,7 +50,7 @@ import {
   containsRecognizedSecretText,
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../../../coordinator/src/index.ts";
+} from "@qual-lab/crdd-coordinator";
 
 /** 認可済みProjectのWorkspace記録から実行候補を渡す。実Worktreeは実行側が排他内で確認する。 @trace ARCH-000005 */
 export function prepareWorkspaceExecutionTarget(
@@ -58,39 +58,68 @@ export function prepareWorkspaceExecutionTarget(
   projectId: string,
   workspaceId: string | null | undefined,
 ): PreparedWorkspaceTarget | null {
-  if (!isWorkspaceId(workspaceId)) return null;
+  return observeWorkspaceExecutionTarget(
+    ownerRepositoryRoot,
+    projectId,
+    workspaceId,
+  ).value;
+}
+
+/** 一時的な保存競合と対象の不在を区別して実行受付へ渡す。 @trace ARCH-000012 */
+export function observeWorkspaceExecutionTarget(
+  ownerRepositoryRoot: string,
+  projectId: string,
+  workspaceId: string | null | undefined,
+) {
+  const observed = (value: PreparedWorkspaceTarget | null) => ({
+    status: "completed" as const,
+    reason: value
+      ? "coordinator_workspace_target_observed"
+      : "coordinator_workspace_target_changed",
+    value,
+  });
+  if (!isWorkspaceId(workspaceId)) return observed(null);
   try {
     const snapshot = readWorkspaceState(
       { directory: ownerRepositoryRoot },
       deriveCoordinatorRepositoryBindingId(ownerRepositoryRoot),
     );
+    if (snapshot.status !== "completed") return snapshot;
     if (
-      snapshot.status !== "completed" ||
       !snapshot.value?.queueEntries.some(
         (queue) =>
           queue.projectId === projectId && queue.workspaceId === workspaceId,
       )
     )
-      return null;
+      return observed(null);
     const record = snapshot.value.workspaces.find(
       (entry) => entry.workspaceId === workspaceId,
     );
-    if (record?.phase !== "ready" || record.holdUntil !== null) return null;
+    if (record?.phase !== "ready" || record.holdUntil !== null)
+      return observed(null);
     const worktree = Object.freeze(workspaceWorktreeTarget(workspaceId));
     if (
       record.lastResult?.relativePath !== worktree.relativePath ||
       record.lastResult?.branch !== worktree.branch
     )
-      return null;
-    return Object.freeze({
-      ownerRepositoryRoot,
-      workspaceId,
-      executionTree: path.join(ownerRepositoryRoot, worktree.relativePath),
-      baseCommit: record.baseCommit,
-      worktree,
-    });
+      return observed(null);
+    return observed(
+      Object.freeze({
+        ownerRepositoryRoot,
+        workspaceId,
+        executionTree: path.join(ownerRepositoryRoot, worktree.relativePath),
+        baseCommit: record.baseCommit,
+        worktree,
+      }),
+    );
   } catch {
-    return null;
+    return {
+      status: "blocked" as const,
+      reason: "coordinator_workspace_target_observation_unconfirmed",
+      manualRecoveryRequired: true,
+      recoveryId: null,
+      value: null,
+    };
   }
 }
 
@@ -976,8 +1005,13 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
         throw new Error("workspace_operation_lock_requires_manual_review");
       }
     };
-    const save = (next: WorkspaceRecord | null) => {
-      consumeSave(worktreeChange.save(record?.generation ?? 0, next));
+    const save = (
+      next: WorkspaceRecord | null,
+      unissuedAdoption?: WorkspaceCandidateResult,
+    ) => {
+      consumeSave(
+        worktreeChange.save(record?.generation ?? 0, next, unissuedAdoption),
+      );
     };
     if (worktreeChange.generation !== null && !worktreeChange.linkedToProject)
       throw new Error("coordinator_workspace_target_mismatch");
@@ -1133,6 +1167,7 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
       if (["freeze", "adopt", "close-candidate"].includes(request.operation)) {
         if (record.phase !== "ready" || record.holdUntil !== null)
           throw new Error("coordinator_workspace_not_ready");
+        let fixedBeforeAdoption: WorkspaceRecord["candidate"] = null;
         if (request.operation === "freeze") {
           const intent = {
             workspaceId: record.workspaceId,
@@ -1229,6 +1264,7 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
             throw new Error("coordinator_candidate_target_mismatch");
           if (!request.authorize())
             throw new Error("coordinator_candidate_not_authorized");
+          if (c.phase === "fixed") fixedBeforeAdoption = c;
           save({
             ...record,
             generation: record.generation + 1,
@@ -1280,6 +1316,22 @@ export function manageWorkspace(request: WorkspaceManagementRequest) {
         if (result.candidateResult && record?.candidate) {
           const technical = result.candidateResult;
           const c = record.candidate;
+          if (
+            fixedBeforeAdoption !== null &&
+            technical.status === "blocked" &&
+            technical.reason === "commit_merge_target_changed" &&
+            !technical.effectIssued
+          ) {
+            save(
+              {
+                ...record,
+                generation: record.generation + 1,
+                candidate: fixedBeforeAdoption,
+              },
+              technical,
+            );
+            throw new Error(technical.reason);
+          }
           const completed =
             technical.status === "completed" && technical.cleanupConfirmed;
           if (completed && request.operation === "adopt")

@@ -11,7 +11,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { planExecution } from "../../../../ai-adapter/src/index.ts";
+import { planExecution } from "@qual-lab/crdd-ai-adapter";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
 import { startDockerProcessController } from "../../../src/lifecycle/execution.ts";
 import { cancelExecutorAttempt } from "../../../src/lifecycle/environment.ts";

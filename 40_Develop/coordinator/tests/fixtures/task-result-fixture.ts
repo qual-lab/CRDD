@@ -20,7 +20,7 @@ import {
   type OperationResources,
   readState,
   saveOperationStart,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { createResourceBookFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { canonicalJson } from "../support/contract-assertions.ts";
 import { executionSelection } from "./ai-selection.ts";
@@ -184,6 +184,7 @@ export function registerSyntheticOperations(
         revision: previous.revision,
         previous: previous.previous,
         managedExecutions: previous.managedExecutions,
+        planVersions: previous.planVersions,
         operations: state.operations.filter(
           (item: { recoveryId: string }) =>
             item.recoveryId !== registered.recoveryId,
@@ -396,6 +397,6 @@ export function settleSyntheticOperations(
   );
 }
 
-import { saveRecoveryHistory } from "../../../execution-model/src/index.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { saveRecoveryHistory } from "@qual-lab/crdd-execution-model";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import { borrowCoordinatorRecoveryRepository } from "../../src/lifecycle/host.ts";

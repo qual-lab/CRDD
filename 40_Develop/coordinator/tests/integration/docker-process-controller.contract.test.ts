@@ -17,9 +17,9 @@ import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { planExecution } from "../../../ai-adapter/src/index.ts";
+import { planExecution } from "@qual-lab/crdd-ai-adapter";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/image/assets.ts";
-import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
+import type { ResourceSnapshot } from "@qual-lab/crdd-docker-isolation";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/process/start.ts";
 import { describeDockerCommandSessionContract } from "../../../docker-isolation/tests/support/session.ts";
 import {

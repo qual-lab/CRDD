@@ -51,6 +51,11 @@ assert.equal(stateValues.validLeaseEvidence(null),false);
 assert.equal(stateValues.leaseIdentity("binding","project","queue","project-operation"),"project-operation-binding");
 assert.equal(resources.authenticationUnknownAbsenceChanged(null,{operations:[]}),false);
 assert.equal(objective.hashExecutionProjectDefinition({projectId:"p",milestoneId:"m",milestone:{acceptanceCriteria:["done"]},objectives:[],tasks:[]}),stateValues.hashExecutionStateContent({projectId:"p",milestoneId:"m",definition:{milestoneAcceptanceCriteria:["done"],objectives:[],tasks:[]}}));
+const project={projectId:"p",milestoneId:"m",generation:7,decisionApplicationId:"decision",milestone:{acceptanceCriteria:plan.milestoneAcceptanceCriteria,state:"accepted"},objectives:plan.objectives.map(definition=>({definition,state:"completed"})),tasks:plan.tasks};
+assert.deepEqual(objective.projectPlanDefinition(project),plan);
+assert.equal(objective.hashExecutionPlanDefinition("p","m",plan),objective.hashExecutionProjectDefinition(project));
+assert.notEqual(objective.hashExecutionPlanDefinition("other","m",plan),objective.hashExecutionProjectDefinition(project));
+assert.notEqual(objective.hashExecutionPlanDefinition("p","other",plan),objective.hashExecutionProjectDefinition(project));
 console.log("LOCAL_VALIDATION");`;
   const result = spawnSync(
     process.execPath,

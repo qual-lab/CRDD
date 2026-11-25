@@ -10,8 +10,8 @@ import { randomUUID } from "node:crypto";
 import {
   applyResourceEvent,
   applyResourceCleanup,
-} from "../../../execution-model/src/index.ts";
-import type { ResourceTarget } from "../../../executor/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
+import type { ResourceTarget } from "@qual-lab/crdd-executor";
 import { cleanupDockerContainer } from "../../../docker-isolation/src/cleanup/container.ts";
 import {
   createDockerProbeContainer,

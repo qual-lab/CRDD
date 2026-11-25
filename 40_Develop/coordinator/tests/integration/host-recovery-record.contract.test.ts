@@ -16,12 +16,12 @@ import { createRepositoryTestDirectory } from "../../../execution-model/tests/su
 
 const modules = {
   operation: new URL("../../src/lifecycle/host.ts", import.meta.url).href,
-  model: new URL("../../../execution-model/src/index.ts", import.meta.url).href,
+  model: import.meta.resolve("@qual-lab/crdd-execution-model"),
   recoveryRepository: new URL(
     "../support/recovery-repository.ts",
     import.meta.url,
   ).href,
-  repository: new URL("../../../version-control/src/index.ts", import.meta.url)
+  repository: new URL(import.meta.resolve("@qual-lab/crdd-version-control"))
     .href,
   fixture: new URL(
     "../../../execution-model/tests/support/resource-operation.ts",
@@ -134,7 +134,7 @@ if (scenario === "crash_reentry") {
     assert.equal(currentState.lockReleased, true);
     assert.equal(currentState.value.snapshot.operations.find(item => item.kind === "host_operation").recoveryId, record.recoveryId);
   } else {
-    assert.equal(currentState.reason, "coordinator_state_lock_unavailable");
+    assert.ok(["coordinator_state_lock_unavailable", "coordinator_snapshot_lock_contended"].includes(currentState.reason));
     assert.equal(currentState.lockReleased, false);
   }
   assert.equal(operation.acquireHostOperationRecoveryGeneration(repository, record.recoveryId, input.recordingCurrent), null);

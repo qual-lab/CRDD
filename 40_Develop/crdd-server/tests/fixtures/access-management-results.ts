@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { mock } from "node:test";
 import { fileURLToPath } from "node:url";
-import * as actualAccess from "../../../access-management/src/index.ts";
+import * as actualAccess from "@qual-lab/crdd-access-management";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import type { McpResponse } from "../../src/transport/mcp-server.ts";
 
@@ -48,7 +48,7 @@ const read = mock.fn(() => readResult);
 const update = mock.fn(() => mutationResult);
 const current = mock.fn(() => currentResult);
 const replacement = mock.module(
-  new URL("../../../access-management/src/index.ts", import.meta.url).href,
+  new URL(import.meta.resolve("@qual-lab/crdd-access-management")).href,
   {
     namedExports: {
       ...actualAccess,

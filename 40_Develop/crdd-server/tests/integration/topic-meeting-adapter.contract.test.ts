@@ -27,8 +27,8 @@ import {
   createTopicOperations,
   readTopicMeetingList,
   type TopicMeetingAccess,
-} from "../../../document-model/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-document-model";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import {
   getTopicMeetingToolDefinitions,
   handleMcpTopicMeetingRequest,

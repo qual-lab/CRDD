@@ -1533,7 +1533,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     assert.ok(source);
     return {
       ...source.snapshot,
-      schema: "crdd-execution-model/state/v9",
+      schema: "crdd-execution-model/state/v10",
       repositoryBindingId: null,
       projects: [],
       queueEntries: [],

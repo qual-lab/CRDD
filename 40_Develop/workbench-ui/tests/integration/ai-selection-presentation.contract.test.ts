@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { AiSelectionConfig } from "../../../configuration-model/src/index.ts";
+import type { AiSelectionConfig } from "@qual-lab/crdd-configuration-model";
 import {
   validateAiSelectionSnapshot,
   validateAiSelectionResponse,

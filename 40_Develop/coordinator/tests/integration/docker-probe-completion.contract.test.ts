@@ -12,7 +12,7 @@ import test from "node:test";
 import type {
   CompletionResult,
   IsolationProbeFacts,
-} from "../../../executor/src/index.ts";
+} from "@qual-lab/crdd-executor";
 import { createProbeExecutionFixture } from "../support/probe-executor.ts";
 
 /**

@@ -16,7 +16,7 @@ import {
   authenticateNormalConnection,
   readCurrentAccess,
   readManagementState,
-} from "../../../access-management/src/index.ts";
+} from "@qual-lab/crdd-access-management";
 import { resolveSharedDefinitionAccess } from "../service/execution.ts";
 import { resolveSharedDevelopmentAccess } from "../service/access.ts";
 import { executeMeetingAction } from "../service/meeting.ts";
@@ -50,14 +50,14 @@ import {
   parseMeetingMarkdown,
   parseTopicMarkdown,
   readTopicMeetingList,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import type {
   McpRequestHandler,
   McpServerFactory,
   McpAuthenticatedRequestHandlerResolver,
 } from "./mcp-types.ts";
 import type { DefinitionAccess } from "../service/execution.ts";
-import type { ExecutionActivityObservation } from "../../../coordinator/src/index.ts";
+import type { ExecutionActivityObservation } from "@qual-lab/crdd-coordinator";
 import { setTimeout } from "node:timers/promises";
 import {
   executeManagementOperation,
@@ -438,16 +438,20 @@ export function createAccessMcpResolver(
               if (selected.length === 0) return null;
               if (signal.aborted)
                 throw new Error("runtime_activity_unavailable");
-              return readAuthorizedExecutionActivity(
+              const authorize = () =>
+                sameAccessCollection(
+                  collection,
+                  resolveRepositoryAccessCollection(root, token),
+                );
+              const observation = await readAuthorizedExecutionActivity(
                 query,
                 selected,
-                () =>
-                  sameAccessCollection(
-                    collection,
-                    resolveRepositoryAccessCollection(root, token),
-                  ),
+                authorize,
                 signal,
               );
+              if (signal.aborted || !authorize())
+                throw new Error("runtime_activity_unavailable");
+              return observation;
             },
           },
           /**
@@ -955,6 +959,7 @@ function getExecutionToolDefinitions(requireRepositoryId = false) {
         requestId: id,
         projectId: id,
         repositoryRevision: rev,
+        queueId: id,
       },
       [...Object.keys(targetFields), ...stateQueryKeys],
     ),
@@ -1003,6 +1008,7 @@ function getExecutionDefinitionToolDefinitions() {
     milestoneId: id,
     objectiveId: id,
     taskId: id,
+    queueId: id,
     expectedAbsence: { const: true },
     expected: {
       type: "object",
@@ -1052,7 +1058,12 @@ function getExecutionDefinitionToolDefinitions() {
             return {
               type: "object",
               additionalProperties: false,
-              required: ["operation", ...keys],
+              required: [
+                "operation",
+                ...keys.filter(
+                  (key) => operation !== "tasks" || key !== "queueId",
+                ),
+              ],
               properties: {
                 operation: { const: operation },
                 ...Object.fromEntries(
@@ -1763,7 +1774,7 @@ async function dispatchActivityTool(
   let ownedObservation: ExecutionActivityObservation | null;
   try {
     const { parseExecutionActivityObservation } = await import(
-      "../../../coordinator/src/index.ts"
+      "@qual-lab/crdd-coordinator"
     );
     if (signal.aborted)
       return protocolError(params.id, -32800, "Request cancelled");

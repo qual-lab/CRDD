@@ -15,7 +15,7 @@ import {
   resolveModelSelection,
   type ExecutionResult,
   type ExecutionPlan,
-} from "../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import {
   describeIsolationConfiguration,
   executeIsolation,
@@ -24,8 +24,8 @@ import {
   type IsolationRequest,
   prepareIsolation,
   type IsolationCommandResult,
-} from "../../../docker-isolation/src/index.ts";
-import { acquireLock, type LockResult } from "../../../lock/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
+import { acquireLock, type LockResult } from "@qual-lab/crdd-lock";
 import { releaseHomeLease } from "./cleanup.ts";
 import { createLifecycleControl } from "./execute.ts";
 import type {

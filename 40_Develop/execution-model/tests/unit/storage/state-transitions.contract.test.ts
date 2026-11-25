@@ -472,6 +472,7 @@ function emptyExecutionStateSnapshot(): ExecutionStateSnapshot {
     operations: [],
     unresolvedRecoveries: [],
     projects: [],
+    planVersions: [],
     managedExecutions: [],
     queueEntries: [],
     workspaces: [],
@@ -536,6 +537,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   const domainTechnical = {
     ...technical.snapshot,
     schema: EXECUTION_STATE_SCHEMA,
+    planVersions: [],
     managedExecutions: [],
   };
   const domainRead = decodeStateSnapshot(

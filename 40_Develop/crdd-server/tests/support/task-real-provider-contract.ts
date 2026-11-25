@@ -17,12 +17,12 @@ import {
 } from "../../../coordinator/tests/support/task-diagnostic.ts";
 import { isSupportedCrddRuntimeGitObjectId } from "../../../coordinator/tests/support/verification-safety.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../../../coordinator/src/lifecycle/validation.ts";
-import { inspectCoordinatorObjectiveResult } from "../../../coordinator/src/index.ts";
+import { inspectCoordinatorObjectiveResult } from "@qual-lab/crdd-coordinator";
 import { snapshotPlainRecord } from "../../../coordinator/src/lifecycle/validation.ts";
 import {
   getRepository,
   readRepositorySnapshot,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 
 /**
  * Server経由の開発検証で必要なソースを二読取りで観測する。

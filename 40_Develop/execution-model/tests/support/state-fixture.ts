@@ -8,16 +8,22 @@
  * @boundary 不正fieldを補正せず、新codec自身へ拒否させる。
  */
 
-import { hashExecutionProjectDefinition } from "../../src/objective/validation.ts";
-import type { ProjectDefinition } from "../../src/composition/types.ts";
+import {
+  hashExecutionProjectDefinition,
+  projectPlanDefinition,
+} from "../../src/objective/validation.ts";
+import type {
+  ExecutionPlanVersion,
+  ProjectDefinition,
+} from "../../src/composition/types.ts";
 
 /**
- * 結合して組み立てた試験Projectを正本の二区画へ配置する。
+ * 結合して組み立てた試験Projectを共有定義・計画版・管理実行に分ける。
  * @responsibility 全fieldを保持して分配し、欠測・未知fieldを検査から隠さない。
  * @trace PRL-UT-006
  * @precondition 自己生成した通常Objectだけを渡す。保存byte列は渡さない。
  * @stimulus 定義と技術値を分離して同じTask IDで結ぶ。
- * @observation 新形式のprojectsとmanagedExecutions。
+ * @observation 新形式のprojects・planVersions・managedExecutions。
  * @oracle Schemaは変更せず、未知fieldや欠測は正規codecへ残す。
  * @cleanup N/A: メモリ内だけ。
  * @boundary fixture組立てのみ。製品APIや互換Readerではない。
@@ -34,11 +40,13 @@ export function createManagedRuntimeSnapshotFixture(input: unknown) {
   )
     return value;
   const managedExecutions: unknown[] = [];
+  const planVersions: ExecutionPlanVersion[] = [];
   const projects = value.projects.map((project) => {
     const {
       taskExecutionSelections,
       ownerGeneration,
       maximumConcurrency,
+      queueId,
       tasks,
       contract: _contract,
       ...core
@@ -49,11 +57,31 @@ export function createManagedRuntimeSnapshotFixture(input: unknown) {
       contract: "crdd-domain/project-state/v1" as const,
       tasks: rows.map((task) => task.definition),
     };
+    const coreDefinition = definition as unknown as ProjectDefinition;
+    const definitionHash = hashExecutionProjectDefinition(coreDefinition);
+    planVersions.push({
+      projectId: coreDefinition.projectId,
+      milestoneId: coreDefinition.milestoneId,
+      definitionHash,
+      definition: projectPlanDefinition(coreDefinition),
+    });
     managedExecutions.push({
       projectId: project.projectId,
       milestoneId: project.milestoneId,
-      definitionHash: hashExecutionProjectDefinition(
-        definition as unknown as ProjectDefinition,
+      queueId: queueId ?? null,
+      definitionHash,
+      repositoryRevision: coreDefinition.repositoryRevision,
+      generation: coreDefinition.generation,
+      decisionApplicationId: coreDefinition.decisionApplicationId,
+      milestone: {
+        state: coreDefinition.milestone.state,
+        criterionEvidenceIds: coreDefinition.milestone.criterionEvidenceIds,
+      },
+      objectives: coreDefinition.objectives.map(
+        ({ definition, ...progress }) => ({
+          ...progress,
+          objectiveId: definition.id,
+        }),
       ),
       ...(Object.hasOwn(project, "taskExecutionSelections")
         ? { taskExecutionSelections }
@@ -69,5 +97,5 @@ export function createManagedRuntimeSnapshotFixture(input: unknown) {
     });
     return definition;
   });
-  return { ...value, projects, managedExecutions };
+  return { ...value, projects, planVersions, managedExecutions };
 }

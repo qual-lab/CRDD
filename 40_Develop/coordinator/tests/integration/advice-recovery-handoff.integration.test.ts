@@ -15,10 +15,10 @@ import fs from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
-import { saveRepositoryAiSelection } from "../../../configuration-model/src/index.ts";
-import { readQueueEntry } from "../../../execution-model/src/index.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getModelCatalog } from "@qual-lab/crdd-ai-adapter";
+import { saveRepositoryAiSelection } from "@qual-lab/crdd-configuration-model";
+import { readQueueEntry } from "@qual-lab/crdd-execution-model";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import {
   acquireCoordinatorSnapshotLease,
   updateCoordinatorSingleTask,
@@ -162,6 +162,7 @@ test("助言の初回終端はHostとDockerのexact参照を保持し後付け�
     entry.projectId,
     entry.queueId,
     "project-operation",
+    entry.generation,
   );
   assert.equal(lease.status, "completed", JSON.stringify(lease));
   if (lease.status !== "completed") throw Error("fixture_lease_required");

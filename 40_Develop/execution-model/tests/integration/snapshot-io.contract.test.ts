@@ -4,6 +4,7 @@
  * @responsibility pending・marker・観測不能・境界置換の保存保証を所有する。
  * @trace PRL-IT-005
  * @trace PRL-IT-012
+ * @trace PRL-IT-013
  * @trace PRL-IT-014
  * @trace ERB-IT-004
  * @trace ERB-IT-014
@@ -57,10 +58,13 @@ import {
 import {
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
+  normalizeTaskProjects,
   prepareRecoveryTerminalSnapshot,
+  prepareStateHostOperationSnapshot,
   prepareUnifiedTaskSnapshot,
   projectTaskSnapshot,
   validateUnifiedTransition,
+  validateStateTransition,
 } from "../../src/composition/transition.ts";
 import {
   acquireExecutionStateLock,
@@ -88,6 +92,34 @@ import {
 } from "../support/resource-operation.ts";
 import { createRuntimeStorageSourceFixture } from "../support/storage-source.ts";
 import { sourceDeclaration } from "../support/source-declaration.ts";
+
+/** 正例を試験で受け付けたQueueに結び付け、不正な明示値も検査へ送る。 @trace PRL-IT-005 */
+function fixtureExecutionSave(
+  state: Pick<ProjectExecutionState, "projectId" | "milestoneId">,
+  queueId: string,
+  requestHash: string,
+) {
+  return (
+    directory: Parameters<typeof domain.saveProjectExecutionState>[0],
+    binding: string,
+    command: Parameters<typeof domain.saveProjectExecutionState>[2],
+    generation: number,
+    intake: Parameters<typeof domain.saveProjectExecutionState>[4] = {
+      operation: "resume",
+      queueId,
+      requestHash,
+      projectId: state.projectId,
+      milestoneId: state.milestoneId,
+    },
+  ) =>
+    domain.saveProjectExecutionState(
+      directory,
+      binding,
+      command,
+      generation,
+      intake,
+    );
+}
 
 /** 候補作成が元版を再利用しても、Writerは遅れて現れた差分を拒否する。 @trace PRL-IT-005 */
 test("snapshot production: reused state still requires exact current bytes and no pending history", (t) => {
@@ -350,6 +382,41 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
   assert.ok(queued);
   const file = path.join(root, ".crdd/execution-model/state.json"),
     before = fs.readFileSync(file, "utf8");
+  const acceptedPlans = JSON.parse(before).planVersions;
+  assert.deepEqual(
+    acceptedPlans.map((version: { projectId: string }) => version.projectId),
+    ["project-a", "project-b"],
+  );
+  assert.deepEqual(
+    JSON.parse(before).managedExecutions.map(
+      (row: { definitionHash: string }) => row.definitionHash,
+    ),
+    acceptedPlans.map(
+      (version: { definitionHash: string }) => version.definitionHash,
+    ),
+  );
+  const storedBinding = JSON.parse(before).repositoryBinding;
+  const host = JSON.parse(
+    createResourceOperationFixture().bytes.toString("utf8"),
+  ).operations.find((row: { kind: string }) => row.kind === "host_operation");
+  assert.ok(host);
+  const observed = prepareStateHostOperationSnapshot(
+    Buffer.from(before),
+    { ...host, phase: "preparing", rootIdentity: null, childIdentities: {} },
+    storedBinding,
+  );
+  assert.ok(observed);
+  const technical = decodeStateSnapshot(observed, storedBinding);
+  assert.ok(technical);
+  assert.deepEqual(technical.snapshot.planVersions, acceptedPlans);
+  const reordered = Buffer.from(
+    `${encodeStateValue({ ...technical.snapshot, planVersions: [...technical.snapshot.planVersions].reverse() })}\n`,
+  );
+  assert.ok(decodeStateSnapshot(reordered, storedBinding));
+  assert.equal(
+    validateStateTransition(Buffer.from(before), reordered, storedBinding),
+    false,
+  );
   assert.equal(
     writeSnapshot(
       { directory: root },
@@ -395,6 +462,10 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
   );
   assert.deepEqual(snapshot?.leaseEvidence, []);
   assert.equal(snapshot?.historyPending.length, 0);
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(file, "utf8")).planVersions,
+    acceptedPlans,
+  );
   assert.equal(
     domain.retireStateRecords(history, "binding-a", Date.now()).value,
     0,
@@ -487,7 +558,7 @@ test("PR-D-A-01 rejects corrupt or semantically invalid durable state", (t) => {
   );
   assert.deepEqual(
     domain.readProjectExecutionState(cap, "binding-a", state.projectId).value,
-    state,
+    { ...state, queueId: "queue-a" },
   );
   const record = path.join(root, ".crdd", "execution-model", "state.json");
   const original = JSON.parse(fs.readFileSync(record, "utf8")) as Record<
@@ -589,7 +660,7 @@ test("PR-D-A-01 rejects impossible Task state and identity tuples", (t) => {
     );
     assert.deepEqual(
       domain.readProjectExecutionState(cap, "binding-a", state.projectId).value,
-      state,
+      { ...state, queueId: "queue-a" },
     );
     const location = path.join(root, ".crdd", "execution-model", "state.json");
     const envelope = JSON.parse(fs.readFileSync(location, "utf8")) as {
@@ -665,7 +736,7 @@ test("PR-D-A-01 現行Envelope破損と未確定pendingを拒否して保全す�
     );
     assert.deepEqual(
       domain.readProjectExecutionState(cap, "binding-a", state.projectId).value,
-      state,
+      { ...state, queueId: "queue-a" },
     );
     const directory = path.join(root, ".crdd", "execution-model");
     const location = path.join(directory, "state.json");
@@ -917,6 +988,19 @@ test("資源再保存は元pairの一致とOwner三位置を同じ受付で保�
 test("回復phaseの有限保存は同一再送とCleanup未確認の停止を維持する", (t) => {
   const { root, state } = fixture(t);
   const cap = { directory: root };
+  const intake = {
+    operation: "resume" as const,
+    queueId: "queue-a",
+    projectId: state.projectId,
+    milestoneId: state.milestoneId,
+    requestHash: "a".repeat(64),
+  };
+  const otherIntake = {
+    ...intake,
+    queueId: "queue-b",
+    requestHash: "d".repeat(64),
+  };
+  const file = path.join(root, ".crdd/execution-model/state.json");
   assert.equal(
     domain.initializeExecutionStore(cap, "binding-a").status,
     "completed",
@@ -940,20 +1024,91 @@ test("回復phaseの有限保存は同一再送とCleanup未確認の停止を�
     "completed",
   );
   assert.deepEqual(
-    domain.readProjectExecutionState(cap, "binding-a", state.projectId).value,
-    state,
+    domain.readProjectExecutionState(
+      cap,
+      "binding-a",
+      state.projectId,
+      intake.queueId,
+    ).value,
+    { ...state, queueId: intake.queueId },
   );
+  assert.equal(
+    domain.createQueue(cap, "binding-a", {
+      kind: "scheduled",
+      input: [
+        {
+          queueId: otherIntake.queueId,
+          requestHash: otherIntake.requestHash,
+          projectId: state.projectId,
+          milestoneId: state.milestoneId,
+          originLane: "interactive",
+          repositoryRevision: state.repositoryRevision,
+          scopeHash: "b".repeat(64),
+        },
+      ],
+    }).status,
+    "completed",
+  );
+  assert.equal(
+    domain.readProjectExecutionState(
+      cap,
+      "binding-a",
+      state.projectId,
+      otherIntake.queueId,
+    ).value,
+    null,
+  );
+  const before = fs.readFileSync(file);
+  const start = {
+    kind: "task_start" as const,
+    projectId: state.projectId,
+    taskId: "task-a",
+    attemptId: "attempt-a",
+    authorityBindingId: "authority-a",
+  };
+  for (const target of [otherIntake, undefined]) {
+    assert.equal(
+      domain.saveProjectExecutionState(
+        cap,
+        "binding-a",
+        start,
+        state.generation,
+        target,
+      ).status,
+      "blocked",
+    );
+    assert.deepEqual(fs.readFileSync(file), before);
+  }
+  const raw = JSON.parse(before.toString("utf8"));
+  const decoded = decodeStateSnapshot(before, raw.repositoryBinding);
+  assert.ok(decoded);
+  for (const queueId of [null, otherIntake.queueId]) {
+    const redirected: Buffer = Buffer.from(
+      `${encodeStateValue({
+        ...raw,
+        revision: raw.revision + 1,
+        previous: {
+          revision: raw.revision,
+          payloadSha256: decoded.payloadSha256,
+        },
+        managedExecutions: raw.managedExecutions.map((execution: object) => ({
+          ...execution,
+          queueId,
+        })),
+      })}\n`,
+    );
+    assert.ok(decodeStateSnapshot(redirected, raw.repositoryBinding));
+    assert.equal(
+      validateUnifiedTransition(before, redirected, raw.repositoryBinding),
+      false,
+    );
+  }
   const reservation = domain.saveProjectExecutionState(
     cap,
     "binding-a",
-    {
-      kind: "task_start",
-      projectId: state.projectId,
-      taskId: "task-a",
-      attemptId: "attempt-a",
-      authorityBindingId: "authority-a",
-    },
+    start,
     state.generation,
+    intake,
   );
   assert.equal(reservation.status, "completed");
   if (reservation.status !== "completed")
@@ -969,6 +1124,7 @@ test("回復phaseの有限保存は同一再送とCleanup未確認の停止を�
       operationId: "operation-a",
     },
     reservation.value.generation,
+    intake,
   );
   assert.equal(handoff.status, "completed");
   if (handoff.status !== "completed") throw Error("fixture_handoff_failed");
@@ -993,11 +1149,33 @@ test("回復phaseの有限保存は同一再送とCleanup未確認の停止を�
       ],
     },
     handoff.value.generation,
+    intake,
   );
   assert.equal(terminal.status, "completed", terminal.reason);
   if (terminal.status !== "completed") throw Error("fixture_terminal_failed");
+  const terminalState = decodeStateSnapshot(
+    fs.readFileSync(file),
+    raw.repositoryBinding,
+  );
+  assert.ok(terminalState);
+  const fact = {
+    projectId: state.projectId,
+    taskId: "task-a",
+    attemptId: "attempt-a",
+    operationId: "operation-a",
+    recoveryUnresolved: false,
+  };
+  assert.ok(
+    normalizeTaskProjects(terminalState, terminalState.projects, [
+      { ...fact, queueId: intake.queueId },
+    ]),
+  );
+  for (const input of [fact, { ...fact, queueId: otherIntake.queueId }])
+    assert.equal(
+      normalizeTaskProjects(terminalState, terminalState.projects, [input]),
+      null,
+    );
   let current = terminal.value;
-  const file = path.join(root, ".crdd/execution-model/state.json");
   for (const kind of ["task_recovery_start", "task_recovery_settle"] as const) {
     const command = {
       kind,
@@ -1012,6 +1190,7 @@ test("回復phaseの有限保存は同一再送とCleanup未確認の停止を�
       "binding-a",
       command,
       generation,
+      intake,
     );
     assert.equal(saved.status, "completed", saved.reason);
     if (saved.status !== "completed") throw Error("fixture_saved_failed");
@@ -1022,8 +1201,13 @@ test("回復phaseの有限保存は同一再送とCleanup未確認の停止を�
     );
     const bytes = fs.readFileSync(file);
     assert.equal(
-      domain.saveProjectExecutionState(cap, "binding-a", command, generation)
-        .status,
+      domain.saveProjectExecutionState(
+        cap,
+        "binding-a",
+        command,
+        generation,
+        intake,
+      ).status,
       "completed",
     );
     assert.equal(
@@ -1032,6 +1216,7 @@ test("回復phaseの有限保存は同一再送とCleanup未確認の停止を�
         "binding-a",
         { ...command, recoveryId: "other" },
         generation,
+        intake,
       ).status,
       "blocked",
     );
@@ -1049,6 +1234,7 @@ test("回復phaseの有限保存は同一再送とCleanup未確認の停止を�
         taskIds: ["task-a"],
       },
       current.generation,
+      intake,
     ).status,
     "blocked",
   );
@@ -1602,6 +1788,7 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
         repositoryBinding: binding.repositoryBinding,
         repositoryBindingId: null,
         projects: [],
+        planVersions: [],
         managedExecutions: [],
         workspaces: [],
         queueEntries: [],
@@ -2276,6 +2463,86 @@ test("現在Stateと同一の途中保存を通常照会で成功扱いしない
 
 import { prepareStateResourceSnapshot } from "../../src/composition/transition.ts";
 
+/** @trace PRL-IT-013 初期版とQueue保存の間では短期Lockを解放せず、第2保存失敗時に初期版を保全する。 */
+test("初回Queueの2回の保存は同じLockを使い、後段の失敗で初期版を上書きしない", (t) => {
+  for (const fail of [false, true]) {
+    const { root, state } = fixture(t);
+    const statePath = path.join(root, ".crdd", "execution-model", "state.json");
+    const lockPath = path.join(
+      root,
+      ".crdd",
+      "lock",
+      "execution-model.state.lock",
+    );
+    const open = fs.openSync;
+    const rename = fs.renameSync;
+    let acquired = 0;
+    let publications = 0;
+    let first: Buffer | undefined;
+    let observedLock: Buffer | undefined;
+    const opens = t.mock.method(fs, "openSync", ((target, flags, mode) => {
+      if (String(target) === lockPath && flags === "wx+") acquired++;
+      return Reflect.apply(open, fs, [target, flags, mode]);
+    }) as typeof open);
+    const renames = t.mock.method(fs, "renameSync", ((from, to) => {
+      if (String(to) === statePath) {
+        publications++;
+        const lockBytes = fs.readFileSync(lockPath);
+        if (observedLock === undefined) observedLock = lockBytes;
+        else assert.deepEqual(lockBytes, observedLock);
+        if (publications === 2) {
+          first = fs.readFileSync(statePath);
+          if (fail)
+            throw Object.assign(Error("fixture_queue_publication_failed"), {
+              code: "EACCES",
+            });
+        }
+      }
+      return Reflect.apply(rename, fs, [from, to]);
+    }) as typeof rename);
+    try {
+      const queued = domain.createQueue({ directory: root }, "binding-a", {
+        kind: "scheduled",
+        input: [
+          {
+            queueId: "first-queue",
+            projectId: state.projectId,
+            milestoneId: state.milestoneId,
+            repositoryRevision: state.repositoryRevision,
+            requestHash: "a".repeat(64),
+            scopeHash: "b".repeat(64),
+            originLane: "scheduled",
+          },
+          initialExecutionInput(state),
+        ],
+      });
+      assert.equal(publications, 2, queued.reason);
+      assert.equal(acquired, 1);
+      assert.equal(fs.existsSync(lockPath), false);
+      assert.ok(first);
+      if (fail) {
+        assert.equal(queued.status, "blocked");
+        assert.equal(queued.manualRecoveryRequired, true);
+        assert.deepEqual(fs.readFileSync(statePath), first);
+        assert.equal(
+          fs.existsSync(
+            path.join(path.dirname(statePath), "state.pending.json"),
+          ),
+          true,
+        );
+      } else {
+        assert.equal(queued.status, "completed", queued.reason);
+        const stored = readSnapshot({ directory: root }, "binding-a");
+        assert.equal(stored.value?.snapshotRevision, 2);
+        assert.equal(stored.value?.queueEntries[0]?.queueId, "first-queue");
+      }
+    } finally {
+      opens.mock.restore();
+      renames.mock.restore();
+    }
+  }
+});
+
 /**
  * 初回計画の拒否をStore作成前に閉じ、ProjectとQueueを同じ保存へ組み込む。
  * @responsibility 旧State受付なし・入力hook非実行・generation 1と初期値同等を反証する。
@@ -2287,6 +2554,84 @@ import { prepareStateResourceSnapshot } from "../../src/composition/transition.t
  * @cleanup fixtureの終了hookで今回Rootだけを回収する。
  * @boundary EM公開createQueueと実Filesystem。AI・Dockerなし。
  */
+test("同じProject・Milestoneの別受付は独立した計画と進捗を保存する", (t) => {
+  const { root, state } = fixture(t);
+  const repository = { directory: root };
+  const binding = "binding-a";
+  const queue = {
+    queueId: "queue-a",
+    projectId: state.projectId,
+    milestoneId: state.milestoneId,
+    repositoryRevision: state.repositoryRevision,
+    requestHash: "a".repeat(64),
+    scopeHash: "b".repeat(64),
+    originLane: "scheduled" as const,
+  };
+  const initialization = initialExecutionInput(state);
+  const queueB = { ...queue, queueId: "queue-b", requestHash: "e".repeat(64) };
+  const planB = {
+    ...initialization,
+    tasks: initialization.tasks.map((task) => ({
+      ...task,
+      allowedPaths: ["other.txt"],
+    })),
+  };
+  for (const input of [
+    [queue, initialization],
+    [queueB, planB],
+  ] as const) {
+    const saved = domain.createQueue(repository, binding, {
+      kind: "scheduled",
+      input: [input[0], input[1]],
+    });
+    assert.equal(saved.status, "completed", saved.reason);
+  }
+  assert.equal(
+    readProjectExecutionState(repository, binding, state.projectId).status,
+    "blocked",
+  );
+  const observationB = readProjectExecutionState(
+    repository,
+    binding,
+    state.projectId,
+    queueB.queueId,
+  );
+  assert.deepEqual(observationB.value?.tasks[0]?.definition.allowedPaths, [
+    "other.txt",
+  ]);
+  const updateA = fixtureExecutionSave(state, queue.queueId, queue.requestHash)(
+    repository,
+    binding,
+    {
+      kind: "task_start",
+      projectId: state.projectId,
+      taskId: state.tasks[0]?.definition.id ?? "missing",
+      attemptId: "attempt-a",
+      authorityBindingId: "authority-a",
+    },
+    state.generation,
+  );
+  assert.equal(updateA.status, "completed", updateA.reason);
+  assert.deepEqual(
+    readProjectExecutionState(
+      repository,
+      binding,
+      state.projectId,
+      queueB.queueId,
+    ).value,
+    observationB.value,
+  );
+  const resumedA = readProjectExecutionState(
+    repository,
+    binding,
+    state.projectId,
+    queue.queueId,
+  );
+  assert.equal(resumedA.value?.generation, state.generation + 1);
+  assert.equal(resumedA.value?.tasks[0]?.startPhase, "reserved");
+});
+
+/** 不正な初回受付は保存領域を作らず、成立した受付だけが初期値を確定する。 @trace PRL-IT-013 */
 test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確定する", (t) => {
   const { root, state } = fixture(t);
   const initialization = initialExecutionInput(state);
@@ -2396,7 +2741,7 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
   );
   assert.equal(observed.status, "completed", observed.reason);
   if (observed.status !== "completed") throw Error("fixture_state_unavailable");
-  assert.deepEqual(observed.value, state);
+  assert.deepEqual(observed.value, { ...state, queueId: queue.queueId });
   const snapshot = readSnapshot({ directory: root }, "binding-a");
   assert.equal(snapshot.value?.projects.length, 1);
   assert.equal(snapshot.value?.queueEntries.length, 1);
@@ -2429,13 +2774,13 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
     attemptId: "attempt-a",
     authorityBindingId: "authority-a",
   };
+  const saveExact = fixtureExecutionSave(
+    state,
+    queue.queueId,
+    queue.requestHash,
+  );
   const reserve = (generation: number, input = command) =>
-    domain.saveProjectExecutionState(
-      { directory: root },
-      "binding-a",
-      input,
-      generation,
-    );
+    saveExact({ directory: root }, "binding-a", input, generation);
   for (const [generation, input, reason] of [
     [
       state.generation + 1,
@@ -2484,7 +2829,7 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
     }).status,
     "blocked",
   );
-  const wrongRequest = domain.saveProjectExecutionState(
+  const wrongRequest = saveExact(
     { directory: root },
     "binding-a",
     command,
@@ -2503,7 +2848,7 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
     "coordinator_task_not_schedulable",
   );
   assert.equal(fs.readFileSync(statePath, "utf8"), reservedBytes);
-  const handed = domain.saveProjectExecutionState(
+  const handed = saveExact(
     { directory: root },
     "binding-a",
     {
@@ -2526,7 +2871,7 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
     operationId: "operation-a",
   };
   assert.equal(
-    domain.saveProjectExecutionState(
+    saveExact(
       { directory: root },
       "binding-a",
       handoff,
@@ -2535,7 +2880,7 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
     "completed",
   );
   assert.equal(
-    domain.saveProjectExecutionState(
+    saveExact(
       { directory: root },
       "binding-a",
       { ...handoff, operationId: "other-operation" },
@@ -2546,7 +2891,7 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
   assert.equal(reserve(reserved.value.generation).status, "blocked");
   assert.equal(fs.readFileSync(statePath, "utf8"), handedBytes);
   const start = { ...handoff, kind: "task_started" as const };
-  const started = domain.saveProjectExecutionState(
+  const started = saveExact(
     { directory: root },
     "binding-a",
     start,
@@ -2557,16 +2902,12 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
   const runningBytes = fs.readFileSync(statePath, "utf8");
   assert.equal(started.value.tasks[0]?.state, "running");
   assert.equal(
-    domain.saveProjectExecutionState(
-      { directory: root },
-      "binding-a",
-      start,
-      handed.value.generation,
-    ).status,
+    saveExact({ directory: root }, "binding-a", start, handed.value.generation)
+      .status,
     "completed",
   );
   assert.equal(
-    domain.saveProjectExecutionState(
+    saveExact(
       { directory: root },
       "binding-a",
       handoff,
@@ -2575,7 +2916,7 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
     "blocked",
   );
   assert.equal(
-    domain.saveProjectExecutionState(
+    saveExact(
       { directory: root },
       "binding-a",
       { ...start, attemptId: "other" },
@@ -2584,12 +2925,8 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
     "blocked",
   );
   assert.equal(
-    domain.saveProjectExecutionState(
-      { directory: root },
-      "binding-a",
-      start,
-      started.value.generation,
-    ).status,
+    saveExact({ directory: root }, "binding-a", start, started.value.generation)
+      .status,
     "blocked",
   );
   assert.equal(fs.readFileSync(statePath, "utf8"), runningBytes);
@@ -2604,7 +2941,7 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
     resultUnresolved: false,
     candidateId: null,
   };
-  const terminalSaved = domain.saveProjectExecutionState(
+  const terminalSaved = saveExact(
     { directory: root },
     "binding-a",
     terminal,
@@ -2613,7 +2950,7 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
   assert.equal(terminalSaved.status, "completed", terminalSaved.reason);
   const terminalBytes = fs.readFileSync(statePath, "utf8");
   assert.equal(
-    domain.saveProjectExecutionState(
+    saveExact(
       { directory: root },
       "binding-a",
       terminal,
@@ -2622,7 +2959,7 @@ test("初回Queue受付は不正入力でStoreを作らず初期値をEMで確�
     "completed",
   );
   assert.equal(
-    domain.saveProjectExecutionState(
+    saveExact(
       { directory: root },
       "binding-a",
       { ...terminal, resultUnresolved: true },
@@ -2687,9 +3024,10 @@ test("開始前終端の有限保存は内部結果事実と三結果の再送�
       assert.deepEqual(
         domain.readProjectExecutionState(cap, "binding-a", state.projectId)
           .value,
-        state,
+        { ...state, queueId: "queue-a" },
       );
-      const reserved = domain.saveProjectExecutionState(
+      const saveExact = fixtureExecutionSave(state, "queue-a", "a".repeat(64));
+      const reserved = saveExact(
         cap,
         "binding-a",
         {
@@ -2704,7 +3042,7 @@ test("開始前終端の有限保存は内部結果事実と三結果の再送�
       assert.equal(reserved.status, "completed");
       if (reserved.status !== "completed")
         throw Error("fixture_reservation_failed");
-      const prepared = domain.saveProjectExecutionState(
+      const prepared = saveExact(
         cap,
         "binding-a",
         {
@@ -2752,7 +3090,7 @@ test("開始前終端の有限保存は内部結果事実と三結果の再送�
         "blocked",
       );
       assert.deepEqual(fs.readFileSync(file), before);
-      const saved = domain.saveProjectExecutionState(
+      const saved = saveExact(
         cap,
         "binding-a",
         command,
@@ -2764,7 +3102,7 @@ test("開始前終端の有限保存は内部結果事実と三結果の再送�
       assert.equal(saved.value.tasks[0]?.state, outcome);
       assert.equal(saved.value.generation, prepared.value.generation + 1);
       const bytes = fs.readFileSync(file);
-      const replay = domain.saveProjectExecutionState(
+      const replay = saveExact(
         cap,
         "binding-a",
         command,
@@ -2772,7 +3110,7 @@ test("開始前終端の有限保存は内部結果事実と三結果の再送�
       );
       assert.equal(replay.status, "completed", replay.reason);
       assert.equal(
-        domain.saveProjectExecutionState(
+        saveExact(
           cap,
           "binding-a",
           { ...command, authorityBindingId: "other" },
@@ -2781,12 +3119,7 @@ test("開始前終端の有限保存は内部結果事実と三結果の再送�
         "blocked",
       );
       assert.equal(
-        domain.saveProjectExecutionState(
-          cap,
-          "binding-a",
-          command,
-          saved.value.generation,
-        ).status,
+        saveExact(cap, "binding-a", command, saved.value.generation).status,
         "blocked",
       );
       assert.deepEqual(fs.readFileSync(file), bytes);
@@ -2936,6 +3269,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
     }).status,
     "completed",
   );
+  const saveExact = fixtureExecutionSave(state, "queue-a", "b".repeat(64));
   let pendingState = state;
   for (const command of [
     {
@@ -2973,7 +3307,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
       resultUnresolved: false,
     },
   ]) {
-    const saved = domain.saveProjectExecutionState(
+    const saved = saveExact(
       repository,
       "binding-a",
       command,
@@ -3105,7 +3439,7 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   assert.ok(decodedSource);
   const recoveringQueue: domain.ProjectQueueEntry = {
     historySettled: false,
-    queueId: "queue-recovering",
+    queueId: "queue-a",
     projectId: pendingState.projectId,
     milestoneId: pendingState.milestoneId,
     requestHash: "a".repeat(64),
@@ -3313,6 +3647,19 @@ test("Decision State: 回答と対象状態を一回保存し同一再送では�
   assert.equal(after.value.projects[0]?.objectives[0]?.state, "accepted");
   const file = path.join(root, ".crdd", "execution-model", "state.json");
   const bytes = fs.readFileSync(file);
+  const persisted = decodeStateSnapshot(bytes, physicalBinding);
+  assert.equal(
+    persisted?.snapshot.projects.find(
+      (project) => project.projectId === state.projectId,
+    )?.objectives[0]?.state,
+    "accepted",
+  );
+  assert.deepEqual(
+    persisted?.snapshot.projects.find(
+      (project) => project.projectId === state.projectId,
+    )?.objectives[0]?.criterionEvidenceIds,
+    ["evidence-a"],
+  );
   const history = fs.readFileSync(historyFile);
   const allEvents = history
     .toString("utf8")
@@ -3817,12 +4164,20 @@ test("Task保存のpending故障は現在値と未確定物を保全する", asy
         }
       });
       let saved: ReturnType<typeof writeSnapshotState>;
+      const intake = {
+        operation: "start" as const,
+        queueId: "queue-a",
+        projectId: state.projectId,
+        milestoneId: state.milestoneId,
+        requestHash: "b".repeat(64),
+      };
       try {
         saved = writeSnapshotState(
           { directory: root },
           "binding-a",
           command,
           state.generation,
+          intake,
         );
       } finally {
         publishing.mock.restore();
@@ -3899,6 +4254,7 @@ test("Task保存のpending故障は現在値と未確定物を保全する", asy
             "binding-a",
             command,
             state.generation,
+            intake,
           ).status,
           "completed",
         );
@@ -4581,8 +4937,10 @@ function storedEnvelopeBytes(state: ProjectExecutionState, baseJson: string) {
   assert.ok(bytes);
   return (
     bytes.length +
-    Buffer.byteLength(encodeStateValue(state)) -
-    Buffer.byteLength(encodeStateValue(slim))
+    // 省略したのは共有定義と計画版の両方に入る文字列だけ。
+    2 *
+      (Buffer.byteLength(encodeStateValue(state)) -
+        Buffer.byteLength(encodeStateValue(slim)))
   );
 }
 
@@ -4602,6 +4960,7 @@ function stateWithStoredBytes(
   template: ProjectExecutionState,
   targetBytes: number,
   baseJson: string,
+  measure: "stored" | "projection" = "stored",
 ): ProjectExecutionState {
   const pathValue = (index: number) =>
     `${"p".repeat(508)}${String(index).padStart(4, "0")}`;
@@ -4624,17 +4983,24 @@ function stateWithStoredBytes(
       id: `task-${index}`,
       objectiveId: "objective-a",
       dependencies: [],
-      allowedPaths: Array.from({ length: 28 }, (_path, index) =>
+      allowedPaths: Array.from({ length: 8 }, (_path, index) =>
         pathValue(index),
       ),
       conflictKeys: [],
     },
   }));
+  const bytesOf = (value: ProjectExecutionState) =>
+    measure === "stored"
+      ? storedEnvelopeBytes(value, baseJson)
+      : Buffer.byteLength(JSON.stringify(value));
+  const growthFactor = measure === "stored" ? 2 : 1;
   let remaining =
-    targetBytes -
-    storedEnvelopeBytes(mutable as unknown as ProjectExecutionState, baseJson);
+    targetBytes - bytesOf(mutable as unknown as ProjectExecutionState);
   if (remaining < 0) throw new Error("record_boundary_fixture_too_large");
-  const wholePaths = Math.floor(remaining / 515);
+  const wholePaths = Math.floor(
+    remaining /
+      (growthFactor * (Buffer.byteLength(JSON.stringify(pathValue(0))) + 1)),
+  );
   for (let index = 0; index < wholePaths; index += 1) {
     const task = mutable.tasks[index % mutable.tasks.length];
     if (!task || task.definition.allowedPaths.length >= 128)
@@ -4644,14 +5010,20 @@ function stateWithStoredBytes(
     );
   }
   remaining =
-    targetBytes -
-    storedEnvelopeBytes(mutable as unknown as ProjectExecutionState, baseJson);
-  const firstGrowth = Math.min(remaining, 511);
+    targetBytes - bytesOf(mutable as unknown as ProjectExecutionState);
+  const criteriaGrowth = Math.floor(remaining / growthFactor);
+  const firstGrowth = Math.min(criteriaGrowth, 511);
   mutable.milestone.acceptanceCriteria[0] = "a".repeat(1 + firstGrowth);
-  remaining -= firstGrowth;
-  mutable.milestone.acceptanceCriteria[1] = "b".repeat(1 + remaining);
-  const result = mutable as unknown as ProjectExecutionState;
-  assert.equal(storedEnvelopeBytes(result, baseJson), targetBytes);
+  mutable.milestone.acceptanceCriteria[1] = "b".repeat(
+    1 + criteriaGrowth - firstGrowth,
+  );
+  // Owner世代は管理実行だけに入るので、奇数バイトも元の境界ぴったりに作れる。
+  const result = {
+    ...mutable,
+    ownerGeneration:
+      mutable.ownerGeneration + "a".repeat(remaining % growthFactor),
+  } as unknown as ProjectExecutionState;
+  assert.equal(bytesOf(result), targetBytes);
   return result;
 }
 
@@ -4684,9 +5056,7 @@ test("PR-D-A-01 accepts valid records across the former byte boundary", (t) => {
     );
     const location = path.join(root, ".crdd", "execution-model", "state.json");
     const baseJson = fs.readFileSync(location, "utf8");
-    const probe = stateWithStoredBytes(state, MAX_RECORD_BYTES, baseJson);
-    const dtoOverhead =
-      Buffer.byteLength(JSON.stringify(probe)) - MAX_RECORD_BYTES;
+    const probe = state;
     const view = readSnapshot({ directory: root }, "binding-a").value;
     assert.ok(view);
     const viewOverhead =
@@ -4700,8 +5070,9 @@ test("PR-D-A-01 accepts valid records across the former byte boundary", (t) => {
     const inputBytes = snapshotBytes - viewOverhead;
     const boundary = stateWithStoredBytes(
       state,
-      inputBytes - dtoOverhead,
+      inputBytes,
       baseJson,
+      "projection",
     );
     assert.equal(Buffer.byteLength(JSON.stringify(boundary)), inputBytes);
     const written = writeSnapshot(
@@ -4715,7 +5086,10 @@ test("PR-D-A-01 accepts valid records across the former byte boundary", (t) => {
       view.snapshotRevision,
     );
     assert.equal(written.status, "completed", JSON.stringify(written));
-    assert.equal(fs.statSync(location).size, inputBytes - dtoOverhead);
+    assert.equal(
+      fs.statSync(location).size,
+      storedEnvelopeBytes(boundary, baseJson),
+    );
     assert.equal(
       readProjectExecutionState({ directory: root }, "binding-a", "project-a")
         .status,
@@ -6381,9 +6755,10 @@ test("Owner喪失の有限保存は明示不存在だけをreadyへ戻す", (t) 
   );
   assert.deepEqual(
     domain.readProjectExecutionState(cap, "binding-a", state.projectId).value,
-    state,
+    { ...state, queueId: "queue-a" },
   );
-  const reserved = domain.saveProjectExecutionState(
+  const saveExact = fixtureExecutionSave(state, "queue-a", "a".repeat(64));
+  const reserved = saveExact(
     cap,
     "binding-a",
     {
@@ -6398,7 +6773,7 @@ test("Owner喪失の有限保存は明示不存在だけをreadyへ戻す", (t) 
   assert.equal(reserved.status, "completed");
   if (reserved.status !== "completed")
     throw Error("fixture_reservation_failed");
-  const prepared = domain.saveProjectExecutionState(
+  const prepared = saveExact(
     cap,
     "binding-a",
     {
@@ -6430,7 +6805,7 @@ test("Owner喪失の有限保存は明示不存在だけをreadyへ戻す", (t) 
     [{ ...command.bindings[0], operationId: "other" }],
   ])
     assert.equal(
-      domain.saveProjectExecutionState(
+      saveExact(
         cap,
         "binding-a",
         { ...command, bindings } as typeof command,
@@ -6439,12 +6814,7 @@ test("Owner喪失の有限保存は明示不存在だけをreadyへ戻す", (t) 
       "blocked",
     );
   assert.deepEqual(fs.readFileSync(file), before);
-  const saved = domain.saveProjectExecutionState(
-    cap,
-    "binding-a",
-    command,
-    prepared.value.generation,
-  );
+  const saved = saveExact(cap, "binding-a", command, prepared.value.generation);
   assert.equal(saved.status, "completed");
   if (saved.status !== "completed") throw Error("fixture_owner_loss_failed");
   assert.equal(saved.value.generation, prepared.value.generation + 1);
@@ -6453,12 +6823,7 @@ test("Owner喪失の有限保存は明示不存在だけをreadyへ戻す", (t) 
   assert.deepEqual(saved.taskUpdateTaskIds, ["task-a"]);
   const bytes = fs.readFileSync(file);
   assert.equal(
-    domain.saveProjectExecutionState(
-      cap,
-      "binding-a",
-      command,
-      prepared.value.generation,
-    ).status,
+    saveExact(cap, "binding-a", command, prepared.value.generation).status,
     "blocked",
   );
   assert.deepEqual(fs.readFileSync(file), bytes);

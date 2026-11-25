@@ -16,8 +16,9 @@ import path from "node:path";
 import test from "node:test";
 import {
   initializeExecutionStore,
+  readQueueEntry,
   saveProjectExecutionState,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
@@ -215,6 +216,21 @@ function settleExecutionProcessAsFreshProcess(workingDirectory: string) {
   assert.equal(observed.status, "completed");
   assert.ok(observed.value);
   let state = observed.value;
+  assert.ok(state.queueId);
+  const storage = resolveExecutionStorageDirectory(workingDirectory);
+  const queue = readQueueEntry(storage, "binding-a", state.queueId);
+  assert.ok(
+    queue.status === "completed" && queue.value.milestoneId !== null,
+    queue.reason,
+  );
+  const { queueId, projectId, milestoneId, requestHash } = queue.value;
+  const intake = {
+    operation: "resume" as const,
+    queueId,
+    projectId,
+    milestoneId,
+    requestHash,
+  };
   const task = state.tasks.find((entry) =>
     entry.recoveryObligations.some(
       (obligation) =>
@@ -239,6 +255,7 @@ function settleExecutionProcessAsFreshProcess(workingDirectory: string) {
         recoveryId: obligation.recoveryId,
       },
       state.generation,
+      intake,
     );
     assert.equal(write.status, "completed");
     assert.ok(write.value);
@@ -255,6 +272,7 @@ function settleExecutionProcessAsFreshProcess(workingDirectory: string) {
       recoveryId: obligation.recoveryId,
     },
     state.generation,
+    intake,
   );
   assert.equal(write.status, "completed");
 }

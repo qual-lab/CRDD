@@ -16,12 +16,12 @@ import { runInThisContext } from "node:vm";
 import type {
   IsolationCallbacks,
   ResourceTarget,
-} from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
 import {
   applyResourceEvent,
   type OperationResources,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { createResourceOperationFixture } from "../../../execution-model/tests/support/resource-operation.ts";
 import { parseStoredExecutionFixture } from "../../../execution-model/tests/fixtures/stored-execution.ts";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
@@ -248,7 +248,7 @@ export async function createRecoveryFixture(
         recoveryId: string,
         before: Buffer,
         request: Parameters<
-          typeof import("../../../execution-model/src/index.ts").saveRecoveryCheckpoint
+          typeof import("@qual-lab/crdd-execution-model").saveRecoveryCheckpoint
         >[3],
       ) => {
         switch (request.kind) {
@@ -442,5 +442,5 @@ export async function createRecoveryFixture(
   };
 }
 
-import { applyResourceCleanup } from "../../../execution-model/src/index.ts";
+import { applyResourceCleanup } from "@qual-lab/crdd-execution-model";
 import { snapshotJsonValue } from "../../src/lifecycle/validation.ts";

@@ -135,7 +135,7 @@ test("EMの本番と試験はAD・DI・VCの型・実装へ依存しない", () 
       1,
     );
   for (const source of [
-    'import { acquireLock } from "../../../lock/src/index.ts";',
+    'import { acquireLock } from "@qual-lab/crdd-lock";',
     'import type { Value } from "@qual-lab/crdd-ai-adapter-other";',
   ])
     assert.deepEqual(
@@ -396,6 +396,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "initializeExecutionStore",
     "inspectExecutionPlan",
     "isPrincipalId",
+    "leaseAcquisitionRecoveryId",
     "parseDockerTaskRecoveryId",
     "queryObjectives",
     "queryPlan",
@@ -492,6 +493,7 @@ test("Package Rootは採用済みの固定公開集合だけを提供する", ()
     "initializeExecutionStore",
     "inspectExecutionPlan",
     "isPrincipalId",
+    "leaseAcquisitionRecoveryId",
     "parseDockerTaskRecoveryId",
     "queryObjectives",
     "queryPlan",

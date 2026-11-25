@@ -16,11 +16,11 @@ import test, { type TestContext } from "node:test";
 import { deflateSync } from "node:zlib";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
 import { prepareFixtureRecovery } from "../support/recovery-repository.ts";
-import { readState } from "../../../execution-model/src/index.ts";
+import { readState } from "@qual-lab/crdd-execution-model";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 
 import { parseUnambiguousJsonDocument } from "../../src/lifecycle/validation.ts";
 import {

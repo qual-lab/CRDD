@@ -456,15 +456,31 @@ export function inspectExecutionProjectDefinition(
 export function hashExecutionProjectDefinition(
   project: ProjectDefinition,
 ): string {
-  return hashExecutionStateContent({
-    projectId: project.projectId,
-    milestoneId: project.milestoneId,
-    definition: {
-      milestoneAcceptanceCriteria: project.milestone.acceptanceCriteria,
-      objectives: project.objectives.map((objective) => objective.definition),
-      tasks: project.tasks,
-    },
-  });
+  return hashExecutionPlanDefinition(
+    project.projectId,
+    project.milestoneId,
+    projectPlanDefinition(project),
+  );
+}
+
+/** 検証済みProjectの共有状態を含めず、計画版の本文だけを投影する。 @trace ARCH-000004 */
+export function projectPlanDefinition(
+  project: ProjectDefinition,
+): ObjectivePlan {
+  return {
+    milestoneAcceptanceCriteria: project.milestone.acceptanceCriteria,
+    objectives: project.objectives.map((objective) => objective.definition),
+    tasks: project.tasks,
+  };
+}
+
+/** 計画本文と所属を、既存の定義Hashと同じ表現で相関する。 @trace ARCH-000004 */
+export function hashExecutionPlanDefinition(
+  projectId: string,
+  milestoneId: string,
+  definition: ObjectivePlan,
+): string {
+  return hashExecutionStateContent({ projectId, milestoneId, definition });
 }
 
 /**

@@ -8,11 +8,8 @@
  * @boundary Coordinator内の実行ライフサイクル。
  */
 
-import type {
-  ExecutionResult,
-  Provider,
-} from "../../../ai-adapter/src/index.ts";
-import type { AiSelectionChoice } from "../../../configuration-model/src/index.ts";
+import type { ExecutionResult, Provider } from "@qual-lab/crdd-ai-adapter";
+import type { AiSelectionChoice } from "@qual-lab/crdd-configuration-model";
 import type {
   ExecutionSelection,
   LeaseKind,
@@ -25,7 +22,7 @@ import type {
   SingleTaskRecord,
   TaskExecutionSelections,
   saveProjectExecutionState,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import type {
   AttemptTerminalObservation,
   CompletionResult,
@@ -33,16 +30,16 @@ import type {
   ExecutorRequest,
   RecordProjection,
   StartResult,
-} from "../../../executor/src/index.ts";
+} from "@qual-lab/crdd-executor";
 import type {
   Repository,
   WorktreeTarget,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import type { COORDINATOR_STATE_QUERY_CONTRACT } from "./validation.ts";
 import type {
   Observation,
   StoreOptions,
-} from "../../../execution-intelligence/src/index.ts";
+} from "@qual-lab/crdd-execution-intelligence";
 
 /**
  * 回復開始診断の許容段階を検証Ownerで固定する。
@@ -374,6 +371,7 @@ export type CoordinatorExecutionDependencies = Readonly<{
 
   recording?: ObjectiveExecutionRecording;
   workspaceTarget?: PreparedWorkspaceTarget | null;
+  leaseWait?: Readonly<{ revalidate?: () => Promise<boolean> }>;
 }>;
 
 /**
@@ -568,8 +566,12 @@ export type CoordinatorLeaseResult<T> = Readonly<
 export type CoordinatorLease = Readonly<{
   kind: LeaseKind;
   ownerGeneration: string;
+  evidenceWaited?: true;
   isHeld: () => boolean;
   release: () => CoordinatorLeaseResult<Readonly<{ released: true }>>;
+  releaseWithWait?: () => Promise<
+    CoordinatorLeaseResult<Readonly<{ released: true }>>
+  >;
 }>;
 
 /**
@@ -686,6 +688,16 @@ export type ExecutionActivityObservation = Readonly<{
   eventReason: string;
   events: readonly ExecutionActivityEvent[];
   eventContinuation: string | null;
+  graphs?: readonly Readonly<{
+    repositoryId: string;
+    queueId: string;
+    workspaceId: string | null;
+    milestoneId: string;
+    progress: Pick<
+      CoordinatorProjection,
+      "milestoneState" | "workProgress" | "nextAction"
+    > | null;
+  }>[];
   singleTasks?: readonly Readonly<{
     repositoryId: string;
     requestId: string;
@@ -731,6 +743,7 @@ export type CoordinatorStateQuery = Readonly<{
   requestId: string;
   projectId: string;
   repositoryRevision: string;
+  queueId?: string;
 }>;
 
 /**
@@ -751,6 +764,7 @@ export type CoordinatorStateQueryResult = Readonly<{
   requestId: string;
   projectId: string;
   repositoryRevision: string;
+  queueId?: string;
   observationState: "observed" | "absent" | "unknown";
   projection: CoordinatorProjection | null;
   cleanupConfirmed: true;
@@ -770,6 +784,7 @@ export type CoordinatorStateQueryResult = Readonly<{
  * @compatibility CoordinatorProjectionの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type CoordinatorProjection = Readonly<{
+  queueId?: string;
   projectId: string;
   milestoneId: string;
   generation: number;

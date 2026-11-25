@@ -5,7 +5,7 @@
  * @trace ARCH-000012
  * @boundary AI設定POSTの非秘密応答とWorkbenchの表示。
  */
-import type { AiSelectionSaveResult } from "../../../configuration-model/src/index.ts";
+import type { AiSelectionSaveResult } from "@qual-lab/crdd-configuration-model";
 import { validateAiSelectionSnapshot } from "./response.ts";
 
 /**

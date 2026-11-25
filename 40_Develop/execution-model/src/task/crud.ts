@@ -6,10 +6,10 @@
 
 import type { StorageRootInput } from "../storage/lock.ts";
 import { historyRow } from "../history/validation.ts";
+import { blockerAppliesToQueue } from "../decision/validation.ts";
 import type { ProjectObjectiveDefinition } from "../objective/types.ts";
 import { hasTaskDependencyCycle } from "../objective/validation.ts";
 import {
-  initializeExecutionStore,
   readExecutionContent,
   saveExecutionDefinition,
   withSnapshotOperation,
@@ -17,6 +17,8 @@ import {
 import {
   encodeStateValue,
   leaseIdentity,
+  leaseScopesConflict,
+  queuesWithOutstandingRecovery,
   normalizeRepositoryRelativePath,
   REVISION,
   snapshotStateArray,
@@ -91,7 +93,7 @@ export function readQueueEntry(
  * fresh Queue集合から実行順の選択差分を保存する。
  * @responsibility 元の短期排他内でEMの固定優先順を適用し、必要な待機・復帰だけを保存する。
  * @trace ARCH-000004、ARCH-000008
- * @input workingDirectory、binding: 検証対象と既存結合。
+ * @input workingDirectory、binding、queueId: 保存先、既存結合、選択範囲を決める対象Queue。
  * @returns 元の候補結果を保存・解放確認後に返す。
  * @precondition 操作認可は呼出し側が現在確認している。
  * @postcondition 未知・元参照・候補外区画を保つ。
@@ -105,13 +107,20 @@ export function readQueueEntry(
 export function selectNextQueueEntry(
   workingDirectory: StorageRootInput,
   binding: string,
+  queueId: string,
 ) {
+  if (!validId(queueId))
+    return blocked<ProjectQueueEntry | null>(
+      "coordinator_snapshot_input_invalid",
+    );
   return withSnapshotOperation<
     Extract<
       ReturnType<typeof prepareQueueSelection>,
       { status: "completed" }
     >["value"]["value"]
-  >(workingDirectory, binding, prepareQueueSelection);
+  >(workingDirectory, binding, (current) =>
+    prepareQueueSelection(current, queueId),
+  );
 }
 
 /**
@@ -212,7 +221,11 @@ export function deleteTask(
  */
 export function queryTasks(
   access: ExecutionModelAccess,
-  request: Readonly<{ projectId: string; milestoneId: string }>,
+  request: Readonly<{
+    projectId: string;
+    milestoneId: string;
+    queueId?: string;
+  }>,
 ) {
   return readExecutionContent(access, "tasks", request);
 }
@@ -411,6 +424,9 @@ export function updateQueue(
                   projectId,
                   input[0],
                   "project-operation",
+                  current.queueEntries.find(
+                    (queue) => queue.queueId === input[0],
+                  )?.workspaceId,
                 ),
               ),
           },
@@ -524,12 +540,6 @@ export function createQueue(
         } catch {
           return blocked("coordinator_snapshot_input_invalid");
         }
-        const initialized = initializeExecutionStore(
-          workingDirectory,
-          binding,
-          prepareDirectory,
-        );
-        if (initialized.status !== "completed") return initialized;
       }
 
       return withSnapshotOperation<
@@ -537,8 +547,11 @@ export function createQueue(
           ReturnType<typeof prepareQueueEntryCreation>,
           { status: "completed" }
         >["value"]["value"]
-      >(workingDirectory, binding, (current) =>
-        prepareQueueEntryCreation(current, input[0], initialState),
+      >(
+        workingDirectory,
+        binding,
+        (current) => prepareQueueEntryCreation(current, input[0], initialState),
+        initialState === undefined ? false : { prepareDirectory },
       );
     }
     case "single": {
@@ -674,7 +687,8 @@ export function prepareQueueLeaseReleaseSettlement(
   };
   if (
     current.leaseIntents.some(
-      (item) => item.ownerGeneration === ownerGeneration,
+      (item) =>
+        item.queueId === queueId && item.ownerGeneration === ownerGeneration,
     )
   )
     return blockedQueueCandidate(
@@ -710,12 +724,32 @@ export function prepareQueueLeaseReleaseSettlement(
  * @invariant 選択はLease取得・実行許可・保存確定ではない。
  * @effect N/A: 値操作のみ。CAS・短期排他は呼出し側の共通保存が所有する。
  */
-export function prepareQueueSelection(current: Snapshot) {
+export function prepareQueueSelection(current: Snapshot, queueId: string) {
   const entries = current.queueEntries;
-  const ordered = [...entries].sort((a, b) =>
-    a.queueId < b.queueId ? -1 : a.queueId > b.queueId ? 1 : 0,
+  const target = entries.find((entry) => entry.queueId === queueId);
+  if (!target)
+    return completedQueueCandidate("coordinator_queue_empty", {
+      next: null,
+      value: null,
+    });
+  const inLane = (entry: ProjectQueueEntry) =>
+    (entry.workspaceId ?? null) === (target.workspaceId ?? null);
+  const ordered = entries
+    .filter(inLane)
+    .sort((a, b) =>
+      a.queueId < b.queueId ? -1 : a.queueId > b.queueId ? 1 : 0,
+    );
+  const reserved = new Set(
+    current.leaseIntents.map((intent) => intent.queueId),
   );
-  const isActive = ordered.some((item) => item.ownerGeneration !== null);
+  const recovering = queuesWithOutstandingRecovery(current);
+  const isActive = entries.some(
+    (item) =>
+      (item.ownerGeneration !== null ||
+        recovering.has(item.queueId) ||
+        (item.queueId !== queueId && reserved.has(item.queueId))) &&
+      leaseScopesConflict(target.workspaceId, item.workspaceId),
+  );
   const interactive = ordered.find(
     (item) =>
       item.originLane === "interactive" &&
@@ -729,9 +763,11 @@ export function prepareQueueSelection(current: Snapshot) {
     let changed = false;
     const queueEntries = entries.map((item) => {
       if (
+        !inLane(item) ||
         item.originLane !== "scheduled" ||
         item.state !== "queued" ||
-        item.ownerGeneration !== null
+        item.ownerGeneration !== null ||
+        reserved.has(item.queueId)
       )
         return item;
       changed = true;
@@ -864,8 +900,7 @@ export function prepareQueueOperationUpdate(
     current.blockers.some(
       (blocker) =>
         blocker.status === "active" &&
-        blocker.target.projectId === previous.projectId &&
-        blocker.target.milestoneId === previous.milestoneId,
+        blockerAppliesToQueue(current.decisions, blocker, previous),
     )
   )
     return blockedQueueCandidate("coordinator_queue_blocker_active");
@@ -1350,15 +1385,25 @@ export function prepareQueueEntryCreation(
     if (
       !validState(initialState) ||
       initialState.generation !== 1 ||
+      initialState.queueId !== undefined ||
       initialState.projectId !== input.projectId ||
       initialState.milestoneId !== input.milestoneId ||
       initialState.repositoryRevision !== input.repositoryRevision ||
       current.projects.some(
-        (project) => project.projectId === initialState.projectId,
+        (project) =>
+          project.projectId === initialState.projectId &&
+          (project.queueId === undefined ||
+            project.milestoneId !== initialState.milestoneId),
       )
     )
       return blockedQueueCandidate("coordinator_state_generation_conflict");
-    current = { ...current, projects: [...current.projects, initialState] };
+    current = {
+      ...current,
+      projects: [
+        ...current.projects,
+        { ...initialState, queueId: input.queueId },
+      ],
+    };
   }
   const value = createQueuedEntry(input);
   if (

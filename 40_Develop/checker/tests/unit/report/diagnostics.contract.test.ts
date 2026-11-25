@@ -16,7 +16,7 @@ import {
   captureArchitectureDetailTemplate,
   captureArchitectureDocument,
 } from "../../../../document-model/src/architecture/parse.ts";
-import type { DocumentIssue } from "../../../../document-model/src/index.ts";
+import type { DocumentIssue } from "@qual-lab/crdd-document-model";
 import {
   inspectArchitectureConsistency,
   inspectArtifactPlacement,
@@ -56,7 +56,7 @@ import {
   parseUxDefinition,
   parseUxIndex,
   parseUxPersonas,
-} from "../../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { createFindingCollector } from "../../../src/report/collect.ts";
 import {
   mapArchitectureDomainIssueToFinding,

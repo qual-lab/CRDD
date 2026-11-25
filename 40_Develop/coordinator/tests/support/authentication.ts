@@ -13,20 +13,20 @@ import path from "node:path";
 import type { TestContext } from "node:test";
 import { types } from "node:util";
 import { runInThisContext } from "node:vm";
-import { getAuthenticationDefinition } from "../../../ai-adapter/src/index.ts";
+import { getAuthenticationDefinition } from "@qual-lab/crdd-ai-adapter";
 import {
   captureIsolationRequest,
   plannedResourceSnapshot,
 } from "../../../docker-isolation/src/execution/preparation.ts";
-import type { IsolationRequest } from "../../../docker-isolation/src/index.ts";
-import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
+import type { IsolationRequest } from "@qual-lab/crdd-docker-isolation";
+import { describeIsolationConfiguration } from "@qual-lab/crdd-docker-isolation";
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
 import {
   applyResourceCleanup,
   applyResourceEvent,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import { sourceDeclaration } from "../../../execution-model/tests/support/source-declaration.ts";
-import type { RecordProjection } from "../../../executor/src/index.ts";
+import type { RecordProjection } from "@qual-lab/crdd-executor";
 import {
   type AuthenticationRecoveryRecord,
   authenticateProvider,
@@ -107,7 +107,7 @@ export async function createAuthenticationFixture(
   action: "status" | "login" = "login",
 ) {
   const f = await createIsolationFixture(t);
-  const lower = await import("../../../docker-isolation/src/index.ts");
+  const lower = await import("@qual-lab/crdd-docker-isolation");
   f.observation = {
     status: 0,
     signal: null,
@@ -124,7 +124,7 @@ export async function createAuthenticationFixture(
     stderr: provider === "codex" ? "Logged in using ChatGPT" : "",
     outputExceeded: false,
   };
-  t.mock.module("../../../docker-isolation/src/index.ts", {
+  t.mock.module("@qual-lab/crdd-docker-isolation", {
     namedExports: {
       ...lower,
       prepareIsolation: (input: IsolationRequest) => {

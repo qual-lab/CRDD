@@ -11,6 +11,7 @@ import path from "node:path";
 import type {
   Decision,
   LeaseKind,
+  ObjectivePlan,
   OperationRecord,
   ProjectExecutionState,
   ProjectTaskDefinition,
@@ -29,6 +30,7 @@ type TechnicalView = NonNullable<ReturnType<typeof readState>["value"]>;
 type ProjectSection = Omit<
   ProjectExecutionState,
   | "contract"
+  | "queueId"
   | "taskExecutionSelections"
   | "ownerGeneration"
   | "maximumConcurrency"
@@ -43,8 +45,16 @@ export type StoredExecutionFixture = Readonly<{
   repositoryBinding: string;
   repositoryBindingId: string | null;
   projects: readonly ProjectSection[];
-  managedExecutions: readonly {
+  planVersions: readonly {
+    projectId: string;
+    milestoneId: string;
     definitionHash: string;
+    definition: ObjectivePlan;
+  }[];
+  managedExecutions: readonly {
+    queueId: string | null;
+    definitionHash: string;
+    generation: number;
     tasks: readonly (Partial<Omit<ProjectTaskRecord, "definition">> & {
       taskId: string;
       settlement?: unknown;

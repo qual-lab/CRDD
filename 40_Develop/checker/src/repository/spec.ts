@@ -13,7 +13,7 @@ import type {
   SpecDetailIndex,
   UiDefinition,
   UiScreen,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import {
   type DocumentRelationsRequest,
   evaluateDefinitionPairEvidence,
@@ -34,7 +34,7 @@ import {
   parseUiDefinition,
   parseUiDetailIndex,
   parseUiScreen,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import {
   mapSpecDomainIssueToFinding,
   mapUiDomainIssueToFinding,

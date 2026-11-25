@@ -4,23 +4,23 @@
  * @trace ARCH-000015
  * @security 本文・資格を保存せず、編集・採用・再送・再起動を行わない。
  */
-import { getModelCatalog } from "../../../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "@qual-lab/crdd-ai-adapter";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
-import { openTaskSession } from "../../../../coordinator/src/index.ts";
-import { createLocalPrincipalId } from "../../../../execution-model/src/index.ts";
+import { openTaskSession } from "@qual-lab/crdd-coordinator";
+import { createLocalPrincipalId } from "@qual-lab/crdd-execution-model";
 import {
   type AiSelectionChoice,
   readRepositoryAiSelection,
-} from "../../../../configuration-model/src/index.ts";
+} from "@qual-lab/crdd-configuration-model";
 import {
   readGitUser,
   readRepositoryRevision,
   getRepository,
-} from "../../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import { readProjectViewData, startWorkbench } from "../../../src/app.ts";
 import type { AiRequestSnapshot, AiRequests } from "../../../src/app.ts";
 import {

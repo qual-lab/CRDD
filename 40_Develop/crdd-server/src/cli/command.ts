@@ -27,24 +27,24 @@ import {
   resolveHostRootInput,
   readExistingHostRoot,
   readHostInitializationState,
-} from "../../../access-management/src/index.ts";
-import { readRepositoryManifest } from "../../../configuration-model/src/index.ts";
+} from "@qual-lab/crdd-access-management";
+import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
 import {
   createMeetingOperations,
   createTopicOperations,
   parseRepositoryProjectContextMarkdown,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import {
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   getRepository,
   readGitUser,
-} from "../../../version-control/src/index.ts";
-import { createLocalPrincipalId } from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-version-control";
+import { createLocalPrincipalId } from "@qual-lab/crdd-execution-model";
 import type {
   TaskSession,
   TaskSessionContext,
-} from "../../../coordinator/src/index.ts";
+} from "@qual-lab/crdd-coordinator";
 
 const usage = [
   "使い方: crdd-server [--shared | --mcp-stdio] [--port <0-65535>] [--docs]",
@@ -133,9 +133,7 @@ function createAiRequests(
       const context = await resolveContext();
       if (closed || signal?.aborted) return blocked("workbench_ai_closed");
       if (context === null) return blocked("local_git_user_unavailable");
-      const { openTaskSession } = await import(
-        "../../../coordinator/src/index.ts"
-      );
+      const { openTaskSession } = await import("@qual-lab/crdd-coordinator");
       if (closed || signal?.aborted || !context.authorize())
         return blocked("workbench_ai_access_unavailable");
       // 最初の要求同士が並行しても、同じProject・主体のOwnerにだけ合流する。

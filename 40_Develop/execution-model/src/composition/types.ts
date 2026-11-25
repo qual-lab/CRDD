@@ -115,12 +115,13 @@ export type SnapshotObservations = Readonly<{
  * @compatibility 最新形式だけを定義し、旧形式の変換は行わない。
  */
 export type ExecutionStateSnapshot = Readonly<{
-  schema: "crdd-execution-model/state/v9";
+  schema: "crdd-execution-model/state/v10";
   revision: number;
   previous: Readonly<{ revision: number; payloadSha256: string }> | null;
   repositoryBinding: string;
   repositoryBindingId: string | null;
   projects: readonly ProjectDefinition[];
+  planVersions: readonly ExecutionPlanVersion[];
   managedExecutions: readonly ManagedExecution[];
   operations: readonly OperationRecord[];
   unresolvedRecoveries: readonly Readonly<{
@@ -143,6 +144,7 @@ export type ExecutionStateSnapshot = Readonly<{
     ownerGeneration: string;
     ownerProcessId: number;
     recoveryId: string;
+    recoveryGeneration?: number;
     phase:
       | "acquisition_pending"
       | "acquisition_reserved"
@@ -171,6 +173,8 @@ export type ExecutionStateSnapshot = Readonly<{
 export type ProjectExecutionState = Readonly<{
   contract: typeof PROJECT_STATE_CONTRACT;
   taskExecutionSelections: TaskExecutionSelections;
+  /** 受付と同時に作る管理実行の結合先。単体の状態候補にはまだ存在しない。 */
+  queueId?: string;
   projectId: string;
   milestoneId: string;
   repositoryRevision: string;
@@ -230,7 +234,7 @@ export type StoredTask = Omit<
  * @invariant 投影を別Fileや旧Schemaの互換Readerとして扱わず、OS handleを含めない。
  * @boundary 単一保存正本とモデル別のメモリ内操作。
  * @security Hashや状態名をAuthorityへ昇格しない。
- * @compatibility project-snapshot/v9は投影の識別であり、物理保存はstate/v9。旧形式を自動変換しない。
+ * @compatibility project-snapshot/v9は投影の識別であり、物理保存はstate/v10。旧形式を自動変換しない。
  */
 export type Snapshot = Pick<
   ExecutionStateSnapshot,
@@ -339,6 +343,7 @@ export type ArraySnapshot<T> =
 export type ProjectDefinition = Omit<
   ProjectExecutionState,
   | "contract"
+  | "queueId"
   | "taskExecutionSelections"
   | "ownerGeneration"
   | "maximumConcurrency"
@@ -349,13 +354,21 @@ export type ProjectDefinition = Omit<
     tasks: readonly ProjectTaskDefinition[];
   }>;
 
+/** 受付済み計画の版。本文と所属を既存の定義Hashに固定する。 @trace ARCH-000004 */
+export type ExecutionPlanVersion = Readonly<{
+  projectId: string;
+  milestoneId: string;
+  definitionHash: string;
+  definition: ObjectivePlan;
+}>;
+
 /**
  * 同じSnapshotの定義Hashへ結合した管理実行記録。
  * @responsibility 固定選定・実行Owner・試行値を定義の複製なしに保持する。
  * @trace ARCH-000004
  * @trace ARCH-000008
  * @shape 対象ID・定義Hash・固定選定・Owner世代・同時数とTask ID別の技術値。
- * @invariant definitionはprojectsだけに置き、Task行は同じ定義のIDを参照する。
+ * @invariant 管理実行はplanVersionsの本文に結合し、Task行は同じ計画版のIDを参照する。
  * @boundary 共通保存と任意の実行調停。
  * @security 記録値を現在の実行資格として使用しない。
  * @compatibility 欠測を未実行へ補完しない。
@@ -364,12 +377,25 @@ export type ManagedExecution = Pick<
   ProjectExecutionState,
   | "projectId"
   | "milestoneId"
+  | "repositoryRevision"
+  | "generation"
+  | "decisionApplicationId"
   | "taskExecutionSelections"
   | "ownerGeneration"
   | "maximumConcurrency"
 > &
   Readonly<{
+    queueId: string | null;
     definitionHash: string;
+    milestone: Pick<
+      ProjectExecutionState["milestone"],
+      "state" | "criterionEvidenceIds"
+    >;
+    objectives: readonly (Pick<
+      ProjectExecutionState["objectives"][number],
+      "state" | "criterionEvidenceIds"
+    > &
+      Readonly<{ objectiveId: string }>)[];
     tasks: readonly (Omit<StoredTask, "definition"> &
       Readonly<{ taskId: string }>)[];
   }>;

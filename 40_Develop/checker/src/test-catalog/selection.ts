@@ -7,7 +7,7 @@ import type {
   TestCatalog,
   TestCatalogEntry,
   TestLevel,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 
 /**
  * test-catalogで使用するResource Intensive Test Authorityの値契約を定義する。

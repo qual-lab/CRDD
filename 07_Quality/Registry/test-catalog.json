@@ -7939,6 +7939,7 @@
         "same-tab-get-navigation",
         "late-navigation-response",
         "synthetic-page-lifecycle",
+        "activity-graph-reselection",
         "cleanup"
       ],
       "environment": "fixed_system_runtime",

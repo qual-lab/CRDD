@@ -3,12 +3,12 @@
  * @responsibility 共有する構成と起動ハンドルの型だけを所有する。
  * @trace ARCH-000012
  */
-import type { AiSelectionSnapshot } from "../../../configuration-model/src/index.ts";
+import type { AiSelectionSnapshot } from "@qual-lab/crdd-configuration-model";
 import type {
   TopicMeetingPage,
   TopicMeetingListQuery,
-} from "../../../document-model/src/index.ts";
-import type { TreePage, FileDiff } from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-document-model";
+import type { TreePage, FileDiff } from "@qual-lab/crdd-version-control";
 import type {
   CredentialAdministrationView,
   AccessViewResponse,
@@ -22,8 +22,8 @@ import type {
   RecordDetailResponse,
   RecordActionView,
 } from "../service/topic.ts";
-import type { AiSelectionSaveResult } from "../../../configuration-model/src/index.ts";
-import type { ChangesResult } from "../../../version-control/src/index.ts";
+import type { AiSelectionSaveResult } from "@qual-lab/crdd-configuration-model";
+import type { ChangesResult } from "@qual-lab/crdd-version-control";
 import type { AiSelectionView } from "../service/configuration.ts";
 import type {
   AiRequestSnapshot,
@@ -31,9 +31,9 @@ import type {
 } from "../service/execution.ts";
 import type { ProjectViewData } from "../service/project-context.ts";
 import type { TopicMeetingActionResult } from "../service/topic.ts";
-import type { FilesystemStoreRoot } from "../../../access-management/src/index.ts";
-import type { PortfolioProjection } from "../../../document-model/src/index.ts";
-import type { Repository } from "../../../version-control/src/index.ts";
+import type { FilesystemStoreRoot } from "@qual-lab/crdd-access-management";
+import type { PortfolioProjection } from "@qual-lab/crdd-document-model";
+import type { Repository } from "@qual-lab/crdd-version-control";
 import type { WorkbenchActivityReader } from "../service/execution.ts";
 import type { AiRequests } from "../service/execution.ts";
 import type { CredentialAdministration } from "../service/access.ts";

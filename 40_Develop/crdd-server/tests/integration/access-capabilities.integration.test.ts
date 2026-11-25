@@ -33,7 +33,7 @@ import {
   registerRepository,
   resolveRepositoryAccess,
   updateExposure,
-} from "../../../access-management/src/index.ts";
+} from "@qual-lab/crdd-access-management";
 import {
   createInitialAdministrator,
   createInitialCredential,
@@ -51,11 +51,11 @@ import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/wor
 import {
   createMeetingOperations,
   createTopicOperations,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import {
   createQueue,
   initializeExecutionStore,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   initialExecutionInput,
   projectExecutionFixture,
@@ -64,7 +64,7 @@ import {
 import {
   getRepository,
   readRepositorySnapshot,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import { startCrddServer, startWorkbench } from "../../src/app.ts";
 import {
   createAccessMcpResolver,
@@ -164,6 +164,12 @@ test("共有MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
       );
       const requested = new URLSearchParams({ ...query, repositoryId: b.id });
       assert.equal((await fetch(`${url}?${requested}`)).status, 400);
+      const scoped = new URLSearchParams({ ...query, queueId: "queue-a" });
+      const scopedResponse = await fetch(`${url}?${scoped}`);
+      assert.equal(scopedResponse.status, 200);
+      assert.equal((await scopedResponse.json()).queueId, "queue-a");
+      scoped.append("queueId", "queue-b");
+      assert.equal((await fetch(`${url}?${scoped}`)).status, 400);
     } finally {
       await local.close();
     }
@@ -312,22 +318,15 @@ test("共有MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
           finished = resolve;
         });
         const key = `mcp-objective-fixture-${randomUUID()}`;
-        const real = new URL(
-          "../../../coordinator/src/index.ts",
-          import.meta.url,
-        ).href;
-        const fixtureSource = `export {inspectCoordinatorDecisionRequest,inspectCoordinatorObjectiveRequest,inspectCoordinatorObjectiveResult,inspectCoordinatorStateQuery,inspectCoordinatorStateQueryResult,submitDecision,queryState} from ${JSON.stringify(real)}; export const runObjective = globalThis[${JSON.stringify(key)}];`;
+        const fixtureSource = `export const runObjectiveInChild = globalThis[${JSON.stringify(key)}];`;
         const fixtureUrl = `data:text/javascript,${encodeURIComponent(fixtureSource)}`;
         const calls: { ownerRoot: string; principalId: string }[] = [];
         const { inspectCoordinatorObjectiveRequest } = await import(
-          "../../../coordinator/src/index.ts"
+          "@qual-lab/crdd-coordinator"
         );
-        type SelectTarget = Exclude<
-          Parameters<
-            typeof import("../../../coordinator/src/index.ts").runObjective
-          >[2],
-          string | undefined
-        >;
+        type SelectTarget = Parameters<
+          typeof import("../../src/service/execution-child.ts").runObjectiveInChild
+        >[2];
         Reflect.set(
           globalThis,
           key,
@@ -335,13 +334,15 @@ test("共有MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
             input: unknown,
             _signal: AbortSignal,
             selectTarget: SelectTarget,
+            confirm: () => boolean,
           ) => {
             const accepted = inspectCoordinatorObjectiveRequest(input);
             assert.ok(accepted);
             const target = await selectTarget({
               projectId: accepted.projectId,
             });
-            assert.ok(target && typeof target !== "function");
+            assert.ok(target);
+            assert.equal(confirm(), true);
             calls.push({
               ownerRoot: target.directory,
               principalId: target.principalId,
@@ -354,7 +355,7 @@ test("共有MCPの実行系Toolは指定Repositoryの開発権限へ結び付く
         const hook = registerHooks({
           resolve(specifier, context, next) {
             if (
-              specifier === "../../../coordinator/src/index.ts" &&
+              specifier === "./execution-child.ts" &&
               context.parentURL?.endsWith("/src/service/execution.ts")
             )
               return { url: fixtureUrl, shortCircuit: true };
@@ -1392,7 +1393,52 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     state.exposure = state.exposure.filter(
       (entry) => entry.repositoryId !== a.id,
     );
-    fs.writeFileSync(f.current, JSON.stringify(state));
+    const snapshotFile = path.join(
+      a.target,
+      ".crdd",
+      "execution-model",
+      "state.json",
+    );
+    const open = fs.openSync;
+    let revokedDuringObservation = false;
+    const revoke = t.mock.method(
+      fs,
+      "openSync",
+      (...args: Parameters<typeof open>) => {
+        const descriptor = open(...args);
+        if (
+          args[0] === snapshotFile &&
+          args[1] === fs.constants.O_RDONLY &&
+          !revokedDuringObservation
+        ) {
+          fs.writeFileSync(f.current, JSON.stringify(state));
+          revokedDuringObservation = true;
+        }
+        return descriptor;
+      },
+    );
+    let withheldText: string;
+    try {
+      const withheld = await call(base, f.token, EXECUTION_ACTIVITY_TOOL, {
+        projectId: "project.fixture",
+      });
+      assert.equal(withheld.status, 200);
+      withheldText = await withheld.text();
+    } finally {
+      revoke.mock.restore();
+    }
+    assert.ok(revokedDuringObservation);
+    const withheld = JSON.parse(withheldText);
+    assert.equal(withheld.error?.code, -32603);
+    assert.equal(withheld.result, undefined);
+    for (const nonPublic of [
+      a.id,
+      b.id,
+      "queue.fixture",
+      "milestone.fixture",
+      activityId(history.executionId),
+    ])
+      assert.equal(withheldText.includes(nonPublic), false);
     const partial = await call(base, f.token, EXECUTION_ACTIVITY_TOOL, {
       projectId: "project.fixture",
     });

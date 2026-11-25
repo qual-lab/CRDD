@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import type { Repository } from "../../../../version-control/src/index.ts";
+import type { Repository } from "@qual-lab/crdd-version-control";
 import {
   assertWorkspaceDirectoryAvailable,
   readWorkspaceCandidatePatch,
@@ -109,6 +109,7 @@ test("採用記録はexactなCommit長と計画相関を要求し過去失敗を
         projectId: "project",
         milestoneId: "milestone",
         repositoryRevision: base,
+        queueId: "queue",
       },
     ],
     queueEntries: [
@@ -116,6 +117,7 @@ test("採用記録はexactなCommit長と計画相関を要求し過去失敗を
         queueId: "queue",
         projectId: "project",
         milestoneId: "milestone",
+        repositoryRevision: base,
         state: "integration_pending",
         ownerGeneration: null,
         workspaceId,
@@ -168,6 +170,34 @@ test("採用記録はexactなCommit長と計画相関を要求し過去失敗を
       );
     }
   }
+  snapshot = original;
+  const ownPlan = original.projects[0];
+  const ownQueue = original.queueEntries[0];
+  assert.ok(ownPlan && ownQueue);
+  snapshot = {
+    ...original,
+    projects: [{ ...ownPlan, queueId: "other-queue" }, ownPlan],
+    queueEntries: [
+      {
+        ...ownQueue,
+        queueId: "other-queue",
+        workspaceId: "33333333-3333-4333-8333-333333333333",
+      },
+      ownQueue,
+    ],
+  };
+  assert.equal(
+    ready("root", "binding", "project", "milestone", base, head),
+    false,
+  );
+  assert.equal(
+    ready("root", "binding", "project", "milestone", base, head, "queue"),
+    true,
+  );
+  assert.equal(
+    ready("root", "binding", "project", "milestone", base, head, "other-queue"),
+    false,
+  );
   snapshot = original;
   assert.equal(
     ready("root", "binding", "project", "milestone", base, base),

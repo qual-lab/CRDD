@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
-import { planExecution } from "../../../ai-adapter/src/index.ts";
+import { planExecution } from "@qual-lab/crdd-ai-adapter";
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
 };

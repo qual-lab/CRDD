@@ -6,7 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import type { UxAnalysisModel } from "../../../document-model/src/index.ts";
+import type { UxAnalysisModel } from "@qual-lab/crdd-document-model";
 import {
   inspectDiscoveryCoverage,
   inspectUxConsistency,
@@ -20,7 +20,7 @@ import {
   parseUxPersonas,
   parseUxQualityExpectations,
   parseUxServiceBlueprint,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import {
   mapDiscoveryDomainIssueToFinding,
   mapUxDomainIssueToFinding,

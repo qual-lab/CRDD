@@ -13,7 +13,7 @@ import {
   readWorkingChanges,
   type FileDiff,
   type TreePage,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import type { ProjectViewData } from "./project-context.ts";
 import {
   stagePaths,
@@ -23,7 +23,7 @@ import {
   readRemoteTarget,
   type Repository,
   type ChangesResult,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 
 /**
  * 公開要求が現在の送信先・Branch・Revisionを指していることを確認する。

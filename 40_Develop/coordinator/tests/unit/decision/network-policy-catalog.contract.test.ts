@@ -10,8 +10,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
-import * as domain from "../../../../configuration-model/src/index.ts";
-import * as versionControl from "../../../../version-control/src/index.ts";
+import * as domain from "@qual-lab/crdd-configuration-model";
+import * as versionControl from "@qual-lab/crdd-version-control";
 
 /**
  * 開始時に追加Hostを一回捕捉し、変更は次Taskから適用する。
@@ -32,7 +32,7 @@ test("Taskの追加Hostは開始時に捕捉し次Taskだけが変更を採用�
   const hosts = ["pypi.org", "registry.npmjs.org"];
   let unavailable = false,
     reads = 0;
-  t.mock.module("../../../../version-control/src/index.ts", {
+  t.mock.module("@qual-lab/crdd-version-control", {
     namedExports: {
       ...versionControl,
       resolveVerifiedRepositoryRoot(current: unknown) {
@@ -41,7 +41,7 @@ test("Taskの追加Hostは開始時に捕捉し次Taskだけが変更を採用�
       },
     },
   });
-  t.mock.module("../../../../configuration-model/src/index.ts", {
+  t.mock.module("@qual-lab/crdd-configuration-model", {
     namedExports: {
       ...domain,
       readNetworkPolicy(current: unknown) {

@@ -1425,7 +1425,7 @@ export function readSnapshot(
 ): StoreResult<Snapshot | null> {
   if (!validId(binding)) return blocked("coordinator_snapshot_input_invalid");
   const acquired = acquireSnapshotPilotLock(workingDirectory);
-  if (acquired.status !== "completed") return blocked(acquired.reason);
+  if (acquired.status !== "completed") return acquired;
   const lock = acquired.value;
   const outcome =
     readMode === false
@@ -4102,7 +4102,11 @@ function commitStateSnapshotOwned(
         throw new Error("task_publication_view_invalid");
       for (const fact of taskPublication.facts) {
         const task = candidate.snapshot.managedExecutions
-          .find((p) => p.projectId === fact.projectId)
+          .find(
+            (p) =>
+              p.projectId === fact.projectId &&
+              p.queueId === (fact.queueId ?? null),
+          )
           ?.tasks.find(
             (t) =>
               t.taskId === fact.taskId &&

@@ -42,7 +42,7 @@ import path from "node:path";
 import test from "node:test";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "@qual-lab/crdd-ai-adapter";
 import {
   executionSelection,
   selectionConfig,
@@ -52,11 +52,11 @@ import { createFilesystemStoreRoot } from "../../../access-management/src/initia
 import {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
-} from "../../../configuration-model/src/index.ts";
+} from "@qual-lab/crdd-configuration-model";
 import {
   getRepository,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import { requestRaw, requestTransport } from "../support/workbench-http.ts";
 import {
   createRepositoryWorkbenchActivityReader,

@@ -183,8 +183,8 @@ test("実試験ToolとSymbol管理情報は現行Sourceへ接続する", () => {
       "node:crypto",
       "node:fs",
       "node:path",
-      "../../../ai-adapter/src/index.ts",
-      "../../../docker-isolation/src/index.ts",
+      "@qual-lab/crdd-ai-adapter",
+      "@qual-lab/crdd-docker-isolation",
       "../../src/index.ts",
     ],
   );

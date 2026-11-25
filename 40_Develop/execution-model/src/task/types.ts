@@ -47,6 +47,7 @@ export type ProjectTaskDefinition = Readonly<{
  */
 export type TaskStartCandidates = Readonly<{
   projectId: string;
+  queueId?: string;
   generation: number;
   taskIds: readonly string[];
 }>;

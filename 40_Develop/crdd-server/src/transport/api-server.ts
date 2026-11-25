@@ -13,13 +13,13 @@
 import type {
   TopicMeetingPage,
   TopicMeetingListQuery,
-} from "../../../document-model/src/index.ts";
-import type { AiSelectionSnapshot } from "../../../configuration-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
+import type { AiSelectionSnapshot } from "@qual-lab/crdd-configuration-model";
 import type {
   ChangesResult,
   TreePage,
   FileDiff,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   confirmLocalCredentialConnection,
   createAccessViewResponse,
@@ -64,17 +64,17 @@ import {
   evaluateAiProfileManagementPermission,
   readCurrentAccess,
   readManagementState,
-} from "../../../access-management/src/index.ts";
+} from "@qual-lab/crdd-access-management";
 import {
   createLocalPrincipalId,
   type queryPlan,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   getRepository,
   readGitUser,
   resolveVerifiedRepositoryRoot,
   type Repository,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   validateExecutionDefinitionCommand,
   resolveTopicMeetingAccess,
@@ -103,7 +103,7 @@ import {
   readRepositoryAiSelection,
   type AiSelectionReadResult,
   type AiSelectionSaveResult,
-} from "../../../configuration-model/src/index.ts";
+} from "@qual-lab/crdd-configuration-model";
 import {
   prepareAiRequestStart,
   requireAiRequestForAction,
@@ -113,7 +113,7 @@ import type {
   WorkbenchPresentationState,
   WorkbenchConnectionState,
 } from "./api-types.ts";
-import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "@qual-lab/crdd-ai-adapter";
 import type { RecordDocumentView } from "../service/topic.ts";
 import {
   createTopicMeetingResultView,
@@ -123,7 +123,7 @@ import { readAiSelectionView } from "../service/configuration.ts";
 import type {
   PortfolioProjection,
   TopicMeetingAccess,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import type { WorkbenchActivityReader } from "../service/execution.ts";
 import type {
   AiRequestSnapshot,
@@ -148,7 +148,7 @@ import {
   parseMeetingMarkdown,
   parseTopicMarkdown,
   type ProjectOperationRecordKind,
-} from "../../../document-model/src/index.ts";
+} from "@qual-lab/crdd-document-model";
 import { executeMeetingAction } from "../service/meeting.ts";
 import {
   executeTopicAction,
@@ -363,14 +363,19 @@ export async function handleExecutionDefinition({
         incoming.method !== "GET" ||
         [...requestUrl.searchParams.keys()].some(
           (key) =>
-            !["repositoryId", "operation", "projectId", "milestoneId"].includes(
-              key,
-            ),
+            ![
+              "repositoryId",
+              "operation",
+              "projectId",
+              "milestoneId",
+              "queueId",
+            ].includes(key),
         ) ||
         ["operation", "projectId", "milestoneId"].some(
           (key) => requestUrl.searchParams.getAll(key).length !== 1,
         ) ||
-        requestUrl.searchParams.getAll("repositoryId").length > 1
+        requestUrl.searchParams.getAll("repositoryId").length > 1 ||
+        requestUrl.searchParams.getAll("queueId").length > 1
       )
         throw new Error("runtime_input_invalid");
       repositoryId = requestUrl.searchParams.get("repositoryId");
@@ -378,6 +383,9 @@ export async function handleExecutionDefinition({
         operation: requestUrl.searchParams.get("operation"),
         projectId: requestUrl.searchParams.get("projectId"),
         milestoneId: requestUrl.searchParams.get("milestoneId"),
+        ...(requestUrl.searchParams.has("queueId")
+          ? { queueId: requestUrl.searchParams.get("queueId") }
+          : {}),
       };
     }
     const command = validateExecutionDefinitionCommand(
@@ -545,14 +553,20 @@ export async function handleExecution({
       if (
         incoming.method !== "GET" ||
         [...query.keys()].some(
-          (key) => key !== "repositoryId" && !fields.includes(key),
+          (key) =>
+            key !== "repositoryId" &&
+            key !== "queueId" &&
+            !fields.includes(key),
         ) ||
         fields.some((key) => query.getAll(key).length !== 1) ||
-        query.getAll("repositoryId").length > 1
+        query.getAll("repositoryId").length > 1 ||
+        query.getAll("queueId").length > 1
       )
         throw new Error("execution_input_invalid");
       repositoryId = query.get("repositoryId");
       args = Object.fromEntries(fields.map((key) => [key, query.get(key)]));
+      const queueId = query.get("queueId");
+      if (queueId !== null) args = { ...args, queueId };
     }
     if (!shared && repositoryId !== null)
       throw new Error("execution_input_invalid");
@@ -1277,7 +1291,7 @@ export async function handleRepositoryView({
     );
     let network = null;
     if (aiRequests !== undefined) {
-      const owner = await import("../../../coordinator/src/index.ts");
+      const owner = await import("@qual-lab/crdd-coordinator");
       if (requestSignal.aborted || response.destroyed) return;
       if (resolveVerifiedRepositoryRoot(capability) !== repositoryRoot)
         throw new Error("workbench_repository_unavailable");
@@ -1690,7 +1704,7 @@ export async function handleSharedView({
           throw new Error("workbench_selected_content_unavailable");
         let network = null;
         if (selected.workspaceIds.includes("development")) {
-          const owner = await import("../../../coordinator/src/index.ts");
+          const owner = await import("@qual-lab/crdd-coordinator");
           if (requestSignal.aborted || response.destroyed) return true;
           if (
             !sameAccessCollection(

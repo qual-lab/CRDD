@@ -30,13 +30,13 @@ import {
   initializeExecutionStore,
   readState,
   saveOperationStart,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   createResourceBookFixture,
   createResourceOperationFixture,
 } from "../../../execution-model/tests/support/resource-operation.ts";
-import type { CompletionResult } from "../../../executor/src/index.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import type { CompletionResult } from "@qual-lab/crdd-executor";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import { startCoordinatorTask } from "../../src/lifecycle/execution.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
@@ -1246,7 +1246,7 @@ function fixture(
       taskAttempt: 0 | 1,
       externalSendGrant: object,
       _remediationCapability: object | null,
-      selected: import("../../../execution-model/src/index.ts").ExecutionSelection,
+      selected: import("@qual-lab/crdd-execution-model").ExecutionSelection,
       rawPacket: Record<string, unknown>,
     ) => {
       assert.equal(externalSendGrant, externalSendPolicyCapability);

@@ -16,7 +16,7 @@ import {
   startWorkbench,
 } from "../../src/app.ts";
 import { requestRaw } from "../support/workbench-http.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import {
   createWorkbenchAiVerificationHttpClient,
   readMain,

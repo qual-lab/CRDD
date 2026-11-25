@@ -24,9 +24,9 @@ import {
   renderRecoveryObservation,
 } from "../../src/cli/command.ts";
 
-import { parseDockerTaskRecoveryId } from "../../../execution-model/src/index.ts";
+import { parseDockerTaskRecoveryId } from "@qual-lab/crdd-execution-model";
 import { fixture } from "../fixtures/workspace-surface.ts";
-import { getRepository } from "../../../version-control/src/index.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import { readRecovery } from "../../src/index.ts";
 import { readExecutionCancellation } from "../../src/lifecycle/validation.ts";
 

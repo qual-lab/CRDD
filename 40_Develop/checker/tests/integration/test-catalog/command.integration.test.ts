@@ -17,7 +17,7 @@ import { runTestCatalog } from "../../../src/index.ts";
 import {
   getRepository,
   readWorkingChanges,
-} from "../../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 
 const root = path.resolve(import.meta.dirname, "../../../../..");
 const cli = path.join(root, "40_Develop/checker/bin/checker.ts");

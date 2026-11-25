@@ -895,7 +895,7 @@ test("CLI検証は妥当な段階通知をLifecycle成立証拠へ数えない",
   }
 });
 
-import { inspectCoordinatorObjectiveRequest } from "../../../coordinator/src/index.ts";
+import { inspectCoordinatorObjectiveRequest } from "@qual-lab/crdd-coordinator";
 
 /**
  * 起動要求前の拒否と発行後の不明を、実入口の例外処理で区別する。
@@ -2108,9 +2108,13 @@ test("対象終了の相関省略と共同判定の無条件化を反証する",
   const source = stripTypeScriptTypes(
     fs.readFileSync(sourceUrl, "utf8"),
   ).replace(
-    /from\s*(["'])(\.[^"']+)\1/gu,
-    (_, quote: string, relative: string) =>
-      `from ${quote}${new URL(relative, sourceUrl).href}${quote}`,
+    /from\s*(["'])([^"']+)\1/gu,
+    (_, quote: string, specifier: string) =>
+      `from ${quote}${
+        specifier.startsWith(".")
+          ? new URL(specifier, sourceUrl).href
+          : import.meta.resolve(specifier)
+      }${quote}`,
   );
   for (const condition of [
     "isRecoveryEventsCorrelated &&",

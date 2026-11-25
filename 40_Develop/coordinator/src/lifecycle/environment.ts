@@ -15,18 +15,18 @@ import { isDeepStrictEqual, types } from "node:util";
 import {
   getAuthenticationDefinition,
   getBillingPolicy,
-} from "../../../ai-adapter/src/index.ts";
+} from "@qual-lab/crdd-ai-adapter";
 import {
   describeIsolationConfiguration,
   initializeIsolation,
   type IsolationSettings,
-} from "../../../docker-isolation/src/index.ts";
+} from "@qual-lab/crdd-docker-isolation";
 import {
   completeExecution,
   createExecution,
   type ExecutionCompleteInput,
   type WriteResult,
-} from "../../../execution-intelligence/src/index.ts";
+} from "@qual-lab/crdd-execution-intelligence";
 import {
   applyResourceEvent,
   applyResourceCleanup,
@@ -50,7 +50,7 @@ import {
   saveRepairRecord,
   saveOperationCheckpoint,
   saveOperationStart,
-} from "../../../execution-model/src/index.ts";
+} from "@qual-lab/crdd-execution-model";
 import {
   type CompletionResult,
   type DockerEnvironmentRestartEvent,
@@ -67,7 +67,7 @@ import {
   restartDockerEnvironment,
   startDockerEnvironment,
   type ResourceTarget,
-} from "../../../executor/src/index.ts";
+} from "@qual-lab/crdd-executor";
 import {
   getRepository,
   getRepositoryFromWorkingDirectory,
@@ -75,7 +75,7 @@ import {
   readRepositorySnapshot,
   resolveVerifiedRepositoryRoot,
   type Repository,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   safeRecoveryReason,
   snapshotPlainRecord,

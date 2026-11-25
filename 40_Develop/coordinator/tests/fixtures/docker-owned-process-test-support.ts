@@ -22,18 +22,18 @@ import { mock } from "node:test";
 import { createDockerProcessEnvironment } from "../../../docker-isolation/src/docker-cli/environment.ts";
 import type * as directoryOperations from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { runRepairSessionWithDependencies } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
-import type * as isolation from "../../../docker-isolation/src/index.ts";
+import type * as isolation from "@qual-lab/crdd-docker-isolation";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/process/start.ts";
 import { startOwnedAttachTerminationFixture } from "../../../docker-isolation/tests/support/probe-process.ts";
-import * as stateModel from "../../../execution-model/src/index.ts";
-import * as stateRuntime from "../../../execution-model/src/index.ts";
-import { saveRepairRecord } from "../../../execution-model/src/index.ts";
-import * as executorLibrary from "../../../executor/src/index.ts";
-import type { Lock } from "../../../lock/src/index.ts";
+import * as stateModel from "@qual-lab/crdd-execution-model";
+import * as stateRuntime from "@qual-lab/crdd-execution-model";
+import { saveRepairRecord } from "@qual-lab/crdd-execution-model";
+import * as executorLibrary from "@qual-lab/crdd-executor";
+import type { Lock } from "@qual-lab/crdd-lock";
 import {
   getRepository,
   resolveVerifiedRepositoryRoot,
-} from "../../../version-control/src/index.ts";
+} from "@qual-lab/crdd-version-control";
 import {
   ensureRepositoryExecutionDataAreaFromWorkingDirectory,
   requireReadyRepositoryExecutionDataArea,
@@ -378,8 +378,7 @@ export async function verifyNormalOwnerLifecycle(
       );
       let writerFault: ReturnType<typeof mock.module> | null = retained
         ? mock.module(
-            new URL("../../../execution-model/src/index.ts", import.meta.url)
-              .href,
+            new URL(import.meta.resolve("@qual-lab/crdd-execution-model")).href,
             {
               namedExports: {
                 ...stateRuntime,
@@ -398,7 +397,7 @@ export async function verifyNormalOwnerLifecycle(
           )
         : null;
       const technical = mock.module(
-        new URL("../../../executor/src/index.ts", import.meta.url).href,
+        import.meta.resolve("@qual-lab/crdd-executor"),
         {
           namedExports: {
             ...executorLibrary,
@@ -1024,29 +1023,26 @@ export async function verifyNormalOwnerLifecycle(
     );
     const actualStore: typeof stateRuntime = await import(
       new URL(
-        `../../../execution-model/src/index.ts?normal-owner-physical-${repeatCount}-${retained}`,
-        import.meta.url,
+        `?normal-owner-physical-${repeatCount}-${retained}`,
+        import.meta.resolve("@qual-lab/crdd-execution-model"),
       ).href
     );
     let lastResourceSave: ReturnType<
       typeof stateRuntime.saveOperationCheckpoint
     > | null = null;
     substitutions.push(
-      mock.module(
-        new URL("../../../execution-model/src/index.ts", import.meta.url).href,
-        {
-          namedExports: {
-            ...actualStore,
-            saveOperationCheckpoint: (
-              ...args: Parameters<typeof actualStore.saveOperationCheckpoint>
-            ) => {
-              const saved = actualStore.saveOperationCheckpoint(...args);
-              if (args[2].kind === "resource") lastResourceSave = saved;
-              return saved;
-            },
+      mock.module(import.meta.resolve("@qual-lab/crdd-execution-model"), {
+        namedExports: {
+          ...actualStore,
+          saveOperationCheckpoint: (
+            ...args: Parameters<typeof actualStore.saveOperationCheckpoint>
+          ) => {
+            const saved = actualStore.saveOperationCheckpoint(...args);
+            if (args[2].kind === "resource") lastResourceSave = saved;
+            return saved;
           },
         },
-      ),
+      }),
     );
     // Module全体を再評価して現在の依存閉包へ接続する。宣言本文と手書きimportを組み立てない。
     const actualHostSubmission = await import(
