@@ -225,6 +225,7 @@ export type RepositoryGitLayout = Readonly<{
   configSnapshot: RepositoryConfigSnapshot;
   infoDirectory: EntitySnapshot | null;
   excludeSnapshot: EntitySnapshot | null;
+  excludeContents?: Buffer;
   structuralGraph: readonly EntitySnapshot[];
 }>;
 
@@ -642,6 +643,35 @@ function readControlFile(
   return Object.freeze({ line, snapshot: bytes.snapshot });
 }
 
+/** Linked固有の管理先が同じ作業領域の .git に戻ることを確かめる。 @trace ARCH-000009 */
+export function observeLinkedWorktreeRegistration(
+  layout: RepositoryGitLayout,
+): EntitySnapshot | null {
+  if (
+    layout.kind !== "linked_worktree" ||
+    path.relative(
+      path.join(layout.commonDirectory.realPath, "worktrees"),
+      path.dirname(layout.gitDirectory.realPath),
+    ) !== ""
+  )
+    return null;
+  try {
+    const registration = readControlFile(
+      path.join(layout.gitDirectory.realPath, "gitdir"),
+      [layout.gitDirectory],
+    );
+    const marker = path.resolve(
+      layout.gitDirectory.realPath,
+      registration.line,
+    );
+    return path.relative(path.join(layout.root.realPath, ".git"), marker) === ""
+      ? registration.snapshot
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Narrow Repository Configを構造化値へ解析する。
  *
@@ -1045,9 +1075,11 @@ function optionalCommonDirectory(
 function resolveExcludeBoundary(
   commonDirectory: EntitySnapshot,
   entitySnapshots: EntitySnapshot[],
+  captureContents: boolean,
 ): Readonly<{
   infoDirectory: EntitySnapshot | null;
   excludeSnapshot: EntitySnapshot | null;
+  excludeContents?: Buffer;
 }> {
   let infoDirectory: EntitySnapshot;
   try {
@@ -1066,7 +1098,11 @@ function resolveExcludeBoundary(
       [commonDirectory, infoDirectory],
       true,
     );
-    return Object.freeze({ infoDirectory, excludeSnapshot: bytes.snapshot });
+    return Object.freeze({
+      infoDirectory,
+      excludeSnapshot: bytes.snapshot,
+      ...(captureContents ? { excludeContents: bytes.value } : {}),
+    });
   } catch (error) {
     if (isEnoent(error))
       return Object.freeze({ infoDirectory, excludeSnapshot: null });
@@ -1093,6 +1129,7 @@ function resolveExcludeBoundary(
 export function resolveRepositoryGitLayout(
   repositoryRoot: unknown,
   observeConfigContent = false,
+  captureExcludeContents = false,
 ): RepositoryGitLayout {
   if (typeof repositoryRoot !== "string" || repositoryRoot.length === 0) {
     throw new Error("repository_git_root_required");
@@ -1139,7 +1176,11 @@ export function resolveRepositoryGitLayout(
     throw new Error("repository_git_object_format_unsupported");
   assertConfiguredWorktreeMatchesRoot(config.worktree, commonDirectory, root);
   entitySnapshots.push(config.snapshot);
-  const boundary = resolveExcludeBoundary(commonDirectory, entitySnapshots);
+  const boundary = resolveExcludeBoundary(
+    commonDirectory,
+    entitySnapshots,
+    captureExcludeContents,
+  );
   verifySnapshots(entitySnapshots);
   if (boundary.excludeSnapshot) verifySnapshot(boundary.excludeSnapshot);
   if (kind === "gitfile_worktree" && commonDirectory !== gitDirectory)
@@ -1152,6 +1193,9 @@ export function resolveRepositoryGitLayout(
     configSnapshot: config.snapshot,
     infoDirectory: boundary.infoDirectory,
     excludeSnapshot: boundary.excludeSnapshot,
+    ...(boundary.excludeContents
+      ? { excludeContents: boundary.excludeContents }
+      : {}),
     structuralGraph: Object.freeze([...entitySnapshots]),
   });
 }

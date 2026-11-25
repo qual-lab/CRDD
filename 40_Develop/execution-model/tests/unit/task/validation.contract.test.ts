@@ -20,8 +20,18 @@ import {
   projectExecutionFixture,
 } from "../../fixtures/execution-plan.ts";
 
-import { inspectExecutionSelection, inspectSingleTaskRecord, inspectTaskExecutionSelections, recoveryObligations, validState, validResultReference } from "../../../src/task/validation.ts";
-import { captureTaskExecutionUpdate, prepareTaskExecutionUpdate } from "../../../src/task/transition.ts";
+import {
+  inspectExecutionSelection,
+  inspectSingleTaskRecord,
+  inspectTaskExecutionSelections,
+  recoveryObligations,
+  validState,
+  validResultReference,
+} from "../../../src/task/validation.ts";
+import {
+  captureTaskExecutionUpdate,
+  prepareTaskExecutionUpdate,
+} from "../../../src/task/transition.ts";
 
 /** @trace PRL-UT-006 保存時の選定を現在Catalogで引き直さず復元する。 */
 test("単体の保存選定は当時のalias・Model・設定を独立して復元する", () => {

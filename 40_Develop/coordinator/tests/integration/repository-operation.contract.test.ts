@@ -14,6 +14,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { runInNewContext } from "node:vm";
 import {
   getRepository,
@@ -151,8 +152,11 @@ test("Windowsの上位bit付きIDで操作作成・再検証・回収が成立�
   for (const name of ["lstatSync", "fstatSync"] as const) {
     const original = fs[name];
     t.mock.method(fs, name, (...args: unknown[]) => {
-      const metadata = Reflect.apply(original, fs, args) as fs.BigIntStats;
-      if (typeof metadata.ino === "bigint")
+      const metadata = Reflect.apply(original, fs, args) as
+        | fs.BigIntStats
+        | fs.Stats
+        | undefined;
+      if (metadata && typeof metadata.ino === "bigint")
         metadata.ino = BigInt.asIntN(64, metadata.ino | (1n << 63n));
       return metadata;
     });
@@ -288,6 +292,13 @@ function temporaryRepository(
   ).directory,
 ) {
   const root = fs.mkdtempSync(path.join(parent, "crdd-operation-repository-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  writeRepositoryFixture(root);
+  return root;
+}
+
+/** @trace PRL-IT-012 自己生成済みのDirectoryへ合成Gitだけを配置する。 */
+function writeRepositoryFixture(root: string) {
   const git = path.join(root, ".git");
   fs.mkdirSync(path.join(git, "info"), { recursive: true });
   fs.mkdirSync(path.join(git, "refs", "heads"), { recursive: true });
@@ -303,8 +314,6 @@ function temporaryRepository(
     `${firstRevision}\n`,
     "utf8",
   );
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  return root;
 }
 
 /**
@@ -381,6 +390,57 @@ function createFixtureOperation(t: TestContext) {
   return owned;
 }
 
+/** @trace PRL-IT-012 自己生成した通常Directoryの実体を照合する。 */
+function sameFixtureDirectory(
+  current: fs.BigIntStats | undefined,
+  expected: fs.BigIntStats | undefined,
+) {
+  return (
+    current?.isDirectory() &&
+    !current.isSymbolicLink() &&
+    expected !== undefined &&
+    current.dev === expected.dev &&
+    current.ino === expected.ino &&
+    current.birthtimeNs === expected.birthtimeNs
+  );
+}
+
+/**
+ * Windowsの一時的な移動拒否から、同じ自己生成Directoryの移動だけを再試行する。
+ * @trace PRL-IT-012
+ * @precondition この試験が所有する同じ親の通常Directoryと、未作成の退避先だけを渡す。
+ * @failure 対象の変化、移動先の出現、EPERM以外、または再試行上限では試験を失敗させる。
+ */
+async function renameFixtureDirectory(from: string, to: string) {
+  assert.equal(path.dirname(from), path.dirname(to));
+  const original = fs.lstatSync(from, { bigint: true });
+  assert.ok(original.isDirectory() && !original.isSymbolicLink());
+  for (let attempt = 0; ; attempt++) {
+    const current = fs.lstatSync(from, { bigint: true, throwIfNoEntry: false });
+    assert.ok(
+      sameFixtureDirectory(current, original),
+      "fixture_rename_source_changed",
+    );
+    assert.equal(
+      fs.lstatSync(to, { throwIfNoEntry: false }),
+      undefined,
+      "fixture_rename_destination_exists",
+    );
+    try {
+      fs.renameSync(from, to);
+      return;
+    } catch (error) {
+      if (
+        process.platform !== "win32" ||
+        (error as NodeJS.ErrnoException).code !== "EPERM" ||
+        attempt === 5
+      )
+        throw error;
+      await delay(50 * (attempt + 1));
+    }
+  }
+}
+
 /**
  * 現役の三用途が異なる現在性を維持し、内部Rootを値搬送しないことを確認する。
  * @responsibility 通常操作、再入場読取り、終端保存の誤同一視を反証する。
@@ -392,7 +452,7 @@ function createFixtureOperation(t: TestContext) {
  * @cleanup 生成したOperationと合成Gitだけを既存hookで回収する。
  * @boundary 操作OwnerとVersion Controlの実観測。保存・Docker・AIは呼ばない。
  */
-test("保存の三用途はRevisionとOwnerの条件を分離しRoot参照を搬送値へ混入させない", (t) => {
+test("保存の三用途はRevisionとOwnerの条件を分離しRoot参照を搬送値へ混入させない", async (t) => {
   const area = requireReadyRepositoryExecutionDataArea(
     ensureRepositoryExecutionDataAreaFromWorkingDirectory(
       import.meta.dirname,
@@ -400,7 +460,39 @@ test("保存の三用途はRevisionとOwnerの条件を分離しRoot参照を搬
     ),
     "coordinator_state_test_root_invalid",
   );
-  const root = temporaryRepository(t, area.directory);
+  const fixture = fs.mkdtempSync(
+    path.join(area.directory, "crdd-operation-replacement-"),
+  );
+  const fixtureIdentity = fs.lstatSync(fixture, { bigint: true });
+  const root = path.join(fixture, "repository");
+  const original = path.join(fixture, "original");
+  let initialIdentity: fs.BigIntStats | undefined;
+  let replacementIdentity: fs.BigIntStats | undefined;
+  t.after(() => {
+    assert.ok(
+      sameFixtureDirectory(
+        fs.lstatSync(fixture, { bigint: true }),
+        fixtureIdentity,
+      ),
+      "fixture_parent_changed",
+    );
+    for (const name of fs.readdirSync(fixture)) {
+      const current = fs.lstatSync(path.join(fixture, name), { bigint: true });
+      assert.ok(
+        (name === "original" &&
+          sameFixtureDirectory(current, initialIdentity)) ||
+          (name === "repository" &&
+            (sameFixtureDirectory(current, initialIdentity) ||
+              sameFixtureDirectory(current, replacementIdentity))),
+        "fixture_cleanup_unknown_directory",
+      );
+    }
+    fs.rmSync(fixture, { recursive: true });
+    assert.equal(fs.existsSync(fixture), false);
+  });
+  fs.mkdirSync(root);
+  initialIdentity = fs.lstatSync(root, { bigint: true });
+  writeRepositoryFixture(root);
   const owned = createFixtureOperation(t);
   let cleaned = false;
   t.after(() => {
@@ -478,21 +570,47 @@ test("保存の三用途はRevisionとOwnerの条件を分離しRoot参照を搬
   assert.equal(settlement.revalidate(), true);
   const git = path.join(root, ".git");
   const previousGit = path.join(root, ".git-previous-fixture");
-  fs.renameSync(git, previousGit);
+  await renameFixtureDirectory(git, previousGit);
   fs.cpSync(previousGit, git, { recursive: true });
   assert.equal(execution.revalidate(), false);
   assert.equal(settlement.revalidate(), false);
   assert.equal(recoveryInput.revalidate(), true);
-  const original = `${root}-original`;
-  fs.renameSync(root, original);
+  let simulatedDenial = false;
+  const rename = fs.renameSync;
+  const watched = t.mock.method(
+    fs,
+    "renameSync",
+    (...args: Parameters<typeof rename>) => {
+      if (
+        process.platform === "win32" &&
+        args[0] === root &&
+        args[1] === original &&
+        !simulatedDenial
+      ) {
+        simulatedDenial = true;
+        throw Object.assign(new Error("fixture_transient_rename_denial"), {
+          code: "EPERM",
+        });
+      }
+      return rename(...args);
+    },
+  );
   try {
-    fs.mkdirSync(root);
-    assert.equal(recovery.revalidate(), false);
-    assert.equal(recoveryInput.revalidate(), false);
+    await renameFixtureDirectory(root, original);
   } finally {
-    if (fs.existsSync(root)) fs.rmdirSync(root);
-    fs.renameSync(original, root);
+    watched.mock.restore();
   }
+  assert.equal(simulatedDenial, process.platform === "win32");
+  assert.ok(
+    sameFixtureDirectory(
+      fs.lstatSync(original, { bigint: true }),
+      initialIdentity,
+    ),
+  );
+  fs.mkdirSync(root);
+  replacementIdentity = fs.lstatSync(root, { bigint: true });
+  assert.equal(recovery.revalidate(), false);
+  assert.equal(recoveryInput.revalidate(), false);
 });
 
 test("確定済み保存先の回復ReaderはGit配置を再観測しない", (t) => {

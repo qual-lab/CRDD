@@ -26,7 +26,6 @@ import {
   createCommit,
   createReference,
   createWorktree,
-  type FileReadRequest,
   getRepository,
   getWorktree,
   mergeCommit,
@@ -261,8 +260,20 @@ export function executeWorkspace(
     throw new Error("workspace_input_invalid");
   const allowed = () => !signal.aborted && authorize();
   if (!allowed()) throw new Error("workspace_access_unavailable");
-  if (readRepositoryLocation(ownerRoot)?.directory !== ownerRoot)
-    throw new Error("workspace_access_unavailable");
+  const readsContent =
+    command.operation === "get" ||
+    command.operation === "inspect" ||
+    command.operation === "candidate-diff";
+  const contentRepository = readsContent
+    ? getRepository(ownerRoot, "placement")
+    : null;
+  const directory =
+    contentRepository === null
+      ? readRepositoryLocation(ownerRoot)?.directory
+      : contentRepository.status === "completed"
+        ? contentRepository.placement.directory
+        : null;
+  if (directory !== ownerRoot) throw new Error("workspace_access_unavailable");
   const binding = deriveCoordinatorRepositoryBindingId(ownerRoot);
   const snapshot = readWorkspaceState({ directory: ownerRoot }, binding);
   if (snapshot.status !== "completed" || !snapshot.value)
@@ -347,14 +358,13 @@ export function executeWorkspace(
     command.operation === "candidate-diff"
   ) {
     if (!record) throw new Error("workspace_target_unavailable");
-    const root = getRepository(ownerRoot);
-    if (root.status !== "completed")
+    if (contentRepository?.status !== "completed")
       throw new Error("workspace_access_unavailable");
     if (command.operation === "candidate-diff") {
       if (!record.candidate?.candidateCommit)
         throw new Error("workspace_target_unavailable");
       data = readWorkspaceCandidatePatch(
-        root.capability,
+        contentRepository.capability,
         record.candidate.request,
         record.candidate.candidateCommit,
         command.path,
@@ -369,28 +379,44 @@ export function executeWorkspace(
         data,
       };
     }
-    const observed = getWorktree(
-      root.capability,
-      workspaceWorktreeTarget(record.workspaceId),
-      "target",
-    );
-    if (
-      observed.status !== "completed" ||
-      observed.relativePath === null ||
-      observed.observation?.head !== record.head ||
-      record.phase !== "ready"
-    )
-      throw new Error("workspace_target_unavailable");
-    const target = getRepository(path.join(ownerRoot, observed.relativePath));
-    if (target.status !== "completed")
+    if (record.phase !== "ready")
       throw new Error("workspace_target_unavailable");
     if (command.operation === "inspect") {
-      const request: FileReadRequest = {
-        baseCommit: record.baseCommit,
-        path: command.path,
-      };
-      data = readFile(target.capability, request);
+      if (record.head === null) throw new Error("workspace_target_unavailable");
+      try {
+        data = readFile(contentRepository.capability, {
+          baseCommit: record.baseCommit,
+          path: command.path,
+          worktree: {
+            ...workspaceWorktreeTarget(record.workspaceId),
+            expectedHead: record.head,
+          },
+        });
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          /^(repository_file_worktree_mismatch|worktree_(target_mismatch|repository_invalid|owner_invalid|path_invalid|branch_in_use|branch_not_direct|ref_unavailable))$/u.test(
+            error.message,
+          )
+        )
+          throw new Error("workspace_target_unavailable");
+        throw error;
+      }
     } else {
+      const observed = getWorktree(
+        contentRepository.capability,
+        workspaceWorktreeTarget(record.workspaceId),
+        "target",
+      );
+      if (
+        observed.status !== "completed" ||
+        observed.relativePath === null ||
+        observed.observation?.head !== record.head
+      )
+        throw new Error("workspace_target_unavailable");
+      const target = getRepository(path.join(ownerRoot, observed.relativePath));
+      if (target.status !== "completed")
+        throw new Error("workspace_target_unavailable");
       data = {
         workspace: workspaceView(record),
         changedPaths: readWorkingChanges(target.capability, record.baseCommit)

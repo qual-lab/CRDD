@@ -301,6 +301,168 @@ test("公開File読取りとIndex操作はMain／Linkedで同じ契約を守る"
     assert.equal(deleted.selection.blobId, null);
     fs.writeFileSync(path.join(root, "same.txt"), `${label} working\n`);
   }
+  const linkedCapability = repositoryTarget(linked);
+  const linkedHead = git(linked, ["rev-parse", "HEAD"]);
+  const linkedMarker = path.join(linked, ".git");
+  const savedLinkedMarker = path.join(linked, "git-marker-before-observation");
+  const spawn = childProcess.spawnSync;
+  for (const change of ["head", "lock"] as const) {
+    let injected = false;
+    const probe = t.mock.method(
+      childProcess,
+      "spawnSync",
+      (...args: Parameters<typeof spawn>) => {
+        const result = Reflect.apply(spawn, childProcess, args);
+        if (!injected && Array.isArray(args[1]) && args[1].includes("diff")) {
+          injected = true;
+          if (change === "head")
+            git(linked, ["update-ref", "refs/heads/linked", base, linkedHead]);
+          else git(main, ["worktree", "lock", linked]);
+        }
+        return result;
+      },
+    );
+    syncBuiltinESMExports();
+    try {
+      assert.throws(
+        () => readFile(linkedCapability, { path: "same.txt" }),
+        /repository_file_worktree_mismatch/u,
+      );
+      assert.equal(injected, true);
+    } finally {
+      probe.mock.restore();
+      syncBuiltinESMExports();
+      if (injected) {
+        if (change === "head")
+          git(linked, ["update-ref", "refs/heads/linked", linkedHead, base]);
+        else git(main, ["worktree", "unlock", linked]);
+      }
+    }
+  }
+  const commands: string[] = [];
+  let markerMoved = false;
+  let replacementCreated = false;
+  const changedLayout = t.mock.method(
+    childProcess,
+    "spawnSync",
+    (...args: Parameters<typeof spawn>) => {
+      const result = Reflect.apply(spawn, childProcess, args);
+      if (Array.isArray(args[1])) {
+        if (args[1].includes("diff")) commands.push("diff");
+        if (args[1].includes("for-each-ref")) {
+          commands.push("for-each-ref");
+          fs.renameSync(linkedMarker, savedLinkedMarker);
+          markerMoved = true;
+          fs.writeFileSync(
+            linkedMarker,
+            `gitdir: ${path.join(main, ".git")}\n`,
+            { flag: "wx" },
+          );
+          replacementCreated = true;
+        }
+      }
+      return result;
+    },
+  );
+  syncBuiltinESMExports();
+  try {
+    assert.throws(
+      () => readFile(linkedCapability, { path: "same.txt" }),
+      /worktree_repository_invalid/u,
+    );
+    assert.deepEqual(commands, ["for-each-ref"]);
+  } finally {
+    changedLayout.mock.restore();
+    syncBuiltinESMExports();
+    if (replacementCreated) fs.unlinkSync(linkedMarker);
+    if (markerMoved) fs.renameSync(savedLinkedMarker, linkedMarker);
+  }
+  const mainCapability = repositoryTarget(main);
+  const mainHead = git(main, ["rev-parse", "HEAD"]);
+  const tree = git(main, ["rev-parse", `${mainHead}^{tree}`]);
+  const headFile = path.join(main, ".git", "HEAD");
+  const branchFile = path.join(main, ".git", "refs", "heads", "main");
+  const headBytes = fs.readFileSync(headFile);
+  const branchBytes = fs.readFileSync(branchFile);
+  const request = { path: "same.txt", baseCommit: base };
+  try {
+    fs.writeFileSync(branchFile, `${tree}\n`);
+    assert.throws(() => readFile(mainCapability, request));
+    fs.writeFileSync(branchFile, branchBytes);
+    fs.writeFileSync(headFile, `${mainHead}\n`);
+    assert.equal(readFile(mainCapability, request).head, mainHead);
+    fs.writeFileSync(headFile, `${tree}\n`);
+    assert.throws(
+      () => readFile(mainCapability, request),
+      /repository_file_worktree_mismatch/u,
+    );
+  } finally {
+    fs.writeFileSync(headFile, headBytes);
+    fs.writeFileSync(branchFile, branchBytes);
+  }
+  const nested = path.join(main, "nested-worktree");
+  git(main, ["worktree", "add", "-b", "nested", nested, base]);
+  const directFile = readFile(repositoryTarget(nested), request);
+  const worktree = {
+    relativePath: "nested-worktree",
+    branch: "nested",
+    expectedHead: base,
+  };
+  assert.deepEqual(
+    readFile(mainCapability, { ...request, worktree }),
+    directFile,
+  );
+  for (const wrongTarget of [
+    { ...worktree, expectedHead: mainHead },
+    { ...worktree, branch: "main" },
+    { ...worktree, relativePath: "nonexistent-worktree" },
+    { ...worktree, relativePath: "../linked" },
+  ]) {
+    assert.throws(() =>
+      readFile(mainCapability, { ...request, worktree: wrongTarget }),
+    );
+  }
+  const nestedMarker = path.join(nested, ".git");
+  const savedNestedMarker = path.join(nested, "git-marker-before-target-read");
+  fs.renameSync(nestedMarker, savedNestedMarker);
+  try {
+    fs.writeFileSync(nestedMarker, fs.readFileSync(linkedMarker), {
+      flag: "wx",
+    });
+    assert.throws(
+      () => readFile(mainCapability, { ...request, worktree }),
+      /worktree_target_mismatch/u,
+    );
+  } finally {
+    if (fs.existsSync(nestedMarker)) fs.unlinkSync(nestedMarker);
+    fs.renameSync(savedNestedMarker, nestedMarker);
+  }
+  let advanced = false;
+  const changedHead = t.mock.method(
+    childProcess,
+    "spawnSync",
+    (...args: Parameters<typeof spawn>) => {
+      const result = Reflect.apply(spawn, childProcess, args);
+      if (!advanced && Array.isArray(args[1]) && args[1].includes("diff")) {
+        git(nested, ["update-ref", "refs/heads/nested", mainHead, base]);
+        advanced = true;
+      }
+      return result;
+    },
+  );
+  syncBuiltinESMExports();
+  try {
+    assert.throws(
+      () => readFile(mainCapability, { ...request, worktree }),
+      /repository_file_worktree_mismatch/u,
+    );
+    assert.equal(advanced, true);
+  } finally {
+    changedHead.mock.restore();
+    syncBuiltinESMExports();
+    if (advanced)
+      git(nested, ["update-ref", "refs/heads/nested", base, mainHead]);
+  }
 });
 
 /** Root不成立ではGitを発行せず、正常な子Directoryは同じRootで読む。 */
@@ -547,6 +709,10 @@ test("Git読取りは外部処理・親対象注入を避けliteral Pathとindex
   assert.equal(fs.readFileSync(marker, "utf8"), "called");
   fs.unlinkSync(marker);
   const filterIndex = fs.readFileSync(path.join(work, ".git", "index"));
+  assert.throws(
+    () => readFile(repositoryTarget(work), { path: "file.txt" }),
+    /worktree_external_filter_unsupported/u,
+  );
   assert.throws(
     () => readFileDiff(target, changes, "file.txt"),
     /repository_worktree_observation_failed/u,

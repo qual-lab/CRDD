@@ -488,16 +488,15 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
       consumer,
       workspaceTarget,
       executionMetadata,
+      _hostInput,
+      selections,
     ) => {
       taskStarts += 1;
       assert.ok(executionMetadata);
       deliveredMetadata.push(executionMetadata);
       const delivered = taskRequest as Readonly<Record<string, unknown>>;
       deliveredRequests.push(delivered);
-      const selections = delivered.taskExecutionSelections as {
-        executor: unknown;
-        reviewer: unknown;
-      };
+      assert.ok(selections);
       assert.deepEqual(selections.executor, {
         ...executionSelection("executor", {
           provider: "codex",
@@ -506,6 +505,7 @@ test("直接受付はTask終了後に明示品質受入を要求し再入場で�
         }),
         workType: taskStarts === 1 ? "coding" : null,
       });
+      assert.equal(Object.hasOwn(delivered, "taskExecutionSelections"), false);
       assert.equal(Object.hasOwn(delivered, "requestedProfileId"), false);
       assert.equal(Object.hasOwn(delivered, "frontProvider"), false);
       assert.equal(consumer, "coordinator");

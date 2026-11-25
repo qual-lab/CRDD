@@ -1652,12 +1652,18 @@ test("PR-Q-04 cancels before Task effect and releases durable ownership", async 
 test("Windowsの上位bit付きIDでも状態保存・再読と開始前取消が成立する", {
   skip: process.platform !== "win32",
 }, async (t) => {
+  const observed = { lstatSync: 0, fstatSync: 0 };
   for (const name of ["lstatSync", "fstatSync"] as const) {
     const original = fs[name];
     t.mock.method(fs, name, (...args: unknown[]) => {
-      const metadata = Reflect.apply(original, fs, args) as fs.BigIntStats;
-      if (typeof metadata.ino === "bigint")
+      const metadata = Reflect.apply(original, fs, args) as
+        | fs.BigIntStats
+        | fs.Stats
+        | undefined;
+      if (metadata && typeof metadata.ino === "bigint") {
         metadata.ino = BigInt.asIntN(64, metadata.ino | (1n << 63n));
+        observed[name]++;
+      }
       return metadata;
     });
   }
@@ -1681,6 +1687,7 @@ test("Windowsの上位bit付きIDでも状態保存・再読と開始前取消�
   if (queue.status !== "completed") throw new Error("queue_read_failed");
   assert.equal(queue.value.state, "cancelled");
   assert.equal(queue.value.ownerGeneration, null);
+  assert.ok(observed.lstatSync > 0 && observed.fstatSync > 0);
 });
 
 /**

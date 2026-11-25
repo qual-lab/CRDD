@@ -249,6 +249,7 @@ export type CommitMergeResult = Readonly<{
 export type FileReadRequest = Readonly<{
   baseCommit?: string | undefined;
   path: string;
+  worktree?: Readonly<WorktreeTarget & { expectedHead: string }>;
 }>;
 /** 現在Worktreeから読んだFile内容と比較・取得結果。 */
 export type WorkingFile = Readonly<{

@@ -87,6 +87,8 @@ Push    → 検証済みの送信先・期待OIDを受け取る → rev-parse HE
 
 同じ要求・同じ観測時点のRoot実体、登録一覧、直接Ref、ファイル一覧・フィルター設定の取得は共通化できる。ファイル一覧の重複取得、同一の差分観測中のフィルター再照会、固定Commit検査と書込み準備の不要な結合は候補であり、現在性・失敗分類・外部フィルター非起動の保証を見直し前に照合する。
 
+ローカル除外登録では受付時に安定読取りした除外本文を、同じ登録処理の元版として使う。登録済みなら元版と領域の同一性を照合し、本文の再読取りや書込みは行わない。追記時の一時ファイル・直前CAS・置換後読戻しと、欠測時の観測境界は維持する。
+
 変更前と読戻し、回復の再入場、別権限や別時点の再確認、ファイルの読取り前後は統合しない。要求をまたぐキャッシュや、目的を問わずあらゆる情報を集める検査は作らない。
 
 `getRepository(candidate, "placement")`は、受付時の一つの観測から操作用Capabilityと正規Directory・Linked区分を返す。既定の戻り値は変更しない。返した配置はその後のGit操作の生存確認を代替しない。通常Repository自身へMergeする準備では、初回の登録一覧と同じRootの配置を再利用する。Linkedや別の共通管理領域では従来どおり所有元と対象を観測する。
@@ -421,11 +423,17 @@ VCの成功・失敗理由は技術操作Ownerへ揃える。Commit生成はcomm
 
 resolveVerifiedRepositoryRootは、Domain等のRepository-local保存や所在照合のために維持する。Root取得はGit操作を利用側へ移す入口ではない。内容・Index・Commit・Reference・Merge・Remote操作はVCの完成操作で完結する。本番srcのRoot利用を点検した範囲では、RootからGit操作を自作する確定事例はない。検証Scriptの実GitによるRoot対照と自己生成fixtureの準備・観測は、本番のGit操作再実装とは区別する。
 
-`readFile(repository,{path,baseCommit?})`は現在の作業Fileを読む。比較基準の省略または明示undefinedでは同じ呼出しの開始時HEADを使い、結果のbaseCommitへ返す。明示Baseは従来どおり比較に使う。Repositoryの実Object形式に一致する完全長OIDのみ受け付け、HEADなし、不正Path、link、観測中のHEAD／内容変更は拒否する。この操作の失敗名はrepository_file系とし、候補固定の失敗と区別する。呼出し側が比較元を固定したい場合はBaseを明示する。
+`readFile(repository,{path,baseCommit?,worktree?})`は現在の作業Fileを読む。比較基準の省略または明示undefinedでは同じ呼出しの開始時HEADを使い、結果のbaseCommitへ返す。明示Baseは従来どおり比較に使う。Repositoryの実Object形式に一致する完全長OIDのみ受け付け、HEADなし、不正Path、link、観測中のHEAD／内容変更は拒否する。ファイル固有の失敗名はrepository_file系とし、候補固定の失敗と区別する。呼出し側が比較元を固定したい場合はBaseを明示する。
 
 Root非公開の `readWorkingSelections` は、指定Pathの基準Treeと作業Treeを比較する内部処理。初期のWorktree一覧は所有元と対象の解決に共用し、集合の前後ではWorktreeとHEADを新たに観測する。各時点のBranch参照は種類とOIDを同じGit出力から照合する。基準Treeから指定Pathのmode／Blob OIDをまとめて取得する。実Fileごとのリンク・descriptor・実体・内容照合は維持し、基準にある通常Fileの現在不存在だけを明示削除とする。両方の不存在は候補に含めず、途中の観測不能は部分成功にしない。個別のテキスト差分・作業Tree全体の変更状態・固定Blob本文は取得しない。単件表示の`readFile`とは用途を分け、候補の固定前後や外部待機後には新しい観測を行う。
 
 親Directoryごと削除されたFileも、比較Commitに通常Blobがある場合は削除として読む。`createCommit`も同じ祖先検査を使い、基準CommitにないPathの削除要求は拒否する。Link・非Directory・別Repositoryは不存在として扱わない。読取り後の祖先変更・観測不能は`repository_file_content_changed`で拒否し、実体確認の例外をCommit操作の理由名として漏らさない。
+
+`readFile`は単件の内容・固定Baseとの差分だけを返す。準備では最初の登録一覧を所有元と対象の解決に共用し、外部フィルターを拒否する。差分を読む前と後に別々のWorktree一覧を取得し、対象の登録・利用可能状態・HEADと直接BranchのOID・Commit種別を照合する。Branchを指さないHEADは、そのOIDがCommitであることを直接確認する。作業ツリー全体の変更状態は取得しない。Path・リンク・内容の前後照合と一要求の期限は維持する。
+
+前後それぞれの直接Branch観測では、直前に検証した親のGit管理領域をその一つのGit要求に使う。その応答後に子の現在の正規配置を観測し、受付時と同じRoot・Git管理領域・共通管理領域・配置種別であることと、親と子の共通管理領域の同一実体を照合する。前後で配置を使い回さず、必要な補助Ref照会・ファイル差分のGit起動はそれぞれ現在の配置を使う。
+
+登録Worktreeを指定する場合は同じ`readFile`へ親のCapability、子の相対Path・Branch・期待HEADを渡す。親の配下にある登録済みLinked Worktreeだけを対象とし、子と固有管理領域の双方向の登録、所属・配置と期待HEADを照合する。読取り中に登録・実体が変われば結果を返さない。対象指定なしの場合は従来どおりCapability自身を読む。
 
 `readCommitDiff(repository,{baseCommit,commitId,path?})`は固定Commit同士だけを比較する。Path省略時は全体、指定時はそのFileに限定し、同じ二つのCommitからGitのNUL区切り出力で取得した`changedPaths`とPatchを返す。全体比較の結果`path`はnullであり、現在のWorktreeや通常Indexを変更集合へ混ぜない。
 

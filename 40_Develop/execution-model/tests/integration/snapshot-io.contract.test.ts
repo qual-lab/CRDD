@@ -20,15 +20,19 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { types } from "node:util";
-import { runInNewContext } from "node:vm";
+import { runInNewContext, runInThisContext } from "node:vm";
 import {
   areTaskResourcesSettled,
   readOperationHost,
-  isDockerRestartCheckpointSettled,
 } from "../../src/attempt/validation.ts";
 import * as privateDecisionCrud from "../../src/decision/crud.ts";
 import type { DecisionAnswer } from "../../src/decision/types.ts";
 import * as privateHistoryCrud from "../../src/history/crud.ts";
+import {
+  historyLineBytes,
+  operationSummaryBytes,
+  prepareHistorySummary,
+} from "../../src/history/records.ts";
 import * as domain from "../../src/index.ts";
 import {
   type OperationResources,
@@ -53,6 +57,7 @@ import {
 import {
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
+  prepareRecoveryTerminalSnapshot,
   prepareUnifiedTaskSnapshot,
   projectTaskSnapshot,
   validateUnifiedTransition,
@@ -5450,12 +5455,12 @@ test("Task Writerの修復保全guardは新規・変更・除去を拒否する"
  * 終端Writerの候補生成を固定前提と元結果へ限定する。
  * @responsibility 不明資源・Host・Ownerと元版差で保存候補を発行しないことを反証する。
  * @trace ERB-IT-014
- * @precondition 本番Writer本文と模擬Reader／候補生成／物理Writerだけを使う。
+ * @precondition 本番の終端受付・候補生成に、元版とOwnerを固定した有限Writerを接続する。
  * @stimulus 五資源の各未終了形、HostとOwner欠測、既存三結果と結果欠測を渡す。
- * @observation 候補生成と物理保存回数、固定lifecycle値、Writer中の再確認。
- * @oracle 全前提成立時だけ結果・一次失敗を保持したsettling候補を保存する。
+ * @observation 候補生成の呼出し、模擬保存回数、固定lifecycle値、Writerに渡した元版・Owner。
+ * @oracle 全前提成立時だけ結果・一次失敗を保持し未確定履歴を固定する。終結条件を無効化した変異だけ不適格例を通す。
  * @cleanup N/A: 外部資源を作成しない。実Filesystem保存は別のHost試験が所有する。
- * @boundary ERB-IT-014=Direct Boundary: 本番固定Writerの前提検査。
+ * @boundary ERB-IT-014=Direct Boundary: 終端受付と排他内に接続される候補生成。物理CASの成立はこの試験の主張に含めない。
  */
 test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保持", () => {
   const purposes = [
@@ -5475,16 +5480,36 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
       "function",
     ),
   );
-  const mutantBody = writerBody
-    .replaceAll("saveRecoveryCheckpoint", "mutatedRecoveryTerminal")
-    .replace(
-      "!isDockerRestartCheckpointSettled(operation.dockerRestart)",
-      "false",
-    );
-  assert.notEqual(
-    mutantBody,
-    writerBody.replaceAll("saveRecoveryCheckpoint", "mutatedRecoveryTerminal"),
+  const transitionSource = fs.readFileSync(
+    new URL("../../src/composition/transition.ts", import.meta.url),
+    "utf8",
   );
+  const terminalBody = sourceDeclaration(
+    transitionSource,
+    "prepareRecoveryTerminalSnapshot",
+  ).replace(/^export /u, "");
+  const guard = "!isDockerRestartCheckpointSettled(operation.dockerRestart)";
+  assert.equal(terminalBody.split(guard).length, 2);
+  // 同一Realmで実codecへ渡し、Realm差による候補拒否を変異結果と混同しない。
+  const dependencies = {
+    areTaskResourcesSettled,
+    readOperationHost,
+    prepareHistorySummary,
+    operationSummaryBytes,
+    historyLineBytes,
+    encodeStateValue,
+    createHash,
+    Buffer,
+  };
+  const mutant = runInThisContext(
+    `(function(${Object.keys(dependencies).join(",")}) {${stripTypeScriptTypes(
+      [
+        sourceDeclaration(transitionSource, "stateHistorySummary"),
+        sourceDeclaration(transitionSource, "fixTaskHistory"),
+        terminalBody.replace(guard, "false"),
+      ].join("\n"),
+    )}; return prepareRecoveryTerminalSnapshot;})`,
+  )(...Object.values(dependencies)) as typeof prepareRecoveryTerminalSnapshot;
   const restartCases = ["not_issued", "unknown", "issued", "confirmed"].flatMap(
     (request) =>
       ["not_required", "pending", "confirmed", "unknown"].flatMap((cleanup) =>
@@ -5653,6 +5678,7 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
       scenario,
     );
     const snapshot = {
+      ...JSON.parse(fixture.bytes.toString("utf8")),
       operations: [
         ...(scenario === "host_missing"
           ? []
@@ -5670,6 +5696,7 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
     };
     const before = Buffer.from(`${JSON.stringify(snapshot)}\n`);
     let candidates = 0,
+      evaluations = 0,
       writes = 0,
       ownerChecks = 0;
     const repository = {
@@ -5677,77 +5704,93 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
       repositoryBinding: "fixed",
       revalidate: () => true,
     };
-    const writer = runInNewContext(
-      `${writerBody}; ${mutantBody}; saveRecoveryCheckpoint.mutant = mutatedRecoveryTerminal; saveRecoveryCheckpoint`,
-      {
-        snapshotStateRecord,
-        readStateVersionEvidence: privateStorageStore.readStateVersionEvidence,
-        Buffer,
-        isDockerRestartCheckpointSettled,
-        areTaskResourcesSettled,
-        readOperationHost,
-        encodeStateValue: JSON.stringify,
-        readStateSnapshot: () => ({
-          status: "completed",
+    let derive = prepareRecoveryTerminalSnapshot;
+    const writer = runInNewContext(`${writerBody}; saveRecoveryCheckpoint`, {
+      snapshotStateRecord,
+      readStateVersionEvidence: privateStorageStore.readStateVersionEvidence,
+      Buffer,
+      writeStateSnapshot(
+        _management: unknown,
+        bound: typeof repository | null,
+        bytes: Buffer | null,
+        settlement: Parameters<
+          typeof privateStorageStore.writeStateSnapshot
+        >[3],
+      ) {
+        const blocked = {
+          status: "blocked",
+          snapshotConfirmed: false,
           lockReleased: true,
-          value: { snapshot },
-        }),
-        prepareStateLifecycleSnapshot(
-          bytes: Buffer,
-          recoveryId: string,
-          lifecycle: unknown,
-          binding: string,
-        ) {
-          candidates++;
-          assert.deepEqual(bytes, before);
-          assert.equal(recoveryId, fixture.recoveryId);
-          assert.equal(binding, "fixed");
-          assert.deepEqual(JSON.parse(JSON.stringify(lifecycle)), {
-            phase: "settling",
-            lease: "released",
-            execution: operation.execution,
-            primaryFailure: operation.primaryFailure,
-            outcome:
-              existing === null
-                ? {
-                    status: "blocked",
-                    reason: "docker_process_controller_execution_failed_closed",
-                    cleanupConfirmed: true,
-                  }
-                : { ...existing, cleanupConfirmed: true },
-            summarySha256: null,
-          });
-          return Buffer.from("fixed-candidate");
-        },
-        writeStateSnapshot(
-          _management: unknown,
-          bound: { revalidate: () => boolean } | null,
-          candidate: Buffer | null,
-        ) {
-          if (candidate === null)
-            return {
-              status: "blocked",
-              snapshotConfirmed: false,
-              lockReleased: true,
-            };
-          writes++;
-          assert.equal(bound?.revalidate(), true);
-          assert.equal(candidate.toString(), "fixed-candidate");
-          return {
-            status: "completed",
-            snapshotConfirmed: true,
-            lockReleased: true,
-          };
-        },
+        };
+        assert.equal(bytes, null);
+        if (!settlement?.recoveryTerminal) return blocked;
+        assert.equal(settlement.recoveryId, fixture.recoveryId);
+        assert.equal(bound?.repositoryBinding, "fixed");
+        assert.equal(settlement.cleanupStatus, null);
+        assert.equal(settlement.dockerTerminal, null);
+        if (
+          !settlement.recoveryTerminal.before.equals(before) ||
+          !bound?.revalidate()
+        )
+          return blocked;
+        const candidate = derive(
+          { snapshot, projects: [], payloadSha256: "a".repeat(64) },
+          settlement.recoveryId,
+          bound.operationId,
+          "2026-09-01T00:00:00.000Z",
+        );
+        evaluations++;
+        if (candidate?.status !== "prepared") return blocked;
+        candidates++;
+        const next = JSON.parse(candidate.bytes.toString("utf8"));
+        const saved = next.operations.find(
+          (value: { kind: string }) => value.kind === "docker_task",
+        );
+        assert.equal(next.revision, snapshot.revision + 1);
+        assert.deepEqual(next.previous, {
+          revision: snapshot.revision,
+          payloadSha256: "a".repeat(64),
+        });
+        assert.equal(saved.phase, "settling");
+        assert.equal(saved.lease, "released");
+        assert.equal(saved.recoveryId, fixture.recoveryId);
+        assert.deepEqual(saved.execution, operation.execution);
+        assert.deepEqual(saved.primaryFailure, operation.primaryFailure);
+        assert.deepEqual(
+          saved.outcome,
+          existing === null
+            ? {
+                status: "blocked",
+                reason: "docker_process_controller_execution_failed_closed",
+                cleanupConfirmed: true,
+              }
+            : { ...existing, cleanupConfirmed: true },
+        );
+        assert.match(saved.summarySha256, /^[0-9a-f]{64}$/u);
+        assert.match(saved.history.lineSha256, /^[0-9a-f]{64}$/u);
+        assert.equal(saved.history.occurredAt, "2026-09-01T00:00:00.000Z");
+        assert.equal(saved.history.confirmed, false);
+        assert.deepEqual(
+          next.operations.filter(
+            (value: { kind: string }) => value.kind === "host_operation",
+          ),
+          snapshot.operations.filter(
+            (value: { kind: string }) => value.kind === "host_operation",
+          ),
+        );
+        writes++;
+        return {
+          status: "completed",
+          snapshotConfirmed: true,
+          lockReleased: true,
+        };
       },
-    ) as ((
+    }) as (
       repo: unknown,
       recoveryId: string,
       evidence: unknown,
       request: import("../../src/attempt/types.ts").RecoveryCheckpointRequest,
-    ) => { snapshotConfirmed: boolean }) & {
-      mutant: (...args: unknown[]) => { snapshotConfirmed: boolean };
-    };
+    ) => { snapshotConfirmed: boolean };
     const issued = privateStorageStore.captureStateVersionEvidence(
       scenario === "before_changed" ? "different" : before.toString("utf8"),
     );
@@ -5783,6 +5826,19 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
       "restart:confirmed:confirmed:blocked",
       "restart_unissued_final",
     ].includes(scenario);
+    assert.equal(
+      evaluations,
+      [
+        "before_changed",
+        "forged_before",
+        "forged_before_prototype",
+        "proxied_before",
+        "owner_changed",
+      ].includes(scenario)
+        ? 0
+        : 1,
+      scenario,
+    );
     assert.equal(result.snapshotConfirmed, accepted, scenario);
     assert.equal(candidates, accepted ? 1 : 0, scenario);
     assert.equal(writes, accepted ? 1 : 0, scenario);
@@ -5794,8 +5850,9 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
         "restart_unissued_effect_unknown",
       ].includes(scenario)
     ) {
+      derive = mutant;
       assert.equal(
-        writer.mutant(
+        writer(
           repository,
           fixture.recoveryId,
           privateStorageStore.captureStateVersionEvidence(
@@ -5807,8 +5864,10 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
           },
         ).snapshotConfirmed,
         true,
+        scenario,
       );
       assert.equal(candidates, 1);
+      assert.equal(evaluations, 2);
       assert.equal(writes, 1);
     }
   }

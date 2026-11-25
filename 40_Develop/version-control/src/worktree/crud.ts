@@ -24,13 +24,16 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import {
   observeVerifiedRepositoryLayout,
+  observeExactRepositoryLayout,
   resolveVerifiedRepositoryRoot,
   type Repository,
 } from "../repository/location.ts";
 import {
   isEnoent,
+  observeLinkedWorktreeRegistration,
   resolveRepositoryGitLayout,
   type EntitySnapshot,
+  type RepositoryGitLayout,
   verifyEntitySnapshot,
   verifySnapshot,
 } from "../repository/layout.ts";
@@ -44,6 +47,29 @@ type RecordEntry = {
   prunable: boolean;
   bare: boolean;
 };
+
+/** 同じ配置のDirectory実体かを、内容変更に依存せず照合する。 @trace ARCH-000009 */
+function sameLayoutEntity(before: EntitySnapshot, after: EntitySnapshot) {
+  return (
+    before.realPath === after.realPath &&
+    before.identity.dev === after.identity.dev &&
+    before.identity.ino === after.identity.ino &&
+    before.identity.birthtimeNs === after.identity.birthtimeNs
+  );
+}
+
+/** 単件読取りの前後と各Git起動を同じ作業領域に結ぶ。 @trace ARCH-000009 */
+function sameFileLayout(
+  before: RepositoryGitLayout,
+  after: RepositoryGitLayout,
+) {
+  return (
+    before.kind === after.kind &&
+    (["root", "gitDirectory", "commonDirectory"] as const).every((key) =>
+      sameLayoutEntity(before[key], after[key]),
+    )
+  );
+}
 
 /**
  * 一要求のGit起動・一覧と固定配置を作る。
@@ -67,11 +93,14 @@ export function createWorktreeGitContext(
     | "operation"
     | "merge"
     | "create"
+    | "file-read"
     | "selection-read"
     | "target-read" = "operation",
   checkedConfiguration: EntitySnapshot | null = null,
 ): WorktreeGitContext {
   const selectionRead = purpose === "selection-read";
+  const fileRead = purpose === "file-read";
+  const targetedFileRead = fileRead && targetInput !== undefined;
   const targetRead = purpose === "target-read";
   if (
     targetInput &&
@@ -105,6 +134,18 @@ export function createWorktreeGitContext(
   const deadline = performance.now() + 30_000;
   let commandRoot = root;
   let reuseNormalMergeLayout = false;
+  let fileTarget: {
+    directory: string;
+    layout: RepositoryGitLayout;
+    registration: EntitySnapshot;
+  } | null = null;
+  const verifyFileRegistration = (registration: EntitySnapshot) => {
+    try {
+      verifySnapshot(registration);
+    } catch {
+      throw new Error("worktree_repository_invalid");
+    }
+  };
   const mergeDirectory = () => {
     const gitDirectory = layout.gitDirectory.realPath;
     const requireAbsent = (file: string) => {
@@ -141,6 +182,7 @@ export function createWorktreeGitContext(
       reuseMergeLayout,
       ...options
     }: NonNullable<Parameters<WorktreeGitContext["run"]>[2]> = {},
+    observedOwner?: RepositoryGitLayout,
   ) => {
     const timeout = selectionRead
       ? 30_000
@@ -151,22 +193,26 @@ export function createWorktreeGitContext(
     let gitDirectory =
       pinned && reuseMergeLayout ? mergeDirectory() : undefined;
     if (!gitDirectory) {
-      const currentLayout = resolveRepositoryGitLayout(at);
+      const currentLayout = observedOwner ?? resolveRepositoryGitLayout(at);
+      if (fileTarget) {
+        if (pathKey(at) === pathKey(fileTarget.directory)) {
+          if (!sameFileLayout(fileTarget.layout, currentLayout))
+            throw new Error("worktree_repository_invalid");
+          verifyFileRegistration(fileTarget.registration);
+        } else if (
+          pathKey(at) === pathKey(root) &&
+          !sameFileLayout(layout, currentLayout)
+        )
+          throw new Error("worktree_repository_invalid");
+      }
       // 準備の最初の一覧から、同じ通常Root・管理領域にだけ接続する。
       if (
         atMergeRoot &&
         (currentLayout.kind !== "normal_worktree" ||
           currentLayout.commonDirectory !== currentLayout.gitDirectory ||
-          !(["root", "gitDirectory"] as const).every((key) => {
-            const before = layout[key];
-            const after = currentLayout[key];
-            return (
-              before.realPath === after.realPath &&
-              before.identity.dev === after.identity.dev &&
-              before.identity.ino === after.identity.ino &&
-              before.identity.birthtimeNs === after.identity.birthtimeNs
-            );
-          }))
+          !(["root", "gitDirectory"] as const).every((key) =>
+            sameLayoutEntity(layout[key], currentLayout[key]),
+          ))
       )
         throw new Error("worktree_repository_invalid");
       gitDirectory = pinned
@@ -245,12 +291,36 @@ export function createWorktreeGitContext(
   )
     throw new Error("worktree_owner_invalid");
   commandRoot = owner.root.realPath;
+  const relativePath =
+    targetInput?.relativePath ??
+    (path.relative(owner.root.realPath, root).split(path.sep).join("/") || ".");
+  const target = path.join(owner.root.realPath, ...relativePath.split("/"));
+  if (targetedFileRead) {
+    if (
+      pathKey(root) !== pathKey(commandRoot) ||
+      !sameFileLayout(layout, owner) ||
+      !initialEntries.some(
+        (entry) => pathKey(entry.root) === pathKey(target),
+      ) ||
+      !safeDirectoryPath(commandRoot, target)
+    )
+      throw new Error("worktree_target_mismatch");
+    const targetLayout = observeExactRepositoryLayout(target);
+    if (
+      targetLayout?.kind !== "linked_worktree" ||
+      !sameLayoutEntity(owner.commonDirectory, targetLayout.commonDirectory)
+    )
+      throw new Error("worktree_target_mismatch");
+    const registration = observeLinkedWorktreeRegistration(targetLayout);
+    if (!registration) throw new Error("worktree_target_mismatch");
+    fileTarget = { directory: target, layout: targetLayout, registration };
+  }
   if (
     !targetRead &&
     (!checkedConfiguration ||
       !isDeepStrictEqual(checkedConfiguration, owner.configSnapshot))
   ) {
-    const filters = run(root, [
+    const filters = run(fileTarget?.directory ?? root, [
       "config",
       "--includes",
       "--null",
@@ -265,12 +335,10 @@ export function createWorktreeGitContext(
     !sameRootMerge && (purpose === "operation" || purpose === "merge")
       ? list()
       : initialEntries
-  ).find((entry) => pathKey(entry.root) === pathKey(root));
+  ).find(
+    (entry) => pathKey(entry.root) === pathKey(fileTarget?.directory ?? root),
+  );
   if (!current) throw new Error("worktree_target_mismatch");
-  const relativePath =
-    targetInput?.relativePath ??
-    (path.relative(owner.root.realPath, root).split(path.sep).join("/") || ".");
-  const target = path.join(owner.root.realPath, ...relativePath.split("/"));
   const branch = targetInput?.branch ?? current.branch ?? "";
   if (
     !selectionRead &&
@@ -310,7 +378,11 @@ export function createWorktreeGitContext(
         owner.commonDirectory.identity.birthtimeNs
     )
       throw new Error("worktree_repository_invalid");
-    if (!targetInput && resolveVerifiedRepositoryRoot(capability) !== root)
+    if (
+      !targetInput &&
+      !fileRead &&
+      resolveVerifiedRepositoryRoot(capability) !== root
+    )
       throw new Error("worktree_repository_invalid");
     const present = targetInput
       ? safeDirectoryPath(owner.root.realPath, target)
@@ -341,13 +413,22 @@ export function createWorktreeGitContext(
     } else if (phase === "after-create") {
       // ここで返すBranchとHEADは同じ登録行から取得し、別のRef読取りは行わない。
       branchHead = registered?.branch === branch ? registered.head : null;
-    } else if (selectionRead || targetRead) {
+    } else if (selectionRead || fileRead || targetRead) {
       if (branch) {
-        branchHead = readDirectBranchOid(`refs/heads/${branch}`, (args) =>
-          run(commandRoot, args),
+        branchHead = readDirectBranchOid(
+          `refs/heads/${branch}`,
+          (args) =>
+            run(
+              commandRoot,
+              args,
+              undefined,
+              fileRead ? freshOwner : undefined,
+            ),
+          fileRead ? "commit" : undefined,
         );
         // 未解決の間接Refは一覧から省かれるため、不存在とみなす前に照合する。
-        if (targetRead && branchHead === null) requireDirectBranch();
+        if ((targetRead || fileRead) && branchHead === null)
+          requireDirectBranch();
       }
     } else {
       requireDirectBranch();
@@ -379,13 +460,33 @@ export function createWorktreeGitContext(
     if (branchExists) throw Error("worktree_target_exists");
     let dirty: boolean | null = null;
     if (present && registered) {
-      const targetLayout = resolveRepositoryGitLayout(target);
+      const targetLayout = fileTarget
+        ? observeExactRepositoryLayout(target)
+        : fileRead
+          ? observeVerifiedRepositoryLayout(capability)?.layout
+          : resolveRepositoryGitLayout(target);
+      if (
+        !targetLayout ||
+        (fileRead &&
+          (!sameFileLayout(fileTarget?.layout ?? layout, targetLayout) ||
+            !sameLayoutEntity(
+              freshOwner.commonDirectory,
+              targetLayout.commonDirectory,
+            )))
+      )
+        throw new Error("worktree_repository_invalid");
+      if (fileTarget) verifyFileRegistration(fileTarget.registration);
       if (
         pathKey(targetLayout.commonDirectory.realPath) !==
         pathKey(owner.commonDirectory.realPath)
       )
         throw new Error("worktree_target_mismatch");
-      if (!selectionRead && !targetRead && phase !== "after-create") {
+      if (
+        !selectionRead &&
+        !fileRead &&
+        !targetRead &&
+        phase !== "after-create"
+      ) {
         const result = run(target, [
           "status",
           "--porcelain=v1",

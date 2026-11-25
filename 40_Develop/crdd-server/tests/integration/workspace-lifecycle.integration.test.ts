@@ -1190,6 +1190,17 @@ test("公開Workspace操作は閉入力と世代を保ち固定候補だけを�
     name: "作業",
   }).workspace;
   assert.ok(current);
+  assert.deepEqual(
+    (
+      executeWorkspace(
+        f.root,
+        "project-a",
+        { ...common, operation: "get" },
+        () => true,
+      ).data as { changedPaths: readonly string[] }
+    ).changedPaths,
+    [],
+  );
   const stale = call({
     operation: "rename",
     expectedGeneration: 0,
@@ -1226,6 +1237,49 @@ test("公開Workspace操作は閉入力と世代を保ち固定候補だけを�
   ).data as { patch: string };
   assert.match(patch.patch, /selected/u);
   assert.doesNotMatch(patch.patch, /later-not-selected/u);
+  const branch = git(f.tree, ["symbolic-ref", "HEAD"]);
+  const recordedHead = current.head;
+  assert.ok(recordedHead);
+  assert.notEqual(current.candidate.candidateCommit, recordedHead);
+  git(f.tree, [
+    "update-ref",
+    branch,
+    current.candidate.candidateCommit,
+    recordedHead,
+  ]);
+  try {
+    for (const command of [
+      { operation: "get" },
+      { operation: "inspect", path: "source.txt" },
+    ] as const) {
+      assert.throws(
+        () =>
+          executeWorkspace(
+            f.root,
+            "project-a",
+            { ...common, ...command },
+            () => true,
+          ),
+        /workspace_target_unavailable/u,
+      );
+    }
+    assert.deepEqual(
+      executeWorkspace(
+        f.root,
+        "project-a",
+        { ...common, operation: "candidate-diff", path: "source.txt" },
+        () => true,
+      ).data,
+      patch,
+    );
+  } finally {
+    git(f.tree, [
+      "update-ref",
+      branch,
+      recordedHead,
+      current.candidate.candidateCommit,
+    ]);
+  }
   const adopted = call({
     operation: "adopt",
     expectedGeneration: current.generation,

@@ -11,9 +11,8 @@ import {
   type StorageRootInput,
   type StoreResult,
 } from "../storage/lock.ts";
-import { observePhysicalExecutionDataArea } from "../storage/store.ts";
 import {
-  snapshotLeaseResourcesAbsent,
+  observeSnapshotLeaseResources,
   withSnapshotOperation,
 } from "../composition/crud.ts";
 import {
@@ -110,12 +109,11 @@ export function beginWorkspaceOperation(
         current.leaseIntents.some((item) => item.kind === "project-operation")
       )
         return blocked("coordinator_lease_unavailable");
-      if (!snapshotLeaseResourcesAbsent(owner.repositoryRoot, identity))
-        return blocked("workspace_operation_lock_present", true);
-      const area = observePhysicalExecutionDataArea(
+      const { absent, area } = observeSnapshotLeaseResources(
         owner.repositoryRoot,
-        "lock",
+        identity,
       );
+      if (!absent) return blocked("workspace_operation_lock_present", true);
       if (area.status !== "ready")
         return blocked("coordinator_workspace_operation_unconfirmed");
       const locked = acquireLock({
@@ -317,7 +315,8 @@ export function updateWorkspaceMetadata(
         workspaceId,
         expectedGeneration,
         fixed,
-        () => snapshotLeaseResourcesAbsent(owner.repositoryRoot, identity),
+        () =>
+          observeSnapshotLeaseResources(owner.repositoryRoot, identity).absent,
       ),
     "workspace-metadata",
   );

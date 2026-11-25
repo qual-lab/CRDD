@@ -14,8 +14,17 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { createDockerRestartRequestId, decodeDockerRestartCheckpoint, decodeHostOperation, isDockerRestartCheckpointSettled, parseDockerTaskRecoveryId } from "../../../src/attempt/validation.ts";
-import { validHostOperationTransition, validateDockerRestartCheckpointTransition } from "../../../src/attempt/transition.ts";
+import {
+  createDockerRestartRequestId,
+  decodeDockerRestartCheckpoint,
+  decodeHostOperation,
+  isDockerRestartCheckpointSettled,
+  parseDockerTaskRecoveryId,
+} from "../../../src/attempt/validation.ts";
+import {
+  validHostOperationTransition,
+  validateDockerRestartCheckpointTransition,
+} from "../../../src/attempt/transition.ts";
 import { decodeStateSnapshot } from "../../../src/composition/transition.ts";
 import {
   isSha256Hex,

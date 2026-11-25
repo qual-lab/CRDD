@@ -252,11 +252,15 @@ function writeRepositoryLocalExcludeInternal(
   let existing: Buffer<ArrayBufferLike> = Buffer.alloc(0);
   let originalSnapshot: EntitySnapshot | null = null;
   try {
-    const read = readStableFileBytes(
-      excludePath,
-      [layout.commonDirectory, layout.infoDirectory],
-      true,
-    );
+    const read =
+      layout.excludeSnapshot && layout.excludeContents !== undefined
+        ? { snapshot: layout.excludeSnapshot, value: layout.excludeContents }
+        : readStableFileBytes(
+            excludePath,
+            [layout.commonDirectory, layout.infoDirectory],
+            true,
+          );
+    if (layout.excludeContents !== undefined) verifySnapshot(read.snapshot);
     existing = read.value;
     originalSnapshot = read.snapshot;
     if (
@@ -519,7 +523,7 @@ export function registerRepositoryLocalIgnore(
       )
   )
     throw new Error("repository_local_ignore_entry_invalid");
-  const observed = observeVerifiedRepositoryLayout(capability);
+  const observed = observeVerifiedRepositoryLayout(capability, false, true);
   if (observed === null) throw new Error("verified_repository_root_required");
   const { root: repositoryRoot, layout } = observed;
   let result: RepositoryLocalExcludeWriteResult;

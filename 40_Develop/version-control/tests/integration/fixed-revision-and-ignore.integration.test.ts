@@ -474,12 +474,29 @@ test("Repository-local ignore登録は原子的・冪等でreadbackされる", (
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   const first = registerRepositoryLocalIgnore(verified.capability, ".crdd/");
-  const second = registerRepositoryLocalIgnore(verified.capability, ".crdd/");
+  const exclude = path.join(root, ".git", "info", "exclude");
+  const open = fs.openSync;
+  let excludeOpens = 0;
+  const probe = t.mock.method(
+    fs,
+    "openSync",
+    (...args: Parameters<typeof open>) => {
+      if (args[0] === exclude) excludeOpens++;
+      return Reflect.apply(open, fs, args);
+    },
+  );
+  let second: typeof first;
+  try {
+    second = registerRepositoryLocalIgnore(verified.capability, ".crdd/");
+  } finally {
+    probe.mock.restore();
+  }
   assert.equal(first.status, "registered");
   assert.equal(second.status, "registered");
   if (first.status !== "registered" || second.status !== "registered") return;
   assert.equal(first.changed, true);
   assert.equal(second.changed, false);
+  assert.equal(excludeOpens, 1);
   assert.equal(first.effectIssued, true);
   assert.equal(first.effectConfirmation, "confirmed");
   assert.notEqual(first.beforeContentIdentity, first.afterContentIdentity);

@@ -343,7 +343,7 @@ test("技術保存の全入口は生Path・偽RootをEffect前に拒否する", 
     "assertArea",
     "assertAreaUnchanged",
     "observePhysicalExecutionDataArea",
-    "snapshotLeaseResourcesAbsent",
+    "observeSnapshotLeaseResources",
   ])
     assert.equal(name in domain, false, name);
 });

@@ -21,7 +21,6 @@ import {
   createQueue,
   initializeExecutionStore,
   type ProjectQueueEntry,
-  readState,
   readExecutionState,
   readQueueState,
   type SingleTaskRecord,

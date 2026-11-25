@@ -136,7 +136,7 @@ export function observeSnapshotObligations(
     schema: PROJECT_SNAPSHOT_SCHEMA,
     processId: process.pid,
     leaseResourcesAbsent: (identity) =>
-      snapshotLeaseResourcesAbsent(owner.repositoryRoot, identity),
+      observeSnapshotLeaseResources(owner.repositoryRoot, identity).absent,
     historySettlement: (row) => inspectHistorySettlement(owner, row),
     decisionHistorySettlement: (decision) =>
       inspectDecisionHistorySettlement(owner, decision),
@@ -563,7 +563,7 @@ export function withSnapshotOperation<T>(
  * @responsibility 不存在と不正親・観測不能を区別する。
  * @trace ARCH-000004
  * @input repositoryRoot: 検証済みRoot、identity: 実排他の固定Identity。
- * @returns 実排他と取得途中Fileが真正に不在か。
+ * @returns 実排他と取得途中Fileの不存在および、その判定直後の領域観測。
  * @precondition 呼出し側がRoot実体と対象intentを照合する。
  * @postcondition FileやDirectoryを作成せず観測結果だけを返す。
  * @effect Repository内の正規親と対象のmetadataを読む。
@@ -573,20 +573,24 @@ export function withSnapshotOperation<T>(
  * @security Root外の実体へ辿らない。
  * @concurrency Rootと最後の既知親を不存在判定前に再確認する。
  */
-export function snapshotLeaseResourcesAbsent(
+export function observeSnapshotLeaseResources(
   repositoryRoot: string,
   identity: string,
-): boolean {
+) {
   assertDirectory(repositoryRoot);
   const boundary = observeArea(repositoryRoot, "lock");
   if (boundary.status === "not_observed") {
-    assertAreaUnchanged(repositoryRoot, "lock", boundary);
-    return true;
+    return {
+      absent: true,
+      area: assertAreaUnchanged(repositoryRoot, "lock", boundary),
+    };
   }
   const parent = boundary.directory;
   if (pathConfirmedAbsent(parent)) {
-    assertAreaUnchanged(repositoryRoot, "lock", boundary);
-    return true;
+    return {
+      absent: true,
+      area: assertAreaUnchanged(repositoryRoot, "lock", boundary),
+    };
   }
   assertDirectory(parent);
   const isAbsent = leaseAcquisitionFootprintAbsent(parent, identity, [
@@ -594,8 +598,10 @@ export function snapshotLeaseResourcesAbsent(
   ]);
   assertDirectory(repositoryRoot);
   assertDirectory(parent);
-  assertAreaUnchanged(repositoryRoot, "lock", boundary);
-  return isAbsent;
+  return {
+    absent: isAbsent,
+    area: assertAreaUnchanged(repositoryRoot, "lock", boundary),
+  };
 }
 
 /**
@@ -791,9 +797,8 @@ function writeStorageTaskSnapshotOwned(
         bytes = before;
       else if (currentTask.snapshot.revision === expectedRevision)
         bytes = prepareUnifiedTaskSections(
-          before,
+          currentTask,
           view,
-          issued.repositoryBinding,
           issued.repositoryRootHash,
           facts,
         );
@@ -846,10 +851,9 @@ function writeStorageTaskSnapshotOwned(
         return rejected("coordinator_state_initialization_unconfirmed");
       initialBoundary = created.observation.boundaryIdentity;
     }
-    const candidate = bytes
-      ? decodeStateSnapshot(bytes, issued.repositoryBinding)
-      : null;
-    if (!bytes || !candidate)
+    // 元版の再入場・組立て結果・初期値はいずれも、この段階で検査済み。
+    // Writerの受付と現物CASはそのまま残す。
+    if (!bytes)
       return rejected("coordinator_task_publication_revision_conflict");
     const result = publishStateOwned(owner, bytes, {
       kind: "task",

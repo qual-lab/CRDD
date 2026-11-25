@@ -45,7 +45,9 @@ import {
   initialStateOperationsMatch,
   prepareAuthenticationUnknownClosureSnapshot,
   prepareHistoryRetention,
+  retainHistoryFromSnapshot,
   prepareRecoveryTerminalSnapshot,
+  validateDecodedUnifiedTransition,
   validateDecodedStateTransition,
   prepareRecoveredHistoryPublication,
   prepareRepairHistoryLine,
@@ -756,9 +758,7 @@ export function updateHistoryOwned(
     )
       return blocked;
     const directory = area.directory;
-    const stateBytes = Buffer.from(
-      `${encodeStateValue(state.value.snapshot)}\n`,
-    );
+    const stateBytes = Buffer.from(state.value.sourceText, "utf8");
     const currentFile = path.join(directory, "history.jsonl"),
       pendingFile = path.join(directory, "history.pending.jsonl");
     // 新しい業務更新より先に、前回の物理出版だけを完了する。
@@ -798,12 +798,11 @@ export function updateHistoryOwned(
     // 判断の出版と期限整理を分離し、再入場の候補を時刻経過だけで変形しない。
     const after =
       mode === "update"
-        ? prepareHistoryRetention(
-            stateBytes,
+        ? retainHistoryFromSnapshot(
+            state.value.snapshot,
             joined,
             new Date(now).toISOString(),
             policy,
-            owner.repositoryBinding,
           )
         : decodeHistoryRows(joined)
           ? joined
@@ -1183,7 +1182,7 @@ export function assertArea(
  * @responsibility Runtime Data Ownerの名前付き境界を利用しprivate Rootを復元しない。
  * @trace ARCH-000004
  * @input 検証するRepository起点と宣言済み領域。
- * @returns N/A: 一致確認のみ。
+ * @returns 初回と一致する最新の領域観測。
  * @precondition Callerは既存のRepository/Lease結合を保持する。
  * @postcondition 観測不能を不存在または有効Authorityへ変換しない。
  * @effect Filesystemの実体を観測する。初期化、Lock、書込みは0。
@@ -1210,6 +1209,7 @@ export function assertAreaUnchanged(
         current.boundaryIdentity !== initial.boundaryIdentity))
   )
     throw new Error("coordinator_storage_boundary_changed");
+  return current;
 }
 
 /**
@@ -4073,41 +4073,27 @@ function commitStateSnapshotOwned(
       if (names.includes("history.pending.jsonl"))
         throw new Error("task_publication_history_pending");
       const same = currentBytes?.equals(bytes) === true;
-      const expected =
-        same || taskPublication.before === null
-          ? bytes
-          : prepareUnifiedTaskSections(
-              taskPublication.before,
+      if (
+        !same &&
+        (taskPublication.before === null
+          ? currentBytes !== null ||
+            taskPublication.initialBoundary !== initial.boundaryIdentity ||
+            candidate.snapshot.operations.length !== 0 ||
+            candidate.snapshot.projects.length !== 0 ||
+            candidate.snapshot.queueEntries.length !== 0 ||
+            !validateDecodedUnifiedTransition(null, candidate)
+          : !current ||
+            !currentBytes?.equals(taskPublication.before) ||
+            !prepareUnifiedTaskSections(
+              current,
               taskPublication.view,
-              repository.repositoryBinding,
               taskPublication.rootHash,
               taskPublication.facts,
-            );
-      if (
-        !expected?.equals(bytes) ||
-        (!same &&
-          (taskPublication.before === null
-            ? currentBytes !== null ||
-              taskPublication.initialBoundary !== initial.boundaryIdentity ||
-              candidate.snapshot.operations.length !== 0 ||
-              candidate.snapshot.projects.length !== 0 ||
-              candidate.snapshot.queueEntries.length !== 0
-            : !currentBytes?.equals(taskPublication.before))) ||
-        (!same &&
-          !validateUnifiedTransition(
-            currentBytes,
-            bytes,
-            repository.repositoryBinding,
-          ))
+            )?.equals(bytes))
       )
         throw new Error("task_publication_scope_invalid");
-      const taskDecoded = decodeStateSnapshot(
-        bytes,
-        repository.repositoryBinding,
-      );
-      if (!taskDecoded) throw new Error("task_publication_scope_invalid");
       const projected = projectTaskSnapshot(
-        taskDecoded,
+        candidate,
         taskPublication.rootHash,
       );
       if (

@@ -10,8 +10,20 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createEnvironmentRepairDisposalCheckpoint, decodeEnvironmentRepairCheckpoint, decodeEnvironmentRepairDisposalCheckpoint, decodeEnvironmentRepairRetentionTargets, isRepairCheckpointSettled, isRepairDisposalSettled, prepareEnvironmentRepairSessionCheckpoint } from "../../../src/attempt/validation.ts";
-import { validateEnvironmentRepairCheckpointTransition, validateEnvironmentRepairDisposalTransition, validateEnvironmentRepairSessionCheckpoint } from "../../../src/attempt/transition.ts";
+import {
+  createEnvironmentRepairDisposalCheckpoint,
+  decodeEnvironmentRepairCheckpoint,
+  decodeEnvironmentRepairDisposalCheckpoint,
+  decodeEnvironmentRepairRetentionTargets,
+  isRepairCheckpointSettled,
+  isRepairDisposalSettled,
+  prepareEnvironmentRepairSessionCheckpoint,
+} from "../../../src/attempt/validation.ts";
+import {
+  validateEnvironmentRepairCheckpointTransition,
+  validateEnvironmentRepairDisposalTransition,
+  validateEnvironmentRepairSessionCheckpoint,
+} from "../../../src/attempt/transition.ts";
 
 /**
  * 保持対象の形検査を元checkpointや実観測と分離する。

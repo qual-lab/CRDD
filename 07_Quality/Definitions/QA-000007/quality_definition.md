@@ -55,6 +55,13 @@ B4の借用Tree読取りはVCの`workspace/observation.ts`へ移管する。`RFD
 
 公開Workspace操作は人間承認済みの`development`現在許可を三Role共通で適用する。`RFD-IT-009`／013とSTの非開示断面で、単体資格不要の固定Root、CROSのmanagementのみ／失効／Exposure除外／別Repository／Root差替えの処置前拒否、待機後とEffect直前の再認可、内部Root・一時物・資格を含めない公開結果を確認する。旧workspaceIdsは内容範囲でありGit Workspace IDへ転用しない。
 
+Workspace内容の読取りでは、親の受付を同じ観測にまとめても、記録と現在の子WorktreeのHEADが異なる場合に変更一覧・ファイルを返さないこと、固定候補差分に固定後の作業ファイル変更を含めないことを実Gitで確認する。
+
+VCの単件ファイル読取りでは、全体の`status`を使わず、差分前後の登録とHEADが指すCommitを別々に確認する。Linkedで差分取得直後にHEADまたはWorktreeロックが変わる場合と、直Branchまたはdetached HEADがCommit以外を指す場合は結果を返さない。外部フィルター設定時の拒否と発火なし、内容差し替え・削除・バイナリの扱いも確認する。
+
+同じ段階で親の配置を直接Branch照会に再利用する場合でも、その応答直後に子のGit管理領域が差し替われば、ファイル差分を発行せず停止する。
+親指定の単件読取りでは、子の直接読取りと結果が一致し、子の相対Path・Branch・期待HEADが別、子が同じ親の別Worktreeの管理領域を指す、または読取りの途中でHEADが移動した場合は結果を返さないことを実Gitで確認する。
+
 `RFD-IT-029`の実Git断面に、[Version Controlの追加契約](../../../06_Architecture/Details/version-control/01_Architecture.md#固定candidate二親mergeの追加契約2026-10-18実装未完了)を追加する。
 
 同じ項目のMain／Linked対照で、親Directoryごとの削除、固定Commit全体／File指定の差分と変更Path、基準Blobのない削除要求の拒否を確認する。読取り後の祖先Link化・観測例外は内容変更として拒否し、通常Index・HEADの非更新と今回の一時Indexの回収を確認する。CoordinatorのGit固定接続全体や実AIの成立とは分ける。

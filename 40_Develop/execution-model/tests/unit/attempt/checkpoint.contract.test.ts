@@ -11,6 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { HostOperationRecord } from "../../../src/attempt/types.ts";
+import { prepareRecoveryTerminalSnapshot } from "../../../src/composition/transition.ts";
 import { decodeHostOperation } from "../../../src/attempt/validation.ts";
 import { validHostOperationTransition } from "../../../src/attempt/transition.ts";
 import { createRuntimeStorageSourceFixture } from "../../support/storage-source.ts";
@@ -26,7 +27,7 @@ import { encodeStateValue } from "../../../src/composition/validation.ts";
  * @observation 実候補生成の成否とWriterの到達数。
  * @oracle 全共同条件を満たす場合だけblocked結果の清掃確認を保存する。
  * @cleanup N/A: メモリだけ。
- * @boundary 実回復終端受付・候補生成と有限Reader／Writer。
+ * @boundary 実回復終端受付・候補生成と有限Writer。物理CASは別の保存試験が所有する。
  */
 test("初回Intent前の回復終端は同じHost確定後だけ候補を保存する", () => {
   const fixture = createResourceOperationFixture();
@@ -48,21 +49,42 @@ test("初回Intent前の回復終端は同じHost確定後だけ候補を保存�
       operation.execution.externalSend = "unknown";
     const before = Buffer.from(`${encodeStateValue(snapshot)}\n`);
     let writes = 0;
+    let evaluated = false;
     const api = createRuntimeStorageSourceFixture(undefined, {
-      readStateSnapshot: () => ({
-        status: "completed",
-        lockReleased: true,
-        value: { snapshot, payloadSha256: "a".repeat(64) },
-      }),
       writeStateSnapshot: (
         _owner: unknown,
-        _repository: unknown,
+        repository: { operationId: string; revalidate(): boolean } | null,
         bytes: unknown,
+        settlement: Parameters<
+          typeof import("../../../src/storage/store.ts").writeStateSnapshot
+        >[3],
       ) => {
-        if (Buffer.isBuffer(bytes)) writes++;
+        assert.equal(bytes, null);
+        assert.ok(repository);
+        assert.equal(repository.revalidate(), true);
+        assert.equal(settlement?.recoveryId, fixture.recoveryId);
+        assert.ok(settlement?.recoveryTerminal?.before.equals(before));
+        const candidate = prepareRecoveryTerminalSnapshot(
+          { snapshot, projects: [], payloadSha256: "a".repeat(64) },
+          fixture.recoveryId,
+          repository.operationId,
+          "2026-09-01T00:00:00.000Z",
+        );
+        evaluated = true;
+        const saved = candidate?.status === "prepared";
+        if (saved) {
+          writes++;
+          const next = JSON.parse(candidate.bytes.toString("utf8"));
+          const savedTask = next.operations.find(
+            (item: { kind: string }) => item.kind === "docker_task",
+          );
+          assert.equal(savedTask.resources, null);
+          assert.equal(savedTask.outcome.status, "blocked");
+          assert.equal(savedTask.outcome.cleanupConfirmed, true);
+        }
         return {
-          status: Buffer.isBuffer(bytes) ? "completed" : "blocked",
-          snapshotConfirmed: Buffer.isBuffer(bytes),
+          status: saved ? "completed" : "blocked",
+          snapshotConfirmed: saved,
           lockReleased: true,
         };
       },
@@ -78,6 +100,7 @@ test("初回Intent前の回復終端は同じHost確定後だけ候補を保存�
       api.captureStateVersionEvidence(before.toString("utf8")),
       { kind: "terminal", assertOwner: () => true },
     );
+    assert.equal(evaluated, true, fault);
     assert.equal(result.snapshotConfirmed, fault === "none", fault);
     assert.equal(writes, fault === "none" ? 1 : 0, fault);
   }

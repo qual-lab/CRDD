@@ -134,11 +134,16 @@ function validAbsoluteDirectory(candidate: unknown): candidate is string {
 export function observeExactRepositoryLayout(
   candidate: unknown,
   observeConfigContent = false,
+  captureExcludeContents = false,
 ): RepositoryGitLayout | null {
   if (!validAbsoluteDirectory(candidate)) return null;
   try {
     const root = path.resolve(candidate);
-    const layout = resolveRepositoryGitLayout(root, observeConfigContent);
+    const layout = resolveRepositoryGitLayout(
+      root,
+      observeConfigContent,
+      captureExcludeContents,
+    );
     return samePath(layout.root.realPath, root) ? layout : null;
   } catch {
     return null;
@@ -298,10 +303,15 @@ export function resolveVerifiedRepositoryRoot(
 export function observeVerifiedRepositoryLayout(
   capability: Repository,
   observeConfigContent = false,
+  captureExcludeContents = false,
 ): Readonly<{ root: string; layout: RepositoryGitLayout }> | null {
   const stored = roots.get(capability);
   if (stored === undefined) return null;
-  const layout = observeExactRepositoryLayout(stored, observeConfigContent);
+  const layout = observeExactRepositoryLayout(
+    stored,
+    observeConfigContent,
+    captureExcludeContents,
+  );
   return layout !== null && samePath(layout.root.realPath, stored)
     ? Object.freeze({ root: stored, layout })
     : null;

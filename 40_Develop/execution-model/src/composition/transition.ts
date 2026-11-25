@@ -2174,10 +2174,25 @@ export function validateUnifiedTransition(
   nextBytes: unknown,
   repositoryBinding: unknown,
 ): boolean {
+  const next = decodeStateSnapshot(nextBytes, repositoryBinding);
+  if (!next) return false;
+  const current =
+    currentBytes === null
+      ? null
+      : decodeStateSnapshot(currentBytes, repositoryBinding);
+  return (
+    (currentBytes === null || current !== null) &&
+    validateDecodedUnifiedTransition(current, next)
+  );
+}
+
+/** 同じ保存段階で検査済みの元版・候補に共通遷移を適用する。 @trace ARCH-000008 */
+export function validateDecodedUnifiedTransition(
+  current: DecodedExecutionState | null,
+  next: DecodedExecutionState,
+): boolean {
   try {
-    const next = decodeStateSnapshot(nextBytes, repositoryBinding);
-    if (!next) return false;
-    if (currentBytes === null)
+    if (current === null)
       return (
         next.snapshot.revision === 1 &&
         next.snapshot.previous === null &&
@@ -2191,9 +2206,8 @@ export function validateUnifiedTransition(
           ),
         )
       );
-    const current = decodeStateSnapshot(currentBytes, repositoryBinding);
     if (
-      !current ||
+      next.snapshot.repositoryBinding !== current.snapshot.repositoryBinding ||
       next.snapshot.revision !== current.snapshot.revision + 1 ||
       next.snapshot.previous?.revision !== current.snapshot.revision ||
       next.snapshot.previous.payloadSha256 !== current.payloadSha256 ||
@@ -2352,12 +2366,7 @@ export function validateUnifiedTransition(
           return false;
       }
     }
-    return validateSettlementTransition(
-      current,
-      next,
-      currentBytes,
-      repositoryBinding,
-    );
+    return validateSettlementTransition(current, next);
   } catch {
     return false;
   }
@@ -2367,7 +2376,7 @@ export function validateUnifiedTransition(
  * 復号済みのTask受領と技術操作の同時遷移を照合する。
  * @responsibility 受領本文・固定選定・終端操作とTask投影の相関を保全する。
  * @trace ARCH-000004、ARCH-000008
- * @input current／next: 検査済み値とTask投影、currentBytes／repositoryBinding: 同じ元本文と保存結合。
+ * @input current／next: 同じ保存結合の検査済み値とTask投影。
  * @returns 既存の区画間遷移条件が全て成立した場合だけtrue。
  * @precondition codec・保存改訂・元HashはStorageが先に照合する。
  * @postcondition 受領を捏造せず、対象外の固定値を保全する。
@@ -2381,8 +2390,6 @@ export function validateUnifiedTransition(
 function validateSettlementTransition(
   current: NonNullable<ReturnType<typeof decodeStateSnapshot>>,
   next: NonNullable<ReturnType<typeof decodeStateSnapshot>>,
-  currentBytes: unknown,
-  repositoryBinding: unknown,
 ): boolean {
   try {
     for (const old of current.snapshot.managedExecutions) {
@@ -2422,11 +2429,7 @@ function validateSettlementTransition(
       if (
         operation.phase === "executing" ||
         operation.history?.confirmed !== true ||
-        !prepareStateHistoryLine(
-          currentBytes,
-          operation.recoveryId,
-          repositoryBinding,
-        ) ||
+        !operationHistoryLine(operation) ||
         projectTaskSettlement(
           {
             kind: "operations",
@@ -3488,9 +3491,28 @@ export function prepareHistoryRetention(
   publishingRecoveryId?: string,
 ): Buffer | null {
   const current = decodeStateSnapshot(currentBytes, repositoryBinding);
+  return current
+    ? retainHistoryFromSnapshot(
+        current.snapshot,
+        historyBytes,
+        now,
+        retentionDays,
+        publishingRecoveryId,
+      )
+    : null;
+}
+
+/** 検査済みStateから、履歴保持に必要な参照だけを導出する。 @trace ARCH-000008 */
+export function retainHistoryFromSnapshot(
+  snapshot: ExecutionStateSnapshot,
+  historyBytes: unknown,
+  now: unknown,
+  retentionDays: unknown,
+  publishingRecoveryId?: string,
+): Buffer | null {
   const rows = decodeHistoryRows(historyBytes);
-  if (!current || !rows) return null;
-  const references = projectHistoryRetentionReferences(current.snapshot);
+  if (!rows) return null;
+  const references = projectHistoryRetentionReferences(snapshot);
   return references
     ? retainHistoryRows(
         rows,
@@ -3889,7 +3911,7 @@ export function prepareUnifiedTaskSnapshot(
     const bytes = Buffer.from(`${encodeStateValue(next)}\n`);
     const decoded = decodeStateSnapshot(bytes, repositoryBinding);
     return decoded &&
-      validateUnifiedTransition(currentBytes, bytes, repositoryBinding) &&
+      validateDecodedUnifiedTransition(current, decoded) &&
       encodeStateValue(
         decoded.projects.find((p) => p.projectId === state.projectId),
       ) === encodeStateValue(state)
@@ -4181,7 +4203,7 @@ export function projectTaskSnapshot(
  * Task・Queue・Workspaceの業務更新を一改訂の保存候補へ接続する。
  * @responsibility 全業務区画と受領・技術参照を同じ本文で確定可能にする。
  * @trace ARCH-000004、ARCH-000008
- * @input currentBytes: 元本文、viewValue: 業務View候補、repositoryBinding: 物理結合、rootHash: 確認済みRoot Hash、facts: 明示結果事実。
+ * @input current: 同じ段階で検査済みの元版、viewValue: 業務View候補、rootHash: 確認済みRoot Hash、facts: 明示結果事実。
  * @returns 正規保存候補、又はnull。
  * @precondition 同Owner内で既存業務遷移・Lease・履歴検査を完了する。
  * @postcondition 技術区画・受領と業務更新の片側だけを保存しない。
@@ -4193,18 +4215,15 @@ export function projectTaskSnapshot(
  * @concurrency 保存Ownerが現在本文とCASを再照合する。
  */
 export function prepareUnifiedTaskSections(
-  currentBytes: unknown,
+  current: DecodedExecutionState,
   viewValue: unknown,
-  repositoryBinding: unknown,
   rootHash: string,
   factsValue: unknown = [],
 ): Buffer | null {
   try {
-    const current = decodeStateSnapshot(currentBytes, repositoryBinding);
     const view: unknown = JSON.parse(encodeStateValue(viewValue));
     const facts: unknown = JSON.parse(encodeStateValue(factsValue));
     if (
-      !current ||
       !isStateObject(view) ||
       !validSnapshot(view, String(view.repositoryBindingId), rootHash) ||
       view.snapshotRevision !== current.snapshot.revision + 1
@@ -4231,9 +4250,12 @@ export function prepareUnifiedTaskSections(
       },
     };
     const bytes = Buffer.from(`${encodeStateValue(next)}\n`);
-    const decoded = decodeStateSnapshot(bytes, repositoryBinding);
+    const decoded = decodeStateSnapshot(
+      bytes,
+      current.snapshot.repositoryBinding,
+    );
     return decoded &&
-      validateUnifiedTransition(currentBytes, bytes, repositoryBinding) &&
+      validateDecodedUnifiedTransition(current, decoded) &&
       encodeStateValue(projectTaskSnapshot(decoded, rootHash)) ===
         encodeStateValue(view)
       ? bytes

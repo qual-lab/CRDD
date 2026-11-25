@@ -82,8 +82,11 @@ test("Windowsの上位bit付きFile IDは同一性を保ち欠測・差替えを
   for (const name of ["lstatSync", "fstatSync"] as const) {
     const original = fs[name];
     t.mock.method(fs, name, (...args: unknown[]) => {
-      const metadata = Reflect.apply(original, fs, args) as fs.BigIntStats;
-      if (typeof metadata.ino === "bigint") {
+      const metadata = Reflect.apply(original, fs, args) as
+        | fs.BigIntStats
+        | fs.Stats
+        | undefined;
+      if (metadata && typeof metadata.ino === "bigint") {
         metadata.ino = invalid ?? BigInt.asIntN(64, metadata.ino | (1n << 63n));
         if (changed && name === "fstatSync") metadata.ino ^= 1n;
       }

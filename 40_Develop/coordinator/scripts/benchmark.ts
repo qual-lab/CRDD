@@ -21,6 +21,7 @@ import { fileURLToPath } from "node:url";
 import { ExecutionStorageBlockedError } from "../../execution-model/src/index.ts";
 import {
   getRepository,
+  type RepositoryResult,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../version-control/src/index.ts";
 import {
@@ -50,7 +51,7 @@ import { assertSupportedCoordinatorNodeRuntime } from "../src/lifecycle/environm
  */
 type Dependencies = Readonly<{
   runTask: typeof runTask;
-  getRepository: typeof getRepository;
+  getRepository: (candidate: unknown) => RepositoryResult;
   observeSource: typeof observeDevelopmentSource;
   now: () => number;
   wallNow: () => number;

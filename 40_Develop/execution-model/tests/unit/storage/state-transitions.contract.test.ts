@@ -21,7 +21,10 @@ import {
 } from "../../../src/composition/transition.ts";
 import { encodeStateValue } from "../../../src/composition/validation.ts";
 import { validState } from "../../../src/task/validation.ts";
-import { captureTaskExecutionUpdate, prepareTaskExecutionUpdate } from "../../../src/task/transition.ts";
+import {
+  captureTaskExecutionUpdate,
+  prepareTaskExecutionUpdate,
+} from "../../../src/task/transition.ts";
 
 /**
  * @responsibility 準備Readerの拒否理由と解放不明を内部結果へ保持する。

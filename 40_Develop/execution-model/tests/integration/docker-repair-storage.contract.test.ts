@@ -1825,10 +1825,10 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
           const parentCheck =
             "const parent = fs.lstatSync(path.dirname(directory), { bigint: true });";
           const rename =
-            /if \(assertFileOwner \|\| currentHistory \|\| recoveryTerminal\)\s+assertBoundary\(\);/gu;
+            /if\s*\(\s*freshTaskWrite\s*\|\|\s*assertFileOwner\s*\|\|\s*currentHistory\s*\|\|\s*recoveryTerminal\s*\)\s*assertBoundary\(\);(?=\s*assertCasFileIdentities\()/gu;
           const physicalInput = "const priorHistory = preparedHistory";
           const historyCas =
-            /assertHistoryCasIdentities\(\s*priorHistory === null\s*\?/gu;
+            /assertCasFileIdentities\(\s*priorHistory === null\s*\?/gu;
           assert.equal(source.split(read).length, 2);
           assert.equal(source.split(parentCheck).length, 2);
           assert.equal([...source.matchAll(rename)].length, 1);

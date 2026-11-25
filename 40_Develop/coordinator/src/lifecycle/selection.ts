@@ -27,9 +27,9 @@ import type {
   ProviderHome,
   SingleTaskCommand,
 } from "./types.ts";
-import {
-  type ExecutionSelection,
-  type TaskExecutionSelections,
+import type {
+  ExecutionSelection,
+  TaskExecutionSelections,
 } from "../../../execution-model/src/index.ts";
 import {
   readRepositoryAiSelection,

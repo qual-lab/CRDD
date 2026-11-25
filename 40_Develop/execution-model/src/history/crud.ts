@@ -401,11 +401,12 @@ function prepareHistoryPending(
     current.schema !== PROJECT_SNAPSHOT_SCHEMA
   )
     return historyCandidateBlocked("coordinator_history_time_invalid");
+  const pendingIds = new Set(current.historyPending.map((row) => row.id));
   const rows = current.queueEntries
     .filter(
       (queue) =>
         !queue.historySettled &&
-        !current.historyPending.some((row) => row.id === queue.queueId) &&
+        !pendingIds.has(queue.queueId) &&
         queueIsClosed(current, queue.queueId, observations.obligations()),
     )
     .map(

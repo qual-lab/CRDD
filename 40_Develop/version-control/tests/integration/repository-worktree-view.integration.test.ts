@@ -79,6 +79,19 @@ test("一括選択はファイルごとにGitを起動せず欠測と削除を�
   try {
     readFile(capability, { baseCommit: base, path: "modified.txt" });
     const fileCount = commands.length;
+    assert.equal(fileCount, 9);
+    assert.equal(
+      commands.filter((args) => args.includes("worktree")).length,
+      3,
+    );
+    assert.equal(
+      commands.filter((args) => args.includes("for-each-ref")).length,
+      2,
+    );
+    assert.equal(
+      commands.some((args) => args.includes("status")),
+      false,
+    );
     commands.length = 0;
     readWorkingSelections(capability, { ...request, paths: ["modified.txt"] });
     const singleCount = commands.length;

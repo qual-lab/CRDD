@@ -28,7 +28,10 @@ import {
   decodeStateSnapshot,
   EXECUTION_STATE_SCHEMA,
   prepareStateOperationSnapshot,
+  prepareUnifiedTaskSections,
+  projectTaskSnapshot,
   projectTaskSettlement,
+  validateDecodedUnifiedTransition,
   validateUnifiedTransition,
   validSnapshot,
 } from "../../../src/composition/transition.ts";
@@ -733,6 +736,40 @@ test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否す
       binding,
     ),
     false,
+  );
+  const current = decodeStateSnapshot(
+    encode({ ...snapshot, repositoryBindingId: "binding-a" }),
+    binding,
+  );
+  assert.ok(current);
+  const nextState = {
+    ...current.snapshot,
+    revision: 2,
+    previous: { revision: 1, payloadSha256: current.payloadSha256 },
+  };
+  const successor = decodeStateSnapshot(encode(nextState), binding);
+  const otherRepository = "c".repeat(64);
+  const foreign = decodeStateSnapshot(
+    encode({ ...nextState, repositoryBinding: otherRepository }),
+    otherRepository,
+  );
+  assert.ok(successor && foreign);
+  assert.equal(validateDecodedUnifiedTransition(current, successor), true);
+  assert.equal(validateDecodedUnifiedTransition(current, foreign), false);
+  const rootHash = "b".repeat(64);
+  const view = projectTaskSnapshot(successor, rootHash);
+  assert.ok(view);
+  assert.deepEqual(
+    prepareUnifiedTaskSections(current, view, rootHash),
+    encode(nextState),
+  );
+  assert.equal(
+    prepareUnifiedTaskSections(
+      current,
+      { ...view, snapshotRevision: 3 },
+      rootHash,
+    ),
+    null,
   );
 });
 

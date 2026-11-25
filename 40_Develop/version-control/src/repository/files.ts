@@ -18,7 +18,10 @@ import {
   isCommitPath,
   readSelectedTreeEntries,
 } from "./commit.ts";
-import { resolveRepositoryGitLayout } from "./layout.ts";
+import {
+  inspectRepositoryGitObjectFormat,
+  resolveRepositoryGitLayout,
+} from "./layout.ts";
 import {
   getRepositoryFromWorkingDirectory,
   observeVerifiedRepositoryLayout,
@@ -773,29 +776,47 @@ export function readFile(
   capability: Repository,
   request: FileReadRequest,
 ): WorkingFile {
-  const { baseCommit: requestedBase, path: selectedPath } = request;
+  const { baseCommit: requestedBase, path: selectedPath, worktree } = request;
   if (
     (requestedBase !== undefined && !isCommitId(requestedBase)) ||
-    !isCommitPath(selectedPath)
+    !isCommitPath(selectedPath) ||
+    (worktree !== undefined && !isCommitId(worktree.expectedHead))
   )
     throw Error("repository_file_input_invalid");
-  const ctx = createWorktreeGitContext(capability);
-  const before = ctx.inspect();
-  if (
-    !before.registered ||
-    !before.directoryPresent ||
-    before.locked ||
-    before.prunable ||
-    !before.head
-  )
-    throw new Error("repository_file_worktree_mismatch");
-  const format = readRepositoryFormat(capability);
+  const ctx = createWorktreeGitContext(capability, worktree, "file-read");
+  const observeHead = () => {
+    const current = ctx.inspect();
+    if (
+      !current.registered ||
+      !current.directoryPresent ||
+      current.locked ||
+      current.prunable ||
+      !current.head ||
+      (worktree && current.head !== worktree.expectedHead) ||
+      (ctx.branch !== "" && current.branchHead !== current.head)
+    )
+      throw new Error("repository_file_worktree_mismatch");
+    if (ctx.branch === "") {
+      const commit = ctx.run(ctx.target, [
+        "rev-parse",
+        "--verify",
+        `${current.head}^{commit}`,
+      ]);
+      if (commit.status !== 0 || commit.stdout.trim() !== current.head)
+        throw new Error("repository_file_worktree_mismatch");
+    }
+    return current.head;
+  };
+  const head = observeHead();
+  const format = worktree
+    ? inspectRepositoryGitObjectFormat(ctx.target)
+    : readRepositoryFormat(capability);
   if (format === null)
     throw new Error("repository_file_observation_unavailable");
   const oidLength = format.objectFormat === "sha1" ? 40 : 64;
-  if (before.head.length !== oidLength)
+  if (head.length !== oidLength)
     throw new Error("repository_file_worktree_mismatch");
-  const baseCommit = requestedBase ?? before.head;
+  const baseCommit = requestedBase ?? head;
   if (baseCommit.length !== oidLength)
     throw new Error("repository_file_input_invalid");
   const segments = selectedPath.split("/");
@@ -857,7 +878,7 @@ export function readFile(
   ]);
   if (diff.status !== 0)
     throw new Error("repository_file_observation_unavailable");
-  if (ctx.inspect().head !== before.head)
+  if (observeHead() !== head)
     throw new Error("repository_file_worktree_mismatch");
   try {
     if (
@@ -904,7 +925,7 @@ export function readFile(
   }
   return {
     baseCommit,
-    head: before.head,
+    head,
     selection: {
       path: selectedPath,
       blobId,

@@ -208,8 +208,12 @@ if (scenario === "crash_reentry") {
   if (scenario === "git_unsettled_task" || scenario === "git_unsettled_restart") {
     const bound = operation.bindRepositoryOperation(management, root);
     assert.ok(bound);
+    // 技術投影には保存結合を載せない。開始Identityは同じ実Hostの保存入力から作る。
+    const storage = operation.borrowCoordinatorStateRepository(management);
+    assert.ok(storage);
+    assert.equal(storage.operationId, bound.operationId);
     const identity = { ...createResourceOperationFixture().identity,
-      operationId: host().operationId, repositoryBinding: read().snapshot.repositoryBinding };
+      operationId: storage.operationId, repositoryBinding: storage.repositoryBinding };
     const started = saveOperationStart(operation.operationStartInput(management, () => null), JSON.stringify(identity) + "\\n");
     assert.equal(started.startSaved, true, JSON.stringify(started));
     if (scenario === "git_unsettled_restart") {
