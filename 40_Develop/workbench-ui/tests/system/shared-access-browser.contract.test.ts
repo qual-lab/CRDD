@@ -1477,9 +1477,16 @@ test("実Browserは管理・Repository操作と現在投影の整合を維持す
             },
           );
           assert.equal(view.status, 200);
-          const { view: kind, portfolio } = await view.json();
-          assert.equal(kind, "access");
-          assert.equal(portfolio, null, "登録前にリポジトリ内容を返さない");
+          const overview = await view.json();
+          assert.equal(overview.view, "access");
+          assert.equal(overview.authenticated, true);
+          assert.deepEqual(
+            Object.keys(overview)
+              .filter((key) => key !== "loginProviders")
+              .sort(),
+            ["actionToken", "authenticated", "contract", "view"],
+            "登録前は公開ログイン情報と接続状態だけを返す",
+          );
           const selected = await fetch(
             new URL(
               "/api/workbench/overview?repositoryId=repository.next",
