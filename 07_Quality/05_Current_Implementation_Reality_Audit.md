@@ -36,8 +36,8 @@ Workspace方式のArchitecture／Quality反映後は13定義・198 Local Item。
 
 成果物種別: Quality現実照合
 状態: Blocked — Quality Design Review Pending
-進捗: 現行198項目の設計集合を同期。項目の適用整理・局所検証と正式評価を区別し、未観測・OPEN・正式Not Runを残す。全体の現実照合は確定しない
-現在範囲: 現行198 Local Item（先行191項目と共有OAuth・外部ログイン・Gitホスト認可の7項目）。日付付き205／199／197項目・18 Architecture詳細設計領域の照合は履歴として区別する
+進捗: 現行202項目の設計集合を同期。項目の適用整理・局所検証と正式評価を区別し、未観測・OPEN・正式Not Runを残す。全体の現実照合は確定しない
+現在範囲: 現行202 Local Item（先行198項目と既存の単体試験4件の検証項目）。日付付き205／199／197項目・18 Architecture詳細設計領域の照合は履歴として区別する
 維持責任者: Qual-Lab
 
 
@@ -47,7 +47,7 @@ Workspace方式のArchitecture／Quality反映後は13定義・198 Local Item。
 
 | 項目 | 件数 |
 |---|---:|
-| Local Item数 | 198 |
+| Local Item数 | 202 |
 | 内訳 | 現行13 Quality Definitionの正式項目を再計数。167工程入力・172項目は先行版の集合であり、現在の母集合へ流用しない。Source／Test／Evidenceの現在適用は段階6／7で再照合する |
 
 ## 1. 目的
@@ -96,7 +96,7 @@ Workspace方式のArchitecture／Quality反映後は13定義・198 Local Item。
 
 | 対象 | 状態 | 理由 | 次の処置 |
 |---|---|---|---|
-| 13検証目標のLocal Item | 現行198項目・再照合中 | 先行199件のMappingと172 Local Itemの固定は歴史的基準。現在は13定義の198項目を母集合にする | AM対象17義務の現在評価と残りの全体照合を分けて接続する |
+| 13検証目標のLocal Item | 現行202項目・再照合中 | 先行199件のMappingと172 Local Itemの固定は歴史的基準。現在は13定義の202項目を母集合にする | AM対象17義務の現在評価と残りの全体照合を分けて接続する |
 | 現行Source／Test | 全Subsystem初回照合済み | 18領域を実装所有、Symbol Relation、Test Catalog、局所試験、工程／統制所有へ分けた。実装を持つ12領域の静的確認は全てPassした。v0.22のWorkbench、Project Context MCPおよび結合経路を追加した後も、Verification Runnerは40 Pass・失敗0・条件付きSkip 1で閉じた | `Partial`のRelation不足と実装欠落を所有変更へ返す |
 | 実行結果／Evidence | 全Subsystem局所実行済み | 12 TypeScript packageとPlatform Accessの局所試験を実行した。CoordinatorとCheckerではSandboxまたは命名規則に起因する不一致を分離した | 是正後の局所再実行と独立レビューを対象Commitへ結合する |
 

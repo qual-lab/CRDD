@@ -49,6 +49,7 @@ test("Windowsの実行条件を持つ公式試験群と専用段階の接続を�
     "coordinator:integration:docker-isolation-host",
     "coordinator:integration:docker-process-controller",
     "coordinator:integration:docker-recovery-owner-reentry",
+    "coordinator:integration:docker-restart-recovery-storage",
     "coordinator:integration:host-recovery-record",
     "coordinator:integration:orchestrator-durable-foundation",
     "coordinator:integration:runtime-repair-owner",

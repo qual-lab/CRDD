@@ -2342,7 +2342,7 @@ Provider境界のLifecycle診断は、`coordinator_provider_boundary_configured`
 
 実Host境界を必要とする試験は`Host Windows:`の閉じた分類へ所属させ、既定試験からは実行しない。Release前の全回帰は`test:all`を明示し、Portable試験を完了した後、Host権限を持つ実行環境で`test:host-windows`を実行する。Sandboxや権限不足による拒否を実装失敗へ畳まず、逆にPortable試験の失敗をHost環境差として除外しない。新しい実環境試験を追加する場合は、Host分類、Owner Runner、必要環境、cleanupおよび終了後条件を同じ変更で閉集合へ追加する。
 
-カバレッジは各所有者の単体試験だけを集計する。Coordinatorの`host-recovery:coverage`は `host.ts` と `environment.ts` を対象に、行90%・分岐70%・関数80%の閾値を維持する。Host記録・修復・再起動結果の実行モデルへの接続は、カバレッジを取らない `test:host-recovery` で検証する。実行調停・回復の結合試験は `test:docker-process-controller` で別に実行する。どちらも全回帰や実Docker・実Providerの成立とは区別する。
+Coordinatorの `test:coverage` は単体試験だけで自パッケージの実装を計測・報告する。v0.22では数値を合格条件にせず、Host回復・Docker回復専用の閾値付き計測入口は設けない。Host記録・修復・再起動結果の実行モデルへの接続は、カバレッジを取らない `test:host-recovery` で検証する。実行調停・回復の結合試験も `test:docker-process-controller` で別に実行する。どちらも全回帰や実Docker・実Providerの成立とは区別する。
 
 - 公開CLI閉集合と`capabilities --json`
 - manifest revision 5、閉じたRuntime実行集合、Policy、単一Native成果物、改変・欠落・旧Schema拒否

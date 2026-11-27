@@ -1,6 +1,6 @@
 /**
  * Workbenchの公開経路からパスとメソッドを構築する規則を検証する。
- * @trace ARCH-000012
+ * @trace EST-UT-017 ARCH-000012
  * @level UT
  * @boundary 文字列と要求オブジェクトのみ。HTTPやブラウザーを起動しない。
  */

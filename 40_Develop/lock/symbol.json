@@ -4,6 +4,20 @@
   "subsystem": "lock",
   "symbols": [
     {
+      "symbolId": "lock.test.unit.lock-admission",
+      "kind": "test-suite",
+      "path": "tests/unit/lock-admission.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-040"
+      ],
+      "verifies": [
+        "lock.source.operations"
+      ]
+    },
+    {
       "symbolId": "lock.test.integration.file-lock",
       "kind": "test-suite",
       "path": "tests/integration/file-lock.contract.test.ts",

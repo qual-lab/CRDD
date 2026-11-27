@@ -1,6 +1,6 @@
 /**
  * Lock受付をファイルシステムに触れずに検証する。
- * @trace ARCH-000008
+ * @trace ERB-UT-040 ARCH-000008
  * @level UT
  * @boundary ファイルシステムの代役。ファイルと記述子を作らない。
  */

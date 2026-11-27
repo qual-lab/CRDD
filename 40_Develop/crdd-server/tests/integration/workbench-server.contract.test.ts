@@ -248,7 +248,10 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       shell.body,
       await readFile(path.join(distribution, "index.html")),
     );
-    assert.match(shell.body.toString("utf8"), /CROS Workbench/u);
+    assert.match(
+      shell.body.toString("utf8"),
+      /<title>CRDD Workbench<\/title>/u,
+    );
     assert.ok(
       model.aiSelection.catalog.catalog.models.some(
         (model) => model.modelIdentifier === "gpt-5.5",

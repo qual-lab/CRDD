@@ -1,6 +1,6 @@
 /**
  * 表示倍率からChromiumのズーム段階への変換を検証する。
- * @trace ARCH-000003
+ * @trace ERB-UT-041 ARCH-000003
  * @level UT
  * @boundary 数値計算のみ。ブラウザー・ネットワーク・ファイルを使わない。
  */

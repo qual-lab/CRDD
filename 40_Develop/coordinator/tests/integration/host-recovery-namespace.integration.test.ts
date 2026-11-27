@@ -140,6 +140,63 @@ test("Namespace試験は子失敗・終了不明・未知残存を削除せず�
 });
 
 /**
+ * 受動診断がHost領域とNamespaceを作成しないことを確認する。
+ * @trace ERB-IT-003
+ * @precondition 固定Namespaceを事前作成しない自己生成Repositoryを使用する。
+ * @stimulus 実AI・Dockerを開始せず本番の受動診断を呼ぶ。
+ * @observation 診断応答とNamespaceの観測結果。
+ * @oracle 受動診断の応答契約を満たし、Namespaceを作成しない。
+ * @cleanup 自己生成領域だけを回収する。
+ * @boundary Coordinator→既存Node Owner→Node Filesystem。
+ */
+test("production doctorは受動診断でHost領域・Namespaceを作成しない", {
+  timeout: 120_000,
+}, () => {
+  runNodeNamespaceCase(
+    `
+import assert from "node:assert/strict";
+import { runDoctor, REQUIRED_CHECK_IDS } from ${JSON.stringify(new URL("../../src/lifecycle/environment.ts", import.meta.url).href)};
+
+  const report = await runDoctor({
+    activeIsolation: false,
+    cwd: process.cwd(),
+  });
+  for (const removedKey of [
+    "runtimeRoot",
+    "runtimeRootPathIdentity",
+    "runtimeActivation",
+    "runtimeRootEvaluation",
+    "runtimeRootProtectionPrecheck",
+  ]) {
+    assert.equal(Object.hasOwn(report, removedKey), false);
+  }
+  assert.equal(Object.hasOwn(report.egress, "authorityRoot"), false);
+  assert.equal(Object.hasOwn(report.egress, "activation"), false);
+  assert.equal(REQUIRED_CHECK_IDS.includes("runtime.root"), false);
+  assert.equal(report.diagnosticMode, "passive_preflight");
+  assert.equal(report.reportVersion, 17);
+  assert.equal(report.filesystem.policy, null);
+  assert.equal(report.recovery.required, false);
+  const directories = report.checks.find(item => item.id === "operation.directories");
+  assert.equal(directories.status, "not_implemented");
+  assert.equal(directories.reason, "owned_operation_directories_not_requested");
+  assert.equal(report.blockers.some(item => item.id === "operation.directories" && item.reason === directories.reason), true);
+  assert.equal(Object.hasOwn(report.credentials, "forwardedNames"), false);
+  assert.equal(Object.hasOwn(report.credentials, "environmentFiltered"), false);
+  assert.equal(report.credentials.valuesRecorded, false);
+  assert.ok(Array.isArray(report.credentials.detectedNames));
+  assert.equal(REQUIRED_CHECK_IDS.includes("execution.credential_environment"), false);
+  assert.equal(report.checks.some(item => item.id === "execution.credential_environment"), false);
+  assert.equal(Object.hasOwn(report, "repositoryLocation"), true);
+  assert.equal(Object.hasOwn(report, "repositoryGitLayout"), false);
+  assert.equal(report.repositoryLocation.pathReported, false);
+  assert.equal(report.fakeProviderLifecycle.fakeProviderExecuted, false);
+`,
+    false,
+  );
+});
+
+/**
  * 本番の新しいCoordinator親で不正実体の保全と自己生成物の回収を確認する。
  * @trace ERB-IT-003
  * @precondition 毎回独立した試験Repositoryと固定の試験資源を使う。

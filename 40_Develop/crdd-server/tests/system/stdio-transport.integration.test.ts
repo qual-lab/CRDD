@@ -100,6 +100,8 @@ test("公式SDK Clientは公開stdioのdiscover・一覧・実行を利用でき
       "get_project",
       "get_change_document",
       "get_owner_artifact",
+      "headExecutionActivity",
+      "headProjectList",
       "readRepositoryTree",
       "headRepositoryTree",
       "readRepositoryFileDiff",

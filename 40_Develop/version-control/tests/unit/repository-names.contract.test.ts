@@ -1,6 +1,6 @@
 /**
  * Gitの実行前に使うパス・ブランチ名の文法を検証する。
- * @trace ARCH-000009
+ * @trace RFD-UT-035 ARCH-000009
  * @level UT
  * @boundary 文字列の検査のみ。Gitもファイル操作も行わない。
  */

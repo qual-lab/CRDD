@@ -4,6 +4,20 @@
   "subsystem": "workbench-ui",
   "symbols": [
     {
+      "symbolId": "workbench.test.unit.request-path",
+      "kind": "test-suite",
+      "path": "tests/unit/request-path.contract.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-UT-017"
+      ],
+      "verifies": [
+        "workbench.presentation.api-path"
+      ]
+    },
+    {
       "symbolId": "workbench.presentation.ai-request-panel",
       "kind": "file",
       "path": "src/components/ai-request-panel.tsx",

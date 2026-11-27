@@ -14,14 +14,10 @@ const testFiles = requireCheckerTestFiles(
   discoverCheckerTestFiles(checkerRoot),
 );
 
-const testProcess = spawnSync(
-  process.execPath,
-  ["--test", ...testFiles],
-  {
-    cwd: checkerRoot,
-    stdio: "inherit",
-  },
-);
+const testProcess = spawnSync(process.execPath, ["--test", ...testFiles], {
+  cwd: checkerRoot,
+  stdio: "inherit",
+});
 if (testProcess.error) throw testProcess.error;
 if (testProcess.signal) {
   process.stderr.write(`Checker tests terminated by ${testProcess.signal}.\n`);

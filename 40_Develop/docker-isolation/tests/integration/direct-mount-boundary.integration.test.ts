@@ -572,7 +572,7 @@ test("Docker explicit: Workspace固定Path保護境界", {
         () => {
           assert.equal(checked(["ps", "--quiet"]), "");
           stage = "container-create";
-          const created = docker([
+          const createArguments = [
             "create",
             "--pull=never",
             "--name",
@@ -595,7 +595,9 @@ test("Docker explicit: Workspace固定Path保護境界", {
             stimulus,
             reviewer ? "reviewer" : "writer",
             credentialIsDirectory ? "directory" : "file",
-          ]);
+          ];
+          // Docker Desktopの初回作成は応答まで10秒を超え得る。Case全体の期限は延ばさない。
+          const created = docker(createArguments, 30_000);
           if (
             !created.error &&
             created.status === 0 &&

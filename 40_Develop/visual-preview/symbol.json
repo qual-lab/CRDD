@@ -4,6 +4,20 @@
   "subsystem": "visual-preview",
   "symbols": [
     {
+      "symbolId": "visual-preview.test.unit.browser-zoom",
+      "kind": "test-suite",
+      "path": "tests/unit/browser-zoom.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-041"
+      ],
+      "verifies": [
+        "visual-preview.browser-measure"
+      ]
+    },
+    {
       "symbolId": "visual-preview.cli.entry",
       "kind": "file",
       "path": "bin/visual-preview.ts",
