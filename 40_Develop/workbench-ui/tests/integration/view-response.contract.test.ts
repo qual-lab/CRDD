@@ -9,6 +9,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  validateGitHostConnections,
   validateManagementResponse,
   validateViewResponse,
 } from "../../src/api/response.ts";
@@ -33,26 +34,20 @@ test("管理の応答は操作別の閉形式と改訂の相関を守る", () =>
   const current = {
     ...complete,
     user,
-    permittedRepositories: [exposure],
-    contentAccess: { workspaceIds: ["development"] },
   };
   for (const [view, value] of [
     ["current", current],
     ["users", { ...complete, users: [user] }],
     [
-      "roles",
-      {
-        ...complete,
-        roles: [{ role: user.role, workspaceIds: exposure.workspaceIds }],
-      },
-    ],
-    [
       "repositories",
       { ...complete, repositories: [{ repositoryId: exposure.repositoryId }] },
     ],
-    ["exposure", { ...complete, repositories: [exposure] }],
     ["mutation", mutation],
     ["mutation", { status: "rejected", reason: "management_request_rejected" }],
+    [
+      "mutation",
+      { status: "rejected", reason: "management_revision_conflict" },
+    ],
   ] as const) {
     assert.equal(validateManagementResponse(value, view), value);
     assert.throws(
@@ -66,10 +61,11 @@ test("管理の応答は操作別の閉形式と改訂の相関を守る", () =>
       "current",
       { ...current, user: { ...user, tokenVerifier: "never-display" } },
     ],
-    ["current", { ...current, permittedRepositories: [exposure, exposure] }],
+    ["current", { ...current, permittedRepositories: [exposure] }],
+    ["current", { ...current, contentAccess: { workspaceIds: [] } }],
     ["users", { ...complete, users: [{ ...user, role: "unknown" }] }],
     [
-      "exposure",
+      "repositories",
       {
         ...complete,
         repositories: [
@@ -79,6 +75,14 @@ test("管理の応答は操作別の閉形式と改訂の相関を守る", () =>
     ],
     ["mutation", { ...mutation, expectedRevision: 2 }],
     ["mutation", { ...mutation, cleanupConfirmed: false }],
+    [
+      "mutation",
+      {
+        status: "rejected",
+        reason: "management_revision_conflict",
+        revision: 2,
+      },
+    ],
   ] as const)
     assert.throws(
       () => validateManagementResponse(value, view),
@@ -201,13 +205,10 @@ function mainResponse() {
     meetingPage: page,
     meetingQuery: {},
     recordDocuments: [],
-    recordActionResult: null,
     selectedRepositoryId: null,
     recordActionsConfigured: false,
-    repositoryActionsConfigured: false,
-    repositoryResult: null,
+    repositoryActions: [],
     worktree: { state: "unknown", tree: null, diff: null },
-    credentials: { state: "not_configured", snapshot: null },
     aiSelection: {
       catalog: {
         identity: "fixture",
@@ -251,9 +252,21 @@ test("Local CROS Client Modelは接続専用の閉集合と未認証境界を守
     authenticated: false,
     notice: null,
     portfolio: null,
-    credentials: { state: "not_configured", snapshot: null },
   };
   assert.equal(validateViewResponse(model).view, "access");
+  const loginProviders = [
+    { id: "google", displayName: "Google" },
+    { id: "fixture", displayName: "Fixture" },
+  ];
+  assert.deepEqual(validateViewResponse({ ...model, loginProviders }), {
+    ...model,
+    loginProviders,
+  });
+  assert.equal(
+    validateViewResponse({ ...model, loginProviders, authenticated: true })
+      .view,
+    "access",
+  );
   const empty = { projects: [], retainedAsSourceOfTruth: false };
   assert.equal(
     validateViewResponse({
@@ -267,6 +280,16 @@ test("Local CROS Client Modelは接続専用の閉集合と未認証境界を守
     { ...model, token: "synthetic-secret" },
     { ...model, root: "synthetic-host-root" },
     { ...model, portfolio: empty },
+    { ...model, loginProviders, portfolio: empty },
+    { ...model, loginProviders: [] },
+    { ...model, loginProviders: [loginProviders[0], loginProviders[0]] },
+    { ...model, loginProviders: [{ id: "../other", displayName: "Other" }] },
+    {
+      ...model,
+      loginProviders: [
+        { ...loginProviders[0], clientSecret: "synthetic-secret" },
+      ],
+    },
     { ...model, credentials: { state: "available", snapshot: null } },
     { ...model, actionToken: "" },
     { ...model, logoPath: "https://external.invalid/logo" },
@@ -274,6 +297,52 @@ test("Local CROS Client Modelは接続専用の閉集合と未認証境界を守
       ...model,
       authenticated: true,
       portfolio: { projects: [], retainedAsSourceOfTruth: true },
+    },
+  ])
+    assert.throws(() => validateViewResponse(value), {
+      message: "workbench_client_model_invalid",
+    });
+});
+
+test("Google共有画面の作業領域権限を、単体や通常Gitの書込みへ読み替えない", () => {
+  const main = mainResponse();
+  const hosted = {
+    ...main,
+    connection: { state: "cros_available" },
+    selectedRepositoryId: "repository.fixture",
+  };
+  for (const workspaceAccess of ["read", "write", "unavailable"])
+    assert.equal(
+      validateViewResponse({ ...hosted, workspaceAccess }).view,
+      "main",
+    );
+  assert.equal(
+    validateViewResponse({
+      ...hosted,
+      workspaceAccess: "write",
+      repositoryActions: ["prepare", "unprepare"],
+    }).view,
+    "main",
+  );
+  for (const value of [
+    { ...main, workspaceAccess: "read" },
+    { ...hosted, workspaceAccess: "unknown" },
+    { ...hosted, workspaceAccess: "read", repositoryActions: ["prepare"] },
+    {
+      ...hosted,
+      workspaceAccess: "write",
+      repositoryActions: ["create_revision", "publish_revision"],
+    },
+    {
+      ...hosted,
+      workspaceAccess: "write",
+      repositoryActions: ["prepare", "prepare"],
+    },
+    { ...hosted, workspaceAccess: "write", repositoryActions: ["unknown"] },
+    {
+      ...hosted,
+      workspaceAccess: "read",
+      selectedRepositoryId: "repository.other",
     },
   ])
     assert.throws(() => validateViewResponse(value), {
@@ -294,6 +363,36 @@ test("Local CROS Client Modelは接続専用の閉集合と未認証境界を守
  * @boundary ERB-IT-021=Direct Boundary: JSON unknown value→Client Model Inspector
  */
 test("Workbench Clientは契約不正JSONを描画前に拒否する", () => {
+  const github = {
+    id: "github",
+    host: "github.com",
+    displayName: "GitHub",
+    connected: true,
+  };
+  const alternate = {
+    id: "fixture.git--team.example-test",
+    host: "git--team.example-test",
+    displayName: "Fixture Host",
+    connected: false,
+  };
+  assert.deepEqual(validateGitHostConnections({ hosts: [github, alternate] }), [
+    github,
+    alternate,
+  ]);
+  for (const hosts of [
+    [github, { ...alternate, id: github.id }],
+    [github, { ...alternate, host: github.host }],
+    [{ ...github, id: "../github" }],
+    [{ ...alternate, host: "git-.example-test" }],
+    [{ ...alternate, host: `${"x".repeat(64)}.example-test` }],
+    [{ ...github, connected: "true" }],
+    [{ ...github, token: "never-display" }],
+    [{ ...github, reference: "never-display" }],
+  ]) {
+    assert.throws(() => validateGitHostConnections({ hosts }), {
+      message: "git_hosts_response_invalid",
+    });
+  }
   for (const value of [
     null,
     { contract: "invalid", view: "main" },
@@ -351,6 +450,14 @@ test("Workbench Clientは契約不正JSONを描画前に拒否する", () => {
 test("Main表示は未信頼JSONの状態と相関を検証する", () => {
   const model = mainResponse();
   assert.doesNotThrow(() => validateViewResponse(structuredClone(model)));
+  assert.throws(
+    () =>
+      validateViewResponse({
+        ...model,
+        credentials: { state: "not_configured", snapshot: null },
+      }),
+    { message: "workbench_client_model_invalid" },
+  );
   for (const connection of [
     { ...model.connection, endpoint: "http://127.0.0.1:1/mcp" },
     { ...model.connection, notice: null },

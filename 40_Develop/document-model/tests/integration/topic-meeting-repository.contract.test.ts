@@ -705,7 +705,7 @@ test("部分書込みの失敗は所有tmpだけを回収し正本を保持す�
             root,
             ".crdd",
             "lock",
-            "document-model." + kind + "." + id + ".lock",
+            `document-model.${kind}.${id}.lock`,
           );
           assert.throws(() => fs.lstatSync(lock), { code: "ENOENT" });
         } finally {
@@ -856,7 +856,7 @@ fs.writeFileSync(result, JSON.stringify(outcome), { flag: "wx" });
       root,
       ".crdd",
       "lock",
-      "document-model." + kind + "." + id + ".lock",
+      `document-model.${kind}.${id}.lock`,
     );
     const input = path.join(scope, "input.md");
     const ready = path.join(scope, "ready");
@@ -1119,7 +1119,7 @@ test("TopicとMeetingの登録・編集・削除・一覧・取得を同じ契�
               root,
               ".crdd",
               "lock",
-              "document-model." + kind + "." + id + ".lock",
+              `document-model.${kind}.${id}.lock`,
             ),
           ),
         { code: "ENOENT" },
@@ -1431,7 +1431,7 @@ test("登録・更新はLock内の同一読戻しを確認し保存後失敗を�
             root,
             ".crdd",
             "lock",
-            "document-model." + kind + "." + id + ".lock",
+            `document-model.${kind}.${id}.lock`,
           );
           const fixture = kind === "topic" ? topic : meeting;
           if (operation === "update")

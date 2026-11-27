@@ -6,13 +6,26 @@
  */
 import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { loginProviderProfiles } from "../transport/login-providers.ts";
+import { isGitHostCredentialEnvironment } from "./git-host.ts";
 
 type ObjectiveTarget = Readonly<{ projectId: string; workspaceId?: string }>;
-type Grant = Readonly<{ directory: string; principalId: string }>;
+type Grant = Readonly<{
+  directory: string;
+  principalId: string;
+  confirmBeforeTask?: true;
+}>;
 type Authorize = (target: ObjectiveTarget) => Grant | null;
 const startTimeoutMs = 15_000;
 const cancellationGraceMs = 30_000;
 const closeGraceMs = 2_000;
+const loginEnvironmentNames = new Set([
+  "CRDD_LOGIN_PROVIDERS",
+  "CRDD_SHARED_REPOSITORY_ROOTS",
+  ...Object.values(loginProviderProfiles).flatMap(
+    ({ environmentNames }) => environmentNames,
+  ),
+]);
 
 function isMessage(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -23,14 +36,19 @@ export function runObjectiveInChild(
   request: unknown,
   signal: AbortSignal,
   authorize: Authorize,
-  confirm: () => boolean,
+  confirm: () => boolean | Promise<boolean>,
 ): Promise<unknown> {
   if (signal.aborted) return Promise.resolve(undefined);
   return new Promise((resolve) => {
     // Provider・OSの実行環境は維持するが、親のNode独自loaderを子へ持ち込まない。
     const env = Object.fromEntries(
       Object.entries(process.env).filter(
-        ([key]) => !["NODE_OPTIONS", "NODE_PATH"].includes(key.toUpperCase()),
+        ([key]) =>
+          !loginEnvironmentNames.has(key.toUpperCase()) &&
+          !isGitHostCredentialEnvironment(key) &&
+          !/^(?:NODE_OPTIONS|NODE_PATH|CRDD_GIT_HOSTS|CRDD_(?:GOOGLE_|GITHUB_|MCP_OAUTH_).*)$/iu.test(
+            key,
+          ),
       ),
     );
     const child = spawn(process.execPath, [fileURLToPath(import.meta.url)], {
@@ -40,7 +58,9 @@ export function runObjectiveInChild(
     });
     let phase: "initial" | "authorized" | "confirmed" | "result" = "initial";
     let grantSent = false;
-    let confirmed = false;
+    let allowed = false;
+    let everAllowed = false;
+    let confirmationPending = false;
     let result: unknown;
     let failed = false;
     let settled = false;
@@ -132,16 +152,28 @@ export function runObjectiveInChild(
       if (
         message.kind === "confirm" &&
         grantSent &&
-        (phase === "authorized" || (phase === "confirmed" && confirmed))
+        !confirmationPending &&
+        (phase === "authorized" || (phase === "confirmed" && allowed))
       ) {
         clearTimeout(startup);
         phase = "confirmed";
+        allowed = false;
+        confirmationPending = true;
+        const complete = (permitted: boolean) => {
+          confirmationPending = false;
+          if (failed || settled || phase !== "confirmed" || signal.aborted)
+            return;
+          allowed = permitted;
+          everAllowed ||= allowed;
+          send({ kind: "confirmed", allowed });
+        };
         try {
-          confirmed = confirm() && !signal.aborted;
+          const decision = confirm();
+          if (typeof decision === "boolean") complete(decision);
+          else void decision.then(complete, () => complete(false));
         } catch {
-          /* 不明は拒否。 */
+          complete(false);
         }
-        send({ kind: "confirmed", allowed: confirmed });
         return;
       }
       if (
@@ -149,7 +181,8 @@ export function runObjectiveInChild(
         message.kind === "result" &&
         Object.hasOwn(message, "value")
       ) {
-        if (!confirmed) {
+        // 再確認で停止した場合も、以前の許可で起きた処置と回復参照は保持する。
+        if (!everAllowed) {
           const denial =
             phase === "initial"
               ? "coordinator_objective_request_invalid"
@@ -225,6 +258,8 @@ function serveObjective(): void {
           ? (await import("./workspace.ts")).observeWorkspaceExecutionTarget
           : null;
         const confirmed = await ask("confirmed", { kind: "confirm" });
+        const revalidate = async () =>
+          (await ask("confirmed", { kind: "confirm" }))?.allowed === true;
         return () =>
           confirmed?.allowed === true && !cancellation.signal.aborted
             ? {
@@ -240,9 +275,10 @@ function serveObjective(): void {
                         ),
                     }
                   : {}),
-                revalidate: async () =>
-                  (await ask("confirmed", { kind: "confirm" }))?.allowed ===
-                  true,
+                revalidate,
+                ...(grant.confirmBeforeTask === true && {
+                  beforeTask: revalidate,
+                }),
               }
             : null;
       },

@@ -19,15 +19,17 @@ import { fileURLToPath } from "node:url";
 import { runCoordinatorStdioFixture } from "../fixtures/sdk-request.ts";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import { runMcpStdio } from "../../src/transport/mcp-stdio.ts";
+import { objectiveRunTools } from "../../src/transport/mcp-types.ts";
 
 /**
  * 公式Clientが公開stdio入口で一覧とToolを往復できることを確認する。
  * @responsibility SDKの規格選択・metadata・結果搬送を公開Processで照合する。
  * @trace EST-ST-012
  * @precondition ローカルRepositoryと固定SDK版のみを利用する。
- * @stimulus modern規格を固定して接続し、Project一覧Toolを呼ぶ。
- * @observation discover、SDK Server識別名、一覧、実行結果とClient closeを確認する。
- * @oracle Server識別名はcrdd-mcp、Project Toolが存在し、結果を一回取得できる。
+ * @stimulus modern規格を固定して接続し、Project一覧Toolと同じProcessのOpenAPIを取得する。
+ * @observation discover、SDK Server識別名、両通信方式の公開操作、実行結果とClient closeを確認する。
+ * @oracle Server識別名はcrdd-mcp。HTTP専用操作を除く全OpenAPI IDはstdioのTool名と一対一で対応する。
  * @cleanup Client closeで自己生成子Processとstdioを回収する。
  * @boundary 公式SDK Client→配布Launcher→stdio→専門Owner。
  */
@@ -39,15 +41,86 @@ test("公式SDK Clientは公開stdioのdiscover・一覧・実行を利用でき
   );
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [path.join(root, "template/tools/crdd-server.ts"), "--mcp-stdio"],
+    args: [
+      path.join(root, "template/tools/crdd-server.ts"),
+      "--mcp-stdio",
+      "--docs",
+    ],
     cwd: root,
     stderr: "pipe",
   });
+  let diagnostic = "";
+  let announce = (_address: string): void => {};
+  const announced = new Promise<string>((resolve) => {
+    announce = resolve;
+  });
+  transport.stderr?.on("data", (chunk: Buffer) => {
+    diagnostic += chunk.toString("utf8");
+    const address = /^CRDD Server: (http:\/\/127\.0\.0\.1:\d+)\r?\n/mu.exec(
+      diagnostic,
+    )?.[1];
+    if (address) announce(address);
+  });
+  let startupDeadline: ReturnType<typeof setTimeout> | undefined;
   try {
     await client.connect(transport);
     assert.equal(client.getServerVersion()?.name, "crdd-mcp");
     const listing = await client.listTools();
     assert.ok(listing.tools.some((tool) => tool.name === "crdd.list_projects"));
+    assert.ok(
+      listing.tools.some((tool) => tool.name === objectiveRunTools.cancel),
+    );
+    const address = await Promise.race([
+      announced,
+      new Promise<never>((_, reject) => {
+        startupDeadline = setTimeout(
+          () => reject(new Error("HTTP address not announced on stderr")),
+          5_000,
+        );
+      }),
+    ]);
+    const spec = await fetch(`${address}/openapi.json`, {
+      signal: AbortSignal.timeout(5_000),
+    });
+    assert.equal(spec.status, 200);
+    const { paths } = (await spec.json()) as {
+      paths: Record<string, Record<string, { operationId: string }>>;
+    };
+    const operations = Object.values(paths).flatMap((item) =>
+      Object.entries(item)
+        .filter(([method]) =>
+          /^(get|head|post|put|patch|delete|options|trace)$/u.test(method),
+        )
+        .map(([, { operationId }]) => operationId),
+    );
+    const httpOnly = [
+      "readWorkbenchHealth",
+      "readWorkbenchView",
+      "readAiSelection",
+      "probeAiSelection",
+      "saveAiSelection",
+      "readCurrentAiRequest",
+      "getAiRequest",
+      "startAiRequest",
+      "selectAiRequest",
+      "cancelAiRequest",
+      "stageRepositoryPath",
+      "unstageRepositoryPath",
+      "createRepositoryRevision",
+      "publishRepositoryRevision",
+    ];
+    for (const operation of httpOnly)
+      assert.ok(
+        operations.includes(operation),
+        `HTTP-only operation: ${operation}`,
+      );
+    assert.deepEqual(
+      listing.tools.map(({ name }) => name).sort(),
+      operations
+        .filter((name) => !httpOnly.includes(name))
+        .map((name) => `crdd.${name}`)
+        .sort(),
+    );
     const result = await client.callTool({
       name: "crdd.list_projects",
       arguments: {},
@@ -55,6 +128,7 @@ test("公式SDK Clientは公開stdioのdiscover・一覧・実行を利用でき
     assert.notEqual(result.isError, true);
     assert.ok(result.structuredContent);
   } finally {
+    clearTimeout(startupDeadline);
     await client.close();
   }
 });
@@ -82,6 +156,210 @@ function output(afterWrite?: () => void) {
   });
   return { stream, read: () => content };
 }
+
+function stdioBarrier() {
+  let resolve = () => {};
+  const promise = new Promise<void>((ready) => {
+    resolve = ready;
+  });
+  return { promise, resolve };
+}
+
+test("stdioの状態照会と明示取消だけが実行中の要求に割り込む", {
+  timeout: 10_000,
+}, async (t) => {
+  const input = new PassThrough();
+  t.after(() => {
+    input.destroy();
+  });
+  const launched = stdioBarrier();
+  const cancelled = stdioBarrier();
+  const final = stdioBarrier();
+  const events: string[] = [];
+  const sink = output(() => {
+    if (sink.read().trim().split("\n").length === 4) final.resolve();
+  });
+  const send = (id: string, name: string) =>
+    input.write(
+      `${JSON.stringify({
+        jsonrpc: "2.0",
+        id,
+        method: "tools/call",
+        params: {
+          name,
+          arguments: {},
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": {},
+          },
+        },
+      })}\n`,
+    );
+  const running = runMcpStdio(
+    async (raw, signal) => {
+      const {
+        id,
+        params: { name },
+      } = raw as { id: string; params: { name: string } };
+      events.push(id);
+      if (name === objectiveRunTools.start) {
+        launched.resolve();
+        await Promise.race([
+          cancelled.promise,
+          new Promise<void>((resolve) =>
+            signal.addEventListener("abort", () => resolve(), { once: true }),
+          ),
+        ]);
+      }
+      if (name === objectiveRunTools.cancel) cancelled.resolve();
+      return { jsonrpc: "2.0", id, result: { content: [] } };
+    },
+    input,
+    sink.stream,
+  );
+  send("start", objectiveRunTools.start);
+  await launched.promise;
+  send("ordinary", "crdd.list_projects");
+  send("state", objectiveRunTools.state);
+  send("cancel", objectiveRunTools.cancel);
+  await final.promise;
+  input.end();
+  assert.equal((await running).status, "completed");
+  assert.deepEqual(events, ["start", "state", "cancel", "ordinary"]);
+  assert.deepEqual(
+    sink
+      .read()
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line).id),
+    ["state", "cancel", "start", "ordinary"],
+  );
+  assert.equal(input.listenerCount("data"), 0);
+  assert.equal(sink.stream.listenerCount("error"), 0);
+});
+
+test("stdioのObjective実行中は同一要求IDを別の取消に割り当てない", {
+  timeout: 10_000,
+}, async (t) => {
+  const input = new PassThrough();
+  t.after(() => {
+    input.destroy();
+  });
+  const launched = stdioBarrier();
+  const sink = output();
+  let deliveries = 0;
+  const send = (name: string) =>
+    input.write(
+      `${JSON.stringify({
+        jsonrpc: "2.0",
+        id: "same",
+        method: "tools/call",
+        params: {
+          name,
+          arguments: {},
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": {},
+          },
+        },
+      })}\n`,
+    );
+  const running = runMcpStdio(
+    async (_raw, signal) => {
+      deliveries++;
+      await new Promise<void>((resolve) => {
+        signal.addEventListener("abort", () => resolve(), { once: true });
+        launched.resolve();
+      });
+      return { jsonrpc: "2.0", id: "same", result: { content: [] } };
+    },
+    input,
+    sink.stream,
+  );
+  send(objectiveRunTools.start);
+  await launched.promise;
+  send(objectiveRunTools.cancel);
+  assert.equal((await running).status, "blocked");
+  assert.equal(deliveries, 1);
+  assert.equal(input.listenerCount("data"), 0);
+});
+
+test("stdioのEOFと重複IDは実行と状態照会の両方を取消し終了を待つ", {
+  timeout: 10_000,
+}, async (t) => {
+  for (const duplicate of [false, true])
+    await t.test(
+      duplicate ? "状態照会のIDを再利用した取消を配送しない" : "EOF",
+      async (scenario) => {
+        const input = new PassThrough();
+        scenario.after(() => {
+          input.destroy();
+        });
+        const start = stdioBarrier();
+        const state = stdioBarrier();
+        const cancellation = stdioBarrier();
+        const release = stdioBarrier();
+        const observed = new Set<string>();
+        const deliveries: string[] = [];
+        const sink = output();
+        const send = (id: string, name: string) =>
+          input.write(
+            `${JSON.stringify({
+              jsonrpc: "2.0",
+              id,
+              method: "tools/call",
+              params: {
+                name,
+                arguments: {},
+                _meta: {
+                  "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                  "io.modelcontextprotocol/clientCapabilities": {},
+                },
+              },
+            })}\n`,
+          );
+        let closed = false;
+        const running = runMcpStdio(
+          async (raw, signal) => {
+            const { id } = raw as { id: string };
+            deliveries.push(id);
+            await new Promise<void>((resolve) => {
+              signal.addEventListener("abort", () => resolve(), { once: true });
+              (id === "start" ? start : state).resolve();
+            });
+            observed.add(id);
+            if (observed.size === 2) cancellation.resolve();
+            await release.promise;
+            return { jsonrpc: "2.0", id, result: { content: [] } };
+          },
+          input,
+          sink.stream,
+        ).finally(() => {
+          closed = true;
+        });
+        send("start", objectiveRunTools.start);
+        await start.promise;
+        send("state", objectiveRunTools.state);
+        await state.promise;
+        if (duplicate) send("state", objectiveRunTools.cancel);
+        else input.end();
+        try {
+          await cancellation.promise;
+          assert.equal(closed, false);
+          assert.deepEqual([...observed].sort(), ["start", "state"]);
+        } finally {
+          release.resolve();
+          assert.equal(
+            (await running).status,
+            duplicate ? "blocked" : "completed",
+          );
+        }
+        assert.deepEqual(deliveries, ["start", "state"]);
+        assert.equal(input.listenerCount("data"), 0);
+        assert.equal(sink.stream.listenerCount("error"), 0);
+      },
+    );
+});
 
 /**
  * stdio process transports one bounded MCP request and closes on parent EOFを検証する。
@@ -169,12 +447,29 @@ test("通常MCP LauncherはWorkspaceの読取りと明示操作を公開する",
     name: string;
     inputSchema: unknown;
   }[];
-  for (const name of ["crdd.get_workspace", "crdd.manage_workspace"]) {
+  assert.equal(
+    tools.some(({ name }) => name === "crdd.manage_workspace"),
+    false,
+  );
+  for (const name of [
+    "crdd.list_workspaces",
+    "crdd.get_workspace",
+    "crdd.inspect_workspace",
+    "crdd.get_workspace_candidate_diff",
+    "crdd.create_workspace",
+    "crdd.select_workspace",
+    "crdd.rename_workspace",
+    "crdd.hold_workspace",
+    "crdd.freeze_workspace",
+    "crdd.adopt_workspace",
+    "crdd.close_workspace_candidate",
+    "crdd.discard_workspace",
+  ]) {
     const tool = tools.find((tool) => tool.name === name);
     assert.ok(tool);
     assert.doesNotMatch(
       JSON.stringify(tool.inputSchema),
-      /ownerRoot|authorize|referencesReleased/u,
+      /ownerRoot|authorize|referencesReleased|"operation"|"command"/u,
     );
   }
 });
@@ -480,9 +775,8 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
         "io.modelcontextprotocol/protocolVersion": "2026-07-28",
         "io.modelcontextprotocol/clientCapabilities": {},
       },
-      name: "crdd.run_objective",
+      name: "crdd.start_objective",
       arguments: withCallerPlan({
-        operation: "start" as const,
         requestId: "request-parent-loss",
         projectId: "project-a",
         milestoneId: "milestone-a",
@@ -532,9 +826,8 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
         "io.modelcontextprotocol/protocolVersion": "2026-07-28",
         "io.modelcontextprotocol/clientCapabilities": {},
       },
-      name: "crdd.run_objective",
+      name: "crdd.start_objective",
       arguments: withCallerPlan({
-        operation: "start" as const,
         requestId: "request-recovery",
         projectId: "project-a",
         milestoneId: "milestone-a",

@@ -10,22 +10,22 @@
  * @boundary EST-IT-001=Direct Boundary: CLI／MCP Adapter→Application Contract / EST-IT-002=Adjacent 1 Block: Transport stream→Adapter→Application入口
  */
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 import { request as httpRequest } from "node:http";
 import { createConnection } from "node:net";
 import { PassThrough, Readable, Writable } from "node:stream";
 import test from "node:test";
 import { Server } from "@modelcontextprotocol/server";
+import { withCallerPlan } from "../../../execution-model/tests/fixtures/execution-plan.ts";
 
 import {
-  runMcpStdio,
   createMcpServerFactory,
   type McpCoordinatorDependencies,
-  startMcpStreamableHttp,
+  runMcpStdio,
 } from "../../src/transport/mcp-server.ts";
 import {
   runCoordinatorStdioFixture,
   startCoordinatorHttpFixture,
+  startMcpHttpFixture,
 } from "../fixtures/sdk-request.ts";
 
 const SDK_META = {
@@ -55,7 +55,7 @@ function protocolComplete<T extends Readonly<Record<string, unknown>>>(
  * @cleanup stdinと実行Promiseを収束させる。
  * @boundary Factory拒否→外部stdio framing。
  */
-test("SDK stdioはFactory拒否と初回失敗を改行終端し次要求を維持する", async () => {
+test("SDK stdioは入力拒否とFactory失敗を改行終端し次要求を維持する", async () => {
   const input = new PassThrough();
   const frames: string[] = [];
   let finish: () => void = () => {};
@@ -96,13 +96,11 @@ test("SDK stdioはFactory拒否と初回失敗を改行終端し次要求を維�
   }
   const failed = output();
   await runMcpStdio(
-    createMcpServerFactory({
-      initialConnection: async () => ({
-        jsonrpc: "2.0",
-        id: 3,
-        error: { code: -32603, message: "Initial connection unavailable" },
-      }),
-    }),
+    {
+      async createServer() {
+        throw new Error("fixture_factory_unavailable");
+      },
+    },
     Readable.from([
       `${JSON.stringify({ jsonrpc: "2.0", id: 3, method: "server/discover", params: { _meta: SDK_META } })}\n`,
     ]),
@@ -282,19 +280,22 @@ test("SDK stdioは出力故障でもOwnerを取消してjoinする", async () =>
 });
 
 /**
- * 同一IDの後続要求でもOwnerと外部出力完了を逐次化する。
+ * 通常の後続要求でもOwnerと外部出力完了を逐次化する。
  * @responsibility SDK内部完了と外部Writable callback完了を区別する。
  * @trace EST-IT-002
  * @precondition 二要求と一回目の出力を保留するWritable。
- * @stimulus 同じIDでA・Bを連続送信し、出力callbackを明示解放する。
+ * @stimulus 別IDでA・Bを連続送信し、一回目の出力callbackを明示解放する。
  * @observation Owner順序、出力回数、入力Listenerを確認する。
  * @oracle 一回目の出力完了までBは開始せず、入力値を取り違えない。
  * @cleanup callbackと入力をfinallyで解放し、実行Promiseをjoinする。
  * @boundary 外部stdio→要求別SDK→Owner→外部Writable。
  */
-test("SDK stdioは同一IDでも入力と出力callbackを逐次に保つ", async () => {
+test("SDK stdioは通常要求の入力と出力callbackを逐次に保つ", {
+  timeout: 5_000,
+}, async () => {
   const input = new PassThrough();
   const observed: string[] = [];
+  const responseIds: number[] = [];
   let release: () => void = () => {};
   let ready: () => void = () => {};
   const firstWrite = new Promise<void>((resolve) => {
@@ -306,7 +307,8 @@ test("SDK stdioは同一IDでも入力と出力callbackを逐次に保つ", asyn
   });
   let writes = 0;
   const sink = new Writable({
-    write(_chunk, _encoding, callback) {
+    write(chunk, _encoding, callback) {
+      responseIds.push(JSON.parse(String(chunk)).id);
       writes += 1;
       if (writes === 1) {
         release = () => {
@@ -337,23 +339,27 @@ test("SDK stdioは同一IDでも入力と出力callbackを逐次に保つ", asyn
   try {
     input.write(
       `${["A", "B"]
-        .map((text) =>
+        .map((text, index) =>
           JSON.stringify({
             jsonrpc: "2.0",
-            id: 1,
+            id: index + 1,
             method: "tools/call",
             params: { _meta: SDK_META, name: "fixture", arguments: { text } },
           }),
         )
         .join("\n")}\n`,
     );
-    await firstWrite;
+    const prematureEnd = running.then(({ status }) => {
+      throw new Error(`stdio_ended_before_output: ${status}`);
+    });
+    await Promise.race([firstWrite, prematureEnd]);
     assert.deepEqual(observed, ["A"]);
     release();
-    await both;
+    await Promise.race([both, prematureEnd]);
     input.end();
     assert.equal((await running).status, "completed");
     assert.deepEqual(observed, ["A", "B"]);
+    assert.deepEqual(responseIds, [1, 2]);
     assert.equal(input.listenerCount("data"), 0);
     assert.equal(sink.listenerCount("error"), 0);
   } finally {
@@ -627,9 +633,8 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
           "io.modelcontextprotocol/protocolVersion": "2026-07-28",
           "io.modelcontextprotocol/clientCapabilities": {},
         },
-        name: "crdd.run_objective",
+        name: "crdd.start_objective",
         arguments: withCallerPlan({
-          operation: "start" as const,
           requestId: "integration-request",
           projectId: "integration-project",
           milestoneId: "integration-milestone",
@@ -716,7 +721,7 @@ test("HTTP blockはidle接続とlistenerをcloseで回収し、再接続を拒�
  */
 test("SDK HTTPはTool結果と入口拒否を維持する", async (t) => {
   let calls = 0;
-  const server = await startMcpStreamableHttp(
+  const server = await startMcpHttpFixture(
     async () => {
       calls++;
       return {
@@ -771,6 +776,28 @@ test("SDK HTTPはTool結果と入口拒否を維持する", async (t) => {
   assert.equal(Object.hasOwn(output.result, "jsonrpc"), false);
   assert.equal(Object.hasOwn(output.result, "result"), false);
   assert.equal(calls, 1);
+  for (const [invalidHeaders, status] of [
+    [{ accept: "text/event-stream" }, 400],
+    [{ "content-type": "text/plain" }, 400],
+    [{ origin: "https://fixture.invalid" }, 403],
+  ] as const) {
+    const rejected = await fetch(
+      `http://${server.host}:${server.port}${server.endpoint}`,
+      {
+        method: "POST",
+        headers: { ...headers, ...invalidHeaders },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params,
+        }),
+      },
+    );
+    assert.equal(rejected.status, status);
+    await rejected.arrayBuffer();
+    assert.equal(calls, 1);
+  }
   const duplicate = await fetch(
     `http://${server.host}:${server.port}${server.endpoint}`,
     {
@@ -813,7 +840,7 @@ test("SDK HTTPはTool結果と入口拒否を維持する", async (t) => {
  */
 test("SDK HTTPは同期Handler例外を非開示にする", async (t) => {
   let calls = 0;
-  const server = await startMcpStreamableHttp(
+  const server = await startMcpHttpFixture(
     () => {
       calls++;
       throw new Error("fixture-private-detail");

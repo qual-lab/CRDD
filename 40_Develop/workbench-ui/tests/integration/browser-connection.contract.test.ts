@@ -1,7 +1,7 @@
 /**
  * Browser接続の要求・応答世代を有限のTransport fixtureで検証する。
  * @packageDocumentation
- * @responsibility 同Origin搬送、非永続資格、切替後の遅延応答拒否と全文搬送を反証する。
+ * @responsibility 同Origin搬送、共有セッション、無効化後の遅延応答拒否と全文搬送を反証する。
  * @trace EST-IT-002
  * @level IT
  * @scope Browser connection module→合成fetch／stream→Caller。
@@ -10,23 +10,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  clearWorkbenchCredential,
+  invalidateWorkbenchRequests,
   requestWorkbench,
-  setWorkbenchCredential,
 } from "../../src/api/connection.ts";
 
 /**
- * 接続資格の搬送と切替前後の応答非混同を検証する。
+ * Cookie送信の境界と無効化前後の応答の非混同を検証する。
  * @responsibility Browser storageを使わず、合成streamと要求Headerで反証する。
  * @trace EST-IT-002
  * @precondition Node内の自己所有fetch／location fixtureだけを使用する。
- * @stimulus 未接続・接続・切断・鍵変更・不正Origin／Header・過大本文を与える。
+ * @stimulus 単体・共有・画面終了・不正Origin／Header・過大本文を与える。
  * @observation 送信回数、Header、redirect構成、Reader取消／解放、固定失敗。
  * @oracle 別Origin送信0、再送0、旧応答0。旧容量境界を超える本文も搬送しReaderを解放する。
- * @cleanup 元fetchとlocation descriptorを復元し、資格memoryを解放する。
+ * @cleanup 元fetchとlocation descriptorを復元し、要求世代を無効化する。
  * @boundary 合成Transportの局所確認。Browser DOM／実API成立は別検証。
  */
-test("Browser接続は同Originと要求世代を守り資格を応答へ含めない", async () => {
+test("Browser要求は単体と共有のCookie送信を区別し、古い応答を採用しない", async () => {
   const originalFetch = globalThis.fetch;
   const location = Object.getOwnPropertyDescriptor(globalThis, "location");
   Object.defineProperty(globalThis, "location", {
@@ -43,21 +42,18 @@ test("Browser接続は同Originと要求世代を守り資格を応答へ含め�
     });
   };
   try {
-    clearWorkbenchCredential();
+    invalidateWorkbenchRequests();
     const without = await requestWorkbench("/api/workbench/view");
     assert.equal(new Headers(observed?.headers).has("authorization"), false);
-    assert.equal((await without.json()).status, "completed");
-    setWorkbenchCredential("fixture-first-key");
-    const withKey = await requestWorkbench("/api/workbench/view");
-    assert.equal(
-      new Headers(observed?.headers).get("authorization"),
-      "Bearer fixture-first-key",
-    );
-    assert.equal(observed?.redirect, "manual");
     assert.equal(observed?.credentials, "omit");
+    assert.equal((await without.json()).status, "completed");
+    const shared = await requestWorkbench("/api/workbench/view", {}, true);
+    assert.equal(new Headers(observed?.headers).has("authorization"), false);
+    assert.equal(observed?.redirect, "manual");
+    assert.equal(observed?.credentials, "same-origin");
     assert.equal(observed?.mode, "same-origin");
     assert.equal(observed?.cache, "no-store");
-    assert.equal((await withKey.text()).includes("fixture-first-key"), false);
+    assert.equal((await shared.json()).status, "completed");
     const beforeRejected = calls;
     await assert.rejects(
       requestWorkbench("https://example.invalid/api/workbench/view"),
@@ -76,15 +72,6 @@ test("Browser接続は同Originと要求世代を守り資格を応答へ含め�
       { message: "workbench_request_rejected" },
     );
     assert.equal(calls, beforeRejected);
-    assert.throws(() => setWorkbenchCredential(""), {
-      message: "workbench_credential_input_invalid",
-    });
-    assert.throws(() => setWorkbenchCredential("with whitespace"), {
-      message: "workbench_credential_input_invalid",
-    });
-    assert.throws(() => setWorkbenchCredential("x".repeat(4097)), {
-      message: "workbench_credential_input_invalid",
-    });
     let release: ((value: Response) => void) | undefined;
     globalThis.fetch = async () =>
       new Promise<Response>((resolve) => {
@@ -92,7 +79,7 @@ test("Browser接続は同Originと要求世代を守り資格を応答へ含め�
       });
     const late = requestWorkbench("/api/workbench/view");
     assert.ok(release);
-    setWorkbenchCredential("fixture-second-key");
+    invalidateWorkbenchRequests();
     release(new Response("old user result"));
     await assert.rejects(late, { message: "workbench_response_unavailable" });
     let cancelledReader = false;
@@ -110,7 +97,7 @@ test("Browser接続は同Originと要求世代を守り資格を応答へ含め�
     assert.equal((await large.arrayBuffer()).byteLength, 16777217);
     assert.equal(cancelledReader, false);
     assert.equal(stream.locked, false);
-    clearWorkbenchCredential();
+    invalidateWorkbenchRequests();
     globalThis.fetch = async (_, options) => {
       observed = options;
       return new Response(null, { status: 204 });
@@ -118,7 +105,7 @@ test("Browser接続は同Originと要求世代を守り資格を応答へ含め�
     assert.equal((await requestWorkbench("/api/workbench/view")).status, 204);
     assert.equal(new Headers(observed?.headers).has("authorization"), false);
   } finally {
-    clearWorkbenchCredential();
+    invalidateWorkbenchRequests();
     globalThis.fetch = originalFetch;
     if (location) Object.defineProperty(globalThis, "location", location);
     else Reflect.deleteProperty(globalThis, "location");
@@ -144,7 +131,7 @@ test("Browser要求の開始後取消は再送せず応答Readerを解放する"
     value: { origin: "http://127.0.0.1:12345" },
   });
   try {
-    clearWorkbenchCredential();
+    invalidateWorkbenchRequests();
     const cancellation = new AbortController();
     let calls = 0;
     let observedSignal: AbortSignal | null | undefined;
@@ -217,7 +204,7 @@ test("Browser要求の開始後取消は再送せず応答Readerを解放する"
     );
     assert.equal(calls, 3);
   } finally {
-    clearWorkbenchCredential();
+    invalidateWorkbenchRequests();
     globalThis.fetch = originalFetch;
     if (location) Object.defineProperty(globalThis, "location", location);
     else Reflect.deleteProperty(globalThis, "location");

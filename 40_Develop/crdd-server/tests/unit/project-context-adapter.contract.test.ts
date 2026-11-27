@@ -220,8 +220,18 @@ test("Project Context MCP lists only the supplied portfolio", async () => {
     };
   };
   assert.deepEqual(content.structuredContent.projects, [
-    { projectId: "PRJ-001", state: "complete", sourceCount: 1 },
-    { projectId: "PRJ-002", state: "partial", sourceCount: 1 },
+    {
+      projectId: "PRJ-001",
+      state: "complete",
+      sourceCount: 1,
+      repositoryIds: ["PRJ-001-DEV"],
+    },
+    {
+      projectId: "PRJ-002",
+      state: "partial",
+      sourceCount: 1,
+      repositoryIds: ["PRJ-002-DEV"],
+    },
   ]);
 });
 
@@ -267,7 +277,20 @@ test("MCP application publishes runtime and context tools without conflating the
   );
   const tools = (response.result as { tools: readonly { name: string }[] })
     .tools;
-  assert.equal(new Set(tools.map(({ name }) => name)).size, 5);
+  assert.deepEqual(
+    tools.map(({ name }) => name).sort(),
+    [
+      MCP_PROJECT_CONTEXT_LIST_TOOL,
+      MCP_PROJECT_CONTEXT_GET_TOOL,
+      "crdd.start_objective",
+      "crdd.resume_objective",
+      "crdd.request_decision",
+      "crdd.answer_decision",
+      "crdd.apply_decision",
+      "crdd.close_decision",
+      "crdd.get_execution_state",
+    ].sort(),
+  );
   assert.ok(tools.some(({ name }) => name === MCP_PROJECT_CONTEXT_LIST_TOOL));
   assert.ok(tools.some(({ name }) => name === MCP_PROJECT_CONTEXT_GET_TOOL));
   assert.equal(

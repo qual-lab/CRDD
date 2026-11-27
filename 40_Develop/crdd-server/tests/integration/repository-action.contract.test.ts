@@ -11,68 +11,83 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { inspectRepositoryActionResult } from "../../src/service/repository.ts";
-import { readRepositoryActionForm } from "../../src/transport/api-server.ts";
+import { readRepositoryWrite } from "../../src/transport/api-server.ts";
 
-/**
- * 対象と確認を閉Formから一意に確定する。
- * @responsibility 正規四操作と不正・重複・余剰・未確認を検査する。
- * @trace RFD-IT-014
- * @trace EST-IT-002
- * @precondition 未検査のForm値。
- * @stimulus 共有／単体の正常入力を一fieldずつ変更する。
- * @observation 返却要求と固定拒否を観測する。
- * @oracle 不正を補完せず、共有対象と確認がexactに保存される。
- * @effect N/A: 純粋検査。
- * @cleanup N/A: 資源を取得しない。
- * @postcondition 実Git・認可・Filesystem呼出し0。
- * @boundary 閉じたFormとGit結果DTOの純粋検査。実認可・Git・Filesystemを呼ばない。
- */
-test("Repository操作Formは対象と操作ごとの閉集合を保持する", () => {
+test("Git書込みの操作・リポジトリ・送信するコミットはHTTP経路だけで確定する", () => {
+  const base = "/api/repositories/repo.a";
   const revision = "a".repeat(40);
-  for (const [operation, fields] of [
-    ["prepare", { path: "src/work.txt" }],
-    ["unprepare", { path: "src/work.txt" }],
-    ["create_revision", { message: "確認済み変更" }],
-    [
-      "publish_revision",
-      {
-        destination: "origin",
-        branch: "main",
-        revisionIdentity: revision,
-        humanConfirmed: "true",
-      },
-    ],
-  ] as const) {
-    const form = new URLSearchParams({
-      operation,
-      actionToken: "token",
+  assert.deepEqual(
+    readRepositoryWrite("POST", `${base}/staging`, { path: "src/work.txt" }),
+    {
       repositoryId: "repo.a",
-      ...fields,
-    });
-    const observed = readRepositoryActionForm(form, "token", true);
-    assert.equal(observed.repositoryId, "repo.a");
-    assert.equal(observed.request.operation, operation);
-    assert.throws(() => readRepositoryActionForm(form, "other", true));
-    for (const key of [...form.keys()]) {
-      const duplicate = new URLSearchParams(form);
-      duplicate.append(key, form.get(key) ?? "");
-      assert.throws(() => readRepositoryActionForm(duplicate, "token", true));
-      const missing = new URLSearchParams(form);
-      missing.delete(key);
-      assert.throws(() => readRepositoryActionForm(missing, "token", true));
-    }
-    const extra = new URLSearchParams(form);
-    extra.set("force", "true");
-    assert.throws(() => readRepositoryActionForm(extra, "token", true));
-    assert.throws(() => readRepositoryActionForm(form, "token", false));
-    const standalone = new URLSearchParams(form);
-    standalone.delete("repositoryId");
-    assert.equal(
-      readRepositoryActionForm(standalone, "token", false).repositoryId,
-      null,
-    );
-  }
-  for (const selectedPath of [
+      request: { operation: "prepare", paths: ["src/work.txt"] },
+    },
+  );
+  assert.equal(
+    readRepositoryWrite("DELETE", `${base}/staging`, { path: "src/work.txt" })
+      .request.operation,
+    "unprepare",
+  );
+  assert.deepEqual(
+    readRepositoryWrite("POST", `${base}/revisions`, {
+      message: "確認済み変更",
+    }).request,
+    { operation: "create_revision", message: "確認済み変更" },
+  );
+  const publication = {
+    destination: "origin",
+    branch: "main",
+    humanConfirmed: true,
+  };
+  const publish = `${base}/revisions/${revision}/publication`;
+  assert.deepEqual(readRepositoryWrite("POST", publish, publication).request, {
+    operation: "publish_revision",
+    revisionIdentity: revision,
+    ...publication,
+  });
+  assert.throws(() =>
+    readRepositoryWrite("POST", publish, {
+      ...publication,
+      revisionIdentity: revision,
+    }),
+  );
+  assert.throws(() =>
+    readRepositoryWrite("POST", publish, {
+      ...publication,
+      humanConfirmed: "true",
+    }),
+  );
+  assert.throws(() =>
+    readRepositoryWrite(
+      "POST",
+      `${base}/revisions/main/publication`,
+      publication,
+    ),
+  );
+  assert.throws(() =>
+    readRepositoryWrite("POST", `${base}/staging`, {
+      path: "src/work.txt",
+      repositoryId: "repo.b",
+    }),
+  );
+  assert.throws(() =>
+    readRepositoryWrite("POST", `${base}/staging`, {
+      path: "src/work.txt",
+      operation: "unprepare",
+    }),
+  );
+  assert.throws(() =>
+    readRepositoryWrite("POST", `${base}/staging`, { path: "../work.txt" }),
+  );
+  assert.throws(() =>
+    readRepositoryWrite("PUT", `${base}/staging`, { path: "src/work.txt" }),
+  );
+});
+
+/** 不正値と欠落はGitへ配送する前に拒否する。 */
+test("Git書込みは不正パス、欠けた入力、未確認の送信を拒否する", () => {
+  const base = "/api/repositories/repo.a";
+  for (const path of [
     "../a",
     "/a",
     "C:/a",
@@ -81,37 +96,23 @@ test("Repository操作Formは対象と操作ごとの閉集合を保持する", 
     "a//b",
     "a\0b",
     "",
-  ]) {
+  ])
     assert.throws(() =>
-      readRepositoryActionForm(
-        new URLSearchParams({
-          operation: "prepare",
-          actionToken: "token",
-          repositoryId: "repo.a",
-          path: selectedPath,
-        }),
-        "token",
-        true,
-      ),
+      readRepositoryWrite("POST", `${base}/staging`, { path }),
     );
-  }
-  for (const humanConfirmed of ["false", "on", ""]) {
+  for (const body of [{}, { path: null }, { path: "a", force: true }])
+    assert.throws(() => readRepositoryWrite("POST", `${base}/staging`, body));
+  for (const body of [{}, { message: "" }, { message: "a\0b" }])
+    assert.throws(() => readRepositoryWrite("POST", `${base}/revisions`, body));
+  const publication = `${base}/revisions/${"a".repeat(40)}/publication`;
+  for (const humanConfirmed of [false, "on", "", undefined])
     assert.throws(() =>
-      readRepositoryActionForm(
-        new URLSearchParams({
-          operation: "publish_revision",
-          actionToken: "token",
-          repositoryId: "repo.a",
-          destination: "origin",
-          branch: "main",
-          revisionIdentity: revision,
-          humanConfirmed,
-        }),
-        "token",
-        true,
-      ),
+      readRepositoryWrite("POST", publication, {
+        destination: "origin",
+        branch: "main",
+        humanConfirmed,
+      }),
     );
-  }
 });
 
 /**
@@ -219,22 +220,27 @@ test("Repository操作結果は理由とEffectを操作へ相関する", () => {
     effectConfirmed,
     revisionIdentity,
   ] of cases) {
-    const form = new URLSearchParams({
-      operation,
-      actionToken: "token",
-      repositoryId: "repo.a",
-      ...(operation === "prepare" || operation === "unprepare"
-        ? { path: "a" }
+    const base = "/api/repositories/repo.a";
+    const { request } =
+      operation === "prepare" || operation === "unprepare"
+        ? readRepositoryWrite(
+            operation === "prepare" ? "POST" : "DELETE",
+            `${base}/staging`,
+            { path: "a" },
+          )
         : operation === "create_revision"
-          ? { message: "commit" }
-          : {
-              destination: "origin",
-              branch: "main",
-              revisionIdentity: revision,
-              humanConfirmed: "true",
-            }),
-    });
-    const { request } = readRepositoryActionForm(form, "token", true);
+          ? readRepositoryWrite("POST", `${base}/revisions`, {
+              message: "commit",
+            })
+          : readRepositoryWrite(
+              "POST",
+              `${base}/revisions/${revision}/publication`,
+              {
+                destination: "origin",
+                branch: "main",
+                humanConfirmed: true,
+              },
+            );
     const value = {
       status,
       reason,

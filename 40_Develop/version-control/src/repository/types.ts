@@ -23,7 +23,11 @@ export type GitUserResult =
 /** 対象Worktreeと操作する相対Path集合を指定する。 */
 export type PathsRequest = Readonly<{ paths: readonly string[] }>;
 /** 現在の変更からCommitするPath集合とメッセージを指定する。 */
-export type ChangesCommitRequest = Readonly<{ message: string }>;
+export type ChangesCommitRequest = Readonly<{
+  message: string;
+  /** 呼出し側が確定させた著者・コミッター共通の名義。 */
+  identity?: Readonly<{ name: string; email: string }>;
+}>;
 
 /** Git変更の発行・確認を、操作の意味上の完了と分離する。 */
 export type ChangesResult = Readonly<{

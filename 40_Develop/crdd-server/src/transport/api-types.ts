@@ -1,6 +1,6 @@
 /**
  * HTTPサーバーの起動・終了契約。
- * @responsibility 共有する構成と起動ハンドルの型だけを所有する。
+ * @responsibility 共有する構成・起動ハンドルと公開入力の形を所有する。
  * @trace ARCH-000012
  */
 import type { AiSelectionSnapshot } from "@qual-lab/crdd-configuration-model";
@@ -9,10 +9,7 @@ import type {
   TopicMeetingListQuery,
 } from "@qual-lab/crdd-document-model";
 import type { TreePage, FileDiff } from "@qual-lab/crdd-version-control";
-import type {
-  CredentialAdministrationView,
-  AccessViewResponse,
-} from "../service/access.ts";
+import type { AccessViewResponse } from "../service/access.ts";
 import type {
   ProjectDetailResponse,
   ArtifactViewResponse,
@@ -20,24 +17,29 @@ import type {
 import type {
   RecordDocumentView,
   RecordDetailResponse,
-  RecordActionView,
 } from "../service/topic.ts";
 import type { AiSelectionSaveResult } from "@qual-lab/crdd-configuration-model";
-import type { ChangesResult } from "@qual-lab/crdd-version-control";
 import type { AiSelectionView } from "../service/configuration.ts";
 import type {
   AiRequestSnapshot,
   WorkbenchExecutionActivityObservation,
 } from "../service/execution.ts";
 import type { ProjectViewData } from "../service/project-context.ts";
-import type { TopicMeetingActionResult } from "../service/topic.ts";
 import type { FilesystemStoreRoot } from "@qual-lab/crdd-access-management";
 import type { PortfolioProjection } from "@qual-lab/crdd-document-model";
 import type { Repository } from "@qual-lab/crdd-version-control";
 import type { WorkbenchActivityReader } from "../service/execution.ts";
 import type { AiRequests } from "../service/execution.ts";
-import type { CredentialAdministration } from "../service/access.ts";
-import type { McpRequestSource } from "./mcp-types.ts";
+import type { RepositoryActionRequest } from "../service/repository.ts";
+import type { createMcpOAuthProvider } from "./mcp-oauth.ts";
+import type { LoginProviderConfiguration } from "./login-providers.ts";
+import type { GitHostConfiguration } from "../service/git-host.ts";
+
+/** 共有起動の信頼済み構成。署名材料を明示し、一時状態は発行側が所有する。 @trace ARCH-000012 */
+export type EmbeddedMcpOAuthOptions = Omit<
+  Parameters<typeof createMcpOAuthProvider>[0],
+  "issuer" | "resource"
+>;
 
 /** Workbenchの公開先とRepository接続・任意の利用側機能の構成。 */
 export type WorkbenchStartRequest = Readonly<{
@@ -46,8 +48,10 @@ export type WorkbenchStartRequest = Readonly<{
   port?: number;
   apiDocumentation?: true;
   portfolio?: PortfolioProjection;
-  credentialAdministration?: CredentialAdministration;
   localAccessRoot?: FilesystemStoreRoot;
+  loginProviders?: LoginProviderConfiguration;
+  gitHosts?: readonly GitHostConfiguration[];
+  sharedRepositoryRoots?: readonly string[];
   aiRequests?: AiRequests;
   sharedAiRequestsFactory?: (
     root: Repository,
@@ -58,21 +62,13 @@ export type WorkbenchStartRequest = Readonly<{
   activityReader?: WorkbenchActivityReader;
 }>;
 
-/** 単体・共有それぞれの認証でHTTPとMCPを同じ待受へ接続する構成。 @trace ARCH-000012 */
+/** 共有でHTTPとMCPを同じ待受へ接続する構成。 @trace ARCH-000012 */
 export type CrddServerStartRequest = WorkbenchStartRequest &
-  (
-    | Readonly<{
-        localAccessRoot: FilesystemStoreRoot;
-        mcpPublicOrigin?: string;
-        localMcp?: never;
-      }>
-    | Readonly<{
-        localAccessRoot?: never;
-        publicOrigin?: never;
-        mcpPublicOrigin?: never;
-        localMcp: Readonly<{ source: McpRequestSource; bearerToken?: string }>;
-      }>
-  );
+  Readonly<{
+    localAccessRoot: FilesystemStoreRoot;
+    mcpPublicOrigin?: string;
+    mcpOAuth?: EmbeddedMcpOAuthOptions;
+  }>;
 
 /** 起動済みWorkbenchのURLと所有Listenerを閉じる操作。 */
 export type WorkbenchHandle = Readonly<{
@@ -111,8 +107,7 @@ export type WorkbenchPresentationState = {
     | undefined;
   projectSurface: ProjectViewData | undefined;
   aiSelection: AiSelectionView;
-  lastActionResult: ChangesResult | null;
-  recordActionResult: TopicMeetingActionResult | null;
+  pendingRecordRefresh?: object;
   currentAiRequestId: string | null;
   aiRequestSnapshot: AiRequestSnapshot | null;
   aiRequestNotice: string | null;
@@ -166,17 +161,15 @@ export type MainViewResponse = Readonly<{
   meetingPage: TopicMeetingPage;
   meetingQuery: TopicMeetingListQuery;
   recordDocuments: readonly RecordDocumentView[];
-  recordActionResult: RecordActionView | null;
   selectedRepositoryId: string | null;
   recordActionsConfigured: boolean;
-  repositoryActionsConfigured: boolean;
-  repositoryResult: ChangesResult | null;
+  repositoryActions: readonly RepositoryActionRequest["operation"][];
+  workspaceAccess?: "read" | "write" | "unavailable";
   worktree: Readonly<{
     state: "available" | "unknown";
     tree: TreePage | null;
     diff: FileDiff | null;
   }>;
-  credentials: CredentialAdministrationView;
   aiSelection: AiSelectionView | null;
   aiSelectionManagement: Readonly<{
     snapshot: AiSelectionSnapshot | null;
@@ -208,3 +201,97 @@ export type ViewResponse =
   | MainViewResponse
   | ProjectDetailResponse
   | RecordDetailResponse;
+/** REST文書とMCP Toolの、操作を決めた後の公開入力欄。 @trace ARCH-000012 */
+export function workspaceInputSchema(operation: string) {
+  const actions: Record<string, string[]> = {
+    list: ["cursor", "limit"],
+    get: [],
+    inspect: ["path"],
+    "candidate-diff": ["path"],
+    create: [
+      "baseBranch",
+      "baseCommit",
+      "name",
+      "acceptUncommittedChangesExcluded",
+    ],
+    select: [],
+    rename: ["name"],
+    hold: ["until"],
+    discard: ["expectedHead", "discardChanges"],
+    freeze: [
+      "operationId",
+      "baseCommit",
+      "expectedHead",
+      "selection",
+      "candidateName",
+      "relatedChangeIds",
+    ],
+    adopt: ["candidateCommit", "targetBranch", "expectedTargetHead"],
+    "close-candidate": ["expectedCommit", "disposition"],
+  };
+  const keys = [
+    "repositoryId",
+    "projectId",
+    ...(operation === "list" ? [] : ["queueId", "workspaceId"]),
+    ...(!["list", "get", "inspect", "candidate-diff"].includes(operation)
+      ? ["expectedGeneration"]
+      : []),
+    ...(actions[operation] ?? []),
+  ];
+  const properties = Object.fromEntries(
+    keys.map((key) => [
+      key,
+      key === "repositoryId"
+        ? { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" }
+        : key === "expectedGeneration"
+          ? { type: "integer", minimum: 0 }
+          : key === "limit"
+            ? { type: "integer", minimum: 1, maximum: 50 }
+            : key === "acceptUncommittedChangesExcluded"
+              ? {
+                  type: "boolean",
+                  description:
+                    "未コミット変更は引き継がれないことを利用者が了承した場合だけtrue。変更があり未了承ならworkspace_creation_confirmation_requiredで作成前に停止します。",
+                }
+              : key === "discardChanges"
+                ? { type: "boolean" }
+                : key === "relatedChangeIds"
+                  ? {
+                      type: "array",
+                      items: { type: "string", pattern: "^CHG-[0-9]{6}$" },
+                    }
+                  : key === "selection"
+                    ? {
+                        type: "array",
+                        minItems: 1,
+                        items: {
+                          type: "object",
+                          additionalProperties: false,
+                          required: ["path", "blobId", "mode"],
+                          properties: {
+                            path: { type: "string" },
+                            blobId: {
+                              anyOf: [{ type: "string" }, { type: "null" }],
+                            },
+                            mode: { enum: ["100644", "100755", null] },
+                          },
+                        },
+                      }
+                    : [
+                          "cursor",
+                          "name",
+                          "until",
+                          "candidateName",
+                          "expectedCommit",
+                        ].includes(key)
+                      ? { anyOf: [{ type: "string" }, { type: "null" }] }
+                      : { type: "string" },
+    ]),
+  );
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: keys.filter((key) => key !== "acceptUncommittedChangesExcluded"),
+    properties,
+  };
+}

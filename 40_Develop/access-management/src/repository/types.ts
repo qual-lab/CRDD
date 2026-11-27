@@ -7,78 +7,26 @@
 
 import type { RepositoryManifest } from "@qual-lab/crdd-configuration-model";
 
-/**
- * 現在認証済みの内容操作を同じ要求内で再照合する。
- * @responsibility 認可結果の形をAMが所有し、利用モデルの型へ依存しない。
- * @trace ARCH-000013
- * @shape 認可済み絶対ディレクトリ、要求主体、操作と対象を受け取る同期再照合。
- * @invariant 認可結果を保存又は次要求へ再利用しない。
- * @boundary 信頼した同Processの内容Consumerだけへ渡す。
- * @security Rootの検証を現在認可の代用品にしない。
- * @compatibility 七操作の型範囲と既存の許可・拒否条件を維持する。
- */
-export type RepositoryContentAccess = Readonly<{
-  root: string;
-  principalId: string;
-  revalidate: (
-    operation:
-      | "definition.read"
-      | "definition.write"
-      | "decision.read"
-      | "decision.record"
-      | "queue.read"
-      | "queue.enqueue"
-      | "execution.read",
-    target: Readonly<{ projectId: string; milestoneId: string }>,
-  ) => boolean;
-}>;
-
-/**
- * 今回要求で使用する検証済みRepositoryを相関する。
- * @responsibility 管理改訂・内容範囲・登録Bindingと認可済みディレクトリを結合する。
- * @trace ARCH-000013
- * @shape revision、repositoryId、workspaceId、bindingId、manifest、root。
- * @invariant rootは操作対象のパスであり、Gitの能力や次要求の認可証明ではない。
- * @boundary AMから信頼した同Processの内容Consumerへだけ渡す。
- * @security 保存・cache・Transport応答化を禁止し、別要求は再認可する。
- * @compatibility 型による失効機構はなく、Consumer固有lifecycleの現在要求だけに使用する。
- */
-export type RepositoryAccess = Readonly<{
-  revision: number;
+/** 共有内容への認可で照会する外部ホストの安定した対象ID。Git履歴・Path・資格は含めない。 */
+export type GitHostLinkedRepository = Readonly<{
+  provider: string;
+  host: string;
   repositoryId: string;
-  workspaceId: "development" | "management";
+  providerData: Readonly<Record<string, string>>;
+}>;
+
+/** 外部ホストで権限を確認するための候補。アクセス可能なPathや本文は含まない。 */
+export type HostedAccessCandidate = Readonly<{
+  repositoryId: string;
   bindingId: string;
-  manifest: RepositoryManifest;
-  root: string;
+  hostedRepository: GitHostLinkedRepository;
 }>;
 
 /**
- * 内容要求の拒否と許可後の観測不成立を分ける。
- * @responsibility 不明時に内部Root・例外・資格を返さない。
+ * 同じ要求で許可されたリポジトリの対象を保持する。
+ * @responsibility リポジトリ・登録と実ディレクトリを結び付ける。
  * @trace ARCH-000013
- * @shape completedはaccess、unavailableは固定reasonだけ。
- * @invariant 未許可対象と未登録対象の存在を区別しない。
- * @boundary Package内部利用結果。MCP／HTTPの公開DTOではない。
- * @security capabilityを外部へ返さず、解放不明ではaccessなし。
- * @compatibility 本番Consumerによる要求限定使用の検証を別途必要とする。
- */
-export type RepositoryAccessResult =
-  | Readonly<{ status: "completed"; access: RepositoryAccess }>
-  | Readonly<{
-      status: "unavailable";
-      reason:
-        | "repository_access_rejected"
-        | "repository_access_lock_unavailable"
-        | "repository_access_cleanup_pending"
-        | "repository_access_observation_unknown"
-        | "repository_access_release_unknown";
-    }>;
-
-/**
- * 同じ要求で許可されたRepositoryと全内容範囲を保持する。
- * @responsibility Repositoryを一意にし、複数の許可範囲を落とさない。
- * @trace ARCH-000013
- * @shape repositoryId、workspaceIds、bindingId、manifest、root。
+ * @shape repositoryId、bindingId、manifest、rootと外部ホストの識別子。
  * @invariant 管理改訂は集合側で保持し、本文の版と混同しない。
  * @boundary 信頼した同Processの今回要求だけ。
  * @security 保存・cache・TransportへのRoot公開を禁止する。
@@ -86,10 +34,10 @@ export type RepositoryAccessResult =
  */
 export type AuthorizedRepository = Readonly<{
   repositoryId: string;
-  workspaceIds: readonly ("development" | "management")[];
   bindingId: string;
   manifest: RepositoryManifest;
   root: string;
+  hostedRepository?: GitHostLinkedRepository;
 }>;
 
 /**
@@ -108,7 +56,15 @@ export type RepositoryAccessCollectionResult =
       managementRevision: number;
       repositories: readonly AuthorizedRepository[];
     }>
-  | Extract<RepositoryAccessResult, { status: "unavailable" }>;
+  | Readonly<{
+      status: "unavailable";
+      reason:
+        | "repository_access_rejected"
+        | "repository_access_lock_unavailable"
+        | "repository_access_cleanup_pending"
+        | "repository_access_observation_unknown"
+        | "repository_access_release_unknown";
+    }>;
 
 /**
  * 登録／公開管理の非秘密な保存結果。
@@ -120,7 +76,7 @@ export type RepositoryAccessCollectionResult =
  * @security 全Snapshot・秘密・内部Pathを含めない。
  * @compatibility Transport公開の採用ではない。
  */
-export type RepositoryExposureManagementResult =
+export type RepositoryManagementResult =
   | Readonly<{
       status: "completed";
       operationId: string;

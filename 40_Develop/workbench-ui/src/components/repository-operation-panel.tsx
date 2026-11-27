@@ -19,7 +19,7 @@ import {
   readRepositoryOperationDisplay,
   type RepositoryOperationDisplay,
 } from "../api/repository.ts";
-import { requestWorkbenchMutation } from "../api/mutations.ts";
+import { requestRepositoryMutation } from "../api/mutations.ts";
 
 /**
  * Git処置結果と後続の現在状態取得を分離する。
@@ -40,11 +40,13 @@ import { requestWorkbenchMutation } from "../api/mutations.ts";
 export function RepositoryOperationPanel({
   repositoryId,
   actionToken,
+  browserSession,
   children,
   refresh,
 }: {
   repositoryId: string;
   actionToken: string;
+  browserSession: boolean;
   children: ReactNode;
   refresh: (signal: AbortSignal) => Promise<void>;
 }): ReactElement {
@@ -94,7 +96,7 @@ export function RepositoryOperationPanel({
     const element = event.target;
     if (
       !(element instanceof HTMLFormElement) ||
-      element.getAttribute("action") !== "/api/repository"
+      !element.hasAttribute("data-repository-action")
     )
       return;
     event.preventDefault();
@@ -122,12 +124,11 @@ export function RepositoryOperationPanel({
     setResult(null);
     let known: RepositoryOperationDisplay | null = null;
     try {
-      const response = await requestWorkbenchMutation("/api/repository", {
-        method: "POST",
-        body: form,
-        signal: owned.signal,
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-      });
+      const response = await requestRepositoryMutation(
+        submission.request,
+        owned.signal,
+        browserSession,
+      );
       if (!response.ok) throw new Error("repository_outcome_unconfirmed");
       known = readRepositoryOperationDisplay(submission, await response.json());
       if (

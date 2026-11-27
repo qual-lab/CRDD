@@ -1,5 +1,5 @@
 /**
- * 実Browserで鍵管理・通常管理と資格付きCSR画面遷移の現在投影を検証する。
+ * 実Browserで共有のログイン・管理と単体／共有のCSR画面を検証する。
  * @packageDocumentation
  * @responsibility 本番CSRの操作・表示・消去を自己生成AM Rootと専用Chromeで観測する。
  * @trace RFD-ST-016
@@ -12,11 +12,12 @@
  * @trace RCM-ST-012
  * @trace CPR-ST-005
  * @level ST
- * @scope 同Process鍵管理、Standalone／CROS通常管理、自己生成RepositoryのGET遷移とRoot相関、内容保存・Git操作、Repository別AI設定の管理Role・保存結果・応答喪失・fresh GET・取消、未設定AIの無効表示、native操作非横取り、pagehide取消と資格なし再開、秘密非保持、所有資源回収。
+ * @scope 合成外部ログイン、共有管理、自己生成RepositoryのGET遷移とRoot相関、内容保存・Git操作、Repository別AI設定の管理Role・保存結果・応答喪失・fresh GET・取消、native操作非横取り、pagehide取消と同じCookieセッションでの再開、秘密非保持、所有資源回収。
  * @boundary Workbench本番Server→本番Bundle→専用Browser→AM保存Owner。成果物原文は同じ選択Rootに相関し、文字列表示・履歴移動・遅延拒否・再読込後の再接続を観測する。
  */
 import assert from "node:assert/strict";
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { generateKeyPairSync, sign as signData } from "node:crypto";
 import fs, { existsSync } from "node:fs";
 import {
   lstat,
@@ -27,12 +28,14 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
+import { createServer } from "node:net";
 import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import { build } from "vite";
-import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
+import { createRetiredCredentialFixture } from "../../../access-management/tests/support/retired-credential.ts";
+import { linkAccountFromHost } from "../../../access-management/src/user/account-link.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selection.ts";
@@ -43,11 +46,193 @@ import {
   closeOwnedBrowserProcessTree,
   observeLocalListener,
 } from "@qual-lab/crdd-visual-preview";
-import { startWorkbench } from "@qual-lab/crdd-server/api";
+// Serverの読取りを同一プロセスで観測する明示システム試験だけの接続。
+import { startWorkbench } from "../../../crdd-server/src/app.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
 );
+
+const googleIssuer = "https://accounts.google.com";
+const browserLoginSubject = "workbench-browser-test-user";
+const browserLoginClient = "workbench-browser-test-client";
+const browserGitHubToken = "ghu_browser_fixture";
+const browserGitRepositories = {
+  unavailable: { id: 91, full_name: "browser-fixture/unavailable" },
+  next: { id: 92, full_name: "browser-fixture/next" },
+  latest: { id: 93, full_name: "browser-fixture/latest" },
+} as const;
+
+/** 外部応答だけを合成し、本人確認・連携・Cookie発行はWorkbenchの実入口を使う。 */
+async function prepareBrowserLogin(t: test.TestContext, gitHost = false) {
+  const socket = createServer();
+  await new Promise<void>((resolve, reject) => {
+    socket.once("error", reject);
+    socket.listen(0, "127.0.0.1", resolve);
+  });
+  const address = socket.address();
+  await new Promise<void>((resolve, reject) =>
+    socket.close((error) => (error ? reject(error) : resolve())),
+  );
+  assert.ok(address && typeof address !== "string");
+  const keys = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const realFetch = globalThis.fetch;
+  let nonce: string | null = null;
+  let gitRead: "allowed" | "denied" | "unavailable" = "allowed";
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(
+        typeof input === "string" || input instanceof URL ? input : input.url,
+      );
+      if (url.href === `${googleIssuer}/.well-known/openid-configuration`)
+        return Response.json({
+          issuer: googleIssuer,
+          authorization_endpoint: `${googleIssuer}/auth`,
+          token_endpoint: `${googleIssuer}/token`,
+          jwks_uri: `${googleIssuer}/jwks`,
+          code_challenge_methods_supported: ["S256"],
+          id_token_signing_alg_values_supported: ["RS256"],
+        });
+      if (url.href === `${googleIssuer}/jwks`)
+        return Response.json({
+          keys: [
+            {
+              ...keys.publicKey.export({ format: "jwk" }),
+              alg: "RS256",
+              kid: "fixture",
+            },
+          ],
+        });
+      if (url.href === `${googleIssuer}/token`) {
+        assert.ok(nonce);
+        const encode = (value: object) =>
+          Buffer.from(JSON.stringify(value)).toString("base64url");
+        const iat = Math.floor(Date.now() / 1_000);
+        const payload = `${encode({ alg: "RS256", kid: "fixture" })}.${encode({ iss: googleIssuer, sub: browserLoginSubject, aud: browserLoginClient, iat, exp: iat + 120, nonce })}`;
+        return Response.json({
+          access_token: "synthetic-workbench-access-token",
+          token_type: "Bearer",
+          id_token: `${payload}.${signData("sha256", Buffer.from(payload), keys.privateKey).toString("base64url")}`,
+        });
+      }
+      if (
+        gitHost &&
+        url.href === "https://github.com/login/oauth/access_token"
+      ) {
+        return Response.json({
+          access_token: browserGitHubToken,
+          token_type: "bearer",
+          expires_in: 3600,
+        });
+      }
+      if (gitHost && url.origin === "https://api.github.com") {
+        assert.equal(
+          new Headers(init?.headers).get("authorization"),
+          `Bearer ${browserGitHubToken}`,
+        );
+        if (url.pathname === "/user") return Response.json({ id: 73 });
+        if (url.pathname === "/user/installations")
+          return Response.json({
+            total_count: 1,
+            installations: [
+              {
+                id: 24,
+                account: { login: "browser-fixture" },
+                permissions: { contents: "write" },
+              },
+            ],
+          });
+        assert.equal(url.pathname, "/user/installations/24/repositories");
+        if (gitRead === "unavailable")
+          return new Response(null, { status: 503 });
+        return Response.json({
+          total_count: Object.keys(browserGitRepositories).length,
+          repositories: Object.values(browserGitRepositories).map((entry) => ({
+            ...entry,
+            permissions: {
+              pull: gitRead === "allowed",
+              push: gitRead === "allowed",
+            },
+          })),
+        });
+      }
+      assert.equal(
+        url.hostname,
+        "127.0.0.1",
+        "browser_fixture_external_request",
+      );
+      return realFetch(input, init);
+    },
+  );
+  return {
+    port: address.port,
+    setGitRead(value: typeof gitRead) {
+      gitRead = value;
+    },
+    loginProviders: {
+      google: {
+        clientId: browserLoginClient,
+        clientSecret: "synthetic-browser-secret",
+      },
+    },
+    async createSession(baseUrl: string) {
+      const response = await fetch(
+        new URL("/api/session/login/google", baseUrl),
+        {
+          method: "POST",
+          headers: { origin: baseUrl },
+          redirect: "manual",
+        },
+      );
+      assert.equal(response.status, 303);
+      const authorization = new URL(response.headers.get("location") ?? "");
+      nonce = authorization.searchParams.get("nonce");
+      const state = authorization.searchParams.get("state");
+      const proofCookie = response.headers.getSetCookie()[0]?.split(";")[0];
+      assert.ok(nonce && state && proofCookie);
+      const callback = await fetch(
+        new URL(
+          `/api/session/login/google/callback?${new URLSearchParams({ state, code: "synthetic" })}`,
+          baseUrl,
+        ),
+        { headers: { cookie: proofCookie }, redirect: "manual" },
+      );
+      assert.equal(callback.status, 303);
+      const cookie = callback.headers
+        .getSetCookie()
+        .find((entry) => entry.startsWith("crdd-client-session="))
+        ?.split(";")[0];
+      assert.ok(cookie);
+      return cookie;
+    },
+    async connectGitHost(baseUrl: string, cookie: string) {
+      assert.equal(gitHost, true);
+      const response = await fetch(
+        new URL("/api/session/git/github", baseUrl),
+        {
+          method: "POST",
+          headers: { origin: baseUrl, cookie },
+          redirect: "manual",
+        },
+      );
+      assert.equal(response.status, 303);
+      const authorization = new URL(response.headers.get("location") ?? "");
+      assert.equal(authorization.origin, "https://github.com");
+      const state = authorization.searchParams.get("state");
+      assert.ok(state);
+      const callback = await fetch(
+        new URL(
+          `/api/session/git/github/callback?${new URLSearchParams({ state, code: "synthetic" })}`,
+          baseUrl,
+        ),
+        { headers: { cookie }, redirect: "manual" },
+      );
+      assert.equal(callback.status, 303);
+    },
+  };
+}
 
 /** @trace ERB-ST-022 同じQueue IDを持つ別Repositoryを区別する実DOMの対照。 */
 test("Workbenchは活動再取得で消えた実行を別Graphへ自動切替しない", {
@@ -262,14 +447,7 @@ async function requestBrowser(
   params: Record<string, unknown> = {},
   viewport?: Readonly<{ width: number; height: number }>,
   evaluation: "single" | "composite" = "single",
-  evaluationStep?:
-    | "document_ready"
-    | "local_reload"
-    | "local_partial_conflict"
-    | "local_partial_unavailable"
-    | "local_ready"
-    | "local_connect"
-    | "local_navigation",
+  evaluationStep?: "document_ready" | "document_reload" | "shared_navigation",
 ): Promise<unknown> {
   const socket = new WebSocket(url);
   return await new Promise((resolve, reject) => {
@@ -462,12 +640,8 @@ test("Browser評価失敗の診断は固定地点だけを公開する", async (
     for (const step of [
       undefined,
       "document_ready",
-      "local_reload",
-      "local_partial_conflict",
-      "local_partial_unavailable",
-      "local_ready",
-      "local_connect",
-      "local_navigation",
+      "document_reload",
+      "shared_navigation",
     ] as const) {
       reply = {
         id: 1,
@@ -572,7 +746,7 @@ test("Browser評価失敗の診断は固定地点だけを公開する", async (
         {},
         undefined,
         "single",
-        "local_ready",
+        "document_ready",
       ),
       true,
     );
@@ -587,12 +761,15 @@ test("Browser評価失敗の診断は固定地点だけを公開する", async (
  * @trace ERB-ST-022
  * @precondition 試験が所有する接続画面だけを扱う。
  * @stimulus timeOrigin読取り、reload一回、準備状態の有限読取り。
- * @observation 旧Documentと異なるtimeOrigin・complete・接続入力欄。
+ * @observation 旧Documentと異なるtimeOrigin・complete・呼出し側が指定したDOM。
  * @oracle Context置換では読取りだけを再評価し、POSTやreloadを再送しない。
  * @cleanup 各requestBrowserがTimerとSocketを回収し、親CaseがBrowserを回収する。
  * @boundary 試験用CDPの受理とDocument生成を分ける。製品の回復機構ではない。
  */
-async function reloadConnectionDocument(pageUrl: string): Promise<void> {
+async function reloadBrowserDocument(
+  pageUrl: string,
+  readySelector: string,
+): Promise<void> {
   const previous = await requestBrowser(
     pageUrl,
     "Runtime.evaluate",
@@ -602,7 +779,7 @@ async function reloadConnectionDocument(pageUrl: string): Promise<void> {
     },
     undefined,
     "single",
-    "local_reload",
+    "document_reload",
   );
   assert.equal(typeof previous, "number");
   assert.equal(Number.isFinite(previous), true);
@@ -612,7 +789,7 @@ async function reloadConnectionDocument(pageUrl: string): Promise<void> {
     {},
     undefined,
     "single",
-    "local_reload",
+    "document_reload",
   );
   const end = Date.now() + 15_000;
   while (Date.now() < end) {
@@ -622,12 +799,12 @@ async function reloadConnectionDocument(pageUrl: string): Promise<void> {
           pageUrl,
           "Runtime.evaluate",
           {
-            expression: `performance.timeOrigin!==${JSON.stringify(previous)}&&document.readyState==='complete'&&Boolean(document.querySelector('#connection input[name=token]'))`,
+            expression: `performance.timeOrigin!==${JSON.stringify(previous)}&&document.readyState==='complete'&&Boolean(document.querySelector(${JSON.stringify(readySelector)}))`,
             returnByValue: true,
           },
           undefined,
           "single",
-          "local_reload",
+          "document_reload",
         )) === true
       )
         return;
@@ -641,6 +818,30 @@ async function reloadConnectionDocument(pageUrl: string): Promise<void> {
     await delay(100);
   }
   throw new Error("credential_browser_reload_ready_unconfirmed");
+}
+
+/** 意味操作は再送せず、読み取りだけを新Documentで再評価する。 */
+async function waitForBrowserCondition(pageUrl: string, expression: string) {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    try {
+      if (
+        (await requestBrowser(pageUrl, "Runtime.evaluate", {
+          expression,
+          returnByValue: true,
+        })) === true
+      )
+        return;
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.message !== "credential_browser_context_replaced"
+      )
+        throw error;
+    }
+    await delay(100);
+  }
+  throw new Error("browser_shared_session_condition_unconfirmed");
 }
 
 /**
@@ -688,7 +889,7 @@ test("Browser再読込は一回だけ発行し新Documentの準備を確認す�
   }
   globalThis.WebSocket = ReloadSocket as unknown as typeof WebSocket;
   try {
-    await reloadConnectionDocument("ws://fixture.invalid");
+    await reloadBrowserDocument("ws://fixture.invalid", "[data-fixture-ready]");
     assert.deepEqual(methods, [
       "Runtime.evaluate",
       "Page.reload",
@@ -701,261 +902,80 @@ test("Browser再読込は一回だけ発行し新Documentの準備を確認す�
   }
 });
 
-/**
- * 本番CSRの操作反証を固定Browser式へ構成する。
- * @responsibility 鍵をDOMと同じBrowser内でだけ比較し、非秘密判定だけ返す。
- * @trace RFD-ST-016
- * @input 試験内固定のissue／self／all選択。
- * @returns 操作・表示・非保持・失敗処置の固定式。
- * @precondition 本番Bundleが同じlocalhost画面へ配信される。
- * @postcondition 生成鍵をNode、console、画像、storageへ保存しない。
- * @effect 本番Formをsubmitし、用途限定通信失敗をBrowser内で一度注入する。
- * @failure 必須DOM未成立は固定Error。本文や秘密は返さない。
- * @invariant 手動受付Route・ACK・再表示APIを追加しない。
- * @boundary 専用Browserの本番DOMとfetch。
- * @security 要求/応答Bodyの比較はBrowser内のみで、結果はboolean/counter。
- * @concurrency 重複submitの一要求化と次操作開始時の消去を観測する。
- * @stimulus 指定modeの資格操作と一回の通信故障を式に組み込む。
- * @observation DOM提示・一要求化・GET/URL/Storageの非保持を示すboolean。
- * @oracle 鍵比較をBrowser内に閉じて秘密値を返却しない。
- * @cleanup 式のfinallyでfetch復元、親CaseがBrowser/Profileを回収する。
- */
-function credentialBrowserExpression(mode: "issue" | "self" | "all"): string {
+/** 現行の管理RESTを画面から操作し、再送せずに保存結果を表示することを確認する。 */
+function managementBrowserExpression(): string {
   return `(async () => {
-    const mode = ${JSON.stringify(mode)};
-    /**
-     * 資格Formの描画と一回提示を待つ。
-     * @responsibility 資格Formの描画と一回提示を待つ。
-     * @trace RFD-ST-016
-     * @precondition 資格操作を描画した同Origin画面。
-     * @stimulus 15秒内で条件を再評価し成立trueまたは期限falseを返す。
-     * @observation Form・短命鍵・旧接続の各条件。
-     * @oracle 未成立は親式が固定失敗とし提示成功を捏造しない。
-     * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
-     * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
-     */
-    const waitFor = async (condition) => { const end = Date.now() + 15000; while(Date.now() < end) { if(condition()) return true; await new Promise(r => setTimeout(r, 50)); } return false; };
-    if(!await waitFor(() => document.querySelector('#credential-administration form'))) throw new Error('credential_browser_dom_unavailable');
-    const originalFetch = window.fetch.bind(window);
-    let posts = 0, deliveredKey = '', failNext = false;
-    window.fetch = async (...args) => {
-      const requestUrl = new URL(String(args[0]), location.href);
-      if(requestUrl.origin === location.origin && requestUrl.pathname === '/api/access/credentials') {
-        posts++;
-        if(failNext) throw new Error('synthetic_connection_failure');
-        const response = await originalFetch(...args);
-        const result = await response.clone().json();
-        if(result.status === 'presenting' && typeof result.token === 'string') deliveredKey = result.token;
-        return response;
+    const waitFor=async (condition,stage)=>{ const end=Date.now()+15000; while(Date.now()<end){if(condition())return;await new Promise(r=>setTimeout(r,50));} throw new Error('management_browser_wait_failed:'+stage); };
+    const panel=()=>document.querySelector('#access-management');
+    const status=()=>panel()?.querySelector('[role=status]');
+    const formFor=(operation,id)=>[...(panel()?.querySelectorAll('form')??[])].find(f=>f.elements.namedItem('operation')?.value===operation&&(!id||f.elements.namedItem('userId')?.value===id));
+    const buttonFor=(name)=>[...document.querySelectorAll('button')].find(b=>b.textContent===name);
+    const originalFetch=window.fetch;
+    const writes=[], reads=[];
+    let stage='session', userId, injected;
+    window.fetch=function(input,init) {
+      const url=new URL(input instanceof Request?input.url:String(input),location.href);
+      const method=(init?.method??(input instanceof Request?input.method:'GET')).toUpperCase();
+      if(url.origin===location.origin&&method==='GET'&&['/api/users','/api/repositories','/api/access/me'].includes(url.pathname))reads.push(url.pathname);
+      if(url.origin===location.origin&&url.pathname.startsWith('/api/users')&&method!=='GET'){
+        writes.push([method,url.pathname]);
+        if(injected){
+          const scenario=injected;injected=null;
+          if(scenario==='disconnect')return Promise.reject(new Error('synthetic_response_loss'));
+          const body=JSON.parse(init.body);
+          const result=scenario==='rejected'||scenario==='conflict'
+            ? {status:'rejected',reason:scenario==='conflict'?'management_revision_conflict':'management_request_rejected'}
+            : {status:'unavailable',reason:'management_operation_unavailable',operationId:body.operationId,expectedRevision:body.expectedRevision,observedRevision:scenario==='cleanup'?body.expectedRevision+1:null,publication:scenario==='cleanup'?'confirmed':'unconfirmed',cleanupConfirmed:false,primaryFailure:scenario==='cleanup'?'cleanup_failed':'publication_failed'};
+          const statusCode=scenario==='rejected'?403:scenario==='conflict'?409:503;
+          return Promise.resolve(new Response(JSON.stringify(result),{status:statusCode,headers:{'content-type':'application/json'}}));
+        }
       }
-      return originalFetch(...args);
+      return originalFetch.call(window,input,init);
     };
-    const operation = mode === 'issue' ? 'issue' : mode === 'self' ? 'exchange-user' : 'exchange-all';
-    const userId = mode === 'issue' ? '00000000-0000-4000-8000-000000000004' : '00000000-0000-4000-8000-000000000003';
-    /**
-     * 指定資格操作とUser IDに一致するFormだけを選ぶ。
-     * @responsibility 指定資格操作とUser IDに一致するFormだけを選ぶ。
-     * @trace RFD-ST-016
-     * @precondition 固定operationとuserId。
-     * @stimulus 資格panelのForm集合から二field一致を選ぶ。
-     * @observation 対象Formまたはundefined。
-     * @oracle 別Userの資格操作をsubmitしない。
-     * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
-     * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
-     */
-    const selectForm = () => Array.from(document.querySelectorAll('#credential-administration form')).find(f => f.elements.namedItem('operation')?.value === operation && f.elements.namedItem('userId')?.value === userId);
-    const form = selectForm(); if(!form) throw new Error('credential_browser_form_unavailable');
-    if(mode === 'all') form.elements.namedItem('confirmed').checked = true;
-    form.requestSubmit(); form.requestSubmit();
-    const shown = await waitFor(() => deliveredKey && document.querySelector('.one-time-token code')?.textContent === deliveredKey);
-    const firstPostOnce = posts === 1;
-    const model = await (await originalFetch('/api/workbench/view', { cache:'no-store' })).json();
-    const getSecretAbsent = deliveredKey !== '' && !JSON.stringify(model).includes(deliveredKey);
-    const urlSecretAbsent = deliveredKey !== '' && !location.href.includes(deliveredKey);
-    const storageSecretAbsent = localStorage.length === 0 && sessionStorage.length === 0;
-    let previousCleared = true, failedResponseNoSuccess = true, oldConnectionUnavailable = true;
-    if(mode === 'issue') {
-      await waitFor(() => !selectForm()?.querySelector('button')?.disabled);
-      failNext = true; selectForm().requestSubmit();
-      previousCleared = await waitFor(() => !document.querySelector('.one-time-token code'));
-      failedResponseNoSuccess = await waitFor(() => document.querySelector('#credential-administration [role=status]')?.textContent?.includes('操作または現在状態の確認を完了できません'));
-    } else {
-      oldConnectionUnavailable = model.credentials.state === 'unavailable' && await waitFor(() => document.querySelectorAll('#credential-administration form').length === 0);
-    }
-    window.fetch = originalFetch;
-    deliveredKey = '';
-    return { shown, firstPostOnce, getSecretAbsent, urlSecretAbsent, storageSecretAbsent, previousCleared, failedResponseNoSuccess, oldConnectionUnavailable, postCount: posts };
+    try{
+      buttonFor('管理セッションを開始').click();
+      const registration=()=>document.querySelector('form:has(input[name=username]):has(input[name=email])');
+      await waitFor(()=>registration()&&!registration().querySelector('fieldset').disabled,stage);
+      stage='registration';
+      const register=registration();
+      register.elements.namedItem('username').value='管理画面登録';
+      register.elements.namedItem('email').value='browser-invited@example.invalid';
+      register.requestSubmit();
+      register.requestSubmit();
+      await waitFor(()=>buttonFor('リンクを閉じる'),stage);
+      buttonFor('リンクを閉じる').click();
+      stage='rename';
+      const lookup=()=>[...(panel()?.querySelectorAll('form')??[])].find(f=>f.elements.namedItem('operation')?.value==='updateUserName'&&f.elements.namedItem('username')?.value==='管理画面登録');
+      await waitFor(lookup,stage);
+      const rename=lookup();
+      userId=rename.elements.namedItem('userId').value;
+      rename.elements.namedItem('username').value='管理画面改名';
+      rename.requestSubmit();
+      await waitFor(()=>status()?.textContent.includes('変更を保存しました')&&!formFor('updateUserName',userId)?.querySelector('button').disabled&&formFor('updateUserName',userId)?.elements.namedItem('username').value==='管理画面改名',stage);
+      stage='role';
+      const role=formFor('updateUserRole',userId);
+      role.elements.namedItem('nextRole').value='manager';
+      role.requestSubmit();
+      await waitFor(()=>formFor('updateUserRole',userId)?.elements.namedItem('currentRole').value==='manager'&&!formFor('updateUserRole',userId)?.querySelector('button').disabled,stage);
+      const focused=document.activeElement===status();
+      const retiredControlsAbsent=!document.querySelector('#credential-administration,form[action="/api/access"],form[action="/api/access/connection"],form:has([name=operation][value=updateExposure]),form:has([name=operation][value=updateRoleContentAccess])');
+      let conflictReads=[];
+      for(const [scenario,expected] of [['rejected','受理されませんでした'],['conflict','最新の一覧を確認'],['unknown','保存の結果を確認できません'],['cleanup','保存は確認済みですが']]){
+        const readStart=reads.length;
+        stage=scenario;injected=scenario;formFor('updateUserName',userId).requestSubmit();
+        await waitFor(()=>status()?.textContent.includes(expected)&&formFor('updateUserName',userId)&&!formFor('updateUserName',userId).querySelector('button').disabled,stage);
+        if(scenario==='conflict')conflictReads=reads.slice(readStart).sort();
+      }
+      stage='disconnect';injected='disconnect';formFor('updateUserName',userId).requestSubmit();
+      await waitFor(()=>status()?.textContent.includes('現在投影の確認は完了していません')&&!formFor('updateUserName',userId),stage);
+      return {userId,writes,conflictReads,focused,storageEmpty:localStorage.length===0&&sessionStorage.length===0,retiredControlsAbsent};
+    }catch{return {failedStage:stage,writes};}
+    finally{window.fetch=originalFetch;}
   })()`;
 }
 
 /**
- * 通常管理Formの保存と現在投影を固定Browser式で確認する。
- * @responsibility 明示送信の一要求化、再描画・Focus・非秘密保持、manager自己内容変更後の内容拒否と管理継続を観測する。
- * @trace RFD-ST-022
- * @trace EST-ST-013
- * @input CROS表示反証の適用有無、自己生成資格による再接続材料、親Caseが回収する登録試験Root。
- * @returns booleanと要求回数を返す固定式。
- * @precondition 本番CSRの管理Formが描画済み。
- * @postcondition User IDや応答本文をNodeへ返さず、登録直後の未公開と自己内容拒否をbooleanで返す。
- * @effect ユーザー・Role四回とRepository登録・公開・解除三回の実保存。CROSだけ固定結果／応答喪失をBrowser内で注入する。
- * @failure 15秒内の再描画未成立は固定例外。
- * @invariant 鍵を発行せず、再送・新Sessionを追加しない。
- * @boundary 本番DOMと同Origin管理POST。固定応答注入は表示だけの反証で、実清掃故障の証明ではない。
- * @security 自己生成の名前・Role・登録Rootだけを操作Formへ渡す。試験資格は認証Headerと再接続だけに使用し、返却値へ含めない。
- * @concurrency 重複submitを観測し、各fresh投影を待って次の操作へ進む。
- * @stimulus 通常管理Formの保存と用途限定応答故障を順に操作する。
- * @observation 保存回数、fresh投影、focus、拒否・不明表示のboolean。
- * @oracle 二重submitは一回、再観測だけで暗黙再送をしない。
- * @cleanup Browser内fetchを復元しServerとProfileを親Caseが回収する。
- */
-function managementBrowserExpression(
-  exerciseFailures = false,
-  reconnectionToken?: string,
-  registrationRoot?: string,
-): string {
-  return `(async () => {
-    /**
-     * 管理Formの保存後描画を有限時間で待つ。
-     * @responsibility 管理Formの保存後描画を有限時間で待つ。
-     * @trace RFD-ST-022
-     * @trace EST-ST-013
-     * @precondition 本番管理CSRを同Originで評価している。
-     * @stimulus 15秒の条件再観測後、未成立なら固定例外。
-     * @observation 対象Formと保存結果の再描画。
-     * @oracle 期限切れを正常な管理保存完了として返さない。
-     * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
-     * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
-     */
-    const waitFor = async (condition) => { const end=Date.now()+15000; while(Date.now()<end) { if(condition()) return true; await new Promise(r=>setTimeout(r,50)); } throw new Error('management_browser_wait_failed'); };
-    /**
-     * 通常管理の現在panelだけを取得する。
-     * @responsibility 通常管理の現在panelだけを取得する。
-     * @trace RFD-ST-022
-     * @trace EST-ST-013
-     * @precondition 本番管理画面。
-     * @stimulus access-managementのDOMを選ぶ。
-     * @observation 現在panelまたはnull。
-     * @oracle 他panelを管理Formの代用にしない。
-     * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
-     * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
-     */
-    const panel = () => document.querySelector('#access-management');
-    /**
-     * 管理操作と任意field値に一致するFormを選ぶ。
-     * @responsibility 管理操作と任意field値に一致するFormを選ぶ。
-     * @trace RFD-ST-022
-     * @trace EST-ST-013
-     * @precondition 管理panelと固定操作値。
-     * @stimulus 同じpanel内のoperation/field値を照合する。
-     * @observation 対象Formまたはundefined。
-     * @oracle 別Userや別操作のFormへ送信しない。
-     * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
-     * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
-     */
-    const formFor = (operation, field, value) => Array.from(panel()?.querySelectorAll('form') ?? []).find(f => f.elements.namedItem('operation')?.value === operation && (!field || f.elements.namedItem(field)?.value === value));
-    await waitFor(() => formFor('registerUser'));
-    const exerciseFailures = ${JSON.stringify(exerciseFailures)};
-    const originalFetch = window.fetch.bind(window); let postCount=0, injected=null, stage='register-user';
-    const requestMethod=(input,init)=>(init?.method??(input instanceof Request?input.method:'GET')).toUpperCase();
-    const requestUrlOf=input=>new URL(input instanceof Request?input.url:String(input),location.href);
-    window.fetch = (...args) => {
-      const requestUrl = requestUrlOf(args[0]);
-      if(requestUrl.origin === location.origin && requestUrl.pathname === '/api/access' && requestMethod(...args)==='POST') {
-        postCount++;
-        if(injected) {
-          const selected=injected; injected=null;
-          if(selected==='disconnect') throw new Error('synthetic_response_loss');
-          const form=args[1].body, revision=Number(form.get('expectedRevision'));
-          const result=selected==='rejected' ? { status:'rejected', reason:'management_request_rejected' } : { status:'unavailable', reason:'management_operation_unavailable', operationId:form.get('operationId'), expectedRevision:revision, observedRevision:selected==='cleanup' ? revision+1 : null, publication:selected==='cleanup' ? 'confirmed' : 'unconfirmed', cleanupConfirmed:false, primaryFailure:selected==='cleanup' ? 'cleanup_failed' : 'publication_failed' };
-          return Promise.resolve(new Response(JSON.stringify(result), { headers:{ 'content-type':'application/json' } }));
-        }
-      }
-      return originalFetch(...args);
-    };
-    try {
-      const registration = formFor('registerUser'); registration.elements.namedItem('username').value='管理画面登録'; registration.elements.namedItem('plannedRole').value='developer';
-      registration.requestSubmit(); registration.requestSubmit();
-      const registered = await waitFor(() => formFor('updateUserName', 'username', '管理画面登録') && !formFor('registerUser').querySelector('button').disabled);
-      const rename = formFor('updateUserName', 'username', '管理画面登録'); const id=rename.elements.namedItem('userId').value;
-      stage='rename-user';
-      rename.elements.namedItem('username').value='管理画面改名'; rename.requestSubmit();
-      const renamed = await waitFor(() => panel().querySelector('[role=status]')?.textContent.includes('改訂 3。') && formFor('updateUserName', 'userId', id)?.elements.namedItem('username').value === '管理画面改名' && !formFor('registerUser').querySelector('button').disabled);
-      stage='change-role';
-      const role = formFor('updateUserRole', 'userId', id); role.elements.namedItem('nextRole').value='manager'; role.requestSubmit();
-      const roleChanged = await waitFor(() => panel().querySelector('[role=status]')?.textContent.includes('改訂 4。') && formFor('updateUserRole', 'userId', id)?.elements.namedItem('currentRole').value === 'manager' && !formFor('registerUser').querySelector('button').disabled);
-      stage='content-access';
-      const targetRole=exerciseFailures ? 'manager' : 'developer';
-      const content = formFor('updateRoleContentAccess', 'targetRole', targetRole); for(const box of content.querySelectorAll('input[type=checkbox]')) box.checked=false; content.requestSubmit();
-      const contentChanged = await waitFor(() => { const fresh=formFor('updateRoleContentAccess', 'targetRole', targetRole); return panel().querySelector('[role=status]')?.textContent.includes('改訂 5。') && fresh && Array.from(fresh.querySelectorAll('input[type=checkbox]')).every(box => !box.checked) && !formFor('registerUser').querySelector('button').disabled; });
-      const registrationPresent=Boolean(formFor('registerRepository'));
-      const registrationRoot=${JSON.stringify(registrationRoot)};
-      let repositoryRegistered=false, registrationNotPublished=false, exposureChanged=false, repositoryRemoved=false, selfContentRejected=!exerciseFailures;
-      if(registrationRoot!==undefined) {
-        stage='register-repository';
-        const registration=formFor('registerRepository');
-        registration.elements.namedItem('repositoryId').value='repository.browser-registration';
-        registration.elements.namedItem('repositoryRoot').value=registrationRoot;
-        registration.requestSubmit();
-        repositoryRegistered=await waitFor(()=>panel().querySelector('[role=status]')?.textContent.includes('改訂 6。') && formFor('unregisterRepository','repositoryId','repository.browser-registration') && !formFor('registerUser').querySelector('button').disabled);
-        registrationNotPublished=formFor('updateExposure','repositoryId','repository.browser-registration')?.textContent.includes('公開設定なし')===true;
-        stage='update-exposure';
-        const exposure=formFor('updateExposure','repositoryId','repository.browser-registration');
-        for(const box of exposure.querySelectorAll('input[type=checkbox]'))box.checked=box.value==='development';
-        exposure.requestSubmit();
-        exposureChanged=await waitFor(()=>panel().querySelector('[role=status]')?.textContent.includes('改訂 7。') && formFor('updateExposure','repositoryId','repository.browser-registration')?.querySelector('input[value=development]')?.checked && !formFor('registerUser').querySelector('button').disabled);
-        if(exerciseFailures) {
-          const key=${JSON.stringify(reconnectionToken)};
-          const denied=await originalFetch('/api/workbench/view?repositoryId=repository.browser-registration',{headers:{authorization:'Bearer '+key}});
-          selfContentRejected=denied.status===403 && await denied.text()==='local_repository_access_unavailable'+String.fromCharCode(10);
-        }
-        stage='unregister-repository';
-        formFor('unregisterRepository','repositoryId','repository.browser-registration').requestSubmit();
-        repositoryRemoved=await waitFor(()=>panel().querySelector('[role=status]')?.textContent.includes('改訂 8。') && !formFor('unregisterRepository','repositoryId','repository.browser-registration') && !formFor('updateExposure','repositoryId','repository.browser-registration') && formFor('registerUser')?.querySelector('button')?.disabled===false);
-      }
-      const resultFocused=document.activeElement === panel().querySelector('[role=status]');
-      let rejectedVisible=true, unknownVisible=true, cleanupVisible=true, responseLossVisible=true;
-      if(exerciseFailures) {
-        stage='failure-presentation';
-        for(const [scenario, expected] of [['rejected','受理されませんでした'],['unknown','保存の結果を確認できません'],['cleanup','保存は確認済みですが']]) {
-          injected=scenario; const form=formFor('updateUserName','userId',id); form.requestSubmit();
-          const observed=await waitFor(() => panel().querySelector('[role=status]')?.textContent.includes(expected) && formFor('registerUser') && !formFor('registerUser').querySelector('button').disabled);
-          if(scenario==='rejected') rejectedVisible=observed; else if(scenario==='unknown') unknownVisible=observed; else cleanupVisible=observed;
-        }
-        injected='disconnect'; formFor('updateUserName','userId',id).requestSubmit();
-        responseLossVisible=await waitFor(() => panel().querySelector('[role=status]')?.textContent.includes('現在投影の確認は完了していません') && !formFor('registerUser'));
-        await new Promise(r=>setTimeout(r,200));
-      }
-      stage='retired-header';
-      const beforeRetiredHeader=postCount;
-      window.fetch=async (...args)=>{
-        const url=requestUrlOf(args[0]);
-        if(url.origin===location.origin&&url.pathname==='/api/access'&&requestMethod(...args)==='POST')postCount++;
-        const reply=await originalFetch(...args);
-        if(url.pathname==='/api/access'&&url.searchParams.get('view')==='current'){
-          const headers=new Headers(reply.headers);headers.set('x-crdd-management-mode','remote');
-          return new Response(await reply.text(),{status:reply.status,headers});
-        }
-        return reply;
-      };
-      window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}));
-      window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));
-      const reconnectionToken=${JSON.stringify(reconnectionToken)};
-      if(reconnectionToken!==undefined){
-        await waitFor(()=>document.querySelector('#connection form'));
-        const connection=document.querySelector('#connection form');
-        connection.elements.namedItem('token').value=reconnectionToken;connection.requestSubmit();
-      }
-      const retiredHeaderRejected=await waitFor(()=>panel()?.querySelector('[role=status]')?.textContent.includes('現在の管理状態を確認できません')&&!formFor('registerUser'));
-      const retiredHeaderPostZero=postCount===beforeRetiredHeader;
-      const retiredConnectionSurfaceAbsent=!document.querySelector('[name=mcpEndpoint],form[action="/connection/action"]');
-      return { registered, renamed, roleChanged, contentChanged, repositoryRegistered, registrationNotPublished, exposureChanged, repositoryRemoved, selfContentRejected, postCount, resultFocused, storageEmpty:localStorage.length===0 && sessionStorage.length===0, registrationPresent, rejectedVisible, unknownVisible, cleanupVisible, responseLossVisible, retiredHeaderRejected, retiredHeaderPostZero, retiredConnectionSurfaceAbsent };
-    } catch { return { failedStage:stage, postCount }; }
-    finally { window.fetch=originalFetch; }
-  })()`;
-}
-
-/**
- * 通常発行・本人交換・全員交換と通常管理のBrowser lifecycleを実環境で確認する。
+ * 共有のブラウザーセッションと単体Git・作業領域の公開画面を実環境で確認する。
  * @responsibility HTTPだけでは見えない表示・消去・再読込・接続失効と資格付き画面遷移・終了後非採用、文書未確認・競合の部分表示とリンク抑止を反証する。
  * @trace RFD-ST-016
  * @trace RFD-ST-004
@@ -968,15 +988,15 @@ function managementBrowserExpression(
  * AI設定ではmanager／developer、五役割の標準入力、分類・上書きの追加／改名／削除、未設定からの明示編集、CAS二重submit、応答喪失、保存後GET故障、保留GET中の対象切替を適用する。
  * Portfolioでは二本文の一方欠測・他方Identity競合、競合本文復元、全本文復元とreloadを実施する。
  * @observation boolean/counter、選択ID・defaultPrevented・Model取得件数・取消Signal・再開Header有無、非秘密保存状態、Browser/Listener/Profile終了だけ取得する。Recordでは旧Detail本文／Formの有無、known completed／blocked通知、再取得前後のPOST数、保留POSTのSignalと新選択の維持を観測する。 GitではPOST件数、要求専用結果、非選択Root HEAD、local Remote Revisionと取消Signalを観測する。
- * AI設定のPOST数・通知・取消Signal・現在設定、標準入力と同じJSON draft、未設定時の空Modelを観測する。
+ * AI設定のPUT数・通知・取消Signal・現在設定、標準入力と同じJSON draft、未設定時の空Modelを観測する。
  * Portfolioの日本語状態表示、Repositoryリンク集合、外国Identityの非表示と復元後通常接続を取得する。
- * @oracle 鍵一度表示、秘密非保持、失敗後完了0、旧接続利用可0、選択保持、対象外Model取得0、旧世代採用0、pagehide保留GET取消・Root空・終了後応答採用0、再開資格Header0。RecordのGET故障では旧本文／Form非表示、既知保存とblockedを混同しない通知、GET retryによるPOST増0、対象切替時の保留POST取消と遅延応答採用0を要求する。合成通知を実cache保存復元証明にしない。 Gitでは確認不足Push0、再取得後の操作結果未確認保持、旧状態非表示、GET再取得POST増0、他Root Effect0を要求する。
+ * @oracle 選択保持、対象外Model取得0、旧世代採用0、pagehide保留GET取消・Root空・終了後応答採用0、Bearerなしの同じCookieセッションで再開する。RecordのGET故障では旧本文／Form非表示、既知保存とblockedを混同しない通知、GET retryによるPOST増0、対象切替時の保留POST取消と遅延応答採用0を要求する。合成通知を実cache保存復元証明にしない。単体Gitでは確認不足Push0、再取得後の操作結果未確認保持、旧状態非表示、GET再取得POST増0、他Root Effect0を要求する。
  * AI設定は管理Roleとdevelopment認可、標準入力だけの分類・上書き編集、単一draft、未設定のModel非補完、POST一回・fresh GETのみ・既知保存保持・遅延非採用を要求する。
  * Portfolioは未確認を一部未確認、競合を競合ありと表示し、completeだけをリンクにする。外国Identityを公開せず、復元後通常接続できる。
  * @cleanup 既存Browser所有Tree終了処理とServer close後、検証した自己生成Rootだけ削除する。
  * @boundary 本番Server／本番CSR／専用Browser／AMのSystem境界。
  */
-test("実Browserの管理操作は現在投影を更新し、鍵提示は短命である", {
+test("実Browserは管理・Repository操作と現在投影の整合を維持する", {
   // 内容操作の複数評価を追加した全Case合計の上限。各評価・製品の待機期限は変更しない。
   // 既存全体263秒＋追加Git単独49秒を包含する親試験だけの上限。個別待機は不変更。
   timeout: 420_000,
@@ -1010,12 +1030,9 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
     .find((value) => existsSync(value));
   assert.ok(executable, "credential_browser_chrome_unavailable");
   const modes = [
-    "issue",
-    "self",
-    "all",
-    "management",
-    "cros-management",
-    "local-connection",
+    "shared-session",
+    "shared-management",
+    "shared-navigation",
     "ai-selection-manager",
     "ai-selection-developer",
     "content-operations",
@@ -1036,106 +1053,27 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
       const access = path.join(directory, "access");
       await mkdir(profile);
       await mkdir(access);
-      const material = createCredentialMaterial();
+      const material = createRetiredCredentialFixture();
       const adminId = "00000000-0000-4000-8000-000000000003";
       const developerId = "00000000-0000-4000-8000-000000000004";
       const state: AccessManagementState = {
         contract: "crdd-access-management/state",
-        schemaRevision: 2,
-        revision: 1,
+        schemaRevision: 4,
+        revision: 2,
         operationId: "00000000-0000-4000-8000-000000000001",
         users: [
           { userId: adminId, username: "管理者", role: "administrator" },
           { userId: developerId, username: "開発者", role: "developer" },
         ],
-        roleContentAccess: [
-          { role: "developer", workspaceIds: ["development"] },
-          { role: "manager", workspaceIds: ["development", "management"] },
-          { role: "administrator", workspaceIds: [] },
-        ],
-        credentials: [
-          {
-            credentialId: material.credentialId,
-            userId: adminId,
-            tokenVersion: 1,
-            tokenSalt: material.tokenSalt,
-            tokenVerifier: material.tokenVerifier,
-            revoked: false,
-            operationId: "00000000-0000-4000-8000-000000000002",
-            presentation: "confirmed",
-          },
-        ],
         registeredRepositories: [],
-        exposure: [],
-        unresolvedKeyExchanges: [],
         initialization: {
           stage: "completed",
           attemptId: "00000000-0000-4000-8000-000000000002",
           initialUserId: adminId,
-          initialCredentialId: material.credentialId,
-          confirmationCredentialId: material.credentialId,
-          connection: "confirmed",
+          connection: "account_confirmed",
         },
       };
       const current = path.join(access, "access-management.json");
-      let registrationRoot: string | undefined;
-      if (mode === "management" || mode === "cros-management") {
-        if (mode === "cros-management") {
-          const actor = state.users[0];
-          assert.ok(actor);
-          actor.role = "manager";
-          actor.username = "管理担当";
-          assert.equal(
-            state.users.some((user) => user.role === "administrator"),
-            false,
-          );
-        }
-        registrationRoot = path.join(directory, "registration-target");
-        await mkdir(path.join(registrationRoot, ".crdd", "config"), {
-          recursive: true,
-        });
-        assert.equal(
-          spawnSync("git", ["init", "--quiet", registrationRoot], {
-            windowsHide: true,
-            encoding: "utf8",
-          }).status,
-          0,
-        );
-        await writeFile(
-          path.join(
-            registrationRoot,
-            ".crdd",
-            "config",
-            "repository-manifest.json",
-          ),
-          JSON.stringify({
-            schema: "crdd/repository-manifest/v2",
-            projectId: "project.fixture",
-            repositoryId: "repository.browser-registration",
-            displayName: "登録試験",
-            repositoryRole: "development",
-            capabilities: [],
-            contextSurfaces: [],
-            externalSendPolicy: null,
-          }),
-        );
-        await writeFile(
-          path.join(registrationRoot, "PROJECT_CONTEXT.md"),
-          "# Project Context\n\nProject ID: project.fixture\nRepository ID: repository.browser-registration\nRepository Role: development\n" +
-            [
-              "今どうなっているか",
-              "何が危ない、または止まっているか",
-              "今、人間が決めることは何か",
-              "なぜこの状態・判断になったか",
-              "次に何をすべきか",
-            ]
-              .map(
-                (heading, index) =>
-                  `\n## ${index + 1}. ${heading}\n\n### 結論\n\n自己生成試験。\n\n| 項目 | 内容 |\n|---|---|\n| 試験 | 固定 |\n`,
-              )
-              .join(""),
-        );
-      }
       if (
         mode === "ai-selection-manager" ||
         mode === "ai-selection-developer"
@@ -1148,23 +1086,26 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           username: "別管理者",
           role: "administrator",
         });
-        for (const entry of state.roleContentAccess)
-          entry.workspaceIds = ["development"];
       }
+      const usesGitHost =
+        mode === "shared-session" ||
+        mode === "shared-navigation" ||
+        mode === "artifact-navigation" ||
+        mode === "content-operations" ||
+        mode === "ai-selection-manager" ||
+        mode === "ai-selection-developer";
       if (
-        mode === "local-connection" ||
+        mode === "shared-session" ||
+        mode === "shared-navigation" ||
         mode === "content-operations" ||
         mode === "artifact-navigation" ||
         mode === "git-operations" ||
         mode === "ai-selection-manager" ||
         mode === "ai-selection-developer"
       ) {
-        const administrator = state.roleContentAccess.find(
-          (entry) => entry.role === "administrator",
-        );
-        assert.ok(administrator);
-        administrator.workspaceIds = ["development"];
-        for (const suffix of ["unavailable", "next", "latest"]) {
+        for (const suffix of mode === "shared-session"
+          ? (["next"] as const)
+          : (["unavailable", "next", "latest"] as const)) {
           const id = `repository.${suffix}`;
           const target = path.join(directory, suffix);
           await mkdir(path.join(target, ".crdd", "config"), {
@@ -1239,17 +1180,34 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               );
             }
           }
-          if (mode === "git-operations") {
+          if (mode === "git-operations" || mode === "shared-session") {
             const hooks = path.join(directory, "empty-hooks");
             await mkdir(hooks, { recursive: true });
             await writeFile(path.join(target, ".gitignore"), ".crdd/\n");
             await writeFile(path.join(target, "work.txt"), "seed\n");
+            const seedPaths = [".gitignore", "work.txt", "PROJECT_CONTEXT.md"];
+            if (mode === "git-operations" && suffix === "next") {
+              const relative = path.join(
+                "99_Roadmap",
+                "Changes",
+                "CHG-000901",
+                "change.md",
+              );
+              await mkdir(path.dirname(path.join(target, relative)), {
+                recursive: true,
+              });
+              await writeFile(
+                path.join(target, relative),
+                "# 単体の試験用成果物\n",
+              );
+              seedPaths.push(relative);
+            }
             for (const args of [
               ["config", "user.name", "Fixture"],
               ["config", "user.email", "fixture@example.invalid"],
               ["config", "commit.gpgsign", "false"],
               ["config", "core.hooksPath", hooks],
-              ["add", "--", ".gitignore", "work.txt", "PROJECT_CONTEXT.md"],
+              ["add", "--", ...seedPaths],
               ["commit", "--quiet", "--message", "seed"],
             ])
               assert.equal(
@@ -1261,7 +1219,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
                 0,
                 "git_fixture_prepared",
               );
-            if (suffix === "next") {
+            if (suffix === "next" && mode === "git-operations") {
               const base = spawnSync("git", ["rev-parse", "HEAD"], {
                 cwd: target,
                 encoding: "utf8",
@@ -1278,15 +1236,47 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               path.join(target, "work.txt"),
               `working-${suffix}\n`,
             );
+            if (mode === "git-operations" && suffix === "next")
+              await writeFile(
+                path.join(target, "zz-follow-up.txt"),
+                "after publication\n",
+              );
           }
+          const hostedFixture = browserGitRepositories[suffix];
+          if (usesGitHost) {
+            for (const args of [
+              ["config", "protocol.https.allow", "never"],
+              [
+                "remote",
+                "add",
+                "origin",
+                `https://github.com/${hostedFixture.full_name}.git`,
+              ],
+            ]) {
+              assert.equal(
+                spawnSync("git", args, {
+                  cwd: target,
+                  windowsHide: true,
+                  encoding: "utf8",
+                }).status,
+                0,
+                "browser_git_host_remote_configured",
+              );
+            }
+          }
+          if (mode === "shared-session") continue;
           state.registeredRepositories.push({
             repositoryId: id,
             repositoryRoot: target,
             bindingId: deriveRepositoryBindingId(id, target),
-          });
-          state.exposure.push({
-            repositoryId: id,
-            workspaceIds: ["development"],
+            ...(usesGitHost && {
+              hostedRepository: {
+                provider: "github",
+                host: "github.com",
+                repositoryId: String(hostedFixture.id),
+                providerData: { installationId: "24" },
+              },
+            }),
           });
         }
       }
@@ -1308,17 +1298,47 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
       await writeFile(current, JSON.stringify(state));
       const root = createFilesystemStoreRoot(access);
       assert.ok(root);
+      const browserLogin =
+        usesGitHost || mode === "shared-management"
+          ? await prepareBrowserLogin(context, usesGitHost)
+          : null;
+      if (browserLogin)
+        assert.equal(
+          linkAccountFromHost(
+            root,
+            adminId,
+            { issuer: googleIssuer, subject: browserLoginSubject },
+            state.revision,
+          ).status,
+          "completed",
+        );
       const handle = await startWorkbench({
-        workingDirectory: repositoryRoot,
-        ...(mode === "cros-management" ||
-        mode === "local-connection" ||
-        mode === "content-operations" ||
-        mode === "artifact-navigation" ||
-        mode === "git-operations" ||
-        mode === "ai-selection-manager" ||
-        mode === "ai-selection-developer"
-          ? { localAccessRoot: root }
-          : { credentialAdministration: { root, token: material.token } }),
+        workingDirectory:
+          mode === "git-operations"
+            ? path.join(directory, "next")
+            : repositoryRoot,
+        ...(browserLogin
+          ? {
+              localAccessRoot: root,
+              port: browserLogin.port,
+              loginProviders: browserLogin.loginProviders,
+              ...(usesGitHost
+                ? {
+                    sharedRepositoryRoots: [directory],
+                    gitHosts: [
+                      {
+                        provider: "github",
+                        host: "github.com",
+                        providerData: {
+                          clientId: "synthetic-browser-git",
+                          clientSecret: "synthetic-browser-git-secret",
+                        },
+                      },
+                    ],
+                  }
+                : {}),
+            }
+          : {}),
       });
       let endpoint: Awaited<ReturnType<typeof readBrowserEndpoint>> | null =
         null;
@@ -1432,22 +1452,269 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
         if (!pageUrl) await delay(100);
       }
       assert.ok(pageUrl, "credential_browser_page_unavailable");
-      let ready = false;
-      for (let attempt = 0; attempt < 10 && !ready; attempt++) {
-        try {
-          ready =
-            (await requestBrowser(
-              pageUrl,
-              "Runtime.evaluate",
+      let browserSession: string | null = null;
+      if (browserLogin) {
+        await waitForBrowserCondition(
+          pageUrl,
+          `Boolean(document.querySelector('form[action="/api/session/login/google"]'))&&!document.querySelector('form[action="/api/access/connection"]')`,
+        );
+        const cookie = await browserLogin.createSession(handle.baseUrl);
+        if (usesGitHost)
+          await browserLogin.connectGitHost(handle.baseUrl, cookie);
+        if (mode === "shared-session") {
+          const view = await fetch(
+            new URL("/api/workbench/view", handle.baseUrl),
+            {
+              headers: { cookie },
+            },
+          );
+          assert.equal(view.status, 200);
+          const { view: kind, portfolio } = await view.json();
+          assert.equal(kind, "access");
+          assert.equal(portfolio, null, "登録前にリポジトリ内容を返さない");
+          const selected = await fetch(
+            new URL(
+              "/api/workbench/view?repositoryId=repository.next",
+              handle.baseUrl,
+            ),
+            { headers: { cookie } },
+          );
+          assert.equal(selected.status, 403);
+          await selected.text();
+        }
+        const delimiter = cookie.indexOf("=");
+        assert.ok(delimiter > 0);
+        await requestBrowser(pageUrl, "Network.setCookie", {
+          name: cookie.slice(0, delimiter),
+          value: cookie.slice(delimiter + 1),
+          url: handle.baseUrl,
+          path: "/api",
+          httpOnly: true,
+          sameSite: "Lax",
+        });
+        await reloadBrowserDocument(
+          pageUrl,
+          'section[aria-label="ログインと利用者招待"] button',
+        );
+        browserSession = cookie;
+      }
+      if (mode === "shared-session" || mode === "shared-management") {
+        assert.ok(browserSession);
+        const legacy = await fetch(`${handle.baseUrl}/api/projects`, {
+          headers: { authorization: `Bearer ${material.token}` },
+        });
+        assert.equal(legacy.status, 403);
+        assert.deepEqual(await legacy.json(), { error: "request_rejected" });
+        if (mode === "shared-session") {
+          const target = path.join(directory, "next");
+          const openManagement = `[...document.querySelectorAll('button')].find(b=>b.textContent==='管理セッションを開始')`;
+          const register = `document.querySelector('form:has([name=directory]):has([name=repositoryId])')`;
+          const unregister = `document.querySelector('#access-management form:has([name=operation][value=unregisterRepository]):has([name=repositoryId][value="repository.next"])')`;
+          await waitForBrowserCondition(pageUrl, `Boolean(${openManagement})`);
+          await requestBrowser(pageUrl, "Runtime.evaluate", {
+            expression: `${openManagement}.click()`,
+            returnByValue: true,
+          });
+          await waitForBrowserCondition(
+            pageUrl,
+            `Boolean(${register})&&!${register}.querySelector('fieldset').disabled`,
+          );
+          await requestBrowser(pageUrl, "Runtime.evaluate", {
+            expression: `(()=>{const form=${register};form.elements.namedItem('repositoryId').value='repository.next';form.elements.namedItem('directory').value=${JSON.stringify(target)};form.requestSubmit();})()`,
+            returnByValue: true,
+          });
+          await waitForBrowserCondition(pageUrl, `Boolean(${unregister})`);
+          const readState = async () =>
+            JSON.parse(
+              await readFile(current, "utf8"),
+            ) as AccessManagementState;
+          const registered = await readState();
+          assert.deepEqual(
+            registered.registeredRepositories.map(
+              ({ repositoryId, hostedRepository }) => ({
+                repositoryId,
+                hostedRepository,
+              }),
+            ),
+            [
               {
-                expression: `(async () => { const end=Date.now()+15000; while(Date.now()<end) { if(document.querySelector(${JSON.stringify(mode === "local-connection" || mode === "content-operations" || mode === "artifact-navigation" || mode === "git-operations" || mode === "cros-management" || mode === "ai-selection-manager" || mode === "ai-selection-developer" ? "#connection form" : "#credential-administration form")}) && document.readyState==='complete') return true; await new Promise(r=>setTimeout(r,100)); } return false; })()`,
-                awaitPromise: true,
-                returnByValue: true,
+                repositoryId: "repository.next",
+                hostedRepository: {
+                  provider: "github",
+                  host: "github.com",
+                  repositoryId: "92",
+                  providerData: { installationId: "24" },
+                },
               },
-              undefined,
-              "single",
-              "document_ready",
-            )) === true;
+            ],
+          );
+          const git = (...args: string[]) => {
+            const result = spawnSync("git", args, {
+              cwd: target,
+              encoding: "utf8",
+              windowsHide: true,
+            });
+            assert.equal(result.status, 0, result.stderr);
+            return result.stdout.trim();
+          };
+          const head = git("rev-parse", "HEAD");
+          await requestBrowser(pageUrl, "Page.navigate", {
+            url: new URL("/?repositoryId=repository.next", handle.baseUrl).href,
+          });
+          const form = (operation: string) =>
+            `document.querySelector(${JSON.stringify(`#repository form:has([name=operation][value=${operation}])`)})`;
+          await waitForBrowserCondition(pageUrl, `Boolean(${form("prepare")})`);
+          assert.equal(
+            await requestBrowser(pageUrl, "Runtime.evaluate", {
+              expression: `!([${form("create_revision")},${form("publish_revision")}].some(Boolean))`,
+              returnByValue: true,
+            }),
+            true,
+          );
+          for (const [operation, next, staged] of [
+            ["prepare", "unprepare", "work.txt"],
+            ["unprepare", "prepare", ""],
+          ] as const) {
+            await requestBrowser(pageUrl, "Runtime.evaluate", {
+              expression: `${form(operation)}.requestSubmit()`,
+              returnByValue: true,
+            });
+            await waitForBrowserCondition(
+              pageUrl,
+              `Boolean(${form(next)})&&!document.querySelector('.repository-operation-surface fieldset')?.disabled`,
+            );
+            assert.equal(git("diff", "--cached", "--name-only"), staged);
+          }
+          assert.equal(git("rev-parse", "HEAD"), head);
+          await requestBrowser(pageUrl, "Page.navigate", {
+            url: handle.baseUrl,
+          });
+          await waitForBrowserCondition(pageUrl, `Boolean(${unregister})`);
+          await requestBrowser(pageUrl, "Runtime.evaluate", {
+            expression: `${unregister}.requestSubmit()`,
+            returnByValue: true,
+          });
+          await waitForBrowserCondition(
+            pageUrl,
+            `!${unregister} && document.querySelector('#access-management [role=status]')?.textContent.includes('変更を保存しました')`,
+          );
+          const removed = await readState();
+          assert.equal(removed.revision, registered.revision + 1);
+          assert.deepEqual(removed.registeredRepositories, []);
+          const afterRemoval = await fetch(
+            new URL(
+              "/api/workbench/view?repositoryId=repository.next",
+              handle.baseUrl,
+            ),
+            { headers: { cookie: browserSession } },
+          );
+          assert.equal(afterRemoval.status, 403);
+          assert.equal(
+            await afterRemoval.text(),
+            "local_repository_access_unavailable\n",
+          );
+          assert.equal(git("rev-parse", "HEAD"), head);
+          assert.equal(
+            await readFile(path.join(target, "work.txt"), "utf8"),
+            "working-next\n",
+          );
+        }
+        const logoutButton = `[...document.querySelectorAll('button')].find(b=>b.textContent==='ログアウト')`;
+        await waitForBrowserCondition(pageUrl, `Boolean(${logoutButton})`);
+        if (mode === "shared-session") {
+          const delimiter = browserSession.indexOf("=");
+          assert.ok(delimiter > 0);
+          const cookie = {
+            name: browserSession.slice(0, delimiter),
+            url: handle.baseUrl,
+            path: "/api",
+          };
+          await requestBrowser(pageUrl, "Network.deleteCookies", {
+            name: cookie.name,
+            domain: new URL(handle.baseUrl).hostname,
+            path: cookie.path,
+          });
+          await requestBrowser(pageUrl, "Runtime.evaluate", {
+            expression: `${logoutButton}.click()`,
+          });
+          await waitForBrowserCondition(
+            pageUrl,
+            `[...document.querySelectorAll('section[aria-label="ログインと利用者招待"] [role=status]')].some(p=>p.textContent.includes('再ログインしてからログアウト')) &&
+              Boolean(document.querySelector('form[action="/api/session/login/google"] button')) &&
+              !document.querySelector('[aria-label="Gitホスト連携"],#projects')`,
+          );
+          await requestBrowser(pageUrl, "Network.setCookie", {
+            ...cookie,
+            value: browserSession.slice(delimiter + 1),
+            httpOnly: true,
+            sameSite: "Lax",
+          });
+          await reloadBrowserDocument(
+            pageUrl,
+            'section[aria-label="ログインと利用者招待"] button',
+          );
+          await waitForBrowserCondition(pageUrl, `Boolean(${logoutButton})`);
+        }
+        if (mode === "shared-management") {
+          const management = (await requestBrowser(
+            pageUrl,
+            "Runtime.evaluate",
+            {
+              expression: managementBrowserExpression(),
+              awaitPromise: true,
+              returnByValue: true,
+            },
+            undefined,
+            "composite",
+          )) as { userId?: string; failedStage?: string; writes: unknown[] };
+          assert.equal(
+            management.failedStage,
+            undefined,
+            JSON.stringify(management),
+          );
+          assert.ok(management.userId);
+          const targetUser = `/api/users/${management.userId}`;
+          assert.deepEqual(management, {
+            userId: management.userId,
+            writes: [
+              ["POST", "/api/users"],
+              ["PATCH", targetUser],
+              ["PUT", `${targetUser}/role`],
+              ...Array.from({ length: 5 }, () => ["PATCH", targetUser]),
+            ],
+            conflictReads: [
+              "/api/access/me",
+              "/api/repositories",
+              "/api/users",
+            ],
+            focused: true,
+            storageEmpty: true,
+            retiredControlsAbsent: true,
+          });
+          const saved = JSON.parse(
+            await readFile(current, "utf8"),
+          ) as AccessManagementState;
+          const invited = saved.users.filter(
+            (user) => user.userId === management.userId,
+          );
+          assert.equal(invited.length, 1);
+          assert.equal(invited[0]?.username, "管理画面改名");
+          assert.equal(invited[0]?.role, "manager");
+        }
+        const sessionUrl = new URL("/api/session", handle.baseUrl);
+        const beforeLogout = await fetch(sessionUrl, {
+          headers: { cookie: browserSession },
+        });
+        assert.equal(beforeLogout.status, 200);
+        await beforeLogout.text();
+        try {
+          assert.equal(
+            await requestBrowser(pageUrl, "Runtime.evaluate", {
+              expression: `(()=>{const button=${logoutButton};if(!button)return false;button.click();return true;})()`,
+              returnByValue: true,
+            }),
+            true,
+          );
         } catch (error) {
           if (
             !(error instanceof Error) ||
@@ -1455,10 +1722,29 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           )
             throw error;
         }
-        if (!ready) await delay(250);
+        let status = 200;
+        for (let attempt = 0; attempt < 40 && status !== 401; attempt++) {
+          const session = await fetch(sessionUrl, {
+            headers: { cookie: browserSession },
+          });
+          status = session.status;
+          await session.text();
+          if (status !== 401) await delay(100);
+        }
+        assert.equal(status, 401);
+        return;
       }
-      assert.equal(ready, true, "credential_browser_ready_unconfirmed");
       if (mode === "git-operations") {
+        await waitForBrowserCondition(
+          pageUrl,
+          `document.readyState==='complete'&&Boolean(document.querySelector('#repository form:has([name=operation][value=prepare])'))`,
+        );
+        const identifyGitWrite = String.raw`(input,options)=>{
+          const route=new URL(String(input),location.href).pathname;
+          const method=options?.method;
+          if(/^\/api\/repositories\/[^/]+\/staging$/.test(route))return method==='POST'||method==='DELETE';
+          return method==='POST'&&/^\/api\/repositories\/[^/]+\/revisions(?:\/(?:[a-f0-9]{40}|[a-f0-9]{64})\/publication)?$/.test(route);
+        }`;
         const otherHead = spawnSync("git", ["rev-parse", "HEAD"], {
           cwd: path.join(directory, "latest"),
           encoding: "utf8",
@@ -1469,8 +1755,9 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           "Runtime.evaluate",
           {
             expression: `(async()=>{
-            const key=${JSON.stringify(material.token)}, originalFetch=window.fetch;let posts=0,authenticated=true,stage='connect';
-            window.fetch=(input,options)=>{if(new URL(String(input),location.href).pathname==='/api/repository'){posts++;authenticated=authenticated&&new Headers(options?.headers).get('authorization')==='Bearer '+key;}return originalFetch(input,options);};
+            const originalFetch=window.fetch;let posts=0,noCredential=true,stage='ready';
+            const isGitWrite=${identifyGitWrite};
+            window.fetch=(input,options)=>{if(isGitWrite(input,options)){posts++;noCredential=noCredential&&options?.credentials==='omit'&&!new Headers(options?.headers).has('authorization');}return originalFetch(input,options);};
             /**
              * Git操作の描画と結果確定を期限内で待つ。
              * @responsibility Git操作の描画と結果確定を期限内で待つ。
@@ -1509,9 +1796,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
              */
             const settled=(reason)=>document.querySelector('.repository-operation-surface .operation-result')?.innerText.includes(reason)&&!document.querySelector('.repository-operation-surface fieldset')?.disabled;
             try{
-              document.querySelector('#connection input[name=token]').value=key;document.querySelector('#connection form').requestSubmit();
-              await wait(()=>document.querySelector('#connection input[name=operation]')?.value==='disconnect'&&!document.querySelector('#connection button')?.disabled);
-              stage='select';const link=document.createElement('a');link.href='/?repositoryId=repository.next';document.querySelector('[data-workbench-react-root]').append(link);link.click();link.remove();await wait(()=>!!form('prepare'));
+              await wait(()=>!!form('prepare')&&!document.querySelector('#connection form'));
               stage='stage';let operation=form('prepare');operation.requestSubmit();operation.requestSubmit();await wait(()=>settled('prepare_completed'));
               const singleStage=posts===1&&!!form('unprepare');
               stage='unstage';form('unprepare').requestSubmit();await wait(()=>settled('unprepare_completed')&&!!form('prepare'));
@@ -1520,7 +1805,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               const publication=form('publish_revision'), revision=publication.querySelector('[name=revisionIdentity]').value;
               const beforeConfirmation=posts;publication.requestSubmit();await new Promise(resolve=>setTimeout(resolve,100));const confirmationRequired=posts===beforeConfirmation;
               stage='push';publication.querySelector('[name=humanConfirmed]').checked=true;publication.requestSubmit();publication.requestSubmit();await wait(()=>settled('publication_confirmed'));
-              return{singleStage,confirmationRequired,posts,authenticated,revision,selected:document.querySelector('[data-repository-id]')?.dataset.repositoryId,storageEmpty:localStorage.length===0&&sessionStorage.length===0};
+              return{singleStage,confirmationRequired,posts,noCredential,revision,selected:document.querySelector('[data-repository-id]')?.dataset.repositoryId,storageEmpty:localStorage.length===0&&sessionStorage.length===0};
             }catch(error){return{failedStage:stage,posts,errorClass:['Error','TypeError','SyntaxError','ReferenceError'].includes(error?.name)?error.name:'other'};}finally{window.fetch=originalFetch;}
           })()`,
             awaitPromise: true,
@@ -1529,7 +1814,10 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           undefined,
           "composite",
         );
-        assert.ok(normal && typeof normal === "object" && "revision" in normal);
+        assert.ok(
+          normal && typeof normal === "object" && "revision" in normal,
+          JSON.stringify(normal),
+        );
         const observed = normal as Record<string, unknown>;
         const remoteHead = spawnSync("git", ["rev-parse", "refs/heads/main"], {
           cwd: path.join(directory, "remote.git"),
@@ -1541,7 +1829,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           singleStage: true,
           confirmationRequired: true,
           posts: 5,
-          authenticated: true,
+          noCredential: true,
           revision: remoteHead.stdout.trim(),
           selected: "repository.next",
           storageEmpty: true,
@@ -1602,7 +1890,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
              */
             const panel=()=>document.querySelector('#workspaces'), button=(text)=>[...panel().querySelectorAll('button')].find(b=>b.textContent===text), notice=()=>panel().querySelector('[role=status]')?.textContent;
             const originalFetch=window.fetch;let creates=0,renames=0,corrupt=false,stage='queue',lastResult=null;
-            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;const command=route==='/api/workspace'?JSON.parse(new URLSearchParams(String(options.body)).get('command')):null;if(command?.operation==='create')creates++;if(command?.operation==='rename')renames++;const response=await originalFetch(input,options);if(command?.operation==='create'){lastResult={httpStatus:response.status};try{const value=await response.clone().json();lastResult={...lastResult,status:value.status,reason:/^[a-z_]+$/.test(value.data?.reason??'')?value.data.reason:null};}catch{lastResult={...lastResult,json:false};}}if(corrupt===true&&command?.operation==='rename'){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(typeof corrupt==='string'&&command?.operation==='get'){const result=await response.json();if(corrupt==='wrong-id')result.data.workspace.workspaceId='00000000-0000-4000-8000-000000000099';if(corrupt==='bad-paths')result.data.changedPaths=[{}];if(corrupt==='fixture-paths')result.data.changedPaths=['synthetic-changed.txt'];return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}if(corrupt==='bad-status'&&command?.operation==='rename'){const result=await response.json();result.data.status='made-up';return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}return response;};
+            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;const method=options?.method??'GET';const collection=/^\\/api\\/repositories\\/[^/]+\\/workspaces$/.test(route);const item=/^\\/api\\/repositories\\/[^/]+\\/workspaces\\/[0-9a-f-]+$/.test(route);const command=collection&&method==='POST'?{operation:'create'}:item&&method==='PATCH'?{operation:'rename'}:item&&method==='GET'?{operation:'get'}:null;if(command?.operation==='create')creates++;if(command?.operation==='rename')renames++;const response=await originalFetch(input,options);if(command?.operation==='create'){lastResult={httpStatus:response.status};try{const value=await response.clone().json();lastResult={...lastResult,status:value.status,reason:/^[a-z_]+$/.test(value.data?.reason??'')?value.data.reason:null};}catch{lastResult={...lastResult,json:false};}}if(corrupt===true&&command?.operation==='rename'){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(typeof corrupt==='string'&&command?.operation==='get'){const result=await response.json();if(corrupt==='wrong-id')result.data.workspace.workspaceId='00000000-0000-4000-8000-000000000099';if(corrupt==='bad-paths')result.data.changedPaths=[{}];if(corrupt==='fixture-paths')result.data.changedPaths=['synthetic-changed.txt'];return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}if(corrupt==='bad-status'&&command?.operation==='rename'){const result=await response.json();result.data.status='made-up';return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}return response;};
             try{
               button('受付一覧を再取得').click();await wait(()=>panel().querySelector('select')?.options.length===3);
               const queue=panel().querySelector('select');queue.value='queue-a';queue.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(resolve=>requestAnimationFrame(resolve));
@@ -1665,22 +1953,29 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           "keep in the original worktree\n",
         );
         await rm(localOnly);
-        await writeFile(
-          path.join(directory, "next", "work.txt"),
-          "after-browser-push\n",
+        await waitForBrowserCondition(
+          pageUrl,
+          `Boolean(document.querySelector('#repository form:has([name=operation][value=prepare]):has([name=path][value="zz-follow-up.txt"])'))`,
         );
-        await requestBrowser(pageUrl, "Runtime.evaluate", {
-          expression: `(async()=>{const link=document.createElement('a');link.href='/?repositoryId=repository.next&gitRefresh=true';document.querySelector('[data-workbench-react-root]').append(link);link.click();link.remove();const end=Date.now()+10000;while(Date.now()<end){if(document.querySelector('#repository form:has([name=operation][value=prepare])'))return true;await new Promise(resolve=>setTimeout(resolve,40));}return false;})()`,
-          awaitPromise: true,
-          returnByValue: true,
-        }).then((value) => assert.equal(value, true));
+        const changePreview = await fetch(
+          new URL(
+            "/api/workbench/view?route=%2Fchange&id=CHG-000901",
+            handle.baseUrl,
+          ),
+        );
+        assert.equal(changePreview.status, 200);
+        assert.equal(
+          (await changePreview.json()).artifact?.identity,
+          "CHG-000901",
+        );
         const faults = await requestBrowser(
           pageUrl,
           "Runtime.evaluate",
           {
             expression: `(async()=>{
-            const originalFetch=window.fetch;let posts=0,failRead=false,corrupt=false,hold=false,release=null,signal=null,stage='saved-read-failure';
-            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;if(route==='/api/workbench/view'&&failRead)throw new Error('fixture_read_failure');if(route==='/api/repository')posts++;const response=await originalFetch(input,options);if(route==='/api/repository'&&corrupt){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(route==='/api/repository'&&hold){signal=options.signal;return new Promise(resolve=>{release=()=>resolve(response);});}return response;};
+            const originalFetch=window.fetch;let posts=0,failRead=false,corrupt=false,hold=false,release=null,signal=null,stage='saved-read-failure',detailStatus=null;
+            const isGitWrite=${identifyGitWrite};
+            window.fetch=async(input,options)=>{const url=new URL(String(input),location.href);const write=isGitWrite(input,options);if(url.pathname==='/api/workbench/view'&&failRead)throw new Error('fixture_read_failure');if(write)posts++;const response=await originalFetch(input,options);if(url.searchParams.get('id')==='CHG-000901')detailStatus=response.status;if(write&&corrupt){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(write&&hold){signal=options.signal;return new Promise(resolve=>{release=()=>resolve(response);});}return response;};
             /**
              * Git応答故障後の拒否・不明表示を待つ。
              * @responsibility Git応答故障後の拒否・不明表示を待つ。
@@ -1739,11 +2034,11 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               const blockedSeparate=posts===3&&document.querySelector('.repository-operation-surface .operation-result')?.innerText.includes('revision_creation_rejected');
               stage='blocked-retry';failRead=false;document.querySelector('.repository-operation-surface button').click();await wait(()=>!!form('prepare'));const blockedRetryNoPost=posts===3;
               stage='pending';hold=true;form('prepare').requestSubmit();await wait(()=>typeof release==='function');
-              stage='switch';const link=document.createElement('a');link.href='/?repositoryId=repository.latest';document.querySelector('[data-workbench-react-root]').append(link);link.click();link.remove();await wait(()=>document.querySelector('[data-repository-id]')?.dataset.repositoryId==='repository.latest');
+              stage='switch';const link=document.createElement('a');link.href='/change?id=CHG-000901';document.querySelector('[data-workbench-react-root]').append(link);link.click();link.remove();await wait(()=>location.pathname==='/change'&&document.querySelector('#artifact-detail .canonical-markdown')?.textContent.includes('単体の試験用成果物'));
               const aborted=signal?.aborted===true;release();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-              const lateRejected=posts===4&&!document.querySelector('.repository-operation-surface .operation-result')&&document.querySelector('[data-repository-id]')?.dataset.repositoryId==='repository.latest';
+              const lateRejected=posts===4&&detailStatus===200&&!document.querySelector('.repository-operation-surface .operation-result')&&location.pathname==='/change'&&document.querySelector('#artifact-detail .canonical-markdown')?.textContent.includes('単体の試験用成果物');
               return{knownSaved,retryNoPost,unknownNotUnsaved,unknownRetryNoPost,blockedSeparate,blockedRetryNoPost,aborted,lateRejected,posts};
-            }catch(error){return{failedStage:stage,posts,errorClass:['Error','TypeError','SyntaxError','ReferenceError'].includes(error?.name)?error.name:'other'};}finally{if(release)release();window.fetch=originalFetch;}
+            }catch(error){return{failedStage:stage,posts,detailStatus,atDetail:location.pathname==='/change',blocked:document.querySelector('[data-workbench-react-root]')?.dataset.workbenchClient==='blocked',errorClass:['Error','TypeError','SyntaxError','ReferenceError'].includes(error?.name)?error.name:'other'};}finally{if(release)release();window.fetch=originalFetch;}
           })()`,
             awaitPromise: true,
             returnByValue: true,
@@ -1768,7 +2063,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             encoding: "utf8",
             windowsHide: true,
           }).stdout.trim(),
-          "work.txt",
+          "zz-follow-up.txt",
         );
         assert.equal(
           spawnSync("git", ["rev-parse", "HEAD"], {
@@ -1782,10 +2077,12 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
         return;
       }
       if (mode === "artifact-navigation") {
+        assert.ok(browserSession);
+        const beforeNavigation = await readFile(current);
         const observed = await requestBrowser(pageUrl, "Runtime.evaluate", {
           expression: `(async()=>{
-            const key=${JSON.stringify(material.token)}, originalFetch=window.fetch;let authenticated=0,reads=0,stage='connect';
-            window.fetch=(input,options)=>{if(new URL(String(input),location.href).pathname==='/api/workbench/view'){reads++;if(new Headers(options.headers).get('authorization')==='Bearer '+key)authenticated++;}return originalFetch(input,options);};
+            const originalFetch=window.fetch;let authenticated=0,reads=0,stage='select';
+            window.fetch=async(input,options)=>{const response=await originalFetch(input,options);if(new URL(String(input),location.href).pathname==='/api/workbench/view'){reads++;if(response.ok&&options.credentials==='same-origin'&&!new Headers(options.headers).has('authorization'))authenticated++;}return response;};
             /**
              * 成果物の対象切替後の本文描画を待つ。
              * @responsibility 成果物の対象切替後の本文描画を待つ。
@@ -1823,10 +2120,9 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
              */
             const body=()=>document.querySelector('#artifact-detail .canonical-markdown')?.textContent;
             try{
-              const unsentInput=document.querySelector('#connection input[name=token]');unsentInput.value='synthetic-unsent';const beforeInputHash=reads;click('#connection');await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-              const hashInputPreserved=unsentInput===document.querySelector('#connection input[name=token]')&&unsentInput.value==='synthetic-unsent'&&reads===beforeInputHash;
-              document.querySelector('#connection input[name=token]').value=key;document.querySelector('#connection form').requestSubmit();await wait(()=>document.querySelector('#connection input[name=operation]')?.value==='disconnect' && !document.querySelector('#connection button')?.disabled);
-              stage='select';click('/?repositoryId=repository.next');await wait(()=>!!document.querySelector('#documentation'));
+              click('/?repositoryId=repository.next');await wait(()=>!!document.querySelector('#documentation'));
+              const unsentInput=document.createElement('input');document.querySelector('#documentation').append(unsentInput);unsentInput.value='synthetic-unsent';const beforeInputHash=reads;click('#documentation');await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+              const hashInputPreserved=document.querySelector('#documentation').contains(unsentInput)&&unsentInput.value==='synthetic-unsent'&&reads===beforeInputHash;unsentInput.remove();
               stage='change';click('/change?id=CHG-000401');await wait(()=>body()?.includes('原文-next'));
               const changeSource=document.querySelector('#artifact-detail')?.dataset.repositoryId==='repository.next' && new URL(location.href).searchParams.get('repositoryId')==='repository.next';
               const textOnly=body().includes('<script>') && !document.querySelector('#artifact-detail script') && globalThis.__artifactProbe===undefined;
@@ -1925,6 +2221,11 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           sharedNullRejected: true,
           standaloneSelectionRejected: true,
         });
+        const logout = await fetch(new URL("/api/session", handle.baseUrl), {
+          method: "DELETE",
+          headers: { cookie: browserSession, origin: handle.baseUrl },
+        });
+        assert.equal(logout.status, 204);
         await requestBrowser(pageUrl, "Page.reload");
         let reloaded: unknown;
         for (
@@ -1935,7 +2236,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           await delay(250);
           try {
             reloaded = await requestBrowser(pageUrl, "Runtime.evaluate", {
-              expression: `(async()=>{const end=Date.now()+10000;while(Date.now()<end){if(document.querySelector('#connection input[name=token]'))return{reconnect:true,bodyAbsent:!document.querySelector('#artifact-detail'),storageEmpty:localStorage.length===0&&sessionStorage.length===0};await new Promise(r=>setTimeout(r,40));}return{reconnect:false};})()`,
+              expression: `(async()=>{const end=Date.now()+10000;while(Date.now()<end){if(document.querySelector('form[action="/api/session/login/google"]'))return{reconnect:true,bodyAbsent:!document.querySelector('#artifact-detail'),storageEmpty:localStorage.length===0&&sessionStorage.length===0};await new Promise(r=>setTimeout(r,40));}return{reconnect:false};})()`,
               awaitPromise: true,
               returnByValue: true,
             });
@@ -1952,23 +2253,16 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           bodyAbsent: true,
           storageEmpty: true,
         });
-        assert.deepEqual(JSON.parse(await readFile(current, "utf8")), state);
+        assert.deepEqual(await readFile(current), beforeNavigation);
         return;
       }
       if (mode === "content-operations") {
-        const connected = await requestBrowser(pageUrl, "Runtime.evaluate", {
-          expression: `(async()=>{
-            document.querySelector('#connection input[name=token]').value=${JSON.stringify(material.token)};
-            document.querySelector('#connection form').requestSubmit();
-            const end=Date.now()+10000;while(Date.now()<end){
-              if(document.querySelector('#connection input[name=operation]')?.value==='disconnect'&&!document.querySelector('#connection button')?.disabled)return true;
-              await new Promise(resolve=>setTimeout(resolve,40));
-            }return false;
-          })()`,
-          awaitPromise: true,
-          returnByValue: true,
-        });
-        assert.equal(connected, true);
+        assert.ok(browserSession);
+        assert.ok(browserLogin);
+        const contentBaseline = await readFile(current);
+        const contentState = JSON.parse(
+          contentBaseline.toString("utf8"),
+        ) as AccessManagementState;
         const targetContext = path.join(
           directory,
           "next",
@@ -2003,7 +2297,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             "denied_reader_observer_positive_control",
           );
           const beforeTimeOnly = await readFile(current);
-          const contentRequest = `(async()=>{const reply=await fetch('/api/workbench/view?repositoryId=repository.next',{headers:{authorization:'Bearer '+${JSON.stringify(material.token)}}});return{status:reply.status,model:await reply.json()};})()`;
+          const contentRequest = `(async()=>{const reply=await fetch('/api/workbench/view?repositoryId=repository.next');return{status:reply.status,model:await reply.json()};})()`;
           deniedReads = 0;
           const initialContent = await requestBrowser(
             pageUrl,
@@ -2019,7 +2313,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             initialReads > 0,
             "authorized_content_reader_positive_control",
           );
-          const later = Date.now() + 365 * 24 * 60 * 60 * 1000;
+          const later = Date.now() + 60_000;
           const clock = context.mock.method(Date, "now", () => later);
           try {
             deniedReads = 0;
@@ -2042,47 +2336,53 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           } finally {
             clock.mock.restore();
           }
+          const developerState = structuredClone(contentState);
+          const developer = developerState.users[0];
+          assert.ok(developer?.accountLinks);
+          developer.role = "developer";
+          await writeFile(current, JSON.stringify(developerState));
+          const developerView = (await requestBrowser(
+            pageUrl,
+            "Runtime.evaluate",
+            {
+              expression: contentRequest,
+              awaitPromise: true,
+              returnByValue: true,
+            },
+          )) as { status: number; model?: { selectedRepositoryId?: string } };
+          assert.equal(
+            developerView.status,
+            200,
+            "管理ロールはGitの内容権限を狭めない",
+          );
+          assert.equal(
+            developerView.model?.selectedRepositoryId,
+            "repository.next",
+          );
           for (const scenario of [
-            "revoked",
-            "stale-role",
-            "exposure-outside",
-            "management-only",
+            "account-unlinked",
+            "git-read-removed",
+            "git-host-unavailable",
             "root-unavailable",
           ] as const) {
-            const rejectedState = structuredClone(state);
+            const rejectedState = structuredClone(contentState);
             const actor = rejectedState.users[0];
-            const credential = rejectedState.credentials[0];
-            assert.ok(actor && credential);
-            if (scenario === "revoked") credential.revoked = true;
-            if (scenario === "stale-role") {
-              actor.role = "developer";
-              const role = rejectedState.roleContentAccess.find(
-                (entry) => entry.role === "developer",
-              );
-              assert.ok(role);
-              role.workspaceIds = [];
-            }
-            if (scenario === "exposure-outside") {
-              const exposure = rejectedState.exposure.find(
-                (entry) => entry.repositoryId === "repository.next",
-              );
-              assert.ok(exposure);
-              exposure.workspaceIds = [];
-            }
-            if (scenario === "management-only") {
-              const role = rejectedState.roleContentAccess.find(
-                (entry) => entry.role === "administrator",
-              );
-              assert.ok(role);
-              role.workspaceIds = ["management"];
-            }
+            assert.ok(actor?.accountLinks);
+            if (scenario === "account-unlinked") delete actor.accountLinks;
+            browserLogin.setGitRead(
+              scenario === "git-read-removed"
+                ? "denied"
+                : scenario === "git-host-unavailable"
+                  ? "unavailable"
+                  : "allowed",
+            );
             if (scenario === "root-unavailable")
               await writeFile(targetManifest, "synthetic-invalid-manifest");
             await writeFile(current, JSON.stringify(rejectedState));
             const beforeRequest = await readFile(current);
             deniedReads = 0;
             const rejected = await requestBrowser(pageUrl, "Runtime.evaluate", {
-              expression: `(async()=>{const reply=await fetch('/api/workbench/view?repositoryId=repository.next',{headers:{authorization:'Bearer '+${JSON.stringify(material.token)}}});return{status:reply.status,closedBody:await reply.text()==='local_repository_access_unavailable'+String.fromCharCode(10)};})()`,
+              expression: `(async()=>{const reply=await fetch('/api/workbench/view?repositoryId=repository.next');return{status:reply.status,closedBody:await reply.text()==='local_repository_access_unavailable'+String.fromCharCode(10)};})()`,
               awaitPromise: true,
               returnByValue: true,
             });
@@ -2101,9 +2401,10 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             await writeFile(targetManifest, manifestBefore);
           }
         } finally {
+          browserLogin.setGitRead("allowed");
           deniedObservation.mock.restore();
           syncBuiltinESMExports();
-          await writeFile(current, JSON.stringify(state));
+          await writeFile(current, contentBaseline);
           await writeFile(targetManifest, manifestBefore);
         }
         const promotionMarkdown =
@@ -2127,15 +2428,16 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           "Runtime.evaluate",
           {
             expression: `(async()=>{
-            const key=${JSON.stringify(material.token)}, originalFetch=window.fetch;
+            const originalFetch=window.fetch;
             let posts=0, reads=0, failRead=false, corruptResponse=false, lastBody=null, stage='connect';
             window.fetch=async(input, options)=>{
               const url=new URL(String(input),location.href);
               if(url.pathname==='/api/workbench/view') reads++;
               if(url.pathname==='/api/workbench/view' && failRead) throw new Error('fixture_read_failure');
-              if(url.pathname==='/api/records') { posts++; lastBody=String(options.body); }
+              const isRecordWrite=/^\\/api\\/repositories\\/[^/]+\\/(topics|meetings)(\\/|$)/.test(url.pathname) && ['POST','PATCH','DELETE','PUT'].includes(options?.method);
+              if(isRecordWrite) { posts++; lastBody=String(options.body); }
               const response=await originalFetch(input, options);
-              if(url.pathname==='/api/records' && corruptResponse) { await response.arrayBuffer(); return new Response('{',{headers:{'content-type':'application/json'}}); }
+              if(isRecordWrite && corruptResponse) { await response.arrayBuffer(); return new Response('{',{headers:{'content-type':'application/json'}}); }
               return response;
             };
             /**
@@ -2185,7 +2487,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
              * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
              * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
              */
-            const createForm=()=>document.querySelector('#topics form[action="/api/records"]:has([name=operation][value=create])');
+            const createForm=()=>document.querySelector('#topics form[data-record-operation]:has([name=operation][value=create])');
             /**
              * 同Projectの合成Topic本文をBrowser内で組み立てる。
              * @responsibility 同Projectの合成Topic本文をBrowser内で組み立てる。
@@ -2246,9 +2548,10 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             window.fetch=async(input,options)=>{
               const route=new URL(String(input),location.href).pathname;
               if(route==='/api/workbench/view' && failRead) throw new Error('fixture_read_failure');
-              if(route==='/api/records'){posts++;lastBody=String(options.body);}
+              const isRecordWrite=/^\\/api\\/repositories\\/[^/]+\\/(topics|meetings)(\\/|$)/.test(route) && ['POST','PATCH','DELETE','PUT'].includes(options?.method);
+              if(isRecordWrite){posts++;lastBody=String(options.body);}
               const response=await originalFetch(input,options);
-              if(route==='/api/records' && corruptResponse){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}
+              if(isRecordWrite && corruptResponse){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}
               return response;
             };
             /**
@@ -2298,8 +2601,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               const unknownOutcome=!document.querySelector('#topics') && !document.querySelector('.record-operation-surface .operation-result');
               stage='response-retry'; corruptResponse=false; const beforeLostRetry=posts; document.querySelector('.record-operation-surface button').click(); await wait(()=>!!createForm());
               const lostRetryNoPost=posts===beforeLostRetry && document.querySelector('#topics')?.innerText.includes('応答未確認');
-              const key=${JSON.stringify(material.token)};
-              const noSecret=localStorage.length===0 && sessionStorage.length===0 && !location.href.includes(key) && !lastBody.includes(key);
+              const noSecret=localStorage.length===0 && sessionStorage.length===0 && !document.cookie.includes('crdd-client-session=') && !location.href.includes('crdd-client-session') && !lastBody.includes('crdd-client-session');
               return {knownSave,retryNoPost,unknownOutcome,lostRetryNoPost,noSecret,posts};
             } catch {return {failedStage:stage,posts};} finally {window.fetch=originalFetch;}
           })()`,
@@ -2325,7 +2627,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           {
             expression: `(async()=>{
             const originalFetch=window.fetch; let posts=0, lastBody=null, stage='promotion-create', lastReadStatus=null;
-            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;if(route==='/api/records'){posts++;lastBody=new URLSearchParams(options.body);}const response=await originalFetch(input,options);if(route==='/api/workbench/view')lastReadStatus=response.status;return response;};
+            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;if(/^\\/api\\/repositories\\/[^/]+\\/(topics|meetings)(\\/|$)/.test(route)&&['POST','PATCH','DELETE','PUT'].includes(options?.method)){posts++;lastBody=JSON.parse(options.body);}const response=await originalFetch(input,options);if(route==='/api/workbench/view')lastReadStatus=response.status;return response;};
             /**
              * Topic昇格とMeeting処置の表示を待つ。
              * @responsibility Topic昇格とMeeting処置の表示を待つ。
@@ -2396,11 +2698,11 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
                */
               const fill=(outcome, close)=>{const form=getForm('treat-outcome');form.closest('details').open=true;for(const [name,value] of Object.entries({outcomeId:outcome,owner:'試験担当',reviewTrigger:'次回',targetReference:'N/A: 自己完結',treatment:'完了確認',completionCondition:'確認済み',result:'確認済み'}))form.querySelector('[name='+name+']').value=value;form.querySelector('[name=closeMeeting]').checked=close;return form;};
               stage='early-close'; fill('OUT-001',true).requestSubmit();await wait(()=>result('meeting_outcome_invalid'));
-              const earlyCloseRejected=document.querySelector('#meeting-detail header')?.innerText.includes('recorded') && lastBody.getAll('closeMeeting').join(',')==='true';
+              const earlyCloseRejected=document.querySelector('#meeting-detail header')?.innerText.includes('recorded') && lastBody.closeMeeting===true;
               stage='first-outcome'; fill('OUT-001',false).requestSubmit();await wait(()=>result('meeting_outcome_treated'));
-              const uncheckedFalseOnce=lastBody.getAll('closeMeeting').join(',')==='false' && document.querySelector('#meeting-detail header')?.innerText.includes('recorded');
+              const uncheckedFalseOnce=lastBody.closeMeeting===false && document.querySelector('#meeting-detail header')?.innerText.includes('recorded');
               stage='final-close'; fill('OUT-002',true).requestSubmit();await wait(()=>result('meeting_outcome_treated') && document.querySelector('#meeting-detail header')?.innerText.includes('closed'));
-              const closed=lastBody.getAll('closeMeeting').join(',')==='true' && new URL(location.href).searchParams.get('repositoryId')==='repository.next';
+              const closed=lastBody.closeMeeting===true && new URL(location.href).searchParams.get('repositoryId')==='repository.next';
               return {promoted,earlyCloseRejected,uncheckedFalseOnce,closed,posts};
             }catch(error){return {failedStage:stage,errorClass:['Error','TypeError','SyntaxError','ReferenceError'].includes(error?.name)?error.name:'other',posts,lastReadStatus,screen:document.querySelector('[data-workbench-react-root]')?.dataset.workbenchClient,route:location.pathname};}finally{window.fetch=originalFetch;}
           })()`,
@@ -2430,9 +2732,10 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             window.fetch=async(input,options)=>{
               const route=new URL(String(input),location.href).pathname;
               if(route==='/api/workbench/view' && failRead) throw new Error('fixture_read_failure');
-              if(route==='/api/records') posts++;
+              const isRecordWrite=/^\\/api\\/repositories\\/[^/]+\\/(topics|meetings)(\\/|$)/.test(route) && ['POST','PATCH','DELETE','PUT'].includes(options?.method);
+              if(isRecordWrite) posts++;
               const response=await originalFetch(input,options);
-              if(route==='/api/records' && holdPost) {lateSignal=options.signal;return new Promise(resolve=>{releaseLate=()=>resolve(response);});}
+              if(isRecordWrite && holdPost) {lateSignal=options.signal;return new Promise(resolve=>{releaseLate=()=>resolve(response);});}
               return response;
             };
             /**
@@ -2536,28 +2839,32 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           ),
           false,
         );
-        assert.deepEqual(JSON.parse(await readFile(current, "utf8")), state);
+        assert.deepEqual(await readFile(current), contentBaseline);
         return;
       }
       if (
         mode === "ai-selection-manager" ||
         mode === "ai-selection-developer"
       ) {
+        assert.ok(browserSession);
+        const accessBeforeSelection = await readFile(current);
         const observed = await requestBrowser(
           pageUrl,
           "Runtime.evaluate",
           {
             expression: `(async()=>{
-            const key=${JSON.stringify(material.token)};
-            const original=window.fetch; let posts=0, corrupt=false, failView=false, held=null, heldSignal=null, stage='connect';
+            const original=window.fetch; let posts=0, corrupt=false, failView=false, held=null, heldSignal=null, stage='session',noAuthorization=true;
             window.fetch=async(input,options)=>{
               const url=new URL(input instanceof Request?input.url:String(input),location.href),route=url.pathname;
               const method=(options?.method??(input instanceof Request?input.method:'GET')).toUpperCase();
-              const selection=url.origin===location.origin&&route==='/api/ai-selection';
-              if(selection&&method==='POST')posts++;
+              const selection=url.origin===location.origin&&/^\\/api\\/repositories\\/[^/]+\\/ai-selection$/.test(route);
+              if(selection){
+                if(method==='PUT')posts++;
+                noAuthorization=noAuthorization&&!new Headers(options?.headers).has('authorization');
+              }
               if(route==='/api/workbench/view'&&failView)throw Error('fixture_read_unavailable');
               const reply=await original(input,options);
-              if(selection&&method==='POST'&&corrupt){await reply.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}
+              if(selection&&method==='PUT'&&corrupt){await reply.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}
               if(selection&&method==='GET'&&held===true){heldSignal=options.signal;return new Promise(resolve=>{held=()=>resolve(reply);});}
               return reply;
             };
@@ -2634,15 +2941,19 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
              */
             const read=()=>panel().querySelector('button').click();
             try {
-              document.querySelector('#connection input[name=token]').value=key;
-              document.querySelector('#connection form').requestSubmit();
-              await wait(()=>document.querySelector('#connection input[name=operation]')?.value==='disconnect');
+              await wait(()=>[...document.querySelectorAll('button')].some(button=>button.textContent==='ログアウト'));
+              if(${JSON.stringify(mode)}==='ai-selection-manager'){
+                [...document.querySelectorAll('button')].find(button=>button.textContent==='管理セッションを開始').click();
+                await wait(()=>!!document.querySelector('#access-management'));
+              }
               const noHostSettings=!panel();
               stage='select';await navigate('repository.next');
               await wait(()=>document.querySelector('#ai-selection'));
-              const secretAbsent=!document.body.innerText.includes(key)&&!location.href.includes(key)&&localStorage.length===0&&sessionStorage.length===0;
-              if(${JSON.stringify(mode)}==='ai-selection-developer')
-                return {noHostSettings,secretAbsent,readable:document.querySelector('#ai-selection').textContent.includes('gpt-5.5'),managementAbsent:!panel(),posts};
+              if(${JSON.stringify(mode)}==='ai-selection-developer'){
+                const response=await fetch('/api/repositories/repository.next/ai-selection',{credentials:'same-origin'});
+                await response.text();
+                return {noHostSettings,secretAbsent:noAuthorization&&localStorage.length===0&&sessionStorage.length===0,readRejected:response.status===403&&!document.querySelector('#ai-selection').textContent.includes('gpt-5.5'),managementAbsent:!panel(),posts};
+              }
               await wait(()=>panel()?.querySelector('textarea')&&!panel().querySelector('button').disabled);
               stage='edit-controls';
               /**
@@ -2700,7 +3011,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               await wait(()=>panel().querySelectorAll('select').length===15);
               const missingNotDefaulted=[...panel().querySelectorAll('select')].every(select=>select.value==='')&&posts===3;
               await navigate('repository.next');await wait(()=>panel().querySelector('textarea').value.includes('saved-before-read-failure'));
-              return {noHostSettings,secretAbsent,controlsEdited,controlsRemoved,singleSave,noResponseRetry,freshAfterLoss,savedRetained,cancelled,lateRejected,missingNotDefaulted,posts};
+              return {noHostSettings,secretAbsent:noAuthorization&&localStorage.length===0&&sessionStorage.length===0,controlsEdited,controlsRemoved,singleSave,noResponseRetry,freshAfterLoss,savedRetained,cancelled,lateRejected,missingNotDefaulted,posts};
             }catch(error){return {failedStage:stage,posts,busy:panel()?.querySelector('button')?.disabled,formConnected:panel()?.querySelector('form')?.isConnected,errorClass:['Error','TypeError','SyntaxError','ReferenceError'].includes(error?.name)?error.name:'other'};}finally{window.fetch=original;}
           })()`,
             awaitPromise: true,
@@ -2715,7 +3026,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             ? {
                 noHostSettings: true,
                 secretAbsent: true,
-                readable: true,
+                readRejected: true,
                 managementAbsent: true,
                 posts: 0,
               }
@@ -2761,454 +3072,143 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             });
           }
         }
-        assert.deepEqual(JSON.parse(await readFile(current, "utf8")), state);
+        assert.deepEqual(await readFile(current), accessBeforeSelection);
         return;
       }
-      if (mode === "local-connection") {
-        let connectionSetup: Readonly<{
-          posts: number;
-          nextViewAuthenticated: boolean;
-        }> | null = null;
-        if (mode === "local-connection") {
-          const unavailablePath = path.join(
-            directory,
-            "unavailable",
-            "PROJECT_CONTEXT.md",
+      if (mode === "shared-navigation") {
+        assert.ok(browserSession);
+        const beforeNavigation = await readFile(current);
+        const unavailablePath = path.join(
+          directory,
+          "unavailable",
+          "PROJECT_CONTEXT.md",
+        );
+        const nextPath = path.join(directory, "next", "PROJECT_CONTEXT.md");
+        const unavailableBody = await readFile(unavailablePath, "utf8");
+        const nextBody = await readFile(nextPath, "utf8");
+        try {
+          await rm(unavailablePath);
+          await writeFile(
+            nextPath,
+            nextBody.replace(
+              "Repository ID: repository.next",
+              "Repository ID: foreign-source",
+            ),
           );
-          const nextPath = path.join(directory, "next", "PROJECT_CONTEXT.md");
-          const unavailableBody = await readFile(unavailablePath, "utf8");
-          const nextBody = await readFile(nextPath, "utf8");
-          try {
-            await rm(unavailablePath);
-            await writeFile(
-              nextPath,
-              nextBody.replace(
-                "Repository ID: repository.next",
-                "Repository ID: foreign-source",
-              ),
+          for (const [expected, links] of [
+            ["競合あり", ["repository.latest"]],
+            ["一部未確認", ["repository.latest", "repository.next"]],
+          ] as const) {
+            await reloadBrowserDocument(pageUrl, "#projects");
+            await waitForBrowserCondition(
+              pageUrl,
+              `document.querySelector('#projects')?.innerText.includes(${JSON.stringify(expected)})`,
             );
-            for (const expected of ["競合あり", "一部未確認"]) {
-              const partial = await requestBrowser(
-                pageUrl,
-                "Runtime.evaluate",
-                {
-                  expression: `(async()=>{
-                  const end=Date.now()+15000;
-                  while(!document.querySelector('#connection input[name=token]')){if(Date.now()>end)throw new Error('connection_not_ready');await new Promise(r=>setTimeout(r,50));}
-                  document.querySelector('#connection input[name=token]').value=${JSON.stringify(material.token)};
-                  document.querySelector('#connection form').requestSubmit();
-                  while(!document.querySelector('#projects')?.innerText.includes(${JSON.stringify(expected)})){if(Date.now()>end)throw new Error('partial_view_not_ready');await new Promise(r=>setTimeout(r,50));}
-                  const projects=document.querySelector('#projects');
-                  const links=[...projects.querySelectorAll('a')].map(a=>a.textContent);
-                  return {state:projects.innerText.includes(${JSON.stringify(expected)}),unavailable:projects.innerText.includes('文書未確認'),conflicting:projects.innerText.includes('文書競合'),links,foreign:document.body.innerText.includes('foreign-source')};
-                })()`,
-                  awaitPromise: true,
-                  returnByValue: true,
-                },
-                undefined,
-                "single",
-                expected === "競合あり"
-                  ? "local_partial_conflict"
-                  : "local_partial_unavailable",
-              );
-              assert.deepEqual(partial, {
-                state: true,
-                unavailable: true,
-                conflicting: expected === "競合あり",
-                links:
-                  expected === "競合あり"
-                    ? ["repository.latest"]
-                    : ["repository.latest", "repository.next"],
-                foreign: false,
-              });
-              await writeFile(nextPath, nextBody);
-              if (expected === "競合あり")
-                await reloadConnectionDocument(pageUrl);
-            }
-          } finally {
-            await writeFile(unavailablePath, unavailableBody);
+            const partial = await requestBrowser(pageUrl, "Runtime.evaluate", {
+              expression: `(()=>{const projects=document.querySelector('#projects');return {unavailable:projects.innerText.includes('文書未確認'),conflicting:projects.innerText.includes('文書競合'),links:[...projects.querySelectorAll('a')].map(a=>a.textContent),foreign:document.body.innerText.includes('foreign-source')};})()`,
+              returnByValue: true,
+            });
+            assert.deepEqual(partial, {
+              unavailable: true,
+              conflicting: expected === "競合あり",
+              links,
+              foreign: false,
+            });
             await writeFile(nextPath, nextBody);
-            await reloadConnectionDocument(pageUrl);
           }
-          const ready = await requestBrowser(
-            pageUrl,
-            "Runtime.evaluate",
-            {
-              expression: `(async()=>{const end=Date.now()+15000;while(Date.now()<end){if(document.querySelector('#connection input[name=token]'))return true;await new Promise(r=>setTimeout(r,50));}return false;})()`,
-              awaitPromise: true,
-              returnByValue: true,
-            },
-            undefined,
-            "single",
-            "local_ready",
-          );
-          assert.equal(ready, true);
-          const setup = await requestBrowser(
-            pageUrl,
-            "Runtime.evaluate",
-            {
-              expression: `(async()=>{
-              const originalFetch=window.fetch;let posts=0,nextViewAuthenticated=false;
-              const key=${JSON.stringify(material.token)};
-              window.fetch=(input,options)=>{const pathname=new URL(String(input),location.href).pathname;if(pathname==='/api/access/connection')posts++;if(pathname==='/api/workbench/view'&&new Headers(options?.headers).get('authorization')==='Bearer '+key)nextViewAuthenticated=true;return originalFetch(input,options);};
-              try{
-                document.querySelector('#connection input[name=token]').value=${JSON.stringify(material.token)};
-                const form=document.querySelector('#connection form');form.requestSubmit();form.requestSubmit();
-                const end=Date.now()+15000;while(Date.now()<end){
-                  if(document.querySelector('#connection input[name=operation]')?.value==='disconnect'&&!document.querySelector('#connection button')?.disabled&&!document.querySelector('#ai-selection-management'))return{posts,nextViewAuthenticated};
-                  await new Promise(resolve=>setTimeout(resolve,50));
-                }return{unconfirmed:true,posts};
-              }finally{window.fetch=originalFetch;}
-            })()`,
-              awaitPromise: true,
-              returnByValue: true,
-            },
-            undefined,
-            "single",
-            "local_connect",
-          );
-          assert.deepEqual(setup, { posts: 1, nextViewAuthenticated: true });
-          connectionSetup = setup as Readonly<{
-            posts: number;
-            nextViewAuthenticated: boolean;
-          }>;
+        } finally {
+          await writeFile(unavailablePath, unavailableBody);
+          await writeFile(nextPath, nextBody);
         }
+        await reloadBrowserDocument(pageUrl, "#projects");
         const observed = await requestBrowser(
           pageUrl,
           "Runtime.evaluate",
           {
-            expression: `(async () => {
-            const key=${JSON.stringify(material.token)};
-            const originalFetch=window.fetch;
-            let posts=${JSON.stringify(connectionSetup?.posts ?? 0)}, authenticatedReads=0, modelReads=0, waitNumber=0;
-            window.fetch=async (input, options) => {
-              const pathname=new URL(String(input),location.href).pathname;
-              if(String(input).endsWith('/api/access/connection')) posts++;
-              if(new URL(String(input),location.href).pathname==='/api/workbench/view') modelReads++;
-              if(new Headers(options?.headers).get('authorization')==='Bearer '+key) authenticatedReads++;
-              const response=await originalFetch(input, options);
-              return response;
-            };
-            /**
-             * 接続と画面遷移の現在表示を有限時間で待つ。
-             * @responsibility 接続と画面遷移の現在表示を有限時間で待つ。
-             * @trace RFD-ST-003
-             * @trace ERB-ST-022
-             * @precondition 同じBrowser内の接続とProfile画面。
-             * @stimulus 待機番号を増やし15秒以内でpredicateを評価する。
-             * @observation 接続・資格非表示・現在の接続状態。
-             * @oracle 未成立は固定例外にし途中描画を完了としない。
-             * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
-             * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
-             */
-            const wait=async(predicate)=>{ waitNumber++; const end=Date.now()+15000; while(Date.now()<end){ if(predicate()) return true; await new Promise(r=>setTimeout(r,50)); } throw new Error('browser_condition_unconfirmed'); };
-            try {
-              if(${JSON.stringify(mode)}!=='local-connection'){
-                const input=document.querySelector('#connection input[name=token]');input.value=key;
-                const form=document.querySelector('#connection form');form.requestSubmit();form.requestSubmit();
-              }
-              const connected=await wait(()=>document.querySelector('#connection input[name=operation]')?.value==='disconnect' && !document.querySelector('#connection button')?.disabled);
-              const inputCleared=!document.querySelector('#connection input[name=token]');
-              const secretAbsent=!document.body.innerText.includes(key) && !location.href.includes(key) && localStorage.length===0 && sessionStorage.length===0;
-              const nextGetAuthenticated=${JSON.stringify(mode)}==='local-connection'
-                ? ${JSON.stringify(connectionSetup?.nextViewAuthenticated ?? false)}
-                : authenticatedReads>0;
-              const settingsUnavailable=!document.querySelector("#ai-selection-management");
-              const oldRoot=document.querySelector('[data-workbench-react-root]');
-              const beforeNavigation=authenticatedReads;
-              const link=document.createElement('a');
-              link.href='/?repositoryId=repository.unavailable';
-              link.textContent='固定navigation反証';
-              document.querySelector('#connection').append(link);
-              link.click();
-              const navigated=await wait(()=>location.search.includes('repositoryId=repository.unavailable') && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
-              const credentialRetained=authenticatedReads>beforeNavigation;
-              const rootRetained=document.querySelector('[data-workbench-react-root]')===oldRoot;
-              const inheritedLink=document.createElement('a'); inheritedLink.href='/?inherited=true';
-              document.querySelector('#connection').append(inheritedLink); inheritedLink.click();
-              const inheritedSelection=await wait(()=>location.search.includes('inherited=true') && new URL(location.href).searchParams.get('repositoryId')==='repository.unavailable' && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
-              const inheritedSearch=document.createElement('form'); inheritedSearch.method='get'; inheritedSearch.action='/';
-              document.querySelector('#connection').append(inheritedSearch); inheritedSearch.requestSubmit();
-              const inheritedSearchSelection=await wait(()=>!location.search.includes('inherited=true') && new URL(location.href).searchParams.get('repositoryId')==='repository.unavailable' && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
-              const guardResults=[];
-              for(const kind of ['external','download','blank','modified','post']) {
-                const node=document.createElement(kind==='post'?'form':'a');
-                if(kind==='post'){node.method='post';node.action='/';} else {node.href=kind==='external'?'https://example.invalid/':'/';}
-                if(kind==='download')node.setAttribute('download','fixture');
-                if(kind==='blank')node.setAttribute('target','_blank');
-                oldRoot.append(node);
-                const type=kind==='post'?'submit':'click'; let untouched=false;
-                /**
-                 * Syntheticなリンク操作で既定処理の未消費を観測する。
-                 * @responsibility Syntheticなリンク操作で既定処理の未消費を観測する。
-                 * @trace ERB-ST-022
-                 * @precondition 対象リンクにCase専用Listenerを登録する。
-                 * @stimulus 既存defaultPreventedを記録してnative動作だけを抑止する。
-                 * @observation 本番Handlerが非対象イベントを消費していない真偽。
-                 * @oracle 修飾操作等を通常CSR遷移として横取りしない。
-                 * @cleanup 試験内Listenerを解除しBrowserを終了する。
-                 * @boundary DOMイベント搬送だけ。新しいWindowや外部通信を開始しない。
-                 */
-                const stopNative=event=>{untouched=!event.defaultPrevented;event.preventDefault();};
-                window.addEventListener(type,stopNative,{once:true});
-                const before=modelReads;
-                node.dispatchEvent(kind==='post'?new SubmitEvent('submit',{bubbles:true,cancelable:true}):new MouseEvent('click',{bubbles:true,cancelable:true,ctrlKey:kind==='modified'}));
-                node.remove(); await new Promise(resolve=>setTimeout(resolve,20));
-                guardResults.push(untouched && modelReads===before);
-              }
-              const nativeGuards=guardResults.every(Boolean);
-              const search=document.createElement('form'); search.method='get'; search.action='/';
-              const selection=document.createElement('input'); selection.name='repositoryId'; selection.value='repository.next';
-              search.append(selection); document.querySelector('#connection').append(search); search.requestSubmit();
-              const searched=await wait(()=>location.search.includes('repositoryId=repository.next') && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
-              history.back();
-              const returned=await wait(()=>location.search.includes('repositoryId=repository.unavailable') && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
-              const lateModel=await (await originalFetch('/api/workbench/view', {headers:{authorization:'Bearer '+key}})).json();
-              const measuredFetch=window.fetch; let releaseLate;
-              window.fetch=(input, options)=>new URL(String(input),location.href).searchParams.get('navigationDelay')==='true'
-                ? new Promise(resolve=>{releaseLate=resolve;}) : measuredFetch(input,options);
-              const delayedLink=document.createElement('a'); delayedLink.href='/?repositoryId=repository.unavailable&navigationDelay=true';
-              document.querySelector('#connection').append(delayedLink); delayedLink.click(); delayedLink.remove();
-              const newerLink=document.createElement('a'); newerLink.href='/?repositoryId=repository.latest';
-              oldRoot.append(newerLink); newerLink.click(); newerLink.remove();
-              const latest=await wait(()=>location.search.includes('repositoryId=repository.latest') && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
-              releaseLate(new Response(JSON.stringify({...lateModel,notice:'遅延応答の反例'}),{headers:{'content-type':'application/json'}}));
-              await new Promise(resolve=>setTimeout(resolve,100));
-              const lateRejected=latest && !document.body.innerText.includes('遅延応答の反例') && location.search.includes('repositoryId=repository.latest');
-              const selectedRootMatched=document.querySelector('[data-repository-id]')?.dataset.repositoryId==='repository.latest';
-              const sharedControlsBounded=document.querySelector('#topics')?.closest('fieldset')?.disabled===false && document.querySelector('#repository')?.closest('fieldset')?.disabled===false && document.querySelector('#ai-request select[name=mode]')?.disabled===true;
-              window.fetch=measuredFetch;
-              const portal=document.createElement('a'); portal.href='/?repositoryId='; oldRoot.append(portal); portal.click(); portal.remove();
-              await wait(()=>document.querySelector('#connection input[name=operation]')?.value==='disconnect');
-              document.querySelector('#connection form').requestSubmit();
-              const disconnected=await wait(()=>document.querySelector('#connection input[name=operation]')?.value==='connect' && !document.querySelector('#connection button')?.disabled);
-              document.querySelector('#connection input[name=token]').value=key;
-              document.querySelector('#connection form').requestSubmit();
-              const reconnected=await wait(()=>document.querySelector('#connection input[name=operation]')?.value==='disconnect' && !document.querySelector('#connection button')?.disabled);
-              let releaseHidden, hiddenSignal, resumedAuthorization='not_observed';
-              window.fetch=(input,options)=>{
-                if(new URL(String(input),location.href).searchParams.get('pagehideDelay')==='true') {
-                  hiddenSignal=options?.signal;
-                  return new Promise(resolve=>{releaseHidden=resolve;});
+            expression: `(async()=>{
+              const root=document.querySelector('[data-workbench-react-root]');
+              const original=window.fetch;
+              let reads=0,sessionReads=0,legacyPosts=0,release=null,pendingSignal=null,stage='select';
+              const mount=()=>document.querySelector('[data-workbench-react-root]');
+              const selected=()=>document.querySelector('[data-repository-id]')?.dataset.repositoryId;
+              const url=()=>new URL(location.href);
+              const wait=async(predicate)=>{const end=Date.now()+15000;while(Date.now()<end){if(predicate())return;await new Promise(r=>setTimeout(r,50));}throw Error('shared_navigation_unconfirmed');};
+              const click=(href)=>{const a=document.createElement('a');a.href=href;mount().append(a);a.click();a.remove();};
+              const search=(repositoryId)=>{const form=document.createElement('form');form.method='get';form.action='/';if(repositoryId){const input=document.createElement('input');input.name='repositoryId';input.value=repositoryId;form.append(input);}mount().append(form);form.requestSubmit();form.remove();};
+              window.fetch=async(input,options)=>{
+                const path=new URL(String(input),location.href);
+                if(path.pathname==='/api/access/connection')legacyPosts++;
+                if(path.pathname==='/api/workbench/view'){
+                  reads++;
+                  if(path.searchParams.has('pagehideDelay')){pendingSignal=options.signal;return new Promise(resolve=>{release=resolve;});}
+                  if(options.credentials==='same-origin'&&!new Headers(options.headers).has('authorization'))sessionReads++;
                 }
-                resumedAuthorization=new Headers(options?.headers).get('authorization');
-                return measuredFetch(input,options);
+                return original(input,options);
               };
-              const hiddenLink=document.createElement('a'); hiddenLink.href='/?pagehideDelay=true'; oldRoot.append(hiddenLink); hiddenLink.click(); hiddenLink.remove();
-              const pending=await wait(()=>typeof releaseHidden==='function');
-              window.dispatchEvent(new PageTransitionEvent('pagehide', {persisted:true}));
-              const closed=document.querySelector('[data-workbench-react-root]')?.childElementCount===0;
-              const cancelled=pending && hiddenSignal?.aborted===true;
-              releaseHidden(new Response(JSON.stringify({...lateModel,notice:'終了後応答の反例'}),{headers:{'content-type':'application/json'}}));
-              await new Promise(resolve=>setTimeout(resolve,100));
-              const hiddenRejected=oldRoot.childElementCount===0 && !document.body.innerText.includes('終了後応答の反例');
-              window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted:true}));
-              const resumed=await wait(()=>document.querySelector('#connection input[name=operation]')?.value==='connect');
-              const resumedWithoutCredential=resumedAuthorization===null;
-              return {connected,inputCleared,secretAbsent,nextGetAuthenticated,settingsUnavailable,navigated,credentialRetained,rootRetained,inheritedSelection,inheritedSearchSelection,nativeGuards,searched,returned,lateRejected,selectedRootMatched,sharedControlsBounded,disconnected,reconnected,closed,cancelled,hiddenRejected,resumed,resumedWithoutCredential,posts};
-            } catch {return {failedWait:waitNumber,posts};} finally {window.fetch=originalFetch;}
-          })()`,
+              try{
+                const firstReads=sessionReads;
+                click('/?repositoryId=repository.unavailable');
+                await wait(()=>selected()==='repository.unavailable');
+                const currentSession=mount()===root&&sessionReads>firstReads;
+                stage='inherit-link';click('/?inherited=true');
+                await wait(()=>url().searchParams.has('inherited')&&url().searchParams.get('repositoryId')==='repository.unavailable'&&selected()==='repository.unavailable');
+                stage='inherit-form';search();
+                await wait(()=>!url().searchParams.has('inherited')&&url().searchParams.get('repositoryId')==='repository.unavailable'&&selected()==='repository.unavailable');
+                stage='native';const guards=[];
+                for(const kind of ['external','download','blank','modified','post']){
+                  const node=document.createElement(kind==='post'?'form':'a');
+                  if(kind==='post'){node.method='post';node.action='/';}else node.href=kind==='external'?'https://example.invalid/':'/';
+                  if(kind==='download')node.setAttribute('download','fixture');
+                  if(kind==='blank')node.target='_blank';
+                  mount().append(node);
+                  const type=kind==='post'?'submit':'click';let untouched=false;
+                  const stopNative=event=>{untouched=!event.defaultPrevented;event.preventDefault();};
+                  window.addEventListener(type,stopNative,{once:true});
+                  const before=reads;
+                  node.dispatchEvent(kind==='post'?new SubmitEvent('submit',{bubbles:true,cancelable:true}):new MouseEvent('click',{bubbles:true,cancelable:true,ctrlKey:kind==='modified'}));
+                  node.remove();await new Promise(r=>setTimeout(r,20));
+                  guards.push(untouched&&reads===before);
+                }
+                stage='search';search('repository.next');await wait(()=>selected()==='repository.next');
+                history.back();await wait(()=>selected()==='repository.unavailable');
+                stage='hide';
+                const restoredUrl=location.href;
+                const stale=await (await original('/api/workbench/view?repositoryId=repository.latest',{credentials:'same-origin'})).json();
+                click('/?repositoryId=repository.latest&pagehideDelay=true');await wait(()=>typeof release==='function');
+                window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}));
+                const closed=root.childElementCount===0;
+                const cancelled=pendingSignal?.aborted===true;
+                if(location.href!==restoredUrl)history.replaceState(history.state,'',restoredUrl);
+                release(new Response(JSON.stringify({...stale,notice:'終了後応答の反例'}),{headers:{'content-type':'application/json'}}));
+                await new Promise(r=>setTimeout(r,80));
+                const hiddenRejected=root.childElementCount===0&&!document.body.innerText.includes('終了後応答の反例');
+                stage='resume';const readsBeforeResume=sessionReads;
+                window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));
+                await wait(()=>selected()==='repository.unavailable');
+                const session=await original('/api/session',{credentials:'same-origin'});
+                return {currentSession,nativeGuards:guards.every(Boolean),closed,cancelled,hiddenRejected,resumedWithSession:session.status===200&&sessionReads>readsBeforeResume,legacyPosts,storageEmpty:localStorage.length===0&&sessionStorage.length===0};
+              }catch(error){return {failedStage:stage,errorClass:error.name,legacyPosts,reads,sessionReads};}
+              finally{window.fetch=original;}
+            })()`,
             awaitPromise: true,
             returnByValue: true,
           },
           undefined,
           "composite",
-          mode === "local-connection" ? "local_navigation" : undefined,
+          "shared_navigation",
         );
         assert.deepEqual(observed, {
-          connected: true,
-          inputCleared: true,
-          secretAbsent: true,
-          nextGetAuthenticated: true,
-          settingsUnavailable: true,
-          navigated: true,
-          credentialRetained: true,
-          rootRetained: true,
-          inheritedSelection: true,
-          inheritedSearchSelection: true,
+          currentSession: true,
           nativeGuards: true,
-          searched: true,
-          returned: true,
-          lateRejected: true,
-          selectedRootMatched: true,
-          sharedControlsBounded: true,
-          disconnected: true,
-          reconnected: true,
           closed: true,
           cancelled: true,
           hiddenRejected: true,
-          resumed: true,
-          resumedWithoutCredential: true,
-          posts: 3,
-        });
-        assert.deepEqual(JSON.parse(await readFile(current, "utf8")), state);
-        return;
-      }
-      if (mode === "cros-management") {
-        const connected = await requestBrowser(pageUrl, "Runtime.evaluate", {
-          expression: `(async () => {
-            const form=document.querySelector('#connection form');
-            form.elements.namedItem('token').value=${JSON.stringify(material.token)};
-            form.requestSubmit();
-            const end=Date.now()+15000;
-            while(Date.now()<end) {
-              if(document.querySelector('#access-management form') && !document.querySelector('#connection button')?.disabled) return true;
-              await new Promise(r=>setTimeout(r,50));
-            }
-            return false;
-          })()`,
-          awaitPromise: true,
-          returnByValue: true,
-        });
-        assert.equal(connected, true);
-      }
-      if (mode === "management" || mode === "cros-management") {
-        assert.ok(registrationRoot);
-        const contextPath = path.join(registrationRoot, "PROJECT_CONTEXT.md");
-        let contentReads = 0;
-        const originalOpen = fs.openSync;
-        const contentObservation = context.mock.method(
-          fs,
-          "openSync",
-          (...args: Parameters<typeof fs.openSync>) => {
-            if (String(args[0]) === contextPath) contentReads++;
-            return originalOpen(...args);
-          },
-        );
-        syncBuiltinESMExports();
-        let observed: unknown;
-        try {
-          const probe = fs.openSync(contextPath, "r");
-          fs.closeSync(probe);
-          assert.equal(contentReads, 1, "content_observer_positive_control");
-          contentReads = 0;
-          observed = await requestBrowser(
-            pageUrl,
-            "Runtime.evaluate",
-            {
-              expression: managementBrowserExpression(
-                mode === "cros-management",
-                mode === "cros-management" ? material.token : undefined,
-                registrationRoot,
-              ),
-              awaitPromise: true,
-              returnByValue: true,
-            },
-            undefined,
-            "composite",
-          );
-        } finally {
-          contentObservation.mock.restore();
-          syncBuiltinESMExports();
-        }
-        if (mode === "cros-management")
-          assert.equal(
-            contentReads,
-            1,
-            "registration_identity_read_once_and_denied_content_reader_additional_zero",
-          );
-        const saved = JSON.parse(
-          await readFile(current, "utf8"),
-        ) as AccessManagementState;
-        if (mode === "cros-management")
-          assert.equal(saved.users[0]?.role, "manager");
-        assert.deepEqual(observed, {
-          registered: true,
-          renamed: true,
-          roleChanged: true,
-          contentChanged: true,
-          repositoryRegistered: true,
-          registrationNotPublished: true,
-          exposureChanged: true,
-          repositoryRemoved: true,
-          selfContentRejected: true,
-          postCount: mode === "cros-management" ? 11 : 7,
-          resultFocused: true,
+          resumedWithSession: true,
+          legacyPosts: 0,
           storageEmpty: true,
-          registrationPresent: true,
-          rejectedVisible: true,
-          unknownVisible: true,
-          cleanupVisible: true,
-          responseLossVisible: true,
-          retiredHeaderRejected: true,
-          retiredHeaderPostZero: true,
-          retiredConnectionSurfaceAbsent: true,
         });
-        assert.equal(saved.users.length, 3);
-        assert.equal(saved.users.at(-1)?.username, "管理画面改名");
-        assert.equal(saved.users.at(-1)?.role, "manager");
-        assert.deepEqual(
-          saved.roleContentAccess.find(
-            (row) =>
-              row.role ===
-              (mode === "cros-management" ? "manager" : "developer"),
-          )?.workspaceIds,
-          [],
-        );
-        assert.equal(saved.credentials.length, 1);
-        assert.deepEqual(saved.registeredRepositories, []);
-        assert.deepEqual(saved.exposure, []);
-        assert.ok(registrationRoot);
-        assert.equal(existsSync(registrationRoot), true);
-        assert.match(
-          await readFile(
-            path.join(registrationRoot, "PROJECT_CONTEXT.md"),
-            "utf8",
-          ),
-          /自己生成試験。/u,
-        );
-        if (mode === "cros-management")
-          assert.equal(
-            saved.users.some((user) => user.role === "administrator"),
-            false,
-          );
+        assert.deepEqual(await readFile(current), beforeNavigation);
         return;
       }
-      const observed = await requestBrowser(pageUrl, "Runtime.evaluate", {
-        expression: credentialBrowserExpression(mode),
-        awaitPromise: true,
-        returnByValue: true,
-      });
-      assert.deepEqual(observed, {
-        shown: true,
-        firstPostOnce: true,
-        getSecretAbsent: true,
-        urlSecretAbsent: true,
-        storageSecretAbsent: true,
-        previousCleared: true,
-        failedResponseNoSuccess: true,
-        oldConnectionUnavailable: true,
-        postCount: mode === "issue" ? 2 : 1,
-      });
-      await requestBrowser(pageUrl, "Page.reload");
-      let reloaded: unknown;
-      for (let attempt = 0; attempt < 10 && reloaded === undefined; attempt++) {
-        await delay(250);
-        try {
-          reloaded = await requestBrowser(pageUrl, "Runtime.evaluate", {
-            expression: `(async () => { const end = Date.now()+15000; while(Date.now()<end) { if(document.querySelector('#workbench-client-ready')) return { ready:true, keyAbsent:!document.querySelector('.one-time-token code'), storageEmpty:localStorage.length===0 && sessionStorage.length===0 }; await new Promise(r=>setTimeout(r,50)); } return { ready:false }; })()`,
-            awaitPromise: true,
-            returnByValue: true,
-          });
-        } catch (error) {
-          if (
-            !(error instanceof Error) ||
-            error.message !== "credential_browser_context_replaced"
-          )
-            throw error;
-        }
-      }
-      assert.deepEqual(reloaded, {
-        ready: true,
-        keyAbsent: true,
-        storageEmpty: true,
-      });
-      const saved = JSON.parse(
-        await readFile(current, "utf8"),
-      ) as AccessManagementState;
-      assert.equal(saved.unresolvedKeyExchanges.length, 0);
-      assert.equal(saved.credentials[0]?.revoked, mode !== "issue");
-      assert.equal(saved.credentials.at(-1)?.presentation, "confirmed");
-      assert.equal(saved.credentials.length, 2);
     });
 });

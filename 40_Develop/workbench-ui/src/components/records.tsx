@@ -9,7 +9,11 @@
 import type { ReactElement, ReactNode } from "react";
 import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
 import { composeWorkbenchRecordDisplay } from "../api/view.ts";
-import type { MainViewResponse, RecordDocumentView } from "../api/response.ts";
+import type {
+  MainViewResponse,
+  RecordActionView,
+  RecordDocumentView,
+} from "../api/response.ts";
 
 /**
  * Topic／Meeting Formが共有する固定Hidden Fieldを返す。
@@ -83,7 +87,7 @@ export function RecordActions({
     <details className="record-editor">
       <summary>処置・編集・削除</summary>
       {document.kind === "meeting" ? (
-        <form method="post" action="/api/records">
+        <form method="post" data-record-operation="">
           <RecordOperationFields
             actionToken={actionToken}
             repositoryId={repositoryId}
@@ -144,7 +148,7 @@ export function RecordActions({
           <button type="submit">Outcomeを処置</button>
         </form>
       ) : (
-        <form method="post" action="/api/records">
+        <form method="post" data-record-operation="">
           <RecordOperationFields
             actionToken={actionToken}
             repositoryId={repositoryId}
@@ -167,7 +171,7 @@ export function RecordActions({
           <button type="submit">実在CHGを確認して昇格</button>
         </form>
       )}
-      <form method="post" action="/api/records">
+      <form method="post" data-record-operation="">
         <RecordOperationFields
           actionToken={actionToken}
           repositoryId={repositoryId}
@@ -185,7 +189,7 @@ export function RecordActions({
         </label>
         <button type="submit">更新</button>
       </form>
-      <form method="post" action="/api/records">
+      <form method="post" data-record-operation="">
         <RecordOperationFields
           actionToken={actionToken}
           repositoryId={repositoryId}
@@ -220,14 +224,18 @@ export function RecordActions({
 export function RecordCollection({
   model,
   kind,
+  deletedRecord,
 }: Readonly<{
   model: MainViewResponse;
   kind: "topic" | "meeting";
+  deletedRecord: RecordActionView | null;
 }>): ReactElement {
   const source = composeWorkbenchRecordDisplay(model, kind);
   const collection = source.collection;
   const records = source.page.records;
   const label = kind === "topic" ? "Topic" : "Meeting";
+  const repositoryId =
+    model.selectedRepositoryId ?? model.projectData.context.repositoryId;
   const documentById = new Map(
     model.recordDocuments
       .filter((document) => document.kind === kind)
@@ -287,10 +295,11 @@ export function RecordCollection({
                   ? `${record.state} / ${record.occurredAt} / pending ${record.pendingOutcomeCount}`
                   : `${record.state} / ${record.owner}`}
               </small>
-              {document === undefined ? null : (
+              {document === undefined ||
+              !model.recordActionsConfigured ? null : (
                 <RecordActions
                   actionToken={model.actionToken}
-                  repositoryId={model.selectedRepositoryId}
+                  repositoryId={repositoryId}
                   document={document}
                 />
               )}
@@ -409,14 +418,9 @@ export function RecordCollection({
         </label>
         <button type="submit">絞り込む</button>
       </form>
-      {model.recordActionResult === null ||
-      (model.recordActionResult.recordKind !== null &&
-        model.recordActionResult.recordKind !== kind) ? null : (
-        <div
-          className="operation-result"
-          data-status={model.recordActionResult.status}
-        >
-          <strong>{model.recordActionResult.reason}</strong>
+      {deletedRecord?.recordKind === kind && (
+        <div className="operation-result" data-status={deletedRecord.status}>
+          <strong>{deletedRecord.reason}</strong>
         </div>
       )}
       {content}
@@ -428,26 +432,22 @@ export function RecordCollection({
           次の{label}
         </a>
       )}
-      <details className="record-editor">
-        <summary>{label}を登録</summary>
-        <form method="post" action="/api/records">
-          <ActionTokenInput value={model.actionToken} />
-          {model.selectedRepositoryId === null ? null : (
-            <input
-              type="hidden"
-              name="repositoryId"
-              value={model.selectedRepositoryId}
-            />
-          )}
-          <input type="hidden" name="kind" value={kind} />
-          <input type="hidden" name="operation" value="create" />
-          <label>
-            Canonical Markdown
-            <textarea required name="markdown" rows={14} />
-          </label>
-          <button type="submit">登録</button>
-        </form>
-      </details>
+      {model.recordActionsConfigured && (
+        <details className="record-editor">
+          <summary>{label}を登録</summary>
+          <form method="post" data-record-operation="">
+            <ActionTokenInput value={model.actionToken} />
+            <input type="hidden" name="repositoryId" value={repositoryId} />
+            <input type="hidden" name="kind" value={kind} />
+            <input type="hidden" name="operation" value="create" />
+            <label>
+              Canonical Markdown
+              <textarea required name="markdown" rows={14} />
+            </label>
+            <button type="submit">登録</button>
+          </form>
+        </details>
+      )}
     </WorkbenchPanel>
   );
 }

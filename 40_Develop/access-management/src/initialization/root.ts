@@ -7,6 +7,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+
 const STORE_ROOT_BRAND: unique symbol = Symbol("filesystem-store-root");
 const issuedStoreRoots = new WeakSet<object>();
 
@@ -108,20 +109,28 @@ export function resolveFilesystemStorePath(
   capability: FilesystemStoreRoot,
   relativePath: string,
 ): string {
+  const root = readFilesystemStoreDirectory(capability);
+  if (!relativePath || path.isAbsolute(relativePath))
+    throw new Error("filesystem_store_relative_path_required");
+  const target = path.resolve(root, relativePath);
+  const relative = path.relative(root, target);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative))
+    throw new Error("filesystem_store_path_outside_root");
+  assertExistingChainIsDirect(root, target);
+  return target;
+}
+
+/** 検証済みCapabilityの絶対ディレクトリを返す。利用時の実体確認は呼出し側が行う。 @trace ARCH-000013 */
+export function readFilesystemStoreDirectory(
+  capability: FilesystemStoreRoot,
+): string {
   if (
     typeof capability !== "object" ||
     capability === null ||
     !issuedStoreRoots.has(capability)
   )
     throw new Error("filesystem_store_root_capability_invalid");
-  if (!relativePath || path.isAbsolute(relativePath))
-    throw new Error("filesystem_store_relative_path_required");
-  const target = path.resolve(capability.root, relativePath);
-  const relative = path.relative(capability.root, target);
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative))
-    throw new Error("filesystem_store_path_outside_root");
-  assertExistingChainIsDirect(capability.root, target);
-  return target;
+  return capability.root;
 }
 
 export type CrosRootInput = Readonly<{

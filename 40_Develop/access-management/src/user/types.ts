@@ -7,29 +7,40 @@
 
 import type { AccessManagementState } from "../storage/types.ts";
 
+type Invitation = Readonly<{
+  email: string;
+  digest: string;
+  expiresAt: number;
+}>;
+
 /**
  * 通常管理4操作の内部入力を表す。
  * @responsibility 操作別に必要な値を区別する。
  * @trace ARCH-000013
- * @shape 登録、名前変更、Role変更、内容範囲更新の判別共用体。
+ * @shape 登録、招待再発行、名前変更、Role変更の判別共用体。
  * @invariant 外部値は検査前のunknownで、資格・保存状態を含めない。
  * @boundary AM内部の専用保存入口と純粋な変更判断。
  * @security 入力だけでは現在認可を成立させない。
  * @compatibility 通常管理4操作だけ。鍵・登録接続・公開設定は含まない。
  */
 export type UserRoleChange =
-  | { operation: "registerUser"; username: unknown; plannedRole: unknown }
+  | {
+      operation: "registerUser";
+      username: unknown;
+      plannedRole: unknown;
+      invitation?: Invitation;
+    }
+  | {
+      operation: "renewInvitation";
+      userId: string;
+      invitation: Invitation;
+    }
   | { operation: "updateUserName"; userId: unknown; username: unknown }
   | {
       operation: "updateUserRole";
       userId: unknown;
       currentRole: unknown;
       nextRole: unknown;
-    }
-  | {
-      operation: "updateRoleContentAccess";
-      targetRole: unknown;
-      workspaceIds: unknown;
     };
 
 /**

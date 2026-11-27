@@ -593,6 +593,8 @@ test("Coordinatorの公開Rootは旧Packageと自己迂回を参照しない", (
   }
   for (const reference of [
     'import("../../crdd-server/src/service/workspace.ts")',
+    'import type { ViewResponse } from "@qual-lab/crdd-server"',
+    'import "@qual-lab/crdd-server/cli"',
     'import type { Target } from "@qual-lab/crdd-server/api"',
     '"@qual-lab/crdd-server": "file:../crdd-server"',
     '"40_Develop/crdd-server/src/service/configuration.ts"',

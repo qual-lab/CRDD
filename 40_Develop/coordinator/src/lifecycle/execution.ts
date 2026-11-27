@@ -1284,7 +1284,19 @@ export async function runCoordinatorOperation(
   operation: SingleTaskOperation | ScheduledOperation,
 ): Promise<CoordinatorExecutionResult | undefined> {
   // 耐久受付の返却と実行準備を分離し、取消も同じpendingをjoinする。
-  if (operation.kind === "single") await setImmediate();
+  if (operation.kind === "single") {
+    await setImmediate();
+    if (operation.admissionCurrent?.() === false) {
+      await executeSingleOperation(operation, {
+        status: "blocked",
+        reason: "coordinator_task_not_started",
+        value: null,
+        recoveryId: null,
+        manualRecoveryRequired: false,
+      });
+      return;
+    }
+  }
   const waitForPreparation = <T extends StateContentionResult>(
     attempt: () => T,
   ) =>
@@ -1739,20 +1751,21 @@ export async function runCoordinatorOperation(
     if (taskId === undefined) break;
     if (input.cancellationSignal.aborted)
       return cancelBeforeTask(completedTaskIds);
-    if (waitedAfterDelegation) {
-      waitedAfterDelegation = false;
-      if (
-        operation.leaseWait?.revalidate &&
-        (await confirmStorageContinuation(
-          input.cancellationSignal,
-          operation.leaseWait.revalidate,
-        )) !== true
-      ) {
-        return cancelBeforeTask(
-          completedTaskIds,
-          preparationRefusal(input.cancellationSignal),
-        );
-      }
+    const revalidate =
+      operation.beforeTask ??
+      (waitedAfterDelegation ? operation.leaseWait?.revalidate : undefined);
+    waitedAfterDelegation = false;
+    if (
+      revalidate &&
+      (await confirmStorageContinuation(
+        input.cancellationSignal,
+        revalidate,
+      )) !== true
+    ) {
+      return cancelBeforeTask(
+        completedTaskIds,
+        preparationRefusal(input.cancellationSignal),
+      );
     }
     const execution = executions.get(taskId);
     if (!execution)
@@ -2173,6 +2186,7 @@ type SingleTaskOperation = Readonly<{
   controller: AbortController;
   item: { snapshot: ReturnType<typeof projectSingleTask> };
   authorized: () => boolean;
+  admissionCurrent?: (() => boolean) | undefined;
 }>;
 
 /** Graphの受付済み要求と既存保存・記録の結合。 @trace ARCH-000004 */
@@ -2529,7 +2543,11 @@ async function executeSingleOperation(
     controller,
     item,
     authorized,
+    admissionCurrent,
   } = operation;
+  let effectStarted = false;
+  const authorizeEffect = () =>
+    authorized() && (effectStarted || admissionCurrent?.() !== false);
   let { queue } = operation;
   if (acquired.status !== "completed") {
     const closed = updateQueue(
@@ -2612,7 +2630,7 @@ async function executeSingleOperation(
     );
     if (
       target.status !== "completed" ||
-      !authorized() ||
+      !authorizeEffect() ||
       controller.signal.aborted
     ) {
       const next = {
@@ -2640,7 +2658,7 @@ async function executeSingleOperation(
     }
     item.snapshot = projectSingleTask(requestId, phase, "running", null);
     const rawOutcome = await executeSingleTask(
-      deps,
+      admissionCurrent ? { ...deps, authorize: authorizeEffect } : deps,
       command,
       {
         record,
@@ -2656,10 +2674,11 @@ async function executeSingleOperation(
           !save({ ...phase, phase: "running" })
         )
           throw Error("task_start_save_unconfirmed");
+        effectStarted = true;
       },
       async (operation) => {
         if (
-          !authorized() ||
+          !authorizeEffect() ||
           controller.signal.aborted ||
           phase.adviceOperation ||
           phase.mode !== "read_only_advice" ||
@@ -3188,9 +3207,18 @@ export function createCoordinatorTaskRequests(
       raw: unknown,
       signal?: AbortSignal,
       workspaceTarget?: PreparedWorkspaceTarget | null,
+      admissionCurrent?: () => boolean,
     ) {
       const command = inspectSingleTaskCommand(raw);
-      if (!command || closing || signal?.aborted || !authorized())
+      const admissionAllowed = () => {
+        try {
+          return admissionCurrent?.() !== false;
+        } catch {
+          return false;
+        }
+      };
+      const mayAdmit = () => authorized() && admissionAllowed();
+      if (!command || closing || signal?.aborted || !mayAdmit())
         return {
           status: "blocked" as const,
           requestId: null,
@@ -3211,7 +3239,7 @@ export function createCoordinatorTaskRequests(
           : null;
       if (existing) {
         if (
-          !authorized() ||
+          !mayAdmit() ||
           existing.projectId !== deps.projectId ||
           existing.singleTask?.principalId !== deps.principalId
         )
@@ -3279,8 +3307,14 @@ export function createCoordinatorTaskRequests(
             continue;
           const item = requests.get(queue.queueId);
           if (item) await item.pending;
+          if (!mayAdmit())
+            return {
+              status: "blocked" as const,
+              requestId: null,
+              reason: "coordinator_task_request_rejected",
+            };
           const recovered = await recoverSaved(queue.queueId);
-          if (!authorized())
+          if (!mayAdmit())
             return {
               status: "blocked" as const,
               requestId: null,
@@ -3310,7 +3344,7 @@ export function createCoordinatorTaskRequests(
           : null;
       if (concurrent) {
         if (
-          !authorized() ||
+          !mayAdmit() ||
           concurrent.projectId !== deps.projectId ||
           concurrent.singleTask?.principalId !== deps.principalId
         )
@@ -3342,7 +3376,7 @@ export function createCoordinatorTaskRequests(
         readRepositoryRevision(deps.rootCapability)?.revisionIdentity ?? null;
       if (
         closing ||
-        !authorized() ||
+        !mayAdmit() ||
         [...requests.values()].some((item) =>
           ["accepted", "running"].includes(item.snapshot.status),
         )
@@ -3444,6 +3478,7 @@ export function createCoordinatorTaskRequests(
         controller,
         item,
         authorized,
+        admissionCurrent: admissionCurrent ? admissionAllowed : undefined,
       }).finally(() => signal?.removeEventListener("abort", abort));
       return { status: "accepted" as const, requestId, reason: null };
     },
@@ -3508,6 +3543,9 @@ export function createCoordinatorTaskRequests(
             "unknown",
             "coordinator_task_not_available",
           );
+    },
+    async join(requestId: string) {
+      await requests.get(requestId)?.pending;
     },
     async close() {
       closing = true;
@@ -5585,6 +5623,7 @@ type ObjectiveAccess = Readonly<{
       value: PreparedWorkspaceTarget | null;
     }>;
   revalidate?: () => Promise<boolean>;
+  beforeTask?: () => Promise<boolean>;
 }>;
 
 /**
@@ -5634,6 +5673,7 @@ export function runObjective(
     let suppliedWorkspace = workspaceTarget;
     let prepareWorkspaceTarget: ObjectiveAccess["prepareWorkspaceTarget"];
     let revalidate: ObjectiveAccess["revalidate"];
+    let beforeTask: ObjectiveAccess["beforeTask"];
     if (typeof directoryOrAccess === "function") {
       const pending = directoryOrAccess(
         Object.freeze({
@@ -5648,6 +5688,7 @@ export function runObjective(
       suppliedWorkspace = access?.workspaceTarget;
       prepareWorkspaceTarget = access?.prepareWorkspaceTarget;
       revalidate = access?.revalidate;
+      beforeTask = access?.beforeTask;
     } else {
       directory = directoryOrAccess;
       principalId = authenticationContext?.principalId;
@@ -5835,6 +5876,7 @@ export function runObjective(
         execution: {
           recording: groupState,
           workspaceTarget: preparedWorkspace,
+          ...(beforeTask && { beforeTask }),
           ...(typeof directoryOrAccess === "string" || revalidate
             ? { leaseWait: revalidate ? { revalidate } : {} }
             : {}),

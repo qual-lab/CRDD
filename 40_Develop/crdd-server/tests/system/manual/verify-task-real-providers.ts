@@ -295,7 +295,7 @@ function stableDirectory(value: string) {
 function mcpEnvelope(
   id: string,
   request: unknown,
-  tool = "crdd.run_objective",
+  tool = "crdd.start_objective",
 ) {
   return `${JSON.stringify({
     jsonrpc: "2.0",
@@ -366,7 +366,6 @@ function objective(
 ) {
   return Object.freeze({
     ...commonFields,
-    operation: "start",
     requestId: `provider-verification-${provider}-${runId}`,
     projectId: `crdd-provider-verification-${provider}-${runId}`,
     milestoneId: `public-provider-${provider}`,

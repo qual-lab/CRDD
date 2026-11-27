@@ -6,73 +6,96 @@
  * @boundary 採用Repository、HTTP待受、MCP通信と端末診断。
  * @security 外部Bind、共有から単体への切替、認証省略を行わない。
  */
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { createDefinitionAccess } from "../service/execution.ts";
+
 import {
+  readExistingHostRoot,
+  readHostInitializationState,
+  resolveHostRootInput,
+} from "@qual-lab/crdd-access-management";
+import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
+import type {
+  TaskSession,
+  TaskSessionContext,
+} from "@qual-lab/crdd-coordinator";
+import { createLocalPrincipalId } from "@qual-lab/crdd-execution-model";
+import {
+  getRepository,
+  readGitUser,
+  resolveVerifiedRepositoryRoot,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+} from "@qual-lab/crdd-version-control";
+import {
+  type AiRequests,
   readProjectViewData,
+  readWorkbenchServerConfiguration,
   startCrddServer,
   startWorkbench,
-  readWorkbenchServerConfiguration,
-  type AiRequests,
   type WorkbenchHandle,
 } from "../app.ts";
+import {
+  createObjectiveRuns,
+  type ObjectiveRuns,
+  readRepositoryExecutionActivity,
+  resolveLocalDefinitionAccess,
+} from "../service/execution.ts";
+import { readLocalProjectPortfolio } from "../service/project-context.ts";
+import { createLocalRecords } from "../service/topic.ts";
+import { configuredLoginProviders } from "../transport/login-providers.ts";
 import {
   createMcpServerFactory,
   type McpServerDependencies,
   readMcpServerConfiguration,
   runMcpStdio,
 } from "../transport/mcp-server.ts";
-import {
-  resolveHostRootInput,
-  readExistingHostRoot,
-  readHostInitializationState,
-} from "@qual-lab/crdd-access-management";
-import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
-import {
-  createMeetingOperations,
-  createTopicOperations,
-  parseRepositoryProjectContextMarkdown,
-} from "@qual-lab/crdd-document-model";
-import {
-  resolveVerifiedRepositoryRoot,
-  resolveVerifiedRepositoryRootFromWorkingDirectory,
-  getRepository,
-  readGitUser,
-} from "@qual-lab/crdd-version-control";
-import { createLocalPrincipalId } from "@qual-lab/crdd-execution-model";
-import type {
-  TaskSession,
-  TaskSessionContext,
-} from "@qual-lab/crdd-coordinator";
+import { consumeOAuthEnvironment } from "./environment.ts";
 
 const usage = [
   "使い方: crdd-server [--shared | --mcp-stdio] [--port <0-65535>] [--docs]",
+  "        crdd-server --initialize --provider google --port <固定ポート>",
+  "        crdd-server --link-admin <管理者UUID> --provider google --port <固定ポート>",
   "        crdd-server --help",
   "HTTP API・Workbench UIは127.0.0.1のみ。ポート省略または0で自動割当て。",
-  "単体HTTPのMCPはCRDD_MCP_HTTP_BEARER_TOKENで認証し、未設定なら要求を拒否します。",
-  "--shared: 既存Hostの管理状態を使用します。固定Bearer・--docs・--mcp-stdioと併用できません。",
-  "--mcp-stdio: MCPを標準入出力へ切替。HTTP APIとUIは引き続き起動します。",
+  "--shared: 既存Hostの管理状態と共有OAuth設定を使用します。--docs・--mcp-stdioと併用できません。",
+  "--mcp-stdio: 単体でMCPを標準入出力に追加。HTTP APIとUIは引き続き起動します。",
   "--docs: 単体にOpenAPIとSwagger UIを追加します。",
+  "--initialize・--link-admin: Hostの対話端末で管理者を初期設定・再紐付けします。通常のServerは起動しません。",
   "",
 ].join("\n");
 
 type ServerOptions = Readonly<{
+  kind: "serve";
   shared: boolean;
   mcpStdio: boolean;
   documentation: boolean;
   port: number;
 }>;
+type AdminOptions = Readonly<{
+  operation: { kind: "initialize" } | { kind: "link"; userId: string };
+  provider: "google";
+  port: number;
+}>;
 
 /** 重複・未知・排他的な指定を、Repositoryや待受の観測前に拒否する。 @trace ARCH-000012 */
-function readOptions(args: readonly string[]): ServerOptions | "help" | null {
+function readOptions(
+  args: readonly string[],
+): ServerOptions | AdminOptions | "help" | null {
   if (args.length === 1 && args[0] === "--help") return "help";
   const seen = new Set<string>();
   let port = 0;
+  let provider: string | undefined;
+  let userId: string | undefined;
   for (let index = 0; index < args.length; index++) {
     const option = args[index] ?? "";
     if (
-      !["--shared", "--mcp-stdio", "--port", "--docs"].includes(option) ||
+      ![
+        "--shared",
+        "--mcp-stdio",
+        "--port",
+        "--docs",
+        "--initialize",
+        "--link-admin",
+        "--provider",
+      ].includes(option) ||
       seen.has(option)
     )
       return null;
@@ -82,19 +105,49 @@ function readOptions(args: readonly string[]): ServerOptions | "help" | null {
       if (text === undefined || !/^[0-9]{1,5}$/u.test(text)) return null;
       port = Number(text);
       if (port > 65535) return null;
+    } else if (option === "--provider") {
+      provider = args[++index];
+      if (provider !== "google") return null;
+    } else if (option === "--link-admin") {
+      userId = args[++index];
+      if (
+        !userId ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+          userId,
+        )
+      )
+        return null;
     }
   }
   const shared = seen.has("--shared");
   const mcpStdio = seen.has("--mcp-stdio");
   const documentation = seen.has("--docs");
-  if (
-    shared &&
-    (mcpStdio ||
+  const initialize = seen.has("--initialize");
+  if (initialize || userId) {
+    if (
+      (initialize && userId) ||
+      shared ||
+      mcpStdio ||
       documentation ||
-      process.env.CRDD_MCP_HTTP_BEARER_TOKEN !== undefined)
-  )
-    return null;
-  return { shared, mcpStdio, documentation, port };
+      provider !== "google" ||
+      port < 1
+    )
+      return null;
+    return {
+      operation: userId ? { kind: "link", userId } : { kind: "initialize" },
+      provider,
+      port,
+    };
+  }
+  if (provider !== undefined) return null;
+  if (shared && (mcpStdio || documentation)) return null;
+  return {
+    kind: "serve",
+    shared,
+    mcpStdio,
+    documentation,
+    port,
+  };
 }
 
 /** Nodeの対応版を起動・外部Effectより前に確認する。 @trace ARCH-000012 */
@@ -127,14 +180,24 @@ function createAiRequests(
     requestId: null,
     reason,
   });
-  async function resolveSession(signal: AbortSignal | undefined) {
-    if (closed || signal?.aborted) return blocked("workbench_ai_closed");
+  async function resolveSession(
+    signal: AbortSignal | undefined,
+    admissionCurrent?: () => boolean,
+  ) {
+    if (closed || signal?.aborted || admissionCurrent?.() === false)
+      return blocked("workbench_ai_closed");
     if (!current) {
       const context = await resolveContext();
-      if (closed || signal?.aborted) return blocked("workbench_ai_closed");
+      if (closed || signal?.aborted || admissionCurrent?.() === false)
+        return blocked("workbench_ai_closed");
       if (context === null) return blocked("local_git_user_unavailable");
       const { openTaskSession } = await import("@qual-lab/crdd-coordinator");
-      if (closed || signal?.aborted || !context.authorize())
+      if (
+        closed ||
+        signal?.aborted ||
+        !context.authorize() ||
+        admissionCurrent?.() === false
+      )
         return blocked("workbench_ai_access_unavailable");
       // 最初の要求同士が並行しても、同じProject・主体のOwnerにだけ合流する。
       const initialized = readCurrent();
@@ -149,16 +212,32 @@ function createAiRequests(
     return { status: "ready" as const, ...current };
   }
   return {
-    async start(request, signal) {
-      const owner = await resolveSession(signal);
+    async start(request, signal, admissionCurrent) {
+      const owner = await resolveSession(signal, admissionCurrent);
       if (owner.status === "blocked") return owner;
-      if (closed || signal?.aborted || !owner.context.authorize())
+      if (
+        closed ||
+        signal?.aborted ||
+        !owner.context.authorize() ||
+        admissionCurrent?.() === false
+      )
         return blocked("workbench_ai_access_unavailable");
-      if (!request.workspaceId) return owner.session.start(request, signal);
+      if (!request.workspaceId)
+        return owner.session.start(
+          request,
+          signal,
+          undefined,
+          admissionCurrent,
+        );
       const { prepareWorkspaceExecutionTarget } = await import(
         "../service/workspace.ts"
       );
-      if (closed || signal?.aborted || !owner.context.authorize())
+      if (
+        closed ||
+        signal?.aborted ||
+        !owner.context.authorize() ||
+        admissionCurrent?.() === false
+      )
         return blocked("workbench_ai_access_unavailable");
       const root = resolveVerifiedRepositoryRoot(owner.context.rootCapability);
       return owner.session.start(
@@ -171,6 +250,7 @@ function createAiRequests(
               owner.context.projectId,
               request.workspaceId,
             ),
+        admissionCurrent,
       );
     },
     async observe(requestId, signal) {
@@ -194,6 +274,10 @@ function createAiRequests(
       )
         throw new Error("workbench_ai_request_unavailable");
       return owner.session.cancel(requestId);
+    },
+    async join(requestId) {
+      if (!current) throw new Error("workbench_ai_request_unavailable");
+      await current.session.join(requestId);
     },
     async close() {
       closed = true;
@@ -228,57 +312,6 @@ async function resolveLocalAiContext(
 }
 
 /**
- * 現在RepositoryのProject ContextをPortfolio Projectionとして読み取る。
- *
- * @responsibility Repository単体利用をCROS Federationと同じMCP結果形へ変換する。
- * @trace ARCH-000005
- * @trace ARCH-000012
- * @input workingDirectoryに現在の作業Directoryを受け取る。
- * @returns 一Repositoryだけを含むPortfolio Projectionを返す。
- * @precondition workingDirectoryからVersion Control Rootを一意に検証できる。
- * @postcondition PROJECT_CONTEXT.mdの五場面を補完せず一Sourceとして返す。
- * @effect PROJECT_CONTEXT.mdを読取るが変更しない。
- * @failure Root不明、File欠落またはFormat不正を呼出し元へ返す。
- * @invariant Git Commit有無を成立条件にしない。
- * @boundary Repository FilesystemとMCP Project Context Adapterの境界。
- * @security Repository Role外のContextを推測しない。
- * @concurrency 一回の呼出しで一つのFile Snapshotを解析する。
- */
-async function readRepositoryPortfolio(workingDirectory: string) {
-  const repositoryRoot =
-    resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
-  const contextIntake = parseRepositoryProjectContextMarkdown(
-    await readFile(path.join(repositoryRoot, "PROJECT_CONTEXT.md"), "utf8"),
-  );
-  const context = contextIntake.result;
-  if (context === null)
-    throw new Error(
-      contextIntake.issues.find(
-        (issue) =>
-          issue.kind === "artifact.project-context.projection-model-invalid",
-      )?.reason ?? "project_context_scene_invalid",
-    );
-  return Object.freeze({
-    projects: Object.freeze([
-      Object.freeze({
-        projectId: context.projectId,
-        state: "complete" as const,
-        sources: Object.freeze([
-          Object.freeze({
-            repositoryId: context.repositoryId,
-            revision: "repository-current",
-            state: "complete" as const,
-            repositoryRole: context.repositoryRole,
-            context,
-          }),
-        ]),
-      }),
-    ]),
-    retainedAsSourceOfTruth: false as const,
-  });
-}
-
-/**
  * MCP Application全体の依存を構成する。
  *
  * @responsibility CoordinatorとRepository Project Contextの依存を分離して合成する。
@@ -297,10 +330,9 @@ async function readRepositoryPortfolio(workingDirectory: string) {
  */
 function createLocalMcpDependencies(
   repositoryRoot: string,
+  objectiveRuns: ObjectiveRuns,
 ): McpServerDependencies {
-  const workspace: NonNullable<McpServerDependencies["workspace"]> = (
-    repositoryId,
-  ) => {
+  const workspace = (repositoryId: string) => {
     const verified = getRepository(repositoryRoot);
     if (verified.status !== "completed") return null;
     const initial = readRepositoryManifest(repositoryRoot);
@@ -321,40 +353,55 @@ function createLocalMcpDependencies(
     };
   };
   return {
-    coordinator: { scope: "local", repositoryRoot },
+    coordinator: { scope: "local", repositoryRoot, objectiveRuns },
+    executionActivity: {
+      read: ({ repositoryId, ...query }, signal) => {
+        if (repositoryId !== undefined)
+          return readRepositoryExecutionActivity(
+            repositoryId,
+            query,
+            { scope: "local", repositoryRoot },
+            signal,
+            query.projectId,
+          );
+        if (signal.aborted) return Promise.resolve(null);
+        const manifest = readRepositoryManifest(repositoryRoot);
+        return manifest.status === "ready"
+          ? readRepositoryExecutionActivity(
+              manifest.manifest.repositoryId,
+              query,
+              { scope: "local", repositoryRoot },
+              signal,
+              query.projectId,
+            )
+          : Promise.resolve(null);
+      },
+    },
     workspace,
     runtimeDefinition: (repositoryId, signal) => {
       if (signal.aborted) return null;
-      const access = workspace(repositoryId);
-      if (!access) return null;
-      const verified = getRepository(access.ownerRoot);
-      if (verified.status !== "completed") return null;
-      const gitUser = readGitUser(verified.capability);
-      const principalId =
-        gitUser.status === "completed"
-          ? createLocalPrincipalId(gitUser.email)
-          : null;
-      if (!principalId) return null;
-      return createDefinitionAccess(
+      const verified = getRepository(repositoryRoot, "placement");
+      if (
+        verified.status !== "completed" ||
+        verified.placement.directory !== repositoryRoot
+      )
+        return null;
+      return resolveLocalDefinitionAccess(
         verified.capability,
-        access.ownerRoot,
-        principalId,
-        (operation, target) =>
-          !signal.aborted &&
-          ["definition.read", "definition.write"].includes(operation) &&
-          target.projectId === access.projectId &&
-          resolveVerifiedRepositoryRoot(verified.capability) ===
-            repositoryRoot &&
-          access.authorize(),
+        repositoryId,
+        signal,
       );
     },
     projectContext: {
-      readPortfolio: () => readRepositoryPortfolio(repositoryRoot),
+      readPortfolio: (target, signal) =>
+        readLocalProjectPortfolio(
+          repositoryRoot,
+          signal ?? new AbortController().signal,
+          target,
+        ),
     },
-    topicMeeting: Object.freeze({
-      topic: createTopicOperations(repositoryRoot),
-      meeting: createMeetingOperations(repositoryRoot),
-    }),
+    topicMeeting: (signal) =>
+      createLocalRecords(repositoryRoot, undefined, signal),
   };
 }
 
@@ -362,6 +409,7 @@ function createLocalMcpDependencies(
 async function startShared(
   repositoryRoot: string,
   port: number,
+  oauth: ReturnType<typeof consumeOAuthEnvironment>,
 ): Promise<WorkbenchHandle> {
   const configuration = await readWorkbenchServerConfiguration(repositoryRoot);
   const { publicOrigin: mcpPublicOrigin } =
@@ -369,14 +417,25 @@ async function startShared(
   const input = resolveHostRootInput(process.env);
   const root = input && readExistingHostRoot(input);
   if (!root) throw new Error("workbench_host_configuration_unavailable");
-  const initialization = readHostInitializationState(root);
+  if (!oauth) throw new Error("mcp_oauth_configuration_required");
+  const loginProviders = configuredLoginProviders(oauth.loginProviders);
+  const initialization = readHostInitializationState(root, {
+    acceptsAdministratorIssuer: (issuer) =>
+      loginProviders.some(({ profile }) => profile.acceptsIssuer(issuer)),
+  });
   if (initialization.status === "fresh" || initialization.status === "unknown")
     throw new Error("workbench_host_initialization_unavailable");
+  if (
+    initialization.status !== "existing" ||
+    initialization.administratorLinked !== true
+  )
+    throw new Error("host_google_administrator_unavailable");
   return startCrddServer({
     workingDirectory: repositoryRoot,
     port,
     localAccessRoot: root,
     ...configuration,
+    ...oauth,
     ...(mcpPublicOrigin === undefined ? {} : { mcpPublicOrigin }),
     sharedAiRequestsFactory: (
       rootCapability,
@@ -417,13 +476,42 @@ export async function runCrddServerCommand(): Promise<void> {
     process.exitCode = 2;
     return;
   }
+  if ("operation" in options) {
+    const stop = new AbortController();
+    const cancel = () => stop.abort();
+    process.on("SIGINT", cancel);
+    process.on("SIGTERM", cancel);
+    try {
+      const { runHostAdministratorCommand } = await import("./admin.ts");
+      process.exitCode = await runHostAdministratorCommand(
+        options.operation,
+        options.provider,
+        options.port,
+        process.env,
+        process.stdin,
+        process.stdout,
+        stop.signal,
+      );
+    } catch {
+      process.stderr.write("管理者設定を確認できませんでした。\n");
+      process.exitCode = 2;
+    } finally {
+      process.removeListener("SIGINT", cancel);
+      process.removeListener("SIGTERM", cancel);
+    }
+    return;
+  }
   try {
+    const oauth = consumeOAuthEnvironment(process.env, options.shared);
     const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
       process.cwd(),
     );
-    const mcp = options.shared
-      ? null
-      : createMcpServerFactory(createLocalMcpDependencies(repositoryRoot));
+    const objectiveRuns = createObjectiveRuns();
+    const mcp = options.mcpStdio
+      ? createMcpServerFactory(
+          createLocalMcpDependencies(repositoryRoot, objectiveRuns),
+        )
+      : null;
     const local = {
       workingDirectory: repositoryRoot,
       port: options.port,
@@ -435,19 +523,9 @@ export async function runCrddServerCommand(): Promise<void> {
             ),
           }),
     };
-    const bearerToken = process.env.CRDD_MCP_HTTP_BEARER_TOKEN;
-    const handle =
-      mcp === null
-        ? await startShared(repositoryRoot, options.port)
-        : options.mcpStdio
-          ? await startWorkbench(local)
-          : await startCrddServer({
-              ...local,
-              localMcp: {
-                source: mcp,
-                ...(bearerToken === undefined ? {} : { bearerToken }),
-              },
-            });
+    const handle = options.shared
+      ? await startShared(repositoryRoot, options.port, oauth)
+      : await startWorkbench(local, objectiveRuns);
     const stop = new AbortController();
     let resolveShutdown!: () => void;
     let rejectShutdown!: (reason: unknown) => void;
@@ -470,7 +548,7 @@ export async function runCrddServerCommand(): Promise<void> {
     const diagnostic = options.mcpStdio ? process.stderr : process.stdout;
     try {
       diagnostic.write(`CRDD Server: ${handle.publicUrl}\n`);
-      if (options.mcpStdio && mcp !== null) {
+      if (mcp !== null) {
         const inputEvents = ["end", "close", "error"] as const;
         const outputEvents = ["close", "error"] as const;
         for (const event of inputEvents) process.stdin.once(event, close);
@@ -514,9 +592,26 @@ export async function runCrddServerCommand(): Promise<void> {
         "workbench_public_origin_invalid",
         "mcp_http_configuration_invalid",
         "mcp_server_configuration_invalid",
+        "mcp_oauth_configuration_invalid",
+        "mcp_oauth_configuration_required",
+        "git_hosts_configuration_required",
+        "google_login_configuration_invalid",
+        "git_hosts_configuration_invalid",
+        "git_host_connection_configuration_invalid",
+        "git_host_connection_requires_client_login",
+        "github_connection_configuration_invalid",
+        "git_host_monitor_configuration_invalid",
+        "google_login_unavailable",
+        "host_google_administrator_unavailable",
+        "host_google_initialization_unavailable",
         "crdd_server_public_origin_mismatch",
         "crdd_api_documentation_requires_local_mode",
         "workbench_shared_access_required",
+        "shared_server_lock_occupied",
+        "shared_server_lock_unavailable",
+        "shared_server_lock_cleanup_unconfirmed",
+        "shared_server_startup_cleanup_unconfirmed",
+        "shared_repository_roots_invalid",
         "workbench_official_logo_unavailable",
         "workbench_client_asset_unavailable",
         "workbench_repository_root_invalid",
@@ -525,7 +620,7 @@ export async function runCrddServerCommand(): Promise<void> {
         ? error.message
         : "crdd_server_startup_unavailable";
     process.stderr.write(
-      `CRDD Serverの起動または終了を確認できません。${options.shared ? "単体へ切り替えず停止しました。" : ""}理由: ${reason}\n`,
+      `CRDD Serverの起動または終了を確認できません。${options.shared ? "単体へ切り替えず停止しました。" : ""}理由: ${reason}${reason === "shared_repository_roots_invalid" ? " (CRDD_SHARED_REPOSITORY_ROOTS)" : ""}\n`,
     );
     process.exitCode = 2;
   }

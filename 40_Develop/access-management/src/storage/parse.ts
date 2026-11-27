@@ -8,6 +8,7 @@
 import { isAbsolute } from "node:path";
 import { types } from "node:util";
 import { deriveRepositoryBindingId } from "../repository/binding.ts";
+import type { GitHostLinkedRepository } from "../repository/types.ts";
 import type { AccessManagementState } from "./types.ts";
 
 const UUID_PATTERN =
@@ -15,7 +16,37 @@ const UUID_PATTERN =
 
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
-const CREDENTIAL_PATTERN = /^[0-9a-f]{24}$/;
+/** 検証済み外部主体IDの保存形式。本人性は判定しない。 @trace ARCH-000013 */
+export function isAccountSubject(value: unknown): value is string {
+  return typeof value === "string" && /^[!-~]{1,255}$/u.test(value);
+}
+
+/** 発行者の保存形式だけを検査する。発行者の信頼性は受付側で検証する。 */
+export function isAccountIssuer(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    !/^https:\/\/[!-~]{1,2040}$/u.test(value) ||
+    /[?#\\]/u.test(value)
+  )
+    return false;
+  const authority = value.slice(8).split("/", 1)[0];
+  const parsed = URL.parse(value);
+  return Boolean(authority && !authority.includes("@") && parsed);
+}
+
+export function isInvitationEmail(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= 254 &&
+    /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/u.test(
+      value,
+    )
+  );
+}
+
+export function isInvitationDigest(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
+}
 
 /**
  * 入力検査結果を秘密を含まない拒否理由と分ける。
@@ -68,6 +99,66 @@ function requireClosedRecord(
   return record;
 }
 
+function ownDataRecord(value: unknown, limit: number) {
+  if (!value || typeof value !== "object" || types.isProxy(value)) return null;
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return null;
+  const keys = Reflect.ownKeys(value);
+  if (keys.length > limit) return null;
+  const entries: [string, unknown][] = [];
+  for (const key of keys) {
+    if (typeof key !== "string") return null;
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor?.enumerable || !Object.hasOwn(descriptor, "value"))
+      return null;
+    entries.push([key, descriptor.value]);
+  }
+  return Object.fromEntries(entries);
+}
+
+/** 提供元の参照を補完せず検査し、保存用の独立値として返す。 */
+export function captureGitHostReference(
+  value: unknown,
+): GitHostLinkedRepository | null {
+  const reference = ownDataRecord(value, 4);
+  if (
+    !reference ||
+    !["provider", "host", "repositoryId", "providerData"].every((name) =>
+      Object.hasOwn(reference, name),
+    )
+  )
+    return null;
+  const { provider, host, repositoryId, providerData } = reference;
+  if (
+    typeof provider !== "string" ||
+    !/^[a-z][a-z0-9-]{0,31}$/u.test(provider) ||
+    typeof host !== "string" ||
+    host.length > 253 ||
+    !/^[a-z0-9]+(?:[.-][a-z0-9]+)*\.[a-z0-9]+$/u.test(host) ||
+    typeof repositoryId !== "string" ||
+    !/^[!-~]{1,255}$/u.test(repositoryId)
+  )
+    return null;
+  const data = ownDataRecord(providerData, 16);
+  if (!data) return null;
+  const entries: [string, string][] = [];
+  for (const [key, item] of Object.entries(data)) {
+    if (
+      !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/u.test(key) ||
+      typeof item !== "string" ||
+      !/^[!-~]{1,255}$/u.test(item)
+    )
+      return null;
+    entries.push([key, item]);
+  }
+  return {
+    provider,
+    host,
+    repositoryId,
+    providerData: Object.fromEntries(entries),
+  };
+}
+
 /**
  * 管理状態のraw bytesを完全検査する。
  * @responsibility 入力型、strict UTF-8、閉Schema、現在・歴史参照と段階相関を検査する。
@@ -101,34 +192,41 @@ export function parseAccessManagementState(
       "revision",
       "operationId",
       "users",
-      "roleContentAccess",
-      "credentials",
       "registeredRepositories",
-      "exposure",
       "initialization",
-      "unresolvedKeyExchanges",
     ]);
     if (
       state.contract !== "crdd-access-management/state" ||
-      state.schemaRevision !== 2 ||
+      state.schemaRevision !== 4 ||
       !Number.isSafeInteger(state.revision) ||
       (state.revision as number) < 1 ||
       typeof state.operationId !== "string" ||
       !UUID_PATTERN.test(state.operationId)
     )
       throw new Error("invalid");
-    for (const key of [
-      "users",
-      "roleContentAccess",
-      "credentials",
-      "registeredRepositories",
-      "exposure",
-      "unresolvedKeyExchanges",
-    ])
+    for (const key of ["users", "registeredRepositories"])
       if (!Array.isArray(state[key])) throw new Error("invalid");
     const users = new Map<string, Record<string, unknown>>();
+    const accountIdentities = new Set<string>();
+    const accountBindingIds = new Set<string>();
+    const invitationDigests = new Set<string>();
     for (const value of state.users as unknown[]) {
-      const user = requireClosedRecord(value, ["userId", "username", "role"]);
+      const hasLinks =
+        value !== null &&
+        typeof value === "object" &&
+        Object.hasOwn(value, "accountLinks");
+      const hasInvitation =
+        value !== null &&
+        typeof value === "object" &&
+        Object.hasOwn(value, "invitation");
+      if (hasLinks && hasInvitation) throw new Error("invalid");
+      const user = requireClosedRecord(value, [
+        "userId",
+        "username",
+        "role",
+        ...(hasLinks ? ["accountLinks"] : []),
+        ...(hasInvitation ? ["invitation"] : []),
+      ]);
       if (
         typeof user.userId !== "string" ||
         !UUID_PATTERN.test(user.userId) ||
@@ -141,28 +239,63 @@ export function parseAccessManagementState(
         !["developer", "manager", "administrator"].includes(user.role as string)
       )
         throw new Error("invalid");
+      if (hasLinks) {
+        if (!Array.isArray(user.accountLinks) || user.accountLinks.length === 0)
+          throw new Error("invalid");
+        const issuers = new Set<string>();
+        for (const link of user.accountLinks) {
+          const { issuer, subject, bindingId } = requireClosedRecord(link, [
+            "issuer",
+            "subject",
+            "bindingId",
+          ]);
+          if (
+            !isAccountIssuer(issuer) ||
+            !isAccountSubject(subject) ||
+            typeof bindingId !== "string" ||
+            !UUID_PATTERN.test(bindingId) ||
+            issuers.has(issuer) ||
+            accountBindingIds.has(bindingId)
+          )
+            throw new Error("invalid");
+          const identity = JSON.stringify([issuer, subject]);
+          if (accountIdentities.has(identity)) throw new Error("invalid");
+          issuers.add(issuer);
+          accountIdentities.add(identity);
+          accountBindingIds.add(bindingId);
+        }
+      }
+      if (hasInvitation) {
+        const invitation = requireClosedRecord(user.invitation, [
+          "email",
+          "digest",
+          "expiresAt",
+        ]);
+        if (
+          !isInvitationEmail(invitation.email) ||
+          !isInvitationDigest(invitation.digest) ||
+          invitationDigests.has(invitation.digest) ||
+          typeof invitation.expiresAt !== "number" ||
+          !Number.isSafeInteger(invitation.expiresAt) ||
+          invitation.expiresAt <= 0
+        )
+          throw new Error("invalid");
+        invitationDigests.add(invitation.digest);
+      }
       users.set(user.userId, user);
     }
-    const roles = new Set<string>();
-    for (const value of state.roleContentAccess as unknown[]) {
-      const role = requireClosedRecord(value, ["role", "workspaceIds"]);
-      if (
-        typeof role.role !== "string" ||
-        !["developer", "manager", "administrator"].includes(role.role) ||
-        roles.has(role.role)
-      )
-        throw new Error("invalid");
-      roles.add(role.role);
-      requireWorkspaceIds(role.workspaceIds);
-    }
-    if (roles.size !== 3) throw new Error("invalid");
     const repositories = new Set<string>();
     const bindings = new Set<string>();
     for (const value of state.registeredRepositories as unknown[]) {
+      const hosted =
+        value !== null &&
+        typeof value === "object" &&
+        Object.hasOwn(value, "hostedRepository");
       const repository = requireClosedRecord(value, [
         "repositoryId",
         "repositoryRoot",
         "bindingId",
+        ...(hosted ? ["hostedRepository"] : []),
       ]);
       if (
         typeof repository.repositoryId !== "string" ||
@@ -183,302 +316,38 @@ export function parseAccessManagementState(
         repository.repositoryRoot,
       );
       if (repository.bindingId !== expectedBinding) throw new Error("invalid");
-    }
-    const exposures = new Set<string>();
-    for (const value of state.exposure as unknown[]) {
-      const exposure = requireClosedRecord(value, [
-        "repositoryId",
-        "workspaceIds",
-      ]);
-      if (
-        typeof exposure.repositoryId !== "string" ||
-        !repositories.has(exposure.repositoryId) ||
-        exposures.has(exposure.repositoryId)
-      )
+      if (hosted && !captureGitHostReference(repository.hostedRepository))
         throw new Error("invalid");
-      exposures.add(exposure.repositoryId);
-      requireWorkspaceIds(exposure.workspaceIds);
     }
-    const credentials = new Map<string, Record<string, unknown>>();
-    const issuanceIds = new Set<string>();
-    for (const value of state.credentials as unknown[]) {
-      const credential = requireClosedRecord(value, [
-        "credentialId",
-        "userId",
-        "tokenVersion",
-        "tokenSalt",
-        "tokenVerifier",
-        "revoked",
-        "operationId",
-        "presentation",
-      ]);
-      if (
-        typeof credential.credentialId !== "string" ||
-        !CREDENTIAL_PATTERN.test(credential.credentialId) ||
-        credentials.has(credential.credentialId) ||
-        typeof credential.userId !== "string" ||
-        !users.has(credential.userId) ||
-        credential.tokenVersion !== 1 ||
-        typeof credential.tokenSalt !== "string" ||
-        !/^[0-9a-f]{32}$/.test(credential.tokenSalt) ||
-        typeof credential.tokenVerifier !== "string" ||
-        !/^[0-9a-f]{64}$/.test(credential.tokenVerifier) ||
-        typeof credential.revoked !== "boolean" ||
-        typeof credential.operationId !== "string" ||
-        !UUID_PATTERN.test(credential.operationId) ||
-        issuanceIds.has(credential.operationId) ||
-        !["not_attempted", "unconfirmed", "confirmed"].includes(
-          credential.presentation as string,
-        )
-      )
-        throw new Error("invalid");
-      credentials.set(credential.credentialId, credential);
-      issuanceIds.add(credential.operationId);
-    }
-    const initialization = state.initialization as Record<string, unknown>;
-    const stage = initialization?.stage;
-    const initialKeys =
-      stage === "correlated"
-        ? ["stage", "attemptId"]
-        : stage === "user_stored"
-          ? ["stage", "attemptId", "userId"]
-          : stage === "credential_stored"
-            ? [
-                "stage",
-                "attemptId",
-                "userId",
-                "initialCredentialId",
-                "confirmationCredentialId",
-              ]
-            : [
-                "stage",
-                "attemptId",
-                "initialUserId",
-                "initialCredentialId",
-                "confirmationCredentialId",
-                "connection",
-              ];
-    requireClosedRecord(initialization, initialKeys);
+    const initialization = requireClosedRecord(state.initialization, [
+      "stage",
+      "attemptId",
+      "initialUserId",
+      "connection",
+    ]);
     if (
+      initialization.stage !== "completed" ||
+      initialization.connection !== "account_confirmed" ||
       typeof initialization.attemptId !== "string" ||
-      !UUID_PATTERN.test(initialization.attemptId)
+      !UUID_PATTERN.test(initialization.attemptId) ||
+      typeof initialization.initialUserId !== "string" ||
+      !UUID_PATTERN.test(initialization.initialUserId)
     )
       throw new Error("invalid");
+    const initialUser = users.get(initialization.initialUserId);
+    const links = initialUser?.accountLinks;
     if (
-      stage !== "completed" &&
-      (repositories.size !== 0 || exposures.size !== 0)
-    )
-      throw new Error("invalid");
-    if (
-      (stage === "correlated" || stage === "user_stored") &&
-      (state.unresolvedKeyExchanges as unknown[]).length !== 0
-    )
-      throw new Error("invalid");
-    if (stage === "correlated") {
-      if (users.size !== 0 || credentials.size !== 0)
-        throw new Error("invalid");
-    } else if (stage === "user_stored" || stage === "credential_stored") {
-      if (
+      state.revision === 1 &&
+      (state.operationId !== initialization.attemptId ||
         users.size !== 1 ||
-        typeof initialization.userId !== "string" ||
-        users.get(initialization.userId)?.role !== "administrator" ||
-        (stage === "user_stored" && credentials.size !== 0)
-      )
-        throw new Error("invalid");
-      if (stage === "credential_stored") {
-        const initialCredential = credentials.get(
-          initialization.initialCredentialId as string,
-        );
-        const confirmationCredential = credentials.get(
-          initialization.confirmationCredentialId as string,
-        );
-        if (
-          !initialCredential ||
-          !confirmationCredential ||
-          initialCredential.userId !== initialization.userId ||
-          initialCredential.operationId !== initialization.attemptId ||
-          confirmationCredential.userId !== initialization.userId
-        )
-          throw new Error("invalid");
-      }
-    } else if (stage === "completed") {
-      if (
-        typeof initialization.initialUserId !== "string" ||
-        !UUID_PATTERN.test(initialization.initialUserId) ||
-        typeof initialization.initialCredentialId !== "string" ||
-        !CREDENTIAL_PATTERN.test(initialization.initialCredentialId) ||
-        typeof initialization.confirmationCredentialId !== "string" ||
-        !CREDENTIAL_PATTERN.test(initialization.confirmationCredentialId) ||
-        initialization.connection !== "confirmed"
-      )
-        throw new Error("invalid");
-      const historicalCredential = credentials.get(
-        initialization.initialCredentialId,
-      );
-      if (
-        historicalCredential &&
-        (historicalCredential.userId !== initialization.initialUserId ||
-          historicalCredential.operationId !== initialization.attemptId)
-      )
-        throw new Error("invalid");
-      const confirmationCredential = credentials.get(
-        initialization.confirmationCredentialId,
-      );
-      if (
-        confirmationCredential &&
-        (confirmationCredential.userId !== initialization.initialUserId ||
-          confirmationCredential.presentation !== "confirmed")
-      )
-        throw new Error("invalid");
-    } else throw new Error("invalid");
-    const exchangeIds = new Set<string>();
-    const oldIds = new Set<string>();
-    for (const value of state.unresolvedKeyExchanges as unknown[]) {
-      const entry = value as Record<string, unknown>;
-      const exchange = requireClosedRecord(value, [
-        "stage",
-        "recoveryId",
-        "operationId",
-        "entry",
-        "scope",
-        "recipientUserId",
-        "oldCredentialIds",
-        ...(entry?.stage === "credential_stored" ? ["newCredentialId"] : []),
-      ]);
-      if (
-        !["prepared", "revoked", "credential_stored"].includes(
-          exchange.stage as string,
-        ) ||
-        typeof exchange.operationId !== "string" ||
-        !UUID_PATTERN.test(exchange.operationId) ||
-        exchangeIds.has(exchange.operationId) ||
-        exchange.operationId === initialization.attemptId ||
-        exchange.recoveryId !==
-          `access-management.key-exchange.${exchange.operationId}` ||
-        !["workbench", "host"].includes(exchange.entry as string) ||
-        !["targeted", "all"].includes(exchange.scope as string) ||
-        typeof exchange.recipientUserId !== "string" ||
-        !users.has(exchange.recipientUserId) ||
-        !Array.isArray(exchange.oldCredentialIds)
-      )
-        throw new Error("invalid");
-      exchangeIds.add(exchange.operationId);
-      if (
-        exchange.scope === "all" &&
-        users.get(exchange.recipientUserId as string)?.role !== "administrator"
-      )
-        throw new Error("invalid");
-      const activeCredentialIds = [...credentials.values()]
-        .filter(
-          (credential) =>
-            credential.revoked === false &&
-            (exchange.scope === "all" ||
-              credential.userId === exchange.recipientUserId),
-        )
-        .map((credential) => credential.credentialId as string);
-      if (
-        exchange.stage === "prepared" &&
-        (activeCredentialIds.length !== exchange.oldCredentialIds.length ||
-          activeCredentialIds.some(
-            (id) => !(exchange.oldCredentialIds as unknown[]).includes(id),
-          ))
-      )
-        throw new Error("invalid");
-      if (exchange.stage === "revoked" && activeCredentialIds.length !== 0)
-        throw new Error("invalid");
-      for (const id of exchange.oldCredentialIds) {
-        const credential = credentials.get(id);
-        if (
-          !credential ||
-          oldIds.has(id) ||
-          (exchange.scope === "targeted" &&
-            credential.userId !== exchange.recipientUserId) ||
-          (exchange.stage === "prepared"
-            ? credential.revoked !== false
-            : credential.revoked !== true)
-        )
-          throw new Error("invalid");
-        oldIds.add(id);
-      }
-      if (exchange.stage === "credential_stored") {
-        const credential = credentials.get(exchange.newCredentialId as string);
-        if (
-          !credential ||
-          credential.userId !== exchange.recipientUserId ||
-          credential.operationId !== exchange.operationId ||
-          credential.revoked !== false ||
-          oldIds.has(exchange.newCredentialId as string) ||
-          activeCredentialIds.length !== 1 ||
-          activeCredentialIds[0] !== exchange.newCredentialId
-        )
-          throw new Error("invalid");
-      } else if (issuanceIds.has(exchange.operationId))
-        throw new Error("invalid");
-    }
-    if (stage === "credential_stored") {
-      const confirmationCredential = credentials.get(
-        initialization.confirmationCredentialId as string,
-      );
-      const exchanges = state.unresolvedKeyExchanges as Record<
-        string,
-        unknown
-      >[];
-      const active = [...credentials.values()].filter(
-        (credential) => credential.revoked === false,
-      );
-      if (exchanges.length === 0) {
-        if (active.length !== 1 || active[0] !== confirmationCredential)
-          throw new Error("invalid");
-      } else {
-        const exchange = exchanges[0];
-        if (
-          exchanges.length !== 1 ||
-          exchange?.entry !== "host" ||
-          exchange.recipientUserId !== initialization.userId
-        )
-          throw new Error("invalid");
-        if (exchange.stage === "prepared" || exchange.stage === "revoked") {
-          if (
-            !(exchange.oldCredentialIds as string[]).includes(
-              initialization.confirmationCredentialId as string,
-            ) ||
-            (exchange.stage === "prepared"
-              ? active.length !== 1 || active[0] !== confirmationCredential
-              : active.length !== 0 || confirmationCredential?.revoked !== true)
-          )
-            throw new Error("invalid");
-        } else if (
-          initialization.confirmationCredentialId !== exchange.newCredentialId
-        )
-          throw new Error("invalid");
-      }
-    }
+        initialUser?.role !== "administrator" ||
+        !Array.isArray(links) ||
+        links.length !== 1 ||
+        repositories.size !== 0)
+    )
+      throw new Error("invalid");
     return { status: "parsed", state: state as AccessManagementState };
   } catch {
     return { status: "invalid", reason: "state_schema_invalid" };
   }
-}
-
-/**
- * 内容Workspaceの固定語彙と重複なし集合を検査する。
- * @responsibility 管理操作等を内容範囲へ混入させない。
- * @trace ARCH-000013
- * @input JSON由来workspaceIds。
- * @returns N/A: 正常時に値を返さない。
- * @precondition JSON parse後だけ使用する。
- * @postcondition development／managementのみを重複なく含む。
- * @effect N/A: メモリ検査のみ。
- * @failure 不一致は親parserで固定拒否理由へ変換する。
- * @invariant 空集合は許可するが欠測を空へ変換しない。
- * @boundary 同Fileの状態検査。
- * @security 内容範囲の検査を実行Authorityにしない。
- * @concurrency N/A: 共有状態なし。
- */
-function requireWorkspaceIds(value: unknown): void {
-  if (
-    !Array.isArray(value) ||
-    new Set(value).size !== value.length ||
-    value.some((item) => item !== "development" && item !== "management")
-  )
-    throw new Error("invalid");
 }

@@ -14,18 +14,13 @@ import type {
 } from "../../src/app.ts";
 
 const fieldsByView = {
-  access: [
-    "actionToken",
-    "authenticated",
-    "notice",
-    "portfolio",
-    "credentials",
-  ],
+  access: ["actionToken", "authenticated", "notice", "portfolio"],
   artifact: ["repositoryId", "selectedRepositoryId", "artifact"],
   "project-detail": ["project"],
   "record-detail": [
     "actionToken",
     "repositoryId",
+    "operationRepositoryId",
     "record",
     "recordActionsConfigured",
   ],
@@ -40,13 +35,10 @@ const fieldsByView = {
     "meetingPage",
     "meetingQuery",
     "recordDocuments",
-    "recordActionResult",
     "selectedRepositoryId",
     "recordActionsConfigured",
-    "repositoryActionsConfigured",
-    "repositoryResult",
+    "repositoryActions",
     "worktree",
-    "credentials",
     "aiSelection",
     "aiSelectionManagement",
     "aiRequest",
@@ -70,41 +62,24 @@ function assertManagementId(value: unknown, kind: "repository" | "uuid"): void {
   );
 }
 
-/** 接続の公開範囲を重複や未知値なしで返す。 @trace ERB-IT-021 */
-function assertManagementScope(value: unknown): void {
-  assert.ok(Array.isArray(value));
-  assert.ok(
-    value.every((scope) => scope === "development" || scope === "management"),
-  );
-  assert.equal(new Set(value).size, value.length);
-}
-
 /** 実HTTP上の管理一覧を、閉じたキーと項目Identityで確認する。 @trace ERB-IT-021 */
 function assertManagementRows(
   items: unknown,
-  view: "users" | "roles" | "repositories" | "exposure" | "permitted",
+  view: "users" | "repositories",
 ): void {
   assert.ok(Array.isArray(items));
   const expected = {
     users: "role,userId,username",
-    roles: "role,workspaceIds",
     repositories: "repositoryId",
-    exposure: "repositoryId,workspaceIds",
-    permitted: "repositoryId,workspaceIds",
   };
   const identities = new Set<unknown>();
   for (const item of items) {
     assert.ok(item !== null && typeof item === "object");
     assert.equal(Object.keys(item).sort().join(","), expected[view]);
-    const identity =
-      view === "users"
-        ? item.userId
-        : view === "roles"
-          ? item.role
-          : item.repositoryId;
+    const identity = view === "users" ? item.userId : item.repositoryId;
     assert.ok(!identities.has(identity));
     identities.add(identity);
-    if (view === "users" || view === "roles")
+    if (view === "users")
       assert.ok(["developer", "manager", "administrator"].includes(item.role));
     if (view === "users") {
       assertManagementId(item.userId, "uuid");
@@ -117,14 +92,7 @@ function assertManagementRows(
       );
       assert.doesNotMatch(item.username, /[\p{Cc}\p{Cs}]/u);
     }
-    if (view !== "users" && view !== "roles")
-      assertManagementId(item.repositoryId, "repository");
-    if (
-      view === "roles" ||
-      view === "permitted" ||
-      (view === "exposure" && item.workspaceIds !== null)
-    )
-      assertManagementScope(item.workspaceIds);
+    if (view !== "users") assertManagementId(item.repositoryId, "repository");
   }
 }
 
@@ -135,9 +103,30 @@ export function assertViewResponse(value: unknown): ViewResponse {
   assert.ok("view" in value && typeof value.view === "string");
   assert.ok(Object.hasOwn(fieldsByView, value.view));
   const fields = fieldsByView[value.view as keyof typeof fieldsByView];
+  const optional = [];
+  if (value.view === "main" && "workspaceAccess" in value) {
+    assert.ok(
+      value.workspaceAccess === "read" ||
+        value.workspaceAccess === "write" ||
+        value.workspaceAccess === "unavailable",
+    );
+    optional.push("workspaceAccess");
+  }
+  if (value.view === "access" && "loginProviders" in value) {
+    assert.ok(
+      Array.isArray(value.loginProviders) && value.loginProviders.length > 0,
+    );
+    for (const provider of value.loginProviders) {
+      assert.ok(provider && typeof provider === "object");
+      assert.deepEqual(Object.keys(provider).sort(), ["displayName", "id"]);
+      assert.equal(typeof provider.displayName, "string");
+      assert.equal(typeof provider.id, "string");
+    }
+    optional.push("loginProviders");
+  }
   assert.deepEqual(
     Object.keys(value).sort(),
-    ["contract", "view", ...fields].sort(),
+    ["contract", "view", ...fields, ...optional].sort(),
   );
   return value as ViewResponse;
 }
@@ -187,24 +176,12 @@ export function assertManagementResponse(
       else if (result.userId !== null)
         assertManagementId(result.userId, "uuid");
     } else if (view === "current") {
-      assert.equal(
-        keySets,
-        "contentAccess,permittedRepositories,revision,status,user",
-      );
+      assert.equal(keySets, "revision,status,user");
       const result = value as Record<string, unknown>;
       assertManagementRows([result.user], "users");
-      assertManagementRows(result.permittedRepositories, "permitted");
-      assert.ok(
-        result.contentAccess &&
-          typeof result.contentAccess === "object" &&
-          "workspaceIds" in result.contentAccess,
-      );
-      assert.deepEqual(Object.keys(result.contentAccess), ["workspaceIds"]);
-      assertManagementScope(result.contentAccess.workspaceIds);
     } else {
-      const field = view === "exposure" ? "repositories" : view;
-      assert.equal(keySets, [field, "status", "revision"].sort().join(","));
-      assertManagementRows((value as Record<string, unknown>)[field], view);
+      assert.equal(keySets, [view, "status", "revision"].sort().join(","));
+      assertManagementRows((value as Record<string, unknown>)[view], view);
     }
   } else {
     assert.ok(

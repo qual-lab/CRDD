@@ -11,6 +11,28 @@
  */
 import type { Server } from "@modelcontextprotocol/server";
 
+const accountSubject =
+  /^([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}):([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/u;
+
+/** MCP主体の結合を読み取る。発行、トークン照会、認可は行わない。 @trace ARCH-000012 */
+export function readMcpAccountSubject(subject: string) {
+  const fields = accountSubject.exec(subject);
+  return fields?.[1] && fields[2]
+    ? {
+        userId: fields[1],
+        bindingId: fields[2],
+      }
+    : null;
+}
+
+/** SDK登録とstdioの受付順が参照する公開ツール名。 @trace ARCH-000012 */
+export const objectiveRunTools = {
+  start: "crdd.start_objective",
+  resume: "crdd.resume_objective",
+  state: "crdd.get_execution_state",
+  cancel: "crdd.cancel_objective",
+} as const;
+
 /**
  * 要求別SDK Serverを生成する本番接続を定義する。
  * @responsibility 元入力・取消・Owner Promiseの観測を一要求へ閉じる。
@@ -30,7 +52,7 @@ export type McpServerFactory = Readonly<{
 }>;
 
 /**
- * 公式Server構成または限定Handler注入をTransportへ渡す。
+ * 公式Server構成または要求HandlerをTransportへ渡す。
  * @responsibility 本番Factoryと局所検証用Handlerを型で区別する。
  * @trace ARCH-000012
  * @shape Factoryか一要求Handler。
@@ -70,6 +92,7 @@ export type McpRequestHandler = (
  */
 export type McpAuthenticatedRequestHandlerResolver = (
   bearerToken: string,
+  signal?: AbortSignal,
 ) => Promise<McpRequestSource | null> | McpRequestSource | null;
 
 /**
@@ -103,23 +126,6 @@ export type McpResponse = Readonly<{
 }>;
 
 /**
- * streamable-http-transportで使用するMcp Coordinator Http Optionsの値契約を定義する。
- *
- * @responsibility Mcp Coordinator Http OptionsのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000012
- * @shape McpCoordinatorHttpOptionsが表すProperty、識別子およびRelationを型として固定する。
- * @invariant McpCoordinatorHttpOptionsで宣言した値と責務の対応を維持する。
- * @boundary N/A: McpCoordinatorHttpOptionsの宣言は外部境界を開かない。
- * @security N/A: McpCoordinatorHttpOptionsはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility McpCoordinatorHttpOptionsの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type McpCoordinatorHttpOptions = Readonly<{
-  port: number;
-  bearerToken: string;
-  allowedOrigins?: readonly string[];
-}>;
-
-/**
  * Request単位認証を行うStreamable HTTPの非秘密構成を定義する。
  *
  * @responsibility Listener Port・許可Origin・明示したTLS終端公開OriginをTransport構成として保持する。
@@ -134,35 +140,4 @@ export type McpAuthenticatedHttpOptions = Readonly<{
   port: number;
   allowedOrigins?: readonly string[];
   publicOrigin?: string;
-}>;
-
-/**
- * process-signal-shutdownで使用するMcp Http Server Close Boundaryの値契約を定義する。
- *
- * @responsibility Mcp Http Server Close BoundaryのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000012
- * @shape McpHttpServerCloseBoundaryが表すProperty、識別子およびRelationを型として固定する。
- * @invariant McpHttpServerCloseBoundaryで宣言した値と責務の対応を維持する。
- * @boundary N/A: McpHttpServerCloseBoundaryの宣言は外部境界を開かない。
- * @security N/A: McpHttpServerCloseBoundaryはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility McpHttpServerCloseBoundaryの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type McpHttpServerCloseBoundary = Readonly<{
-  close(): Promise<Readonly<{ status: "completed"; cleanupConfirmed: true }>>;
-}>;
-
-/**
- * process-signal-shutdownで使用するMcp Process Signal Sourceの値契約を定義する。
- *
- * @responsibility Mcp Process Signal SourceのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000012
- * @shape McpProcessSignalSourceが表すProperty、識別子およびRelationを型として固定する。
- * @invariant McpProcessSignalSourceで宣言した値と責務の対応を維持する。
- * @boundary N/A: McpProcessSignalSourceの宣言は外部境界を開かない。
- * @security N/A: McpProcessSignalSourceはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility McpProcessSignalSourceの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type McpProcessSignalSource = Readonly<{
-  on(signal: "SIGINT" | "SIGTERM", listener: () => void): unknown;
-  removeListener(signal: "SIGINT" | "SIGTERM", listener: () => void): unknown;
 }>;

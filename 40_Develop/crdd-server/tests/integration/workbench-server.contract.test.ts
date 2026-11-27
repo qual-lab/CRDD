@@ -11,8 +11,6 @@
  * @trace RCM-IT-005
  * @trace RFD-IT-013
  * @trace RFD-IT-014
- * @trace RFD-IT-017
- * @trace RFD-IT-018
  * @level IT
  * @scope workbench、localhost、official-logo、route-allowlist、cleanup
  * @boundary ERB-IT-021=Direct Boundary: Repository→Workbench Server→Browser相当Consumer
@@ -35,12 +33,11 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { ServerResponse } from "node:http";
 import { syncBuiltinESMExports } from "node:module";
 import { connect } from "node:net";
 import path from "node:path";
 import test from "node:test";
-import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
+import { createRetiredCredentialFixture } from "../../../access-management/tests/support/retired-credential.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { getModelCatalog } from "@qual-lab/crdd-ai-adapter";
 import {
@@ -72,6 +69,17 @@ import { assertViewResponse } from "../support/workbench-wire.ts";
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
 );
+
+/** 単体の記録操作が読むManifestを、試験対象として明示して配置する。 @trace CPR-IT-010 */
+async function copyRecordFixtureManifest(directory: string): Promise<void> {
+  const config = path.join(".crdd", "config");
+  const manifest = path.join(config, "repository-manifest.json");
+  await mkdir(path.join(directory, config), { recursive: true });
+  await copyFile(
+    path.join(repositoryRoot, manifest),
+    path.join(directory, manifest),
+  );
+}
 
 /**
  * UI Routeと同じQueryから、Browserへ公開されるJSON Read Modelを直接取得する。
@@ -439,7 +447,7 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
  * @precondition localhost Serverだけを起動し、処置前拒否に使う不正Workspace Formを用意する。
  * @stimulus 正規化を要するraw Path、管理GETとHEAD、旧Candidate入口、二重slashを含む絶対URLを逐次要求する。
  * @observation HTTP状態・固定本文・管理の非秘密な未構成結果を取得する。
- * @oracle Workspace不正入力は400、管理HEADは404、正規化された旧Candidateは410。二重slash Pathは404／405のままで正常入口へ変化せず、操作を発行しない。
+ * @oracle Workspace不正入力は400、管理HEADは404。撤去した候補操作の正規化URLも一般の未対応POST（405）となる。二重slash Pathは404／405のままで正常入口へ変化せず、操作を発行しない。
  * @cleanup finallyで所有Serverをjoinし、終了後の接続拒否を確認する。
  * @boundary raw HTTPと現在のURL解釈・操作別Handler。外部AI・Docker・保存は使用しない。
  */
@@ -447,38 +455,28 @@ test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", asyn
   const handle = await startWorkbench({ workingDirectory: repositoryRoot });
   try {
     const model = await requestMainModel(handle.baseUrl);
-    const form = new URLSearchParams({
-      actionToken: model.actionToken,
-      repositoryId: model.projectData.context.repositoryId,
-      command: "null",
-    }).toString();
+    const workspacePath = `/api/repositories/${model.projectData.context.repositoryId}/workspaces`;
     for (const requestPath of [
-      "/x/../api/workspace",
-      "/x/%2e%2e/api/workspace",
-      "http://workbench.invalid/x/../api/workspace",
+      `/x/..${workspacePath}`,
+      `/x/%2e%2e${workspacePath}`,
+      `http://workbench.invalid/x/..${workspacePath}`,
     ]) {
       const result = await requestTransport(
         handle.baseUrl,
         requestPath,
         "POST",
-        form,
-        { Origin: handle.baseUrl },
+        "null",
+        { Origin: handle.baseUrl, "Content-Type": "application/json" },
       );
       assert.equal(result.status, 400, requestPath);
-      assert.equal(
-        result.body.toString("utf8"),
-        "workspace_request_rejected\n",
-      );
+      assert.equal(result.body.toString("utf8"), '{"error":"invalid_request"}');
     }
     const current = await requestRaw(
       handle.baseUrl,
       "/x/../api/access?view=current",
     );
-    assert.equal(current.status, 200);
-    assert.deepEqual(JSON.parse(current.body.toString("utf8")), {
-      status: "unavailable",
-      reason: "management_not_configured",
-    });
+    assert.equal(current.status, 404);
+    assert.equal(current.body.byteLength, 0);
     const head = await requestRaw(
       handle.baseUrl,
       "/x/../api/access?view=current",
@@ -491,11 +489,8 @@ test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", asyn
       "http://workbench.invalid/x/../candidate/action",
       "POST",
     );
-    assert.equal(candidate.status, 410);
-    assert.equal(
-      candidate.body.toString("utf8"),
-      "legacy_bundle_candidate_route_removed\n",
-    );
+    assert.equal(candidate.status, 405);
+    assert.equal(candidate.body.toString("utf8"), "method_not_allowed\n");
     for (const path of [
       ".well-known/crdd-workbench-health",
       "api/workbench/view",
@@ -527,20 +522,34 @@ test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", asyn
       );
       assert.equal(trailing.status, 405, operation);
     }
-    for (const [operation, reason] of [
-      ["repository", "repository_action_rejected"],
-      ["records", "topic_meeting_action_rejected"],
-      ["ai-selection", "ai_selection_request_rejected"],
-      ["ai-request", "ai_request_action_rejected"],
-    ]) {
-      const normalized = await requestRaw(
-        handle.baseUrl,
-        `http://synthetic.invalid/x/../api/${operation}`,
-        "POST",
-      );
-      assert.equal(normalized.status, 400, operation);
-      assert.equal(normalized.body.toString("utf8"), `${reason}\n`);
-    }
+    const normalized = await requestRaw(
+      handle.baseUrl,
+      `http://synthetic.invalid/x/../api/repositories/${model.projectData.context.repositoryId}/staging`,
+      "POST",
+    );
+    assert.equal(normalized.status, 400);
+    assert.equal(
+      normalized.body.toString("utf8"),
+      "repository_action_rejected\n",
+    );
+    const retiredRepository = await requestRaw(
+      handle.baseUrl,
+      "http://synthetic.invalid/x/../api/repository",
+      "POST",
+    );
+    assert.equal(retiredRepository.status, 405);
+    const obsolete = await requestRaw(
+      handle.baseUrl,
+      "http://synthetic.invalid/x/../api/records",
+      "POST",
+    );
+    assert.equal(obsolete.status, 405);
+    const retiredSelection = await requestRaw(
+      handle.baseUrl,
+      "http://synthetic.invalid/x/../api/ai-selection",
+      "POST",
+    );
+    assert.equal(retiredSelection.status, 405);
   } finally {
     await handle.close();
   }
@@ -661,23 +670,12 @@ test("許可済みPortfolioをSource Coverage付きで表示する", async () =>
 });
 
 /**
- * 現在の管理者接続で鍵4操作と本人交換を専用HTTP応答へ接続することを検証する。
- *
- * @responsibility AM保存Ownerへの現在認可、閉じた入力、用途限定提示と交換終了を検証する。
- * @trace RFD-IT-013
- * @trace RFD-IT-017
- * @trace RFD-IT-018
- * @precondition Repository内の自己生成RootへAM v2管理状態と試験専用資格を保存する。
- * @stimulus 不正入力を拒否し、鍵4操作と本人交換を実HTTPで送る。交換の六保存点と秘密応答開始時の故障を注入する。
- * @observation 専用応答、非秘密一覧、改訂・資格・提示状態・交換記録と終了後不存在を読む。
- * @oracle 不正入力の保存変更0。鍵は専用presenting応答だけで、汎用GET・保存本文へ複製しない。
- * @cleanup 全Workbench Handleを閉じ、検証した自己生成Rootだけ削除して不存在を確認する。
- * @boundary RFD-IT-013=管理入力→AM現在認可・保存。RFD-IT-017=専用HTTP提示。RFD-IT-018=通常交換→fresh認可による記録終了。
+ * 旧鍵処置のURLは、以前の管理者に有効だった資格でも保存を行わない。 @trace ARCH-000013
  */
-test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度だけ表示する", async (t) => {
-  const directory = await mkdtemp(
-    path.join(repositoryRoot, ".crdd", "tests", "workbench-am-"),
-  );
+test("廃止した管理と鍵のURLは単体・旧管理構成でも状態を読まず保存しない", async (t) => {
+  const testRoot = path.join(repositoryRoot, ".crdd", "tests");
+  await mkdir(testRoot, { recursive: true });
+  const directory = await mkdtemp(path.join(testRoot, "workbench-am-"));
   t.after(async () => {
     assert.equal(
       path.dirname(directory),
@@ -688,510 +686,177 @@ test("管理接続時だけCredentialを管理し生Tokenを専用POSTで一度�
   });
   const adminId = "00000000-0000-4000-8000-000000000003";
   const developerId = "00000000-0000-4000-8000-000000000004";
-  const material = createCredentialMaterial();
+  const material = createRetiredCredentialFixture();
   const state: AccessManagementState = {
     contract: "crdd-access-management/state",
-    schemaRevision: 2,
-    revision: 1,
+    schemaRevision: 4,
+    revision: 2,
     operationId: "00000000-0000-4000-8000-000000000001",
     users: [
       { userId: adminId, username: "管理者", role: "administrator" },
       { userId: developerId, username: "開発者", role: "developer" },
     ],
-    roleContentAccess: [
-      { role: "developer", workspaceIds: ["development"] },
-      { role: "manager", workspaceIds: ["development", "management"] },
-      { role: "administrator", workspaceIds: [] },
-    ],
-    credentials: [
-      {
-        credentialId: material.credentialId,
-        userId: adminId,
-        tokenVersion: 1,
-        tokenSalt: material.tokenSalt,
-        tokenVerifier: material.tokenVerifier,
-        revoked: false,
-        operationId: "00000000-0000-4000-8000-000000000002",
-        presentation: "confirmed",
-      },
-    ],
     registeredRepositories: [],
-    exposure: [],
-    unresolvedKeyExchanges: [],
     initialization: {
       stage: "completed",
       attemptId: "00000000-0000-4000-8000-000000000002",
       initialUserId: adminId,
-      initialCredentialId: material.credentialId,
-      confirmationCredentialId: material.credentialId,
-      connection: "confirmed",
+      connection: "account_confirmed",
     },
   };
   const current = path.join(directory, "access-management.json");
   await writeFile(current, JSON.stringify(state));
   const root = createFilesystemStoreRoot(directory);
   assert.ok(root);
-  const repositoryOnly = await startWorkbench({
-    workingDirectory: repositoryRoot,
-  });
-  try {
-    const shell = await requestClientModel(repositoryOnly.baseUrl);
-    assert.equal(shell.view, "main");
-    if (shell.view === "main")
-      assert.equal(shell.credentials.state, "not_configured");
-    assert.equal(
-      (
-        await requestRaw(
-          repositoryOnly.baseUrl,
-          "/api/access/credentials",
-          "POST",
-          "operation=issue&profile=developer",
-        )
-      ).status,
-      400,
-    );
-    assert.equal(JSON.parse(await readFile(current, "utf8")).revision, 1);
-  } finally {
-    await repositoryOnly.close();
-  }
-  const handle = await startWorkbench({
-    workingDirectory: repositoryRoot,
-    credentialAdministration: { root, token: material.token },
-  });
-  try {
-    const initial = await requestClientModel(handle.baseUrl);
-    assert.equal(initial.view, "main");
-    if (initial.view !== "main") return;
-    assert.equal(initial.credentials.state, "available");
-    assert.equal(initial.credentials.snapshot?.revision, 1);
-    const beforeRejected = await readFile(current, "utf8");
-    const validIssue = new URLSearchParams({
-      actionToken: initial.actionToken,
-      operation: "issue",
-      userId: developerId,
-      expectedRevision: "1",
-    }).toString();
-    for (const headers of [
-      { Origin: "https://untrusted.invalid" },
-      { Host: "untrusted.invalid" },
-      { "Content-Type": "application/json" },
-    ]) {
-      const denied = await requestTransport(
-        handle.baseUrl,
-        "/api/access/credentials",
-        "POST",
-        validIssue,
-        headers,
-      );
-      assert.equal(denied.status, 400);
-      assert.equal(
-        denied.body.toString("utf8"),
-        "credential_action_rejected\n",
-      );
-      assert.equal(await readFile(current, "utf8"), beforeRejected);
-    }
-    for (const body of [
-      `${validIssue}&operation=issue`,
-      `${validIssue}&actionToken=${initial.actionToken}`,
-      `${validIssue}&expectedRevision=1`,
-      `${validIssue}&root=arbitrary`,
-      validIssue.replace("expectedRevision=1", "expectedRevision=2"),
-    ]) {
-      const denied = await requestRaw(
-        handle.baseUrl,
-        "/api/access/credentials",
-        "POST",
-        body,
-      );
-      assert.equal(denied.status, 400);
-      assert.equal(await readFile(current, "utf8"), beforeRejected);
-    }
-    for (const invalid of [
-      {
-        actionToken: initial.actionToken,
-        operation: "issue",
-        profile: "developer",
-      },
-      {
-        actionToken: initial.actionToken,
-        operation: "update_access",
-        credentialId: material.credentialId,
-      },
-      {
-        actionToken: initial.actionToken,
-        operation: "rotate",
-        credentialId: material.credentialId,
-      },
-      {
-        actionToken: "invalid",
-        operation: "issue",
-        userId: developerId,
-        expectedRevision: "1",
-      },
-    ])
-      assert.equal(
-        (
-          await requestRaw(
-            handle.baseUrl,
-            "/api/access/credentials",
-            "POST",
-            new URLSearchParams(invalid).toString(),
-          )
-        ).status,
-        400,
-      );
-    assert.equal(JSON.parse(await readFile(current, "utf8")).revision, 1);
-    const issued = await requestRaw(
-      handle.baseUrl,
-      "/api/access/credentials",
-      "POST",
-      new URLSearchParams({
-        actionToken: initial.actionToken,
-        operation: "issue",
-        userId: developerId,
-        expectedRevision: "1",
-      }).toString(),
-    );
-    assert.equal(issued.status, 200);
-    assert.equal(issued.headers["cache-control"], "no-store");
-    assert.equal(issued.headers.location, undefined);
-    const result = JSON.parse(issued.body.toString("utf8"));
-    assert.equal(result.status, "presenting");
-    assert.equal(result.reason, "stored_key_response");
-    assert.equal(typeof result.token, "string");
-    const credentialId = result.credentialId;
-    assert.equal(typeof credentialId, "string");
-    const saved = JSON.parse(
-      await readFile(current, "utf8"),
-    ) as AccessManagementState;
-    assert.equal(saved.credentials.length, 2);
-    assert.equal(saved.credentials[0]?.revoked, false);
-    assert.equal(saved.unresolvedKeyExchanges.length, 0);
-    assert.equal(JSON.stringify(saved).includes(result.token), false);
-    const fresh = await requestClientModel(handle.baseUrl);
-    assert.equal(fresh.view, "main");
-    assert.equal(JSON.stringify(fresh).includes(result.token), false);
-    assert.equal(
-      Object.hasOwn(fresh.view === "main" ? fresh.credentials : {}, "result"),
-      false,
-    );
-    if (fresh.view !== "main" || !fresh.credentials.snapshot) return;
-    const revoked = await requestRaw(
-      handle.baseUrl,
-      "/api/access/credentials",
-      "POST",
-      new URLSearchParams({
-        actionToken: initial.actionToken,
-        operation: "revoke",
-        userId: developerId,
-        credentialId,
-        expectedRevision: String(fresh.credentials.snapshot.revision),
-      }).toString(),
-    );
-    assert.equal(revoked.status, 200);
-    const revocation = JSON.parse(revoked.body.toString("utf8"));
-    assert.equal(revocation.status, "completed");
-    assert.equal(Object.hasOwn(revocation, "token"), false);
-    assert.equal(Object.hasOwn(revocation, "recoveryId"), false);
-    const last = JSON.parse(
-      await readFile(current, "utf8"),
-    ) as AccessManagementState;
-    assert.equal(last.credentials[0]?.revoked, false);
-    assert.equal(last.credentials[1]?.revoked, true);
-    assert.equal(last.credentials.length, 2);
-    assert.equal(last.unresolvedKeyExchanges.length, 0);
-    const targeted = await requestRaw(
-      handle.baseUrl,
-      "/api/access/credentials",
-      "POST",
-      new URLSearchParams({
-        actionToken: initial.actionToken,
-        operation: "exchange-user",
-        userId: developerId,
-        expectedRevision: String(last.revision),
-        displayedOldCredentialIds: "[]",
-      }).toString(),
-    );
-    assert.equal(targeted.status, 200);
-    const targetReply = JSON.parse(targeted.body.toString("utf8"));
-    assert.equal(targetReply.status, "presenting");
-    assert.equal(typeof targetReply.token, "string");
-    assert.equal(typeof targetReply.recoveryId, "string");
-    const afterTarget = await requestClientModel(handle.baseUrl);
-    assert.equal(afterTarget.view, "main");
-    if (afterTarget.view !== "main" || !afterTarget.credentials.snapshot)
-      return;
-    assert.equal(afterTarget.credentials.snapshot.exchange, null);
-    assert.equal(
-      JSON.stringify(afterTarget).includes(targetReply.token),
-      false,
-    );
-    const allIds = afterTarget.credentials.snapshot.credentials
-      .filter((credential) => !credential.revoked)
-      .map((credential) => credential.credentialId);
-    const allForm = new URLSearchParams({
-      actionToken: initial.actionToken,
-      operation: "exchange-all",
-      userId: adminId,
-      expectedRevision: String(afterTarget.credentials.snapshot.revision),
-      displayedOldCredentialIds: JSON.stringify(allIds),
+  const before = await readFile(current);
+  const initialEntries = (await readdir(directory)).sort();
+  const rename = fs.renameSync;
+  let publications = 0;
+  const observed = t.mock.method(
+    fs,
+    "renameSync",
+    (...args: Parameters<typeof rename>) => {
+      if (path.resolve(String(args[1])) === current) publications++;
+      return rename(...args);
+    },
+  );
+  t.after(() => observed.mock.restore());
+  for (const configuration of [{}, { localAccessRoot: root }] as const) {
+    const handle = await startWorkbench({
+      workingDirectory: repositoryRoot,
+      ...configuration,
     });
-    assert.equal(
-      (
-        await requestRaw(
+    try {
+      const runningEntries = (await readdir(directory)).sort();
+      const model = await requestClientModel(handle.baseUrl);
+      assert.ok("actionToken" in model);
+      const headers = {
+        Origin: handle.baseUrl,
+        "Content-Type": "application/x-www-form-urlencoded",
+        ...(Object.keys(configuration).length > 0 && {
+          Authorization: `Bearer ${material.token}`,
+        }),
+      };
+      const open = fs.openSync;
+      let managementReads = 0;
+      const stateReads = t.mock.method(
+        fs,
+        "openSync",
+        (...args: Parameters<typeof open>) => {
+          if (String(args[0]) === current) managementReads++;
+          return open(...args);
+        },
+      );
+      syncBuiltinESMExports();
+      try {
+        fs.closeSync(fs.openSync(current, "r"));
+        assert.equal(managementReads, 1);
+        managementReads = 0;
+        for (const target of [
+          "/api/access?view=users",
+          "/api/access/credentials",
+          "/api/access/connection",
+        ]) {
+          for (const method of ["GET", "HEAD", "POST"] as const) {
+            const retired = await requestTransport(
+              handle.baseUrl,
+              target,
+              method,
+              method === "POST" ? "operation=registerUser" : "",
+              headers,
+            );
+            assert.equal(retired.status, 404, `${method} ${target}`);
+            assert.equal(retired.body.byteLength, 0);
+          }
+        }
+        if ("localAccessRoot" in configuration) {
+          const stage = await requestTransport(
+            handle.baseUrl,
+            "/api/repositories/repository.fixture/staging",
+            "POST",
+            JSON.stringify({ path: "work.txt" }),
+            {
+              ...headers,
+              "Content-Type": "application/json",
+              "X-CRDD-Action-Token": model.actionToken,
+            },
+          );
+          assert.equal(stage.status, 400);
+          assert.equal(stage.body.toString(), "repository_action_rejected\n");
+          const aiCollection =
+            "/api/repositories/repository.fixture/ai-requests";
+          const observation = await requestTransport(
+            handle.baseUrl,
+            `${aiCollection}/retired-ai-request`,
+            "GET",
+            undefined,
+            headers,
+          );
+          assert.equal(observation.status, 403);
+          assert.equal(observation.body.toString(), "ai_request_rejected\n");
+          const start = await requestTransport(
+            handle.baseUrl,
+            aiCollection,
+            "POST",
+            JSON.stringify({
+              requestId: "retired-ai-request",
+              mode: "read_only_advice",
+              prompt: "合成入力",
+            }),
+            {
+              ...headers,
+              "Content-Type": "application/json",
+              "X-CRDD-Action-Token": model.actionToken,
+            },
+          );
+          assert.equal(start.status, 403);
+          assert.deepEqual(JSON.parse(start.body.toString()), {
+            error: "ai_request_rejected",
+          });
+        }
+      } finally {
+        stateReads.mock.restore();
+        syncBuiltinESMExports();
+      }
+      assert.equal(managementReads, 0);
+      for (const operation of [
+        "issue",
+        "revoke",
+        "exchange-user",
+        "exchange-all",
+      ]) {
+        const payload = new URLSearchParams({
+          actionToken: "retired-management-token",
+          operation,
+          userId: adminId,
+          expectedRevision: "1",
+        });
+        if (operation === "revoke")
+          payload.set("credentialId", material.credentialId);
+        if (operation.startsWith("exchange-")) {
+          payload.set(
+            "displayedOldCredentialIds",
+            JSON.stringify([material.credentialId]),
+          );
+          payload.set("confirmed", "true");
+        }
+        const reply = await requestTransport(
           handle.baseUrl,
           "/api/access/credentials",
           "POST",
-          allForm.toString(),
-        )
-      ).status,
-      400,
-    );
-    allForm.set("confirmed", "true");
-    const all = await requestRaw(
-      handle.baseUrl,
-      "/api/access/credentials",
-      "POST",
-      allForm.toString(),
-    );
-    assert.equal(all.status, 200);
-    const allReply = JSON.parse(all.body.toString("utf8"));
-    assert.equal(allReply.status, "presenting");
-    const afterAll = await requestClientModel(handle.baseUrl);
-    assert.equal(afterAll.view, "main");
-    if (afterAll.view === "main")
-      assert.equal(afterAll.credentials.state, "unavailable");
-    const finalState = JSON.parse(
-      await readFile(current, "utf8"),
-    ) as AccessManagementState;
-    assert.equal(finalState.unresolvedKeyExchanges.length, 0);
-    assert.equal(
-      finalState.credentials.filter((credential) => !credential.revoked).length,
-      1,
-    );
-    assert.equal(finalState.credentials.at(-1)?.userId, adminId);
-    const reconnected = await startWorkbench({
-      workingDirectory: repositoryRoot,
-      credentialAdministration: { root, token: allReply.token },
-    });
-    try {
-      const model = await requestClientModel(reconnected.baseUrl);
-      assert.equal(model.view, "main");
-      if (model.view !== "main" || !model.credentials.snapshot) return;
-      const selfIds = model.credentials.snapshot.credentials
-        .filter(
-          (credential) => !credential.revoked && credential.userId === adminId,
-        )
-        .map((credential) => credential.credentialId);
-      const self = await requestRaw(
-        reconnected.baseUrl,
-        "/api/access/credentials",
-        "POST",
-        new URLSearchParams({
-          actionToken: model.actionToken,
-          operation: "exchange-user",
-          userId: adminId,
-          expectedRevision: String(model.credentials.snapshot.revision),
-          displayedOldCredentialIds: JSON.stringify(selfIds),
-        }).toString(),
-      );
-      assert.equal(self.status, 200);
-      assert.equal(JSON.parse(self.body.toString("utf8")).status, "presenting");
-      const stale = await requestClientModel(reconnected.baseUrl);
-      assert.equal(stale.view, "main");
-      if (stale.view === "main")
-        assert.equal(stale.credentials.state, "unavailable");
-      const settled = JSON.parse(
-        await readFile(current, "utf8"),
-      ) as AccessManagementState;
-      assert.equal(settled.unresolvedKeyExchanges.length, 0);
-      assert.equal(
-        settled.credentials.filter((credential) => !credential.revoked).length,
-        1,
-      );
-      assert.equal(settled.credentials.at(-1)?.presentation, "confirmed");
+          payload.toString(),
+          headers,
+        );
+        assert.equal(reply.status, 404, operation);
+        assert.equal(reply.body.byteLength, 0);
+        assert.equal(publications, 0);
+        assert.deepEqual(await readFile(current), before);
+        assert.deepEqual((await readdir(directory)).sort(), runningEntries);
+      }
     } finally {
-      await reconnected.close();
+      await handle.close();
     }
-  } finally {
-    await handle.close();
-  }
-  for (let failedPublication = 1; failedPublication <= 6; failedPublication++) {
-    await t.test(
-      `交換の出版${failedPublication}故障は既知段階と提示の限界を保持する`,
-      async () => {
-        const faultDirectory = path.join(
-          directory,
-          `publication-${failedPublication}`,
-        );
-        await mkdir(faultDirectory);
-        const faultCurrent = path.join(
-          faultDirectory,
-          "access-management.json",
-        );
-        await writeFile(faultCurrent, JSON.stringify(state));
-        const faultRoot = createFilesystemStoreRoot(faultDirectory);
-        assert.ok(faultRoot);
-        const faultHandle = await startWorkbench({
-          workingDirectory: repositoryRoot,
-          credentialAdministration: { root: faultRoot, token: material.token },
-        });
-        const rename = fs.renameSync;
-        let publications = 0;
-        try {
-          const model = await requestClientModel(faultHandle.baseUrl);
-          assert.equal(model.view, "main");
-          if (model.view !== "main") return;
-          fs.renameSync = (from, to) => {
-            if (
-              String(to) === faultCurrent &&
-              ++publications === failedPublication
-            )
-              throw new Error("synthetic_credential_publication_failure");
-            return rename(from, to);
-          };
-          const reply = await requestRaw(
-            faultHandle.baseUrl,
-            "/api/access/credentials",
-            "POST",
-            new URLSearchParams({
-              actionToken: model.actionToken,
-              operation: "exchange-user",
-              userId: developerId,
-              expectedRevision: "1",
-              displayedOldCredentialIds: "[]",
-            }).toString(),
-          );
-          await faultHandle.close();
-          const response = JSON.parse(reply.body.toString("utf8"));
-          assert.equal(reply.status, failedPublication <= 4 ? 409 : 200);
-          assert.equal(
-            response.status,
-            failedPublication <= 4 ? "blocked" : "presenting",
-          );
-          assert.equal(
-            Object.hasOwn(response, "token"),
-            failedPublication >= 5,
-          );
-          assert.equal(reply.headers["cache-control"], "no-store");
-          assert.equal(publications, failedPublication);
-          const held = JSON.parse(
-            await readFile(faultCurrent, "utf8"),
-          ) as AccessManagementState;
-          assert.equal(held.revision, failedPublication);
-          assert.equal(held.credentials[0]?.revoked, false);
-          assert.equal(held.credentials.length, failedPublication >= 4 ? 2 : 1);
-          assert.equal(
-            held.unresolvedKeyExchanges.length,
-            failedPublication === 1 ? 0 : 1,
-          );
-          if (failedPublication >= 4) {
-            assert.equal(
-              held.unresolvedKeyExchanges[0]?.stage,
-              "credential_stored",
-            );
-            assert.equal(
-              held.credentials.at(-1)?.presentation,
-              failedPublication === 4
-                ? "not_attempted"
-                : failedPublication === 5
-                  ? "unconfirmed"
-                  : "confirmed",
-            );
-          }
-          if (typeof response.token === "string")
-            assert.equal(JSON.stringify(held).includes(response.token), false);
-        } finally {
-          await faultHandle.close();
-          fs.renameSync = rename;
-        }
-      },
-    );
-  }
-  for (const failure of ["close", "throw"] as const) {
-    await t.test(
-      `秘密応答の${failure}故障は提示確認と交換終了を開始しない`,
-      async () => {
-        const faultDirectory = path.join(directory, `response-${failure}`);
-        await mkdir(faultDirectory);
-        const faultCurrent = path.join(
-          faultDirectory,
-          "access-management.json",
-        );
-        await writeFile(faultCurrent, JSON.stringify(state));
-        const faultRoot = createFilesystemStoreRoot(faultDirectory);
-        assert.ok(faultRoot);
-        const faultHandle = await startWorkbench({
-          workingDirectory: repositoryRoot,
-          credentialAdministration: { root: faultRoot, token: material.token },
-        });
-        const end = ServerResponse.prototype.end;
-        let interruptions = 0;
-        try {
-          const model = await requestClientModel(faultHandle.baseUrl);
-          assert.equal(model.view, "main");
-          if (model.view !== "main") return;
-          ServerResponse.prototype.end = function (
-            this: ServerResponse,
-            ...arguments_: unknown[]
-          ) {
-            const body = arguments_[0];
-            if (
-              Buffer.isBuffer(body) &&
-              this.getHeader("Content-Type") ===
-                "application/json; charset=utf-8"
-            ) {
-              const value = JSON.parse(body.toString("utf8"));
-              if (
-                value.contract === "crdd/workbench/credential-action" &&
-                value.status === "presenting"
-              ) {
-                interruptions++;
-                if (failure === "throw")
-                  throw new Error("synthetic_response_failure");
-                this.destroy();
-                return this;
-              }
-            }
-            return Reflect.apply(end, this, arguments_);
-          } as typeof ServerResponse.prototype.end;
-          await assert.rejects(
-            requestRaw(
-              faultHandle.baseUrl,
-              "/api/access/credentials",
-              "POST",
-              new URLSearchParams({
-                actionToken: model.actionToken,
-                operation: "exchange-user",
-                userId: developerId,
-                expectedRevision: "1",
-                displayedOldCredentialIds: "[]",
-              }).toString(),
-            ),
-            { code: "ECONNRESET" },
-          );
-          const closing = faultHandle.close();
-          assert.equal(faultHandle.close(), closing);
-          await closing;
-          assert.equal(interruptions, 1);
-          const held = JSON.parse(
-            await readFile(faultCurrent, "utf8"),
-          ) as AccessManagementState;
-          assert.equal(held.revision, 5);
-          assert.equal(held.credentials.length, 2);
-          assert.equal(held.credentials[0]?.revoked, false);
-          assert.equal(held.credentials.at(-1)?.presentation, "unconfirmed");
-          assert.equal(held.unresolvedKeyExchanges.length, 1);
-          assert.equal(
-            held.unresolvedKeyExchanges[0]?.stage,
-            "credential_stored",
-          );
-        } finally {
-          await faultHandle.close();
-          ServerResponse.prototype.end = end;
-        }
-      },
-    );
+    assert.deepEqual((await readdir(directory)).sort(), initialEntries);
   }
 });
 
@@ -1252,6 +917,17 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
     handle = await startWorkbench({ workingDirectory: fixture });
     const initial = await requestMainModel(handle.baseUrl);
     const token = initial.actionToken;
+    const repositoryPath = `/api/repositories/${initial.projectData.context.repositoryId}`;
+    const writeGit = (path: string, body: object, actionToken = token) =>
+      fetch(`${handle?.baseUrl}${path}`, {
+        method: "POST",
+        headers: {
+          origin: handle?.baseUrl ?? "",
+          "content-type": "application/json",
+          "x-crdd-action-token": actionToken,
+        },
+        body: JSON.stringify(body),
+      });
     assert.ok(
       initial.worktree.tree?.entries.some((entry) => entry.path === "work.txt"),
     );
@@ -1267,64 +943,107 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
       "/?treeDirectory=..%2Foutside",
     );
     assert.equal(invalidTree.worktree.state, "unknown");
-    const rejected = await requestRaw(
-      handle.baseUrl,
-      "/api/repository",
-      "POST",
-      "actionToken=wrong&operation=prepare&path=work.txt",
+    const rejected = await writeGit(
+      `${repositoryPath}/staging`,
+      { path: "work.txt" },
+      "wrong",
     );
     assert.equal(rejected.status, 400);
-
-    const staged = await requestRaw(
-      handle.baseUrl,
-      "/api/repository",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        operation: "prepare",
-        path: "work.txt",
-      }).toString(),
+    const stagePath = `${repositoryPath}/staging`;
+    const stageBody = JSON.stringify({ path: "work.txt" });
+    const stageHeaders = {
+      Origin: handle.baseUrl,
+      "Content-Type": "application/json",
+      "X-CRDD-Action-Token": token,
+    };
+    for (const [label, headers] of [
+      ["missing origin", { ...stageHeaders, Origin: [] }],
+      [
+        "duplicate origin",
+        { ...stageHeaders, Origin: [handle.baseUrl, handle.baseUrl] },
+      ],
+      ["mismatched host", { ...stageHeaders, Host: "wrong.invalid" }],
+      [
+        "duplicate action token",
+        { ...stageHeaders, "X-CRDD-Action-Token": [token, token] },
+      ],
+      [
+        "duplicate media type",
+        {
+          ...stageHeaders,
+          "Content-Type": ["application/json", "application/json"],
+        },
+      ],
+    ] satisfies [string, Record<string, string | string[]>][]) {
+      const denial = await requestTransport(
+        handle.baseUrl,
+        stagePath,
+        "POST",
+        stageBody,
+        { ...headers },
+      );
+      assert.equal(denial.status, 400, label);
+      assert.equal(
+        denial.body.toString(),
+        "repository_action_rejected\n",
+        label,
+      );
+    }
+    assert.equal(git(fixture, "diff", "--cached", "--name-only").trim(), "");
+    const wrongRepository = await writeGit(
+      "/api/repositories/repo.unknown/staging",
+      { path: "work.txt" },
     );
-    assert.equal(staged.status, 303);
+    assert.equal(wrongRepository.status, 400);
+    const retired = await writeGit("/api/repository", {
+      operation: "prepare",
+      path: "work.txt",
+    });
+    const unlisted = await writeGit("/api/repository-unknown", {
+      operation: "prepare",
+      path: "work.txt",
+    });
+    assert.equal(retired.status, unlisted.status);
+    assert.equal(await retired.text(), await unlisted.text());
+
+    const staged = await requestTransport(
+      handle.baseUrl,
+      stagePath,
+      "POST",
+      stageBody,
+      { ...stageHeaders, "Content-Type": "application/json \t; charset=UTF-8" },
+    );
+    assert.equal(staged.status, 200);
+    assert.equal(
+      JSON.parse(staged.body.toString()).reason,
+      "prepare_completed",
+    );
     const afterStage = await requestMainModel(handle.baseUrl);
     assert.deepEqual(
       afterStage.projectData.repository.changeSet?.preparedChanges,
       ["work.txt"],
     );
 
-    const committed = await requestRaw(
-      handle.baseUrl,
-      "/api/repository",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        operation: "create_revision",
-        message: "workbench commit",
-      }).toString(),
-    );
-    assert.equal(committed.status, 303);
+    const committed = await writeGit(`${repositoryPath}/revisions`, {
+      message: "workbench commit",
+    });
+    assert.equal(committed.status, 200);
+    assert.equal((await committed.json()).reason, "revision_created");
     const afterCommit = await requestMainModel(handle.baseUrl);
-    assert.equal(afterCommit.repositoryResult?.reason, "revision_created");
+    assert.equal(Object.hasOwn(afterCommit, "repositoryResult"), false);
     const revisionIdentity = git(fixture, "rev-parse", "HEAD");
-    const published = await requestRaw(
-      handle.baseUrl,
-      "/api/repository",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        operation: "publish_revision",
+    const published = await writeGit(
+      `${repositoryPath}/revisions/${revisionIdentity}/publication`,
+      {
         destination: "origin",
         branch: "main",
-        revisionIdentity,
-        humanConfirmed: "true",
-      }).toString(),
+        humanConfirmed: true,
+      },
     );
-    assert.equal(published.status, 303);
+    assert.equal(published.status, 200);
+    assert.equal((await published.json()).reason, "publication_confirmed");
     const afterPublication = await requestMainModel(handle.baseUrl);
-    assert.equal(
-      afterPublication.repositoryResult?.reason,
-      "publication_confirmed",
-    );
+    assert.equal(Object.hasOwn(afterPublication, "repositoryResult"), false);
     assert.equal(git(remote, "rev-parse", "refs/heads/main"), revisionIdentity);
 
     await writeFile(
@@ -1333,26 +1052,21 @@ test("Token付きRepository操作で選択PathだけをStage・Commit・通常�
       "utf8",
     );
     await unlink(path.join(fixture, "PROJECT_CONTEXT.md"));
-    const completedWithRefreshFailure = await requestRaw(
-      handle.baseUrl,
-      "/api/repository",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        operation: "prepare",
-        path: "after-publication.txt",
-      }).toString(),
+    const completedWithRefreshFailure = await writeGit(
+      `${repositoryPath}/staging`,
+      { path: "after-publication.txt" },
     );
-    assert.equal(completedWithRefreshFailure.status, 303);
+    assert.equal(completedWithRefreshFailure.status, 200);
+    assert.equal(
+      (await completedWithRefreshFailure.json()).reason,
+      "prepare_completed",
+    );
     assert.equal(
       git(fixture, "diff", "--cached", "--name-only"),
       "after-publication.txt",
     );
     const afterRefreshFailure = await requestMainModel(handle.baseUrl);
-    assert.equal(
-      afterRefreshFailure.repositoryResult?.reason,
-      "prepare_completed",
-    );
+    assert.equal(Object.hasOwn(afterRefreshFailure, "repositoryResult"), false);
     assert.equal(afterRefreshFailure.projectData.repository.state, "unknown");
   } finally {
     if (handle !== null) await handle.close();
@@ -1405,7 +1119,7 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
    * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
    */
   const topic = (revision: number, state = "open") =>
-    `# Workbench Topic\n\n成果物種別: Topic\nTopic ID: \`TOPIC-000042\`\nProject ID: \`PRJ-001\`\n状態: \`${state}\`\n改訂: \`${revision}\`\n維持責任者: \`Project Operator\`\n\n## 1. 現在の論点\n\n### 結論\n\nWorkbench CRUDを確認する。\n\n## 3. 関係\n\n| 関係種別 | 対象ID／参照 | このTopicとの関係 |\n|---|---|---|\n| candidate | \`CHG-000010\` | 採用候補 |\n| related | \`TOPIC-999999\` | 欠落Relationの明示 |\n\n## 4. 次の行動\n\n| 行動 | Owner | 期限／再評価契機 | 完了条件 | 状態 |\n|---|---|---|---|---|\n| 確認する | PM | 次回 | 判断する | \`open\` |\n\n## 5. 終了・昇格\n\n| 項目 | 内容 |\n|---|---|\n| 処置 | \`N/A: open／waitingでは未処置\` |\n| 昇格先 | \`N/A: 未昇格\` |\n| 終了理由 | \`N/A: 未終了\` |\n| 残る影響 | \`N/A: 未終了\` |\n`;
+    `# Workbench Topic\n\n成果物種別: Topic\nTopic ID: \`TOPIC-000042\`\nProject ID: \`qual-lab.crdd\`\n状態: \`${state}\`\n改訂: \`${revision}\`\n維持責任者: \`Project Operator\`\n\n## 1. 現在の論点\n\n### 結論\n\nWorkbench CRUDを確認する。\n\n## 3. 関係\n\n| 関係種別 | 対象ID／参照 | このTopicとの関係 |\n|---|---|---|\n| candidate | \`CHG-000010\` | 採用候補 |\n| related | \`TOPIC-999999\` | 欠落Relationの明示 |\n\n## 4. 次の行動\n\n| 行動 | Owner | 期限／再評価契機 | 完了条件 | 状態 |\n|---|---|---|---|---|\n| 確認する | PM | 次回 | 判断する | \`open\` |\n\n## 5. 終了・昇格\n\n| 項目 | 内容 |\n|---|---|\n| 処置 | \`N/A: open／waitingでは未処置\` |\n| 昇格先 | \`N/A: 未昇格\` |\n| 終了理由 | \`N/A: 未終了\` |\n| 残る影響 | \`N/A: 未終了\` |\n`;
   try {
     await mkdir(path.join(fixture, "04_UI", "assets", "brand"), {
       recursive: true,
@@ -1439,22 +1153,34 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
       "# Workbench Relation Change\n",
       "utf8",
     );
+    await copyRecordFixtureManifest(fixture);
     git(fixture, "init", "--initial-branch=main");
     handle = await startWorkbench({ workingDirectory: fixture });
     const initial = await requestMainModel(handle.baseUrl);
-    const token = initial.actionToken;
-    const create = await requestRaw(
-      handle.baseUrl,
+    const base = handle.baseUrl;
+    const repository = `/api/repositories/${initial.projectData.context.repositoryId}`;
+    const topics = `${repository}/topics`;
+    const topicPath = `${topics}/TOPIC-000042`;
+    const writeRecord = (
+      target: string,
+      method: string,
+      body: object,
+      origin = base,
+    ) =>
+      requestTransport(base, target, method, JSON.stringify(body), {
+        "Content-Type": "application/json",
+        Origin: origin,
+      });
+    const create = await writeRecord(topics, "POST", { markdown: topic(1) });
+    assert.equal(create.status, 201);
+    const retired = await requestTransport(
+      base,
       "/api/records",
       "POST",
-      new URLSearchParams({
-        actionToken: token,
-        kind: "topic",
-        operation: "create",
-        markdown: topic(1),
-      }).toString(),
+      "kind=topic&operation=create",
+      { Origin: base },
     );
-    assert.equal(create.status, 303);
+    assert.equal(retired.status, 405);
     const created = await requestMainModel(handle.baseUrl);
     assert.match(
       JSON.stringify(created.topicPage.records[0]),
@@ -1505,58 +1231,31 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
       "/api/workbench/view?route=%2Ftopic&id=TOPIC-999999",
     );
     assert.equal(missingDetail.status, 404);
-    const update = await requestRaw(
-      handle.baseUrl,
-      "/api/records",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        kind: "topic",
-        operation: "update",
-        id: "TOPIC-000042",
-        expectedRevision: "1",
-        markdown: topic(2, "waiting"),
-      }).toString(),
-    );
-    assert.equal(update.status, 303);
+    const update = await writeRecord(topicPath, "PATCH", {
+      expectedRevision: 1,
+      markdown: topic(2, "waiting"),
+    });
+    assert.equal(update.status, 200);
     const updated = await requestMainModel(handle.baseUrl);
     assert.equal(updated.topicPage.records[0]?.state, "waiting");
-    const conflict = await requestRaw(
-      handle.baseUrl,
-      "/api/records",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        kind: "topic",
-        operation: "update",
-        id: "TOPIC-000042",
-        expectedRevision: "1",
-        markdown: topic(3),
-      }).toString(),
-    );
-    assert.equal(conflict.status, 303);
-    const conflicted = await requestMainModel(handle.baseUrl);
+    const conflict = await writeRecord(topicPath, "PATCH", {
+      expectedRevision: 1,
+      markdown: topic(3),
+    });
+    assert.equal(conflict.status, 409);
     assert.equal(
-      conflicted.recordActionResult?.reason,
+      JSON.parse(conflict.body.toString("utf8")).reason,
       "record_revision_conflict",
     );
+    const conflicted = await requestMainModel(handle.baseUrl);
     assert.equal(conflicted.topicPage.records[0]?.revision, 2);
-    const promote = await requestRaw(
-      handle.baseUrl,
-      "/api/records",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        kind: "topic",
-        operation: "promote-topic",
-        id: "TOPIC-000042",
-        expectedRevision: "2",
-        changeId: "CHG-000010",
-        reason: "具体的な変更を採用した",
-        remainingResponsibility: "CHG完了後にCloseを判断する",
-      }).toString(),
-    );
-    assert.equal(promote.status, 303);
+    const promote = await writeRecord(`${topicPath}/promotion`, "POST", {
+      expectedRevision: 2,
+      changeId: "CHG-000010",
+      reason: "具体的な変更を採用した",
+      remainingResponsibility: "CHG完了後にCloseを判断する",
+    });
+    assert.equal(promote.status, 200);
     const promoted = await requestClientModel(
       handle.baseUrl,
       "/topic?id=TOPIC-000042",
@@ -1570,40 +1269,23 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
         ),
       );
     }
-    const unconfirmedDelete = await requestRaw(
-      handle.baseUrl,
-      "/api/records",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        kind: "topic",
-        operation: "delete",
-        id: "TOPIC-000042",
-        expectedRevision: "3",
-        confirmed: "false",
-      }).toString(),
-    );
-    assert.equal(unconfirmedDelete.status, 303);
-    const unconfirmed = await requestMainModel(handle.baseUrl);
+    const removal = { expectedRevision: 3, reason: "mistaken_registration" };
+    const unconfirmedDelete = await writeRecord(topicPath, "DELETE", {
+      ...removal,
+      confirmed: false,
+    });
+    assert.equal(unconfirmedDelete.status, 409);
     assert.equal(
-      unconfirmed.recordActionResult?.reason,
+      JSON.parse(unconfirmedDelete.body.toString("utf8")).reason,
       "record_delete_confirmation_required",
     );
+    const unconfirmed = await requestMainModel(handle.baseUrl);
     assert.equal(unconfirmed.topicPage.records[0]?.revision, 3);
-    const remove = await requestRaw(
-      handle.baseUrl,
-      "/api/records",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        kind: "topic",
-        operation: "delete",
-        id: "TOPIC-000042",
-        expectedRevision: "3",
-        confirmed: "true",
-      }).toString(),
-    );
-    assert.equal(remove.status, 303);
+    const remove = await writeRecord(topicPath, "DELETE", {
+      ...removal,
+      confirmed: true,
+    });
+    assert.equal(remove.status, 200);
     const deleted = await requestMainModel(handle.baseUrl);
     assert.ok(
       deleted.topicPage.records.every(
@@ -1618,97 +1300,53 @@ test("WorkbenchからTopicを登録・表示・編集・削除する", async () 
     await rm(topicDirectory, { recursive: true });
     const faultBytes = "owned-storage-fault\n";
     await writeFile(topicDirectory, faultBytes, "utf8");
-    for (const invalid of [
-      {
-        actionToken: "invalid-token",
-        kind: "topic",
-        operation: "create",
-        markdown: topic(1),
-      },
-      {
-        actionToken: token,
-        kind: "unknown",
-        operation: "create",
-        markdown: topic(1),
-      },
-      {
-        actionToken: token,
-        kind: "topic",
-        operation: "unknown",
-        markdown: topic(1),
-      },
-      {
-        actionToken: token,
-        kind: "topic",
-        operation: "update",
-        id: "bad",
-        expectedRevision: "1",
-        markdown: topic(2),
-      },
-      {
-        actionToken: token,
-        kind: "topic",
-        operation: "update",
-        id: "TOPIC-000042",
-        expectedRevision: "0",
-        markdown: topic(2),
-      },
-      {
-        actionToken: token,
-        kind: "topic",
-        operation: "promote-topic",
-        id: "TOPIC-000042",
-        expectedRevision: "1",
-        changeId: "bad",
-      },
-      {
-        actionToken: token,
-        kind: "meeting",
-        operation: "treat-outcome",
-        id: "MTG-000042",
-        expectedRevision: "1",
-        targetKind: "topic",
-        targetReference: "bad",
-      },
-      {
-        actionToken: token,
-        kind: "topic",
-        operation: "create",
-        markdown: "invalid",
-      },
-      {
-        actionToken: token,
-        kind: "meeting",
-        operation: "create",
-        markdown: "invalid",
-      },
-    ]) {
-      const rejected = await requestRaw(
-        handle.baseUrl,
-        "/api/records",
+    const foreignOrigin = await writeRecord(
+      topics,
+      "POST",
+      { markdown: topic(1) },
+      "http://127.0.0.1:1",
+    );
+    assert.equal(foreignOrigin.status, 403);
+    assert.deepEqual(JSON.parse(foreignOrigin.body.toString("utf8")), {
+      error: "request_rejected",
+    });
+    const invalidRoute = await writeRecord(`${repository}/unknown`, "POST", {
+      markdown: topic(1),
+    });
+    assert.equal(invalidRoute.status, 405);
+    for (const [target, method, body] of [
+      [topics, "POST", { operation: "unknown", markdown: topic(1) }],
+      [`${topics}/bad`, "PATCH", { expectedRevision: 1, markdown: topic(2) }],
+      [topicPath, "PATCH", { expectedRevision: 0, markdown: topic(2) }],
+      [
+        `${topicPath}/promotion`,
         "POST",
-        new URLSearchParams(invalid).toString(),
-      );
-      assert.equal(rejected.status, 400);
-      assert.equal(
-        rejected.body.toString("utf8"),
-        "topic_meeting_action_rejected\n",
-      );
+        { expectedRevision: 1, changeId: "bad" },
+      ],
+      [
+        `${repository}/meetings/MTG-000042/outcomes/OUT-001/treatment`,
+        "PUT",
+        {
+          expectedRevision: 1,
+          targetKind: "topic",
+          targetReference: "bad",
+        },
+      ],
+      [topics, "POST", { markdown: "invalid" }],
+      [`${repository}/meetings`, "POST", { markdown: "invalid" }],
+    ] as const) {
+      const rejected = await writeRecord(target, method, body);
+      assert.equal(rejected.status, 400, `${method} ${target}`);
+      assert.deepEqual(JSON.parse(rejected.body.toString("utf8")), {
+        error: "invalid_request",
+      });
       assert.equal(await readFile(topicDirectory, "utf8"), faultBytes);
     }
-    const failed = await requestRaw(
-      handle.baseUrl,
-      "/api/records",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        kind: "topic",
-        operation: "create",
-        markdown: topic(1),
-      }).toString(),
-    );
-    assert.equal(failed.status, 500);
-    assert.equal(failed.body.toString("utf8"), "topic_meeting_action_failed\n");
+    const failed = await writeRecord(topics, "POST", { markdown: topic(1) });
+    assert.equal(failed.status, 503);
+    assert.deepEqual(JSON.parse(failed.body.toString("utf8")), {
+      error: "record_unavailable",
+    });
     assert.equal(await readFile(topicDirectory, "utf8"), faultBytes);
     const healthy = await requestRaw(
       handle.baseUrl,
@@ -1762,7 +1400,7 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
   await mkdir(testRoot, { recursive: true });
   const fixture = await mkdtemp(path.join(testRoot, "workbench-meeting-"));
   let handle: Awaited<ReturnType<typeof startWorkbench>> | null = null;
-  const meeting = `# Workbench Meeting\n\n成果物種別: Meeting\nMeeting ID: \`MTG-000042\`\nProject ID: \`PRJ-001\`\n状態: \`recorded\`\n開催日時: \`2026-09-27 10:00 JST\`\n改訂: \`1\`\n維持責任者: \`PM\`\n\n## 1. 目的と要約\n\n### 結論\n\nWorkbench Outcome処置を確認する。\n\n## 4. Outcome\n\n| Local ID | 種別 | 内容 | 状態 | Owner | 期限／再評価契機 | 追跡先 |\n|---|---|---|---|---|---|---|\n| \`OUT-001\` | Action | 確認する | \`pending\` | PM | 次回 | \`N/A: 未移管\` |\n\n## 5. Actionと移管\n\n| Outcome | 処置 | 追跡先 | 完了条件 | 結果 |\n|---|---|---|---|---|\n| \`OUT-001\` | | | | |\n\n## 6. Close・訂正\n\n| 項目 | 内容 |\n|---|---|\n| Close判定 | \`OPEN: Outcome処置後に評価する\` |\n| 未処置Outcome | \`OUT-001\` |\n| 訂正元／訂正先 | \`N/A: 訂正ではない\` |\n| 残る影響 | |\n`;
+  const meeting = `# Workbench Meeting\n\n成果物種別: Meeting\nMeeting ID: \`MTG-000042\`\nProject ID: \`qual-lab.crdd\`\n状態: \`recorded\`\n開催日時: \`2026-09-27 10:00 JST\`\n改訂: \`1\`\n維持責任者: \`PM\`\n\n## 1. 目的と要約\n\n### 結論\n\nWorkbench Outcome処置を確認する。\n\n## 4. Outcome\n\n| Local ID | 種別 | 内容 | 状態 | Owner | 期限／再評価契機 | 追跡先 |\n|---|---|---|---|---|---|---|\n| \`OUT-001\` | Action | 確認する | \`pending\` | PM | 次回 | \`N/A: 未移管\` |\n\n## 5. Actionと移管\n\n| Outcome | 処置 | 追跡先 | 完了条件 | 結果 |\n|---|---|---|---|---|\n| \`OUT-001\` | | | | |\n\n## 6. Close・訂正\n\n| 項目 | 内容 |\n|---|---|\n| Close判定 | \`OPEN: Outcome処置後に評価する\` |\n| 未処置Outcome | \`OUT-001\` |\n| 訂正元／訂正先 | \`N/A: 訂正ではない\` |\n| 残る影響 | |\n`;
   try {
     await mkdir(path.join(fixture, "04_UI", "assets", "brand"), {
       recursive: true,
@@ -1791,30 +1429,26 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
     git(fixture, "init", "--initial-branch=main");
     handle = await startWorkbench({ workingDirectory: fixture });
     const initial = await requestMainModel(handle.baseUrl);
-    const token = initial.actionToken;
-    const create = await requestRaw(
+    const meetings = `/api/repositories/${initial.projectData.context.repositoryId}/meetings`;
+    await copyRecordFixtureManifest(fixture);
+    const headers = {
+      "Content-Type": "application/json",
+      Origin: handle.baseUrl,
+    };
+    const create = await requestTransport(
       handle.baseUrl,
-      "/api/records",
+      meetings,
       "POST",
-      new URLSearchParams({
-        actionToken: token,
-        kind: "meeting",
-        operation: "create",
-        markdown: meeting,
-      }).toString(),
+      JSON.stringify({ markdown: meeting }),
+      headers,
     );
-    assert.equal(create.status, 303);
-    const treat = await requestRaw(
+    assert.equal(create.status, 201);
+    const treat = await requestTransport(
       handle.baseUrl,
-      "/api/records",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        kind: "meeting",
-        operation: "treat-outcome",
-        id: "MTG-000042",
-        expectedRevision: "1",
-        outcomeId: "OUT-001",
+      `${meetings}/MTG-000042/outcomes/OUT-001/treatment`,
+      "PUT",
+      JSON.stringify({
+        expectedRevision: 1,
         disposition: "completed",
         owner: "PM",
         reviewTrigger: "処置済み",
@@ -1823,15 +1457,16 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
         treatment: "完了",
         completionCondition: "確認済み",
         result: "完了",
-        closeMeeting: "true",
-      }).toString(),
+        closeMeeting: true,
+      }),
+      headers,
     );
-    assert.equal(treat.status, 303);
-    const completed = await requestMainModel(handle.baseUrl);
+    assert.equal(treat.status, 200);
     assert.equal(
-      completed.recordActionResult?.reason,
+      JSON.parse(treat.body.toString("utf8")).reason,
       "meeting_outcome_treated",
     );
+    const completed = await requestMainModel(handle.baseUrl);
     assert.equal(completed.meetingPage.records[0]?.state, "closed");
     assert.match(
       JSON.stringify(completed.meetingPage.records[0]),
@@ -1883,11 +1518,16 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
   let received: AiRequestCommand | null = null;
   let calls = 0;
   let closed = false;
+  let mismatch = false;
   const application: AiRequests = {
     start: async (command) => {
       received = command;
       calls++;
-      return { status: "accepted", requestId: "request-test", reason: null };
+      return {
+        status: "accepted",
+        requestId: mismatch ? "unrelated-request" : command.requestId,
+        reason: null,
+      };
     },
     observe: async (requestId) => ({
       resultAvailable: true,
@@ -1930,22 +1570,46 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
   try {
     const model = await requestMainModel(handle.baseUrl);
     const token = model.actionToken;
-    for (const mode of ["read_only_advice", "workspace_edit"]) {
-      const started = await requestRaw(
+    const aiRequestsPath = `/api/repositories/${model.projectData.context.repositoryId}/ai-requests`;
+    const headers = {
+      Origin: handle.baseUrl,
+      "Content-Type": "application/json",
+      "X-CRDD-Action-Token": token,
+    };
+    const rawStart =
+      '{"requestId":"fixture-rejected","mode":"read_only_advice","prompt":"fixture"}';
+    for (const [body, requestHeaders] of [
+      [rawStart, { ...headers, "X-CRDD-Action-Token": "wrong" }],
+      [rawStart, { ...headers, Origin: "http://127.0.0.1:1" }],
+      [`${rawStart.slice(0, -1)},"repositoryId":"elsewhere"}`, headers],
+      [`${rawStart.slice(0, -1)},"prompt":"duplicate"}`, headers],
+    ] as const) {
+      const rejected = await requestTransport(
         handle.baseUrl,
-        "/api/ai-request",
+        aiRequestsPath,
         "POST",
-        new URLSearchParams({
-          actionToken: token,
-          operation: "start",
+        body,
+        requestHeaders,
+      );
+      assert.equal(rejected.status, 400);
+      assert.equal(calls, 0);
+    }
+    for (const mode of ["read_only_advice", "workspace_edit"]) {
+      const started = await requestTransport(
+        handle.baseUrl,
+        aiRequestsPath,
+        "POST",
+        JSON.stringify({
+          requestId: `fixture-${mode}`,
           mode,
           workType: "",
           prompt: "合成依頼",
           allowedPaths:
             mode === "workspace_edit" ? "40_Develop/crdd-server/src" : "",
-        }).toString(),
+        }),
+        headers,
       );
-      assert.equal(started.status, 303);
+      assert.equal(started.status, 201);
       const result = await requestMainModel(handle.baseUrl);
       assert.equal(result.aiRequest.snapshot?.mode, mode);
       assert.equal(result.aiRequest.snapshot?.candidate, null);
@@ -1963,22 +1627,44 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
         confirmed: "true",
       }).toString(),
     );
-    assert.equal(legacy.status, 410);
-    const oldMode = await requestRaw(
+    assert.equal(legacy.status, 405);
+    assert.equal(legacy.body.toString("utf8"), "method_not_allowed\n");
+    const oldMode = await requestTransport(
       handle.baseUrl,
-      "/api/ai-request",
+      aiRequestsPath,
       "POST",
-      new URLSearchParams({
-        actionToken: token,
-        operation: "start",
+      JSON.stringify({
+        requestId: "fixture-invalid-mode",
         mode: "change_candidate",
         workType: "",
         prompt: "旧方式は拒否",
         allowedPaths: "source.txt",
-      }).toString(),
+      }),
+      headers,
     );
     assert.equal(oldMode.status, 400);
     assert.equal(calls, 2);
+    mismatch = true;
+    const inconsistent = await requestTransport(
+      handle.baseUrl,
+      aiRequestsPath,
+      "POST",
+      JSON.stringify({
+        requestId: "fixture-mismatched-result",
+        mode: "read_only_advice",
+        prompt: "固定反証",
+      }),
+      headers,
+    );
+    assert.equal(inconsistent.status, 503);
+    assert.deepEqual(JSON.parse(inconsistent.body.toString("utf8")), {
+      error: "ai_request_outcome_unconfirmed",
+    });
+    assert.equal(
+      (await requestMainModel(handle.baseUrl)).aiRequest.snapshot?.requestId,
+      "fixture-workspace_edit",
+    );
+    assert.equal(calls, 3);
   } finally {
     await handle.close();
   }
@@ -2353,44 +2039,75 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
     const initial = await requestMainModel(handle.baseUrl);
     assert.equal(initial.aiSelection?.selection.status, "missing");
     assert.equal(initial.aiSelectionManagement.allowed, true);
-    const form = new URLSearchParams({
-      actionToken: initial.actionToken,
-      expectedIdentity: "",
-      config: JSON.stringify(selectionConfig()),
-    });
+    const input = { expectedIdentity: null, config: selectionConfig() };
     const baseUrl = handle.baseUrl;
     /**
-     * 自己生成設定のPOSTを同Originへ送る。
-     * @responsibility 通常Form制限と用途限定容量を実HTTPで検証する。
+     * 自己生成設定のPUTを同Originへ送る。
+     * @responsibility JSON入力と用途限定容量を実HTTPで検証する。
      * @trace RCM-IT-005
-     * @precondition 本番Serverと閉じた合成Form。
-     * @stimulus 一回だけHTTP POSTする。
+     * @precondition 本番Serverと閉じた合成入力。
+     * @stimulus 一回だけHTTP PUTする。
      * @observation 終了値と構造化保存結果。
      * @oracle 不正・過大入力で保存しない。
      * @cleanup Server終了とexact Root清掃は親Caseが所有する。
      * @boundary 自己生成設定と本番HTTP。実AIなし。
      */
-    const post = (input: URLSearchParams) =>
-      requestTransport(baseUrl, "/api/ai-selection", "POST", input.toString(), {
-        Origin: baseUrl,
-      });
-    const invalid = new URLSearchParams(form);
-    invalid.set("actionToken", "wrong");
-    assert.equal((await post(invalid)).status, 400);
+    const selectionPath = `/api/repositories/${initial.projectData.context.repositoryId}/ai-selection`;
+    const put = (
+      input: object | string,
+      token = initial.actionToken,
+      target = selectionPath,
+    ) =>
+      requestTransport(
+        baseUrl,
+        target,
+        "PUT",
+        typeof input === "string" ? input : JSON.stringify(input),
+        {
+          Origin: baseUrl,
+          "Content-Type": "application/json",
+          "X-CRDD-Action-Token": token,
+        },
+      );
+    assert.equal((await put(input, "wrong")).status, 400);
+    assert.equal(
+      (
+        await put(
+          input,
+          initial.actionToken,
+          "/api/repositories/repository.foreign/ai-selection",
+        )
+      ).status,
+      400,
+    );
+    assert.equal((await requestRaw(baseUrl, "/api/ai-selection")).status, 404);
+    const selectionHead = await requestTransport(
+      baseUrl,
+      selectionPath,
+      "HEAD",
+    );
+    assert.equal(selectionHead.status, 200);
+    assert.equal(selectionHead.body.length, 0);
+    assert.equal(
+      (
+        await put(
+          '{"expectedIdentity":null,"config":{"revision":1,"revision":1}}',
+        )
+      ).status,
+      400,
+    );
     const info = path.join(fixture, ".git", "info");
     const exclude = path.join(info, "exclude");
     const configDir = path.join(fixture, ".crdd", "config");
     assert.equal(fs.existsSync(configDir), false);
     fs.renameSync(info, `${info}.fixture`);
     try {
-      const invalidConfig = new URLSearchParams(form);
-      invalidConfig.set("config", "{}");
       const badSettings = JSON.parse(
-        (await post(invalidConfig)).body.toString("utf8"),
+        (await put({ ...input, config: {} })).body.toString("utf8"),
       );
       assert.equal(badSettings.status, "blocked");
       assert.equal("setupFailure" in badSettings, false);
-      const blocked = JSON.parse((await post(form)).body.toString("utf8"));
+      const blocked = JSON.parse((await put(input)).body.toString("utf8"));
       assert.equal(blocked.status, "blocked");
       assert.equal(
         blocked.reason,
@@ -2432,7 +2149,7 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
       },
     );
     try {
-      const outcome = JSON.parse((await post(form)).body.toString("utf8"));
+      const outcome = JSON.parse((await put(input)).body.toString("utf8"));
       assert.equal(outcome.status, "unknown");
       assert.equal(outcome.publication, "not_published");
       assert.deepEqual(outcome.setupFailure, {
@@ -2479,7 +2196,7 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
       },
     );
     try {
-      const unknown = JSON.parse((await post(form)).body.toString("utf8"));
+      const unknown = JSON.parse((await put(input)).body.toString("utf8"));
       assert.equal(ignoreReadbackFailed, true);
       assert.equal(unknown.status, "unknown");
       assert.equal(unknown.publication, "not_published");
@@ -2504,7 +2221,7 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
     const sentinel = path.join(area, "existing.txt");
     fs.mkdirSync(area);
     fs.writeFileSync(sentinel, "preserved");
-    const created = await post(form);
+    const created = await put(input);
     assert.equal(created.status, 200);
     const first = JSON.parse(created.body.toString("utf8"));
     assert.equal(first.status, "saved");
@@ -2515,16 +2232,21 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
       "lock",
     ]);
     assert.deepEqual(fs.readdirSync(path.join(area, "lock")), []);
-    const conflict = await post(form);
+    const conflict = await put(input);
     assert.equal(JSON.parse(conflict.body.toString("utf8")).status, "conflict");
     const afterCreate = await requestMainModel(handle.baseUrl);
     assert.equal(
       afterCreate.aiSelection?.selection.snapshot?.identity,
       first.snapshot.identity,
     );
-    const bad = new URLSearchParams(form);
-    bad.set("profileId", "PROFILE-300001");
-    assert.equal((await post(bad)).status, 400);
+    assert.equal(
+      (await put({ ...input, profileId: "PROFILE-300001" })).status,
+      400,
+    );
+    assert.equal(
+      (await put({ ...input, repositoryId: "repository.foreign" })).status,
+      400,
+    );
     const originalConfig = selectionConfig();
     const config = {
       ...originalConfig,
@@ -2533,11 +2255,10 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
         executor: { ...originalConfig.roleDefaults.executor, effort: "low" },
       },
     };
-    const next = new URLSearchParams({
-      actionToken: initial.actionToken,
+    const next = {
       expectedIdentity: first.snapshot.identity,
-      config: JSON.stringify(config),
-    });
+      config,
+    };
     let publications = 0;
     const rename = fs.renameSync;
     const failure = context.mock.method(
@@ -2556,7 +2277,7 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
     );
     syncBuiltinESMExports();
     try {
-      const unknown = await post(next);
+      const unknown = await put(next);
       assert.equal(unknown.status, 200);
       assert.equal(JSON.parse(unknown.body.toString("utf8")).status, "unknown");
       assert.equal(publications, 1);
@@ -2585,12 +2306,7 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
       large.workTypes.coding = { label: "設定" };
       const baseline = Buffer.byteLength(`${JSON.stringify(large, null, 2)}\n`);
       large.workTypes.coding.label += "x".repeat(bytes - baseline);
-      const input = new URLSearchParams({
-        actionToken: initial.actionToken,
-        expectedIdentity: identity,
-        config: JSON.stringify(large),
-      });
-      const reply = await post(input);
+      const reply = await put({ expectedIdentity: identity, config: large });
       assert.equal(reply.status, 200);
       const value = JSON.parse(reply.body.toString("utf8"));
       assert.equal(value.status, "saved");
@@ -2602,9 +2318,48 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
         bytes,
       );
     }
-    const oversized = new URLSearchParams(form);
-    oversized.set("config", "x".repeat(3 * 1024 * 1024 + 16 * 1024));
-    assert.equal((await post(oversized)).status, 400);
+    const oversized = {
+      expectedIdentity: identity,
+      config: { text: "x".repeat(3 * 1024 * 1024 + 16 * 1024) },
+    };
+    assert.equal((await put(oversized)).status, 400);
+    assert.equal(
+      readRepositoryAiSelection(fixture, getModelCatalog().catalog).snapshot
+        ?.identity,
+      identity,
+    );
+    const startupId = initial.projectData.context.repositoryId;
+    const changedId = "repository.changed";
+    const contextPath = path.join(fixture, "PROJECT_CONTEXT.md");
+    const contextText = await readFile(contextPath, "utf8");
+    const changedContext = contextText.replace(
+      `Repository ID: \`${startupId}\``,
+      `Repository ID: \`${changedId}\``,
+    );
+    assert.notEqual(changedContext, contextText);
+    await copyRecordFixtureManifest(fixture);
+    await writeFile(contextPath, changedContext, "utf8");
+    const refreshTrigger = await requestTransport(
+      baseUrl,
+      `/api/repositories/${startupId}/topics`,
+      "POST",
+      JSON.stringify({
+        markdown: `# 試験用の表示更新\n\n成果物種別: Topic\nTopic ID: \`TOPIC-000099\`\nProject ID: \`${initial.projectData.context.projectId}\`\n状態: \`open\`\n改訂: \`1\`\n維持責任者: \`試験担当\`\n\n## 1. 現在の論点\n\n### 結論\n\n起動時の対象識別子を維持する。\n`,
+      }),
+      { Origin: baseUrl, "Content-Type": "application/json" },
+    );
+    assert.equal(refreshTrigger.status, 201);
+    assert.equal(
+      (await requestMainModel(baseUrl)).projectData.context.repositoryId,
+      changedId,
+    );
+    const refused = await put(
+      { expectedIdentity: identity, config },
+      initial.actionToken,
+      `/api/repositories/${changedId}/ai-selection`,
+    );
+    assert.equal(refused.status, 400);
+    assert.equal((await requestRaw(baseUrl, selectionPath)).status, 200);
     assert.equal(
       readRepositoryAiSelection(fixture, getModelCatalog().catalog).snapshot
         ?.identity,

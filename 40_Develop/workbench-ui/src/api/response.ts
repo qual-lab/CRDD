@@ -16,7 +16,7 @@ import type {
   ManagementResult,
   ManagementView,
   ViewResponse,
-} from "@qual-lab/crdd-server/api";
+} from "@qual-lab/crdd-server";
 import type { FederatedProjectProjection } from "@qual-lab/crdd-document-model";
 
 export type {
@@ -30,10 +30,58 @@ export type {
   ProjectPlanObservation,
   ProjectQualityObservation,
   ViewResponse,
-} from "@qual-lab/crdd-server/api";
+} from "@qual-lab/crdd-server";
 
 // 各画面の型は公開された応答から取り出し、別の通信仕様を定義しない。
 export type AccessViewResponse = Extract<ViewResponse, { view: "access" }>;
+export type GitHostConnectionView = Readonly<{
+  id: string;
+  host: string;
+  displayName: string;
+  connected: boolean;
+}>;
+
+export function validateGitHostConnections(
+  value: unknown,
+): readonly GitHostConnectionView[] {
+  if (
+    !isRecord(value) ||
+    Object.keys(value).join(",") !== "hosts" ||
+    !Array.isArray(value.hosts) ||
+    value.hosts.length > 16
+  )
+    throw new Error("git_hosts_response_invalid");
+  const ids = new Set<string>();
+  const hosts = new Set<string>();
+  return value.hosts.map((item: unknown) => {
+    if (
+      !isRecord(item) ||
+      Object.keys(item).sort().join(",") !== "connected,displayName,host,id" ||
+      typeof item.id !== "string" ||
+      !/^[a-z0-9][a-z0-9.-]{0,285}$/u.test(item.id) ||
+      ids.has(item.id) ||
+      typeof item.host !== "string" ||
+      item.host.length > 253 ||
+      !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u.test(
+        item.host,
+      ) ||
+      hosts.has(item.host) ||
+      typeof item.displayName !== "string" ||
+      !item.displayName ||
+      item.displayName.length > 128 ||
+      typeof item.connected !== "boolean"
+    )
+      throw new Error("git_hosts_response_invalid");
+    ids.add(item.id);
+    hosts.add(item.host);
+    return {
+      id: item.id,
+      host: item.host,
+      displayName: item.displayName,
+      connected: item.connected,
+    };
+  });
+}
 export type ArtifactViewResponse = Extract<ViewResponse, { view: "artifact" }>;
 export type MainViewResponse = Extract<ViewResponse, { view: "main" }>;
 export type ProjectDetailResponse = Extract<
@@ -45,9 +93,13 @@ export type RecordDetailResponse = Extract<
   { view: "record-detail" }
 >;
 export type RecordDocumentView = RecordDetailResponse["record"];
-export type RecordActionView = NonNullable<
-  MainViewResponse["recordActionResult"]
->;
+/** 一件の記録操作を画面に通知する値。Serverの表示応答には含めない。 */
+export type RecordActionView = Readonly<{
+  status: "completed" | "blocked";
+  reason: string;
+  relationPaths: readonly string[];
+  recordKind: "topic" | "meeting" | null;
+}>;
 
 const aiResultItemsAreValid = (candidate: unknown): boolean =>
   Array.isArray(candidate) &&
@@ -137,14 +189,31 @@ export function validateViewResponse(value: unknown): ViewResponse {
     throw new Error("workbench_client_model_invalid");
   if (value.view === "access") {
     const portfolio = value.portfolio;
+    const loginProviders = value.loginProviders;
     if (
       Object.keys(value).sort().join(",") !==
-        "actionToken,authenticated,contract,credentials,notice,portfolio,view" ||
+        (loginProviders !== undefined
+          ? "actionToken,authenticated,contract,loginProviders,notice,portfolio,view"
+          : "actionToken,authenticated,contract,notice,portfolio,view") ||
       typeof value.actionToken !== "string" ||
       !/^[A-Za-z0-9_-]{43}$/u.test(value.actionToken) ||
       typeof value.authenticated !== "boolean" ||
       !isNullableString(value.notice) ||
-      !isCredentialAdministrationView(value.credentials) ||
+      (loginProviders !== undefined &&
+        (!Array.isArray(loginProviders) ||
+          loginProviders.length === 0 ||
+          !loginProviders.every(
+            (provider) =>
+              isRecord(provider) &&
+              Object.keys(provider).sort().join(",") === "displayName,id" &&
+              typeof provider.id === "string" &&
+              /^[a-z0-9-]{1,32}$/u.test(provider.id) &&
+              typeof provider.displayName === "string" &&
+              provider.displayName.length > 0 &&
+              provider.displayName.length <= 128,
+          ) ||
+          new Set(loginProviders.map(({ id }) => id)).size !==
+            loginProviders.length)) ||
       (portfolio !== null &&
         (!isRecord(portfolio) ||
           Object.keys(portfolio).sort().join(",") !==
@@ -152,11 +221,7 @@ export function validateViewResponse(value: unknown): ViewResponse {
           portfolio.retainedAsSourceOfTruth !== false ||
           !Array.isArray(portfolio.projects) ||
           !portfolio.projects.every(isFederatedProject))) ||
-      (!value.authenticated &&
-        (portfolio !== null ||
-          !isRecord(value.credentials) ||
-          value.credentials.state !== "not_configured" ||
-          value.credentials.snapshot !== null))
+      (!value.authenticated && portfolio !== null)
     )
       throw new Error("workbench_client_model_invalid");
     return value as AccessViewResponse;
@@ -175,6 +240,12 @@ export function validateViewResponse(value: unknown): ViewResponse {
     if (
       typeof value.actionToken !== "string" ||
       !isNullableString(value.repositoryId) ||
+      typeof value.operationRepositoryId !== "string" ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(
+        value.operationRepositoryId,
+      ) ||
+      (value.repositoryId !== null &&
+        value.repositoryId !== value.operationRepositoryId) ||
       typeof value.recordActionsConfigured !== "boolean" ||
       !isRecordDocumentView(value.record)
     )
@@ -400,6 +471,30 @@ function isRecordDocumentView(value: unknown): boolean {
   );
 }
 
+const mainViewFields = new Set<string>([
+  "contract",
+  "view",
+  "actionToken",
+  "projectData",
+  "portfolio",
+  "portfolioPage",
+  "connection",
+  "topicPage",
+  "topicQuery",
+  "meetingPage",
+  "meetingQuery",
+  "recordDocuments",
+  "selectedRepositoryId",
+  "recordActionsConfigured",
+  "repositoryActions",
+  "workspaceAccess",
+  "worktree",
+  "aiSelection",
+  "aiSelectionManagement",
+  "aiRequest",
+  "executionActivity",
+] satisfies readonly (keyof MainViewResponse)[]);
+
 /**
  * Main View Modelの全反復対象と無条件参照値を検査する。
  * @responsibility React Main Screenが利用するネスト構造を外形castなしで確定する。
@@ -416,6 +511,8 @@ function isRecordDocumentView(value: unknown): boolean {
  * @concurrency N/A: 同期純粋処理である。
  */
 function isMainViewResponse(value: Record<string, unknown>): boolean {
+  if (Object.keys(value).some((field) => !mainViewFields.has(field)))
+    return false;
   const projectData = value.projectData;
   const portfolio = value.portfolio;
   const portfolioProjects =
@@ -638,31 +735,29 @@ function isMainViewResponse(value: Record<string, unknown>): boolean {
     recordPageIsValid(value.meetingPage, value.meetingQuery, "meeting") &&
     Array.isArray(value.recordDocuments) &&
     value.recordDocuments.every(isRecordDocumentView) &&
-    (value.recordActionResult === null ||
-      (isRecord(value.recordActionResult) &&
-        ["completed", "blocked"].includes(
-          String(value.recordActionResult.status),
-        ) &&
-        typeof value.recordActionResult.reason === "string" &&
-        isStringArray(value.recordActionResult.relationPaths) &&
-        (value.recordActionResult.recordKind === null ||
-          ["topic", "meeting"].includes(
-            String(value.recordActionResult.recordKind),
-          )))) &&
     isNullableString(value.selectedRepositoryId) &&
     typeof value.recordActionsConfigured === "boolean" &&
-    typeof value.repositoryActionsConfigured === "boolean" &&
-    (value.repositoryResult === null ||
-      (isRecord(value.repositoryResult) &&
-        ["completed", "blocked", "unknown"].includes(
-          String(value.repositoryResult.status),
-        ) &&
-        typeof value.repositoryResult.reason === "string" &&
-        typeof value.repositoryResult.effectIssued === "boolean" &&
-        typeof value.repositoryResult.effectConfirmed === "boolean" &&
-        isNullableString(value.repositoryResult.revisionIdentity) &&
-        value.repositoryResult.automaticRetryIssued === false &&
-        value.repositoryResult.forcePublicationIssued === false)) &&
+    Array.isArray(value.repositoryActions) &&
+    value.repositoryActions.every((operation) =>
+      ["prepare", "unprepare", "create_revision", "publish_revision"].includes(
+        operation,
+      ),
+    ) &&
+    new Set(value.repositoryActions).size === value.repositoryActions.length &&
+    (value.workspaceAccess === undefined ||
+      ((value.workspaceAccess === "write"
+        ? value.repositoryActions.every(
+            (operation) => operation === "prepare" || operation === "unprepare",
+          )
+        : value.repositoryActions.length === 0) &&
+        isRecord(value.connection) &&
+        value.connection.state === "cros_available" &&
+        typeof value.selectedRepositoryId === "string" &&
+        isRecord(projectData.context) &&
+        value.selectedRepositoryId === projectData.context.repositoryId &&
+        (value.workspaceAccess === "read" ||
+          value.workspaceAccess === "write" ||
+          value.workspaceAccess === "unavailable"))) &&
     portfolioIsValid &&
     isRecord(value.portfolioPage) &&
     isNullableString(value.portfolioPage.nextCursor) &&
@@ -693,7 +788,6 @@ function isMainViewResponse(value: Record<string, unknown>): boolean {
         typeof value.worktree.diff.preparedPatch === "string" &&
         typeof value.worktree.diff.workingPatch === "string" &&
         typeof value.worktree.diff.unregistered === "boolean")) &&
-    isCredentialAdministrationView(value.credentials) &&
     (value.aiSelection === null ||
       isWorkbenchSelectionSurface(value.aiSelection)) &&
     isRecord(aiAdministration) &&
@@ -814,95 +908,6 @@ function isMainViewResponse(value: Record<string, unknown>): boolean {
  */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/**
- * 通常画面の資格投影を閉じた非秘密値として検査する。
- * @responsibility 旧token/resultや資格材料を汎用GETから受理しない。
- * @trace ARCH-000013
- * @input 信頼しないJSON値。
- * @returns 非秘密の表示shapeだけtrue。
- * @precondition HTTP JSON decodeは呼出側が完了する。
- * @postcondition 変換・補完・秘密保持0。
- * @effect N/A: 局所検査だけ。
- * @failure 未知field・状態不整合はfalse。
- * @invariant 表示の正当性を操作認可へ転用しない。
- * @boundary Server JSONとBrowser表示。
- * @security Secret fieldは許可集合に含めない。
- * @concurrency 一応答のSnapshotだけ。
- */
-function isCredentialAdministrationView(value: unknown): boolean {
-  if (
-    !isRecord(value) ||
-    Object.keys(value).sort().join(",") !== "snapshot,state"
-  )
-    return false;
-  if (value.state === "not_configured" || value.state === "unavailable")
-    return value.snapshot === null;
-  if (value.state !== "available" || !isRecord(value.snapshot)) return false;
-  const snapshot = value.snapshot;
-  if (
-    Object.keys(snapshot).sort().join(",") !==
-      "actorUserId,credentials,exchange,revision,users" ||
-    !Number.isSafeInteger(snapshot.revision) ||
-    Number(snapshot.revision) < 1 ||
-    typeof snapshot.actorUserId !== "string" ||
-    !Array.isArray(snapshot.users) ||
-    !Array.isArray(snapshot.credentials)
-  )
-    return false;
-  if (
-    !snapshot.users.every(
-      (user) =>
-        isRecord(user) &&
-        Object.keys(user).sort().join(",") === "role,userId,username" &&
-        typeof user.userId === "string" &&
-        typeof user.username === "string" &&
-        ["developer", "manager", "administrator"].includes(String(user.role)),
-    )
-  )
-    return false;
-  if (
-    !snapshot.credentials.every(
-      (credential) =>
-        isRecord(credential) &&
-        Object.keys(credential).sort().join(",") ===
-          "credentialId,issuanceOperationId,presentation,revoked,userId" &&
-        typeof credential.credentialId === "string" &&
-        typeof credential.userId === "string" &&
-        typeof credential.issuanceOperationId === "string" &&
-        ["not_attempted", "unconfirmed", "confirmed"].includes(
-          String(credential.presentation),
-        ) &&
-        typeof credential.revoked === "boolean",
-    )
-  )
-    return false;
-  if (snapshot.exchange === null) return true;
-  const exchange = snapshot.exchange;
-  if (!isRecord(exchange)) return false;
-  const keys =
-    exchange.stage === "credential_stored"
-      ? "entry,newCredentialId,oldCredentialIds,operationId,presentation,recipientUserId,recoveryId,revision,scope,stage"
-      : "entry,oldCredentialIds,operationId,recipientUserId,recoveryId,revision,scope,stage";
-  return (
-    Object.keys(exchange).sort().join(",") === keys &&
-    exchange.revision === snapshot.revision &&
-    typeof exchange.recoveryId === "string" &&
-    typeof exchange.operationId === "string" &&
-    typeof exchange.recipientUserId === "string" &&
-    ["host", "workbench"].includes(String(exchange.entry)) &&
-    ["targeted", "all"].includes(String(exchange.scope)) &&
-    isStringArray(exchange.oldCredentialIds) &&
-    ["prepared", "revoked", "credential_stored"].includes(
-      String(exchange.stage),
-    ) &&
-    (exchange.stage !== "credential_stored" ||
-      (typeof exchange.newCredentialId === "string" &&
-        ["not_attempted", "unconfirmed", "confirmed"].includes(
-          String(exchange.presentation),
-        )))
-  );
 }
 
 /**
@@ -1429,26 +1434,6 @@ export function validateManagementResponse(
    */
   const isManagementRepositoryId = (v: unknown) =>
     typeof v === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(v);
-  /**
-   * 内容範囲の表示値を検査する。
-   * @responsibility 重複なしの二範囲集合だけを受理する。
-   * @trace ARCH-000013
-   * @input 不信な内容範囲値。
-   * @returns 妥当性のboolean。
-   * @precondition JSON境界の値を受ける。
-   * @postcondition 値を補完・正規化しない。
-   * @effect N/A: 値の検査だけ。
-   * @failure 不一致はfalse。
-   * @invariant 実行認可を判定しない。
-   * @boundary 管理JSONと表示値。
-   * @security Methodを評価しない。
-   * @concurrency N/A: 同期検査だけ。
-   */
-  const isManagementWorkspaceRange = (v: unknown) =>
-    Array.isArray(v) &&
-    v.length <= 2 &&
-    new Set(v).size === v.length &&
-    v.every((x) => x === "development" || x === "management");
   let valid = false;
   if (keys === "reason,status" && result.status === "unavailable") {
     const permitted =
@@ -1470,7 +1455,8 @@ export function validateManagementResponse(
     if (result.status === "rejected")
       valid =
         keys === "reason,status" &&
-        result.reason === "management_request_rejected";
+        (result.reason === "management_request_rejected" ||
+          result.reason === "management_revision_conflict");
     else if (result.status === "completed")
       valid =
         ((keys ===
@@ -1516,41 +1502,16 @@ export function validateManagementResponse(
     isManagementRevision(result.revision)
   ) {
     if (view === "current") {
-      const user = record(result.user),
-        access = record(result.contentAccess);
+      const user = record(result.user);
       valid =
-        keys === "contentAccess,permittedRepositories,revision,status,user" &&
+        keys === "revision,status,user" &&
         user !== null &&
-        access !== null &&
         Object.keys(user).sort().join(",") === "role,userId,username" &&
         isManagementUserId(user.userId) &&
         isManagementUserName(user.username) &&
-        isManagementRole(user.role) &&
-        Object.keys(access).join(",") === "workspaceIds" &&
-        isManagementWorkspaceRange(access.workspaceIds) &&
-        Array.isArray(result.permittedRepositories) &&
-        result.permittedRepositories.every((entry) => {
-          const item = record(entry);
-          return (
-            item !== null &&
-            Object.keys(item).sort().join(",") ===
-              "repositoryId,workspaceIds" &&
-            isManagementRepositoryId(item.repositoryId) &&
-            isManagementWorkspaceRange(item.workspaceIds)
-          );
-        }) &&
-        new Set(
-          result.permittedRepositories.map(
-            (entry) => record(entry)?.repositoryId,
-          ),
-        ).size === result.permittedRepositories.length;
+        isManagementRole(user.role);
     } else {
-      const field =
-        view === "users"
-          ? "users"
-          : view === "roles"
-            ? "roles"
-            : "repositories";
+      const field = view === "users" ? "users" : "repositories";
       valid =
         keys === ["status", "revision", field].sort().join(",") &&
         Array.isArray(result[field]) &&
@@ -1563,28 +1524,13 @@ export function validateManagementResponse(
                 isManagementUserId(item.userId) &&
                 isManagementUserName(item.username) &&
                 isManagementRole(item.role)
-            : view === "roles"
-              ? fields === "role,workspaceIds" &&
-                isManagementRole(item.role) &&
-                isManagementWorkspaceRange(item.workspaceIds)
-              : view === "repositories"
-                ? fields === "repositoryId" &&
-                  isManagementRepositoryId(item.repositoryId)
-                : fields === "repositoryId,workspaceIds" &&
-                  isManagementRepositoryId(item.repositoryId) &&
-                  (item.workspaceIds === null ||
-                    isManagementWorkspaceRange(item.workspaceIds));
+            : fields === "repositoryId" &&
+                isManagementRepositoryId(item.repositoryId);
         }) &&
         new Set(
           result[field].map(
             (entry: unknown) =>
-              record(entry)?.[
-                view === "users"
-                  ? "userId"
-                  : view === "roles"
-                    ? "role"
-                    : "repositoryId"
-              ],
+              record(entry)?.[view === "users" ? "userId" : "repositoryId"],
           ),
         ).size === result[field].length;
     }

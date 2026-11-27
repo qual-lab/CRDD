@@ -557,6 +557,23 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   assert.equal(inProcessRecovery.primaryFailure, "fixture_primary_failure");
   assert.deepEqual(await owner.observe(unknown.requestId), inProcessRecovery);
   assert.equal(sameOwnerRecoveries, 1);
+  const admissionId = "admission-expired-after-acceptance";
+  let mayStart = true;
+  const callsBeforeExpiry = calls;
+  const admitted = await owner.start(
+    { ...command, requestId: admissionId },
+    undefined,
+    undefined,
+    () => mayStart,
+  );
+  assert.equal(admitted.status, "accepted", JSON.stringify(admitted));
+  mayStart = false;
+  await owner.join(admissionId);
+  const expiredBeforeEffect = await owner.observe(admissionId);
+  assert.equal(expiredBeforeEffect.status, "blocked");
+  assert.equal(expiredBeforeEffect.reason, "coordinator_task_not_started");
+  assert.equal(expiredBeforeEffect.cleanupConfirmed, true);
+  assert.equal(calls, callsBeforeExpiry);
   await owner.close();
   let recoveries = 0;
   const createReentry = async (

@@ -1,5 +1,5 @@
 /**
- * 初回Host設定の四状態と新規開始条件を検証する。
+ * 初回Host設定の三状態と新規開始条件を検証する。
  *
  * @packageDocumentation
  * @responsibility 観測分類の全組合せと不正値を公開Rootで確認し、物理観測の成立を主張しない。
@@ -14,22 +14,22 @@ import { evaluateHostInitializationState } from "../../../src/initialization/sta
 
 /**
  * 管理観測四種・試行観測三種・明示開始二種の全24組を確認する。
- * @responsibility 開始候補、途中再観測、既存拒否、観測不能停止の相関を固定Oracleで検証する。
+ * @responsibility 開始候補、既存拒否、観測不能停止の相関を固定Oracleで検証する。
  * @trace RFD-UT-023
  * @precondition 観測分類を値として用意する。実File不在やLock取得の証明には使用しない。
  * @stimulus 公開Rootの判定へ全24組を渡す。
  * @observation state、canStart、nextActionの組合せを取得する。
- * @oracle 双方未初期化かつ明示開始だけ開始候補。同元試行の途中は再観測、既存は拒否、矛盾・不明は停止。
+ * @oracle 双方未初期化かつ明示開始だけ開始候補。既存は拒否し、旧途中分類・矛盾・不明は停止。
  * @cleanup N/A: 外部資源を取得しない。
  * @boundary N/A: 物理保存・Host・鍵発行へ接続しない。
  */
 test("初回状態と明示開始の全24組合せ", () => {
   const rows = [
     ["uninitialized", "absent", "uninitialized"],
-    ["uninitialized", "confirmed", "in_progress"],
+    ["uninitialized", "confirmed", "unknown"],
     ["uninitialized", "unknown", "unknown"],
     ["same_attempt", "absent", "unknown"],
-    ["same_attempt", "confirmed", "in_progress"],
+    ["same_attempt", "confirmed", "unknown"],
     ["same_attempt", "unknown", "unknown"],
     ["existing", "absent", "existing"],
     ["existing", "confirmed", "unknown"],
@@ -46,11 +46,9 @@ test("初回状態と明示開始の全24組合せ", () => {
           ? canStart
             ? "start"
             : "await_explicit_start"
-          : state === "in_progress"
-            ? "observe_attempt"
-            : state === "existing"
-              ? "reject_initialization"
-              : "stop";
+          : state === "existing"
+            ? "reject_initialization"
+            : "stop";
       assert.deepEqual(
         evaluateHostInitializationState(management, attempt, isStartRequested),
         { state, canStart, nextAction },

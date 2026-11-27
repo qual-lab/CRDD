@@ -28,6 +28,7 @@ const nullableString = (value: unknown) =>
 /** 表示全体ではなく、依頼・観測・取消が利用するHTTPの値を検証する。 @trace ERB-IT-021 */
 export function readVerificationView(value: unknown): Readonly<{
   actionToken: string;
+  repositoryId: string;
   aiRequest: Readonly<{
     configured: boolean;
     notice: string | null;
@@ -44,6 +45,12 @@ export function readVerificationView(value: unknown): Readonly<{
     value.view !== "main" ||
     typeof value.actionToken !== "string" ||
     !/^[A-Za-z0-9_-]{43}$/u.test(value.actionToken) ||
+    !record(value.projectData) ||
+    !record(value.projectData.context) ||
+    typeof value.projectData.context.repositoryId !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(
+      value.projectData.context.repositoryId,
+    ) ||
     !record(value.aiRequest)
   )
     return fail();
@@ -137,6 +144,7 @@ export function readVerificationView(value: unknown): Readonly<{
   }
   return {
     actionToken: value.actionToken,
+    repositoryId: value.projectData.context.repositoryId,
     aiRequest: {
       configured,
       notice,
@@ -191,13 +199,13 @@ export async function readMain(
  * @postcondition 内部Application、署名またはProviderへ直接アクセスしない。
  * @effect 操作Tokenを読み、明示された公開HTTP操作を発行する。
  * @failure POSTの観測失敗はoutcome unknownとして停止し、自動再送しない。
- * @invariant 303だけをAI完了と表示しない。Listener終了はProvider回収を意味しない。
+ * @invariant 201だけをAI完了と表示しない。Listener終了はProvider回収を意味しない。
  * @boundary 検証Runner→公開Workbench受付→注入された本番Application。
  * @security 送信確認を自動付与せず、PROJECT_CONTEXT.mdだけを正式入力にする。
  * @concurrency 一Sessionで一依頼ずつ実行するCaller契約。
  * @stimulus 起動済みWorkbenchのloopback URL。
  * @observation start／observe／cancelと候補確認・破棄の検証用接続部。採用操作は含めない。
- * @oracle 303だけをAI完了と表示しない。Listener終了はProvider回収を意味しない。
+ * @oracle 201だけをAI完了と表示しない。Listener終了はProvider回収を意味しない。
  * @cleanup 内部Application、署名またはProviderへ直接アクセスしない。
  */
 export async function createWorkbenchAiVerificationHttpClient(
@@ -217,6 +225,7 @@ export async function createWorkbenchAiVerificationHttpClient(
     throw new Error("workbench_verification_loopback_required");
   const initial = await readMain(baseUrl, observe);
   const token = initial.actionToken;
+  const aiRequestsPath = `/api/repositories/${initial.repositoryId}/ai-requests`;
   const accepted = new Map<string, AiRequestCommand>();
   const pending = new Set<Promise<unknown>>();
   let closing = false;
@@ -264,30 +273,49 @@ export async function createWorkbenchAiVerificationHttpClient(
         const response = await run(() =>
           requestInChild(
             baseUrl,
-            "/api/ai-request",
-            new URLSearchParams({
+            aiRequestsPath,
+            {
               actionToken: token,
-              operation: "start",
-              requestId: request.requestId,
-              mode: request.mode,
-              workspaceId: request.workspaceId ?? "",
-              workType: request.workType ?? "",
-              choice: request.choice ? JSON.stringify(request.choice) : "",
-              prompt: request.prompt,
-              allowedPaths: request.allowedPaths.join("\n"),
-            }),
+              body: {
+                requestId: request.requestId,
+                mode: request.mode,
+                workspaceId: request.workspaceId,
+                workType: request.workType,
+                ...(request.choice ? { choice: request.choice } : {}),
+                prompt: request.prompt,
+                allowedPaths: request.allowedPaths.join("\n"),
+              },
+            },
             observe,
           ),
         );
+        const result = parseUnambiguousJsonDocument(response.body) as Record<
+          string,
+          unknown
+        > | null;
+        if (
+          response.status === 409 &&
+          result?.status === "blocked" &&
+          Object.keys(result).sort().join(",") === "reason,requestId,status" &&
+          (result.requestId === null ||
+            result.requestId === request.requestId) &&
+          typeof result.reason === "string" &&
+          result.reason.length > 0
+        )
+          return {
+            status: "blocked",
+            requestId: result.requestId,
+            reason: result.reason,
+          };
         assert.equal(
           response.status,
-          303,
+          201,
           "workbench_verification_start_status",
         );
-        assert.equal(
-          response.location,
-          "/#ai-request",
-          "workbench_verification_start_location",
+        assert.deepEqual(
+          result,
+          { status: "accepted", requestId: request.requestId, reason: null },
+          "workbench_verification_start_result",
         );
         const snapshot = (await read()).aiRequest.snapshot;
         if (snapshot === null || snapshot.requestId !== request.requestId)
@@ -365,24 +393,27 @@ export async function createWorkbenchAiVerificationHttpClient(
       const response = await run(() =>
         requestInChild(
           baseUrl,
-          "/api/ai-request",
-          new URLSearchParams({
+          `${aiRequestsPath}/${encodeURIComponent(requestId)}/cancellation`,
+          {
             actionToken: token,
-            operation: "cancel",
-            requestId,
-          }),
+            body: {},
+          },
           observe,
         ),
       );
       assert.equal(
         response.status,
-        303,
+        200,
         "workbench_verification_cancel_status",
       );
+      const result = parseUnambiguousJsonDocument(response.body) as Record<
+        string,
+        unknown
+      > | null;
       assert.equal(
-        response.location,
-        "/#ai-request",
-        "workbench_verification_cancel_location",
+        result?.requestId,
+        requestId,
+        "workbench_verification_cancel_result",
       );
       const snapshot = (await read()).aiRequest.snapshot;
       if (snapshot === null)

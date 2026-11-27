@@ -8,7 +8,7 @@
  */
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
-import { requestWorkbenchMutation } from "../api/mutations.ts";
+import { requestWorkspace } from "../api/mutations.ts";
 import { WorkbenchPanel } from "./elements.ts";
 
 /** HTTPのWorkspace表示で使う値だけを保持する。 @trace ARCH-000012 */
@@ -36,7 +36,7 @@ type WorkspaceView = Readonly<{
   }> | null;
 }>;
 
-/** Workspaceフォームの既存HTTP要求。 @trace ARCH-000012 */
+/** Workspace画面が利用する操作入力。 @trace ARCH-000012 */
 type WorkspaceCommand =
   | Readonly<{
       operation: "list";
@@ -200,17 +200,19 @@ function readWorkspace(value: unknown): WorkspaceView | null {
 export function WorkspacePanel({
   repositoryId,
   projectId,
-  actionToken,
   initialHead,
   initialBranch,
   initialBaseBranch,
+  readOnly = false,
+  browserSession = false,
 }: Readonly<{
   repositoryId: string;
   projectId: string;
-  actionToken: string;
   initialHead: string;
   initialBranch: string;
   initialBaseBranch: string;
+  readOnly?: boolean;
+  browserSession?: boolean;
 }>): ReactElement {
   const [rows, setRows] = useState<
     readonly {
@@ -272,6 +274,7 @@ export function WorkspacePanel({
   const call = async (command: WorkspaceCommand) => {
     if (
       flight.current ||
+      (readOnly && command.operation !== "list") ||
       (needsRefresh && !["list", "get"].includes(command.operation))
     )
       return;
@@ -281,16 +284,12 @@ export function WorkspacePanel({
     const abort = new AbortController();
     controller.current = abort;
     try {
-      const body = new URLSearchParams({
-        actionToken,
+      const response = await requestWorkspace(
         repositoryId,
-        command: JSON.stringify(command),
-      });
-      const response = await requestWorkbenchMutation("/api/workspace", {
-        method: "POST",
-        body,
-        signal: abort.signal,
-      });
+        command,
+        abort.signal,
+        browserSession,
+      );
       if (!response.ok) throw new Error("workspace_outcome_unconfirmed");
       const result = await response.json();
       if (current !== generation.current || abort.signal.aborted) return;
@@ -431,9 +430,17 @@ export function WorkspacePanel({
       }
     } catch {
       if (current === generation.current && !abort.signal.aborted) {
+        if (browserSession) {
+          setRows([]);
+          setCursor(null);
+          setQueueId("");
+          setWorkspace(null);
+        }
         setNeedsRefresh(true);
         setNotice(
-          "結果未確認です。表示は最後に取得した値です。操作は自動再送せず、同じ対象を再取得してください。",
+          browserSession
+            ? "現在の結果を確認できません。古い内容は非表示にしました。再送せず、一覧を再取得してください。"
+            : "結果未確認です。表示は最後に取得した値です。操作は自動再送せず、同じ対象を再取得してください。",
         );
         setPreview(null);
         setSelection([]);
@@ -447,6 +454,46 @@ export function WorkspacePanel({
     }
   };
   const c = workspace?.candidate;
+  if (readOnly)
+    return (
+      <WorkbenchPanel
+        id="workspaces"
+        eyebrow="Workspace"
+        title="作業領域"
+        status="閲覧のみ"
+      >
+        <p role="status" aria-live="polite">
+          {notice}
+        </p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() =>
+            void call({ operation: "list", projectId, cursor: null, limit: 20 })
+          }
+        >
+          受付一覧を再取得
+        </button>
+        {cursor ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              void call({ operation: "list", projectId, cursor, limit: 20 })
+            }
+          >
+            次の20件
+          </button>
+        ) : null}
+        <ul>
+          {rows.map((row) => (
+            <li key={row.queueId}>
+              {row.workspace?.name ?? row.queueId} — {row.state}
+            </li>
+          ))}
+        </ul>
+      </WorkbenchPanel>
+    );
   return (
     <WorkbenchPanel
       id="workspaces"

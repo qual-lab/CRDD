@@ -9,78 +9,157 @@
  * @trace RFD-IT-021
  * @level IT
  * @scope access-management/state、直接保存境界
- * @boundary Node Filesystem・既存Root/Lock・通常認可・鍵発行／独立失効／交換保存・提示状態保存と局所TTY代役。実Host・交換の本番提示・実Surface出力は対象外。
+ * @boundary Node Filesystem、既存の保存Root・ロック、管理状態の保存と再入場。
  */
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { authenticateCredential } from "../../../src/credential/authentication.ts";
-import { createCredentialMaterial } from "../../../src/credential/token.ts";
 import {
-  type CredentialManagementResult,
-  issueCredential,
-  resolveRepositoryAccess,
-  resolveRepositoryAccessCollection,
-  revokeCredential,
+  onAccessStatePublication,
+  readCurrentAccess,
+  readHostedAccessCandidates,
 } from "../../../src/index.ts";
-import { createInitialCredential } from "../../../src/initialization/execution.ts";
-import { saveExposure } from "../../../src/repository/exposure.ts";
-import {
-  saveRoleContentAccess,
-  saveUserRole,
-} from "../../../src/role/assign.ts";
+import { saveRepositoryRemoval } from "../../../src/repository/register.ts";
+import { saveUserRole } from "../../../src/role/assign.ts";
+import { locked } from "../../../src/storage/lock.ts";
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
 import {
   readAccessManagementState,
+  readCurrent,
   updateAccessManagementState,
 } from "../../../src/storage/store.ts";
 import type { AccessManagementState } from "../../../src/storage/types.ts";
-import { saveUserName, saveUserRegistration } from "../../../src/user/crud.ts";
+import { saveUserName } from "../../../src/user/crud.ts";
 import type { UserRoleManagementResult } from "../../../src/user/types.ts";
 import {
   bytes,
   contentFixture,
   fixture,
+  hostedContentFixture,
   managementFixture,
   prepare,
-  prepareInitialUser,
+  saveUserRegistrationFixture,
+  seedRetiredInitialCredential,
   removeKnownStoppedTestLock,
 } from "./fixture.ts";
 
+test("管理状態を置換した後の通知は排他外で再観測でき、購読解除や他Rootへ漏れない", async (t) => {
+  const f = hostedContentFixture(t);
+  const other = hostedContentFixture(t);
+  const id = f.target.manifest.repositoryId;
+  const observations: string[] = [];
+  const read = () => {
+    const result = locked(f.root, () => {
+      const { state } = readCurrent(f.root);
+      return {
+        status: "completed" as const,
+        value: state.registeredRepositories.some(
+          ({ repositoryId }) => repositoryId === id,
+        ),
+        revision: state.revision,
+        cleanupConfirmed: true as const,
+        publication: "not_attempted" as const,
+      };
+    });
+    observations.push(
+      result.status === "completed" && !result.value
+        ? "registration_removed"
+        : "unexpected_registration_observation",
+    );
+    return undefined;
+  };
+  const releaseFaulty = onAccessStatePublication(f.root, () => {
+    throw new Error("independent_notification_failure");
+  });
+  const releaseOld = onAccessStatePublication(f.root, read);
+  const releaseCurrent = onAccessStatePublication(f.root, read);
+  const releaseOther = onAccessStatePublication(other.root, () => {
+    observations.push("unexpected_other_root");
+    return undefined;
+  });
+  try {
+    assert.equal(
+      saveRepositoryRemoval(
+        f.root,
+        f.principals.manager,
+        f.state.revision - 1,
+        crypto.randomUUID(),
+        id,
+      ).status,
+      "unavailable",
+    );
+    await Promise.resolve();
+    assert.deepEqual(observations, []);
+    const rename = fs.renameSync;
+    const interrupted = t.mock.method(
+      fs,
+      "renameSync",
+      (...args: Parameters<typeof rename>) => {
+        rename(...args);
+        throw new Error("publication_result_unknown");
+      },
+    );
+    try {
+      assert.equal(
+        saveRepositoryRemoval(
+          f.root,
+          f.principals.manager,
+          f.state.revision,
+          crypto.randomUUID(),
+          id,
+        ).status,
+        "unavailable",
+      );
+      assert.deepEqual(observations, []);
+      releaseOld();
+    } finally {
+      interrupted.mock.restore();
+    }
+    await Promise.resolve();
+    assert.deepEqual(observations, ["registration_removed"]);
+    assert.equal(
+      readHostedAccessCandidates(f.root, f.principal).status,
+      "unavailable",
+    );
+  } finally {
+    releaseCurrent();
+    releaseOld();
+    releaseOther();
+    releaseFaulty();
+  }
+});
+
 /**
- * 管理4操作の成功と変更対象の閉包を確認する。
+ * ユーザー管理の成功と変更対象の閉包を確認する。
  * @responsibility managerの通常許可と現在Role反映を実保存で検証する。
  * @trace RFD-IT-021
  * @precondition 三Role資格と完了初回の自己生成Store。
- * @stimulus 登録・admin名前変更・dev/manager Role変更・内容範囲変更を公開Rootから行う。
+ * @stimulus 登録・admin名前変更・dev/manager Role変更を行う。
  * @observation 保存結果・完全byte・対象外field・次認証・所有材料不存在。
  * @oracle 各処置は一改訂、資格・初回・Repository登録・Exposure・交換は不変、内容0でも固定管理可。
  * @cleanup Fixtureが全Rootを削除し不存在確認する。
  * @boundary 公開管理API→現在認可→実Filesystem保存。
  */
-test("通常管理4操作は現在認可で対象fieldだけ保存する", (t) => {
+test("通常のユーザー管理は現在認可で対象項目だけを保存する", (t) => {
   const f = managementFixture(t);
   const currentPath = path.join(f.directory, "access-management.json");
   const protectedFields = {
-    credentials: f.state.credentials,
     initialization: f.state.initialization,
     registeredRepositories: f.state.registeredRepositories,
-    exposure: f.state.exposure,
-    unresolvedKeyExchanges: f.state.unresolvedKeyExchanges,
   };
   const manager = f.state.users[1];
   const developer = f.state.users[2];
   const administrator = f.state.users[0];
   assert.ok(manager && developer && administrator);
-  let revision = 1;
+  let revision = 2;
   const operations = [
     () =>
-      saveUserRegistration(
+      saveUserRegistrationFixture(
         f.root,
-        f.tokens.manager,
+        f.principals.manager,
         revision,
         crypto.randomUUID(),
         "追加",
@@ -89,7 +168,7 @@ test("通常管理4操作は現在認可で対象fieldだけ保存する", (t) =
     () =>
       saveUserName(
         f.root,
-        f.tokens.manager,
+        f.principals.administrator,
         revision,
         crypto.randomUUID(),
         administrator.userId,
@@ -98,21 +177,12 @@ test("通常管理4操作は現在認可で対象fieldだけ保存する", (t) =
     () =>
       saveUserRole(
         f.root,
-        f.tokens.manager,
+        f.principals.manager,
         revision,
         crypto.randomUUID(),
         developer.userId,
         "developer",
         "manager",
-      ),
-    () =>
-      saveRoleContentAccess(
-        f.root,
-        f.tokens.manager,
-        revision,
-        crypto.randomUUID(),
-        "manager",
-        [],
       ),
   ];
   for (const operation of operations) {
@@ -145,17 +215,17 @@ test("通常管理4操作は現在認可で対象fieldだけ保存する", (t) =
     assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
     assert.equal(JSON.stringify(result).includes(f.tokens.manager), false);
   }
-  const next = authenticateCredential(f.root, f.tokens.developer);
+  const next = readCurrentAccess(f.root, f.principals.developer);
   assert.equal(next.status, "completed");
-  if (next.status === "completed") assert.equal(next.snapshot.role, "manager");
-  const name = authenticateCredential(f.root, f.tokens.administrator);
+  if (next.status === "completed") assert.equal(next.user.role, "manager");
+  const name = readCurrentAccess(f.root, f.principals.administrator);
   assert.equal(name.status, "completed");
   if (name.status === "completed")
-    assert.equal(name.snapshot.username, "名前だけ変更");
+    assert.equal(name.user.username, "名前だけ変更");
   assert.equal(
-    saveUserRegistration(
+    saveUserRegistrationFixture(
       f.root,
-      f.tokens.manager,
+      f.principals.manager,
       revision,
       crypto.randomUUID(),
       "内容権限なしでも管理",
@@ -170,8 +240,8 @@ test("通常管理4操作は現在認可で対象fieldだけ保存する", (t) =
  * @responsibility 非開示拒否・現在Role・入力境界・UUID非生成を確認する。
  * @trace RFD-IT-021
  * @precondition 三Role資格の自己生成Store。
- * @stimulus 禁止対象、誤鍵、競合、不正値、Proxy／accessor、途中初回を入力する。
- * @observation 固定結果・current完全byte・UUID件数・材料不存在・getter件数。
+ * @stimulus 禁止対象、誤鍵、競合、不正値、途中初回を入力する。
+ * @observation 固定結果・current完全byte・UUID件数・材料不存在。
  * @oracle 拒否時は対象情報0、生成・出版0、入力を暗黙変換しない。
  * @cleanup 差替えを復元しFixtureがRoot不存在を確認する。
  * @boundary 公開管理API→認証・入力・固定管理許可→実保存前停止。
@@ -192,136 +262,120 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
     crypto.randomUUID = originalUUID;
   });
   const operationId = "00000000-0000-4000-8000-000000000090";
-  let invoked = 0;
-  const accessor: unknown[] = [];
-  Object.defineProperty(accessor, "0", {
-    get() {
-      invoked++;
-      return "development";
-    },
-  });
-  const proxy = new Proxy([], {
-    get() {
-      invoked++;
-      throw new Error("not_allowed");
-    },
-  });
   const operations = [
     () =>
-      saveUserRegistration(
+      saveUserRegistrationFixture(
         f.root,
-        f.tokens.developer,
-        1,
-        operationId,
-        "名前",
-        "developer",
-      ),
-    () =>
-      saveUserRegistration(
-        f.root,
-        f.tokens.manager,
-        1,
-        operationId,
-        "名前",
-        "administrator",
-      ),
-    () =>
-      saveUserRegistration(
-        f.root,
-        "invalid",
-        1,
-        operationId,
-        "名前",
-        "developer",
-      ),
-    () =>
-      saveUserRegistration(
-        f.root,
-        f.tokens.manager,
-        0,
-        operationId,
-        "名前",
-        "developer",
-      ),
-    () =>
-      saveUserRegistration(
-        f.root,
-        f.tokens.manager,
+        f.principals.developer,
         2,
         operationId,
         "名前",
         "developer",
       ),
     () =>
-      saveUserRegistration(
+      saveUserRegistrationFixture(
         f.root,
-        f.tokens.manager,
-        1,
+        f.principals.manager,
+        2,
+        operationId,
+        "名前",
+        "administrator",
+      ),
+    () =>
+      saveUserRegistrationFixture(
+        f.root,
+        "invalid" as never,
+        2,
+        operationId,
+        "名前",
+        "developer",
+      ),
+    () =>
+      saveUserRegistrationFixture(
+        f.root,
+        f.principals.manager,
+        0,
+        operationId,
+        "名前",
+        "developer",
+      ),
+    () =>
+      saveUserRegistrationFixture(
+        f.root,
+        f.principals.manager,
+        3,
+        operationId,
+        "名前",
+        "developer",
+      ),
+    () =>
+      saveUserRegistrationFixture(
+        f.root,
+        f.principals.manager,
+        2,
         "invalid",
         "名前",
         "developer",
       ),
     () =>
-      saveUserRegistration(
+      saveUserRegistrationFixture(
         f.root,
-        f.tokens.manager,
-        1,
+        f.principals.manager,
+        2,
         operationId,
         " 名前",
         "developer",
       ),
     () =>
-      saveUserRegistration(
+      saveUserRegistrationFixture(
         f.root,
-        f.tokens.manager,
-        1,
+        f.principals.manager,
+        2,
         operationId,
         "x".repeat(129),
         "developer",
       ),
     () =>
-      saveUserRegistration(
+      saveUserRegistrationFixture(
         f.root,
-        f.tokens.manager,
-        1,
+        f.principals.manager,
+        2,
         operationId,
         "x".repeat(2_000_000),
         "developer",
       ),
     () =>
-      saveRoleContentAccess(
+      saveUserRegistrationFixture(
         f.root,
-        f.tokens.manager,
-        1,
-        operationId,
-        "developer",
-        Array(100_000).fill("development"),
-      ),
-    () =>
-      saveUserRegistration(
-        f.root,
-        f.tokens.manager,
-        1,
+        f.principals.manager,
+        2,
         operationId,
         "a\u0000",
         "developer",
       ),
     () =>
-      saveUserRegistration(
+      saveUserRegistrationFixture(
         f.root,
-        f.tokens.manager,
-        1,
+        f.principals.manager,
+        2,
         operationId,
         "a",
         "management",
       ),
     () =>
-      saveUserName(f.root, f.tokens.manager, 1, operationId, "missing", "名前"),
+      saveUserName(
+        f.root,
+        f.principals.manager,
+        2,
+        operationId,
+        "missing",
+        "名前",
+      ),
     () =>
       saveUserRole(
         f.root,
-        f.tokens.manager,
-        1,
+        f.principals.manager,
+        2,
         operationId,
         administrator.userId,
         "administrator",
@@ -330,57 +384,12 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
     () =>
       saveUserRole(
         f.root,
-        f.tokens.manager,
-        1,
+        f.principals.manager,
+        2,
         operationId,
         administrator.userId,
         "developer",
         "manager",
-      ),
-    () =>
-      saveRoleContentAccess(
-        f.root,
-        f.tokens.manager,
-        1,
-        operationId,
-        "administrator",
-        [],
-      ),
-    () =>
-      saveRoleContentAccess(
-        f.root,
-        f.tokens.manager,
-        1,
-        operationId,
-        "developer",
-        ["unknown"],
-      ),
-    () =>
-      saveRoleContentAccess(
-        f.root,
-        f.tokens.manager,
-        1,
-        operationId,
-        "developer",
-        ["development", "development"],
-      ),
-    () =>
-      saveRoleContentAccess(
-        f.root,
-        f.tokens.manager,
-        1,
-        operationId,
-        "developer",
-        accessor,
-      ),
-    () =>
-      saveRoleContentAccess(
-        f.root,
-        f.tokens.manager,
-        1,
-        operationId,
-        "developer",
-        proxy,
       ),
   ];
   for (const operation of operations) {
@@ -392,17 +401,16 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
     assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
   }
   assert.equal(generated, 0);
-  assert.equal(invoked, 0);
   const revoked = structuredClone(f.state);
-  const credential = revoked.credentials[1];
-  assert.ok(credential);
-  credential.revoked = true;
+  const manager = revoked.users.find((entry) => entry.role === "manager");
+  assert.ok(manager);
+  delete manager.accountLinks;
   fs.writeFileSync(currentPath, bytes(revoked));
   assert.deepEqual(
-    saveUserRegistration(
+    saveUserRegistrationFixture(
       f.root,
-      f.tokens.manager,
-      1,
+      f.principals.manager,
+      2,
       operationId,
       "名前",
       "developer",
@@ -411,16 +419,14 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
   );
   assert.deepEqual(fs.readFileSync(currentPath), bytes(revoked));
   const initial = fixture(t);
-  const attempt = prepareInitialUser(initial);
-  const issued = createInitialCredential(initial.root, attempt);
-  assert.equal(issued.status, "completed");
-  if (issued.status === "completed" && issued.value.token) {
+  const issued = seedRetiredInitialCredential(initial);
+  {
     const initialPath = path.join(initial.directory, "access-management.json");
     const saved = fs.readFileSync(initialPath);
     assert.deepEqual(
-      saveUserRegistration(
+      saveUserRegistrationFixture(
         initial.root,
-        issued.value.token,
+        issued.token as never,
         3,
         operationId,
         "名前",
@@ -484,27 +490,27 @@ test("非認可の通常管理はbase／nextの先行保存材料を保持する
       );
       const operations: (() => UserRoleManagementResult)[] = [
         () =>
-          saveUserRegistration(
+          saveUserRegistrationFixture(
             f.root,
-            "invalid",
+            "invalid" as never,
             current.revision,
             operationId,
             "名前",
             "developer",
           ),
         () =>
-          saveUserRegistration(
+          saveUserRegistrationFixture(
             f.root,
-            f.tokens.developer,
+            f.principals.developer,
             current.revision,
             operationId,
             "名前",
             "developer",
           ),
         () =>
-          saveUserRegistration(
+          saveUserRegistrationFixture(
             f.root,
-            f.tokens.manager,
+            f.principals.manager,
             current.revision + 1,
             operationId,
             "名前",
@@ -513,7 +519,7 @@ test("非認可の通常管理はbase／nextの先行保存材料を保持する
         () =>
           saveUserRole(
             f.root,
-            f.tokens.manager,
+            f.principals.manager,
             current.revision,
             operationId,
             administrator.userId,
@@ -544,297 +550,6 @@ test("非認可の通常管理はbase／nextの先行保存材料を保持する
 });
 
 /**
- * 集合取得の拒否・清掃・対象観測・解放不明を区別する。
- * @responsibility 未認証観測と失敗時の部分集合公開を防ぐ。
- * @trace RFD-IT-013
- * @trace RFD-IT-019
- * @precondition 公開済みRepositoryとcredential_storedの有効資格を持つ自己生成Root。
- * @stimulus 初回未完了の有効資格で集合を要求し、不正資格・pending・manifest欠測・解放失敗も注入する。
- * @observation 初回stage、current／pending／replace完全byte・Directory一覧、対象観測数、再入場結果。
- * @oracle 初回未完了は材料処置前に固定拒否・能力0。拒否・清掃不明は対象観測0、対象・解放不明は集合非返却。
- * @cleanup Hookを復元し、既存Fixtureが全自己生成Rootを削除する。
- * @boundary 現在認証・保存Lock・対象Filesystem。
- */
-test("許可集合の不明は空成功や部分成功へ変換しない", (t) => {
-  const f = contentFixture(t),
-    pending = path.join(f.directory, "access-management.pending.json");
-  const initial = fixture(t);
-  const issued = createInitialCredential(
-    initial.root,
-    prepareInitialUser(initial),
-  );
-  assert.equal(issued.status, "completed");
-  if (issued.status !== "completed" || !issued.value.token)
-    throw new Error("initial credential unavailable");
-  assert.equal(
-    authenticateCredential(initial.root, issued.value.token).status,
-    "completed",
-  );
-  const initialCurrent = path.join(initial.directory, "access-management.json");
-  assert.equal(
-    JSON.parse(fs.readFileSync(initialCurrent, "utf8")).initialization.stage,
-    "credential_stored",
-  );
-  const initialPending = path.join(
-    initial.directory,
-    "access-management.pending.json",
-  );
-  const initialReplace = path.join(
-    initial.directory,
-    "access-management.replace.json",
-  );
-  fs.writeFileSync(initialPending, "{");
-  fs.writeFileSync(initialReplace, "untrusted replacement");
-  const initialFiles = [initialCurrent, initialPending, initialReplace];
-  const initialBytes = initialFiles.map((file) => fs.readFileSync(file));
-  const initialNames = fs.readdirSync(initial.directory);
-  fs.writeFileSync(pending, "{");
-  const lstat = fs.lstatSync;
-  let observed = 0;
-  t.after(() => {
-    Object.defineProperty(fs, "lstatSync", { value: lstat });
-  });
-  Object.defineProperty(fs, "lstatSync", {
-    value: (target: fs.PathLike, options?: never) => {
-      if (String(target).startsWith(f.target.directory)) observed++;
-      return lstat(target, options);
-    },
-  });
-  try {
-    assert.deepEqual(
-      resolveRepositoryAccessCollection(initial.root, issued.value.token),
-      { status: "unavailable", reason: "repository_access_rejected" },
-    );
-    assert.equal(observed, 0);
-    assert.deepEqual(
-      initialFiles.map((file) => fs.readFileSync(file)),
-      initialBytes,
-    );
-    assert.deepEqual(fs.readdirSync(initial.directory), initialNames);
-    for (const token of ["invalid", createCredentialMaterial().token])
-      assert.deepEqual(resolveRepositoryAccessCollection(f.root, token), {
-        status: "unavailable",
-        reason: "repository_access_rejected",
-      });
-    assert.equal(observed, 0);
-    assert.equal(fs.readFileSync(pending, "utf8"), "{");
-    assert.deepEqual(
-      resolveRepositoryAccessCollection(f.root, f.tokens.developer),
-      { status: "unavailable", reason: "repository_access_cleanup_pending" },
-    );
-    assert.equal(observed, 0);
-  } finally {
-    Object.defineProperty(fs, "lstatSync", { value: lstat });
-  }
-  fs.rmSync(pending);
-  const manifest = fs.readFileSync(f.target.manifestPath);
-  fs.rmSync(f.target.manifestPath);
-  assert.deepEqual(
-    resolveRepositoryAccessCollection(f.root, f.tokens.developer),
-    { status: "unavailable", reason: "repository_access_observation_unknown" },
-  );
-  fs.writeFileSync(f.target.manifestPath, manifest);
-  const remove = fs.rmSync;
-  t.after(() => {
-    fs.rmSync = remove;
-  });
-  fs.rmSync = (target) => {
-    if (String(target).endsWith("access-management.state.lock"))
-      throw new Error("injected private detail");
-    return remove(target);
-  };
-  try {
-    assert.deepEqual(
-      resolveRepositoryAccessCollection(f.root, f.tokens.developer),
-      { status: "unavailable", reason: "repository_access_release_unknown" },
-    );
-  } finally {
-    fs.rmSync = remove;
-  }
-  assert.equal(
-    resolveRepositoryAccessCollection(f.root, f.tokens.developer).status,
-    "unavailable",
-  );
-  removeKnownStoppedTestLock(f.directory, process.pid);
-  assert.equal(
-    resolveRepositoryAccessCollection(f.root, f.tokens.developer).status,
-    "completed",
-  );
-  assert.equal(
-    fs.existsSync(path.join(f.directory, "access-management.state.lock")),
-    false,
-  );
-});
-
-/**
- * 現在内容認可と実体検証を同要求へ相関する。
- * @responsibility 管理能力と内容許可を分離し、次要求の再認可を確認する。
- * @trace RFD-IT-013
- * @precondition 公開済み自己生成Repositoryと三Role資格。
- * @stimulus 三Roleの取得、Context削除、公開解除後の次取得を行う。
- * @observation 内部結果の改訂・Binding・manifest・Rootと対象外不変。
- * @oracle developer／managerだけ成功、Context欠測でもRoot解決成功、公開解除後は拒否。
- * @cleanup 既存Fixtureが全自己生成Rootを削除する。
- * @boundary 現在資格→Role内容→Exposure→内容ディレクトリとManifestの観測。
- */
-test("内容認可と実Rootを相関し次要求で公開解除を反映", (t) => {
-  const f = contentFixture(t),
-    id = f.target.manifest.repositoryId;
-  for (const role of ["developer", "manager"] as const) {
-    const result = resolveRepositoryAccess(
-      f.root,
-      f.tokens[role],
-      id,
-      "development",
-    );
-    assert.equal(result.status, "completed");
-    if (result.status !== "completed") continue;
-    assert.equal(result.access.revision, 3);
-    assert.equal(result.access.repositoryId, id);
-    assert.equal(result.access.workspaceId, "development");
-    assert.deepEqual(result.access.manifest, f.target.manifest);
-    assert.ok(result.access.bindingId.startsWith("binding-"));
-    assert.ok(Object.isFrozen(result.access));
-    assert.ok(Object.isFrozen(result.access.manifest));
-    assert.equal(result.access.root, f.target.directory);
-  }
-  assert.deepEqual(
-    resolveRepositoryAccess(f.root, f.tokens.administrator, id, "development"),
-    { status: "unavailable", reason: "repository_access_rejected" },
-  );
-  fs.rmSync(path.join(f.target.directory, "PROJECT_CONTEXT.md"));
-  assert.equal(
-    resolveRepositoryAccess(f.root, f.tokens.developer, id, "development")
-      .status,
-    "completed",
-  );
-  assert.equal(
-    saveExposure(f.root, f.tokens.manager, 3, crypto.randomUUID(), id, [])
-      .status,
-    "completed",
-  );
-  assert.deepEqual(
-    resolveRepositoryAccess(f.root, f.tokens.developer, id, "development"),
-    { status: "unavailable", reason: "repository_access_rejected" },
-  );
-});
-
-/**
- * 実体不成立とLock解放不明で能力を返さない。
- * @responsibility 登録時の成功やRoot観測だけを現在完了へ流用しない。
- * @trace RFD-IT-013
- * @precondition 公開済み自己生成Repository。
- * @stimulus manifest欠測・不正・ID差・容量超過・ディレクトリ消失と解放失敗を注入する。
- * @observation 固定結果、内部値非返却、復元後成功とLock不存在。
- * @oracle 各不成立はobservation_unknown、解放不明はrelease_unknown、Path／例外なし。
- * @cleanup 差替えを復元しFixtureが全Rootを削除する。
- * @boundary AM実体検証と既存Lock終了。
- */
-test("内容実体不成立と解放不明は能力非返却", (t) => {
-  const f = contentFixture(t),
-    id = f.target.manifest.repositoryId;
-  /**
-   * 固定した対象と資格で内容解決を繰り返す。
-   * @responsibility 故障点以外の入力を同一に保つ。
-   * @trace RFD-IT-013
-   * @precondition 自己生成の公開対象とdeveloper資格がある。
-   * @stimulus 現在の対象実体を解決する。
-   * @observation 公開結果と固定理由。
-   * @oracle 実体不明とLock終了不明から能力を返さない。
-   * @cleanup 外側fixtureがRootと注入処理を回収する。
-   * @boundary 同じAM公開解決入口。
-   */
-  const request = () =>
-    resolveRepositoryAccess(f.root, f.tokens.developer, id, "development");
-  const expected = {
-    status: "unavailable",
-    reason: "repository_access_observation_unknown",
-  };
-  const currentPath = path.join(f.directory, "access-management.json");
-  const currentBytes = fs.readFileSync(currentPath);
-  const tampered = JSON.parse(currentBytes.toString("utf8"));
-  tampered.registeredRepositories[0].bindingId =
-    "binding-00000000000000000000000000000000";
-  const tamperedBytes = bytes(tampered);
-  assert.equal(parseAccessManagementState(tamperedBytes).status, "invalid");
-  fs.writeFileSync(currentPath, tamperedBytes);
-  const lstat = fs.lstatSync;
-  let targetObservations = 0;
-  /**
-   * 破損管理状態で対象Rootの観測が始まらないことを計測する。
-   * @responsibility 元lstatを維持し対象呼出しだけを数える。
-   * @trace RFD-IT-013
-   * @precondition 元関数と自己生成対象Directoryを保持する。
-   * @stimulus AMの実体観測要求。
-   * @observation 対象Directoryへの呼出し数。
-   * @oracle 管理状態不正なら対象観測0、破損状態を変更しない。
-   * @cleanup finallyで元関数と管理状態を復元する。
-   * @boundary 観測用差替えだけ。元Filesystem結果を変更しない。
-   */
-  const observe: typeof fs.lstatSync = ((target, ...args) => {
-    if (String(target).startsWith(f.target.directory)) targetObservations++;
-    return lstat(target, ...args);
-  }) as typeof fs.lstatSync;
-  Object.defineProperty(fs, "lstatSync", { value: observe });
-  try {
-    assert.deepEqual(request(), expected);
-    assert.equal(targetObservations, 0);
-    assert.ok(fs.readFileSync(currentPath).equals(tamperedBytes));
-    assert.equal(
-      fs.existsSync(path.join(f.directory, "access-management.pending.json")),
-      false,
-    );
-    assert.equal(
-      fs.existsSync(path.join(f.directory, "access-management.replace.json")),
-      false,
-    );
-  } finally {
-    Object.defineProperty(fs, "lstatSync", { value: lstat });
-    fs.writeFileSync(currentPath, currentBytes);
-  }
-  const original = fs.readFileSync(f.target.manifestPath);
-  fs.rmSync(f.target.manifestPath);
-  assert.deepEqual(request(), expected);
-  for (const content of [
-    "{",
-    JSON.stringify({ ...f.target.manifest, repositoryId: "other.repository" }),
-    " ".repeat(1_048_577),
-  ]) {
-    fs.writeFileSync(f.target.manifestPath, content);
-    assert.deepEqual(request(), expected);
-  }
-  fs.writeFileSync(f.target.manifestPath, original);
-  const backup = `${f.target.directory}-held`;
-  fs.renameSync(f.target.directory, backup);
-  try {
-    assert.deepEqual(request(), expected);
-  } finally {
-    fs.renameSync(backup, f.target.directory);
-  }
-  const remove = fs.rmSync;
-  t.after(() => {
-    fs.rmSync = remove;
-  });
-  fs.rmSync = (target) => {
-    if (String(target).endsWith("access-management.state.lock"))
-      throw new Error("injected secret/path must not escape");
-    return remove(target);
-  };
-  assert.deepEqual(request(), {
-    status: "unavailable",
-    reason: "repository_access_release_unknown",
-  });
-  fs.rmSync = remove;
-  assert.equal(request().status, "unavailable");
-  removeKnownStoppedTestLock(f.directory, process.pid);
-  assert.equal(request().status, "completed");
-  assert.equal(
-    fs.existsSync(path.join(f.directory, "access-management.state.lock")),
-    false,
-  );
-});
-
-/**
  * 前操作の清掃と今回出版・解放故障を分離する。
  * @responsibility 相関誤帰属と保存済みEffectの喪失を拒否する。
  * @trace RFD-IT-021
@@ -852,14 +567,14 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
   assert.ok(administrator);
   const operationId = "00000000-0000-4000-8000-000000000090";
   const next = structuredClone(f.state);
-  next.revision = 2;
+  next.revision = 3;
   next.operationId = "00000000-0000-4000-8000-000000000091";
   prepare(f, next);
   assert.deepEqual(
     saveUserName(
       f.root,
-      f.tokens.manager,
-      1,
+      f.principals.administrator,
+      2,
       operationId,
       administrator.userId,
       "更新",
@@ -869,8 +584,8 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
       reason: "management_operation_unavailable",
       primaryFailure: "state_store_previous_pending_settled",
       operationId,
-      expectedRevision: 1,
-      observedRevision: 1,
+      expectedRevision: 2,
+      observedRevision: 2,
       publication: "not_attempted",
       cleanupConfirmed: true,
     },
@@ -884,10 +599,10 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
     return administrator.userId as `${string}-${string}-${string}-${string}-${string}`;
   };
   try {
-    const collision = saveUserRegistration(
+    const collision = saveUserRegistrationFixture(
       f.root,
-      f.tokens.manager,
-      1,
+      f.principals.manager,
+      2,
       operationId,
       "衝突",
       "developer",
@@ -911,8 +626,8 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
   try {
     const failed = saveUserName(
       f.root,
-      f.tokens.manager,
-      1,
+      f.principals.administrator,
+      2,
       operationId,
       administrator.userId,
       "更新",
@@ -944,8 +659,8 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
     try {
       const failed = saveUserName(
         f.root,
-        f.tokens.manager,
-        1,
+        f.principals.administrator,
+        2,
         operationId,
         administrator.userId,
         "保存済み",
@@ -956,7 +671,7 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
         failed.reason === "management_operation_unavailable"
       ) {
         assert.equal(failed.publication, "confirmed");
-        assert.equal(failed.observedRevision, 2);
+        assert.equal(failed.observedRevision, 3);
         assert.equal(failed.cleanupConfirmed, false);
         assert.equal("lockRecoveryId" in failed, false);
       } else assert.fail("既知出版が欠落した");
@@ -1038,16 +753,7 @@ test("不正JSON・不正候補・対象外変更は出版しない", (t) => {
   });
   const administrator = f.state.users[0];
   assert.ok(administrator);
-  f.state.credentials.push({
-    credentialId: "0123456789abcdef01234567",
-    userId: administrator.userId,
-    tokenVersion: 1,
-    tokenSalt: "a".repeat(32),
-    tokenVerifier: "b".repeat(64),
-    revoked: false,
-    operationId: f.state.initialization.attemptId,
-    presentation: "confirmed",
-  });
+  f.state.revision = 2;
   fs.writeFileSync(
     path.join(f.directory, "access-management.json"),
     bytes(f.state),
@@ -1056,36 +762,18 @@ test("不正JSON・不正候補・対象外変更は出版しない", (t) => {
     path.join(f.directory, "access-management.json"),
   );
   const bad = structuredClone(f.state);
-  bad.revision = 2;
+  bad.revision = 3;
   bad.operationId = "00000000-0000-4000-8000-000000000005";
-  bad.initialization = {
-    stage: "correlated",
-    attemptId: bad.initialization.attemptId,
-  };
-  const credential = structuredClone(f.state);
-  credential.revision = 2;
-  credential.operationId = bad.operationId;
-  const changedCredential = credential.credentials[0];
-  const originalCredential = f.state.credentials[0];
-  assert.ok(changedCredential && originalCredential);
-  changedCredential.tokenVerifier = "c".repeat(64);
-  const exchange = structuredClone(credential);
-  exchange.credentials = structuredClone(f.state.credentials);
-  exchange.unresolvedKeyExchanges = [
-    {
-      stage: "prepared",
-      recoveryId: `access-management.key-exchange.${bad.operationId}`,
-      operationId: bad.operationId,
-      entry: "host",
-      scope: "targeted",
-      recipientUserId: administrator.userId,
-      oldCredentialIds: [originalCredential.credentialId],
-    },
-  ];
-  const removedUser = structuredClone(credential);
-  removedUser.credentials = structuredClone(f.state.credentials);
+  bad.initialization.attemptId = bad.operationId;
+  const account = structuredClone(bad);
+  account.initialization = structuredClone(f.state.initialization);
+  const linked = account.users[0]?.accountLinks?.[0];
+  assert.ok(linked);
+  linked.subject = "different-subject";
+  const removedUser = structuredClone(account);
+  removedUser.users[0] = structuredClone(administrator);
   removedUser.users.pop();
-  for (const protectedChange of [credential, exchange, removedUser]) {
+  for (const protectedChange of [bad, account, removedUser]) {
     assert.equal(
       parseAccessManagementState(bytes(protectedChange)).status,
       "parsed",
@@ -1095,12 +783,12 @@ test("不正JSON・不正候補・対象外変更は出版しない", (t) => {
     Buffer.alloc(16_777_217),
     bytes(f.state),
     bytes(bad),
-    bytes(credential),
-    bytes(exchange),
+    bytes(account),
     bytes(removedUser),
   ]) {
     assert.equal(
-      updateAccessManagementState(f.root, 1, () => candidate).status,
+      updateAccessManagementState(f.root, f.state.revision, () => candidate)
+        .status,
       "unavailable",
     );
     assert.ok(
@@ -1109,6 +797,49 @@ test("不正JSON・不正候補・対象外変更は出版しない", (t) => {
         .equals(before),
     );
     assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+  }
+});
+
+/** 旧範囲の更新は通常出版・保存途中からの再入場のどちらでも採用しない。 */
+test("退役した内容・公開範囲の変更と旧保存材料を採用しない", (t) => {
+  for (const change of ["role", "exposure"] as const) {
+    const f = contentFixture(t);
+    const base = readCurrent(f.root).state;
+    const next = structuredClone(base);
+    next.revision++;
+    next.operationId = crypto.randomUUID();
+    if (change === "role") {
+      Object.assign(next, { roleContentAccess: [] });
+    } else {
+      Object.assign(next, { exposure: [] });
+    }
+    assert.equal(parseAccessManagementState(bytes(next)).status, "invalid");
+    const leaf = [
+      "access-management.json",
+      "access-management.pending.json",
+      "access-management.replace.json",
+    ].map((name) => path.join(f.directory, name));
+    assert.equal(
+      updateAccessManagementState(f.root, base.revision, () => bytes(next))
+        .status,
+      "unavailable",
+    );
+    assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
+    assert.deepEqual(readCurrent(f.root).bytes, bytes(base));
+
+    prepare({ ...f, state: base }, next);
+    const before = leaf.map((file) => fs.readFileSync(file));
+    let calls = 0;
+    const result = updateAccessManagementState(f.root, base.revision, () => {
+      calls++;
+      return bytes(next);
+    });
+    assert.equal(result.status, "unavailable");
+    assert.equal(calls, 0);
+    assert.deepEqual(
+      leaf.map((file) => fs.readFileSync(file)),
+      before,
+    );
   }
 });
 
@@ -1143,11 +874,6 @@ test("base一致は通常材料だけ整理して新更新しない", (t) => {
       .equals(bytes(f.state)),
   );
   assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
-  prepare(f, next, "credential", false);
-  assert.equal(readAccessManagementState(f.root).status, "unavailable");
-  assert.ok(
-    fs.existsSync(path.join(f.directory, "access-management.pending.json")),
-  );
 });
 
 /**
@@ -1166,7 +892,7 @@ test("next一致は既知出版を保持して清掃する", (t) => {
   const next = structuredClone(f.state);
   next.revision = 2;
   next.operationId = "00000000-0000-4000-8000-000000000007";
-  prepare(f, next, "credential", false);
+  prepare(f, next, "management", false);
   fs.writeFileSync(
     path.join(f.directory, "access-management.json"),
     bytes(next),
@@ -1181,6 +907,39 @@ test("next一致は既知出版を保持して清掃する", (t) => {
       .equals(bytes(next)),
   );
 });
+
+for (const kind of ["credential", "initialization"] as const) {
+  test(`退役した保存材料（${kind}）は現在値との一致にかかわらず保持して停止する`, (t) => {
+    for (const stage of ["base", "published"]) {
+      const f = fixture(t);
+      const next = structuredClone(f.state);
+      next.revision++;
+      next.operationId = crypto.randomUUID();
+      prepare(f, next, kind);
+      const current = path.join(f.directory, "access-management.json");
+      if (stage === "published") fs.writeFileSync(current, bytes(next));
+      const filenames = fs.readdirSync(f.directory);
+      const snapshots = filenames.map((file) =>
+        fs.readFileSync(path.join(f.directory, file)),
+      );
+      const read = readAccessManagementState(f.root);
+      assert.equal(read.status, "unavailable");
+      assert.equal(read.publication, "not_attempted");
+      const update = updateAccessManagementState(
+        f.root,
+        stage === "published" ? next.revision : f.state.revision,
+        () => assert.fail("retired_material_must_not_start_a_write"),
+      );
+      assert.equal(update.status, "unavailable");
+      assert.equal(update.publication, "not_attempted");
+      assert.deepEqual(fs.readdirSync(f.directory), filenames);
+      assert.deepEqual(
+        filenames.map((file) => fs.readFileSync(path.join(f.directory, file))),
+        snapshots,
+      );
+    }
+  });
+}
 
 /**
  * 破損・孤立材料・current欠測を停止する。
@@ -1389,240 +1148,4 @@ test("主失敗をLock清掃失敗で上書きしない", (t) => {
   removeKnownStoppedTestLock(f.directory, process.pid);
   assert.equal(readAccessManagementState(f.root).status, "completed");
   assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
-});
-
-/**
- * 非管理者と対象不一致の鍵変更をEffect前に拒否する。
- * @responsibility 拒否で資格生成・失効・保存が行われないことを観測する。
- * @trace RFD-IT-017
- * @trace RFD-IT-018
- * @precondition 三Roleの試験専用資格と自己生成Root。
- * @stimulus 非管理者、未知User、改訂差、User／資格結合差を渡す。
- * @observation randomBytes回数、state byteと固定非開示結果。
- * @oracle 生成乱数0・新資格0・新失効0・state不変。
- * @cleanup 乱数差替えをfinally復元しFixtureがRootを回収する。
- * @boundary 同Lock現在認可とexact対象。
- */
-test("通常鍵変更の非管理者・対象差・改訂差は生成と保存0", (t) => {
-  for (const role of ["developer", "manager", "administrator"] as const) {
-    const f = fixture(t);
-    const actor = createCredentialMaterial();
-    const user = f.state.users[0];
-    assert.ok(user);
-    user.role = role;
-    f.state.credentials.push({
-      credentialId: actor.credentialId,
-      userId: user.userId,
-      tokenVersion: 1,
-      tokenSalt: actor.tokenSalt,
-      tokenVerifier: actor.tokenVerifier,
-      revoked: false,
-      operationId: "00000000-0000-4000-8000-000000000007",
-      presentation: "confirmed",
-    });
-    const current = path.join(f.directory, "access-management.json");
-    fs.writeFileSync(current, bytes(f.state));
-    const before = fs.readFileSync(current);
-    const random = crypto.randomBytes;
-    let calls = 0;
-    crypto.randomBytes = (() => {
-      calls++;
-      throw new Error("unexpected_generation");
-    }) as typeof crypto.randomBytes;
-    try {
-      const target =
-        role === "administrator"
-          ? "00000000-0000-4000-8000-000000000999"
-          : user.userId;
-      assert.equal(
-        issueCredential(
-          f.root,
-          actor.token,
-          1,
-          "00000000-0000-4000-8000-000000000008",
-          target,
-        ).status,
-        "unavailable",
-      );
-      assert.equal(
-        revokeCredential(
-          f.root,
-          actor.token,
-          1,
-          "00000000-0000-4000-8000-000000000009",
-          target,
-          actor.credentialId,
-        ).status,
-        "unavailable",
-      );
-      assert.equal(
-        issueCredential(
-          f.root,
-          actor.token,
-          2,
-          "00000000-0000-4000-8000-000000000010",
-          user.userId,
-        ).status,
-        "unavailable",
-      );
-      assert.equal(calls, 0);
-    } finally {
-      crypto.randomBytes = random;
-    }
-    assert.deepEqual(fs.readFileSync(current), before);
-    assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
-  }
-});
-
-/**
- * 二Processの鍵変更を同じ期待改訂で競合させる。
- * @responsibility 既存Lockだけで一採用と対象外資格保持を確認する。
- * @trace RFD-IT-017
- * @trace RFD-IT-018
- * @precondition 試験専用Bearerと自己生成Root、通常資格三件。
- * @stimulus 発行／発行、発行／失効、失効／失効を同時開始する。
- * @observation 子Process終了、閉じた非秘密結果、採用改訂・資格集合。
- * @oracle 一採用だけ、敗者の生成0・追加失効0、対象外不変。
- * @cleanup 全子ProcessをcloseまでjoinしてFixture回収。
- * @boundary 実Node Processと同じFilesystem Lock。
- */
-test("通常鍵変更の二Process競合は一採用だけに閉じる", async (t) => {
-  for (const operations of [
-    ["issue", "issue"],
-    ["issue", "revoke"],
-    ["revoke", "revoke"],
-  ] as const) {
-    const f = managementFixture(t);
-    const userId = f.state.users[1]?.userId;
-    const credentialId = f.state.credentials[1]?.credentialId;
-    assert.ok(userId && credentialId);
-    const worker = path.resolve(
-      import.meta.dirname,
-      "../../fixtures/credential-management-worker.ts",
-    );
-    const joined = await Promise.allSettled(
-      operations.map(
-        (operation, index) =>
-          new Promise<{ status: string; generated: number }>(
-            (resolve, reject) => {
-              const child = spawn(process.execPath, [worker], {
-                timeout: 10000,
-              });
-              let output = "";
-              let childFailed = false;
-              let inputFailed = false;
-              child.stdout.on("data", (chunk) => {
-                output += String(chunk);
-              });
-              child.stderr.resume();
-              child.on("error", () => {
-                childFailed = true;
-              });
-              child.stdin.on("error", () => {
-                inputFailed = true;
-              });
-              child.stdin.end(
-                JSON.stringify({
-                  directory: f.directory,
-                  token: f.tokens.administrator,
-                  operationId: `00000000-0000-4000-8000-00000000009${index}`,
-                  userId,
-                  credentialId,
-                  operation,
-                }),
-              );
-              child.on("close", (code, signal) => {
-                if (code !== 0 || childFailed || inputFailed)
-                  reject(new Error(`child_failed:${code}:${signal}`));
-                else {
-                  try {
-                    resolve(JSON.parse(output));
-                  } catch {
-                    reject(new Error("child_result_invalid"));
-                  }
-                }
-              });
-            },
-          ),
-      ),
-    );
-    const results = joined.map((result) => {
-      assert.equal(
-        result.status,
-        "fulfilled",
-        result.status === "rejected" && result.reason instanceof Error
-          ? result.reason.message
-          : "child_join",
-      );
-      if (result.status !== "fulfilled") throw new Error("child_failed");
-      return result.value;
-    });
-    assert.equal(
-      results.filter((result) => result.status === "completed").length,
-      1,
-      JSON.stringify(results),
-    );
-    for (const result of results)
-      if (result.status !== "completed") assert.equal(result.generated, 0);
-    const saved = JSON.parse(
-      fs.readFileSync(path.join(f.directory, "access-management.json"), "utf8"),
-    ) as AccessManagementState;
-    assert.equal(saved.revision, 2);
-    assert.deepEqual(saved.credentials[0], f.state.credentials[0]);
-    assert.deepEqual(saved.credentials[2], f.state.credentials[2]);
-    assert.equal(
-      saved.credentials.length + Number(saved.credentials[1]?.revoked),
-      4,
-    );
-    assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
-  }
-});
-
-/**
- * 公開結果型の操作別Secret境界を固定する。
- * @responsibility 型検査の拒否と実行時の資格処置を混同しない。
- * @trace RFD-IT-017
- * @trace RFD-IT-018
- * @precondition 型検査を含む正式Package試験入口。
- * @stimulus 正しい二結果と、発行の鍵欠落／失効の鍵混入を型へ代入する。
- * @observation 型検査の期待エラーとメモリ値のown-token。
- * @oracle issueはtoken必須、revokeはtoken禁止。保存／提示は本Caseでは検証しない。
- * @cleanup N/A: メモリ値だけ。
- * @boundary Package公開Typeの補助契約。IT全体成立ではない。
- */
-test("通常鍵結果型は操作別のSecret必須と禁止を区別する", () => {
-  const common = {
-    status: "completed" as const,
-    operationId: "00000000-0000-4000-8000-000000000090",
-    expectedRevision: 1,
-    revision: 2,
-    userId: "00000000-0000-4000-8000-000000000003",
-    credentialId: "f".repeat(24),
-    publication: "confirmed" as const,
-    cleanupConfirmed: true as const,
-  };
-  const issued: CredentialManagementResult = {
-    ...common,
-    operation: "issueCredential",
-    token: "synthetic-type-value",
-  };
-  const revoked: CredentialManagementResult = {
-    ...common,
-    operation: "revokeCredential",
-  };
-  // @ts-expect-error 発行成功には短命tokenが必須。
-  const missing: CredentialManagementResult = {
-    ...common,
-    operation: "issueCredential",
-  };
-  const excessive: CredentialManagementResult = {
-    ...common,
-    operation: "revokeCredential",
-    // @ts-expect-error 独立失効の結果へtokenを混入できない。
-    token: "synthetic-type-value",
-  };
-  assert.equal(Object.hasOwn(issued, "token"), true);
-  assert.equal(Object.hasOwn(revoked, "token"), false);
-  assert.equal(Object.hasOwn(missing, "token"), false);
-  assert.equal(Object.hasOwn(excessive, "token"), true);
 });

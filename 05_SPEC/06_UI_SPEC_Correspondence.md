@@ -26,7 +26,8 @@ UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記
 
 | 項目 | 対象 |
 |---|---|
-| 対象改訂版 | UI／SPEC Definition集合 SHA-256: `f25586612b21f4e3a733c4e2319f58ba27cf464d6406d3e9aab77c47648d285d` |
+| 対象改訂版 | UI／SPEC Definition集合 SHA-256: `c3df7b81b2df596870138afdb7163d485a72cbc3d6e3f181eadbcf4ba0edf81c` |
+| 管理入口の差分確認の基準版 | UI／SPEC Definition集合 SHA-256: `f25586612b21f4e3a733c4e2319f58ba27cf464d6406d3e9aab77c47648d285d` |
 | 対象改訂版（旧32組レビュー） | UI／SPEC Definition集合 SHA-256: `e11a86a6b7f439e08f088c468e54fdf59eafc43d4cd21459dcf0f0efb068f0cb` |
 | 先行候補入力集合（現行レビュー前の履歴） | UI／SPEC Definition集合 SHA-256: `5a55fd31b33d6e982be17c3deb5cd853dd7b38b08624c4fcbae07e32298dd9dc`。旧32組の引用・結果をこの集合のレビュー根拠へ結合しない |
 | 対象関係 | 32組 |
@@ -688,6 +689,10 @@ UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記
 正本は[UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md)と[SPEC-000012](Definitions/SPEC-000012/spec_definition.md)。今回の検証義務は両定義へ保持し、SCR／BHV・Areaへの詳細化は今回候補へ伝播中・契約／品質限定独立再レビュー済み（残指摘0）。過去の確認状態だけから現在の引渡し完了を推定しない。
 
 <a id="current-initialization-pair"></a>
+
+### UI-000008／SPEC-000012の差分照合 — 管理書込みの入口
+
+[UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md)と[SPEC-000012](Definitions/SPEC-000012/spec_definition.md)が同じ境界を明示する。通常の管理書込みはWorkbenchだけが受け付け、MCPは本人照会と現在の権限で許可された管理読取りに限る。影響は操作入口・認可・可視性／非対象に閉じ、状態、保存結果、失敗と回復、Hostの限定操作、既存ロール分担を変更しない。他の31組のDefinition差分はない。既存の組別根拠と旧固定改訂版は保持し、この差分確認から実画面・工程Exitの成立を推定しない。
 
 ### UI-000008／SPEC-000012の現行対応 — 初回Host設定
 

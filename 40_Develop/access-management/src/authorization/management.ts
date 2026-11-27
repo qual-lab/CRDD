@@ -5,163 +5,24 @@
  * @trace ARCH-000013
  */
 
-import { types } from "node:util";
+import type { AccessActor, AccountAccessPrincipal } from "./types.ts";
 import type { FilesystemStoreRoot } from "../initialization/root.ts";
-import {
-  authenticateNormalConnection,
-  resolveCredentialAuthentication,
-} from "../credential/authentication.ts";
-import { readCredentialId } from "../credential/token.ts";
-import type { AuthenticatedRequest } from "../credential/types.ts";
 import type {
   ManagementOperationOutcome,
-  ManagementPermission,
   ManagementReadKind,
   ManagementReadOutcome,
   ManagementStateResult,
   ManagementStateSnapshot,
 } from "../permission/types.ts";
-import { isAccessRole } from "../permission/validation.ts";
-import type { RepositoryExposureManagementResult } from "../repository/types.ts";
+import { evaluateManagementPermission } from "../permission/validation.ts";
+import type { RepositoryManagementResult } from "../repository/types.ts";
 import { locked } from "../storage/lock.ts";
 import { readCurrent, settlePending } from "../storage/store.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import type { UserRoleManagementResult } from "../user/types.ts";
+import { acceptsAccessPrincipal, resolveAccessPrincipal } from "./principal.ts";
 
-/**
- * 管理要求の対象制約を含む固定Role判定を行う。
- *
- * @responsibility administrator専用境界とmanagerの通常管理範囲を、操作固有対象から判定する。
- * @trace ARCH-000013
- * @input 現要求で解決したactorRoleと、操作別の閉じたrequest。
- * @returns 固定分担のallowed、deniedまたは入力不正のinvalid。
- * @precondition 呼出し側は認証・現在改訂・対象存在を別に確認する。値の形式は本関数も検査する。
- * @postcondition 不明Role、余分field、accessor、Proxyを許可へ丸めない。
- * @effect N/A: 値を読む同期計算だけで、Filesystem・資格・Repositoryを操作しない。
- * @failure 不正入力はinvalid、有効入力の固定権限不足はdenied。外部故障を所有しない。
- * @invariant 内容権限設定、対象Identity、Host信頼をRoleの固定分担へ転用しない。
- * @boundary 通常管理の純粋判定と、現在認証・保存・実操作の呼出し側の境界。
- * @security allowedはCapabilityではない。処置時には現在認可と操作固有条件を再確認する。
- * @concurrency N/A: 共有状態を持たず、古いRoleの再利用可否は呼出し側が判定する。
- */
-export function evaluateManagementPermission(
-  actorRole: unknown,
-  request: unknown,
-): ManagementPermission {
-  if (!isAccessRole(actorRole)) return "invalid";
-  if (request === null || typeof request !== "object" || types.isProxy(request))
-    return "invalid";
-  const prototype = Object.getPrototypeOf(request);
-  if (prototype !== Object.prototype && prototype !== null) return "invalid";
-  const descriptors = Object.getOwnPropertyDescriptors(request);
-  const keys = Reflect.ownKeys(descriptors);
-  if (keys.some((key) => typeof key !== "string")) return "invalid";
-  if (
-    Object.values(descriptors).some(
-      (descriptor) => !Object.hasOwn(descriptor, "value"),
-    )
-  )
-    return "invalid";
-  const operation: unknown = descriptors.operation?.value;
-  let targetRequiresAdministrator = false;
-  let expectedKeys: readonly string[];
-  switch (operation) {
-    case "registerUser": {
-      const plannedRole: unknown = descriptors.plannedRole?.value;
-      if (!isAccessRole(plannedRole)) return "invalid";
-      expectedKeys = ["operation", "plannedRole"];
-      targetRequiresAdministrator = plannedRole === "administrator";
-      break;
-    }
-    case "updateUserName":
-    case "updateRoleContentAccess": {
-      const targetRole: unknown = descriptors.targetRole?.value;
-      if (!isAccessRole(targetRole)) return "invalid";
-      expectedKeys = ["operation", "targetRole"];
-      targetRequiresAdministrator =
-        operation === "updateRoleContentAccess" &&
-        targetRole === "administrator";
-      break;
-    }
-    case "updateUserRole": {
-      const currentRole: unknown = descriptors.currentRole?.value;
-      const nextRole: unknown = descriptors.nextRole?.value;
-      if (!isAccessRole(currentRole) || !isAccessRole(nextRole))
-        return "invalid";
-      expectedKeys = ["operation", "currentRole", "nextRole"];
-      targetRequiresAdministrator =
-        currentRole === "administrator" || nextRole === "administrator";
-      break;
-    }
-    case "registerRepository":
-    case "unregisterRepository":
-    case "updateExposure":
-    case "manageAiProfiles":
-      expectedKeys = ["operation"];
-      break;
-    case "issueCredential":
-    case "revokeCredential":
-    case "exchangeCredentials":
-      expectedKeys = ["operation"];
-      targetRequiresAdministrator = true;
-      break;
-    default:
-      return "invalid";
-  }
-  if (
-    keys.length !== expectedKeys.length ||
-    keys.some((key) => !expectedKeys.includes(key as string))
-  )
-    return "invalid";
-  if (actorRole === "developer") return "denied";
-  if (actorRole === "manager" && targetRequiresAdministrator) return "denied";
-  return "allowed";
-}
-
-/**
- * 現在Roleの許可・拒否と認証状態の観測不能を分ける。
- * @responsibility 認証不成立をdeveloper拒否に畳まず、非秘密の判定だけを返す。
- * @trace ARCH-000013
- * @shape allowed、denied、unavailableの閉じた判定値。
- * @invariant Catalog存在・User・Role・改訂・資格材料を含めない。
- * @boundary AM現在認可からProfile管理Consumer。
- * @security 値は次要求へ再利用可能なCapabilityではない。
- * @compatibility 旧systemAdmin契約へfallbackしない。
- */
-export type AiProfileManagementPermission =
-  | "allowed"
-  | "denied"
-  | "unavailable";
-
-/**
- * 一要求の共有Profile管理可否を現在資格から解決する。
- * @responsibility 初回完了済みの現在資格・Roleを同じ管理改訂から照合する。
- * @trace ARCH-000013
- * @input 既存保存Ownerが検証した管理Rootと要求専用Bearer。
- * @returns manager／administratorはallowed、developerはdenied、認証・状態未確認はunavailable。
- * @precondition 呼出し元は完全入力検査・開始前取消を確認する。
- * @postcondition AM Lock解放確認後だけ判定を返し、Catalogには触れない。
- * @effect 既存通常認証の状態読取り・Lock・KDF・確認済み短命材料清掃のみ。
- * @failure 失効・不正資格・初回未完了・保存／解放不明はunavailable。
- * @invariant 管理許可から内容権限・鍵操作・Provider実行を生成しない。
- * @boundary AM通常認証→純粋Role判定。Catalog操作はConsumer側の別Owner。
- * @security Token・内部Path・本人情報を結果へ渡さない。
- * @concurrency 要求毎に再観測し、認可後のRole変更は次要求へ反映する。二Storeの原子性は保証しない。
- */
-export function evaluateAiProfileManagementPermission(
-  root: FilesystemStoreRoot,
-  token: string,
-): AiProfileManagementPermission {
-  const authentication = authenticateNormalConnection(root, token);
-  if (authentication.status !== "completed") return "unavailable";
-  const permission = evaluateManagementPermission(
-    authentication.snapshot.role,
-    {
-      operation: "manageAiProfiles",
-    },
-  );
-  return permission === "invalid" ? "unavailable" : permission;
-}
+export { evaluateManagementPermission } from "../permission/validation.ts";
 
 /**
  * 管理対象のprimitive識別子を検査する。
@@ -181,12 +42,7 @@ export function evaluateAiProfileManagementPermission(
 export function isManagementReadKind(
   value: unknown,
 ): value is ManagementReadKind {
-  return (
-    value === "users" ||
-    value === "roleContentAccess" ||
-    value === "registeredRepositories" ||
-    value === "exposure"
-  );
+  return value === "users" || value === "registeredRepositories";
 }
 
 /**
@@ -206,7 +62,7 @@ export function isManagementReadKind(
  */
 export function projectManagementState(
   state: AccessManagementState,
-  actor: AuthenticatedRequest,
+  actor: AccessActor,
   kind: ManagementReadKind,
 ): ManagementStateSnapshot | null {
   if (
@@ -238,27 +94,6 @@ export function projectManagementState(
             ),
         ),
       });
-    case "roleContentAccess":
-      return Object.freeze({
-        revision: state.revision,
-        kind,
-        roles: Object.freeze(
-          state.roleContentAccess
-            .filter(
-              (role) =>
-                evaluateManagementPermission(actor.role, {
-                  operation: "updateRoleContentAccess",
-                  targetRole: role.role,
-                }) === "allowed",
-            )
-            .map((role) =>
-              Object.freeze({
-                role: role.role,
-                workspaceIds: Object.freeze([...role.workspaceIds]),
-              }),
-            ),
-        ),
-      });
     case "registeredRepositories":
       if (
         evaluateManagementPermission(actor.role, {
@@ -276,30 +111,6 @@ export function projectManagementState(
               bindingId: repository.bindingId,
             }),
           ),
-        ),
-      });
-    case "exposure":
-      if (
-        evaluateManagementPermission(actor.role, {
-          operation: "updateExposure",
-        }) !== "allowed"
-      )
-        return null;
-      return Object.freeze({
-        revision: state.revision,
-        kind,
-        repositories: Object.freeze(
-          state.registeredRepositories.map((repository) => {
-            const exposure = state.exposure.find(
-              (item) => item.repositoryId === repository.repositoryId,
-            );
-            return Object.freeze({
-              repositoryId: repository.repositoryId,
-              workspaceIds: exposure
-                ? Object.freeze([...exposure.workspaceIds])
-                : null,
-            });
-          }),
         ),
       });
   }
@@ -321,7 +132,7 @@ export function projectManagementState(
  * @concurrency N/A: 同期の結果を一回投影する。
  */
 export function projectManagementOperationResult(
-  result: UserRoleManagementResult | RepositoryExposureManagementResult,
+  result: UserRoleManagementResult | RepositoryManagementResult,
 ): ManagementOperationOutcome {
   if (result.status === "completed") {
     return {
@@ -340,6 +151,15 @@ export function projectManagementOperationResult(
     return {
       status: "rejected" as const,
       reason: "management_request_rejected" as const,
+    };
+  if (
+    result.primaryFailure === "state_store_revision_conflict" &&
+    result.publication === "not_attempted" &&
+    result.cleanupConfirmed
+  )
+    return {
+      status: "rejected" as const,
+      reason: "management_revision_conflict" as const,
     };
   const reasons: Readonly<Record<string, string>> = {
     state_store_previous_pending_settled: "previous_materials_settled",
@@ -408,28 +228,11 @@ export function projectManagementReadResult(
             role,
           })),
         }
-      : snapshot.kind === "roleContentAccess"
-        ? {
-            roles: snapshot.roles.map(({ role, workspaceIds }) => ({
-              role,
-              workspaceIds: [...workspaceIds],
-            })),
-          }
-        : snapshot.kind === "registeredRepositories"
-          ? {
-              repositories: snapshot.repositories.map(({ repositoryId }) => ({
-                repositoryId,
-              })),
-            }
-          : {
-              repositories: snapshot.repositories.map(
-                ({ repositoryId, workspaceIds }) => ({
-                  repositoryId,
-                  workspaceIds:
-                    workspaceIds === null ? null : [...workspaceIds],
-                }),
-              ),
-            }),
+      : {
+          repositories: snapshot.repositories.map(({ repositoryId }) => ({
+            repositoryId,
+          })),
+        }),
   };
 }
 
@@ -437,11 +240,11 @@ export function projectManagementReadResult(
  * 現在許可された管理対象を同じ改訂から読み取り返す。
  * @responsibility 対象別認可前に保存材料を清掃せず、終了確認後だけDTOを公開する。
  * @trace ARCH-000013
- * @input 検証済みRoot、信頼しないBearer、管理対象kind。
+ * @input 検証済みRoot、外部認証を経た本人の紐付け・期限、管理対象kind。
  * @returns 対象別投影、または情報を含まない固定拒否・未取得理由。
  * @precondition Rootは既存内部Ownerが検証済み。Transport入力境界はConsumerが担当する。
  * @postcondition 完全状態・認証・対象別管理許可・清掃・解放確認時だけcompleted。
- * @effect 既存Lock、current読取り、同期KDF、許可後の短命材料清掃。
+ * @effect 既存Lock、現在状態の読取り、許可後の保存途中材料の清掃。
  * @failure 不正kind・developer・初回途中は同じ参照拒否。清掃・解放不明はDTOなし。
  * @invariant 管理参照を内容閲覧・更新・鍵処置のAuthorityへ転用しない。
  * @boundary AM保存Ownerと通常管理の表示Consumer。
@@ -450,12 +253,12 @@ export function projectManagementReadResult(
  */
 export function readManagementStateSnapshot(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   kind: unknown,
 ): ManagementStateResult {
   if (!isManagementReadKind(kind))
     return { status: "unavailable", reason: "management_state_read_rejected" };
-  if (!readCredentialId(token))
+  if (!acceptsAccessPrincipal(principal))
     return {
       status: "unavailable",
       reason: "management_state_authentication_rejected",
@@ -463,7 +266,7 @@ export function readManagementStateSnapshot(
   const result = locked<ManagementStateSnapshot>(root, () => {
     try {
       const current = readCurrent(root);
-      const actor = resolveCredentialAuthentication(token, current.state);
+      const actor = resolveAccessPrincipal(principal, current.state);
       if (!actor)
         return {
           status: "unavailable",
@@ -545,11 +348,11 @@ export function readManagementStateSnapshot(
  * 現在許可された管理対象を同じ改訂から読み取り返す。
  * @responsibility 対象別認可前に保存材料を清掃せず、終了確認後だけDTOを公開する。
  * @trace ARCH-000013
- * @input 検証済みRoot、信頼しないBearer、管理対象kind。
+ * @input 検証済みRoot、確認済みアカウント主体、管理対象kind。
  * @returns 対象別投影、または情報を含まない固定拒否・未取得理由。
  * @precondition Rootは既存内部Ownerが検証済み。Transport入力境界はConsumerが担当する。
  * @postcondition 完全状態・認証・対象別管理許可・清掃・解放確認時だけcompleted。
- * @effect 既存Lock、current読取り、同期KDF、許可後の短命材料清掃。
+ * @effect 既存Lock、current読取り、許可後の短命材料清掃。
  * @failure 不正kind・developer・初回途中は同じ参照拒否。清掃・解放不明はDTOなし。
  * @invariant 管理参照を内容閲覧・更新・鍵処置のAuthorityへ転用しない。
  * @boundary AM保存Ownerと通常管理の表示Consumer。
@@ -558,10 +361,10 @@ export function readManagementStateSnapshot(
  */
 export function readManagementState(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   kind: unknown,
 ): ManagementReadOutcome {
   return projectManagementReadResult(
-    readManagementStateSnapshot(root, token, kind),
+    readManagementStateSnapshot(root, principal, kind),
   );
 }

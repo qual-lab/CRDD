@@ -55,7 +55,6 @@ const navigation = Object.freeze([
   ["runtime-activity", "Runtime"],
   ["repository", "Repository"],
   ["connection", "Connection"],
-  ["credential-administration", "Credentials"],
   ["ai-selection", "AI Settings"],
   ["ai-request", "AI Request"],
 ] as const);

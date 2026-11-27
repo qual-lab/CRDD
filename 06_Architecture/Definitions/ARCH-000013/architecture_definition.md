@@ -7,7 +7,7 @@ Architecture ID: `ARCH-000013`
 
 ## 1. 責務と境界
 
-Repository登録の利用者入口はWorkbenchだけとする（2026-10-13人間判断）。manager／administratorの既存管理分担とサーバー上の対象Root検証を維持し、登録だけで公開しない。MCPにはRepository登録のTool・入力Schema・dispatchを置かず、登録解除・公開範囲等の採用済み非鍵操作は維持する。鍵3操作のMCP非公開は別の固定境界として維持する。
+Repository登録の利用者入口はWorkbenchだけとする（2026-10-13人間判断）。manager／administratorの既存管理分担とサーバー上の対象Root検証を維持し、登録だけで公開しない。MCPには、登録・解除・公開範囲変更を含む管理書込みのツール・入力Schema・登録・呼出しを置かない。本人照会と、現在の管理権限で許可された管理読取りを維持する。鍵3操作のMCP非公開は別の固定境界として維持する。
 
 Credentialから既存ユーザーを識別し、管理要求は現行Roleの固定管理分担、内容要求はRole内容設定・Repository公開範囲・実アクセスで要求ごとに評価する。ユーザー・Role内容・Repository接続登録／Exposureの管理、資格発行／独立失効／鍵交換、Context集約は別責務とする。CROSはシステム全体の概念であり、認証・認可Packageの名前ではない。
 
@@ -180,8 +180,8 @@ Architecture固有の追加人間判断はない。入力の意味不足また�
 ## 10. 実装と検証への引き渡し
 
 - 認可判定・ユーザー／Role／資格・鍵交換状態のOwnerをAccess Management、認可済みContext集約をDomain Modelへ分け、MCP／Workbenchは同じ認可契約を使う。
-- 通常の鍵発行・独立失効・交換は現行administrator専用の固定操作として同一Process Workbenchから呼ぶ。Hostの鍵回復CLIはログイン済みローカル操作者を信頼し、追加認証なしで同じ鍵交換2操作を呼ぶ。MCPにはSecret有無にかかわらず鍵操作のTool・Schema・登録・dispatchを置かない。具体API・入力・提示方式・初回限定接続確認方式はDetailsで閉じる。
-- 初回設定はAMの別明示操作として双方未初期化確認、元試行相関の耐久確定、個別事実と4状態、3つの失敗経路を実装へ渡す。限定接続の成功と確認保存・読戻し・短命材料清掃・Lock終了を別に反証し、未確認・失敗・観測不能からcompletedや通常Authorityを生成しない。具体内部操作はAM詳細、Surface案内は各Surfaceへ引き渡す。
+- v0.22の管理者初回設定・再紐付けでは、[Serverの管理者CLI](../../Details/workbench-server/01_Architecture.md#host-admin-cli)が本人確認の通信とHostの対話を所有し、アクセス管理は検証済み主体を受けて保存する。旧鍵交換のHost CLIは公開しない。旧鍵方式の内部実装と試験は、撤去が完了するまで切替前の契約として区別する。
+- 初回設定ではAMが未初期化の確認と保存の確定を担当する。未確認・失敗・観測不能を成功扱いしない。限定接続と鍵交換の検証は切替前の方式に限り、現在のGoogle本人確認と管理者保存に流用しない。具体内部操作はAM詳細を参照する。
 - Qualityへ渡す意味は9 Role分担行×三Roleの許可／拒否／不明、managerのadministrator名前のみ変更、developer管理拒否≠自身利用拒否、操作別対象、自己範囲変更の時間順、登録≠公開、解除≠削除、通常管理・要求毎認可・同名／改名・2操作×2入口・独立失効・3可視境界・処置前停止・処置後不明・再入場・情報保持・秘密非再表示・取消非証明。初回の相関確定前Effect0、二重作成0、Secret非保存・再表示0、登録・公開・内容自動付与0、個別事実≠全体完了、元試行と別交換の非混同も含む。Local Item、試験、EvidenceはQualityで対応付ける。
 - Task進行・取消・回復はOrchestrator等の既存Ownerに残す。資格の失効／交換で開始済み処理の完了を推定しない。
 

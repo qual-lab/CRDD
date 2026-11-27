@@ -10,6 +10,8 @@ UI ID: `UI-000008`
 
 鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。通常Host回復はログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。manager／administratorはユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministratorだけが管理する。developerへ管理操作、managerへ管理者専用操作を設定で委譲しない。
 
+管理書込みの利用者入口はWorkbenchだけとする。MCPのアクセス管理は、本人照会と現在の管理権限で許可された読取りに限る。
+
 ## UX観点の分析結果
 
 - [UX-000013](../../Analysis/UX-000013/ui_analysis.md): Roleで許可されたRepositoryだけをRemote利用し、自身、現行Role権限、公開対象、実アクセスと部分成立を見分ける。

@@ -19,12 +19,13 @@ import type {
   AiSelectionRole,
 } from "@qual-lab/crdd-configuration-model";
 import type { ModelCatalog } from "@qual-lab/crdd-ai-adapter";
-import { WorkbenchPanel, ActionTokenInput } from "./elements.ts";
-import { requestWorkbench } from "../api/connection.ts";
-import { requestWorkbenchMutation } from "../api/mutations.ts";
+import { WorkbenchPanel } from "./elements.ts";
+import { requestAiSelectionSave } from "../api/mutations.ts";
 import { readWorkbenchQuery } from "../api/queries.ts";
-import { validateAiSelectionResponse } from "../api/response.ts";
-import { inspectWorkbenchSelectionResult } from "../api/ai-selection.ts";
+import {
+  inspectWorkbenchSelectionResult,
+  requestAiSelection,
+} from "../api/ai-selection.ts";
 
 const roles = [
   "coordinator",
@@ -107,7 +108,7 @@ function readSelectionDraft(text: string): SelectionDraft | null {
  * @returns 未設定・現在設定・明示保存のPanel。
  * @precondition Serverで現在認可とRootを照合する。
  * @postcondition missingだけ初回保存を許可しblockedを空設定へ変換しない。
- * @effect 明示GETとPOST各一回。自動再送なし。
+ * @effect 明示GETとPUT各一回。自動再送なし。
  * @failure 応答不明は再取得へ案内し既知保存結果を保持する。
  * @invariant モデルの技術対応はServer Ownerが検査する。
  * @boundary Repository設定とReact Form。
@@ -116,6 +117,7 @@ function readSelectionDraft(text: string): SelectionDraft | null {
  */
 export function AiSelectionManagementPanel({
   actionToken,
+  browserSession,
   repositoryId,
   allowed,
   initialRead,
@@ -124,6 +126,7 @@ export function AiSelectionManagementPanel({
   refreshReadModel,
 }: {
   actionToken: string;
+  browserSession: boolean;
   repositoryId: string | null;
   allowed: boolean;
   initialRead: AiSelectionReadResult | null;
@@ -160,7 +163,7 @@ export function AiSelectionManagementPanel({
    * 一つの明示操作の結果を同じ画面世代へ反映する。
    * @responsibility 保存を再送せず、既知結果と現在観測を区別する。
    * @trace ARCH-000012
-   * @input 保存Form又はnullの明示再取得。
+   * @input 保存又は現在設定の再取得。
    * @returns 所有HTTPの終了。
    * @precondition pendingでない。
    * @postcondition 取消・終了・別Repositoryへの遅延反映なし。
@@ -171,8 +174,18 @@ export function AiSelectionManagementPanel({
    * @security 資格は既存接続Ownerだけが搬送する。
    * @concurrency pendingをawait前に設定しunmountで取消する。
    */
-  async function execute(form: URLSearchParams | null): Promise<void> {
-    if (pending.current || !allowed) return;
+  async function execute(write: boolean): Promise<void> {
+    if (pending.current || !allowed || repositoryId === null) return;
+    let config: unknown;
+    if (write) {
+      if (read?.status !== "available" && read?.status !== "missing") return;
+      try {
+        config = JSON.parse(draft) as unknown;
+      } catch {
+        setNotice("JSON入力を確認してください。保存要求は送っていません。");
+        return;
+      }
+    }
     const controller = new AbortController();
     current.current?.abort();
     current.current = controller;
@@ -185,15 +198,19 @@ export function AiSelectionManagementPanel({
       expected === generation.current;
     let known: AiSelectionSaveResult | null = null;
     try {
-      if (form) {
-        const response = await requestWorkbenchMutation("/api/ai-selection", {
-          method: "POST",
-          body: form,
-          signal: controller.signal,
-          headers: { "content-type": "application/x-www-form-urlencoded" },
-        });
+      if (write) {
+        const response = await requestAiSelectionSave(
+          repositoryId,
+          actionToken,
+          {
+            expectedIdentity: read?.snapshot?.identity ?? null,
+            configText: draft,
+          },
+          controller.signal,
+          browserSession,
+        );
         if (!response.ok) throw new Error("ai_selection_outcome_unconfirmed");
-        known = inspectWorkbenchSelectionResult(form, await response.json());
+        known = inspectWorkbenchSelectionResult(config, await response.json());
         if (!active()) return;
         setResult(known);
         setNotice(
@@ -211,20 +228,10 @@ export function AiSelectionManagementPanel({
           });
         else setRead(null);
       } else {
-        const query = repositoryId
-          ? "?repositoryId=" + encodeURIComponent(repositoryId)
-          : "";
         const observed = await readWorkbenchQuery(
           "ai-selection",
           controller.signal,
-          async (signal) => {
-            const response = await requestWorkbench(
-              "/api/ai-selection" + query,
-              { signal },
-            );
-            if (!response.ok) throw new Error("ai_selection_unavailable");
-            return validateAiSelectionResponse(await response.json());
-          },
+          (signal) => requestAiSelection(repositoryId, signal, browserSession),
         );
         if (!active()) return;
         setRead(observed);
@@ -242,7 +249,7 @@ export function AiSelectionManagementPanel({
         setNotice(
           known?.status === "saved"
             ? "保存は確認済みですが現在表示を更新できません。再送は行いません。"
-            : form
+            : write
               ? "変更結果を確認できません。未保存と判断せず、現在設定を再取得してください。"
               : "現在設定を確認できません。",
         );
@@ -419,7 +426,7 @@ export function AiSelectionManagementPanel({
         type="button"
         disabled={busy}
         onClick={() => {
-          void execute(null);
+          void execute(false);
         }}
       >
         現在の設定を再取得
@@ -428,21 +435,9 @@ export function AiSelectionManagementPanel({
         className="ai-selection-form"
         onSubmit={(event: FormEvent<HTMLFormElement>) => {
           event.preventDefault();
-          const form = new URLSearchParams();
-          for (const [key, value] of new FormData(event.currentTarget))
-            if (typeof value === "string") form.append(key, value);
-          void execute(form);
+          void execute(true);
         }}
       >
-        <ActionTokenInput value={actionToken} />
-        {repositoryId ? (
-          <input type="hidden" name="repositoryId" value={repositoryId} />
-        ) : null}
-        <input
-          type="hidden"
-          name="expectedIdentity"
-          value={read?.snapshot?.identity ?? ""}
-        />
         {edited ? (
           <>
             <h3>役割ごとの既定値</h3>

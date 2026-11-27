@@ -1717,6 +1717,49 @@ test("PR-A-03 stops later waves when a Task requires process restart", async (t)
   assert.deepEqual(startedItems, ["task-a"]);
 });
 
+/** @trace PRL-IT-012 親の現在認可が次のTaskを許さないとき、保存待ちがなくても新規Effectを発行しない。 */
+test("外部認可が実行中に不明になってもTask Aを確定し、待機のないTask Bを始めない", async (t) => {
+  const { root, input } = fixture(
+    t,
+    [task("task-a"), task("task-b", ["task-a"])],
+    1,
+  );
+  const entered: string[] = [];
+  let current = true;
+  let checks = 0;
+  const outcome = await runCoordinatorOperation(
+    {
+      beforeTask: async () => {
+        checks++;
+        return current;
+      },
+      runSingleTaskAttempt: async (attempt) => {
+        entered.push((attempt.taskRequest as { taskId: string }).taskId);
+        assert.equal(checks, 1);
+        current = false;
+        return completed(attempt);
+      },
+    },
+    input,
+  );
+  assert.deepEqual(entered, ["task-a"]);
+  assert.equal(checks, 2);
+  assert.equal(outcome.status, "cancelled");
+  assert.deepEqual(outcome.completedTaskIds, ["task-a"]);
+  const stored = readCoordinatorState(root, "binding-a", "project-a");
+  assert.equal(stored.status, "completed");
+  assert.equal(
+    stored.value?.tasks.find(({ definition }) => definition.id === "task-a")
+      ?.state,
+    "completed",
+  );
+  assert.notEqual(
+    stored.value?.tasks.find(({ definition }) => definition.id === "task-b")
+      ?.state,
+    "starting",
+  );
+});
+
 /**
  * execution_process義務は同じTask attemptとoperationにだけ結合するを検証する。
  *

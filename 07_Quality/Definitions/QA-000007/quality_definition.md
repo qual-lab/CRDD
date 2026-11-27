@@ -1,5 +1,13 @@
 # QA-000007 リポジトリ境界とFederationの検証定義
 
+## v0.22の初回設定・管理境界
+
+現在の初回設定は、Host CLIで明示的に開始し、確認済みの外部アカウントを最初の管理者として保存する。旧接続鍵の提示・交換・限定接続確認を記述する以下の旧方式の条項と過去結果は、現在の受入条件・合格根拠にはしない。現在のMCP公開境界は [QA-000009の EST-ST-015](../QA-000009/quality_definition.md#3-検証項目) が所有する。
+
+- `RFD-IT-024`：初回保存前に本人・入力・対象保存先を確認する。成功時は管理者を一人だけ確定し、旧鍵を発行しない。既存状態・旧形式・観測不能・保存ロック内で見つかった旧材料は新規出版なしで拒否する。
+- `RFD-IT-025`：元の保存材料と現在状態を確認し、不明を未初期化へ読み替えない。既存管理者の再紐付けでは新しい利用者を作成せず、旧紐付けの認可を無効にする。現在状態を推定で補わない。
+- `RFD-ST-026`／`RFD-UAT-027`：実Hostからの外部ログイン・初回設定・再紐付けの縦断と利用者理解はそれぞれ別に評価する。局所的な保存・合成認証・拒否試験では合格としない。
+
 ## リポジトリ登録時の配置確認
 
 登録の既存試験で、資格・管理許可・期待改訂・入力が不成立なら呼出し側のディレクトリ観測も行わないことを確認する。許可後に限り、観測欠測、固定文書の不一致、配置の再確認失敗が保存前に止まることを反証する。単体／共有Workbenchの試験では、Git配置がない場合に登録されないことと、元の配置に戻した後の明示登録、登録と公開範囲の分離を確認する。これをアクセス解決や正式項目全体の合格へ換算しない。
@@ -145,6 +153,8 @@ Quality ID: `QA-000007`
 | [SPEC-000012](../../../05_SPEC/Definitions/SPEC-000012/spec_definition.md) | `spec-000012.qa-000007` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 通常7保存操作は操作別入力と変更前現在Roleの固定管理判定から保存・読戻しへ進む。改訂競合、処置前不明、保存後読戻し／応答不明を分け、確定更新の未保存化・暗黙再更新・rollback・鍵交換Recoveryを行わない。通常発行・独立失効・交換のadministrator固定、同一Process Workbench入口、Host交換2操作、MCP鍵操作非公開を分ける。対象と既存ユーザーの結合をEffect前に確認し、交換の旧失効前からexact Recoveryを保持する。失効／発行／記録／提示を独立観測し、確定発行を後続失敗でunknownにしない。不明・認可破損時は修復やBootstrapをせず停止する。登録解除は同一受理操作・採用改訂で登録と対応Exposureを除去し、両読戻し時だけ完了とする。他設定／本体を保持し、事前別公開解除・登録時Binding再検証を解除条件にせず、旧実行取消を保証しない。発行／非秘密記録不明はCredential IDとは別の元発行Identity再観測、新交換0、通常発行Recovery新設0、交換由来のみ元exact保持。発行・記録確定で提示だけ不明（本人受領は観測外）なら旧事実を保持して現在administratorの明示した別Operation／別Recovery交換を受理する。先の発行鍵を含む指定ユーザー全旧有効資格→同user発行／全員全旧有効資格→指定既存administrator発行を確認し、各交換内exact、4組表示・3組確認を維持する。現在admin認証未接続／喪失のみ既存Host2交換へ戻る。遅延旧応答の失効鍵利用案内・秘密再表示・自動再発行・新交換からの旧受領／rollback／取消推定は0。初回追加義務: Hostの明示開始から非秘密の元試行記録確定・読戻し、UUID管理者作成、鍵発行・結果記録、Host提示・限定接続確認・通常管理接続までの各結果を区別する。途中失敗時は同じ元試行の既知事実だけを再観測し、新規作成や再発行へ進まない。管理状態と進行中初回記録の両方が未初期化と確認できた場合だけ開始する。欠落一件、読取り不能、破損、Lock使用中、既存ユーザー、部分状態、確認不能を未初期化へ畳まない。発行／記録不明では元試行だけ再観測し、発行・記録確定後のHost提示または初回限定接続確認だけ不明では作成済み管理者の既存Host指定交換へ別の明示操作として渡す。秘密再表示・自動再発行・自動再初期化を行わない。初回設定とその状態照会をMCPの一覧・Schema・登録・dispatchへ出さず、遠隔Workbenchも実行しない。追加認証、Repository登録・公開、内容権限の暗黙付与を追加しない。 通常提示と本人受領を分け、初回は同鍵限定接続の確認保存・読戻し・清掃／Lock終了後だけ応答する。同要求の通常権限は0、次要求で現在認証を取り直す。 | IT／ST／UAT | `RFD-ST-003`、`RFD-IT-013`、`RFD-ST-016`、`RFD-IT-017`、`RFD-IT-018`、`RFD-UAT-007`、`RFD-IT-021`、`RFD-ST-022`<br>初回設定: `RFD-IT-024`、`RFD-IT-025`、`RFD-ST-026`、`RFD-UAT-027` |
 | [ARCH-000009](../../../06_Architecture/Definitions/ARCH-000009/architecture_definition.md) | `arch-000009.qa-000007` | Architecture Definition（責務・境界・状態・故障） | verified／unverified／ambiguous／unavailableを分け、local／cross-sourceの対象範囲を明示する。GitはAdapterの一実装であり、通常作業全体へCommitを要求しない。所有する責務: Repository Root検証、Repository／Project Identity、Binding、選択差分のStage／Commit／確認済み通常Push。所有しない責務: Force Push、Branch作成、Merge、Rebase、Remote設定管理。読取りと変更Effectを分け、Stage、Commit、Remote反映および結果不明を個別に観測する | IT／ST | `RFD-IT-001`、`RFD-ST-004`、`RFD-IT-002`、`RFD-IT-005`、`RFD-UT-006`、`RFD-IT-009`、`RFD-IT-014`、`RFD-ST-015` |
 | [ARCH-000013](../../../06_Architecture/Definitions/ARCH-000013/architecture_definition.md) | `arch-000013.qa-000007` | Architecture Definition（責務・境界・状態・故障） | Access Managementは現在Roleの9 Role分担行管理判定と、Role内容権限→Exposure→実アクセスの内容認可を別に所有する。通常7保存操作の入力・保存・読戻しを所有し、Workbenchは結果表示、Domainは認可済み集合の集約を所有する。鍵3操作／Host交換2操作／MCP鍵0は維持する。内容取得では資格→既存userId→現在Role内容権限→Exposure→実アクセスを評価する。Workbench通常鍵3操作、Host交換2操作、MCP鍵操作0を分離する。Domainは認可済み集合だけを集約し、資格・認可判断・交換Recoveryを所有しない。鍵交換はexact Identityと失敗段階を保持し、ユーザー・権限・Repository登録・Product Dataを変更しない。AMが同一受理操作・採用改訂で登録と対応Exposureの両除去読戻しを所有し、Workbench／非鍵MCPは結果軸を保持する。他設定／本体保持、事前別公開解除・登録時Binding再検証不要、旧処理取消非証明を反証する。元発行Identity≠Credential ID、発行／非秘密記録不明の再観測と通常発行Recovery0、交換由来のみ元exact保持をAMが所有する。確定発行・記録後の提示未確認は現在administratorの明示的な別Operation／別Recovery交換に限定し、先の鍵を含む現在対象集合・各交換exact・旧事実保持を接続する。現在admin認証未接続／喪失は既存Host2のみ。WBは遅延失効鍵を利用可能と表示せず、別交換を旧受領・rollback・取消完了へ流用しない。新Store・Lock・MCP鍵回復参照を追加しない。初回追加義務: Access Managementが既存管理領域で初回試行とユーザー・鍵を所有し、Host入口、Workbench案内、MCP非公開を分離する。最初のUUID／鍵Effect前に元の非秘密試行を保存・読戻しし、各段階の結果・失敗・再入場を相関する。管理状態と進行中初回記録の両方が未初期化と確認できた場合だけ開始する。欠落一件、読取り不能、破損、Lock使用中、既存ユーザー、部分状態、確認不能を未初期化へ畳まない。発行／記録不明では元試行だけ再観測し、発行・記録確定後のHost提示または初回限定接続確認だけ不明では作成済み管理者の既存Host指定交換へ別の明示操作として渡す。秘密再表示・自動再発行・自動再初期化を行わない。初回設定とその状態照会をMCPの一覧・Schema・登録・dispatchへ出さず、遠隔Workbenchも実行しない。追加認証、Repository登録・公開、内容権限の暗黙付与を追加しない。 通常提示前unconfirmedと非秘密の出力観測、初回の完全discover→同Lock fresh→応答前確認保存を別lifecycleで検証する。歴史的初資格とHost交換後確認資格のv2相関を確認する。 | UT／IT／ST／UAT | `RFD-ST-003`、`RFD-ST-004`、`RFD-IT-013`、`RFD-ST-016`、`RFD-IT-017`、`RFD-IT-018`、`RFD-IT-019`、`RFD-UAT-007`、`RFD-UT-020`、`RFD-IT-021`、`RFD-ST-022`<br>初回設定: `RFD-UT-023`、`RFD-IT-024`、`RFD-IT-025`、`RFD-ST-026`、`RFD-UAT-027` |
+表のHost鍵交換・限定接続は切替前の検証義務であり、v0.22の公開CLIの操作ではない。現行は `crdd-server` の初期設定・再紐付けモードで本人確認し、アクセス管理が検証済み主体を保存する。現行入口の限定確認は[初回Host設定の導出対応](#host-bootstrap-trace)を参照する。
+
 ### Architecture詳細設計入力
 
 | 詳細設計領域 | 受け取る成立条件 |
@@ -175,7 +185,7 @@ Quality ID: `QA-000007`
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 | --- | --- | --- | --- |
 | 正常 | Required | RFD-IT-001、RFD-ST-003、RFD-IT-005、RFD-IT-017、RFD-ST-022、RFD-IT-024、RFD-ST-026 | 通常の成立経路を独立して確認する。|
-| 境界 | Required | RFD-ST-004、RFD-UT-006、RFD-UAT-007、RFD-IT-008、RFD-IT-009、RFD-ST-010、RFD-IT-011、RFD-IT-013、RFD-IT-014、RFD-IT-018、RFD-IT-019、RFD-UT-020、RFD-IT-021、RFD-UT-023、RFD-UAT-027、RFD-IT-029、RFD-UT-030 | 値、Authority、情報、責務または利用者判断の境界を確認する。|
+| 境界 | Required | RFD-ST-004、RFD-UT-006、RFD-UAT-007、RFD-IT-008、RFD-IT-009、RFD-ST-010、RFD-IT-011、RFD-IT-013、RFD-IT-014、RFD-IT-018、RFD-IT-019、RFD-UT-020、RFD-IT-021、RFD-UT-023、RFD-UAT-027、RFD-IT-029、RFD-UT-030、RFD-UT-031、RFD-UT-032、RFD-UT-033、RFD-IT-031、RFD-IT-032、RFD-IT-033、RFD-IT-034 | 値、Authority、情報、責務または利用者判断の境界を確認する。|
 | 準正常 | Required | RFD-ST-016 | 発行／記録不明と確定後提示結果未確認を分け、同じ元Identityの再観測と別の明示Operationを区別する。通常発行・通常管理の部分成立反証は各項目本文に保持し、交換Recoveryを付与しない。 |
 | 異常 | Required | RFD-IT-002、RFD-IT-012、RFD-UT-028 | 不正入力、故障または拒否経路を通常成功へ畳まない。|
 | 回復 | Required | RFD-ST-015、RFD-IT-025 | Push結果不明時の再観測と初回途中状態の再入場を確認する。ST016に含まれる各鍵交換内のexact Recoveryと、確定後の別Operation／別Recovery交換の区別も同項目の本文に保持する。|
@@ -208,13 +218,20 @@ Quality ID: `QA-000007`
 | `RFD-ST-022` | 正常 | ST | 通常管理の公開縦断 | 実Workbench入口→Access Management→保存・読戻し→結果表示→次要求 | System/E2E | 通常7保存操作、三Role、manager許可操作＋administrator不在／利用不能、自己内容変更。公開中Repositoryの解除、片側除去・読戻し不明、両除去確定／旧実行終了未観測。非採用MCP操作 | 公開入口で変更し、結果表示後に次の内容取得を要求する | 実入口、変更前認可、受付操作・採用改訂、登録／Exposure両除去読戻し・表示、部分結果、次要求の現在Role／Exposure／実アクセス、Readerと書込み、終了後状態 | 変更前管理認可→明示更新→次要求の内容再認可。manager許可管理にadministrator存在を要求しない。解除完了は同一操作・改訂の両除去読戻し時だけ表示。片側／不明は未完了。登録≠公開、解除≠本体削除・開始済み取消完了。旧許可集合を次要求へ再利用しない。模擬AdapterだけでPassにせず非採用MCP Toolは非公開 | 固定版・実入口・非秘密相関・各観測・Oracle。旧Evidence流用なし | 他登録・Exposure／対象Repository本体を保持。拒否時書込み0、解除後の未許可Reader 0、鍵Effect 0、暗黙再送0。解除成功から旧実行・実資源終了を表示せず、所有資源終了は別に実観測 | Hybrid |
 
 | `RFD-UT-023` | 境界 | UT | 初回設定の純粋判定 | 初回条件・状態・分岐（I/Oなしのため外部境界非該当） | N/A | 双方確認済み未初期化＋明示開始、単一File欠落、既存、確認済み途中、読取不能・破損・Lock競合・未解決回復 | 各入力の開始可否と次の処置を判定する | 状態・許可／拒否／判定不能・分岐理由、I/O呼出しなし | 双方未初期化確認と明示開始だけ新規作成許可。既存は拒否、途中は元試行再観測、観測不能は停止。欠落や不明を許可へ畳まない。通常9 Role分担行の判定を流用しない | 非秘密の入力・期待値・分岐・Oracle | UUID／鍵／Filesystem Effect 0を純粋実装で確認。外部状態不存在の証明にはしない | Automated |
-| `RFD-IT-024` | 正常 | IT | 初回設定の保存境界 | Access Management→管理状態・進行記録の保存Owner | Direct Boundary | 検証済み既存Host Root、双方未初期化、明示開始・管理用表示名。相関保存／読戻し失敗も比較。Host提示confirmed／未確認、MCPの完全discover／不正method・ID・Envelope、Local Workbenchの閉connect Form／未知・重複・不足field・Action Token不正、旧・失効・別User資格、期待revision／初期・確認資格差、未解決交換、同時要求。 | 排他下で前提再照合→元試行確定・読戻し→UUID作成→同userId資格発行→非秘密結果確定・読戻し。提示前unconfirmed確定→一度出力→提示観測→Surface別限定接続の完全検査→同Lock fresh相関→completed出版・読戻し・短命清掃／Lock終了→成功応答を順に比較する。資格はpresentation:not_attemptedで保存し、同資格を別改訂のunconfirmedへ出版・読戻し・短命清掃／Lock終了後に限りSurfaceへ渡す。 | 前提再照合、元試行・各段階の順序、保存改訂と読戻し、UUID／資格の結合、各Effect回数、対象外差分。初期資格ID／最新確認対象ID・v2改訂、KDF照合と要求検査の別、応答順、同時要求の出版回数、次要求の現在認証。not_attemptedとunconfirmedの別改訂・保存順、出力開始の前後。 | 元試行相関の確定・読戻しが最初のUUID／鍵Effectに先行。一UUID・administrator一Role・同userId一資格。表示名は認証／権限ではない。相関不明はUUID／鍵Effect前停止、Root準備の既知Effectは別に保持。不正要求は確認Owner呼出し／更新0。提示confirmed・exact有効資格・同attempt／user／期待改訂・未解決交換0を同Lockで確認する。同Bindingだけ一出版・再観測に収束。全保存終了条件前の成功応答0、同要求の通常Authority0、次要求だけfresh通常認証。unconfirmed確定前のSurface出力0。出力観測後は非秘密exact Bindingでfresh照合してconfirmedを別改訂へ出版し、失効・交換・別改訂・別要求ならconfirmed更新0。 | 非秘密相関・改訂・順序・件数・差分。Secret／Verifier／saltをEvidenceへ記録しない | 生Secret保存0、暗黙登録・Exposure・内容付与・Product Data更新0。所有Lock／handle／短命Fileの解放を観測し、観測不能は未確認。電源断保証は対象外。確認清掃で有効資格を削除しない。 | Automated |
-| `RFD-IT-025` | 回復 | IT | 初回途中状態の再観測 | 新Host Process→Access Management→保存Owner・既存Host指定交換への引渡し | Adjacent 1 Block | 相関確定後、作成／発行／記録中、提示前unconfirmed出版、提示結果記録、限定接続確認の出版／読戻し／清掃／Lock終了、確定後応答喪失の各Process喪失。取消、二要求／Host交換競合、相関不能も比較 | 各時点でProcess喪失・故障・取消を与え、新Processから同じ元試行と既知／不明を読戻す。発行・記録確定後の提示／限定接続未確認だけ既存指定交換を別明示操作として選ぶ | 元試行と既知／不明、現在ログイン済みHost操作者、作成／発行／記録／提示／限定接続確認、新旧Operation・各交換exact、禁止Effect各件数、資源終端 initialCredentialIdとHost交換後confirmationCredentialId、旧鍵拒否・新鍵確認、遅延通知更新0、保存と応答喪失の別。| 元試行参照は非Authority。現在Hostを再照合し追加Credential認証・OS昇格なし。発行／記録不明は同元試行再観測だけで新交換0。両確定後だけ作成済みadministratorへ別明示指定交換を渡す。旧事実保持、交換内部same exact、元試行と別交換を混同しない。同一Process再呼出しだけで充足しない 保存開始前取消は更新0、開始後は終了を待ち成功応答0。成功出版後の応答喪失はcompleted保持・rollback0、次要求で再観測。Host交換は元attempt／user／初資格履歴を保ち、直近提示の新資格だけを確認対象とする。| 故障点・非秘密元／別Identity・読戻し・各禁止件数・Oracle。秘密値・生応答を記録しない | 別UUID・自動追加鍵・自動再初期化・Secret保存／再取得／再表示0を別観測。合法な別明示交換の新鍵を自動追加鍵と混同しない。所有資源解放を観測し不明なら同じ未解決事実保持、新Recoveryは作らない | Hybrid |
-| `RFD-ST-026` | 正常 | ST | 初回Host設定の公開縦断 | 実Host対話入口→Access Management保存→一度提示→実HTTPのSurface別限定接続→確認確定→次要求の通常認証、Workbench接続操作 | System/E2E | 正規未試行、既存・途中・観測不能、提示未確認・接続不成立、不正discover／Tool要求、Local Form不正、保存故障・応答喪失、Host明示交換、WorkbenchとCRDD固有MCP-only接続 | 実Hostで表示名を入力・明示開始し、TTY一度出力後、MCPの限定discoverまたはLocal Workbench専用connect POSTを実行する。確認保存・読戻し・清掃／Lock終了が応答に先行し、次要求で通常認証へ進むことを実観測する。実TTYの全byte出力／callback／errorと実HTTPの完全要求／保存／応答を確認する。模擬callback成功で代替しない。| 実入口・元試行・初期／確認資格の非秘密相関、提示前unconfirmedとサービス側出力、確認出版・終了・応答の順、初回完了表示と次通常要求、所有資源終了。実境界でnot_attempted保存→別改訂unconfirmed確定→一回出力→サービス出力成立→fresh照合→別改訂confirmedの順を観測。| Host一度提示、通常の追加受領操作0。Workbenchは初回設定／初回秘密提示をせず接続操作を扱う。MCPは完全限定discover、Local Workbenchは閉じた専用connect POSTだけ初回確認を許可し、不正／Tool要求は確認出版0。確認保存終了前の成功応答・通常Authority0。通常Host交換と初回を分離、応答受領・人間閲覧を出力完了から推定しない。模擬Adapter成功だけでPassにしない。Hostは実TTY callback、Workbench接続は実HTTPを観測し、内部成功だけを本番成立にしない。| 固定版・実公開入口・非秘密段階と結果・回数・Oracle。秘密値を記録／添付しない | 暗黙登録・公開・内容付与0、Secret保存／再表示0、所有Process／handle／Lock／短命Fileの解放を個別観測。未接続の具体観測は未評価。未解決事実は保持し成功にしない | Hybrid |
-| `RFD-UAT-027` | 境界 | UAT | 初回設定の利用者達成・理解 | 初回Host入口とWorkbench案内→利用者 | User Acceptance | 未初期化・既存・確認済み途中・観測不能、正常達成、発行／記録不明、Host提示未確認・限定接続未確認、接続未成立 | 利用者が表示名入力・明示開始・Host鍵一度表示・接続操作・次要求の通常利用へ進み、各状態で次の行動を選ぶ。コピー後に追加受領ボタンを押す手順を要求しない | 達成結果、状態と次行動の理解、選択理由、表示名／UUID／鍵／Roleの区別、提示と初回限定接続・通常利用の個別理解、未理解範囲 | 正常に初回管理接続へ到達できる。表示名≠認証／Authority、サービス側提示≠本人受領保証、限定接続確認≠同要求の通常操作許可、既存拒否≠途中再観測を理解。初期化繰返し・Secret再表示・自動再発行を期待せず、両確定後だけ別明示指定交換へ進める | 参加条件・固定Scenario・非秘密の選択／理由／達成・Oracle。秘密値・個人情報を複製しない | 理解確認だけで保存・資源終了を証明しない。実処置は現在Host Authorityと同意範囲で行い、未許可Effect0は別観測、未判断を成功にしない | Manual |
+| `RFD-IT-024` | 正常 | IT | 初回設定の保存境界 | 確認済み外部主体 → AM → 管理状態 | Direct Boundary | 新規、既存、旧形式、未出版材料、観測不能、取消 | 初回保存を試行し、結果と保存先を比較する | 管理者数、本人紐付け、出版、排他終了、既存ファイル | 成功時は同じ外部主体を管理者一人に紐付ける。旧資料・観測不能・保存前取消では出版しない。接続鍵を発行しない | 非秘密の入力区分と保存・終了結果 | 既存ファイルの変更0を観測し、観測不能を不存在と見なさない | Automated |
+| `RFD-IT-025` | 回復 | IT | 初回不成立・既存管理者の回復 | Hostの再入場 → AMの既存状態確認・再紐付け | Adjacent 1 Block | 未確定材料、観測不能、競合、外部主体の変更 | 再入場・明示的な再紐付けを行う | 現在の利用者ID、紐付け、改訂、出版、旧紐付けの拒否 | 途中・観測不能を未初期化へ丸めない。再紐付けは管理者を追加せず旧認可を無効にする | 非秘密の元対象、失敗分類と確定結果 | 旧保存物・同じ利用者IDを保持する。取消と保存確定は別に記録する | Hybrid |
+| `RFD-ST-026` | 正常 | ST | 初回Host設定の公開縦断 | 実Host CLI → 外部ログイン → 保存 → 共有Workbenchの管理セッション | System/E2E | 新規、初回失敗、既存管理者の再紐付け | 実Hostから開始して本人確認し、保存・次回ログイン・管理操作を観測する | 本人との相関、初回・再紐付けの結果、旧紐付けでの拒否、Listenerと保存ロック終了 | 許可したHost入口でのみ初期化し、本人確認前に管理者を作らない。失敗で別の利用者を作らない。実縦断を合成認証だけで合格にしない | 非秘密の実行結果、終了後観測と対象版 | 鍵・トークンを記録しない。所有Listener・一時物・ロックの終了を観測する | Hybrid |
+| `RFD-UAT-027` | 境界 | UAT | 初回設定と再紐付けの利用者理解 | 運用者 → Host手順とWorkbench | User Acceptance | 初回設定、ログイン失敗、管理者の外部アカウント変更 | 案内を使い、現在必要な操作を選び、結果と次の行動を説明する | 操作選択、初回と復旧の区別、対象管理者と未確定の理解 | 初回と既存管理者の再紐付けを混同しない。配布鍵の取得や交換を必要と誤認しない | 同意範囲の利用者観測と未確認事項 | 参加者の許可範囲を守り、不明を成功にしない | Manual |
 | `RFD-IT-029` | 境界 | IT | Git Lifecycle／Concurrency／Fault | Orchestrator明示要求→Version Control→実GitのWorktree／Branch／Ref | Direct Boundary | 同RepositoryのDirectと二Isolated、clean／dirty、固定対象Commit、参照中Commit、競合、別Processの共有Ref更新、作成／登録／取込／除去の各途中失敗 | 許可された作成・読取り・固定・Merge前計算・取込・除去を段階別に実行し、各故障点で同対象へ再入場する | 要求／受理／実Git結果、HEAD／Ref／Worktree登録／実体、元dirty・他Task成果、Lock解放、Task相関・記録と未解決参照を前後比較 | Direct選択だけではWorktree生成0。Merge前計算はTree／Branch更新0、Object生成を記録。明示取込前にRevision・認可・dirty方針を再確認。途中失敗を未発行へ巻戻さず二重取込0。継続利用で参照中のCommit・明示破棄範囲外の未保全成果の破棄0。不明は停止し別対象を処置しない | 固定Source／Git版・環境・合成Repository、段階と対象の相関、前後観測・失敗と再入場・Oracle判定。秘密値・製品本文・許可外Pathは保存しない | 短期Git処理・試験Process／Lockを終了。明示破棄した試験物の不存在と、保持対象・共有Git・他Workspaceの非破壊を確認。不明は同対象残件として保持 | Automated |
 
 | `RFD-UT-030` | 境界 | UT | Workspace保存値／純粋入力検査 | Domainの候補要求・保存値の検証（同一Process内の値検査のみ） | N/A | 同Workspaceの要求と保存値、別Workspace、40／64桁Commit、欠測・余剰field、不正名、管理Path・Traversal・重複選択、関連CHG重複 | 候補保存値・要求・表示名・Commit形式の各検査へ合成値を渡す | 各値の受理／拒否とWorkspace相関 | 正常な閉形式と同Workspaceだけ受理。要求と期待HEADのCommit形式不一致、禁止Path、空・重複選択、欠測・余剰field、不正表示名・重複CHGを拒否し補完しない。Pathだけの選択は既存契約どおり受理 | 固定改訂版、非秘密の入力分類、受理／拒否、Oracle判定。候補本文・秘密・Host絶対Pathを記録しない | Filesystem／Git／保存Effect 0。値検査成功をGit作成・保存・採用・回収の成立へ換算しない | Automated |
+| `RFD-UT-031` | 境界 | UT | 外部本人確認 | ログインモジュール→合成発行者 | N/A | 発行者、署名、ブラウザー相関、再送、期限 | 開始した取引の応答を検証する | 本人確認結果、相関、一回消費 | 正しい署名と同じブラウザーだけを一度許可し、不一致・再送・期限切れを拒否 | 固定改訂版と非秘密の入力分類・結果 | 不正応答による本人紐付け・セッション発行0 | Automated |
+| `RFD-UT-032` | 境界 | UT | 外部Gitホスト認可 | Gitホスト連携→合成本人／App権限 | N/A | 現在セッション、登録参照、不完全な応答、失効 | 連携とリポジトリ別の許可判定を要求する | 本人権限、App権限、対象、連携継続 | 両権限と対象一致を要求し、別対象・未対応ホスト・観測不能を許可しない | 固定改訂版と権限分類・結果。資格値は記録しない | 不許可時のGit送信0。実サービスとの通信なし | Automated |
+| `RFD-UT-033` | 境界 | UT | 起動設定 | 共有OAuthとGitホストの環境入力→構成 | N/A | 合成クライアント、署名材料、ホスト一覧、部分設定、重複 | 起動環境を構成に変換する | 構成有無、拒否分類、秘密環境の残存 | 部分設定・重複・不正値は拒否し、子に秘密設定を残さない | 固定改訂版、設定の有無と拒否結果。秘密値は記録しない | 不正設定で待受開始0 | Automated |
+| `RFD-IT-031` | 境界 | IT | 管理者の対話と回復 | Host CLI→ローカル一時待受→合成本人確認 | Direct Boundary | 初回／復旧、旧コマンド、非対話、別ブラウザー、取消 | 起動引数を検査し、一時受付と確認を進める | 終了値、本人確認、取消後の受付終了 | 許可した対話だけを進め、相関しない確認・旧コマンドを拒否する | 固定改訂版、相関の有無、終了値、受付閉鎖 | 未確認時の対象変更0。取消後の一時受付なし | Automated |
+| `RFD-IT-032` | 境界 | IT | 招待の一回消費 | 管理者の事前登録→本人の引受→試験用保存先 | Direct Boundary | 招待、別本人、再送、保存障害、再紐付け | 招待を引き受け、過去要求を再送する | 一回消費、紐付け、改訂、既知保存結果 | 同じ招待を二度使えず、既知保存を保持し、紐付け変更後の旧接続は許可しない | 固定改訂版、保存段階と非秘密の結果 | 不許可時の紐付け更新0。秘密を保存・出力しない | Automated |
+| `RFD-IT-033` | 境界 | IT | ブラウザーセッションと管理認可 | 共有HTTP→ブラウザーセッション→現在認可 | Direct Boundary | 通常と短命管理、未ログイン、旧鍵、紐付け変更 | 画面、通常操作、管理操作、ログアウトを要求する | 接続方式と本人確認、操作別の現在認可、セッション終了 | 旧鍵を共用せず、未ログイン時は旧鍵フォームを出さず、管理権限と通常権限を分離し旧セッションを拒否 | 固定改訂版、表示と認可結果。Cookie値は記録しない | 権限のない管理操作・旧入口による保存0 | Automated |
+| `RFD-IT-034` | 境界 | IT | MCP OAuthと対象資源 | 組込み認可サーバー→ローカルHTTP→合成MCPクライアント | Direct Boundary | 正規と重複コード、期限切れ、対象違い、別インスタンス | コード交換、トークン照会、失効後の再照会を行う | 対象、照会結果、失効、再利用拒否 | 正規コードと対象に限って成立し、失効・重複・期限差・別資源や別インスタンスを拒否 | 固定改訂版、対象と拒否分類。コード・トークン値は記録しない | 不正トークンによるTool実行0。試験待受終了 | Automated |
 
 ### 通常管理の完全な導出対応
 
@@ -235,7 +252,19 @@ RFD-UT-028はSource／Test Symbolと試験台帳へ接続する候補で、正�
 
 UTの外部境界はN/A（I/O前の純粋判定）、ITはDirect Boundary、STはSystem/E2E、UATはUser Acceptance。上流のIA・REQ・UX・UI・SPEC固有条件は情報源表から同じ項目へ統合し、別の重複Local Itemを作らない。
 
+<a id="host-bootstrap-trace"></a>
+
 ### 初回Host設定の完全な導出対応
+
+Google方式では、Hostの明示確認、管理者と本人紐付けの同時保存、鍵発行0を確認する。局所確認では `access-management:integration:host-entry` がAMの初回保存・本人照合・既存状態および途中材料の保全を検証する。`crdd-server:integration:host-admin` はServerが所有するHost CLIの引数の排他条件、非対話時の保存なし、旧鍵コマンドの拒否、合成応答による一時待受の終了を検証する。鍵方式のCLIを通す証拠は現行の公開境界の根拠にしない。実対話端末から保存と共有ログインまでを通す確認と、実Google接続は未評価。局所結果を `RFD-ST-026` または `RFD-UAT-027` 全体の合格にしない。
+
+管理状態の第4版は初回設定の途中段階を持たない。合成の旧状態・旧未確定材料を置換しないことに加え、`access-management:integration:host-entry` では別プロセスの同時初期化で一件だけ保存され、読戻し不一致と保存後の排他解放不明では初回設定の完了を返さないことを確認した。この確認は合成環境のAM保存境界に限る。
+
+#### 外部ログインと共有認可の限定確認
+
+外部提供元は代役とし、実アカウント・実運用の保存先は使用しない。以下は試験が観測する境界の定義であり、全体合格を示さない。
+
+対象項目は検証項目表の RFD-UT-031、RFD-UT-032、RFD-UT-033、RFD-IT-031、RFD-IT-032、RFD-IT-033、RFD-IT-034 を参照する。
 
 今回の目標は[AMの限定接続契約](../../../06_Architecture/Details/access-management/02_Management_State_and_API.md#25-初回限定接続の具体契約)とv2 Schema切替案から導出する。通常の本人受領は観測外、初回だけ同鍵の完全な限定要求と確認保存で接続成立を検証する。以下は既存項目内の反証区分で、新しいLocal Itemではない。旧v1 Parserや旧受領方式の局所成功を新版へ流用しない。
 
@@ -371,18 +400,18 @@ RFD-IT-017／018では、現在administrator・初回completed・期待改訂・
 
 ### 非鍵管理の公開接続の検証具体化候補 — 2026-10-13
 
-Source契約は[Workbench詳細§6.2.1](../../../06_Architecture/Details/workbench-server/01_Architecture.md#621-非鍵管理の接続候補)の直接AM接続と、[独立MCP詳細§3.3.1](../../../06_Architecture/Details/mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)を別のSurfaceとして確認する。Workbenchは全配置で四read＋七保存へ直接接続し、登録はWorkbenchだけ。MCPの登録・鍵操作非公開と初回限定discoverは独立MCP側の義務である。候補文書から正式191項目のNot RunをPassへ変えない。
+Source契約は[Workbench詳細§6.2.1](../../../06_Architecture/Details/workbench-server/01_Architecture.md#621-非鍵管理の接続候補)の直接AM接続と、[独立MCP詳細§3.3.1](../../../06_Architecture/Details/mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)を別のSurfaceとして確認する。Workbenchは全配置で四read＋七保存へ直接接続し、登録はWorkbenchだけ。MCPの全管理書込み・鍵操作非公開と初回限定discoverは独立MCP側の義務である。候補文書から正式191項目のNot RunをPassへ変えない。
 
 | 既存項目 | 追加する観測と反証 |
 |---|---|
-| RFD-IT-013 | Header認証後の現在Role／資格失効を次のWorkbench要求または独立MCP list／callへ反映。developerの通常認証・用途解決は維持し、四管理read／七保存API呼出しと管理情報開示は0。managerのadministrator名前変更は許可、administrator登録・Role変更・内容設定は拒否 |
+| RFD-IT-013 | Header認証後の現在Role／資格失効を次のWorkbench要求または独立MCP list／callへ反映。developerの通常認証・本人照会を維持し、管理読取りの直接呼出しではAMが現在認可で拒否し、管理情報を返さない。MCPは任意ロールで管理保存API呼出し0。Workbenchではmanagerのadministrator名変更を許可し、administrator登録・Role変更・内容設定は拒否 |
 | RFD-IT-021 | 七保存の正常、改訂競合、対象不明、先行材料処置、出版・読戻し・清掃・解放不明を利用側へ搬送。解除は同一操作／改訂で登録とExposureの両除去、本体・対象外状態保持。入口固有Store0 |
-| RFD-ST-022 | 四readの既存filter、改訂独立、Exposure nullと明示空、管理状態Root／Bindingを入力外とし、応答のPath／Bindingは0。登録対象RootはWorkbenchの明示入力だけで、管理保存Rootと区別する。独立MCPの登録field／Toolは0。Workbenchの独自16MiB応答拒否は撤去し、有効な管理状態の増加だけで返却を拒否しない。独立MCPの既存16MiB応答境界と超過時の部分返却0は今回維持する。Workbenchの直接AM POST／CSRと独立MCP Surfaceでそれぞれ拒否・既知出版・後段不明を別表示。更新後はfresh読取り、応答喪失で自動再送0 |
+| RFD-ST-022 | 四readの既存filter、改訂独立、Exposure nullと明示空、管理状態Root／Bindingを入力外とし、応答のPath／Bindingは0。登録対象RootはWorkbenchの明示入力だけで、管理保存Rootと区別する。MCPの管理書込みは一覧・Schema・直接呼出しから除外する。WorkbenchとMCPはともに結果の大きさだけを理由に有効な読取り結果を拒否しない。拒否・既知出版・後段不明はWorkbenchの直接AM POST／CSRで区別する。更新後はfresh読取り、応答喪失で自動再送0 |
 | RFD-UAT-007 | manager／administratorが対象・Role変更前後・保持情報、登録と公開、解除と本体削除、既知保存と清掃未確認の違いを理解できる。全Roleの本人表示を管理一覧と混同しない |
 
 Workbenchの閉HTTP入力・直接AM接続と、独立MCPのTool名・閉Schema・dispatchを分け、HTTP取消／終了をQA-000009のEST-IT-002／010・EST-ST-013へ接続する。同期保存前取消のAPI呼出し0と、開始後の完了待ち・応答抑止・保存非rollbackを別に観測する。鍵・Host・初回操作のMCP公開0を維持し、採用する非鍵Toolを旧「非採用Tool」の禁止へ誤分類しない。Workbench登録では認可前Root観測0、入力上限、Host上Pathの説明と既存AM検証を確認する。部分接続や一覧件数から公開Launcher・通常接続・AM全体完成を推定しない。
 
-Workbench通常管理接続の反証は既存RFD-IT-013／021とRFD-ST-022へ接続する。Standalone／CROS／共有Host Workbenchの直接AM七保存の現在認可・結果同値、Workbench登録と独立MCPの登録Schema／dispatch0、三Role本人と他User非開示、Role変更／失効後のfresh拒否、公開範囲null／明示空、改訂混在、既知出版と清掃／解放不明を別観測する。実Browserでは全Form・結果／focus・再観測と影響画面の既存Visual profileを評価する。新Local Itemを発行せず、正式行のNot Runを実行前に変更しない。
+Workbench通常管理接続の反証は既存RFD-IT-013／021とRFD-ST-022へ接続する。Standalone／CROS／共有Host Workbenchの直接AM七保存の現在認可・結果同値、Workbenchの管理書込みと独立MCPの管理書込みSchema／呼出し0、三Role本人と他User非開示、Role変更／失効後のfresh拒否、公開範囲null／明示空、改訂混在、既知出版と清掃／解放不明を別観測する。実Browserでは全Form・結果／focus・再観測と影響画面の既存Visual profileを評価する。新Local Itemを発行せず、正式行のNot Runを実行前に変更しない。
 
 ## 鍵生成・照合の局所技術接続 — 2026-10-12
 
@@ -432,7 +461,7 @@ Host交換の保存・提示・終了compositionはRFD-IT-017へ局所接続し�
 
 資格管理一覧の専用ReaderはRFD-IT-013／017の補助観測へ接続する。同改訂のactor・User候補・資格Metadata・未解決交換相関だけを現在administratorへ返すこと、manager／developer・失効・初回途中・破損・読取り／清掃／解放不明でSnapshot0、先行材料の非認可保持と処置要求の事実0・次fresh観測を反証する。Secret／salt／Verifier／Root／内容／Repository情報を含めず、不変コピーとする。readManagementState四kindとMCP鍵非公開は維持し、Reader局所だけをWorkbench本番／HTTP提示／実Browser／正式Local Item全体のPassにしない。
 
-Workbenchの専用Browser試験は既存RFD-ST-016／ERB-ST-022の部分反証へ接続する。本番Bundleと本番Formから通常発行・本人交換・全交換を行い、一要求化、DOM内の短命表示、次操作開始時の消去、汎用GET・URL・Storage・reloadへの秘密非保持、通信失敗時の完了表示0、交換後の旧接続unavailableを観測する。鍵比較はBrowser内だけで行い、Nodeへ返すのはboolean／counterだけとし、画像・console・通信本文・鍵値を保存しない。既存所有Tree終了、DevTools／Workbench Listener不存在、専用Profile不存在を確認する。同Process注入の局所結果であり、公開Launcher・正式Local Item全体・本人受領・AM全体完成の証明にはしない。
+旧鍵管理パネルの発行・交換・一度提示を操作した実ブラウザー確認は、旧方式を対象とした履歴である。現行のWorkbench試験では、管理操作とその後の現在投影を維持し、旧鍵管理パネルや送信フォームが表示されないことを確認する。現行の共有認証・管理操作はGoogleログインと管理セッションの試験に接続し、旧鍵方式の結果を現行契約の合格に流用しない。
 
 ### 許可集合と実本文の局所搬送
 

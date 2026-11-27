@@ -11,6 +11,7 @@
 import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { VerificationHttpTiming } from "./ai-verification-http.ts";
+import { isVerificationAiWrite } from "./ai-verification-http.ts";
 
 type Stage = "initial" | "start" | "observe" | "cancel" | "close";
 type Route = "view" | "action";
@@ -69,7 +70,7 @@ export function createReadonlyVerificationTiming() {
   const routeOf = (route: string): Route | null =>
     route === "/api/workbench/view?route=%2F"
       ? "view"
-      : route === "/api/ai-request"
+      : isVerificationAiWrite(route)
         ? "action"
         : null;
   /**
@@ -182,7 +183,7 @@ export function createReadonlyVerificationTiming() {
           route:
             routeKind === "view"
               ? "/api/workbench/view?route=%2F"
-              : "/api/ai-request",
+              : "/api/repositories/{repositoryId}/ai-requests",
           startedAt: timing.startedAt,
           requestCreatedAt: timing.requestCreatedAt,
           headersSendingAt: timing.headersSendingAt,

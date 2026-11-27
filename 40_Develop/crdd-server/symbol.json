@@ -4,6 +4,144 @@
   "subsystem": "crdd-server",
   "symbols": [
     {
+      "symbolId": "crdd-server.login-providers",
+      "kind": "file",
+      "path": "src/transport/login-providers.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
+      "symbolId": "crdd-server.login",
+      "kind": "file",
+      "path": "src/transport/login.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
+      "symbolId": "crdd-server.host-admin",
+      "kind": "file",
+      "path": "src/cli/admin.ts",
+      "archIds": ["ARCH-000012", "ARCH-000013"]
+    },
+    {
+      "symbolId": "crdd-server.test.unit.login",
+      "kind": "test-suite",
+      "path": "tests/unit/login.contract.test.ts",
+      "qaIds": ["QA-000007"],
+      "localTestIds": ["RFD-UT-031"],
+      "verifies": ["crdd-server.login", "crdd-server.login-providers"]
+    },
+    {
+      "symbolId": "crdd-server.test.integration.host-admin",
+      "kind": "test-suite",
+      "path": "tests/integration/host-admin.contract.test.ts",
+      "qaIds": ["QA-000007"],
+      "localTestIds": ["RFD-IT-031"],
+      "verifies": ["crdd-server.host-admin", "workbench.cli.command", "workbench.cli"]
+    },
+    {
+      "symbolId": "crdd-server.client-session",
+      "kind": "file",
+      "path": "src/transport/api-session.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "crdd-server.mcp-authorization",
+      "kind": "file",
+      "path": "src/transport/mcp-oauth.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "crdd-server.git-host",
+      "kind": "file",
+      "path": "src/service/git-host.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "crdd-server.shared-repository-scope",
+      "kind": "file",
+      "path": "src/service/repository-scope.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "crdd-server.git-host-github",
+      "kind": "file",
+      "path": "src/service/git-host-github.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "crdd-server.environment",
+      "kind": "file",
+      "path": "src/cli/environment.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "crdd-server.test.unit.git-host",
+      "kind": "test-suite",
+      "path": "tests/unit/git-host.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-UT-032"
+      ],
+      "verifies": [
+        "crdd-server.git-host"
+      ]
+    },
+    {
+      "symbolId": "crdd-server.test.unit.environment",
+      "kind": "test-suite",
+      "path": "tests/unit/environment.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-UT-033"
+      ],
+      "verifies": [
+        "crdd-server.environment"
+      ]
+    },
+    {
+      "symbolId": "crdd-server.test.integration.client-session",
+      "kind": "test-suite",
+      "path": "tests/integration/api-session.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-033"
+      ],
+      "verifies": [
+        "crdd-server.client-session"
+      ]
+    },
+    {
+      "symbolId": "crdd-server.test.integration.mcp-authorization",
+      "kind": "test-suite",
+      "path": "tests/integration/mcp-oauth.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-034"
+      ],
+      "verifies": [
+        "crdd-server.mcp-authorization"
+      ]
+    },
+    {
       "symbolId": "workbench.verification.readonly-cli",
       "kind": "file",
       "path": "tests/system/manual/verify-readonly-ai.ts",
@@ -63,7 +201,7 @@
         "workbench.presentation.portfolio",
         "workbench.presentation.record",
         "workbench.presentation.client-model",
-        "workbench.application.credential-administration",
+        "workbench.application.shared-access",
         "workbench.application.ai-profile-surface",
         "workbench.application.ai-request",
         "workbench.application.runtime-activity",
@@ -487,15 +625,6 @@
       ]
     },
     {
-      "symbolId": "mcp.request.initial-connection",
-      "kind": "file",
-      "path": "src/transport/mcp-server.ts",
-      "archIds": [
-        "ARCH-000012",
-        "ARCH-000013"
-      ]
-    },
-    {
       "symbolId": "mcp.test.integration.initial-connection",
       "kind": "test-suite",
       "path": "tests/integration/initial-connection.integration.test.ts",
@@ -509,7 +638,6 @@
       "verifies": [
         "mcp.request.access-resolver",
         "mcp.request.discover",
-        "mcp.request.initial-connection",
         "mcp.source.src.adapters.application.adapter",
         "mcp.source.src.transports.streamable.http.transport"
       ]
@@ -638,7 +766,6 @@
         "crdd-server.configuration.read",
         "mcp.source.src.adapters.orchestrator.adapter",
         "mcp.source.src.protocol.orchestrator.protocol",
-        "mcp.source.src.transports.process.signal.shutdown",
         "mcp.source.src.transports.streamable.http.transport"
       ]
     },
@@ -754,14 +881,6 @@
     },
     {
       "symbolId": "mcp.source.src.transports.streamable.http.transport",
-      "kind": "file",
-      "path": "src/transport/mcp-http.ts",
-      "archIds": [
-        "ARCH-000012"
-      ]
-    },
-    {
-      "symbolId": "mcp.source.src.transports.process.signal.shutdown",
       "kind": "file",
       "path": "src/transport/mcp-http.ts",
       "archIds": [
@@ -1005,7 +1124,7 @@
     {
       "symbolId": "workbench.public-api",
       "kind": "module",
-      "path": "src/app.ts",
+      "path": "src/index.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -1158,7 +1277,7 @@
       ]
     },
     {
-      "symbolId": "workbench.application.credential-administration",
+      "symbolId": "workbench.application.shared-access",
       "kind": "file",
       "path": "src/service/access.ts",
       "archIds": [

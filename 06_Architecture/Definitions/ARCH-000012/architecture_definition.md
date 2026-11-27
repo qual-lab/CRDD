@@ -57,7 +57,7 @@ HTTPとMCPは同じCRDD機能への別の公開入口とする。共通接続だ
 
 `service/` は通信形式に依存しない機能別の接続を担当する。同じ操作はHTTPとMCPから同じ実装に接続し、機能を両方へ一律に公開することまでは要求しない。HTTP応答の構築と型はServerが持ち、Workbench固有の受信・表示前検査は `workbench-ui` が持つ。
 
-製品のコマンド起動は [`bin/crdd-server.ts`](../../../40_Develop/crdd-server/bin/crdd-server.ts) が受け付ける。パッケージのルートに共通処理を再公開しない。MCP固有の公開入口は [`./mcp`](../../../40_Develop/crdd-server/src/transport/mcp-server.ts) とし、実行系Toolは明示された構成でMCPの同じ受付から利用する。実行Toolの内部処理を直接インポートするための公開入口は設けない。
+製品のコマンド起動は `./cli` が指す [`bin/crdd-server.ts`](../../../40_Develop/crdd-server/bin/crdd-server.ts) が受け付ける。パッケージのルートは [クライアント向け応答型](../../../40_Develop/crdd-server/src/index.ts) だけを公開する。MCPのToolは既存のMCP通信入口から利用する。HTTPおよびMCPの実装を直接インポートするパッケージ入口は設けない。
 
 サーバーのSourceは `src/<責務>/<ファイル>` までとする。[共通操作の入口](../../../40_Develop/crdd-server/src/service/entry.ts) は、両通信方式で使う実行・実行定義・認可済みプロジェクト一覧を既存Ownerへ直接つなぐ。起動組立ては `app.ts`、Expressルート・操作別受付・Workbench静的配信は `transport/api-server.ts`、HTTP接続・取消と共通の応答・Origin・フォーム読取りは `transport/api-http.ts`、開発用のOpenAPIとSwagger UIは `transport/api-document.ts` が所有する。実行系のHTTPメソッドとPathはExpress登録とOpenAPIで共用し、入力検査は生成しない。MCP固有の認証・搬送・Tool受付も `transport/` に置く。Workbenchが受信する応答の検査からServerの起動や保存処理へ実行依存しない。通信方式に固有の認可・取消・応答は各入口に残す。公開Subpathには物理配置を露出しない。
 
@@ -71,25 +71,25 @@ HTTPとMCPは同じCRDD機能への別の公開入口とする。共通接続だ
 
 | 操作単位 | HTTP受付 | MCP受付 | 共通接続の所有者 |
 |---|---|---|---|
-| 実行定義 | `GET/POST /api/execution/definition` | 定義取得・管理 | `service/execution.ts` |
+| 実行定義 | `/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}` 配下の定義・計画・Objective・Task | 計画・Objective・Taskの読取り3件と、初期化・保存・作成・更新・削除8件の個別ツール | `service/execution.ts` |
 | 実行 | 実行状態の取得、Objective起動、判断提出（`/api/execution/` 配下） | 同じ三操作 | `service/execution.ts` |
 | 実行アクティビティ | `GET /api/workbench/view` の `executionActivity` | `crdd.get_execution_activity` | `service/execution.ts` とCoordinator |
 | Project | 認可済み一覧・個別文脈を含むビュー | Project一覧・文脈取得 | `service/project-context.ts` とDocument Model |
-| Workspace | `POST /api/workspace` | Workspace取得・管理 | `service/workspace.ts` とCoordinator |
-| Topic／Meeting | `POST /api/records`（種別と操作を要求で区別） | Topic・Meetingの個別Tool | `service/topic.ts`／`service/meeting.ts` とDocument Model |
-| アクセス管理 | `GET/POST /api/access` | 現在権限・非鍵管理 | `service/access.ts` とAM |
+| 作業領域（Workspace） | `/api/repositories/{repositoryId}/workspaces` と下位リソース。Workbenchも同じ入口を使う。作成完了を確定できた場合は `201`。完了を確定できなかった操作結果は `200` で返し、未作成を意味しない | `crdd.list_workspaces`、`crdd.get_workspace` など、操作別のツール | `service/workspace.ts` とCoordinator |
+| Topic／Meeting | `/api/repositories/{repositoryId}/topics`・`/meetings` のリソース別HTTP | Topic・Meetingの個別Tool | `service/topic.ts`／`service/meeting.ts` とDocument Model |
+| アクセス管理 | `GET /api/access/me`、`GET /api/users`、`GET /api/repositories`。管理書込みは短命の管理セッションを使うHTTPのみ | 本人の現在権限、管理権限で許可された利用者一覧・登録済みリポジトリ一覧。管理書込みなし | `service/access.ts` とAM |
 
-HTTPのAI依頼とAI選定はそれぞれ `/api/ai-request`、`/api/ai-selection` でGET／POSTを分ける。鍵提示やGit作業ツリー操作はHTTPの既存用途に残し、MCPには一律に公開しない。フォームとTool引数の検査は各受付に置く。
+AI依頼はリポジトリ配下で、現在照会と元の依頼の選択を `/ai-request` のGET／PUT、個別照会を `GET /ai-requests/{requestId}`、開始を `POST /ai-requests`、取消を `POST /ai-requests/{requestId}/cancellation` とする。現在の依頼の選択は実行を開始しない。AI選定は `/api/repositories/{repositoryId}/ai-selection` のGET／PUTで受け付ける。AI選定のHEADはGETと同じ対象・認可を確認し、本文を返さない。鍵提示やGit作業ツリー操作はHTTPの既存用途に残し、MCPには一律に公開しない。入力とTool引数の検査は各受付に置く。
 
-画面応答の契約識別子は `crdd/workbench/view/v1` とし、Projectの表示データは `projectData`、記録操作の結果は `recordActionResult`、実行の進行と履歴は `executionActivity` を使用する。活動の継続位置は `activityCursor` で指定する。画面ビューは既存どおり未知のクエリー項目を解釈しない。旧カーソル名を送っても継続位置にはならない。改名前の入口やJSON形式に対する互換受付は設けない。保存形式・認可・取消の意味は変更しない。
+画面応答の契約識別子は `crdd/workbench/view/v1` とし、Projectの表示データは `projectData`、実行の進行と履歴は `executionActivity` を使用する。記録操作の結果は画面取得とは分け、各操作の応答で返す。活動の継続位置は `activityCursor` で指定する。画面ビューは既存どおり未知のクエリー項目を解釈しない。旧カーソル名を送っても継続位置にはならない。改名前の入口やJSON形式に対する互換受付は設けない。保存形式・認可・取消の意味は変更しない。
 
-設定領域の実体観測とHTTP／MCPの内部受付は公開しない。既存MCPランチャーは上記MCP入口に接続する。HTTPの起動・読取り操作は正式な [`./api`](../../../40_Develop/crdd-server/src/app.ts) を使う。Workbenchの表示前検査は [UIの応答検査](../../../40_Develop/workbench-ui/src/api/response.ts) が所有し、応答型は公開 `./api` からだけ参照する。Serverの `./browser` 公開は設けない。ReactとViteは `workbench-ui` が所有し、Serverは生成済みBundleのみ固定URLで配信する。
+設定領域の実体観測とHTTP／MCPの内部受付は公開しない。CLIは [内部の起動本体](../../../40_Develop/crdd-server/src/app.ts) からHTTPおよびMCPへ接続する。Workbenchの表示前検査は [UIの応答検査](../../../40_Develop/workbench-ui/src/api/response.ts) が所有し、応答型はパッケージの型専用ルートからだけ参照する。Serverの `./browser` 公開は設けない。ReactとViteは `workbench-ui` が所有し、Serverは生成済みBundleのみ固定URLで配信する。
 
-配布入口は [crdd-server](../../../template/tools/crdd-server.ts) に一本化する。既定と `--shared` は `./api` の `startCrddServer` から一つの `127.0.0.1` 待受へHTTP API・Workbench・MCPを接続する。生の要求Pathが `/mcp` と一致した場合だけ、MCPの既存Origin・Bearer・公式SDK受付へ流す。単体は既存固定Bearer、共有はAMの現在資格を使う。共有の公開Originは両方未指定または同じHTTPS Originの場合だけ起動する。他のInterfaceを直接bindしない。
+配布入口は [crdd-server](../../../template/tools/crdd-server.ts) に一本化する。単体は信頼できる個人PC向けに、`127.0.0.1` でHTTP API・Workbenchを提供し、`--mcp-stdio` 指定時だけMCPを標準入出力に接続する。共有では同じ待受に `/mcp` を追加し、OAuth認証とアクセス管理（AM）の現在認可を経て公式SDKへ渡す。共有の公開Originは両方未指定または同じHTTPS Originの場合だけ起動する。他のInterfaceを直接bindしない。
 
 `--mcp-stdio` は単体でHTTP APIとWorkbenchを維持し、MCPを標準入出力にだけ接続する。標準出力はProtocol専用で、診断は標準エラーへ送る。stdin EOF・出力故障・終了シグナルでは進行中要求を既存契約に従って止め、同ProcessのHTTP待受も閉じる。共有とstdioは併用しない。各モードの利用手順と引数の一覧は[利用手順](../../../19_Workflows/04_MCP_Server.md)が所有する。
 
-[開発確認](../../../19_Workflows/04_MCP_Server.md#開発確認)では、単体localhost起動で明示した場合だけHTTPのOpenAPIとSwagger UIを公開する。通常・統合起動は既存の公開面を維持し、仕様書は実行・認可の正本にならない。固定Pathと同一Originの資産だけを返し、Swagger UIに操作送信・外部検証・資格保持を許可しない。MCP Inspectorは外部開発クライアントであり、製品の実行依存には含めない。
+[開発確認](../../../19_Workflows/04_MCP_Server.md#開発確認)では、単体localhost起動で明示した場合だけHTTPのOpenAPIとSwagger UIを公開する。HTTPとMCPで共有する操作のOpenAPI `operationId` は、対応するMCPツール名から `crdd.` を除いた名前に揃える。RESTのメソッド・URL、HTTP専用の操作、各通信方式の認可は変更しない。通常・統合起動は既存の公開面を維持し、仕様書は実行・認可の正本にならない。固定Pathと同一Originの資産だけを返し、Swagger UIに操作送信・外部検証・資格保持を許可しない。MCP Inspectorは外部開発クライアントであり、製品の実行依存には含めない。
 
 ## 6. データ・状態・Interface
 

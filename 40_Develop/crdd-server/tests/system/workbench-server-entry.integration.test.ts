@@ -9,6 +9,7 @@
  */
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
+import { generateKeyPairSync } from "node:crypto";
 import { EventEmitter, once } from "node:events";
 import {
   copyFile,
@@ -34,11 +35,7 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import type { Duplex } from "node:stream";
 import test from "node:test";
-import {
-  Client,
-  StreamableHTTPClientTransport,
-} from "@modelcontextprotocol/client";
-import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
+import { createRetiredCredentialFixture } from "../../../access-management/tests/support/retired-credential.ts";
 import { prepareHostInitializationRoot } from "../../../access-management/src/initialization/root.ts";
 import {
   readHostInitializationState,
@@ -46,7 +43,7 @@ import {
   type FilesystemStoreRoot,
 } from "@qual-lab/crdd-access-management";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
-import { startCrddServer } from "../../src/app.ts";
+import { startCrddServer, startWorkbench } from "../../src/app.ts";
 import { inspectServerPublicOrigin } from "../../src/service/configuration.ts";
 import {
   MCP_COORDINATOR_PROTOCOL_VERSION,
@@ -102,6 +99,10 @@ async function verifyUnifiedMcpJoin(
   localAccessRoot: FilesystemStoreRoot,
   recordListenerClosed: (closed: boolean) => void,
 ): Promise<void> {
+  const port = await availableEntryPort();
+  const privateKey = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+  }).privateKey;
   const observed = new EventEmitter();
   let release = () => {};
   const held = new Promise<void>((resolve) => {
@@ -126,7 +127,7 @@ async function verifyUnifiedMcpJoin(
     "data:text/javascript," +
     encodeURIComponent(
       `export { createMcpHttpRequestHandler } from ${JSON.stringify(realMcp.href)};
-      export const createAccessMcpResolver = () => Reflect.get(globalThis, Symbol.for(${JSON.stringify(name)}));`,
+      export const createOAuthMcpResolver = () => Reflect.get(globalThis, Symbol.for(${JSON.stringify(name)}));`,
     );
   Reflect.set(globalThis, key, accept);
   const hooks = registerHooks({
@@ -138,10 +139,63 @@ async function verifyUnifiedMcpJoin(
     },
   });
   recordListenerClosed(false);
-  const handle = await startCrddServer({
+  const originalFetch = globalThis.fetch;
+  const issuer = "https://accounts.google.com";
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(
+      typeof input === "string" || input instanceof URL ? input : input.url,
+    );
+    if (url.href === `${issuer}/.well-known/openid-configuration`)
+      return Response.json({
+        issuer,
+        authorization_endpoint: `${issuer}/auth`,
+        token_endpoint: `${issuer}/token`,
+        jwks_uri: `${issuer}/jwks`,
+        code_challenge_methods_supported: ["S256"],
+        id_token_signing_alg_values_supported: ["RS256"],
+      });
+    assert.equal(url.hostname, "127.0.0.1");
+    return originalFetch(input, init);
+  };
+  const request: Parameters<typeof startCrddServer>[0] = {
     workingDirectory,
     localAccessRoot,
-  }).finally(() => {
+    port,
+    loginProviders: {
+      google: {
+        clientId: "synthetic.apps.googleusercontent.com",
+        clientSecret: "synthetic-secret",
+      },
+    },
+    sharedRepositoryRoots: [workingDirectory],
+    gitHosts: [
+      {
+        host: "github.com",
+        provider: "github",
+        providerData: {
+          clientId: "synthetic-github",
+          clientSecret: "synthetic-secret",
+        },
+      },
+    ],
+    mcpOAuth: {
+      clients: [
+        { id: "synthetic", redirects: ["http://127.0.0.1:18443/callback"] },
+      ],
+      verifier: {
+        id: "synthetic-verifier",
+        secret: "synthetic-secret".repeat(3),
+      },
+      jwks: {
+        keys: [
+          { ...privateKey.export({ format: "jwk" }), alg: "RS256", use: "sig" },
+        ],
+      },
+      cookieKeys: ["synthetic-cookie-key".repeat(3)],
+    },
+  };
+  const handle = await startCrddServer(request).finally(() => {
+    globalThis.fetch = originalFetch;
     hooks.deregister();
     Reflect.deleteProperty(globalThis, key);
   });
@@ -208,6 +262,19 @@ async function verifyUnifiedMcpJoin(
       "mcp_connection_close_unobserved",
     );
     assert.equal(settled, false);
+    let discoveryCalls = 0;
+    globalThis.fetch = async () => {
+      discoveryCalls++;
+      throw new Error("unexpected_discovery_during_duplicate_start");
+    };
+    try {
+      await assert.rejects(startCrddServer(request), {
+        message: "shared_server_lock_occupied",
+      });
+      assert.equal(discoveryCalls, 0);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
     release();
     await closing;
     await assert.rejects(
@@ -295,6 +362,9 @@ function requestEntry(
           resolve(
             new Response(Buffer.concat(chunks), {
               status: response.statusCode ?? 500,
+              headers: response.headers["www-authenticate"]
+                ? { "www-authenticate": response.headers["www-authenticate"] }
+                : {},
             }),
           ),
         );
@@ -661,9 +731,10 @@ test("CLI試験の終了観測はspawn失敗と初期throwを区別する", asyn
 function runRejectedEntry(
   args: readonly string[],
   environment: NodeJS.ProcessEnv = { ...process.env, CROS_TRUST_DOMAIN_ID: "" },
+  cwd = repositoryRoot,
 ) {
   const result = spawnSync(process.execPath, [entry, ...args], {
-    cwd: repositoryRoot,
+    cwd,
     env: environment,
     encoding: "utf8",
     windowsHide: true,
@@ -691,6 +762,8 @@ test("Workbench CLIはHelpと不正引数を起動前に処置する", () => {
   const help = runRejectedEntry(["--help"]);
   assert.equal(help.status, 0);
   assert.match(help.stdout, /crdd-server \[--shared \| --mcp-stdio\]/u);
+  assert.match(help.stdout, /crdd-server --initialize --provider google/u);
+  assert.doesNotMatch(help.stdout, /--(?:initialize|link)-google/u);
   assert.equal(help.stderr, "");
   for (const args of [
     ["--unknown"],
@@ -708,6 +781,16 @@ test("Workbench CLIはHelpと不正引数を起動前に処置する", () => {
     ["--docs", "--docs"],
     ["--shared", "--docs"],
     ["--automation", "--docs"],
+    ["--initialize-admin", "--provider", "google", "--port", "4567"],
+    [
+      "--link-admin",
+      "00000000-0000-4000-8000-000000000001",
+      "--provider",
+      "google",
+      "--port",
+      "4567",
+      "--shared",
+    ],
   ]) {
     const rejected = runRejectedEntry(args);
     assert.equal(rejected.status, 64);
@@ -733,8 +816,8 @@ test("CRDD Server CLIは終了eventの重複後もOwnerの確定を待つ", () =
       const app = \`
         export const readProjectViewData = () => {};
         export const readWorkbenchServerConfiguration = () => {};
-        export const startWorkbench = () => { throw new Error('unexpected mode'); };
-        export async function startCrddServer() {
+        export const startCrddServer = () => { throw new Error('unexpected mode'); };
+        export async function startWorkbench() {
           setImmediate(() => {
             process.emit('SIGTERM');
             process.emit('SIGINT');
@@ -777,19 +860,13 @@ test("CRDD Server CLIは終了eventの重複後もOwnerの確定を待つ", () =
   }
 });
 
-for (const mode of [
-  "localhost",
-  "public",
-  "tls",
-  "unified",
-  "unified-tls",
-] as const) {
+for (const mode of ["localhost", "public", "tls"] as const) {
   /**
-   * 正常Hostで公開CLIの受付・非開示・所有終了を観測する。
+   * 共有OAuthの受付・非開示・所有終了を配布CLIから観測する。
    * @responsibility 実ListenerとCLI終了処理を同じChildで確認する。
    * @trace ERB-ST-022
-   * @precondition 資格Verifierだけを持つ自己生成Hostが初期化済みである。
-   * @stimulus 最小自己生成Repositoryの--shared起動、公開設定あり／なし、統合時のMCP、鍵接続、IPC合成SIGTERM。
+   * @precondition 自己生成Hostが初期化済みである。管理者の紐付けを用意する。
+   * @stimulus 最小自己生成Repositoryの--shared起動、共有OAuth、IPC合成SIGTERM。
    * @observation 公開案内URLと内部URLの分離、HTTP拒否と認証、Child正常終了、終了後接続拒否。
    * @oracle 起動だけでRepository情報を開示せず、Signal handlerによるcloseがProcess終了を妨げない。
    * @cleanup Child終了後だけ自己生成Hostを削除する。不明時は削除しない。
@@ -827,8 +904,7 @@ for (const mode of [
         path.join(asset, "crdd-brand-icon-512x512.jpg"),
       );
       const port = await availableEntryPort();
-      if (mode === "tls" || mode === "unified-tls")
-        tls = await createEntryTlsProxy(port);
+      if (mode === "tls") tls = await createEntryTlsProxy(port);
       const publicOrigin =
         mode === "public" ? "https://workbench.example" : tls?.origin;
       if (publicOrigin) {
@@ -852,7 +928,7 @@ for (const mode of [
             }
           : {};
       const host = path.join(fixture, "host");
-      const environment = {
+      const environment: NodeJS.ProcessEnv = {
         ...process.env,
         CROS_TRUST_DOMAIN_ID: "workbench-entry-live",
         LOCALAPPDATA: host,
@@ -867,43 +943,35 @@ for (const mode of [
       assert.equal(prepared.status, "ready");
       if (prepared.status !== "ready")
         throw new Error("test_host_preparation_failed");
-      const material = createCredentialMaterial();
+      const material = createRetiredCredentialFixture();
       const userId = "00000000-0000-4000-8000-000000000003";
       const attemptId = "00000000-0000-4000-8000-000000000002";
       const state = path.join(prepared.root.root, "access-management.json");
       const bytes = JSON.stringify({
         contract: "crdd-access-management/state",
-        schemaRevision: 2,
-        revision: 1,
+        schemaRevision: 4,
+        revision: 2,
         operationId: "00000000-0000-4000-8000-000000000001",
-        users: [{ userId, username: "自己生成管理者", role: "administrator" }],
-        roleContentAccess: [
-          { role: "developer", workspaceIds: ["development"] },
-          { role: "manager", workspaceIds: ["development", "management"] },
-          { role: "administrator", workspaceIds: [] },
-        ],
-        credentials: [
+        users: [
           {
-            credentialId: material.credentialId,
             userId,
-            tokenVersion: 1,
-            tokenSalt: material.tokenSalt,
-            tokenVerifier: material.tokenVerifier,
-            revoked: false,
-            operationId: attemptId,
-            presentation: "confirmed",
+            username: "自己生成管理者",
+            role: "administrator",
+            accountLinks: [
+              {
+                issuer: "https://accounts.google.com",
+                subject: "cli-fixture",
+                bindingId: "00000000-0000-4000-8000-000000000004",
+              },
+            ],
           },
         ],
         registeredRepositories: [],
-        exposure: [],
-        unresolvedKeyExchanges: [],
         initialization: {
           stage: "completed",
           attemptId,
           initialUserId: userId,
-          initialCredentialId: material.credentialId,
-          confirmationCredentialId: material.credentialId,
-          connection: "confirmed",
+          connection: "account_confirmed",
         },
       });
       await writeFile(state, bytes);
@@ -911,7 +979,7 @@ for (const mode of [
         readHostInitializationState(prepared.root).status,
         "existing",
       );
-      if (mode === "unified")
+      if (mode === "localhost")
         await assert.rejects(
           startCrddServer({
             workingDirectory: startup,
@@ -922,12 +990,146 @@ for (const mode of [
           }),
           /crdd_server_public_origin_mismatch/u,
         );
-      if (mode === "unified")
+      if (mode === "localhost")
         await verifyUnifiedMcpJoin(startup, prepared.root, (closed) => {
           testListenerClosed = closed;
         });
-      const driver =
+      const startupDriver =
         "const {pathToFileURL}=require('node:url');process.once('message',()=>{process.emit('SIGTERM');process.disconnect();});void import(pathToFileURL(process.argv[1]).href);";
+      if (mode === "localhost") {
+        const missing = runRejectedEntry(
+          ["--shared", "--port", "0"],
+          {
+            ...environment,
+            CRDD_LOGIN_PROVIDERS: undefined,
+            CRDD_GOOGLE_CLIENT_ID: undefined,
+            CRDD_GOOGLE_CLIENT_SECRET: undefined,
+            CRDD_MCP_OAUTH_CLIENTS: undefined,
+            CRDD_MCP_OAUTH_SIGNING_KEY: undefined,
+            CRDD_GIT_HOSTS: undefined,
+            CRDD_SHARED_REPOSITORY_ROOTS: undefined,
+          },
+          startup,
+        );
+        assert.equal(missing.status, 2);
+        assert.equal(missing.stdout, "");
+        assert.match(missing.stderr, /mcp_oauth_configuration_required/u);
+        assert.equal(await readFile(state, "utf8"), bytes);
+      }
+      const { privateKey } = generateKeyPairSync("rsa", {
+        modulusLength: 2048,
+      });
+      Object.assign(environment, {
+        CRDD_LOGIN_PROVIDERS: '["google"]',
+        CRDD_GOOGLE_CLIENT_ID: "synthetic.apps.googleusercontent.com",
+        CRDD_GOOGLE_CLIENT_SECRET: "synthetic-secret",
+        CRDD_SHARED_REPOSITORY_ROOTS: JSON.stringify([fixture]),
+        CRDD_GIT_HOSTS: JSON.stringify([
+          {
+            host: "github.com",
+            provider: "github",
+            providerData: {
+              clientIdEnv: "CRDD_GITHUB_CLIENT_ID",
+              clientSecretEnv: "CRDD_GITHUB_CLIENT_SECRET",
+            },
+          },
+        ]),
+        CRDD_GITHUB_CLIENT_ID: "synthetic-github-app",
+        CRDD_GITHUB_CLIENT_SECRET: "synthetic-github-secret",
+        CRDD_MCP_OAUTH_CLIENTS: JSON.stringify([
+          { id: "desktop", redirects: ["http://127.0.0.1:18443/callback"] },
+        ]),
+        CRDD_MCP_OAUTH_SIGNING_KEY: privateKey
+          .export({ format: "pem", type: "pkcs8" })
+          .toString(),
+      });
+      if (mode === "localhost") {
+        for (const roots of [
+          undefined,
+          "[",
+          JSON.stringify([path.join(fixture, "nonexistent-allowed-root")]),
+        ]) {
+          const invalidRoot = runRejectedEntry(
+            ["--shared", "--port", String(port)],
+            { ...environment, CRDD_SHARED_REPOSITORY_ROOTS: roots },
+            startup,
+          );
+          assert.equal(invalidRoot.status, 2);
+          assert.equal(invalidRoot.stdout, "");
+          assert.match(
+            invalidRoot.stderr,
+            /shared_repository_roots_invalid \(CRDD_SHARED_REPOSITORY_ROOTS\)/u,
+          );
+          assert.doesNotMatch(invalidRoot.stderr, /nonexistent-allowed-root/u);
+          assert.equal(await readFile(state, "utf8"), bytes);
+        }
+        const missingProvider = runRejectedEntry(
+          ["--shared", "--port", "0"],
+          { ...environment, CRDD_LOGIN_PROVIDERS: undefined },
+          startup,
+        );
+        assert.equal(missingProvider.status, 2);
+        assert.equal(missingProvider.stdout, "");
+        assert.match(
+          missingProvider.stderr,
+          /mcp_oauth_configuration_invalid/u,
+        );
+        assert.equal(await readFile(state, "utf8"), bytes);
+        const unlinked = JSON.parse(bytes);
+        delete unlinked.users[0].accountLinks;
+        const unlinkedBytes = JSON.stringify(unlinked);
+        await writeFile(state, unlinkedBytes);
+        try {
+          const beforeLink = runRejectedEntry(
+            ["--shared", "--port", "0"],
+            environment,
+            startup,
+          );
+          assert.equal(beforeLink.status, 2);
+          assert.equal(beforeLink.stdout, "");
+          assert.match(
+            beforeLink.stderr,
+            /host_google_administrator_unavailable/u,
+          );
+          assert.equal(await readFile(state, "utf8"), unlinkedBytes);
+        } finally {
+          await writeFile(state, bytes);
+        }
+      }
+      for (const hosts of mode === "localhost" ? [undefined, "[]"] : []) {
+        const missingHost = runRejectedEntry(
+          ["--shared", "--port", "0"],
+          { ...environment, CRDD_GIT_HOSTS: hosts },
+          startup,
+        );
+        assert.equal(missingHost.status, 2);
+        assert.equal(missingHost.stdout, "");
+        assert.match(missingHost.stderr, /git_hosts_configuration_required/u);
+      }
+      if (mode === "localhost") {
+        const missingSecret = runRejectedEntry(
+          ["--shared", "--port", "0"],
+          { ...environment, CRDD_GITHUB_CLIENT_SECRET: undefined },
+          startup,
+        );
+        assert.equal(missingSecret.status, 2);
+        assert.equal(missingSecret.stdout, "");
+        assert.match(
+          missingSecret.stderr,
+          /git_host_connection_configuration_invalid/u,
+        );
+      }
+      const driver = `
+          const realFetch = globalThis.fetch;
+          globalThis.fetch = async (input, init) => {
+            const u = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
+            const issuer = 'https://accounts.google.com';
+            if (u.href === issuer + '/.well-known/openid-configuration')
+              return Response.json({ issuer, authorization_endpoint: issuer + '/auth', token_endpoint: issuer + '/token', jwks_uri: issuer + '/jwks', code_challenge_methods_supported: ['S256'], id_token_signing_alg_values_supported: ['RS256'] });
+            if (u.hostname !== '127.0.0.1') throw new Error('unexpected_external_request');
+            return realFetch(input, init);
+          };
+        ${startupDriver}`;
       child = spawn(
         process.execPath,
         ["--eval", driver, entry, "--shared", "--port", String(port)],
@@ -1026,6 +1228,33 @@ for (const mode of [
       const url = tls?.origin ?? internalUrl;
       assert.equal(announced, publicOrigin ?? internalUrl);
       listeningUrl = internalUrl;
+      const serverLock = path.join(prepared.root.root, "shared-server.lock");
+      if (mode === "localhost") {
+        const lockBytes = await readFile(serverLock);
+        const second = spawnSync(
+          process.execPath,
+          [
+            "--eval",
+            driver,
+            entry,
+            "--shared",
+            "--port",
+            String(await availableEntryPort()),
+          ],
+          {
+            cwd: startup,
+            env: environment,
+            encoding: "utf8",
+            timeout: 8000,
+            windowsHide: true,
+          },
+        );
+        assert.equal(second.error, undefined);
+        assert.equal(second.status, 2);
+        assert.equal(second.stdout, "");
+        assert.match(second.stderr, /shared_server_lock_occupied/u);
+        assert.deepEqual(await readFile(serverLock), lockBytes);
+      }
       const response = await requestEntry(`${url}/api/workbench/view`, {
         ca: tls?.ca,
         headers: requestHeaders,
@@ -1074,154 +1303,37 @@ for (const mode of [
         await selected.text(),
         "local_repository_access_unavailable\n",
       );
-      const connected = await requestEntry(`${url}/api/access/connection`, {
-        ca: tls?.ca,
-        method: "POST",
-        headers: {
-          ...requestHeaders,
-          origin: publicOrigin ?? url,
-          "content-type": "application/x-www-form-urlencoded",
+      const metadata = await requestEntry(
+        `${url}/.well-known/oauth-protected-resource/mcp`,
+        {
+          ca: tls?.ca,
+          headers: requestHeaders,
+          signal: AbortSignal.timeout(5000),
         },
-        body: new URLSearchParams({
-          actionToken: model.actionToken,
-          operation: "connect",
-          token: material.token,
-        }),
-        signal: AbortSignal.timeout(5000),
-      });
-      assert.equal(connected.status, 200);
-      assert.deepEqual(await connected.json(), { status: "completed" });
-      const headers = {
+      );
+      assert.equal(metadata.status, 200);
+      assert.equal((await metadata.json()).resource, `${announced}/mcp`);
+      const oldHeaders = {
         ...requestHeaders,
         authorization: `Bearer ${material.token}`,
       };
-      const authenticated = await requestEntry(`${url}/api/workbench/view`, {
+      const oldHttp = await requestEntry(`${url}/api/workbench/view`, {
         ca: tls?.ca,
-        headers,
+        headers: oldHeaders,
         signal: AbortSignal.timeout(5000),
       });
-      assert.equal(authenticated.status, 200);
-      const text = await authenticated.text();
-      for (const hidden of [
-        material.token,
-        material.tokenSalt,
-        material.tokenVerifier,
-        fixture,
-        repositoryRoot,
-      ])
-        assert.equal(text.includes(hidden), false);
-      const authorizedModel = JSON.parse(text);
-      assert.equal(authorizedModel.view, "access");
-      assert.equal(authorizedModel.authenticated, true);
-      assert.deepEqual(authorizedModel.portfolio.projects, []);
-      const mcpEndpoint = new URL("/mcp", url);
-      if (mode === "unified") {
-        const unauthenticated = await fetch(mcpEndpoint, {
-          method: "POST",
-          signal: AbortSignal.timeout(5000),
-        });
-        assert.equal(unauthenticated.status, 401);
-        assert.equal(unauthenticated.headers.get("www-authenticate"), "Bearer");
-        const foreignOrigin = await fetch(mcpEndpoint, {
-          method: "POST",
-          headers: { ...headers, origin: "https://foreign.example" },
-          signal: AbortSignal.timeout(5000),
-        });
-        assert.equal(foreignOrigin.status, 403);
-        const client = new Client(
-          { name: "crdd-unified-entry-test", version: "1" },
-          {
-            versionNegotiation: {
-              mode: { pin: MCP_COORDINATOR_PROTOCOL_VERSION },
-            },
-          },
-        );
-        try {
-          await client.connect(
-            new StreamableHTTPClientTransport(mcpEndpoint, {
-              requestInit: { headers },
-            }),
-          );
-          const listing = await client.listTools();
-          assert.ok(
-            listing.tools.some(({ name }) => name === "crdd.list_projects"),
-          );
-          const read = await client.callTool({
-            name: "crdd.list_projects",
-            arguments: {},
-          });
-          assert.equal(read.isError, false);
-        } finally {
-          await client.close();
-        }
-      }
-      if (mode === "unified-tls") {
-        assert.ok(tls);
-        const mcpHeaders = {
-          ...headers,
-          origin: tls.origin,
-          accept: "application/json, text/event-stream",
-          "content-type": "application/json",
-          "mcp-protocol-version": MCP_COORDINATOR_PROTOCOL_VERSION,
-          "mcp-method": "tools/list",
-        };
-        const body = JSON.stringify({
-          jsonrpc: "2.0",
-          id: "unified-tls",
-          method: "tools/list",
-          params: {
-            _meta: {
-              "io.modelcontextprotocol/protocolVersion":
-                MCP_COORDINATOR_PROTOCOL_VERSION,
-              "io.modelcontextprotocol/clientCapabilities": {},
-            },
-          },
-        });
-        const untrusted = await requestEntry(`${internalUrl}/mcp`, {
-          method: "POST",
-          headers: mcpHeaders,
-          body,
-          signal: AbortSignal.timeout(5000),
-        });
-        assert.equal(untrusted.status, 421);
-        const throughTls = await requestEntry(mcpEndpoint.href, {
-          ca: tls.ca,
-          method: "POST",
-          headers: mcpHeaders,
-          body,
-          signal: AbortSignal.timeout(5000),
-        });
-        assert.equal(throughTls.status, 200);
-        const listed = await throughTls.json();
-        assert.equal(listed.id, "unified-tls");
-        assert.ok(
-          listed.result.tools.some(
-            (tool: { name: string }) => tool.name === "crdd.list_projects",
-          ),
-        );
-      }
-      const management = await requestEntry(`${url}/api/access?view=current`, {
+      assert.equal(oldHttp.status, 403);
+      const oldMcp = await requestEntry(`${url}/mcp`, {
         ca: tls?.ca,
-        headers,
+        method: "POST",
+        headers: oldHeaders,
         signal: AbortSignal.timeout(5000),
       });
-      assert.equal(management.status, 200);
-      assert.equal((await management.json()).status, "completed");
-      const profiles = await requestEntry(`${url}/api/ai-selection`, {
-        ca: tls?.ca,
-        headers,
-        signal: AbortSignal.timeout(5000),
-      });
-      assert.equal(profiles.status, 403);
-      // 未選択の共有接続は起動Rootや旧Host Catalogへfallbackしない。
-      const unrelated = await requestEntry(`${url}/api/workbench/view`, {
-        ca: tls?.ca,
-        headers: requestHeaders,
-        signal: AbortSignal.timeout(5000),
-      });
-      const unrelatedModel = await unrelated.json();
-      assert.equal(unrelatedModel.authenticated, false);
-      assert.equal(unrelatedModel.portfolio, null);
+      assert.equal(oldMcp.status, 401);
+      assert.match(
+        oldMcp.headers.get("www-authenticate") ?? "",
+        /resource_metadata/u,
+      );
       assert.equal(await readFile(state, "utf8"), bytes);
       child.send("synthetic_sigterm");
       const result = await waitEntryExit(termination);
@@ -1229,6 +1341,53 @@ for (const mode of [
       settled = true;
       assert.deepEqual(result, { kind: "exit", status: 0, signal: null });
       assert.equal(diagnostic, "");
+      await assert.rejects(readFile(serverLock), { code: "ENOENT" });
+      if (mode === "localhost") {
+        await assert.rejects(
+          startWorkbench({
+            workingDirectory: startup,
+            localAccessRoot: { ...prepared.root },
+            port: 0,
+          }),
+          { message: "shared_server_lock_unavailable" },
+        );
+        await assert.rejects(readFile(serverLock), { code: "ENOENT" });
+        const occupyingListener = createServer();
+        await new Promise<void>((resolve, reject) => {
+          occupyingListener.once("error", reject);
+          occupyingListener.listen(0, "127.0.0.1", resolve);
+        });
+        try {
+          const address = occupyingListener.address();
+          assert.ok(address && typeof address !== "string");
+          await assert.rejects(
+            startWorkbench({
+              workingDirectory: startup,
+              localAccessRoot: prepared.root,
+              port: address.port,
+            }),
+            { code: "EADDRINUSE" },
+          );
+          await assert.rejects(readFile(serverLock), { code: "ENOENT" });
+        } finally {
+          await new Promise<void>((resolve, reject) =>
+            occupyingListener.close((error) =>
+              error ? reject(error) : resolve(),
+            ),
+          );
+        }
+        const retained = "synthetic lock retained for recovery\n";
+        await writeFile(serverLock, retained, { flag: "wx" });
+        await assert.rejects(
+          startWorkbench({
+            workingDirectory: startup,
+            localAccessRoot: prepared.root,
+            port: 0,
+          }),
+          { message: "shared_server_lock_occupied" },
+        );
+        assert.equal(await readFile(serverLock, "utf8"), retained);
+      }
       await assert.rejects(
         fetch(`${internalUrl}/api/workbench/view`, {
           signal: AbortSignal.timeout(2000),

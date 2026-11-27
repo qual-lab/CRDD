@@ -7,7 +7,7 @@
  * @security Reactのtext escapingと既存の資格非永続化を維持する。
  */
 import type { ReactElement } from "react";
-import type { ViewResponse } from "./api/response.ts";
+import type { RecordActionView, ViewResponse } from "./api/response.ts";
 import { MainWorkbench } from "./pages/overview.tsx";
 import { ProjectDetail } from "./pages/project.tsx";
 import { RecordDetail } from "./pages/record.tsx";
@@ -32,9 +32,11 @@ import type { ReplaceDeletedRecord } from "./api/record.ts";
  */
 export function WorkbenchApp({
   model,
+  deletedRecord,
   replaceDeletedRecord,
 }: {
   model: ViewResponse;
+  deletedRecord: RecordActionView | null;
   replaceDeletedRecord: ReplaceDeletedRecord;
 }): ReactElement {
   if (model.view === "access") return <AccessWorkbench initialModel={model} />;
@@ -44,5 +46,5 @@ export function WorkbenchApp({
       <RecordDetail model={model} replaceDeletedRecord={replaceDeletedRecord} />
     );
   if (model.view === "artifact") return <ArtifactDocument model={model} />;
-  return <MainWorkbench model={model} />;
+  return <MainWorkbench model={model} deletedRecord={deletedRecord} />;
 }

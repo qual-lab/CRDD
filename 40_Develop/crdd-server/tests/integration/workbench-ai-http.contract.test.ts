@@ -12,10 +12,11 @@ import test from "node:test";
 import { executionSelection } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import {
   type AiRequestCommand,
+  type AiRequestSnapshot,
   type AiRequests,
   startWorkbench,
 } from "../../src/app.ts";
-import { requestRaw } from "../support/workbench-http.ts";
+import { requestRaw, requestTransport } from "../support/workbench-http.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import {
   createWorkbenchAiVerificationHttpClient,
@@ -60,6 +61,7 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
     "model-invalid",
     "model-unavailable",
     "internal-400",
+    "blocked-invalid",
     "body-limit",
     "body-incomplete",
     "header-timeout",
@@ -70,6 +72,20 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
       let cancels = 0;
       let afterStartReads = 0;
       let cancelled = false;
+      const root = `/api/repositories/${initial.projectData.context.repositoryId}/ai-requests`;
+      const currentSnapshot = (): AiRequestSnapshot => ({
+        resultAvailable: false,
+        requestId: "AIREQ-FAULT-001",
+        mode: "read_only_advice",
+        executionSelection: executionSelection("advice"),
+        status: cancelled ? "cancelled" : "running",
+        reason: null,
+        facts: [],
+        sharedAnalysis: [],
+        additionalInferences: [],
+        nextOptions: [],
+        candidate: null,
+      });
       const server = createServer((request, response) => {
         if (request.method === "GET") {
           if (starts > 0) afterStartReads += 1;
@@ -89,22 +105,7 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
             ...initial,
             aiRequest: {
               ...initial.aiRequest,
-              snapshot:
-                starts > 0
-                  ? {
-                      resultAvailable: false,
-                      requestId: "AIREQ-FAULT-001",
-                      mode: "read_only_advice",
-                      executionSelection: executionSelection("advice"),
-                      status: cancelled ? "cancelled" : "running",
-                      reason: null,
-                      facts: [],
-                      sharedAnalysis: [],
-                      additionalInferences: [],
-                      nextOptions: [],
-                      candidate: null,
-                    }
-                  : null,
+              snapshot: starts > 0 ? currentSnapshot() : null,
             },
           };
           response
@@ -117,15 +118,22 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
           body += chunk.toString("utf8");
         });
         request.once("end", () => {
-          const form = new URLSearchParams(body);
-          assert.equal(form.get("actionToken"), initial.actionToken);
-          assert.equal(form.get("requestId"), "AIREQ-FAULT-001");
-          if (form.get("operation") === "cancel") {
+          const data = JSON.parse(body);
+          assert.equal(
+            request.headers["x-crdd-action-token"],
+            initial.actionToken,
+          );
+          if (request.url === `${root}/AIREQ-FAULT-001/cancellation`) {
+            assert.deepEqual(data, {});
             cancels += 1;
             cancelled = true;
-            response.writeHead(303, { Location: "/#ai-request" }).end();
+            response
+              .writeHead(200, { "Content-Type": "application/json" })
+              .end(JSON.stringify(currentSnapshot()));
             return;
           }
+          assert.equal(request.url, root);
+          assert.equal(data.requestId, "AIREQ-FAULT-001");
           starts += 1;
           if (fault === "cut") {
             response.destroy();
@@ -135,10 +143,22 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
             response.writeHead(400).end();
             return;
           }
+          if (fault === "blocked-invalid") {
+            response.writeHead(409, { "Content-Type": "application/json" }).end(
+              JSON.stringify({
+                status: "blocked",
+                requestId: null,
+                reason: "",
+              }),
+            );
+            return;
+          }
           if (fault === "header-timeout") return;
-          response.writeHead(303, {
-            Location: fault === "location" ? "/unexpected" : "/#ai-request",
-          });
+          if (fault === "location") {
+            response.writeHead(303, { Location: "/unexpected" }).end();
+            return;
+          }
+          response.writeHead(201, { "Content-Type": "application/json" });
           if (fault === "body-limit") {
             response.end(Buffer.alloc(1024 * 1024 + 1, 65));
             return;
@@ -152,7 +172,13 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
             setImmediate(() => response.destroy());
             return;
           }
-          response.end();
+          response.end(
+            JSON.stringify({
+              status: "accepted",
+              reason: null,
+              requestId: "AIREQ-FAULT-001",
+            }),
+          );
         });
       });
       await new Promise<void>((resolve) =>
@@ -311,17 +337,22 @@ test("実Provider検証のHTTP接続部は認可済み依頼Identityを公開境
       workspaceId: null,
     };
     const initial = await readMain(handle.baseUrl);
-    const wrongToken = await requestRaw(
+    const projectsAiRequests = `/api/repositories/${initial.repositoryId}/ai-requests`;
+    const wrongToken = await requestTransport(
       handle.baseUrl,
-      "/api/ai-request",
+      projectsAiRequests,
       "POST",
-      new URLSearchParams({
-        actionToken: "wrong",
-        operation: "start",
+      JSON.stringify({
+        requestId: command.requestId,
         mode: command.mode,
         workType: command.workType ?? "",
         prompt: command.prompt,
-      }).toString(),
+      }),
+      {
+        Origin: handle.baseUrl,
+        "Content-Type": "application/json",
+        "X-CRDD-Action-Token": "wrong",
+      },
     );
     assert.equal(wrongToken.status, 400);
     assert.equal(starts, 0);
@@ -336,17 +367,18 @@ test("実Provider検証のHTTP接続部は認可済み依頼Identityを公開境
     const observed = await transport.observe("AIREQ-HTTP-001");
     assert.equal(observed.status, "running");
     assert.equal(observed.facts[0]?.text, "公開結果");
-    const wrongId = await requestRaw(
+    const wrongId = await requestTransport(
       handle.baseUrl,
-      "/api/ai-request",
+      `${projectsAiRequests}/AIREQ-OTHER/cancellation`,
       "POST",
-      new URLSearchParams({
-        actionToken: initial.actionToken,
-        operation: "cancel",
-        requestId: "AIREQ-OTHER",
-      }).toString(),
+      "{}",
+      {
+        Origin: handle.baseUrl,
+        "Content-Type": "application/json",
+        "X-CRDD-Action-Token": initial.actionToken,
+      },
     );
-    assert.equal(wrongId.status, 400);
+    assert.equal(wrongId.status, 403);
     assert.equal(cancels, 0);
     await assert.rejects(
       transport.cancel("AIREQ-OTHER"),

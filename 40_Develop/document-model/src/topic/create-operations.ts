@@ -13,7 +13,7 @@ import type { TopicOperations } from "./types.ts";
  *
  * @responsibility 種別の選択を生成時に固定し、共通処理の複製なしでTopicの操作を公開する。
  * @trace ARCH-000006
- * @input repositoryRoot: 選定済みRootと任意の期待Project。
+ * @input 選定済みRoot、任意の期待Project、一時本文書込み・正式反映直前の同期確認。
  * @returns Topicの一覧・CRUD・RelationとTopic昇格の操作集合。
  * @precondition 対象Repositoryの選定・認可は利用側が確認済み。AM利用側はRootとmanifest Projectを必ず指定する。
  * @postcondition 操作対象種別はtopicに固定され、反対種別の専用操作は存在しない。
@@ -27,11 +27,16 @@ import type { TopicOperations } from "./types.ts";
 export function createTopicOperations(
   repositoryRoot: string,
   expectedProjectId?: string,
+  beforeWrite?: (phase: "stage" | "publish") => void,
 ): TopicOperations {
   if (typeof repositoryRoot !== "string")
     throw new Error("project_operation_repository_root_invalid");
   const application = createTopicMeetingOperations(
-    createTopicMeetingRepository(repositoryRoot, expectedProjectId),
+    createTopicMeetingRepository(
+      repositoryRoot,
+      expectedProjectId,
+      beforeWrite,
+    ),
   );
   const scoped: TopicOperations = {
     list: (input) => application.list({ ...input, kind: "topic" }),

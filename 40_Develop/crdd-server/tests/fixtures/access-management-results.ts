@@ -1,6 +1,6 @@
 /**
  * 別ProcessでAM結果搬送の固定境界を反証する。
- * @responsibility AM公開Producerだけを差替え、MCP公開Resolverと結果投影を実行する。
+ * @responsibility AM公開Producerだけを差替え、MCP読取りとWorkbench管理保存の結果搬送を検証する。
  * @trace EST-IT-002
  * @trace EST-IT-010
  * @level IT
@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import * as actualAccess from "@qual-lab/crdd-access-management";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import type { McpResponse } from "../../src/transport/mcp-server.ts";
+import { startManagementHttpFixture } from "../support/management-http.ts";
 
 const testBase = fileURLToPath(
   new URL("../../../../.crdd/tests", import.meta.url),
@@ -39,11 +40,6 @@ assert.equal(mode, "normal");
 let readResult: actualAccess.ManagementReadOutcome;
 let mutationResult: actualAccess.ManagementOperationOutcome;
 let currentResult: actualAccess.CurrentAccessOutcome;
-const authentication = mock.fn(() => ({
-  status: "completed",
-  snapshot: { role: "manager" },
-}));
-const connection = mock.fn(() => ({ status: "normal" }));
 const read = mock.fn(() => readResult);
 const update = mock.fn(() => mutationResult);
 const current = mock.fn(() => currentResult);
@@ -52,8 +48,6 @@ const replacement = mock.module(
   {
     namedExports: {
       ...actualAccess,
-      resolveConnectionAuthentication: connection,
-      authenticateNormalConnection: authentication,
       readManagementState: read,
       updateUserName: update,
       readCurrentAccess: current,
@@ -63,16 +57,53 @@ const replacement = mock.module(
 try {
   // MCPをmock登録前にimportしてはいけない。未適用は呼出し数で必ず失敗する。
   const {
-    createAccessMcpResolver,
+    createOAuthMcpResolver,
     MCP_COORDINATOR_PROTOCOL_VERSION,
     MCP_CURRENT_ACCESS_TOOL,
   } = await import("../../src/transport/mcp-server.ts");
   const { invokeMcpSource } = await import("./sdk-request.ts");
-  const handler = await createAccessMcpResolver(root)("fixture-non-secret");
-  assert.ok(handler);
-  assert.equal(connection.mock.callCount(), 1);
   const operationId = "00000000-0000-4000-8000-000000000001";
   const userId = "00000000-0000-4000-8000-000000000002";
+  currentResult = {
+    status: "completed",
+    revision: 7,
+    user: { userId, username: "fixture", role: "manager" },
+  };
+  const handler = await createOAuthMcpResolver(root, async () => ({
+    status: "completed",
+    subject: `${userId}:${operationId}`,
+    expiresAt: Date.now() + 60_000,
+  }))("fixture-non-secret", new AbortController().signal);
+  assert.ok(handler);
+  assert.equal(current.mock.callCount(), 1);
+  const http = await startManagementHttpFixture(
+    root,
+    {
+      kind: "account",
+      userId,
+      bindingId: operationId,
+      expiresAt: Date.now() + 60_000,
+    },
+    () => ({ status: "completed", account: { role: "manager" } }),
+  );
+  const submit = async (status: number) => {
+    const response = await fetch(`${http.baseUrl}/api/users/${userId}`, {
+      method: "PATCH",
+      headers: {
+        origin: http.baseUrl,
+        cookie: http.cookie,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        formToken: http.formToken,
+        operationId,
+        expectedRevision: 7,
+        username: "test",
+      }),
+    });
+    assert.equal(response.status, status);
+    return response.json();
+  };
   const request = {
     jsonrpc: "2.0",
     id: 1,
@@ -101,25 +132,9 @@ try {
     "release_unknown",
     "storage_unavailable",
   ];
-  for (const primaryFailure of failureReasons) {
-    mutationResult = {
-      status: "unavailable",
-      reason: "management_operation_unavailable",
-      operationId,
-      expectedRevision: 7,
-      observedRevision: 8,
-      publication: "confirmed",
-      cleanupConfirmed: false,
-      primaryFailure,
-    };
-    const response: McpResponse = await invokeMcpSource(
-      handler,
-      request,
-      new AbortController().signal,
-    );
-    assert.deepEqual(
-      (response.result as { structuredContent: unknown }).structuredContent,
-      {
+  try {
+    for (const primaryFailure of failureReasons) {
+      mutationResult = {
         status: "unavailable",
         reason: "management_operation_unavailable",
         operationId,
@@ -128,27 +143,33 @@ try {
         publication: "confirmed",
         cleanupConfirmed: false,
         primaryFailure,
-      },
-    );
-    assert.equal((response.result as { isError: boolean }).isError, true);
+      };
+      assert.deepEqual(await submit(503), {
+        status: "unavailable",
+        reason: "management_operation_unavailable",
+        operationId,
+        expectedRevision: 7,
+        observedRevision: 8,
+        publication: "confirmed",
+        cleanupConfirmed: false,
+        primaryFailure,
+      });
+    }
+    assert.equal(update.mock.callCount(), failureReasons.length);
+    mutationResult = {
+      status: "rejected",
+      reason: "management_request_rejected",
+    };
+    assert.deepEqual(await submit(403), mutationResult);
+  } finally {
+    await http.close();
   }
-  assert.equal(update.mock.callCount(), failureReasons.length);
-  mutationResult = {
-    status: "rejected",
-    reason: "management_request_rejected",
-  };
-  const rejected = await invokeMcpSource(
+  const retired = await invokeMcpSource(
     handler,
     request,
     new AbortController().signal,
   );
-  assert.deepEqual(
-    (rejected.result as { structuredContent: unknown }).structuredContent,
-    {
-      status: "rejected",
-      reason: "management_request_rejected",
-    },
-  );
+  assert.equal(retired.error?.code, -32601);
   const readRequest = {
     ...request,
     params: {
@@ -179,13 +200,13 @@ try {
   const cancelled = new AbortController();
   cancelled.abort();
   const beforeRead = read.mock.callCount();
-  const beforeAuthentication = authentication.mock.callCount();
+  const beforeAuthentication = current.mock.callCount();
   assert.equal(
     (await invokeMcpSource(handler, readRequest, cancelled.signal)).error?.code,
     -32800,
   );
   assert.equal(read.mock.callCount(), beforeRead);
-  assert.equal(authentication.mock.callCount(), beforeAuthentication);
+  assert.equal(current.mock.callCount(), beforeAuthentication);
 
   const currentRequest = {
     ...request,
@@ -196,8 +217,6 @@ try {
       status: "completed",
       revision: 8,
       user: { userId, username: "本人", role },
-      contentAccess: { workspaceIds: [] },
-      permittedRepositories: [],
     };
     const response: McpResponse = await invokeMcpSource(
       handler,
@@ -210,8 +229,6 @@ try {
         status: "completed",
         revision: 8,
         user: { userId, username: "本人", role },
-        contentAccess: { workspaceIds: [] },
-        permittedRepositories: [],
       },
     );
   }
@@ -233,7 +250,7 @@ try {
       { status: "unavailable", reason },
     );
   }
-  assert.equal(current.mock.callCount(), 8);
+  assert.equal(current.mock.callCount(), 9);
   assert.equal(
     (await invokeMcpSource(handler, currentRequest, cancelled.signal)).error
       ?.code,
@@ -252,7 +269,7 @@ try {
     ).error?.code,
     -32602,
   );
-  assert.equal(current.mock.callCount(), 8);
+  assert.equal(current.mock.callCount(), 9);
 
   // 合成Owner結果で最終JSON-RPCのUTF-8境界を検査する。AM容量成立の主張ではない。
   const users: { userId: string; username: string; role: "developer" }[] = [];

@@ -24,6 +24,12 @@ export function readRepositorySubmission(
   publicationRevision: string | null;
   completedReason: string;
   completionHasRevision: boolean;
+  request: Readonly<{
+    path: string;
+    method: "POST" | "DELETE";
+    body: string;
+    token: string;
+  }>;
 }> {
   const operation = form.get("operation");
   const fields =
@@ -39,14 +45,24 @@ export function readRepositorySubmission(
   if (
     [...form.keys()].some((key) => !keys.includes(key)) ||
     keys.some((key) => form.getAll(key).length !== 1) ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(repositoryId) ||
     form.get("repositoryId") !== repositoryId ||
     form.get("actionToken") !== actionToken ||
     (operation === "publish_revision" && form.get("humanConfirmed") !== "true")
   )
     throw new Error("repository_form_selection_invalid");
+  const publication = operation === "publish_revision";
+  const revision = publication ? form.get("revisionIdentity") : null;
+  if (publication && !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(revision ?? ""))
+    throw new Error("repository_form_selection_invalid");
+  const base = `/api/repositories/${repositoryId}`;
+  const path = publication
+    ? `${base}/revisions/${revision}/publication`
+    : operation === "create_revision"
+      ? `${base}/revisions`
+      : `${base}/staging`;
   return {
-    publicationRevision:
-      operation === "publish_revision" ? form.get("revisionIdentity") : null,
+    publicationRevision: revision,
     completedReason:
       operation === "publish_revision"
         ? "publication_confirmed"
@@ -55,6 +71,21 @@ export function readRepositorySubmission(
           : `${operation}_completed`,
     completionHasRevision:
       operation === "publish_revision" || operation === "create_revision",
+    request: {
+      path,
+      method: operation === "unprepare" ? "DELETE" : "POST",
+      body: JSON.stringify(
+        Object.fromEntries(
+          fields
+            .filter((name) => name !== "revisionIdentity")
+            .map((name) => [
+              name,
+              name === "humanConfirmed" ? true : form.get(name),
+            ]),
+        ),
+      ),
+      token: actionToken,
+    },
   };
 }
 

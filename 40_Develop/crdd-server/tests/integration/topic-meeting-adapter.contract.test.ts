@@ -148,6 +148,36 @@ test("一覧の四状態は既存MCPの非開示と取消区分を維持する",
   }
 });
 
+test("非同期一覧は対象解決待ちの取消を反映し、検査済みの条件で読む", async () => {
+  const states = ["open"];
+  const abort = new AbortController();
+  const page = { status: "available" as const, records: [], nextCursor: null };
+  let reads = 0;
+  const access = {
+    topic: {
+      list(input: { query?: { states?: string[] } }) {
+        reads++;
+        assert.deepEqual(input.query?.states, ["open"]);
+        return page;
+      },
+    },
+  } as unknown as TopicMeetingAccess;
+  const input = { kind: "topic" as const, query: { states } };
+  const observed = readTopicMeetingList(input, {
+    resolve: async () => access,
+  });
+  states[0] = "waiting";
+  assert.deepEqual(await observed, { status: "complete", page });
+  const cancelled = readTopicMeetingList(
+    input,
+    { resolve: async () => access },
+    abort.signal,
+  );
+  abort.abort();
+  assert.deepEqual(await cancelled, { status: "cancelled", page: null });
+  assert.equal(reads, 1);
+});
+
 /**
  * 全12 Toolの入力・取消を現在Repository解決より前に閉じる。
  * @responsibility 不正入力からRoot観測や保存を開始しない順序を確認する。

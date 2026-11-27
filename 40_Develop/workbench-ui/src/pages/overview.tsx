@@ -19,7 +19,11 @@ import { renderWorkbenchAiRequest } from "../components/ai-request-panel.tsx";
 import { useLocation } from "react-router";
 import { WorkbenchShell } from "../components/shell.ts";
 import { WorkbenchPanel } from "../components/elements.ts";
-import type { AiRequestSnapshot, MainViewResponse } from "../api/response.ts";
+import type {
+  AiRequestSnapshot,
+  MainViewResponse,
+  RecordActionView,
+} from "../api/response.ts";
 import { validateViewResponse } from "../api/response.ts";
 import {
   createSelectedWorkbenchViewUrl,
@@ -28,8 +32,7 @@ import {
   readWorkbenchDisplayQuery,
 } from "../api/view.ts";
 import { readWorkbenchQuery } from "../api/queries.ts";
-import { requestWorkbenchMutation } from "../api/mutations.ts";
-import { ManagementPanel } from "../components/management-panel.tsx";
+import { requestAiRequestAction } from "../api/mutations.ts";
 import { AiSelectionManagementPanel } from "../components/ai-selection-management-panel.tsx";
 import { RecordOperationPanel } from "../components/record-operation-panel.tsx";
 import { RepositoryOperationPanel } from "../components/repository-operation-panel.tsx";
@@ -42,8 +45,7 @@ import {
 import { ProjectScene } from "../components/project-context.tsx";
 import { RecordCollection } from "../components/records.tsx";
 import { OwnerArtifacts } from "../components/records.tsx";
-import { Connection } from "../components/credentials.tsx";
-import { Credentials } from "../components/credentials.tsx";
+import { Connection, GitHostConnections } from "../components/connection.tsx";
 import { Portfolio } from "../components/portfolio-panel.tsx";
 import { Repository } from "../components/repository-panel.tsx";
 import { ExecutionActivity } from "../components/activity-panel.tsx";
@@ -66,14 +68,19 @@ import { AiSelection } from "../components/ai-selection.tsx";
  */
 export function MainWorkbench({
   model: initialModel,
+  deletedRecord: initialDeletedRecord,
 }: {
   model: MainViewResponse;
+  deletedRecord: RecordActionView | null;
 }): ReactElement {
   const [model, setModel] = useState(initialModel);
+  const [deletedRecord, setDeletedRecord] = useState(initialDeletedRecord);
   const displayQuery = readWorkbenchDisplayQuery(useLocation().search);
   const [aiActionNotice, setAiActionNotice] = useState("");
   const aiActionPending = useRef(false);
   const aiActionGeneration = useRef(0);
+  const aiAction = useRef<AbortController | null>(null);
+  useEffect(() => () => aiAction.current?.abort(), []);
   /**
    * 管理更新後に画面全体の現在Read Modelを取り直す。
    * @responsibility 鍵管理を含む過去の投影を新しい管理改訂へ更新する。
@@ -105,11 +112,15 @@ export function MainWorkbench({
         selectedId,
       );
       const next = await readWorkbenchQuery("view", signal, async (signal) => {
-        const response = await requestWorkbench(target, {
-          cache: "no-store",
-          credentials: "same-origin",
-          signal,
-        });
+        const response = await requestWorkbench(
+          target,
+          {
+            cache: "no-store",
+            credentials: "same-origin",
+            signal,
+          },
+          true,
+        );
         if (!response.ok) throw new Error("workbench_view_unavailable");
         return validateViewResponse(await response.json());
       });
@@ -121,6 +132,7 @@ export function MainWorkbench({
       )
         throw new Error("workbench_view_unavailable");
       if (progress === undefined) {
+        setDeletedRecord(null);
         setModel(next);
         return;
       }
@@ -159,11 +171,16 @@ export function MainWorkbench({
   const context = model.projectData.context;
   const topics = composeWorkbenchRecordDisplay(model, "topic");
   const meetings = composeWorkbenchRecordDisplay(model, "meeting");
+  const browserSession = model.workspaceAccess !== undefined;
   useEffect(() => {
     const requestId = model.aiRequest.snapshot?.requestId;
     const repositoryId = model.selectedRepositoryId;
+    const targetId =
+      repositoryId ??
+      (model.connection.state === "repository" ? context.repositoryId : null);
     if (
       !requestId ||
+      !targetId ||
       !["accepted", "running"].includes(model.aiRequest.snapshot?.status ?? "")
     )
       return;
@@ -174,7 +191,7 @@ export function MainWorkbench({
       reading = true;
       const requestedLocation = window.location.href;
       const generation = aiActionGeneration.current;
-      void readCurrentAiRequest(repositoryId, controller.signal)
+      void readCurrentAiRequest(targetId, controller.signal, browserSession)
         .then(async (snapshot) => {
           if (
             controller.signal.aborted ||
@@ -225,6 +242,9 @@ export function MainWorkbench({
     model.aiRequest.snapshot?.requestId,
     model.aiRequest.snapshot?.status,
     model.selectedRepositoryId,
+    model.connection.state,
+    browserSession,
+    context.repositoryId,
     refreshReadModel,
   ]);
   const capabilityLabel = (
@@ -266,34 +286,47 @@ export function MainWorkbench({
       refresh={refresh}
       content={
         <Fragment>
+          {model.connection.state !== "repository" && <GitHostConnections />}
           <Portfolio model={model} query={displayQuery.portfolio} />
           {context.scenes.map((scene) => (
             <ProjectScene key={scene.key} scene={scene} />
           ))}
-          {model.connection.state === "repository" ? (
-            <>
-              <RecordCollection model={model} kind="topic" />
-              <RecordCollection model={model} kind="meeting" />
-            </>
-          ) : model.recordActionsConfigured &&
-            model.selectedRepositoryId !== null ? (
+          {model.recordActionsConfigured &&
+          (model.connection.state === "repository" ||
+            model.selectedRepositoryId !== null) ? (
             <RecordOperationPanel
               key={`${model.selectedRepositoryId}:${model.actionToken}`}
-              repositoryId={model.selectedRepositoryId}
+              repositoryId={model.selectedRepositoryId ?? context.repositoryId}
               actionToken={model.actionToken}
               refresh={(signal) => refreshReadModel(signal)}
             >
-              <RecordCollection model={model} kind="topic" />
-              <RecordCollection model={model} kind="meeting" />
+              <RecordCollection
+                model={model}
+                kind="topic"
+                deletedRecord={deletedRecord}
+              />
+              <RecordCollection
+                model={model}
+                kind="meeting"
+                deletedRecord={deletedRecord}
+              />
             </RecordOperationPanel>
           ) : (
-            <fieldset disabled style={{ display: "contents" }}>
+            <Fragment>
               <p role="status" style={{ gridColumn: "1 / -1" }}>
                 この接続の内容保存は未接続です。現在は閲覧のみです。
               </p>
-              <RecordCollection model={model} kind="topic" />
-              <RecordCollection model={model} kind="meeting" />
-            </fieldset>
+              <RecordCollection
+                model={model}
+                kind="topic"
+                deletedRecord={deletedRecord}
+              />
+              <RecordCollection
+                model={model}
+                kind="meeting"
+                deletedRecord={deletedRecord}
+              />
+            </Fragment>
           )}
           {renderWorkbenchProjectPlan(
             model.projectData.plan,
@@ -305,41 +338,46 @@ export function MainWorkbench({
           )}
           <OwnerArtifacts model={model} query={displayQuery.document} />
           <ExecutionActivity model={model} />
-          <WorkspacePanel
-            key={`workspace:${model.selectedRepositoryId}:${model.actionToken}`}
-            repositoryId={
-              model.selectedRepositoryId ??
-              model.projectData.context.repositoryId
-            }
-            projectId={model.projectData.context.projectId}
-            actionToken={model.actionToken}
-            initialHead={
-              model.projectData.repository.publicationTarget
-                ?.revisionIdentity ?? ""
-            }
-            initialBranch={
-              model.projectData.repository.publicationTarget?.branch ?? ""
-            }
-            initialBaseBranch={
-              model.projectData.repository.publicationTarget?.localBranch ?? ""
-            }
-          />
-          {model.connection.state === "repository" ? (
-            <Repository model={model} />
-          ) : model.repositoryActionsConfigured &&
-            model.selectedRepositoryId !== null ? (
+          {model.workspaceAccess === "unavailable" ? null : (
+            <WorkspacePanel
+              key={`workspace:${model.selectedRepositoryId}:${model.actionToken}:${model.workspaceAccess}`}
+              repositoryId={
+                model.selectedRepositoryId ??
+                model.projectData.context.repositoryId
+              }
+              projectId={model.projectData.context.projectId}
+              initialHead={
+                model.projectData.repository.publicationTarget
+                  ?.revisionIdentity ?? ""
+              }
+              initialBranch={
+                model.projectData.repository.publicationTarget?.branch ?? ""
+              }
+              initialBaseBranch={
+                model.projectData.repository.publicationTarget?.localBranch ??
+                ""
+              }
+              readOnly={model.workspaceAccess === "read"}
+              browserSession={model.workspaceAccess !== undefined}
+            />
+          )}
+          {model.connection.state === "repository" ||
+          (model.repositoryActions.length !== 0 &&
+            model.selectedRepositoryId !== null) ? (
             <RepositoryOperationPanel
               key={`${model.selectedRepositoryId}:${model.actionToken}`}
-              repositoryId={model.selectedRepositoryId}
+              repositoryId={
+                model.selectedRepositoryId ??
+                model.projectData.context.repositoryId
+              }
               actionToken={model.actionToken}
+              browserSession={model.workspaceAccess !== undefined}
               refresh={refreshReadModel}
             >
               <Repository model={model} />
             </RepositoryOperationPanel>
           ) : (
-            <fieldset disabled style={{ display: "contents" }}>
-              <Repository model={model} />
-            </fieldset>
+            <Repository model={model} />
           )}
           {model.connection.state === "repository" ? (
             <Connection />
@@ -353,16 +391,17 @@ export function MainWorkbench({
               <a href="/?repositoryId=">接続とProject一覧へ戻る</a>
             </WorkbenchPanel>
           )}
-          <ManagementPanel
-            actionToken={model.actionToken}
-            refreshReadModel={refreshReadModel}
-          />
-          <Credentials model={model} />
           <AiSelection model={model} />
           <AiSelectionManagementPanel
             key={`ai-selection:${model.selectedRepositoryId}:${model.actionToken}:${model.aiSelectionManagement.allowed}`}
             actionToken={model.actionToken}
-            repositoryId={model.selectedRepositoryId}
+            browserSession={model.workspaceAccess !== undefined}
+            repositoryId={
+              model.selectedRepositoryId ??
+              (model.connection.state === "repository"
+                ? context.repositoryId
+                : null)
+            }
             allowed={model.aiSelectionManagement.allowed}
             initialRead={model.aiSelection?.selection ?? null}
             catalog={model.aiSelection?.catalog ?? null}
@@ -371,57 +410,66 @@ export function MainWorkbench({
           />
           <div
             key={`ai-request:${model.selectedRepositoryId}:${model.actionToken}`}
-            onSubmit={
-              model.connection.state === "cros_available"
-                ? (event: FormEvent<HTMLDivElement>) => {
-                    event.preventDefault();
-                    if (
-                      aiActionPending.current ||
-                      !(event.target instanceof HTMLFormElement)
-                    )
-                      return;
-                    const form = new URLSearchParams();
-                    for (const [key, value] of new FormData(event.target))
-                      if (typeof value === "string") form.append(key, value);
-                    form.set(
-                      "repositoryId",
-                      model.selectedRepositoryId ??
-                        model.projectData.context.repositoryId,
+            onSubmit={(event: FormEvent<HTMLDivElement>) => {
+              if (
+                !(event.target instanceof HTMLFormElement) ||
+                !event.target.hasAttribute("data-ai-request-action")
+              )
+                return;
+              event.preventDefault();
+              const repositoryId =
+                model.selectedRepositoryId ??
+                (model.connection.state === "repository"
+                  ? context.repositoryId
+                  : null);
+              if (
+                aiActionPending.current ||
+                !repositoryId ||
+                !model.aiRequest.configured
+              )
+                return;
+              const form = new FormData(event.target);
+              const owned = new AbortController();
+              aiAction.current = owned;
+              const selectedUrl = window.location.href;
+              const generation = ++aiActionGeneration.current;
+              aiActionPending.current = true;
+              void (async () => {
+                const current = () =>
+                  !owned.signal.aborted &&
+                  aiActionGeneration.current === generation &&
+                  window.location.href === selectedUrl;
+                let confirmed = false;
+                try {
+                  const outcome = await requestAiRequestAction(
+                    repositoryId,
+                    form,
+                    owned.signal,
+                    browserSession,
+                  );
+                  if (!current()) return;
+                  confirmed = true;
+                  setAiActionNotice(
+                    outcome === "blocked"
+                      ? "依頼は開始されませんでした。現在状態を確認します。"
+                      : "操作結果を取得しました。現在状態を確認します。",
+                  );
+                  await refreshReadModel(owned.signal);
+                } catch {
+                  if (current())
+                    setAiActionNotice(
+                      confirmed
+                        ? "操作の応答は取得済みですが、現在状態を確認できません。再送していません。"
+                        : "操作結果を確認できません。自動再送せず、現在状態を確認してください。",
                     );
-                    const selectedUrl = window.location.href;
-                    aiActionGeneration.current++;
-                    aiActionPending.current = true;
-                    void (async () => {
-                      try {
-                        const response = await requestWorkbenchMutation(
-                          "/api/ai-request",
-                          {
-                            method: "POST",
-                            headers: {
-                              "content-type":
-                                "application/x-www-form-urlencoded",
-                            },
-                            body: form,
-                          },
-                        );
-                        if (!response.ok)
-                          throw new Error("ai_action_unconfirmed");
-                        if (window.location.href !== selectedUrl) return;
-                        setAiActionNotice(
-                          "操作結果を取得しました。現在状態を確認します。",
-                        );
-                        await refreshReadModel(new AbortController().signal);
-                      } catch {
-                        setAiActionNotice(
-                          "操作結果を確認できません。自動再送せず、現在状態を確認してください。",
-                        );
-                      } finally {
-                        aiActionPending.current = false;
-                      }
-                    })();
+                } finally {
+                  if (aiAction.current === owned) {
+                    aiAction.current = null;
+                    aiActionPending.current = false;
                   }
-                : undefined
-            }
+                }
+              })();
+            }}
           >
             {aiActionNotice ? <p role="status">{aiActionNotice}</p> : null}
             {renderWorkbenchAiRequest(

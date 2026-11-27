@@ -6,23 +6,204 @@
  * @boundary 各通信の受付とDocument ModelのTopic操作。
  */
 import type {
-  MeetingOutcomeCommandResult,
   ProjectOperationRecordKind,
   TopicMeetingDocument,
   TopicMeetingListQuery,
   TopicMeetingPage,
   TopicMeetingRelation,
-  TopicMeetingWriteResult,
-  TopicPromotionCommandResult,
 } from "@qual-lab/crdd-document-model";
 
-import type { AuthorizedRepository } from "@qual-lab/crdd-access-management";
+import type {
+  AuthorizedRepository,
+  FilesystemStoreRoot,
+} from "@qual-lab/crdd-access-management";
+import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
+import { statSync } from "node:fs";
+import { setTimeout } from "node:timers/promises";
 import {
   createMeetingOperations,
   createTopicOperations,
   federateTopicMeetingRelations,
+  parseMeetingMarkdown,
+  parseTopicMarkdown,
+  readTopicMeetingList,
   type TopicMeetingAccess,
 } from "@qual-lab/crdd-document-model";
+import {
+  resolveHostedRepositories,
+  type HostedAccessSession,
+} from "./access.ts";
+import { executeMeetingAction } from "./meeting.ts";
+
+function directoryIdentity(root: string) {
+  const stat = statSync(root, { bigint: true });
+  if (!stat.isDirectory() || stat.ino === 0n)
+    throw new Error("topic_meeting_access_unavailable");
+  return `${stat.dev}:${stat.ino}:${stat.birthtimeNs}`;
+}
+
+type RecordReadAccess = Readonly<{
+  access: TopicMeetingAccess;
+  verify?: () => void;
+  repositoryOnly?: true;
+}>;
+
+type HostedRecordAccess = Exclude<
+  Awaited<ReturnType<typeof resolveHostedRepositories>>,
+  "local" | null
+>;
+
+function verifyHostedRecordAccess(
+  hosted: HostedRecordAccess,
+  selected: AuthorizedRepository,
+) {
+  const current = readRepositoryManifest(selected.root);
+  if (
+    current.status !== "ready" ||
+    JSON.stringify(current.manifest) !== JSON.stringify(selected.manifest)
+  )
+    throw new Error("topic_meeting_access_unavailable");
+  hosted.assertCurrent([selected]);
+}
+
+type RecordWriteResult =
+  | ReturnType<typeof executeRecordWrite>
+  | {
+      status: "unavailable";
+      reason: "record_publication_unconfirmed";
+      effectState: "unknown";
+    }
+  | null;
+
+function createRecordOperations(
+  signal: AbortSignal,
+  prepare: () => RecordReadAccess | null | Promise<RecordReadAccess | null>,
+  write: (action: RecordAction) => Promise<RecordWriteResult>,
+) {
+  return {
+    write,
+    async list(input: Parameters<typeof readTopicMeetingList>[0]) {
+      let verify: (() => void) | undefined;
+      const result = await readTopicMeetingList(
+        input,
+        {
+          resolve: async () => {
+            const chosen = await prepare();
+            verify = chosen?.verify;
+            return chosen?.access ?? null;
+          },
+        },
+        signal,
+      );
+      if (result.status === "complete") verify?.();
+      return result;
+    },
+    async get(kind: ProjectOperationRecordKind, id: string) {
+      const chosen = await prepare();
+      if (!chosen || signal.aborted) return null;
+      const document = chosen.access[kind].getDocument(id);
+      const result = {
+        status: document ? ("completed" as const) : ("not_found" as const),
+        record: document?.record ?? null,
+        markdown: document?.markdown ?? null,
+        relations: document ? chosen.access[kind].relations(id) : [],
+        ...(chosen.repositoryOnly
+          ? { relationScope: "repository" as const }
+          : {}),
+      };
+      chosen.verify?.();
+      return result;
+    },
+  };
+}
+
+/** 起動リポジトリの既存文書操作だけに接続する。 @trace ARCH-000012 */
+export function createLocalRecords(
+  root: string,
+  repositoryId: string | undefined,
+  signal: AbortSignal,
+) {
+  const resolve = () => {
+    if (signal.aborted) return null;
+    const manifest = readRepositoryManifest(root);
+    if (
+      manifest.status !== "ready" ||
+      (repositoryId !== undefined &&
+        manifest.manifest.repositoryId !== repositoryId)
+    )
+      return null;
+    const identity = directoryIdentity(root);
+    const verify = () => {
+      const current = readRepositoryManifest(root);
+      if (
+        signal.aborted ||
+        current.status !== "ready" ||
+        current.identity !== manifest.identity ||
+        directoryIdentity(root) !== identity
+      )
+        throw new Error("topic_meeting_access_unavailable");
+    };
+    return { projectId: manifest.manifest.projectId, verify };
+  };
+  return createRecordOperations(
+    signal,
+    () => {
+      const selected = resolve();
+      return (
+        selected && {
+          access: {
+            topic: createTopicOperations(root, selected.projectId),
+            meeting: createMeetingOperations(root, selected.projectId),
+          },
+          verify: selected.verify,
+        }
+      );
+    },
+    async (action) => {
+      const selected = resolve();
+      return selected
+        ? writeVerifiedRecord(root, selected.projectId, selected.verify, action)
+        : null;
+    },
+  );
+}
+
+/** 指定した共有Repositoryの記録操作を、読み書き別の認可に結び付ける。 */
+export function createHostedRecords(
+  root: FilesystemStoreRoot,
+  session: HostedAccessSession,
+  repositoryId: string,
+  signal: AbortSignal,
+) {
+  const prepare = async () => {
+    const hosted = await resolveHostedRepositories(
+      root,
+      session,
+      signal,
+      repositoryId,
+    );
+    if (signal.aborted) return null;
+    const selected = hosted?.repositories[0];
+    if (!hosted || !selected) return null;
+    hosted.assertDirectory(selected);
+    const access = resolveTopicMeetingAccess(
+      [selected],
+      repositoryId,
+      hosted.signal,
+      "topic_meeting_access_unavailable",
+    );
+    return access
+      ? {
+          access,
+          repositoryOnly: true as const,
+          verify: () => verifyHostedRecordAccess(hosted, selected),
+        }
+      : null;
+  };
+  return createRecordOperations(signal, prepare, (action) =>
+    executeHostedRecordWrite(root, session, repositoryId, signal, action),
+  );
+}
 
 /** TopicとMeetingが共用する種別確定済みの書込み入力。 @trace ARCH-000006 */
 export type RecordWriteCommand =
@@ -93,6 +274,251 @@ type TopicPromotionAction = Readonly<{
   input: Parameters<TopicMeetingAccess["topic"]["promoteTopic"]>[0];
 }>;
 
+type MeetingTreatment = Readonly<{
+  operation: "treat-outcome";
+  input: Parameters<TopicMeetingAccess["meeting"]["treatMeetingOutcome"]>[0];
+}>;
+type RecordAction =
+  | { kind: ProjectOperationRecordKind; command: RecordWriteCommand }
+  | { kind: "topic"; command: TopicPromotionAction }
+  | { kind: "meeting"; command: MeetingTreatment };
+export type RecordActionName = RecordAction["command"]["operation"];
+
+/** RESTとMCPで同じ完全入力を確定してから外部の認可を照会する。 */
+export function readRecordWrite(
+  kind: ProjectOperationRecordKind,
+  operation: RecordActionName,
+  input: Record<string, unknown>,
+): RecordAction | null {
+  const exact = (...keys: string[]) =>
+    Object.keys(input).length === keys.length &&
+    keys.every((key) => Object.hasOwn(input, key));
+  const strings = (...keys: string[]) =>
+    keys.every((key) => typeof input[key] === "string");
+  const revision =
+    typeof input.expectedRevision === "number" &&
+    Number.isSafeInteger(input.expectedRevision) &&
+    input.expectedRevision > 0
+      ? input.expectedRevision
+      : null;
+  const validId = (id: unknown) =>
+    typeof id === "string" &&
+    (kind === "topic" ? /^TOPIC-\d{6}$/u : /^MTG-\d{6}$/u).test(id);
+  if (operation === "create" || operation === "update") {
+    const { id, markdown } = input;
+    if (
+      typeof markdown !== "string" ||
+      (operation === "create"
+        ? !exact("markdown")
+        : !exact("id", "expectedRevision", "markdown") ||
+          !validId(id) ||
+          revision === null)
+    )
+      return null;
+    try {
+      if (kind === "topic") parseTopicMarkdown(markdown);
+      else parseMeetingMarkdown(markdown);
+    } catch {
+      return null;
+    }
+    return {
+      kind,
+      command:
+        operation === "create"
+          ? { operation, input: markdown }
+          : {
+              operation,
+              input: {
+                id: id as string,
+                expectedRevision: revision as number,
+                markdown,
+              },
+            },
+    };
+  }
+  if (revision === null) return null;
+  if (operation === "delete") {
+    if (
+      !exact("id", "expectedRevision", "confirmed", "reason") ||
+      !validId(input.id) ||
+      typeof input.confirmed !== "boolean" ||
+      input.reason !== "mistaken_registration"
+    )
+      return null;
+    return {
+      kind,
+      command: {
+        operation,
+        input: {
+          id: input.id as string,
+          expectedRevision: revision,
+          confirmed: input.confirmed,
+          reason: input.reason,
+        },
+      },
+    };
+  }
+  if (operation === "promote" && kind === "topic") {
+    if (
+      !exact(
+        "topicId",
+        "expectedRevision",
+        "changeId",
+        "reason",
+        "remainingResponsibility",
+      ) ||
+      !validId(input.topicId) ||
+      typeof input.changeId !== "string" ||
+      !/^CHG-\d{6}$/u.test(input.changeId) ||
+      typeof input.reason !== "string" ||
+      typeof input.remainingResponsibility !== "string"
+    )
+      return null;
+    return {
+      kind,
+      command: {
+        operation,
+        input: {
+          topicId: input.topicId as string,
+          expectedRevision: revision,
+          changeId: input.changeId,
+          reason: input.reason,
+          remainingResponsibility: input.remainingResponsibility,
+        },
+      },
+    };
+  }
+  if (operation !== "treat-outcome" || kind !== "meeting") return null;
+  const textFields = [
+    "meetingId",
+    "outcomeId",
+    "disposition",
+    "owner",
+    "reviewTrigger",
+    "targetKind",
+    "targetReference",
+    "treatment",
+    "completionCondition",
+    "result",
+  ];
+  if (
+    !exact(...textFields, "expectedRevision", "closeMeeting") ||
+    !strings(...textFields) ||
+    !validId(input.meetingId) ||
+    !/^OUT-\d{3,}$/u.test(input.outcomeId as string) ||
+    typeof input.closeMeeting !== "boolean" ||
+    !["completed", "transferred", "promoted", "rejected"].includes(
+      input.disposition as string,
+    ) ||
+    !["topic", "change", "owner", "none"].includes(
+      input.targetKind as string,
+    ) ||
+    (input.targetKind === "topic" &&
+      !/^TOPIC-\d{6}$/u.test(input.targetReference as string)) ||
+    (input.targetKind === "change" &&
+      !/^CHG-\d{6}$/u.test(input.targetReference as string))
+  )
+    return null;
+  return {
+    kind,
+    command: {
+      operation,
+      input: {
+        meetingId: input.meetingId as string,
+        expectedRevision: revision,
+        outcomeId: input.outcomeId as string,
+        disposition:
+          input.disposition as MeetingTreatment["input"]["disposition"],
+        owner: input.owner as string,
+        reviewTrigger: input.reviewTrigger as string,
+        target: {
+          kind: input.targetKind as MeetingTreatment["input"]["target"]["kind"],
+          reference: input.targetReference as string,
+        },
+        treatment: input.treatment as string,
+        completionCondition: input.completionCondition as string,
+        result: input.result as string,
+        closeMeeting: input.closeMeeting,
+      },
+    },
+  };
+}
+
+/** 正式な文書操作への一度の配送。 */
+export function executeRecordWrite(
+  access: TopicMeetingAccess,
+  { kind, command }: RecordAction,
+) {
+  if (command.operation === "promote")
+    return executeTopicAction(access.topic, command);
+  if (command.operation === "treat-outcome")
+    return executeMeetingAction(access.meeting, command);
+  return kind === "topic"
+    ? executeTopicAction(access.topic, command)
+    : executeMeetingAction(access.meeting, command);
+}
+
+/** 外部照会はLock外。Lock内で行うのはローカルの現在確認だけ。 */
+async function executeHostedRecordWrite(
+  root: FilesystemStoreRoot,
+  session: HostedAccessSession,
+  repositoryId: string,
+  signal: AbortSignal,
+  action: RecordAction,
+) {
+  const hosted = await resolveHostedRepositories(
+    root,
+    session,
+    signal,
+    repositoryId,
+    "write",
+  );
+  if (signal.aborted) return null;
+  const selected = hosted?.repositories[0];
+  if (!hosted || !selected) return null;
+  const verify = () => verifyHostedRecordAccess(hosted, selected);
+  hosted.assertDirectory(selected);
+  return writeVerifiedRecord(
+    selected.root,
+    selected.manifest.projectId,
+    verify,
+    action,
+  );
+}
+
+async function writeVerifiedRecord(
+  root: string,
+  projectId: string,
+  verify: () => void,
+  action: RecordAction,
+) {
+  let publicationAttempted = false;
+  const beforeWrite = (phase: "stage" | "publish") => {
+    verify();
+    if (phase === "publish") publicationAttempted = true;
+  };
+  try {
+    const access = {
+      topic: createTopicOperations(root, projectId, beforeWrite),
+      meeting: createMeetingOperations(root, projectId, beforeWrite),
+    };
+    const result = executeRecordWrite(access, action);
+    // 同期保存中に到着した切断を受け、現在の認可を再照合してから結果を公開する。
+    if (publicationAttempted) await setTimeout(0);
+    verify();
+    return result;
+  } catch (error) {
+    if (!publicationAttempted && !(error instanceof AggregateError))
+      throw error;
+    // Effect発行後は、認可を失っても無保存や巻戻しとは扱わない。
+    return {
+      status: "unavailable" as const,
+      reason: "record_publication_unconfirmed" as const,
+      effectState: "unknown" as const,
+    };
+  }
+}
+
 /** 作成・更新・削除・昇格を既存のTopic操作で行う。 @trace ARCH-000006 */
 export function executeTopicAction(
   topic: TopicMeetingAccess["topic"],
@@ -117,23 +543,6 @@ export function executeTopicAction(
       return topic.promoteTopic(command.input);
   }
 }
-
-/**
- * Topic／Meetingの保存・昇格・Outcome処置が返す既存結果。
- * @responsibility 操作結果と保存済みRelationを表示への縮小前に保持する。
- * @trace ARCH-000006
- * @shape 通常保存または昇格・Outcome処置の結果とrelationPaths。
- * @invariant 元のstatus・reason・recordを変更せず、表示結果を処置完了の代替にしない。
- * @boundary Domain操作結果とWorkbenchの要求・表示処理。
- * @security 資格・Root・保存Authorityを含めない。
- * @compatibility 既存Domain操作結果の合成型であり、新しい通信・保存Schemaではない。
- */
-export type TopicMeetingActionResult =
-  | TopicMeetingWriteResult
-  | ((MeetingOutcomeCommandResult | TopicPromotionCommandResult) & {
-      relationPaths: readonly string[];
-    });
-
 /**
  * Topic／Meeting本文とRelationを表示へ渡す同期Reader契約。
  * @responsibility 認可済みDomain操作の読取り形だけを共有する。
@@ -279,40 +688,6 @@ export function readRecordPages(
   };
   return { topicQuery, meetingQuery, topicPage, meetingPage, reader };
 }
-
-/**
- * Record操作の結果を非秘密の表示値へ縮小する。
- * @responsibility status・reason・Relation PathとRecord種別だけを保持する。
- * @trace ARCH-000006
- * @trace ARCH-000012
- * @input Domain保存・昇格・Outcome処置の結果または未処置null。
- * @returns 表示用結果またはnull。
- * @precondition 操作の処置状態と失敗は元Ownerが判定済みである。
- * @postcondition 元のstatus・reasonを維持し、本文・内部保存情報を複製しない。
- * @effect N/A: 当該結果の不変値変換だけ。
- * @failure N/A: 型付き既存結果を変換し、失敗判定を新設しない。
- * @invariant 未処置を成功へ、表示済みを採用済みへ変換しない。
- * @boundary 操作結果とBrowser表示DTO。
- * @security 生鍵・Root・実行Authorityを追加しない。
- * @concurrency N/A: 共有状態を持たない同期変換。
- */
-export function createTopicMeetingResultView(
-  result: TopicMeetingActionResult | null,
-): RecordActionView | null {
-  if (result === null) return null;
-  return Object.freeze({
-    status: result.status,
-    reason: result.reason,
-    relationPaths: Object.freeze([...result.relationPaths]),
-    recordKind:
-      result.record === null
-        ? null
-        : "topicId" in result.record
-          ? "topic"
-          : "meeting",
-  });
-}
-
 /**
  * Browserへ公開できる一件のTopic／Meeting本文とRelation。
  * @responsibility 本文とRelationを同一Record Identityで表示する。
@@ -336,31 +711,6 @@ export type RecordDocumentView = Readonly<{
   document: TopicMeetingDocument;
   relations: readonly TopicMeetingRelation[];
 }>;
-
-/**
- * Topic／Meeting操作の表示結果。
- * @responsibility 直前操作の成否とRelationを一回表示する。
- * @trace ARCH-000012
- * @shape status、reason、relationPathsおよびrecordKindで構成する。
- * @input N/A: 型宣言である。
- * @returns N/A: 型宣言である。
- * @precondition Serverが操作結果を確定済みである。
- * @postcondition Effect Authorityを含まない。
- * @effect N/A: 型宣言である。
- * @failure blockedをcompletedに変換しない。
- * @invariant 表示結果は永続正本ではない。
- * @boundary Server Effect結果とBrowser表示の境界。
- * @security 非秘密の結果値だけを含む。
- * @compatibility Client Model revision 1内で使用する。
- * @concurrency N/A: 不変Snapshotである。
- */
-export type RecordActionView = Readonly<{
-  status: "completed" | "blocked";
-  reason: string;
-  relationPaths: readonly string[];
-  recordKind: ProjectOperationRecordKind | null;
-}>;
-
 /**
  * 観測済みの記録と操作可否から詳細表示を構築する。
  * @responsibility 単体と共有で結果形状を統一する。
@@ -370,6 +720,7 @@ export type RecordActionView = Readonly<{
 export function createRecordDetailResponse(
   actionToken: string,
   repositoryId: string | null,
+  operationRepositoryId: string,
   recordActionsConfigured: boolean,
   record: RecordDocumentView,
 ): RecordDetailResponse {
@@ -378,6 +729,7 @@ export function createRecordDetailResponse(
     view: "record-detail",
     actionToken,
     repositoryId,
+    operationRepositoryId,
     recordActionsConfigured,
     record,
   };
@@ -398,6 +750,7 @@ export type RecordDetailResponse = Readonly<{
   view: "record-detail";
   actionToken: string;
   repositoryId: string | null;
+  operationRepositoryId: string;
   record: RecordDocumentView;
   recordActionsConfigured: boolean;
 }>;

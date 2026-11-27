@@ -100,16 +100,27 @@ test("配布MCPの活動照会は統合Server経由で業務Ownerへ接続する
   );
   assert.match(
     command,
-    /createMcpServerFactory\(createLocalMcpDependencies\(repositoryRoot\)\)/u,
+    /createMcpServerFactory\(\s*createLocalMcpDependencies\(repositoryRoot, objectiveRuns\)/u,
+  );
+  assert.match(
+    command,
+    /executionActivity:\s*\{[\s\S]*?readRepositoryExecutionActivity\(/u,
   );
   const server = fs.readFileSync(
     new URL("../../src/transport/mcp-server.ts", import.meta.url),
     "utf8",
   );
-  assert.match(server, /await readAuthorizedExecutionActivity\(/u);
+  assert.match(
+    server,
+    /executionActivity:\s*\{[\s\S]*?return readRepositoryExecutionActivity\(/u,
+  );
   const activity = fs.readFileSync(
     new URL("../../src/service/execution.ts", import.meta.url),
     "utf8",
+  );
+  assert.match(
+    activity,
+    /export async function readRepositoryExecutionActivity[\s\S]*?await readAuthorizedExecutionActivity\(/u,
   );
   assert.match(
     activity,

@@ -278,6 +278,8 @@ import {
 import {
   assessVerificationDockerInventory,
   projectVerificationTransportFailure,
+  isVerificationWorkspaceRead,
+  isVerificationAiWrite,
   type VerificationDockerInventory,
   type VerificationHttpTiming,
 } from "../support/ai-verification-http.ts";
@@ -350,7 +352,7 @@ function assertReadonlyTiming(input: unknown) {
           r.route,
           r.routeKind === "view"
             ? "/api/workbench/view?route=%2F"
-            : "/api/ai-request",
+            : "/api/repositories/{repositoryId}/ai-requests",
         );
         const start = integer(r.startedAt, 1);
         const completed = integer(r.completedAt, start);
@@ -867,10 +869,10 @@ test("HTTP試験器は期限超過と本文清掃のabortを区別する", async
     "reader-cleanup-failed",
   ];
   for (const { route, scenario } of [
-    "/api/workspace",
-    "/api/ai-request",
+    "/api/repositories/fixture/workspaces?projectId=project&limit=20",
+    "/api/repositories/fixture/ai-requests",
     "/api/workbench/view?route=%2F",
-    "/api/workspace/",
+    "/api/repositories/fixture/workspaces/",
   ].flatMap((route) => scenarios.map((scenario) => ({ route, scenario })))) {
     let expire!: () => void;
     let releases = 0;
@@ -884,8 +886,9 @@ test("HTTP試験器は期限超過と本文清掃のabortを区別する", async
       AbortController,
       Buffer,
       Object,
+      isVerificationWorkspaceRead,
       setTimeout: (callback: () => void, ms: number) => {
-        if (ms === (route === "/api/workspace" ? 60_000 : 15_000))
+        if (ms === (isVerificationWorkspaceRead(route) ? 60_000 : 15_000))
           expire = callback;
         return 1;
       },
@@ -2676,6 +2679,13 @@ for (const transport of ["tool-child-process"] as const) {
     let requests = 0;
     let dropResponse = false;
     let disconnectedRequest: ClientRequest | null = null;
+    let droppedSuccessBodies = 0;
+    let resolveDisconnect = () => {};
+    let rejectDisconnect = (_error: Error) => {};
+    const observedDisconnect = new Promise<void>((resolve, reject) => {
+      resolveDisconnect = resolve;
+      rejectDisconnect = reject;
+    });
     let lastRequestId: string | null = null;
     let client: Awaited<
       ReturnType<typeof createWorkbenchAiVerificationHttpClient>
@@ -2695,11 +2705,19 @@ for (const transport of ["tool-child-process"] as const) {
       };
       if (
         request.method !== "POST" ||
-        request.url !== "/api/ai-request" ||
+        !isVerificationAiWrite(request.url ?? "") ||
         request.headers.host !==
           new URL(handle?.baseUrl ?? "http://127.0.0.1").host
       )
         return;
+      if (dropResponse) {
+        const end = response.end;
+        t.mock.method(response, "end", (...args: unknown[]) => {
+          if (response.statusCode === 201 && args[0] != null)
+            droppedSuccessBodies++;
+          return Reflect.apply(end, response, args);
+        });
+      }
       const item = {
         receivedAt: Date.now(),
         acceptedAt: null as number | null,
@@ -2910,13 +2928,31 @@ for (const transport of ["tool-child-process"] as const) {
         ...taskOwner,
         observe: (requestId) =>
           boundaryTiming.observeOwner(() => taskOwner.observe(requestId)),
-        start: async (command) => {
+        start: async (command, transportSignal) => {
           requests++;
           const result = await taskOwner.start(command);
           const interval = serverTimings.at(-1);
           if (interval) interval.acceptedAt = Date.now();
           lastRequestId = result.requestId;
-          if (dropResponse) disconnectedRequest?.destroy();
+          if (dropResponse) {
+            assert.ok(transportSignal);
+            assert.ok(disconnectedRequest);
+            const sawAbort = () => {
+              clearTimeout(deadline);
+              resolveDisconnect();
+            };
+            const deadline = setTimeout(() => {
+              transportSignal.removeEventListener("abort", sawAbort);
+              rejectDisconnect(Error("server_did_not_observe_disconnect"));
+            }, 5_000);
+            if (transportSignal.aborted) sawAbort();
+            else
+              transportSignal.addEventListener("abort", sawAbort, {
+                once: true,
+              });
+            disconnectedRequest.destroy();
+            await observedDisconnect;
+          }
           return result;
         },
       },
@@ -3002,32 +3038,32 @@ for (const transport of ["tool-child-process"] as const) {
     });
     dropResponse = true;
     boundaryTiming.setStage("start");
-    await new Promise<void>((resolve, reject) => {
+    const clientDisconnect = new Promise<void>((resolve, reject) => {
       disconnectedRequest = request(
-        new URL("/api/ai-request", baseUrl),
+        new URL(`/api/repositories/${model.repositoryId}/ai-requests`, baseUrl),
         {
           method: "POST",
           headers: {
             origin: new URL(baseUrl).origin,
-            "content-type": "application/x-www-form-urlencoded",
+            "content-type": "application/json",
+            "x-crdd-action-token": model.actionToken,
           },
         },
         () => reject(Error("response_should_be_lost")),
       );
       disconnectedRequest.once("error", () => resolve());
       disconnectedRequest.end(
-        new URLSearchParams({
-          actionToken: model.actionToken,
-          operation: "start",
+        JSON.stringify({
           requestId: command.requestId,
           mode: command.mode,
           workType: "",
           prompt: command.prompt,
           allowedPaths: "",
           workspaceId: "",
-        }).toString(),
+        }),
       );
     });
+    await Promise.all([clientDisconnect, observedDisconnect]);
     await started;
     assert.ok(lastRequestId);
     const signal = currentSignal as AbortSignal | null;
@@ -3037,6 +3073,12 @@ for (const transport of ["tool-child-process"] as const) {
     const observed = (await readMain(handle.baseUrl)).aiRequest.snapshot;
     assert.equal(observed?.requestId, lastRequestId);
     assert.equal(observed?.status, "running");
+    const currentResponse = await fetch(
+      new URL(`/api/repositories/${model.repositoryId}/ai-request`, baseUrl),
+    );
+    assert.equal(currentResponse.status, 200);
+    assert.equal((await currentResponse.json()).requestId, lastRequestId);
+    assert.equal(droppedSuccessBodies, 0);
     const complete = release as (() => void) | null;
     assert.ok(complete);
     complete();
@@ -3140,7 +3182,6 @@ for (const transport of ["tool-child-process"] as const) {
     t.diagnostic(
       JSON.stringify({
         transport,
-        clientIntervals: timings,
         serverIntervals: serverTimings,
         boundaryTiming: timingSnapshot,
       }),

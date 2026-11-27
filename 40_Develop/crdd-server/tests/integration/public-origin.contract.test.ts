@@ -16,7 +16,6 @@ import { type FileHandle, open } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import path from "node:path";
 import test from "node:test";
-import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { readServerConnectionConfiguration } from "../../src/service/configuration.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
@@ -282,9 +281,9 @@ test("共有Workbenchは不正Originと認証Ownerなしを拒否する", async 
  * @trace EST-IT-010
  * @trace RFD-IT-013
  * @precondition 空の自己生成AM Rootとloopback Listenerだけを所有する。
- * @stimulus 正常／異常配置Header、OriginなしGET／POST、未知Bearer。
+ * @stimulus 正常／異常配置Header、OriginなしGET／POST、廃止した手配布鍵の形式。
  * @observation HTTP状態、AM Root内open回数、公開URLと内部URL、終了後接続拒否。
- * @oracle 配置拒否時はAM Root open0。正常配置でも無資格は内容非開示。
+ * @oracle 配置拒否時はAM Root open0。正常配置でも未認証や旧鍵で保存観測・内容開示をしない。
  * @cleanup 差替えを復元、所有Server close・接続拒否後に自己生成Rootだけを削除する。
  * @boundary Header契約のみ。実TLS通信やHost内攻撃防御の証明ではない。
  */
@@ -297,6 +296,8 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
   assert.equal(path.dirname(fixture), testRoot);
   const root = createFilesystemStoreRoot(fixture);
   assert.ok(root);
+  const observationFile = path.join(fixture, "read-control");
+  fs.writeFileSync(observationFile, "fixture");
   let handle: Awaited<ReturnType<typeof startWorkbench>> | undefined;
   const originalOpen = fs.openSync;
   let opens = 0;
@@ -316,6 +317,9 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
         opens++;
       return originalOpen(...args);
     }) as typeof fs.openSync;
+    fs.closeSync(fs.openSync(observationFile, "r"));
+    assert.equal(opens, 1, "fixture_open_observer_active");
+    opens = 0;
     const url = `${handle.baseUrl}/api/workbench/view`;
     const valid: Record<string, string | string[]> = {
       host: "workbench.example",
@@ -405,11 +409,12 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
     assert.equal(JSON.parse(normal.body).portfolio, null);
     const unknown = await send({
       ...valid,
-      authorization: `Bearer ${createCredentialMaterial().token}`,
+      authorization: `Bearer cros.v1.${"0".repeat(24)}.${"A".repeat(43)}`,
     });
     assert.equal(unknown.status, 200);
     assert.equal(JSON.parse(unknown.body).authenticated, false);
-    assert.ok(opens > 0, "authentication_boundary_observation_active");
+    assert.equal(JSON.parse(unknown.body).portfolio, null);
+    assert.equal(opens, 0);
   } finally {
     fs.openSync = originalOpen;
     if (handle) {

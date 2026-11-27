@@ -1,7 +1,7 @@
 /**
  * Coordinatorを読めないWorkbenchでCore定義を保存する。
  * @packageDocumentation
- * @responsibility 公開Root・HTTPと直接AM認可を実Domain Writer・再読取りへ接続する。
+ * @responsibility 公開Root・HTTPと確定した単体の対象を実Domain Writer・再読取りへ接続する。
  * @trace PRL-IT-012
  * @trace RFD-IT-013
  * @level IT
@@ -16,8 +16,9 @@ import test from "node:test";
 import {
   createDefinitionAccess,
   executeDefinitionOperation,
-  resolveSharedDefinitionAccess,
+  resolveLocalDefinitionAccess,
 } from "../../src/service/execution.ts";
+import { getRepository } from "@qual-lab/crdd-version-control";
 import { contentFixture } from "../../../access-management/tests/integration/storage/fixture.ts";
 import {
   initializeExecutionState,
@@ -35,7 +36,7 @@ import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-
  * @precondition 自己生成Git Repositoryと合成Contextだけ。
  * @stimulus Coordinator/Executor解決拒否下で起動・初期化・Plan保存・Task CRUD・再起動する。
  * @observation HTTP結果・版・拒否・子Process終了と専用stateの存在。
- * @oracle Domain値を保存し、古いCASと不正Tokenは拒否、再起動後に同じ定義を読む。
+ * @oracle Domain値を保存し、古いCASと異なるOriginは拒否、再起動後に同じ定義を読む。
  * @cleanup 子のServer終了を待ち、既存helperでexact合成Rootを回収する。
  * @boundary Workbench Root→本番HTTP→Domain→合成Filesystem。
  */
@@ -82,6 +83,20 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
   );
   git("add", ".");
   git("commit", "--quiet", "-m", "fixture");
+  fs.mkdirSync(path.join(root, ".crdd", "config"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, ".crdd", "config", "repository-manifest.json"),
+    JSON.stringify({
+      schema: "crdd/repository-manifest/v2",
+      projectId: "project.fixture",
+      repositoryId: "repository.fixture",
+      displayName: "合成",
+      repositoryRole: "development",
+      capabilities: ["domain-model", "mcp-server"],
+      contextSurfaces: ["crdd-context"],
+      externalSendPolicy: "config/external-send-policy.json",
+    }),
+  );
   const module = new URL("../../src/app.ts", import.meta.url).href;
   const em = new URL(import.meta.resolve("@qual-lab/crdd-execution-model"))
     .href;
@@ -98,39 +113,66 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
     const {startWorkbench}=await import(${JSON.stringify(module)});
     let server=await startWorkbench({workingDirectory:${JSON.stringify(root)}});
     const target={projectId:'project.fixture',milestoneId:'milestone'};
-    const write=async(command,token)=>{
-      const response=await fetch(server.baseUrl+'/api/execution/definition',{method:'POST',headers:{origin:server.baseUrl,'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({actionToken:token,command:JSON.stringify({...target,...command})})});
+    const base='/api/repositories/repository.fixture/projects/project.fixture/milestones/milestone';
+    const write=async({operation,taskId,objectiveId,...body}, origin=server.baseUrl)=>{
+      const [method, resource]= {
+        initialize:['POST','/definition'],
+        'plan.save':['PUT','/plan'],
+        'task.create':['POST','/tasks'],
+        'task.update':['PATCH','/tasks/'+taskId],
+        'task.delete':['DELETE','/tasks/'+taskId],
+        'objective.create':['POST','/objectives'],
+        'objective.update':['PATCH','/objectives/'+objectiveId],
+        'objective.delete':['DELETE','/objectives/'+objectiveId],
+      }[operation];
+      const response=await fetch(server.baseUrl+base+resource,{method,headers:{origin,'content-type':'application/json'},body:JSON.stringify(body)});
       return {status:response.status,value:response.headers.get('content-type')?.includes('application/json')?await response.json():await response.text()};
     };
-    const query=async()=>{const r=await fetch(server.baseUrl+'/api/execution/definition?'+new URLSearchParams({...target,operation:'plan'}));assert.equal(r.status,200);return r.json();};
+    const query=async()=>{const r=await fetch(server.baseUrl+base+'/plan');assert.equal(r.status,200);return r.json();};
     try{
-      const view=await(await fetch(server.baseUrl+'/api/workbench/view')).json();
-      const token=view.actionToken;assert.equal(typeof token,'string');
-      assert.equal((await write({operation:'initialize',expectedAbsence:true},'wrong')).status,400);
-      assert.equal((await write({operation:'plan'},token)).status,400);
-      assert.equal((await write({operation:'initialize',expectedAbsence:true,unknown:true},token)).status,400);
+      assert.equal((await write({operation:'initialize',expectedAbsence:true},'https://other.invalid')).status,403);
+      assert.equal((await fetch(server.baseUrl+'/api/execution/definition',{method:'POST'})).status,405);
+      assert.equal((await fetch(server.baseUrl+'/api/execution/definition')).status,404);
+      for (const [url, body] of [
+        [base+'/definition','{"operation":"initialize","expectedAbsence":true}'],
+        [base+'/definition','{"expectedAbsence":true,"expectedAbsence":true}'],
+        [base+'/definition','{"expectedAbsence":true,"projectId":"other"}'],
+      ]) assert.equal((await fetch(server.baseUrl+url,{method:'POST',headers:{origin:server.baseUrl,'content-type':'application/json'},body})).status,400);
+      assert.equal((await fetch(server.baseUrl+base.replace('repository.fixture','other')+'/plan')).status,403);
+      assert.equal((await write({operation:'initialize',expectedAbsence:true,unknown:true})).status,400);
       assert.equal(readFileSync(${JSON.stringify(exclude)},'utf8'),'# fixture\\n');
-      const initial=(await write({operation:'initialize',expectedAbsence:true},token)).value;assert.equal(initial.status,'saved',JSON.stringify(initial));
+      const initial=(await write({operation:'initialize',expectedAbsence:true})).value;assert.equal(initial.status,'saved',JSON.stringify(initial));
       const registered=readFileSync(${JSON.stringify(exclude)},'utf8');
       assert.equal(registered.split(/\\r?\\n/).filter(line=>line==='.crdd/').length,1);
       const plan={milestoneAcceptanceCriteria:['確認'],objectives:[{id:'objective',acceptanceCriteria:['確認']}],tasks:[{id:'task',objectiveId:'objective',dependencies:[],allowedPaths:['code.ts'],conflictKeys:[]}]};
-      const saved=(await write({operation:'plan.save',expected:initial.version,expectedDefinitionHash:null,definition:plan},token)).value;assert.equal(saved.status,'saved',JSON.stringify(saved));
-      assert.equal((await write({operation:'plan.save',expected:initial.version,expectedDefinitionHash:null,definition:plan},token)).value.status,'conflict');
-      const created=(await write({operation:'task.create',expected:saved.version,definition:{id:'extra',objectiveId:'objective',dependencies:[],allowedPaths:['extra.ts'],conflictKeys:[]}},token)).value;assert.equal(created.status,'saved',JSON.stringify(created));
-      const deleted=(await write({operation:'task.delete',expected:created.version,taskId:'extra',expectedDefinitionHash:created.value.definitionHash},token)).value;assert.equal(deleted.status,'saved',JSON.stringify(deleted));
-      const definitionUrl=server.baseUrl+'/api/execution/definition?'+new URLSearchParams(target);
-      const missing=await fetch(definitionUrl+'&operation=tasks&queueId=missing');
+      const saved=(await write({operation:'plan.save',expected:initial.version,expectedDefinitionHash:null,definition:plan})).value;assert.equal(saved.status,'saved',JSON.stringify(saved));
+      assert.equal((await write({operation:'plan.save',expected:initial.version,expectedDefinitionHash:null,definition:plan})).value.status,'conflict');
+      const objective=(await write({operation:'objective.create',expected:saved.version,definition:{id:'extra-objective',acceptanceCriteria:['新規']}})).value;
+      assert.equal(objective.status,'saved',JSON.stringify(objective));
+      const objectiveUpdated=(await write({operation:'objective.update',objectiveId:'extra-objective',expected:objective.version,expectedDefinitionHash:objective.value.definitionHash,definition:{id:'extra-objective',acceptanceCriteria:['更新']}})).value;
+      assert.equal(objectiveUpdated.status,'saved',JSON.stringify(objectiveUpdated));
+      const objectives=await(await fetch(server.baseUrl+base+'/objectives')).json();
+      assert.equal(objectives.status,'available');
+      assert.equal(objectives.value.length,2);
+      const objectiveDeleted=(await write({operation:'objective.delete',objectiveId:'extra-objective',expected:objectiveUpdated.version,expectedDefinitionHash:objectiveUpdated.value.definitionHash})).value;
+      assert.equal(objectiveDeleted.status,'saved',JSON.stringify(objectiveDeleted));
+      const created=(await write({operation:'task.create',expected:objectiveDeleted.version,definition:{id:'extra',objectiveId:'objective',dependencies:[],allowedPaths:['extra.ts'],conflictKeys:[]}})).value;assert.equal(created.status,'saved',JSON.stringify(created));
+      const taskUpdated=(await write({operation:'task.update',expected:created.version,taskId:'extra',expectedDefinitionHash:created.value.definitionHash,definition:{id:'extra',objectiveId:'objective',dependencies:[],allowedPaths:['updated.ts'],conflictKeys:[]}})).value;
+      assert.equal(taskUpdated.status,'saved',JSON.stringify(taskUpdated));
+      const deleted=(await write({operation:'task.delete',expected:taskUpdated.version,taskId:'extra',expectedDefinitionHash:taskUpdated.value.definitionHash})).value;assert.equal(deleted.status,'saved',JSON.stringify(deleted));
+      const definitionUrl=server.baseUrl+base;
+      const missing=await fetch(definitionUrl+'/tasks?queueId=missing');
       assert.equal(missing.status,200);assert.equal((await missing.json()).status,'absent');
-      assert.equal((await fetch(definitionUrl+'&operation=tasks&queueId=a&queueId=b')).status,400);
-      assert.equal((await fetch(definitionUrl+'&operation=plan&queueId=a')).status,400);
-      assert.equal((await write({operation:'initialize',expectedAbsence:true,queueId:'a'},token)).status,400);
+      assert.equal((await fetch(definitionUrl+'/tasks?queueId=a&queueId=b')).status,400);
+      assert.equal((await fetch(definitionUrl+'/plan?queueId=a')).status,400);
+      assert.equal((await write({operation:'initialize',expectedAbsence:true,queueId:'a'})).status,400);
       const large={...plan,tasks:Array.from({length:128},(_,i)=>({id:'large-'+i,objectiveId:'objective',dependencies:[],allowedPaths:Array.from({length:128},(_,j)=>'src/'+i+'-'+j+'-'+ 'p'.repeat(200)),conflictKeys:[]}))};
       assert.ok(Buffer.byteLength(JSON.stringify(large))>3*1024*1024);
-      const largeSaved=(await write({operation:'plan.save',expected:deleted.version,expectedDefinitionHash:deleted.value.definitionHash??(await query()).value.definitionHash,definition:large},token)).value;
+      const largeSaved=(await write({operation:'plan.save',expected:deleted.version,expectedDefinitionHash:deleted.value.definitionHash??(await query()).value.definitionHash,definition:large})).value;
       assert.equal(largeSaved.status,'saved',JSON.stringify(largeSaved));
       const before=await query();assert.equal(before.status,'available');
       const {request}=await import('node:http');
-      const rejected=await new Promise((resolve,reject)=>{const r=request(server.baseUrl+'/api/execution/definition',{method:'POST',headers:{origin:server.baseUrl,'content-type':'application/x-www-form-urlencoded','content-length':3*16777216+16385}},response=>{response.resume();response.on('end',()=>resolve(response.statusCode));});r.on('error',reject);r.end();});
+      const rejected=await new Promise((resolve,reject)=>{const r=request(server.baseUrl+base+'/plan',{method:'PUT',headers:{origin:server.baseUrl,'content-type':'application/json','content-length':3*16777216+16385}},response=>{response.resume();response.on('end',()=>resolve(response.statusCode));});r.on('error',reject);r.end();});
       assert.equal(rejected,403);assert.deepEqual(await query(),before);
       await server.close();server=await startWorkbench({workingDirectory:${JSON.stringify(root)}});
       assert.deepEqual(await query(),before);
@@ -144,10 +186,10 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
           {...target,...plan,repositoryRevision,maximumConcurrency:1,ownerGeneration:'fixture-owner',taskExecutionSelections:${JSON.stringify(taskExecutionSelections())},tasks:[{...plan.tasks[0],allowedPaths:[queueId+'.ts']}]}
         ]});
         assert.equal(queued.status,'completed',queued.reason);
-        const response=await(await fetch(server.baseUrl+'/api/execution/definition?'+new URLSearchParams({...target,operation:'tasks',queueId}))).json();
+        const response=await(await fetch(server.baseUrl+base+'/tasks?'+new URLSearchParams({queueId}))).json();
         assert.equal(response.status,'available');assert.deepEqual(response.value[0].definition.allowedPaths,[queueId+'.ts']);assert.equal(response.value[0].execution.state,'ready');
       }
-      const shared=await(await fetch(server.baseUrl+'/api/execution/definition?'+new URLSearchParams({...target,operation:'tasks'}))).json();
+      const shared=await(await fetch(server.baseUrl+base+'/tasks')).json();
       assert.equal(shared.status,'available');assert.equal(shared.value.length,large.tasks.length);assert.ok(shared.value.every(task=>task.execution===null));
     }finally{await server.close();}
     await assert.rejects(fetch(server.baseUrl+'/.well-known/crdd-workbench-health'));
@@ -174,78 +216,62 @@ test("Workbench RootはCoordinatorなしで起動・定義CRUD・再読取りす
  * @cleanup 局所Promiseを解決して終了する。Filesystem生成なし。
  * @boundary 固定動的import後の利用側。代役から実認可の成立を推定しない。
  */
-test("任意Owner待機後の失効・取消は設定Readerを発行しない", async () => {
+test("単体表示のOwner待機後の失効・取消は設定Readerを発行しない", async () => {
   const viewSource = fs.readFileSync(
     new URL("../../src/transport/api-server.ts", import.meta.url),
     "utf8",
   );
-  for (const shared of [false, true]) {
-    const source = sourceDeclaration(
-      viewSource,
-      shared ? "handleSharedView" : "handleRepositoryView",
+  const source = sourceDeclaration(viewSource, "handleRepositoryView");
+  const start = source.indexOf("const owner = await import(");
+  const end = source.indexOf(
+    "\n",
+    source.indexOf("network = owner.readRepositoryNetworkHosts(", start),
+  );
+  assert.ok(start > 0 && end > start);
+  const segment = source
+    .slice(start, end)
+    .replace(/await import\([\s\S]*?\)/u, "await gate");
+  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+  for (const condition of ["live", "aborted", "destroyed", "revoked"]) {
+    let release!: (value: unknown) => void;
+    let reads = 0;
+    let live = true;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const requestSignal = { aborted: false };
+    const response = { destroyed: false };
+    const capability = {};
+    const repositoryRoot = "fixture";
+    const run = new AsyncFunction(
+      "gate",
+      "requestSignal",
+      "response",
+      "resolveVerifiedRepositoryRoot",
+      "capability",
+      "repositoryRoot",
+      `let network=null;${segment};return network;`,
     );
-    const start = source.indexOf("const owner = await import(");
-    const end = source.indexOf(
-      "\n",
-      source.indexOf("network = owner.readRepositoryNetworkHosts(", start),
+    const result = run(
+      gate,
+      requestSignal,
+      response,
+      () => (live ? repositoryRoot : null),
+      capability,
+      repositoryRoot,
     );
-    assert.ok(start > 0 && end > start);
-    const segment = source
-      .slice(start, end)
-      .replace(/await import\([\s\S]*?\)/u, "await gate");
-    const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
-    for (const condition of ["live", "aborted", "destroyed", "revoked"]) {
-      let release!: (value: unknown) => void;
-      let reads = 0;
-      let live = true;
-      const gate = new Promise((resolve) => {
-        release = resolve;
-      });
-      const requestSignal = { aborted: false };
-      const response = { destroyed: false };
-      const capability = {};
-      const repositoryRoot = "fixture";
-      const currentCollection = {};
-      const run = new AsyncFunction(
-        "gate",
-        "requestSignal",
-        "response",
-        "resolveVerifiedRepositoryRoot",
-        "capability",
-        "repositoryRoot",
-        "sameAccessCollection",
-        "currentCollection",
-        "resolveRepositoryAccessCollection",
-        "credentialAdministration",
-        "verification",
-        `let network=null;${segment};return network;`,
-      );
-      const result = run(
-        gate,
-        requestSignal,
-        response,
-        () => (live ? repositoryRoot : null),
-        capability,
-        repositoryRoot,
-        () => live,
-        currentCollection,
-        () => currentCollection,
-        { root: {}, token: "synthetic" },
-        { capability },
-      );
-      if (condition === "aborted") requestSignal.aborted = true;
-      if (condition === "destroyed") response.destroyed = true;
-      if (condition === "revoked") live = false;
-      release({
-        readRepositoryNetworkHosts() {
-          reads++;
-          return {};
-        },
-      });
-      if (condition === "revoked") await assert.rejects(result);
-      else await result;
-      assert.equal(reads, condition === "live" ? 1 : 0);
-    }
+    if (condition === "aborted") requestSignal.aborted = true;
+    if (condition === "destroyed") response.destroyed = true;
+    if (condition === "revoked") live = false;
+    release({
+      readRepositoryNetworkHosts() {
+        reads++;
+        return {};
+      },
+    });
+    if (condition === "revoked") await assert.rejects(result);
+    else await result;
+    assert.equal(reads, condition === "live" ? 1 : 0);
   }
 });
 
@@ -276,6 +302,13 @@ test("WBと配布MCPはManifestを毎回再読取りしIdentity差を拒否す�
   const routingDeclaration = sourceDeclaration(
     templateSource,
     "createLocalMcpDependencies",
+  );
+  const localDefinitionDeclaration = sourceDeclaration(
+    fs.readFileSync(
+      new URL("../../src/service/execution.ts", import.meta.url),
+      "utf8",
+    ),
+    "resolveLocalDefinitionAccess",
   );
   const capability = {};
   const root = "fixture-root";
@@ -327,9 +360,13 @@ test("WBと配布MCPはManifestを毎回再読取りしIdentity差を拒否す�
           "readGitUser",
           "createLocalPrincipalId",
           "createDefinitionAccess",
-          `${routingDeclaration};return createLocalMcpDependencies;`,
+          `${localDefinitionDeclaration};${routingDeclaration};return createLocalMcpDependencies;`,
         )(
-          () => ({ status: "completed", capability }),
+          () => ({
+            status: "completed",
+            capability,
+            placement: { directory: root },
+          }),
           read,
           () => currentRoot,
           () => root,
@@ -401,8 +438,9 @@ test("Server binは既定で統合しAI Sessionを起動だけでは作らない
       const moduleUrl=s=>'data:text/javascript,'+encodeURIComponent(s);
       registerHooks({resolve(s,c,n){
         if(c.parentURL===command&&s==='../transport/mcp-server.ts')return {shortCircuit:true,url:moduleUrl("export const createMcpServerFactory=()=>({});export const readMcpServerConfiguration=async()=>({});export const runMcpStdio=async()=>({status:'completed',cleanupConfirmed:true})")};
-        if(c.parentURL===command&&s==='../app.ts')return {shortCircuit:true,url:moduleUrl("export async function readProjectViewData(){return {context:{projectId:'fixture'}}};export async function readWorkbenchServerConfiguration(){return {}};export async function startWorkbench(input){if(input.aiRequests)throw Error('docs_ai');process.stdout.write('DOCS_STARTED|');return {publicUrl:'http://127.0.0.1:1',close:async()=>{}}};export async function startCrddServer(input){if(!input.localMcp&&!input.localAccessRoot)throw Error('mcp_missing');if(input.sharedAiRequestsFactory)input.sharedAiRequestsFactory({},'fixture','host',()=>true);process.stdout.write('CORE_STARTED|');setImmediate(()=>process.emit('SIGTERM'));return {publicUrl:'http://127.0.0.1:1',close:async()=>{}}}")};
-        if(c.parentURL===command&&s==='@qual-lab/crdd-access-management')return {shortCircuit:true,url:moduleUrl("export const resolveHostRootInput=()=>({});export const readExistingHostRoot=()=>({});export const readHostInitializationState=()=>({status:'completed'});")};
+        if(c.parentURL===command&&s==='../app.ts')return {shortCircuit:true,url:moduleUrl("export async function readProjectViewData(){return {context:{projectId:'fixture'}}};export async function readWorkbenchServerConfiguration(){return {}};const ready=label=>{process.stdout.write(label+'|');setImmediate(()=>process.emit('SIGTERM'));return {publicUrl:'http://127.0.0.1:1',close:async()=>{}}};export async function startWorkbench(input){if(input.apiDocumentation&&input.aiRequests)throw Error('docs_ai');return ready(input.apiDocumentation?'DOCS_STARTED':'CORE_STARTED')};export async function startCrddServer(input){if(!input.localAccessRoot||!input.mcpOAuth||!input.loginProviders?.google||input.gitHosts?.[0]?.provider!=='github')throw Error('shared_missing');if(input.sharedAiRequestsFactory)input.sharedAiRequestsFactory({},'fixture','host',()=>true);return ready('SHARED_STARTED')}")};
+        if(c.parentURL===command&&s==='./environment.ts')return {shortCircuit:true,url:moduleUrl("export const consumeOAuthEnvironment=(_environment,shared)=>shared?{loginProviders:{google:{clientId:'synthetic-cli',clientSecret:'synthetic-secret'}},mcpOAuth:{},gitHosts:[{provider:'github',host:'github.com',providerData:{clientId:'synthetic-cli',clientSecret:'synthetic-git-secret'}}]}:undefined;")};
+        if(c.parentURL===command&&s==='@qual-lab/crdd-access-management')return {shortCircuit:true,url:moduleUrl("export const resolveHostRootInput=()=>({});export const readExistingHostRoot=()=>({});export const readHostInitializationState=(_root,{acceptsAdministratorIssuer})=>({status:'existing',administratorLinked:acceptsAdministratorIssuer('https://accounts.google.com')&&!acceptsAdministratorIssuer('https://fixture.invalid')});")};
         if(s==='@qual-lab/crdd-coordinator')return {shortCircuit:true,url:moduleUrl("process.stdout.write('AUTOMATION_LOADED|');export function openTaskSession(input){if(!input.rootCapability||!input.authorize())throw Error('binding');process.stdout.write('SESSION_CREATED|');return {}}")};
         if(s.includes('coordinator/'))throw Error('coordinator_source_path_not_allowed');
         return n(s,c);
@@ -432,7 +470,10 @@ test("Server binは既定で統合しAI Sessionを起動だけでは作らない
   for (const args of [[], ["--shared"]]) {
     const result = run(args);
     assert.equal(result.status, 0, JSON.stringify(result));
-    assert.match(result.output, /CORE_STARTED/u);
+    assert.match(
+      result.output,
+      args.length ? /SHARED_STARTED/u : /CORE_STARTED/u,
+    );
     assert.doesNotMatch(result.output, /AUTOMATION_LOADED|SESSION_CREATED/u);
   }
   assert.equal(run(["--automation"]).status, 64);
@@ -536,31 +577,36 @@ test("Server binは既定で統合しAI Sessionを起動だけでは作らない
 });
 
 /**
- * 現在内容認可からDomainの実保存までを結合する。
+ * 確定した単体の対象からDomainの実保存までを結合する。
  * @responsibility 認可Contextの模擬成功と本番Writer接続を区別する。
  * @trace RFD-IT-013
  * @precondition 自己生成の管理StoreとGit構造だけを使う。
  * @stimulus 明示初期化・Plan保存・再読取りを同じ要求Contextで行う。
  * @observation 保存結果、再読取り、各操作の有限計測。
- * @oracle 開発権限だけで同じDomain Writerへ接続し、認可区画を変更しない。
+ * @oracle 起動対象だけで同じDomain Writerへ接続し、認可区画を変更しない。
  * @cleanup 既存Fixtureが今回のRootだけを回収する。
- * @boundary AM現在権限→Domain実Writerと既存OS排他。
+ * @boundary 確定した単体リポジトリ→Domain実Writerと既存OS排他。
  */
 test("Core定義Contextを実Writerの初期化・Plan保存・再読取りへ接続する", (t) => {
   const f = contentFixture(t);
   const signal = new AbortController().signal;
-  assert.equal(
-    resolveSharedDefinitionAccess(
-      f.root,
-      f.tokens.developer,
-      f.target.manifest.repositoryId,
-      signal,
-    ),
-    null,
-  );
   execFileSync("git", ["init", "--quiet", f.target.directory], {
     windowsHide: true,
   });
+  execFileSync(
+    "git",
+    [
+      "-C",
+      f.target.directory,
+      "config",
+      "--local",
+      "user.email",
+      "fixture@example.invalid",
+    ],
+    {
+      windowsHide: true,
+    },
+  );
   fs.writeFileSync(
     path.join(f.target.directory, ".git", "HEAD"),
     "ref: refs/heads/main\n",
@@ -569,9 +615,18 @@ test("Core定義Contextを実Writerの初期化・Plan保存・再読取りへ�
     path.join(f.target.directory, ".git", "refs", "heads", "main"),
     `${"1".repeat(40)}\n`,
   );
-  const access = resolveSharedDefinitionAccess(
-    f.root,
-    f.tokens.developer,
+  const repository = getRepository(f.target.directory);
+  assert.equal(repository.status, "completed");
+  assert.equal(
+    resolveLocalDefinitionAccess(
+      repository.capability,
+      "repository.other",
+      signal,
+    ),
+    null,
+  );
+  const access = resolveLocalDefinitionAccess(
+    repository.capability,
     f.target.manifest.repositoryId,
     signal,
   );

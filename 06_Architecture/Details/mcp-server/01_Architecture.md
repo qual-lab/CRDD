@@ -4,11 +4,15 @@
 
 既存MCP入口はToolとstdio／Streamable HTTPの契約を維持する。[CRDD Serverの標準入口](../../Definitions/ARCH-000012/architecture_definition.md#crdd-server共通入口の公開契約)に非秘密配置設定とTopic／Meetingの操作対象構成を委譲し、MCPへの認証・Tool入力検査・応答分類はTransportとToolのOwnerに残す。許可集合を要求間で再利用しない。
 
+共有MCPの組込みOAuthでは、発行側がインスタンスごとに一つの有界な一時状態を生成・所有する。起動設定はクライアント・署名材料等だけを渡し、新しい発行側は同じ設定でも古い認可状態を引き継がない。検証側は標準のトークン照会を使い、内部状態を直接読まない。リポジトリへの現在認可はアクセス管理が判定し、OAuthの照会結果だけで許可しない。
+
+配布CLIで共有OAuthを起動するには、管理状態の初期設定が完了し、現在の管理者にGoogleの紐付けが一件以上あることを要する。アクセス管理が既存の起動時観測と同じ排他内で確認する。未設定・初期設定途中・観測不能では、認可サーバーとListenerを起動せず、鍵方式へ自動で戻らない。起動時の確認は利用者の現在認可に代わらない。
+
 Git利用では、MCPは認可済みの対象と操作を搬送する。Gitコマンド・事前観測・失敗後の再入場は独自に持たず、[CRDD ServerのGit利用](../workbench-server/01_Architecture.md#server-git-lifecycle)と[Coordinatorの実行・回復境界](../coordinator/01_Architecture.md#coordinator-git-lifecycle)に接続する。
 
 ## Objectiveの新規・再開区分
 
-`crdd.run_objective`は`operation: "start" | "resume"`を必須としてCoordinatorへそのまま搬送する。操作区分の省略・未知値は通常の入力拒否とし、互換補完しない。Adapter説明契約はv6、Objective結果はv4へ追従する。新規／再送／再開の判断と保存・実行のOwnerはCoordinatorであり、MCPは独自の再開台帳や再送を追加しない。受付世代は要求・状態照会の双方から撤去した。状態照会はv2で、内部初期化を発行しない。
+`crdd.start_objective`と`crdd.resume_objective`を別のツールとして提供する。どちらも元の実行要求を識別するために実行IDと計画を受け取るが、引数の`operation`は受け付けない。MCPはツール名で決まる固定の操作をCoordinatorへ搬送する。Objective結果はv4へ追従する。新規／再送／再開の判断と保存・実行のOwnerはCoordinatorであり、MCPは独自の再開台帳や再送を追加しない。受付世代は要求・状態照会の双方から撤去した。状態照会はv2で、内部初期化を発行しない。
 
 設定済みのローカル・共有入口は、計画をCoordinatorの正式なObjective受付に一度だけ渡す。受付成功時に限りServerが対象を選び、現在認可と必要なWorkspace観測を行う。Workspaceの遅延読込みから戻った後は、取消確認・現在認可・Workspace観測を実行直前に続けて行う。応答の公開前にも共有認可を再確認する。不正計画は対象の選択や保存へ進まない。
 
@@ -42,23 +46,23 @@ Coordinatorの正常な回復ID／義務の集合は、公開結果の捕捉で�
 
 ## 継続判断のState接続 — 2026-11-12
 
-`crdd.submit_decision`はDomain所有のv2操作契約へ接続する。`operation`はrequest／answer／apply／closeの閉集合で、対象Project・Milestone・元世代・Repository Revisionを共通に搬送する。要求には明示blockerId・Queue・質問・表示選択肢に対応する値、回答には選択と任意comment、閉鎖にはinvalidatedと理由を指定する。同じ問題への再提案は同じblockerIdと新しいdecisionIdを使い、判断IDからBlockerを推測しない。判断の期限は設けず、旧lifetimeMs・expiresAt・expiredは未知入力として拒否する。回答先Principalは現在の認証ContextからCoordinatorへ搬送し、Tool入力で指定しない。再提案でも元回答先との一致をDomainの同Owner内で確認する。
+`crdd.request_decision`、`crdd.answer_decision`、`crdd.apply_decision`、`crdd.close_decision` は、ツール名に対応する固定の操作としてCoordinatorの判断契約（v2）へ接続する。引数の `operation` は受け付けない。対象Project・Milestone・元世代・Repository Revisionを共通に搬送する。要求には明示blockerId・Queue・質問・選択肢、回答には選択と任意comment、閉鎖にはinvalidatedと理由を指定する。回答だけでは実行を再開しない。同じ問題への再提案は同じblockerIdと新しいdecisionIdを使い、判断IDからBlockerを推測しない。判断の期限は設けず、旧lifetimeMs・expiresAt・expiredは未知入力として拒否する。回答先Principalは現在の認証ContextからCoordinatorへ搬送し、Tool入力で指定しない。再提案でも元回答先との一致をDomainの同Owner内で確認する。
 
 結果の`decision`と`history`を分けて搬送し、回答保存済み・未適用、適用済み・履歴未確定、明示閉鎖を成功推定へ畳まない。旧continuationCapability・再発行・Host保存Rootを受け付けず、MCP独自の判断Storeや認可を追加しない。公開結果もDomainの閉形式検査を利用し、認証・現在の内容認可・返却前再認可は既存入口で維持する。
 
 ## Core実行依頼定義の直接接続 — 2026-10-28
 
-配布入口 `template/tools/crdd-server.ts` は、単体／共有HTTPと単体stdioで、Objective実行・判断送信・実行状態照会を同じToolとして提供する。単体は起動Repositoryとローカル主体、共有は明示 `repositoryId` の開発権限とAMで認証した主体を使う。初回限定接続には通常Toolを提供しない。Nodeの既存24.12.0下限は当入口の現在Processで検査し、Coordinator診断の読込みを必要としない。
+配布入口 `template/tools/crdd-server.ts` は、単体stdioと共有HTTPで、Objective実行・判断送信・実行状態照会を同じツールとして提供する。単体は起動リポジトリとローカル主体、共有は明示された `repositoryId` に対する開発権限と、MCP OAuthトークンに結び付いたアクセス管理上の主体を使う。Nodeの既存24.12.0下限は当入口の現在プロセスで検査し、Coordinator診断の読込みを必要としない。
 
-正式なMCP入口 `./mcp` 、起動、discover、Tool一覧はCoordinator／Executorを読み込まない。実行系Toolの定義・処理は内部の `transport/mcp-server.ts` が持ち、該当Toolの呼出し時だけ固定したCoordinator公開入口を読み込む。待機前に引数を独立捕捉し、待機後に取消を確認し、現在の主体とRepositoryを下位操作へ結合する。Objectiveの同期結果捕捉はCoordinatorの完成受付を直接呼ぶ。Workspaceの実処置・実行状況検査も該当CallだけでCoordinatorを読む。読込み欠測は呼出し単位で非開示の失敗を返し、他のToolや待受けを停止せず、実行へfallbackしない。汎用loader・Router・Registryは追加しない。
+MCPの起動・discover・Tool一覧はCoordinator／Executorを読み込まない。実行系Toolの定義・処理は内部の `transport/mcp-server.ts` が持ち、該当Toolの呼出し時だけ固定したCoordinator公開入口を読み込む。待機前に引数を独立捕捉し、待機後に取消を確認し、現在の主体とRepositoryを下位操作へ結合する。Objectiveの同期結果捕捉はCoordinatorの完成受付を直接呼ぶ。Workspaceの実処置・実行状況検査も該当CallだけでCoordinatorを読む。読込み欠測は呼出し単位で非開示の失敗を返し、他のToolや待受けを停止せず、実行へfallbackしない。汎用loader・Router・Registryは追加しない。
 
-共有では `repositoryId` をMCP受付で分離し、AMが返した登録先・開発権限と要求のProjectを照合する。処置直前と応答公開前に同じ本人・資格・管理改訂・Binding・Manifest・実体を再確認する。対象不明に起動Repositoryを代用しない。実行開始後の権限変更は既に開始した処理の取消・巻戻しを意味せず、結果公開だけを止める。一般定義向けの認可入口は変更せず、Workbenchの単発Taskと共有MCPのObjective実行で新たな実行機構を作らない。
+共有では `repositoryId` をMCP受付で分離し、アクセス管理が確認した本人の紐付け・登録先と、Gitホストにおける本人の実効権限を要求のProjectに結び付ける。状態照会は読み取り、判断・開始・再開・取消は書き込みの許可を確認する。同じ対象を処置前と公開前に再確認し、対象不明に起動Repositoryや旧認可を代用しない。開始済みの共有Objectiveは、受付資格の寿命とは分けて[共通の実行受付](../workbench-server/01_Architecture.md)が監視する。失効や取消要求から、既に行った処置の巻戻しや回復完了を推定しない。
 
 実行系3操作・実行定義・認可済みプロジェクト一覧は、HTTP APIと同じ `service/entry.ts` を使う。入口は既存の操作Ownerへ直接つなぎ、対象・主体の確認、Coordinatorへの委譲、応答公開前の再確認を二重実装しない。Toolの入力、接続の認証・取消とJSON-RPC応答はMCP固有の責務とする。鍵管理とAM管理の公開範囲は変更しない。
 
 Workspaceの操作準備は `service/entry.ts` から `service/workspace.ts` に接続し、共有Repositoryの開発権限・実体の再照合はHTTPと同じ `service/access.ts` を使う。MCPのTool入力・取消・エラー応答は通信側、Workspaceの操作・Git処置の調停はServer、記録・状態遷移はExecution Modelが担当する。
 
-`transport/mcp-server.ts`はHTTPと同じ実行定義の受付を経由してExecution Modelの一般定義CRUDへ接続する。`crdd.get_execution_definition`（plan/objectives/tasks）と`crdd.manage_execution_definition`（initialize、plan.save、objective.create/update/delete、task.create/update/delete）の二Toolを、要求別Factoryの`runtimeDefinition`構成から登録する。AM認証構成は既存development内容権限を`resolveRuntimeContentAccess`で要求内Contextへ変換する。入力は`repositoryId`と操作別の閉じた`command`であり、Root・主体・認可関数をClientから受け取らない。Plan等の意味・DAG・参照・CASはDomainが検査する。
+`transport/mcp-server.ts`はHTTPと同じ実行定義の受付を経由してExecution Modelの一般定義CRUDへ接続する。`crdd.get_execution_plan`、`crdd.list_objectives`、`crdd.list_tasks`、`crdd.initialize_execution_definition`、`crdd.save_execution_plan`、Objective／Taskの作成・更新・削除をそれぞれ独立したツールとして登録する。共有では本人のGitホスト実効権限を読み取り・書き込み別に確認し、GitHubではAppの権限も確認する。外部照会は保存ロックの前に完了し、結果は現在の接続と対象を再確認した後に返す。入力は`repositoryId`、`projectId`、`milestoneId`と操作固有の項目であり、Root・主体・認可関数をClientから受け取らない。Plan等の意味・DAG・参照・CASはDomainが検査する。
 
 応答はDomain結果を`structuredContent`と表示用textへ同じ内容で搬送する。unknown、競合、公開可能なexact回復参照を保持し、通信失敗を無保存又は再送許可に変換しない。独立する定義・照会系Toolの動作と、実行系Toolの呼出し・結果を別々に確認する。実Provider検証Toolは同じ配布入口を `--mcp-stdio` で起動する。
 
@@ -76,9 +80,9 @@ MCP内部の診断reasonは`mcp_*`へ統一する。ただし、Coordinatorか�
 
 [移行対応表](../../../99_Roadmap/Changes/CHG-000082/mcp-server-sdk-structure.md)に従い、ProtocolとTransportを公式SDK v2へ移す。固定依存はServer `2.3.1`、Node HTTP接続`2.1.1`。AMのSource・公開API・保存・認証・ACLは変更しない。AM内部結果の投影検証はAM自身のUnit、MCPは型付き公開Outcomeの搬送を検査し、内部関数へPackage間deep importしない。
 
-HTTPは公式SDKへ接続する。要求別の既存認証、byte／重複キー／Header一致検査、初回discoverの確認保存を公式entry前に維持し、同じ検査済みbodyをSDK Node接続へ渡す。SDKがJSON-RPCの受付・dispatch・応答生成を所有し、Tool callbackには既存のTool結果だけを返す。既存Handlerが返すProtocol errorはSDKの`ProtocolError`へ変換し、JSON-RPC応答全体をTool結果へ二重格納しない。初回保存成功後のSDK失敗・切断を未保存へ戻さず、自動再確認しない。
+HTTPは公式SDKへ接続する。要求別の認証、受信量・重複キー・Header一致の検査後、同じ検査済みbodyをSDK Node接続へ渡す。SDKがJSON-RPCの受付・dispatch・応答生成を所有し、Tool callbackには既存のTool結果だけを返す。既存Handlerが返すProtocol errorはSDKの`ProtocolError`へ変換し、JSON-RPC応答全体をTool結果へ二重格納しない。`server/discover` は通信能力の照会だけで、初回接続の確定や保存を行わない。
 
-SDKとの境界再確認（2026-10-21）: Content-Typeの意味判定はSDK公開`isJsonContentType`を使用する。Bearer、Origin、TLS終端Headerのexact相関と重複拒否、生JSONの重複key拒否、fatal UTF-8とbyte上限、公開methodの閉集合、取消・join・no-storeはCRDD側が所有する。標準HeaderとAcceptの事前Gateは、現状の初回確認保存がSDK呼出し前にあるため維持する。同じ不正要求をSDKも拒否することだけを理由に事前Gateを除去しない。今回、初回保存の位置や認可契約は変更しない。
+SDKとの境界再確認（2026-10-21）: Content-Typeの意味判定はSDK公開`isJsonContentType`を使用する。Bearer、Origin、TLS終端Headerのexact相関と重複拒否、生JSONの重複key拒否、fatal UTF-8とbyte上限、公開methodの閉集合、取消・join・no-storeはCRDD側が所有する。標準HeaderとAcceptの事前Gateは、SDK呼出し前にCRDDの入力契約を確定させるため維持する。初回確認保存が存在した切替前の構成とは区別する。
 
 公開Server識別名は`crdd-mcp`とし、要求別SDK Server二経路と応答metadataで同じ内部定数を使う。Tool結果の`crdd-coordinator/...`等の既存契約namespace、Protocol版、Tool名、Release版の判断はこの識別名訂正へ含めない。
 
@@ -86,23 +90,25 @@ SDKとの境界再確認（2026-10-21）: Content-Typeの意味判定はSDK公�
 
 終了では従来の要求Controllerと未終了処理の集合を使い、SDK closeだけから下位Effect終了を推定しない。HTTP切断・Server終了は同じ要求の取消をTool callbackへ伝播し、既存Ownerの完了待ちとSDK資源回収を終えてから終了結果を返す。新しい永続状態、共有Lock、Registry、認証Frameworkは追加しない。
 
-公開 `./mcp` とTool定義・登録、認証後の要求構成は `transport/mcp-server.ts` に置く。HTTPは `transport/mcp-http.ts`、標準入出力は `transport/mcp-stdio.ts`、共通の要求受付とSDK接続は `transport/mcp-protocol.ts`、共用型は `transport/mcp-types.ts` が所有する。一度受理したTool名・引数を各操作へ渡す。HTTPとstdioは共通のJSON-RPC形式、一要求のSDK接続、開始済みOwnerを待ってからSDKを閉じる処理を共用する。HTTPのBearer／Originと切断時の非開示、stdioの有界逐次処理・EOF取消・出力完了は区別し、継承型のTransportを追加しない。WorkspaceのCoordinator受付、Topic／Meetingの書込み本文検査、活動Readerへの接続は `service/entry.ts` 経由で既存OwnerをHTTPと共用する。
+MCPの内部組立て・Tool定義と登録、認証後の要求構成は `transport/mcp-server.ts` に置く。HTTPは `transport/mcp-http.ts`、標準入出力は `transport/mcp-stdio.ts`、共通の要求受付とSDK接続は `transport/mcp-protocol.ts`、共用型は `transport/mcp-types.ts` が所有する。一度受理したTool名・引数を各操作へ渡す。HTTPとstdioは共通のJSON-RPC形式、一要求のSDK接続、開始済みOwnerを待ってからSDKを閉じる処理を共用する。HTTPのBearer／Originと切断時の非開示、stdioの有界逐次処理・EOF取消・出力完了は区別し、継承型のTransportを追加しない。WorkspaceのCoordinator受付、Topic／Meetingの書込み本文検査、活動Readerへの接続は `service/entry.ts` 経由で既存OwnerをHTTPと共用する。
 
 本番の共通境界は`createMcpServerFactory`が返す要求別SDK Server生成とする。HTTP要求とstdioの一要求ごとの内部SDK接続へ、検査済みの元入力・現在取消・開始したOwner Promiseの観測先を結合する。一要求で作ったServerや認可結果を後続要求へ再利用しない。Tool定義とOwnerの対応を要求内の固定構成としてSDKへ登録し、旧`routeMcpRequest`を本番入口に残さない。標準McpServerのTool errorへの変換は既存Protocol errorと異なるため、公式の低水準Server登録を使い、入力拒否と業務上の`isError`を区別する。CRDD固有の共通通信入力は `transport/mcp-protocol.ts`、重複キー拒否は `transport/parse-json.ts` で検査する。汎用Protocol補助をPackage Rootから公開しない。直接試験も同じFactoryを公式SDK接続で呼び、試験専用の別dispatchを作らない。
 
-Workspace再編のMachine入口は[横断契約](../coordinator/05_Workspace.md)へ接続する。`crdd.get_workspace`は一覧・状態・現在file・固定差分、`crdd.manage_workspace`は作成・選択・改名・保持・固定・別採用・終了を扱う。入力はRepository IDと操作別の閉じたcommandで、Root・認可関数・参照解放の自己申告を受けない。通常Launcherは固定RepositoryのManifest、共有HTTPは要求毎のAM現在development許可から同じCoordinatorのTask／Objective公開Ownerを解決する。内容領域のworkspaceIdsをGit Workspace UUIDへ流用せず、鍵操作非公開・Repository登録Workbench限定の既存境界を変更しない。通常Objectiveには任意の`workspaceId`を搬送できるが、既存Queueの同Project所属・ready・保持なしを実Writerが再確認し、不明時にDirectへfallbackしない。公開接続の実装・検証中であり、実Provider全体の完成主張ではない。
+Workspace再編のMachine入口は[横断契約](../coordinator/05_Workspace.md)へ接続する。`crdd.list_workspaces`・`crdd.get_workspace`・`crdd.inspect_workspace`・`crdd.get_workspace_candidate_diff`を読み取り、作成・選択・改名・保留・固定・採用・候補閉鎖・破棄をそれぞれ別Toolとする。入力はRepository IDと操作別の閉じた欄で、`operation`や`command`を受理しない。Root・認可関数・参照解放の自己申告を受けない。通常Launcherは固定RepositoryのManifest、共有HTTPは要求毎のAM現在development許可から同じCoordinatorのTask／Objective公開Ownerを解決する。内容領域のworkspaceIdsをGit Workspace UUIDへ流用せず、鍵操作非公開・Repository登録Workbench限定の既存境界を変更しない。通常Objectiveには任意の`workspaceId`を搬送できるが、既存Queueの同Project所属・ready・保持なしを実Writerが再確認し、不明時にDirectへfallbackしない。公開接続の実装・検証中であり、実Provider全体の完成主張ではない。 GitHub付き登録のWorkspaceでは、GitHub照会を既存の実行Lease・保存Lockより前に終える。既存の認可確認点ではAM・連携・配置と接続先を同期で確認し、ネットワークを呼ばない。認可喪失で公開を止めても、確定済み意図・回復義務を消さない。
 
-Topic／Meetingの横断Relationでは、構成が認可済み同Project集合を選び、Domainの`federateTopicMeetingRelations`へRepository ID・Project ID・既存操作だけを渡す。MCPは所有者の0／1／複数判定を再実装せず、認可とProtocolを所有する。AM本番Resolver・公開Launcherは接続済み、旧CROS／REST／Shared Hostは撤去済みである。正式品質評価と後続E2Eの完成は別に確認する。
+切替前の横断Relationでは、構成が認可済み同Project集合を選び、Domainの`federateTopicMeetingRelations`へ渡していた。現在の共有MCPは、この旧公開範囲を使う横断経路へ接続しない。
+
+共有MCPのTopic／Meetingの一覧・詳細と書き込みは、Gitホスト連携を使う共有HTTPと同じ操作へ接続する。詳細の関連情報は明示されたRepository内に限定し、`relationScope: "repository"` を返す。不正入力・事前取消では外部照会に進まない。SDKツールの取消を外部照会まで伝え、待機後は本文取得と結果公開を止める。書き込みは本人の実効書込み権限を要求し、GitHubではAppの権限も確認する。指定Rootの作業ツリーだけを変更する。Access ManagementのLockを保持したまま記録Lockを取らない。記録Lock内の確定直前はローカルの認可・実体・接続先だけを再照合し、外部通信を行わない。確定後に公開できない結果から未保存を推定しない。旧公開範囲による許可は使わない。
 
 ### SDK移行後の公開入口と互換範囲
 
 | 用途 | 公開API・起動入口 | 結果・境界 |
 |---|---|---|
 | Tool構成 | `createMcpServerFactory`、`McpServerDependencies`、`McpServerFactory` | 要求ごとのSDK Server。現在認可と元入力を後続要求へ共有しない |
-| 現在認証 | `createAccessMcpResolver` | 現在の資格から要求別Factoryまたは非開示null。旧来の関数として直接呼ばない |
-| stdio | `runMcpStdio` | 有界逐次実行・EOF取消・Owner join・意味cleanup結果。外部Streamを破棄しない |
-| HTTP | `startMcpStreamableHttp`、`startMcpAuthenticatedStreamableHttp` | 待受情報と`close()`。Origin・認証・切断取消・Owner join |
-| 構成・終了 | `readMcpServerConfiguration`、`closeMcpHttpOnProcessSignal` | 既存の閉設定とSignal終了編成 |
+| 現在認証 | `createOAuthMcpResolver` | トークンの確認結果から要求別の処理を解決する。現在認可を満たさない要求には対象を開示しない |
+| stdio | `runMcpStdio` | 通常要求は有界の逐次実行。Objective実行中の状態照会・明示取消だけ並行枠1件。両枠とも同じSDK登録と現在認可に接続する。EOFで両方を取り消して終了を待つ。外部Streamを破棄しない |
+| HTTP | `createMcpHttpRequestHandler` | 共有Serverの待受へ接続する認証付き要求処理。Origin・現在認可・切断取消・終了待ち |
+| 構成・終了 | `readMcpServerConfiguration`、CRDD Serverの起動処理 | 共有HTTPと同じ待受の停止・取消・終了待ち。単独のHTTP MCP起動処理は持たない |
 | Tool契約 | `transport/mcp-server.ts`の明示公開定義と専門Ownerへの接続 | 専門Ownerの既存入力・結果を維持。汎用Protocol補助は内部のみ |
 | 配布コマンド | `crdd-server [--port <port>]`、`--shared`、`--mcp-stdio` | HTTPは常にloopback。stdioは単体に限りMCPだけを切替 |
 
@@ -122,11 +128,11 @@ MCPの通信・受付の実装は `crdd-server/src/transport` に置く。MCPは
 
 ### 公開起動入口の利用形態 — 2026-10-13
 
-配布入口は既定単体と `--shared` を区別する。単体HTTPの固定 `CRDD_MCP_HTTP_BEARER_TOKEN` はTransport保護であり、AMのUser／Roleを意味しない。未設定ではWorkbenchを起動してもMCP要求を認証拒否する。共有では固定Tokenを拒否し、Host管理Rootを作らず検証する。Bearerは要求毎に既存 `createAccessMcpResolver` が再評価する。AI設定管理と鍵操作をMCPに公開しない。
+配布入口は既定単体と `--shared` を区別する。単体では `--mcp-stdio` を指定した場合に限りMCPを開始し、HTTPの `/mcp` は公開しない。共有HTTPは起動時に既存Host管理状態とOAuth設定を検証し、Host管理Rootを作らない。Googleログインを有効にした統一起動でMCP用OAuthの設定がない場合は、旧Bearer方式へ切り替えず起動を拒否する。要求ごとにMCP向けOAuthトークンと現在認可を照合する。AI設定管理と鍵操作をMCPに公開しない。
 
-CROS stdioは資格搬送の採用契約がないため開始前拒否する。初回途中は既存限定Handlerだけ、通常接続は初回完了後の現在認証・認可だけを使用する。Root不明から通常Repositoryへfallbackしない。終了は既存HTTP取消・join・Listener清掃へ接続し、保存済みEffectを取消で巻き戻さない。
+`--shared` と `--mcp-stdio` は併用できない。共有の初期設定はServerのHost管理CLIで行い、公開MCPから初回設定や確認保存を行わない。管理ルートが不明でも単体に切り替えない。終了時は既存のHTTP取消・終了待ち・待受の清掃を使い、確定済みの処置を取消で巻き戻さない。
 
-Source切替と局所公開Process試験では、初回限定→通常接続、administrator本人、同鍵失効後拒否、managerの旧四Tool拒否、不正mode・未設定／破損管理状態の拒否を評価済みである。公開STは既存IT断面を入力に用いるが、STからIT Local Itemへ直接Traceせず、正式ST／IT結果へ未昇格とする。旧REST／Shared Host撤去とWorkbench直接接続は実施済み。実Hostの初回設定・鍵実入口・利用者理解は後続E2Eへ保持し、局所結果からMCP全体完成を表示しない。
+旧Bearer方式のSource切替と局所公開Process試験では、初回限定→通常接続、administrator本人、同鍵失効後拒否、managerの旧四Tool拒否、不正mode・未設定／破損管理状態の拒否を評価した。これは当時の記録であり、現在の共有OAuthの成立証拠には用いない。
 
 ### Topic／Meetingの現在認可前の入力境界 — 2026-10-12
 
@@ -138,7 +144,9 @@ Routed Adapterは明示Repository IDを分離し、共通Adapterへ要求専用�
 
 ### 現在認可による内容操作の新Owner接続 — 2026-10-12
 
-`createAccessMcpResolver`（`transport/mcp-server.ts`）は既存HTTP Transportへ渡す要求専用の構成入口である。Headerの通常認証は初回completedと現在資格を要求し、本文待機後のTool CallではAMの現在許可集合を再取得する。2026-10-14承認済みの切替では、Domain ReaderのProject・Repository・読取り状態・本文版・解析Contextの5項目をPortfolioへ渡す。文書未確認・競合は非complete Sourceとして本文・Role・版をnullにし、読めたSourceと併記する。認証済み空集合だけ正常空結果、認可集合不明・Root不成立・取消・公開前集合差は全体エラーとする。全Reader→集約→fresh AM集合→AM所有`sameAccessCollection`→Signal再確認→返却の順で公開し、新しい認可・保存Frameworkを作らない。切替の局所試験・全回帰・独立確認は別Gateで評価する。
+以下は旧Bearer方式での接続を確認した時点の記録である。現行の配布入口と認証方式は[公開起動入口の利用形態](#公開起動入口の利用形態--2026-10-13)に従う。
+
+旧 `createAccessMcpResolver` は、旧接続鍵を照合して要求別Handlerを構成していた。現行Serverからはこの入口・照合分岐を撤去した。現行のOAuthでは、検証済みの主体を現在のアクセス管理と結び付け、許可済みの資料だけを公開する。文書未確認・競合を認可済み資料の失敗として区別し、認可未確認を正常な空集合に読み替えない。
 
 Bearerは当該HTTP要求のclosureだけに保持し、保存・共有・応答・下位例外本文へ渡さない。文字列の消去保証は主張しない。開始前取消では集合・本文を読まず、同期Reader開始後は読取り終了を待って結果公開を止める。HTTP終了の資源所有・joinは既存Transportを利用し、新Session・State・Lockを追加しない。
 
@@ -181,7 +189,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Concurrency | PASS | RequestごとのApplication実行を独立させ、Server終了時に取消してjoinする。 | [正本節](#5-transport-lifecycle) |
 | Timing | PASS | 接続、Request、取消、Server終了の待機を別に観測する。 | [正本節](#5-transport-lifecycle) |
 | Resource Lifecycle | PASS | stream、listener、Application実行を接続／Request Ownerへ結ぶ。 | [正本節](#5-transport-lifecycle) |
-| External Boundary | PASS | stdio byte、localhost HTTP、Origin、認証を独立境界として扱う。 | [正本節](#51-localhost-streamable-http) |
+| External Boundary | PASS | stdio、共有HTTP、Origin、認証を独立境界として扱う。 | [正本節](#51-localhost-streamable-http) |
 | Failure／Recovery | PASS | 切断、取消、framing不正、Application失敗を理由別に返す。 | [正本節](#6-正常準正常異常) |
 | State／Consistency | PASS | 接続、Request、取消、切断、Server終了を分ける。 | [§5](#5-transport-lifecycle) |
 | Observability | PASS | wire、Request、Application、shutdownを相関して観測する。 | [§7](#7-検証と完成境界) |
@@ -256,7 +264,7 @@ v0.20の責務分離では既存MCP stdioを独立packageへ移し、MCP Streama
 - `protocol`はMCP version、閉じたJSON-RPC Envelope／ID／metadata、method／tool名、Protocol response／errorおよび完全な単一JSON文書の判定を所有する。JSON-RPC error envelopeの構成もProtocolだけが所有し、stdio／HTTP Transportは同じ公開constructorを使用して独自のerror objectを再定義しない。Coordinatorへ依存しない。
 - `adapters`はMCP入力をCoordinatorのTask／Objective公開要求へ変換し、公開結果をMCP結果へ投影する。Project Context参照では固定Markdownの意味契約を利用し、MCP固有の状態要約を正本化しない。
 - `transports`はstdio、localhost HTTP等のbyte framing、fatal UTF-8、容量、header、socketおよびSession lifecycleを所有する。
-- 共通操作は `src/service/` の内部処理、正式な `./mcp` はMCPの契約を公開する。単体MCPの実行系Toolは通常一覧に含み、呼出しまで実行処理を読み込まない。パッケージのルートでは内部サービスを再公開しない。
+- 共通操作は `src/service/` の内部処理とする。外部利用側にはCLIから起動するMCP通信だけを公開する。単体MCPの実行系Toolは通常一覧に含み、呼出しまで実行処理を読み込まない。パッケージのルートでは内部サービスを再公開しない。
 - `composition`はServerの構成・起動を所有する。旧Shared ServerのREST／Gateway構成は撤去し、認可済み内部能力の接続だけを保持する。`boundary`は閉じた入力snapshotを所有し、`internal`という雑多な置場を作らない。src配下のFolderは二階層以内とする。
 - `template/tools/crdd-server.ts`は配布用の薄い起動入口であり、本体構成や意味処理を再定義しない。
 
@@ -296,7 +304,7 @@ Application Adapter（adapters/application-adapter.ts）
   → 各利用箇所の入力を固定。実行権限は発行しない
 ```
 
-`./mcp`（`src/transport/mcp-server.ts`）はMCPの公開窓口となる。Transportは`McpRequestHandler`だけへ依存し、Task／ObjectiveまたはProject Contextの意味処理を直接所有しない。Coordinator、Domain ModelのContext Reader／Portfolio集約およびAccess Managementとの具体的な組合せはLauncher／Server Composition Rootが所有し、MCP内部にProvider実行・Repository書込み・Workspace Grant判定のブロックを置かない。
+`src/transport/mcp-server.ts` はCLI配下のMCP受付を構成する内部ファイルである。Transportは`McpRequestHandler`だけへ依存し、Task／ObjectiveまたはProject Contextの意味処理を直接所有しない。Coordinator、Domain ModelのContext Reader／Portfolio集約およびAccess Managementとの具体的な組合せはLauncher／Server Composition Rootが所有し、MCP内部にProvider実行・Repository書込み・Workspace Grant判定のブロックを置かない。
 
 MCPの実行操作は単一CoordinatorのTask／Objective公開API、Repository成果物操作と認可済みContext集約はDomain Model、要求毎の認証・認可と接続解決はAccess Managementの公開入口へ依存する。CoordinatorのPackage Rootは利用できるが、Execution等の内部Path、Provider、Candidate Store、Windows Adapter、実行知Storeを直接importしない。Topic／Meetingの本文CRUDはDomain Model、許可済みRepository Bindingの解決はAccess Management、MCP wire変換は本Serverが所有し、同じ処理をTransport別に複製しない。
 
@@ -306,9 +314,9 @@ Project Contextを返す場合も同じ原則を適用する。`crdd.list_projec
 
 Repository単体では、現在の検証済みRepository Rootにある`PROJECT_CONTEXT.md`を毎Requestで読み取り、一SourceのPortfolio Projectionへ変換する。この経路にCROS Credentialを要求しない。CROS利用時は、Access Managementが現在認可したRepository集合をDomain Modelが集約したPortfolio Projectionを同じAdapterへ渡す。MCPは両経路のAuthorityを統合・拡張せず、入力Projectionに存在しないProjectを同じ`project_context_not_available`へ閉じる。
 
-Remote CROSではMCP専用の固定Bearerを別に発行しない。HTTP TransportはBearer文字列をRequest単位のHandler Resolverへ渡し、Server Composition RootがAccess Managementへ現在Credentialの検証を委譲する。Credentialに紐付く既存userId、現在Role詳細権限、Exposure、Bindingと実アクセスを整合した改訂で別評価し、許可済みRepository集合だけをDomain Modelへ渡す。DomainはCredential／Role／Grantを解釈せずPortfolioを集約し、その要求専用Handlerへ固定する。旧Credential固定Profile／`systemAdmin`、管理可否または前要求のPortfolioから内容参照権限を再構成しない。
+共有MCPでは、要求のBearerをMCP宛てOAuthトークンとして照会し、検証済みの主体だけをアクセス管理へ渡す。MCPはCRDDが以前発行した接続鍵を照合しない。現在の利用者・紐付け・ロールを操作に応じて確認し、内容操作は対象Gitホストにおける本人の現在の実効権限へ接続する。
 
-通常Handlerの発行にはAMの`authenticateNormalConnection`を用い、有効資格と初回設定`completed`を同じ管理改訂で確認する。初回途中にも利用する`authenticateCredential`だけでは通常接続を許可しない。HTTP本文待機後の内容操作は`resolveRepositoryAccessCollection`で現在認可を再評価し、直ちにDomain固定本文Readerへ渡す。本文取得が一件でも不成立なら固定エラーで全体を停止し、部分Portfolio・`null/missing`へ変換しない。初回完了を確認した認証済み許可対象0件だけを正常な空Portfolioとする。
+要求別HandlerはOAuth照会と現在の主体の確認に成功した場合だけ構成する。Tool一覧・本人照会・管理の読取りは、同じ主体に対する現在のアクセス管理を使い、旧鍵のRole判定へ戻らない。本文待機後に権限を確認し、認可未確認を成功として公開しない。
 
 本段落は公開入口切替前の局所確認履歴である。現在の公開入口接続と旧MCP Resolver／Shared Host撤去は§3を参照する。この接続は`createAccessMcpResolver`の実HTTP搬送契約で段階確認する。現在はContext二操作、Topic／Meeting十二操作と活動一操作に、Catalog構成時のProfile四操作を加えた局所候補であり、現在Role／Exposure／失効、固定拒否、manifest Project拘束と同Project Relationへ接続する。先行段階のContext専用・十四Tool・活動を含む十五Tool構成と、現在の条件付き十五／十九Tool候補を区別する。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Toolとする。旧Resolver／Shared Hostは公開Launcher／Workbenchを含む全能力の本番代替が成立するまで撤去せず、新旧認証のfallback合成は行わない。鍵は非公開、Profileは現在AM認可と実HTTPの局所候補に接続済み。本番Launcher／Workbenchへの切替は未完了。Root能力・Token・内部Path・管理改訂を公開結果へ追加せず、同期Reader開始後の取消をI/O中断やEffect 0と表示しない。要求前の取消は内容読取りを開始せず、開始後は同期処理の終了を待って結果公開を停止する。本段落は本番切替済み・AM全体完成の表示ではない。
 
@@ -333,7 +341,7 @@ AI設定の管理はWorkbenchから対象Repositoryの専門APIへ直接接続�
 
 `crdd.list_repositories`はProject一覧とは異なる対象選択の入口であり、新しい安定IDを採番せずRepository自身のIDを返す。Host Path、Registry内部ID、Credential、非許可Repositoryの存在・件数を返さない。Repository固定のObjective受付、判断、Runtime状態・Topic／Meeting操作はこの共通対象指定を利用し、配送後のpayloadはCoordinator／Domain Modelの公開契約を用いる。CROS管理操作とProject連合の取得へ不要なRepository指定を追加しない。
 
-CROSの初期管理CredentialはCROS構築時のHost対話操作で明示発行し、MCPを起動したことだけで発行しない。CROS HTTP入口はRegistry未初期化時に開始しない。単体stdioはCROS Credential不要、単体localhost HTTPは既存Transport Tokenを必要とする。CROSのBearerはHTTP認証Headerで受け、Tool引数にTokenを追加しない。今回CROS構成はHTTP入口へ限定し、`--shared --mcp-stdio`の未設計認証を暗黙提供しない。
+共有モードの初回管理者はHostの対話操作で外部ログイン主体と紐付ける。未初期化、管理者の紐付けなし、OAuth設定不足では、共有のHTTP入口を開始しない。単体stdioには共有の資格を要求しない。共有HTTPのOAuthトークンはHTTP認証ヘッダーで受け、Tool引数には含めない。`--shared --mcp-stdio` は受け付けない。
 
 Remote CROSのTopic／Meeting取得結果は、本文に記録された安定ID Relationを同じLogical Projectの許可済みRepository集合で解決する。一意な対象だけにOwner Repository IDを付け、0件は`unavailable`、複数件は`conflicting`として返す。MCPはRelation先本文をSource Repositoryへ複製せず、Relation結果を別Repository書込みのAuthorityとして扱わない。
 
@@ -366,16 +374,7 @@ Sourceのcontext、repositoryRole、complete／missing／conflictingと現在rev
 
 ### 3.3. 鍵管理のMCP非公開境界
 
-最新判断の意味Ownerは[Access Management詳細](../access-management/01_Architecture.md#7-配置秘密観測境界)と[ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md)である。MCPの要求認証にCredentialを使用することと、鍵を管理する操作を公開することは別である。鍵操作はSecretの有無にかかわらずMCPへ公開しない。旧案の資格一覧・資格への個別Grant変更・独立失効Tool候補は撤回し、互換Toolとして残さない。
-
-| 境界 | 担当する処理 | 提供しない処理 |
-|---|---|---|
-| MCP要求認証 | Access Managementへ要求毎にCredential検証・現在認可を委譲する | MCP起動や認証成功による資格発行、鍵管理権限の生成 |
-| MCP公開能力 | 認可済みの非鍵能力だけを搬送する | 鍵操作の`tools/list`掲載、Schema、登録、Call Routing／dispatch。非秘密一覧・独立失効も例外にしない |
-| 通常鍵管理 | 同一Process Workbench BackendがAccess Managementへ直接委譲する。発行・独立失効・交換は現行administrator専用固定 | 別Process WorkbenchからMCPを経由した鍵操作、Role設定による鍵操作ON／OFF |
-| Host回復 | 信頼したログイン済みローカル操作者の対話CLIから指定ユーザー／全員の交換2操作だけを委譲する。追加認証なし、既存Root／Path検証を維持 | 通常発行・独立失効、Remote Tool、専用資格・承認コード・OS管理者昇格 |
-
-WorkbenchはMCP Clientではなく、同HostのAccess Managementへ直接接続する。通常の指定ユーザー交換だけ追加確認なし、Hostまたは全員交換の3組は明示確認を要求する。全4組の対象ID・表示名・失効範囲・既存発行先・保持情報の事前表示は各ローカル入口が担当し、MCPで代用しない。鍵の3分岐、結果・失敗・元発行Identityと交換Recovery・一度表示の意味はAccess Managementが所有し、MCPに鍵結果照会・鍵Recovery参照・交換State・秘密配送を追加しない。Bearer認証を続けることは鍵操作公開の例外ではない。
+共有MCPで受け付ける認証はMCP宛てOAuthだけとする。現在の本人に許可された管理の読取りは提供するが、利用者・リポジトリの管理書込みや旧鍵の発行・提示・失効・交換は公開しない。廃止した旧方式を互換Toolとして残さない。初回の管理者登録と再紐付けはServerのHost管理CLIが担当する。
 
 以下四段落は非鍵管理の公開接続前に固定した契約の履歴であり、当時の「未確定」「今回Source不変更」「公開接続・QA未実行」を現在状態へ流用しない。現在の公開API・Tool／Schema・dispatch・本番Consumer接続は§3.3.1に従う。
 
@@ -389,76 +388,28 @@ Repository登録解除の非鍵結果は、同じ受理済み操作・採用改�
 
 #### 3.3.1. 非鍵管理Toolの具体化候補
 
-本人表示の別責務として、通常Resolverは`crdd.get_current_access`を提供する。空の閉入力でAM `readCurrentAccess`をfresh一回だけ呼び、通常三Roleすべてへ提供する。結果はcompleted／revision／user／contentAccess／permittedRepositories、拒否・不明はunavailableとAMの固定理由だけ。managementOperations、他User、資格、Root／Bindingは返さない。管理四read／六保存の認可とは混同しない。初回限定Handlerとserver/discoverは不変更。developerは18、manager／administratorは28。Workspace二操作を含む現在集合であり、旧16／26は追加前の局所履歴である。Repository登録はMCP非公開であり、登録用Toolを加算しない。旧25／29は本人Tool追加前の局所履歴である。
+通常接続は、全ロールに本人照会 `crdd.get_current_access` を提供する。HTTPの本人照会と同じ本人・現在ロール・改訂を返し、他の利用者・資格・管理操作候補・リポジトリの内容権限・保存先は返さない。
 
-非鍵管理の閉結果投影はAM `management/result.ts`へ移し、MCP固有のenvelope・isError・固定説明だけを本Adapterへ残す。Workbench直接呼出しでも同じ投影を用い、意味変換を二重管理しない。旧16MiBの出力容量拒否とmanagement_response_too_largeは撤去し、完了した管理結果を量だけで未取得へ置換しない。MCP受信本文の上限は別契約として維持する。
-
-状態: 非鍵管理の十操作はAM Resolverと公開Launcherへ接続済み。Repository登録はWorkbenchだけに採用済みであり、MCPのSource／Schema／一覧／dispatchに追加しない。この事項の現在判断待ちはない。Workbenchは専門APIへ直接接続する。正式評価と後続E2Eの未確認範囲は保持し、鍵とHost操作の非公開境界は不変更。
-
-| Tool候補 | 操作固有入力 | 成功時の管理投影 |
+| 管理の読取り | 入力 | 成功時の投影 |
 |---|---|---|
-| `crdd.list_access_users` | 空Object | revision、users（userId／username／role） |
-| `crdd.list_role_content_access` | 空Object | revision、roles（role／workspaceIds） |
-| `crdd.list_registered_repositories` | 空Object | revision、repositories（repositoryIdだけ） |
-| `crdd.list_repository_exposure` | 空Object | revision、repositories（repositoryId／workspaceIds） |
-| `crdd.register_user` | username、plannedRole | User登録結果 |
-| `crdd.update_user_name` | userId、username | User変更結果 |
-| `crdd.update_user_role` | userId、currentRole、nextRole | User変更結果 |
-| `crdd.update_role_content_access` | targetRole、workspaceIds | Role内容変更結果（userIdはnull） |
-| `crdd.unregister_repository` | repositoryId | 登録・対応公開範囲の解除結果 |
-| `crdd.update_repository_exposure` | repositoryId、workspaceIds | 公開範囲変更結果 |
+| `crdd.list_access_users` | 空オブジェクト | 改訂、利用者ID・表示名・ロール |
+| `crdd.list_registered_repositories` | 空オブジェクト | 改訂、登録リポジトリID |
 
-全入力Objectを閉じ、未知field、重複field、不正型を拒否する。六保存操作は共通して`operationId`（既存UUIDv4形式）と`expectedRevision`（1以上のsafe integer）を必須とする。usernameはstring構造だけを検査し、表示名の値制約は[AM保存設計](../access-management/02_Management_State_and_API.md)のCanonical検査へ委譲する。Roleはdeveloper／manager／administrator、workspaceIdsはdevelopment／managementの重複なし配列、User IDは既存UUID形式、Repository IDは既存AMの1〜128文字の識別子とする。空のworkspaceIdsは明示範囲0であり拒否しない。具体値の業務判定・対象存在・現在改訂はAMが所有する。MCP入力からBearer、管理状態Root、Binding、任意の操作名を受けない。
+管理の読取り2件は、要求時に有効な `manager` または `administrator` にだけ一覧表示する。直接呼出しでも、アクセス管理が現在の認証主体・ロール・読取り範囲を確認する。一覧取得時の許可を使い回さない。個々の読取りは別の改訂を返し得る。拒否・観測不能を空一覧へ変えない。ロール別内容範囲と公開範囲のツールは一覧・入力定義・呼出しに含めない。
 
-Tool一覧では要求時の現在通常認証に基づきmanager／administratorへ採用した管理Tool集合を表示し、developer、初回限定、管理Context未構成には管理操作を追加しない。本人一Toolだけは通常三Roleへ提供する。managerへ一覧表示してもadministratorを含むRole変更・登録・内容設定は許可されず、call時のAM判定を維持する。旧Local／stdioの固定依存へ自動追加しない。Context二操作、Topic／Meeting十二操作、活動一操作、Workspace二操作と本人一操作を合わせdeveloperは18、manager／administratorは非鍵管理十操作を加えて28となる。Repository登録はWorkbench限定であり、MCPの一覧・Schema・dispatchには存在しない。
+アクセス管理の書込みはロールにかかわらず一覧・入力定義・登録・呼出しに存在しない。利用者の登録・表示名変更・管理ロール変更、リポジトリの登録・登録解除はWorkbenchが受け付ける。通常の開発操作は本人のGitホストでの実効権限に従い、この管理操作の制限とは別である。
 
-四読取りは別々の現在改訂である。Role内容読取りはmanagerへadministrator行を補完せず、User読取りはmanagerによるadministrator名前管理の既存範囲を保持する。公開範囲のnull（設定なし）と空配列（明示範囲0）を区別する。内部DTOのkind・bindingId・Path・資格は公開しない。拒否・観測／清掃／解放不明を空一覧にしない。非鍵管理応答は検査済みの全結果をJSON-RPCへ搬送し、独自byte上限・部分一覧・暗黙Paging・新Inventoryを設けない。
-
-公開結果は次の閉Unionとする。表にないfieldを追加せず、管理状態Root、登録Root、Binding、資格・秘密、例外本文、内部Recovery参照を返さない。JSON-RPC入力不正は既存`-32602`、開始前／終了後取消は既存`-32800`であり、以下のAM実行結果と混同しない。
-
-| 結果 | exact fieldと値 |
-|---|---|
-| 管理読取り成功 | `status: completed`、`revision`（1以上のsafe integer）、上表Tool固有の`users`／`roles`／`repositories`配列だけ |
-| 管理読取り拒否 | `status: unavailable`、`reason: management_read_rejected`だけ。AM認証／参照拒否を同じ結果へ閉じる |
-| 管理読取り不明 | `status: unavailable`、`reason: management_read_unavailable`だけ。観測・材料清掃・Lock終了の不明を空一覧にしない |
-| 保存成功 | `status: completed`、`operationId`、`expectedRevision`、`revision`、操作別`userId`または`repositoryId`、`publication: confirmed`、`cleanupConfirmed: true`。Role内容保存のuserIdはnull |
-| 保存拒否 | `status: rejected`、`reason: management_request_rejected`だけ。認可前・対象不明・改訂競合を区別開示しない |
-| 認可後保存未完了 | `status: unavailable`、`reason: management_operation_unavailable`、`operationId`、`expectedRevision`、`observedRevision`（safe integerまたはnull）、`publication`（not_attempted／unconfirmed／confirmed）、`cleanupConfirmed`（boolean）、`primaryFailure`（下表の閉enum） |
-
-`primaryFailure`はAMの実Resultにある同名fieldだけを次表へ写し、内部例外や自由文字列を透過しない。
-
-| AMの固定理由 | 公開primaryFailure |
-|---|---|
-| `state_store_previous_pending_settled` | `previous_materials_settled` |
-| `state_store_pending_failed` | `previous_materials_unavailable` |
-| `state_store_capacity_exceeded` | `capacity_exceeded` |
-| `state_store_identity_failed` | `identity_generation_failed` |
-| `state_store_candidate_failed` | `candidate_invalid` |
-| `state_store_repository_binding_failed` | `repository_validation_failed` |
-| `state_store_prepare_failed` | `prepare_failed` |
-| `state_store_publish_failed` | `publication_failed` |
-| `state_store_read_back_failed` | `readback_failed` |
-| `state_store_cleanup_failed` | `cleanup_failed` |
-| `state_store_lock_unknown`、`filesystem_store_lock_operation_completed_cleanup_unknown` | `release_unknown` |
-| その他・未知理由 | `storage_unavailable` |
-
-先行材料の処置と新出版準備を同じ分類へ畳まない。出版成功後のLock終了不明はprimaryへ到達し得る。一方、既知の最初の失敗に付随する内部secondary理由をこの表から推定・新規公開しない。cleanupConfirmedは材料とLock終了の複合確認であり、falseだけから失敗箇所を推定しない。全分類で既知publicationと観測改訂を保持し、rollback・Effect 0・completedへ書き換えない。operationIdは相関であってReceiptや冪等再送保証ではない。
-
-完全Schema検査→開始前signal確認→AM同期API最大一回→終了後signal確認→閉結果公開の順とする。開始前取消は管理API呼出し0。同期保存開始後は終了まで待ち、取消・応答喪失で既知出版を戻さず、成功応答の抑止と保存の取消を区別する。自動再送せず次要求で現在状態を読む。Bearerは既存HTTP Headerから当該要求closureへ結合し、本文・結果・ログへ転記しない。Repository登録はWorkbench限定の採用済み方針に従い、このMCP経路では登録Root候補を受け取らない。
-
-管理Toolの一覧・登録・閉入力と結果搬送は `transport/mcp-server.ts` に置き、認可と保存は既存AM・管理操作が所有する。外部利用側は正式な `./mcp` の `createAccessMcpResolver` と `createMcpServerFactory` を使い、新たな管理Storeを追加しない。Repository登録を含めない採用済みTool集合の配置であり、正式評価・後続E2Eは未完了として保持する。
-
-上記の閉結果Unionは、既存Tool応答方式と同じ`structuredContent`へ置く。`content`は秘密・入力・内部理由を複製しない固定説明だけ、`isError`は管理結果がcompleted以外ならtrueとする。外側のJSON-RPC／Protocol metadataは既存契約を保持する。Schema不正や取消等のProtocol errorを、管理結果のstructuredContentへ混在させない。Runtime／OS自体のメモリ・文字列限界は残り、致命的OOMや終了時の応答返却は保証しない。
+読取り結果はアクセス管理の非秘密投影を `structuredContent` へ搬送する。成功は `status: completed` と改訂・操作別配列のみ、拒否は `management_read_rejected`、観測・清掃・解放不明は `management_read_unavailable`。保存先、資格、内部例外は公開しない。不正入力と取消は既存のProtocolエラーで返す。読取りを実行する前と応答前に取消を確認し、自動再送しない。結果の大きさだけを理由に既知の結果を未取得へ置換しない。
 
 ### 3.4. 初回Host設定の非公開境界
 
-限定接続の具体Owner／Protocolは[AM保存設計§2.5](../access-management/02_Management_State_and_API.md#25-初回限定接続の具体契約)に従う。初回資格には通常Tool Handlerを渡さず、HTTPと既存Protocolの完全検査を通る`server/discover`だけを受ける。AMのfresh相関照合・確認保存・読戻し・短命清掃・Lock終了後だけ非秘密の成功応答を返し、通常Authorityは次要求で取り直す。初期化操作・状態照会・鍵操作の公開例外ではなく、Client応答受領保証でもない。Sourceと公開HTTPは接続済みである。実Hostからの初回縦断と利用者理解は後続E2Eへ保持し、模擬入力の成功を実Host成立にしない。
+旧初回資格の限定接続は切替前の仕様であり、MCPからは撤去した。共有MCPではOAuthの同意を使い、旧資格で通信能力の照会やツール一覧を送っても、接続確認の保存を行わない。[AM保存設計§2.5](../access-management/02_Management_State_and_API.md#25-初回限定接続の具体契約)にある旧方式の保存契約は、切替前の検証と内部実装の撤去対象として区別する。
 
 初回State／Sequenceと失敗分岐は[Access Management詳細](../access-management/01_Architecture.md#41-初回host設定のstateとsequence)が所有する。MCPは初期化Toolの一覧・Schema・登録・dispatchを全て持たず、初期化状態照会・元試行Identity・初期SecretのWorkbench搬送も公開しない。通常CROS認証、非鍵管理の9 Role分担行、同じHTTP入口の接続はこの例外を作らない。
 
 MCP起動・`--shared`・設定File存在・Remote要求は初回設定の明示開始やHost Authorityではない。未初期化・破損・観測不能では既存起動契約に従い停止し、自動Bootstrap、別Root、新資格、単体fallbackを生成しない。未認証／非許可Clientへ管理ユーザーや試行の存在を結果・エラー・件数等で開示しない。独立したWorkbenchにも初期化操作・初回秘密提示を追加せず、Hostの操作はローカル対話入口で扱う。
 
-旧非公開候補の限定Passは当時の固定版の履歴。今回の最小提示方式を受けた境界差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。初回限定接続の必要性から、通常MCP認証・内容Authority・鍵Tool・状態照会・Secret搬送の例外を生成しない。通常認証はcompletedを要求し、初回確認は専用の限定HandlerとAM Ownerへ分離して接続する。具体接続Owner・ProtocolはAM詳細で閉じる。Qualityは鍵4面・状態照会の不存在、起動／Remote入力から初期化Effect0、未確認保存・読戻し・清掃後の通常Authority0を確認する。Source／公開HTTPは接続済みで、実Host縦断・人間UAT・正式評価・最終Gateは未完了。
+旧非公開候補の限定Passは当時の固定版の履歴。最小鍵提示方式の限定レビューと、当時の専用Handler／AMによる初回確認の試験は、現行の共有OAuthの成立証拠に用いない。現行MCPには初回設定・状態照会・鍵操作のツールを登録しない。
 
 ## 4. Authorityと情報境界
 
@@ -487,37 +438,41 @@ request bytes received
 
 connection切断やstdio EOFをTask終了とみなさない。取消を要求した場合も、CoordinatorのTask管理が対象Taskと資源のsettlementを返すまで取消完了と表示しない。response書込み不明時は同じrequest identityによる再取得へ接続し、新しいObjectiveを発行しない。
 
-### 5.1 localhost Streamable HTTP
+<a id="51-localhost-streamable-http"></a>
+
+### 5.1 共有のStreamable HTTP
 
 HTTP TransportはMCP `2026-07-28`へ固定し、一つの`/mcp` endpointでPOSTを受ける。旧版のGET streamとTransport Session IDは持たない。
 
 - listenerは`127.0.0.1`だけへbindし、`0.0.0.0`、LAN AddressまたはInternetへfallbackしない。
-- 単独HTTP APIは32 byte以上の不透明Bearer tokenを起動時にHostから受け取り、未設定または不正なtokenでは起動しない。統合CLIの通常起動ではtoken未設定でもWorkbenchとHTTP APIを起動し、`/mcp`の要求を401にする。token値を結果、logまたはRepositoryへ保存しない。
-- `Origin`がない非Browser Clientを許可し、Originがある場合は起動時のlocalhost allowlistとのexact一致だけを許可する。
+- `--shared` の待受にだけMCP HTTPとOAuthの案内を接続する。単体起動のHTTPはWorkbenchとHTTP APIを提供するが、MCPを提供しない。単体MCPは `--mcp-stdio` で利用し、HTTP用の固定トークンは使用しない。
+- `Origin`がない非ブラウザークライアントを許可し、ある場合は構成上許可したOriginとの完全一致を要求する。Originは本人確認の代用にしない。
 - `MCP-Protocol-Version`、`Mcp-Method`および`tools/call`の`Mcp-Name`を本文の`_meta`、`method`、`params.name`と照合する。
 - `application/json`のfatal UTF-8かつ128 KiB以下の単一JSON-RPC文書だけを受理し、ClientはJSONとSSEの双方をAcceptに示す。
-- response切断は当該要求の取消であり、別要求またはProject全体の取消に拡張しない。Server終了はclosingへ一度だけ遷移し、`server.close()`で新規accept停止を開始してから、受信中body／request、Application、handler、残存socketの順に取消・回収し、Server終了と全Registryの空を確認した場合だけTransport cleanup完了を返す。公開LauncherがNode.jsの`SIGINT`／`SIGTERM` eventを受領した後は、最初のeventで同じ終了Promiseを開始し、Application取消とjoinを含む`server.close()`がsettleするまで両方のlistenerを保持する。重複eventを別終了へ展開せず、終了の成功・失敗が確定した後にだけlistenerを解除する。OSまたはConsoleからNode.js ProcessへのSignal配送自体はこの契約の成立範囲に含めず、対応環境ごとの実Process検証なしに利用者操作の成立を主張しない。
+- 応答の切断は当該要求だけを取り消す。Server終了はHTTPとMCPの共通起動処理が所有する。新規受付を止め、処理中の要求を取り消し、その処理と接続の終了を待つ。CLIは重複する終了イベントを別の終了操作へ展開しない。合成イベントの試験は、OSやコンソールからの実際の通知配送を証明しない。
 - HTTP接続、Bearer tokenおよびheaderはTransport認証・相関情報であり、Project AuthorityまたはRecovery Authorityではない。
 
-### 5.2 Remote CROS Project Context MCP
+<a id="52-remote-cros-project-context-mcp"></a>
 
-Remote CROSのProject Context MCPは、同じ`/mcp` Protocolを使うが認証Ownerが異なる。
+### 5.2 共有MCPの認証・認可
 
-- Repository単体のlocalhost入口は起動時固定TokenをTransport認証へ使用し、CROS Credentialを要求しない。
-- Remote CROS入口はAccess Managementへ要求毎の現在Credential検証を委譲し、失効・不正Tokenを一律401へ閉じる。
-- 認証成功後にAccess Managementが現在Role・Exposure・Binding・実アクセスを評価し、認可済みRepository集合だけをDomain Modelへ渡して一要求のPortfolioへ固定する。
-- `tools/list`も許可済みHandlerから返し、Remote Project Context入口でTask／Objective操作を暗黙公開しない。
+共有MCPは、単体stdioと同じ機能の正式APIへ接続するが、通信の認証と対象の認可を別途行う。
+
+- 共有MCPはCRDD Serverの認可サーバーを案内し、`/mcp` 宛ての有効なOAuthアクセストークンだけを受け付ける。ログイン用のCookieや旧接続鍵は代用しない。受け付けられないトークンでは401を返す。
+- 認可途中の操作と、本人の有効な同意がまだないセッションは、確立済みのセッション・同意・発行済みコードやトークンと別の枠に置く。途中の枠は256件までとし、期限切れを除いても満杯なら最古の途中状態だけを入れ替える。すでに読み取った途中状態でも、入れ替え後に書き戻さない。確立済み側の上限は2,048件とし、満杯で既存認可を追い出さない。
+- アクセス管理は現在の本人と連携登録を照合する。内容操作は、対象への本人のGitホストでの実効権限で決め、ロール別の内容範囲や公開範囲では判定しない。
+- `tools/list` は現在許可された操作を表示し、`tools/call` は呼出し時の現在認可を別途確認する。MCPにはアクセス管理の書込みを公開しない。
 - 共有配置でもListenerはloopback限定とする。許可された外部TLS終端からは`/mcp`へ直接配送する。CROS RESTの`/v1/...`と専用Shared Gatewayは設けない。統合CLIの`--shared`ではWorkbenchとMCPの公開Originを同値または双方省略とし、HTTPとMCPの資格受付は分ける。
 - `mcp-server.json`のHTTPS公開Originと公開Host、TLS終端の確定Header、許可Originを検証する。TLS終端はClient由来のForwarded Headerを除去して上書きし、内部接続からの偽装を防ぐHost配置が確認できない場合は公開しない。認証後はAccess Managementが要求毎の現在認可を確認し、Local直接呼出しと同じ制約を用いる。鍵操作を除く公開能力だけを接続する。
 - 非秘密設定は起動Repositoryの`.crdd/config/mcp-server.json`。現在の閉Schemaは任意の`publicOrigin`文字列だけで、空ObjectまたはFile不存在はlocalhost既定とする。`--shared`明示時だけ読み、Host設定や資格を含めない。例は[配布設定](../../../template/.crdd/config/mcp-server.example.json)。16KiBの独自容量拒否と固定Bufferを撤去し、開いたFileの観測sizeまで全量を読み取る。重複・余剰field、不正UTF-8、Directory／File link、取得時File Identity不一致、Descriptorのsize・mtime不一致、read／close異常は固定拒否にする。通常localhostとstdioは設定の存在で共有へ切り替えない。portは既存CLI引数が所有する。公開Originは案内URL、内部Listener URLは運用・試験の観測用として区別する。これは起動時Snapshotの検査で、取得後のPath／Directory不変を保証しない。HTTP／MCP受信量・Credential形式・許可Originは変更しない。配置Ownerが設定変更と再起動を管理する。
 - Bearer TokenはRequest Headerからだけ受け取り、CLI引数、環境変数、共有設定、Repositoryまたはlogへ保存しない。公開証明書の管理はTLS終端の運用責務であり、MCP Transportは証明書Authorityを所有しない。
-- 単独MCP HTTP APIは自身の受付停止、Request取消、Application join、Listener／Socket回収と終了結果を所有し、WorkbenchやTLS終端は終了しない。統合CLIは起動したHTTP・MCPの両方を終了する。`--mcp-stdio`ではMCPだけを標準入出力に切り替え、Signalまたは標準入力の終了時は併設HTTPも停止し、両方の終了を待つ。旧Gateway終了試験だけで統合入口の終了を証明しない。
+- 共有MCPはCRDD Serverと同じ待受で終了する。外部TLS終端自体はServerの終了対象ではない。`--mcp-stdio` ではMCPを標準入出力に切り替え、停止時は併設HTTPも終了する。
 
 ### ブロック状態遷移
 
 | 現在状態 | 契機／事前条件 | 処理と観測 | 次状態 | 終了後条件 |
 |---|---|---|---|---|
-| 未開始 | stdioまたはlocalhost HTTPの固定設定 | 入出力／listenerを取得 | 待受中／拒否 | 拒否時はApplication呼出し0 |
+| 未開始 | 単体stdioまたは共有OAuthの起動構成 | 入出力／待受を取得 | 待受中／拒否 | 拒否時はアプリケーション呼出し0 |
 | 待受中 | 認証・protocol一致の要求 | decodeし公開契約へ一回搬送 | 実行中／要求拒否 | transport metadataをAuthorityへしない |
 | 実行中 | 結果、切断、parent EOF、signal | encode、取消、進行要求join | 待受中／終了中 | 切断を成功へ補正しない |
 | 終了中 | shutdown開始 | 新規受付を止め、要求・socket・listenerを閉じる | 終了／不明 | listener不存在、進行要求0、listener解除 |

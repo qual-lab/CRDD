@@ -16,8 +16,8 @@ import {
   MCP_COORDINATOR_PROTOCOL_VERSION,
   type McpResponse,
   runMcpStdio,
-  startMcpStreamableHttp,
 } from "../../src/transport/mcp-server.ts";
+import { startMcpAuthenticatedStreamableHttp } from "../support/mcp-http-listener.ts";
 import type { McpRequestSource } from "../../src/transport/mcp-types.ts";
 
 /**
@@ -35,7 +35,19 @@ export async function invokeMcpSource(
   source: McpRequestSource,
   raw: unknown,
   signal: AbortSignal,
-): Promise<McpResponse> {
+): Promise<McpResponse>;
+export async function invokeMcpSource(
+  source: McpRequestSource,
+  raw: unknown,
+  signal: AbortSignal,
+  sdkSignal: AbortSignal,
+): Promise<McpResponse | null>;
+export async function invokeMcpSource(
+  source: McpRequestSource,
+  raw: unknown,
+  signal: AbortSignal,
+  sdkSignal?: AbortSignal,
+): Promise<McpResponse | null> {
   const request =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
   const id =
@@ -97,9 +109,12 @@ export async function invokeMcpSource(
             : {}),
         },
         body: JSON.stringify(body),
+        ...(sdkSignal ? { signal: sdkSignal } : {}),
       }),
     );
-    return (await response.json()) as McpResponse;
+    const bodyText = await response.text();
+    if (sdkSignal?.aborted && bodyText === "") return null;
+    return JSON.parse(bodyText) as McpResponse;
   } finally {
     await Promise.allSettled(pending);
     await sdk.close();
@@ -134,15 +149,28 @@ export function invokeMcpCoordinatorRequest(
   return invokeMcpRequest(raw, { coordinator }, signal);
 }
 
+/** 合成資格による要求別の解決を本番のHTTP搬送へ接続する。 @trace EST-ST-003 */
+export function startMcpHttpFixture(
+  source: McpRequestSource,
+  {
+    bearerToken,
+    ...options
+  }: Parameters<typeof startMcpAuthenticatedStreamableHttp>[1] & {
+    bearerToken: string;
+  },
+) {
+  return startMcpAuthenticatedStreamableHttp(
+    (observed) => (observed === bearerToken ? source : null),
+    options,
+  );
+}
+
 /** SDKの実HTTPと合成の実行依存を試験内だけで組み合わせる。 @trace EST-ST-003 */
 export function startCoordinatorHttpFixture(
   coordinator: McpCoordinatorDependencies,
-  options: Parameters<typeof startMcpStreamableHttp>[1],
+  options: Parameters<typeof startMcpHttpFixture>[1],
 ) {
-  return startMcpStreamableHttp(
-    createMcpServerFactory({ coordinator }),
-    options,
-  );
+  return startMcpHttpFixture(createMcpServerFactory({ coordinator }), options);
 }
 
 /** SDKの実stdioと合成の実行依存を試験内だけで組み合わせる。 @trace EST-ST-012 */

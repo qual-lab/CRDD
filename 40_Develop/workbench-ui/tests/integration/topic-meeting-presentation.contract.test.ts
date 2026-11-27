@@ -11,10 +11,115 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createRecordRequest,
   createTopicMeetingActionBody,
+  inspectRecordResponse,
   inspectTopicMeetingActionResult,
 } from "../../src/api/record.ts";
 import { createSelectedWorkbenchViewUrl } from "../../src/api/view.ts";
+
+/**
+ * Form操作をRESTのリソース・メソッドへ固定する。
+ * @trace CPR-IT-010
+ * @boundary URLとJSONの搬送だけを検証し、保存はServer試験で確認する。
+ */
+test("内容操作は対象をURLに置き、確認値をJSONのbooleanとして送る", () => {
+  const prefix = "/api/repositories/repository.one";
+  for (const [action, kind, suffix, method] of [
+    ["create", "topic", "/topics", "POST"],
+    ["update", "meeting", "/meetings/MTG-000001", "PATCH"],
+    ["delete", "topic", "/topics/TOPIC-000001", "DELETE"],
+    ["promote-topic", "topic", "/topics/TOPIC-000001/promotion", "POST"],
+    [
+      "treat-outcome",
+      "meeting",
+      "/meetings/MTG-000001/outcomes/OUT-001/treatment",
+      "PUT",
+    ],
+  ] as const) {
+    const form = new URLSearchParams({
+      operation: action,
+      kind,
+      repositoryId: "repository.one",
+      actionToken: "not-sent",
+      markdown: "fixture",
+    });
+    if (action !== "create") {
+      form.set("id", kind === "topic" ? "TOPIC-000001" : "MTG-000001");
+      form.set("expectedRevision", "2");
+    }
+    if (action === "promote-topic") form.set("changeId", "CHG-000001");
+    if (action === "treat-outcome") form.set("outcomeId", "OUT-001");
+    const request = createRecordRequest(form);
+    assert.equal(request.path, `${prefix}${suffix}`);
+    assert.equal(request.method, method);
+    assert.equal(request.success, action === "create" ? 201 : 200);
+    for (const key of [
+      "operation",
+      "kind",
+      "repositoryId",
+      "actionToken",
+      "id",
+      "outcomeId",
+    ])
+      assert.equal(Object.hasOwn(request.body, key), false);
+    if (action !== "create")
+      assert.equal(Reflect.get(request.body, "expectedRevision"), 2);
+    if (action === "delete")
+      assert.equal(Reflect.get(request.body, "confirmed"), false);
+    if (action === "treat-outcome")
+      assert.equal(Reflect.get(request.body, "closeMeeting"), false);
+  }
+});
+
+/**
+ * HTTP状態と記録の照合結果を保存確認に使う。
+ * @trace CPR-IT-012
+ * @boundary HTTP結果の相関だけを検証し、再取得はBrowser試験で確認する。
+ */
+test("異なる対象・不明な保存と確定した競合拒否を区別する", () => {
+  const form = new URLSearchParams({
+    kind: "topic",
+    operation: "update",
+    id: "TOPIC-000001",
+    repositoryId: "repository.one",
+  });
+  const completed = {
+    status: "completed",
+    reason: "record_updated",
+    record: { topicId: "TOPIC-000001" },
+    relationPaths: [],
+    filesystemEffectCount: 1,
+  };
+  assert.equal(
+    inspectRecordResponse(form, completed, 200, 200).status,
+    "completed",
+  );
+  assert.throws(() =>
+    inspectRecordResponse(
+      form,
+      {
+        ...completed,
+        record: { topicId: "TOPIC-000002" },
+      },
+      200,
+      200,
+    ),
+  );
+  const conflict = {
+    ...completed,
+    status: "blocked",
+    reason: "record_revision_conflict",
+    record: null,
+    filesystemEffectCount: 0,
+  };
+  assert.equal(
+    inspectRecordResponse(form, conflict, 409, 200).status,
+    "blocked",
+  );
+  assert.throws(() => inspectRecordResponse(form, conflict, 503, 200));
+  assert.throws(() => inspectRecordResponse(form, completed, 409, 200));
+});
 
 /**
  * checkboxと選択対象を欠測・暗黙確認へ変換しない。

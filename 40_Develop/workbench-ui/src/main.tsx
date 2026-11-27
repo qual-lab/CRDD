@@ -10,7 +10,7 @@
  */
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router/dom";
-import { clearWorkbenchCredential } from "./api/connection.ts";
+import { invalidateWorkbenchRequests } from "./api/connection.ts";
 import { createWorkbenchRouter, isWorkbenchRoute } from "./router.tsx";
 
 /**
@@ -152,7 +152,7 @@ function startWorkbenchClient(): void {
     closed = true;
     router?.dispose();
     router = null;
-    clearWorkbenchCredential();
+    invalidateWorkbenchRequests();
     rendering.unmount();
     root.dataset.workbenchClient = "closed";
     document.removeEventListener("click", navigateLink);

@@ -428,7 +428,7 @@ Hostから渡すSeccompはImageの外なので、実行時の実体・容量・H
 
 ## Workspace方式の追加検証条件（2026-10-17）
 
-検証HTTP Clientの期限は`ERB-IT-021`でRoute別に反証する。exact `/api/workspace`はget等を含む全操作でHTTP60秒・親65秒、AI受付・取消の `/api/ai-request` とAI状態観測を含むWorkbench viewの `/api/workbench/view?route=%2F` はHTTP15秒・親20秒、共通の終了確認2秒とする。有限時計で設定値・期限超過・一回abort・Reader回収・子の終了未確認・late frame／close・再送零を確認し、実loopbackでは15秒超かつ60秒内のWorkspace応答と、他Routeの15秒拒否を別々に確認する。時刻observerの例外で一次結果を変更しない。これは検証Toolの有限待機であり、製品性能や任意Repositoryでの完了保証ではない。
+検証HTTP Clientの期限は`ERB-IT-021`でRoute別に反証する。作業領域リソースの一覧・取得・検査・候補差分のGETはHTTP60秒・親65秒、リポジトリ別のAI依頼開始・取消 とAI状態観測を含むWorkbench viewの `/api/workbench/view?route=%2F` はHTTP15秒・親20秒、共通の終了確認2秒とする。有限時計で設定値・期限超過・一回abort・Reader回収・子の終了未確認・late frame／close・再送零を確認し、実loopbackでは15秒超かつ60秒内のWorkspace応答と、他Routeの15秒拒否を別々に確認する。時刻observerの例外で一次結果を変更しない。これは検証Toolの有限待機であり、製品性能や任意Repositoryでの完了保証ではない。
 
 Coordinator借用接続の追加断面は、`ERB-IT-006`の通常二役割・一回是正・範囲逸脱停止・取消、`RFD-IT-013`／`PRL-IT-013`の実GitでのDirect／Isolated入力搬送・開始dirty基準・二Task継続・元Tree／Branch保全、`ERB-UT-023`の三Mount計画と回収観測照合に割り当てる。旧Bundle準備／保存へ進まないこと、Reader拒否でfallbackしないこと、欠測を変更なしやTree保持済みへ補完しないことを確認する。局所代役の成功を実Provider・公開E2EのPassへ拡張しない。
 
@@ -770,7 +770,7 @@ Provider差の純粋検証は、`ARCH-000004`／`ARCH-000015`の結果変換と`
 
 `ERB-IT-021`のNode実行閉包ケースでは、Workbench CLI入口とRuntime value import／re-export／literal dynamic import Graphを固定入力とし、type-only参照を実行依存へ数えず再帰走査する。到達Source、外部module specifier、`.tsx`および`workbench-ui` Package到達を観測し、Serverへ到達する一方でBrowser描画Module、`.tsx`、`workbench-ui` Packageおよび`react`／`react/*`への到達が0であることをOracleとする。Evidenceには固定Tree、入口、到達Source集合Hash、外部module集合、除外したtype-only宣言数、禁止到達件数およびOracle判定を保存し、Source本文と絶対Pathは保存しない。
 
-同じ依存境界試験で、Workbench UI自身の実行依存を辿り、Server型を参照する場合も公開HTTP入口 `./api` だけを許す。Server内の操作・通信ファイルへの型参照は許さず、公開入口への実行時参照も従来どおり拒否する。
+同じ依存境界試験で、Workbench UI自身の実行依存を辿り、Server型を参照する場合も型専用のパッケージルートだけを許す。Server内の操作・通信ファイルへの型参照は許さず、型専用ルートの実行時解決と、旧 `./api`・`./mcp` の解決を拒否する。`./cli` だけが実行入口に解決されることも照合する。
 
 `ERB-IT-021`のうち、取得した本文・公開項目・認可の相関はServerのHTTP境界で確認し、不正応答を描画前に拒否する条件はWorkbench UIの応答検査で反証する。UI側の合成応答は実Serverとの接続成立の証拠にはしない。
 

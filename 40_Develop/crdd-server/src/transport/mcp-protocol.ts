@@ -4,17 +4,17 @@
  * @trace ARCH-000012
  */
 import {
-  Server,
-  ProtocolError,
-  LOG_LEVEL_META_KEY,
   type CallToolResult,
   type ListToolsResult,
+  LOG_LEVEL_META_KEY,
+  ProtocolError,
+  Server,
 } from "@modelcontextprotocol/server";
-import type { JsonRpcId, McpResponse, McpRequestSource } from "./mcp-types.ts";
+import type { JsonRpcId, McpRequestSource, McpResponse } from "./mcp-types.ts";
 
 /**
  * 完全なdiscover要求だけを固定応答へ変換する。
- * @responsibility 通常／初回の入力・ID・Envelope・応答の差を防ぐ。
+ * @responsibility 通信能力を照会する入力と非秘密の応答を固定する。
  * @trace ARCH-000012
  * @trace ARCH-000013
  * @input 信頼しないJSON-RPC要求。
@@ -259,13 +259,13 @@ export function inspectProtocolRequest(value: unknown) {
 }
 
 /**
- * 本番Factoryまたは限定Handlerを同じ要求別SDK Serverへ接続する。
+ * 本番Factoryまたは要求Handlerを同じ要求別SDK Serverへ接続する。
  * @responsibility Transportに重複したTool dispatchを持たせない。
  * @trace ARCH-000012
  * @input 現在の接続、元入力、取消、開始済みOwnerの観測。
  * @returns この一要求だけを処理するSDK Server。
  * @precondition raw本文の完全性・容量は入口で検査する。
- * @postcondition discoverの初回確認をSDK自動応答より先に実行する。
+ * @postcondition SDK自動応答の前にHandlerのdiscover入力検査を行う。
  * @effect Handlerまたは専門Ownerの契約に従う。
  * @failure 内部例外を固定Protocol errorへ閉じる。
  * @invariant Serverと現在認可を後続要求へ再利用しない。

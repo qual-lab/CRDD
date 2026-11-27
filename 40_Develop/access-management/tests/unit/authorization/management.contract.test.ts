@@ -1,5 +1,5 @@
 /**
- * Role別分担9行・11認可要求種別とRoot公開関数・型の集合を検証する。
+ * Role別の管理操作とRoot公開関数・型の集合を検証する。
  *
  * @packageDocumentation
  * @responsibility 許可・拒否・入力不正を公開Root経由で確認し、純粋判定以外の成立を主張しない。
@@ -21,46 +21,40 @@ import {
 const ROLES: readonly AccessRole[] = ["developer", "manager", "administrator"];
 
 /**
- * 三Roleと11認可要求種別の基本分担を全数確認する。
+ * 三Roleの管理操作ごとの分担を確認する。
  * @responsibility developer全拒否、通常管理manager許可、鍵administrator専用を固定Oracleへ照合する。
  * @trace RFD-UT-020
  * @precondition 採用済み操作と対象Roleを値として用意する。
- * @stimulus 三Roleを全11認可要求種別へ適用する。
- * @observation 33判定結果、Runtime公開30関数、SourceのRoot公開27型を取得する。
+ * @stimulus 三Roleを各認可要求へ適用する。
+ * @observation 判定結果、実行時の公開関数とSourceで宣言した型の集合を取得する。
  * @oracle 明示した担当Role集合だけallowed、他の有効Roleはdenied。関数・型は宣言したPackage Root集合と完全一致し、保存関数を本試験では実行しない。
  * @cleanup N/A: 状態・handle・一時Fileを生成しない。
  * @boundary 純粋認可判定の公開入口とPackage Root Sourceの読取り。保存・実Host操作なし。
  */
-test("三Roleと全11認可要求種別の固定分担", () => {
+test("三Roleと現行管理操作の固定分担", () => {
   assert.deepEqual(Object.keys(publicApi).sort(), [
-    "authenticateNormalConnection",
-    "confirmInitialConnection",
-    "evaluateAiProfileManagementPermission",
+    "acceptInvitation",
+    "checkHostedRepositoryRegistration",
     "evaluateManagementPermission",
-    "exchangeCredentials",
-    "finishKeyExchange",
-    "initializeFromHost",
-    "issueCredential",
-    "readCredentialAdministrationState",
+    "initializeAdministratorFromHost",
+    "linkAccountFromHost",
+    "observeHostedExecutionBinding",
+    "onAccessStatePublication",
+    "readAccount",
+    "readAdministratorFromHost",
     "readCurrentAccess",
     "readExistingHostRoot",
+    "readFilesystemStoreDirectory",
     "readHostInitializationState",
-    "readKeyExchangeState",
+    "readHostedAccessCandidates",
     "readManagementState",
-    "readUserStatus",
     "registerRepository",
     "registerUser",
-    "resolveConnectionAuthentication",
+    "renewInvitation",
     "resolveHostRootInput",
-    "resolveRepositoryAccess",
-    "resolveRepositoryAccessCollection",
-    "resolveRuntimeContentAccess",
-    "revokeCredential",
-    "sameAccessCollection",
+    "resolveHostedAccessCollection",
+    "resolveHostedAccessDirectories",
     "unregisterRepository",
-    "updateCredentialPresentationState",
-    "updateExposure",
-    "updateRoleContentAccess",
     "updateUserName",
     "updateUserRole",
   ]);
@@ -85,32 +79,19 @@ test("三Roleと全11認可要求種別の固定分担", () => {
     .sort();
   assert.deepEqual(publicTypes, [
     "AccessRole",
-    "AiProfileManagementPermission",
-    "AuthenticatedRequest",
+    "AccountAccessPrincipal",
     "AuthorizedRepository",
-    "ConnectionAuthenticationResult",
-    "CredentialAdministrationSnapshot",
-    "CredentialAdministrationStateResult",
-    "CredentialAuthenticationResult",
-    "CredentialManagementResult",
-    "CredentialPresentationUpdate",
     "CurrentAccessOutcome",
     "FilesystemStoreRoot",
-    "HostInitializationResult",
+    "GitHostLinkedRepository",
     "HostInitializationStateResult",
-    "InitialConnectionBinding",
-    "KeyExchangeCompletionResult",
-    "KeyExchangeObservation",
-    "KeyExchangeResult",
+    "HostedAccessCandidate",
     "ManagementOperationOutcome",
     "ManagementPermission",
     "ManagementReadKind",
     "ManagementReadOutcome",
     "ManagementRequest",
-    "RepositoryAccess",
     "RepositoryAccessCollectionResult",
-    "RepositoryAccessResult",
-    "UserStatusResult",
   ]);
   const rows: readonly Readonly<{
     request: ManagementRequest;
@@ -122,7 +103,7 @@ test("三Roleと全11認可要求種別の固定分担", () => {
     },
     {
       request: { operation: "updateUserName", targetRole: "administrator" },
-      permittedRoles: ["manager", "administrator"],
+      permittedRoles: ["administrator"],
     },
     {
       request: {
@@ -130,10 +111,6 @@ test("三Roleと全11認可要求種別の固定分担", () => {
         currentRole: "developer",
         nextRole: "manager",
       },
-      permittedRoles: ["manager", "administrator"],
-    },
-    {
-      request: { operation: "updateRoleContentAccess", targetRole: "manager" },
       permittedRoles: ["manager", "administrator"],
     },
     {
@@ -145,24 +122,8 @@ test("三Roleと全11認可要求種別の固定分担", () => {
       permittedRoles: ["manager", "administrator"],
     },
     {
-      request: { operation: "updateExposure" },
-      permittedRoles: ["manager", "administrator"],
-    },
-    {
       request: { operation: "manageAiProfiles" },
       permittedRoles: ["manager", "administrator"],
-    },
-    {
-      request: { operation: "issueCredential" },
-      permittedRoles: ["administrator"],
-    },
-    {
-      request: { operation: "revokeCredential" },
-      permittedRoles: ["administrator"],
-    },
-    {
-      request: { operation: "exchangeCredentials" },
-      permittedRoles: ["administrator"],
     },
   ];
   for (const row of rows) {
@@ -177,16 +138,34 @@ test("三Roleと全11認可要求種別の固定分担", () => {
 });
 
 /**
- * 登録予定、変更前後、内容設定、表示名のRole対象を全数確認する。
- * @responsibility managerのadministrator表示名許可とadministrator資格境界の拒否を区別する。
+ * 登録予定、変更前後、表示名のRole対象を全数確認する。
+ * @responsibility managerの通常管理とadministratorの表示名・ロールの変更制限を区別する。
  * @trace RFD-UT-020
  * @precondition 三Roleをactorと対象へ別々に用意する。
- * @stimulus 登録・名前・内容設定の9組ずつ、Role変更の27組を評価する。
- * @observation 対象別の54結果を取得する。
+ * @stimulus 登録・名前の9組ずつ、Role変更の27組を評価する。
+ * @observation 対象別の45結果を取得する。
  * @oracle administratorは全有効対象、managerは名前全対象と通常Role対象だけ許可、developerは拒否。
  * @cleanup N/A: 入力値だけを使用する。
  * @boundary N/A: 保存や実対象存在の観測には接続しない。
  */
+test("管理セッション発行可否は現在の固定Roleだけで判定する", () => {
+  const request = { operation: "openManagementSession" };
+  assert.equal(evaluateManagementPermission("manager", request), "allowed");
+  assert.equal(
+    evaluateManagementPermission("administrator", request),
+    "allowed",
+  );
+  assert.equal(evaluateManagementPermission("developer", request), "denied");
+  assert.equal(evaluateManagementPermission("unknown", request), "invalid");
+  assert.equal(
+    evaluateManagementPermission("manager", {
+      ...request,
+      targetRole: "administrator",
+    }),
+    "invalid",
+  );
+});
+
 test("操作固有のRole対象と全変更前後組合せ", () => {
   for (const actor of ROLES) {
     for (const target of ROLES) {
@@ -202,17 +181,10 @@ test("操作固有のRole対象と全変更前後組合せ", () => {
       );
       assert.equal(
         evaluateManagementPermission(actor, {
-          operation: "updateRoleContentAccess",
-          targetRole: target,
-        }),
-        ordinary ? "allowed" : "denied",
-      );
-      assert.equal(
-        evaluateManagementPermission(actor, {
           operation: "updateUserName",
           targetRole: target,
         }),
-        actor === "developer" ? "denied" : "allowed",
+        ordinary ? "allowed" : "denied",
       );
       for (const next of ROLES) {
         const expected =
@@ -254,12 +226,15 @@ test("未知値と操作別必須・禁止fieldを拒否", () => {
     { operation: "registerUser" },
     { operation: "registerUser", plannedRole: "management" },
     { operation: "updateUserName" },
-    { operation: "updateRoleContentAccess", targetRole: 3 },
+    { operation: "updateRoleContentAccess", targetRole: "manager" },
+    { operation: "updateExposure" },
     { operation: "updateUserRole", currentRole: "developer" },
     { operation: "updateUserRole", currentRole: "other", nextRole: "manager" },
     { operation: "fromHost" },
     { operation: "manageAiProfiles", systemAdmin: true },
-    { operation: "issueCredential", systemAdmin: true },
+    { operation: "issueCredential" },
+    { operation: "revokeCredential" },
+    { operation: "exchangeCredentials" },
     { operation: "registerRepository", targetRole: "developer" },
     { operation: "unregisterRepository", [Symbol("extra")]: true },
     Object.create({ operation: "updateExposure" }),
@@ -271,7 +246,7 @@ test("未知値と操作別必須・禁止fieldを拒否", () => {
   }
   for (const actor of [null, undefined, "management", "root", {}, 1]) {
     assert.equal(
-      evaluateManagementPermission(actor, { operation: "issueCredential" }),
+      evaluateManagementPermission(actor, { operation: "manageAiProfiles" }),
       "invalid",
     );
   }
@@ -299,7 +274,7 @@ test("accessorとProxy非実行・入力不変", () => {
   const accessor = Object.defineProperty({}, "operation", {
     get() {
       calls++;
-      return "issueCredential";
+      return "manageAiProfiles";
     },
     enumerable: true,
   });
@@ -326,8 +301,11 @@ test("accessorとProxy非実行・入力不変", () => {
     operation: "updateUserName",
     targetRole: "administrator",
   });
-  assert.equal(evaluateManagementPermission("manager", request), "allowed");
-  assert.equal(evaluateManagementPermission("manager", request), "allowed");
+  assert.equal(evaluateManagementPermission("manager", request), "denied");
+  assert.equal(
+    evaluateManagementPermission("administrator", request),
+    "allowed",
+  );
   assert.deepEqual(request, {
     operation: "updateUserName",
     targetRole: "administrator",

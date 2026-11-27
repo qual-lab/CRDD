@@ -39,6 +39,7 @@ test("検証クライアントは不正な操作TokenとAI応答を拒否する"
     contract: "crdd/workbench/view/v1",
     view: "main",
     actionToken: "a".repeat(43),
+    projectData: { context: { repositoryId: "repository.fixture" } },
     aiRequest: {
       configured: true,
       notice: null,
@@ -49,6 +50,7 @@ test("検証クライアントは不正な操作TokenとAI応答を拒否する"
   assert.equal(readVerificationView(view).aiRequest.snapshot, snapshot);
   for (const body of [
     { ...view, actionToken: "short" },
+    { ...view, projectData: { context: { repositoryId: "unsafe/path" } } },
     { ...view, view: "access" },
     { ...view, aiRequest: {} },
     { ...view, aiRequest: { ...view.aiRequest, configured: "true" } },
@@ -114,12 +116,15 @@ test("HTTP子の故障は同ID観測を保持し終了未確認だけをsticky�
       `${body}\ncreateWorkbenchAiVerificationHttpClient`,
       {
         URL,
-        URLSearchParams,
         Error,
         assert,
         readMain: async () => {
           reads++;
-          return { actionToken: "synthetic", aiRequest: { snapshot } };
+          return {
+            actionToken: "synthetic",
+            repositoryId: "repository.fixture",
+            aiRequest: { snapshot },
+          };
         },
         requestInChild: async () => {
           posts++;

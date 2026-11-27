@@ -121,7 +121,7 @@ function walkMarkdown(root: string, current = root): string[] {
  *
  * @responsibility 一つのRepository内でID、Revision、Path、RelationおよびFilesystem Effectを同期させる。
  * @trace ARCH-000006
- * @input repositoryRoot: 検証済み絶対Root、expectedProjectId: 今回認可されたmanifestのProject（指定時）。
+ * @input 検証済み絶対Root、任意の期待Project、一時本文書込み・正式反映直前の同期確認。
  * @returns Topic／Meetingの取得・一覧・登録・編集・削除Portを返す。
  * @precondition Rootは実在Directoryで、現在の書込み許可Repositoryである。
  * @postcondition 登録・更新の成功時は保存後の同一読取りでbytes、ID、改訂とProject IDの一致を確認する。
@@ -135,6 +135,7 @@ function walkMarkdown(root: string, current = root): string[] {
 export function createTopicMeetingRepository(
   repositoryRoot: string,
   expectedProjectId?: string,
+  beforeWrite?: (phase: "stage" | "publish") => void,
 ): TopicMeetingRepository {
   if (
     expectedProjectId !== undefined &&
@@ -311,10 +312,7 @@ export function createTopicMeetingRepository(
     const directory = path.join(root, ".crdd", "lock");
     if (!observeDirectoryChain(directory, true))
       throw new Error("project_operation_record_directory_invalid");
-    const lockPath = path.join(
-      directory,
-      "document-model." + kind + "." + id + ".lock",
-    );
+    const lockPath = path.join(directory, `document-model.${kind}.${id}.lock`);
     const acquired = acquireLock({
       directory,
       name: path.basename(lockPath),
@@ -377,6 +375,7 @@ export function createTopicMeetingRepository(
     let primaryFailure: unknown;
     const cleanupFailures: unknown[] = [];
     try {
+      beforeWrite?.("stage");
       writeFileSync(descriptor, markdown, { encoding: "utf8" });
     } catch (error) {
       failed = true;
@@ -395,6 +394,7 @@ export function createTopicMeetingRepository(
       try {
         if (!observeDirectoryChain(target.directory))
           throw new Error("project_operation_record_directory_invalid");
+        beforeWrite?.("publish");
         renameSync(temporary, target.file);
       } catch (error) {
         failed = true;
@@ -546,6 +546,7 @@ export function createTopicMeetingRepository(
         const target = location(kind, id);
         if (!observeDirectoryChain(target.directory))
           throw new Error("project_operation_record_directory_invalid");
+        beforeWrite?.("publish");
         unlinkSync(target.file);
         rmdirSync(target.directory);
         return Object.freeze({

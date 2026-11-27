@@ -23,6 +23,8 @@ import {
   type VerificationHttpTiming,
   projectVerificationTransportFailure,
   requestInChild,
+  isVerificationWorkspaceRead,
+  isVerificationAiWrite,
 } from "../support/ai-verification-http.ts";
 
 /**
@@ -49,7 +51,7 @@ test("IPC子は不正入力でもchannelを残さず終了する", async () => {
     const input = {
       baseUrl: `http://127.0.0.1:${address.port}`,
       route: "/api/workbench/view?route=%2F",
-      form: null,
+      write: null,
     };
     for (const message of [
       true,
@@ -59,6 +61,25 @@ test("IPC子は不正入力でもchannelを残さず終了する", async () => {
       '{"baseUrl":"a","baseUrl":"b"}',
       JSON.stringify({ ...input, secret: "synthetic-secret" }),
       JSON.stringify({ ...input, baseUrl: "https://example.invalid" }),
+      JSON.stringify({
+        ...input,
+        route: "/api/ai-request",
+        write: { actionToken: "synthetic", body: {} },
+      }),
+      JSON.stringify({
+        ...input,
+        route: "/api/repositories/fixture/ai-requests",
+      }),
+      JSON.stringify({
+        ...input,
+        route: "/api/repositories/fixture/workspaces",
+        write: { actionToken: "synthetic", body: {} },
+      }),
+      JSON.stringify({
+        ...input,
+        route: "/api/repositories/fixture/ai-requests",
+        write: { actionToken: "synthetic", body: "not an object" },
+      }),
     ]) {
       const child = spawn(
         process.execPath,
@@ -165,10 +186,11 @@ test("IPC子は二件目を実行せず拒否経路でも購読を解除する",
       Date,
       Error,
       URL,
-      URLSearchParams,
       process: fake,
       parseUnambiguousJsonDocument,
       projectVerificationTransportFailure,
+      isVerificationWorkspaceRead,
+      isVerificationAiWrite,
       subscribe: (name: string, callback: unknown) => {
         assert.ok(
           ["undici:request:create", "undici:client:sendHeaders"].includes(name),
@@ -198,7 +220,7 @@ test("IPC子は二件目を実行せず拒否経路でも購読を解除する",
             : JSON.stringify({
                 baseUrl: "http://127.0.0.1:12345",
                 route: "/api/workbench/view?route=%2F",
-                form: null,
+                write: null,
               });
       fake.emit("message", message);
       if (scenario === "double") fake.emit("message", message);
@@ -431,8 +453,8 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
     "response-before-send",
   ] as const;
   for (const { route, scenario } of [
-    "/api/workspace",
-    "/api/ai-request",
+    "/api/repositories/fixture/workspaces?projectId=project&limit=20",
+    "/api/repositories/fixture/ai-requests",
     "/api/workbench/view?route=%2F",
   ].flatMap((route) => scenarios.map((scenario) => ({ route, scenario })))) {
     const child = new EventEmitter() as EventEmitter & {
@@ -481,8 +503,8 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
     };
     const frame = {
       version: 1,
-      status: 303 as number | null,
-      location: "/#ai-request" as string | null,
+      status: 201 as number | null,
+      location: null as string | null,
       body: "" as string | null,
       failure: null as unknown,
       timing: {
@@ -500,6 +522,8 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
       path,
       process: { execPath: "fixed-node" },
       CLIENT_PROCESS_TIMEOUT_MS: 20_000,
+      isVerificationWorkspaceRead,
+      isVerificationAiWrite,
       CLIENT_PROCESS_CLOSE_TIMEOUT_MS: 2_000,
       CLIENT_OUTPUT_MAX_BYTES: 6 * 1024 * 1024 + 4096,
       parseUnambiguousJsonDocument,
@@ -554,7 +578,9 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
             }
             callback(null);
             if (scenario === "send-undelivered") {
-              timers.get(route === "/api/workspace" ? 65_000 : 20_000)?.();
+              timers.get(
+                isVerificationWorkspaceRead(route) ? 65_000 : 20_000,
+              )?.();
               return;
             }
             if (scenario === "spawn-error")
@@ -623,7 +649,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
                 scenario === "late-close-unknown"
               ) {
                 const deadline = timers.get(
-                  route === "/api/workspace" ? 65_000 : 20_000,
+                  isVerificationWorkspaceRead(route) ? 65_000 : 20_000,
                 );
                 assert.ok(deadline);
                 deadline();
@@ -655,7 +681,9 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
     const operation = invoke(
       "http://127.0.0.1:1234/",
       route,
-      new URLSearchParams({ actionToken: "synthetic-token" }),
+      isVerificationAiWrite(route)
+        ? { actionToken: "synthetic-token", body: {} }
+        : undefined,
       (timing) => {
         observations.push({ timing, closed: closeObserved });
         throw Error("clock-only");
@@ -683,7 +711,9 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
       }
     }
     assert.equal(
-      scheduledDeadlines.includes(route === "/api/workspace" ? 65_000 : 20_000),
+      scheduledDeadlines.includes(
+        isVerificationWorkspaceRead(route) ? 65_000 : 20_000,
+      ),
       scenario !== "spawn-throw",
     );
     if (
@@ -696,7 +726,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
         "late-callback-error",
       ].includes(scenario)
     )
-      assert.equal((await operation).status, 303);
+      assert.equal((await operation).status, 201);
     else
       await assert.rejects(operation, (error: unknown) => {
         assert.ok(error instanceof Error);
@@ -743,7 +773,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
         const timing = createReadonlyVerificationTiming();
         try {
           timing.client(observations[0].timing);
-          if (route === "/api/workspace") {
+          if (isVerificationWorkspaceRead(route)) {
             // 読取りsummaryの対象外経路を新たに収集しない。
             assert.deepEqual(timing.snapshot().clients, []);
           } else {
@@ -762,7 +792,12 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
     assert.ok(kills <= 1);
     assert.equal(timers.size, 0, scenario);
     if (input)
-      assert.equal(JSON.parse(input).form, "actionToken=synthetic-token");
+      assert.deepEqual(
+        JSON.parse(input).write,
+        isVerificationAiWrite(route)
+          ? { actionToken: "synthetic-token", body: {} }
+          : null,
+      );
   }
 });
 
@@ -822,8 +857,8 @@ test("実HTTP子は通常・切断・15秒期限を区別して終了する", as
       (
         await requestInChild(
           url,
-          "/api/workspace",
-          new URLSearchParams({ operation: "synthetic" }),
+          "/api/repositories/fixture/workspaces?projectId=project&limit=20",
+          undefined,
           (timing) => {
             timings.push(timing.completedAt - timing.startedAt);
           },

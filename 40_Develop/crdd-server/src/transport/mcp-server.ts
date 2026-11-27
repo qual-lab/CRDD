@@ -6,119 +6,129 @@
  * @boundary 専門Package依存と公式SDKのProtocol受付。
  * @security 認可をcacheせず、要求別Serverを再利用しない。
  */
+
+import { setTimeout } from "node:timers/promises";
 import {
-  confirmInitialConnection,
-  resolveConnectionAuthentication,
-  resolveRepositoryAccessCollection,
-  sameAccessCollection,
+  type CallToolResult,
+  type ListToolsResult,
+  ProtocolError,
+  Server,
+} from "@modelcontextprotocol/server";
+import {
+  type AccountAccessPrincipal,
   type FilesystemStoreRoot,
-  type InitialConnectionBinding,
-  authenticateNormalConnection,
   readCurrentAccess,
   readManagementState,
 } from "@qual-lab/crdd-access-management";
-import { resolveSharedDefinitionAccess } from "../service/execution.ts";
-import { resolveSharedDevelopmentAccess } from "../service/access.ts";
-import { executeMeetingAction } from "../service/meeting.ts";
+import type { ExecutionActivityObservation } from "@qual-lab/crdd-coordinator";
 import {
-  executeTopicAction,
-  type RecordWriteCommand,
-} from "../service/topic.ts";
+  type PortfolioProjection,
+  readTopicMeetingList,
+  type TopicMeetingAccess,
+} from "@qual-lab/crdd-document-model";
 import {
-  resolveTopicMeetingAccess,
-  readAuthorizedPortfolio,
-  readAuthorizedExecutionActivity,
-  executeCoordinatorOperation,
-  prepareWorkspaceOperation,
-  type CoordinatorExecutionConfiguration,
-  type CoordinatorExecutionDependencies,
-  validateExecutionDefinitionCommand,
-  executeDefinitionOperation,
-  definitionReadFields,
-  definitionWriteFields,
-} from "../service/entry.ts";
+  type HostedAccessSession,
+  resolveHostedDevelopmentAccess,
+} from "../service/access.ts";
 import { readServerConnectionConfiguration } from "../service/configuration.ts";
 import {
-  Server,
-  ProtocolError,
-  type CallToolResult,
-  type ListToolsResult,
-} from "@modelcontextprotocol/server";
-import {
-  type TopicMeetingAccess,
-  type PortfolioProjection,
-  parseMeetingMarkdown,
-  parseTopicMarkdown,
-  readTopicMeetingList,
-} from "@qual-lab/crdd-document-model";
-import type {
-  McpRequestHandler,
-  McpServerFactory,
-  McpAuthenticatedRequestHandlerResolver,
-} from "./mcp-types.ts";
+  type CoordinatorExecutionConfiguration,
+  type CoordinatorExecutionDependencies,
+  definitionReadFields,
+  definitionWriteFields,
+  executeCoordinatorOperation,
+  executeDefinitionOperation,
+  isWorkspaceRead,
+  type ObjectiveRuns,
+  objectiveCancellationSchema,
+  prepareWorkspaceOperation,
+  validateExecutionDefinitionCommand,
+} from "../service/entry.ts";
 import type { DefinitionAccess } from "../service/execution.ts";
-import type { ExecutionActivityObservation } from "@qual-lab/crdd-coordinator";
-import { setTimeout } from "node:timers/promises";
 import {
-  executeManagementOperation,
-  type ManagementWriteOperation,
-} from "../service/access.ts";
-import type { JsonRpcId, McpResponse } from "./mcp-types.ts";
+  type DecisionAction,
+  decisionRequestSchema,
+  executionDecisionTools,
+  executionDefinitionResources,
+  objectiveRequestSchema,
+  readRepositoryExecutionActivity,
+  resolveHostedDefinitionAccess,
+} from "../service/execution.ts";
 import {
+  type ProjectContextTarget,
+  projectPortfolioList,
+  readHostedProjectPortfolio,
+} from "../service/project-context.ts";
+import {
+  createHostedRecords,
+  executeRecordWrite,
+  type RecordActionName,
+  readRecordWrite,
+} from "../service/topic.ts";
+import { workspaceInputSchema } from "./api-types.ts";
+import type {
+  createMcpOAuthState,
+  createMcpTokenVerifier,
+} from "./mcp-oauth.ts";
+import {
+  callKeys,
   handleMcpDiscoverRequest,
-  MCP_SERVER_NAME,
-  readRequestRecord,
-  inspectMcpToolParameters,
   inspectMcpEnvelope,
-  protocolError,
-  protocolComplete,
+  inspectMcpToolParameters,
   inspectProtocolRequest,
   listKeys,
   listKeysNoCursor,
-  callKeys,
+  MCP_SERVER_NAME,
+  protocolComplete,
+  protocolError,
+  readRequestRecord,
 } from "./mcp-protocol.ts";
+import type {
+  McpAuthenticatedRequestHandlerResolver,
+  McpServerFactory,
+} from "./mcp-types.ts";
+import {
+  type JsonRpcId,
+  type McpResponse,
+  objectiveRunTools,
+  readMcpAccountSubject,
+} from "./mcp-types.ts";
 
+export { createMcpHttpRequestHandler } from "./mcp-http.ts";
 export { MCP_COORDINATOR_PROTOCOL_VERSION } from "./mcp-protocol.ts";
 export {
-  MCP_COORDINATOR_STREAMABLE_HTTP_CONTRACT,
-  createMcpHttpRequestHandler,
-  startMcpStreamableHttp,
-  startMcpAuthenticatedStreamableHttp,
-  describeMcpCoordinatorStreamableHttpContract,
-  closeMcpHttpOnProcessSignal,
-} from "./mcp-http.ts";
-export {
+  describeMcpCoordinatorStdioContract,
   MCP_COORDINATOR_STDIO_CONTRACT,
   runMcpStdio,
-  describeMcpCoordinatorStdioContract,
 } from "./mcp-stdio.ts";
 export type {
-  McpResponse,
-  McpCoordinatorHttpOptions,
   McpAuthenticatedHttpOptions,
-  McpHttpServerCloseBoundary,
-  McpProcessSignalSource,
+  McpResponse,
 } from "./mcp-types.ts";
 
 /**
  * Toolの専門Owner依存を構成する。
- * @responsibility 初回限定接続と通常の専門機能を混同しない。
+ * @responsibility 起動構成で許可された専門機能だけを要求処理へ渡す。
  * @trace ARCH-000012
- * @shape 専門機能の任意依存と初回限定Handler。
- * @invariant 初回接続へ通常Tool依存を付与しない。
+ * @shape 専門機能ごとの任意依存。
  * @boundary 起動構成と要求別Server。
  * @security Credentialの存在から内容閲覧権を推定しない。
  * @compatibility 専門Ownerの契約を直接利用する。
  */
 export type McpServerDependencies = Readonly<{
-  initialConnection?: McpRequestHandler;
   coordinator?: McpCoordinatorConfiguration;
   workspace?: WorkspaceAccessResolver;
   projectContext?: McpProjectContextDependencies;
   executionActivity?: ExecutionActivityReader;
   accessManagement?: McpAccessManagementContext;
-  topicMeeting?: TopicMeetingAccess;
+  topicMeeting?:
+    | TopicMeetingAccess
+    | ((signal: AbortSignal) => ReturnType<typeof createHostedRecords>);
   topicMeetingRepositoryResolver?: TopicMeetingAccessResolver;
+  recordOperations?: (
+    repositoryId: string,
+    signal: AbortSignal,
+  ) => ReturnType<typeof createHostedRecords>;
   runtimeDefinition?: RuntimeContentAccessResolver;
 }>;
 
@@ -176,6 +186,7 @@ export function createMcpServerFactory(
     executionActivity,
     topicMeeting,
     topicMeetingRepositoryResolver,
+    recordOperations,
     runtimeDefinition,
   } = dependencies;
   return {
@@ -188,18 +199,8 @@ export function createMcpServerFactory(
         )
       )
         throw new ProtocolError(-32601, "Method not found");
-      if (
-        dependencies.initialConnection &&
-        Object.keys(dependencies).length !== 1
-      )
-        throw new ProtocolError(-32603, "Invalid initial configuration");
-      if (
-        dependencies.initialConnection ||
-        request.method === "server/discover"
-      ) {
-        const checked = dependencies.initialConnection
-          ? await dependencies.initialConnection(rawRequest, signal)
-          : handleMcpDiscoverRequest(rawRequest);
+      if (request.method === "server/discover") {
+        const checked = handleMcpDiscoverRequest(rawRequest);
         if (checked.error)
           throw new ProtocolError(checked.error.code, checked.error.message);
       }
@@ -244,13 +245,18 @@ export function createMcpServerFactory(
         });
       if (coordinator)
         bindings.push({
-          definitions: getExecutionToolDefinitions(sharedExecution === true),
+          definitions: getExecutionToolDefinitions(
+            sharedExecution === true,
+            "scope" in coordinator && coordinator.objectiveRuns !== undefined,
+          ),
           invoke: (call, current) =>
             dispatchExecutionTool(call, coordinator, current),
         });
       if (projectContext)
         bindings.push({
-          definitions: getProjectToolDefinitions(),
+          definitions: getProjectToolDefinitions(
+            projectContext.requireRepository,
+          ),
           invoke: (call, current) =>
             dispatchProjectTool(call, projectContext, current),
         });
@@ -278,22 +284,30 @@ export function createMcpServerFactory(
           invoke: (call, current) =>
             dispatchActivityTool(call, executionActivity, current),
         });
-      if (topicMeetingRepositoryResolver || topicMeeting)
+      if (recordOperations || topicMeetingRepositoryResolver || topicMeeting)
         bindings.push({
           definitions: getTopicMeetingToolDefinitions(
-            topicMeetingRepositoryResolver ? "required" : "implicit",
+            recordOperations || topicMeetingRepositoryResolver
+              ? "required"
+              : "implicit",
           ),
           invoke: (call, current) =>
-            topicMeetingRepositoryResolver
+            recordOperations || topicMeetingRepositoryResolver
               ? dispatchRoutedTopicMeetingCall(
                   call,
                   topicMeetingRepositoryResolver,
                   current,
+                  recordOperations,
                 )
               : dispatchTopicMeetingCall(
                   call,
-                  topicMeeting as TopicMeetingAccess,
+                  typeof topicMeeting === "function"
+                    ? () => null
+                    : (topicMeeting as TopicMeetingAccess),
                   current,
+                  typeof topicMeeting === "function"
+                    ? topicMeeting(current)
+                    : undefined,
                 ),
         });
       const server = new Server(
@@ -358,215 +372,212 @@ export function createMcpServerFactory(
   };
 }
 
-/**
- * 現在資格から初回限定または通常内容の要求専用Handlerを作る。
- * @responsibility 管理能力から内容を生成せず、公開Callで現在集合を取り直す。
- * @trace ARCH-000005
- * @trace ARCH-000006
- * @trace ARCH-000012
- * @trace ARCH-000013
- * @input 内部構成が検証した管理Root。
- * @returns 初回候補はdiscover専用Handler、通常本人は内容Handler、拒否はnull。
- * @precondition HTTP Transportは要求毎にResolverを呼び、Handlerを要求終了後に共有しない。
- * @postcondition Portfolioは現在集合を公開前に再確認し文書不完全性を保持する。Topic／Meetingは現在許可対象だけを操作する。
- * @effect 既存AM認証とLock、許可後のDomain読取りと明示CRUD。新StoreやSessionは作らない。
- * @failure 認証不成立はnull、内容認可・本文取得不成立は既存の固定MCPエラー。
- * @invariant 空認可だけ正常空集合。文書不明はunavailableとnull本文／版で示し、完全成功やmissingにしない。
- * @boundary AM内部RootからProject ContextとTopic／MeetingのMCP構成へ渡す。
- * @security Bearerを要求closureにだけ保持し、Root・Path・Binding・管理改訂を返さない。文字列消去は保証しない。
- * @concurrency 各HTTP要求が再認証・再認可する。同期Reader開始後は終了を待って取消結果の公開を止める。
- */
-export function createAccessMcpResolver(
+/** 検証済みOAuth主体を現在のアクセス管理へ渡す。旧鍵へはフォールバックしない。 @trace ARCH-000012 */
+export function createOAuthMcpResolver(
   root: FilesystemStoreRoot,
+  verify: Awaited<ReturnType<typeof createMcpTokenVerifier>>,
+  hostAccess?: Readonly<{
+    hasCurrentToken: ReturnType<typeof createMcpOAuthState>["hasCurrentToken"];
+    readGitHost: import("../service/git-host.ts").ReadGitHost;
+    repositoryScope: import("../service/repository-scope.ts").RepositoryScope;
+    readGrantHostReference: ReturnType<
+      typeof createMcpOAuthState
+    >["readGrantHostReference"];
+    read: (
+      host: string,
+      reference: string,
+      binding: { userId: string; bindingId: string },
+    ) => string | null;
+    open?: (
+      host: string,
+      reference: string,
+      binding: { userId: string; bindingId: string },
+    ) => import("../service/access.ts").HostedExecutionClientAccess | null;
+  }>,
+  objectiveRuns?: ObjectiveRuns,
 ): McpAuthenticatedRequestHandlerResolver {
-  return (token) => {
-    const authentication = resolveConnectionAuthentication(root, token);
-    if (authentication.status === "unavailable") return null;
-    if (authentication.status === "initial")
-      return createMcpServerFactory({
-        initialConnection: createInitialConnectionHandler(
-          root,
-          token,
-          authentication.binding,
-        ),
-      });
-    return {
-      async createServer(request, signal, observe) {
-        return createMcpServerFactory({
-          accessManagement: { root, token },
-          coordinator: {
-            scope: "shared",
-            credentials: { root, token },
-          },
-          runtimeDefinition: (repositoryId, currentSignal) =>
-            resolveSharedDefinitionAccess(
-              root,
-              token,
-              repositoryId,
-              currentSignal,
-            ),
-          workspace: (repositoryId) =>
-            resolveSharedDevelopmentAccess(root, token, repositoryId, signal),
-          executionActivity: {
-            /**
-             * 現在許可された同Projectの実保存活動を読む。
-             * @responsibility 各Callの現在認可を活動Ownerへ最小入力で接続する。
-             * @trace ARCH-000005
-             * @trace ARCH-000012
-             * @trace ARCH-000013
-             * @input Projectとページ要求。
-             * @returns 同Projectの観測、許可対象がない場合だけnull。
-             * @precondition 入力検査と開始前取消確認が完了している。
-             * @postcondition 許可対象全件を渡し、部分集合へ後退しない。
-             * @effect 現在認可、Root観測、実保存読取り。書込みは行わない。
-             * @failure 集合・Root不明は固定例外、Owner故障はAdapterが非開示にする。
-             * @invariant 各Callで再認可し、認証を観測型の正しさで代替しない。
-             * @boundary AM現在集合からCoordinator活動Owner。
-             * @security Token・AM Binding・RoleをOwnerや応答へ渡さない。
-             * @concurrency 開始したReaderを待ち、Adapterが取消後の公開を止める。
-             */
-            read: async (query) => {
-              if (signal.aborted)
-                throw new Error("runtime_activity_unavailable");
-              const collection = resolveRepositoryAccessCollection(root, token);
-              if (collection.status !== "completed")
-                throw new Error("runtime_activity_unavailable");
-              const selected = collection.repositories.filter(
-                (repository) =>
-                  repository.manifest.projectId === query.projectId,
-              );
-              if (selected.length === 0) return null;
-              if (signal.aborted)
-                throw new Error("runtime_activity_unavailable");
-              const authorize = () =>
-                sameAccessCollection(
-                  collection,
-                  resolveRepositoryAccessCollection(root, token),
-                );
-              const observation = await readAuthorizedExecutionActivity(
-                query,
-                selected,
-                authorize,
-                signal,
-              );
-              if (signal.aborted || !authorize())
-                throw new Error("runtime_activity_unavailable");
-              return observation;
-            },
-          },
-          /**
-           * 現在許可対象の操作と同ProjectのRelation集合を構成する。
-           * @responsibility 未許可対象・異Project探索・部分集合への後退を防ぐ。
-           * @trace ARCH-000006
-           * @trace ARCH-000013
-           * @input 完全Schema検査後の明示Repository ID。
-           * @returns 指定対象のDomain操作、非許可時はnull。
-           * @precondition 通常認証済みで、入力検査と開始前取消確認が完了している。
-           * @postcondition 同Project全対象を検証し、書込み先は指定Repositoryだけに固定する。
-           * @effect 現在AM集合とRootを観測し、Domain操作を構成する。構成時の保存はない。
-           * @failure 集合・Root・構成不明は固定例外で全体停止する。
-           * @invariant 各Tool Callで再認可し、他要求へ操作や集合を共有しない。
-           * @boundary AM現在認可→Version Control Root→Domain操作／Relation。
-           * @security Bearer、Root、Bindingを公開結果へ渡さない。
-           * @concurrency 同期構成後に既存Adapterが取消を再確認する。保存開始後のrollbackは保証しない。
-           */
-          topicMeetingRepositoryResolver: (repositoryId) => {
-            if (signal.aborted)
-              throw new Error("topic_meeting_access_unavailable");
-            const collection = resolveRepositoryAccessCollection(root, token);
-            if (collection.status !== "completed")
-              throw new Error("topic_meeting_access_unavailable");
-            return resolveTopicMeetingAccess(
-              collection.repositories,
-              repositoryId,
-              signal,
-              "topic_meeting_access_unavailable",
-            );
-          },
-          projectContext: {
-            /**
-             * 内容Callの現在認可と実本文を一つのPortfolioへ閉じる。
-             * @responsibility 非許可読取りを防ぎ、文書未確認・競合を認可済みSourceへ限定して表示する。
-             * @trace ARCH-000005
-             * @trace ARCH-000013
-             * @input N/A: 当該要求のBearerと取消Signalだけを使用する。
-             * @returns Domainが集約した非秘密Portfolio。
-             * @precondition 通常Header認証が完了し、Tool入力は既存Adapterが検査済み。
-             * @postcondition 認可・実体・全集合の再確認が成功した場合だけ、不完全性を保持した結果を返す。
-             * @effect 現在許可集合の再取得と各固定本文の同期読取り。
-             * @failure 取消・集合不明・Root不成立・公開前集合差は全体拒否。本文不成立はSourceの未確認・競合。
-             * @invariant SourceはProject・Repository・読取り状態・本文版・解析Contextの5項目だけ。非completeは本文・版なし。
-             * @boundary AM現在認可→Domain本文／集約→既存MCP Adapter。
-             * @security Token・技術的Root・下位例外を結果へ透過しない。
-             * @concurrency cacheせず呼出し毎に現在認可する。同期I/Oの中断保証はしない。
-             */
-            readPortfolio: async () => {
-              if (signal.aborted)
-                throw new Error("project_context_unavailable");
-              const collection = resolveRepositoryAccessCollection(root, token);
-              if (collection.status !== "completed")
-                throw new Error("project_context_unavailable");
-              const portfolio = readAuthorizedPortfolio(
-                collection.repositories,
-                signal,
-              );
-              if (
-                !sameAccessCollection(
-                  collection,
-                  resolveRepositoryAccessCollection(root, token),
-                ) ||
-                signal.aborted
-              )
-                throw new Error("project_context_unavailable");
-              return portfolio;
-            },
-          },
-        }).createServer(request, signal, observe);
-      },
+  return async (token, signal) => {
+    if (!signal || signal.aborted) return null;
+    const result = await verify(token, signal);
+    if (result.status !== "completed" || signal.aborted) return null;
+    const binding = readMcpAccountSubject(result.subject);
+    if (!binding || signal.aborted) return null;
+    const principal = Object.freeze({
+      kind: "account" as const,
+      userId: binding.userId,
+      bindingId: binding.bindingId,
+      expiresAt: result.expiresAt,
+    });
+    const isCurrent = () =>
+      result.expiresAt > Date.now() &&
+      (hostAccess?.hasCurrentToken(token, result.subject) ?? true);
+    const referenceFor = (host: string) =>
+      isCurrent()
+        ? hostAccess?.readGrantHostReference(token, result.subject, host)
+        : null;
+    const observeClient: NonNullable<
+      HostedAccessSession["observeClient"]
+    > = async (currentSignal) => {
+      const current = await verify(token, currentSignal);
+      return current.status === "completed"
+        ? current.subject === result.subject && current.expiresAt > Date.now()
+          ? "current"
+          : "revoked"
+        : current.status === "rejected"
+          ? "revoked"
+          : "unavailable";
     };
+    return readCurrentAccess(root, principal).status === "completed"
+      ? createSharedMcpSource(
+          root,
+          principal,
+          {
+            principal,
+            isCurrent,
+            readGitHost: (host) => hostAccess?.readGitHost(host),
+            repositoryScope: hostAccess?.repositoryScope ?? (() => false),
+            readHostToken: (host) => {
+              const reference = referenceFor(host);
+              return reference
+                ? (hostAccess?.read(host, reference, binding) ?? null)
+                : null;
+            },
+            observeClient,
+            ...(hostAccess?.open && {
+              openExecution: (host: string) => {
+                const reference = referenceFor(host);
+                return reference
+                  ? (hostAccess.open?.(host, reference, binding) ?? null)
+                  : null;
+              },
+            }),
+          },
+          objectiveRuns,
+          observeClient,
+        )
+      : null;
   };
 }
 
-/**
- * 初回限定相関を完全要求検査後の確認保存へ渡す。
- * @responsibility 成功応答を保存・清掃・Lock終了後だけに限定する。
- * @trace ARCH-000012
- * @trace ARCH-000013
- * @input 検証済みRoot、当該要求のBearer、非Authority初回相関。
- * @returns 要求専用Handler。通常HandlerやTool依存を受け取らない。
- * @precondition Resolverが同Lockの用途判定でinitialを返した当該要求だけ。
- * @postcondition 不正／開始前取消はconfirm0、正規要求だけfresh保存後に非秘密応答。
- * @effect 有効discoverだけ既存AM確認保存を一回呼ぶ。
- * @failure AM拒否・失効・状態故障は一つの固定非開示error。
- * @invariant 同要求へ通常Authorityを発行せず、初期化・鍵管理を公開しない。
- * @boundary 完全MCP要求→AM同期保存→応答前取消再確認。
- * @security BearerとBindingは要求closureだけ。応答・Error・永続記録へ透過しない。
- * @concurrency 保存前Signalを確認し、同期保存終了後にも確認して成功公開を止める。
- */
-function createInitialConnectionHandler(
+/** 検証済みOAuth主体で共有MCPの操作を構成する。 @trace ARCH-000012 */
+function createSharedMcpSource(
   root: FilesystemStoreRoot,
-  token: string,
-  binding: InitialConnectionBinding,
-): McpRequestHandler {
-  return async (request, signal) => {
-    const response = handleMcpDiscoverRequest(request);
-    if (response.error) return response;
-    if (signal.aborted)
-      return protocolError(response.id, -32800, "Request cancelled");
-    const confirmed = confirmInitialConnection(root, token, binding, signal);
-    if (signal.aborted)
-      return protocolError(response.id, -32800, "Request cancelled");
-    return confirmed.status === "completed"
-      ? response
-      : protocolError(response.id, -32603, "Initial connection unavailable");
+  principal: AccountAccessPrincipal,
+  hosted: HostedAccessSession,
+  objectiveRuns?: ObjectiveRuns,
+  observeClient?: HostedAccessSession["observeClient"],
+): McpServerFactory {
+  return {
+    async createServer(request, signal, observe) {
+      return createMcpServerFactory({
+        accessManagement: { root, principal },
+        recordOperations: (repositoryId, current) =>
+          createHostedRecords(root, hosted, repositoryId, current),
+        coordinator: {
+          scope: "shared",
+          ...(objectiveRuns && { objectiveRuns }),
+          ...(observeClient && { observeClient }),
+          credentials: { root, hosted },
+        },
+        runtimeDefinition: (repositoryId, currentSignal, write) =>
+          resolveHostedDefinitionAccess(
+            root,
+            hosted,
+            repositoryId,
+            write,
+            currentSignal,
+          ),
+        workspace: (repositoryId, write, current) =>
+          resolveHostedDevelopmentAccess(
+            root,
+            hosted,
+            repositoryId,
+            write,
+            current,
+          ),
+        executionActivity: {
+          /**
+           * 現在許可された同Projectの実保存活動を読む。
+           * @responsibility 各Callの現在認可を活動Ownerへ最小入力で接続する。
+           * @trace ARCH-000005
+           * @trace ARCH-000012
+           * @trace ARCH-000013
+           * @input Projectとページ要求。
+           * @returns 同Projectの観測、許可対象がない場合だけnull。
+           * @precondition 入力検査と開始前取消確認が完了している。
+           * @postcondition 許可対象全件を渡し、部分集合へ後退しない。
+           * @effect 現在認可、Root観測、実保存読取り。書込みは行わない。
+           * @failure 集合・Root不明は固定例外、Owner故障はAdapterが非開示にする。
+           * @invariant 各Callで再認可し、認証を観測型の正しさで代替しない。
+           * @boundary AM現在集合からCoordinator活動Owner。
+           * @security Token・AM Binding・RoleをOwnerや応答へ渡さない。
+           * @concurrency 開始したReaderを待ち、Adapterが取消後の公開を止める。
+           */
+          read: async ({ repositoryId, ...query }) => {
+            if (signal.aborted) throw new Error("runtime_activity_unavailable");
+            if (repositoryId !== undefined)
+              return readRepositoryExecutionActivity(
+                repositoryId,
+                query,
+                {
+                  scope: "shared",
+                  credentials: { root, hosted },
+                },
+                signal,
+                query.projectId,
+              );
+            // 共有OAuthの対象は単一のGitホスト連携登録に限定する。
+            // ID省略によって旧認可の集合へ戻さない。
+            return null;
+          },
+        },
+        /**
+         * 現在許可対象の操作と同ProjectのRelation集合を構成する。
+         * @responsibility 未許可対象・異Project探索・部分集合への後退を防ぐ。
+         * @trace ARCH-000006
+         * @trace ARCH-000013
+         * @input 完全Schema検査後の明示Repository ID。
+         * @returns 指定対象のDomain操作、非許可時はnull。
+         * @precondition 通常認証済みで、入力検査と開始前取消確認が完了している。
+         * @postcondition 同Project全対象を検証し、書込み先は指定Repositoryだけに固定する。
+         * @effect 現在AM集合とRootを観測し、Domain操作を構成する。構成時の保存はない。
+         * @failure 集合・Root・構成不明は固定例外で全体停止する。
+         * @invariant 各Tool Callで再認可し、他要求へ操作や集合を共有しない。
+         * @boundary AM現在認可→Version Control Root→Domain操作／Relation。
+         * @security Bearer、Root、Bindingを公開結果へ渡さない。
+         * @concurrency 同期構成後に既存Adapterが取消を再確認する。保存開始後のrollbackは保証しない。
+         */
+        projectContext: {
+          requireRepository: true,
+          /**
+           * 内容Callの現在認可と実本文を一つのPortfolioへ閉じる。
+           * @responsibility 非許可読取りを防ぎ、文書未確認・競合を認可済みSourceへ限定して表示する。
+           * @trace ARCH-000005
+           * @trace ARCH-000013
+           * @input N/A: 当該要求のBearerと取消Signalだけを使用する。
+           * @returns Domainが集約した非秘密Portfolio。
+           * @precondition 通常Header認証が完了し、Tool入力は既存Adapterが検査済み。
+           * @postcondition 認可・実体・全集合の再確認が成功した場合だけ、不完全性を保持した結果を返す。
+           * @effect 現在許可集合の再取得と各固定本文の同期読取り。
+           * @failure 取消・集合不明・Root不成立・公開前集合差は全体拒否。本文不成立はSourceの未確認・競合。
+           * @invariant SourceはProject・Repository・読取り状態・本文版・解析Contextの5項目だけ。非completeは本文・版なし。
+           * @boundary AM現在認可→Domain本文／集約→既存MCP Adapter。
+           * @security Token・技術的Root・下位例外を結果へ透過しない。
+           * @concurrency cacheせず呼出し毎に現在認可する。同期I/Oの中断保証はしない。
+           */
+          readPortfolio: (target, current = signal) =>
+            readHostedProjectPortfolio(root, hosted, current, target),
+        },
+      }).createServer(request, signal, observe);
+    },
   };
 }
 
 export type {
   McpAuthenticatedRequestHandlerResolver,
   McpRequestHandler,
-  McpServerFactory,
   McpRequestSource,
+  McpServerFactory,
 } from "./mcp-types.ts";
 
 /** 明示CROS起動時に既存の非秘密設定を一回読む。 @trace ARCH-000012 */
@@ -610,17 +621,29 @@ async function dispatchExecutionTool(
   signal: AbortSignal,
 ): Promise<McpResponse> {
   const shared = "scope" in dependencies && dependencies.scope === "shared";
+  const objectiveAction =
+    params.name === MCP_START_OBJECTIVE_TOOL
+      ? "start"
+      : params.name === MCP_RESUME_OBJECTIVE_TOOL
+        ? "resume"
+        : undefined;
+  const decisionAction = decisionToolActions.find(
+    (action) => executionDecisionTools[action] === params.name,
+  );
   const operation =
-    params.name === MCP_COORDINATOR_OBJECTIVE_TOOL
+    objectiveAction !== undefined
       ? "objective"
-      : params.name === MCP_COORDINATOR_DECISION_TOOL
+      : decisionAction !== undefined
         ? "decision"
-        : "state";
+        : params.name === MCP_CANCEL_OBJECTIVE_TOOL
+          ? "cancel"
+          : "state";
   const outcome = await executeCoordinatorOperation(
     operation,
     params.arguments,
     dependencies,
     signal,
+    objectiveAction ?? decisionAction,
   );
   if (outcome.kind === "invalid")
     return protocolError(params.id, -32602, "Invalid params");
@@ -630,6 +653,16 @@ async function dispatchExecutionTool(
     return protocolError(params.id, -32603, "Coordinator unavailable");
   if (outcome.kind === "publication_denied")
     return protocolError(params.id, -32603, "Coordinator target unavailable");
+  if (outcome.kind === "cancellation_requested")
+    return protocolComplete(params.id, {
+      content: [
+        {
+          type: "text",
+          text: "実行に取消を要求しました。終了・回収の完了は実行状態を確認してください。",
+        },
+      ],
+      structuredContent: { status: "cancellation_requested" },
+    });
   const denied = outcome.kind === "access_denied";
   const result =
     outcome.kind === "result"
@@ -670,30 +703,14 @@ async function dispatchExecutionTool(
   });
 }
 
-const MCP_COORDINATOR_OBJECTIVE_TOOL = "crdd.run_objective" as const;
-const MCP_COORDINATOR_DECISION_TOOL = "crdd.submit_decision" as const;
-const MCP_COORDINATOR_STATE_TOOL = "crdd.get_execution_state" as const;
+const MCP_START_OBJECTIVE_TOOL = objectiveRunTools.start;
+const MCP_RESUME_OBJECTIVE_TOOL = objectiveRunTools.resume;
+const MCP_CANCEL_OBJECTIVE_TOOL = objectiveRunTools.cancel;
+const decisionToolActions = Object.keys(
+  executionDecisionTools,
+) as DecisionAction[];
+const MCP_COORDINATOR_STATE_TOOL = objectiveRunTools.state;
 
-const objectiveKeys = new Set([
-  "operation",
-  "plan",
-  "taskInputs",
-  "requestId",
-  "projectId",
-  "milestoneId",
-  "repositoryRevision",
-  "objective",
-  "acceptanceCriteria",
-  "allowedPaths",
-  "readPaths",
-  "maximumConcurrency",
-  "maximumReplans",
-  "originLane",
-  "adoptResult",
-  "workType",
-  "choice",
-  "workspaceId",
-] as const);
 const stateQueryKeys = new Set([
   "requestId",
   "projectId",
@@ -742,214 +759,58 @@ function tool(
  * @trace ARCH-000012
  * @boundary MCPのツール一覧。定義の生成時に実行・認可は行わない。
  */
-function getExecutionToolDefinitions(requireRepositoryId = false) {
-  const id = Object.freeze({
-    type: "string",
-    pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-  });
-  const rev = Object.freeze({ type: "string", pattern: "^[0-9a-f]{40,64}$" });
+function getExecutionToolDefinitions(
+  requireRepositoryId = false,
+  includeCancel = false,
+) {
+  const objective = objectiveRequestSchema();
+  const id = objective.properties.requestId;
+  const rev = objective.properties.repositoryRevision;
   const targetFields = requireRepositoryId ? { repositoryId: id } : {};
-  const list = (maximum: number) =>
-    Object.freeze({
-      type: "array",
-      minItems: 1,
-      maxItems: maximum,
-      items: Object.freeze({ type: "string" }),
-    });
-  const decisionBase = {
-    ...targetFields,
-    operation: { enum: ["request", "answer", "apply", "close"] },
-    decisionId: id,
-    projectId: id,
-    milestoneId: id,
-    generation: { type: "integer", minimum: 1 },
-    repositoryRevision: rev,
-  };
-  const decisionVariants = {
-    request: {
-      blockerId: id,
-      queueId: id,
-      question: { type: "string", minLength: 1, maxLength: 8192 },
-      allowedOptions: {
-        type: "array",
-        minItems: 1,
-        maxItems: 2,
-        uniqueItems: true,
-        items: { enum: ["resume", "cancel"] },
-      },
-    },
-    answer: {
-      selectedOption: { enum: ["resume", "cancel"] },
-      comment: { type: "string", maxLength: 1024 },
-    },
-    apply: {},
-    close: {
-      status: { enum: ["invalidated"] },
-      reason: { type: "string", minLength: 1, maxLength: 1024 },
-    },
-  };
+  const cancellation = objectiveCancellationSchema();
   return Object.freeze([
-    tool(
-      MCP_COORDINATOR_OBJECTIVE_TOOL,
-      "CRDD Objectiveを実行",
-      "検証済みProjectへObjectiveを登録し、Coordinatorで実行します。",
-      {
-        ...targetFields,
-        operation: { type: "string", enum: ["start", "resume"] },
-        plan: {
-          type: "object",
-          additionalProperties: false,
-          required: ["milestoneAcceptanceCriteria", "objectives", "tasks"],
-          properties: {
-            milestoneAcceptanceCriteria: list(128),
-            objectives: {
-              type: "array",
-              minItems: 1,
-              maxItems: 128,
-              items: {
-                type: "object",
-                additionalProperties: false,
-                required: ["id", "acceptanceCriteria"],
-                properties: { id, acceptanceCriteria: list(128) },
-              },
-            },
-            tasks: {
-              type: "array",
-              minItems: 1,
-              maxItems: 1024,
-              items: {
-                type: "object",
-                additionalProperties: false,
-                required: [
-                  "id",
-                  "objectiveId",
-                  "dependencies",
-                  "allowedPaths",
-                  "conflictKeys",
-                ],
-                properties: {
-                  id,
-                  objectiveId: id,
-                  dependencies: { ...list(128), minItems: 0 },
-                  allowedPaths: list(128),
-                  conflictKeys: { ...list(128), minItems: 0 },
-                },
-              },
-            },
-          },
-        },
-        taskInputs: {
-          type: "array",
-          minItems: 1,
-          maxItems: 1024,
-          items: {
-            type: "object",
-            additionalProperties: false,
-            required: [
-              "taskId",
-              "objective",
-              "acceptanceCriteria",
-              "readPaths",
-            ],
-            properties: {
-              taskId: id,
-              objective: { type: "string", minLength: 1, maxLength: 16_384 },
-              acceptanceCriteria: list(128),
-              readPaths: list(128),
-            },
-          },
-        },
-        requestId: id,
-        projectId: id,
-        milestoneId: id,
-        repositoryRevision: rev,
-        objective: Object.freeze({ type: "string", maxLength: 16_384 }),
-        acceptanceCriteria: list(128),
-        allowedPaths: list(128),
-        readPaths: list(128),
-        maximumConcurrency: Object.freeze({
-          type: "integer",
-          minimum: 1,
-          maximum: 5,
-        }),
-        maximumReplans: Object.freeze({
-          type: "integer",
-          minimum: 0,
-          maximum: 32,
-        }),
-        originLane: Object.freeze({
-          enum: Object.freeze(["interactive", "scheduled"]),
-        }),
-        adoptResult: Object.freeze({ type: "boolean" }),
-        workType: Object.freeze({
-          type: "string",
-          pattern: "^[a-z0-9][a-z0-9._-]*$",
-        }),
-        choice: Object.freeze({
-          type: "object",
-          additionalProperties: false,
-          required: Object.freeze(["provider", "model", "effort"]),
-          properties: Object.freeze({
-            provider: Object.freeze({
-              enum: Object.freeze(["codex", "claude"]),
-            }),
-            model: Object.freeze({
-              type: "string",
-              maxLength: 128,
-              pattern: "^[a-z0-9][a-z0-9._-]{0,127}$",
-            }),
-            effort: Object.freeze({
-              enum: Object.freeze(["low", "medium", "high", "xhigh", "max"]),
-            }),
-          }),
-        }),
-        workspaceId: Object.freeze({
-          type: "string",
-          pattern: "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
-        }),
-      },
-      [
-        ...Object.keys(targetFields),
-        ...[...objectiveKeys].filter(
-          (key) =>
-            key !== "workType" && key !== "choice" && key !== "workspaceId",
-        ),
-      ],
-    ),
-    Object.freeze({
-      ...tool(
-        MCP_COORDINATOR_DECISION_TOOL,
-        "CRDDの判断を処理",
-        "認証済みの同じ利用者が継続判断を要求・回答・明示適用・閉鎖します。回答だけでAIを再実行しません。",
-        Object.assign({}, decisionBase, ...Object.values(decisionVariants)),
-        Object.keys(decisionBase),
+    ...(["start", "resume"] as const).map((action) =>
+      tool(
+        action === "start"
+          ? MCP_START_OBJECTIVE_TOOL
+          : MCP_RESUME_OBJECTIVE_TOOL,
+        action === "start" ? "CRDD Objectiveを開始" : "CRDD Objectiveを再開",
+        action === "start"
+          ? "検証済みProjectへObjectiveを登録し、Coordinatorで実行します。"
+          : "既存の実行IDと元の要求を照合し、再開条件を満たした場合だけ再開します。",
+        { ...targetFields, ...objective.properties },
+        [...Object.keys(targetFields), ...objective.required],
       ),
-      inputSchema: Object.freeze({
-        type: "object",
-        additionalProperties: false,
-        properties: Object.assign(
-          {},
-          decisionBase,
-          ...Object.values(decisionVariants),
-        ),
-        required: Object.keys(decisionBase),
-        oneOf: Object.entries(decisionVariants).map(
-          ([operation, properties]) => ({
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              ...decisionBase,
-              operation: { const: operation },
-              ...properties,
-            },
-            required: [
-              ...Object.keys(decisionBase),
-              ...Object.keys(properties).filter((key) => key !== "comment"),
-            ],
-          }),
-        ),
-      }),
+    ),
+    ...decisionToolActions.map((action) => {
+      const schema = decisionRequestSchema(action);
+      const labels = {
+        request: "判断を要求",
+        answer: "判断に回答",
+        apply: "判断を適用",
+        close: "判断を閉鎖",
+      } as const;
+      return tool(
+        executionDecisionTools[action],
+        `CRDDの${labels[action]}`,
+        action === "answer"
+          ? "登録された判断に回答します。回答だけではAIを再実行しません。"
+          : `対象の実行について${labels[action]}します。`,
+        { ...targetFields, ...schema.properties },
+        [...Object.keys(targetFields), ...schema.required],
+      );
     }),
+    ...(includeCancel
+      ? [
+          tool(
+            MCP_CANCEL_OBJECTIVE_TOOL,
+            "CRDD Objectiveの取消を要求",
+            "実行状態から取得した今回の起動識別子で取消を要求します。終了を保証しません。",
+            { ...targetFields, ...cancellation.properties },
+            [...Object.keys(targetFields), ...cancellation.required],
+          ),
+        ]
+      : []),
     tool(
       MCP_COORDINATOR_STATE_TOOL,
       "CRDDのTask実行状態を取得",
@@ -966,11 +827,6 @@ function getExecutionToolDefinitions(requireRepositoryId = false) {
   ]);
 }
 
-export const GET_EXECUTION_DEFINITION_TOOL =
-  "crdd.get_execution_definition" as const;
-export const MANAGE_EXECUTION_DEFINITION_TOOL =
-  "crdd.manage_execution_definition" as const;
-
 /**
  * 当該RepositoryのCore操作を現在認可へ結ぶ。
  * @responsibility Host構成からだけRootと主体を渡す。
@@ -984,14 +840,15 @@ export const MANAGE_EXECUTION_DEFINITION_TOOL =
 export type RuntimeContentAccessResolver = (
   repositoryId: string,
   signal: AbortSignal,
-) => DefinitionAccess | null;
+  write: boolean,
+) => DefinitionAccess | null | Promise<DefinitionAccess | null>;
 
 /**
  * 読取りと定義変更の固定Tool集合を返す。
  * @responsibility 一覧と実受付の操作名・必須fieldを一致させる。
  * @trace ARCH-000012
  * @input N/A: 固定した操作集合。
- * @returns 二つのToolと操作別の閉Schema。
+ * @returns 操作ごとのToolと閉Schema。
  * @precondition 個別定義の意味検査はDomainが所有する。
  * @postcondition 承認・AI開始・Queue投入は一覧に含まない。
  * @effect N/A: 値構築だけ。
@@ -1028,60 +885,43 @@ function getExecutionDefinitionToolDefinitions() {
         "Domain定義。Plan/Objectives/Taskの閉形式・DAG・PathはDomainが検査します。",
     },
   };
-  return (
-    [
-      [GET_EXECUTION_DEFINITION_TOOL, definitionReadFields],
-      [MANAGE_EXECUTION_DEFINITION_TOOL, definitionWriteFields],
-    ] as const
-  ).map(([name, fields]) => ({
-    name,
-    title:
-      name === GET_EXECUTION_DEFINITION_TOOL
-        ? "実行依頼の定義を確認"
-        : "実行依頼の定義を明示編集",
-    description:
-      "Coreの定義保存だけを行います。CRDD文書の更新、AI起動、承認、Queue投入は行いません。保存不明・競合時は自動再送しません。",
-    annotations: {
-      readOnlyHint: name === GET_EXECUTION_DEFINITION_TOOL,
-      destructiveHint: name === MANAGE_EXECUTION_DEFINITION_TOOL,
-      idempotentHint: false,
-    },
-    inputSchema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["repositoryId", "command"],
-      properties: {
-        repositoryId: id,
-        command: {
-          oneOf: Object.entries(fields).map(([operation, extra]) => {
-            const keys = ["projectId", "milestoneId", ...extra];
-            return {
-              type: "object",
-              additionalProperties: false,
-              required: [
-                "operation",
-                ...keys.filter(
-                  (key) => operation !== "tasks" || key !== "queueId",
-                ),
-              ],
-              properties: {
-                operation: { const: operation },
-                ...Object.fromEntries(
-                  keys.map((key) => [
-                    key,
-                    key === "expectedDefinitionHash" &&
-                    operation !== "plan.save"
-                      ? { type: "string", pattern: "^[a-f0-9]{64}$" }
-                      : properties[key],
-                  ]),
-                ),
-              },
-            };
-          }),
-        },
+  const fields = { ...definitionReadFields, ...definitionWriteFields };
+  return Object.entries(executionDefinitionResources).map(([key, resource]) => {
+    const operation = key as keyof typeof fields;
+    const keys = [
+      "repositoryId",
+      "projectId",
+      "milestoneId",
+      ...fields[operation],
+    ];
+    const readOnly = resource.method === "get";
+    return {
+      name: resource.tool,
+      title: resource.tool,
+      description:
+        "実行定義だけを扱います。保存不明・競合時は自動再送しません。",
+      annotations: {
+        readOnlyHint: readOnly,
+        destructiveHint: !readOnly,
+        idempotentHint: false,
       },
-    },
-  }));
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: keys.filter((field) => field !== "queueId"),
+        properties: Object.fromEntries(
+          keys.map((field) => [
+            field,
+            field === "repositoryId"
+              ? id
+              : field === "expectedDefinitionHash" && operation !== "plan.save"
+                ? { type: "string", pattern: "^[a-f0-9]{64}$" }
+                : properties[field],
+          ]),
+        ),
+      },
+    };
+  });
 }
 
 /**
@@ -1106,40 +946,59 @@ async function dispatchExecutionDefinitionTool(
   resolve: RuntimeContentAccessResolver,
   signal: AbortSignal,
 ): Promise<McpResponse> {
-  const args = readRequestRecord(
-    params.arguments,
-    new Set(["repositoryId", "command"]),
+  const route = Object.entries(executionDefinitionResources).find(
+    ([, resource]) => resource.tool === params.name,
   );
+  if (!route) return protocolError(params.id, -32601, "Method not found");
+  const [operation, resource] = route;
+  const read = resource.method === "get";
+  const fields = { ...definitionReadFields, ...definitionWriteFields };
+  const targetFields = ["repositoryId", "projectId", "milestoneId"];
+  const args =
+    readRequestRecord(
+      params.arguments,
+      new Set([...targetFields, ...fields[operation as keyof typeof fields]]),
+    ) ??
+    (operation === "tasks"
+      ? readRequestRecord(params.arguments, new Set(targetFields))
+      : null);
   if (
     !args ||
     typeof args.repositoryId !== "string" ||
     !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(args.repositoryId)
   )
     return protocolError(params.id, -32602, "Invalid params");
-  const mode =
-    params.name === GET_EXECUTION_DEFINITION_TOOL
-      ? "read"
-      : params.name === MANAGE_EXECUTION_DEFINITION_TOOL
-        ? "write"
-        : null;
-  const command =
-    mode === null
-      ? null
-      : validateExecutionDefinitionCommand(args.command, mode);
+  const { repositoryId, ...input } = args;
+  const command = validateExecutionDefinitionCommand(
+    { ...input, operation },
+    read ? "read" : "write",
+  );
   if (!command) return protocolError(params.id, -32602, "Invalid params");
   if (signal.aborted)
     return protocolError(params.id, -32800, "Request cancelled");
   try {
-    const access = resolve(args.repositoryId, signal);
-    if (!access) throw new Error("runtime_content_access_unavailable");
+    const access = await resolve(repositoryId, signal, !read);
     if (signal.aborted)
       return protocolError(params.id, -32800, "Request cancelled");
+    if (!access) throw new Error("runtime_content_access_unavailable");
     const result = executeDefinitionOperation(access, command);
+    if (signal.aborted)
+      return protocolError(params.id, -32800, "Request cancelled");
+    if (
+      access.canPublish &&
+      !access.canPublish(
+        read ? "definition.read" : "definition.write",
+        command.input as Parameters<DefinitionAccess["revalidate"]>[1],
+      )
+    )
+      throw new Error("runtime_content_access_unavailable");
     return protocolComplete(params.id, {
       content: [{ type: "text", text: JSON.stringify(result) }],
       structuredContent: result,
     });
   } catch {
+    if (signal.aborted)
+      return protocolError(params.id, -32800, "Request cancelled");
     return protocolError(
       params.id,
       -32603,
@@ -1158,14 +1017,31 @@ async function dispatchExecutionDefinitionTool(
  * @security Root・関数はwireに載せない。
  * @compatibility AMの内容領域とGit Workspaceを分離する。
  */
-export type WorkspaceAccessResolver = (repositoryId: string) => Readonly<{
+type WorkspaceAccess = Readonly<{
   ownerRoot: string;
   projectId: string;
   authorize: () => boolean;
-}> | null;
+}>;
+export type WorkspaceAccessResolver = (
+  repositoryId: string,
+  write: boolean,
+  signal: AbortSignal,
+) => WorkspaceAccess | null | Promise<WorkspaceAccess | null>;
 
-export const MCP_WORKSPACE_READ_TOOL = "crdd.get_workspace" as const;
-export const MCP_WORKSPACE_MANAGE_TOOL = "crdd.manage_workspace" as const;
+export const MCP_WORKSPACE_TOOLS = Object.freeze({
+  list: "crdd.list_workspaces",
+  get: "crdd.get_workspace",
+  inspect: "crdd.inspect_workspace",
+  "candidate-diff": "crdd.get_workspace_candidate_diff",
+  create: "crdd.create_workspace",
+  select: "crdd.select_workspace",
+  rename: "crdd.rename_workspace",
+  hold: "crdd.hold_workspace",
+  freeze: "crdd.freeze_workspace",
+  adopt: "crdd.adopt_workspace",
+  "close-candidate": "crdd.close_workspace_candidate",
+  discard: "crdd.discard_workspace",
+} as const);
 
 /**
  * Tool一覧の操作別閉Schemaを返す。
@@ -1183,150 +1059,17 @@ export const MCP_WORKSPACE_MANAGE_TOOL = "crdd.manage_workspace" as const;
  * @concurrency N/A: 局所値。
  */
 export function getWorkspaceToolDefinitions() {
-  return [MCP_WORKSPACE_READ_TOOL, MCP_WORKSPACE_MANAGE_TOOL].map((name) => ({
+  return Object.entries(MCP_WORKSPACE_TOOLS).map(([operation, name]) => ({
     name,
-    title:
-      name === MCP_WORKSPACE_READ_TOOL
-        ? "作業領域と変更を確認"
-        : "作業領域を明示操作",
     description:
       "人間が指定した対象・内容だけを扱います。固定と採用は別操作です。Task完了から固定・採用・破棄を自動発行せず、失敗時も自動再送しません。",
     annotations: {
-      readOnlyHint: name === MCP_WORKSPACE_READ_TOOL,
-      destructiveHint: name === MCP_WORKSPACE_MANAGE_TOOL,
+      readOnlyHint: isWorkspaceRead(operation),
+      destructiveHint: !isWorkspaceRead(operation),
       idempotentHint: false,
     },
-    inputSchema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["repositoryId", "command"],
-      properties: {
-        repositoryId: {
-          type: "string",
-          pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-        },
-        command: workspaceCommandSchema(name === MCP_WORKSPACE_READ_TOOL),
-      },
-    },
+    inputSchema: workspaceInputSchema(operation),
   }));
-}
-
-/**
- * 操作ごとの必須fieldを閉じたSchemaへ写す。
- * @responsibility 任意JSON操作を公開しない。
- * @trace ARCH-000012
- * @input readOnly: 読取りToolか。
- * @returns 操作ごとのoneOf。
- * @precondition 固定Tool集合のみ。
- * @postcondition 実値はOwnerの共通検査でも確認する。
- * @effect N/A: 値構築。
- * @failure N/A: 外部状態なし。
- * @invariant commandは任意Shellではない。
- * @boundary MCP Schema。
- * @security 既知fieldだけを受ける。
- * @concurrency N/A: 局所値。
- */
-function workspaceCommandSchema(readOnly: boolean) {
-  const actions: Record<string, string[]> = readOnly
-    ? {
-        list: ["cursor", "limit"],
-        get: [],
-        inspect: ["path"],
-        "candidate-diff": ["path"],
-      }
-    : {
-        create: [
-          "baseBranch",
-          "baseCommit",
-          "name",
-          "acceptUncommittedChangesExcluded",
-        ],
-        select: [],
-        rename: ["name"],
-        hold: ["until"],
-        discard: ["expectedHead", "discardChanges"],
-        freeze: [
-          "operationId",
-          "baseCommit",
-          "expectedHead",
-          "selection",
-          "candidateName",
-          "relatedChangeIds",
-        ],
-        adopt: ["candidateCommit", "targetBranch", "expectedTargetHead"],
-        "close-candidate": ["expectedCommit", "disposition"],
-      };
-  return {
-    oneOf: Object.entries(actions).map(([operation, extra]) => {
-      const keys = [
-        "operation",
-        "projectId",
-        ...(operation === "list" ? [] : ["queueId", "workspaceId"]),
-        ...(!readOnly ? ["expectedGeneration"] : []),
-        ...extra,
-      ];
-      const properties = Object.fromEntries(
-        keys.map((key) => [
-          key,
-          key === "operation"
-            ? { const: operation }
-            : key === "expectedGeneration"
-              ? { type: "integer", minimum: 0 }
-              : key === "limit"
-                ? { type: "integer", minimum: 1, maximum: 50 }
-                : key === "acceptUncommittedChangesExcluded"
-                  ? {
-                      type: "boolean",
-                      description:
-                        "未コミット変更は引き継がれないことを利用者が了承した場合だけtrue。変更があり未了承ならworkspace_creation_confirmation_requiredで作成前に停止します。",
-                    }
-                  : key === "discardChanges"
-                    ? { type: "boolean" }
-                    : key === "relatedChangeIds"
-                      ? {
-                          type: "array",
-                          maxItems: 20,
-                          items: { type: "string", pattern: "^CHG-[0-9]{6}$" },
-                        }
-                      : key === "selection"
-                        ? {
-                            type: "array",
-                            minItems: 1,
-                            maxItems: 1000,
-                            items: {
-                              type: "object",
-                              additionalProperties: false,
-                              required: ["path", "blobId", "mode"],
-                              properties: {
-                                path: { type: "string" },
-                                blobId: {
-                                  anyOf: [{ type: "string" }, { type: "null" }],
-                                },
-                                mode: { enum: ["100644", "100755", null] },
-                              },
-                            },
-                          }
-                        : [
-                              "cursor",
-                              "name",
-                              "until",
-                              "candidateName",
-                              "expectedCommit",
-                            ].includes(key)
-                          ? { anyOf: [{ type: "string" }, { type: "null" }] }
-                          : { type: "string" },
-        ]),
-      );
-      return {
-        type: "object",
-        additionalProperties: false,
-        required: keys.filter(
-          (key) => key !== "acceptUncommittedChangesExcluded",
-        ),
-        properties,
-      };
-    }),
-  };
 }
 
 /**
@@ -1360,25 +1103,28 @@ async function dispatchWorkspaceTool(
   resolve: WorkspaceAccessResolver,
   signal: AbortSignal,
 ): Promise<McpResponse> {
-  const args = readRequestRecord(
-    params.arguments,
-    new Set(["repositoryId", "command"]),
-  );
+  const operation = Object.entries(MCP_WORKSPACE_TOOLS).find(
+    ([, name]) => name === params.name,
+  )?.[0];
+  const args = readRequestRecord(params.arguments);
   if (
     !args ||
     typeof args.repositoryId !== "string" ||
     !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(args.repositoryId) ||
-    ![MCP_WORKSPACE_READ_TOOL, MCP_WORKSPACE_MANAGE_TOOL].includes(
-      params.name as never,
-    )
+    !operation ||
+    Object.hasOwn(args, "operation")
   )
     return protocolError(params.id, -32602, "Invalid params");
   if (signal.aborted)
     return protocolError(params.id, -32800, "Request cancelled");
-  const input = readRequestRecord(args.command);
-  if (!input) return protocolError(params.id, -32602, "Invalid params");
-  const repositoryId = args.repositoryId;
-  const captured: Record<string, unknown> = {};
+  const { required, properties } = workspaceInputSchema(operation);
+  if (
+    required.some((key) => !Object.hasOwn(args, key)) ||
+    Object.keys(args).some((key) => !Object.hasOwn(properties, key))
+  )
+    return protocolError(params.id, -32602, "Invalid params");
+  const { repositoryId, ...input } = args;
+  const captured: Record<string, unknown> = { operation };
   for (const [key, value] of Object.entries(input)) {
     if (key === "selection" || key === "relatedChangeIds") {
       if (!Array.isArray(value))
@@ -1396,6 +1142,7 @@ async function dispatchWorkspaceTool(
           );
           if (
             !row ||
+            Object.keys(row).length !== 3 ||
             Object.values(row).some(
               (entry) => entry !== null && typeof entry !== "string",
             )
@@ -1427,23 +1174,21 @@ async function dispatchWorkspaceTool(
       ? protocolError(params.id, -32800, "Request cancelled")
       : protocolError(params.id, -32603, "Workspace outcome unavailable");
   }
+  let dispatched = false;
   try {
     if (signal.aborted)
       return protocolError(params.id, -32800, "Request cancelled");
-    if (
-      !prepared ||
-      ["list", "get", "inspect", "candidate-diff"].includes(
-        prepared.command.operation,
-      ) !==
-        (params.name === MCP_WORKSPACE_READ_TOOL)
-    )
-      return protocolError(params.id, -32602, "Invalid params");
+    if (!prepared) return protocolError(params.id, -32602, "Invalid params");
     const { command, executeWorkspace } = prepared;
-    const access = resolve(repositoryId);
-    if (!access) throw new Error("workspace_access_unavailable");
+    const access = await resolve(
+      repositoryId,
+      !isWorkspaceRead(command.operation),
+      signal,
+    );
     if (signal.aborted)
       return protocolError(params.id, -32800, "Request cancelled");
-    if (!access.authorize()) throw new Error("workspace_access_unavailable");
+    if (!access) throw new Error("workspace_access_unavailable");
+    dispatched = true;
     const result = executeWorkspace(
       access.ownerRoot,
       access.projectId,
@@ -1458,6 +1203,8 @@ async function dispatchWorkspaceTool(
       structuredContent: result,
     });
   } catch {
+    if (signal.aborted && !dispatched)
+      return protocolError(params.id, -32800, "Request cancelled");
     return protocolError(params.id, -32603, "Workspace outcome unavailable");
   }
 }
@@ -1475,7 +1222,11 @@ async function dispatchWorkspaceTool(
  * @compatibility PortfolioProjectionの公開契約変更時はAdapterを再評価する。
  */
 export type McpProjectContextDependencies = Readonly<{
-  readPortfolio: () => Promise<PortfolioProjection>;
+  requireRepository?: boolean;
+  readPortfolio: (
+    target?: ProjectContextTarget,
+    signal?: AbortSignal,
+  ) => Promise<PortfolioProjection>;
 }>;
 
 /**
@@ -1521,10 +1272,14 @@ async function dispatchProjectTool(
     !args ||
     (params.name === MCP_PROJECT_CONTEXT_LIST_TOOL && keys.length !== 0) ||
     (params.name === MCP_PROJECT_CONTEXT_GET_TOOL &&
-      (keys.length !== 1 ||
+      (keys.length !== (dependencies.requireRepository ? 2 : 1) ||
         !Object.hasOwn(args, "projectId") ||
         typeof args.projectId !== "string" ||
-        !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(args.projectId)))
+        !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(args.projectId) ||
+        (dependencies.requireRepository &&
+          (!Object.hasOwn(args, "repositoryId") ||
+            typeof args.repositoryId !== "string" ||
+            !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(args.repositoryId)))))
   )
     return protocolError(params.id, -32602, "Invalid params");
   if (signal.aborted)
@@ -1532,8 +1287,17 @@ async function dispatchProjectTool(
   const requestedProjectId = args.projectId;
   let portfolio: PortfolioProjection;
   try {
-    portfolio = await dependencies.readPortfolio();
+    const target =
+      dependencies.requireRepository &&
+      params.name === MCP_PROJECT_CONTEXT_GET_TOOL &&
+      typeof args.repositoryId === "string" &&
+      typeof requestedProjectId === "string"
+        ? { repositoryId: args.repositoryId, projectId: requestedProjectId }
+        : undefined;
+    portfolio = await dependencies.readPortfolio(target, signal);
   } catch {
+    if (dependencies.requireRepository && signal.aborted)
+      return protocolError(params.id, -32800, "Request cancelled");
     return protocolError(params.id, -32603, "Project Context unavailable");
   }
   if (signal.aborted)
@@ -1546,18 +1310,7 @@ async function dispatchProjectTool(
           text: `${portfolio.projects.length}件のProject Contextを取得しました。`,
         }),
       ]),
-      structuredContent: Object.freeze({
-        projects: Object.freeze(
-          portfolio.projects.map(({ projectId, state, sources }) =>
-            Object.freeze({
-              projectId,
-              state,
-              sourceCount: sources.length,
-            }),
-          ),
-        ),
-        retainedAsSourceOfTruth: false,
-      }),
+      structuredContent: projectPortfolioList(portfolio),
       isError: false,
     });
   const project = portfolio.projects.find(
@@ -1602,7 +1355,7 @@ export const MCP_PROJECT_CONTEXT_GET_TOOL = "crdd.get_project_context" as const;
  * @responsibility Project Contextの一覧・取得入力を固定Schemaとして公開する。
  * @trace ARCH-000005
  * @trace ARCH-000012
- * @input N/A: 実行時引数を受け取らない。
+ * @input 外部ホスト利用時に対象Repositoryを明示するか。
  * @returns Project Context用MCP Tool記述を返す。
  * @precondition N/A: 固定契約だけを使用する。
  * @postcondition 一覧と取得の二Toolを固定順で返す。
@@ -1610,10 +1363,10 @@ export const MCP_PROJECT_CONTEXT_GET_TOOL = "crdd.get_project_context" as const;
  * @failure N/A: 固定値の構築に独自の失敗分岐を持たない。
  * @invariant Coordinator状態ToolとProject Context Toolを同一名にしない。
  * @boundary MCP Clientへ公開するTool Schema境界。
- * @security Project ID以外のRepository IdentityやAuthority入力を要求しない。
+ * @security 外部ホスト利用時はRepositoryとProjectを明示し、入力をAuthorityとして扱わない。
  * @concurrency N/A: 同期的な純粋構築である。
  */
-export function getProjectToolDefinitions() {
+export function getProjectToolDefinitions(requireRepository = false) {
   const projectId = Object.freeze({
     type: "string",
     pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
@@ -1639,8 +1392,14 @@ export function getProjectToolDefinitions() {
       inputSchema: Object.freeze({
         type: "object",
         additionalProperties: false,
-        required: Object.freeze(["projectId"]),
-        properties: Object.freeze({ projectId }),
+        required: Object.freeze(
+          requireRepository ? ["repositoryId", "projectId"] : ["projectId"],
+        ),
+        properties: Object.freeze(
+          requireRepository
+            ? { repositoryId: projectId, projectId }
+            : { projectId },
+        ),
       }),
     }),
   ]);
@@ -1662,7 +1421,13 @@ export const EXECUTION_ACTIVITY_TOOL = "crdd.get_execution_activity" as const;
  */
 export type ExecutionActivityReader = Readonly<{
   read(
-    query: Readonly<{ projectId: string; cursor?: string; limit: number }>,
+    query: Readonly<{
+      projectId: string;
+      repositoryId?: string;
+      cursor?: string;
+      limit: number;
+    }>,
+    signal: AbortSignal,
   ): Promise<ExecutionActivityObservation | null>;
 }>;
 
@@ -1695,6 +1460,10 @@ export function getExecutionActivityToolDefinitions() {
         required: Object.freeze(["projectId"]),
         properties: Object.freeze({
           projectId: Object.freeze({
+            type: "string",
+            pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          }),
+          repositoryId: Object.freeze({
             type: "string",
             pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           }),
@@ -1750,10 +1519,13 @@ async function dispatchActivityTool(
   if (
     !args ||
     Object.keys(args).some(
-      (key) => !["projectId", "cursor", "limit"].includes(key),
+      (key) => !["projectId", "repositoryId", "cursor", "limit"].includes(key),
     ) ||
     typeof args.projectId !== "string" ||
     !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(args.projectId) ||
+    (Object.hasOwn(args, "repositoryId") &&
+      (typeof args.repositoryId !== "string" ||
+        !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(args.repositoryId))) ||
     (Object.hasOwn(args, "cursor") && typeof args.cursor !== "string") ||
     (Object.hasOwn(args, "limit") &&
       (!Number.isInteger(args.limit) ||
@@ -1767,6 +1539,9 @@ async function dispatchActivityTool(
   const requestedProjectId = args.projectId;
   const input = {
     projectId: requestedProjectId,
+    ...(typeof args.repositoryId === "string"
+      ? { repositoryId: args.repositoryId }
+      : {}),
     ...(typeof args.cursor === "string" ? { cursor: args.cursor } : {}),
     limit: typeof args.limit === "number" ? args.limit : 20,
   };
@@ -1778,7 +1553,7 @@ async function dispatchActivityTool(
     );
     if (signal.aborted)
       return protocolError(params.id, -32800, "Request cancelled");
-    observation = await dependencies.read(input);
+    observation = await dependencies.read(input, signal);
     if (signal.aborted)
       return protocolError(params.id, -32800, "Request cancelled");
     ownedObservation =
@@ -1853,26 +1628,28 @@ type TopicMeetingAccessResolver = (
  */
 async function dispatchRoutedTopicMeetingCall(
   call: McpToolCall,
-  resolveTopicMeetingAccess: TopicMeetingAccessResolver,
+  resolveTopicMeetingAccess: TopicMeetingAccessResolver | undefined,
   signal: AbortSignal,
+  records?: McpServerDependencies["recordOperations"],
 ): Promise<McpResponse> {
   const args = plain(call.arguments) ? call.arguments : null;
   if (
     !args ||
     typeof args.repositoryId !== "string" ||
-    args.repositoryId.length === 0 ||
-    args.repositoryId.length > 128
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(args.repositoryId)
   )
     return protocolError(call.id, -32602, "Invalid params");
   const repositoryId = args.repositoryId;
   const { repositoryId: ignoredRepositoryId, ...localArguments } = args;
+  const resolveLocal = () => resolveTopicMeetingAccess?.(repositoryId) ?? null;
   return dispatchTopicMeetingCall(
     Object.freeze({
       ...call,
       arguments: Object.freeze(localArguments),
     }),
-    () => resolveTopicMeetingAccess(repositoryId),
+    resolveLocal,
     signal,
+    records?.(repositoryId, signal),
   );
 }
 
@@ -1962,6 +1739,7 @@ async function dispatchTopicMeetingCall(
   params: McpToolCall,
   access: TopicMeetingAccess | (() => TopicMeetingAccess | null),
   signal: AbortSignal,
+  records?: ReturnType<typeof createHostedRecords>,
 ): Promise<McpResponse> {
   if (
     !MCP_TOPIC_MEETING_TOOLS.includes(params.name as never) ||
@@ -1972,135 +1750,27 @@ async function dispatchTopicMeetingCall(
     return protocolError(params.id, -32800, "Request cancelled");
   const args = params.arguments;
   const kind = params.name.includes("meeting") ? "meeting" : "topic";
-  const recordId = args.id ?? args.topicId ?? args.meetingId;
-  if (
-    (recordId !== undefined &&
-      (typeof recordId !== "string" ||
-        !new RegExp(
-          kind === "topic" ? "^TOPIC-\\d{6}$" : "^MTG-\\d{6}$",
-          "u",
-        ).test(recordId))) ||
-    (args.expectedRevision !== undefined &&
-      (!Number.isSafeInteger(args.expectedRevision) ||
-        (args.expectedRevision as number) < 1))
-  )
-    return protocolError(params.id, -32602, "Invalid params");
-  if (
-    (params.name === MCP_TOPIC_PROMOTE_TOOL &&
-      (typeof args.changeId !== "string" ||
-        !/^CHG-\d{6}$/u.test(args.changeId))) ||
-    (params.name === MCP_MEETING_TREAT_OUTCOME_TOOL &&
-      ((args.targetKind === "topic" &&
-        (typeof args.targetReference !== "string" ||
-          !/^TOPIC-\d{6}$/u.test(args.targetReference))) ||
-        (args.targetKind === "change" &&
-          (typeof args.targetReference !== "string" ||
-            !/^CHG-\d{6}$/u.test(args.targetReference)))))
-  )
-    return protocolError(params.id, -32602, "Invalid params");
   let accessResolved = false;
   try {
-    if (params.name === MCP_TOPIC_PROMOTE_TOOL) {
-      const required = [
-        "topicId",
-        "expectedRevision",
-        "changeId",
-        "reason",
-        "remainingResponsibility",
-      ] as const;
-      if (
-        !exactKeys(args, required) ||
-        !Number.isSafeInteger(args.expectedRevision) ||
-        !required
-          .filter((key) => key !== "expectedRevision")
-          .every((key) => typeof args[key] === "string")
-      )
-        return protocolError(params.id, -32602, "Invalid params");
+    const operation = recordWriteOperations.get(params.name);
+    if (operation) {
+      const action = readRecordWrite(kind, operation, args);
+      if (!action) return protocolError(params.id, -32602, "Invalid params");
       if (signal.aborted)
         return protocolError(params.id, -32800, "Request cancelled");
-      const application = typeof access === "function" ? access() : access;
-      accessResolved = true;
+      const resolveLocal = () =>
+        typeof access === "function" ? access() : access;
+      const result = records
+        ? await records.write(action)
+        : (() => {
+            const application = resolveLocal();
+            return !signal.aborted && application
+              ? executeRecordWrite(application, action)
+              : null;
+          })();
       if (signal.aborted)
         return protocolError(params.id, -32800, "Request cancelled");
-      if (application === null)
-        return protocolError(params.id, -32602, "Invalid params");
-      const result = executeTopicAction(application.topic, {
-        operation: "promote",
-        input: {
-          topicId: args.topicId as string,
-          expectedRevision: args.expectedRevision as number,
-          changeId: args.changeId as string,
-          reason: args.reason as string,
-          remainingResponsibility: args.remainingResponsibility as string,
-        },
-      });
-      return protocolComplete(params.id, {
-        content: Object.freeze([{ type: "text", text: result.reason }]),
-        structuredContent: result,
-        isError: result.status !== "completed",
-      });
-    }
-    if (params.name === MCP_MEETING_TREAT_OUTCOME_TOOL) {
-      const required = [
-        "meetingId",
-        "expectedRevision",
-        "outcomeId",
-        "disposition",
-        "owner",
-        "reviewTrigger",
-        "targetKind",
-        "targetReference",
-        "treatment",
-        "completionCondition",
-        "result",
-        "closeMeeting",
-      ] as const;
-      if (
-        !exactKeys(args, required) ||
-        !Number.isSafeInteger(args.expectedRevision) ||
-        typeof args.closeMeeting !== "boolean" ||
-        !required
-          .filter((key) => key !== "expectedRevision" && key !== "closeMeeting")
-          .every((key) => typeof args[key] === "string") ||
-        !["completed", "transferred", "promoted", "rejected"].includes(
-          args.disposition as string,
-        ) ||
-        !["topic", "change", "owner", "none"].includes(
-          args.targetKind as string,
-        )
-      )
-        return protocolError(params.id, -32602, "Invalid params");
-      if (signal.aborted)
-        return protocolError(params.id, -32800, "Request cancelled");
-      const application = typeof access === "function" ? access() : access;
-      accessResolved = true;
-      if (signal.aborted)
-        return protocolError(params.id, -32800, "Request cancelled");
-      if (application === null)
-        return protocolError(params.id, -32602, "Invalid params");
-      const result = executeMeetingAction(application.meeting, {
-        operation: "treat-outcome",
-        input: {
-          meetingId: args.meetingId as string,
-          expectedRevision: args.expectedRevision as number,
-          outcomeId: args.outcomeId as string,
-          disposition: args.disposition as
-            | "completed"
-            | "transferred"
-            | "promoted"
-            | "rejected",
-          owner: args.owner as string,
-          reviewTrigger: args.reviewTrigger as string,
-          target: {
-            kind: args.targetKind as "topic" | "change" | "owner" | "none",
-            reference: args.targetReference as string,
-          },
-          treatment: args.treatment as string,
-          completionCondition: args.completionCondition as string,
-          result: args.result as string,
-          closeMeeting: args.closeMeeting,
-        },
-      });
+      if (!result) return protocolError(params.id, -32602, "Invalid params");
       return protocolComplete(params.id, {
         content: Object.freeze([{ type: "text", text: result.reason }]),
         structuredContent: result,
@@ -2186,16 +1856,19 @@ async function dispatchTopicMeetingCall(
         ...(Object.keys(query).length === 0 ? {} : { query }),
       };
 
-      const result = readTopicMeetingList(
-        { kind, ...listInput },
-        () => {
-          const application = typeof access === "function" ? access() : access;
-          accessResolved = true;
-          return application;
-        },
-        signal,
-      );
-      if (result.status === "cancelled")
+      const result = records
+        ? await records.list({ kind, ...listInput })
+        : readTopicMeetingList(
+            { kind, ...listInput },
+            () => {
+              const application =
+                typeof access === "function" ? access() : access;
+              accessResolved = true;
+              return application;
+            },
+            signal,
+          );
+      if (signal.aborted || result.status === "cancelled")
         return protocolError(params.id, -32800, "Request cancelled");
       if (result.status !== "complete")
         return protocolError(params.id, -32602, "Invalid params");
@@ -2211,10 +1884,25 @@ async function dispatchTopicMeetingCall(
     if (
       [MCP_TOPIC_GET_TOOL, MCP_MEETING_GET_TOOL].includes(params.name as never)
     ) {
-      if (!exactKeys(args, ["id"]) || typeof args.id !== "string")
+      if (
+        !exactKeys(args, ["id"]) ||
+        typeof args.id !== "string" ||
+        !(kind === "topic" ? /^TOPIC-\d{6}$/u : /^MTG-\d{6}$/u).test(args.id)
+      )
         return protocolError(params.id, -32602, "Invalid params");
       if (signal.aborted)
         return protocolError(params.id, -32800, "Request cancelled");
+      if (records) {
+        const result = await records.get(kind, args.id);
+        if (signal.aborted)
+          return protocolError(params.id, -32800, "Request cancelled");
+        if (!result) return protocolError(params.id, -32602, "Invalid params");
+        return protocolComplete(params.id, {
+          content: [{ type: "text", text: result.status }],
+          structuredContent: result,
+          isError: result.status !== "completed",
+        });
+      }
       const application = typeof access === "function" ? access() : access;
       accessResolved = true;
       if (signal.aborted)
@@ -2245,97 +1933,9 @@ async function dispatchTopicMeetingCall(
         isError: record === null,
       });
     }
-    const create =
-      params.name === MCP_TOPIC_CREATE_TOOL ||
-      params.name === MCP_MEETING_CREATE_TOOL;
-    const update =
-      params.name === MCP_TOPIC_UPDATE_TOOL ||
-      params.name === MCP_MEETING_UPDATE_TOOL;
-    if (create || update) {
-      const { id, expectedRevision, markdown } = args;
-      const existing =
-        update &&
-        typeof id === "string" &&
-        typeof expectedRevision === "number" &&
-        Number.isSafeInteger(expectedRevision)
-          ? { id, expectedRevision }
-          : null;
-      if (
-        typeof markdown !== "string" ||
-        (create
-          ? !exactKeys(args, ["markdown"])
-          : !existing ||
-            !exactKeys(args, ["id", "expectedRevision", "markdown"]))
-      )
-        return protocolError(params.id, -32602, "Invalid params");
-      try {
-        if (kind === "topic") parseTopicMarkdown(markdown);
-        else parseMeetingMarkdown(markdown);
-      } catch {
-        return protocolError(params.id, -32602, "Invalid params");
-      }
-      if (signal.aborted)
-        return protocolError(params.id, -32800, "Request cancelled");
-      const application = typeof access === "function" ? access() : access;
-      accessResolved = true;
-      if (signal.aborted)
-        return protocolError(params.id, -32800, "Request cancelled");
-      if (application === null)
-        return protocolError(params.id, -32602, "Invalid params");
-      const write: RecordWriteCommand = existing
-        ? { operation: "update", input: { ...existing, markdown } }
-        : { operation: "create", input: markdown };
-      const result =
-        kind === "topic"
-          ? executeTopicAction(application.topic, write)
-          : executeMeetingAction(application.meeting, write);
-      return protocolComplete(params.id, {
-        content: Object.freeze([{ type: "text", text: result.reason }]),
-        structuredContent: result,
-        isError: result.status !== "completed",
-      });
-    }
-    if (
-      [MCP_TOPIC_DELETE_TOOL, MCP_MEETING_DELETE_TOOL].includes(
-        params.name as never,
-      )
-    ) {
-      if (
-        !exactKeys(args, ["id", "expectedRevision", "confirmed", "reason"]) ||
-        typeof args.id !== "string" ||
-        !Number.isSafeInteger(args.expectedRevision) ||
-        typeof args.confirmed !== "boolean" ||
-        args.reason !== "mistaken_registration"
-      )
-        return protocolError(params.id, -32602, "Invalid params");
-      if (signal.aborted)
-        return protocolError(params.id, -32800, "Request cancelled");
-      const application = typeof access === "function" ? access() : access;
-      accessResolved = true;
-      if (signal.aborted)
-        return protocolError(params.id, -32800, "Request cancelled");
-      if (application === null)
-        return protocolError(params.id, -32602, "Invalid params");
-      const write: RecordWriteCommand = {
-        operation: "delete",
-        input: {
-          id: args.id,
-          expectedRevision: args.expectedRevision as number,
-          confirmed: args.confirmed,
-          reason: "mistaken_registration",
-        },
-      };
-      const result =
-        kind === "topic"
-          ? executeTopicAction(application.topic, write)
-          : executeMeetingAction(application.meeting, write);
-      return protocolComplete(params.id, {
-        content: Object.freeze([{ type: "text", text: result.reason }]),
-        structuredContent: result,
-        isError: result.status !== "completed",
-      });
-    }
   } catch (error) {
+    if (records && signal.aborted)
+      return protocolError(params.id, -32800, "Request cancelled");
     if (
       accessResolved &&
       [MCP_TOPIC_LIST_TOOL, MCP_MEETING_LIST_TOOL].includes(
@@ -2381,6 +1981,17 @@ export const MCP_TOPIC_MEETING_TOOLS = Object.freeze([
   MCP_MEETING_UPDATE_TOOL,
   MCP_MEETING_DELETE_TOOL,
   MCP_MEETING_TREAT_OUTCOME_TOOL,
+]);
+
+const recordWriteOperations = new Map<string, RecordActionName>([
+  [MCP_TOPIC_CREATE_TOOL, "create"],
+  [MCP_TOPIC_UPDATE_TOOL, "update"],
+  [MCP_TOPIC_DELETE_TOOL, "delete"],
+  [MCP_TOPIC_PROMOTE_TOOL, "promote"],
+  [MCP_MEETING_CREATE_TOOL, "create"],
+  [MCP_MEETING_UPDATE_TOOL, "update"],
+  [MCP_MEETING_DELETE_TOOL, "delete"],
+  [MCP_MEETING_TREAT_OUTCOME_TOOL, "treat-outcome"],
 ]);
 
 const TEXT_SCHEMA = Object.freeze({ type: "string" });
@@ -2665,17 +2276,17 @@ export function getTopicMeetingToolDefinitions(
 
 /**
  * 当該要求だけに結合した管理Context。
- * @responsibility 構成済みRootとHeader資格を入力値から分離する。
+ * @responsibility 構成済みRootと検証済み主体を入力値から分離する。
  * @trace ARCH-000013
- * @shape rootとtokenのみ。
+ * @shape rootとprincipalのみ。
  * @invariant Role・許可結果をcacheしない。
  * @boundary MCP要求closureの内部構成。
  * @security JSON・永続状態・ログへ公開しない。
- * @compatibility 初回限定・stdio固定依存へ構成しない。
+ * @compatibility 単体stdioには共有のアクセス管理を構成しない。
  */
 type McpAccessManagementContext = Readonly<{
   root: FilesystemStoreRoot;
-  token: string;
+  principal: AccountAccessPrincipal;
 }>;
 
 /**
@@ -2684,7 +2295,7 @@ type McpAccessManagementContext = Readonly<{
  * @trace ARCH-000012
  * @trace ARCH-000013
  * @input 当該要求の管理Context。
- * @returns 全Roleの本人一Tool、manager／administratorには管理十Toolを追加。
+ * @returns 全Roleの本人一Tool、manager／administratorには管理の読取り四Toolを追加。
  * @precondition 通常接続の要求で構成されている。
  * @postcondition 一覧のRoleを後続保存のAuthorityへ渡さない。
  * @effect AMの現在本人認証・既存短期Lock。
@@ -2695,75 +2306,12 @@ type McpAccessManagementContext = Readonly<{
  * @concurrency 各一覧でfresh認証し、後続callでも再評価する。
  */
 function listMcpAccessTools(context: McpAccessManagementContext) {
-  const actor = authenticateNormalConnection(context.root, context.token);
+  const actor = readCurrentAccess(context.root, context.principal);
   if (actor.status !== "completed")
     throw new Error("access_management_unavailable");
-  return actor.snapshot.role === "developer"
+  return actor.user.role === "developer"
     ? [MCP_CURRENT_ACCESS_TOOL_DEFINITION]
     : [MCP_CURRENT_ACCESS_TOOL_DEFINITION, ...getAccessToolDefinitions()];
-}
-
-/**
- * 閉Schemaの入力構造を実行前に固定する。
- * @responsibility 不正field・型・配列・相関をAM呼出し前に拒否する。
- * @trace ARCH-000012
- * @input Tool名と未検査arguments。
- * @returns 所有済み入力、拒否ならnull。
- * @precondition N/A: 任意入力を受ける。
- * @postcondition usernameの意味検査と現在対象判定をAMへ残す。
- * @effect N/A: メモリ内の構造検査のみ。
- * @failure 不正構造はnull。
- * @invariant 書換え・normalize・既定Role補完をしない。
- * @boundary MCP入力と同期AM API。
- * @security 未知fieldを透過しない。
- * @concurrency N/A: 同期で値を固定する。
- */
-function parseManagementArguments(name: string, value: unknown) {
-  if (name === MCP_CURRENT_ACCESS_TOOL)
-    return readRequestRecord(value, new Set<string>());
-  const definition = getAccessToolDefinitions().find(
-    (tool) => tool.name === name,
-  );
-  if (!definition) return null;
-  const required = definition.inputSchema.required;
-  const args = readRequestRecord(value, new Set(required));
-  if (!args || required.some((key) => !Object.hasOwn(args, key))) return null;
-  const uuid =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
-  const owned: Record<string, unknown> = { ...args };
-  for (const key of required) {
-    const field = args[key];
-    if (key === "expectedRevision") {
-      if (!Number.isSafeInteger(field) || Number(field) < 1) return null;
-    } else if (key === "operationId" || key === "userId") {
-      if (typeof field !== "string" || !uuid.test(field)) return null;
-    } else if (key === "repositoryId") {
-      if (
-        typeof field !== "string" ||
-        !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(field)
-      )
-        return null;
-    } else if (key === "username") {
-      if (typeof field !== "string") return null;
-    } else if (key === "workspaceIds") {
-      if (
-        !Array.isArray(field) ||
-        field.length > 2 ||
-        [...field].some(
-          (item) => item !== "development" && item !== "management",
-        ) ||
-        new Set(field).size !== field.length
-      )
-        return null;
-      owned[key] = [...field];
-    } else if (
-      field !== "developer" &&
-      field !== "manager" &&
-      field !== "administrator"
-    )
-      return null;
-  }
-  return Object.freeze(owned);
 }
 
 /**
@@ -2792,85 +2340,35 @@ function completeManagementResponse(
   });
 }
 
-/**
- * 管理要求を現在AM APIへ一度だけ委譲する。
- * @responsibility 完全入力・取消・結果公開を同期保存の前後へ接続する。
- * @trace ARCH-000012
- * @trace ARCH-000013
- * @input rawRequest、当該Header Context、signal。
- * @returns 非秘密管理結果、入力拒否、取消または固定内部故障。
- * @precondition 通常認証が完了した要求専用Contextである。
- * @postcondition AM処理は最大一回、応答喪失で自動再送しない。
- * @effect 既存AMの現在認可・読取りまたは明示保存。
- * @failure 不正入力-32602、取消-32800、例外-32603。
- * @invariant 保存開始後取消は終了待ち・公開抑止でありrollbackではない。
- * @boundary MCP要求からAM保存と公開応答。
- * @security Root・Token・内部理由を例外へ透過しない。
- * @concurrency 期待改訂を保持し、各AM APIのfresh認可を使う。
- */
+/** 管理の読取りだけをAMへ委譲する。直接呼出しでもAMが現在権限を照合する。 @trace ARCH-000013 */
 async function dispatchAccessTool(
   params: McpToolCall,
   context: McpAccessManagementContext,
   signal: AbortSignal,
 ): Promise<McpResponse> {
-  const args = parseManagementArguments(params.name, params.arguments);
-  if (!args) return protocolError(params.id, -32602, "Invalid params");
+  if (!readRequestRecord(params.arguments, new Set<string>()))
+    return protocolError(params.id, -32602, "Invalid params");
   if (signal.aborted)
     return protocolError(params.id, -32800, "Request cancelled");
-  const readKinds = {
-    [MCP_ACCESS_MANAGEMENT_TOOLS.listUsers]: "users",
-    [MCP_ACCESS_MANAGEMENT_TOOLS.listRoleContentAccess]: "roleContentAccess",
-    [MCP_ACCESS_MANAGEMENT_TOOLS.listRepositories]: "registeredRepositories",
-    [MCP_ACCESS_MANAGEMENT_TOOLS.listExposure]: "exposure",
-  } as const;
+  const kind = Object.hasOwn(managementReads, params.name)
+    ? managementReads[params.name as keyof typeof managementReads].kind
+    : undefined;
   try {
-    if (params.name === MCP_CURRENT_ACCESS_TOOL) {
-      const projected = readCurrentAccess(context.root, context.token);
-      await setTimeout(0);
-      return signal.aborted
-        ? protocolError(params.id, -32800, "Request cancelled")
-        : completeManagementResponse(params.id, projected);
-    }
-    let projected: Readonly<Record<string, unknown>>;
-    const kind = readKinds[params.name as keyof typeof readKinds];
-    const actor = authenticateNormalConnection(context.root, context.token);
-    if (signal.aborted)
-      return protocolError(params.id, -32800, "Request cancelled");
-    if (
-      actor.status === "unavailable" &&
-      actor.reason !== "credential_authentication_rejected"
-    )
-      return protocolError(params.id, -32603, "Access management unavailable");
-    if (actor.status !== "completed" || actor.snapshot.role === "developer")
-      return completeManagementResponse(params.id, {
-        status: kind === undefined ? "rejected" : "unavailable",
-        reason:
-          kind === undefined
-            ? "management_request_rejected"
-            : "management_read_rejected",
-      });
-    if (kind !== undefined) {
-      const result = readManagementState(context.root, context.token, kind);
-      projected = result;
-    } else {
-      const operation = Object.hasOwn(writeOperations, params.name)
-        ? writeOperations[params.name as keyof typeof writeOperations]
-        : undefined;
-      if (!operation) return protocolError(params.id, -32602, "Invalid params");
-      projected = executeManagementOperation(
-        context,
-        operation,
-        args,
-        args.expectedRevision as number,
-        args.operationId as string,
-      );
-    }
-    // 同期AM処理を終えてから、届いたTransport取消を処置する機会を設ける。
-    // 切断の到着や保存の取消を保証する待機ではない。
+    // 切断を観測する待機は現在認可の前に置き、投影後に古い結果を持って待たない。
     await setTimeout(0);
     if (signal.aborted)
       return protocolError(params.id, -32800, "Request cancelled");
-    return completeManagementResponse(params.id, projected);
+    let result: Readonly<Record<string, unknown>>;
+    if (params.name === MCP_CURRENT_ACCESS_TOOL) {
+      result = readCurrentAccess(context.root, context.principal);
+    } else if (kind) {
+      result = readManagementState(context.root, context.principal, kind);
+    } else {
+      return protocolError(params.id, -32601, "Method not found");
+    }
+    return signal.aborted
+      ? protocolError(params.id, -32800, "Request cancelled")
+      : completeManagementResponse(params.id, result);
   } catch {
     return protocolError(
       params.id,
@@ -2880,36 +2378,22 @@ async function dispatchAccessTool(
   }
 }
 
-/**
- * 独立先行できる非鍵管理Tool名を固定する。
- * @responsibility 一覧とdispatchの操作Identityを共有する。
- * @trace ARCH-000012
- */
-export const MCP_ACCESS_MANAGEMENT_TOOLS = Object.freeze({
+/** MCPに公開する管理の読取り名。 @trace ARCH-000012 */
+export const MCP_ACCESS_MANAGEMENT_READ_TOOLS = Object.freeze({
   listUsers: "crdd.list_access_users",
-  listRoleContentAccess: "crdd.list_role_content_access",
   listRepositories: "crdd.list_registered_repositories",
-  listExposure: "crdd.list_repository_exposure",
-  registerUser: "crdd.register_user",
-  updateUserName: "crdd.update_user_name",
-  updateUserRole: "crdd.update_user_role",
-  updateRoleContentAccess: "crdd.update_role_content_access",
-  unregisterRepository: "crdd.unregister_repository",
-  updateExposure: "crdd.update_repository_exposure",
 } as const);
 
-const writeOperations = {
-  [MCP_ACCESS_MANAGEMENT_TOOLS.registerUser]: "registerUser",
-  [MCP_ACCESS_MANAGEMENT_TOOLS.updateUserName]: "updateUserName",
-  [MCP_ACCESS_MANAGEMENT_TOOLS.updateUserRole]: "updateUserRole",
-  [MCP_ACCESS_MANAGEMENT_TOOLS.updateRoleContentAccess]:
-    "updateRoleContentAccess",
-  [MCP_ACCESS_MANAGEMENT_TOOLS.unregisterRepository]: "unregisterRepository",
-  [MCP_ACCESS_MANAGEMENT_TOOLS.updateExposure]: "updateExposure",
-} as const satisfies Record<
-  string,
-  Exclude<ManagementWriteOperation, "registerRepository">
->;
+const managementReads = {
+  [MCP_ACCESS_MANAGEMENT_READ_TOOLS.listUsers]: {
+    kind: "users",
+    title: "ユーザー一覧",
+  },
+  [MCP_ACCESS_MANAGEMENT_READ_TOOLS.listRepositories]: {
+    kind: "registeredRepositories",
+    title: "登録リポジトリ一覧",
+  },
+} as const;
 
 /**
  * 通常本人readの操作名を管理操作から分離する。
@@ -2926,9 +2410,9 @@ export const MCP_CURRENT_ACCESS_TOOL = "crdd.get_current_access" as const;
  */
 const MCP_CURRENT_ACCESS_TOOL_DEFINITION = Object.freeze({
   name: MCP_CURRENT_ACCESS_TOOL,
-  title: "接続している本人と利用範囲",
+  title: "接続している本人",
   description:
-    "本人と内容利用範囲を現在観測します。管理能力やToolの提供可否を示すものではありません。",
+    "現在の本人とロールを返します。リポジトリ内容の許可やToolの提供可否を示すものではありません。",
   inputSchema: {
     type: "object",
     additionalProperties: false,
@@ -2937,100 +2421,18 @@ const MCP_CURRENT_ACCESS_TOOL_DEFINITION = Object.freeze({
   },
 });
 
-/**
- * 管理Toolの構造Schemaだけを生成する。
- * @responsibility 操作固有入力と共通相関を閉じ、値の業務判定をAMに残す。
- * @trace ARCH-000012
- * @trace ARCH-000013
- * @input N/A: 固定した十操作を生成する。
- * @returns 非鍵管理Toolの固定名・表示名・入力Schema。
- * @precondition Consumerは現在manager／administratorの一覧認可を別に確認する。
- * @postcondition 未知fieldを拒否するSchemaだけを返す。
- * @effect N/A: メモリ内の値を構成するだけ。
- * @failure N/A: 外部観測・保存を行わない。
- * @invariant 一覧表示は実行Authorityや最終Tool集合の完成ではない。
- * @boundary MCP SchemaとAMの現在値検査。
- * @security 秘密とHost Pathを入力へ追加しない。
- * @concurrency N/A: 共有する現在状態を読まない。
- */
+/** 管理読取りはどれも引数を受け付けない。 @trace ARCH-000012 */
 function getAccessToolDefinitions() {
-  const role = {
-    type: "string",
-    enum: ["developer", "manager", "administrator"],
-  };
-  const userId = {
-    type: "string",
-    pattern:
-      "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-  };
-  const repositoryId = {
-    type: "string",
-    pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-  };
-  const workspaceIds = {
-    type: "array",
-    uniqueItems: true,
-    maxItems: 2,
-    items: { type: "string", enum: ["development", "management"] },
-  };
-  const definitions = [
-    ["listUsers", "ユーザー一覧", {}],
-    ["listRoleContentAccess", "Role内容範囲一覧", {}],
-    ["listRepositories", "登録Repository一覧", {}],
-    ["listExposure", "Repository公開範囲一覧", {}],
-    [
-      "registerUser",
-      "ユーザー登録",
-      { username: { type: "string" }, plannedRole: role },
-    ],
-    [
-      "updateUserName",
-      "ユーザー表示名変更",
-      { userId, username: { type: "string" } },
-    ],
-    [
-      "updateUserRole",
-      "ユーザーRole変更",
-      { userId, currentRole: role, nextRole: role },
-    ],
-    [
-      "updateRoleContentAccess",
-      "Role内容範囲変更",
-      { targetRole: role, workspaceIds },
-    ],
-    ["unregisterRepository", "Repository登録解除", { repositoryId }],
-    [
-      "updateExposure",
-      "Repository公開範囲変更",
-      { repositoryId, workspaceIds },
-    ],
-  ] as const;
-  return Object.freeze(
-    definitions.map(([operation, title, fields]) => {
-      const mutation = Object.keys(fields).length !== 0;
-      const properties = mutation
-        ? {
-            operationId: userId,
-            expectedRevision: {
-              type: "integer",
-              minimum: 1,
-              maximum: Number.MAX_SAFE_INTEGER,
-            },
-            ...fields,
-          }
-        : {};
-      return Object.freeze({
-        name: MCP_ACCESS_MANAGEMENT_TOOLS[operation],
-        title,
-        description:
-          "現在の管理権限で操作します。管理許可は内容閲覧や鍵操作の許可ではありません。",
-        inputSchema: {
-          type: "object",
-          additionalProperties: false,
-          required: Object.keys(properties),
-          properties,
-        },
-      });
-    }),
-  );
+  return Object.entries(managementReads).map(([name, { title }]) => ({
+    name,
+    title,
+    description: "現在の管理権限で読み取ります。内容や資格の操作は行いません。",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: [],
+      properties: {},
+    },
+  }));
 }

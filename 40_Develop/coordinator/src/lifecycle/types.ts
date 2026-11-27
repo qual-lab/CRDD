@@ -372,6 +372,7 @@ export type CoordinatorExecutionDependencies = Readonly<{
   recording?: ObjectiveExecutionRecording;
   workspaceTarget?: PreparedWorkspaceTarget | null;
   leaseWait?: Readonly<{ revalidate?: () => Promise<boolean> }>;
+  beforeTask?: () => Promise<boolean>;
 }>;
 
 /**

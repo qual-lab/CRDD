@@ -22,13 +22,11 @@
         "RFD-ST-003",
         "RFD-ST-004",
         "RFD-ST-015",
-        "RFD-ST-016",
         "RFD-ST-022"
       ],
       "verifies": [
         "workbench.presentation.workspace-panel",
         "workbench.server",
-        "workbench.application.credential-administration",
         "workbench.presentation.management-panel",
         "workbench.management.operations",
         "workbench.presentation.browser-client",
@@ -45,7 +43,7 @@
         "workbench.presentation.router",
         "workbench.presentation.components.project-context",
         "workbench.presentation.components.records",
-        "workbench.presentation.components.credentials",
+        "workbench.presentation.components.connection",
         "workbench.presentation.components.portfolio-panel",
         "workbench.presentation.components.repository-panel",
         "workbench.presentation.components.activity-panel",
@@ -302,9 +300,9 @@
       ]
     },
     {
-      "symbolId": "workbench.presentation.components.credentials",
+      "symbolId": "workbench.presentation.components.connection",
       "kind": "file",
-      "path": "src/components/credentials.tsx",
+      "path": "src/components/connection.tsx",
       "archIds": [
         "ARCH-000012"
       ]

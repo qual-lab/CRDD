@@ -4,14 +4,15 @@
  * @responsibility 保存処理の内容を知らず、既存Lockと内部結果の相関を維持する。
  * @trace ARCH-000013
  */
+
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { acquireLock } from "@qual-lab/crdd-lock";
 import {
   type FilesystemStoreRoot,
   resolveFilesystemStorePath,
 } from "../initialization/root.ts";
-import fs from "node:fs";
-import path from "node:path";
-import { createHash } from "node:crypto";
-import { acquireLock } from "@qual-lab/crdd-lock";
 import type { StateStoreResult } from "./types.ts";
 
 const LOCK = "access-management.state.lock";

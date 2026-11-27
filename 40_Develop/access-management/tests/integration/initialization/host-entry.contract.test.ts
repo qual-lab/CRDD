@@ -1,37 +1,36 @@
 /**
  * Host保存先準備とCLI起動条件を検証する。
  * @packageDocumentation
- * @responsibility 自己生成Rootだけで部分作成・旧入力・拒否・対話終了を反証する。
+ * @responsibility 自己生成Rootだけで部分作成・旧入力・本人確認済み初期化の拒否を反証する。
  * @trace RFD-IT-017
  * @trace RFD-IT-024
  * @trace RFD-IT-025
  * @level IT
  * @scope access-management/initialization、Host入口の局所接続
- * @boundary 実Filesystemと局所TTY代役。実Host TTYは対象外。
+ * @boundary 実Filesystem。外部ログインや端末対話はServer側の試験で扱う。
  */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
-import { PassThrough, Writable } from "node:stream";
 import test, { type TestContext } from "node:test";
 import {
-  type CrosRootInput,
-  resolveCrosRuntimeRoots,
-} from "../../../src/initialization/root.ts";
-import { runHostAccessCommand } from "../../../src/cli/command.ts";
-import { createCredentialMaterial } from "../../../src/credential/token.ts";
-import { exchangeCredentialsFromHost } from "../../../src/credential/exchange.ts";
-import { prepareHostInitializationRoot } from "../../../src/initialization/root.ts";
-import {
-  initializeFromHost,
+  initializeAdministratorFromHost,
+  linkAccountFromHost,
   readExistingHostRoot,
-  updateCredentialPresentationState,
+  readFilesystemStoreDirectory,
+  readAccount,
+  readCurrentAccess,
+  readHostInitializationState,
   resolveHostRootInput,
 } from "../../../src/index.ts";
-import { parseAccessManagementState } from "../../../src/storage/parse.ts";
-import { readAccessManagementState } from "../../../src/storage/store.ts";
-import type { AccessManagementState } from "../../../src/storage/types.ts";
+import {
+  type CrosRootInput,
+  prepareHostInitializationRoot,
+  resolveCrosRuntimeRoots,
+} from "../../../src/initialization/root.ts";
+import { readCurrent } from "../../../src/storage/store.ts";
 
 /**
  * Repository markerのDirectoryとworktree File両形態を検査する。
@@ -111,6 +110,333 @@ function fixture(t: TestContext) {
   return { directory, base, input, environment, state: resolved.state };
 }
 
+test("初回の読戻し本文が異なる場合は出版確定を返さない", (t) => {
+  const f = fixture(t);
+  const current = path.join(f.state, "access-management.json");
+  const identity = {
+    issuer: "https://accounts.google.com",
+    subject: "first-read-back-administrator",
+  };
+  const signal = new AbortController().signal;
+  const open = fs.openSync;
+  const read = fs.readSync;
+  let currentReader: number | undefined;
+  let replacements = 0;
+  const openHook = t.mock.method(fs, "openSync", ((
+    ...args: Parameters<typeof open>
+  ) => {
+    const fd = open(...args);
+    if (args[0] === current && args[1] === fs.constants.O_RDONLY)
+      currentReader = fd;
+    return fd;
+  }) as typeof open);
+  const readHook = t.mock.method(fs, "readSync", ((
+    fd: number,
+    buffer: Buffer,
+    offset: number,
+    length: number,
+    position: number | null,
+  ) => {
+    const count = read(fd, buffer, offset, length, position);
+    if (fd === currentReader) {
+      const content = buffer.subarray(offset, offset + count);
+      const found = content.indexOf(identity.subject);
+      if (found !== -1) {
+        content[found] = 0x46;
+        replacements++;
+      }
+    }
+    return count;
+  }) as typeof read);
+  const result = initializeAdministratorFromHost(
+    f.input,
+    "管理者",
+    identity,
+    signal,
+  );
+  readHook.mock.restore();
+  openHook.mock.restore();
+  assert.equal(replacements, 1);
+  assert.equal(result.status, "unavailable");
+  assert.equal(result.publication, "unconfirmed");
+  assert.equal(result.cleanupConfirmed, false);
+  const root = readExistingHostRoot(f.input);
+  assert.ok(root);
+  const saved = readCurrent(root);
+  assert.equal(saved.state.revision, 1);
+  assert.equal(
+    saved.state.users[0]?.accountLinks?.[0]?.subject,
+    identity.subject,
+  );
+  assert.equal(
+    initializeAdministratorFromHost(f.input, "管理者", identity, signal).status,
+    "unavailable",
+  );
+  assert.deepEqual(readCurrent(root).bytes, saved.bytes);
+});
+
+test("初回出版後もLock解放不明なら完了を返さない", (t) => {
+  const f = fixture(t);
+  const lock = path.join(f.state, "access-management.state.lock");
+  const identity = {
+    issuer: "https://accounts.google.com",
+    subject: "first-unknown-cleanup-administrator",
+  };
+  const signal = new AbortController().signal;
+  const remove = fs.rmSync;
+  const hook = t.mock.method(
+    fs,
+    "rmSync",
+    (...args: Parameters<typeof remove>) => {
+      if (args[0] === lock) throw new Error("injected_lock_release_failure");
+      remove(...args);
+    },
+  );
+  const result = initializeAdministratorFromHost(
+    f.input,
+    "管理者",
+    identity,
+    signal,
+  );
+  hook.mock.restore();
+  assert.equal(result.status, "unavailable");
+  if (result.status !== "unavailable") assert.fail("unexpected completion");
+  assert.equal(result.publication, "confirmed");
+  assert.equal(result.revision, 1);
+  assert.equal(result.cleanupConfirmed, false);
+  assert.ok(result.lockRecoveryId);
+  const current = path.join(f.state, "access-management.json");
+  const bytes = fs.readFileSync(current);
+  assert.ok(fs.existsSync(lock));
+  assert.equal(
+    initializeAdministratorFromHost(f.input, "管理者", identity, signal).status,
+    "unavailable",
+  );
+  const root = readExistingHostRoot(f.input);
+  assert.ok(root);
+  assert.equal(readHostInitializationState(root).status, "unknown");
+  assert.ok(fs.existsSync(lock));
+  assert.deepEqual(fs.readFileSync(current), bytes);
+});
+
+test("Googleで初回管理者を設定すると鍵を作らず、同じ本人だけが通常管理に入れる", (t) => {
+  const f = fixture(t);
+  const signal = new AbortController().signal;
+  const identity = {
+    issuer: "https://accounts.google.com",
+    subject: "first-google-administrator",
+  };
+  assert.equal(
+    initializeAdministratorFromHost(
+      f.input,
+      "管理者",
+      identity,
+      AbortSignal.abort(),
+    ).status,
+    "unavailable",
+  );
+  assert.equal(
+    initializeAdministratorFromHost(
+      f.input,
+      "管理者",
+      { ...identity, issuer: "https://invalid.test?not-an-issuer" },
+      signal,
+    ).status,
+    "unavailable",
+  );
+  assert.deepEqual(fs.readdirSync(f.base), []);
+  const initialized = initializeAdministratorFromHost(
+    f.input,
+    "管理者",
+    identity,
+    signal,
+  );
+  assert.equal(initialized.status, "completed");
+  const root = readExistingHostRoot(f.input);
+  assert.ok(root);
+  const saved = readCurrent(root);
+  assert.equal(saved.state.revision, 1);
+  assert.equal(saved.state.schemaRevision, 4);
+  assert.equal(Object.hasOwn(saved.state, "roleContentAccess"), false);
+  assert.equal(Object.hasOwn(saved.state, "exposure"), false);
+  assert.equal(saved.state.users.length, 1);
+  assert.equal(Object.hasOwn(saved.state, "credentials"), false);
+  assert.equal(Object.hasOwn(saved.state, "unresolvedKeyExchanges"), false);
+  assert.deepEqual(saved.state.initialization, {
+    stage: "completed",
+    connection: "account_confirmed",
+    attemptId: saved.state.operationId,
+    initialUserId: saved.state.users[0]?.userId,
+  });
+  assert.deepEqual(readHostInitializationState(root), {
+    status: "existing",
+    connection: "account_confirmed",
+  });
+  assert.equal(
+    initializeAdministratorFromHost(
+      f.input,
+      "別の管理者",
+      { ...identity, subject: "different" },
+      signal,
+    ).status,
+    "unavailable",
+  );
+  assert.deepEqual(readCurrent(root).bytes, saved.bytes);
+  assert.equal(
+    readAccount(root, { ...identity, subject: "different" }).status,
+    "rejected",
+  );
+  const login = readAccount(root, identity);
+  if (login.status !== "completed")
+    assert.fail("initial Google account not available");
+  assert.equal(login.account.role, "administrator");
+  assert.equal(
+    readCurrentAccess(root, {
+      kind: "account",
+      userId: login.account.userId,
+      bindingId: login.account.bindingId,
+      expiresAt: Date.now() + 60_000,
+    }).status,
+    "completed",
+  );
+  assert.deepEqual(
+    readCurrent(root).state.initialization,
+    saved.state.initialization,
+  );
+  assert.deepEqual(readCurrent(root).bytes, saved.bytes);
+});
+
+test("旧版の範囲設定を含む管理状態を初期化や再紐付けで置き換えない", (t) => {
+  const f = fixture(t);
+  const identity = {
+    issuer: "https://accounts.google.com",
+    subject: "first-google-administrator",
+  };
+  const signal = new AbortController().signal;
+  assert.equal(
+    initializeAdministratorFromHost(f.input, "管理者", identity, signal).status,
+    "completed",
+  );
+  const root = readExistingHostRoot(f.input);
+  assert.ok(root);
+  const { state } = readCurrent(root);
+  const userId = state.users[0]?.userId;
+  assert.ok(userId);
+  const marker = path.join(f.state, "access-management.json");
+  const before = JSON.stringify({
+    ...state,
+    schemaRevision: 3,
+    credentials: [],
+    unresolvedKeyExchanges: [],
+    roleContentAccess: [
+      { role: "administrator", workspaceIds: [] },
+      { role: "manager", workspaceIds: [] },
+      { role: "developer", workspaceIds: [] },
+    ],
+    exposure: [],
+  });
+  fs.writeFileSync(marker, before);
+  const entries = fs.readdirSync(f.state);
+  assert.equal(
+    readHostInitializationState(root, { settlePending: false }).status,
+    "unknown",
+  );
+  assert.equal(
+    initializeAdministratorFromHost(f.input, "管理者", identity, signal).status,
+    "unavailable",
+  );
+  const linked = linkAccountFromHost(
+    root,
+    userId,
+    { ...identity, subject: "replacement-administrator" },
+    state.revision,
+  );
+  assert.equal(linked.status, "unavailable");
+  assert.equal(linked.publication, "not_attempted");
+  assert.equal(fs.readFileSync(marker, "utf8"), before);
+  assert.deepEqual(fs.readdirSync(f.state), entries);
+});
+
+test("現行初回設定の別プロセス競合は管理者一人だけを保存する", async (t) => {
+  const f = fixture(t);
+  const execute = promisify(execFile);
+  const entry = new URL("../../../src/index.ts", import.meta.url);
+  const provider = "https://login.example.test";
+  const attempts = ["first", "second"];
+  const results = await Promise.all(
+    attempts.map(async (subject) => {
+      const script = `
+      import { initializeAdministratorFromHost } from ${JSON.stringify(entry.href)};
+      const result = initializeAdministratorFromHost(
+        ${JSON.stringify(f.input)}, "管理者",
+        ${JSON.stringify({ issuer: provider, subject })},
+        new AbortController().signal,
+      );
+      process.stdout.write(JSON.stringify({ status: result.status }));
+    `;
+      const { stdout } = await execute(
+        process.execPath,
+        ["--input-type=module", "-e", script],
+        {
+          timeout: 15_000,
+          windowsHide: true,
+        },
+      );
+      return { subject, status: JSON.parse(stdout).status };
+    }),
+  );
+  assert.equal(
+    results.filter(({ status }) => status === "unavailable").length,
+    1,
+  );
+  const winners = results.filter(({ status }) => status === "completed");
+  assert.equal(winners.length, 1);
+  const root = readExistingHostRoot(f.input);
+  assert.ok(root);
+  const saved = readCurrent(root);
+  assert.equal(saved.state.revision, 1);
+  assert.equal(saved.state.users.length, 1);
+  assert.equal(
+    saved.state.users[0]?.accountLinks?.[0]?.subject,
+    winners[0]?.subject,
+  );
+  assert.deepEqual(fs.readdirSync(f.state), ["access-management.json"]);
+});
+
+test("Google初回設定は処理途中の記録や旧管理状態を置き換えない", async (t) => {
+  for (const artifact of [
+    "access-management.pending.json",
+    "access-management.replace.json",
+    "credential-registry",
+    "credential-access-recovery",
+    "access-management.json",
+  ])
+    await t.test(artifact, (caseContext) => {
+      const f = fixture(caseContext);
+      assert.equal(prepareHostInitializationRoot(f.input).status, "ready");
+      const marker = path.join(f.state, artifact);
+      fs.writeFileSync(marker, "manual-recovery-unchanged");
+      const before = fs.readdirSync(f.state);
+      assert.equal(
+        initializeAdministratorFromHost(
+          f.input,
+          "管理者",
+          {
+            issuer: "https://accounts.google.com",
+            subject: "first-google-administrator",
+          },
+          new AbortController().signal,
+        ).status,
+        "unavailable",
+      );
+      assert.equal(
+        fs.readFileSync(marker, "utf8"),
+        "manual-recovery-unchanged",
+      );
+      assert.deepEqual(fs.readdirSync(f.state), before);
+    });
+});
+
 /**
  * 通常起動用のRoot確認が初期化や作成を行わないことを確認する。
  * @responsibility 不在拒否と既存実体読取りを区別し、管理内容を変更しない。
@@ -135,6 +461,10 @@ test("通常起動のHost Root読取りは保存先を作成しない", (t) => {
   fs.writeFileSync(marker, "unparsed-state-marker");
   const before = fs.readdirSync(f.state);
   assert.equal(readExistingHostRoot(f.input)?.root, prepared.root.root);
+  assert.equal(readFilesystemStoreDirectory(prepared.root), prepared.root.root);
+  assert.throws(() => readFilesystemStoreDirectory({ ...prepared.root }), {
+    message: "filesystem_store_root_capability_invalid",
+  });
   assert.deepEqual(fs.readdirSync(f.state), before);
   assert.equal(fs.readFileSync(marker, "utf8"), "unparsed-state-marker");
   fs.unlinkSync(marker);
@@ -541,7 +871,7 @@ test("Host Rootは準備中と準備後の実体置換を受理しない", (t) =
  * @cleanup Fixture回収と故障注入解除。
  * @boundary Host旧入力metadata観測。
  */
-test("Host旧入力は存在と観測不能を区別して新初期化しない", async (t) => {
+test("Host旧入力は存在と観測不能を区別して新初期化しない", (t) => {
   for (const mode of [
     "management",
     "recovery",
@@ -584,26 +914,17 @@ test("Host旧入力は存在と観測不能を区別して新初期化しない"
               ? "legacy_recovery_present"
               : "legacy_management_present",
       );
-      const terminal = Object.assign(
-        new Writable({
-          write() {
-            assert.fail("forbidden_key_write");
-          },
-        }),
-        { isTTY: true },
-      ) as unknown as NodeJS.WriteStream;
-      const result = await initializeFromHost(
-        prepared.root,
+      const result = initializeAdministratorFromHost(
+        f.input,
         "管理者",
-        true,
-        () => {
-          const state = prepared.observePrevious();
-          return [state.management, state.attempt];
+        {
+          issuer: "https://accounts.google.com",
+          subject: "first-admin",
         },
-        terminal,
         new AbortController().signal,
       );
-      assert.equal(result.status, "blocked");
+      assert.equal(result.status, "unavailable");
+      assert.equal(result.publication, "not_attempted");
       assert.equal(
         fs.existsSync(path.join(f.state, "access-management.json")),
         false,
@@ -615,45 +936,43 @@ test("Host旧入力は存在と観測不能を区別して新初期化しない"
 });
 
 /**
- * 生成前と保存Lock内の旧入力差を拒否する。
- * @responsibility 最初の不存在を後続保存の許可へ流用しない。
+ * 初回保存のLock内で旧入力を観測し、出現した旧保存物を保全する。
  * @trace RFD-IT-025
- * @precondition 準備済み自己生成Root、同期旧入力Observer。
- * @stimulus 二回目の観測前に旧管理Directoryを出現させる。
- * @observation 観測回数、AM current不存在と鍵出力0。
- * @oracle Lock内再照合で新User／資格保存0、旧入力削除0。
- * @cleanup Fixtureがexact試験Rootを回収する。
- * @boundary Host生成前観測→AM保存Lock内観測。
+ * @boundary 事前観測→現行Host入口→AM保存Lock内の観測。
  */
-test("Host旧入力の観測間変化は相関出版を停止する", async (t) => {
+test("Host旧入力の観測間変化は初回出版を停止する", (t) => {
   const f = fixture(t);
   const prepared = prepareHostInitializationRoot(f.input);
   assert.equal(prepared.status, "ready");
   if (prepared.status !== "ready") return;
-  let reads = 0;
-  const output = Object.assign(
-    new Writable({
-      write() {
-        assert.fail("forbidden_output");
-      },
-    }),
-    { isTTY: true },
-  ) as unknown as NodeJS.WriteStream;
-  const result = await initializeFromHost(
-    prepared.root,
-    "管理者",
-    true,
-    () => {
-      if (++reads === 2)
-        fs.mkdirSync(path.join(f.state, "credential-registry"));
-      const observed = prepared.observePrevious();
-      return [observed.management, observed.attempt];
+  assert.equal(prepared.observePrevious().management, "uninitialized");
+  const legacy = path.join(f.state, "credential-registry");
+  const lstat = fs.lstatSync;
+  let observedWithLock = false;
+  const hook = t.mock.method(
+    fs,
+    "lstatSync",
+    (target: fs.PathLike, options?: fs.StatOptions) => {
+      if (target === legacy && !observedWithLock) {
+        assert.ok(
+          fs.existsSync(path.join(f.state, "access-management.state.lock")),
+        );
+        observedWithLock = true;
+        fs.mkdirSync(legacy);
+      }
+      return lstat(target, options);
     },
-    output,
+  );
+  const result = initializeAdministratorFromHost(
+    f.input,
+    "管理者",
+    { issuer: "https://accounts.google.com", subject: "first-admin" },
     new AbortController().signal,
   );
-  assert.equal(result.status, "blocked");
-  assert.equal(reads, 2);
+  hook.mock.restore();
+  assert.equal(result.status, "unavailable");
+  assert.equal(result.publication, "not_attempted");
+  assert.equal(observedWithLock, true);
   assert.equal(
     fs.existsSync(path.join(f.state, "access-management.json")),
     false,
@@ -662,467 +981,4 @@ test("Host旧入力の観測間変化は相関出版を停止する", async (t) 
     fs.statSync(path.join(f.state, "credential-registry")).isDirectory(),
     true,
   );
-});
-
-/**
- * CLIの入力拒否はRoot準備より先に閉じる。
- * @responsibility help・不正引数・環境不足・非TTYをFilesystem Effect0へ接続する。
- * @trace RFD-IT-025
- * @precondition 自己生成baseと非TTY入出力、実公開bin／配布入口。
- * @stimulus 各拒否を公開commandと実子Processで呼ぶ。
- * @observation Exit code、state Root不存在、Secret・Path非公開。
- * @oracle mkdir・prompt・AM保存0。未知引数から暗黙初期化しない。
- * @cleanup 子Processjoin、Fixture回収、自己所有stream破棄。
- * @boundary CLI公開入口の拒否。実Host成功縦断ではない。
- */
-test("Host CLIのhelpと不正起動・非TTYはRootを作らない", async (t) => {
-  const f = fixture(t);
-  const input = new PassThrough() as unknown as NodeJS.ReadStream;
-  let notices = "";
-  const output = new Writable({
-    write(chunk, _encoding, callback) {
-      notices += chunk.toString();
-      callback();
-    },
-  }) as unknown as NodeJS.WriteStream;
-  for (const args of [
-    ["--help"],
-    [],
-    ["--initialize", "--initialize"],
-    ["--initialize", "extra"],
-    ["--unknown"],
-    ["--initialize"],
-    ["--exchange-user"],
-    ["--exchange-user", "invalid"],
-    ["--exchange-all", "00000000-0000-4000-8000-000000000003"],
-  ]) {
-    const code = await runHostAccessCommand(
-      args,
-      f.environment,
-      input,
-      output,
-      new AbortController().signal,
-    );
-    assert.equal(code, args[0] === "--help" ? 0 : 64);
-    assert.equal(fs.existsSync(f.state), false);
-  }
-  assert.equal(
-    await runHostAccessCommand(
-      ["--initialize"],
-      {},
-      input,
-      output,
-      new AbortController().signal,
-    ),
-    64,
-  );
-  assert.equal(notices.includes(f.base), false);
-  assert.equal(notices.includes("cros.v1."), false);
-  assert.equal(notices.includes("初回管理者の表示名（"), false);
-  const repository = path.resolve(import.meta.dirname, "../../../../..");
-  for (const entry of [
-    path.join(
-      repository,
-      "40_Develop",
-      "access-management",
-      "bin",
-      "access-management.ts",
-    ),
-    path.join(repository, "template", "tools", "crdd-access-management.ts"),
-  ]) {
-    for (const flag of ["--help", "--initialize", "--unknown"]) {
-      const child = spawnSync(process.execPath, [entry, flag], {
-        encoding: "utf8",
-        env: { ...process.env, ...f.environment },
-        timeout: 15_000,
-      });
-      assert.equal(child.status, flag === "--help" ? 0 : 64);
-      assert.equal(child.error, undefined);
-      assert.equal(child.stderr, "");
-      assert.equal(child.stdout.includes(f.base), false);
-      assert.equal(fs.existsSync(f.state), false);
-    }
-  }
-  assert.equal(input.destroyed, false);
-  assert.equal(output.destroyed, false);
-  input.destroy();
-  output.destroy();
-});
-
-/**
- * Host交換の公開CLIを対象確認から一度提示・記録終了まで検証する。
- * @responsibility 対象拒否と人間確認、待機中の改訂変更を保存結果と区別する。
- * @trace RFD-IT-017
- * @trace RFD-IT-025
- * @precondition 自己生成Host baseと実Schemaの管理状態、局所TTY代役だけ。
- * @stimulus 指定／全員交換、拒否・取消・改訂競合、prepared／revoked再開、stored置換とconfirmed終了。
- * @observation Exit code、鍵提示回数、資格失効、交換記録、改訂とListener。
- * @oracle 正規yesだけ一度提示して記録を閉じ、拒否・競合では資格を変更しない。
- * @cleanup Fixtureがexact Rootを回収し、試験Ownerがstreamを破棄する。
- * @boundary 公開CLI→readline→実保存。実Host TTYの成立は主張しない。
- */
-test("Host交換CLIは確認した対象だけ一度提示し拒否と競合では交換しない", {
-  timeout: 30_000,
-}, async (t) => {
-  for (const mode of [
-    "targeted",
-    "all",
-    "unknown",
-    "nonadmin",
-    "no",
-    "eof",
-    "cancel",
-    "revision",
-    "prepared",
-    "revoked",
-    "stored",
-    "confirmed",
-    "initial",
-    "initial_all",
-    "settled",
-  ] as const) {
-    const f = fixture(t);
-    assert.equal(prepareHostInitializationRoot(f.input).status, "ready");
-    const admin = "00000000-0000-4000-8000-000000000003";
-    const developer = "00000000-0000-4000-8000-000000000004";
-    const material = createCredentialMaterial();
-    const current = path.join(f.state, "access-management.json");
-    const state: AccessManagementState = {
-      contract: "crdd-access-management/state",
-      schemaRevision: 2,
-      revision: 1,
-      operationId: "00000000-0000-4000-8000-000000000001",
-      users: [
-        { userId: admin, username: "管理者", role: "administrator" },
-        { userId: developer, username: "開発者", role: "developer" },
-      ],
-      roleContentAccess: [
-        { role: "developer", workspaceIds: ["development"] },
-        { role: "manager", workspaceIds: ["development", "management"] },
-        { role: "administrator", workspaceIds: [] },
-      ],
-      credentials: [
-        {
-          credentialId: material.credentialId,
-          userId: admin,
-          tokenVersion: 1,
-          tokenSalt: material.tokenSalt,
-          tokenVerifier: material.tokenVerifier,
-          revoked: false,
-          operationId: "00000000-0000-4000-8000-000000000002",
-          presentation: "confirmed",
-        },
-      ],
-      registeredRepositories: [],
-      exposure: [],
-      unresolvedKeyExchanges: [],
-      initialization: {
-        stage: "completed",
-        attemptId: "00000000-0000-4000-8000-000000000002",
-        initialUserId: admin,
-        initialCredentialId: material.credentialId,
-        confirmationCredentialId: material.credentialId,
-        connection: "confirmed",
-      },
-    };
-    if (mode === "initial" || mode === "initial_all") {
-      const initialUser = state.users[0];
-      assert.ok(initialUser);
-      state.users = [initialUser];
-      state.initialization = {
-        stage: "credential_stored",
-        attemptId: "00000000-0000-4000-8000-000000000002",
-        userId: admin,
-        initialCredentialId: material.credentialId,
-        confirmationCredentialId: material.credentialId,
-      };
-    }
-    assert.equal(
-      parseAccessManagementState(Buffer.from(JSON.stringify(state))).status,
-      "parsed",
-    );
-    fs.writeFileSync(current, JSON.stringify(state));
-    const priorOperation = "00000000-0000-4000-8000-000000000090";
-    if (
-      ["prepared", "revoked", "stored", "confirmed", "settled"].includes(mode)
-    ) {
-      const root = prepareHostInitializationRoot(f.input);
-      assert.equal(root.status, "ready");
-      if (root.status !== "ready") return;
-      const rename = fs.renameSync;
-      let publications = 0;
-      fs.renameSync = ((from: fs.PathLike, to: fs.PathLike) => {
-        const result = rename(from, to);
-        if (
-          String(to) === current &&
-          ++publications ===
-            (mode === "prepared" || mode === "settled"
-              ? 1
-              : mode === "revoked"
-                ? 2
-                : -1)
-        )
-          throw new Error("synthetic_exchange_publication");
-        return result;
-      }) as typeof fs.renameSync;
-      try {
-        const exchanged = exchangeCredentialsFromHost(
-          root.root,
-          1,
-          priorOperation,
-          "targeted",
-          admin,
-          [material.credentialId],
-          true,
-        );
-        assert.equal(
-          exchanged.status,
-          mode === "prepared" || mode === "revoked" || mode === "settled"
-            ? "unavailable"
-            : "completed",
-        );
-      } finally {
-        fs.renameSync = rename;
-      }
-      // 先行故障の短命材料を保存Ownerで処置し、CLIのfresh観測と分ける。
-      if (mode !== "settled") {
-        const observed = readAccessManagementState(root.root);
-        assert.equal(observed.status, "completed");
-        const settled = readAccessManagementState(root.root);
-        assert.equal(settled.status, "completed");
-      }
-      if (mode === "confirmed") {
-        const saved = JSON.parse(fs.readFileSync(current, "utf8"));
-        const credential = saved.credentials[1];
-        let presentationOperationId: string | undefined;
-        for (const target of ["unconfirmed", "confirmed"] as const) {
-          const result = updateCredentialPresentationState(root.root, {
-            credentialId: credential.credentialId,
-            issuanceOperationId: priorOperation,
-            expectedRevision: JSON.parse(fs.readFileSync(current, "utf8"))
-              .revision,
-            target,
-            ...(presentationOperationId ? { presentationOperationId } : {}),
-          });
-          assert.equal(result.status, "completed");
-          if (result.status === "completed")
-            presentationOperationId = result.value.presentationOperationId;
-        }
-      }
-    }
-    const before = fs.readFileSync(current);
-    const input = Object.assign(new PassThrough(), {
-      isTTY: true,
-    }) as unknown as NodeJS.ReadStream;
-    let prompts = 0,
-      keyWrites = 0;
-    const controller = new AbortController();
-    const output = Object.assign(
-      new Writable({
-        write(chunk, _encoding, callback) {
-          const text = chunk.toString();
-          if (text.includes("接続鍵（一度だけ表示します")) keyWrites++;
-          if (text.includes("実行する場合だけ yes")) {
-            prompts++;
-            setImmediate(() => {
-              if (mode === "revision") {
-                state.revision++;
-                fs.writeFileSync(current, JSON.stringify(state));
-              }
-              if (mode === "eof") input.emit("end");
-              else if (mode === "cancel") controller.abort();
-              else input.push(mode === "no" ? "no\r" : "yes\r");
-            });
-          }
-          callback();
-        },
-      }),
-      { isTTY: true, columns: 80 },
-    ) as unknown as NodeJS.WriteStream;
-    const accepted = [
-      "targeted",
-      "all",
-      "prepared",
-      "revoked",
-      "stored",
-      "confirmed",
-      "initial",
-      "settled",
-    ].includes(mode);
-    let code = await runHostAccessCommand(
-      [
-        mode === "all" || mode === "nonadmin" || mode === "initial_all"
-          ? "--exchange-all"
-          : "--exchange-user",
-        mode === "unknown"
-          ? "00000000-0000-4000-8000-000000000099"
-          : mode === "nonadmin" || mode === "confirmed"
-            ? developer
-            : admin,
-      ],
-      f.environment,
-      input,
-      output,
-      controller.signal,
-    );
-    if (mode === "settled") {
-      assert.equal(code, 2);
-      assert.equal(prompts, 0);
-      assert.equal(keyWrites, 0);
-      assert.deepEqual(fs.readFileSync(current), before);
-      assert.deepEqual(fs.readdirSync(f.state), ["access-management.json"]);
-      code = await runHostAccessCommand(
-        ["--exchange-user", admin],
-        f.environment,
-        input,
-        output,
-        controller.signal,
-      );
-    }
-    assert.equal(code, accepted ? 0 : 2, mode);
-    assert.equal(keyWrites, accepted && mode !== "confirmed" ? 1 : 0, mode);
-    assert.equal(
-      prompts,
-      mode === "unknown" || mode === "nonadmin" || mode === "initial_all"
-        ? 0
-        : 1,
-      mode,
-    );
-    const after = JSON.parse(fs.readFileSync(current, "utf8"));
-    assert.equal(after.unresolvedKeyExchanges.length, 0);
-    assert.deepEqual(after.users, state.users);
-    assert.deepEqual(after.roleContentAccess, state.roleContentAccess);
-    if (accepted) {
-      assert.equal(after.credentials.length, mode === "stored" ? 3 : 2);
-      assert.equal(after.credentials[0].revoked, true);
-      assert.equal(after.credentials.at(-1).presentation, "confirmed");
-      if (
-        mode === "prepared" ||
-        mode === "revoked" ||
-        mode === "confirmed" ||
-        mode === "settled"
-      )
-        assert.equal(after.credentials.at(-1).operationId, priorOperation);
-      if (mode === "stored") {
-        assert.equal(after.credentials[1].revoked, true);
-        assert.notEqual(after.credentials[2].operationId, priorOperation);
-      }
-    } else if (mode === "revision")
-      assert.deepEqual(after.credentials, state.credentials);
-    else assert.deepEqual(fs.readFileSync(current), before);
-    assert.equal(input.destroyed, false);
-    assert.equal(output.destroyed, false);
-    assert.equal(input.listenerCount("keypress"), 0);
-    assert.equal(output.listenerCount("resize"), 0);
-    assert.equal(output.listenerCount("error"), 0);
-    assert.equal(output.listenerCount("close"), 0);
-    input.destroy();
-    output.destroy();
-  }
-});
-
-/**
- * 局所対話入力を保存と一度提示へ接続し、入力取消を閉じる。
- * @responsibility 初回入口の入力interfaceと共有streamの所有を分離する。
- * @trace RFD-IT-024
- * @trace RFD-IT-025
- * @precondition Repository-local baseとTTY代役。実Host TTYではない。
- * @stimulus 正規名・不正名・CtrlC・EOFを入力する。
- * @observation Exit code、資格提示回数、現在段階、入力Listener回収。
- * @oracle 正規入力だけ鍵を一度提示し、取消／不正は鍵0。共有stream非終了。
- * @cleanup 代役streamは試験Ownerが最後に破棄し、FixtureがRootを回収する。
- * @boundary Host command→readline→実保存→TTY代役。
- */
-test("Host CLIは表示名を一度入力して保存し取消・EOFを終了する", {
-  timeout: 20_000,
-}, async (t) => {
-  for (const mode of [
-    "valid",
-    "invalid",
-    "cancel",
-    "eof",
-    "input-error",
-    "output-error",
-    "output-close",
-  ] as const) {
-    const f = fixture(t);
-    const input = Object.assign(new PassThrough(), {
-      isTTY: true,
-    }) as unknown as NodeJS.ReadStream;
-    let asked = false;
-    let prompts = 0;
-    let keyWrites = 0;
-    const output = Object.assign(
-      new Writable({
-        write(chunk, _encoding, callback) {
-          const text = chunk.toString();
-          if (text.includes("初回管理者の表示名（")) prompts++;
-          if (text.includes("接続鍵（一度だけ表示します")) keyWrites++;
-          if (!asked && text.includes("初回管理者の表示名（")) {
-            asked = true;
-            setImmediate(() => {
-              if (mode === "eof") input.emit("end");
-              else if (mode === "input-error")
-                input.emit("error", new Error("synthetic_input_error"));
-              else if (mode === "output-error")
-                output.emit("error", new Error("synthetic_output_error"));
-              else if (mode === "output-close") output.emit("close");
-              else
-                input.push(
-                  mode === "valid"
-                    ? "管理者\r"
-                    : mode === "invalid"
-                      ? "  \r"
-                      : "\x03",
-                );
-            });
-          }
-          callback();
-        },
-      }),
-      { isTTY: true, columns: 80 },
-    ) as unknown as NodeJS.WriteStream;
-    const code = await runHostAccessCommand(
-      ["--initialize"],
-      f.environment,
-      input,
-      output,
-      new AbortController().signal,
-    );
-    assert.equal(code, mode === "valid" ? 0 : 2);
-    assert.equal(keyWrites, mode === "valid" ? 1 : 0);
-    if (mode === "valid") {
-      const before = fs.readFileSync(
-        path.join(f.state, "access-management.json"),
-      );
-      assert.equal(
-        await runHostAccessCommand(
-          ["--initialize"],
-          f.environment,
-          input,
-          output,
-          new AbortController().signal,
-        ),
-        0,
-      );
-      assert.equal(keyWrites, 1);
-      assert.equal(prompts, 1);
-      assert.deepEqual(
-        fs.readFileSync(path.join(f.state, "access-management.json")),
-        before,
-      );
-    }
-    assert.equal(input.destroyed, false);
-    assert.equal(output.destroyed, false);
-    assert.equal(input.listenerCount("keypress"), 0);
-    assert.equal(output.listenerCount("resize"), 0);
-    assert.equal(output.listenerCount("error"), 0);
-    assert.equal(output.listenerCount("close"), 0);
-    assert.equal(
-      fs.existsSync(path.join(f.state, "access-management.json")),
-      mode === "valid",
-    );
-    input.destroy();
-    output.destroy();
-  }
 });

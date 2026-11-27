@@ -11,14 +11,22 @@ import {
   evaluateManagementPermission,
   projectManagementOperationResult,
 } from "../authorization/management.ts";
-import { resolveCredentialAuthentication } from "../credential/authentication.ts";
-import { readCredentialId } from "../credential/token.ts";
+import {
+  acceptsAccessPrincipal,
+  resolveAccessPrincipal,
+} from "../authorization/principal.ts";
+import type { AccountAccessPrincipal } from "../authorization/types.ts";
 import type { ManagementOperationOutcome } from "../permission/types.ts";
 import { isAccessRole } from "../permission/validation.ts";
 import { locked } from "../storage/lock.ts";
-import { parseAccessManagementState } from "../storage/parse.ts";
+import {
+  isInvitationDigest,
+  isInvitationEmail,
+  parseAccessManagementState,
+} from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
+  invitationChange,
   ordinaryChange,
   publishState,
   readCurrent,
@@ -62,28 +70,28 @@ function isUserName(value: unknown): value is string {
  * 同じ現在状態で管理認可と対象を確認し変更候補を作る。
  * @responsibility 変更前認可を使い、意図したUser／Role fieldだけを変える。
  * @trace ARCH-000013
- * @input 鍵、完全検査済み現在状態、対象二操作入力、期待改訂、受付UUID。
+ * @input 確認済みアカウント主体、完全検査済み現在状態、対象二操作入力、期待改訂、受付UUID。
  * @returns 所有済み候補または非開示拒否のnull。
  * @precondition 保存Ownerが同じLock内で読み取ったSnapshotだけを渡す。
  * @postcondition 入力状態・資格・初回・未解決交換・Repository登録・Exposureを変更しない。
  * @effect N/A: 認証計算とメモリ候補だけ。乱数・保存なし。
  * @failure 未認証・固定分担拒否・途中初回・対象差・不正入力はnull。
- * @invariant managerによるadministrator名変更は許可し、Role変更は許可しない。
+ * @invariant administratorの表示名変更はadministratorだけに許可する。
  * @boundary 操作固有判断と物理保存の境界。
  * @security 返却Snapshotは保存Owner限定。古い認証DTOをAuthorityにしない。
  * @concurrency 同期Lock区間内で現在認可を再評価する。
  */
 export function prepareUserChange(
-  token: string,
+  principal: AccountAccessPrincipal,
   current: AccessManagementState,
   change: Extract<
     UserRoleChange,
-    { operation: "registerUser" | "updateUserName" }
+    { operation: "registerUser" | "updateUserName" | "renewInvitation" }
   >,
   expectedRevision: number,
   operationId: string,
 ): PreparedUserRoleChange | null {
-  const actor = resolveCredentialAuthentication(token, current);
+  const actor = resolveAccessPrincipal(principal, current);
   if (!actor || current.initialization.stage !== "completed") return null;
   if (
     current.revision !== expectedRevision ||
@@ -94,6 +102,15 @@ export function prepareUserChange(
   next.revision++;
   next.operationId = operationId;
   let userId: string | null = null;
+  const invitation = "invitation" in change ? change.invitation : undefined;
+  if (
+    invitation &&
+    (!isInvitationEmail(invitation.email) ||
+      !isInvitationDigest(invitation.digest) ||
+      !Number.isSafeInteger(invitation.expiresAt) ||
+      invitation.expiresAt <= Date.now())
+  )
+    return null;
   if (change.operation === "registerUser") {
     if (!isUserName(change.username) || !isAccessRole(change.plannedRole))
       return null;
@@ -108,12 +125,19 @@ export function prepareUserChange(
       userId: "00000000-0000-4000-8000-000000000000",
       username: change.username,
       role: change.plannedRole,
+      ...(invitation ? { invitation: { ...invitation } } : {}),
     });
   } else {
     if (typeof change.userId !== "string") return null;
     const target = next.users.find((item) => item.userId === change.userId);
     if (!target) return null;
     userId = target.userId;
+
+    if (change.operation === "renewInvitation") {
+      if (actor.role !== "administrator" || target.accountLinks) return null;
+      target.invitation = { ...change.invitation };
+      return { next, registersUser: false, userId };
+    }
 
     if (
       !isUserName(change.username) ||
@@ -132,7 +156,7 @@ export function prepareUserChange(
  * 対象二操作の現在認可・変更・保存を直列化する。
  * @responsibility 非開示拒否と今回出版事実を既存保存部品へ接続する。
  * @trace ARCH-000013
- * @input 検証済みRoot、鍵、期待改訂、受付UUID、対象二操作入力。
+ * @input 検証済みRoot、確認済みアカウント主体、期待改訂、受付UUID、対象二操作入力。
  * @returns 非秘密の管理結果。
  * @precondition 用途限定Rootを使う内部Consumerだけが呼ぶ。入力は本関数も検査する。
  * @postcondition 今回の出版・読戻し・材料とLock清掃確認時だけcompleted。
@@ -145,17 +169,17 @@ export function prepareUserChange(
  */
 export function executeUserRoleManagementMutation(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   expectedRevision: number,
   operationId: string,
   change: Extract<
     UserRoleChange,
-    { operation: "registerUser" | "updateUserName" }
+    { operation: "registerUser" | "updateUserName" | "renewInvitation" }
   >,
 ): UserRoleManagementResult {
   if (
-    typeof token !== "string" ||
-    !readCredentialId(token) ||
+    !acceptsAccessPrincipal(principal) ||
+    (change.operation === "registerUser" && !change.invitation) ||
     !Number.isSafeInteger(expectedRevision) ||
     expectedRevision < 1 ||
     typeof operationId !== "string" ||
@@ -175,7 +199,7 @@ export function executeUserRoleManagementMutation(
       revision = current.state.revision;
       stage = "authorization";
       if (
-        current.state.revision !== expectedRevision ||
+        revision < expectedRevision ||
         current.state.operationId === operationId
       )
         return {
@@ -186,10 +210,10 @@ export function executeUserRoleManagementMutation(
           cleanupConfirmed: true,
         };
       const prepared = prepareUserChange(
-        token,
+        principal,
         current.state,
         change,
-        expectedRevision,
+        current.state.revision,
         operationId,
       );
       if (!prepared)
@@ -201,6 +225,14 @@ export function executeUserRoleManagementMutation(
           cleanupConfirmed: true,
         };
       admitted = true;
+      if (revision !== expectedRevision)
+        return {
+          status: "unavailable" as const,
+          reason: "state_store_revision_conflict",
+          publication: "not_attempted" as const,
+          revision,
+          cleanupConfirmed: true,
+        };
       targetUserId = prepared.userId;
       stage = "pending";
       const settled = settlePending(root, current, () => {});
@@ -229,12 +261,24 @@ export function executeUserRoleManagementMutation(
       }
       stage = "candidate";
       const parsed = parseAccessManagementState(serialize(prepared.next));
+      const inviteTarget =
+        "invitation" in change && change.invitation
+          ? (targetUserId ?? undefined)
+          : undefined;
       if (
         parsed.status !== "parsed" ||
-        !ordinaryChange(current.state, parsed.state)
+        !(inviteTarget
+          ? invitationChange(current.state, parsed.state, inviteTarget)
+          : ordinaryChange(current.state, parsed.state))
       )
         throw new Error("user_role_candidate_invalid");
-      const published = publishState(root, current, parsed.state, "management");
+      const published = publishState(
+        root,
+        current,
+        parsed.state,
+        inviteTarget ? "account-invitation" : "management",
+        inviteTarget,
+      );
       currentPublication = published.publication;
       return published;
     } catch {
@@ -271,11 +315,34 @@ export function executeUserRoleManagementMutation(
   };
 }
 
+/** 現在のadministratorが、未紐付けの既存利用者の招待を再発行する。 */
+export function renewInvitation(
+  root: FilesystemStoreRoot,
+  principal: AccountAccessPrincipal,
+  expectedRevision: number,
+  operationId: string,
+  userId: string,
+  invitation: Extract<
+    UserRoleChange,
+    { operation: "renewInvitation" }
+  >["invitation"],
+): ManagementOperationOutcome {
+  return projectManagementOperationResult(
+    executeUserRoleManagementMutation(
+      root,
+      principal,
+      expectedRevision,
+      operationId,
+      { operation: "renewInvitation", userId, invitation },
+    ),
+  );
+}
+
 /**
  * 現在管理者が新しい最小ユーザーを登録する。
  * @responsibility 予定Roleの固定管理許可からUser一件だけを保存する。
  * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、表示名、予定Role。
+ * @input Root、確認済みアカウント主体、期待改訂、受付UUID、表示名、予定Role。
  * @returns 新User IDと保存観測、または非秘密拒否。
  * @precondition 初回設定が完了した用途限定Storeを使用する。
  * @postcondition 資格を発行せずUser一件だけ追加する。
@@ -288,18 +355,27 @@ export function executeUserRoleManagementMutation(
  */
 export function saveUserRegistration(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   expectedRevision: number,
   operationId: string,
   username: string,
   plannedRole: unknown,
+  invitation?: Extract<
+    UserRoleChange,
+    { operation: "registerUser" }
+  >["invitation"],
 ): UserRoleManagementResult {
   return executeUserRoleManagementMutation(
     root,
-    token,
+    principal,
     expectedRevision,
     operationId,
-    { operation: "registerUser", username, plannedRole },
+    {
+      operation: "registerUser",
+      username,
+      plannedRole,
+      ...(invitation ? { invitation } : {}),
+    },
   );
 }
 
@@ -307,20 +383,20 @@ export function saveUserRegistration(
  * 既存ユーザーの管理用表示名だけを変更する。
  * @responsibility exact Userと現在Roleを確認し名前だけを保存する。
  * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、既存User ID、新表示名。
+ * @input Root、確認済みアカウント主体、期待改訂、受付UUID、既存User ID、新表示名。
  * @returns 対象User IDと保存観測、または非秘密拒否。
  * @precondition 完了初期化のStoreを使用する。
  * @postcondition User ID・Role・資格を保持する。
  * @effect 既存状態保存。UUID生成なし。
  * @failure 不正名・対象差・非認可・競合・保存／清掃不明で未完了。
- * @invariant managerはadministratorの表示名を変更できる。
+ * @invariant managerはadministratorの表示名を変更できない。
  * @boundary 通常名前管理と保存Owner。
  * @security 他User一覧・資格材料を返さない。
  * @concurrency 同じ現在状態から対象と許可を再評価する。
  */
 export function saveUserName(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   expectedRevision: number,
   operationId: string,
   userId: string,
@@ -328,7 +404,7 @@ export function saveUserName(
 ): UserRoleManagementResult {
   return executeUserRoleManagementMutation(
     root,
-    token,
+    principal,
     expectedRevision,
     operationId,
     { operation: "updateUserName", userId, username },
@@ -339,7 +415,7 @@ export function saveUserName(
  * 現在管理者が新しい最小ユーザーを登録する。
  * @responsibility 予定Roleの固定管理許可からUser一件だけを保存する。
  * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、表示名、予定Role。
+ * @input Root、確認済みアカウント主体、期待改訂、受付UUID、表示名、予定Role。
  * @returns 新User IDと保存観測、または非秘密拒否。
  * @precondition 初回設定が完了した用途限定Storeを使用する。
  * @postcondition 資格を発行せずUser一件だけ追加する。
@@ -352,20 +428,25 @@ export function saveUserName(
  */
 export function registerUser(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   expectedRevision: number,
   operationId: string,
   username: string,
   plannedRole: unknown,
+  invitation?: Extract<
+    UserRoleChange,
+    { operation: "registerUser" }
+  >["invitation"],
 ): ManagementOperationOutcome {
   return projectManagementOperationResult(
     saveUserRegistration(
       root,
-      token,
+      principal,
       expectedRevision,
       operationId,
       username,
       plannedRole,
+      invitation,
     ),
   );
 }
@@ -374,26 +455,33 @@ export function registerUser(
  * 既存ユーザーの管理用表示名だけを変更する。
  * @responsibility exact Userと現在Roleを確認し名前だけを保存する。
  * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、既存User ID、新表示名。
+ * @input Root、確認済みアカウント主体、期待改訂、受付UUID、既存User ID、新表示名。
  * @returns 対象User IDと保存観測、または非秘密拒否。
  * @precondition 完了初期化のStoreを使用する。
  * @postcondition User ID・Role・資格を保持する。
  * @effect 既存状態保存。UUID生成なし。
  * @failure 不正名・対象差・非認可・競合・保存／清掃不明で未完了。
- * @invariant managerはadministratorの表示名を変更できる。
+ * @invariant managerはadministratorの表示名を変更できない。
  * @boundary 通常名前管理と保存Owner。
  * @security 他User一覧・資格材料を返さない。
  * @concurrency 同じ現在状態から対象と許可を再評価する。
  */
 export function updateUserName(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   expectedRevision: number,
   operationId: string,
   userId: string,
   username: string,
 ): ManagementOperationOutcome {
   return projectManagementOperationResult(
-    saveUserName(root, token, expectedRevision, operationId, userId, username),
+    saveUserName(
+      root,
+      principal,
+      expectedRevision,
+      operationId,
+      userId,
+      username,
+    ),
   );
 }

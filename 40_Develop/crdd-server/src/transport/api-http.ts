@@ -10,6 +10,7 @@ import {
   type ServerResponse,
 } from "node:http";
 import type { Socket } from "node:net";
+import { matchesSecret } from "../secret.ts";
 
 /**
  * HTTP要求の取消・終了とHandler接続を構成する。
@@ -162,32 +163,6 @@ export function createApiServer() {
 }
 
 /**
- * 当該HTTP要求の切断だけを取消へ伝え、処理後に両監視を解除する。
- * @responsibility 通常管理と鍵操作で実体確認・出版の処理順を変えず、同じ通知を扱う。
- * @trace ARCH-000013
- * @boundary 各入口が監視を始める時点と終了待機を決める。
- */
-export function observeConnectionCancellation(
-  incoming: IncomingMessage,
-  response: ServerResponse,
-) {
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-  const responseClosed = () => {
-    if (!response.writableFinished) abort();
-  };
-  incoming.once("aborted", abort);
-  response.once("close", responseClosed);
-  return {
-    signal: controller.signal,
-    dispose: () => {
-      incoming.removeListener("aborted", abort);
-      response.removeListener("close", responseClosed);
-    },
-  };
-}
-
-/**
  * 共有配置の公開Origin境界をraw Headerから確認する。
  * @responsibility Host・転送案内・Originの重複と不一致を資格・Body観測前に拒否する。
  * @trace ARCH-000012
@@ -208,11 +183,11 @@ export function validatePublicOriginRequest(
 ): boolean {
   if (publicOrigin === null) return true;
   const expected = [
-    ["host", publicOrigin.host],
     ["x-forwarded-proto", "https"],
     ["x-forwarded-host", publicOrigin.host],
   ];
   return !(
+    !matchesRequestHost(incoming, publicOrigin.host) ||
     expected.some(
       ([name, value]) =>
         incoming.headers[name as string] !== value ||
@@ -220,13 +195,11 @@ export function validatePublicOriginRequest(
           (field, index) => index % 2 === 0 && field.toLowerCase() === name,
         ).length !== 1,
     ) ||
-    incoming.rawHeaders.filter(
-      (field, index) => index % 2 === 0 && field.toLowerCase() === "origin",
-    ).length > 1 ||
-    (incoming.headers.origin !== undefined &&
-      incoming.headers.origin !== publicOrigin.origin) ||
-    ((incoming.method ?? "") === "POST" &&
-      incoming.headers.origin !== publicOrigin.origin)
+    !matchesRequestOrigin(
+      incoming,
+      publicOrigin.origin,
+      incoming.method === "POST" ? "required" : "optional",
+    )
   );
 }
 
@@ -277,6 +250,50 @@ export function sendResponseBody(
   response.end(head ? undefined : body);
 }
 
+/** 受付で確定したHostに対して、単一のHostヘッダーだけを受け付ける。 */
+export function matchesRequestHost(
+  incoming: IncomingMessage,
+  expected: string,
+): boolean {
+  return (
+    incoming.headersDistinct.host?.length === 1 &&
+    incoming.headers.host === expected
+  );
+}
+
+/** 省略を明示的に許した経路でも、Originがあれば単一の同一Originに限る。 */
+export function matchesRequestOrigin(
+  incoming: IncomingMessage,
+  expected: string,
+  presence: "required" | "optional" = "required",
+): boolean {
+  const origins = incoming.headersDistinct.origin;
+  return origins === undefined
+    ? presence === "optional"
+    : origins.length === 1 && origins[0] === expected;
+}
+
+/** 操作トークンの重複を拒否し、単一の値を既存の秘密値比較に渡す。 */
+export function matchesActionToken(
+  incoming: IncomingMessage,
+  expected: string,
+): boolean {
+  const tokens = incoming.headersDistinct["x-crdd-action-token"];
+  return tokens?.length === 1 && matchesSecret(tokens[0], expected);
+}
+
+/** 重複したContent-Typeを拒否し、媒体型の前後のHTTP空白を除いて比較する。 @trace ARCH-000012 */
+export function hasContentType(
+  incoming: IncomingMessage,
+  expected: "application/json" | "application/x-www-form-urlencoded",
+): boolean {
+  const values = incoming.headersDistinct["content-type"];
+  return (
+    values?.length === 1 &&
+    values[0]?.split(";", 1)[0]?.replace(/^[ \t]+|[ \t]+$/gu, "") === expected
+  );
+}
+
 /**
  * Workbench操作Formを上限付きで読取る。
  *
@@ -297,13 +314,20 @@ export async function readActionForm(
   incoming: IncomingMessage,
   maxBytes = 16 * 1_024,
 ): Promise<URLSearchParams> {
+  if (!hasContentType(incoming, "application/x-www-form-urlencoded"))
+    throw new Error("workbench_action_content_type_invalid");
+  return new URLSearchParams(
+    (await readRequestBody(incoming, maxBytes)).toString("utf8"),
+  );
+}
+
+/** 指定した上限までの要求本文を、解析せず一回だけ捕捉する。 */
+export async function readRequestBody(
+  incoming: IncomingMessage,
+  maxBytes: number,
+): Promise<Buffer> {
   if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0)
     throw new Error("workbench_action_body_limit_invalid");
-  if (
-    incoming.headers["content-type"]?.split(";", 1)[0] !==
-    "application/x-www-form-urlencoded"
-  )
-    throw new Error("workbench_action_content_type_invalid");
   const declaredLength = incoming.headers["content-length"];
   if (declaredLength !== undefined && Number(declaredLength) > maxBytes)
     throw new Error("workbench_action_body_too_large");
@@ -315,5 +339,5 @@ export async function readActionForm(
     if (size > maxBytes) throw new Error("workbench_action_body_too_large");
     chunks.push(buffer);
   }
-  return new URLSearchParams(Buffer.concat(chunks).toString("utf8"));
+  return Buffer.concat(chunks);
 }

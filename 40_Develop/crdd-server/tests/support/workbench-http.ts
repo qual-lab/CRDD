@@ -28,7 +28,7 @@ export async function requestTransport(
   requestPath: string,
   method = "GET",
   body?: string,
-  headers: Readonly<Record<string, string>> = {},
+  headers: Readonly<Record<string, string | string[]>> = {},
 ): Promise<
   Readonly<{
     status: number;

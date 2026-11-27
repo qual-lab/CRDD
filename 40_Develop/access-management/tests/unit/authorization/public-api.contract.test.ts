@@ -28,7 +28,7 @@ import * as access from "../../../src/index.ts";
  * @boundary 同ProcessのESM公開境界。
  */
 test("公開APIは保存内部・鍵材料・CLI受付を提供しない", () => {
-  assert.equal(typeof access.readUserStatus, "function");
+  assert.equal("readUserStatus" in access, false);
   for (const name of [
     "readAccessManagementState",
     "updateAccessManagementState",
@@ -37,6 +37,7 @@ test("公開APIは保存内部・鍵材料・CLI受付を提供しない", () =>
     "verifyCredentialToken",
     "readCredentialId",
     "runHostAccessCommand",
+    "acquireSharedServerLock",
     "createInitialAdministrator",
     "createInitialCredential",
     "initializeAccessManagementState",
@@ -73,15 +74,37 @@ test("公開操作は拒否を直接返しRootを観測・変更しない", () =
     },
   ) as never;
   const denied = { status: "rejected", reason: "management_request_rejected" };
+  const retiredKey = `cros.v1.${"0".repeat(24)}.${"A".repeat(43)}`;
   const operation = "00000000-0000-4000-8000-000000000001";
+  const account = {
+    kind: "account" as const,
+    userId: operation,
+    bindingId: "00000000-0000-4000-8000-000000000002",
+    expiresAt: Date.now() + 60_000,
+  };
+  for (const kind of ["roleContentAccess", "exposure"])
+    assert.deepEqual(access.readManagementState(root, account, kind), {
+      status: "unavailable",
+      reason: "management_read_rejected",
+    });
+  assert.throws(() => access.readFilesystemStoreDirectory(root), {
+    message: "filesystem_store_root_capability_invalid",
+  });
   assert.deepEqual(
-    access.registerUser(root, "invalid", 1, operation, "name", "developer"),
+    access.registerUser(
+      root,
+      retiredKey as never,
+      1,
+      operation,
+      "name",
+      "developer",
+    ),
     denied,
   );
   assert.deepEqual(
     access.updateUserRole(
       root,
-      "invalid",
+      retiredKey as never,
       1,
       operation,
       operation,
@@ -93,7 +116,7 @@ test("公開操作は拒否を直接返しRootを観測・変更しない", () =
   assert.deepEqual(
     access.registerRepository(
       root,
-      "invalid",
+      retiredKey as never,
       1,
       operation,
       "repo",
@@ -102,18 +125,19 @@ test("公開操作は拒否を直接返しRootを観測・変更しない", () =
     ),
     denied,
   );
-  assert.deepEqual(
-    access.updateExposure(root, "invalid", 1, operation, "repo", []),
-    denied,
-  );
-  assert.deepEqual(access.readCurrentAccess(root, "invalid"), {
+  assert.equal(Object.hasOwn(access, "updateExposure"), false);
+  assert.equal(Object.hasOwn(access, "updateRoleContentAccess"), false);
+  assert.deepEqual(access.readCurrentAccess(root, retiredKey as never), {
     status: "unavailable",
     reason: "current_access_authentication_rejected",
   });
-  assert.deepEqual(access.readManagementState(root, "invalid", "unknown"), {
-    status: "unavailable",
-    reason: "management_read_rejected",
-  });
+  assert.deepEqual(
+    access.readManagementState(root, retiredKey as never, "users"),
+    {
+      status: "unavailable",
+      reason: "management_read_rejected",
+    },
+  );
   assert.equal(observations, 0);
 });
 
@@ -200,7 +224,7 @@ test("公開投影は内部理由と非公開fieldを閉じた結果へ変換す
       user,
       contentAccess: { workspaceIds: [] },
       permittedRepositories: [],
-      managementOperations: [{ operation: "issueCredential" as const }],
+      managementOperations: [{ operation: "manageAiProfiles" as const }],
       path: "fixture-private-path",
     },
   };
@@ -208,7 +232,5 @@ test("公開投影は内部理由と非公開fieldを閉じた結果へ変換す
     status: "completed",
     revision: 8,
     user,
-    contentAccess: { workspaceIds: [] },
-    permittedRepositories: [],
   });
 });

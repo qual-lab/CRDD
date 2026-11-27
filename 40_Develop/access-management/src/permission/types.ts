@@ -11,23 +11,19 @@ import type { AccessRole } from "../role/types.ts";
  * 本人の現在権限を同じ改訂の表示情報に限定する。
  * @responsibility 内部資格・保存Path・他Userを含まない本人投影を所有する。
  * @trace ARCH-000013
- * @shape revision、user、対象制約付きmanagementOperations、contentAccess、permittedRepositories。
+ * @shape revision、user、対象制約付きmanagementOperations。
  * @invariant 管理候補と内容許可を混ぜず、Repository実アクセスは証明しない。
  * @boundary Package本人読取り。MCP公開Schemaではない。
  * @security token・資格ID・Verifier・salt・他User・内部Pathを含まない。
- * @compatibility 採用済み三RoleとDevelopment／Management範囲だけを扱う。
+ * @compatibility 採用済み三Roleだけを扱う。
  */
 export type CurrentAccessSnapshot = Readonly<{
   revision: number;
   user: Readonly<{ userId: string; username: string; role: AccessRole }>;
-  managementOperations: readonly ManagementRequest[];
-  contentAccess: Readonly<{
-    workspaceIds: readonly ("development" | "management")[];
-  }>;
-  permittedRepositories: readonly Readonly<{
-    repositoryId: string;
-    workspaceIds: readonly ("development" | "management")[];
-  }>[];
+  managementOperations: readonly Exclude<
+    ManagementRequest,
+    Readonly<{ operation: "openManagementSession" }>
+  >[];
 }>;
 
 /**
@@ -64,6 +60,7 @@ export type CurrentAccessResult =
  * @compatibility 内部Package契約であり、HTTP／MCPの公開Schemaではない。
  */
 export type ManagementRequest =
+  | Readonly<{ operation: "openManagementSession" }>
   | Readonly<{ operation: "registerUser"; plannedRole: AccessRole }>
   | Readonly<{ operation: "updateUserName"; targetRole: AccessRole }>
   | Readonly<{
@@ -71,16 +68,11 @@ export type ManagementRequest =
       currentRole: AccessRole;
       nextRole: AccessRole;
     }>
-  | Readonly<{ operation: "updateRoleContentAccess"; targetRole: AccessRole }>
   | Readonly<{
       operation:
         | "registerRepository"
         | "unregisterRepository"
-        | "updateExposure"
-        | "manageAiProfiles"
-        | "issueCredential"
-        | "revokeCredential"
-        | "exchangeCredentials";
+        | "manageAiProfiles";
     }>;
 
 /**
@@ -97,27 +89,23 @@ export type ManagementRequest =
 export type ManagementPermission = "allowed" | "denied" | "invalid";
 
 /**
- * 通常管理の参照対象を四種類に限定する。
+ * 通常管理の参照対象を利用者と登録済みリポジトリに限定する。
  * @responsibility 不明対象を汎用内部Snapshot読取りへ転用しない。
  * @trace ARCH-000013
- * @shape users、roleContentAccess、registeredRepositories、exposureのliteral union。
+ * @shape users、registeredRepositoriesのliteral union。
  * @invariant 鍵・初回・交換・内容本文を含めない。
  * @boundary Packageの管理読取り入力。
  * @security 種類の指定だけでは参照Authorityにならない。
  * @compatibility MCP公開Schemaや旧CROS全状態readではない。
  */
-export type ManagementReadKind =
-  | "users"
-  | "roleContentAccess"
-  | "registeredRepositories"
-  | "exposure";
+export type ManagementReadKind = "users" | "registeredRepositories";
 
 /**
  * 同一改訂の管理対象別投影を表す。
  * @responsibility 対象以外の管理情報を同じ応答へ混在させない。
  * @trace ARCH-000013
- * @shape revision・kindと対象専用のusers、rolesまたはrepositories。
- * @invariant Exposureのnullは設定レコード不存在、空配列は明示公開範囲0。
+ * @shape revision・kindと対象専用のusersまたはrepositories。
+ * @invariant 登録済み一覧は内容の公開範囲を表さない。
  * @boundary 現在管理認可を確認したPackage Consumerだけ。
  * @security 資格・内部Path・Context本文を含めずBindingは非Authority。
  * @compatibility 三Role・二Workspaceの採用済み設定だけ。
@@ -133,24 +121,10 @@ export type ManagementStateSnapshot = Readonly<{ revision: number }> &
         }>[];
       }>
     | Readonly<{
-        kind: "roleContentAccess";
-        roles: readonly Readonly<{
-          role: AccessRole;
-          workspaceIds: readonly ("development" | "management")[];
-        }>[];
-      }>
-    | Readonly<{
         kind: "registeredRepositories";
         repositories: readonly Readonly<{
           repositoryId: string;
           bindingId: string;
-        }>[];
-      }>
-    | Readonly<{
-        kind: "exposure";
-        repositories: readonly Readonly<{
-          repositoryId: string;
-          workspaceIds: readonly ("development" | "management")[] | null;
         }>[];
       }>
   );
@@ -200,7 +174,10 @@ export type ManagementOperationOutcome =
       | { userId: string | null; repositoryId?: undefined }
       | { repositoryId: string; userId?: undefined }
     ))
-  | { status: "rejected"; reason: "management_request_rejected" }
+  | {
+      status: "rejected";
+      reason: "management_request_rejected" | "management_revision_conflict";
+    }
   | {
       status: "unavailable";
       reason: "management_operation_unavailable";
@@ -220,7 +197,7 @@ export type ManagementOperationOutcome =
  * @invariant 各readの改訂を分離する。
  * @boundary AM公開結果と利用側。
  * @security Binding・資格なし。
- * @compatibility 現行四管理readだけ。
+ * @compatibility 現行の管理readだけ。
  */
 export type ManagementReadOutcome =
   | {
@@ -230,26 +207,11 @@ export type ManagementReadOutcome =
   | ({ status: "completed"; revision: number } & (
       | {
           users: { userId: string; username: string; role: AccessRole }[];
-          roles?: undefined;
           repositories?: undefined;
         }
       | {
-          roles: {
-            role: AccessRole;
-            workspaceIds: ("development" | "management")[];
-          }[];
+          repositories: { repositoryId: string }[];
           users?: undefined;
-          repositories?: undefined;
-        }
-      | {
-          repositories:
-            | { repositoryId: string }[]
-            | {
-                repositoryId: string;
-                workspaceIds: ("development" | "management")[] | null;
-              }[];
-          users?: undefined;
-          roles?: undefined;
         }
     ));
 
@@ -257,7 +219,7 @@ export type ManagementReadOutcome =
  * 通常本人の最小公開結果型。
  * @responsibility 本人表示と管理候補非公開を型境界へ保持する。
  * @trace ARCH-000013
- * @shape 本人・内容範囲・許可Repositoryまたは固定未取得。
+ * @shape status・revision・user、または固定未取得理由。
  * @invariant managementOperationsを公開しない。
  * @boundary AM本人Readerと利用側。
  * @security 他User・資格・Pathなし。
@@ -277,9 +239,4 @@ export type CurrentAccessOutcome =
       status: "completed";
       revision: number;
       user: { userId: string; username: string; role: AccessRole };
-      contentAccess: { workspaceIds: ("development" | "management")[] };
-      permittedRepositories: {
-        repositoryId: string;
-        workspaceIds: ("development" | "management")[];
-      }[];
     };

@@ -4031,14 +4031,16 @@ test("実Provider Toolはchoiceと検証分類を持つ現在Objectiveを構築�
         ),
       ),
     );
-    assert.ok(inspectCoordinatorObjectiveRequest(request));
-    assert.equal(request.operation, "start");
+    // 公開MCPではTool名で開始を選択し、Coordinatorへの委譲時に操作を補う。
+    assert.equal("operation" in request, false);
+    const coordinatorRequest = { ...request, operation: "start" };
+    assert.ok(inspectCoordinatorObjectiveRequest(coordinatorRequest));
     assert.equal(request.workType, `verification-${provider}`);
     assert.equal(request.choice.provider, provider);
     assert.equal("requestedExecutorProvider" in request, false);
     assert.equal(
       inspectCoordinatorObjectiveRequest({
-        ...request,
+        ...coordinatorRequest,
         requestedExecutorProvider: provider,
       }),
       null,

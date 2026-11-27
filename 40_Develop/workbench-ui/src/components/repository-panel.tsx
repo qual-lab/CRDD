@@ -31,6 +31,8 @@ export function Repository({
   model: MainViewResponse;
 }): ReactElement {
   const repository = model.projectData.repository;
+  const repositoryId =
+    model.selectedRepositoryId ?? model.projectData.context.repositoryId;
   if (repository.state === "unknown" || repository.changeSet === null)
     return (
       <WorkbenchPanel
@@ -60,15 +62,6 @@ export function Repository({
       title="作業ツリー"
       status={`${count} changes`}
     >
-      {model.repositoryResult === null ? null : (
-        <p
-          className="operation-result"
-          data-status={model.repositoryResult.status}
-        >
-          <strong>{model.repositoryResult.status}</strong>{" "}
-          {model.repositoryResult.reason}
-        </p>
-      )}
       <section className="repository-browser">
         <h3>Repository Tree／Diff</h3>
         {model.worktree.state === "unknown" || tree === null ? (
@@ -165,56 +158,48 @@ export function Repository({
               {paths.map((entry) => (
                 <li key={entry}>
                   <code>{entry}</code>
-                  <form method="post" action="/api/repository">
-                    <ActionTokenInput value={model.actionToken} />
-                    {model.selectedRepositoryId === null ? null : (
+                  {model.repositoryActions.includes(operation) ? (
+                    <form method="post" data-repository-action>
+                      <ActionTokenInput value={model.actionToken} />
                       <input
                         type="hidden"
                         name="repositoryId"
-                        value={model.selectedRepositoryId}
+                        value={repositoryId}
                       />
-                    )}
-                    <input type="hidden" name="operation" value={operation} />
-                    <input type="hidden" name="path" value={entry} />
-                    <button type="submit">
-                      {operation === "prepare" ? "Stage" : "Unstage"}
-                    </button>
-                  </form>
+                      <input type="hidden" name="operation" value={operation} />
+                      <input type="hidden" name="path" value={entry} />
+                      <button type="submit">
+                        {operation === "prepare" ? "Stage" : "Unstage"}
+                      </button>
+                    </form>
+                  ) : null}
                 </li>
               ))}
             </ul>
           )}
         </section>
       ))}
-      <form method="post" action="/api/repository">
-        <ActionTokenInput value={model.actionToken} />
-        {model.selectedRepositoryId === null ? null : (
-          <input
-            type="hidden"
-            name="repositoryId"
-            value={model.selectedRepositoryId}
-          />
-        )}
-        <input type="hidden" name="operation" value="create_revision" />
-        <label>
-          Commit message
-          <input required maxLength={4096} name="message" />
-        </label>
-        <button type="submit">Commit staged changes</button>
-      </form>
-      {target?.status === "available" &&
-      target.destination !== null &&
-      target.branch !== null &&
-      target.revisionIdentity !== null ? (
-        <form method="post" action="/api/repository">
+      {model.repositoryActions.includes("create_revision") ? (
+        <form method="post" data-repository-action>
           <ActionTokenInput value={model.actionToken} />
-          {model.selectedRepositoryId === null ? null : (
-            <input
-              type="hidden"
-              name="repositoryId"
-              value={model.selectedRepositoryId}
-            />
-          )}
+          <input type="hidden" name="repositoryId" value={repositoryId} />
+          <input type="hidden" name="operation" value="create_revision" />
+          <label>
+            Commit message
+            <input required maxLength={4096} name="message" />
+          </label>
+          <button type="submit">Commit staged changes</button>
+        </form>
+      ) : null}
+      {!model.repositoryActions.includes(
+        "publish_revision",
+      ) ? null : target?.status === "available" &&
+        target.destination !== null &&
+        target.branch !== null &&
+        target.revisionIdentity !== null ? (
+        <form method="post" data-repository-action>
+          <ActionTokenInput value={model.actionToken} />
+          <input type="hidden" name="repositoryId" value={repositoryId} />
           <input type="hidden" name="operation" value="publish_revision" />
           <input type="hidden" name="destination" value={target.destination} />
           <input type="hidden" name="branch" value={target.branch} />

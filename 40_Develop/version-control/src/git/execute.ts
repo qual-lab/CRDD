@@ -17,6 +17,7 @@ type GitExecutionOptions = Readonly<{
   indexFile?: string;
   gitDirectory?: string;
   configuration?: "isolated" | "repository";
+  commitIdentity?: Readonly<{ name: string; email: string }>;
 }>;
 
 /** 同じ有効設定範囲でclean／process Filterの設定名だけを有界観測する。値は公開しない。 */
@@ -98,6 +99,12 @@ export function executeGit(
             }),
         GIT_TERMINAL_PROMPT: "0",
         GIT_NO_LAZY_FETCH: "1",
+        ...(options.commitIdentity && {
+          GIT_AUTHOR_NAME: options.commitIdentity.name,
+          GIT_AUTHOR_EMAIL: options.commitIdentity.email,
+          GIT_COMMITTER_NAME: options.commitIdentity.name,
+          GIT_COMMITTER_EMAIL: options.commitIdentity.email,
+        }),
         ...(options.indexFile ? { GIT_INDEX_FILE: options.indexFile } : {}),
       },
       ...(options.input === undefined ? {} : { input: options.input }),

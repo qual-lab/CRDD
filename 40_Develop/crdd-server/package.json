@@ -7,8 +7,13 @@
     "enabled": false
   },
   "exports": {
-    "./mcp": "./src/transport/mcp-server.ts",
-    "./api": "./src/app.ts"
+    ".": {
+      "types": "./src/index.ts"
+    },
+    "./cli": "./bin/crdd-server.ts"
+  },
+  "bin": {
+    "crdd-server": "./bin/crdd-server.ts"
   },
   "scripts": {
     "check": "npm run format:check && npm run typecheck && npm run lint",
@@ -33,6 +38,7 @@
     "@modelcontextprotocol/client": "2.3.1",
     "@types/express": "5.0.6",
     "@types/node": "22.18.0",
+    "@types/oidc-provider": "9.15.0",
     "swagger-ui-dist": "5.35.1",
     "typescript": "7.0.2"
   },
@@ -45,7 +51,10 @@
     "@qual-lab/crdd-coordinator": "file:../coordinator",
     "@qual-lab/crdd-document-model": "file:../document-model",
     "@qual-lab/crdd-execution-model": "file:../execution-model",
+    "@qual-lab/crdd-lock": "file:../lock",
     "@qual-lab/crdd-version-control": "file:../version-control",
-    "express": "5.3.0"
+    "express": "5.3.0",
+    "oidc-provider": "9.15.1",
+    "openid-client": "6.9.1"
   }
 }

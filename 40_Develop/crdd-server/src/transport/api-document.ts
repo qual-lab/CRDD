@@ -10,12 +10,41 @@ import { readFile } from "node:fs/promises";
 import type { IncomingMessage } from "node:http";
 import type { ServerResponse } from "node:http";
 import { createRequire } from "node:module";
-import { executionHttpPaths } from "./api-server.ts";
-import { setResponseHeaders } from "./api-http.ts";
+import {
+  aiRequestReadRoutes,
+  aiRequestWriteRoutes,
+  aiSelectionRoute,
+  executionStateRoute,
+  executionActivityRoute,
+  executionWriteRoutes,
+  projectContextRoutes,
+  repositoryWriteRoutes,
+  topicMeetingResources,
+  workspaceResources,
+} from "./api-server.ts";
+import {
+  EXECUTION_ACTIVITY_TOOL,
+  getTopicMeetingToolDefinitions,
+  MCP_PROJECT_CONTEXT_GET_TOOL,
+  MCP_PROJECT_CONTEXT_LIST_TOOL,
+  MCP_WORKSPACE_TOOLS,
+} from "./mcp-server.ts";
+import { objectiveRunTools } from "./mcp-types.ts";
+import { workspaceInputSchema } from "./api-types.ts";
+import {
+  definitionReadFields,
+  definitionWriteFields,
+  executionDefinitionResources,
+  decisionRequestSchema,
+  executionDecisionTools,
+  objectiveRequestSchema,
+  objectiveCancellationSchema,
+} from "../service/execution.ts";
+import { matchesRequestHost, setResponseHeaders } from "./api-http.ts";
 
 const string = { type: "string" } as const;
-const bearer = [{ bearerAuth: [] }];
-const localAccess: typeof bearer = [];
+const operationForTool = (tool: `crdd.${string}`) => tool.slice("crdd.".length);
+const localAccess = [] as const;
 const json = {
   description: "既存操作の結果。HTTP成功だけで保存・実行の成功を示さない。",
   content: { "application/json": { schema: { type: "object" } } },
@@ -26,8 +55,7 @@ const readResponses = {
     description: "現在の対象・認可・入力を確認できない場合は結果を返さない。",
   },
 };
-const writeResponses = {
-  "200": json,
+const writeErrors = {
   "400": { description: "入力又は要求の受理条件が不成立。" },
   "403": { description: "現在のアクセス条件又は搬送条件が不成立。" },
   "503": {
@@ -35,74 +63,370 @@ const writeResponses = {
   },
   default: { description: "操作固有の拒否又は内部失敗。" },
 };
+const writeResponses = { "200": json, ...writeErrors };
 
-/** 指定されたHTTPクエリーを記述する。実際の検証は各Routeで行う。 @trace ARCH-000012 */
-function query(name: string, required = false, schema: object = string) {
-  return { name, in: "query", required, schema };
-}
-
-/** 既存の同一Origin用Formと処置結果を記述する。 @trace ARCH-000012 */
-function action(
-  operationId: string,
-  summary: string,
-  description: string,
-  fields: readonly string[],
-  options: Readonly<{
-    required?: readonly string[];
-    security?: typeof bearer;
-    redirect?: boolean;
-    errorStatuses?: readonly ("400" | "403" | "503")[];
-  }> = {},
-) {
-  const {
-    required = [],
-    security = localAccess,
-    redirect = false,
-    errorStatuses = ["400", "503"],
-  } = options;
-  const properties = Object.fromEntries(
-    fields.map((name) => [
-      name,
-      name === "workspaceIds"
-        ? { type: "array", items: string }
-        : name === "token"
-          ? { ...string, writeOnly: true }
-          : string,
-    ]),
-  );
-  return {
-    operationId,
-    summary,
-    description:
-      "同一Originと取得済みの操作トークンが必要。Formの必須項目は配置と操作種別によって異なる。 " +
-      description,
-    security,
+/** Git書込みは実ルートのメソッド・URLと同じ粒度で公開する。 */
+const repositoryWriteDocumentation = repositoryWriteRoutes.reduce<
+  Record<string, Record<string, object>>
+>((paths, { method, path, operation }) => {
+  const fields =
+    operation === "prepare" || operation === "unprepare"
+      ? { path: string }
+      : operation === "create_revision"
+        ? { message: string }
+        : {
+            destination: string,
+            branch: string,
+            humanConfirmed: { const: true },
+          };
+  const ids = {
+    prepare: "stageRepositoryPath",
+    unprepare: "unstageRepositoryPath",
+    create_revision: "createRepositoryRevision",
+    publish_revision: "publishRepositoryRevision",
+  };
+  const summaries = {
+    prepare: "指定ファイルをステージ",
+    unprepare: "指定ファイルのステージを解除",
+    create_revision: "ステージ済み変更をコミット",
+    publish_revision: "確認済みのコミットを送信",
+  };
+  const key = path.replace(/:(\w+)/gu, "{$1}");
+  paths[key] ??= {};
+  paths[key][method] = {
+    operationId: ids[operation],
+    summary: summaries[operation],
+    security: localAccess,
+    parameters: [
+      ...[...path.matchAll(/:(\w+)/gu)].map(([, name]) => ({
+        name,
+        in: "path",
+        required: true,
+        schema: {
+          type: "string",
+          pattern:
+            name === "revision"
+              ? "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+              : "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        },
+      })),
+      {
+        name: "X-CRDD-Action-Token",
+        in: "header",
+        required: true,
+        schema: string,
+      },
+    ],
     requestBody: {
       required: true,
       content: {
-        "application/x-www-form-urlencoded": {
+        "application/json": {
           schema: {
             type: "object",
-            properties: {
-              actionToken: { type: "string", writeOnly: true },
-              ...properties,
-            },
-            required: ["actionToken", ...required],
+            additionalProperties: false,
+            required: Object.keys(fields),
+            properties: fields,
           },
         },
       },
     },
-    responses: {
-      "200": json,
-      ...(redirect
-        ? { "303": { description: "画面の再読取りへ遷移する。" } }
-        : {}),
-      ...Object.fromEntries(
-        errorStatuses.map((status) => [status, writeResponses[status]]),
-      ),
-      default: writeResponses.default,
-    },
+    responses: writeResponses,
   };
+  return paths;
+}, {});
+
+/** 実際のAI依頼経路と同じ操作別入力を公開する。 */
+function aiRequestWriteOperation(route: (typeof aiRequestWriteRoutes)[number]) {
+  const { operation, path } = route;
+  const start = operation === "start";
+  const requestId = {
+    type: "string",
+    pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  };
+  const nullableString = { anyOf: [string, { type: "null" }] };
+  return {
+    operationId: start
+      ? "startAiRequest"
+      : operation === "select"
+        ? "selectAiRequest"
+        : "cancelAiRequest",
+    summary: start
+      ? "AI依頼を開始"
+      : operation === "select"
+        ? "元の依頼を現在表示に選ぶ"
+        : "AI依頼の取消を要求",
+    security: localAccess,
+    parameters: [
+      ...[...path.matchAll(/:(\w+)/gu)].map(([, name]) => ({
+        name,
+        in: "path",
+        required: true,
+        schema: requestId,
+      })),
+      {
+        name: "X-CRDD-Action-Token",
+        in: "header",
+        required: true,
+        schema: string,
+      },
+    ],
+    requestBody: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: start
+              ? ["requestId", "mode", "prompt"]
+              : operation === "select"
+                ? ["requestId"]
+                : [],
+            properties: start
+              ? {
+                  requestId,
+                  mode: { enum: ["read_only_advice", "workspace_edit"] },
+                  prompt: string,
+                  workType: nullableString,
+                  workspaceId: nullableString,
+                  allowedPaths: nullableString,
+                  choice: { type: "object" },
+                }
+              : operation === "select"
+                ? { requestId }
+                : {},
+          },
+        },
+      },
+    },
+    responses: start
+      ? {
+          "201": json,
+          "409": { ...json, description: "開始は受理されなかった。" },
+          ...writeErrors,
+        }
+      : writeResponses,
+  };
+}
+
+const recordPaths: Record<string, Record<string, unknown>> = {};
+const recordTools = getTopicMeetingToolDefinitions("required");
+const recordAccessResponses = {
+  "401": { description: "共有の接続資格を確認できない。" },
+  "404": { description: "指定した対象はこの接続から利用できない。" },
+};
+for (const { method, path, kind, operation } of topicMeetingResources) {
+  const pathname = path.replace(/:(\w+)/gu, "{$1}");
+  const toolName: `crdd.${string}` =
+    operation === "treat-outcome"
+      ? "crdd.treat_meeting_outcome"
+      : `crdd.${operation}_${kind}${operation === "list" ? "s" : ""}`;
+  const definition = recordTools.find(({ name }) => name === toolName);
+  if (!definition) throw new Error("record_openapi_tool_missing");
+  const { properties, required, ...schema } = definition.inputSchema;
+  const pathFields = [...path.matchAll(/:(\w+)/gu)].map(
+    (match) => match[1] as string,
+  );
+  const schemaFields: Record<string, unknown> = properties;
+  const idField = `${kind}Id`;
+  const parameters: object[] = pathFields.map((name) => ({
+    name,
+    in: "path",
+    required: true,
+    schema:
+      schemaFields[name] ??
+      (name === idField ? schemaFields.id : undefined) ??
+      string,
+  }));
+  const excluded = new Set(pathFields);
+  if (excluded.has(idField)) excluded.add("id");
+  const bodyProperties = Object.fromEntries(
+    Object.entries(properties).filter(([field]) => !excluded.has(field)),
+  );
+  if (method === "get")
+    for (const [name, field] of Object.entries(bodyProperties)) {
+      if (!field || typeof field !== "object")
+        throw new Error("record_openapi_field_invalid");
+      parameters.push(query(name, false, field));
+    }
+  recordPaths[pathname] ??= {};
+  recordPaths[pathname][method] = {
+    operationId: operationForTool(toolName),
+    summary: definition.title,
+    description: definition.description,
+    security: localAccess,
+    parameters,
+    ...(method === "get"
+      ? {}
+      : {
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  ...schema,
+                  properties: bodyProperties,
+                  required: required.filter((name) => !excluded.has(name)),
+                },
+              },
+            },
+          },
+        }),
+    responses:
+      method === "get"
+        ? {
+            ...readResponses,
+            ...recordAccessResponses,
+            "503": { description: "現在の文書や公開条件を確認できない。" },
+          }
+        : {
+            ...writeErrors,
+            ...recordAccessResponses,
+            [operation === "create" ? "201" : "200"]: json,
+            "409": { description: "保存条件または現在の改訂が一致しない。" },
+            "415": { description: "JSON以外は受付しない。" },
+          },
+  };
+}
+
+const workspacePaths: Record<string, Record<string, unknown>> = {};
+for (const { method, path, operation } of workspaceResources) {
+  const pathname = path.replace(/:(\w+)/gu, "{$1}");
+  const schema = workspaceInputSchema(operation);
+  const parameters: object[] = [];
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
+  for (const [name, field] of Object.entries(schema.properties)) {
+    if (pathname.includes(`{${name}}`)) {
+      parameters.push({ name, in: "path", required: true, schema: field });
+      continue;
+    }
+    if (method === "get") {
+      parameters.push(
+        query(
+          name,
+          !["cursor", "limit"].includes(name),
+          name === "cursor"
+            ? string
+            : name === "limit"
+              ? { ...field, default: 20 }
+              : field,
+        ),
+      );
+      continue;
+    }
+    properties[name] = field;
+    if (schema.required.includes(name)) required.push(name);
+  }
+  workspacePaths[pathname] ??= {};
+  workspacePaths[pathname][method] = {
+    operationId: operationForTool(MCP_WORKSPACE_TOOLS[operation]),
+    summary: `Workspace: ${operation}`,
+    security: localAccess,
+    parameters,
+    ...(method === "get"
+      ? {}
+      : {
+          description:
+            "同一OriginのJSON受付。対象と操作はURLとHTTPメソッドで指定する。",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  additionalProperties: false,
+                  required,
+                  properties,
+                },
+              },
+            },
+          },
+        }),
+    responses:
+      operation === "create"
+        ? {
+            ...writeResponses,
+            "200": { ...json, description: "作成完了が確定しなかった操作結果" },
+            "201": { ...json, description: "作成済みのWorkspace" },
+          }
+        : method === "get"
+          ? readResponses
+          : writeResponses,
+  };
+}
+
+const definitionFields = { ...definitionReadFields, ...definitionWriteFields };
+const definitionPaths: Record<string, Record<string, unknown>> = {};
+const definitionId = {
+  type: "string",
+  pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+};
+const definitionHash = { type: "string", pattern: "^[a-f0-9]{64}$" };
+for (const [key, route] of Object.entries(executionDefinitionResources)) {
+  const operation = key as keyof typeof definitionFields;
+  const pathname = route.path.replace(/:(\w+)/gu, "{$1}");
+  const parameters = [...pathname.matchAll(/\{(\w+)\}/gu)].map(([, name]) => ({
+    name,
+    in: "path",
+    required: true,
+    schema: definitionId,
+  }));
+  const read = route.method === "get";
+  const bodyFields = definitionFields[operation].filter(
+    (field) => !pathname.includes(`{${field}}`),
+  );
+  const properties: Record<string, object> = {
+    expectedAbsence: { const: true },
+    expected: {
+      type: "object",
+      additionalProperties: false,
+      required: ["revision", "payloadSha256"],
+      properties: {
+        revision: { type: "integer", minimum: 0 },
+        payloadSha256: definitionHash,
+      },
+    },
+    expectedDefinitionHash:
+      operation === "plan.save"
+        ? { anyOf: [definitionHash, { type: "null" }] }
+        : definitionHash,
+    definition: { type: "object" },
+  };
+  definitionPaths[pathname] ??= {};
+  definitionPaths[pathname][route.method] = {
+    operationId: operationForTool(route.tool),
+    summary: `実行定義: ${operation}`,
+    security: localAccess,
+    parameters:
+      operation === "tasks"
+        ? [...parameters, query("queueId", false, definitionId)]
+        : parameters,
+    ...(!read && {
+      description: "同一オリジンのJSONを受け付ける。要求は実行を開始しない。",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              required: bodyFields,
+              properties: Object.fromEntries(
+                bodyFields.map((name) => [name, properties[name]]),
+              ),
+            },
+          },
+        },
+      },
+    }),
+    responses: read ? readResponses : writeResponses,
+  };
+}
+
+/** 指定されたHTTPクエリーを記述する。実際の検証は各Routeで行う。 @trace ARCH-000012 */
+function query(name: string, required = false, schema: object = string) {
+  return { name, in: "query", required, schema };
 }
 
 // HTTPの通信契約。操作別の業務入力・認可・保存条件は実装Ownerに残す。
@@ -112,19 +436,9 @@ export const openApiDocument = {
     title: "CRDD Server HTTP API",
     version: "0.22",
     description:
-      "単体loopback配置のHTTP操作の開発用参照。共有配置の認証契約ではない。鍵・管理・AI等の機能は、文書を有効にするだけでは利用可能にならない。BrowserのHTML・静的資産、退役Route、MCP JSON-RPCは対象外。",
+      "単体loopback配置のHTTP操作の開発用参照。共有のログイン・管理操作、BrowserのHTML・静的資産、MCP JSON-RPCは対象外。AI実行は文書を有効にするだけでは利用できない。",
   },
   servers: [{ url: "/", description: "単体loopback配置（--docs）" }],
-  components: {
-    securitySchemes: {
-      bearerAuth: {
-        type: "http",
-        scheme: "bearer",
-        description:
-          "管理機能の接続が構成済みの場合に、現在のAccess Management資格を使用する。リポジトリの公開・内容権限を代替しない。",
-      },
-    },
-  },
   paths: {
     "/.well-known/crdd-workbench-health": {
       get: {
@@ -133,6 +447,30 @@ export const openApiDocument = {
         description:
           "疎通結果であり、AI・Repository・復旧状態の正常性を証明しない。",
         security: [],
+        responses: readResponses,
+      },
+    },
+    [projectContextRoutes.list]: {
+      get: {
+        operationId: operationForTool(MCP_PROJECT_CONTEXT_LIST_TOOL),
+        summary: "認可されたProjectの一覧を取得",
+        description:
+          "各Projectの repositoryIds は現在読み取れるリポジトリのID。Project Contextの詳細に渡す対象をこの一覧から選ぶ。",
+        security: localAccess,
+        responses: readResponses,
+      },
+    },
+    [projectContextRoutes.detail.replace(/:(\w+)/gu, "{$1}")]: {
+      get: {
+        operationId: operationForTool(MCP_PROJECT_CONTEXT_GET_TOOL),
+        summary: "指定リポジトリのProject Contextを取得",
+        security: localAccess,
+        parameters: ["repositoryId", "projectId"].map((name) => ({
+          name,
+          in: "path",
+          required: true,
+          schema: string,
+        })),
         responses: readResponses,
       },
     },
@@ -162,93 +500,144 @@ export const openApiDocument = {
           "200": {
             ...json,
             description:
-              "画面応答のcontractはcrdd/workbench/view/v1。viewで種別を区別する。mainはprojectData（Project表示データ）、executionActivity（実行の進行と履歴）、recordActionResult（記録操作結果）を返す。",
+              "画面応答のcontractはcrdd/workbench/view/v1。viewで種別を区別する。mainはprojectData（Project表示データ）とexecutionActivity（実行の進行と履歴）を返す。記録の書込み結果は各操作の応答で返す。",
           },
         },
       },
     },
-    [executionHttpPaths.definition]: {
-      get: {
-        operationId: "getExecutionDefinition",
-        summary: "実行計画またはObjective・Task定義を取得",
-        description:
-          "起動リポジトリのProjectとMilestoneを指定する。Task照会だけqueueIdで実行を特定できる。複数Graphで省略した場合は共有Task定義だけを返す。",
-        security: localAccess,
-        parameters: [
-          query("operation", true, {
-            type: "string",
-            enum: ["plan", "objectives", "tasks"],
-          }),
-          query("projectId", true),
-          query("milestoneId", true),
-          query("queueId", false, {
-            type: "string",
-            pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          }),
-        ],
-        responses: readResponses,
-      },
-      post: action(
-        "manageExecutionDefinition",
-        "実行定義を初期化・更新",
-        "commandはJSON文字列。初期化、計画保存、Objective・Taskの登録・更新・削除に限定する。実行は開始しない。",
-        ["command"],
-        { required: ["command"], errorStatuses: ["400", "403", "503"] },
-      ),
-    },
-    "/api/ai-request": {
-      get: {
-        operationId: "readCurrentAiRequest",
-        summary: "現在のAI依頼の進行・結果だけを取得",
-        description:
-          "起動リポジトリの現在の依頼だけを照会する。画面や実行履歴を再構築せず、起動・取消も行わない。",
-        security: localAccess,
-        responses: readResponses,
-      },
-      post: action(
-        "applyAiRequest",
-        "AI依頼を明示受付・取消",
-        "起動時に接続された既存実行Ownerが必要。操作種別によって入力項目が異なる。",
-        [
-          "operation",
-          "requestId",
-          "mode",
-          "workType",
-          "choice",
-          "prompt",
-          "allowedPaths",
-          "workspaceId",
-        ],
-        { required: ["operation"], redirect: true },
-      ),
-    },
-    "/api/ai-selection": {
+    ...definitionPaths,
+    ...recordPaths,
+    ...Object.fromEntries(
+      [
+        ...Object.entries(aiRequestReadRoutes).map(([kind, path]) => [
+          path.replace(/:(\w+)/gu, "{$1}"),
+          {
+            get: {
+              operationId:
+                kind === "current" ? "readCurrentAiRequest" : "getAiRequest",
+              summary:
+                kind === "current"
+                  ? "指定リポジトリの現在のAI依頼を取得"
+                  : "指定したAI依頼を取得",
+              description:
+                "画面再構築や新たな依頼の開始・取消は行わない。共有では現在許可された接続の既存実行先のみを照会する。",
+              security: localAccess,
+              parameters: [...path.matchAll(/:(\w+)/gu)].map(([, name]) => ({
+                name,
+                in: "path",
+                required: true,
+                schema: string,
+              })),
+              responses: {
+                ...readResponses,
+                "403": { description: "現在の接続から対象を利用できない。" },
+              },
+            },
+          },
+        ]),
+        ...aiRequestWriteRoutes
+          .filter(({ operation }) => operation !== "select")
+          .map((route) => [
+            route.path.replace(/:(\w+)/gu, "{$1}"),
+            { post: aiRequestWriteOperation(route) },
+          ]),
+      ].map(([path, item]) => {
+        const selection = aiRequestWriteRoutes.find(
+          (route) => route.operation === "select",
+        );
+        return [
+          path,
+          selection && selection.path.replace(/:(\w+)/gu, "{$1}") === path
+            ? { ...(item as object), put: aiRequestWriteOperation(selection) }
+            : item,
+        ];
+      }),
+    ),
+    [aiSelectionRoute.replace(/:(\w+)/gu, "{$1}")]: {
+      parameters: [
+        { name: "repositoryId", in: "path", required: true, schema: string },
+      ],
       get: {
         operationId: "readAiSelection",
         summary: "RepositoryのAI選定設定を取得",
         security: localAccess,
         responses: readResponses,
       },
-      post: action(
-        "saveAiSelection",
-        "RepositoryのAI選定設定を保存",
-        "configはJSON文字列。期待する同一性と現在認可を検査する。",
-        ["expectedIdentity", "config"],
-        {
-          required: ["expectedIdentity", "config"],
-          errorStatuses: ["400", "403", "503"],
+      head: {
+        operationId: "probeAiSelection",
+        summary: "RepositoryのAI選定設定を本文なしで照会",
+        security: localAccess,
+        responses: {
+          "200": { description: "取得を確認した。応答本文は返さない。" },
+          "403": { description: "照会条件が成立しない。応答本文は返さない。" },
         },
-      ),
-    },
-    [executionHttpPaths.state]: {
-      get: {
-        operationId: "getExecutionState",
-        summary: "対象リポジトリの実行状態を取得",
+      },
+      put: {
+        operationId: "saveAiSelection",
+        summary: "RepositoryのAI選定設定を保存",
         description:
-          "認可済みProjectの実行状態を照会する。分離WorkspaceのQueueを明示した場合は、そのQueueの受付時改訂を指定する。Queueを省略して複数Graphが該当する場合は一つを推定しない。取消済みQueueを実行可能とは表示しない。",
+          "期待値と現在認可を検査する。初回はexpectedIdentityにnullを指定する。本文に対象リポジトリを指定しない。",
         security: localAccess,
         parameters: [
-          query("requestId", true),
+          {
+            name: "X-CRDD-Action-Token",
+            in: "header",
+            required: true,
+            schema: string,
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["expectedIdentity", "config"],
+                properties: {
+                  expectedIdentity: {
+                    anyOf: [
+                      { type: "null" },
+                      { type: "string", pattern: "^[a-f0-9]{64}$" },
+                    ],
+                  },
+                  config: { type: "object", description: "CRDDのAI選定設定。" },
+                },
+              },
+            },
+          },
+        },
+        responses: writeResponses,
+      },
+    },
+    [executionActivityRoute.replace(/:(\w+)/gu, "{$1}")]: {
+      get: {
+        operationId: operationForTool(EXECUTION_ACTIVITY_TOOL),
+        summary: "対象リポジトリの実行活動を取得",
+        security: localAccess,
+        parameters: [
+          { name: "repositoryId", in: "path", required: true, schema: string },
+          query("cursor", false),
+          query("limit", false, {
+            type: "integer",
+            minimum: 1,
+            maximum: 50,
+            default: 20,
+          }),
+        ],
+        responses: writeResponses,
+      },
+    },
+    [executionStateRoute.replace(/:(\w+)/gu, "{$1}")]: {
+      get: {
+        operationId: operationForTool(objectiveRunTools.state),
+        summary: "対象リポジトリの実行状態を取得",
+        description:
+          "認可済みProjectの実行状態を照会する。分離WorkspaceのQueueを明示した場合は、そのQueueの受付時改訂を指定する。Queueを省略して複数Graphが該当する場合は一つを推定しない。取消済みQueueを実行可能とは表示しない。同じサーバーが所有する実行の場合は、所有者にだけ現在の起動識別子 launchId を返す。",
+        security: localAccess,
+        parameters: [
+          { name: "repositoryId", in: "path", required: true, schema: string },
+          { name: "requestId", in: "path", required: true, schema: string },
           query("projectId", true),
           query("repositoryRevision", true),
           query("queueId", false, {
@@ -259,155 +648,89 @@ export const openApiDocument = {
         responses: writeResponses,
       },
     },
-    [executionHttpPaths.objective]: {
-      post: action(
-        "runObjective",
-        "Objectiveの実行を開始または再開",
-        "commandは起動リポジトリに対するObjective実行入力のJSON文字列。",
-        ["command"],
-        {
-          required: ["command"],
-          errorStatuses: ["400", "403", "503"],
-        },
-      ),
-    },
-    [executionHttpPaths.decision]: {
-      post: action(
-        "submitDecision",
-        "実行に関する判断を送信",
-        "commandは起動リポジトリに対する判断操作入力のJSON文字列。",
-        ["command"],
-        {
-          required: ["command"],
-          errorStatuses: ["400", "403", "503"],
-        },
-      ),
-    },
-    "/api/access": {
-      get: {
-        operationId: "readAccess",
-        summary: "現在のアクセス・管理状態を取得",
-        description:
-          "管理接続が構成済みの場合だけ、現在資格と操作別の認可に従って結果を返す。HEADはGETと同じ操作ではない。",
-        security: bearer,
-        parameters: [
-          query("view", true, {
-            type: "string",
-            enum: ["current", "users", "roles", "repositories", "exposure"],
-          }),
-        ],
-        responses: readResponses,
-      },
-      post: action(
-        "manageAccess",
-        "アクセス管理を明示更新",
-        "管理操作別の入力と改訂契約を使用する。",
-        [
-          "operation",
-          "operationId",
-          "expectedRevision",
-          "userId",
-          "username",
-          "plannedRole",
-          "currentRole",
-          "nextRole",
-          "targetRole",
-          "workspaceIds",
-          "repositoryId",
-          "repositoryRoot",
-        ],
-        {
-          required: ["operation", "operationId", "expectedRevision"],
-          security: bearer,
-        },
-      ),
-    },
-    "/api/workspace": {
-      post: action(
-        "manageWorkspace",
-        "Workspaceの明示操作",
-        "commandは操作別JSON文字列。createはbaseBranch・baseCommitを選択Branchの期待HEADとして照合する。未コミット変更がある場合はworkspace_creation_confirmation_requiredで停止し、同じHEADに対する明示承認acceptUncommittedChangesExcludedでのみ再送できる。",
-        ["repositoryId", "command"],
-        { required: ["repositoryId", "command"] },
-      ),
-    },
-    "/api/repository": {
-      post: action(
-        "manageRepository",
-        "Repositoryの明示操作",
-        "起動リポジトリへの操作。種別ごとに受付項目が異なる。",
-        [
-          "operation",
-          "repositoryId",
-          "path",
-          "message",
-          "destination",
-          "branch",
-          "revisionIdentity",
-          "humanConfirmed",
-        ],
-        { required: ["operation"], redirect: true },
-      ),
-    },
-    "/api/records": {
-      post: action(
-        "manageRecord",
-        "Topic・Meetingを明示更新",
-        "操作別に本文、改訂、関係付けや完了条件を指定する。",
-        [
-          "kind",
-          "operation",
-          "repositoryId",
-          "id",
-          "expectedRevision",
-          "markdown",
-          "confirmed",
-          "outcomeId",
-          "disposition",
-          "owner",
-          "reviewTrigger",
-          "targetKind",
-          "targetReference",
-          "treatment",
-          "completionCondition",
-          "result",
-          "closeMeeting",
-          "changeId",
-          "reason",
-          "remainingResponsibility",
-        ],
-        { redirect: true },
-      ),
-    },
-    "/api/access/credentials": {
-      post: action(
-        "manageCredential",
-        "接続資格を明示処置",
-        "管理認可と既存の発行・失効・交換条件を検査する。秘密値の実例は掲載しない。",
-        [
-          "operation",
-          "credentialId",
-          "userId",
-          "expectedRevision",
-          "displayedOldCredentialIds",
-          "confirmed",
-          "previousRecoveryId",
-        ],
-        {
-          required: ["operation", "userId", "expectedRevision"],
-          security: bearer,
-        },
-      ),
-    },
-    "/api/access/connection": {
-      post: action(
-        "manageConnection",
-        "ブラウザ接続を開始・解除",
-        "管理接続が構成済みの場合は現在の資格を検査する。認証情報をサーバー設定として保存する操作ではない。",
-        ["operation", "token"],
-        { required: ["operation"], errorStatuses: ["400"] },
-      ),
-    },
+    ...Object.fromEntries(
+      executionWriteRoutes.map((route) => {
+        const { path, summary } = route;
+        const tool =
+          route.operation === "decision"
+            ? executionDecisionTools[route.action]
+            : route.operation === "cancel"
+              ? objectiveRunTools.cancel
+              : objectiveRunTools[route.action];
+        const pathFields = [...path.matchAll(/:(\w+)/gu)].map(
+          (match) => match[1] as string,
+        );
+        return [
+          path.replace(/:(\w+)/gu, "{$1}"),
+          {
+            post: {
+              operationId: operationForTool(tool),
+              summary,
+              description:
+                "同一OriginのJSON受付。URLに含む識別子とoperationは本文に指定しない。",
+              security: localAccess,
+              parameters: [
+                ...pathFields.map((name) => ({
+                  name,
+                  in: "path",
+                  required: true,
+                  schema: string,
+                })),
+                {
+                  name: "X-CRDD-Action-Token",
+                  in: "header",
+                  required: true,
+                  schema: string,
+                },
+              ],
+              requestBody: {
+                required: true,
+                content: {
+                  "application/json": {
+                    schema:
+                      route.operation === "objective"
+                        ? objectiveRequestSchema(pathFields)
+                        : route.operation === "cancel"
+                          ? objectiveCancellationSchema(pathFields)
+                          : decisionRequestSchema(route.action, pathFields),
+                  },
+                },
+              },
+              responses:
+                route.operation === "cancel"
+                  ? {
+                      "202": {
+                        description:
+                          "取消を要求した。実行や回収の終了を保証しない。",
+                        content: {
+                          "application/json": {
+                            schema: {
+                              type: "object",
+                              additionalProperties: false,
+                              required: ["status"],
+                              properties: {
+                                status: { const: "cancellation_requested" },
+                              },
+                            },
+                          },
+                        },
+                      },
+                      "400": writeResponses["400"],
+                      "403": writeResponses["403"],
+                      "503": writeResponses["503"],
+                      "415": { description: "JSON以外は受付しない。" },
+                    }
+                  : {
+                      ...writeResponses,
+                      "415": { description: "JSON以外は受付しない。" },
+                    },
+            },
+          },
+        ];
+      }),
+    ),
+    ...workspacePaths,
+    ...repositoryWriteDocumentation,
   },
 } as const;
 
@@ -457,10 +780,7 @@ export async function createApiDocumentation() {
         `127.0.0.1:${port}`,
         `localhost:${port}`,
         ...(port === 80 ? ["127.0.0.1", "localhost"] : []),
-      ].includes(request.headers.host ?? "") ||
-      request.rawHeaders.filter(
-        (header, index) => index % 2 === 0 && header.toLowerCase() === "host",
-      ).length !== 1 ||
+      ].some((host) => matchesRequestHost(request, host)) ||
       [
         "forwarded",
         "x-forwarded-host",

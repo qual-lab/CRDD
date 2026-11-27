@@ -111,33 +111,29 @@ test("AI設定Snapshotは閉形式と未設定・拒否を区別する", () => {
  * @observation 受理結果と固定拒否。
  * @oracle 別内容の成功を表示しない。
  * @cleanup N/A: 値検査のみ。
- * @boundary 設定POSTと表示。
+ * @boundary 設定PUTと表示。
  */
 test("AI設定保存結果は送信内容へ相関し競合・不明を維持する", () => {
   const config = selectionConfig();
-  const form = new URLSearchParams({
-    expectedIdentity: "",
-    config: JSON.stringify(config),
-  });
   const result = {
     status: "saved",
     reason: null,
     snapshot: { config, identity: "a".repeat(64) },
   };
-  assert.equal(inspectWorkbenchSelectionResult(form, result).status, "saved");
+  assert.equal(inspectWorkbenchSelectionResult(config, result).status, "saved");
   assert.throws(() =>
-    inspectWorkbenchSelectionResult(form, { ...result, reason: "unknown" }),
+    inspectWorkbenchSelectionResult(config, { ...result, reason: "unknown" }),
   );
   const different = structuredClone(config);
   different.workTypes.coding.label = "別";
   assert.throws(() =>
-    inspectWorkbenchSelectionResult(form, {
+    inspectWorkbenchSelectionResult(config, {
       ...result,
       snapshot: { ...result.snapshot, config: different },
     }),
   );
   assert.equal(
-    inspectWorkbenchSelectionResult(form, {
+    inspectWorkbenchSelectionResult(config, {
       status: "conflict",
       reason: "ai_selection_identity_conflict",
       snapshot: null,
@@ -145,7 +141,7 @@ test("AI設定保存結果は送信内容へ相関し競合・不明を維持す
     "conflict",
   );
   assert.equal(
-    inspectWorkbenchSelectionResult(form, {
+    inspectWorkbenchSelectionResult(config, {
       status: "unknown",
       reason: "ai_selection_save_unconfirmed",
       snapshot: null,

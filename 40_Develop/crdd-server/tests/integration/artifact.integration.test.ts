@@ -18,12 +18,12 @@ import { request, ServerResponse } from "node:http";
 import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import { startWorkbench } from "../../src/app.ts";
+import { prepareSharedSignIn, testIssuer } from "../support/shared-sign-in.ts";
 
 /**
  * 同名本文の選択、閉Queryと読取り後の失効／取消を反証する。
@@ -47,49 +47,49 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
   fs.mkdirSync(testRoot, { recursive: true });
   const fixture = fs.mkdtempSync(path.join(testRoot, "workbench-artifact-"));
   assert.equal(path.dirname(fixture), testRoot);
+  let handle: Awaited<ReturnType<typeof startWorkbench>>;
+  t.after(async () => {
+    await handle?.close();
+    assert.equal(path.dirname(fixture), testRoot);
+    fs.rmSync(fixture, { recursive: true, force: true });
+    assert.equal(fs.existsSync(fixture), false);
+  });
   const access = path.join(fixture, "access");
   fs.mkdirSync(access);
-  const material = createCredentialMaterial(),
-    userId = randomUUID(),
+  const userId = randomUUID(),
     initialOperationId = randomUUID();
+  const subject = "workbench-synthetic-artifact-reader";
+  const gitRepositories = [
+    { id: 91, full_name: "fixture/artifact-a" },
+    { id: 92, full_name: "fixture/artifact-b" },
+  ] as const;
   const state: AccessManagementState = {
     contract: "crdd-access-management/state",
-    schemaRevision: 2,
-    revision: 1,
+    schemaRevision: 4,
+    revision: 2,
     operationId: randomUUID(),
-    users: [{ userId, username: "自己生成管理者", role: "administrator" }],
-    roleContentAccess: [
-      { role: "developer", workspaceIds: ["development"] },
-      { role: "manager", workspaceIds: ["development", "management"] },
-      { role: "administrator", workspaceIds: ["development"] },
-    ],
-    credentials: [
+    users: [
       {
-        credentialId: material.credentialId,
         userId,
-        tokenVersion: 1,
-        tokenSalt: material.tokenSalt,
-        tokenVerifier: material.tokenVerifier,
-        revoked: false,
-        operationId: initialOperationId,
-        presentation: "confirmed",
+        username: "自己生成管理者",
+        role: "administrator",
+        accountLinks: [
+          { issuer: testIssuer, subject, bindingId: randomUUID() },
+        ],
       },
     ],
     registeredRepositories: [],
-    exposure: [],
-    unresolvedKeyExchanges: [],
     initialization: {
       stage: "completed",
       attemptId: initialOperationId,
       initialUserId: userId,
-      initialCredentialId: material.credentialId,
-      confirmationCredentialId: material.credentialId,
-      connection: "confirmed",
+      connection: "account_confirmed",
     },
   };
   for (const suffix of ["a", "b"]) {
     const target = path.join(fixture, suffix),
       repositoryId = `repo.${suffix}`;
+    const hosted = gitRepositories[suffix === "a" ? 0 : 1];
     fs.mkdirSync(target);
     assert.equal(
       spawnSync("git", ["init", "--quiet", target], {
@@ -98,6 +98,19 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
       }).status,
       0,
     );
+    for (const args of [
+      ["config", "protocol.https.allow", "never"],
+      ["remote", "add", "origin", `https://github.com/${hosted.full_name}.git`],
+    ]) {
+      assert.equal(
+        spawnSync("git", args, {
+          cwd: target,
+          windowsHide: true,
+          encoding: "utf8",
+        }).status,
+        0,
+      );
+    }
     fs.mkdirSync(path.join(target, ".crdd", "config"), { recursive: true });
     fs.writeFileSync(
       path.join(target, ".crdd", "config", "repository-manifest.json"),
@@ -145,18 +158,25 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
       repositoryId,
       repositoryRoot: target,
       bindingId: deriveRepositoryBindingId(repositoryId, target),
+      hostedRepository: {
+        provider: "github",
+        host: "github.com",
+        repositoryId: String(hosted.id),
+        providerData: { installationId: "24" },
+      },
     });
-    state.exposure.push({ repositoryId, workspaceIds: ["development"] });
   }
   const current = path.join(access, "access-management.json");
   fs.writeFileSync(current, JSON.stringify(state));
   const root = createFilesystemStoreRoot(access);
   assert.ok(root);
-  const handle = await startWorkbench({
+  const session = await prepareSharedSignIn(t, [subject], gitRepositories);
+  handle = await startWorkbench({
     workingDirectory: repositoryRoot,
     localAccessRoot: root,
+    ...session.options,
+    sharedRepositoryRoots: [fixture],
   });
-  const headers = { authorization: `Bearer ${material.token}` };
   /**
    * 成果物HTTP要求へRepository選択と主体を固定して配送する。
    * @responsibility 成果物HTTP要求へRepository選択と主体を固定して配送する。
@@ -171,6 +191,7 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
   const query = (id: string, route: string, identity: string) =>
     `/api/workbench/view?${new URLSearchParams({ repositoryId: id, route, [route === "/change" ? "id" : "path"]: identity })}`;
   try {
+    const headers = { cookie: await session.signIn(handle.baseUrl, subject) };
     for (const suffix of ["a", "b"])
       for (const [route, identity] of [
         ["/change", "CHG-000301"],
@@ -399,7 +420,11 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
       ).status,
       403,
     );
-    for (const change of ["credential", "exposure", "manifest"] as const) {
+    for (const change of [
+      "account-link",
+      "registration",
+      "manifest",
+    ] as const) {
       let entered!: () => void, release!: () => void;
       const started = new Promise<void>((resolve) => {
           entered = resolve;
@@ -426,7 +451,7 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
       syncBuiltinESMExports();
       const manifest = path.join(
           fixture,
-          "b",
+          "a",
           ".crdd",
           "config",
           "repository-manifest.json",
@@ -445,14 +470,15 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
         } else {
           const altered = structuredClone(state);
           altered.revision++;
-          if (change === "credential") {
-            const credential = altered.credentials[0];
-            assert.ok(credential);
-            credential.revoked = true;
+          if (change === "account-link") {
+            const actor = altered.users[0];
+            assert.ok(actor);
+            delete actor.accountLinks;
           } else
-            altered.exposure = altered.exposure.filter(
-              (row) => row.repositoryId !== "repo.b",
-            );
+            altered.registeredRepositories =
+              altered.registeredRepositories.filter(
+                (row) => row.repositoryId !== "repo.a",
+              );
           fs.writeFileSync(current, JSON.stringify(altered));
         }
         release();
@@ -546,8 +572,5 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
     }
   } finally {
     await handle.close();
-    assert.equal(path.dirname(fixture), testRoot);
-    fs.rmSync(fixture, { recursive: true, force: true });
-    assert.equal(fs.existsSync(fixture), false);
   }
 });

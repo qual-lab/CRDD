@@ -92,14 +92,17 @@ export function composeWorkbenchRecordDisplay(
  * @security 対象URLには選択Repositoryだけを載せ、依頼IDの相関は画面で行う。
  */
 export async function readCurrentAiRequest(
-  repositoryId: string | null,
+  repositoryId: string,
   signal: AbortSignal,
+  browserSession = false,
 ) {
-  const query =
-    repositoryId === null ? "" : `?${new URLSearchParams({ repositoryId })}`;
-  const response = await requestWorkbench(`/api/ai-request${query}`, {
-    signal,
-  });
+  const response = await requestWorkbench(
+    `/api/repositories/${encodeURIComponent(repositoryId)}/ai-request`,
+    {
+      signal,
+    },
+    browserSession,
+  );
   if (!response.ok) throw new Error("workbench_ai_request_unavailable");
   const snapshot = validateAiRequestSnapshot(await response.json());
   if (signal.aborted) throw new Error("workbench_ai_request_unavailable");
@@ -137,6 +140,7 @@ export async function readViewResponse(
         signal,
         headers: { accept: "application/json" },
       },
+      true,
     );
     if (!response.ok) throw new Error("workbench_client_model_unavailable");
     const model = validateViewResponse(await response.json());

@@ -272,7 +272,7 @@ PRL-IT-012の既存取得・解放・Owner喪失回復に、wx Fileへの接続�
 
 これらの結果は変更計画へ記録し、Executor単独・全結合実AI・保存先の実データ移行又はQA項目全体の合格へ拡張しない。
 
-MCPの配布Launcherも同じModule拒否条件で実起動し、単体stdioで実行系Toolの列挙と一般定義の保存・再読取り・CAS・対象ID不一致を確認する。単体HTTP入口は拒否hook下の実ListenerでdiscoverとTool集合を確認する。実行Ownerの欠測は当該Toolの固定エラーであり、待受けや一般定義の操作は停止させない。不正なNode版と旧MCPフラグは起動前拒否として反証する。Transportの合成Tokenは本番Credentialではなく、Domainの認可・OS本人証明と同一視しない。
+MCPの配布Launcherも同じModule拒否条件で実起動し、単体stdioで実行系Toolの列挙と一般定義の保存・再読取り・CAS・対象ID不一致を確認する。単体のHTTP待受は、拒否hook下でHTTP APIが利用でき、MCPを公開しないことを確認する。実行Ownerの欠測は当該Toolの固定エラーであり、待受けや一般定義の操作は停止させない。不正なNode版と旧MCPフラグは起動前拒否として反証する。Transportの合成Tokenは本番Credentialではなく、Domainの認可・OS本人証明と同一視しない。
 
 共有MCPの実行対象・本人・公開前認可の照合は、QA-000009の `EST-IT-010` で確認する。
 

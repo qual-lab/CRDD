@@ -257,7 +257,7 @@ export function renderWorkbenchAiRequest(
       {
         className: "ai-request-form",
         method: "post",
-        action: "/api/ai-request",
+        "data-ai-request-action": "",
       },
       createElement(ActionTokenInput, { value: actionToken }),
       createElement(AiRequestIdentity, {
@@ -316,7 +316,7 @@ export function renderWorkbenchAiRequest(
       {
         className: "ai-request-form",
         method: "post",
-        action: "/api/ai-request",
+        "data-ai-request-action": "",
       },
       createElement(ActionTokenInput, { value: actionToken }),
       createElement(
@@ -464,7 +464,7 @@ function renderSnapshot(
     cancellable
       ? createElement(
           "form",
-          { method: "post", action: "/api/ai-request" },
+          { method: "post", "data-ai-request-action": "" },
           createElement(ActionTokenInput, { value: actionToken }),
           createElement("input", {
             type: "hidden",

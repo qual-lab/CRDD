@@ -6,15 +6,11 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "bin": {
-    "crdd-access-management": "./bin/access-management.ts"
-  },
   "scripts": {
     "check": "npm run format:check && npm run typecheck && npm run lint",
     "format:check": "biome format .",
     "lint": "biome lint . --error-on-warnings",
     "typecheck": "tsc -p ./tsconfig.json",
-    "start": "node ./bin/access-management.ts",
     "test": "npm run check && npm run test:run",
     "test:run": "node --test --test-concurrency=1 ./tests/unit/**/*.test.ts ./tests/integration/**/*.test.ts",
     "test:coverage": "node --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test --test-concurrency=1 ./tests/unit/**/*.test.ts ./tests/integration/**/*.test.ts"

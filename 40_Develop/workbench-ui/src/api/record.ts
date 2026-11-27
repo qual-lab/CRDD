@@ -71,6 +71,151 @@ export function createTopicMeetingActionBody(
   return form;
 }
 
+const resourceId = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
+
+/** 画面フォームを、リソースとHTTPメソッドが決まった一件のJSON要求にする。 @trace ARCH-000012 */
+export function createRecordRequest(form: URLSearchParams) {
+  const invalid = "workbench_record_form_invalid";
+  const repositoryId = form.get("repositoryId") ?? "";
+  const kind = form.get("kind");
+  const operation = form.get("operation");
+  const id = form.get("id") ?? "";
+  if (
+    !resourceId.test(repositoryId) ||
+    (kind !== "topic" && kind !== "meeting")
+  )
+    throw new Error(invalid);
+  const collection = `/api/repositories/${repositoryId}/${kind}s`;
+  if (operation === "create") {
+    const markdown = form.get("markdown");
+    if (markdown === null || form.has("id") || form.has("expectedRevision"))
+      throw new Error(invalid);
+    return {
+      path: collection,
+      method: "POST",
+      body: { markdown },
+      success: 201,
+    } as const;
+  }
+  if (!(kind === "topic" ? /^TOPIC-\d{6}$/u : /^MTG-\d{6}$/u).test(id))
+    throw new Error(invalid);
+  const revision = form.get("expectedRevision") ?? "";
+  const expectedRevision = Number(revision);
+  if (!/^[1-9]\d*$/u.test(revision) || !Number.isSafeInteger(expectedRevision))
+    throw new Error(invalid);
+  const path = `${collection}/${id}`;
+  if (operation === "update" && form.has("markdown"))
+    return {
+      path,
+      method: "PATCH",
+      body: { expectedRevision, markdown: form.get("markdown") },
+      success: 200,
+    } as const;
+  if (operation === "delete")
+    return {
+      path,
+      method: "DELETE",
+      body: {
+        expectedRevision,
+        confirmed: form.get("confirmed") === "true",
+        reason: "mistaken_registration",
+      },
+      success: 200,
+    } as const;
+  if (operation === "promote-topic" && kind === "topic") {
+    const changeId = form.get("changeId") ?? "";
+    if (!/^CHG-\d{6}$/u.test(changeId)) throw new Error(invalid);
+    return {
+      path: `${path}/promotion`,
+      method: "POST",
+      body: {
+        expectedRevision,
+        changeId,
+        reason: form.get("reason"),
+        remainingResponsibility: form.get("remainingResponsibility"),
+      },
+      success: 200,
+    } as const;
+  }
+  if (operation === "treat-outcome" && kind === "meeting") {
+    const outcomeId = form.get("outcomeId") ?? "";
+    if (!/^OUT-\d{3,}$/u.test(outcomeId)) throw new Error(invalid);
+    const fields = [
+      "disposition",
+      "owner",
+      "reviewTrigger",
+      "targetKind",
+      "targetReference",
+      "treatment",
+      "completionCondition",
+      "result",
+    ];
+    return {
+      path: `${path}/outcomes/${outcomeId}/treatment`,
+      method: "PUT",
+      body: {
+        expectedRevision,
+        ...Object.fromEntries(fields.map((field) => [field, form.get(field)])),
+        closeMeeting: form.get("closeMeeting") === "true",
+      },
+      success: 200,
+    } as const;
+  }
+  throw new Error(invalid);
+}
+
+/** RESTの正式結果を照合し、画面に必要な項目だけへ投影する。 @trace ARCH-000012 */
+export function inspectRecordResponse(
+  form: URLSearchParams,
+  value: unknown,
+  status: number,
+  success: number,
+) {
+  const invalid = "workbench_record_response_invalid";
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error(invalid);
+  const result = value as Record<string, unknown>;
+  const operation = form.get("operation");
+  const type = form.get("kind");
+  const hasRelations =
+    operation !== "promote-topic" && operation !== "treat-outcome";
+  const expectedFields = hasRelations
+    ? "filesystemEffectCount,reason,record,relationPaths,status"
+    : "filesystemEffectCount,reason,record,status";
+  if (
+    Object.keys(result).sort().join(",") !== expectedFields ||
+    (result.status === "completed" ? status !== success : status !== 409)
+  )
+    throw new Error(invalid);
+  let recordKind: "topic" | "meeting" | null = null;
+  if (result.record !== null) {
+    if (
+      !result.record ||
+      typeof result.record !== "object" ||
+      Array.isArray(result.record)
+    )
+      throw new Error(invalid);
+    const record = result.record as Record<string, unknown>;
+    if (type !== "topic" && type !== "meeting") throw new Error(invalid);
+    const id = record[`${type}Id`];
+    if (
+      typeof id !== "string" ||
+      !(type === "topic" ? /^TOPIC-\d{6}$/u : /^MTG-\d{6}$/u).test(id) ||
+      Object.hasOwn(record, type === "topic" ? "meetingId" : "topicId") ||
+      (operation !== "create" && id !== form.get("id"))
+    )
+      throw new Error(invalid);
+    recordKind = type;
+  }
+  return inspectTopicMeetingActionResult(form, {
+    status: result.status,
+    reason: result.reason,
+    recordKind,
+    relationPaths: hasRelations ? result.relationPaths : [],
+    filesystemEffectCount: result.filesystemEffectCount,
+  });
+}
+
 /**
  * 送信操作と専用POST結果の五fieldを照合する。
  * @responsibility 別種別・別操作・矛盾したEffect・余剰情報を成功表示しない。

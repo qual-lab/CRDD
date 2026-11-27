@@ -5,6 +5,16 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-11-26
 
+## GoogleログインとWorkbench管理セッションの分離
+
+v0.22では共有Workbenchの管理ログインにGoogleを採用する。MCPのアクセス管理書込みを廃止し、通常のHTTP／MCP接続と管理セッションを分離する。[切替計画](google-management-session-plan.md)は既存保証・利用側・反証を追跡する。採用した方針と、実装・検証済みの範囲を区別する。
+
+## CRDD Serverのパッケージ公開面を縮小
+
+基準は `cdbca1106`。実行入口は `./cli`（既存bin）だけとし、ルートはWorkbench UIが参照する応答型だけを公開する。旧 `./api`・`./mcp` は別名を残さず撤去する。HTTP URL・MCP Tool・CLI・認可・保存は変更しない。Workbenchの明示実ブラウザー2試験だけは、同一プロセスの観測を維持するためServer内部の起動本体へ接続する。製品実装・通常試験・カバレッジの依存は増やさない。
+
+Serverの起動・HTTP・MCPの限定試験50件、Workbenchの通常試験20件と明示実ブラウザー試験17件が成功した。実ブラウザーは初回に試験環境で起動直後に終了し、専用プロファイルを使うローカル実行権限で再確認した。型専用ルートと旧入口の実行時解決拒否、CLIのヘルプ、Workbench配布物3ファイルの同一性を確認した。独立再レビューに残指摘なし。全体回帰・実AI・実Dockerは対象外。
+
 ## 同じProject内の複数Workspace実行
 
 同じProject・Milestoneでも、別Workspaceに結合したGraphを独立して実行する。状態の正本・保存排他・回復参照・認可を維持したまま変更するため、[並列実行の変更計画](workspace-parallel-execution-plan.md)で既存保証、利用側、切替条件と反証を追跡する。基準は `9c1f5ca60`。設計と実装・検証の完了は区別する。
@@ -1140,7 +1150,7 @@ UI Buildとブラウザ通信10件、ローカルHTTPの配信・設定・拒否
 
 ### HTTPとMCPの同一Listener接続
 
-既存の個別起動に加え、共有Hostで `--cros --mcp` を明示した場合だけ同一ポートに接続する。既存の設定から公開Originを照合し、相違・片側だけの指定・固定Bearerとの混在を拒否する。生Path `/mcp` は既存MCP受付に、その他はExpressに排他的に渡す。Protocolの認証・認可は共用せず、Listenerと要求終了の所有だけを統合する。利用手順は[共有Host上のMCP設定](../../../19_Workflows/04_MCP_Server.md#共有host上のmcp設定)を参照する。
+既存の個別起動に加え、共有Hostで `--cros --mcp` を明示した場合だけ同一ポートに接続する。既存の設定から公開Originを照合し、相違・片側だけの指定・固定Bearerとの混在を拒否する。生Path `/mcp` は既存MCP受付に、その他はExpressに排他的に渡す。Protocolの認証・認可は共用せず、Listenerと要求終了の所有だけを統合する。利用手順は[共有モードの初期設定と起動](../../../19_Workflows/04_MCP_Server.md#共有モードの初期設定と起動)を参照する。
 
 試験用Host上で同一ポートのHTTP応答、公式SDKのMCPツール呼出し、TLS終端の有無による違い、開始前拒否、保留中MCP要求への取消通知と処理完了待ちを確認した。通常のHTTPと配布MCPの起動を維持し、全体回帰・実AI・Dockerは対象外。OpenAPI・Swagger UI・MCP Inspectorの接続は次段階とする。
 

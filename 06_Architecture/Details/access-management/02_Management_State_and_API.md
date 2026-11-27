@@ -13,15 +13,23 @@ Store Rootとその型はAM正本とし、既存初期化・保存・共通Lock�
 
 ## 1. 対象と保持条件
 
-[責務・意味・処理境界](01_Architecture.md)を具体化する。既存管理分担、鍵操作の入口、交換の意味は維持し、共有Profile管理のmanager／administrator許可を追加した9 Role分担行を内容権限設定から生成しない。管理能力から内容閲覧を許可しない。先行したProfile接続段階は既存四Toolだけを対象とし、通常管理Toolを追加しなかった。現在は非鍵管理10操作をMCP Resolverと公開Launcherへ、通常管理7保存と鍵操作をWorkbenchの専門API直接呼出しへ接続済みである。Repository登録は2026-10-13人間判断でWorkbench限定とし、MCPのSource・Schema・一覧・dispatchへ追加しない。Source／公開Process・HTTPの局所実測は成立したが、実Host縦断・人間UAT・正式評価と最終Gateは未完了である。§2.4.1は11候補全体の契約正本であり、局所実装を公開Capability全体の完成へ昇格しない。鍵操作はMCPの一覧・Schema・登録・dispatchの全てで非公開とし、応答へSecretを含めない。
+### 現行の保存形式
 
-今回比較するのは、公開読取り、操作別更新、同一改訂の保存単位、出版後故障、移行である。汎用IAM、Receipt Store、Lock Framework、共有Recovery、Docker操作は対象外。下段の候補API名・File名と未実装表示は契約設計時点の履歴である。現在はSchema・保存・初回確認・鍵操作・Workbench／MCPの候補Sourceを接続済みで、後続の実Host ST／人間UAT・実状態移行と正式全体評価を未成立として区別する。
+現在状態は `crdd-access-management/state` の `schemaRevision: 4` を受け付ける。初回は検証済みの外部アカウントを一人目の管理者に紐付け、完了した初回改訂を一度で保存する。旧鍵・交換記録・途中の初期化段階は保存しない。内容権限はGitホスト上での本人の実効権限で判断するため、旧ロール別内容範囲とリポジトリ公開範囲を保存しない。リポジトリの登録一覧は引き続き管理する。現行状態または未確定材料に旧形式・未定義項目がある場合は採用せず、保全して停止する。既存保存を自動変換・削除せず、初期化や再紐付けでも上書きしない。以下の旧版の項目表は設計履歴である。
+
+実行中の現在認可では、アクセス管理（AM）が最初の許可と同じ主体・登録先・文書契約かを、一回の取得結果で照合する。失効、対象変更、観測不能を区別する。長時間の監視だけは保存内容の変更有無を使い、変更なしを新規操作の許可に使わない。本人の現在の紐付けと権限を照合し、無関係な改訂差だけで拒まない。通信の取消とGitでの対象実体確認は利用側に残す。
+
+Gitホストへの登録参照は `{ provider, host, repositoryId, providerData }` の閉じた形式で保存する。`providerData` は提供元の非秘密の識別情報を表す短い文字列だけを保持する。AMは各値の形式と、再照合時にすべての項目が同じかを確認する。項目の順序は比較しない。提供元固有の意味と実効権限の観測はServerが所有する。旧形式を補完して読むことや自動移行は行わない。
+
+[責務・意味・処理境界](01_Architecture.md)を具体化する。管理ロールは管理操作の可否に使い、内容閲覧の許可には使わない。共有の管理書込みと登録・登録解除は短命の管理セッションを使用するWorkbenchに限定し、MCPは現在の認可に従う管理読取りだけを公開する。手配布鍵の操作はどちらの入口にも残さない。実Host縦断・人間受入・正式評価と最終確認は、局所実測とは別に扱う。
+
+比較対象は、公開読取り、操作別更新、同一改訂の保存単位、出版後故障、移行である。汎用IAM、Receipt Store、Lock Framework、共有Recovery、Docker操作は対象外。下段の旧鍵・旧公開範囲・旧Role分担の記述、候補API名・File名と未実装表示は契約設計時点の履歴であり、現行の公開面や保存形式の根拠にはしない。
 
 ## 2. 操作別API候補
 
 Workbench通常管理の結果投影は、AMの`authorization/management.ts（本人投影はauthorization/current.ts）`を共通Ownerとする。既存管理read・保存結果を非秘密の閉結果へ写し、Binding・Path・自由文字列理由を含めない。MCP／Workbenchは同じ投影を利用し、HTTP／JSON-RPC envelope、取消、入力と応答の容量制限は各Transportが所有する。新しい保存Stateや認可判断を投影へ持たせない。具体結果意味は§2.4.1に従う。
 
-通常接続の本人表示は既存`readCurrentAccess`をOwnerとし、WorkbenchはLocal／共有配置とも同Hostの専門APIへ直接接続する。BrowserはそのWorkbenchへ接続し、Workbench→Remote MCP経路は撤去済みである。MCP利用側は`crdd.get_current_access`を利用する。公開投影は同改訂のuser（userId・username・role）、contentAccess、permittedRepositoriesに限定する。内部managementOperationsを公開済みSurfaceの能力一覧へ転用せず、資格・管理Root・Binding・他Userを含めない。初回途中の通常本人readは提供せず、拒否・観測不能を空本人へ変換しない。
+通常接続の本人表示は `readCurrentAccess` が所有する。HTTPの `GET /api/access/me` とMCPの `crdd.get_current_access` は、同じ改訂の `user`（`userId`・`username`・`role`）だけを本人情報として返す。本人照会はリポジトリの内容アクセスを判定せず、旧内容範囲・許可一覧を返さない。内部管理操作候補を公開能力一覧へ転用せず、資格・管理Root・Binding・他利用者を含めない。初回途中には通常本人を返さず、拒否・観測不能を空本人へ変換しない。
 
 ### 管理の計数単位
 
@@ -29,35 +37,34 @@ Workbench通常管理の結果投影は、AMの`authorization/management.ts（�
 |---|---|
 | Role別分担9行 | REQ-000041の担当Role表。複数操作のまとめと対象Role別の分割を含むため、操作数ではない |
 | 認可要求11種別 | User管理4、Repository管理3、Profile管理1、鍵管理3。Profileの一覧・登録・変更・削除は共通の`manageAiProfiles`で判定するため、公開API数ではない |
-| 通常保存7操作 | `registerUser`、`updateUserName`、`updateUserRole`、`updateRoleContentAccess`、`registerRepository`、`unregisterRepository`、`updateExposure`。ProfileのCatalog保存、鍵Lifecycle、初回設定・Host交換は含まない |
+| 公開する通常保存 | `registerUser`、`updateUserName`、`updateUserRole`、`registerRepository`、`unregisterRepository`。旧内容範囲・公開範囲の更新、ProfileのCatalog保存、初回設定は含まない |
 
-計数軸の訂正は許可条件や操作の追加・削除ではない。各操作の対象・Authority・保存条件は以下の既存契約を維持する。
+旧内容範囲・公開範囲の更新をRoot・内部Writer・権限判定から撤去した。公開する通常保存は上記の5操作とし、退役した操作は権限判定でもすべてのロールに対し不正入力とする。残る公開操作の対象・認可・保存条件は維持する。
 
-固定分担だけを判定する`evaluateManagementPermission`は、`40_Develop/access-management/src/index.ts`から局所公開した。9 Role分担表を、ユーザー登録・名前変更・Role変更・Role内容設定・Repository登録・登録解除・Exposure変更・鍵発行・独立失効・交換・共有Profile管理の11認可要求種別へ対応する。結果は`allowed`／`denied`／`invalid`だけで、認証、対象存在、現在改訂、保存・鍵Effect、Host信頼を確認するAuthorityではない。登録予定Role、変更前後Role、名前／内容設定の対象Roleを操作別に検査する。これは保存Gateを必要としない純粋判定部分であり、以下の管理操作・公開readの実装を意味しない。
+手配布鍵の発行・独立失効・交換・提示を行う処理と、その管理権限を撤去した。これらの旧操作名は権限判定で不正入力とする。旧鍵変更・旧初期化の未確定材料は、現在状態が保存前・保存後どちらの内容に一致していても処置しない。現行の管理変更・招待の確定とロック運用は維持する。
+
+固定分担だけを判定する`evaluateManagementPermission`は、`40_Develop/access-management/src/index.ts`から局所公開した。9 Role分担表を、ユーザー登録・名前変更・Role変更・Role内容設定・Repository登録・登録解除・Exposure変更・鍵発行・独立失効・交換・共有Profile管理の11認可要求種別へ対応する。短命な管理セッションの発行可否も同じ判定が所有し、現在のmanager／administratorだけを許可する。発行可否は管理業務一覧へ載せず、発行後の操作許可に転用しない。結果は`allowed`／`denied`／`invalid`だけで、認証、対象存在、現在改訂、保存・鍵Effect、Host信頼を確認するAuthorityではない。登録予定Role、変更前後Role、名前／内容設定の対象Roleを操作別に検査する。これは保存Gateを必要としない純粋判定部分であり、以下の管理操作・公開readの実装を意味しない。
 
 以下はAccess Management内部の関数契約候補であり、HTTP RouteやMCP Tool名ではない。公開はPackage Rootの`src/index.ts`だけを入口とし、再export専用の中間Fileを増やさない。
 
 | 操作候補 | 入力・判定 | 結果・利用側 |
 |---|---|---|
 | `authenticateCredential` | Bearerと現在管理改訂。既存User・現在Role・資格状態を同じ改訂から解決 | 初回途中も含む本人確認。Token・Verifierを返さず、通常Surface接続の許可には単独で使わない |
-| `authenticateNormalConnection` | 検証済み管理RootとBearer。同じLockの現在資格・User・Roleと初回`completed`を照合 | 通常Surfaceの要求内認証。初回途中の本人確認とは分離し、内容権限・Session・受領記録を作らない |
-| `evaluateAiProfileManagementPermission` | `src/index.ts`→`access/profile-management.ts`。同じ通常認証から現在Roleの`manageAiProfiles`を判定 | `AiProfileManagementPermission`のallowed／denied／unavailableだけを返す局所実装候補。Catalogをimportせず、認証不成立・初回未完了・状態不明をdeveloper拒否へ畳まない。既存Lock解放後にMCPがCatalog操作を結合する。本番入口の完成ではない |
-| `readCurrentAccess` | 認証主体と現在改訂 | 自己表示名・Role・認可済み範囲。管理能力と内容範囲を分離 |
-| `readManagementState` | 現在の管理認可と必要な対象 | 許可されたUser／Role／接続／公開の投影だけ。全内部Snapshotは返さない |
-| `readCredentialAdministrationState` | 同Process Workbenchの検証済み管理Rootと現在Bearer | 現在administrator・初回完了・材料／清掃／解放確認後だけ、同改訂のactorUserId・User選択候補・資格Metadata・未解決交換一件以下を非秘密投影。四管理kindやMCP公開へ追加しない |
+| `authenticateNormalConnection` | 旧通常接続の内部検証用。同じロック内で旧資格・利用者・Role・初回完了を照合 | Package Root・HTTP・MCPには非公開。内容権限・セッションを作らない |
+| `readCurrentAccess` | 認証主体と現在改訂 | 自己表示名とRole。リポジトリの内容権限は返さない |
+| `readManagementState` | 現在の管理認可と必要な対象 | 許可された利用者または登録済みリポジトリの一覧だけ。全内部Snapshot・役割別の内容権限・公開範囲は返さない |
+| `readCredentialAdministrationState` | 同Process Workbenchの検証済み管理Rootと現在Bearer | 現在administrator・初回完了・材料／清掃／解放確認後だけ、同改訂のactorUserId・User選択候補・資格Metadata・未解決交換一件以下を非秘密投影。通常管理読取りやMCP公開へ追加しない |
 | `registerUser` | 予定Role・表示名・期待改訂。managerはdeveloper／managerだけ、administratorは三Role | 新User ID・改訂・読戻し。資格発行0、自己登録なし |
-| `updateUserName` | 既存userId・新表示名・期待改訂。manager／administrator。administrator対象も許可 | 名前だけ変更。User ID・Role・資格を保持 |
+| `updateUserName` | 既存userId・新表示名・期待改訂。administratorが対象の場合、変更できるのはadministratorだけ | 名前だけ変更。User ID・Role・本人紐付けを保持 |
 | `updateUserRole` | 変更前・変更後Roleを含む対象と期待改訂 | developer／manager間はmanager／administrator。administratorへの変更・administratorの変更はadministratorのみ |
-| `updateRoleContentAccess` | 対象Role・明示内容範囲・期待改訂 | administrator内容設定はadministratorのみ。他Roleはmanager／administrator。固定管理能力は変更しない |
 | `registerRepository` | 対象ID・検証済みBinding・現在未登録・期待改訂。現在manager／administrator | 接続登録だけ。登録≠公開 |
 | `unregisterRepository` | 既存Repository ID・現在登録状態・現在Exposure状態・期待改訂。現在manager／administrator | 同じ受理済み操作・採用改訂で対象登録と対応Exposureを除去し、両方の読戻し確認時だけ完了。他登録・Exposure、対象Repository本体・Product Dataを保持。登録時のBinding再検証を解除条件に転用しない。開始済み操作の取消完了は証明しない |
-| `updateExposure` | 既存登録ID・現在登録／公開状態・変更範囲・期待改訂。manager／administrator | 内容認可・実アクセスとは独立した現在公開設定 |
 | `issueCredential` | 現在administrator・既存userId・期待改訂 | 同一Process Workbenchのみ。新資格と一度のSecret。旧資格失効0 |
 | `revokeCredential` | 現在administrator・exact Credential IDと既存userIdの結合・期待改訂 | 同一Process Workbenchのみ。対象だけ失効、対象外失効0・新発行0・Secret0・交換Recovery0 |
 | `exchangeCredentials` | 現在administrator・期待改訂。指定Userの全旧有効資格、または自身を含む全員の全旧有効資格 | 指定は同じ既存userId、全員は指定既存administratorへ一資格を発行。同じRecoveryを保持。通常指定は事前表示のみ、通常全員は表示＋明示確認 |
 | `exchangeCredentialsFromHost` | ログイン済みHost対話入口・期待改訂。指定User／全員交換の2種、双方表示＋明示確認 | 指定は対象全旧有効資格→同じ既存userId、全員は全旧有効資格→指定既存administratorへ一資格。同じRecovery。追加認証・OS昇格・回復専用Userなし |
 | `readKeyExchangeState` | 現在Authorityと同じexact Recovery参照 | 非秘密の段階・既知結果。参照自体をAuthorityにせず、MCPには公開しない |
-| `updateCredentialPresentationState` | 信頼済み内部RootとcredentialId／issuanceOperationId／expectedRevision／target。confirmedは提示観測OwnerのpresentationOperationIdも要求 | not_attempted→unconfirmed、unconfirmed→confirmedだけを同Lock fresh照合して別出版する。前者は今回の提示Operation IDと採用改訂を返す。後者はそれをexact照合し、同状態再入場・失効・交換・別改訂・別提示を拒否。Secretと出力観測自体を受け取らず、MCP／HTTP公開操作ではない |
+| `updateCredentialPresentationState` | 信頼済み内部RootとcredentialId／issuanceOperationId／expectedRevision／target。確認には提示観測OwnerのpresentationOperationId、Google管理セッション経由には現在主体を渡す | not_attempted→unconfirmed、unconfirmed→confirmedだけを同じ保存Lockで照合して別出版する。Google管理セッション経由では同じLock内で紐付け・期限・管理者権限を確認する。同状態再入場・失効・交換・別改訂・別提示を拒否する。Secretと出力観測自体を受け取らず、MCP／HTTP公開操作ではない |
 
 更新は操作・対象・期待改訂を受け、結果には状態、最初の失敗段階、期待／採用改訂、既知Effect、読戻し、解放結果を相関させる。`completed`／`blocked`／`unknown`は結果候補値で、具体Schemaは未固定。出版後故障は`blocked`や`unknown`でも既知Effectを保持し、Effect 0やRollbackへ戻さない。Profile管理Roleはmanager／administratorに確定した。現在認可の用途限定入口とMCP Consumerは局所実装候補へ接続中で、本番Launcher／Workbenchは未接続であり、CatalogをAM状態へ保存しない。
 
@@ -75,7 +82,7 @@ Workbench通常管理の結果投影は、AMの`authorization/management.ts（�
 
 発行と結果記録が確定しHost提示または同鍵の限定接続確認だけ不明なら、作成済みadministratorへの既存`exchangeCredentialsFromHost`指定交換を別明示操作として選ぶ。初期化再実行・Secret取得APIを作らず、元試行と別交換を分離する。提示不明と提示確定後の接続未確認を混同しない。初回状態readにVerifier・salt・Secret・任意Pathを含めず、MCP／Remote Workbenchへ公開しない。
 
-`readHostInitializationState`の局所実装は、同じ`access-management.state.lock`下で最新current／pending／replaceを観測し、完全v2と既知出版材料のexact処置・Lock終了後にだけ非Authorityの段階を返す。`fresh`はAM三入力の確認済み不存在だけで、旧入力不存在やHost初期化許可ではない。`in_progress`は保存済みattemptId／revisionと段階を持ち、User・資格IDは生成済み段階だけに含める。資格段階では歴史的初資格と最新確認対象を分け、presentationと交換有無を返すがtokenを返さず再表示を許可しない。completedは`existing`だけ、破損・partial・初回base材料・孤立replace・読取り／清掃／Lock終了不明は固定`unknown`だけとする。型と純粋投影は`initialization/state.ts`、物理処置は既存`storage/store.ts`が所有する。
+`readHostInitializationState`は同じ`access-management.state.lock`下で、現在状態と未確定材料を観測する。`fresh`はAMの三入力の確認済み不存在だけで、旧入力の不存在やHost初期化許可を意味しない。現行形式の完了状態は`existing`、破損・旧形式・孤立材料・読取り／清掃／Lock終了不明は`unknown`とする。旧初回処理の途中段階を投影・再開しない。型と投影は`initialization/state.ts`、通常保存の未確定材料の確定・清掃は`storage/store.ts`が所有する。
 
 Host compositionは後続の実装で既存OS管理state Rootを準備・再検証し、旧`credential-registry/`と`credential-access-recovery/`の確認済み不存在を別に照合する。無関係なCROS所有物を未初期化判定へ混ぜない。旧Writer停止・旧入力清掃はフロントAIの切替／移行契約で確認し、旧Writerが稼働し得る未確認状態では初期化へ進まない。最新Sourceへ旧形式Parser、旧Writer用共通Lock、共有Process Registryや自動移行を追加しない。Root準備・旧入力観測・TTY提示・Host本番入口は本Readerの成立範囲ではない。
 
@@ -83,7 +90,9 @@ Host compositionは後続の実装で既存OS管理state Rootを準備・再検�
 
 ### 初回保存段階とHost提示の局所接続 — 2026-10-13
 
-`initializeFromHost`はPackage公開入口から信頼済み内部Host Consumerへ提供する。実処理は`initialization/execution.ts`に置き、保存Ownerの責務を増やさない。入力は既存の検証済みRoot、表示名、明示開始、旧入力の同期読取り、Host所有TTYと取消Signal。Root作成・旧形式解析・旧Writer停止・MCP公開・通常鍵交換は含まない。旧Writer停止を済ませた切替条件下で、freshだけ生成前と相関保存Lock内の旧入力不存在確認を通す。correlated／user_storedは保存済み元試行で進め、credential_storedはSecret再取得・再表示を行わず、確認済み提示は接続待ち、他は既存明示交換への案内とする。既存・観測不能は新初期化しない。
+以下は旧鍵方式の履歴である。v0.22の公開入口から `initializeFromHost` は撤去した。現行の管理者初期化は[公開境界](01_Architecture.md#public-surface-closure)を参照する。
+
+旧方式では、`initializeFromHost` をPackage公開入口から信頼済み内部Host Consumerへ提供していた。実処理は`initialization/execution.ts`に置き、保存Ownerの責務を増やさない。入力は既存の検証済みRoot、表示名、明示開始、旧入力の同期読取り、Host所有TTYと取消Signal。Root作成・旧形式解析・旧Writer停止・MCP公開・通常鍵交換は含まない。旧Writer停止を済ませた切替条件下で、freshだけ生成前と相関保存Lock内の旧入力不存在確認を通す。correlated／user_storedは保存済み元試行で進め、credential_storedはSecret再取得・再表示を行わず、確認済み提示は接続待ち、他は既存明示交換への案内とする。既存・観測不能は新初期化しない。
 
 新規資格の保存終了後、提示前unconfirmedの別出版・読戻し・清掃・Lock終了を確認する。TTY鍵行を単一writeへ渡し、false返却でも再送しない。callbackが来るまで取消・error・closeは失敗事実だけを固定し、完了やListener回収を主張しない。callback未着なら保留のまま。callback後はBufferを消去し、Nodeがcallbackの後に発行するerror通知のtickを処置して、当該error／close／abort Listenerだけを外す。stdoutをend／destroyしない。出力成功はサービス側の当該chunk処理で、人間閲覧ではない。取消を再確認し、非秘密exact Bindingでconfirmedを別出版する。保存失敗・取消・故障から再表示しない。JS stringの物理zeroizeは保証しない。
 
@@ -95,9 +104,17 @@ Host compositionは後続の実装で既存OS管理state Rootを準備・再検�
 
 Rootに結合した同期Observerは旧credential-registryとcredential-access-recoveryのmetadataだけを読む。lstat成功はfile／linkでも既知存在、ENOENTだけ不存在、EACCES・Root実体差等は観測不能へ分ける。旧本文をparse・採用せず、旧回復領域の存在を確認済み元試行にしない。freshの生成前と既存保存Lock内で同じObserverを使い、旧Writer停止はフロントAI切替前提であってAM Lockによる旧Writer排他を主張しない。
 
-CLIの意味と対話所有は`cli/command.ts`の`runHostAccessCommand`へ集約する。主要入口は`bin/access-management.ts`、配布入口は`template/tools/crdd-access-management.ts`で、配布入口は主要binへ一回だけ委譲し、binがPackage内部CLIを起動する。npm startとbin定義から主要入口へ接続する。--help、未知／重複／位置引数、環境不足、未対応OS、非TTYはRoot準備・prompt・保存0。公式入口はqual-lab／crosと明示CROS_TRUST_DOMAIN_ID、OS標準領域だけを選ぶ。正規対話ではRoot準備と旧入力観測後、既存／不明／資格保存済みは入力を要求せず非秘密の次行動を案内する。必要な初回表示名だけ一回入力し、既存初回compositionへ渡す。readlineのEOF／SIGINT／入力・出力error／closeを取消へ結び、自身のinterface／Listenerをfinallyで回収する。stdin／stdoutをend／destroyしない。内部絶対Path集合と例外本文はCLIへ透過しない。
+起動・対話・一時待受・外部本人確認は[CRDD Serverの管理者設定モード](../workbench-server/01_Architecture.md#host-admin-cli)が所有する。アクセス管理は、確認済みの発行者・主体識別子、対象および期待改訂を受けて、既存の保存契約で初回設定や再紐付けを行う。HTTPクライアント、待受、端末入出力を所有せず、Serverへ逆依存しない。
 
 局所試験はRepository-localの模擬OS baseとTTY代役、実子Processのhelp／不正入力／非TTY拒否を使う。実Host TTY・旧Writer停止・通常鍵／Host交換・Workbench本番接続・初回ST/UAT全体は未成立で、旧CROS入口の撤去完了を意味しない。
+
+### Googleを使うHost初回設定
+
+Serverの一時ループバックはGoogle本人確認までを担当し、保存しない。待受を閉じた後にHost端末で確認コードと表示名を確定し、アクセス管理の `initializeAdministratorFromHost` を呼ぶ。保存先を準備するのはここからである。既存の排他内で現在状態、処理途中の材料、旧管理領域の不存在を確認し、最初の管理者とGoogle主体の紐付けを一つの初期状態として排他的に作成し、完全な読戻しを確認する。観測不能や部分保存が残る場合は置き換え・自動再作成をせず停止する。
+
+初回記録は `stage: "completed"`、`connection: "account_confirmed"` と元試行・初回利用者の識別子を持つ。鍵IDは持たない。利用者の現在の外部主体は `accountLinks` の `{issuer, subject, bindingId}`、未使用の事前招待は `invitation` が所有する。両方を同時には保存しない。発行者と主体の完全一致で照合し、同じ組や結合IDを他の利用者へ重複登録しない。利用者ごとに一つの発行者につき一件とし、Hostの再紐付けではその発行者の結合IDだけを更新する。別発行者のセッションは維持し、更新前の同じ発行者のセッションは拒否する。
+
+AMは検証済みの発行者・主体を保存し、提供元の本人確認は行わない。Hostから解除する内部操作も発行者を指定し、他の発行者を解除しない。共有Serverは有効な提供元に紐付いた管理者がいることを確認する。旧外部紐付けの保存名や初回状態は読み替えず、自動移行しない。v0.22で実際に受け付ける外部ログインはGoogleのみとする。
 
 ### 2.2 初回状態の純粋判定 — 2026-10-11
 
@@ -116,9 +133,9 @@ CLIの意味と対話所有は`cli/command.ts`の`runHostAccessCommand`へ集約
 
 ### 2.3 通常User／Role管理4操作の局所接続 — 2026-10-12
 
-`registerUser`、`updateUserName`、`updateUserRole`、`updateRoleContentAccess`をPackage Rootから専用公開する。共通の先頭入力は検証済みRoot、Bearer、期待改訂、受付operationId（UUID）。後続入力はそれぞれ表示名／予定Role、既存userId／新表示名、既存userId／変更前後Role、対象Role／明示workspaceIdsとする。Transport SchemaやMCP Toolの採用ではない。
+当時は `registerUser`、`updateUserName`、`updateUserRole`、`updateRoleContentAccess` をPackage Rootから公開した。現在は内容範囲の更新を公開しない。切替前の共通入力は検証済みRoot、Bearer、期待改訂、受付operationId（UUID）であり、Transport SchemaやMCP Toolの採用ではなかった。
 
-意味判断は`user/crud.ts`／`role/assign.ts`、既存Lockと出版は`storage/store.ts`が所有する。循環依存と再export中継を避け、各責務の公開操作が同じLock内で純粋判断を評価し、storage/store.tsの出版部品を利用する。低水準`updateAccessManagementState`のcallbackを拒否やUUID生成へ転用せず、その契約を変更しない。4操作専用の私有処理で、同じ現在状態の資格・Role・対象・期待改訂を確認する。完了初期化だけを対象とし、変更前Roleで認可する。managerのadministrator表示名変更は許可し、administrator関与のRole／内容変更はadministratorだけ。最後のadministrator保持という未採用条件を追加しない。
+意味判断は`user/crud.ts`／`role/assign.ts`、既存Lockと出版は`storage/store.ts`が所有する。循環依存と再export中継を避け、各責務の公開操作が同じLock内で純粋判断を評価し、storage/store.tsの出版部品を利用する。低水準`updateAccessManagementState`のcallbackを拒否やUUID生成へ転用せず、その契約を変更しない。4操作専用の私有処理で、同じ現在状態の資格・Role・対象・期待改訂を確認する。完了初期化だけを対象とし、変更前Roleで認可する。administratorの表示名とロールの変更はadministratorだけに許可する。最後のadministrator保持という未採用条件を追加しない。
 
 登録だけ、現在認可・対象・期待改訂と先行材料の確認後にUUIDを一回生成し、最終候補を完全parseして出版する。固定byte容量の予約は行わない。他3操作はUUIDを生成しない。次状態と実出版のbyte構築は既存保存部品で共有する。
 
@@ -138,11 +155,11 @@ Source・Package公開入口・Symbol・試験台帳を接続し、既存保存I
 
 #### 2.4.1 通常管理の公開利用側への引渡し候補
 
-通常管理の公開接続は[MCP詳細§3.3.1](../mcp-server/01_Architecture.md#331-非鍵管理toolの具体化候補)と[Workbench詳細§6.2.1](../workbench-server/01_Architecture.md#621-非鍵管理の接続候補)へ渡す。Packageの四読取りDTOと七保存Resultは内部契約であり、通信契約へ無条件転記しない。公開読取りからBindingと種類識別を除き、操作名から必要な対象だけを投影する。四読取りの改訂はそれぞれ独立し、単一改訂の複合Snapshotを生成した保証はない。現在filter、公開範囲null／明示空、既知出版と清掃・最初の失敗の分離は保持する。Repository登録はWorkbenchだけに採用済みで、MCPには四読取り・登録以外の六保存を公開する。登録と公開設定、管理状態Rootと登録対象Rootを区別し、この事項に現在の人間判断待ちはない。
+通常管理の公開接続は[CRDD Serverの共通入口](../../Definitions/ARCH-000012/architecture_definition.md#crdd-server共通入口の公開契約)を参照する。管理読取りは利用者一覧と登録済みリポジトリ一覧だけとし、通信では内部Bindingを返さない。一覧の改訂はそれぞれ独立し、一つの複合Snapshotではない。Workbenchだけが管理書込みを受け付け、MCPは現在管理権限で許可された二つの一覧を提供する。
 
 ### 2.5 初回限定接続の具体契約
 
-基準`5a8f6ce9`のSourceを照合した具体化である。初回設定そのものはHostだけが開始し、MCP／Workbenchは作成済み資格による限定接続だけを受ける。鍵の発行・交換・状態照会をMCPへ追加しない。初回接続成功は、完全な限定要求のサービス側受理と確認の保存確定を表し、相手による応答受領・画面閲覧の保証ではない。追加受領ボタン、ACK、Session、Store、Lockは作らない。
+本節は基準 `5a8f6ce9` で照合した切替前の鍵方式を記録する。現行の共有MCPでは限定接続を提供せず、OAuthの同意を使う。旧方式では、Hostだけが初回設定を始め、既存資格による限定接続の成功は確認の保存確定を表した。相手による応答受領・画面閲覧の保証ではなかった。
 
 | 順序・Owner | 具体処理 | 成立条件と拒否 |
 |---|---|---|
@@ -150,11 +167,11 @@ Source・Package公開入口・Symbol・試験台帳を接続し、既存保存I
 | MCPの限定Handler | HTTPのOrigin／Endpoint／POST／Header／容量／完全JSON／Header相関検査後、既存`server/discover`だけを完全検査する | 非null Request ID、exact method、閉じたparamsと`_meta`、既存Envelopeを検査する。`tools/list`／`tools/call`・他method・不正入力・開始前取消はAM更新0。通常Routingの依存やToolを初回Handlerへ渡さない |
 | AMの`confirmInitialConnection` | signal再確認後、同じ保存LockでBearerと期待Bindingをfresh再照合し、初回completedを一回出版する | `credential_stored`、同attempt／user／最新資格／期待revision、資格有効、Host提示confirmed、未解決交換0が必要。確認保存・正確byte読戻し・pending／短命材料清掃・Lock終了まで成功した場合だけ非秘密の成功を返す |
 | Surfaceの成功応答 | 確認の確定後に用途限定の接続応答を返す | 応答前に通常内容・管理・鍵操作を実行しない。通常Authorityは次要求のfresh通常認証だけ。応答結果に元試行ID・User／資格ID・Root・Verifier・Secretを出さない |
-| Workbenchの接続操作 | Remote MCPは完全な限定discover、同一Processは閉じた専用connect POSTから、次HTTP要求のfreshな通常読取りへ進む | Localは同Origin・Host・Content-Type・容量・Action Token・exact Formを確認後、同じAM用途判定・確認保存を直接呼ぶ。JSON-RPCやloopbackは作らない。確認後の通常再認証は資格の現存確認だけで、同POSTでは通常本人・内容・管理読取り／操作をしない。返却するRoot・tokenは認可結果ではなくServer memory専用。初回完了表示は後続通常読取り成功後だけ。別の確認操作を利用者へ要求しない |
+| Workbenchの接続操作 | 旧方式では同一Processの専用connect POSTから次HTTP要求の通常読取りへ進む。旧MCPの限定接続は廃止済み | Localは同Origin・Host・Content-Type・容量・Action Token・exact Formを確認後、同じAM用途判定・確認保存を直接呼ぶ。JSON-RPCやloopbackは作らない。確認後の通常再認証は資格の現存確認だけで、同POSTでは通常本人・内容・管理読取り／操作をしない。返却するRoot・tokenは認可結果ではなくServer memory専用。初回完了表示は後続通常読取り成功後だけ。別の確認操作を利用者へ要求しない |
 
-MCP-only初回は、CRDDの完全な`server/discover`を送るClientで成立させる。任意のMCP Clientがこの固有Protocolを使えるとは主張しない。同一Process Workbenchの接続関数は完全Form→確認保存→通常資格再確認まで局所接続したが、公開POST・起動入口のConsumer切替は未実装である。Remote接続の初回discover搬送も別に確認する。HTTP本文前のResolverは用途分類だけを行い、本文の妥当性を確認する前に初回状態を更新しない。
+切替前はMCPの完全な `server/discover` から初回確認保存を行ったが、その経路は撤去した。現行の共有MCPではOAuthによる同意を使用する。Workbenchの旧接続入口とAM内部の残存は別の撤去対象とする。
 
-MCPの局所実装は、`createAccessMcpResolver`がAM用途判定からnormalとinitialのHandlerを分け、initialには`request/initial-connection.ts`の限定Handlerだけを構成する。完全discover検査と固定応答は副作用なしの`request/discover.ts`を通常Routeと共用し、通常Tool・内容・管理依存を限定Handlerへ渡さない。AM確認失敗は内部相関や理由を含めない固定`-32603`へ閉じる。既存HTTP Transportの順序は維持し、Content-Type／Accept／本文容量／JSON／Header相関の拒否前にもResolver認証の読取り・KDFと既存pending処置はあり得る。これらの拒否は初回確認出版0／通常Tool0であり、認証観測0や全Filesystem Effect 0ではない。公開Launcher・Workbench・実Host入口の切替は別に残る。
+切替前のMCP局所実装では、`createAccessMcpResolver`がAM用途判定からnormalとinitialのHandlerを分け、initialには`request/initial-connection.ts`の限定Handlerだけを構成した。完全discover検査と固定応答は副作用なしの`request/discover.ts`を通常Routeと共用し、通常Tool・内容・管理依存を限定Handlerへ渡さない。AM確認失敗は内部相関や理由を含めない固定`-32603`へ閉じる。既存HTTP Transportの順序は維持し、Content-Type／Accept／本文容量／JSON／Header相関の拒否前にもResolver認証の読取り・KDFと既存pending処置はあり得る。これらの拒否は初回確認出版0／通常Tool0であり、認証観測0や全Filesystem Effect 0ではない。公開Launcher・Workbench・実Host入口の切替は別に残る。
 
 応答書込み失敗・切断が確認出版後なら、既知completedを保持しrollbackや新資格生成をしない。Clientは同鍵の次要求で現在状態を再観測できる。出版・読戻し・清掃・Lock終了が不明なら成功応答と当該要求の通常Authorityは0とし、既存pendingと元相関を保持する。次要求は既存の同相関再観測・清掃・Lock終了を確認するまで通常認証成功にしない。取消は保存開始前なら更新0、開始後は既存同期保存の終了を待ち、取消後の成功応答を止める。応答後に秘密を保持したまま`finish`で保存する経路は採らない。[Node.js HTTPのfinish仕様](https://nodejs.org/docs/latest-v24.x/api/http.html#event-finish_1)はOSへの送出引渡しであり、Client受領の証明ではない。
 
@@ -168,27 +185,19 @@ MCPの局所実装は、`createAccessMcpResolver`がAM用途判定からnormal�
 
 ### 認証主体の局所接続 — 2026-10-12
 
-`authenticateCredential(root, token)`をPackage Rootから専用公開する。既存保存Ownerの同じ短いLock区間でcurrent検査・pending照合・資格照合・現在User／Role投影を行い、解放確認後だけ本人Snapshotを返す。純粋解決は`credential/authentication.ts`が所有しPackage Rootへ公開しない。結果は本人のrevision、credentialId、userId、username、role、Role内容workspaceIdsだけで、Secret・salt・Verifier・他User・Root・Lock回復参照は含めない。内容範囲は管理実行許可・認可済みRepository・実アクセスではない。後続Effectは現在認可を取り直す。
+旧鍵の照合とKDFは削除した。入力は外部認証で確認済みのアカウント紐付けに限定し、入力形式・期限を確認した後、短い保存ロック内で現在の本人紐付け・状態・途中材料を照合する。解放が確定してから非秘密の本人情報だけを返す。内容操作はGitホストでの本人の実効権限に従う。旧鍵を含む状態は現行の保存形式として受け付けない。
 
-RFD-IT-013の資格→現在User／Role部分とIT024の初回状態非更新を局所接続した。AM全35 Case・静的3軸成功、固定13ファイルの限定独立再レビューPass・残指摘0。失効・誤鍵・参照破損・pending不正・Lock解放不明は主体なしで拒否する。初回credential_storedを照合しても提示／初回限定接続確認／通常接続・completedへ更新しない。内容認可、管理実処置、本番認証Consumerは未接続。以下の認証未成立表示はこれらの全体・本番範囲を示し、今回の局所主体解決と区別する。
+2026-10-12時点の鍵による局所接続の評価は設計履歴であり、現行の外部アカウント認証と初回設定の合格根拠にはしない。
 
 | 内部論理情報 | 同一管理改訂で保持する内容 |
 |---|---|
-| `users` | UUID、表示名、一つのRole |
-| `roleContentAccess` | Role別の明示内容権限。固定管理分担を保存設定にしない |
-| `credentials` | Credential ID、既存userId、Verifier・salt・状態。生Secretなし |
-| `registeredRepositories` | 接続先Binding。Context本文・Portfolio結果はDomain Modelが所有 |
-| `exposure` | 現在の公開範囲。登録一覧から暗黙生成しない |
-| `initialization` | 初回管理状態、確認済み元試行相関、作成UUID、確認対象資格と元発行処置、結果記録／Host提示／限定接続確認の個別事実。非秘密。確認保存・読戻し・清掃・Lock終了後だけ完了へ進む。v2目標SchemaとHost交換後Bindingは切替案で具体化済み。実装・実状態移行はOPEN。交換Recoveryとは分離 |
-| `unresolvedKeyExchanges` | exact Recovery、旧資格集合、既存発行先、段階と既知結果。非秘密 |
+| `users` | 利用者ID、表示名、一つの管理ロール、外部アカウントの紐付け、未引受招待の照合情報 |
+| `registeredRepositories` | 登録先と結合識別子、共有登録のGitホスト参照。本文や画面投影は保存しない |
+| `initialization` | 確定した初回操作・最初の管理者を指す非秘密の記録。途中段階は保存しない |
 
-初回進行記録はProcess喪失後にも再観測する耐久的な論理事実で、出版前短命の`access-management.pending.json`そのものではない。単一現在Fileに含め、別Store・実行毎Directory・履歴列を追加しない。Schemaと相関baselineの保存・再入場は局所接続済み。Root準備・提示／初回限定接続確認／通常接続の後続段階・解消後整理は未完了。未解決参照を失わず有限化する条件は保存Gateで閉じる。
+通常管理の遷移は期待改訂から次改訂へ保存し、同じ改訂を異なる状態で上書きしない。登録解除は管理上の登録だけを削除し、既存リポジトリ本体と対象外登録を保持する。登録解除の成立から、開始済み処理の取消完了や実資源の終了は推定しない。
 
-これらは内部候補キーであり、新たな正本Entityや汎用Registryではない。User・Role・資格の参照整合と交換結果を一つの採用改訂に結合する。遷移は期待改訂→次改訂で保存し、同じ改訂を異なる状態で上書きしない。
-
-ExposureのRepository IDは既存登録を参照し、重複・孤立参照を拒否する。登録解除では同じ受理済み操作・採用改訂で対象登録と対応Exposureを除去する。事前の別Exposure解除は必須とせず、対象外登録・Exposureと対象Repository本体・Product Dataを保持する。両除去の読戻しを確認した場合だけ完了とし、片側残存・観測不能は完了にしない。両除去が確定しても開始済み操作の終了が未観測なら、その不明を別に保持し、取消成功・過去Effect 0・実資源終了を推定しない。新しい取消処置は追加しない。同一改訂の論理整合は確定方針であり、物理的な原子出版・排他の成立は§4で別途確認する。
-
-公開readではVerifier・salt・Secret・内部Pathを除く。自己表示、権限内の他User参照、非認証拒否を別条件として検査する。破損・観測不能を空集合や「未登録」に畳まない。内容要求は現在Role・Exposure・実アクセスから解決し、Domain Modelへ許可済みRepository集合だけを渡す。
+公開読取りでは外部主体・紐付け識別子・招待の照合情報・内部パスを返さない。破損・観測不能を空集合や「未登録」に畳まない。内容アクセスと管理読取りの認可は分け、内容はGitホスト上での本人の実効権限に従う。
 
 通常管理で応答が失われた場合、現在readの再取得を案内し、自動再更新は行わない。後続改訂があれば現在値だけで元要求の成功を証明できないため、「現在値取得」と「元要求完了」を区別し、相関不能は不明のまま保持する。通常管理用の新Receipt Storeは作らない。
 
@@ -204,19 +213,17 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 
 読取りは確認できたが解放が不明な場合、既知の読取事実は保存Owner内部に保持し、公開結果は`unavailable`・解放不明とする。読めたSnapshotを一般的な`value`や不完全な成功として返さない。raw Lock取得参照・Capability・内部Pathは外部結果へ含めず、残存は通常処理で回収しない。許可した担当者が全利用Process停止下の手順で対象を確認する。公開失敗理由から非許可対象の存在・件数・名前を推定できる差を作らない。
 
-`readCurrentAccess`の成功Snapshotは次の情報を分離する。
+本人読取りの内部Snapshotと公開結果は次の情報を分離する。
 
 | field | 内容 | 主張しないこと |
 |---|---|---|
 | `revision` | 認証・現在認可・投影に使った管理改訂 | 元更新完了、後続要求の許可 |
 | `user` | `userId`、表示専用`username`、現在の一つの`role` | 他ユーザーの存在・名前・件数、表示名によるIdentity／認可 |
-| `managementOperations` | 9 Role分担行から導出する非Authorityの操作候補と適用対象制約。managerのRole変更はdeveloper／manager間、administrator対象は表示名変更のみ、鍵群はadministratorのみ、Profile管理はmanager／administrator | 対象非依存の実行許可、Role内容設定による管理権限変更、内容の自動閲覧 |
-| `contentAccess` | 現在Roleの明示内容権限の投影 | Credential別追加権限。具体操作語彙は未固定のまま保持 |
-| `permittedRepositories` | 内容権限と現在Exposureが許可する`repositoryId`／`workspaceIds`の集合 | 実体の存在・接続成功・取得可能性。実アクセスは内容取得時に別評価 |
+| `managementOperations` | 9 Role分担行から導出する非Authorityの操作候補と適用対象制約。managerの表示名・ロール変更はdeveloper／managerが対象。administratorの表示名・ロールはadministratorだけが変更可能 | 対象非依存の実行許可、Role内容設定による管理権限変更、内容の自動閲覧 |
 
 操作名だけで対象可否を決めず、対象別`readManagementState`と実操作の現在認可で判定する。Package内部DTOをMCPのTool／Schema／一覧／dispatchや応答へ投影しない。操作候補の表示は実行AuthorityでもMCP公開の採用でもない。
 
-本人読取りの具体化では、`managementOperations`を既存11認可要求種別と対象Roleの閉じた組合せから固定管理判定で絞る。初回`credential_stored`でも本人表示は可能だが、初回完了・通常接続・実操作許可には昇格しない。通常管理の完了済み初回条件は維持する。`permittedRepositories`はRole範囲とExposureの積集合が非空の登録だけを返し、Root・Binding・登録のみのRepositoryを含めない。認証後の短命材料照合はcurrentを変更せず、清掃確認後に同改訂から投影する。材料破損・清掃不明・Lock解放不明ではSnapshotを返さない。認証前の既存exact Lock回収は保存Ownerの安全処置で、資格認証やpending清掃の成立ではない。
+内部の `managementOperations` は、現在ロールと対象ロールの組合せを固定管理判定で絞る。公開する本人照会は初回完了後に限り、操作候補も旧内容範囲も返さない。認証後の短命材料照合はcurrentを変更せず、清掃確認後に同改訂から投影する。材料破損・清掃不明・Lock解放不明ではSnapshotを返さない。認証前の既存exact Lock回収は保存Ownerの安全処置で、資格認証やpending清掃の成立ではない。
 
 本人読取り接続時のAM全48 Case・静的3軸成功、固定11ファイルの限定独立再レビューPassは履歴である。現在は以下の管理対象別読取りも局所接続した候補。実Repository内容認可・Surface本番接続は未完了で、§3.1全体の完成ではない。
 
@@ -225,39 +232,29 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 | 管理対象 | 成功投影の内容 | 除外する情報 |
 |---|---|---|
 | ユーザー | 許可された対象の`userId`／`username`／`role` | Credential情報、非許可対象の存在・件数 |
-| Role内容設定 | 許可された対象Roleと明示内容権限 | 固定管理分担のON／OFF設定、他Roleの非許可設定 |
 | Repository登録 | 許可された登録IDと接続管理に必要な非秘密表示 | 内部保存Path、Context本文。Bindingの具体表示Schemaは別途照合 |
-| Exposure | 許可された登録IDと現在公開Workspace範囲 | 登録からの暗黙公開、Role内容権限の自動生成 |
 
 各投影は`revision`と対象種類を持ち、他種類のfieldを混在させない。鍵一覧・発行結果・元発行Identity・交換参照は通常管理DTOへ入れず、鍵Ownerの許可された入口で別に具体化する。管理参照許可は内容閲覧許可ではなく、登録一覧は公開集合でもない。通常管理のMCP公開はこの設計から追加しない。
 
-管理読取りの`kind`は`users`／`roleContentAccess`／`registeredRepositories`／`exposure`の4 literalに限定し、不正値はLock取得前に`management_state_read_rejected`で拒否する。完全状態・現在認証に続いて初回`completed`と対象種類の現在管理許可を確認し、その後だけ短命材料を清掃する。developer・初回未完了・参照不許可は同じ非開示拒否とする。ユーザー投影は表示名変更の対象Role判定で絞り、manager／administratorは三Roleを参照可。Role内容設定はmanagerがdeveloper／managerだけ、administratorが三Roleを参照可。Repository登録・Exposureはmanager／administratorだけ。
+管理読取りの`kind`は`users`／`registeredRepositories`に限定する。廃止した内容権限・公開範囲の指定や不正値はLock取得前に内部で `management_state_read_rejected`、公開結果で `management_read_rejected` として拒否する。完全状態・現在認証に続いて初回`completed`と対象種類の現在管理許可を確認し、その後だけ短命材料を清掃する。developer・初回未完了・参照不許可は同じ非開示拒否とする。ユーザー投影は表示名変更の対象Role判定で絞り、登録一覧はmanager／administratorだけに返す。
 
-各Snapshotは共通`revision`／`kind`に、`users`なら`users`、`roleContentAccess`なら`roles`、登録／Exposureなら`repositories`だけを持つ。登録行は`repositoryId`／`bindingId`に限定し、Bindingは表示相関用の非AuthorityでRoot・接続成功・実アクセスを証明しない。Exposure行は全登録の順に`repositoryId`／`workspaceIds`を持つ。`null`は完全検査済み同改訂で対応Exposureレコードの不存在を確認した場合だけ、`[]`は明示的な公開範囲0、設定ありはその所有配列である。破損・観測不能を`null`へ畳まない。全行・配列・入れ子を複製・凍結し、種類外field・資格材料・内部Pathを含めない。
+内部Snapshotは共通`revision`／`kind`のほか、`users`または`repositories`だけを持つ。登録行の内部Bindingを公開結果には含めない。登録一覧の行は`repositoryId`だけを返し、実アクセスや公開範囲を証明しない。破損・観測不能を空一覧へ畳まず、全行と配列の所有を分離する。
 
 公開DTOは検査済み状態から所有済みの値として明示構築し、内部Snapshotの参照・共有配列・余分fieldを透過しない。返却後の内部変更で値を変えない。Proxy／accessor等を内部状態検査の代替にせず、Schemaの閉包と値の検査を経てから投影する。
 
-4kindの管理読取りを既存保存OwnerとPackage Rootへ局所接続した。三Role×四対象の完全DTO、現在Role変更後の拒否、未設定と明示空Exposure、不正kindのI/O0、認証・認可前の材料保持、清掃／解放不明時の非開示を既存ITに3 Caseで接続した。AM全51 Case・静的3軸成功、固定11ファイルの限定独立レビューPass・全重大度残指摘0。MCP／Workbench本番入口・内容実アクセス認可・鍵管理は未完了、191項目正式Not Runを維持する。
+切替前は4kindの管理読取りを局所確認した。旧内容権限・公開範囲の投影に対する結果は旧方式の証跡とし、現在の公開契約へ流用しない。現行の試験では二種類の完全DTO、廃止済みkindのI/O 0、現在Role変更後の拒否、清掃／解放不明時の非開示を確認する。
 
 反証は、自己表示へ他User情報を添付、古いRole認可と新改訂DTOの混合、管理許可から内容を公開、観測不能から空集合生成、解放不明の成功表示、後続改訂から元要求完了を推定、入れ子・余分field・エラー経由の秘密透過である。既存RFD-IT-013／RFD-ST-004、RFD-IT-021、RFD-ST-022、RFD-UAT-007へ接続し、Not Runを維持する。内容実アクセス認可・鍵読取り・初回全体・本番保存と利用側接続は未完了である。
 
 ### 3.3 内容要求の実Repository解決 — 2026-10-12
 
-`resolveRepositoryAccess(root, token, repositoryId, workspaceId)`は同Processの信頼した内容Consumer向けの内部Package入口とする。新Session・Store・Lock・汎用認可Frameworkは作らない。入力検査→既存Lock内current完全検査→現在資格／User／Role→初回completed→登録・Role内容範囲・Exposure→許可後pending処置→登録Binding再照合→ディレクトリ実体と構成モデルのManifest・Repository ID一致→内部相関値→Lock解放確認の順である。本文取得は解放後に行う。Git配置は認可条件に含めず、Gitが必要な操作の呼出し側が対象を確認する。
-
-未認証・未知ID・未登録・Role外・Exposure未設定／空／範囲外は同じ`repository_access_rejected`とし、対象Repository観測0・pending清掃0を保つ。許可後の材料不明では対象観測0、Root・Binding・manifestの欠測／不正は固定未取得理由とする。失敗や通信応答にパス・下位例外・資格材料を含めない。PROJECT_CONTEXTはアクセスAuthorityではなく、欠測・不正を内容Ownerの部分観測へ残す。
-
-成功値は`revision`、`repositoryId`、`workspaceId`、`bindingId`、検査済み`manifest`と、絶対ディレクトリのパス`root`を相関する。認可の結果は今回の要求に限り、保存・cache・通信応答化を禁止する。別要求・再試行では現在認可を取り直す。後続のRole／Exposure変更を開始済み要求の取消完了へ読み替えない。
-
-確認対象はRFD-IT-013の現在認可・実アクセス部分。誤鍵、未知ID、管理能力のみ、範囲外、pending異常、非exact Root、manifest欠測／不正／ID差／超過、解放不明、Context欠測、次要求の公開解除反映を反証する。署名E2E・本番Consumer・正式191項目評価は未成立のまま保持する。
+共有の内容操作は、現在の本人と登録済みのGitホスト対象を確認する。Serverが本人の実効権限を照会し、AMの `resolveHostedAccessDirectories` は許可された登録のパスだけを現在の管理状態と照合する。Gitの接続先を確認するのはServerであり、AMはGit履歴や技術資格を扱わない。旧鍵と旧のロール別内容範囲・公開範囲による読取り入口は提供しない。
 
 ### 3.4 同じ要求の許可Repository集合
 
-`resolveRepositoryAccessCollection(root, token)`は既存の同じ管理Lock内で現在認証・初回完了を確認し、Role内容範囲とExposureの積集合から登録Repositoryを一度に選ぶ。Repositoryごとに一意な要素とし、許可された全`workspaceIds`を保持する。ID順に並べ、各対象の実Root・Binding・固定manifestを一回だけ検証する。認証前の対象観測・pending清掃は行わず、許可後の清掃・全対象観測・Lock解放が成立してから結果を返す。
+`resolveHostedAccessCollection` は、外部照会済みの対象と現在登録のリポジトリID・Binding・Gitホスト側の識別子を照合する。同じ管理ロックの中で本人の紐付け、期限、管理改訂または照合対象、ディレクトリとManifestを確認する。すべての対象を確認でき、ロックを解放できた場合だけ、リポジトリID順に結果を返す。対象外の登録は読まない。期限切れ、重複・対象差、材料不明、対象観測不能、解放不明は空集合や部分成功へ変換しない。
 
-成功結果の`managementRevision`は管理設定の改訂であり、Project Context本文の版を意味しない。要素は`repositoryId / workspaceIds / bindingId / manifest / root`だけであり、単数範囲や曖昧な本文revisionを付けない。現在認証と初回完了を確認した許可対象0件だけが成功空集合で、認証・清掃・実体・解放の不成立を空成功や部分成功へ畳まない。内部能力の要求限定使用・保存／cache／Transport公開禁止は3.3と同じである。
-
-観測量は完全状態内の登録数に比例する。固定byte容量で登録数を制限しない。新しいLockや共有Stateは作らない。RFD-IT-013／019で範囲保持・一意性・各manifest一回観測・次要求再認可・失敗時集合非返却を局所確認する。本番Consumerの性能・lifecycle・本文搬送は別Gateであり、この入口だけで集約Capability完成を主張しない。
+`managementRevision` は管理状態の改訂であり、本文の版ではない。返すパスや結び付けは信頼された利用側の同じ要求に限り、UIやMCPへ公開しない。開始済み実行は別の `observeHostedExecutionBinding` で元の本人と登録を照合し、新規要求の本人性や本文公開の判定には流用しない。
 
 ## 4. 物理保存の比較と未決条件
 
@@ -507,6 +504,8 @@ serializerはObject keyをASCII辞書順、配列順を維持、空白なしJSON
 
 同じRoot・Lockの同期区間内で現在状態を読む。通常更新のcallbackは現在認可を確認して次状態bytesを返す利用側の接続点で、保存部品自体は認可を生成しない。期待改訂＋1と別の操作IDを要求し、初回・資格・未解決交換・既存User IDは保持する。この通常更新入口で鍵や初回段階を変更しない。現在readは内部Snapshotで、Transportへ返すDTOではない。
 
+旧保存項目が残る間も、ロール別内容範囲とリポジトリ公開範囲の追加・改訂は通常保存で認めない。対象リポジトリの登録解除に付随する旧公開行の除去だけを許す。未出版の保存材料が退役した変更を含む場合は、通常更新として清掃せず、材料を保持して停止する。
+
 callbackは同期の認可評価とメモリ内候補構築だけに限定する。Promise、外部I/O、鍵処置、別Store更新、利用者への応答を行わず、callback自身の外部・永続Effectは0とする。これが通常管理のbase一致pendingを破棄できる前提である。本番Consumerの接続Gateでも同条件を照合し、保存部品の型検査だけからEffect 0を推定しない。
 
 | 再入場で観測した状態 | 処置 |
@@ -557,7 +556,7 @@ revision2のcanonical `user_stored`へ同元試行で再入場した場合は保
 
 独立失効は未失効のexact Credential IDとuserIdだけを対象に、revokedと状態改訂・受付operationIdだけを更新する。資格自身の元発行Identity・presentation、他資格、User／Role／登録／初回歴史を保持し、自己資格や最後の有効administrator資格の失効へ追加禁止条件を設けない。既失効は同request IDでも固定拒否し、追加出版0。top operationIdには操作種別・対象がないため、ID一致と現在失効だけから元失効要求のcompletedを推定しない。認可済み読取りで示す現在失効は元要求の成功Receiptではない。失効後の遅延提示通知は既存fresh照合で更新0、有効化0とする。通常発行・独立失効は交換Recoveryを作らない。
 
-現在の資格事実は同Processの現在administratorへ`readCredentialAdministrationState`の一覧として返す。元発行operationIdとuserIdを引数に取る旧専用Readerは、本番未使用のため内部投影・専用結果型とともに撤去した。現在認証・初回completed・administrator確認、既存材料処置とLock解放確認を維持し、材料処置要求は一覧0、次要求でfreshに再照合する。資格ID・User ID・元発行ID・presentation・revokedは一覧の同改訂の事実であり、元要求の成功Receipt・秘密再取得ではない。salt／Verifier／Secret・内部Path・回復Authorityは返さない。非認可・観測／清掃／解放不明は固定未取得、管理者の正常一覧に対象がなければ補完しない。旧単件Readerの不正な対象引数・対象不一致の判定を、対象引数のない一覧の契約として残さない。通常管理read四kindやMCP Toolは増やさず、[内部整理の責務](01_Architecture.md#public-surface-closure)に従う。
+現在の資格事実は同Processの現在administratorへ`readCredentialAdministrationState`の一覧として返す。元発行operationIdとuserIdを引数に取る旧専用Readerは、本番未使用のため内部投影・専用結果型とともに撤去した。現在認証・初回completed・administrator確認、既存材料処置とLock解放確認を維持し、材料処置要求は一覧0、次要求でfreshに再照合する。資格ID・User ID・元発行ID・presentation・revokedは一覧の同改訂の事実であり、元要求の成功Receipt・秘密再取得ではない。salt／Verifier／Secret・内部Path・回復Authorityは返さない。非認可・観測／清掃／解放不明は固定未取得、管理者の正常一覧に対象がなければ補完しない。旧単件Readerの不正な対象引数・対象不一致の判定を、対象引数のない一覧の契約として残さない。通常管理読取りやMCP Toolは増やさず、[内部整理の責務](01_Architecture.md#public-surface-closure)に従う。
 
 ## 5. 鍵交換の段階と終了
 
@@ -597,7 +596,7 @@ Process喪失やtoken nullは物理的な秘密消去の証明ではなく、再
 
 `readCredentialAdministrationState`は既存のAM保存Ownerが一Lock・一改訂で処理する。形式検査→完全current→現在認証・初回completed・administrator→投影候補→既知材料処置→Lock解放の順とし、材料を処置した要求はSnapshotを返さず次fresh取得へ分ける。観測／清掃／解放不明を空一覧へ変換しない。
 
-返却値はrevision・actorUserId、UserのuserId／username／role、資格のcredentialId／userId／issuanceOperationId／presentation／revoked、既存交換の非秘密相関一件またはnullに限定する。元発行IDからSecretを取得できず、交換nullは現在recordなしという意味だけで、過去完了や未発行の証明ではない。資格材料・Root・内容権限・Exposure・Repository Bindingを含めない。純粋投影は既存credential/crud.ts、物理読取りはstorage/store.tsが所有し、readManagementState四kind・Store・Lock・履歴を増やさない。Workbenchの同Process接続・専用POSTの具体契約は[Workbench詳細§6.1.1](../workbench-server/01_Architecture.md#611-同process管理postの具体契約)に置く。局所注入での実HTTP候補と公開Launcher／実Browser成立を区別し、Reader局所成功だけで上位完成を主張しない。
+返却値はrevision・actorUserId、UserのuserId／username／role、資格のcredentialId／userId／issuanceOperationId／presentation／revoked、既存交換の非秘密相関一件またはnullに限定する。元発行IDからSecretを取得できず、交換nullは現在recordなしという意味だけで、過去完了や未発行の証明ではない。資格材料・Root・内容権限・Exposure・Repository Bindingを含めない。純粋投影は既存credential/crud.ts、物理読取りはstorage/store.tsが所有し、`readManagementState`の対象・Store・Lock・履歴を増やさない。Workbenchの同Process接続・専用POSTの具体契約は[Workbench詳細§6.1.1](../workbench-server/01_Architecture.md#611-同process管理postの具体契約)に置く。局所注入での実HTTP候補と公開Launcher／実Browser成立を区別し、Reader局所成功だけで上位完成を主張しない。
 
 ### Host交換の提示Consumerの責務配置 — 2026-10-13
 
@@ -605,7 +604,7 @@ Process喪失やtoken nullは物理的な秘密消去の証明ではなく、再
 
 Host交換compositionは、対象表示と確認を終えた呼出側の所有入力から既存交換保存→提示前unconfirmed→一度出力→提示confirmed→確認済み終了を呼ぶ。交換用と終了用UUIDは別に保持し、各段階の直前確定revisionを次へ渡す。stored再入場のtoken nullは再表示せず、fresh現在観測のconfirmedだけ終了する。未確認は別明示交換を必要とする。保存後取消・出力故障・終了不明では交換元相関・最後の確認段階・出版／清掃・主副Failureを非秘密に保持し、保存済みEffectを取消前へ戻さない。対話CLIの引数、対象選択、影響表示と確認はHost入口が所有し、このcompositionのIT成功だけで実Host TTY／CLI全体成立を主張しない。
 
-Host CLIは`--exchange-user <User UUID>`と`--exchange-all <発行先administrator UUID>`を提供する。現在状態から対象・失効する資格集合を表示し、`yes`の入力後だけ操作UUIDを生成する。確認待ちの間に改訂・Role・資格集合が変わった場合は保存Ownerが拒否し、自動再試行しない。初回途中は同じ初回Userへの指定交換だけを許す。prepared／revokedは元の範囲・発行先・操作UUIDを継続し、stored未確認は明示した別交換へ引き継ぐ。提示確認済みの前記録がある場合は元対象を表示してその記録だけ終了し、今回指定した新交換は未実行と案内する。材料整理を行った観測要求は古いSnapshotから交換せず、再実行を案内する。OSログイン主体をAMの発行先Userと同一視しない。鍵管理はMCPへ公開しない。
+配布Host CLIは外部ログインによる初回管理者設定と既存管理者の再紐付けだけを提供する。鍵交換をHost CLIから起動する入口は設けない。既存管理者を復旧する手順は[共有利用の初回設定・復旧](../../../19_Workflows/04_MCP_Server.md#google-host-setup)を参照する。OSログイン主体をアクセス管理の利用者と同一視しない。
 
 ### 純粋Schema検査への具体化 — 2026-10-12
 

@@ -5,7 +5,7 @@
 最終更新日: 2026-10-12
 工程規則: [UX](../22_UX.md)
 
-初回設定の横断投影は[UX-000035](Definitions/UX-000035/ux_definition.md)を参照する。通常Host回復の交換2操作とは分け、既存・途中・不明を未初期化へ畳まない。発行・記録不明は元試行再観測、確定発行後の受け渡し不明だけ既存管理者指定のHost交換へ進む。新しいPersonaやUX ID、内容権限の自動付与は追加しない。
+共有ログイン・初回設定・既存管理者の再紐付けの正本は[UX-000035](Definitions/UX-000035/ux_definition.md)を参照する。既存・途中・観測不能を未初期化として扱わず、回復で利用者ID・権限・データを変えない。
 
 ## 1. 製品全体で目指す利用体験
 
@@ -81,7 +81,7 @@ Discoveryで採用した41要求を、一件ずつ利用者の立場から分析
 | `REQ-000038` | [Consumerに依存しない標準Project Context](Analysis/REQ-000038/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
 | `REQ-000039` | [TopicとMeetingの共通操作](Analysis/REQ-000039/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
 | `REQ-000040` | [Project情報と作業ツリーをつなぐWorkbench](Analysis/REQ-000040/ux_analysis.md) | 要求別再分析済み・独立再レビュー待ち |
-| `REQ-000041` | [最小ユーザー識別とRole権限によるRemote CROS利用](Analysis/REQ-000041/ux_analysis.md) | 最新の権限分担へ再分析・限定独立レビュー済み・残指摘0 |
+| `REQ-000041` | [最小ユーザー識別とRole権限によるRemote CROS利用](Analysis/REQ-000041/ux_analysis.md) | Googleログイン・共有MCP認可への切替を再分析。実サービス評価は未実施 |
 
 ### 2.2. 要求を利用者成果へまとめた結果
 
@@ -123,7 +123,7 @@ Discoveryで採用した41要求を、一件ずつ利用者の立場から分析
 | [UX-000032](Definitions/UX-000032/ux_definition.md) 実行事実を安全に記録して結果を確かめる | `REQ-000004` | 記録済み・未記録・結果不明を見分け、重複や上書きなく次の処置を選べる | 実行環境を運用する流れ | 同一再送、並行書込み、途中失敗、結果不明の再発行および許可外情報の記録を反証する | Execution、Source、Observation、Record Attempt、Publication Resultを分ける |
 | [UX-000033](Definitions/UX-000033/ux_definition.md) 論点と会議記録を安全に維持する | `REQ-000039` | 入口を変えても同じ記録を扱い、正当な履歴を残して誤登録だけを安全に除ける | Topic／Meeting 利用の流れ | 当時記録の上書き、誤削除、連鎖削除、無効な関係および部分成功を反証する | Topic、Meeting、時点、状態、関係、削除影響および復旧可能性を結ぶ |
 | [UX-000034](Definitions/UX-000034/ux_definition.md) Projectの意味と作業差分を一つの流れで扱う | `REQ-000040` | 状況理解から次の仕事、差分確認、Commit、通常Pushまで進み、Ownerや別入口へ戻れる | Project判断／日常作業の流れ | Workbench固有正本、誤った送信対象、未確認Pushおよび失敗状態の隠蔽を反証する | Project Context、Owner、作業差分、Commit、Remote、BranchおよびPush対象を結ぶ |
-| [UX-000035](Definitions/UX-000035/ux_definition.md) 軽量なユーザー管理でRemote Accessを維持・回復する | `REQ-000041` | 対象識別と接続資格維持 | Remote Access管理の流れ | 別対象処置・MCP鍵公開・認可破損修復を反証 | 通常鍵管理はadministratorのWorkbench、通常Host回復はログイン済み操作者の交換2操作。manager／administratorの業務管理とadministrator専用の管理者資格・鍵を分離。登録≠公開、解除≠削除。登録解除は対応公開設定も同時解除し本体を保持。発行・記録確定後の受け渡し未確認は明示新交換、発行・記録不明は元Identity再観測、管理鍵喪失は既存Host入口へ案内。初回は未初期化確定時のHost明示設定・表示名入力・最初のadministrator UUID作成・鍵一度提示と同鍵の最初の接続成功による受領・接続確認をIAへ渡す。 |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) 軽量なユーザー管理でRemote Accessを維持・回復する | `REQ-000041` | 招待・本人確認と管理の継続 | 共有アクセスの管理と復旧 | 別主体・管理書込みの迂回・再初期化を反証 | Workbenchの短命管理セッションとHostの初回設定・既存管理者の再紐付けを分ける。登録と公開、解除と削除も分ける。 |
 
 ### 2.3. UX成果の横断構造
 

@@ -38,7 +38,7 @@ test("試験用抽出入口は通常Rootと製品Sourceから分離する", asyn
   assert.deepEqual(Object.keys(pkg.exports), ["."]);
   for (const p of fs.globSync("src/**/*.ts", { cwd: root }))
     assert.doesNotMatch(
-      fs.readFileSync(root + "/" + p, "utf8"),
+      fs.readFileSync(`${root}/${p}`, "utf8"),
       /tests\/support\/ai-adapter-test|\/testing["']/,
     );
 });

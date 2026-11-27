@@ -370,7 +370,7 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 
 | 対象 | Local Item数 | Release上の処置 |
 |---|---:|---|
-| Canonical設計集合 | 191 | 2026-10-12に状態Schema純粋検査RFD-UT-028をNew追加。旧190件は2026-10-11の設計集合。HTTP公開Process終端の`EST-ST-013`と公式CLIの`ERB-IT-031`を含み、廃止した改造CLIの024～029は含めない。項目数はPass数ではない |
+| Canonical設計集合 | 198 | 先行191項目に、共有OAuth・外部ログイン・Gitホスト認可の7項目を加えた現在の集合。項目数はPass数ではない |
 | v0.21 Group A | 130 | v0.21のQuality Gateで評価する。108件観測済み、22件未観測 |
 | v0.21からの移管母集団 | 46 | 持越しと後続追加の一覧。現在の個別観測と採用Release Scopeとの対応は[算定Owner](05_Current_Implementation_Reality_Audit.md#13-移管母集団の処置とrelease適用範囲)を参照し、本表で件数を再定義しない |
 
@@ -483,7 +483,7 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 | 詳細設計領域 | 検証単位 | 接続する検証目標 | Local Item | 処置状態 | 未確認／再評価条件 |
 |---|---|---|---|---|---|
 | [Access Management](../06_Architecture/Details/access-management/01_Architecture.md) | access-management.host-initialization | QA-000007 | RFD-UT-023、RFD-UT-028、RFD-IT-024、RFD-IT-025、RFD-ST-026、RFD-UAT-027 | Defined／Not Run | UT023とIT024の相関・User・初資格保存は旧局所候補の履歴。UT028を含む今回v2 Parser・提示の実観測・完全限定接続・次要求通常認証・本番Host／Consumer・v1棚卸し移行はOPEN／Not Run。初回内部読取り、初期化開始、公開状態照会、確認Ownerを別に観測する。正式191項目と旧結果の対象版を保持 |
-| [MCP](../06_Architecture/Details/mcp-server/01_Architecture.md) | 初回設定・状態照会の非公開と限定接続 | QA-000009 | EST-ST-015（Same更新） | Defined／Not Run | 鍵操作・初期化開始・状態Readerは四面非公開／呼出し0。完全な初回server/discoverだけ確認Ownerをexact 1回、不正要求・通常Toolは0。応答は非秘密、同要求の通常Authority0を本番入口で実観測する |
+| [MCP](../06_Architecture/Details/mcp-server/01_Architecture.md) | 旧鍵の拒否と管理境界 | QA-000009 | EST-ST-015（Same更新） | Defined／Not Run | 旧鍵では接続確認・通常操作・保存変更・秘密返却が成立せず、現行OAuthで許可済みの操作だけが成立する。鍵操作・Host初期化・内部状態照会・管理書込みは4面で非公開とする |
 
 
 | [configuration-model](../06_Architecture/Details/configuration-model/01_Architecture.md) | `configuration-model.package-boundary` | [QA-000001](Definitions/QA-000001/quality_definition.md) | `RCM-UT-014` | OPEN | 詳細設計の同じ導出キーでReader・保存・終了を区別。試験の意味を変更せず、上位搬送・実境界・全体Passへ換算しない |
@@ -527,7 +527,7 @@ Source IDごとの検証義務は各工程の`Analysis/<工程>/quality_analysis
 | [投影と出所](Definitions/QA-000004/quality_definition.md) | `PPR-IT-001`、`PPR-IT-002`、`PPR-IT-003`、`PPR-IT-004`、`PPR-ST-005`、`PPR-UT-006`、`PPR-UAT-007`、`PPR-UAT-008`、`PPR-UAT-009`、`PPR-IT-010`、`PPR-UT-011`、`PPR-IT-012`、`PPR-UT-013`、`PPR-UT-014`、`PPR-UAT-015`、`PPR-UT-016`、`PPR-UT-017`、`PPR-IT-018`、`PPR-IT-019`、`PPR-UAT-020` | 6工程のAnalysis §3 | 本書§2／§3とcros／execution-intelligence／mcp／project-operation／orchestrator／runtime-data／version-control |
 | [候補の昇格](Definitions/QA-000005/quality_definition.md) | `CPR-IT-001`、`CPR-UAT-002`、`CPR-UAT-003`、`CPR-IT-004`、`CPR-ST-005`、`CPR-IT-006`、`CPR-UAT-007`、`CPR-IT-008`、`CPR-UT-009`、`CPR-IT-010`、`CPR-IT-011`、`CPR-IT-012` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／project-operation／orchestrator |
 | [外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `ERB-IT-001`、`ERB-IT-002`、`ERB-IT-003`、`ERB-IT-004`、`ERB-ST-005`、`ERB-IT-006`、`ERB-UAT-007`、`ERB-IT-008`、`ERB-ST-009`、`ERB-IT-010`、`ERB-ST-011`、`ERB-IT-012`、`ERB-ST-013`、`ERB-IT-014`、`ERB-ST-015`、`ERB-UT-016`、`ERB-IT-017`、`ERB-IT-018`、`ERB-ST-019`、`ERB-IT-020`、`ERB-IT-021`、`ERB-ST-022`、`ERB-UT-023`、`ERB-ST-030`、`ERB-IT-031`、`ERB-UT-038`、`ERB-UT-036`、`ERB-UT-034`、`ERB-UT-032`、`ERB-UT-033`、`HST-UT-001`、`ERB-UT-024` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／platform-access／visual-preview／workbench／lock |
-| [RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `RFD-IT-001`、`RFD-IT-002`、`RFD-ST-003`、`RFD-ST-004`、`RFD-IT-005`、`RFD-UT-006`、`RFD-UAT-007`、`RFD-IT-008`、`RFD-IT-009`、`RFD-ST-010`、`RFD-IT-011`、`RFD-IT-012`、`RFD-IT-013`、`RFD-IT-014`、`RFD-ST-015`、`RFD-ST-016`、`RFD-IT-017`、`RFD-IT-018`、`RFD-IT-019`、`RFD-UT-020`、`RFD-IT-021`、`RFD-ST-022`、`RFD-UT-023`、`RFD-IT-024`、`RFD-IT-025`、`RFD-ST-026`、`RFD-UAT-027`、`RFD-IT-029`、`RFD-UT-028`、`RFD-UT-030` | 6工程のAnalysis §3と初回接続節、Detail3処置行 | 本書§2／§3とaccess-management／domain-model／mcp-server／workbench-server／version-control |
+| [RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `RFD-IT-001`、`RFD-IT-002`、`RFD-ST-003`、`RFD-ST-004`、`RFD-IT-005`、`RFD-UT-006`、`RFD-UAT-007`、`RFD-IT-008`、`RFD-IT-009`、`RFD-ST-010`、`RFD-IT-011`、`RFD-IT-012`、`RFD-IT-013`、`RFD-IT-014`、`RFD-ST-015`、`RFD-ST-016`、`RFD-IT-017`、`RFD-IT-018`、`RFD-IT-019`、`RFD-UT-020`、`RFD-IT-021`、`RFD-ST-022`、`RFD-UT-023`、`RFD-IT-024`、`RFD-IT-025`、`RFD-ST-026`、`RFD-UAT-027`、`RFD-IT-029`、`RFD-UT-028`、`RFD-UT-030`、`RFD-UT-031`、`RFD-UT-032`、`RFD-UT-033`、`RFD-IT-031`、`RFD-IT-032`、`RFD-IT-033`、`RFD-IT-034` | 6工程のAnalysis §3と初回接続節、Detail3処置行 | 本書§2／§3とaccess-management／domain-model／mcp-server／workbench-server／version-control |
 | [Runtime Data lifecycle](Definitions/QA-000008/quality_definition.md) | `RDL-IT-001`、`RDL-ST-002`、`RDL-IT-003`、`RDL-IT-004`、`RDL-UT-005`、`RDL-UAT-006`、`RDL-IT-007` | 6工程のAnalysis §3 | 本書§2／§3とplatform-access／runtime-data |
 | [外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `EST-IT-001`、`EST-IT-002`、`EST-ST-003`、`EST-IT-004`、`EST-ST-005`、`EST-UAT-006`、`EST-UAT-007`、`EST-UAT-008`、`EST-UAT-009`、`EST-IT-010`、`EST-ST-011`、`EST-ST-012`、`EST-ST-013`、`EST-IT-014`、`EST-ST-015`、`EST-UT-016` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／orchestrator／platform-access |
 | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006`、`AIT-IT-008` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator。署名専用項目は退役 |

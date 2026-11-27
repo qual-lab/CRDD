@@ -1,11 +1,10 @@
 /**
- * 通常管理のStandalone／CROSの直接HTTP入口を検証する。
+ * 管理RESTと単体・共有の本文認可を検証する。
  * @packageDocumentation
- * @responsibility 七保存、本人表示、現在認可と非開示を実保存へ接続する。
+ * @responsibility 現行管理保存、本人表示、現在認可と非開示を実保存へ接続する。
  * @trace RFD-IT-013
  * @trace RFD-IT-019
  * @trace RFD-IT-021
- * @trace RFD-IT-024
  * @trace EST-IT-002
  * @trace EST-IT-010
  * @trace EST-IT-014
@@ -30,13 +29,19 @@ import { createConnection } from "node:net";
 import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
-import { resolveRepositoryAccessCollection } from "@qual-lab/crdd-access-management";
+import { createRetiredCredentialFixture } from "../../../access-management/tests/support/retired-credential.ts";
+import {
+  readAccount,
+  registerRepository,
+  resolveHostedAccessCollection,
+} from "@qual-lab/crdd-access-management";
+import { readRepositoryManifest } from "@qual-lab/crdd-configuration-model";
 import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
-import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { contentFixture } from "../../../access-management/tests/integration/storage/fixture.ts";
 import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selection.ts";
+import { prepareSharedSignIn } from "../support/shared-sign-in.ts";
+import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
+import { hostedContentFixture } from "../../../access-management/tests/integration/storage/fixture.ts";
 import { storeFixtureExecution } from "../../../coordinator/tests/fixtures/execution-intelligence.ts";
 import {
   createPortfolioProjection,
@@ -45,17 +50,13 @@ import {
 } from "@qual-lab/crdd-document-model";
 import { getRepository } from "@qual-lab/crdd-version-control";
 import { startWorkbench } from "../../src/app.ts";
-import { authenticateLocalConnectionForm } from "../../src/transport/api-server.ts";
-import {
-  readAccessPortfolio,
-  resolveAccessRepository,
-} from "../../src/service/project-context.ts";
 import { resolveTopicMeetingAccess } from "../../src/service/topic.ts";
-import { validateTopicMeetingActionForm } from "../../src/transport/api-server.ts";
+import { observeRegistrationDirectory } from "../../src/service/access.ts";
 import {
   assertManagementResponse,
   assertViewResponse,
 } from "../support/workbench-wire.ts";
+import { startManagementHttpFixture } from "../support/management-http.ts";
 
 /**
  * 閉じたServerへの再接続が拒否されることを確認する。
@@ -86,7 +87,6 @@ async function assertLoopbackClosed(baseUrl: string) {
  * 自己生成Repositoryへ非秘密の活動履歴を準備する。
  * @responsibility 実EI Writerの履歴からProject絞込みとページングを反証する。
  * @trace EST-IT-014
- * @trace RFD-IT-024
  * @precondition 親Caseが作成・回収するRootだけを使用する。
  * @stimulus 実行しない模擬Attemptの識別子と現在時刻を既存Writerへ渡す。
  * @observation Writer結果と後続Workbench公開Event。
@@ -149,13 +149,13 @@ function recordFixtureActivity(
 }
 
 /**
- * 管理Formの未完了Bodyを自己生成Serverへ搬送する。
+ * 管理RESTの未完了JSONを自己生成Serverへ搬送する。
  * @responsibility 保存前の切断・Server終了を実streamで作る。
  * @trace EST-IT-010
  * @input 所有Workbenchのloopback URL。
  * @returns Body終端前の所有ClientRequest。
  * @precondition 当該試験がServer終了とRequest破棄を所有する。
- * @stimulus Content-Length未満の無効なFormを一回送信する。
+ * @stimulus Content-Length未満のJSON断片を一回送信する。
  * @observation Body未完了のClientRequestをcallerへ返す。
  * @oracle 未完了Bodyから有効な管理保存を開始しない。
  * @cleanup callerがRequestを破棄し、所有Server終了と合わせて確認する。
@@ -167,20 +167,24 @@ function recordFixtureActivity(
  * @security 自己生成loopback以外へ接続しない。
  * @concurrency callerがcloseを待ち、必要時にServerもcloseする。
  */
-async function openIncompleteManagementBody(
-  baseUrl: string,
-): Promise<ClientRequest> {
-  const request = httpRequest(`${baseUrl}/api/access`, {
+async function openIncompleteManagementBody({
+  baseUrl,
+  cookie,
+}: Awaited<
+  ReturnType<typeof startManagementHttpFixture>
+>): Promise<ClientRequest> {
+  const request = httpRequest(`${baseUrl}/api/users`, {
     method: "POST",
     headers: {
       origin: baseUrl,
-      "content-type": "application/x-www-form-urlencoded",
+      cookie,
+      "content-type": "application/json",
       "content-length": "1024",
     },
   });
   request.on("error", () => {});
   await new Promise<void>((resolve, reject) => {
-    request.write("incomplete=", (error) =>
+    request.write('{"username":', (error) =>
       error ? reject(error) : resolve(),
     );
   });
@@ -190,33 +194,37 @@ async function openIncompleteManagementBody(
 
 for (const mode of ["local", "cros"] as const) {
   /**
-   * 共通六操作とRepository登録を実HTTPで確認する。
+   * 現行の管理RESTと、共有の本文読取り中に登録が解除される競合を確認する。
    * @responsibility Root・資格を公開せず、保存結果と現在投影を照合する。
-   * 登録解除の刺激: 認可済み本文読取りを開始後に保留し、登録とExposureを解除する。
-   * 登録解除の観測: 解除完了時の旧読取り未終了、保留解放後の403とjoinを別々に確認する。
-   * 登録解除のOracle: 解除成功を旧処理終了へ読み替えず、旧本文は公開せず、本体は保持する。
+   * 登録解除の刺激: 認可済み本文読取りを開始後に保留し、登録を解除する。
+   * 登録解除の観測: 解除完了時の読取り未終了、保留解放後の403と終了を別々に確認する。
+   * 登録解除のOracle: 解除成功を読取り終了へ読み替えず、本文は公開せず、本体は保持する。
    * @trace RFD-IT-013
    * @trace RFD-IT-021
-   * @trace RFD-IT-024
    * @trace EST-IT-010
    * @trace EST-IT-014
-   * @trace RCM-IT-005
    * @trace CPR-IT-010
    * @trace CPR-IT-012
    * @trace EST-IT-002
    * @precondition 自己生成完了AM、登録可能Git Repository、本番ServerとBundle。
-   * @stimulus 本人・四read・通常保存・不正Token／Origin・明示登録と選択GET、内容読取り中のExposure／資格／sibling／Binding／manifest変更、同値集合順序変更、重複ID正逆・同値とAI設定欠測、活動開始前および履歴open中のClient破棄を適用する。Repository AI設定は三RoleのGET／CAS保存、競合・重複入力・失効・設定故障を適用する。 Snapshot直後と保存直後の降格／失効、保存直後の例外／Client切断も適用する。
-   * @observation HTTP閉結果と実File改訂・保持状態、活動履歴のopen-close件数、Server成功本文、取消後の新しいHTTP接続の結果を観測する。選択Repositoryの設定Identityと保存回数も観測する。 後段の403／503、成功本文0、保存済み改訂のfresh再観測を区別する。
-   * @oracle 明示保存だけ一回、登録だけでは公開0、他User／Root／資格非公開。指定ID／Context／manifest相関、AI設定欠測とAI未接続、直前結果null、全集合変更後の部分公開0、同値順序変更許容、重複IDのopen／read 0。活動開始前は履歴読取り0、開始後は対象二Rootを各一回closeまでjoinし、成功本文0・再実行0・次要求正常を満たす。 非管理Role・失効では設定保存0、管理Roleと選択Repository development認可の明示保存一回、競合でIdentity不変、設定故障でfallback0を満たす。 観測後の許可失効は非公開、保存後不明・切断は改訂維持・保存一回・次要求再観測でありrollbackを行わない。
+   * @stimulus 管理操作・不正入力、旧鍵付き画面要求、現行セッションでの選択GETと読取り中の登録・紐付け・実体変更、重複ID、活動読取り開始前と開始後の切断を試す。
+   * @observation HTTP結果・実保存、対象活動履歴のopen／close、成功本文、次回要求の観測。旧鍵の照合の有無も計測する。
+   * @oracle 登録だけでは本文を渡さない。認可・実体失効では結果を公開せず、同値の順序変更だけなら許容する。重複IDと開始前の切断では活動読取り0、開始後は対象だけ一回読んで終了し、成功本文と再送は0。
    * @cleanup 所有Serverをclose後、exact自己生成Rootだけを回収する。
-   * @boundary 単体と同Host CROSの同じAM保存Owner。選択Root以外へfallbackせず、Browser描画の代替ではない。
+   * @boundary 管理RESTは実HTTPと実AM保存、共有表示は合成の本人確認とGitホストを使う。外部サービスとの接続やBrowser描画の代替ではない。
    */
   test(`Workbench通常管理 ${mode}の実保存と閉結果`, async (t) => {
     const repository = path.resolve(import.meta.dirname, "../../../..");
     const base = path.join(repository, ".crdd", "tests");
     fs.mkdirSync(base, { recursive: true });
     const owned = fs.mkdtempSync(path.join(base, "workbench-management-"));
+    const closeErrors: unknown[] = [];
     t.after(() => {
+      if (closeErrors.length)
+        throw new AggregateError(
+          closeErrors,
+          "record_fixture_close_unconfirmed",
+        );
       assert.equal(path.dirname(owned), base);
       assert.equal(fs.realpathSync.native(owned), owned);
       fs.rmSync(owned, { recursive: true });
@@ -226,149 +234,32 @@ for (const mode of ["local", "cros"] as const) {
     assert.ok(root);
     const userId = randomUUID(),
       operationId = randomUUID(),
-      material = createCredentialMaterial();
+      material = createRetiredCredentialFixture();
+    const identity = { issuer: "https://accounts.google.com", subject: userId };
+    const accountBinding = { userId, bindingId: randomUUID() };
     const state: AccessManagementState = {
       contract: "crdd-access-management/state",
-      schemaRevision: 2,
+      schemaRevision: 4,
       revision: 1,
       operationId,
-      users: [{ userId, username: "管理者", role: "administrator" }],
-      roleContentAccess: [
-        { role: "developer", workspaceIds: ["development"] },
-        { role: "manager", workspaceIds: ["development", "management"] },
-        { role: "administrator", workspaceIds: [] },
-      ],
-      credentials: [
+      users: [
         {
-          credentialId: material.credentialId,
           userId,
-          tokenVersion: 1,
-          tokenSalt: material.tokenSalt,
-          tokenVerifier: material.tokenVerifier,
-          revoked: false,
-          operationId,
-          presentation: "confirmed",
+          username: "管理者",
+          role: "administrator",
+          accountLinks: [{ ...identity, bindingId: accountBinding.bindingId }],
         },
       ],
       registeredRepositories: [],
-      exposure: [],
-      unresolvedKeyExchanges: [],
       initialization: {
         stage: "completed",
         attemptId: operationId,
         initialUserId: userId,
-        initialCredentialId: material.credentialId,
-        confirmationCredentialId: material.credentialId,
-        connection: "confirmed",
+        connection: "account_confirmed",
       },
     };
     const current = path.join(owned, "access-management.json");
     fs.writeFileSync(current, JSON.stringify(state));
-    if (mode === "local") {
-      const actionToken = "a".repeat(43);
-      const form = new URLSearchParams({
-        actionToken,
-        operation: "connect",
-        token: material.token,
-      });
-      const signal = new AbortController().signal;
-      const original = fs.readFileSync(current);
-      const authenticated = authenticateLocalConnectionForm(
-        root,
-        form,
-        actionToken,
-        signal,
-      );
-      assert.equal(authenticated.root, root);
-      assert.equal(authenticated.token, material.token);
-      assert.deepEqual(fs.readFileSync(current), original);
-      for (const invalid of [
-        new URLSearchParams([...form, ["token", material.token]]),
-        new URLSearchParams([...form, ["root", owned]]),
-        new URLSearchParams({ actionToken, operation: "connect" }),
-        new URLSearchParams({
-          actionToken: "wrong",
-          operation: "connect",
-          token: material.token,
-        }),
-      ]) {
-        assert.throws(
-          () =>
-            authenticateLocalConnectionForm(root, invalid, actionToken, signal),
-          { message: "workbench_local_connection_input_invalid" },
-        );
-        assert.deepEqual(fs.readFileSync(current), original);
-      }
-      const cancelled = new AbortController();
-      cancelled.abort();
-      assert.throws(
-        () =>
-          authenticateLocalConnectionForm(
-            root,
-            form,
-            actionToken,
-            cancelled.signal,
-          ),
-        { message: "workbench_local_connection_cancelled" },
-      );
-      assert.deepEqual(fs.readFileSync(current), original);
-      assert.throws(
-        () =>
-          authenticateLocalConnectionForm(
-            root,
-            new URLSearchParams({
-              actionToken,
-              operation: "connect",
-              token: "invalid",
-            }),
-            actionToken,
-            signal,
-          ),
-        { message: "workbench_local_connection_unavailable" },
-      );
-      assert.deepEqual(fs.readFileSync(current), original);
-      const initial: AccessManagementState = JSON.parse(
-        original.toString("utf8"),
-      );
-      initial.initialization = {
-        stage: "credential_stored",
-        attemptId: operationId,
-        userId,
-        initialCredentialId: material.credentialId,
-        confirmationCredentialId: material.credentialId,
-      };
-      fs.writeFileSync(current, JSON.stringify(initial));
-      const pending = fs.readFileSync(current);
-      assert.throws(
-        () =>
-          authenticateLocalConnectionForm(
-            root,
-            new URLSearchParams([...form, ["extra", "x"]]),
-            actionToken,
-            signal,
-          ),
-        { message: "workbench_local_connection_input_invalid" },
-      );
-      assert.deepEqual(fs.readFileSync(current), pending);
-      const connected = authenticateLocalConnectionForm(
-        root,
-        form,
-        actionToken,
-        signal,
-      );
-      assert.equal(connected.token, material.token);
-      const confirmed: AccessManagementState = JSON.parse(
-        fs.readFileSync(current, "utf8"),
-      );
-      assert.equal(confirmed.initialization.stage, "completed");
-      assert.equal(confirmed.revision, initial.revision + 1);
-      assert.equal(confirmed.credentials.length, initial.credentials.length);
-      assert.equal(confirmed.users.length, initial.users.length);
-      const completedBytes = fs.readFileSync(current);
-      authenticateLocalConnectionForm(root, form, actionToken, signal);
-      assert.deepEqual(fs.readFileSync(current), completedBytes);
-      fs.writeFileSync(current, original);
-    }
     const target = path.join(owned, "repository");
     fs.mkdirSync(target);
     const git = spawnSync("git", ["init", "--quiet", target], {
@@ -443,7 +334,7 @@ for (const mode of ["local", "cros"] as const) {
         assert.ok(access.view === "access");
         assert.equal(access.authenticated, false);
         assert.equal(access.portfolio, null);
-        assert.equal(access.credentials.state, "not_configured");
+        assert.equal(Object.hasOwn(access, "credentials"), false);
         assert.deepEqual(fs.readFileSync(current), before);
         for (const route of [
           "/",
@@ -457,97 +348,31 @@ for (const mode of ["local", "cros"] as const) {
           if (route !== "/assets/crdd-brand-icon.jpg")
             assert.equal((await reply.text()).includes(forbiddenBody), false);
         }
-        /**
-         * 接続専用Formを同Originの実HTTPへ一回送信する。
-         * @responsibility 接続・拒否・確認出版の応答を自動再送なしに観測する。
-         * @trace RFD-IT-024
-         * @trace EST-IT-010
-         * @precondition 自己生成ServerとAction Tokenだけを使用する。
-         * @stimulus 完全Formまたは固定反例をPOSTする。
-         * @observation HTTP状態と親試験による状態byte観測。
-         * @oracle 非秘密303、拒否400、拒否時確認出版0。
-         * @cleanup Serverは親CaseがcloseしてListener不存在を観測する。
-         * @boundary 実HTTP接続FormとAM確認保存。
-         */
-        async function submitConnection(
-          form: URLSearchParams,
-          origin: string | null = local.baseUrl,
-          host?: string,
-        ) {
-          if (host !== undefined) {
-            const body = form.toString();
-            return new Promise<Response>((resolve, reject) => {
-              const outgoing = httpRequest(
-                `${local.baseUrl}/api/access/connection`,
-                {
-                  method: "POST",
-                  headers: {
-                    host,
-                    ...(origin === null ? {} : { origin }),
-                    "content-type": "application/x-www-form-urlencoded",
-                    "content-length": String(Buffer.byteLength(body)),
-                  },
-                },
-                (incoming) => {
-                  let text = "";
-                  incoming.setEncoding("utf8");
-                  incoming.on("data", (chunk: string) => {
-                    text += chunk;
-                  });
-                  incoming.once("error", reject);
-                  incoming.once("end", () =>
-                    resolve(
-                      new Response(text, {
-                        status: incoming.statusCode ?? 500,
-                      }),
-                    ),
-                  );
-                },
-              );
-              outgoing.once("error", reject);
-              outgoing.setTimeout(5000, () =>
-                outgoing.destroy(new Error("fixture_http_timeout")),
-              );
-              outgoing.end(body);
-            });
-          }
-          return fetch(`${local.baseUrl}/api/access/connection`, {
-            method: "POST",
-            redirect: "manual",
-            headers: {
-              ...(origin === null ? {} : { origin }),
-              "content-type": "application/x-www-form-urlencoded",
-            },
-            body: form,
+        const rejectRetiredConnection = async (
+          operation: "connect" | "disconnect",
+        ) => {
+          const body = new URLSearchParams({
+            actionToken: access.actionToken,
+            operation,
           });
+          if (operation === "connect") body.set("token", material.token);
+          const rejected = await fetch(
+            `${local.baseUrl}/api/access/connection`,
+            {
+              method: "POST",
+              headers: { origin: local.baseUrl },
+              body,
+              redirect: "manual",
+            },
+          );
+          assert.equal(rejected.status, 404);
+          assert.equal(rejected.headers.get("location"), null);
+          assert.equal(await rejected.text(), "");
+        };
+        for (const operation of ["connect", "disconnect"] as const) {
+          await rejectRetiredConnection(operation);
+          assert.deepEqual(fs.readFileSync(current), before);
         }
-        const connect = new URLSearchParams({
-          actionToken: access.actionToken,
-          operation: "connect",
-          token: material.token,
-        });
-        assert.equal(
-          (await submitConnection(connect, "http://example.invalid")).status,
-          400,
-        );
-        assert.deepEqual(fs.readFileSync(current), before);
-        assert.equal((await submitConnection(connect, null)).status, 400);
-        assert.deepEqual(fs.readFileSync(current), before);
-        assert.equal(
-          (await submitConnection(connect, local.baseUrl, "example.invalid"))
-            .status,
-          400,
-        );
-        assert.deepEqual(fs.readFileSync(current), before);
-        const accepted = await submitConnection(connect);
-        assert.equal(accepted.status, 200);
-        assert.equal(accepted.headers.get("location"), null);
-        assert.match(
-          accepted.headers.get("content-type") ?? "",
-          /^application\/json/u,
-        );
-        assert.deepEqual(await accepted.json(), { status: "completed" });
-        assert.deepEqual(fs.readFileSync(current), before);
         const modelText = await (
           await fetch(`${local.baseUrl}/api/workbench/view`, {
             headers: { authorization: `Bearer ${material.token}` },
@@ -564,24 +389,23 @@ for (const mode of ["local", "cros"] as const) {
           assert.equal(modelText.includes(hidden), false);
         const connected = assertViewResponse(JSON.parse(modelText));
         assert.ok(connected.view === "access");
-        assert.equal(connected.authenticated, true);
-        assert.deepEqual(connected.portfolio?.projects, []);
+        assert.equal(connected.authenticated, false);
+        assert.equal(connected.portfolio, null);
         const otherBrowser = assertViewResponse(
           await (await fetch(`${local.baseUrl}/api/workbench/view`)).json(),
         );
         assert.ok(otherBrowser.view === "access");
         assert.equal(otherBrowser.authenticated, false);
         assert.equal(otherBrowser.portfolio, null);
-        assert.equal(otherBrowser.credentials.state, "not_configured");
-        const actor = assertManagementResponse(
-          await (
-            await fetch(`${local.baseUrl}/api/access?view=current`, {
-              headers: { authorization: `Bearer ${material.token}` },
-            })
-          ).json(),
-          "current",
+        assert.equal(Object.hasOwn(otherBrowser, "credentials"), false);
+        const retiredCurrent = await fetch(
+          `${local.baseUrl}/api/access?view=current`,
+          {
+            headers: { authorization: `Bearer ${material.token}` },
+          },
         );
-        assert.equal(actor.status, "completed");
+        assert.equal(retiredCurrent.status, 404);
+        assert.equal(await retiredCurrent.text(), "");
         for (const route of [
           "/owner-artifact?path=PROJECT_CONTEXT.md",
           "/change?id=CHG-000001",
@@ -614,84 +438,60 @@ for (const mode of ["local", "cros"] as const) {
           assert.equal(unauthenticatedArtifact.authenticated, false);
           assert.equal(unauthenticatedArtifact.portfolio, null);
           assert.equal(
-            unauthenticatedArtifact.credentials.state,
-            "not_configured",
+            Object.hasOwn(unauthenticatedArtifact, "credentials"),
+            false,
           );
         }
-        assert.equal(
-          (
-            await submitConnection(
-              new URLSearchParams({
-                actionToken: access.actionToken,
-                operation: "disconnect",
-              }),
-            )
-          ).status,
-          200,
-        );
-        const disconnected = assertViewResponse(
-          await (await fetch(`${local.baseUrl}/api/workbench/view`)).json(),
-        );
-        assert.ok(disconnected.view === "access");
-        assert.equal(disconnected.authenticated, false);
-        const initial: AccessManagementState = JSON.parse(
-          before.toString("utf8"),
-        );
-        initial.initialization = {
-          stage: "credential_stored",
-          attemptId: operationId,
-          userId,
-          initialCredentialId: material.credentialId,
-          confirmationCredentialId: material.credentialId,
+        const initial = {
+          ...JSON.parse(before.toString("utf8")),
+          schemaRevision: 3,
+          credentials: [],
+          unresolvedKeyExchanges: [],
+          initialization: {
+            stage: "credential_stored",
+            attemptId: operationId,
+            userId,
+            initialCredentialId: material.credentialId,
+            confirmationCredentialId: material.credentialId,
+          },
         };
         fs.writeFileSync(current, JSON.stringify(initial));
         const pending = fs.readFileSync(current);
-        await fetch(`${local.baseUrl}/api/workbench/view`);
-        assert.deepEqual(fs.readFileSync(current), pending);
-        assert.equal((await submitConnection(connect, null)).status, 400);
-        assert.deepEqual(fs.readFileSync(current), pending);
-        assert.equal(
-          (await submitConnection(connect, local.baseUrl, "example.invalid"))
-            .status,
-          400,
+        const rename = fs.renameSync;
+        let publications = 0;
+        const observed = t.mock.method(
+          fs,
+          "renameSync",
+          (...args: Parameters<typeof rename>) => {
+            if (path.resolve(String(args[1])) === current) publications++;
+            return rename(...args);
+          },
         );
-        assert.deepEqual(fs.readFileSync(current), pending);
-        assert.equal(
-          (
-            await submitConnection(
-              new URLSearchParams([...connect, ["token", material.token]]),
-            )
-          ).status,
-          400,
-        );
-        assert.deepEqual(fs.readFileSync(current), pending);
-        const confirmed = await submitConnection(connect);
-        assert.equal(confirmed.status, 200);
-        assert.deepEqual(await confirmed.json(), { status: "completed" });
+        try {
+          const response = await fetch(`${local.baseUrl}/api/workbench/view`);
+          assert.equal(response.status, 200);
+          for (const operation of ["connect", "disconnect"] as const) {
+            await rejectRetiredConnection(operation);
+            assert.deepEqual(fs.readFileSync(current), pending);
+            assert.equal(publications, 0);
+          }
+        } finally {
+          observed.mock.restore();
+        }
         const currentState: AccessManagementState = JSON.parse(
-          fs.readFileSync(current, "utf8"),
+          before.toString("utf8"),
         );
-        assert.equal(currentState.initialization.stage, "completed");
-        assert.equal(currentState.revision, initial.revision + 1);
-        const onlyCredential = currentState.credentials[0];
-        assert.ok(onlyCredential);
-        onlyCredential.revoked = true;
+        const administrator = currentState.users[0];
+        assert.ok(administrator);
+        delete administrator.accountLinks;
+        currentState.revision++;
+        currentState.operationId = randomUUID();
         const secondUserId = randomUUID();
-        const secondMaterial = createCredentialMaterial();
+        const secondMaterial = createRetiredCredentialFixture();
         currentState.users.push({
           userId: secondUserId,
           username: "別の利用者",
           role: "developer",
-        });
-        currentState.credentials.push({
-          credentialId: secondMaterial.credentialId,
-          userId: secondUserId,
-          tokenVersion: 1,
-          tokenSalt: secondMaterial.tokenSalt,
-          tokenVerifier: secondMaterial.tokenVerifier,
-          revoked: false,
-          operationId: randomUUID(),
-          presentation: "confirmed",
         });
         fs.writeFileSync(current, JSON.stringify(currentState));
         const revoked = assertViewResponse(
@@ -704,17 +504,6 @@ for (const mode of ["local", "cros"] as const) {
         assert.ok(revoked.view === "access");
         assert.equal(revoked.authenticated, false);
         assert.equal(revoked.portfolio, null);
-        const secondActor = assertManagementResponse(
-          await (
-            await fetch(`${local.baseUrl}/api/access?view=current`, {
-              headers: { authorization: `Bearer ${secondMaterial.token}` },
-            })
-          ).json(),
-          "current",
-        );
-        assert.ok(secondActor.status === "completed" && "user" in secondActor);
-        assert.equal(secondActor.user.userId, secondUserId);
-        assert.equal(secondActor.user.role, "developer");
         const secondModel = assertViewResponse(
           await (
             await fetch(`${local.baseUrl}/api/workbench/view`, {
@@ -723,8 +512,8 @@ for (const mode of ["local", "cros"] as const) {
           ).json(),
         );
         assert.ok(secondModel.view === "access");
-        assert.equal(secondModel.authenticated, true);
-        assert.equal(secondModel.credentials.snapshot, null);
+        assert.equal(secondModel.authenticated, false);
+        assert.equal(Object.hasOwn(secondModel, "credentials"), false);
         const duplicateBody = await new Promise<string>((resolve, reject) => {
           const outgoing = httpRequest(
             `${local.baseUrl}/api/workbench/view`,
@@ -769,13 +558,10 @@ for (const mode of ["local", "cros"] as const) {
         );
         assert.ok(malformedModel.view === "access");
         assert.equal(malformedModel.authenticated, false);
-        const noAuthority = assertManagementResponse(
-          await (
-            await fetch(`${local.baseUrl}/api/access?view=current`)
-          ).json(),
-          "current",
+        assert.equal(
+          (await fetch(`${local.baseUrl}/api/access?view=current`)).status,
+          404,
         );
-        assert.equal(noAuthority.status, "unavailable");
         assert.equal(fs.existsSync(path.join(startup, ".crdd")), false);
         assert.equal(
           fs.readFileSync(path.join(startup, "PROJECT_CONTEXT.md"), "utf8"),
@@ -787,45 +573,88 @@ for (const mode of ["local", "cros"] as const) {
         fs.writeFileSync(current, before);
       }
     }
+    const hostRepositories = [
+      { id: 92, full_name: "fixture/target" },
+      { id: 93, full_name: "fixture/sibling" },
+      { id: 94, full_name: "fixture/foreign" },
+    ] as const;
+    const hosted = (id: (typeof hostRepositories)[number]["id"]) => ({
+      provider: "github",
+      host: "github.com",
+      repositoryId: String(id),
+      providerData: { installationId: "24" },
+    });
+    const configureRemote = (
+      directory: string,
+      remote: (typeof hostRepositories)[number],
+    ) => {
+      for (const args of [
+        [
+          "remote",
+          "add",
+          "origin",
+          `https://github.com/${remote.full_name}.git`,
+        ],
+        ["config", "--local", "protocol.https.allow", "never"],
+      ]) {
+        assert.equal(
+          spawnSync("git", ["-C", directory, ...args], { windowsHide: true })
+            .status,
+          0,
+        );
+      }
+    };
+    const signIn =
+      mode === "cros"
+        ? await prepareSharedSignIn(t, [userId], hostRepositories)
+        : undefined;
+    if (signIn) configureRemote(target, hostRepositories[0]);
     const handle = await startWorkbench({
       workingDirectory: repository,
-      ...(mode === "cros"
-        ? {
-            localAccessRoot: root,
-          }
-        : { credentialAdministration: { root, token: material.token } }),
+      ...(signIn && { ...signIn.options, localAccessRoot: root }),
     });
     /**
-     * 当該要求だけにCROS資格を搬送する。
-     * @responsibility 明示Bearerを同じ所有Workbenchへ送り、別Serverや共有Sessionを作らない。
+     * 現行の共有セッションを所有Serverへの要求だけに搬送する。
+     * @responsibility 単体の未認証要求と共有のCookie付き要求を区別する。
      * @trace RFD-IT-013
      * @trace EST-IT-010
-     * @precondition 自己生成Workbenchとfixture資格だけを使う。
+     * @precondition 自己生成Workbenchと公開ログインから取得したCookieだけを使う。
      * @stimulus 同じHTTP操作をStandaloneとCROSで要求する。
      * @observation 入力Headerと閉結果・実保存を確認する。
-     * @oracle CROSは毎要求認証し、入力と改訂を同じAMへ渡す。
+     * @oracle 共有は現在セッションと対象のGitホスト権限を照合する。
      * @cleanup N/A: 個々のResponseはCaseが読み切る。
      * @boundary 自己生成HTTPとAMの直接接続。
      */
+    let cookie: string | undefined;
     async function fetchWorkbench(input: string, options: RequestInit = {}) {
       const headers = new Headers(options.headers);
-      if (mode === "cros")
-        headers.set("authorization", `Bearer ${material.token}`);
+      if (cookie) headers.set("cookie", cookie);
       return fetch(input, { ...options, headers });
     }
+    let recordHandle: Awaited<ReturnType<typeof startWorkbench>> | undefined;
+    let management:
+      | Awaited<ReturnType<typeof startManagementHttpFixture>>
+      | undefined;
     try {
+      cookie = await signIn?.signIn(handle.baseUrl, userId);
+      management = await startManagementHttpFixture(
+        root,
+        { kind: "account", ...accountBinding, expiresAt: Date.now() + 120_000 },
+        () => readAccount(root, identity, accountBinding),
+      );
+      const managementServer = management;
       const model = await (
         await fetchWorkbench(`${handle.baseUrl}/api/workbench/view`)
       ).json();
       assert.equal(model.view, mode === "cros" ? "access" : "main");
-      const actorReply = await fetchWorkbench(
-        `${handle.baseUrl}/api/access?view=current`,
+      const actorReply = await fetch(
+        `${managementServer.baseUrl}/api/access/me`,
+        { headers: { cookie: managementServer.cookie } },
       );
-      assert.equal(actorReply.headers.get("x-crdd-management-mode"), "local");
-      const actor = assertManagementResponse(
-        await actorReply.json(),
-        "current",
-      );
+      const { formToken: actorFormToken, ...currentActor } =
+        await actorReply.json();
+      assert.equal(actorFormToken, managementServer.formToken);
+      const actor = assertManagementResponse(currentActor, "current");
       assert.equal(actor.status, "completed");
       assert.ok("user" in actor);
       assert.equal(actor.user.userId, userId);
@@ -839,14 +668,6 @@ for (const mode of ["local", "cros"] as const) {
           repositoryRoot: target,
           bindingId: deriveRepositoryBindingId("repository.fixture", target),
         });
-        scopedSelection.exposure = [
-          { repositoryId: "repository.fixture", workspaceIds: ["development"] },
-        ];
-        const adminContent = scopedSelection.roleContentAccess.find(
-          (entry) => entry.role === "administrator",
-        );
-        assert.ok(adminContent);
-        adminContent.workspaceIds = ["development"];
         const saved = Buffer.from(JSON.stringify(scopedSelection));
         fs.writeFileSync(current, saved);
         const configPath = path.join(
@@ -855,255 +676,87 @@ for (const mode of ["local", "cros"] as const) {
           "config",
           "ai-selection.json",
         );
-        const endpoint = `${handle.baseUrl}/api/ai-selection?repositoryId=repository.fixture`;
-        const action = `${handle.baseUrl}/api/ai-selection`;
+        const endpoint = `${handle.baseUrl}/api/repositories/repository.fixture/ai-selection`;
         const headers = {
           origin: handle.baseUrl,
-          "content-type": "application/x-www-form-urlencoded",
+          "content-type": "application/json",
+          "x-crdd-action-token": model.actionToken,
+          authorization: `Bearer ${material.token}`,
         };
-        /**
-         * Repository設定の明示保存を一回送る。
-         * @responsibility 固定Originと既存接続資格を使い同じ選択Rootへ配送する。
-         * @trace RCM-IT-005
-         * @precondition 本番Serverと合成Form。
-         * @stimulus 設定POSTを一回発行する。
-         * @observation HTTP結果と保存回数。
-         * @oracle 自動再送せず現在認可を迂回しない。
-         * @cleanup 親CaseがServerと合成Rootを回収する。
-         * @boundary 自己生成設定と本番HTTP。実AIなし。
-         */
-        const post = (form: URLSearchParams) =>
-          fetchWorkbench(action, { method: "POST", headers, body: form });
-        /**
-         * 合成設定と期待Identityの閉Formを作る。
-         * @responsibility 同じRepositoryのCAS反証入力を用意する。
-         * @trace RCM-IT-005
-         * @precondition 固定五役割の合成設定。
-         * @stimulus ラベルと期待Hashだけを指定する。
-         * @observation 実送信Form。
-         * @oracle 秘密値・別Repository Rootを含めない。
-         * @cleanup 局所文字列のみ。
-         * @boundary 自己生成設定と本番HTTP。実AIなし。
-         */
-        const makeForm = (identity: string | null, label: string) => {
-          const config = selectionConfig();
-          config.workTypes.coding.label = label;
-          return new URLSearchParams({
-            actionToken: model.actionToken,
-            repositoryId: "repository.fixture",
-            expectedIdentity: identity ?? "",
-            config: JSON.stringify(config),
-          });
-        };
-        /**
-         * 自己生成AMの現在資格だけを変更する。
-         * @responsibility 保存又は読取り後の再認可を反証する。
-         * @trace RCM-IT-005
-         * @precondition 元状態をfinallyで復元する。
-         * @stimulus 降格・失効。
-         * @observation HTTP拒否と正本保持。
-         * @oracle 過去の許可を流用しない。
-         * @cleanup 親Caseが復元・清掃する。
-         * @boundary 合成AMと本番設定受付。
-         */
-        function changeSelectionActor(kind: "role" | "credential"): void {
-          const state = JSON.parse(
-            saved.toString("utf8"),
-          ) as AccessManagementState;
-          state.revision++;
-          state.operationId = randomUUID();
-          if (kind === "role") {
-            const user = state.users.find((entry) => entry.userId === userId);
-            assert.ok(user);
-            user.role = "developer";
-          } else {
-            const credential = state.credentials[0];
-            assert.ok(credential);
-            credential.revoked = true;
-          }
-          fs.writeFileSync(current, JSON.stringify(state));
-        }
+        let stateReads = 0;
+        const open = fs.openSync;
+        const observed = t.mock.method(
+          fs,
+          "openSync",
+          (...args: Parameters<typeof open>) => {
+            if (String(args[0]) === current) stateReads++;
+            return open(...args);
+          },
+        );
+        syncBuiltinESMExports();
         try {
-          for (const role of [
-            "developer",
-            "manager",
-            "administrator",
-          ] as const) {
-            const state = JSON.parse(
-              saved.toString("utf8"),
-            ) as AccessManagementState;
-            const user = state.users.find((entry) => entry.userId === userId);
-            assert.ok(user);
-            user.role = role;
-            fs.writeFileSync(current, JSON.stringify(state));
-            const before = fs.existsSync(configPath)
-              ? fs.readFileSync(configPath)
-              : null;
-            const listed = await fetchWorkbench(endpoint);
-            assert.equal(listed.status, role === "developer" ? 403 : 200);
-            if (role === "developer") {
-              assert.equal((await post(makeForm(null, role))).status, 400);
-              assert.equal(fs.existsSync(configPath), before !== null);
-              continue;
-            }
-            const initial = await listed.json();
-            const form = makeForm(initial.snapshot?.identity ?? null, role);
-            const result = await post(form);
-            assert.equal(result.status, 200);
-            const body = await result.json();
-            assert.equal(body.status, "saved");
-            assert.equal(body.snapshot.config.workTypes.coding.label, role);
-            const stale = makeForm(null, "stale");
-            assert.equal((await (await post(stale)).json()).status, "conflict");
-            const invalid = new URLSearchParams(form);
-            invalid.append("expectedIdentity", "");
-            assert.equal((await post(invalid)).status, 400);
-            const currentConfig = await (await fetchWorkbench(endpoint)).json();
-            assert.equal(
-              currentConfig.snapshot.identity,
-              body.snapshot.identity,
-            );
-          }
-          fs.writeFileSync(current, saved);
-          for (const kind of ["role", "credential"] as const) {
-            const open = fs.openSync,
-              close = fs.closeSync;
-            let owned: number | null = null,
-              reads = 0;
-            const opened = t.mock.method(
-              fs,
-              "openSync",
-              (...args: Parameters<typeof fs.openSync>) => {
-                const fd = open(...args);
-                if (String(args[0]) === configPath) owned = fd;
-                return fd;
-              },
-            );
-            const closed = t.mock.method(fs, "closeSync", (fd: number) => {
-              close(fd);
-              if (fd === owned) {
-                owned = null;
-                reads++;
-                changeSelectionActor(kind);
-              }
-            });
-            syncBuiltinESMExports();
-            try {
-              const reply = await fetchWorkbench(endpoint);
-              assert.equal(reply.status, 403);
-              assert.equal(reads, 1);
-            } finally {
-              opened.mock.restore();
-              closed.mock.restore();
-              syncBuiltinESMExports();
-              fs.writeFileSync(current, saved);
-            }
-          }
-          for (const kind of ["role", "credential", "throw", "cut"] as const) {
-            const before = await (await fetchWorkbench(endpoint)).json();
-            const label = `after-save-${kind}`;
-            const form = makeForm(before.snapshot.identity, label);
-            const client: { request: ClientRequest | null } = { request: null };
-            let publications = 0;
-            const rename = fs.renameSync;
-            const afterSave = t.mock.method(
-              fs,
-              "renameSync",
-              (source: fs.PathLike, destination: fs.PathLike) => {
-                rename(source, destination);
-                if (String(destination) !== configPath) return;
-                publications++;
-                if (kind === "role" || kind === "credential")
-                  changeSelectionActor(kind);
-                if (kind === "throw")
-                  throw Error("fixture_after_selection_publication");
-                if (kind === "cut") client.request?.destroy();
-              },
-            );
-            syncBuiltinESMExports();
-            try {
-              if (kind === "cut") {
-                await new Promise<void>((resolve) => {
-                  client.request = httpRequest(action, {
-                    method: "POST",
-                    agent: false,
-                    headers: {
-                      ...headers,
-                      authorization: `Bearer ${material.token}`,
-                      "content-length": String(
-                        Buffer.byteLength(form.toString()),
-                      ),
-                    },
-                  });
-                  client.request.on("error", () => {});
-                  client.request.once("close", resolve);
-                  client.request.setTimeout(5000, () =>
-                    client.request?.destroy(),
-                  );
-                  client.request.end(form.toString());
-                });
-                await delay(100);
-                assert.equal(client.request?.destroyed, true);
-              } else {
-                const reply = await post(form);
-                assert.equal(reply.status, kind === "throw" ? 200 : 503);
-                if (kind === "throw")
-                  assert.equal((await reply.json()).status, "unknown");
-              }
-              assert.equal(publications, 1);
-            } finally {
-              client.request?.destroy();
-              afterSave.mock.restore();
-              syncBuiltinESMExports();
-              fs.writeFileSync(current, saved);
-            }
-            const currentConfig = await (await fetchWorkbench(endpoint)).json();
-            assert.equal(
-              currentConfig.snapshot.config.workTypes.coding.label,
-              label,
-            );
-            assert.equal(publications, 1);
-          }
-          const open = fs.openSync;
-          const broken = t.mock.method(
-            fs,
-            "openSync",
-            (...args: Parameters<typeof fs.openSync>) => {
-              if (String(args[0]) === configPath)
-                throw Object.assign(Error("fixture_read_unavailable"), {
-                  code: "EACCES",
-                });
-              return open(...args);
-            },
+          fs.closeSync(fs.openSync(current, "r"));
+          assert.equal(stateReads, 1);
+          stateReads = 0;
+          const before = fs.existsSync(configPath)
+            ? fs.readFileSync(configPath)
+            : null;
+          assert.equal((await fetch(endpoint, { headers })).status, 403);
+          assert.equal(
+            (
+              await fetch(endpoint, {
+                method: "PUT",
+                headers,
+                body: JSON.stringify({
+                  expectedIdentity: null,
+                  config: selectionConfig(),
+                }),
+              })
+            ).status,
+            403,
           );
-          syncBuiltinESMExports();
-          try {
-            assert.equal(
-              (await (await fetchWorkbench(endpoint)).json()).status,
-              "blocked",
-            );
-          } finally {
-            broken.mock.restore();
-            syncBuiltinESMExports();
+          assert.deepEqual(
+            fs.existsSync(configPath) ? fs.readFileSync(configPath) : null,
+            before,
+          );
+          for (const view of [
+            "/api/workbench/view",
+            "/api/workbench/view?repositoryId=repository.fixture",
+            "/api/workbench/view?repositoryId=repository.fixture&route=%2Fchange&id=CHG-000001",
+          ]) {
+            const response = await fetch(`${handle.baseUrl}${view}`, {
+              headers,
+            });
+            assert.equal(response.status, 403);
+            assert.deepEqual(await response.json(), {
+              error: "request_rejected",
+            });
           }
-          changeSelectionActor("credential");
-          assert.equal((await fetchWorkbench(endpoint)).status, 403);
-          assert.equal((await fetch(endpoint)).status, 403);
+          assert.ok(cookie);
+          const mixed = await fetch(`${handle.baseUrl}/api/workbench/view`, {
+            headers: { ...headers, cookie },
+          });
+          assert.equal(mixed.status, 403);
+          assert.deepEqual(await mixed.json(), { error: "request_rejected" });
+          assert.equal(stateReads, 0);
         } finally {
+          observed.mock.restore();
+          syncBuiltinESMExports();
           fs.writeFileSync(current, originalManagement);
         }
       }
-      for (const view of [
-        "users",
-        "roles",
-        "repositories",
-        "exposure",
+      for (const [view, route] of [
+        ["users", "/api/users"],
+        ["repositories", "/api/repositories"],
       ] as const) {
-        const reply = await fetchWorkbench(
-          `${handle.baseUrl}/api/access?view=${view}`,
-        );
+        const reply = await fetch(`${managementServer.baseUrl}${route}`, {
+          headers: { cookie: managementServer.cookie },
+        });
+        assert.equal(reply.status, 200);
         const text = await reply.text();
-        assertManagementResponse(JSON.parse(text), view);
+        const { formToken, ...projection } = JSON.parse(text);
+        assert.equal(formToken, managementServer.formToken);
+        assertManagementResponse(projection, view);
         for (const hidden of [
           material.token,
           material.tokenSalt,
@@ -1115,51 +768,48 @@ for (const mode of ["local", "cros"] as const) {
           assert.equal(text.includes(hidden), false);
       }
 
-      /**
-       * 同じUI Form形式で明示管理操作を一回送信する。
-       * @responsibility 現在改訂・受付ID・Action Tokenを保った実POSTを作る。
-       * @trace RFD-IT-021
-       * @trace EST-IT-010
-       * @precondition 本番ModelからAction Tokenを取得済み。
-       * @stimulus 操作固有fieldと現在改訂をURL Formへ渡す。
-       * @observation HTTP結果と保存改訂。
-       * @oracle 既知保存と入力拒否を固定共通結果で検査する。
-       * @cleanup N/A: ServerとRootは親Caseが回収する。
-       * @boundary UI Form相当→本番HTTP→保存Owner。
-       */
-      async function submitMutation(
-        operation: string,
-        fields: Record<string, string | readonly string[]>,
+      const currentRevision = () =>
+        (JSON.parse(fs.readFileSync(current, "utf8")) as AccessManagementState)
+          .revision;
+      const managementFields = () => ({
+        formToken: managementServer.formToken,
+        operationId: randomUUID(),
+        expectedRevision: currentRevision(),
+      });
+      const sendManagement = (
+        method: string,
+        route: string,
+        json: string,
         overrides: Record<string, string> = {},
-      ) {
-        const revision = (
-          JSON.parse(fs.readFileSync(current, "utf8")) as AccessManagementState
-        ).revision;
-        const body = new URLSearchParams({
-          actionToken: model.actionToken,
-          operation,
-          operationId: randomUUID(),
-          expectedRevision: String(revision),
-        });
-        for (const [key, value] of Object.entries(fields))
-          for (const entry of typeof value === "string" ? [value] : value)
-            body.append(key, entry);
-        const response = await fetchWorkbench(`${handle.baseUrl}/api/access`, {
-          method: "POST",
-          body,
+      ) =>
+        fetch(`${managementServer.baseUrl}${route}`, {
+          method,
+          body: json,
           headers: {
-            "content-type": "application/x-www-form-urlencoded",
-            origin: handle.baseUrl,
+            cookie: managementServer.cookie,
+            "content-type": "application/json",
+            origin: managementServer.baseUrl,
             ...overrides,
           },
         });
-        const value: unknown = await response.json();
-        if (response.ok) return assertManagementResponse(value, "mutation");
-        return { httpStatus: response.status };
-      }
+      const invitation = {
+        username: "追加",
+        role: "developer",
+        email: "fixture@example.test",
+      };
+      const invite = (overrides: Record<string, string> = {}) =>
+        sendManagement(
+          "POST",
+          "/api/users",
+          JSON.stringify({
+            ...managementFields(),
+            ...invitation,
+          }),
+          overrides,
+        );
 
       const beforeInvalid = fs.readFileSync(current);
-      const incomplete = await openIncompleteManagementBody(handle.baseUrl);
+      const incomplete = await openIncompleteManagementBody(managementServer);
       const incompleteClosed = new Promise<void>((resolve) =>
         incomplete.once("close", resolve),
       );
@@ -1167,138 +817,139 @@ for (const mode of ["local", "cros"] as const) {
       await incompleteClosed;
       await delay(50);
       assert.deepEqual(fs.readFileSync(current), beforeInvalid);
-      assert.deepEqual(
-        await submitMutation(
-          "registerUser",
-          { username: "拒否", plannedRole: "developer" },
-          { origin: "https://invalid.example" },
-        ),
-        { httpStatus: 400 },
-      );
-      assert.deepEqual(fs.readFileSync(current), beforeInvalid);
-      for (const extra of [
-        { actionToken: "invalid" },
-        { unknownField: "not-accepted" },
-        { username: "duplicate" },
-      ]) {
-        const invalidBody = new URLSearchParams({
-          actionToken: model.actionToken,
-          operation: "registerUser",
-          operationId: randomUUID(),
-          expectedRevision: String(
-            (
-              JSON.parse(
-                fs.readFileSync(current, "utf8"),
-              ) as AccessManagementState
-            ).revision,
-          ),
-          username: "不正入力",
-          plannedRole: "developer",
-        });
-        for (const [key, value] of Object.entries(extra))
-          invalidBody.append(key, value);
-        const invalidReply = await fetchWorkbench(
-          `${handle.baseUrl}/api/access`,
-          {
-            method: "POST",
-            body: invalidBody,
-            headers: { origin: handle.baseUrl },
-          },
-        );
-        assert.equal(invalidReply.status, 400);
-        await invalidReply.arrayBuffer();
+      const wrongOrigin = await invite({ origin: "https://invalid.example" });
+      assert.equal(wrongOrigin.status, 403);
+      await wrongOrigin.arrayBuffer();
+      for (const [body, status] of [
+        [
+          JSON.stringify({
+            ...managementFields(),
+            ...invitation,
+            formToken: "invalid",
+          }),
+          401,
+        ],
+        [
+          JSON.stringify({
+            ...managementFields(),
+            ...invitation,
+            unknownField: true,
+          }),
+          400,
+        ],
+        [
+          `${JSON.stringify({ ...managementFields(), ...invitation }).slice(0, -1)},"username":"duplicate"}`,
+          400,
+        ],
+      ] as const) {
+        const reply = await sendManagement("POST", "/api/users", body);
+        assert.equal(reply.status, status);
+        await reply.arrayBuffer();
         assert.deepEqual(fs.readFileSync(current), beforeInvalid);
       }
-      const registered = await submitMutation("registerUser", {
-        username: "追加",
-        plannedRole: "developer",
-      });
+      const invited = await invite();
+      assert.equal(invited.status, 201);
+      const registered = assertManagementResponse(
+        (await invited.json()).result,
+        "mutation",
+      );
       assert.ok(
-        "status" in registered &&
-          registered.status === "completed" &&
+        registered.status === "completed" &&
           "userId" in registered &&
           registered.userId,
       );
       const newUser = registered.userId;
-      for (const [operation, fields] of [
-        ["updateUserName", { userId: newUser, username: "改名" }],
+      for (const [method, route, fields] of [
+        ["PATCH", `/api/users/${newUser}`, { username: "改名" }],
         [
-          "updateUserRole",
-          { userId: newUser, currentRole: "developer", nextRole: "manager" },
-        ],
-        [
-          "updateRoleContentAccess",
-          { targetRole: "developer", workspaceIds: [] },
+          "PUT",
+          `/api/users/${newUser}/role`,
+          { currentRole: "developer", nextRole: "manager" },
         ],
       ] as const) {
-        const result = await submitMutation(operation, { ...fields });
-        assert.ok("status" in result && result.status === "completed");
+        const result = await sendManagement(
+          method,
+          route,
+          JSON.stringify({ ...managementFields(), ...fields }),
+        );
+        assert.equal(result.status, 200);
+        assert.equal(
+          assertManagementResponse(await result.json(), "mutation").status,
+          "completed",
+        );
       }
-      const registrationFields = {
-        repositoryId: "repository.fixture",
-        repositoryRoot: target,
-      };
+
+      // 現行アカウントで登録し、後段ではGitホスト参照なしの拒否も検証する。
+      const setupRegistration = () =>
+        registerRepository(
+          root,
+          {
+            kind: "account",
+            ...accountBinding,
+            expiresAt: Date.now() + 60_000,
+          },
+          currentRevision(),
+          randomUUID(),
+          "repository.fixture",
+          target,
+          (directory) => {
+            const observed = observeRegistrationDirectory(directory);
+            return observed && { ...observed, hostedRepository: hosted(92) };
+          },
+        );
       const registrationBefore = fs.readFileSync(current);
       const gitDirectory = path.join(target, ".git");
       const displacedGit = path.join(owned, "registration-fixture-git");
       fs.renameSync(gitDirectory, displacedGit);
       try {
-        const rejected = await submitMutation(
-          "registerRepository",
-          registrationFields,
-        );
-        assert.ok("status" in rejected && rejected.status === "unavailable");
+        assert.notEqual(setupRegistration().status, "completed");
         assert.deepEqual(fs.readFileSync(current), registrationBefore);
       } finally {
         fs.renameSync(displacedGit, gitDirectory);
       }
-      const registration = await submitMutation(
-        "registerRepository",
-        registrationFields,
+      assert.equal(setupRegistration().status, "completed");
+      const unlinked = JSON.parse(
+        fs.readFileSync(current, "utf8"),
+      ) as AccessManagementState;
+      const unlinkedRegistration = unlinked.registeredRepositories.find(
+        ({ repositoryId }) => repositoryId === "repository.fixture",
       );
-      assert.ok(
-        "status" in registration && registration.status === "completed",
-      );
+      assert.ok(unlinkedRegistration);
+      delete unlinkedRegistration.hostedRepository;
+      fs.writeFileSync(current, JSON.stringify(unlinked));
+      const attachHost = (state: AccessManagementState) => {
+        const registration = state.registeredRepositories.find(
+          ({ repositoryId }) => repositoryId === "repository.fixture",
+        );
+        assert.ok(registration);
+        registration.hostedRepository = hosted(92);
+      };
       const beforeLocalProjection = fs.readFileSync(current);
       const contextBody = fs.readFileSync(
         path.join(target, "PROJECT_CONTEXT.md"),
       );
       try {
-        const context = { root, token: material.token };
         const signal = new AbortController().signal;
-        assert.equal(readAccessPortfolio(context, signal).projects.length, 0);
-        assert.equal(
-          resolveAccessRepository(context, "repository.fixture", signal),
-          null,
-        );
-        assert.equal(
-          resolveAccessRepository(context, "repository.absent", signal),
-          null,
-        );
         const projectionState = JSON.parse(
           beforeLocalProjection.toString("utf8"),
         ) as AccessManagementState;
-        const administrator = projectionState.roleContentAccess.find(
-          (entry) => entry.role === "administrator",
+        const manifest = readRepositoryManifest(target);
+        const registered = projectionState.registeredRepositories.find(
+          ({ repositoryId }) => repositoryId === "repository.fixture",
         );
-        assert.ok(administrator);
-        administrator.workspaceIds = ["development"];
-        projectionState.exposure = [
-          { repositoryId: "repository.fixture", workspaceIds: ["development"] },
-        ];
-        fs.writeFileSync(current, JSON.stringify(projectionState));
-        const projected = readAccessPortfolio(context, signal);
+        assert.ok(manifest.status === "ready" && registered);
+        const ownedTarget = {
+          root: target,
+          repositoryId: registered.repositoryId,
+          bindingId: registered.bindingId,
+          manifest: manifest.manifest,
+        };
         const readRecords = (
           repositoryId: string,
           currentSignal: AbortSignal,
         ) => {
-          const allowed = resolveRepositoryAccessCollection(
-            context.root,
-            context.token,
-          );
-          assert.equal(allowed.status, "completed");
           return resolveTopicMeetingAccess(
-            allowed.repositories,
+            [ownedTarget],
             repositoryId,
             currentSignal,
             "workbench_local_records_unavailable",
@@ -1319,72 +970,74 @@ for (const mode of ["local", "cros"] as const) {
         assert.equal(createdTopic.status, "completed");
         assert.ok(records.topic.getDocument("TOPIC-000001"));
         if (mode === "cros") {
+          const linked = structuredClone(projectionState);
+          attachHost(linked);
+          fs.writeFileSync(current, JSON.stringify(linked));
+          recordHandle = await startWorkbench({ workingDirectory: target });
+          const recordBase = recordHandle.baseUrl;
+          const repositoryPath = "/api/repositories/repository.fixture";
+          const topicPath = `${repositoryPath}/topics`;
+          const actionHeaders = {
+            origin: recordBase,
+            "content-type": "application/json",
+          };
+          const writeRecord = (target: string, method: string, body: object) =>
+            fetch(`${recordBase}${target}`, {
+              method,
+              headers: actionHeaders,
+              body: JSON.stringify(body),
+            });
           for (const kind of ["topic", "meeting"] as const) {
             const id = kind === "topic" ? "TOPIC-000077" : "MTG-000077";
             const markdown = `# 保存試験\n\n成果物種別: ${kind === "topic" ? "Topic" : "Meeting"}\n${kind === "topic" ? "Topic" : "Meeting"} ID: \`${id}\`\nProject ID: \`project.fixture\`\n状態: \`${kind === "topic" ? "open" : "recorded"}\`\n${kind === "meeting" ? "開催日時: `2026-10-13 09:00 JST`\n" : ""}改訂: \`1\`\n維持責任者: \`試験担当\`\n\n## 1. 現在の論点\n\n### 結論\n\n指定先への保存だけを行う。\n`;
-            const form = new URLSearchParams({
-              actionToken: model.actionToken,
-              repositoryId: "repository.fixture",
-              kind,
-              operation: "create",
-              markdown:
-                kind === "meeting"
-                  ? markdown +
-                    "\n## 4. Outcome\n\n| Local ID | 状態 |\n|---|---|\n"
-                  : markdown,
-            });
-            const options = {
-              method: "POST",
-              headers: {
-                origin: handle.baseUrl,
-                "content-type": "application/x-www-form-urlencoded",
-              },
-              body: form,
-            };
-            const endpoint = `${handle.baseUrl}/api/records`;
+            const savedMarkdown =
+              kind === "meeting"
+                ? markdown +
+                  "\n## 4. Outcome\n\n| Local ID | 状態 |\n|---|---|\n"
+                : markdown;
+            const collection = `${repositoryPath}/${kind}s`;
+            const item = `${collection}/${id}`;
             for (const rejected of [
-              new URLSearchParams([
-                ...form,
-                ["repositoryId", "repository.fixture"],
-              ]),
-              new URLSearchParams([...form, ["unknown", "value"]]),
-              new URLSearchParams({
-                ...Object.fromEntries(form),
+              `{"markdown":${JSON.stringify(savedMarkdown)},"markdown":${JSON.stringify(savedMarkdown)}}`,
+              JSON.stringify({ markdown: savedMarkdown, unknown: "value" }),
+              JSON.stringify({
+                markdown: savedMarkdown,
                 repositoryId: "repository.absent",
               }),
             ]) {
-              const denied = await fetchWorkbench(endpoint, {
-                ...options,
+              const denied = await fetch(`${recordBase}${collection}`, {
+                method: "POST",
+                headers: actionHeaders,
                 body: rejected,
               });
               assert.equal(denied.status, 400);
-              assert.equal(
-                await denied.text(),
-                "topic_meeting_action_rejected\n",
-              );
+              assert.deepEqual(await denied.json(), {
+                error: "invalid_request",
+              });
               assert.equal(records[kind].getDocument(id), null);
             }
-            const created = await fetchWorkbench(endpoint, options);
-            assert.doesNotThrow(
-              () => validateTopicMeetingActionForm(form),
-              `record_form_${kind}`,
+            const absent = await writeRecord(
+              `/api/repositories/repository.absent/${kind}s`,
+              "POST",
+              { markdown: savedMarkdown },
             );
-            assert.equal(created.status, 200, `record_create_${kind}`);
+            assert.equal(absent.status, 404);
+            assert.equal(records[kind].getDocument(id), null);
+            const created = await writeRecord(collection, "POST", {
+              markdown: savedMarkdown,
+            });
+            assert.equal(created.status, 201, `record_create_${kind}`);
             assert.equal((await created.json()).filesystemEffectCount, 1);
-            const savedMarkdown = form.get("markdown") ?? "";
             assert.equal(
               records[kind].getDocument(id)?.markdown,
               savedMarkdown,
             );
-            form.set("operation", "update");
-            form.set("id", id);
-            form.set("expectedRevision", "9");
-            form.set(
-              "markdown",
-              savedMarkdown.replace("改訂: `1`", "改訂: `2`"),
-            );
-            const conflict = await fetchWorkbench(endpoint, options);
-            assert.equal(conflict.status, 200);
+            const revised = savedMarkdown.replace("改訂: `1`", "改訂: `2`");
+            const conflict = await writeRecord(item, "PATCH", {
+              expectedRevision: 9,
+              markdown: revised,
+            });
+            assert.equal(conflict.status, 409);
             assert.equal(
               (await conflict.json()).reason,
               "record_revision_conflict",
@@ -1393,54 +1046,51 @@ for (const mode of ["local", "cros"] as const) {
               records[kind].getDocument(id)?.markdown,
               savedMarkdown,
             );
-            form.set("expectedRevision", "1");
-            const updated = await fetchWorkbench(endpoint, options);
+            const updated = await writeRecord(item, "PATCH", {
+              expectedRevision: 1,
+              markdown: revised,
+            });
             assert.equal(updated.status, 200);
             assert.equal((await updated.json()).filesystemEffectCount, 1);
-            assert.equal(
-              records[kind].getDocument(id)?.markdown,
-              form.get("markdown"),
-            );
-            form.set("operation", "delete");
-            form.delete("markdown");
-            form.set("expectedRevision", "2");
+            assert.equal(records[kind].getDocument(id)?.markdown, revised);
+            const deletion = {
+              expectedRevision: 2,
+              reason: "mistaken_registration",
+            };
             const beforeDelete: string | undefined =
               records[kind].getDocument(id)?.markdown;
             for (const value of [null, "invalid"] as const) {
-              const malformed = new URLSearchParams(form);
-              if (value !== null) malformed.set("confirmed", value);
-              const denied = await fetchWorkbench(endpoint, {
-                ...options,
-                body: malformed,
-              });
+              const denied = await writeRecord(
+                item,
+                "DELETE",
+                value === null ? deletion : { ...deletion, confirmed: value },
+              );
               assert.equal(denied.status, 400);
               assert.equal(
                 records[kind].getDocument(id)?.markdown,
                 beforeDelete,
               );
             }
-            form.set("confirmed", "false");
-            const unconfirmed = await fetchWorkbench(endpoint, options);
-            assert.equal(unconfirmed.status, 200);
+            const unconfirmed = await writeRecord(item, "DELETE", {
+              ...deletion,
+              confirmed: false,
+            });
+            assert.equal(unconfirmed.status, 409);
             assert.equal(
               (await unconfirmed.json()).reason,
               "record_delete_confirmation_required",
             );
             assert.ok(records[kind].getDocument(id));
-            form.set("confirmed", "true");
-            const deleted = await fetchWorkbench(endpoint, options);
+            const deleted = await writeRecord(item, "DELETE", {
+              ...deletion,
+              confirmed: true,
+            });
             assert.equal(deleted.status, 200);
             assert.equal((await deleted.json()).filesystemEffectCount, 1);
             assert.equal(records[kind].getDocument(id), null);
           }
-          const outcomeForm = new URLSearchParams({
-            actionToken: model.actionToken,
-            repositoryId: "repository.fixture",
-            kind: "meeting",
-            operation: "treat-outcome",
-            id: "MTG-000088",
-            expectedRevision: "1",
-            outcomeId: "OUT-001",
+          const outcomeInput = {
+            expectedRevision: 1,
             disposition: "completed",
             owner: "試験担当",
             reviewTrigger: "試験終了",
@@ -1449,8 +1099,8 @@ for (const mode of ["local", "cros"] as const) {
             treatment: "処置済み",
             completionCondition: "確認済み",
             result: "確認済み",
-            closeMeeting: "false",
-          });
+            closeMeeting: false,
+          };
           const beforeInvalid = fs.readFileSync(current);
           let domainReads = 0;
           const originalRecordRead = fs.readFileSync;
@@ -1480,29 +1130,28 @@ for (const mode of ["local", "cros"] as const) {
             ] as const) {
               for (const missing of [true, false]) {
                 if (!missing && field === "owner") continue;
-                const invalid = new URLSearchParams(outcomeForm);
-                if (missing) invalid.delete(field);
-                else invalid.set(field, "invalid");
-                const response = await fetchWorkbench(
-                  `${handle.baseUrl}/api/records`,
-                  {
-                    method: "POST",
-                    headers: {
-                      origin: handle.baseUrl,
-                      "content-type": "application/x-www-form-urlencoded",
-                    },
-                    body: invalid,
-                  },
+                const invalid: Record<string, unknown> = { ...outcomeInput };
+                let outcomeTarget = "/OUT-001";
+                if (field === "outcomeId")
+                  outcomeTarget = missing ? "" : "/invalid";
+                else if (missing) delete invalid[field];
+                else invalid[field] = "invalid";
+                const response = await writeRecord(
+                  `${repositoryPath}/meetings/MTG-000088/outcomes${outcomeTarget}/treatment`,
+                  "PUT",
+                  invalid,
                 );
+                const missingPath = field === "outcomeId" && missing;
                 assert.equal(
                   response.status,
-                  400,
+                  missingPath ? 405 : 400,
                   `invalid_outcome_${field}_${missing}`,
                 );
-                assert.equal(
-                  await response.text(),
-                  "topic_meeting_action_rejected\n",
-                );
+                if (missingPath) await response.arrayBuffer();
+                else
+                  assert.deepEqual(await response.json(), {
+                    error: "invalid_request",
+                  });
                 assert.equal(domainReads, 0);
                 assert.deepEqual(fs.readFileSync(current), beforeInvalid);
               }
@@ -1516,10 +1165,15 @@ for (const mode of ["local", "cros"] as const) {
             observation.mock.restore();
             syncBuiltinESMExports();
           }
-          const savedBeforeFailure = fs.readFileSync(current);
+          const recordManifest = path.join(
+            target,
+            ".crdd",
+            "config",
+            "repository-manifest.json",
+          );
+          const savedBeforeFailure = fs.readFileSync(recordManifest);
           for (const [index, failure] of [
-            "exposure",
-            "credential",
+            "manifest",
             "throw",
             "cancel",
             "normal",
@@ -1527,13 +1181,7 @@ for (const mode of ["local", "cros"] as const) {
             const id = `TOPIC-${String(88 + index).padStart(6, "0")}`;
             const markdown = `# 保存後反例\n\n成果物種別: Topic\nTopic ID: \`${id}\`\nProject ID: \`project.fixture\`\n状態: \`open\`\n改訂: \`1\`\n維持責任者: \`試験担当\`\n\n## 1. 現在の論点\n\n### 結論\n\n保存後の失敗を未保存へ畳まない。\n`;
             const targetFile = path.join(target, "22_Topics", id, "topic.md");
-            const form = new URLSearchParams({
-              actionToken: model.actionToken,
-              repositoryId: "repository.fixture",
-              kind: "topic",
-              operation: "create",
-              markdown,
-            });
+            const data = JSON.stringify({ markdown });
             const client: { request: ClientRequest | null } = { request: null };
             let writes = 0;
             let successBodies = 0;
@@ -1550,10 +1198,7 @@ for (const mode of ["local", "cros"] as const) {
                 this: ServerResponse,
                 socket: Parameters<typeof originalAssign>[0],
               ) {
-                if (
-                  this.req.method === "POST" &&
-                  this.req.url === "/api/records"
-                )
+                if (this.req.method === "POST" && this.req.url === topicPath)
                   this.once("close", () => {
                     serverClosed = true;
                     observeClose?.();
@@ -1572,8 +1217,8 @@ for (const mode of ["local", "cros"] as const) {
                 const url = new URL(this.req.url ?? "/", "http://127.0.0.1");
                 if (
                   this.req.method === "POST" &&
-                  `${url.pathname}${url.search}` === "/api/records" &&
-                  this.statusCode === 200 &&
+                  `${url.pathname}${url.search}` === topicPath &&
+                  this.statusCode === 201 &&
                   args[0] !== undefined
                 )
                   successBodies += 1;
@@ -1595,37 +1240,31 @@ for (const mode of ["local", "cros"] as const) {
                   client.request?.destroy();
                   return;
                 }
-                const state = JSON.parse(
+                const manifest = JSON.parse(
                   savedBeforeFailure.toString("utf8"),
-                ) as AccessManagementState;
-                state.revision += 1;
-                if (failure === "exposure") state.exposure = [];
-                else {
-                  const credential = state.credentials[0];
-                  assert.ok(credential);
-                  credential.revoked = true;
-                }
-                fs.writeFileSync(current, JSON.stringify(state));
+                );
+                fs.writeFileSync(
+                  recordManifest,
+                  JSON.stringify({
+                    ...manifest,
+                    displayName: "変更された試験対象",
+                  }),
+                );
               },
             );
             syncBuiltinESMExports();
             try {
               if (failure === "cancel") {
                 await new Promise<void>((resolve, reject) => {
-                  const data = form.toString();
-                  const outgoing = httpRequest(
-                    `${handle.baseUrl}/api/records`,
-                    {
-                      method: "POST",
-                      agent: false,
-                      headers: {
-                        authorization: `Bearer ${material.token}`,
-                        origin: handle.baseUrl,
-                        "content-type": "application/x-www-form-urlencoded",
-                        "content-length": Buffer.byteLength(data),
-                      },
+                  const outgoing = httpRequest(`${recordBase}${topicPath}`, {
+                    method: "POST",
+                    agent: false,
+                    headers: {
+                      origin: recordBase,
+                      "content-type": "application/json",
+                      "content-length": Buffer.byteLength(data),
                     },
-                  );
+                  });
                   client.request = outgoing;
                   outgoing.once("error", () => resolve());
                   outgoing.once("response", (reply) => {
@@ -1637,26 +1276,19 @@ for (const mode of ["local", "cros"] as const) {
                   outgoing.end(data);
                 });
               } else {
-                const reply = await fetchWorkbench(
-                  `${handle.baseUrl}/api/records`,
-                  {
-                    method: "POST",
-                    headers: {
-                      origin: handle.baseUrl,
-                      "content-type": "application/x-www-form-urlencoded",
-                    },
-                    body: form,
-                  },
-                );
+                const reply = await writeRecord(topicPath, "POST", {
+                  markdown,
+                });
                 if (failure === "normal") {
-                  assert.equal(reply.status, 200);
+                  assert.equal(reply.status, 201);
                   assert.equal((await reply.json()).filesystemEffectCount, 1);
                 } else {
                   assert.equal(reply.status, 503, failure);
-                  assert.equal(
-                    await reply.text(),
-                    "topic_meeting_action_outcome_unconfirmed\n",
-                  );
+                  assert.deepEqual(await reply.json(), {
+                    status: "unavailable",
+                    reason: "record_publication_unconfirmed",
+                    effectState: "unknown",
+                  });
                 }
               }
               let deadline: ReturnType<typeof setTimeout> | undefined;
@@ -1682,7 +1314,7 @@ for (const mode of ["local", "cros"] as const) {
               );
               assert.equal(writes, 1, failure);
               assert.equal(fs.readFileSync(targetFile, "utf8"), markdown);
-              fs.writeFileSync(current, savedBeforeFailure);
+              fs.writeFileSync(recordManifest, savedBeforeFailure);
               const beforeFresh = fs.readFileSync(targetFile);
               const fresh = await fetchWorkbench(
                 `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
@@ -1701,7 +1333,7 @@ for (const mode of ["local", "cros"] as const) {
               assigned.mock.restore();
               publication.mock.restore();
               syncBuiltinESMExports();
-              fs.writeFileSync(current, savedBeforeFailure);
+              fs.writeFileSync(recordManifest, savedBeforeFailure);
             }
           }
           const promotionMarkdown =
@@ -1710,26 +1342,19 @@ for (const mode of ["local", "cros"] as const) {
             records.topic.create(promotionMarkdown).status,
             "completed",
           );
-          const promote = new URLSearchParams({
-            actionToken: model.actionToken,
-            repositoryId: "repository.fixture",
-            kind: "topic",
-            operation: "promote-topic",
-            id: "TOPIC-000099",
-            expectedRevision: "1",
+          const promote = {
+            expectedRevision: 1,
             changeId: "CHG-000099",
             reason: "具体変更として扱う",
             remainingResponsibility: "CHG終了時に再確認",
-          });
-          const actionHeaders = {
-            origin: handle.baseUrl,
-            "content-type": "application/x-www-form-urlencoded",
           };
-          const missingChange = await fetchWorkbench(
-            `${handle.baseUrl}/api/records`,
-            { method: "POST", headers: actionHeaders, body: promote },
+          const promotionTarget = `${topicPath}/TOPIC-000099/promotion`;
+          const missingChange = await writeRecord(
+            promotionTarget,
+            "POST",
+            promote,
           );
-          assert.equal(missingChange.status, 200);
+          assert.equal(missingChange.status, 409);
           assert.equal(
             (await missingChange.json()).reason,
             "topic_promotion_target_not_found",
@@ -1749,21 +1374,19 @@ for (const mode of ["local", "cros"] as const) {
             path.join(changeDirectory, "change.md"),
             "# 自己生成変更\n",
           );
-          const promoted = await fetchWorkbench(
-            `${handle.baseUrl}/api/records`,
-            { method: "POST", headers: actionHeaders, body: promote },
-          );
+          const promoted = await writeRecord(promotionTarget, "POST", promote);
           assert.equal(promoted.status, 200);
           assert.equal((await promoted.json()).filesystemEffectCount, 1);
           assert.equal(
             records.topic.getDocument("TOPIC-000099")?.record.state,
             "promoted",
           );
-          const promotionConflict = await fetchWorkbench(
-            `${handle.baseUrl}/api/records`,
-            { method: "POST", headers: actionHeaders, body: promote },
+          const promotionConflict = await writeRecord(
+            promotionTarget,
+            "POST",
+            promote,
           );
-          assert.equal(promotionConflict.status, 200);
+          assert.equal(promotionConflict.status, 409);
           assert.equal(
             (await promotionConflict.json()).reason,
             "record_revision_conflict",
@@ -1774,15 +1397,17 @@ for (const mode of ["local", "cros"] as const) {
             records.meeting.create(meetingMarkdown).status,
             "completed",
           );
-          const treatment = new URLSearchParams(outcomeForm);
-          treatment.set("id", "MTG-000099");
-          treatment.set("targetReference", "N/A: 自己完結");
-          treatment.set("closeMeeting", "true");
-          const pendingClose = await fetchWorkbench(
-            `${handle.baseUrl}/api/records`,
-            { method: "POST", headers: actionHeaders, body: treatment },
+          const treatment = {
+            ...outcomeInput,
+            targetReference: "N/A: 自己完結",
+          };
+          const outcomes = `${repositoryPath}/meetings/MTG-000099/outcomes`;
+          const pendingClose = await writeRecord(
+            `${outcomes}/OUT-001/treatment`,
+            "PUT",
+            { ...treatment, closeMeeting: true },
           );
-          assert.equal(pendingClose.status, 200);
+          assert.equal(pendingClose.status, 409);
           assert.equal(
             (await pendingClose.json()).reason,
             "meeting_outcome_invalid",
@@ -1791,10 +1416,10 @@ for (const mode of ["local", "cros"] as const) {
             records.meeting.getDocument("MTG-000099")?.markdown,
             meetingMarkdown,
           );
-          treatment.set("closeMeeting", "false");
-          const firstOutcome = await fetchWorkbench(
-            `${handle.baseUrl}/api/records`,
-            { method: "POST", headers: actionHeaders, body: treatment },
+          const firstOutcome = await writeRecord(
+            `${outcomes}/OUT-001/treatment`,
+            "PUT",
+            treatment,
           );
           assert.equal(firstOutcome.status, 200);
           assert.equal((await firstOutcome.json()).filesystemEffectCount, 1);
@@ -1802,12 +1427,10 @@ for (const mode of ["local", "cros"] as const) {
             records.meeting.getDocument("MTG-000099")?.record.state,
             "recorded",
           );
-          treatment.set("expectedRevision", "2");
-          treatment.set("outcomeId", "OUT-002");
-          treatment.set("closeMeeting", "true");
-          const closedMeeting = await fetchWorkbench(
-            `${handle.baseUrl}/api/records`,
-            { method: "POST", headers: actionHeaders, body: treatment },
+          const closedMeeting = await writeRecord(
+            `${outcomes}/OUT-002/treatment`,
+            "PUT",
+            { ...treatment, expectedRevision: 2, closeMeeting: true },
           );
           assert.equal(closedMeeting.status, 200);
           assert.equal(
@@ -1825,6 +1448,11 @@ for (const mode of ["local", "cros"] as const) {
           const body = await reply.text();
           const selectedModel = assertViewResponse(JSON.parse(body));
           assert.ok(selectedModel.view === "main");
+          assert.equal(selectedModel.workspaceAccess, "write");
+          assert.deepEqual(selectedModel.repositoryActions, [
+            "prepare",
+            "unprepare",
+          ]);
           assert.equal(
             selectedModel.selectedRepositoryId,
             "repository.fixture",
@@ -1837,18 +1465,18 @@ for (const mode of ["local", "cros"] as const) {
             selectedModel.projectData.context.projectId,
             "project.fixture",
           );
-          assert.equal(
-            selectedModel.aiSelection?.selection.status,
-            "available",
-          );
+          assert.equal(selectedModel.aiSelection?.selection.status, "missing");
           assert.equal(selectedModel.executionActivity?.state, "absent");
           assert.equal(selectedModel.executionActivity.projection, null);
           assert.equal(selectedModel.aiRequest.configured, false);
           assert.equal("candidateConfigured" in selectedModel.aiRequest, false);
-          assert.equal(selectedModel.repositoryResult, null);
-          assert.equal(selectedModel.recordActionResult, null);
-          assert.ok(selectedModel.aiSelectionManagement.snapshot);
-          assert.equal(selectedModel.aiSelectionManagement.allowed, true);
+          assert.equal(Object.hasOwn(selectedModel, "repositoryResult"), false);
+          assert.equal(
+            Object.hasOwn(selectedModel, "recordActionResult"),
+            false,
+          );
+          assert.equal(selectedModel.aiSelectionManagement.snapshot, null);
+          assert.equal(selectedModel.aiSelectionManagement.allowed, false);
           for (const secret of [material.token, root.root, target, "bindingId"])
             assert.equal(body.includes(secret), false);
           const detail = await fetchWorkbench(
@@ -1933,15 +1561,14 @@ for (const mode of ["local", "cros"] as const) {
             contextBody,
           );
           const scoped = structuredClone(projectionState);
+          attachHost(scoped);
           scoped.registeredRepositories.push({
             repositoryId: "repository.sibling",
             repositoryRoot: sibling,
             bindingId: deriveRepositoryBindingId("repository.sibling", sibling),
+            hostedRepository: hosted(93),
           });
-          scoped.exposure.push({
-            repositoryId: "repository.sibling",
-            workspaceIds: ["development"],
-          });
+          configureRemote(sibling, hostRepositories[1]);
           const foreign = path.join(owned, "foreign");
           fs.mkdirSync(path.join(foreign, ".crdd", "config"), {
             recursive: true,
@@ -1971,11 +1598,9 @@ for (const mode of ["local", "cros"] as const) {
             repositoryId: "repository.foreign",
             repositoryRoot: foreign,
             bindingId: deriveRepositoryBindingId("repository.foreign", foreign),
+            hostedRepository: hosted(94),
           });
-          scoped.exposure.push({
-            repositoryId: "repository.foreign",
-            workspaceIds: ["development"],
-          });
+          configureRemote(foreign, hostRepositories[2]);
           for (const directory of [target, sibling, foreign]) {
             assert.equal(
               spawnSync(
@@ -2000,10 +1625,11 @@ for (const mode of ["local", "cros"] as const) {
           }
           for (let index = 0; index < 25; index++)
             recordFixtureActivity(
-              index % 2 === 0 ? target : sibling,
+              target,
               "project.fixture",
               `task.fixture-${index}`,
             );
+          recordFixtureActivity(sibling, "project.fixture", "task.sibling");
           recordFixtureActivity(foreign, "project.other", "task.foreign");
           fs.writeFileSync(current, JSON.stringify(scoped));
           const siblingState = fs.readFileSync(current);
@@ -2026,33 +1652,20 @@ for (const mode of ["local", "cros"] as const) {
               siblingWrites += 1;
               const removed = structuredClone(scoped);
               removed.revision += 1;
-              removed.exposure = removed.exposure.filter(
-                (entry) => entry.repositoryId !== "repository.sibling",
-              );
+              removed.registeredRepositories =
+                removed.registeredRepositories.filter(
+                  (entry) => entry.repositoryId !== "repository.sibling",
+                );
               fs.writeFileSync(current, JSON.stringify(removed));
             },
           );
           syncBuiltinESMExports();
           try {
-            const reply = await fetchWorkbench(
-              `${handle.baseUrl}/api/records`,
-              {
-                method: "POST",
-                headers: actionHeaders,
-                body: new URLSearchParams({
-                  actionToken: model.actionToken,
-                  repositoryId: "repository.fixture",
-                  kind: "topic",
-                  operation: "create",
-                  markdown: siblingMarkdown,
-                }),
-              },
-            );
-            assert.equal(reply.status, 503);
-            assert.equal(
-              await reply.text(),
-              "topic_meeting_action_outcome_unconfirmed\n",
-            );
+            const reply = await writeRecord(topicPath, "POST", {
+              markdown: siblingMarkdown,
+            });
+            assert.equal(reply.status, 201);
+            assert.equal((await reply.json()).filesystemEffectCount, 1);
             assert.equal(siblingWrites, 1);
             assert.equal(
               fs.readFileSync(siblingRecordFile, "utf8"),
@@ -2084,7 +1697,9 @@ for (const mode of ["local", "cros"] as const) {
           assert.equal(activityModel.executionActivity?.events.length, 20);
           assert.equal(
             activityModel.executionActivity?.events.some(
-              (entry) => entry.taskId === "task.foreign",
+              (entry) =>
+                entry.taskId === "task.foreign" ||
+                entry.taskId === "task.sibling",
             ),
             false,
           );
@@ -2139,7 +1754,7 @@ for (const mode of ["local", "cros"] as const) {
             null,
           );
           const historyPath = path.join(
-            sibling,
+            target,
             ".crdd",
             "execution-intelligence",
             "history.jsonl",
@@ -2251,7 +1866,7 @@ for (const mode of ["local", "cros"] as const) {
                   `${handle.baseUrl}${selectedUrl}`,
                   {
                     agent: false,
-                    headers: { authorization: `Bearer ${material.token}` },
+                    headers: { cookie: cookie ?? "" },
                   },
                 );
                 client.request.on("error", () => {});
@@ -2269,7 +1884,7 @@ for (const mode of ["local", "cros"] as const) {
                 0,
                 "cancelled_activity_success_body_zero",
               );
-              assert.equal(reads.length, cancelStage === "before" ? 0 : 2);
+              assert.equal(reads.length, cancelStage === "before" ? 0 : 1);
               assert.equal(
                 new Set(reads).size,
                 reads.length,
@@ -2278,7 +1893,7 @@ for (const mode of ["local", "cros"] as const) {
               assert.equal(
                 reads.filter((name) => name === historyPath).length,
                 cancelStage === "before" ? 0 : 1,
-                "started_reader_joins_sibling",
+                "started_reader_joins_selected_repository",
               );
             } finally {
               client.request?.destroy();
@@ -2294,7 +1909,7 @@ for (const mode of ["local", "cros"] as const) {
                   `${handle.baseUrl}${selectedUrl}`,
                   {
                     agent: false,
-                    headers: { authorization: `Bearer ${material.token}` },
+                    headers: { cookie: cookie ?? "" },
                   },
                   (response) => {
                     const chunks: Buffer[] = [];
@@ -2337,9 +1952,9 @@ for (const mode of ["local", "cros"] as const) {
             );
           try {
             for (const scenario of [
-              "selected-exposure",
-              "credential",
-              "sibling-exposure",
+              "selected-registration",
+              "account",
+              "sibling-registration",
               "binding",
               "manifest",
               "reorder",
@@ -2370,23 +1985,27 @@ for (const mode of ["local", "cros"] as const) {
                       if (scenario !== "reorder") next.revision++;
                       if (scenario === "reorder") {
                         next.registeredRepositories.reverse();
-                        next.exposure.reverse();
                       }
-                      if (scenario === "credential") {
-                        const credential = next.credentials[0];
-                        assert.ok(credential);
-                        credential.revoked = true;
+                      if (scenario === "account") {
+                        const user = next.users.find(
+                          (entry) => entry.userId === userId,
+                        );
+                        assert.ok(user);
+                        user.accountLinks = [];
                       }
-                      if (scenario === "selected-exposure")
-                        next.exposure = next.exposure.filter(
-                          (entry) =>
-                            entry.repositoryId !== "repository.fixture",
-                        );
-                      if (scenario === "sibling-exposure")
-                        next.exposure = next.exposure.filter(
-                          (entry) =>
-                            entry.repositoryId !== "repository.sibling",
-                        );
+                      if (
+                        scenario === "selected-registration" ||
+                        scenario === "sibling-registration"
+                      ) {
+                        const id =
+                          scenario === "selected-registration"
+                            ? "repository.fixture"
+                            : "repository.sibling";
+                        next.registeredRepositories =
+                          next.registeredRepositories.filter(
+                            (entry) => entry.repositoryId !== id,
+                          );
+                      }
                       if (scenario === "binding") {
                         const registration = next.registeredRepositories.find(
                           (entry) =>
@@ -2488,41 +2107,10 @@ for (const mode of ["local", "cros"] as const) {
           }
         }
         assert.equal(readRecords("repository.absent", signal), null);
-        assert.equal(
-          resolveAccessRepository(context, "repository.fixture", signal)
-            ?.repositoryId,
-          "repository.fixture",
-        );
-        assert.equal(
-          resolveAccessRepository(context, "repository.absent", signal),
-          null,
-        );
-        assert.equal(resolveAccessRepository(context, "", signal), null);
-        assert.equal(projected.projects.length, 1);
-        assert.equal(projected.projects[0]?.projectId, "project.fixture");
-        assert.equal(
-          projected.projects[0]?.sources[0]?.repositoryId,
-          "repository.fixture",
-        );
-        assert.equal(JSON.stringify(projected).includes(material.token), false);
-        assert.equal(JSON.stringify(projected).includes(root.root), false);
-        fs.writeFileSync(
-          path.join(target, "PROJECT_CONTEXT.md"),
-          "synthetic-invalid-context",
-        );
-        const incomplete = readAccessPortfolio(context, signal);
-        assert.equal(incomplete.projects[0]?.state, "partial");
-        assert.deepEqual(incomplete.projects[0]?.sources[0], {
-          repositoryId: "repository.fixture",
-          state: "unavailable",
-          revision: null,
-          repositoryRole: null,
-          context: null,
-        });
-        fs.writeFileSync(path.join(target, "PROJECT_CONTEXT.md"), contextBody);
-        projectionState.exposure = [];
-        fs.writeFileSync(current, JSON.stringify(projectionState));
         if (mode === "cros") {
+          const removed = structuredClone(projectionState);
+          removed.registeredRepositories = [];
+          fs.writeFileSync(current, JSON.stringify(removed));
           const withdrawn = await fetchWorkbench(
             `${handle.baseUrl}/api/workbench/view?repositoryId=repository.fixture`,
           );
@@ -2532,34 +2120,6 @@ for (const mode of ["local", "cros"] as const) {
             "local_repository_access_unavailable\n",
           );
         }
-        assert.equal(readAccessPortfolio(context, signal).projects.length, 0);
-        assert.equal(readRecords("repository.fixture", signal), null);
-        assert.equal(
-          resolveAccessRepository(context, "repository.fixture", signal),
-          null,
-        );
-        const credential = projectionState.credentials[0];
-        assert.ok(credential);
-        credential.revoked = true;
-        fs.writeFileSync(current, JSON.stringify(projectionState));
-        assert.throws(() => readAccessPortfolio(context, signal));
-        assert.throws(() =>
-          resolveAccessRepository(context, "repository.fixture", signal),
-        );
-        assert.notEqual(
-          resolveRepositoryAccessCollection(context.root, context.token).status,
-          "completed",
-        );
-        const cancelled = new AbortController();
-        cancelled.abort();
-        assert.throws(() => readAccessPortfolio(context, cancelled.signal));
-        assert.throws(() =>
-          resolveAccessRepository(
-            context,
-            "repository.fixture",
-            cancelled.signal,
-          ),
-        );
       } finally {
         fs.writeFileSync(current, beforeLocalProjection);
         fs.writeFileSync(path.join(target, "PROJECT_CONTEXT.md"), contextBody);
@@ -2567,16 +2127,14 @@ for (const mode of ["local", "cros"] as const) {
       let signalEntered!: () => void;
       let releaseRead!: () => void;
       if (mode === "cros") {
-        const allowed = await submitMutation("updateRoleContentAccess", {
-          targetRole: "administrator",
-          workspaceIds: ["development"],
-        });
-        assert.ok("status" in allowed && allowed.status === "completed");
-        const published = await submitMutation("updateExposure", {
-          repositoryId: "repository.fixture",
-          workspaceIds: ["development"],
-        });
-        assert.ok("status" in published && published.status === "completed");
+        // 進行中の本文読取りを管理RESTの登録解除で失効させる。
+        const state = JSON.parse(
+          fs.readFileSync(current, "utf8"),
+        ) as AccessManagementState;
+        attachHost(state);
+        state.revision++;
+        state.operationId = randomUUID();
+        fs.writeFileSync(current, JSON.stringify(state));
       }
       const entered = new Promise<void>((resolve) => {
         signalEntered = resolve;
@@ -2616,15 +2174,16 @@ for (const mode of ["local", "cros"] as const) {
             }),
           ]);
         }
-        const exposure = await submitMutation("updateExposure", {
-          repositoryId: "repository.fixture",
-          workspaceIds: [],
-        });
-        assert.ok("status" in exposure && exposure.status === "completed");
-        const removed = await submitMutation("unregisterRepository", {
-          repositoryId: "repository.fixture",
-        });
-        assert.ok("status" in removed && removed.status === "completed");
+        const removed = await sendManagement(
+          "DELETE",
+          "/api/repositories/repository.fixture",
+          JSON.stringify(managementFields()),
+        );
+        assert.equal(removed.status, 200);
+        assert.equal(
+          assertManagementResponse(await removed.json(), "mutation").status,
+          "completed",
+        );
         if (oldRead) {
           assert.equal(
             oldReadSettled,
@@ -2656,7 +2215,7 @@ for (const mode of ["local", "cros"] as const) {
         fs.readFileSync(current, "utf8"),
       ) as AccessManagementState;
       assert.equal(final.registeredRepositories.length, 0);
-      assert.equal(final.exposure.length, 0);
+      assert.equal(Object.hasOwn(final, "exposure"), false);
       assert.equal(
         final.users.find((user) => user.userId === newUser)?.username,
         "改名",
@@ -2669,29 +2228,40 @@ for (const mode of ["local", "cros"] as const) {
       assert.ok(storedActor);
       storedActor.role = "developer";
       fs.writeFileSync(current, JSON.stringify(final));
-      const denied = await submitMutation("registerUser", {
-        username: "拒否",
-        plannedRole: "developer",
+      const denied = await invite();
+      assert.equal(denied.status, 403);
+      assert.equal(
+        assertManagementResponse(await denied.json(), "mutation").status,
+        "rejected",
+      );
+      const readDenied = await fetch(`${managementServer.baseUrl}/api/users`, {
+        headers: { cookie: managementServer.cookie },
       });
-      assert.ok("status" in denied && denied.status === "rejected");
-      const readDenied = await (
-        await fetchWorkbench(`${handle.baseUrl}/api/access?view=users`)
-      ).json();
-      assert.deepEqual(readDenied, {
+      assert.equal(readDenied.status, 403);
+      assert.deepEqual(await readDenied.json(), {
         status: "unavailable",
         reason: "management_read_rejected",
       });
       const beforeClose = fs.readFileSync(current);
-      const closingRequest = await openIncompleteManagementBody(handle.baseUrl);
+      const closingRequest =
+        await openIncompleteManagementBody(managementServer);
       const requestClosed = new Promise<void>((resolve) =>
         closingRequest.once("close", resolve),
       );
-      await handle.close();
+      await managementServer.close();
       await requestClosed;
       assert.deepEqual(fs.readFileSync(current), beforeClose);
-      await assertLoopbackClosed(handle.baseUrl);
+      await assertLoopbackClosed(managementServer.baseUrl);
     } finally {
-      await handle.close();
+      const closed = await Promise.allSettled([
+        handle.close(),
+        recordHandle?.close(),
+        management?.close(),
+      ]);
+      const errors = closed.flatMap((result) =>
+        result.status === "rejected" ? [result.reason] : [],
+      );
+      closeErrors.push(...errors);
     }
   });
 }
@@ -2708,7 +2278,7 @@ for (const mode of ["local", "cros"] as const) {
  * @boundary AM実認可→Domain実本文Reader→Source→Portfolio。本番Surfaceの完成は対象外。
  */
 test("許可集合の実本文と本文版を中立Sourceへ渡す", (t) => {
-  const f = contentFixture(t),
+  const f = hostedContentFixture(t),
     target = path.join(f.target.directory, "PROJECT_CONTEXT.md");
   const open = fs.openSync;
   let opened = 0;
@@ -2720,12 +2290,12 @@ test("許可集合の実本文と本文版を中立Sourceへ渡す", (t) => {
     return open(file, flags, mode);
   };
   try {
-    for (const role of ["developer", "administrator"] as const) {
+    for (const allowed of [true, false]) {
       opened = 0;
-      const collection = resolveRepositoryAccessCollection(
-        f.root,
-        f.tokens[role],
-      );
+      const collection = resolveHostedAccessCollection(f.root, f.principal, {
+        managementRevision: f.state.revision,
+        candidates: allowed ? [f.candidate] : [],
+      });
       assert.equal(collection.status, "completed");
       if (collection.status !== "completed")
         throw new Error("collection unavailable");
@@ -2749,8 +2319,8 @@ test("許可集合の実本文と本文版を中立Sourceへ渡す", (t) => {
         );
       }
       const portfolio = createPortfolioProjection(sources);
-      assert.equal(opened, role === "developer" ? 1 : 0);
-      if (role === "developer") {
+      assert.equal(opened, allowed ? 1 : 0);
+      if (allowed) {
         assert.deepEqual(Object.keys(sources[0] ?? {}).sort(), [
           "context",
           "projectId",
@@ -2770,10 +2340,10 @@ test("許可集合の実本文と本文版を中立Sourceへ渡す", (t) => {
       } else assert.deepEqual(portfolio.projects, []);
     }
     fs.rmSync(target);
-    const collection = resolveRepositoryAccessCollection(
-      f.root,
-      f.tokens.developer,
-    );
+    const collection = resolveHostedAccessCollection(f.root, f.principal, {
+      managementRevision: f.state.revision,
+      candidates: [f.candidate],
+    });
     assert.equal(collection.status, "completed");
     if (collection.status !== "completed")
       throw new Error("collection unavailable");

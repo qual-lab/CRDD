@@ -12,6 +12,8 @@ import { parseUnambiguousJsonDocument } from "../../src/transport/parse-json.ts"
 import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import {
   projectVerificationTransportFailure,
+  isVerificationAiWrite,
+  isVerificationWorkspaceRead,
   requestBounded,
 } from "./ai-verification-http.ts";
 
@@ -117,12 +119,34 @@ try {
   if (!input || typeof input !== "object") throw Error("input_invalid");
   const value = input as Record<string, unknown>;
   if (
-    Object.keys(value).sort().join(",") !== "baseUrl,form,route" ||
+    Object.keys(value).sort().join(",") !== "baseUrl,route,write" ||
     typeof value.baseUrl !== "string" ||
-    typeof value.route !== "string" ||
-    (value.form !== null && typeof value.form !== "string")
+    typeof value.route !== "string"
   )
     throw Error("input_invalid");
+  let write: Parameters<typeof requestBounded>[2];
+  if (value.write !== null) {
+    if (
+      !value.write ||
+      typeof value.write !== "object" ||
+      Array.isArray(value.write)
+    )
+      throw Error("input_invalid");
+    const input = value.write as Record<string, unknown>;
+    if (
+      Object.keys(input).sort().join(",") !== "actionToken,body" ||
+      typeof input.actionToken !== "string" ||
+      !input.actionToken ||
+      !input.body ||
+      typeof input.body !== "object" ||
+      Array.isArray(input.body)
+    )
+      throw Error("input_invalid");
+    write = {
+      actionToken: input.actionToken,
+      body: input.body as Record<string, unknown>,
+    };
+  }
   const url = new URL(value.baseUrl);
   if (
     url.protocol !== "http:" ||
@@ -132,11 +156,10 @@ try {
     url.pathname !== "/" ||
     url.search ||
     url.hash ||
-    ![
-      "/api/workbench/view?route=%2F",
-      "/api/ai-request",
-      "/api/workspace",
-    ].includes(value.route)
+    (write === undefined
+      ? value.route !== "/api/workbench/view?route=%2F" &&
+        !isVerificationWorkspaceRead(value.route)
+      : !isVerificationAiWrite(value.route))
   )
     throw Error("input_invalid");
   subscribe("undici:request:create", created);
@@ -144,7 +167,7 @@ try {
   const response = await requestBounded(
     value.baseUrl,
     value.route,
-    value.form === null ? undefined : new URLSearchParams(value.form),
+    write,
     (phase, at) => {
       if (phase === "start") startedAt = at;
       else headersAt = at;

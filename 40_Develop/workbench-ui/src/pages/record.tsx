@@ -84,6 +84,7 @@ export function RecordDetail({
       const response = await requestWorkbench(
         createSelectedWorkbenchViewUrl(target, model.repositoryId),
         { signal, cache: "no-store" },
+        true,
       );
       if (!response.ok) throw new Error("workbench_view_unavailable");
       return validateViewResponse(await response.json());
@@ -93,6 +94,7 @@ export function RecordDetail({
       window.location.href !== originalUrl ||
       next.view !== "record-detail" ||
       next.repositoryId !== model.repositoryId ||
+      next.operationRepositoryId !== model.operationRepositoryId ||
       next.record.kind !== model.record.kind ||
       next.record.id !== model.record.id
     )
@@ -188,10 +190,10 @@ export function RecordDetail({
         <h2>Canonical Markdown</h2>
         <pre className="canonical-markdown">{document.markdown}</pre>
       </section>
-      {model.repositoryId === null || model.recordActionsConfigured ? (
+      {model.recordActionsConfigured ? (
         <RecordActions
           actionToken={model.actionToken}
-          repositoryId={model.repositoryId}
+          repositoryId={model.operationRepositoryId}
           document={model.record}
         />
       ) : (
@@ -201,7 +203,7 @@ export function RecordDetail({
           </p>
           <RecordActions
             actionToken={model.actionToken}
-            repositoryId={model.repositoryId}
+            repositoryId={model.operationRepositoryId}
             document={model.record}
           />
         </fieldset>
@@ -216,10 +218,10 @@ export function RecordDetail({
       >
         ← {model.record.kind === "topic" ? "Topics" : "Meetings"}へ戻る
       </a>
-      {model.repositoryId !== null && model.recordActionsConfigured ? (
+      {model.recordActionsConfigured ? (
         <RecordOperationPanel
-          key={`${model.repositoryId}:${model.actionToken}`}
-          repositoryId={model.repositoryId}
+          key={`${model.operationRepositoryId}:${model.actionToken}`}
+          repositoryId={model.operationRepositoryId}
           actionToken={model.actionToken}
           refresh={refreshRecord}
         >

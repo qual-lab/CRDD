@@ -29,7 +29,10 @@ import {
 } from "@qual-lab/crdd-coordinator";
 import * as coordinatorOperations from "@qual-lab/crdd-coordinator";
 import { inspectWorkspaceCommand } from "../../src/service/workspace.ts";
-import { executeCoordinatorOperation } from "../../src/service/execution.ts";
+import {
+  createObjectiveRuns,
+  executeCoordinatorOperation,
+} from "../../src/service/execution.ts";
 import { runObjectiveInChild } from "../../src/service/execution-child.ts";
 import { createCoordinatorObjectiveResult } from "../../../coordinator/src/lifecycle/execution.ts";
 
@@ -57,8 +60,68 @@ import {
   invokeMcpRequest,
 } from "../fixtures/sdk-request.ts";
 
-const MCP_COORDINATOR_DECISION_TOOL = "crdd.submit_decision";
-const MCP_COORDINATOR_OBJECTIVE_TOOL = "crdd.run_objective";
+const MCP_COORDINATOR_DECISION_TOOL = "crdd.answer_decision";
+
+test("明示取消は現在の所有者と起動だけへ一度通知する", () => {
+  const runs = createObjectiveRuns();
+  const target = {
+    scope: "shared" as const,
+    repositoryId: "repo.fixture",
+    ownerRoot: import.meta.dirname,
+    bindingId: "binding.fixture",
+    hostedBinding: "installation-1/repository-2",
+    principalId: "user-owner",
+    projectId: "project.fixture",
+    requestId: "objective.fixture",
+  };
+  const first = runs.attach(target);
+  assert.ok(first);
+  const previousLaunch = runs.read(target);
+  assert.ok(previousLaunch);
+  assert.equal(runs.attach(target), null);
+  first.close();
+  const restarted = runs.attach(target);
+  assert.ok(restarted);
+  const currentLaunch = runs.read(target);
+  assert.ok(currentLaunch);
+  assert.notEqual(currentLaunch, previousLaunch);
+  const request = new AbortController().signal;
+  try {
+    for (const other of [
+      { ...target, repositoryId: "repo.other" },
+      { ...target, projectId: "project.other" },
+      { ...target, principalId: "user-other" },
+      { ...target, bindingId: "binding.other" },
+      { ...target, hostedBinding: "installation-1/repository-3" },
+      { ...target, hostedBinding: undefined },
+    ]) {
+      assert.equal(runs.read(other), null);
+      assert.equal(runs.cancel(currentLaunch, other, request), false);
+    }
+    assert.equal(runs.cancel(previousLaunch, target, request), false);
+    assert.equal(
+      runs.cancel(currentLaunch, target, AbortSignal.abort()),
+      false,
+    );
+    assert.equal(restarted.signal.aborted, false);
+    let notified = 0;
+    restarted.signal.addEventListener("abort", () => notified++);
+    assert.equal(runs.cancel(currentLaunch, target, request), true);
+    assert.equal(runs.cancel(currentLaunch, target, request), true);
+    assert.equal(notified, 1);
+  } finally {
+    restarted.close();
+  }
+  assert.equal(runs.cancel(currentLaunch, target, request), false);
+});
+const decisionTools = [
+  "crdd.request_decision",
+  MCP_COORDINATOR_DECISION_TOOL,
+  "crdd.apply_decision",
+  "crdd.close_decision",
+] as const;
+const MCP_COORDINATOR_OBJECTIVE_TOOL = "crdd.start_objective";
+const MCP_RESUME_OBJECTIVE_TOOL = "crdd.resume_objective";
 const MCP_COORDINATOR_STATE_TOOL = "crdd.get_execution_state";
 
 const revision = "a".repeat(40);
@@ -96,7 +159,7 @@ test("MCPは候補不明の停止でもexact回復情報と再起動必要性を
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-      arguments: objective(),
+      arguments: withoutOperation(objective()),
     }),
     dependencies({
       runObjective: async (input) => {
@@ -244,7 +307,7 @@ test("MCPはProducerの差戻しと回復必要を両Toolで保持する", async
           name: tool,
           arguments:
             tool === MCP_COORDINATOR_OBJECTIVE_TOOL
-              ? objective()
+              ? withoutOperation(objective())
               : {
                   requestId: "state-a",
                   projectId: "project-a",
@@ -344,11 +407,11 @@ test("MCPは複数Taskの計画と個別入力を対応付けて搬送する", a
       return baseline.runObjective(value, signal, authentication);
     },
   });
-  const envelope = (argumentsValue: unknown) =>
+  const envelope = (argumentsValue: typeof input) =>
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-      arguments: argumentsValue,
+      arguments: withoutOperation(argumentsValue),
     });
   const result = await invokeMcpCoordinatorRequest(
     envelope(input),
@@ -386,7 +449,7 @@ test("MCPは品質判断待ちと受入済み読取りの結果を保持する",
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-      arguments: input,
+      arguments: withoutOperation(input),
     }),
     dependencies({
       runObjective: async (observed, _signal, authentication) => {
@@ -550,6 +613,37 @@ test("MCPは品質判断待ちと受入済み読取りの結果を保持する",
 function request(method: string, params: unknown, id = 1) {
   return { jsonrpc: "2.0", id, method, params };
 }
+
+function withoutOperation<T extends { operation: string }>({
+  operation: _operation,
+  ...body
+}: T) {
+  return body;
+}
+
+test("同じObjective入力でもMCPツール名が開始・再開を確定する", async () => {
+  const seen: unknown[] = [];
+  const baseline = dependencies();
+  const deps = dependencies({
+    runObjective: async (input, signal, authentication) => {
+      seen.push(input.operation);
+      assert.equal(input.requestId, "request-a");
+      return baseline.runObjective(input, signal, authentication);
+    },
+  });
+  const body = withoutOperation(objective());
+  for (const name of [
+    MCP_COORDINATOR_OBJECTIVE_TOOL,
+    MCP_RESUME_OBJECTIVE_TOOL,
+  ]) {
+    const response = await invokeMcpCoordinatorRequest(
+      request("tools/call", { _meta: META, name, arguments: body }),
+      deps,
+    );
+    assert.equal(response.error, undefined);
+  }
+  assert.deepEqual(seen, ["start", "resume"]);
+});
 /**
  * objectiveのTest準備責務を実行する。
  *
@@ -744,10 +838,12 @@ test("Objective子プロセスは保存Lock待ちからの再開前に親の認�
 });
 
 /** @trace PRL-IT-012 切断だけ・認可前応答・異常終了を正常結果として返さない。 */
-test("Objective子プロセスの切断・確認前の応答・異常終了を確定しない", async (t) => {
+test("Objective子プロセスは切断・異常終了を確定せず、再認可拒否後の回復結果を保持する", async (t) => {
   const processes: ReturnType<typeof spawn>[] = [];
   let condition = "";
+  let finishConfirmation: (allow: boolean) => void = () => {};
   const fixture = `
+    let confirmations = 0;
     process.on("message", (m) => {
       if (m.kind === "execute") process.send({
         kind: "authorize", projectId: m.request.projectId
@@ -760,13 +856,52 @@ test("Objective子プロセスの切断・確認前の応答・異常終了を�
         }
       }
       if (m.kind === "confirmed") {
-        if (condition === "disconnect") process.disconnect();
+        if (condition === "cancel_after_grant") {
+          if (m.allowed === true) confirmations++;
+        } else if (condition === "revalidation") {
+          confirmations++;
+          if (confirmations === 1 && m.allowed === true) process.send({ kind: "confirm" });
+          else if (confirmations === 2 && m.allowed === false) {
+            process.send({ kind: "result", value: {
+              status: "blocked", effectState: "unknown", recoveryIds: ["test-recovery"]
+            } }, () => process.disconnect());
+          } else {
+            process.exitCode = 1;
+            process.disconnect();
+          }
+        } else if (condition === "disconnect") process.disconnect();
         else process.send({ kind: "result", value: { status: "completed" } },
           () => { process.exitCode = 1; process.disconnect(); });
       }
+      if (condition === "cancel_after_grant" && m.kind === "cancel") {
+        if (confirmations !== 1) process.exitCode = 1;
+        confirmations++;
+        setImmediate(() => {
+          process.send({ kind: "result", value: {
+            status: "blocked", effectState: "unknown", recoveryIds: ["test-cancel-after-grant"]
+          } }, () => process.disconnect());
+        });
+      }
+      if (condition === "cancel_while_confirming" && m.kind === "confirmed") {
+        process.exitCode = 1;
+        process.disconnect();
+      }
+      if (condition === "cancel_while_confirming" && m.kind === "cancel") {
+        process.stdout.write("cancelled");
+      }
+      if (condition === "cancel_while_confirming" && m.kind === "finish_fixture") {
+        process.send({ kind: "result", value: { status: "blocked", reason: "coordinator_authenticated_principal_not_verified", effectState: "no_effect" } }, () => process.disconnect());
+      }
     });
-    if (condition !== "abnormal") setInterval(() => {}, 1000);
+    if (["disconnect", "unconfirmed"].includes(condition)) setInterval(() => {}, 1000);
   `;
+  const keyName = "CRDD_GITHUB_APP_PRIVATE_KEY";
+  const originalKey = process.env[keyName];
+  process.env[keyName] = "synthetic-key-must-stay-in-server";
+  t.after(() => {
+    if (originalKey === undefined) delete process.env[keyName];
+    else process.env[keyName] = originalKey;
+  });
   const mock = t.mock.module("node:child_process", {
     namedExports: {
       spawn: (
@@ -774,6 +909,7 @@ test("Objective子プロセスの切断・確認前の応答・異常終了を�
         _argv: readonly string[],
         options: Parameters<typeof spawn>[2],
       ) => {
+        assert.equal(options?.env?.[keyName], undefined);
         const child = spawn(
           binary,
           [
@@ -781,8 +917,17 @@ test("Objective子プロセスの切断・確認前の応答・異常終了を�
             "--eval",
             `const condition = ${JSON.stringify(condition)};\n${fixture}`,
           ],
-          options,
+          condition === "cancel_while_confirming"
+            ? { ...options, stdio: ["ignore", "pipe", "ignore", "ipc"] }
+            : options,
         );
+        if (condition === "cancel_while_confirming") {
+          child.stdout?.once("data", () => {
+            finishConfirmation(true);
+            // Settle the authorization promise while the cancelled child is still alive.
+            queueMicrotask(() => child.send({ kind: "finish_fixture" }));
+          });
+        }
         processes.push(child);
         return child;
       },
@@ -814,6 +959,68 @@ test("Objective子プロセスの切断・確認前の応答・異常終了を�
         condition,
       );
     }
+    condition = "revalidation";
+    for (const unavailable of [false, true]) {
+      let count = 0;
+      const value = await worker.runObjectiveInChild(
+        objective(),
+        new AbortController().signal,
+        () => ({ directory: "", principalId: "user-owner" }),
+        async () => {
+          if (++count === 1) return true;
+          if (unavailable) throw new Error("access_observation_failed");
+          return false;
+        },
+      );
+      assert.equal(count, 2);
+      assert.deepEqual(value, {
+        status: "blocked",
+        effectState: "unknown",
+        recoveryIds: ["test-recovery"],
+      });
+    }
+    condition = "cancel_while_confirming";
+    const pending = new AbortController();
+    assert.deepEqual(
+      await worker.runObjectiveInChild(
+        objective(),
+        pending.signal,
+        () => ({ directory: "", principalId: "user-owner" }),
+        () =>
+          new Promise<boolean>((resolve) => {
+            finishConfirmation = resolve;
+            pending.abort();
+          }),
+      ),
+      {
+        status: "blocked",
+        reason: "coordinator_authenticated_principal_not_verified",
+        effectState: "no_effect",
+      },
+    );
+    condition = "cancel_after_grant";
+    const changed = new AbortController();
+    const disconnected = new AbortController();
+    assert.deepEqual(
+      await worker.runObjectiveInChild(
+        objective(),
+        AbortSignal.any([changed.signal, disconnected.signal]),
+        () => ({ directory: "", principalId: "user-owner" }),
+        () => {
+          queueMicrotask(() => {
+            changed.abort();
+            disconnected.abort();
+          });
+          return true;
+        },
+      ),
+      {
+        status: "blocked",
+        effectState: "unknown",
+        recoveryIds: ["test-cancel-after-grant"],
+      },
+    );
+    assert.equal(processes.at(-1)?.exitCode, 0);
   } finally {
     mock.restore();
     for (const child of processes)
@@ -971,7 +1178,7 @@ test("MCPはCoordinator読込み待ちの入力変更を実行へ渡さない", 
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-      arguments: input,
+      arguments: withoutOperation(input),
     }),
     dependencies({
       runObjective: async (args) => {
@@ -1002,7 +1209,7 @@ test("MCP semantic operations require a runtime-observed client principal before
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-      arguments: objective(),
+      arguments: withoutOperation(objective()),
     }),
     dependencies({
       authenticateClient: () => ({ status: "unknown" }),
@@ -1044,7 +1251,7 @@ test("MCPは不正な共通項目と認証結果で実行を開始しない", as
       request("tools/call", {
         _meta: meta,
         name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-        arguments: objective(),
+        arguments: withoutOperation(objective()),
       }),
       dependencies({
         runObjective: async () => {
@@ -1073,7 +1280,7 @@ test("MCPは不正な共通項目と認証結果で実行を開始しない", as
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-      arguments: objective(),
+      arguments: withoutOperation(objective()),
     }),
     dependencies({
       authenticateClient: () => authentication,
@@ -1296,18 +1503,18 @@ async function invokeConfiguredDecision(
 }
 
 /**
- * MCP discovery and tool list expose the three public operationsを検証する。
+ * MCPの発見と一覧の実行系操作を検証する。
  *
- * @responsibility MCP discovery and tool list expose the three public operationsの合否判定を所有する。
+ * @responsibility 公開する実行系操作の固定集合を照合する。
  * @trace PRL-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus MCP discovery and tool list expose the three public operationsの対象操作を実行する。
+ * @stimulus MCPの発見とツール一覧を取得する。
  * @observation 旧Subpathの解決結果と、内部Adapterが返すServer識別名・Tool集合。
  * @oracle 旧Subpathは非公開。Server識別名と三つのToolの名前・順序は維持する。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: mcp Test Source→対象契約
  */
-test("MCP discovery and tool list expose the three public operations", async () => {
+test("MCP discovery and tool list expose the exact execution operations", async () => {
   const retiredEntry = "@qual-lab/crdd-server/automation";
   await assert.rejects(import(retiredEntry), {
     code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
@@ -1334,7 +1541,8 @@ test("MCP discovery and tool list expose the three public operations", async () 
     tools.map((tool) => tool.name),
     [
       MCP_COORDINATOR_OBJECTIVE_TOOL,
-      MCP_COORDINATOR_DECISION_TOOL,
+      MCP_RESUME_OBJECTIVE_TOOL,
+      ...decisionTools,
       MCP_COORDINATOR_STATE_TOOL,
     ],
   );
@@ -1411,15 +1619,18 @@ test("MCP Schemaは分類と明示選択をObjectiveだけの任意項目とし�
   assert.equal(schema.required.includes("intakeEpoch"), false);
   assert.equal(schema.required.includes("plan"), true);
   assert.equal(schema.required.includes("taskInputs"), true);
-  assert.equal(schema.required.length, 15);
-  assert.equal(schema.required.includes("operation"), true);
-  assert.deepEqual(schema.properties.operation, {
-    type: "string",
-    enum: ["start", "resume"],
-  });
+  assert.equal(schema.required.length, 14);
+  assert.equal(schema.required.includes("operation"), false);
+  assert.equal(Object.hasOwn(schema.properties, "operation"), false);
+  assert.deepEqual(
+    tools.find(({ name }) => name === MCP_RESUME_OBJECTIVE_TOOL)?.inputSchema,
+    schema,
+  );
   assert.equal(schema.additionalProperties, false);
   for (const tool of tools.filter(
-    (tool) => tool.name !== MCP_COORDINATOR_OBJECTIVE_TOOL,
+    (tool) =>
+      tool.name !== MCP_COORDINATOR_OBJECTIVE_TOOL &&
+      tool.name !== MCP_RESUME_OBJECTIVE_TOOL,
   ))
     assert.equal(Object.hasOwn(tool.inputSchema.properties, "choice"), false);
 });
@@ -1452,7 +1663,7 @@ test("MCP Objectiveは明示選択をexactに保持し省略時に生成しな�
       request("tools/call", {
         _meta: META,
         name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-        arguments: input,
+        arguments: withoutOperation(input),
       }),
       dependencies({
         runObjective: async (observed, signal, authentication) => {
@@ -1486,13 +1697,14 @@ test("MCP Objectiveは明示選択をexactに保持し省略時に生成しな�
  */
 test("MCP Objectiveは不正選択と旧形式を認証・Core呼出し前に拒否する", async () => {
   let calls = 0;
+  const body = withoutOperation(objective());
   const invalidArguments = [
     {
-      ...objective(),
+      ...body,
       choice: { provider: "codex", model: "gpt-5.5", effort: "automatic" },
     },
     {
-      ...objective(),
+      ...body,
       choice: {
         provider: "codex",
         model: "gpt-5.5",
@@ -1501,15 +1713,16 @@ test("MCP Objectiveは不正選択と旧形式を認証・Core呼出し前に拒
       },
     },
     ...[null, undefined, "PROFILE-12345", "profile-100001"].map(
-      (requestedProfileId) => ({ ...objective(), requestedProfileId }),
+      (requestedProfileId) => ({ ...body, requestedProfileId }),
     ),
     {
-      ...objective(),
+      ...body,
       requestedProfileId: "PROFILE-100001",
       authority: "not-authority",
     },
-    { ...objective(), requestedProfileId: { id: "PROFILE-100001" } },
-    [objective()],
+    { ...body, requestedProfileId: { id: "PROFILE-100001" } },
+    { ...body, operation: "resume" },
+    [body],
   ];
   for (const argumentsValue of invalidArguments) {
     const response = await invokeMcpCoordinatorRequest(
@@ -1664,7 +1877,7 @@ test("MCP Objective uses the common semantic entry and preserves cancellation", 
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-      arguments: objective(),
+      arguments: withoutOperation(objective()),
     }),
     dependencies({
       runObjective: async (input, signal, authentication) => {
@@ -1698,7 +1911,7 @@ test("MCP Objective uses the common semantic entry and preserves cancellation", 
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-      arguments: objective(),
+      arguments: withoutOperation(objective()),
     }),
     dependencies({
       runObjective: async (_input, signal) => {
@@ -1743,7 +1956,7 @@ test("MCP Decision uses the configured Coordinator operation", async (t) => {
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_DECISION_TOOL,
-      arguments: { ...decision(), comment: "確認済み" },
+      arguments: { ...withoutOperation(decision()), comment: "確認済み" },
     }),
     (input, root, authentication) => {
       calls += 1;
@@ -1767,6 +1980,49 @@ test("MCP Decision uses the configured Coordinator operation", async (t) => {
   assert.equal(accepted.decision.result.answer.principalId, "principal-a");
 });
 
+/** 判断の操作種別は公開ツール名が決め、保存Ownerへ一度だけ届く。 @trace PRL-IT-012 */
+test("MCPの4判断ツールは対応する操作だけをCoordinatorへ渡す", async (t) => {
+  const { selectedOption, ...target } = withoutOperation(decision());
+  for (const [name, operation, fields] of [
+    [
+      "crdd.request_decision",
+      "request",
+      {
+        blockerId: "blocker-a",
+        queueId: "queue-a",
+        question: `\n${"問".repeat(8193)}`,
+        allowedOptions: ["cancel"],
+      },
+    ],
+    [
+      "crdd.answer_decision",
+      "answer",
+      { selectedOption, comment: "注".repeat(1025) },
+    ],
+    ["crdd.apply_decision", "apply", {}],
+    [
+      "crdd.close_decision",
+      "close",
+      { status: "invalidated", reason: "理".repeat(1025) },
+    ],
+  ] as const) {
+    const calls: unknown[] = [];
+    await invokeConfiguredDecision(
+      t,
+      request("tools/call", {
+        _meta: META,
+        name,
+        arguments: { ...target, ...fields },
+      }),
+      (input) => {
+        calls.push(input);
+        return null;
+      },
+    );
+    assert.deepEqual(calls, [{ ...target, ...fields, operation }], name);
+  }
+});
+
 /** 未構成の判断Toolに外部関数を混入しても認証や実行へ進めない。 @trace PRL-IT-012 */
 test("MCP Decisionは旧差し替え入口を実行しない", async () => {
   const unexpected = () => assert.fail("legacy callback must not run");
@@ -1778,7 +2034,7 @@ test("MCP Decisionは旧差し替え入口を実行しない", async () => {
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_DECISION_TOOL,
-      arguments: decision(),
+      arguments: withoutOperation(decision()),
     }),
     input,
   );
@@ -1806,9 +2062,18 @@ test("MCP rejects unknown fields, stale-shaped decisions, and multiline comments
     },
   });
   for (const [name, args] of [
-    [MCP_COORDINATOR_OBJECTIVE_TOOL, { ...objective(), authority: true }],
-    [MCP_COORDINATOR_DECISION_TOOL, { ...decision(), generation: 0 }],
-    [MCP_COORDINATOR_DECISION_TOOL, { ...decision(), comment: "line1\nline2" }],
+    [
+      MCP_COORDINATOR_OBJECTIVE_TOOL,
+      { ...withoutOperation(objective()), authority: true },
+    ],
+    [
+      MCP_COORDINATOR_DECISION_TOOL,
+      { ...withoutOperation(decision()), generation: 0 },
+    ],
+    [
+      MCP_COORDINATOR_DECISION_TOOL,
+      { ...withoutOperation(decision()), comment: "line1\nline2" },
+    ],
   ] as const) {
     const response = await invokeMcpCoordinatorRequest(
       request("tools/call", { _meta: META, name, arguments: args }),
@@ -1836,7 +2101,7 @@ test("MCP fails closed when a semantic result is malformed", async () => {
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-      arguments: objective(),
+      arguments: withoutOperation(objective()),
     }),
     dependencies({ runObjective: async () => ({ status: "completed" }) }),
   );
@@ -1872,7 +2137,7 @@ test("MCPは内部Task fieldを公開結果へ透過しない", async () => {
       request("tools/call", {
         _meta: META,
         name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-        arguments: objective(),
+        arguments: withoutOperation(objective()),
       }),
       dependencies({
         runObjective: async () => ({
@@ -2888,7 +3153,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
       request("tools/call", {
         _meta: META,
         name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-        arguments: objective(),
+        arguments: withoutOperation(objective()),
       }),
       dependencies({ runObjective: async () => raw }),
     );
@@ -2940,7 +3205,7 @@ test("MCPは129件の回復IDと義務を全量搬送し集合差を拒否する
   const envelope = request("tools/call", {
     _meta: META,
     name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-    arguments: objective(),
+    arguments: withoutOperation(objective()),
   });
   const response = await invokeMcpCoordinatorRequest(
     envelope,
@@ -3007,7 +3272,7 @@ test("MCP Integration結果はblocked時のcleanupとmanual recoveryを相関検
       request("tools/call", {
         _meta: META,
         name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-        arguments: objective(),
+        arguments: withoutOperation(objective()),
       }),
       dependencies({
         runObjective: async () => ({
@@ -3150,7 +3415,7 @@ test("MCPは旧Integration契約を成功や回復参照の有無にかかわら
       request("tools/call", {
         _meta: META,
         name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-        arguments: objective(),
+        arguments: withoutOperation(objective()),
       }),
       dependencies({ runObjective: async () => raw }),
     );
@@ -3242,7 +3507,7 @@ test("MCPは旧Integration契約をDecision付きでも拒否する", async () =
       request("tools/call", {
         _meta: META,
         name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-        arguments: objective(),
+        arguments: withoutOperation(objective()),
       }),
       dependencies({ runObjective: async () => raw }),
     );
@@ -3275,7 +3540,7 @@ test("MCP DecisionはOwnerの結果未確認を公開成功へ変えない", asy
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_DECISION_TOOL,
-      arguments: decision(),
+      arguments: withoutOperation(decision()),
     }),
     () => ({
       contract: "crdd-coordinator/human-decision/v2",
@@ -3322,7 +3587,8 @@ test("MCP contract reports stateless transport and the exact public tools", asyn
     result.tools.map(({ name }) => name),
     [
       MCP_COORDINATOR_OBJECTIVE_TOOL,
-      MCP_COORDINATOR_DECISION_TOOL,
+      MCP_RESUME_OBJECTIVE_TOOL,
+      ...decisionTools,
       MCP_COORDINATOR_STATE_TOOL,
     ],
   );
@@ -3408,7 +3674,7 @@ test("MCPはWorkspace観測を要求対象へ結合し失敗理由を維持す�
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-      arguments: { ...objective(), workspaceId },
+      arguments: withoutOperation({ ...objective(), workspaceId }),
     }),
     dependencies({ runObjective: async () => raw }),
   );
@@ -3417,7 +3683,7 @@ test("MCPはWorkspace観測を要求対象へ結合し失敗理由を維持す�
     request("tools/call", {
       _meta: META,
       name: MCP_COORDINATOR_OBJECTIVE_TOOL,
-      arguments: objective(),
+      arguments: withoutOperation(objective()),
     }),
     dependencies({ runObjective: async () => raw }),
   );

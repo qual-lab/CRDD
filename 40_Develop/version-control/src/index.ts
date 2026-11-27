@@ -15,6 +15,8 @@ export {
   removeReference,
 } from "./repository/reference.ts";
 export {
+  readOriginHttpsRemote,
+  readOriginHttpsPublicationTarget,
   readRemoteTarget,
   pushRepositoryRevision,
 } from "./repository/remote.ts";

@@ -95,7 +95,7 @@ export function AiSelection({
           </thead>
           <tbody>
             {surface.catalog.catalog.models.map((model) => (
-              <tr key={model.provider + ":" + model.modelIdentifier}>
+              <tr key={`${model.provider}:${model.modelIdentifier}`}>
                 <td>{model.provider}</td>
                 <td>
                   {model.modelIdentifier}（{model.identifierKind}）

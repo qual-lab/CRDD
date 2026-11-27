@@ -8,6 +8,8 @@ export {
   validateExecutionDefinitionCommand,
   executeDefinitionOperation,
   executeCoordinatorOperation,
+  objectiveCancellationSchema,
+  type ObjectiveRuns,
   definitionReadFields,
   definitionWriteFields,
   type CoordinatorExecutionConfiguration,
@@ -30,6 +32,10 @@ export async function prepareWorkspaceOperation(
   return command
     ? { command, executeWorkspace, resolveLocalWorkspaceAccess }
     : null;
+}
+/** WorkspaceのOwnerを読み込む前に使う、通信横断の読み取り区分。 */
+export function isWorkspaceRead(operation: string): boolean {
+  return ["list", "get", "inspect", "candidate-diff"].includes(operation);
 }
 export { readAuthorizedExecutionActivity } from "./execution.ts";
 export { readAuthorizedPortfolio } from "./project-context.ts";

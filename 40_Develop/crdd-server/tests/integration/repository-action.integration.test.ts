@@ -11,17 +11,12 @@
  */
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
-import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { ServerResponse } from "node:http";
 import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { Worker } from "node:worker_threads";
-import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
-import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
-import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import { startWorkbench } from "../../src/app.ts";
 
@@ -129,13 +124,13 @@ function observeGitClientWorker(worker: Worker): Promise<unknown> {
  * @trace EST-IT-002
  * @trace EST-IT-010
  * @precondition 現在Repository配下の自己生成Rootだけを作成する。
- * @stimulus 四操作、不正Form・確認不足・Target差、処置後失効、注入したProcess失敗。
+ * @stimulus 単体の四操作、不正入力・確認不足・Target差、注入したProcess失敗。
  * @observation 実GitのIndex／HEAD／local Remote、変更多数、要求専用結果と固定拒否。
  * @oracle 指定先だけが一度変更され、不明・拒否を成功へ畳まない。
  * @cleanup Server終了後、exact所有fixtureの不存在を確認する。
  * @boundary 注入Process失敗を実timeoutやProcess tree清掃の根拠にしない。
  */
-test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送する", async (t) => {
+test("単体Repository操作は起動Rootと現在Targetへ一度だけ配送する", async (t) => {
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     import.meta.dirname,
   );
@@ -154,9 +149,7 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
   });
   const originalSpawn = childProcess.spawnSync;
   const roots = [path.join(fixture, "a"), path.join(fixture, "b")];
-  const access = path.join(fixture, "access"),
-    remote = path.join(fixture, "remote.git");
-  fs.mkdirSync(access);
+  const remote = path.join(fixture, "remote.git");
   /**
    * 自己生成Gitだけを準備・再観測する。
    * @responsibility 所有Rootの固定Git引数を同期実行し、正常終了を確認する。
@@ -179,44 +172,6 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
     assert.equal(result.status, 0, "owned_git_command_completed");
     return result.stdout.trim();
   };
-  const material = createCredentialMaterial(),
-    userId = randomUUID(),
-    initialId = randomUUID();
-  const state: AccessManagementState = {
-    contract: "crdd-access-management/state",
-    schemaRevision: 2,
-    revision: 1,
-    operationId: randomUUID(),
-    users: [{ userId, username: "自己生成管理者", role: "administrator" }],
-    roleContentAccess: [
-      { role: "developer", workspaceIds: ["development"] },
-      { role: "manager", workspaceIds: ["development", "management"] },
-      { role: "administrator", workspaceIds: ["development"] },
-    ],
-    credentials: [
-      {
-        credentialId: material.credentialId,
-        userId,
-        tokenVersion: 1,
-        tokenSalt: material.tokenSalt,
-        tokenVerifier: material.tokenVerifier,
-        revoked: false,
-        operationId: initialId,
-        presentation: "confirmed",
-      },
-    ],
-    registeredRepositories: [],
-    exposure: [],
-    unresolvedKeyExchanges: [],
-    initialization: {
-      stage: "completed",
-      attemptId: initialId,
-      initialUserId: userId,
-      initialCredentialId: material.credentialId,
-      confirmationCredentialId: material.credentialId,
-      connection: "confirmed",
-    },
-  };
   for (const [index, root] of roots.entries()) {
     fs.mkdirSync(root);
     run(fixture, ["init", "--quiet", "--initial-branch=main", root]);
@@ -228,10 +183,26 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
     run(root, ["config", "core.hooksPath", hooks]);
     fs.writeFileSync(path.join(root, ".gitignore"), ".crdd/\n");
     fs.writeFileSync(path.join(root, "work.txt"), "seed\n");
-    run(root, ["add", "--", ".gitignore", "work.txt"]);
+    const repositoryId = `repo.${index}`;
+    fs.writeFileSync(
+      path.join(root, "PROJECT_CONTEXT.md"),
+      `# Project Context\n\nProject ID: project.fixture\nRepository ID: ${repositoryId}\nRepository Role: development\n` +
+        [
+          "今どうなっているか",
+          "何が危ない、または止まっているか",
+          "今、人間が決めることは何か",
+          "なぜこの状態・判断になったか",
+          "次に何をすべきか",
+        ]
+          .map(
+            (heading, i) =>
+              `\n## ${i + 1}. ${heading}\n\n### 結論\n\n試験用。\n\n| 項目 | 内容 |\n|---|---|\n| 試験 | 固定 |\n`,
+          )
+          .join(""),
+    );
+    run(root, ["add", "--", ".gitignore", "work.txt", "PROJECT_CONTEXT.md"]);
     run(root, ["commit", "--quiet", "--message", "seed"]);
     fs.mkdirSync(path.join(root, ".crdd", "config"), { recursive: true });
-    const repositoryId = `repo.${index}`;
     fs.writeFileSync(
       path.join(root, ".crdd", "config", "repository-manifest.json"),
       JSON.stringify({
@@ -245,12 +216,6 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
         externalSendPolicy: null,
       }),
     );
-    state.registeredRepositories.push({
-      repositoryId,
-      repositoryRoot: root,
-      bindingId: deriveRepositoryBindingId(repositoryId, root),
-    });
-    state.exposure.push({ repositoryId, workspaceIds: ["development"] });
   }
   const a = roots[0],
     b = roots[1];
@@ -262,21 +227,10 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
   const oldHeadB = run(b, ["rev-parse", "HEAD"]);
   fs.writeFileSync(path.join(a, "work.txt"), "a-only\n");
   fs.writeFileSync(path.join(b, "work.txt"), "b-only\n");
-  const current = path.join(access, "access-management.json");
-  fs.writeFileSync(current, JSON.stringify(state));
-  const root = createFilesystemStoreRoot(access);
-  assert.ok(root);
-  const handle = await startWorkbench({
-    workingDirectory: repositoryRoot,
-    localAccessRoot: root,
-  });
+  const handle = await startWorkbench({ workingDirectory: b });
   closeServer = handle.close;
   let mutationCalls = 0,
-    revokeAfterMutation = false,
-    hideGitAfterMutation = false,
     injectProcessFailure = false;
-  const selectedGit = path.join(roots[1] as string, ".git");
-  const heldGit = path.join(fixture, "selected-git-held");
   let submittingMarker: string | null = null;
   const spy = t.mock.method(
     childProcess,
@@ -323,54 +277,13 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
           signal: null,
           error: new Error("injected_process_failure"),
         };
-      const result = originalSpawn(command, args, options);
-      if (mutation && revokeAfterMutation) {
-        const next = structuredClone(state);
-        next.revision++;
-        next.operationId = randomUUID();
-        const credential = next.credentials[0];
-        assert.ok(credential);
-        credential.revoked = true;
-        fs.writeFileSync(current, JSON.stringify(next));
-      }
-      if (mutation && hideGitAfterMutation) fs.renameSync(selectedGit, heldGit);
-      return result;
-    },
-  );
-  syncBuiltinESMExports();
-  const originalRead = fs.openSync;
-  let changeTargetDuringYield = false,
-    targetChangeScheduled = false,
-    targetChanged = false;
-  const readSpy = t.mock.method(
-    fs,
-    "openSync",
-    (...args: Parameters<typeof originalRead>) => {
-      const result = originalRead(...args);
-      if (
-        changeTargetDuringYield &&
-        !targetChangeScheduled &&
-        String(args[0]).replaceAll("\\", "/").toLowerCase() ===
-          path
-            .join(b, ".crdd", "config", "repository-manifest.json")
-            .replaceAll("\\", "/")
-            .toLowerCase()
-      ) {
-        targetChangeScheduled = true;
-        setTimeout(() => {
-          run(b, ["config", "branch.main.merge", "refs/heads/changed"]);
-          targetChanged = true;
-        }, 0);
-      }
-      return result;
+      return originalSpawn(command, args, options);
     },
   );
   syncBuiltinESMExports();
   try {
     const model = (await (
-      await fetch(`${handle.baseUrl}/api/workbench/view`, {
-        headers: { authorization: `Bearer ${material.token}` },
-      })
+      await fetch(`${handle.baseUrl}/api/workbench/view`)
     ).json()) as { actionToken: string };
     assert.equal(typeof model.actionToken, "string");
     /**
@@ -393,10 +306,10 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
       });
     /**
      * 同Origin操作を試験用Serverへ一回搬送する。
-     * @responsibility 自己生成資格だけをHeaderへ渡し、応答を再送しない。
+     * @responsibility 単体のAction TokenをHeaderへ渡し、応答を再送しない。
      * @trace RFD-IT-014
      * @trace EST-IT-010
-     * @precondition 所有Listenerと自己生成AMが稼働している。
+     * @precondition 所有Listenerが稼働している。
      * @stimulus 一件のFormと負例Headerを送る。
      * @observation 実HTTP状態と要求専用結果。
      * @oracle 結果の判断は呼出し元の状態／Effect相関assertが行う。
@@ -406,22 +319,40 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
     const send = (
       body: URLSearchParams,
       headers: Record<string, string> = {},
-    ) =>
-      fetch(`${handle.baseUrl}/api/repository`, {
-        method: "POST",
+    ) => {
+      const operation = body.get("operation");
+      const base = `${handle.baseUrl}/api/repositories/${body.get("repositoryId")}`;
+      const url =
+        operation === "create_revision"
+          ? `${base}/revisions`
+          : operation === "publish_revision"
+            ? `${base}/revisions/${body.get("revisionIdentity")}/publication`
+            : `${base}/staging`;
+      const metadata = new Set(["operation", "actionToken", "repositoryId"]);
+      if (operation === "publish_revision") metadata.add("revisionIdentity");
+      const fields = [...body]
+        .filter(([name]) => !metadata.has(name))
+        .map(
+          ([name, value]) =>
+            `${JSON.stringify(name)}:${JSON.stringify(name === "humanConfirmed" ? value === "true" : value)}`,
+        );
+      return fetch(url, {
+        method: operation === "unprepare" ? "DELETE" : "POST",
         headers: {
-          authorization: `Bearer ${material.token}`,
           origin: handle.baseUrl,
-          "content-type": "application/x-www-form-urlencoded",
+          "content-type": "application/json",
+          "x-crdd-action-token": body.get("actionToken") ?? "",
           ...headers,
         },
-        body,
+        body: `{${fields.join(",")}}`,
       });
+    };
     for (const bad of [
       form("prepare", { path: "../outside" }),
       form("prepare", { path: "--all" }),
       form("prepare", { path: "work.txt", force: "true" }),
       form("prepare", { path: "work.txt", repositoryId: "repo.unknown" }),
+      form("prepare", { path: "work.txt", repositoryId: "repo.0" }),
     ])
       assert.equal((await send(bad)).status, 400);
     const duplicate = form("prepare", { path: "work.txt" });
@@ -495,7 +426,7 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
     ])
       assert.equal((await send(form("publish_revision", fields))).status, 400);
     assert.equal(mutationCalls, beforePush);
-    changeTargetDuringYield = true;
+    run(b, ["config", "branch.main.merge", "refs/heads/changed"]);
     response = await send(
       form("publish_revision", {
         destination: "origin",
@@ -504,10 +435,8 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
         humanConfirmed: "true",
       }),
     );
-    assert.equal(targetChanged, true);
     assert.equal(response.status, 400);
     assert.equal(mutationCalls, beforePush);
-    changeTargetDuringYield = false;
     run(b, ["config", "branch.main.merge", "refs/heads/main"]);
     response = await send(
       form("publish_revision", {
@@ -538,41 +467,12 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
     assert.equal(unknown.reason, "repository_effect_unknown");
     assert.equal(unknown.automaticRetryIssued, false);
     injectProcessFailure = false;
-    fs.writeFileSync(path.join(b, "work.txt"), "saved-before-git-loss\n");
-    const beforeGitLoss = mutationCalls;
-    hideGitAfterMutation = true;
-    try {
-      response = await send(form("prepare", { path: "work.txt" }));
-      assert.equal(response.status, 503);
-      assert.equal(
-        await response.text(),
-        "repository_action_outcome_unconfirmed\n",
-      );
-      assert.equal(mutationCalls, beforeGitLoss + 1);
-    } finally {
-      hideGitAfterMutation = false;
-      if (fs.existsSync(heldGit)) fs.renameSync(heldGit, selectedGit);
-    }
-    assert.equal(run(b, ["diff", "--cached", "--name-only"]), "work.txt");
-    fs.writeFileSync(path.join(b, "work.txt"), "saved-before-loss\n");
-    const beforeLoss = mutationCalls;
-    revokeAfterMutation = true;
-    response = await send(form("prepare", { path: "work.txt" }));
-    assert.equal(response.status, 503);
+    fs.writeFileSync(path.join(b, "work.txt"), "pending-before-client-cut\n");
     assert.equal(
-      await response.text(),
-      "repository_action_outcome_unconfirmed\n",
+      (await send(form("prepare", { path: "work.txt" }))).status,
+      200,
     );
-    assert.equal(mutationCalls, beforeLoss + 1);
     assert.equal(run(b, ["diff", "--cached", "--name-only"]), "work.txt");
-    revokeAfterMutation = false;
-    fs.writeFileSync(current, JSON.stringify(state));
-    await (
-      await fetch(`${handle.baseUrl}/api/workbench/view`, {
-        headers: { authorization: `Bearer ${material.token}` },
-      })
-    ).arrayBuffer();
-    assert.equal(mutationCalls, beforeLoss + 1);
     const marker = path.join(fixture, "commit-started");
     const hookMarker = path.join(fixture, "unexpected-commit-hook");
     const hookCode = `require("node:fs").writeFileSync(${JSON.stringify(hookMarker)},"called");`;
@@ -642,15 +542,13 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
       {
         eval: true,
         workerData: {
-          url: `${handle.baseUrl}/api/repository`,
+          url: `${handle.baseUrl}/api/repositories/repo.1/revisions`,
           marker,
-          body: form("create_revision", {
-            message: "closed-client-commit",
-          }).toString(),
+          body: JSON.stringify({ message: "closed-client-commit" }),
           headers: {
-            authorization: `Bearer ${material.token}`,
             origin: handle.baseUrl,
-            "content-type": "application/x-www-form-urlencoded",
+            "content-type": "application/json",
+            "x-crdd-action-token": model.actionToken,
           },
         },
       },
@@ -675,7 +573,6 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
     }
   } finally {
     spy.mock.restore();
-    readSpy.mock.restore();
     syncBuiltinESMExports();
     await handle.close();
   }

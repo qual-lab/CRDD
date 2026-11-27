@@ -5,11 +5,14 @@
  */
 
 import {
-  evaluateAiProfileManagementPermission,
-  resolveRepositoryAccess,
+  evaluateManagementPermission,
+  readCurrentAccess,
   type FilesystemStoreRoot,
 } from "@qual-lab/crdd-access-management";
-import type { CredentialAdministration } from "./access.ts";
+import {
+  resolveHostedDevelopmentAccess,
+  type HostedAccessSession,
+} from "./access.ts";
 import { getModelCatalog, type ModelCatalog } from "@qual-lab/crdd-ai-adapter";
 import {
   readRepositoryAiSelection,
@@ -48,7 +51,7 @@ type ServerConnection = "workbench" | "mcp";
  * @concurrency Git除外と設定保存はそれぞれのOwnerの排他に従う。
  */
 export function updateAiSelection(
-  access: ReturnType<typeof resolveAiSelectionAccess>,
+  access: Awaited<ReturnType<typeof resolveAiSelectionAccess>>,
   repository: Repository,
   request: { expectedIdentity: string | null; config: unknown },
   catalog: AiSelectionCatalog,
@@ -455,11 +458,25 @@ export function readAiSelectionView(root: string): AiSelectionView {
   });
 }
 
+export function canManageAiSelection(
+  accessRoot: FilesystemStoreRoot,
+  session: HostedAccessSession,
+): boolean {
+  if (session.isCurrent?.() === false) return false;
+  const actor = readCurrentAccess(accessRoot, session.principal);
+  return (
+    actor.status === "completed" &&
+    evaluateManagementPermission(actor.user.role, {
+      operation: "manageAiProfiles",
+    }) === "allowed"
+  );
+}
+
 /**
  * 一要求の選択Repositoryと管理権限を固定する。
  * @responsibility 待機後にも同じBindingと現在許可へ再照合する。
  * @trace ARCH-000012
- * @input Root、接続資格、表示Repository ID、要求Signal。
+ * @input Root、現在の本人セッション、表示Repository ID、要求Signal。
  * @returns 検証済みRootと再照合関数。
  * @precondition 共有資格は呼出し元の入口で検査済み。
  * @postcondition 共有起動Repositoryへの暗黙fallbackなし。
@@ -470,18 +487,26 @@ export function readAiSelectionView(root: string): AiSelectionView {
  * @security PathをClient入力に持たせない。
  * @concurrency 認可関数を保存Ownerへ渡す。
  */
-export function resolveAiSelectionAccess(
+export async function resolveAiSelectionAccess(
   capability: Repository,
   accessRoot: FilesystemStoreRoot | undefined,
-  administration: CredentialAdministration | undefined,
-  repositoryId: string | null,
+  repositoryId: string,
+  localRepositoryId: string | undefined,
   signal: AbortSignal,
-): Readonly<{
-  repositoryRoot: string;
-  authorize: (writeRepository?: Repository) => boolean;
-}> {
+  browser?: Readonly<{
+    session: HostedAccessSession | null;
+    // 読取りは通常セッション、書込みは元の短命管理セッションも必要。
+    confirmManagement: (() => boolean) | null;
+  }>,
+): Promise<
+  Readonly<{
+    repositoryRoot: string;
+    authorize: (writeRepository?: Repository) => boolean;
+  }>
+> {
   if (!accessRoot) {
-    if (repositoryId !== null) throw new Error("ai_selection_input_invalid");
+    if (repositoryId !== localRepositoryId)
+      throw new Error("ai_selection_input_invalid");
     const initial = resolveVerifiedRepositoryRoot(capability);
     if (!initial) throw new Error("ai_selection_access_unavailable");
     return {
@@ -491,47 +516,28 @@ export function resolveAiSelectionAccess(
         resolveVerifiedRepositoryRoot(writeRepository) === initial,
     };
   }
-  if (
-    !administration ||
-    !repositoryId ||
-    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(repositoryId)
-  )
-    throw new Error("ai_selection_access_unavailable");
-  const permission = () =>
-    evaluateAiProfileManagementPermission(
-      administration.root,
-      administration.token,
-    ) === "allowed";
-  if (!permission()) throw new Error("ai_selection_access_unavailable");
-  const initial = resolveRepositoryAccess(
-    administration.root,
-    administration.token,
+  if (!browser?.session) throw new Error("ai_selection_access_unavailable");
+  const { session, confirmManagement } = browser;
+  const permitted = () =>
+    !signal.aborted &&
+    confirmManagement?.() !== false &&
+    canManageAiSelection(accessRoot, session);
+  if (!permitted()) throw new Error("ai_selection_access_unavailable");
+  const target = await resolveHostedDevelopmentAccess(
+    accessRoot,
+    session,
     repositoryId,
-    "development",
+    confirmManagement !== null,
+    signal,
   );
-  if (initial.status !== "completed")
-    throw new Error("ai_selection_access_unavailable");
-  const initialPath = initial.access.root;
+  if (!target) throw new Error("ai_selection_access_unavailable");
   return {
-    repositoryRoot: initialPath,
-    authorize: (writeRepository) => {
-      if (signal.aborted || !permission()) return false;
-      const fresh = resolveRepositoryAccess(
-        administration.root,
-        administration.token,
-        repositoryId,
-        "development",
-      );
-      return (
-        fresh.status === "completed" &&
-        fresh.access.revision === initial.access.revision &&
-        fresh.access.bindingId === initial.access.bindingId &&
-        JSON.stringify(fresh.access.manifest) ===
-          JSON.stringify(initial.access.manifest) &&
-        fresh.access.root === initialPath &&
-        (writeRepository === undefined ||
-          resolveVerifiedRepositoryRoot(writeRepository) === initialPath)
-      );
-    },
+    repositoryRoot: target.ownerRoot,
+    authorize: (repository) =>
+      permitted() &&
+      (repository === undefined ||
+        resolveVerifiedRepositoryRoot(repository) === target.ownerRoot) &&
+      target.authorize() &&
+      confirmManagement?.() !== false,
   };
 }

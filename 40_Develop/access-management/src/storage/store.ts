@@ -7,11 +7,11 @@
 
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 import {
   type FilesystemStoreRoot,
   resolveFilesystemStorePath,
 } from "../initialization/root.ts";
-import path from "node:path";
 import { locked } from "./lock.ts";
 import { parseAccessManagementState } from "./parse.ts";
 import type { AccessManagementState, StateStoreResult } from "./types.ts";
@@ -21,6 +21,51 @@ export const CURRENT = "access-management.json";
 export const PENDING = "access-management.pending.json";
 
 export const REPLACE = "access-management.replace.json";
+
+const publicationListeners = new WeakMap<
+  FilesystemStoreRoot,
+  Set<() => undefined>
+>();
+
+/**
+ * このProcessで同じ保存Rootに出版が試みられた後、現在状態を再観測する合図を購読する。
+ * @trace ARCH-000013
+ * @boundary 信頼済み同Process Consumer。通知そのものは認可・保存成立・取消完了の証明ではない。
+ */
+export function onAccessStatePublication(
+  root: FilesystemStoreRoot,
+  listener: () => undefined,
+): () => void {
+  let listeners = publicationListeners.get(root);
+  if (!listeners) {
+    listeners = new Set();
+    publicationListeners.set(root, listeners);
+  }
+  const subscription = () => listener();
+  listeners.add(subscription);
+  return () => {
+    listeners.delete(subscription);
+    if (listeners.size === 0 && publicationListeners.get(root) === listeners)
+      publicationListeners.delete(root);
+  };
+}
+
+function notifyPublication(root: FilesystemStoreRoot): void {
+  const listeners = publicationListeners.get(root);
+  if (!listeners?.size) return;
+  const queued = [...listeners];
+  // 同期Writerの読戻し・清掃・Lock終了を待ち、購読解除済みの要求は呼び戻さない。
+  queueMicrotask(() => {
+    for (const listener of queued) {
+      if (!listeners.has(listener)) continue;
+      try {
+        listener();
+      } catch {
+        // 一件の観測不能で他の要求への合図やWriter結果を変えない。
+      }
+    }
+  });
+}
 
 const HASH = /^[a-f0-9]{64}$/u;
 
@@ -40,13 +85,14 @@ export const ATTEMPT_UUID =
 type PendingPublication = {
   contract: "crdd-access-management/pending";
   schemaRevision: 1;
-  kind: "management" | "initialization" | "credential";
+  kind: "management" | "account-invitation";
   baseRevision: number;
   baseSha256: string;
   nextRevision: number;
   nextSha256: string;
   operationId: string;
   nextSnapshot: AccessManagementState;
+  invitationUserId?: string;
 };
 
 /**
@@ -237,13 +283,21 @@ export function present(root: FilesystemStoreRoot, name: string): boolean {
  * @concurrency 同じLock内だけで読む。
  */
 export function readCurrent(root: FilesystemStoreRoot) {
-  const snapshot = readStableFileSnapshot(
-    resolveFilesystemStorePath(root, CURRENT),
-  );
-  const parsed = parseAccessManagementState(snapshot.bytes);
+  return decodeCurrent(readCurrentBytes(root));
+}
+
+/** 現在Fileの実体とbytesを検査し、状態の意味解釈はしない。 */
+export function readCurrentBytes(root: FilesystemStoreRoot): Buffer {
+  return readStableFileSnapshot(resolveFilesystemStorePath(root, CURRENT))
+    .bytes;
+}
+
+/** 同じ取得断面を再読取りせず、完全な状態として検査する。 */
+export function decodeCurrent(bytes: Buffer) {
+  const parsed = parseAccessManagementState(bytes);
   if (parsed.status !== "parsed")
     throw new Error("state_store_current_invalid");
-  return { state: parsed.state, bytes: snapshot.bytes };
+  return { state: parsed.state, bytes };
 }
 
 /**
@@ -280,6 +334,13 @@ function readPending(root: FilesystemStoreRoot) {
     "nextSnapshot",
   ];
   if (
+    raw &&
+    typeof raw === "object" &&
+    "kind" in raw &&
+    raw.kind === "account-invitation"
+  )
+    keys.push("invitationUserId");
+  if (
     raw === null ||
     typeof raw !== "object" ||
     Array.isArray(raw) ||
@@ -293,7 +354,7 @@ function readPending(root: FilesystemStoreRoot) {
   if (
     p.contract !== "crdd-access-management/pending" ||
     p.schemaRevision !== 1 ||
-    !["management", "initialization", "credential"].includes(p.kind) ||
+    !["management", "account-invitation"].includes(p.kind) ||
     !Number.isSafeInteger(p.baseRevision) ||
     p.baseRevision < 1 ||
     !Number.isSafeInteger(p.nextRevision) ||
@@ -303,6 +364,12 @@ function readPending(root: FilesystemStoreRoot) {
     typeof p.nextSha256 !== "string" ||
     !HASH.test(p.nextSha256) ||
     parsed.status !== "parsed" ||
+    (p.kind === "account-invitation" &&
+      (typeof p.invitationUserId !== "string" ||
+        !ATTEMPT_UUID.test(p.invitationUserId) ||
+        !parsed.state.users.some(
+          (user) => user.userId === p.invitationUserId,
+        ))) ||
     parsed.state.revision !== p.nextRevision ||
     parsed.state.operationId !== p.operationId ||
     hash(nextBytes) !== p.nextSha256
@@ -350,26 +417,85 @@ export function writeExclusive(
  * @postcondition 確認した事実だけを返し、観測不能を成功へ変換しない。
  * @effect N/A: 純粋比較。
  * @failure 対象外変更はfalse。
- * @invariant 資格・初回・交換状態と既存User IDは保持する。
- * @boundary 管理更新と鍵処置の境界。
- * @security Snapshot・Verifier・salt・内部Pathを外部応答や例外本文へ出さない。
+ * @invariant 完了した初回記録・既存利用者ID・本人の紐付けを通常更新で変更しない。
+ * @boundary 通常管理更新と、初回設定・外部アカウントの紐付けを分離する。
+ * @security Snapshot・外部主体・内部Pathを外部応答や例外本文へ出さない。
  * @concurrency N/A: 同期局所処理。
  */
 export function ordinaryChange(
   base: AccessManagementState,
   next: AccessManagementState,
 ): boolean {
+  const previousUsers = new Map(base.users.map((user) => [user.userId, user]));
+  const nextUsers = new Set(next.users.map((user) => user.userId));
   return (
     base.initialization.stage === "completed" &&
     serialize(base.initialization).equals(serialize(next.initialization)) &&
-    serialize(base.credentials).equals(serialize(next.credentials)) &&
-    serialize(base.unresolvedKeyExchanges).equals(
-      serialize(next.unresolvedKeyExchanges),
-    ) &&
-    base.users.every((user) =>
-      next.users.some((candidate) => candidate.userId === user.userId),
-    )
+    base.users.every((user) => nextUsers.has(user.userId)) &&
+    next.users.every((user) => {
+      const previous = previousUsers.get(user.userId);
+      const invitation = previous?.invitation;
+      return (
+        previous?.accountLinks?.length === user.accountLinks?.length &&
+        (user.accountLinks?.every((link, index) => {
+          const old = previous?.accountLinks?.[index];
+          return (
+            old?.issuer === link.issuer &&
+            old.subject === link.subject &&
+            old.bindingId === link.bindingId
+          );
+        }) ??
+          true) &&
+        invitation?.digest === user.invitation?.digest &&
+        invitation?.expiresAt === user.invitation?.expiresAt &&
+        invitation?.email === user.invitation?.email
+      );
+    })
   );
+}
+
+export function invitationChange(
+  base: AccessManagementState,
+  next: AccessManagementState,
+  targetUserId: string | undefined,
+): boolean {
+  if (!targetUserId || base.initialization.stage !== "completed") return false;
+  const projected = structuredClone(next);
+  projected.revision = base.revision;
+  projected.operationId = base.operationId;
+  if (projected.users.length === base.users.length + 1) {
+    const registered = projected.users.pop();
+    if (
+      registered?.userId !== targetUserId ||
+      !registered.invitation ||
+      registered.accountLinks
+    )
+      return false;
+  } else if (projected.users.length === base.users.length) {
+    const previous = base.users.find(
+      (candidate) => candidate.userId === targetUserId,
+    );
+    const user = projected.users.find(
+      (candidate) => candidate.userId === targetUserId,
+    );
+    if (!previous || !user || previous.accountLinks) return false;
+    if (user.accountLinks) {
+      if (
+        user.accountLinks.length !== 1 ||
+        !previous.invitation ||
+        user.invitation
+      )
+        return false;
+      delete user.accountLinks;
+    } else if (
+      !user.invitation ||
+      user.invitation.digest === previous.invitation?.digest
+    )
+      return false;
+    if (previous.invitation) user.invitation = previous.invitation;
+    else delete user.invitation;
+  } else return false;
+  return serialize(base).equals(serialize(projected));
 }
 
 /**
@@ -391,6 +517,7 @@ export function settlePending(
   root: FilesystemStoreRoot,
   current: ReturnType<typeof readCurrent>,
   recordPublication: () => void,
+  authorizePublishedInvitation?: (userId: string) => boolean,
 ): "none" | "discarded" | "published" {
   const hasPending = present(root, PENDING);
   const hasReplace = present(root, REPLACE);
@@ -403,6 +530,14 @@ export function settlePending(
     current.state.revision === pending.nextRevision &&
     current.state.operationId === pending.operationId &&
     hash(current.bytes) === pending.nextSha256;
+  if (
+    authorizePublishedInvitation &&
+    (!published ||
+      pending.kind !== "account-invitation" ||
+      !pending.invitationUserId ||
+      !authorizePublishedInvitation(pending.invitationUserId))
+  )
+    throw new Error("state_store_pending_unresolved");
   if (published) recordPublication();
   if (hasReplace) {
     const replacement = readStableFileSnapshot(
@@ -418,8 +553,14 @@ export function settlePending(
     !published &&
     !(
       base &&
-      pending.kind === "management" &&
-      ordinaryChange(current.state, pending.nextSnapshot)
+      ((pending.kind === "management" &&
+        ordinaryChange(current.state, pending.nextSnapshot)) ||
+        (pending.kind === "account-invitation" &&
+          invitationChange(
+            current.state,
+            pending.nextSnapshot,
+            pending.invitationUserId,
+          )))
     )
   )
     throw new Error("state_store_pending_unresolved");
@@ -579,16 +720,19 @@ export function publishState(
   current: ReturnType<typeof readCurrent>,
   next: AccessManagementState,
   kind: PendingPublication["kind"],
+  invitationUserId?: string,
 ): StateStoreResult<Readonly<{ revision: number; operationId: string }>> {
   let publication: "not_attempted" | "unconfirmed" | "confirmed" =
     "not_attempted";
   let revision = current.state.revision;
   let stage = "prepare";
+  let replacementAttempted = false;
   try {
     const { nextBytes, pendingBytes } = preparePublicationBytes(
       current,
       next,
       kind,
+      invitationUserId,
     );
     writeExclusive(root, PENDING, pendingBytes);
     if (!readPending(root).nextBytes.equals(nextBytes))
@@ -602,10 +746,10 @@ export function publishState(
       throw new Error("replace_invalid");
     stage = "publish";
     publication = "unconfirmed";
-    fs.renameSync(
-      resolveFilesystemStorePath(root, REPLACE),
-      resolveFilesystemStorePath(root, CURRENT),
-    );
+    const replacement = resolveFilesystemStorePath(root, REPLACE);
+    const destination = resolveFilesystemStorePath(root, CURRENT);
+    replacementAttempted = true;
+    fs.renameSync(replacement, destination);
     stage = "read_back";
     const published = readCurrent(root);
     if (!published.bytes.equals(nextBytes))
@@ -634,6 +778,8 @@ export function publishState(
       revision,
       cleanupConfirmed: false,
     };
+  } finally {
+    if (replacementAttempted) notifyPublication(root);
   }
 }
 
@@ -656,12 +802,14 @@ export function preparePublicationBytes(
   current: ReturnType<typeof readCurrent>,
   next: AccessManagementState,
   kind: PendingPublication["kind"],
+  invitationUserId?: string,
 ): { nextBytes: Buffer; pendingBytes: Buffer } {
   const nextBytes = serialize(next);
   const pendingBytes = serialize({
     contract: "crdd-access-management/pending",
     schemaRevision: 1,
     kind,
+    ...(invitationUserId ? { invitationUserId } : {}),
     baseRevision: current.state.revision,
     baseSha256: hash(current.bytes),
     nextRevision: next.revision,

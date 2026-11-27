@@ -6,14 +6,12 @@
  */
 
 import type { FilesystemStoreRoot } from "../initialization/root.ts";
-import { resolveCredentialAuthentication } from "../credential/authentication.ts";
-import { readCredentialId } from "../credential/token.ts";
-import type { AuthenticatedRequest } from "../credential/types.ts";
+import type { AccessActor, AccountAccessPrincipal } from "./types.ts";
+import { acceptsAccessPrincipal, resolveAccessPrincipal } from "./principal.ts";
 import type {
   CurrentAccessOutcome,
   CurrentAccessResult,
   CurrentAccessSnapshot,
-  ManagementRequest,
 } from "../permission/types.ts";
 import type { AccessRole } from "../role/types.ts";
 import { locked } from "../storage/lock.ts";
@@ -23,7 +21,7 @@ import { evaluateManagementPermission } from "./management.ts";
 
 /**
  * 検査・認証済み同一改訂を本人表示用の所有値へ変換する。
- * @responsibility 固定管理分担とRole内容範囲∩Exposureを個別に投影する。
+ * @responsibility 現在本人と固定管理分担を投影する。
  * @trace ARCH-000013
  * @input 同じLock内の完全検査済み状態と、そこから認証した本人。
  * @returns 入れ子まで凍結した非Authorityの現在投影。
@@ -38,7 +36,7 @@ import { evaluateManagementPermission } from "./management.ts";
  */
 export function projectCurrentAccess(
   state: AccessManagementState,
-  actor: AuthenticatedRequest,
+  actor: AccessActor,
 ): CurrentAccessSnapshot {
   if (actor.revision !== state.revision) throw new Error("revision_mismatch");
   const roles: readonly AccessRole[] = [
@@ -46,12 +44,12 @@ export function projectCurrentAccess(
     "manager",
     "administrator",
   ];
-  const candidates: ManagementRequest[] = [];
+  const candidates: CurrentAccessSnapshot["managementOperations"][number][] =
+    [];
   for (const role of roles) {
     candidates.push(
       { operation: "registerUser", plannedRole: role },
       { operation: "updateUserName", targetRole: role },
-      { operation: "updateRoleContentAccess", targetRole: role },
     );
     for (const nextRole of roles)
       candidates.push({
@@ -63,11 +61,7 @@ export function projectCurrentAccess(
   for (const operation of [
     "registerRepository",
     "unregisterRepository",
-    "updateExposure",
     "manageAiProfiles",
-    "issueCredential",
-    "revokeCredential",
-    "exchangeCredentials",
   ] as const)
     candidates.push({ operation });
   return Object.freeze({
@@ -85,33 +79,15 @@ export function projectCurrentAccess(
         )
         .map((request) => Object.freeze(request)),
     ),
-    contentAccess: Object.freeze({
-      workspaceIds: Object.freeze([...actor.workspaceIds]),
-    }),
-    permittedRepositories: Object.freeze(
-      state.exposure.flatMap((exposure) => {
-        const workspaceIds = exposure.workspaceIds.filter((id) =>
-          actor.workspaceIds.includes(id),
-        );
-        return workspaceIds.length === 0
-          ? []
-          : [
-              Object.freeze({
-                repositoryId: exposure.repositoryId,
-                workspaceIds: Object.freeze(workspaceIds),
-              }),
-            ];
-      }),
-    ),
   });
 }
 
 /**
  * 通常本人の読取りをSurface提供可否と分離して投影する。
- * @responsibility 全Role本人と内容範囲だけを返し、内部管理候補を開示しない。
+ * @responsibility 全Roleの本人だけを返し、内部管理候補を開示しない。
  * @trace ARCH-000013
  * @input AMの本人read結果。
- * @returns 固定未取得、または同改訂の本人・内容範囲・許可Repository。
+ * @returns 固定未取得、または同改訂の本人。
  * @precondition 通常接続Readerが生成した内部値だけを受ける。
  * @postcondition 本人名を他User一覧から推定しない。
  * @effect N/A: 非秘密値の局所コピーのみ。
@@ -135,13 +111,6 @@ export function projectCurrentAccessResult(
       username: snapshot.user.username,
       role: snapshot.user.role,
     },
-    contentAccess: { workspaceIds: [...snapshot.contentAccess.workspaceIds] },
-    permittedRepositories: snapshot.permittedRepositories.map(
-      ({ repositoryId, workspaceIds }) => ({
-        repositoryId,
-        workspaceIds: [...workspaceIds],
-      }),
-    ),
   };
 }
 
@@ -149,11 +118,11 @@ export function projectCurrentAccessResult(
  * 同じ保存改訂から本人の現在権限を読み取り、解放確認後に返す。
  * @responsibility 認証前の材料清掃を避け、本人投影と保存Ownerの終了を接続する。
  * @trace ARCH-000013
- * @input 検証済み用途限定Rootと信頼しないBearer文字列。
+ * @input 検証済み用途限定Rootと外部認証を経た本人の紐付け・期限。
  * @returns 本人の非秘密投影、または固定の未取得理由。
  * @precondition Root検証は既存内部Owner、公開Transportの入力境界はConsumerが所有する。
  * @postcondition 認証・完全状態・投影・材料清掃・Lock解放を確認した場合だけcompleted。
- * @effect 既存Lock、状態読取り、認証後の短命材料清掃、同期KDF。
+ * @effect 既存Lock、状態読取り、本人確認後の保存途中材料の清掃。
  * @failure 不成立資格は同一拒否。取得・観測・回収・解放不明ではSnapshotなし。
  * @invariant 初回途中の本人表示を初回完了・通常接続確認に昇格しない。
  * @boundary AM保存Ownerと本人表示Consumer。実Repositoryアクセスは別。
@@ -162,9 +131,9 @@ export function projectCurrentAccessResult(
  */
 export function readCurrentAccessState(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
 ): CurrentAccessResult {
-  if (!readCredentialId(token))
+  if (!acceptsAccessPrincipal(principal))
     return {
       status: "unavailable",
       reason: "current_access_authentication_rejected",
@@ -172,7 +141,7 @@ export function readCurrentAccessState(
   const result = locked<CurrentAccessSnapshot>(root, () => {
     try {
       const current = readCurrent(root);
-      const actor = resolveCredentialAuthentication(token, current.state);
+      const actor = resolveAccessPrincipal(principal, current.state);
       if (!actor)
         return {
           status: "unavailable",
@@ -237,11 +206,11 @@ export function readCurrentAccessState(
  * 同じ保存改訂から本人の現在権限を読み取り、解放確認後に返す。
  * @responsibility 認証前の材料清掃を避け、本人投影と保存Ownerの終了を接続する。
  * @trace ARCH-000013
- * @input 検証済み用途限定Rootと信頼しないBearer文字列。
+ * @input 検証済み用途限定Rootと確認済みアカウント主体。
  * @returns 本人の非秘密投影、または固定の未取得理由。
  * @precondition Root検証は既存内部Owner、公開Transportの入力境界はConsumerが所有する。
  * @postcondition 認証・完全状態・投影・材料清掃・Lock解放を確認した場合だけcompleted。
- * @effect 既存Lock、状態読取り、認証後の短命材料清掃、同期KDF。
+ * @effect 既存Lock、状態読取り、認証後の短命材料清掃。
  * @failure 不成立資格は同一拒否。取得・観測・回収・解放不明ではSnapshotなし。
  * @invariant 初回途中の本人表示を初回完了・通常接続確認に昇格しない。
  * @boundary AM保存Ownerと本人表示Consumer。実Repositoryアクセスは別。
@@ -250,7 +219,7 @@ export function readCurrentAccessState(
  */
 export function readCurrentAccess(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
 ): CurrentAccessOutcome {
-  return projectCurrentAccessResult(readCurrentAccessState(root, token));
+  return projectCurrentAccessResult(readCurrentAccessState(root, principal));
 }

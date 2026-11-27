@@ -108,6 +108,7 @@ async function main() {
     port: 0,
     aiRequests: {
       ...owner,
+      start: (request, signal) => owner.start(request, signal),
       observe: (requestId) =>
         timing.observeOwner(() => owner.observe(requestId)),
     },

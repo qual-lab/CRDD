@@ -15,13 +15,18 @@ import {
   evaluateManagementPermission,
   projectManagementOperationResult,
 } from "../authorization/management.ts";
-import { resolveCredentialAuthentication } from "../credential/authentication.ts";
-import { readCredentialId } from "../credential/token.ts";
+import {
+  acceptsAccessPrincipal,
+  resolveAccessPrincipal,
+} from "../authorization/principal.ts";
+import type { AccountAccessPrincipal } from "../authorization/types.ts";
 import type { FilesystemStoreRoot } from "../initialization/root.ts";
 import type { ManagementOperationOutcome } from "../permission/types.ts";
-import { parseContentAreaIds } from "../permission/validation.ts";
 import { locked } from "../storage/lock.ts";
-import { parseAccessManagementState } from "../storage/parse.ts";
+import {
+  captureGitHostReference,
+  parseAccessManagementState,
+} from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
   ordinaryChange,
@@ -32,7 +37,10 @@ import {
 } from "../storage/store.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import { deriveRepositoryBindingId } from "./binding.ts";
-import type { RepositoryExposureManagementResult } from "./types.ts";
+import type {
+  GitHostLinkedRepository,
+  RepositoryManagementResult,
+} from "./types.ts";
 
 const ROOT_CODE_UNIT_LIMIT = 32_768;
 
@@ -49,37 +57,49 @@ const ROOT_CODE_UNIT_LIMIT = 32_768;
 type ObserveRegistrationDirectory = (directory: string) => Readonly<{
   directory: string;
   isCurrent: () => boolean;
+  hostedRepository?: GitHostLinkedRepository;
 }> | null;
 
+function acceptsRegistrationDirectory(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= ROOT_CODE_UNIT_LIMIT &&
+    isAbsolute(value) &&
+    !/[\p{Cc}\p{Cs}]/u.test(value)
+  );
+}
+
+function acceptsRepositoryId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(value)
+  );
+}
+
 /**
- * 登録と公開範囲の三操作入力。
+ * リポジトリの登録と解除の入力。
  * @responsibility 操作別に必要な未知値を区別する。
  * @trace ARCH-000013
- * @shape registerRepository、unregisterRepository、updateExposureの判別共用体。
+ * @shape registerRepositoryとunregisterRepositoryの判別共用体。
  * @invariant 入力Pathを保存・アクセスAuthorityにしない。
  * @boundary 私有保存Ownerと操作判断。
  * @security 資格材料を含めない。
  * @compatibility Package内部入力で、Transport Schemaではない。
  */
-export type RepositoryExposureChange =
+type RepositoryRegistrationChange =
   | {
       operation: "registerRepository";
       repositoryId: unknown;
       repositoryRoot: unknown;
       observeDirectory: ObserveRegistrationDirectory;
     }
-  | { operation: "unregisterRepository"; repositoryId: unknown }
-  | {
-      operation: "updateExposure";
-      repositoryId: unknown;
-      workspaceIds: unknown;
-    };
+  | { operation: "unregisterRepository"; repositoryId: unknown };
 
 /**
  * 登録変更の入力・現在対象を外部観測なしで検査する。
  * @responsibility 登録済み／未登録と明示範囲を区別する。
  * @trace ARCH-000013
- * @input 現在状態と内部三操作入力。登録Rootは32,768 UTF-16 code unit以下。
+ * @input 現在状態と登録・解除の入力。登録Rootは32,768 UTF-16 code unit以下。
  * @returns 有効な入力・対象ならtrue。
  * @precondition 保存Ownerが同じ現在改訂を使い、外部観測前に認可する。
  * @postcondition 入力状態と対象Repository本文を変更しない。
@@ -90,16 +110,11 @@ export type RepositoryExposureChange =
  * @security 秘密・内部Pathを公開結果へ透過しない。
  * @concurrency 同期Lock区間で使い、観測後の永久保証を主張しない。
  */
-export function acceptsRepositoryExposureChange(
+function acceptsRepositoryRegistrationChange(
   current: AccessManagementState,
-  change: RepositoryExposureChange,
+  change: RepositoryRegistrationChange,
 ): boolean {
-  if (
-    typeof change.repositoryId !== "string" ||
-    change.repositoryId.length > 128 ||
-    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(change.repositoryId)
-  )
-    return false;
+  if (!acceptsRepositoryId(change.repositoryId)) return false;
   const existing = current.registeredRepositories.some(
     (item) => item.repositoryId === change.repositoryId,
   );
@@ -107,16 +122,64 @@ export function acceptsRepositoryExposureChange(
     return (
       !existing &&
       typeof change.observeDirectory === "function" &&
-      typeof change.repositoryRoot === "string" &&
-      change.repositoryRoot.length <= ROOT_CODE_UNIT_LIMIT &&
-      isAbsolute(change.repositoryRoot) &&
-      !/[\p{Cc}\p{Cs}]/u.test(change.repositoryRoot)
+      acceptsRegistrationDirectory(change.repositoryRoot)
     );
-  return (
-    existing &&
-    (change.operation === "unregisterRepository" ||
-      parseContentAreaIds(change.workspaceIds) !== null)
-  );
+  return change.operation === "unregisterRepository" && existing;
+}
+
+/** 共有登録の事前判定。競合では保存・既存材料の清掃・外部照会を行わない。 */
+export function checkHostedRepositoryRegistration(
+  root: FilesystemStoreRoot,
+  principal: AccountAccessPrincipal,
+  request: Readonly<{
+    repositoryId: string;
+    directory: string;
+    expectedRevision: number;
+    operationId: string;
+  }>,
+): "ready" | "rejected" | "conflict" {
+  const { repositoryId, directory, expectedRevision, operationId } = request;
+  if (
+    !acceptsAccessPrincipal(principal) ||
+    !Number.isSafeInteger(expectedRevision) ||
+    expectedRevision < 1 ||
+    typeof operationId !== "string" ||
+    !ATTEMPT_UUID.test(operationId) ||
+    !acceptsRepositoryId(repositoryId) ||
+    !acceptsRegistrationDirectory(directory)
+  )
+    return "rejected";
+  const observed = locked<"ready" | "rejected" | "conflict">(root, () => {
+    const current = readCurrent(root);
+    const { state } = current;
+    const actor = resolveAccessPrincipal(principal, state);
+    let value: "ready" | "rejected" | "conflict" = "rejected";
+    if (
+      actor &&
+      state.initialization.stage === "completed" &&
+      state.operationId !== operationId &&
+      evaluateManagementPermission(actor.role, {
+        operation: "registerRepository",
+      }) === "allowed" &&
+      !state.registeredRepositories.some(
+        (entry) => entry.repositoryId === repositoryId,
+      )
+    ) {
+      if (expectedRevision < state.revision) value = "conflict";
+      if (expectedRevision === state.revision) {
+        settlePending(root, current, () => {});
+        value = "ready";
+      }
+    }
+    return {
+      status: "completed",
+      value,
+      publication: "not_attempted",
+      revision: state.revision,
+      cleanupConfirmed: true,
+    };
+  });
+  return observed.status === "completed" ? observed.value : "rejected";
 }
 
 /**
@@ -141,6 +204,12 @@ function observeRegistration(
 ): AccessManagementState["registeredRepositories"][number] | null {
   const location = observeDirectory(repositoryRoot);
   if (!location) return null;
+  const rawReference = location.hostedRepository;
+  const hostedRepository =
+    rawReference === undefined
+      ? undefined
+      : captureGitHostReference(rawReference);
+  if (hostedRepository === null) return null;
   const root = location.directory;
   const observer = createFilesystemRepositoryObservationPort(root);
   const manifestRead = readRepositoryManifest(root);
@@ -171,30 +240,31 @@ function observeRegistration(
     repositoryId,
     repositoryRoot: root,
     bindingId: deriveRepositoryBindingId(repositoryId, root),
+    ...(hostedRepository && { hostedRepository }),
   };
 }
 
 /**
- * 認可済み登録・解除・Exposureの候補を構築する。
- * @responsibility 意図した登録／公開fieldだけを同じ次改訂へ変更する。
+ * 認可済み登録・解除の候補を構築する。
+ * @responsibility 対象登録だけを次改訂へ反映し、解除に伴う旧公開行を残さない。
  * @trace ARCH-000013
- * @input 完全現在状態、検査済み三操作入力、受付ID。
+ * @input 完全現在状態、検査済み登録・解除入力、受付ID。
  * @returns 所有済み候補またはnull。
  * @precondition 保存Ownerが同じ現在改訂を使い、外部観測前に認可する。
  * @postcondition 入力状態と対象Repository本文を変更しない。
- * @effect 登録だけ固定File観測。解除・Exposureはメモリ処理だけ。
+ * @effect 登録だけ固定File観測。解除はメモリ処理だけ。
  * @failure 不正・欠測・観測不能は拒否し、例外を成功へ変えない。
  * @invariant 登録、公開設定、内容認可、実アクセスを同一視しない。
  * @boundary 操作固有意味と保存Owner。
  * @security 秘密・内部Pathを公開結果へ透過しない。
  * @concurrency 同期Lock区間で使い、観測後の永久保証を主張しない。
  */
-export function prepareRepositoryExposureChange(
+function prepareRepositoryRegistrationChange(
   current: AccessManagementState,
-  change: RepositoryExposureChange,
+  change: RepositoryRegistrationChange,
   operationId: string,
 ): AccessManagementState | null {
-  if (!acceptsRepositoryExposureChange(current, change)) return null;
+  if (!acceptsRepositoryRegistrationChange(current, change)) return null;
   const next = structuredClone(current);
   next.revision++;
   next.operationId = operationId;
@@ -205,7 +275,7 @@ export function prepareRepositoryExposureChange(
       change.repositoryRoot as string,
       change.observeDirectory,
     );
-    if (!registration) return null;
+    if (!registration?.hostedRepository) return null;
     if (
       current.registeredRepositories.some(
         (item) => item.bindingId === registration.bindingId,
@@ -213,29 +283,22 @@ export function prepareRepositoryExposureChange(
     )
       return null;
     next.registeredRepositories.push(registration);
-  } else if (change.operation === "unregisterRepository") {
+  } else {
     next.registeredRepositories = next.registeredRepositories.filter(
       (item) => item.repositoryId !== id,
     );
-    next.exposure = next.exposure.filter((item) => item.repositoryId !== id);
-  } else {
-    const workspaceIds = parseContentAreaIds(change.workspaceIds);
-    if (!workspaceIds) return null;
-    const existing = next.exposure.find((item) => item.repositoryId === id);
-    if (existing) existing.workspaceIds = workspaceIds;
-    else next.exposure.push({ repositoryId: id, workspaceIds });
   }
   return next;
 }
 
 /**
- * 登録・解除・公開更新の現在認可と保存を直列化する。
+ * 登録・解除の現在認可と保存を直列化する。
  * @responsibility 認可前の外部Root観測・先行材料清掃を行わない。
  * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、内部三操作。
+ * @input Root、主体、期待改訂、受付UUID、登録・解除入力。
  * @returns 非秘密の対象・改訂・出版／清掃結果、または非開示拒否。
  * @precondition 完了初期化の用途限定Rootを使う内部Consumer。
- * @postcondition 対象登録／Exposure以外とRepository本体を保持する。
+ * @postcondition 対象登録以外とRepository本体を保持する。
  * @effect 既存Lock、登録時固定File観測、既存pending／replace／current出版。
  * @failure 認可前は固定拒否、認可後は今回の最初の失敗を返す。
  * @invariant 登録は公開ではなく、解除はTask取消ではない。
@@ -243,16 +306,15 @@ export function prepareRepositoryExposureChange(
  * @security 秘密・内部Root・Lock回復参照は返さない。
  * @concurrency 現在認可・期待改訂・処置を同じLockに閉じる。
  */
-export function executeRepositoryExposureMutation(
+function executeRepositoryRegistration(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   expectedRevision: number,
   operationId: string,
-  change: RepositoryExposureChange,
-): RepositoryExposureManagementResult {
+  change: RepositoryRegistrationChange,
+): RepositoryManagementResult {
   if (
-    typeof token !== "string" ||
-    !readCredentialId(token) ||
+    !acceptsAccessPrincipal(principal) ||
     !Number.isSafeInteger(expectedRevision) ||
     expectedRevision < 1 ||
     typeof operationId !== "string" ||
@@ -270,16 +332,16 @@ export function executeRepositoryExposureMutation(
       const current = readCurrent(root);
       revision = current.state.revision;
       stage = "authorization";
-      const actor = resolveCredentialAuthentication(token, current.state);
+      const actor = resolveAccessPrincipal(principal, current.state);
       if (
         !actor ||
         current.state.initialization.stage !== "completed" ||
-        revision !== expectedRevision ||
+        revision < expectedRevision ||
         current.state.operationId === operationId ||
         evaluateManagementPermission(actor.role, {
           operation: change.operation,
         }) !== "allowed" ||
-        !acceptsRepositoryExposureChange(current.state, change)
+        !acceptsRepositoryRegistrationChange(current.state, change)
       )
         return {
           status: "unavailable" as const,
@@ -289,6 +351,14 @@ export function executeRepositoryExposureMutation(
           cleanupConfirmed: true,
         };
       admitted = true;
+      if (revision !== expectedRevision)
+        return {
+          status: "unavailable" as const,
+          reason: "state_store_revision_conflict",
+          publication: "not_attempted" as const,
+          revision,
+          cleanupConfirmed: true,
+        };
       stage = "pending";
       const settled = settlePending(root, current, () => {});
       materialsConfirmed = true;
@@ -301,7 +371,7 @@ export function executeRepositoryExposureMutation(
           cleanupConfirmed: true,
         };
       stage = "repository_binding";
-      const next = prepareRepositoryExposureChange(
+      const next = prepareRepositoryRegistrationChange(
         current.state,
         change,
         operationId,
@@ -355,10 +425,10 @@ export function executeRepositoryExposureMutation(
  * 現在manager／administratorがRepositoryを登録する。
  * @responsibility Canonical Identityと検証Rootを登録するが公開しない。
  * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、Repository ID、絶対パス、呼出し側のディレクトリ観測。
+ * @input Root、確認済みアカウント主体、期待改訂、受付UUID、Repository ID、絶対パス、呼出し側のディレクトリ観測。
  * @returns 非秘密の対象・改訂・出版／清掃結果、または非開示拒否。
  * @precondition 完了初期化の用途限定Rootを使う内部Consumer。
- * @postcondition 対象登録／Exposure以外とRepository本体を保持する。
+ * @postcondition 対象登録以外とRepository本体を保持する。
  * @effect 認可後の固定File読取りと既存保存。
  * @failure 認可前は固定拒否、認可後は今回の最初の失敗を返す。
  * @invariant 登録は公開ではなく、解除はTask取消ではない。
@@ -368,16 +438,16 @@ export function executeRepositoryExposureMutation(
  */
 export function saveRepositoryRegistration(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   expectedRevision: number,
   operationId: string,
   repositoryId: unknown,
   repositoryRoot: unknown,
   observeDirectory: ObserveRegistrationDirectory,
-): RepositoryExposureManagementResult {
-  return executeRepositoryExposureMutation(
+): RepositoryManagementResult {
+  return executeRepositoryRegistration(
     root,
-    token,
+    principal,
     expectedRevision,
     operationId,
     {
@@ -390,13 +460,13 @@ export function saveRepositoryRegistration(
 }
 
 /**
- * Repository登録と対応Exposureを同じ改訂で解除する。
+ * Repository登録を解除する。
  * @responsibility 旧Rootの再検査を要求せず対象管理情報だけを除去する。
  * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、既存Repository ID。
+ * @input Root、確認済みアカウント主体、期待改訂、受付UUID、既存Repository ID。
  * @returns 非秘密の対象・改訂・出版／清掃結果、または非開示拒否。
  * @precondition 完了初期化の用途限定Rootを使う内部Consumer。
- * @postcondition 対象登録／Exposure以外とRepository本体を保持する。
+ * @postcondition 対象登録以外とRepository本体を保持する。
  * @effect AM管理状態の保存だけ。対象Repository観測・変更0。
  * @failure 認可前は固定拒否、認可後は今回の最初の失敗を返す。
  * @invariant 登録は公開ではなく、解除はTask取消ではない。
@@ -406,14 +476,14 @@ export function saveRepositoryRegistration(
  */
 export function saveRepositoryRemoval(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   expectedRevision: number,
   operationId: string,
   repositoryId: unknown,
-): RepositoryExposureManagementResult {
-  return executeRepositoryExposureMutation(
+): RepositoryManagementResult {
+  return executeRepositoryRegistration(
     root,
-    token,
+    principal,
     expectedRevision,
     operationId,
     { operation: "unregisterRepository", repositoryId },
@@ -424,10 +494,10 @@ export function saveRepositoryRemoval(
  * 現在manager／administratorがRepositoryを登録する。
  * @responsibility Canonical Identityと検証Rootを登録するが公開しない。
  * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、Repository ID、絶対パス、呼出し側のディレクトリ観測。
+ * @input Root、確認済みアカウント主体、期待改訂、受付UUID、Repository ID、絶対パス、呼出し側のディレクトリ観測。
  * @returns 非秘密の対象・改訂・出版／清掃結果、または非開示拒否。
  * @precondition 完了初期化の用途限定Rootを使う内部Consumer。
- * @postcondition 対象登録／Exposure以外とRepository本体を保持する。
+ * @postcondition 対象登録以外とRepository本体を保持する。
  * @effect 認可後の固定File読取りと既存保存。
  * @failure 認可前は固定拒否、認可後は今回の最初の失敗を返す。
  * @invariant 登録は公開ではなく、解除はTask取消ではない。
@@ -437,7 +507,7 @@ export function saveRepositoryRemoval(
  */
 export function registerRepository(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   expectedRevision: number,
   operationId: string,
   repositoryId: unknown,
@@ -447,7 +517,7 @@ export function registerRepository(
   return projectManagementOperationResult(
     saveRepositoryRegistration(
       root,
-      token,
+      principal,
       expectedRevision,
       operationId,
       repositoryId,
@@ -458,13 +528,13 @@ export function registerRepository(
 }
 
 /**
- * Repository登録と対応Exposureを同じ改訂で解除する。
+ * Repository登録を解除する。
  * @responsibility 旧Rootの再検査を要求せず対象管理情報だけを除去する。
  * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、既存Repository ID。
+ * @input Root、確認済みアカウント主体、期待改訂、受付UUID、既存Repository ID。
  * @returns 非秘密の対象・改訂・出版／清掃結果、または非開示拒否。
  * @precondition 完了初期化の用途限定Rootを使う内部Consumer。
- * @postcondition 対象登録／Exposure以外とRepository本体を保持する。
+ * @postcondition 対象登録以外とRepository本体を保持する。
  * @effect AM管理状態の保存だけ。対象Repository観測・変更0。
  * @failure 認可前は固定拒否、認可後は今回の最初の失敗を返す。
  * @invariant 登録は公開ではなく、解除はTask取消ではない。
@@ -474,7 +544,7 @@ export function registerRepository(
  */
 export function unregisterRepository(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   expectedRevision: number,
   operationId: string,
   repositoryId: unknown,
@@ -482,7 +552,7 @@ export function unregisterRepository(
   return projectManagementOperationResult(
     saveRepositoryRemoval(
       root,
-      token,
+      principal,
       expectedRevision,
       operationId,
       repositoryId,

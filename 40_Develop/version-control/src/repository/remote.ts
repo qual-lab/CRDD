@@ -74,6 +74,93 @@ function singleLineValue(result: ProcessResult): string | null {
   }
 }
 
+/** ローカル設定に明示された単一のHTTPS Remoteを観測する。送信先の実行許可ではない。 */
+export function readOriginHttpsRemote(repository: Repository): string | null {
+  const root = resolveVerifiedRepositoryRoot(repository);
+  if (root === null) return null;
+  return readLocalHttpsRemote(root, "url") ?? null;
+}
+
+/** undefinedは設定なし、nullは設定を一意かつ安全に読めない場合。 */
+function readLocalHttpsRemote(
+  root: string,
+  field: "url" | "pushurl",
+): string | undefined | null {
+  const result = executeGit(
+    root,
+    [
+      "config",
+      "--local",
+      "--no-includes",
+      "--null",
+      "--get-all",
+      `remote.origin.${field}`,
+    ],
+    { maxBuffer: 4_096 },
+  );
+  if (result.error || result.signal) return null;
+  if (result.status === 1 && result.stdout.length === 0) return undefined;
+  if (result.status !== 0) return null;
+  try {
+    const raw = new TextDecoder("utf-8", { fatal: true }).decode(result.stdout);
+    const [address, end, ...rest] = raw.split("\0");
+    if (
+      !address ||
+      end !== "" ||
+      rest.length !== 0 ||
+      /[\s\p{Cc}]/u.test(address)
+    )
+      return null;
+    const url = new URL(address);
+    return url.protocol === "https:" &&
+      url.href === address &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash
+      ? address
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 確認されたHEADと公開Branchを、明示のHTTPS originだけへ結び付ける。
+ * @trace ARCH-000009
+ * @boundary 本人の認可と通信の分離は呼出し側。ここでは資格を受け取らず、Git送信もしない。
+ */
+export function readOriginHttpsPublicationTarget(
+  repository: Repository,
+  request: RepositoryPushRequest,
+): Readonly<{
+  address: string;
+  revisionIdentity: string;
+  reference: string;
+}> | null {
+  if (request.destination !== "origin" || request.humanConfirmed !== true)
+    return null;
+  const root = resolveVerifiedRepositoryRoot(repository);
+  if (root === null) return null;
+  const target = readRemoteTarget(repository);
+  if (
+    target.status !== "available" ||
+    target.destination !== request.destination ||
+    target.branch !== request.branch ||
+    target.revisionIdentity !== request.revisionIdentity
+  )
+    return null;
+  const address = readLocalHttpsRemote(root, "url");
+  if (!address) return null;
+  const pushUrl = readLocalHttpsRemote(root, "pushurl");
+  if (pushUrl !== undefined && pushUrl !== address) return null;
+  return Object.freeze({
+    address,
+    revisionIdentity: request.revisionIdentity,
+    reference: `refs/heads/${request.branch}`,
+  });
+}
+
 /** 現在Branchの上流設定を観測し、URL・Credentialは公開しない。 */
 export function readRemoteTarget(repository: Repository): RemoteTarget {
   const repositoryRoot = resolveVerifiedRepositoryRoot(repository);

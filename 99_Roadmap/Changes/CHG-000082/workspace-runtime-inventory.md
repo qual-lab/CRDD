@@ -518,7 +518,7 @@ W4の技術・Qualityの独立再レビューは両者とも残指摘0。最終S
 | 対象 | 実装・観測した範囲 |
 |---|---|
 | 共通Owner | `workspace/commands.ts`が操作別の閉入力、所属、期待世代、現在認可と非秘密投影を所有する。Root・callback・参照解放済みの自己申告はwireに含めない |
-| MCP | `crdd.get_workspace`／`crdd.manage_workspace`の二Tool。通常stdio Launcher、共有HTTP Resolverまで接続し、同じOwnerを呼ぶ |
+| MCP | 一覧の `crdd.list_workspaces`、取得の `crdd.get_workspace`、変更の `crdd.rename_workspace` など一操作一Tool。通常stdioと共有HTTPが同じOwnerを呼ぶ |
 | Workbench | 同Origin `POST /workspace/action`とCSR Panel。一覧・作成・選択・改名・保持、file確認・固定、固定差分・別採用・終了を分ける。旧Bundleのcandidate/actionは流用しない |
 | 実Git／保存 | 確認したfileのBlobを固定し、Task完了だけでは採用しない。固定後のTree変更が固定差分へ混入しないこと、二親Merge、RefとWorktreeの回収を実Git・実Writerで確認 |
 | 故障後 | WorkbenchのMerge結果をGit・保存後のHTTP終了位置で切断し、MCPの同ID読取りからmerged／同Merge Commitを再取得、HEAD不変と正式終了・回収を確認。汎用の発行後取消完了や全故障枝の実証ではない |

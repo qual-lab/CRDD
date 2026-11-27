@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import { startWorkbench } from "../../src/app.ts";
-import { requestRaw } from "../support/workbench-http.ts";
+import { requestRaw, requestTransport } from "../support/workbench-http.ts";
 import { assertManagementResponse } from "../support/workbench-wire.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
@@ -135,89 +135,401 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
     assert.deepEqual(doc.servers, [
       { url: "/", description: "単体loopback配置（--docs）" },
     ]);
-    assert.deepEqual(doc.paths["/api/workspace"].post.security, []);
-    assert.deepEqual(doc.paths["/api/repository"].post.security, []);
-    assert.deepEqual(doc.paths["/api/records"].post.security, []);
-    assert.deepEqual(doc.paths["/api/access"].get.security, [
-      { bearerAuth: [] },
-    ]);
-    for (const pathname of [
-      "/api/ai-request",
-      "/api/ai-selection",
-      "/api/execution/definition",
-      "/api/execution/state",
-      "/api/execution/objectives/run",
-      "/api/execution/decisions/submit",
-    ]) {
-      const { get, post } = doc.paths[pathname];
-      for (const parameter of get?.parameters ?? [])
-        assert.notEqual(parameter.name, "repositoryId");
-      if (post)
-        assert.ok(
-          !Object.hasOwn(
-            post.requestBody.content["application/x-www-form-urlencoded"].schema
-              .properties,
-            "repositoryId",
-          ),
-        );
-    }
-    assert.deepEqual(Object.keys(doc.paths).sort(), [
-      "/.well-known/crdd-workbench-health",
+    const operationIds = Object.values(
+      doc.paths as Record<string, Record<string, { operationId: string }>>,
+    ).flatMap((operations) =>
+      Object.entries(operations)
+        .filter(([method]) =>
+          /^(get|head|post|put|patch|delete|options|trace)$/u.test(method),
+        )
+        .map(([, { operationId }]) => operationId),
+    );
+    assert.ok(operationIds.every((id) => typeof id === "string" && id !== ""));
+    assert.equal(new Set(operationIds).size, operationIds.length);
+    assert.equal(doc.paths["/api/projects"].get.operationId, "list_projects");
+    assert.equal(
+      doc.paths["/api/repositories/{repositoryId}/projects/{projectId}/context"]
+        .get.operationId,
+      "get_project_context",
+    );
+    assert.equal(Object.hasOwn(doc.paths, "/api/workspace"), false);
+    const workspace = doc.paths["/api/repositories/{repositoryId}/workspaces"];
+    assert.deepEqual(Object.keys(workspace).sort(), ["get", "post"]);
+    assert.equal(workspace.get.operationId, "list_workspaces");
+    assert.equal(workspace.post.operationId, "create_workspace");
+    assert.ok(workspace.post.responses["201"]);
+    assert.ok(workspace.post.responses["200"]);
+    const workspaceCreate =
+      workspace.post.requestBody.content["application/json"].schema;
+    assert.equal(workspaceCreate.additionalProperties, false);
+    assert.equal(Object.hasOwn(workspaceCreate.properties, "operation"), false);
+    assert.equal(
+      Object.hasOwn(workspaceCreate.properties, "repositoryId"),
+      false,
+    );
+    const workspaceRename =
+      doc.paths["/api/repositories/{repositoryId}/workspaces/{workspaceId}"]
+        .patch;
+    assert.ok(
+      workspaceRename.parameters.some(
+        (p: { name: string; in: string }) =>
+          p.name === "workspaceId" && p.in === "path",
+      ),
+    );
+    assert.equal(
+      Object.hasOwn(
+        workspaceRename.requestBody.content["application/json"].schema
+          .properties,
+        "workspaceId",
+      ),
+      false,
+    );
+    assert.equal(Object.hasOwn(doc.paths, "/api/repository"), false);
+    const gitRepository = "/api/repositories/{repositoryId}";
+    const staging = doc.paths[`${gitRepository}/staging`];
+    assert.equal(staging.post.operationId, "stageRepositoryPath");
+    assert.equal(staging.delete.operationId, "unstageRepositoryPath");
+    const publication =
+      doc.paths[`${gitRepository}/revisions/{revision}/publication`].post;
+    assert.deepEqual(
+      publication.requestBody.content["application/json"].schema.required,
+      ["destination", "branch", "humanConfirmed"],
+    );
+    assert.equal(Object.hasOwn(doc.paths, "/api/records"), false);
+    assert.equal(
+      doc.paths["/api/repositories/{repositoryId}/activity"].get.operationId,
+      "get_execution_activity",
+    );
+    for (const retired of [
       "/api/access",
       "/api/access/connection",
       "/api/access/credentials",
-      "/api/ai-request",
-      "/api/ai-selection",
-      "/api/execution/decisions/submit",
-      "/api/execution/definition",
-      "/api/execution/objectives/run",
-      "/api/execution/state",
-      "/api/records",
-      "/api/repository",
-      "/api/workbench/view",
-      "/api/workspace",
-    ]);
-    for (const pathname of [
-      "/api/access",
-      "/api/ai-request",
-      "/api/ai-selection",
     ])
-      assert.deepEqual(Object.keys(doc.paths[pathname]).sort(), [
-        "get",
-        "post",
-      ]);
+      assert.equal(Object.hasOwn(doc.paths, retired), false, retired);
+    assert.equal(
+      Object.hasOwn(doc.components?.securitySchemes ?? {}, "bearerAuth"),
+      false,
+    );
+    assert.equal(Object.hasOwn(doc.paths, "/api/ai-request"), false);
+    const aiRepository = "/api/repositories/{repositoryId}";
+    for (const [target, names] of [
+      ["ai-request", ["repositoryId"]],
+      ["ai-requests/{requestId}", ["repositoryId", "requestId"]],
+    ] as const) {
+      const entry = doc.paths[`${aiRepository}/${target}`];
+      assert.deepEqual(
+        Object.keys(entry),
+        target === "ai-request" ? ["get", "put"] : ["get"],
+      );
+      assert.deepEqual(
+        entry.get.parameters.map(
+          ({ name, in: source }: { name: string; in: string }) => [
+            name,
+            source,
+          ],
+        ),
+        names.map((name) => [name, "path"]),
+      );
+    }
+    assert.equal(
+      doc.paths[`${aiRepository}/ai-requests`].post.operationId,
+      "startAiRequest",
+    );
+    assert.equal(
+      doc.paths[`${aiRepository}/ai-requests/{requestId}/cancellation`].post
+        .operationId,
+      "cancelAiRequest",
+    );
+    assert.equal(
+      doc.paths[`${aiRepository}/ai-request`].put.operationId,
+      "selectAiRequest",
+    );
+    assert.equal(Object.hasOwn(doc.paths, "/api/ai-selection"), false);
+    const aiSelection =
+      doc.paths["/api/repositories/{repositoryId}/ai-selection"];
+    assert.deepEqual(Object.keys(aiSelection).sort(), [
+      "get",
+      "head",
+      "parameters",
+      "put",
+    ]);
+    assert.deepEqual(
+      aiSelection.parameters.map(
+        (parameter: { name: string }) => parameter.name,
+      ),
+      ["repositoryId"],
+    );
+    assert.equal(aiSelection.put.parameters[0].name, "X-CRDD-Action-Token");
+    assert.deepEqual(
+      Object.keys(
+        aiSelection.put.requestBody.content["application/json"].schema
+          .properties,
+      ).sort(),
+      ["config", "expectedIdentity"],
+    );
+    assert.deepEqual(Object.keys(doc.paths).sort(), [
+      "/.well-known/crdd-workbench-health",
+      "/api/projects",
+      "/api/repositories/{repositoryId}/activity",
+      "/api/repositories/{repositoryId}/ai-request",
+      "/api/repositories/{repositoryId}/ai-requests",
+      "/api/repositories/{repositoryId}/ai-requests/{requestId}",
+      "/api/repositories/{repositoryId}/ai-requests/{requestId}/cancellation",
+      "/api/repositories/{repositoryId}/ai-selection",
+      "/api/repositories/{repositoryId}/meetings",
+      "/api/repositories/{repositoryId}/meetings/{meetingId}",
+      "/api/repositories/{repositoryId}/meetings/{meetingId}/outcomes/{outcomeId}/treatment",
+      "/api/repositories/{repositoryId}/projects/{projectId}/context",
+      "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}/decisions",
+      "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}/decisions/{decisionId}/answers",
+      "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}/decisions/{decisionId}/application",
+      "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}/decisions/{decisionId}/closure",
+      "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}/definition",
+      "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}/objectives",
+      "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}/objectives/{objectiveId}",
+      "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}/plan",
+      "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}/runs",
+      "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}/tasks",
+      "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}/tasks/{taskId}",
+      "/api/repositories/{repositoryId}/revisions",
+      "/api/repositories/{repositoryId}/revisions/{revision}/publication",
+      "/api/repositories/{repositoryId}/runs/{requestId}",
+      "/api/repositories/{repositoryId}/runs/{requestId}/cancellation",
+      "/api/repositories/{repositoryId}/runs/{requestId}/resumption",
+      "/api/repositories/{repositoryId}/selected-workspace",
+      "/api/repositories/{repositoryId}/staging",
+      "/api/repositories/{repositoryId}/topics",
+      "/api/repositories/{repositoryId}/topics/{topicId}",
+      "/api/repositories/{repositoryId}/topics/{topicId}/promotion",
+      "/api/repositories/{repositoryId}/workspaces",
+      "/api/repositories/{repositoryId}/workspaces/{workspaceId}",
+      "/api/repositories/{repositoryId}/workspaces/{workspaceId}/adoption",
+      "/api/repositories/{repositoryId}/workspaces/{workspaceId}/candidate/closure",
+      "/api/repositories/{repositoryId}/workspaces/{workspaceId}/candidate/diff",
+      "/api/repositories/{repositoryId}/workspaces/{workspaceId}/freeze",
+      "/api/repositories/{repositoryId}/workspaces/{workspaceId}/hold",
+      "/api/repositories/{repositoryId}/workspaces/{workspaceId}/inspection",
+      "/api/workbench/view",
+    ]);
+    const topics = doc.paths["/api/repositories/{repositoryId}/topics"];
+    assert.equal(topics.get.operationId, "list_topics");
+    assert.equal(topics.post.operationId, "create_topic");
+    assert.deepEqual(
+      Object.keys(topics.post.responses).filter((status) =>
+        status.startsWith("2"),
+      ),
+      ["201"],
+    );
+    const topic =
+      doc.paths["/api/repositories/{repositoryId}/topics/{topicId}"];
+    assert.deepEqual(
+      topic.patch.requestBody.content["application/json"].schema.required,
+      ["expectedRevision", "markdown"],
+    );
+    const outcome =
+      doc.paths[
+        "/api/repositories/{repositoryId}/meetings/{meetingId}/outcomes/{outcomeId}/treatment"
+      ].put;
+    assert.equal(outcome.operationId, "treat_meeting_outcome");
+    assert.ok(
+      !Object.hasOwn(
+        outcome.requestBody.content["application/json"].schema.properties,
+        "outcomeId",
+      ),
+    );
     const viewResponse = doc.paths["/api/workbench/view"].get.responses["200"];
     for (const name of [
       "crdd/workbench/view/v1",
       "projectData",
       "executionActivity",
-      "recordActionResult",
     ])
       assert.ok(viewResponse.description.includes(name), name);
-    assert.deepEqual(Object.keys(doc.paths["/api/execution/state"]), ["get"]);
-    assert.equal(
-      doc.paths["/api/execution/state"].get.operationId,
-      "getExecutionState",
+    const stateRoute =
+      doc.paths["/api/repositories/{repositoryId}/runs/{requestId}"];
+    assert.deepEqual(Object.keys(stateRoute), ["get"]);
+    assert.equal(stateRoute.get.operationId, "get_execution_state");
+    assert.deepEqual(
+      stateRoute.get.parameters.map(
+        ({
+          name,
+          in: location,
+          required,
+        }: {
+          name: string;
+          in: string;
+          required: boolean;
+        }) => [name, location, required],
+      ),
+      [
+        ["repositoryId", "path", true],
+        ["requestId", "path", true],
+        ["projectId", "query", true],
+        ["repositoryRevision", "query", true],
+        ["queueId", "query", false],
+      ],
     );
-    for (const [pathname, operationId] of [
-      ["/api/execution/objectives/run", "runObjective"],
-      ["/api/execution/decisions/submit", "submitDecision"],
+    const decisionCollection =
+      "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}/decisions";
+    const decisionPathFields = [
+      "operation",
+      "repositoryId",
+      "projectId",
+      "milestoneId",
+    ];
+    const decisionVersionFields = ["generation", "repositoryRevision"];
+    for (const [pathname, operationId, forbidden, required] of [
+      [
+        decisionCollection,
+        "request_decision",
+        decisionPathFields,
+        [
+          ...decisionVersionFields,
+          "decisionId",
+          "blockerId",
+          "queueId",
+          "question",
+          "allowedOptions",
+        ],
+      ],
+      [
+        `${decisionCollection}/{decisionId}/answers`,
+        "answer_decision",
+        [...decisionPathFields, "decisionId", "status"],
+        [...decisionVersionFields, "selectedOption"],
+      ],
+      [
+        `${decisionCollection}/{decisionId}/application`,
+        "apply_decision",
+        [...decisionPathFields, "decisionId", "selectedOption"],
+        decisionVersionFields,
+      ],
+      [
+        `${decisionCollection}/{decisionId}/closure`,
+        "close_decision",
+        [...decisionPathFields, "decisionId", "selectedOption"],
+        [...decisionVersionFields, "status", "reason"],
+      ],
+      [
+        "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}/runs",
+        "start_objective",
+        ["operation", "repositoryId", "projectId", "milestoneId"],
+        ["requestId", "plan", "taskInputs"],
+      ],
+      [
+        "/api/repositories/{repositoryId}/runs/{requestId}/resumption",
+        "resume_objective",
+        ["operation", "repositoryId", "requestId"],
+        ["projectId", "milestoneId", "plan", "taskInputs"],
+      ],
+      [
+        "/api/repositories/{repositoryId}/runs/{requestId}/cancellation",
+        "cancel_objective",
+        ["operation", "repositoryId", "requestId"],
+        ["projectId", "launchId"],
+      ],
     ] as const) {
-      const route = doc.paths[pathname];
-      assert.deepEqual(Object.keys(route), ["post"]);
-      assert.equal(route.post.operationId, operationId);
-      const schema =
-        route.post.requestBody.content["application/x-www-form-urlencoded"]
-          .schema;
-      assert.ok(!Object.hasOwn(schema.properties, "operation"));
-      assert.equal(
-        (await requestRaw(handle.baseUrl, pathname, "POST")).status,
-        403,
+      const { post } = doc.paths[pathname];
+      assert.deepEqual(Object.keys(doc.paths[pathname]), ["post"]);
+      assert.equal(post.operationId, operationId);
+      const body = post.requestBody.content["application/json"].schema;
+      assert.equal(body.additionalProperties, false);
+      for (const field of forbidden)
+        assert.ok(!Object.hasOwn(body.properties, field), field);
+      for (const field of required)
+        assert.ok(body.required.includes(field), field);
+      if (operationId === "answer_decision") {
+        assert.ok(Object.hasOwn(body.properties, "comment"));
+        assert.ok(!body.required.includes("comment"));
+      }
+      if (operationId === "cancel_objective") {
+        assert.ok(!Object.hasOwn(post.responses, "200"));
+        assert.deepEqual(body.required, ["projectId", "launchId"]);
+        assert.equal(
+          post.responses["202"].content["application/json"].schema.properties
+            .status.const,
+          "cancellation_requested",
+        );
+      }
+      for (const [field, accepted, rejected] of [
+        ["question", `\n${"問".repeat(8193)}`, " \n"],
+        ["comment", "注".repeat(1025), "注\n"],
+        ["reason", "理".repeat(1025), "理\u0000"],
+      ] as const) {
+        const schema = body.properties[field];
+        if (schema === undefined) continue;
+        assert.equal(schema.maxLength, undefined, field);
+        const pattern = new RegExp(schema.pattern, "u");
+        assert.ok(pattern.test(accepted), field);
+        assert.ok(!pattern.test(rejected), field);
+      }
+      assert.ok(
+        post.parameters.some(
+          ({ name, in: location }: { name: string; in: string }) =>
+            name === "X-CRDD-Action-Token" && location === "header",
+        ),
       );
     }
     assert.equal(
-      (await requestRaw(handle.baseUrl, "/api/execution/state", "GET")).status,
+      (
+        await requestRaw(
+          handle.baseUrl,
+          "/api/execution/decisions/submit",
+          "POST",
+        )
+      ).status,
+      405,
+    );
+    assert.equal(
+      (
+        await requestRaw(
+          handle.baseUrl,
+          "/api/execution/objectives/run",
+          "POST",
+        )
+      ).status,
+      405,
+    );
+    assert.equal(
+      (
+        await requestRaw(
+          handle.baseUrl,
+          "/api/repositories/sample/runs/run-1",
+          "GET",
+        )
+      ).status,
       400,
+    );
+    assert.equal(
+      (await requestRaw(handle.baseUrl, "/api/execution/state", "GET")).status,
+      404,
+    );
+    const executionOrigin = new URL(handle.baseUrl).origin;
+    const executionPath = "/api/repositories/sample/runs/run-1";
+    const allowedHeaders = await requestTransport(
+      handle.baseUrl,
+      executionPath,
+      "GET",
+      undefined,
+      { Origin: executionOrigin },
+    );
+    assert.equal(allowedHeaders.status, 400);
+    const repeatedOrigin = await requestTransport(
+      handle.baseUrl,
+      executionPath,
+      "GET",
+      undefined,
+      { Origin: [executionOrigin, executionOrigin] },
+    );
+    assert.equal(repeatedOrigin.status, 403);
+    assert.equal(
+      (
+        await requestRaw(
+          handle.baseUrl,
+          "/api/repositories/sample/runs/run-1",
+          "HEAD",
+        )
+      ).status,
+      404,
     );
     assert.equal(
       (await requestRaw(handle.baseUrl, "/api/execution", "POST")).status,
@@ -232,16 +544,37 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
       "/workspace/action",
       "/ai-selection/action",
       "/api/execution-definition",
+      "/api/execution/definition",
     ])
       assert.equal(
         (await requestRaw(handle.baseUrl, legacy, "POST")).status,
         405,
       );
-    assert.ok(doc.paths["/api/execution/definition"].get);
-    assert.ok(
-      doc.paths["/api/execution/definition"].post.requestBody.content[
-        "application/x-www-form-urlencoded"
-      ],
+    const definitionBase =
+      "/api/repositories/{repositoryId}/projects/{projectId}/milestones/{milestoneId}";
+    assert.equal(Object.hasOwn(doc.paths, "/api/execution/definition"), false);
+    for (const [resource, methods] of [
+      ["definition", ["post"]],
+      ["objectives", ["get", "post"]],
+      ["objectives/{objectiveId}", ["delete", "patch"]],
+      ["plan", ["get", "put"]],
+      ["tasks", ["get", "post"]],
+      ["tasks/{taskId}", ["delete", "patch"]],
+    ] as const)
+      assert.deepEqual(
+        Object.keys(doc.paths[`${definitionBase}/${resource}`]).sort(),
+        methods,
+      );
+    const taskItem = doc.paths[`${definitionBase}/tasks/{taskId}`];
+    assert.deepEqual(
+      taskItem.delete.requestBody.content["application/json"].schema.required,
+      ["expected", "expectedDefinitionHash"],
+    );
+    const taskList = doc.paths[`${definitionBase}/tasks`].get.parameters;
+    assert.equal(
+      taskList.find(({ name }: { name: string }) => name === "queueId")
+        ?.required,
+      false,
     );
     const page = await requestRaw(handle.baseUrl, "/docs");
     assert.equal(page.status, 200);
@@ -251,6 +584,14 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
       /connect-src 'self'/u,
     );
     assert.equal(page.headers["cache-control"], "no-store");
+    const docsWithLocalHost = await requestTransport(
+      handle.baseUrl,
+      "/docs",
+      "GET",
+      undefined,
+      { Host: `localhost:${new URL(handle.baseUrl).port}` },
+    );
+    assert.equal(docsWithLocalHost.status, 200);
     const initializer = await requestRaw(
       handle.baseUrl,
       "/docs/swagger-initializer.js",
@@ -305,7 +646,7 @@ test("開発用API仕様は明示localhostモードで同一Originの固定資�
  * @precondition 現在Repositoryを読取り、localhost Server一件だけを起動する。
  * @stimulus 固定の正常・境界・未知PathとMethodを逐次要求する。
  * @observation status、Allow、本文、容量Header、Security Headerを取得する。
- * @oracle 暗黙Route・OPTIONS応答・Express情報を追加せず、HEADは本文なし、旧Candidateは410のままとする。
+ * @oracle 暗黙Route・OPTIONS応答・Express情報を追加せず、HEADは本文なし、撤去した候補操作は一般の未対応POSTとして拒否する。
  * @cleanup finallyで所有Serverをjoinし、終了後の接続拒否を確認する。
  * @boundary 実HTTPとExpress受付。外部AI・Docker・保存Effectは使用しない。
  */
@@ -321,12 +662,8 @@ test("Express受付は現行のPath・Method・HEAD・固定拒否を維持す�
       ["OPTIONS", "/", 405, "method_not_allowed\n"],
       ["PUT", "/", 405, "method_not_allowed\n"],
       ["POST", "/api/workspace/", 405, "method_not_allowed\n"],
-      [
-        "POST",
-        "/candidate/action",
-        410,
-        "legacy_bundle_candidate_route_removed\n",
-      ],
+      ["POST", "/api/workspace", 405, "method_not_allowed\n"],
+      ["POST", "/candidate/action", 405, "method_not_allowed\n"],
     ] as const) {
       const response = await fetch(`${handle.baseUrl}${pathname}`, {
         method,

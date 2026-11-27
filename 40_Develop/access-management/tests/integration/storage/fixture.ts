@@ -24,16 +24,13 @@ import {
   createFilesystemStoreRoot,
   type FilesystemStoreRoot,
 } from "../../../src/initialization/root.ts";
-import { createCredentialMaterial } from "../../../src/credential/token.ts";
-import {
-  createInitialAdministrator,
-  initializeAccessManagementState,
-} from "../../../src/initialization/execution.ts";
-import { saveExposure } from "../../../src/repository/exposure.ts";
+import { createRetiredCredentialFixture } from "../../support/retired-credential.ts";
 import { saveRepositoryRegistration } from "../../../src/repository/register.ts";
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
 import { readAccessManagementState } from "../../../src/storage/store.ts";
 import type { AccessManagementState } from "../../../src/storage/types.ts";
+import type { AccountAccessPrincipal } from "../../../src/index.ts";
+import { saveUserRegistration } from "../../../src/user/crud.ts";
 
 /**
  * 有限試験の既知取得を、通常処理の停止確認後に明示処置する。
@@ -100,7 +97,7 @@ export function removeKnownStoppedTestLock(
 export function baseline(): AccessManagementState {
   return {
     contract: "crdd-access-management/state",
-    schemaRevision: 2,
+    schemaRevision: 4,
     revision: 1,
     operationId: "00000000-0000-4000-8000-000000000001",
     users: [
@@ -108,54 +105,60 @@ export function baseline(): AccessManagementState {
         userId: "00000000-0000-4000-8000-000000000003",
         username: "模擬管理者",
         role: "administrator",
+        accountLinks: [
+          {
+            issuer: "https://fixture-identity.example.test",
+            subject: "initial-administrator",
+            bindingId: "00000000-0000-4000-8000-000000000011",
+          },
+        ],
       },
     ],
-    roleContentAccess: [
-      { role: "developer", workspaceIds: ["development"] },
-      { role: "manager", workspaceIds: ["development", "management"] },
-      { role: "administrator", workspaceIds: [] },
-    ],
-    credentials: [],
     registeredRepositories: [],
-    exposure: [],
-    unresolvedKeyExchanges: [],
     initialization: {
       stage: "completed",
-      attemptId: "00000000-0000-4000-8000-000000000002",
+      attemptId: "00000000-0000-4000-8000-000000000001",
       initialUserId: "00000000-0000-4000-8000-000000000003",
-      initialCredentialId: "0123456789abcdef01234567",
-      confirmationCredentialId: "0123456789abcdef01234567",
-      connection: "confirmed",
+      connection: "account_confirmed",
     },
   };
 }
 
-/**
- * 初回資格保存の前状態を作る。
- * @responsibility 本番と同じ相関・User保存を通して前状態を構築する。
- * @trace RFD-IT-024
- * @precondition 自己生成の試験Root。
- * @stimulus 初回相関と管理者を保存する。
- * @observation 両保存のcompletedを確認する。
- * @oracle 資格生成前のuser_storedに到達する。
- * @cleanup 呼出元FixtureがRoot不存在を確認する。
- * @boundary 初回保存と実Filesystem。
- */
-export function prepareInitialUser(f: ReturnType<typeof fixture>): string {
-  fs.rmSync(path.join(f.directory, "access-management.json"));
-  const attempt = "00000000-0000-4000-8000-000000000099";
-  assert.equal(
-    initializeAccessManagementState(f.root, attempt, true, () => [
-      "uninitialized",
-      "absent",
-    ]).status,
-    "completed",
-  );
-  assert.equal(
-    createInitialAdministrator(f.root, attempt, "管理者").status,
-    "completed",
-  );
-  return attempt;
+/** 旧版の提示済み初回状態を自己所有の試験領域に置く。 */
+export function seedRetiredInitialCredential(f: ReturnType<typeof fixture>) {
+  const current = path.join(f.directory, "access-management.json");
+  const legacy = baseline();
+  const user = legacy.users[0];
+  assert.ok(user);
+  const { token, ...credential } = createRetiredCredentialFixture();
+  const material = {
+    ...legacy,
+    schemaRevision: 3,
+    revision: 3,
+    operationId: crypto.randomUUID(),
+    credentials: [
+      {
+        ...credential,
+        userId: user.userId,
+        tokenVersion: 1,
+        revoked: false,
+        operationId: legacy.initialization.attemptId,
+        presentation: "confirmed",
+      },
+    ],
+    unresolvedKeyExchanges: [],
+    initialization: {
+      stage: "credential_stored",
+      attemptId: legacy.initialization.attemptId,
+      userId: user.userId,
+      initialCredentialId: credential.credentialId,
+      confirmationCredentialId: credential.credentialId,
+    },
+  };
+  const data = bytes(material);
+  assert.equal(parseAccessManagementState(data).status, "invalid");
+  fs.writeFileSync(current, data);
+  return { token, data };
 }
 
 /**
@@ -242,30 +245,64 @@ export function fixture(t: TestContext): {
 export function managementFixture(t: TestContext) {
   const f = fixture(t);
   const tokens = { administrator: "", manager: "", developer: "" };
+  const principals = {} as Record<keyof typeof tokens, AccountAccessPrincipal>;
+  f.state.revision = 2;
+  f.state.operationId = "00000000-0000-4000-8000-000000000002";
   for (const [index, role] of (
     ["administrator", "manager", "developer"] as const
   ).entries()) {
     const userId = `00000000-0000-4000-8000-${String(index + 3).padStart(12, "0")}`;
     if (index > 0) f.state.users.push({ userId, username: role, role });
-    const material = createCredentialMaterial();
-    tokens[role] = material.token;
-    f.state.credentials.push({
-      credentialId: material.credentialId,
+    const user = f.state.users.find((entry) => entry.userId === userId);
+    assert.ok(user);
+    const bindingId = crypto.randomUUID();
+    user.accountLinks = [
+      {
+        issuer: "https://fixture-identity.example.test",
+        subject: userId,
+        bindingId,
+      },
+    ];
+    principals[role] = {
+      kind: "account",
       userId,
-      tokenVersion: 1,
-      tokenSalt: material.tokenSalt,
-      tokenVerifier: material.tokenVerifier,
-      revoked: false,
-      operationId: crypto.randomUUID(),
-      presentation: "confirmed",
-    });
+      bindingId,
+      expiresAt: Date.now() + 300_000,
+    };
+    const material = createRetiredCredentialFixture();
+    tokens[role] = material.token;
   }
   assert.equal(parseAccessManagementState(bytes(f.state)).status, "parsed");
   fs.writeFileSync(
     path.join(f.directory, "access-management.json"),
     bytes(f.state),
   );
-  return { ...f, tokens };
+  return { ...f, tokens, principals };
+}
+
+/** 通常の利用者登録は確認済みの主体と、対象専用の招待をそろえて行う。 */
+export function saveUserRegistrationFixture(
+  root: FilesystemStoreRoot,
+  principal: AccountAccessPrincipal,
+  revision: number,
+  operationId: string,
+  name: string,
+  role: unknown,
+) {
+  const digest = createHash("sha256").update(operationId).digest("hex");
+  return saveUserRegistration(
+    root,
+    principal,
+    revision,
+    operationId,
+    name,
+    role,
+    {
+      email: `invite-${digest.slice(0, 24)}@example.test`,
+      digest,
+      expiresAt: Date.now() + 300_000,
+    },
+  );
 }
 
 /**
@@ -330,17 +367,26 @@ export function repositoryFixture(t: TestContext) {
  * @boundary 登録試験の信頼した呼出し側代役。
  */
 export function observeFixtureDirectory(directory: string) {
-  return { directory, isCurrent: () => true };
+  return {
+    directory,
+    isCurrent: () => true,
+    hostedRepository: {
+      provider: "github",
+      host: "github.com",
+      repositoryId: "92",
+      providerData: { installationId: "24" },
+    },
+  };
 }
 
 /**
- * 公開済みRepositoryと三Roleの内容要求前状態を構築する。
- * @responsibility 登録・Exposureの公開入口を通して内容認可の前提を作る。
+ * 三Roleとリポジトリ登録を備えた自己生成の状態を構築する。
+ * @responsibility 登録の実保存を利用側の試験へ渡す。
  * @trace RFD-IT-013
  * @precondition 自己生成管理StoreとGit Repositoryだけを使う。
- * @stimulus managerで登録とdevelopment公開を確定する。
+ * @stimulus managerでリポジトリを登録する。
  * @observation 各管理結果と完全現在状態を確認する。
- * @oracle 登録改訂2、公開改訂3。管理者の内容範囲は空のまま。
+ * @oracle 登録改訂2。旧内容範囲は生成しない。
  * @cleanup 既存Fixtureが全自己生成Rootを削除する。
  * @boundary AM公開管理入口と内容ディレクトリのFilesystem。
  */
@@ -350,8 +396,8 @@ export function contentFixture(t: TestContext) {
   assert.equal(
     saveRepositoryRegistration(
       f.root,
-      f.tokens.manager,
-      1,
+      f.principals.manager,
+      f.state.revision,
       crypto.randomUUID(),
       target.manifest.repositoryId,
       target.directory,
@@ -359,18 +405,55 @@ export function contentFixture(t: TestContext) {
     ).status,
     "completed",
   );
-  assert.equal(
-    saveExposure(
-      f.root,
-      f.tokens.manager,
-      2,
-      crypto.randomUUID(),
-      target.manifest.repositoryId,
-      ["development"],
-    ).status,
-    "completed",
-  );
   return { ...f, target };
+}
+
+/** 現行の内容認可の境界に、確認済み本人と合成Gitホスト対象を渡す。 */
+export function hostedContentFixture(t: TestContext) {
+  const f = contentFixture(t);
+  return { ...f, ...attachHostedContentFixture(f) };
+}
+
+/** 試験が登録した対象と利用者に、合成の外部IDを結び付ける。 */
+export function attachHostedContentFixture(
+  f: ReturnType<typeof managementFixture>,
+) {
+  const currentPath = path.join(f.directory, "access-management.json");
+  const state = JSON.parse(
+    fs.readFileSync(currentPath, "utf8"),
+  ) as AccessManagementState;
+  const user = state.users.find(({ role }) => role === "developer");
+  const registration = state.registeredRepositories[0];
+  assert.ok(user && registration);
+  const bindingId = crypto.randomUUID();
+  user.accountLinks = [
+    {
+      issuer: "https://accounts.google.com",
+      subject: "hosted-fixture",
+      bindingId,
+    },
+  ];
+  const hostedRepository = {
+    provider: "github",
+    host: "github.com",
+    repositoryId: "92",
+    providerData: { installationId: "24" },
+  };
+  registration.hostedRepository = hostedRepository;
+  assert.equal(parseAccessManagementState(bytes(state)).status, "parsed");
+  fs.writeFileSync(currentPath, bytes(state));
+  const principal = {
+    kind: "account" as const,
+    userId: user.userId,
+    bindingId,
+    expiresAt: Date.now() + 120_000,
+  };
+  const candidate = {
+    repositoryId: registration.repositoryId,
+    bindingId: registration.bindingId,
+    hostedRepository,
+  };
+  return { state, principal, candidate, currentPath };
 }
 
 /**

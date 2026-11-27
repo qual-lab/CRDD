@@ -400,7 +400,7 @@ Gitの技術操作は公開入口からVCへ委譲する。呼出し側が業務
 | 固定Commit・差分 | `readCommitFile`、`readCommitDiff`、`CommitFileReadRequest`、`CommitFile`、`CommitDiffRequest`、`CommitDiff` |
 | Commit・Merge | `commitChanges`、`createCommit`、`mergeCommit`、`ChangesResult`、`CommitSelection`、`CommitTemporary`、`ChangesCommitRequest`、`CommitCreateRequest`、`CommitCreateResult`、`CommitMergeRequest`、`CommitMergeResult` |
 | Ref | `createReference`、`removeReference`、`ReferenceCreateRequest`、`ReferenceRemoveRequest`、`ReferenceResult` |
-| Remote | `readRemoteTarget`、`pushRepositoryRevision`、`RemoteTarget`、`RepositoryPushRequest` |
+| Remote | `readRemoteTarget`、`readOriginHttpsRemote`、`readOriginHttpsPublicationTarget`、`pushRepositoryRevision`、`RemoteTarget`、`RepositoryPushRequest` |
 | 宣言と除外 | `readRepositorySubmodules`、`readRepositoryEntries`、`registerRepositoryLocalIgnore` |
 
 公開操作の入力構築・結果保持に必要な既存Request／Result型は、そのOwner定義をRootから公開する。型の複製や関数型からの迂回導出は行わない。内部Git ContextとTreeの構成要素単独の型は公開しない。
@@ -446,6 +446,8 @@ Root非公開の `readWorkingSelections` は、指定Pathの基準Treeと作業T
 `readWorkingChanges`は4観測が全て成功した後、既存の文字順・重複排除で`changedPaths`を一度だけ集約する。独立した集約関数は公開せず、表示用の変更集合は既存fieldだけを明示投影する。
 
 Workspace作成受付ではWorkspace作成の警告に必要な変更の有無だけを読み取り、通常Indexを更新しない。Git失敗や警告は変更なしにしない。`readRemoteTarget`の`localBranch`はローカルHEADのブランチ名で、公開先の`branch`とは区別する。
+
+HTTPS送信先の観測は、ローカル設定に直接定義された単一の `origin` だけを対象とする。公開候補の観測は、確認済み改訂・ブランチが現在値と一致し、別の `pushurl` がない場合だけ送信先を返す。どちらも資格の有無・外部サービスの許可・送信の成立を証明せず、書き込みや通信は行わない。コミット名義を明示して作成する場合、著者とコミッターの双方にその要求の名義を使い、リポジトリのGit設定は変更しない。
 
 `readRepositorySnapshot`は検証済みRepositoryを受け、前後のRepository・改訂一致と中央のCommit／Tree対応を一つの実装で照合し、既存Fixed Revision Identity形式を返す。旧3入口と候補形式への中間変換は撤去する。保存値やHashの既存候補形式が必要な利用側は、その正本形式へ明示投影する。観測不能・差替えは既存のnull契約へ閉じる。業務上の実行能力や実行許可は所有しない。改訂版とTreeが必要な呼出し側はこの公開操作を利用する。
 

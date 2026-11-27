@@ -4,6 +4,28 @@
   "subsystem": "access-management",
   "symbols": [
     {
+      "symbolId": "access-management.account-link",
+      "kind": "file",
+      "path": "src/user/account-link.ts",
+      "archIds": [
+        "ARCH-000013"
+      ]
+    },
+    {
+      "symbolId": "access-management.test.integration.account-link",
+      "kind": "test-suite",
+      "path": "tests/integration/user/account-link.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-032"
+      ],
+      "verifies": [
+        "access-management.account-link"
+      ]
+    },
+    {
       "symbolId": "access-management.management-result",
       "kind": "file",
       "path": "src/authorization/management.ts",
@@ -19,87 +41,12 @@
         "ARCH-000013"
       ]
     },
-    {
-      "symbolId": "access-management.credential-token-material",
-      "kind": "file",
-      "path": "src/credential/token.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "access-management.credential-authentication",
-      "kind": "file",
-      "path": "src/credential/authentication.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "access-management.credential-management",
-      "kind": "file",
-      "path": "src/credential/crud.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "access-management.credential-key-exchange",
-      "kind": "file",
-      "path": "src/credential/exchange.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "access-management.test.integration.credential-key-exchange",
-      "kind": "test-suite",
-      "path": "tests/integration/credential/exchange.contract.test.ts",
-      "qaIds": [
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "RFD-IT-013",
-        "RFD-IT-017"
-      ],
-      "verifies": [
-        "access-management.credential-key-exchange",
-        "access-management.credential-authentication",
-        "access-management.state-parse"
-      ]
-    },
-    {
-      "symbolId": "access-management.credential-presentation",
-      "kind": "file",
-      "path": "src/credential/presentation.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "access-management.credential-terminal-presentation",
-      "kind": "file",
-      "path": "src/credential/presentation.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "access-management.credential-host-exchange",
-      "kind": "file",
-      "path": "src/credential/exchange.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "access-management.credential-initial-connection",
-      "kind": "file",
-      "path": "src/initialization/connection.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
+
+
+
+
+
+
     {
       "symbolId": "access-management.initialization-host-state",
       "kind": "file",
@@ -125,22 +72,6 @@
       ]
     },
     {
-      "symbolId": "access-management.initialization-host-command",
-      "kind": "file",
-      "path": "src/cli/command.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "access-management.cli",
-      "kind": "file",
-      "path": "bin/access-management.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
-    {
       "symbolId": "access-management.test.integration.host-entry",
       "kind": "test-suite",
       "path": "tests/integration/initialization/host-entry.contract.test.ts",
@@ -155,32 +86,8 @@
       "verifies": [
         "access-management.public-api",
         "access-management.initialization-host-root",
-        "access-management.initialization-host-command",
-        "access-management.cli",
         "access-management.initialization-host-execution",
-        "access-management.state-file-store",
-        "access-management.credential-host-exchange",
-        "access-management.credential-terminal-presentation"
-      ]
-    },
-    {
-      "symbolId": "access-management.test.integration.initial-connection",
-      "kind": "test-suite",
-      "path": "tests/integration/initialization/connection.contract.test.ts",
-      "qaIds": [
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "RFD-IT-024",
-        "RFD-IT-025"
-      ],
-      "verifies": [
-        "access-management.public-api",
-        "access-management.credential-initial-connection",
-        "access-management.credential-authentication",
-        "access-management.state-file-store",
-        "access-management.state-parse",
-        "access-management.credential-presentation"
+        "access-management.state-file-store"
       ]
     },
     {
@@ -224,7 +131,7 @@
       ]
     },
     {
-      "symbolId": "access-management.repository-exposure-management",
+      "symbolId": "access-management.repository-registration",
       "kind": "file",
       "path": "src/repository/register.ts",
       "archIds": [
@@ -232,7 +139,7 @@
       ]
     },
     {
-      "symbolId": "access-management.workspace-range",
+      "symbolId": "access-management.permission-validation",
       "kind": "file",
       "path": "src/permission/validation.ts",
       "archIds": [
@@ -245,22 +152,6 @@
       "path": "src/repository/binding.ts",
       "archIds": [
         "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "access-management.test.integration.credential-token-material",
-      "kind": "test-suite",
-      "path": "tests/integration/credential/token.contract.test.ts",
-      "qaIds": [
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "RFD-IT-017",
-        "RFD-IT-018"
-      ],
-      "verifies": [
-        "access-management.public-api",
-        "access-management.credential-token-material"
       ]
     },
     {
@@ -300,19 +191,13 @@
         "access-management.state-parse",
         "access-management.initialization-host-state",
         "access-management.initialization-host-execution",
-        "access-management.credential-authentication",
-        "access-management.credential-management",
-        "access-management.credential-key-exchange",
-        "access-management.credential-presentation",
-        "access-management.credential-terminal-presentation",
-        "access-management.credential-host-exchange",
         "access-management.profile-management",
         "access-management.current-access",
         "access-management.repository-access",
         "access-management.management-read-state",
         "access-management.user-role-management",
-        "access-management.repository-exposure-management",
-        "access-management.workspace-range",
+        "access-management.repository-registration",
+        "access-management.permission-validation",
         "access-management.repository-binding"
       ]
     },
@@ -405,92 +290,18 @@
         "access-management.state-parse",
         "access-management.initialization-host-state",
         "access-management.initialization-host-execution",
-        "access-management.credential-authentication",
-        "access-management.credential-management",
-        "access-management.credential-key-exchange",
-        "access-management.credential-presentation",
-        "access-management.credential-terminal-presentation",
-        "access-management.credential-host-exchange",
         "access-management.profile-management",
         "access-management.current-access",
         "access-management.repository-access",
         "access-management.management-read-state",
         "access-management.user-role-management",
-        "access-management.repository-exposure-management",
-        "access-management.workspace-range",
+        "access-management.repository-registration",
+        "access-management.permission-validation",
         "access-management.repository-binding"
       ]
     },
-    {
-      "symbolId": "access-management.test.integration.credential-storage",
-      "kind": "test-suite",
-      "path": "tests/integration/credential/storage.contract.test.ts",
-      "qaIds": [
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "RFD-IT-013",
-        "RFD-IT-017",
-        "RFD-IT-018",
-        "RFD-IT-024"
-      ],
-      "verifies": [
-        "access-management.public-api",
-        "access-management.state-file-store",
-        "access-management.state-parse",
-        "access-management.initialization-host-state",
-        "access-management.initialization-host-execution",
-        "access-management.credential-authentication",
-        "access-management.credential-management",
-        "access-management.credential-key-exchange",
-        "access-management.credential-presentation",
-        "access-management.credential-terminal-presentation",
-        "access-management.credential-host-exchange",
-        "access-management.profile-management",
-        "access-management.current-access",
-        "access-management.repository-access",
-        "access-management.management-read-state",
-        "access-management.user-role-management",
-        "access-management.repository-exposure-management",
-        "access-management.workspace-range",
-        "access-management.repository-binding"
-      ]
-    },
-    {
-      "symbolId": "access-management.test.integration.credential-exchange-storage",
-      "kind": "test-suite",
-      "path": "tests/integration/credential/exchange-storage.contract.test.ts",
-      "qaIds": [
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "RFD-IT-013",
-        "RFD-IT-017",
-        "RFD-IT-018",
-        "RFD-IT-024"
-      ],
-      "verifies": [
-        "access-management.public-api",
-        "access-management.state-file-store",
-        "access-management.state-parse",
-        "access-management.initialization-host-state",
-        "access-management.initialization-host-execution",
-        "access-management.credential-authentication",
-        "access-management.credential-management",
-        "access-management.credential-key-exchange",
-        "access-management.credential-presentation",
-        "access-management.credential-terminal-presentation",
-        "access-management.credential-host-exchange",
-        "access-management.profile-management",
-        "access-management.current-access",
-        "access-management.repository-access",
-        "access-management.management-read-state",
-        "access-management.user-role-management",
-        "access-management.repository-exposure-management",
-        "access-management.workspace-range",
-        "access-management.repository-binding"
-      ]
-    },
+
+
     {
       "symbolId": "access-management.test.integration.authorization-management",
       "kind": "test-suite",
@@ -508,19 +319,13 @@
         "access-management.state-parse",
         "access-management.initialization-host-state",
         "access-management.initialization-host-execution",
-        "access-management.credential-authentication",
-        "access-management.credential-management",
-        "access-management.credential-key-exchange",
-        "access-management.credential-presentation",
-        "access-management.credential-terminal-presentation",
-        "access-management.credential-host-exchange",
         "access-management.profile-management",
         "access-management.current-access",
         "access-management.repository-access",
         "access-management.management-read-state",
         "access-management.user-role-management",
-        "access-management.repository-exposure-management",
-        "access-management.workspace-range",
+        "access-management.repository-registration",
+        "access-management.permission-validation",
         "access-management.repository-binding"
       ]
     },
@@ -542,19 +347,13 @@
         "access-management.state-parse",
         "access-management.initialization-host-state",
         "access-management.initialization-host-execution",
-        "access-management.credential-authentication",
-        "access-management.credential-management",
-        "access-management.credential-key-exchange",
-        "access-management.credential-presentation",
-        "access-management.credential-terminal-presentation",
-        "access-management.credential-host-exchange",
         "access-management.profile-management",
         "access-management.current-access",
         "access-management.repository-access",
         "access-management.management-read-state",
         "access-management.user-role-management",
-        "access-management.repository-exposure-management",
-        "access-management.workspace-range",
+        "access-management.repository-registration",
+        "access-management.permission-validation",
         "access-management.repository-binding",
         "access-management.source.role.assign"
       ]
@@ -578,26 +377,20 @@
         "access-management.state-parse",
         "access-management.initialization-host-state",
         "access-management.initialization-host-execution",
-        "access-management.credential-authentication",
-        "access-management.credential-management",
-        "access-management.credential-key-exchange",
-        "access-management.credential-presentation",
-        "access-management.credential-terminal-presentation",
-        "access-management.credential-host-exchange",
         "access-management.profile-management",
         "access-management.current-access",
         "access-management.repository-access",
         "access-management.management-read-state",
         "access-management.user-role-management",
-        "access-management.repository-exposure-management",
-        "access-management.workspace-range",
+        "access-management.repository-registration",
+        "access-management.permission-validation",
         "access-management.repository-binding"
       ]
     },
     {
-      "symbolId": "access-management.source.credential.types",
+      "symbolId": "access-management.source.authorization.types",
       "kind": "file",
-      "path": "src/credential/types.ts",
+      "path": "src/authorization/types.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -606,14 +399,6 @@
       "symbolId": "access-management.source.permission.types",
       "kind": "file",
       "path": "src/permission/types.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "access-management.source.repository.exposure",
-      "kind": "file",
-      "path": "src/repository/exposure.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -671,31 +456,6 @@
       "verifies": [
         "access-management.public-api",
         "access-management.management-permission"
-      ]
-    },
-    {
-      "symbolId": "access-management.user.status",
-      "kind": "file",
-      "path": "src/user/status.ts",
-      "archIds": [
-        "ARCH-000013"
-      ]
-    },
-    {
-      "symbolId": "access-management.test.user.status",
-      "kind": "test-suite",
-      "path": "tests/integration/user/status.contract.test.ts",
-      "qaIds": [
-        "QA-000007"
-      ],
-      "localTestIds": [
-        "RFD-IT-013",
-        "RFD-IT-021",
-        "RFD-IT-024"
-      ],
-      "verifies": [
-        "access-management.user.status",
-        "access-management.public-api"
       ]
     },
     {

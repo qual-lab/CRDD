@@ -601,20 +601,51 @@ export function readTopicMeetingList(
   input: Parameters<TopicMeetingOperations["list"]>[0],
   resolveAccess: () => TopicMeetingAccess | null,
   signal?: AbortSignal,
-): TopicMeetingListReadResult {
+): TopicMeetingListReadResult;
+export function readTopicMeetingList(
+  input: Parameters<TopicMeetingOperations["list"]>[0],
+  resolveAccess: { resolve: () => Promise<TopicMeetingAccess | null> },
+  signal?: AbortSignal,
+): Promise<TopicMeetingListReadResult>;
+export function readTopicMeetingList(
+  input: Parameters<TopicMeetingOperations["list"]>[0],
+  resolveAccess:
+    | (() => TopicMeetingAccess | null)
+    | { resolve: () => Promise<TopicMeetingAccess | null> },
+  signal?: AbortSignal,
+): TopicMeetingListReadResult | Promise<TopicMeetingListReadResult> {
   const { kind, ...conditions } = input;
-  if (kind !== "topic" && kind !== "meeting")
-    return { status: "invalid", page: null };
+  const finish = (result: TopicMeetingListReadResult) =>
+    typeof resolveAccess === "function" ? result : Promise.resolve(result);
   try {
+    if (kind !== "topic" && kind !== "meeting")
+      return finish({ status: "invalid", page: null });
     validateTopicMeetingListInput(kind, conditions);
   } catch {
-    return { status: "invalid", page: null };
+    return finish({ status: "invalid", page: null });
   }
-  if (signal?.aborted) return { status: "cancelled", page: null };
-  const access = resolveAccess();
-  if (signal?.aborted) return { status: "cancelled", page: null };
-  if (access === null) return { status: "unavailable", page: null };
-  return { status: "complete", page: access[kind].list(conditions) };
+  if (signal?.aborted) return finish({ status: "cancelled", page: null });
+  const read = (
+    access: TopicMeetingAccess | null,
+    accepted = conditions,
+  ): TopicMeetingListReadResult => {
+    if (signal?.aborted) return { status: "cancelled", page: null };
+    if (access === null) return { status: "unavailable", page: null };
+    return { status: "complete", page: access[kind].list(accepted) };
+  };
+  if (typeof resolveAccess === "function") return read(resolveAccess());
+
+  const query = conditions.query;
+  const accepted = query
+    ? {
+        ...conditions,
+        query: {
+          ...query,
+          ...(query.states ? { states: [...query.states] } : {}),
+        },
+      }
+    : conditions;
+  return resolveAccess.resolve().then((access) => read(access, accepted));
 }
 
 /** 一覧受付の完了結果。取消・入力不正・対象拒否を同じ状態にしない。 */

@@ -14,11 +14,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createRepositoryTestDirectory } from "../../../execution-model/tests/support/repository-test-directory.ts";
-import {
-  MCP_COORDINATOR_PROTOCOL_VERSION,
-  MANAGE_EXECUTION_DEFINITION_TOOL,
-  GET_EXECUTION_DEFINITION_TOOL,
-} from "../../src/transport/mcp-server.ts";
+import { MCP_COORDINATOR_PROTOCOL_VERSION } from "../../src/transport/mcp-server.ts";
 import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
 import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 
@@ -34,7 +30,7 @@ const META = {
  * @precondition 内容を許可しない要求内Resolverを構成する。
  * @stimulus 一覧取得とPlan Queryを公式SDKへ渡す。
  * @observation exact Tool集合とResolver回数。
- * @oracle 二つのCore Toolだけを列挙し、Callは一回だけ認可へ届く。
+ * @oracle 操作別のCore Toolだけを列挙し、Callは一回だけ認可へ届く。
  * @cleanup 既存SDK fixtureがcloseとjoinを行う。
  * @boundary 本番Factory→公式SDK→Core Tool。
  */
@@ -50,17 +46,60 @@ test("本番Factoryは構成したCore定義ToolだけをSDKへ接続する", as
     { jsonrpc: "2.0", id: 1, method: "tools/list", params: { _meta: META } },
     dependencies,
   );
-  const tools = (listed.result as { tools: { name: string }[] }).tools;
+  const tools = (
+    listed.result as {
+      tools: {
+        name: string;
+        annotations: { readOnlyHint: boolean; destructiveHint: boolean };
+        inputSchema: {
+          additionalProperties: boolean;
+          properties: Record<string, unknown>;
+          required: string[];
+        };
+      }[];
+    }
+  ).tools;
   assert.deepEqual(tools.map((tool) => tool.name).sort(), [
+    "crdd.create_objective",
+    "crdd.create_task",
+    "crdd.delete_objective",
+    "crdd.delete_task",
+    "crdd.get_execution_plan",
+    "crdd.initialize_execution_definition",
+    "crdd.list_objectives",
+    "crdd.list_tasks",
+    "crdd.save_execution_plan",
+    "crdd.update_objective",
+    "crdd.update_task",
+  ]);
+  for (const { name, annotations, inputSchema } of tools) {
+    const read =
+      name === "crdd.get_execution_plan" ||
+      name === "crdd.list_objectives" ||
+      name === "crdd.list_tasks";
+    assert.equal(annotations.readOnlyHint, read, name);
+    assert.equal(annotations.destructiveHint, !read, name);
+    assert.equal(inputSchema.additionalProperties, false, name);
+    assert.equal(Object.hasOwn(inputSchema.properties, "command"), false, name);
+    assert.equal(
+      Object.hasOwn(inputSchema.properties, "operation"),
+      false,
+      name,
+    );
+    assert.equal(
+      Object.hasOwn(inputSchema.properties, "queueId"),
+      name === "crdd.list_tasks",
+      name,
+    );
+    assert.ok(!inputSchema.required.includes("queueId"), name);
+  }
+  for (const oldName of [
     "crdd.get_execution_definition",
     "crdd.manage_execution_definition",
-  ]);
-  for (const oldName of [
     "crdd.get_runtime_definition",
     "crdd.manage_runtime_definition",
   ]) {
-    const request = packet(GET_EXECUTION_DEFINITION_TOOL, {
-      operation: "plan",
+    const request = packet("crdd.get_execution_plan", {
       projectId: "project",
       milestoneId: "milestone",
     });
@@ -72,8 +111,7 @@ test("本番Factoryは構成したCore定義ToolだけをSDKへ接続する", as
   }
   assert.equal(calls, 0);
   const denied = await invokeMcpRequest(
-    packet(GET_EXECUTION_DEFINITION_TOOL, {
-      operation: "plan",
+    packet("crdd.get_execution_plan", {
       projectId: "project",
       milestoneId: "milestone",
     }),
@@ -101,7 +139,6 @@ test("Core定義Toolは不正・未許可操作・開始前取消を配送しな
     return null;
   };
   const command = {
-    operation: "plan",
     projectId: "project",
     milestoneId: "milestone",
   };
@@ -112,10 +149,10 @@ test("Core定義Toolは不正・未許可操作・開始前取消を配送しな
     { ...command, queueId: "queue-a" },
     { ...command, operation: "objectives", queueId: "queue-a" },
     { operation: "plan", projectId: "project" },
-    [command],
+    { command },
   ]) {
     const result = await invokeMcpRequest(
-      packet(GET_EXECUTION_DEFINITION_TOOL, input),
+      packet("crdd.get_execution_plan", input),
       { runtimeDefinition: resolve },
       new AbortController().signal,
     );
@@ -124,7 +161,7 @@ test("Core定義Toolは不正・未許可操作・開始前取消を配送しな
   assert.equal(
     (
       await invokeMcpRequest(
-        packet(MANAGE_EXECUTION_DEFINITION_TOOL, command),
+        packet("crdd.initialize_execution_definition", command),
         { runtimeDefinition: resolve },
         new AbortController().signal,
       )
@@ -136,7 +173,7 @@ test("Core定義Toolは不正・未許可操作・開始前取消を配送しな
   assert.equal(
     (
       await invokeMcpRequest(
-        packet(GET_EXECUTION_DEFINITION_TOOL, command),
+        packet("crdd.get_execution_plan", command),
         { runtimeDefinition: resolve },
         controller.signal,
       )
@@ -202,7 +239,7 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
       runObjective:async()=>{automationCalls++;},getProjectState:async()=>{automationCalls++;}
     }});
     const list = await sdk.invokeMcpSource(execution,{jsonrpc:"2.0",id:0,method:"tools/list",params:{_meta:${JSON.stringify(META)}}},new AbortController().signal);
-    assert.deepEqual(list.result.tools.map(tool=>tool.name),["crdd.run_objective","crdd.submit_decision","crdd.get_execution_state"]);
+    assert.deepEqual(list.result.tools.map(tool=>tool.name),["crdd.start_objective","crdd.resume_objective","crdd.request_decision","crdd.answer_decision","crdd.apply_decision","crdd.close_decision","crdd.get_execution_state"]);
     const unavailable = await sdk.invokeMcpSource(execution,{jsonrpc:"2.0",id:1,method:"tools/call",params:{_meta:${JSON.stringify(META)},name:"crdd.get_execution_state",arguments:{}}},new AbortController().signal);
     assert.deepEqual(unavailable.error,{code:-32603,message:"Coordinator unavailable"});
     assert.equal(automationCalls,0);
@@ -210,18 +247,19 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     const verified = vc.getRepository(${JSON.stringify(root)});
     assert.equal(verified.status, "completed");
     let authorized = true;
-    const { createDefinitionAccess } = await import(${JSON.stringify(modules.definition)});
+    const { createDefinitionAccess, executionDefinitionResources } = await import(${JSON.stringify(modules.definition)});
     const access = createDefinitionAccess(verified.capability, ${JSON.stringify(root)}, "host-test", () => authorized);
     const target = {projectId:"project",milestoneId:"milestone"};
     let id = 0;
-    const call = async (name, command) => {
+    const call = async ({operation,...command}) => {
+      const name=executionDefinitionResources[operation].tool;
       const source=runtime.createMcpServerFactory({runtimeDefinition:()=>access});
-      const response = await sdk.invokeMcpSource(source,{jsonrpc:"2.0", id:++id, method:"tools/call",params:{name,arguments:{repositoryId:"repository",command:{...target,...command}},_meta:${JSON.stringify(META)}}},new AbortController().signal);
+      const response = await sdk.invokeMcpSource(source,{jsonrpc:"2.0", id:++id, method:"tools/call",params:{name,arguments:{repositoryId:"repository",...target,...command},_meta:${JSON.stringify(META)}}},new AbortController().signal);
       assert.equal(response.error, undefined, JSON.stringify(response));
       return response.result.structuredContent;
     };
-    const write = (command) => call(runtime.MANAGE_EXECUTION_DEFINITION_TOOL, command);
-    const read = (operation) => call(runtime.GET_EXECUTION_DEFINITION_TOOL, {operation});
+    const write = (command) => call(command);
+    const read = (operation) => call({operation});
     const initial = await write({operation:"initialize",expectedAbsence:true});
     assert.equal(initial.status,"saved",JSON.stringify(initial));
     const plan = {milestoneAcceptanceCriteria:["確認"],objectives:[{id:"objective",acceptanceCriteria:["確認"]}],tasks:[{id:"task",objectiveId:"objective",dependencies:[],allowedPaths:["src/code.ts"],conflictKeys:[]}]};
@@ -243,7 +281,7 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     const observed = await read("objectives");
     assert.equal(observed.status,"available"); assert.equal(observed.value.length,1);
     assert.equal((await read("tasks")).value.length,1);
-    assert.equal((await call(runtime.GET_EXECUTION_DEFINITION_TOOL,{operation:"tasks",queueId:"missing"})).status,"absent");
+    assert.equal((await call({operation:"tasks",queueId:"missing"})).status,"absent");
     const {createQueue}=await import(${JSON.stringify(modules.em)});
     const repositoryRevision="1".repeat(40);
     const fixtureRoot=${JSON.stringify(root)};
@@ -255,15 +293,15 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
         {...graphTarget,...plan,repositoryRevision,maximumConcurrency:1,ownerGeneration:"fixture-owner",taskExecutionSelections:${JSON.stringify(taskExecutionSelections())},tasks:[{...plan.tasks[0],allowedPaths:[queueId+".ts"]}]}
       ]});
       assert.equal(savedGraph.status,"completed",savedGraph.reason);
-      const exact=await call(runtime.GET_EXECUTION_DEFINITION_TOOL,{...graphTarget,operation:"tasks",queueId});
+      const exact=await call({...graphTarget,operation:"tasks",queueId});
       assert.equal(exact.status,"available");assert.deepEqual(exact.value[0].definition.allowedPaths,[queueId+".ts"]);assert.equal(exact.value[0].execution.state,"ready");
     }
-    const shared=await call(runtime.GET_EXECUTION_DEFINITION_TOOL,{...graphTarget,operation:"tasks"});
+    const shared=await call({...graphTarget,operation:"tasks"});
     assert.deepEqual(shared.value.map(task=>[task.definition.allowedPaths,task.execution]),[[["queue-a.ts"],null]]);
-    assert.equal((await call(runtime.GET_EXECUTION_DEFINITION_TOOL,{operation:"tasks",queueId:"queue-b"})).status,"absent");
+    assert.equal((await call({operation:"tasks",queueId:"queue-b"})).status,"absent");
     authorized = false;
     assert.equal((await read("plan")).status,"blocked");
-    assert.equal((await call(runtime.GET_EXECUTION_DEFINITION_TOOL,{operation:"tasks",queueId:"missing"})).reason,"not_authorized");
+    assert.equal((await call({operation:"tasks",queueId:"missing"})).reason,"not_authorized");
     process.stdout.write("core_tool_crud_passed");
   `,
     ],
@@ -356,10 +394,17 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     params: { _meta: META },
   });
   const names = listed.result.tools.map((tool: { name: string }) => tool.name);
-  assert.ok(names.includes(GET_EXECUTION_DEFINITION_TOOL));
-  assert.ok(names.includes(MANAGE_EXECUTION_DEFINITION_TOOL));
-  assert.ok(names.includes("crdd.run_objective"));
-  assert.ok(names.includes("crdd.submit_decision"));
+  assert.ok(names.includes("crdd.get_execution_plan"));
+  assert.ok(names.includes("crdd.create_task"));
+  assert.ok(names.includes("crdd.start_objective"));
+  assert.ok(names.includes("crdd.resume_objective"));
+  for (const name of [
+    "crdd.request_decision",
+    "crdd.answer_decision",
+    "crdd.apply_decision",
+    "crdd.close_decision",
+  ])
+    assert.ok(names.includes(name));
   assert.ok(names.includes("crdd.get_execution_state"));
   const unavailable = entryCall({
     jsonrpc: "2.0",
@@ -372,16 +417,14 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     message: "Coordinator unavailable",
   });
   const observed = entryCall(
-    packet(GET_EXECUTION_DEFINITION_TOOL, {
-      operation: "plan",
+    packet("crdd.get_execution_plan", {
       projectId: "project",
       milestoneId: "milestone",
     }),
   ).result.structuredContent;
   assert.equal(observed.status, "available");
   const created = entryCall(
-    packet(MANAGE_EXECUTION_DEFINITION_TOOL, {
-      operation: "task.create",
+    packet("crdd.create_task", {
       projectId: "project",
       milestoneId: "milestone",
       expected: observed.version,
@@ -396,8 +439,7 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
   ).result.structuredContent;
   assert.equal(created.status, "saved", JSON.stringify(created));
   const stale = entryCall(
-    packet(MANAGE_EXECUTION_DEFINITION_TOOL, {
-      operation: "task.create",
+    packet("crdd.create_task", {
       projectId: "project",
       milestoneId: "milestone",
       expected: observed.version,
@@ -412,8 +454,7 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
   ).result.structuredContent;
   assert.equal(stale.status, "conflict");
   const tasks = entryCall(
-    packet(GET_EXECUTION_DEFINITION_TOOL, {
-      operation: "tasks",
+    packet("crdd.list_tasks", {
       projectId: "project",
       milestoneId: "milestone",
     }),
@@ -421,8 +462,7 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
   assert.equal(tasks.value.length, 2);
   const stateFile = path.join(root, ".crdd", "execution-model", "state.json");
   const before = fs.readFileSync(stateFile);
-  const wrongRepository = packet(GET_EXECUTION_DEFINITION_TOOL, {
-    operation: "plan",
+  const wrongRepository = packet("crdd.get_execution_plan", {
     projectId: "project",
     milestoneId: "milestone",
   });
@@ -431,8 +471,7 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
   assert.ok(denied.error || denied.result?.isError);
   assert.equal(
     entryCall(
-      packet(GET_EXECUTION_DEFINITION_TOOL, {
-        operation: "plan",
+      packet("crdd.get_execution_plan", {
         projectId: "other",
         milestoneId: "milestone",
       }),
@@ -525,9 +564,9 @@ test("Workspaceは読込み待機前の入力を捕捉し取消失敗を区別�
         command.selection[0].path="../outside";command.relatedChangeIds[0]="invalid";
       }return next(s,c);}});
       const api=await import(${JSON.stringify(module)});
-      const packet=(command)=>({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:api.MCP_WORKSPACE_MANAGE_TOOL,arguments:{repositoryId:"repository",command},_meta:${JSON.stringify(META)}}});
+      const packet=({operation,...input})=>({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:api.MCP_WORKSPACE_TOOLS.freeze,arguments:{repositoryId:"repository",...input},_meta:${JSON.stringify(META)}}});
       const resolve=(repositoryId)=>{reads++;selected=repositoryId;return null;};
-      for(const invalid of [[],{...command,operation:{}},{...command,selection:[0]},{...command,selection:[{path:"a",mode:"100644"}]}]){
+      for(const invalid of [[],{...command,expectedGeneration:{}},{...command,selection:[0]},{...command,selection:[{path:"a",mode:"100644"}]}]){
         const result=await api.handleMcpWorkspaceRequest(packet(invalid),resolve,controller.signal);
         assert.equal(result.error.code,-32602);
       }
@@ -561,19 +600,14 @@ test("Workspaceは読込み待機前の入力を捕捉し取消失敗を区別�
  * @cleanup N/A: 局所値。
  * @boundary 試験とTool受付。
  */
-function packet(
-  name:
-    | typeof GET_EXECUTION_DEFINITION_TOOL
-    | typeof MANAGE_EXECUTION_DEFINITION_TOOL,
-  command: unknown,
-) {
+function packet(name: string, input: Readonly<Record<string, unknown>>) {
   return {
     jsonrpc: "2.0",
     id: 1,
     method: "tools/call",
     params: {
       name,
-      arguments: { repositoryId: "repository", command },
+      arguments: { repositoryId: "repository", ...input },
       _meta: META,
     },
   };

@@ -1,5 +1,5 @@
 /**
- * MCPの標準入出力フレーム、逐次要求と親終了時の取消・回収を所有する。
+ * MCPの標準入出力フレーム、通常要求順と限定した実行制御、親終了時の取消・回収を所有する。
  * @packageDocumentation
  * @trace ARCH-000012
  */
@@ -17,11 +17,50 @@ import {
   finishMcpSdkRequest,
   createMcpRequestServer,
 } from "./mcp-protocol.ts";
-import type { McpRequestSource, McpResponse } from "./mcp-types.ts";
+import {
+  objectiveRunTools,
+  type McpRequestSource,
+  type McpResponse,
+} from "./mcp-types.ts";
 
 export const MCP_COORDINATOR_STDIO_CONTRACT =
   "crdd-mcp/stdio-transport/v1" as const;
 const MAXIMUM_STDIO_REQUEST_BYTES = 128 * 1024;
+
+type StdioFrame = Readonly<{
+  raw: ReturnType<typeof parseUnambiguousJsonDocument>;
+  size: number;
+  id: string | number | null;
+  runsObjective: boolean;
+  controlsObjective: boolean;
+}>;
+
+type ActiveFrame = {
+  frame: StdioFrame;
+  cancel: ((notification: unknown) => void) | null;
+  pendingCancellation: unknown;
+};
+
+function inspectStdioFrame(raw: StdioFrame["raw"], size: number): StdioFrame {
+  const request = inspectProtocolRequest(raw);
+  const params = request?.params;
+  const tool =
+    request?.method === "tools/call" &&
+    params &&
+    typeof params === "object" &&
+    "name" in params
+      ? params.name
+      : undefined;
+  return {
+    raw,
+    size,
+    id: request?.id ?? null,
+    runsObjective:
+      tool === objectiveRunTools.start || tool === objectiveRunTools.resume,
+    controlsObjective:
+      tool === objectiveRunTools.state || tool === objectiveRunTools.cancel,
+  };
+}
 
 /**
  * SDKが生成した応答byteを外部Writableへ書き込む。
@@ -59,7 +98,7 @@ function writeStdioFrame(output: Writable, value: string) {
  * @failure 同期例外は非開示Internal error、SDK入出力失敗は呼出し側へ返す。
  * @invariant 外部EOFをSDKへ即転送せず、従来の取消結果と出力完了を維持する。
  * @boundary 外部stdio入口とSDK所有の内部Transport。
- * @security 初回discoverの確認保存はSDK自動応答より先に実行する。
+ * @security SDK自動応答より前に入力と許可されたメソッドを確認する。
  * @concurrency 一要求だけを搬送し、取消通知だけを待機列から分離する。
  */
 async function dispatchMcpStdioRequest(
@@ -148,7 +187,7 @@ async function dispatchMcpStdioRequest(
  * @postcondition 開始済みOwnerをjoinし、自分のStream Listenerと内部SDKを回収する。
  * @effect 外部stdio読取り・出力、要求別SDK接続とOwnerの既存Effect。
  * @failure 容量超過・不完全末尾・入出力故障はblocked。意味cleanup不明は保持する。
- * @invariant 待機入力は128KiB以内で逐次処理し、外部Stream自体を破棄しない。
+ * @invariant 待機入力128KiB、通常要求1件、Objectiveの照会／取消1件。外部Streamは破棄しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
  * @security 元入力の閉検査とSourceの認可を維持し、取消を別IDへ流用しない。
  * @concurrency EOF・出力故障・通知取消を開始済みOwnerへ伝播し、出力callback完了後に次要求へ進む。
@@ -161,7 +200,8 @@ async function runMcpStdioWithHandler(
 ) {
   const controller = new AbortController();
   let pending = "";
-  const lines: string[] = [];
+  const lines: StdioFrame[] = [];
+  const outstanding = new Set<string | number>();
   let queuedBytes = 0;
   let isInputClosed = false;
   let didInputError = false;
@@ -170,9 +210,10 @@ async function runMcpStdioWithHandler(
   let isSemanticResultObserved = false;
   let semanticCleanupConfirmed = true;
   let semanticManualRecoveryRequired = false;
-  let activeId: string | number | null = null;
-  let cancelActive: ((notification: unknown) => void) | null = null;
-  let pendingCancellation: unknown | null = null;
+  let primary: ActiveFrame | null = null;
+  let allowControl = false;
+  let control: ActiveFrame | null = null;
+  let controlCompletion: Promise<void> | null = null;
   let wake: (() => void) | null = null;
   const notify = () => {
     wake?.();
@@ -194,6 +235,75 @@ async function runMcpStdioWithHandler(
     controller.abort();
     notify();
   };
+  const observe = (response: McpResponse) => {
+    if ("result" in response && response.result) {
+      const result = response.result as Readonly<{
+        structuredContent?: Readonly<{
+          cleanupConfirmed?: unknown;
+          manualRecoveryRequired?: unknown;
+        }>;
+      }>;
+      const semantic = result.structuredContent;
+      if (
+        semantic &&
+        typeof semantic.cleanupConfirmed === "boolean" &&
+        typeof semantic.manualRecoveryRequired === "boolean"
+      ) {
+        isSemanticResultObserved = true;
+        semanticCleanupConfirmed &&= semantic.cleanupConfirmed;
+        semanticManualRecoveryRequired ||= semantic.manualRecoveryRequired;
+      }
+    }
+  };
+  const dispatch = (active: ActiveFrame) =>
+    active.frame.raw
+      ? dispatchMcpStdioRequest(
+          active.frame.raw,
+          handler,
+          controller.signal,
+          observe,
+          (cancel) => {
+            active.cancel = cancel;
+            if (cancel && active.pendingCancellation !== null) {
+              cancel(active.pendingCancellation);
+              active.pendingCancellation = null;
+            }
+          },
+        )
+      : Promise.resolve(
+          `${JSON.stringify(protocolError(null, -32700, "Parse error"))}\n`,
+        );
+  const send = async (bytes: string | null) => {
+    if (
+      bytes !== null &&
+      (didOutputError || !(await writeStdioFrame(output, bytes)))
+    )
+      failOutput();
+  };
+  const pumpControl = () => {
+    if (!allowControl || control || isFailed || controller.signal.aborted)
+      return;
+    const next = lines.findIndex(({ controlsObjective }) => controlsObjective);
+    if (next < 0) return;
+    const [frame] = lines.splice(next, 1);
+    if (!frame) return;
+    queuedBytes -= frame.size;
+    const active: ActiveFrame = {
+      frame,
+      cancel: null,
+      pendingCancellation: null,
+    };
+    control = active;
+    controlCompletion = dispatch(active)
+      .then(send)
+      .catch(failOutput)
+      .finally(() => {
+        if (frame.id !== null) outstanding.delete(frame.id);
+        control = null;
+        controlCompletion = null;
+        pumpControl();
+      });
+  };
   const receive = (rawChunk: string | Buffer) => {
     if (isInputClosed || isFailed) return;
     pending += String(rawChunk);
@@ -203,7 +313,8 @@ async function runMcpStdioWithHandler(
       const line = pending.slice(0, newline).replace(/\r$/u, "");
       pending = pending.slice(newline + 1);
       if (line.length === 0) continue;
-      if (Buffer.byteLength(line, "utf8") > MAXIMUM_STDIO_REQUEST_BYTES) {
+      const size = Buffer.byteLength(line, "utf8");
+      if (size > MAXIMUM_STDIO_REQUEST_BYTES) {
         isFailed = true;
         controller.abort();
         input.pause();
@@ -236,14 +347,34 @@ async function runMcpStdioWithHandler(
           ("reason" in notification.params &&
             typeof notification.params.reason === "string"))
       ) {
-        if (activeId !== null && notification.params.requestId === activeId) {
-          if (cancelActive) cancelActive(notification);
-          else pendingCancellation = notification;
+        const id = notification.params.requestId;
+        if (typeof id === "string" || typeof id === "number") {
+          const target =
+            primary?.frame.id === id
+              ? primary
+              : control?.frame.id === id
+                ? control
+                : null;
+          if (target?.cancel) target.cancel(notification);
+          else if (target) target.pendingCancellation = notification;
         }
         continue;
       }
-      queuedBytes += Buffer.byteLength(line, "utf8");
-      lines.push(line);
+      const frame = inspectStdioFrame(notification, size);
+      queuedBytes += size;
+      if (
+        queuedBytes > MAXIMUM_STDIO_REQUEST_BYTES ||
+        (frame.id !== null && outstanding.has(frame.id))
+      ) {
+        // 応答の書込みが終わる前に同じIDを再割当てしない。
+        isFailed = true;
+        controller.abort();
+        input.pause();
+        notify();
+        return;
+      }
+      if (frame.id !== null) outstanding.add(frame.id);
+      lines.push(frame);
     }
     if (
       Buffer.byteLength(pending, "utf8") + queuedBytes >
@@ -252,7 +383,7 @@ async function runMcpStdioWithHandler(
       isFailed = true;
       controller.abort();
       input.pause();
-    }
+    } else pumpControl();
     notify();
   };
   const waitForInput = () =>
@@ -276,59 +407,28 @@ async function runMcpStdioWithHandler(
         await waitForInput();
         continue;
       }
-      const line = lines.shift();
-      if (line === undefined) continue;
-      queuedBytes -= Buffer.byteLength(line, "utf8");
-      const request = parseUnambiguousJsonDocument(line);
-      const observe = (response: McpResponse) => {
-        if ("result" in response && response.result) {
-          const result = response.result as Readonly<{
-            structuredContent?: Readonly<{
-              cleanupConfirmed?: unknown;
-              manualRecoveryRequired?: unknown;
-            }>;
-          }>;
-          const semantic = result.structuredContent;
-          if (
-            semantic &&
-            typeof semantic.cleanupConfirmed === "boolean" &&
-            typeof semantic.manualRecoveryRequired === "boolean"
-          ) {
-            isSemanticResultObserved = true;
-            semanticCleanupConfirmed &&= semantic.cleanupConfirmed;
-            semanticManualRecoveryRequired ||= semantic.manualRecoveryRequired;
-          }
-        }
-      };
-      activeId = inspectProtocolRequest(request)?.id ?? null;
-      const bytes = request
-        ? await dispatchMcpStdioRequest(
-            request,
-            handler,
-            controller.signal,
-            observe,
-            (cancel) => {
-              cancelActive = cancel;
-              if (cancel && pendingCancellation !== null) {
-                cancel(pendingCancellation);
-                pendingCancellation = null;
-              }
-            },
-          )
-        : `${JSON.stringify(protocolError(null, -32700, "Parse error"))}\n`;
-      activeId = null;
-      pendingCancellation = null;
-      if (
-        bytes !== null &&
-        (didOutputError || !(await writeStdioFrame(output, bytes)))
-      )
-        isFailed = true;
+      const frame = lines.shift();
+      if (!frame) continue;
+      queuedBytes -= frame.size;
+      primary = { frame, cancel: null, pendingCancellation: null };
+      allowControl = frame.runsObjective;
+      const operation = dispatch(primary);
+      pumpControl();
+      const bytes = await operation;
+      allowControl = false;
+      await controlCompletion;
+      await send(bytes);
+      if (frame.id !== null) outstanding.delete(frame.id);
+      primary = null;
     }
     if (pending.trim().length > 0 || didInputError) isFailed = true;
   } catch {
     isFailed = true;
   } finally {
     controller.abort();
+    allowControl = false;
+    primary = null;
+    await controlCompletion;
     if (isFailed) await new Promise<void>((resolve) => setImmediate(resolve));
     input.removeListener("data", receive);
     input.removeListener("end", closeForParentLoss);
@@ -395,8 +495,12 @@ export function describeMcpCoordinatorStdioContract() {
   return Object.freeze({
     contract: MCP_COORDINATOR_STDIO_CONTRACT,
     framing: "one_bounded_json_rpc_document_per_line",
-    requestConcurrency: 1,
-    parentLoss: "stdin_eof_cancels_and_joins_active_request",
+    requestConcurrency: 2,
+    parallelDuringObjective: [
+      objectiveRunTools.state,
+      objectiveRunTools.cancel,
+    ],
+    parentLoss: "stdin_eof_cancels_and_joins_active_requests",
     transportAuthority: "none",
   });
 }

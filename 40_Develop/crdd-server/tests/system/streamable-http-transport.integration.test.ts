@@ -20,50 +20,28 @@ import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { type FileHandle, open } from "node:fs/promises";
-import { type ClientRequest, request as httpRequest } from "node:http";
-import {
-  createServer as createHttpsServer,
-  request as httpsRequest,
-} from "node:https";
-import { createConnection, createServer } from "node:net";
+import { request as httpRequest } from "node:http";
+import { createConnection } from "node:net";
 import path from "node:path";
-import type { Duplex } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { prepareHostInitializationRoot } from "../../../access-management/src/initialization/root.ts";
-import {
-  issueCredential,
-  updateCredentialPresentationState,
-  registerUser,
-  revokeCredential,
-} from "@qual-lab/crdd-access-management";
-import {
-  createInitialAdministrator,
-  createInitialCredential,
-  initializeAccessManagementState,
-} from "../../../access-management/src/initialization/execution.ts";
-import { readAccessManagementState } from "../../../access-management/src/storage/store.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 
 import {
-  closeMcpHttpOnProcessSignal,
   createMcpServerFactory,
-  startMcpStreamableHttp,
-  MCP_ACCESS_MANAGEMENT_TOOLS,
-  MCP_CURRENT_ACCESS_TOOL,
   MCP_COORDINATOR_PROTOCOL_VERSION,
-  MCP_PROJECT_CONTEXT_GET_TOOL,
-  MCP_PROJECT_CONTEXT_LIST_TOOL,
-  EXECUTION_ACTIVITY_TOOL,
-  MCP_TOPIC_MEETING_TOOLS,
-  GET_EXECUTION_DEFINITION_TOOL,
-  MANAGE_EXECUTION_DEFINITION_TOOL,
+  createMcpHttpRequestHandler,
 } from "../../src/transport/mcp-server.ts";
+import { startMcpHttpFixture } from "../fixtures/sdk-request.ts";
 import {
   type McpCoordinatorDependencies,
   readMcpServerConfiguration,
-  startMcpAuthenticatedStreamableHttp,
 } from "../../src/transport/mcp-server.ts";
+import {
+  startMcpAuthenticatedStreamableHttp,
+  closeMcpHttpOnProcessSignal,
+} from "../support/mcp-http-listener.ts";
 
 import { startCoordinatorHttpFixture } from "../fixtures/sdk-request.ts";
 
@@ -87,7 +65,7 @@ const META = Object.freeze({
  */
 test("公式SDK ClientはHTTPのdiscover・一覧・実行と旧名拒否を維持する", async () => {
   let reads = 0;
-  const server = await startMcpStreamableHttp(
+  const server = await startMcpHttpFixture(
     createMcpServerFactory({
       projectContext: {
         readPortfolio: async () => {
@@ -325,14 +303,7 @@ test("共有MCP設定Readerは当該Repositoryの閉設定だけを受理する"
  * @cleanup N/A: すべて起動前拒否でFile生成なし。
  * @boundary 配置契約の局所検査。実TLS終端の証明ではない。
  */
-test("共有MCPはHTTPS Origin以外の構成を拒否する", async () => {
-  const source = fs.readFileSync(
-    new URL("../../src/transport/mcp-http.ts", import.meta.url),
-    "utf8",
-  );
-  assert.doesNotMatch(source, /orchestrator_mcp_http_/u);
-  assert.ok(source.includes('throw new Error("mcp_http_address_unavailable")'));
-  assert.ok(source.includes('throw new Error("mcp_http_cleanup_unconfirmed")'));
+test("共有MCPはHTTPS Origin以外の構成を拒否する", () => {
   let calls = 0;
   for (const publicOrigin of [
     "",
@@ -348,14 +319,15 @@ test("共有MCPはHTTPS Origin以外の構成を拒否する", async () => {
     " https://mcp.example ",
     "https://mcp.example\\path",
   ]) {
-    await assert.rejects(
-      startMcpAuthenticatedStreamableHttp(
-        () => {
-          calls++;
-          return null;
-        },
-        { port: 0, publicOrigin },
-      ),
+    assert.throws(
+      () =>
+        createMcpHttpRequestHandler(
+          () => {
+            calls++;
+            return null;
+          },
+          { publicOrigin },
+        ),
       { message: "mcp_http_configuration_invalid" },
     );
   }
@@ -637,43 +609,15 @@ function waitForListeningPort(
 }
 
 /**
- * 公開URLと内部観測先を分離するためport候補を得る。
- * @responsibility 短命loopback ListenerをcloseしてからCLIへ候補を渡す。
- * @trace EST-ST-003
- * @precondition 自己生成試験だけから呼ぶ。
- * @stimulus port0の待受とclose。
- * @observation 数値portとclose完了。
- * @oracle 後続CLIまで予約済みとは扱わず、競合時は起動失敗にする。
- * @cleanup 所有Listenerを返却前に終了する。
- * @boundary 試験準備だけ。
- */
-async function availableMcpEntryPort(): Promise<number> {
-  const server = createServer();
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  const address = server.address();
-  await new Promise<void>((resolve, reject) =>
-    server.close((error) => (error ? reject(error) : resolve())),
-  );
-  assert.ok(address && typeof address !== "string");
-  return address.port;
-}
-
-/**
- * template toolsの公開入口はlocalhost HTTP discoveryへ到達するを検証する。
- *
- * @responsibility template toolsの公開入口はlocalhost HTTP discoveryへ到達するの合否判定を所有する。
+ * 単体の公開入口ではHTTP APIだけを起動する。
  * @trace EST-ST-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus template toolsの公開入口はlocalhost HTTP discoveryへ到達するの対象操作を実行する。
- * @observation HTTP結果、discover metadataのServer識別名と終了後条件を観測する。
- * @oracle Server識別名はcrdd-mcp、要求IDとcomplete応答を保持する。
+ * @stimulus 単体の実ProcessへHTTP API要求とMCP要求を送る。
+ * @oracle HTTP APIは利用でき、MCPのHTTP入口は存在しない。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary EST-ST-003=Direct Boundary: mcp Test Source→対象契約
  */
-test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", async () => {
+test("単体の公開入口はHTTP APIを開始し、HTTPではMCPを公開しない", async () => {
   const entry = fileURLToPath(
     new URL("../../../../template/tools/crdd-server.ts", import.meta.url),
   );
@@ -687,13 +631,17 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
     ["--import", hook, entry, "--port", "0"],
     {
       cwd: path.dirname(entry),
-      env: { ...process.env, CRDD_MCP_HTTP_BEARER_TOKEN: TOKEN },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     },
   );
   try {
     const port = await waitForListeningPort(child);
+    const health = await fetch(
+      `http://127.0.0.1:${port}/.well-known/crdd-workbench-health`,
+    );
+    assert.equal(health.status, 200);
+    await health.text();
     const body = {
       jsonrpc: "2.0",
       id: "discover-http-process",
@@ -705,39 +653,16 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
       headers: headers(body.method),
       body: JSON.stringify(body),
     });
-    assert.equal(response.status, 200);
-    const result = (await response.json()) as {
-      id: string;
-      result: {
-        resultType: string;
-        _meta: { "io.modelcontextprotocol/serverInfo": { name: string } };
-      };
-    };
-    assert.equal(result.id, "discover-http-process");
-    assert.equal(result.result.resultType, "complete");
-    assert.equal(
-      result.result._meta["io.modelcontextprotocol/serverInfo"].name,
-      "crdd-mcp",
-    );
-    const listed = await fetch(`http://127.0.0.1:${port}/mcp`, {
-      method: "POST",
-      headers: headers("tools/list"),
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: "core-tools",
-        method: "tools/list",
-        params: { _meta: META },
-      }),
-    });
-    assert.equal(listed.status, 200);
-    const names = (
-      (await listed.json()) as { result: { tools: { name: string }[] } }
-    ).result.tools.map((tool) => tool.name);
-    assert.ok(names.includes("crdd.get_execution_definition"));
-    assert.ok(names.includes("crdd.manage_execution_definition"));
-    assert.ok(names.includes("crdd.run_objective"));
-    assert.ok(names.includes("crdd.submit_decision"));
-    assert.ok(names.includes("crdd.get_execution_state"));
+    assert.equal(response.status, 405);
+    assert.equal(response.headers.get("allow"), "GET, HEAD");
+    assert.equal(response.headers.has("www-authenticate"), false);
+    assert.equal(await response.text(), "method_not_allowed\n");
+    for (const route of ["/mcp", "/.well-known/oauth-protected-resource/mcp"]) {
+      const inactive = await fetch(`http://127.0.0.1:${port}${route}`);
+      assert.equal(inactive.status, 404, route);
+      assert.equal(inactive.headers.has("www-authenticate"), false, route);
+      await inactive.arrayBuffer();
+    }
   } finally {
     if (child.exitCode === null) child.kill();
     await new Promise<void>((resolve) => {
@@ -752,7 +677,7 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
  * @responsibility 通常HTTP保護を維持し、CROSの暗黙初期化や資格fallbackを作らない。
  * @trace EST-ST-003
  * @precondition Repository内の未作成Rootを模擬Host領域として指定する。
- * @stimulus stdio・固定Token混在・引数不正・Root不在の実Processを起動する。
+ * @stimulus stdio・docs混在・引数不正・Root不在の実Processを起動する。
  * @observation Exit、固定案内、Listener案内なし、Root不存在を観測する。
  * @oracle 各拒否が非0、秘密非表示、Root作成0、Listener開始0。
  * @cleanup ProcessはspawnSyncでjoinし、Filesystem生成物なし。
@@ -775,23 +700,16 @@ test("公開CROS入口は未設定Rootと不正TransportをEffect前拒否する
     HOME: missing,
     XDG_STATE_HOME: missing,
   };
-  delete environment.CRDD_MCP_HTTP_BEARER_TOKEN;
   const cases = [
-    { args: ["--shared", "--mcp-stdio"], token: undefined, exit: 64 },
-    { args: ["--shared", "--port", "0"], token: TOKEN, exit: 64 },
-    { args: ["--shared", "--port", "0"], token: undefined, exit: 2 },
-    { args: ["--shared", "--port", "-1"], token: undefined, exit: 64 },
-    { args: ["--port", "0", "--shared", "--docs"], token: undefined, exit: 64 },
+    { args: ["--shared", "--mcp-stdio"], exit: 64 },
+    { args: ["--shared", "--port", "0"], exit: 2 },
+    { args: ["--shared", "--port", "-1"], exit: 64 },
+    { args: ["--port", "0", "--shared", "--docs"], exit: 64 },
   ];
   for (const item of cases) {
     const result = spawnSync(process.execPath, [entry, ...item.args], {
       cwd: path.dirname(entry),
-      env: {
-        ...environment,
-        ...(item.token === undefined
-          ? {}
-          : { CRDD_MCP_HTTP_BEARER_TOKEN: item.token }),
-      },
+      env: environment,
       encoding: "utf8",
       windowsHide: true,
       timeout: 10000,
@@ -873,7 +791,6 @@ test("公開CROS入口は既存Rootの未設定と不正材料を変更せず拒
       XDG_STATE_HOME: directory,
       XDG_CONFIG_HOME: directory,
     };
-    delete environment.CRDD_MCP_HTTP_BEARER_TOKEN;
     const result = spawnSync(
       process.execPath,
       [entry, "--shared", "--port", "0"],
@@ -895,625 +812,6 @@ test("公開CROS入口は既存Rootの未設定と不正材料を変更せず拒
     );
   }
 });
-
-/**
- * 所有MCP CLIだけへ転送する試験TLS終端を構成する。
- * @responsibility 明示CAによる実TLSとForwarded上書きを検証し、製品Gatewayを追加しない。
- * @trace EST-ST-003
- * @precondition 公開された試験専用証明書と自己生成loopback Backendを使用する。
- * @stimulus localhost HTTPS要求を所有MCP CLIへ転送する。
- * @observation TLS応答、所有Upstream・Socketの終了とfresh接続拒否。
- * @oracle Client由来Forwarded値を透過せず、終了開始後の転送を生成しない。
- * @cleanup 受付停止を先に発行し、Upstream・SocketとListenerの終了をjoinする。
- * @boundary 試験専用。運用Proxy・OS証明書Store・外部Hostは変更しない。
- */
-async function createMcpEntryTlsProxy(backendPort: number) {
-  const cert = fs.readFileSync(
-    path.join(import.meta.dirname, "../fixtures/tls-test-certificate.pem"),
-  );
-  const key = fs.readFileSync(
-    path.join(import.meta.dirname, "../fixtures/tls-test-key.pem"),
-  );
-  const sockets = new Set<Duplex>();
-  const upstreams = new Set<ClientRequest>();
-  const settlements = new Set<Promise<void>>();
-  let origin = "";
-  let closing = false;
-  let closeOperation: Promise<void> | undefined;
-  const server = createHttpsServer({ key, cert }, (incoming, response) => {
-    if (closing) {
-      incoming.destroy();
-      response.destroy();
-      return;
-    }
-    const forwarded = { ...incoming.headers };
-    delete forwarded.forwarded;
-    delete forwarded["x-forwarded-proto"];
-    delete forwarded["x-forwarded-host"];
-    forwarded["x-forwarded-proto"] = "https";
-    forwarded["x-forwarded-host"] = new URL(origin).host;
-    const upstream = httpRequest(
-      {
-        hostname: "127.0.0.1",
-        port: backendPort,
-        path: incoming.url,
-        method: incoming.method,
-        headers: forwarded,
-      },
-      (result) => {
-        response.writeHead(result.statusCode ?? 500, result.headers);
-        result.on("error", () => response.destroy());
-        result.pipe(response);
-      },
-    );
-    upstreams.add(upstream);
-    const joined = new Promise<void>((resolve) =>
-      upstream.once("close", () => {
-        upstreams.delete(upstream);
-        resolve();
-      }),
-    );
-    settlements.add(joined);
-    void joined.then(() => settlements.delete(joined));
-    upstream.on("error", () => response.destroy());
-    incoming.on("aborted", () => upstream.destroy());
-    response.on("close", () => {
-      if (!response.writableFinished) upstream.destroy();
-    });
-    incoming.pipe(upstream);
-  });
-  server.on("connection", (socket) => {
-    sockets.add(socket);
-    socket.once("close", () => sockets.delete(socket));
-  });
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  const address = server.address();
-  assert.ok(address && typeof address !== "string");
-  origin = `https://localhost:${address.port}`;
-  return {
-    origin,
-    ca: cert,
-    close: () => {
-      if (closeOperation) return closeOperation;
-      closing = true;
-      const listenerClosed = new Promise<Error | undefined>((resolve) =>
-        server.close((error) => resolve(error)),
-      );
-      closeOperation = (async () => {
-        const pending = [...settlements];
-        for (const upstream of upstreams) upstream.destroy();
-        for (const socket of sockets) socket.destroy();
-        await Promise.all(pending);
-        const closeError = await listenerClosed;
-        if (closeError) throw closeError;
-        assert.equal(upstreams.size, 0);
-        assert.equal(sockets.size, 0);
-        assert.equal(settlements.size, 0);
-        await assert.rejects(
-          new Promise<void>((resolve, reject) => {
-            const request = httpsRequest(
-              origin,
-              { ca: cert, agent: false, signal: AbortSignal.timeout(2000) },
-              (response) => {
-                response.resume();
-                resolve();
-              },
-            );
-            request.on("error", reject);
-            request.end();
-          }),
-          (error) => (error as NodeJS.ErrnoException).code === "ECONNREFUSED",
-        );
-      })();
-      return closeOperation;
-    },
-  };
-}
-
-for (const mode of [
-  "localhost",
-  "public",
-  "tls",
-  "before_spawn_failure",
-  "after_spawn_failure",
-] as const) {
-  /**
-   * 公開CROS Processの初回接続と現在資格判定を確認する。
-   * @responsibility 内部Resolver試験だけでなく、配布入口からAM保存へ接続する。
-   * @trace EST-ST-003
-   * @precondition 検証済みRepository内の自己生成Host Rootと模擬初回資格。
-   * @stimulus localhost／公開Origin／実TLS設定の実CLIへ、初回Tool拒否、discover、通常本人取得、managerで旧四Tool拒否、失効後同鍵再要求、合成SIGTERMを送る。
-   * @observation 公開案内と内部loopbackの分離、各HTTP結果、保存段階、鍵Tool不存在、終了Processと残存Root。
-   * @oracle 初回完了前の通常Tool0、次要求の現在本人、失効後401、秘密非表示。
-   * @cleanup 子Processをjoinしてからexact fixtureを削除し不存在を確認する。
-   * @boundary 公開MCP Launcher→自己生成TLS終端またはHTTP→AM保存。実運用Proxy／OS Signal搬送は未検証。実HostやProviderは使わない。
-   */
-  test(
-    mode === "before_spawn_failure" || mode === "after_spawn_failure"
-      ? `公開CROS Process ${mode}の試験準備失敗を回収する`
-      : `公開CROS Process ${mode}設定は初回限定接続後に本人を返し失効を再評価する`,
-    async (t) => {
-      const repository = resolveVerifiedRepositoryRootFromWorkingDirectory(
-        path.resolve(import.meta.dirname, "../../../.."),
-      );
-      const parent = path.join(repository, ".crdd", "tests");
-      fs.mkdirSync(parent, { recursive: true });
-      assert.equal(fs.realpathSync.native(parent), parent);
-      const directory = fs.mkdtempSync(path.join(parent, "mcp-launch-access-"));
-      let processSettled = true;
-      let listenerReady = false;
-      let child: ReturnType<typeof spawn> | undefined;
-      let termination:
-        | Promise<{ code: number | null; signal: NodeJS.Signals | null }>
-        | undefined;
-      let selectedPort = 0;
-      let tls: Awaited<ReturnType<typeof createMcpEntryTlsProxy>> | undefined;
-      let output = "";
-      const secrets: string[] = [];
-      t.after(() => {
-        assert.equal(processSettled, true, "owned_mcp_process_not_settled");
-        assert.equal(path.dirname(directory), parent);
-        assert.equal(fs.lstatSync(directory).isSymbolicLink(), false);
-        fs.rmSync(directory, { recursive: true });
-        assert.equal(fs.existsSync(directory), false);
-      });
-      /**
-       * 当該modeの準備から終了までを一つの試験経路として実行する。
-       * @responsibility Child未生成と生成済みを同じfinallyで分離し、異常でもjoinを確認する。
-       * @trace EST-ST-003
-       * @precondition 自己生成Directoryと清掃hookだけを登録済み。
-       * @stimulus 正常接続、spawn前準備失敗、spawn後URL待機前失敗。
-       * @observation 正常結果または固定注入例外、所有Process終了。
-       * @oracle 注入失敗を製品成功と扱わず、Process終了未確認では清掃しない。
-       * @cleanup Child生成後だけ所有terminationを待つ。
-       * @boundary 試験Driverの異常経路だけ。
-       */
-      const run = async () => {
-        try {
-          const startup = path.join(directory, "startup");
-          if (mode === "before_spawn_failure")
-            throw new Error("fixture_before_spawn_failure");
-          fs.mkdirSync(startup);
-          assert.equal(
-            spawnSync("git", ["init", "--quiet", startup], {
-              windowsHide: true,
-            }).status,
-            0,
-          );
-          selectedPort = await availableMcpEntryPort();
-          if (mode === "tls") tls = await createMcpEntryTlsProxy(selectedPort);
-          const publicOrigin =
-            mode === "public" ? "https://mcp.example" : tls?.origin;
-          if (publicOrigin) {
-            const config = path.join(startup, ".crdd", "config");
-            fs.mkdirSync(config, { recursive: true });
-            fs.writeFileSync(
-              path.join(config, "mcp-server.json"),
-              JSON.stringify({ publicOrigin }),
-            );
-            fs.writeFileSync(
-              path.join(config, "workbench-server.json"),
-              JSON.stringify({ publicOrigin }),
-            );
-          }
-          const input =
-            process.platform === "win32"
-              ? {
-                  platform: "win32" as const,
-                  publisher: "qual-lab",
-                  application: "cros" as const,
-                  trustDomainId: "launch-test",
-                  localAppData: directory,
-                }
-              : {
-                  platform: "linux" as const,
-                  publisher: "qual-lab",
-                  application: "cros" as const,
-                  trustDomainId: "launch-test",
-                  homeDirectory: directory,
-                  xdgStateHome: directory,
-                };
-          const prepared = prepareHostInitializationRoot(input);
-          assert.equal(prepared.status, "ready");
-          if (prepared.status !== "ready") return;
-          const root = prepared.root;
-          const attempt = randomUUID();
-          assert.equal(
-            initializeAccessManagementState(root, attempt, true, () => [
-              "uninitialized",
-              "absent",
-            ]).status,
-            "completed",
-          );
-          assert.equal(
-            createInitialAdministrator(root, attempt, "模擬管理者").status,
-            "completed",
-          );
-          const issued = createInitialCredential(root, attempt);
-          assert.ok(issued.status === "completed" && issued.value.token);
-          const token = issued.value.token;
-          const pending = updateCredentialPresentationState(root, {
-            credentialId: issued.value.credentialId,
-            issuanceOperationId: attempt,
-            expectedRevision: issued.value.revision,
-            target: "unconfirmed",
-          });
-          assert.ok(pending.status === "completed");
-          assert.equal(
-            updateCredentialPresentationState(root, {
-              credentialId: issued.value.credentialId,
-              issuanceOperationId: attempt,
-              expectedRevision: pending.value.revision,
-              presentationOperationId: pending.value.presentationOperationId,
-              target: "confirmed",
-            }).status,
-            "completed",
-          );
-          const entry = fileURLToPath(
-            new URL(
-              "../../../../template/tools/crdd-server.ts",
-              import.meta.url,
-            ),
-          );
-          const environment: NodeJS.ProcessEnv = {
-            ...process.env,
-            CROS_TRUST_DOMAIN_ID: "launch-test",
-            LOCALAPPDATA: directory,
-            HOME: directory,
-            XDG_STATE_HOME: directory,
-            XDG_CONFIG_HOME: directory,
-          };
-          delete environment.CRDD_MCP_HTTP_BEARER_TOKEN;
-          child = spawn(
-            process.execPath,
-            [
-              "--eval",
-              "const {pathToFileURL}=require('node:url');process.once('message',()=>{process.emit('SIGTERM');process.disconnect();});void import(pathToFileURL(process.argv[1]).href);",
-              entry,
-              "--shared",
-              "--port",
-              String(selectedPort),
-            ],
-            {
-              cwd: startup,
-              env: environment,
-              stdio: ["ignore", "pipe", "pipe", "ipc"],
-              windowsHide: true,
-            },
-          );
-          processSettled = false;
-          const ownedChild = child;
-          termination = new Promise<{
-            code: number | null;
-            signal: NodeJS.Signals | null;
-          }>((resolve) => {
-            /**
-             * 所有Childの終了値を待機者へ返す。
-             * @responsibility 終了通知と起動失敗を区別する。
-             * @trace EST-ST-003
-             * @precondition 直接所有するChildである。
-             * @stimulus exitのcodeとsignal。
-             * @observation 終了値の解決。
-             * @oracle 通知前に終了済みと判断しない。
-             * @cleanup 自身のerror購読を除去する。
-             * @boundary 試験が所有するCLI Process。
-             */
-            const exited = (
-              code: number | null,
-              signal: NodeJS.Signals | null,
-            ) => {
-              ownedChild.off("error", failed);
-              resolve({ code, signal });
-            };
-            /**
-             * Process未生成の起動失敗だけを終了扱いにする。
-             * @responsibility pidなしと生成後errorを分離する。
-             * @trace EST-ST-003
-             * @precondition 所有Childの終了を待機している。
-             * @stimulus error通知。
-             * @observation pidなしの場合だけnull終了値。
-             * @oracle pidありのerrorからProcess不存在を推定しない。
-             * @cleanup 未生成なら自身のexit購読を除去する。
-             * @boundary 試験Processの生成と終了。
-             */
-            const failed = () => {
-              if (ownedChild.pid === undefined) {
-                ownedChild.off("exit", exited);
-                resolve({ code: null, signal: null });
-              }
-            };
-            ownedChild.once("exit", exited);
-            ownedChild.on("error", failed);
-          });
-          if (mode === "after_spawn_failure")
-            throw new Error("fixture_after_spawn_failure");
-          secrets.push(token);
-          JSON.stringify(
-            JSON.parse(
-              fs.readFileSync(
-                path.join(root.root, "access-management.json"),
-                "utf8",
-              ),
-            ),
-            (key, value) => {
-              if (
-                /salt|verifier/u.test(key) &&
-                typeof value === "string" &&
-                value.length > 8
-              )
-                secrets.push(value);
-              return value;
-            },
-          );
-          child.stdout?.on("data", (chunk) => {
-            output += String(chunk);
-          });
-          child.stderr?.on("data", (chunk) => {
-            output += String(chunk);
-          });
-          const port = await waitForListeningPort(
-            child,
-            publicOrigin
-              ? { origin: publicOrigin, port: selectedPort }
-              : undefined,
-          );
-          listenerReady = true;
-          if (tls) {
-            const ownedTls = tls;
-            await assert.rejects(
-              new Promise<void>((resolve, reject) => {
-                const request = httpsRequest(
-                  ownedTls.origin,
-                  {
-                    ca: Buffer.alloc(0),
-                    agent: false,
-                    signal: AbortSignal.timeout(2000),
-                  },
-                  (response) => {
-                    response.resume();
-                    resolve();
-                  },
-                );
-                request.on("error", reject);
-                request.end();
-              }),
-              (error) =>
-                [
-                  "DEPTH_ZERO_SELF_SIGNED_CERT",
-                  "SELF_SIGNED_CERT_IN_CHAIN",
-                ].includes((error as NodeJS.ErrnoException).code ?? ""),
-            );
-          }
-          const call = async (
-            method: string,
-            params: Record<string, unknown>,
-            credential = token,
-          ) => {
-            const name =
-              typeof params.name === "string" ? params.name : undefined;
-            const requestHeaders = {
-              ...headers(method, name),
-              ...(mode === "public"
-                ? {
-                    host: "mcp.example",
-                    "x-forwarded-proto": "https",
-                    "x-forwarded-host": "mcp.example",
-                  }
-                : tls
-                  ? {
-                      forwarded: "host=foreign.example;proto=http",
-                      "x-forwarded-proto": "http",
-                      "x-forwarded-host": "foreign.example",
-                    }
-                  : {}),
-              authorization: `Bearer ${credential}`,
-            };
-            const payload = JSON.stringify({
-              jsonrpc: "2.0",
-              id: 1,
-              method,
-              params: { ...params, _meta: META },
-            });
-            const response = await new Promise<{
-              status: number;
-              body: string;
-              headers: Record<string, unknown>;
-            }>((resolve, reject) => {
-              const request = (tls ? httpsRequest : httpRequest)(
-                tls ? `${tls.origin}/mcp` : `http://127.0.0.1:${port}/mcp`,
-                {
-                  method: "POST",
-                  headers: requestHeaders,
-                  signal: AbortSignal.timeout(10000),
-                  agent: false,
-                  ...(tls ? { ca: tls.ca } : {}),
-                },
-                (response) => {
-                  const chunks: Buffer[] = [];
-                  let size = 0;
-                  response.on("data", (chunk: Buffer) => {
-                    size += chunk.length;
-                    if (size > 1024 * 1024)
-                      request.destroy(new Error("fixture_response_limit"));
-                    else chunks.push(chunk);
-                  });
-                  response.on("error", reject);
-                  response.on("aborted", () =>
-                    reject(new Error("fixture_response_aborted")),
-                  );
-                  response.on("end", () =>
-                    resolve({
-                      status: response.statusCode ?? 500,
-                      body: Buffer.concat(chunks).toString("utf8"),
-                      headers: response.headers,
-                    }),
-                  );
-                },
-              );
-              request.on("error", reject);
-              request.end(payload);
-            });
-            const body = JSON.parse(response.body);
-            const serialized = JSON.stringify({
-              body,
-              headers: response.headers,
-            });
-            for (const secret of secrets)
-              assert.equal(serialized.includes(secret), false);
-            return { status: response.status, body };
-          };
-          assert.equal((await call("tools/list", {})).status, 404);
-          assert.equal((await call("server/discover", {})).status, 200);
-          const observed = readAccessManagementState(root);
-          assert.ok(observed.status === "completed");
-          assert.equal(observed.value.initialization.stage, "completed");
-          const listed = await call("tools/list", {});
-          assert.equal(listed.status, 200);
-          assert.ok(
-            listed.body.result.tools.some(
-              (tool: { name: string }) => tool.name === MCP_CURRENT_ACCESS_TOOL,
-            ),
-          );
-          assert.deepEqual(
-            listed.body.result.tools
-              .map((tool: { name: string }) => tool.name)
-              .sort(),
-            [
-              MCP_CURRENT_ACCESS_TOOL,
-              ...Object.values(MCP_ACCESS_MANAGEMENT_TOOLS),
-              ...MCP_TOPIC_MEETING_TOOLS,
-              GET_EXECUTION_DEFINITION_TOOL,
-              MANAGE_EXECUTION_DEFINITION_TOOL,
-              MCP_PROJECT_CONTEXT_LIST_TOOL,
-              MCP_PROJECT_CONTEXT_GET_TOOL,
-              EXECUTION_ACTIVITY_TOOL,
-              "crdd.run_objective",
-              "crdd.submit_decision",
-              "crdd.get_execution_state",
-              "crdd.get_workspace",
-              "crdd.manage_workspace",
-            ].sort(),
-          );
-          const current = await call("tools/call", {
-            name: MCP_CURRENT_ACCESS_TOOL,
-            arguments: {},
-          });
-          assert.equal(current.status, 200);
-          assert.equal(
-            current.body.result.structuredContent.user.role,
-            "administrator",
-          );
-          const user = observed.value.users[0];
-          assert.ok(user);
-          assert.equal(
-            registerUser(
-              root,
-              token,
-              observed.value.revision,
-              randomUUID(),
-              "模擬manager",
-              "manager",
-            ).status,
-            "completed",
-          );
-          const managerState = readAccessManagementState(root);
-          assert.ok(managerState.status === "completed");
-          const manager = managerState.value.users.find(
-            (entry) => entry.username === "模擬manager",
-          );
-          assert.ok(manager);
-          const managerCredential = issueCredential(
-            root,
-            token,
-            managerState.value.revision,
-            randomUUID(),
-            manager.userId,
-          );
-          assert.ok(
-            managerCredential.status === "completed" &&
-              managerCredential.operation === "issueCredential",
-          );
-          secrets.push(managerCredential.token);
-          for (const name of [
-            "crdd.list_ai_profiles",
-            "crdd.create_ai_profile",
-            "crdd.update_ai_profile",
-            "crdd.delete_ai_profile",
-          ]) {
-            const retired = await call(
-              "tools/call",
-              { name, arguments: {} },
-              managerCredential.token,
-            );
-            assert.equal(retired.status, 200);
-            assert.equal(retired.body.error.code, -32601);
-          }
-          const afterProfile = readAccessManagementState(root);
-          assert.ok(afterProfile.status === "completed");
-          assert.equal(afterProfile.value.revision, managerCredential.revision);
-          assert.equal(
-            revokeCredential(
-              root,
-              token,
-              afterProfile.value.revision,
-              randomUUID(),
-              user.userId,
-              issued.value.credentialId,
-            ).status,
-            "completed",
-          );
-          assert.equal((await call("tools/list", {})).status, 401);
-        } finally {
-          try {
-            if (child && termination) {
-              const ownedChild = child;
-              if (!listenerReady) ownedChild.kill();
-              else if (ownedChild.connected)
-                ownedChild.send("synthetic_sigterm", () => {});
-              let timer: ReturnType<typeof setTimeout> | undefined;
-              try {
-                const terminal = await Promise.race([
-                  termination,
-                  new Promise<never>((_, reject) => {
-                    timer = setTimeout(() => {
-                      ownedChild.kill();
-                      reject(new Error("owned_mcp_shutdown_unconfirmed"));
-                    }, 10000);
-                  }),
-                ]);
-                processSettled =
-                  ownedChild.pid === undefined ||
-                  ownedChild.exitCode !== null ||
-                  ownedChild.signalCode !== null;
-                assert.equal(processSettled, true);
-                if (!listenerReady)
-                  assert.ok(terminal.code !== null || terminal.signal !== null);
-                else assert.deepEqual(terminal, { code: 0, signal: null });
-                await assert.rejects(
-                  fetch(`http://127.0.0.1:${selectedPort}/mcp`, {
-                    signal: AbortSignal.timeout(2000),
-                  }),
-                );
-              } finally {
-                clearTimeout(timer);
-              }
-            }
-            for (const secret of secrets)
-              assert.equal(output.includes(secret), false);
-          } finally {
-            await tls?.close();
-          }
-        }
-      };
-      if (mode === "before_spawn_failure" || mode === "after_spawn_failure")
-        await assert.rejects(run(), new RegExp(`fixture_${mode}`, "u"));
-      else await run();
-    },
-  );
-}
 
 /**
  * localhost HTTPは認証済み状態参照を同じ公開契約へ搬送するを検証する。
@@ -1611,7 +909,7 @@ test("HTTP終了は受信途中のbodyとidle socketを回収して冪等に完�
       "Content-Type: application/json",
       `MCP-Protocol-Version: ${MCP_COORDINATOR_PROTOCOL_VERSION}`,
       "MCP-Method: tools/call",
-      "MCP-Name: crdd.run_objective",
+      "MCP-Name: crdd.start_objective",
       "Content-Length: 1000",
       "Connection: keep-alive",
       "",
@@ -1694,7 +992,7 @@ test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否�
     assert.equal(origin.status, 403);
     const mismatch = await fetch(url, {
       method: "POST",
-      headers: { ...headers(body.method, "crdd.run_objective") },
+      headers: { ...headers(body.method, "crdd.start_objective") },
       body: JSON.stringify(body),
     });
     assert.equal(mismatch.status, 400);
@@ -1817,9 +1115,8 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
     method: "tools/call",
     params: {
       _meta: META,
-      name: "crdd.run_objective",
+      name: "crdd.start_objective",
       arguments: withCallerPlan({
-        operation: "start" as const,
         requestId: "objective-a",
         projectId: "project-a",
         milestoneId: "milestone-a",
@@ -1852,18 +1149,18 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
 });
 
 /**
- * 公開Launcherのsignal所有は実行中Applicationの取消とjoin完了まで残るを検証する。
+ * 試験用ListenerのSignal処理は実行中Applicationの取消とjoin完了まで残るを検証する。
  *
- * @responsibility 公開Launcherのsignal所有は実行中Applicationの取消とjoin完了まで残るの合否判定を所有する。
+ * @responsibility 試験用ListenerのSignal処理は実行中Applicationの取消とjoin完了まで残るの合否判定を所有する。
  * @trace EST-ST-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開Launcherのsignal所有は実行中Applicationの取消とjoin完了まで残るの対象操作を実行する。
+ * @stimulus 試験用ListenerのSignal処理は実行中Applicationの取消とjoin完了まで残るの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary EST-ST-003=Direct Boundary: mcp Test Source→対象契約
  */
-test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了まで残る", async () => {
+test("試験用ListenerのSignal処理は実行中Applicationの取消とjoin完了まで残る", async () => {
   let markStarted: (() => void) | null = null;
   let markAborted: (() => void) | null = null;
   let releaseHandler: (() => void) | null = null;
@@ -1922,9 +1219,8 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
     method: "tools/call",
     params: {
       _meta: META,
-      name: "crdd.run_objective",
+      name: "crdd.start_objective",
       arguments: withCallerPlan({
-        operation: "start" as const,
         requestId: "objective-signal",
         projectId: "project-a",
         milestoneId: "milestone-a",
@@ -1981,18 +1277,18 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
 });
 
 /**
- * 公開Launcherのsignal所有は終了失敗を成功へ変えずlistenerを解放するを検証する。
+ * 試験用ListenerのSignal処理は終了失敗を成功へ変えずlistenerを解放するを検証する。
  *
- * @responsibility 公開Launcherのsignal所有は終了失敗を成功へ変えずlistenerを解放するの合否判定を所有する。
+ * @responsibility 試験用ListenerのSignal処理は終了失敗を成功へ変えずlistenerを解放するの合否判定を所有する。
  * @trace EST-ST-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開Launcherのsignal所有は終了失敗を成功へ変えずlistenerを解放するの対象操作を実行する。
+ * @stimulus 試験用ListenerのSignal処理は終了失敗を成功へ変えずlistenerを解放するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary EST-ST-003=Direct Boundary: mcp Test Source→対象契約
  */
-test("公開Launcherのsignal所有は終了失敗を成功へ変えずlistenerを解放する", async () => {
+test("試験用ListenerのSignal処理は終了失敗を成功へ変えずlistenerを解放する", async () => {
   const signals = new EventEmitter();
   const closing = closeMcpHttpOnProcessSignal(
     {

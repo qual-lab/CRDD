@@ -11,6 +11,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -260,11 +261,8 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
     false,
   );
   const eager = new Set<string>();
-  // 統合CLIはMCPを所有する。MCPを読み込まない契約は単独の ./api に適用する。
-  const { exports } = JSON.parse(
-    readFileSync(path.join(packageRoot, "package.json"), "utf8"),
-  );
-  pending.push(path.resolve(packageRoot, exports["./api"]));
+  // 統合CLIから分離した内部HTTP起動は、MCPを先行ロードしない。
+  pending.push(path.join(packageRoot, "src", "app.ts"));
   while (pending.length > 0) {
     const current = pending.pop();
     assert.ok(current);
@@ -317,7 +315,7 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
  * @precondition 現在Client入口と相対Sourceが存在する。
  * @stimulus 既存のRuntime specifier抽出でClientから再帰走査する。
  * @observation Local Sourceの所有Folder、外部Package集合とServer型の参照先。
- * @oracle RuntimeをUI内に閉じ、Server型は公開HTTP入口からのみ参照する。
+ * @oracle RuntimeをUI内に閉じ、Server型は型専用のパッケージルートからのみ参照する。
  * @cleanup N/A: Source読取りのみ。Browser・Serverを起動しない。
  * @boundary Browser Build入口からの実行時依存。Canonical型のtype importは維持する。
  */
@@ -340,14 +338,6 @@ test("Workbench BrowserはUIパッケージ内だけをRuntimeで参照する", 
       path.join(clientPackageRoot, "node_modules/@qual-lab/crdd-server"),
     ),
     realpathSync(packageRoot),
-  );
-  const { exports } = JSON.parse(
-    readFileSync(path.join(packageRoot, "package.json"), "utf8"),
-  );
-  const publicHttpEntry = path.resolve(packageRoot, exports["./api"]);
-  assert.equal(
-    fileURLToPath(import.meta.resolve("@qual-lab/crdd-server/api")),
-    publicHttpEntry,
   );
   let serverTypeImports = 0;
   const pending = [path.join(clientRoot, "main.tsx")];
@@ -373,7 +363,7 @@ test("Workbench BrowserはUIパッケージ内だけをRuntimeで参照する", 
     )) {
       assert.ok(specifier);
       if (specifier.startsWith("@qual-lab/")) {
-        assert.equal(specifier, "@qual-lab/crdd-server/api");
+        assert.equal(specifier, "@qual-lab/crdd-server");
         serverTypeImports++;
         continue;
       }
@@ -397,6 +387,56 @@ test("Workbench BrowserはUIパッケージ内だけをRuntimeで参照する", 
   assert.ok(serverTypeImports > 0);
   assert.ok(visited.has(path.join(clientRoot, "api/repository.ts")));
   assert.ok(visited.has(path.join(clientRoot, "api/queries.ts")));
+});
+
+/** @trace ERB-IT-021 パッケージはCLIと型だけを公開し、実装の直接解決を拒否する。 */
+test("Serverの公開入口はCLIとクライアント向け型だけに限る", () => {
+  const manifest = JSON.parse(
+    readFileSync(path.join(packageRoot, "package.json"), "utf8"),
+  );
+  assert.deepEqual(manifest.exports, {
+    ".": { types: "./src/index.ts" },
+    "./cli": "./bin/crdd-server.ts",
+  });
+  assert.equal(
+    fileURLToPath(import.meta.resolve("@qual-lab/crdd-server/cli")),
+    path.join(packageRoot, "bin", "crdd-server.ts"),
+  );
+  for (const suffix of ["", "/api", "/mcp", "/src/app.ts", "/src/index.ts"]) {
+    assert.throws(() => import.meta.resolve(`@qual-lab/crdd-server${suffix}`), {
+      code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
+    });
+  }
+  const types = readFileSync(path.join(packageRoot, "src/index.ts"), "utf8");
+  const declarations = types.replace(/\/\*[\s\S]*?\*\//gu, "");
+  const namedTypeExports =
+    /export type\s*\{([^}]+)\}\s*from\s*"\.\/[^"]+\.ts"\s*;/gsu;
+  assert.equal(declarations.replace(namedTypeExports, "").trim(), "");
+  assert.deepEqual(
+    [...declarations.matchAll(namedTypeExports)]
+      .flatMap(([, names]) => (names ?? "").split(","))
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .sort(),
+    [
+      "AiRequestMode",
+      "AiRequestSnapshot",
+      "AiResultItem",
+      "AiSelectionView",
+      "ManagementResult",
+      "ManagementView",
+      "OwnerArtifactCatalog",
+      "ProjectPlanObservation",
+      "ProjectQualityObservation",
+      "ViewResponse",
+    ],
+  );
+  assert.match(
+    stripTypeScriptTypes(types)
+      .replace(/\/\*[\s\S]*?\*\//gu, "")
+      .trim(),
+    /^(?:export\s*\{\s*\};?)?$/u,
+  );
 });
 
 /**

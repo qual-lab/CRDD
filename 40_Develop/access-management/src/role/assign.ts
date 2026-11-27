@@ -1,5 +1,5 @@
 /**
- * ユーザーのRoleとRole内容範囲を現在認可に従い割り当てる。
+ * ユーザーのRoleを現在認可に従い割り当てる。
  * @packageDocumentation
  * @responsibility 既存の操作・認可・保存境界を維持し、この責務の実装を集約する。
  * @trace ARCH-000013
@@ -10,10 +10,13 @@ import {
   evaluateManagementPermission,
   projectManagementOperationResult,
 } from "../authorization/management.ts";
-import { resolveCredentialAuthentication } from "../credential/authentication.ts";
-import { readCredentialId } from "../credential/token.ts";
+import {
+  acceptsAccessPrincipal,
+  resolveAccessPrincipal,
+} from "../authorization/principal.ts";
+import type { AccountAccessPrincipal } from "../authorization/types.ts";
 import type { ManagementOperationOutcome } from "../permission/types.ts";
-import { isAccessRole, parseContentAreaIds } from "../permission/validation.ts";
+import { isAccessRole } from "../permission/validation.ts";
 import { locked } from "../storage/lock.ts";
 import { parseAccessManagementState } from "../storage/parse.ts";
 import {
@@ -35,7 +38,7 @@ import type {
  * 既存ユーザーの現在Roleを明示した次Roleへ変更する。
  * @responsibility 変更前Roleと固定管理許可を確認して一件のRoleだけを保存する。
  * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、既存User ID、変更前後Role。
+ * @input Root、確認済みアカウント主体、期待改訂、受付UUID、既存User ID、変更前後Role。
  * @returns 対象User IDと保存観測、または非秘密拒否。
  * @precondition 完了初期化のStoreを使用する。
  * @postcondition 名前・ID・資格結合を保持し次要求が新Roleを評価する。
@@ -48,14 +51,14 @@ import type {
  */
 export function saveUserRole(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   expectedRevision: number,
   operationId: string,
   userId: string,
   currentRole: unknown,
   nextRole: unknown,
 ): UserRoleManagementResult {
-  return executeRoleAssignment(root, token, expectedRevision, operationId, {
+  return executeRoleAssignment(root, principal, expectedRevision, operationId, {
     operation: "updateUserRole",
     userId,
     currentRole,
@@ -63,74 +66,34 @@ export function saveUserRole(
   });
 }
 
-/**
- * Roleの明示内容範囲を更新する。
- * @responsibility 固定管理許可を保ちdevelopment／management集合だけを保存する。
- * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、対象Role、明示内容範囲。
- * @returns 保存観測、または非秘密拒否。
- * @precondition 完了初期化のStoreを使用する。
- * @postcondition 固定管理分担・User・資格・Exposureを変更しない。
- * @effect 既存状態保存。新認可Frameworkなし。
- * @failure 未知／重複範囲・非認可・競合・保存／清掃不明で未完了。
- * @invariant administrator内容設定はadministratorだけ。
- * @boundary Role内容管理と保存Owner。
- * @security 内容範囲は実アクセス・管理操作の許可ではない。
- * @concurrency 同じLock内で対象Roleの現在許可を再評価する。
- */
-export function saveRoleContentAccess(
-  root: FilesystemStoreRoot,
-  token: string,
-  expectedRevision: number,
-  operationId: string,
-  targetRole: unknown,
-  workspaceIds: unknown,
-): UserRoleManagementResult {
-  return executeRoleAssignment(root, token, expectedRevision, operationId, {
-    operation: "updateRoleContentAccess",
-    targetRole,
-    workspaceIds,
-  });
-}
-
-/**
- * Role割当入力を既存四操作入力の該当二操作へ限定する。
- * @trace ARCH-000013
- * @responsibility ユーザー作成・表示名変更をRole操作として受理しない。
- * @shape Role変更または内容範囲割当。
- * @invariant 保存形式と管理権限を変更しない。
- * @boundary Package内部のRole操作。
- * @security 秘密を含まない。
- * @compatibility 既存二操作だけ。
- */
 type RoleAssignmentChange = Extract<
   UserRoleChange,
-  { operation: "updateUserRole" | "updateRoleContentAccess" }
+  { operation: "updateUserRole" }
 >;
 
 /**
  * 同じ現在状態で管理認可と対象を確認し変更候補を作る。
  * @responsibility 変更前認可を使い、意図したUser／Role fieldだけを変える。
  * @trace ARCH-000013
- * @input 鍵、完全検査済み現在状態、対象二操作入力、期待改訂、受付UUID。
+ * @input 主体、完全検査済み現在状態、Role変更入力、期待改訂、受付UUID。
  * @returns 所有済み候補または非開示拒否のnull。
  * @precondition 保存Ownerが同じLock内で読み取ったSnapshotだけを渡す。
  * @postcondition 入力状態・資格・初回・未解決交換・Repository登録・Exposureを変更しない。
  * @effect N/A: 認証計算とメモリ候補だけ。乱数・保存なし。
  * @failure 未認証・固定分担拒否・途中初回・対象差・不正入力はnull。
- * @invariant managerによるadministratorの付与・解除と管理者内容範囲の変更を拒否する。
+ * @invariant managerによるadministratorの付与・解除を拒否する。
  * @boundary 操作固有判断と物理保存の境界。
  * @security 返却Snapshotは保存Owner限定。古い認証DTOをAuthorityにしない。
  * @concurrency 同期Lock区間内で現在認可を再評価する。
  */
 export function prepareRoleAssignment(
-  token: string,
+  principal: AccountAccessPrincipal,
   current: AccessManagementState,
   change: RoleAssignmentChange,
   expectedRevision: number,
   operationId: string,
 ): PreparedUserRoleChange | null {
-  const actor = resolveCredentialAuthentication(token, current);
+  const actor = resolveAccessPrincipal(principal, current);
   if (!actor || current.initialization.stage !== "completed") return null;
   if (
     current.revision !== expectedRevision ||
@@ -140,49 +103,28 @@ export function prepareRoleAssignment(
   const next = structuredClone(current);
   next.revision++;
   next.operationId = operationId;
-  let userId: string | null = null;
-  if (change.operation === "updateRoleContentAccess") {
-    if (!isAccessRole(change.targetRole)) return null;
-    const workspaceIds = parseContentAreaIds(change.workspaceIds);
-    const target = next.roleContentAccess.find(
-      (item) => item.role === change.targetRole,
-    );
-    if (
-      !workspaceIds ||
-      !target ||
-      evaluateManagementPermission(actor.role, {
-        operation: change.operation,
-        targetRole: change.targetRole,
-      }) !== "allowed"
-    )
-      return null;
-    target.workspaceIds = workspaceIds;
-  } else {
-    if (typeof change.userId !== "string") return null;
-    const target = next.users.find((item) => item.userId === change.userId);
-    if (!target) return null;
-    userId = target.userId;
-
-    if (
-      !isAccessRole(change.nextRole) ||
-      change.currentRole !== target.role ||
-      evaluateManagementPermission(actor.role, {
-        operation: change.operation,
-        currentRole: target.role,
-        nextRole: change.nextRole,
-      }) !== "allowed"
-    )
-      return null;
-    target.role = change.nextRole;
-  }
-  return { next, registersUser: false, userId };
+  if (typeof change.userId !== "string") return null;
+  const target = next.users.find((item) => item.userId === change.userId);
+  if (
+    !target ||
+    !isAccessRole(change.nextRole) ||
+    change.currentRole !== target.role ||
+    evaluateManagementPermission(actor.role, {
+      operation: "updateUserRole",
+      currentRole: target.role,
+      nextRole: change.nextRole,
+    }) !== "allowed"
+  )
+    return null;
+  target.role = change.nextRole;
+  return { next, registersUser: false, userId: target.userId };
 }
 
 /**
- * 対象二操作の現在認可・変更・保存を直列化する。
+ * Role変更の現在認可・変更・保存を直列化する。
  * @responsibility 非開示拒否と今回出版事実を既存保存部品へ接続する。
  * @trace ARCH-000013
- * @input 検証済みRoot、鍵、期待改訂、受付UUID、対象二操作入力。
+ * @input 検証済みRoot、主体、期待改訂、受付UUID、Role変更入力。
  * @returns 非秘密の管理結果。
  * @precondition 用途限定Rootを使う内部Consumerだけが呼ぶ。入力は本関数も検査する。
  * @postcondition 今回の出版・読戻し・材料とLock清掃確認時だけcompleted。
@@ -195,14 +137,13 @@ export function prepareRoleAssignment(
  */
 export function executeRoleAssignment(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   expectedRevision: number,
   operationId: string,
   change: RoleAssignmentChange,
 ): UserRoleManagementResult {
   if (
-    typeof token !== "string" ||
-    !readCredentialId(token) ||
+    !acceptsAccessPrincipal(principal) ||
     !Number.isSafeInteger(expectedRevision) ||
     expectedRevision < 1 ||
     typeof operationId !== "string" ||
@@ -222,7 +163,7 @@ export function executeRoleAssignment(
       revision = current.state.revision;
       stage = "authorization";
       if (
-        current.state.revision !== expectedRevision ||
+        revision < expectedRevision ||
         current.state.operationId === operationId
       )
         return {
@@ -233,10 +174,10 @@ export function executeRoleAssignment(
           cleanupConfirmed: true,
         };
       const prepared = prepareRoleAssignment(
-        token,
+        principal,
         current.state,
         change,
-        expectedRevision,
+        current.state.revision,
         operationId,
       );
       if (!prepared)
@@ -248,6 +189,14 @@ export function executeRoleAssignment(
           cleanupConfirmed: true,
         };
       admitted = true;
+      if (revision !== expectedRevision)
+        return {
+          status: "unavailable" as const,
+          reason: "state_store_revision_conflict",
+          publication: "not_attempted" as const,
+          revision,
+          cleanupConfirmed: true,
+        };
       targetUserId = prepared.userId;
       stage = "pending";
       const settled = settlePending(root, current, () => {});
@@ -309,7 +258,7 @@ export function executeRoleAssignment(
  * 既存ユーザーの現在Roleを明示した次Roleへ変更する。
  * @responsibility 変更前Roleと固定管理許可を確認して一件のRoleだけを保存する。
  * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、既存User ID、変更前後Role。
+ * @input Root、確認済みアカウント主体、期待改訂、受付UUID、既存User ID、変更前後Role。
  * @returns 対象User IDと保存観測、または非秘密拒否。
  * @precondition 完了初期化のStoreを使用する。
  * @postcondition 名前・ID・資格結合を保持し次要求が新Roleを評価する。
@@ -322,7 +271,7 @@ export function executeRoleAssignment(
  */
 export function updateUserRole(
   root: FilesystemStoreRoot,
-  token: string,
+  principal: AccountAccessPrincipal,
   expectedRevision: number,
   operationId: string,
   userId: string,
@@ -332,47 +281,12 @@ export function updateUserRole(
   return projectManagementOperationResult(
     saveUserRole(
       root,
-      token,
+      principal,
       expectedRevision,
       operationId,
       userId,
       currentRole,
       nextRole,
-    ),
-  );
-}
-
-/**
- * Roleの明示内容範囲を更新する。
- * @responsibility 固定管理許可を保ちdevelopment／management集合だけを保存する。
- * @trace ARCH-000013
- * @input Root、鍵、期待改訂、受付UUID、対象Role、明示内容範囲。
- * @returns 保存観測、または非秘密拒否。
- * @precondition 完了初期化のStoreを使用する。
- * @postcondition 固定管理分担・User・資格・Exposureを変更しない。
- * @effect 既存状態保存。新認可Frameworkなし。
- * @failure 未知／重複範囲・非認可・競合・保存／清掃不明で未完了。
- * @invariant administrator内容設定はadministratorだけ。
- * @boundary Role内容管理と保存Owner。
- * @security 内容範囲は実アクセス・管理操作の許可ではない。
- * @concurrency 同じLock内で対象Roleの現在許可を再評価する。
- */
-export function updateRoleContentAccess(
-  root: FilesystemStoreRoot,
-  token: string,
-  expectedRevision: number,
-  operationId: string,
-  targetRole: unknown,
-  workspaceIds: unknown,
-): ManagementOperationOutcome {
-  return projectManagementOperationResult(
-    saveRoleContentAccess(
-      root,
-      token,
-      expectedRevision,
-      operationId,
-      targetRole,
-      workspaceIds,
     ),
   );
 }

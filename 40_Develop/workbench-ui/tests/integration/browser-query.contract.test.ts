@@ -22,8 +22,14 @@ import {
   clearWorkbenchQueries,
   readWorkbenchQuery,
 } from "../../src/api/queries.ts";
-import { requestWorkbenchMutation } from "../../src/api/mutations.ts";
-import { clearWorkbenchCredential } from "../../src/api/connection.ts";
+import {
+  requestAiRequestAction,
+  requestAiSelectionSave,
+  requestSessionManagementChange,
+  requestWorkspace,
+} from "../../src/api/mutations.ts";
+import { requestAiSelection } from "../../src/api/ai-selection.ts";
+import { invalidateWorkbenchRequests } from "../../src/api/connection.ts";
 import {
   readRepositoryOperationDisplay,
   readRepositorySubmission,
@@ -31,8 +37,188 @@ import {
 import {
   composeWorkbenchRecordDisplay,
   createSelectedWorkbenchViewUrl,
+  readCurrentAiRequest,
   readWorkbenchDisplayQuery,
 } from "../../src/api/view.ts";
+
+/** 実画面と同じClientが対象別GETだけを送る。 @trace ARCH-000015 */
+test("進行照会は対象リポジトリの現在依頼だけをGETする", async (t) => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "location");
+  Object.defineProperty(globalThis, "location", {
+    configurable: true,
+    value: { origin: "http://127.0.0.1:12345" },
+  });
+  t.after(() => {
+    if (previous) Object.defineProperty(globalThis, "location", previous);
+    else Reflect.deleteProperty(globalThis, "location");
+  });
+  const snapshot = {
+    requestId: "current",
+    mode: "read_only_advice",
+    executionSelection: null,
+    status: "running",
+    reason: null,
+    resultAvailable: false,
+    facts: [],
+    sharedAnalysis: [],
+    additionalInferences: [],
+    nextOptions: [],
+    candidate: null,
+  };
+  let credentials: RequestCredentials = "same-origin";
+  const request = t.mock.method(
+    globalThis,
+    "fetch",
+    async (url: RequestInfo | URL, init?: RequestInit) => {
+      assert.equal(
+        String(url),
+        "http://127.0.0.1:12345/api/repositories/repository.fixture/ai-request",
+      );
+      assert.equal(init?.method ?? "GET", "GET");
+      assert.equal(init?.body, undefined);
+      assert.ok(init?.signal);
+      assert.equal(init?.credentials, credentials);
+      assert.equal(new Headers(init?.headers).has("Authorization"), false);
+      return Response.json(snapshot);
+    },
+  );
+  const controller = new AbortController();
+  assert.deepEqual(
+    await readCurrentAiRequest("repository.fixture", controller.signal, true),
+    snapshot,
+  );
+  credentials = "omit";
+  assert.deepEqual(
+    await readCurrentAiRequest("repository.fixture", controller.signal),
+    snapshot,
+  );
+  controller.abort();
+  await assert.rejects(
+    readCurrentAiRequest("repository.fixture", controller.signal),
+  );
+  assert.equal(request.mock.callCount(), 2);
+});
+
+/** UIの送信を操作・対象・依頼IDへ固定し、不要な搬送項目を除く。 @trace ARCH-000015 */
+test("AI依頼の開始・取消・選択はそれぞれ対応するJSON要求だけを送る", async (t) => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "location");
+  Object.defineProperty(globalThis, "location", {
+    configurable: true,
+    value: { origin: "http://127.0.0.1:12345" },
+  });
+  t.after(() => {
+    if (previous) Object.defineProperty(globalThis, "location", previous);
+    else Reflect.deleteProperty(globalThis, "location");
+  });
+  const calls: unknown[] = [];
+  let replacementResponse: Response | undefined;
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (url: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({
+        path: new URL(String(url)).pathname,
+        method: init?.method,
+        credentials: init?.credentials,
+        token: new Headers(init?.headers).get("x-crdd-action-token"),
+        authorization: new Headers(init?.headers).get("authorization"),
+        body: JSON.parse(String(init?.body)),
+      });
+      if (replacementResponse) return replacementResponse;
+      if (new URL(String(url)).pathname.endsWith("/ai-requests"))
+        return Response.json(
+          { status: "accepted", reason: null, requestId: "current" },
+          { status: 201 },
+        );
+      return Response.json({
+        requestId: "current",
+        mode: "read_only_advice",
+        executionSelection: null,
+        status: "running",
+        reason: null,
+        resultAvailable: false,
+        facts: [],
+        sharedAnalysis: [],
+        additionalInferences: [],
+        nextOptions: [],
+        candidate: null,
+      });
+    },
+  );
+  const newForm = (operation: string) => {
+    const form = new FormData();
+    form.set("actionToken", "synthetic");
+    form.set("operation", operation);
+    form.set("requestId", "current");
+    return form;
+  };
+  const start = newForm("start");
+  start.set("mode", "read_only_advice");
+  start.set("prompt", "fixture");
+  const signal = new AbortController().signal;
+  for (const form of [start, newForm("cancel"), newForm("observe")])
+    assert.equal(
+      await requestAiRequestAction("repository.fixture", form, signal, true),
+      "confirmed",
+    );
+  const base = "/api/repositories/repository.fixture";
+  assert.deepEqual(calls, [
+    {
+      path: `${base}/ai-requests`,
+      method: "POST",
+      credentials: "same-origin",
+      token: "synthetic",
+      authorization: null,
+      body: {
+        requestId: "current",
+        mode: "read_only_advice",
+        prompt: "fixture",
+      },
+    },
+    {
+      path: `${base}/ai-requests/current/cancellation`,
+      method: "POST",
+      credentials: "same-origin",
+      token: "synthetic",
+      authorization: null,
+      body: {},
+    },
+    {
+      path: `${base}/ai-request`,
+      method: "PUT",
+      credentials: "same-origin",
+      token: "synthetic",
+      authorization: null,
+      body: { requestId: "current" },
+    },
+  ]);
+  const duplicate = newForm("observe");
+  duplicate.append("requestId", "foreign");
+  await assert.rejects(
+    requestAiRequestAction("repository.fixture", duplicate, signal),
+  );
+  assert.equal(calls.length, 3);
+  replacementResponse = new Response("{", { status: 409 });
+  await assert.rejects(
+    requestAiRequestAction("repository.fixture", start, signal),
+  );
+  replacementResponse = Response.json(
+    { status: "accepted", reason: null, requestId: "foreign" },
+    { status: 201 },
+  );
+  await assert.rejects(
+    requestAiRequestAction("repository.fixture", start, signal),
+  );
+  replacementResponse = Response.json(
+    { status: "blocked", reason: "already_running", requestId: null },
+    { status: 409 },
+  );
+  assert.equal(
+    await requestAiRequestAction("repository.fixture", start, signal),
+    "blocked",
+  );
+  assert.equal(calls.length, 6);
+});
 
 /**
  * Git操作の送信先・応答の表示を、同じ画面の明示操作に限定する。
@@ -59,6 +245,29 @@ test("Repository画面は別対象を送信せず別Revisionを成功表示し�
   unrelated.append("credential", "unexpected");
   assert.throws(() => readRepositorySubmission(unrelated, "repo.a", "fixture"));
   const submission = readRepositorySubmission(form, "repo.a", "fixture");
+  assert.equal(
+    submission.request.path,
+    `/api/repositories/repo.a/revisions/${revisionIdentity}/publication`,
+  );
+  assert.equal(submission.request.method, "POST");
+  assert.deepEqual(JSON.parse(submission.request.body), {
+    destination: "origin",
+    branch: "main",
+    humanConfirmed: true,
+  });
+  const unstage = readRepositorySubmission(
+    new URLSearchParams({
+      repositoryId: "repo.a",
+      actionToken: "fixture",
+      operation: "unprepare",
+      path: "a.txt",
+    }),
+    "repo.a",
+    "fixture",
+  ).request;
+  assert.equal(unstage.path, "/api/repositories/repo.a/staging");
+  assert.equal(unstage.method, "DELETE");
+  assert.deepEqual(JSON.parse(unstage.body), { path: "a.txt" });
   const response = {
     status: "completed",
     reason: "publication_confirmed",
@@ -237,13 +446,13 @@ test("通信設定は参考表示とし表示時Hashを要求へ搬送しない"
  * @responsibility 実PanelのHook寿命と取消処理を局所代役で反証する。
  * @trace ERB-IT-021
  * @precondition JSX描画直前までの実Componentと合成Hook・HTTP。
- * @stimulus draft編集、POST保留中の新しい初期値、完了とunmount。
+ * @stimulus draft編集、PUT保留中の新しい初期値、完了とunmount。
  * @observation draft、要求数、取消Signal、busyと保存結果。
  * @oracle 同一対象更新でdraft維持・不要abort0、完了後busy false、unmount取消。
  * @cleanup 子Process・保留Promise・局所Hookをすべて終了する。
  * @boundary DOM描画・実Browser・実HTTPの代替ではない。
  */
-test("設定Panelは同じ対象の再取得でdraftと保留POSTを失わない", () => {
+test("設定Panelは同じ対象の再取得でdraftと保留PUTを失わない", () => {
   const component = path.resolve(
     import.meta.dirname,
     "../../src/components/ai-selection-management-panel.tsx",
@@ -271,12 +480,12 @@ test("設定Panelは同じ対象の再取得でdraftと保留POSTを失わない
     const pending=async(_path,options)=>{calls++;signal=options.signal;return new Promise(resolve=>{finish=resolve;});};
     const module=new vm.SourceTextModule(source);
     await module.link(specifier=>{
-      const values=specifier==='react'?hooks:specifier.endsWith('mutations.ts')?{requestWorkbenchMutation:pending}:specifier.endsWith('connection.ts')?{requestWorkbench:pending}:specifier.endsWith('queries.ts')?{readWorkbenchQuery:(_purpose,signal,read)=>read(signal)}:specifier.endsWith('response.ts')?{validateAiSelectionResponse:value=>value}:specifier.endsWith('ai-selection.ts')?{inspectWorkbenchSelectionResult:(_form,value)=>value}:{WorkbenchPanel:()=>null,ActionTokenInput:()=>null};
+      const values=specifier==='react'?hooks:specifier.endsWith('mutations.ts')?{requestAiSelectionSave:(repository, token, input, signal, browserSession)=>{assert.equal(repository,'repository.fixture');assert.equal(token,'fixed');assert.equal(input.expectedIdentity,'a'.repeat(64));assert.equal(input.configText,'{"draft":"unsaved"}');assert.equal(browserSession,true);return pending(repository,{signal});}}:specifier.endsWith('queries.ts')?{readWorkbenchQuery:(_purpose,signal,read)=>read(signal)}:specifier.endsWith('ai-selection.ts')?{inspectWorkbenchSelectionResult:(_config,value)=>value,requestAiSelection:async(repository,signal,browserSession)=>{assert.equal(repository,'repository.fixture');assert.equal(browserSession,true);const response=await pending(repository,{signal});return response.json();}}:{WorkbenchPanel:()=>null};
       return new vm.SyntheticModule(Object.keys(values),function(){for(const[key,value]of Object.entries(values))this.setExport(key,value);});
     });
     await module.evaluate();
     const initialRead={status:'available',reason:null,snapshot:{identity:'a'.repeat(64),config:{}}};
-    const props={actionToken:'fixed',repositoryId:'repository.fixture',allowed:true,initialRead};
+    const props={actionToken:'fixed',repositoryId:'repository.fixture',browserSession:true,allowed:true,initialRead};
     /**
      * 同一対象の次描画を再構成する。
      * @responsibility 実Componentに新しい初期Objectを渡してHook寿命を反証する。
@@ -289,10 +498,10 @@ test("設定Panelは同じ対象の再取得でdraftと保留POSTを失わない
      * @boundary 自己生成試験内の局所代役／専用Browser。実AIなし。
      */
     const render=()=>{stateIndex=refIndex=effectIndex=0;return module.namespace.AiSelectionManagementPanel({...props,initialRead:structuredClone(initialRead)});};
-    let panel=render();panel.setDraft('unsaved');panel=render();assert.equal(panel.draft,'unsaved');
-    const saving=panel.execute(new URLSearchParams({config:'{}'}));panel=render();assert.equal(panel.busy,true);assert.equal(panel.draft,'unsaved');assert.equal(signal.aborted,false);assert.equal(calls,1);
+    let panel=render();panel.setDraft('{"draft":"unsaved"}');panel=render();assert.equal(panel.draft,'{"draft":"unsaved"}');
+    const saving=panel.execute(true);panel=render();assert.equal(panel.busy,true);assert.equal(panel.draft,'{"draft":"unsaved"}');assert.equal(signal.aborted,false);assert.equal(calls,1);
     finish({ok:true,json:async()=>({status:'saved',reason:null,snapshot:initialRead.snapshot})});await saving;panel=render();assert.equal(panel.busy,false);assert.equal(panel.result.status,'saved');assert.equal(calls,1);
-    const reading=panel.execute(null);for(const effect of effects)effect.cleanup?.();assert.equal(signal.aborted,true);finish({ok:true,json:async()=>initialRead});await reading;assert.equal(calls,2);
+    const reading=panel.execute(false);for(const effect of effects)effect.cleanup?.();assert.equal(signal.aborted,true);finish({ok:true,json:async()=>initialRead});await reading;assert.equal(calls,2);
   `;
   const result = spawnSync(
     process.execPath,
@@ -456,13 +665,13 @@ test("Queryは取消済み旧要求を次要求や次接続へ共有しない", 
  * @responsibility 失敗を再送せず、鍵専用操作をMutationへ入れない。
  * @trace ERB-IT-021
  * @precondition 合成fetch／locationと実Mutation Cache。
- * @stimulus 正常POST、通信故障、鍵専用Pathを与える。
+ * @stimulus Workspace更新、AI設定の保存と再取得、通信故障、鍵専用Pathを与える。
  * @observation 送信回数、返却応答、Cache空、固定拒否。
- * @oracle 各許可操作一回・専用鍵経路0回・失敗後Cache0。
+ * @oracle 各許可操作一回・共有読書きだけCookie搬送・失敗後Cache0。
  * @cleanup fetch・location・prototypeと資格参照を復元する。
  * @boundary 実Mutationと合成fetchの結合。鍵操作・実Server・外部AIは使用しない。
  */
-test("Mutationは非鍵操作だけを一回送りCacheを回収する", async () => {
+test("Mutationは操作を一回だけ送りCacheを回収する", async () => {
   const originalFetch = globalThis.fetch;
   const location = Object.getOwnPropertyDescriptor(globalThis, "location");
   const original = QueryClient.prototype.getMutationCache;
@@ -476,35 +685,181 @@ test("Mutationは非鍵操作だけを一回送りCacheを回収する", async (
     value: { origin: "http://127.0.0.1:12345" },
   });
   let calls = 0;
-  globalThis.fetch = async () => {
+  globalThis.fetch = async (url, init) => {
     calls++;
+    if (calls >= 4) {
+      assert.equal(
+        String(url),
+        "http://127.0.0.1:12345/api/repositories/fixture/ai-selection",
+      );
+      assert.equal(
+        init?.credentials,
+        calls === 4 || calls === 5 ? "same-origin" : "omit",
+      );
+      assert.equal(new Headers(init?.headers).has("Authorization"), false);
+      if (calls === 4) {
+        assert.equal(init?.method, "PUT");
+        assert.equal(
+          new Headers(init.headers).get("x-crdd-action-token"),
+          "action",
+        );
+        assert.deepEqual(JSON.parse(String(init.body)), {
+          expectedIdentity: null,
+          config: {},
+        });
+        return new Response("{}");
+      }
+      assert.equal(init?.method ?? "GET", "GET");
+      return Response.json({
+        status: "missing",
+        reason: "ai_selection_not_configured",
+        snapshot: null,
+      });
+    }
+    assert.match(
+      String(url),
+      /\/api\/repositories\/fixture\/workspaces\/[0-9a-f-]+$/u,
+    );
+    assert.equal(init?.method, "PATCH");
+    assert.equal(init?.credentials, calls === 3 ? "same-origin" : "omit");
+    assert.deepEqual(JSON.parse(String(init?.body)), {
+      projectId: "project",
+      queueId: "queue",
+      expectedGeneration: 1,
+      name: "改名",
+    });
     if (calls === 2) throw new Error("fixture-secret-never-output");
     return new Response("{}");
   };
   try {
-    const response = await requestWorkbenchMutation("/api/workspace", {
-      method: "POST",
-      body: "operation=list",
-    });
+    const request = {
+      operation: "rename" as const,
+      projectId: "project",
+      queueId: "queue",
+      workspaceId: "00000000-0000-4000-8000-000000000001",
+      expectedGeneration: 1,
+      name: "改名",
+    };
+    const response = await requestWorkspace("fixture", request);
     assert.equal(await response.text(), "{}");
     assert.equal(cache?.getAll().length, 0);
-    await assert.rejects(
-      requestWorkbenchMutation("/api/workspace", { method: "POST" }),
-      { message: "workbench_mutation_unavailable" },
+    await assert.rejects(requestWorkspace("fixture", request), {
+      message: "workbench_mutation_unavailable",
+    });
+    const google = await requestWorkspace("fixture", request, undefined, true);
+    assert.equal(await google.text(), "{}");
+    const signal = new AbortController().signal;
+    assert.equal(
+      (
+        await requestAiSelectionSave(
+          "fixture",
+          "action",
+          { expectedIdentity: null, configText: "{}" },
+          signal,
+          true,
+        )
+      ).status,
+      200,
     );
-    await assert.rejects(
-      requestWorkbenchMutation("/api/access/credentials", {
-        method: "POST",
-      }),
-      { message: "workbench_mutation_rejected" },
+    assert.equal(
+      (await requestAiSelection("fixture", signal, true)).status,
+      "missing",
     );
-    assert.equal(calls, 2);
+    assert.equal(
+      (await requestAiSelection("fixture", signal, false)).status,
+      "missing",
+    );
+    assert.equal(calls, 6);
     assert.equal(cache?.getAll().length, 0);
   } finally {
     globalThis.fetch = originalFetch;
     QueryClient.prototype.getMutationCache = original;
-    clearWorkbenchCredential();
+    invalidateWorkbenchRequests();
     if (location) Object.defineProperty(globalThis, "location", location);
     else Reflect.deleteProperty(globalThis, "location");
+  }
+});
+
+test("管理セッションの変更は対応するREST操作を一回だけ送る", async (t) => {
+  const cases = [
+    [
+      "updateUserName",
+      { userId: "user", username: "改名" },
+      "PATCH",
+      "/api/users/user",
+      { username: "改名" },
+    ],
+    [
+      "updateUserRole",
+      { userId: "user", currentRole: "developer", nextRole: "manager" },
+      "PUT",
+      "/api/users/user/role",
+      { currentRole: "developer", nextRole: "manager" },
+    ],
+    [
+      "unregisterRepository",
+      { repositoryId: "repo" },
+      "DELETE",
+      "/api/repositories/repo",
+      {},
+    ],
+  ] as const;
+  let sent = 0;
+  const fetch = t.mock.method(
+    globalThis,
+    "fetch",
+    async (url: string, init: RequestInit) => {
+      const response = cases[sent++];
+      assert.ok(response);
+      const [, , method, path, body] = response;
+      assert.equal(url, path);
+      assert.equal(init.method, method);
+      assert.equal(init.credentials, "same-origin");
+      assert.equal(init.redirect, "error");
+      assert.equal(new Headers(init.headers).has("Authorization"), false);
+      assert.deepEqual(JSON.parse(String(init.body)), {
+        ...body,
+        expectedRevision: 7,
+        operationId: "operation",
+        formToken: "form-token",
+      });
+      if (method === "DELETE") throw new Error("応答喪失");
+      return new Response(null, { status: 200 });
+    },
+  );
+  const signal = new AbortController().signal;
+  try {
+    for (const [operation, fields] of cases) {
+      const form = new URLSearchParams({
+        operation,
+        ...fields,
+        expectedRevision: "7",
+        operationId: "operation",
+        actionToken: "form-token",
+      });
+      if (operation === "unregisterRepository")
+        await assert.rejects(
+          requestSessionManagementChange(form, signal),
+          /応答喪失/u,
+        );
+      else
+        assert.equal(
+          (await requestSessionManagementChange(form, signal)).status,
+          200,
+        );
+    }
+    for (const operation of ["updateRoleContentAccess", "updateExposure"])
+      assert.throws(
+        () =>
+          requestSessionManagementChange(
+            new URLSearchParams({ operation }),
+            signal,
+          ),
+        /management_unavailable/u,
+      );
+    assert.equal(sent, cases.length);
+  } finally {
+    fetch.mock.restore();
+    invalidateWorkbenchRequests();
   }
 });

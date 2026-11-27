@@ -34,6 +34,25 @@ const CLIENT_PROCESS_CLOSE_TIMEOUT_MS = 2_000;
 // HTTP本文1MiBがJSON文字列で全てescapeされた場合の上限と固定metadata。
 const CLIENT_OUTPUT_MAX_BYTES = 6 * 1024 * 1024 + 4096;
 
+/** 検証で許すWorkspaceの読取りURL。旧フォームやPath別名は対象外。 */
+export function isVerificationWorkspaceRead(route: string): boolean {
+  return /^\/api\/repositories\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\/workspaces(?:\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}(?:\/inspection|\/candidate\/diff)?)?(?:\?[^#\r\n]*)?$/u.test(
+    route,
+  );
+}
+
+/** 検証の書込み先は、依頼開始または既存IDの取消に限定する。 */
+export function isVerificationAiWrite(route: string): boolean {
+  return /^\/api\/repositories\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\/ai-requests(?:\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\/cancellation)?$/u.test(
+    route,
+  );
+}
+
+type VerificationWrite = Readonly<{
+  actionToken: string;
+  body: Record<string, unknown>;
+}>;
+
 /**
  * 検証HTTP一要求だけを固定Node子へ渡し、実close後に結果を返す。
  * @trace ERB-IT-021
@@ -56,7 +75,7 @@ const CLIENT_OUTPUT_MAX_BYTES = 6 * 1024 * 1024 + 4096;
 export async function requestInChild(
   baseUrl: string,
   route: string,
-  form?: URLSearchParams,
+  write?: VerificationWrite,
   observe?: (timing: VerificationHttpTiming) => void,
 ) {
   const url = new URL(baseUrl);
@@ -68,17 +87,16 @@ export async function requestInChild(
     url.pathname !== "/" ||
     url.search ||
     url.hash ||
-    ![
-      "/api/workbench/view?route=%2F",
-      "/api/ai-request",
-      "/api/workspace",
-    ].includes(route)
+    (write === undefined
+      ? route !== "/api/workbench/view?route=%2F" &&
+        !isVerificationWorkspaceRead(route)
+      : !isVerificationAiWrite(route))
   )
     throw new Error("workbench_verification_loopback_required");
   const input = JSON.stringify({
     baseUrl,
     route,
-    form: form?.toString() ?? null,
+    write: write ?? null,
   });
   if (Buffer.byteLength(input) > 256 * 1024)
     throw new Error("workbench_verification_client_process_failed");
@@ -161,7 +179,7 @@ export async function requestInChild(
         firstFailureStage ??= "deadline";
         terminate();
       },
-      route === "/api/workspace" ? 65_000 : CLIENT_PROCESS_TIMEOUT_MS,
+      isVerificationWorkspaceRead(route) ? 65_000 : CLIENT_PROCESS_TIMEOUT_MS,
     );
     /**
      * pipeFailureで検証用の要求・観測を搬送する。
@@ -310,7 +328,7 @@ export async function requestInChild(
     throw processFailure("frame");
   try {
     observe?.({
-      method: form === undefined ? "GET" : "POST",
+      method: write === undefined ? "GET" : "POST",
       route,
       startedAt: Number(timing.startedAt),
       requestCreatedAt:
@@ -791,7 +809,7 @@ export function assessVerificationDockerInventory(
 export async function requestBounded(
   baseUrl: string,
   route: string,
-  form?: URLSearchParams,
+  write?: VerificationWrite,
   observe?: (phase: "start" | "headers", at: number) => void,
 ) {
   const controller = new AbortController();
@@ -802,7 +820,7 @@ export async function requestBounded(
       timedOut = true;
       controller.abort();
     },
-    route === "/api/workspace" ? 60_000 : 15_000,
+    isVerificationWorkspaceRead(route) ? 60_000 : 15_000,
   );
   try {
     try {
@@ -811,10 +829,17 @@ export async function requestBounded(
       /* 非秘密時計のみ。 */
     }
     const response = await fetch(new URL(route, baseUrl), {
-      method: form === undefined ? "GET" : "POST",
-      ...(form === undefined
+      method: write === undefined ? "GET" : "POST",
+      ...(write === undefined
         ? {}
-        : { body: form, headers: { origin: new URL(baseUrl).origin } }),
+        : {
+            body: JSON.stringify(write.body),
+            headers: {
+              origin: new URL(baseUrl).origin,
+              "content-type": "application/json",
+              "x-crdd-action-token": write.actionToken,
+            },
+          }),
       redirect: "manual",
       signal: controller.signal,
     });

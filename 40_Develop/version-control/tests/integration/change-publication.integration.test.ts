@@ -19,6 +19,8 @@ import {
   stagePaths,
   unstagePaths,
   commitChanges,
+  readOriginHttpsPublicationTarget,
+  readOriginHttpsRemote,
   readRemoteTarget,
   pushRepositoryRevision,
 } from "../../src/index.ts";
@@ -56,6 +58,162 @@ function git(cwd: string, ...args: readonly string[]): string {
     windowsHide: true,
   }).trim();
 }
+
+/** 呼出し側が指定した名義は一回のCommitにだけ適用し、認証資格にはしない。 @trace RFD-IT-014 */
+test("明示したCommit名義は著者とコミッターの双方に適用しGit設定を変更しない", async (t) => {
+  const parent = path.join(repositoryRoot, ".crdd", "tests");
+  await mkdir(parent, { recursive: true });
+  const fixture = await mkdtemp(path.join(parent, "commit-identity-"));
+  t.after(() => rm(fixture, { recursive: true, force: true }));
+  git(fixture, "init", "--initial-branch=main");
+  git(fixture, "config", "--local", "user.name", "Repository default");
+  git(fixture, "config", "--local", "user.email", "default@example.invalid");
+  git(fixture, "config", "--local", "author.email", "other@example.invalid");
+  git(fixture, "config", "--local", "committer.email", "other@example.invalid");
+  git(fixture, "commit", "--allow-empty", "-m", "Base");
+  const before = git(fixture, "rev-parse", "HEAD");
+  const repository = getRepository(fixture);
+  assert.ok(repository.status === "completed");
+  await writeFile(path.join(fixture, "draft.txt"), "Fixture");
+  git(fixture, "add", "--", "draft.txt");
+  const staged = git(fixture, "diff", "--cached", "--name-only");
+  assert.throws(
+    () =>
+      commitChanges(repository.capability, {
+        message: "Invalid",
+        identity: { name: "Invalid\nName", email: "person@example.invalid" },
+      }),
+    /change_publication_identity_invalid/u,
+  );
+  assert.equal(git(fixture, "rev-parse", "HEAD"), before);
+  assert.equal(git(fixture, "diff", "--cached", "--name-only"), staged);
+  const committed = commitChanges(repository.capability, {
+    message: "Changes",
+    identity: { name: "試験利用者", email: "person@example.invalid" },
+  });
+  assert.equal(committed.status, "completed");
+  assert.equal(
+    git(fixture, "log", "-1", "--format=%an|%ae|%cn|%ce"),
+    "試験利用者|person@example.invalid|試験利用者|person@example.invalid",
+  );
+  assert.equal(
+    git(fixture, "config", "--local", "author.email"),
+    "other@example.invalid",
+  );
+  assert.equal(
+    git(fixture, "config", "--local", "committer.email"),
+    "other@example.invalid",
+  );
+  await writeFile(path.join(fixture, "draft.txt"), "Next");
+  git(fixture, "add", "--", "draft.txt");
+  assert.equal(
+    commitChanges(repository.capability, { message: "Local commit" }).status,
+    "completed",
+  );
+  assert.equal(
+    git(fixture, "log", "-1", "--format=%ae|%ce"),
+    "other@example.invalid|other@example.invalid",
+  );
+});
+
+test("共有登録用のorigin観測は資格なしの単一HTTPS設定だけを返す", async () => {
+  const root = path.join(repositoryRoot, ".crdd", "tests");
+  await mkdir(root, { recursive: true });
+  const fixture = await mkdtemp(path.join(root, "registration-origin-"));
+  try {
+    git(fixture, "init", "--initial-branch=main");
+    const verified = getRepository(fixture);
+    assert.equal(verified.status, "completed");
+    if (verified.status !== "completed") return;
+    assert.equal(readOriginHttpsRemote(verified.capability), null);
+    const origin = "https://example.invalid/team/project.git";
+    git(fixture, "config", "--local", "remote.origin.url", origin);
+    assert.equal(readOriginHttpsRemote(verified.capability), origin);
+    git(fixture, "config", "--local", "--add", "remote.origin.url", origin);
+    assert.equal(readOriginHttpsRemote(verified.capability), null);
+    git(
+      fixture,
+      "config",
+      "--local",
+      "--replace-all",
+      "remote.origin.url",
+      "https://fixture-only@example.invalid/team/project.git",
+    );
+    assert.equal(readOriginHttpsRemote(verified.capability), null);
+  } finally {
+    await rm(fixture, { recursive: true, force: true });
+  }
+});
+
+test("共有の公開確認はローカルの明示HTTPS originと同じBranch・HEADだけを受け付ける", async () => {
+  const root = path.join(repositoryRoot, ".crdd", "tests");
+  await mkdir(root, { recursive: true });
+  const fixture = await mkdtemp(path.join(root, "https-publication-target-"));
+  try {
+    git(fixture, "init", "--initial-branch=main");
+    git(
+      fixture,
+      "-c",
+      "user.name=Fixture",
+      "-c",
+      "user.email=fixture@example.invalid",
+      "commit",
+      "--allow-empty",
+      "-m",
+      "base",
+    );
+    const origin = "https://example.invalid/team/project.git";
+    git(fixture, "remote", "add", "origin", origin);
+    git(fixture, "config", "branch.main.remote", "origin");
+    git(fixture, "config", "branch.main.merge", "refs/heads/release");
+    const verified = getRepository(fixture);
+    if (verified.status !== "completed")
+      assert.fail("fixture repository not available");
+    const request = {
+      destination: "origin",
+      branch: "release",
+      revisionIdentity: git(fixture, "rev-parse", "HEAD"),
+      humanConfirmed: true,
+    } as const;
+    const inspect = (value = request) =>
+      readOriginHttpsPublicationTarget(verified.capability, value);
+    assert.deepEqual(inspect(), {
+      address: origin,
+      reference: "refs/heads/release",
+      revisionIdentity: request.revisionIdentity,
+    });
+    git(
+      fixture,
+      "config",
+      "remote.origin.pushurl",
+      "https://other.invalid/team/project.git",
+    );
+    assert.equal(inspect(), null);
+    git(fixture, "config", "--replace-all", "remote.origin.pushurl", origin);
+    assert.equal(inspect()?.address, origin);
+    git(fixture, "config", "--add", "remote.origin.pushurl", origin);
+    assert.equal(inspect(), null);
+    git(fixture, "config", "--unset-all", "remote.origin.pushurl");
+    git(fixture, "config", "branch.main.merge", "refs/heads/elsewhere");
+    assert.equal(inspect(), null);
+    git(fixture, "config", "branch.main.merge", "refs/heads/release");
+    git(
+      fixture,
+      "-c",
+      "user.name=Fixture",
+      "-c",
+      "user.email=fixture@example.invalid",
+      "commit",
+      "--allow-empty",
+      "-m",
+      "second",
+    );
+    assert.equal(inspect(), null);
+    assert.equal(git(fixture, "status", "--porcelain"), "");
+  } finally {
+    await rm(fixture, { recursive: true, force: true });
+  }
+});
 
 /**
  * 選択差分だけをRevision化し確認済みRemoteへ通常公開できることを検証する。

@@ -10,7 +10,6 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import {
   copyFile,
   mkdir,
@@ -21,15 +20,13 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
-import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { createFilesystemStoreRoot } from "../../../access-management/src/initialization/root.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "@qual-lab/crdd-version-control";
 import {
   observeLocalListener,
   verifyLocalWebApplicationVisual,
 } from "@qual-lab/crdd-visual-preview";
-import { startWorkbench } from "@qual-lab/crdd-server/api";
+// 同一プロセスに起動する明示システム試験だけの接続。製品の公開入口ではない。
+import { startWorkbench } from "../../../crdd-server/src/app.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -185,63 +182,9 @@ test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認�
     await writeFile(path.join(fixture, ".gitignore"), "/.crdd/\n");
     git(fixture, "add", ".");
 
-    const accessDirectory = path.join(fixture, ".crdd", "access-fixture");
-    await mkdir(accessDirectory, { recursive: true });
-    const accessRoot = createFilesystemStoreRoot(accessDirectory);
-    assert.ok(accessRoot);
-    const material = createCredentialMaterial();
-    const userId = randomUUID(),
-      operationId = randomUUID();
-    const accessState: AccessManagementState = {
-      contract: "crdd-access-management/state",
-      schemaRevision: 2,
-      revision: 1,
-      operationId,
-      users: [
-        {
-          userId,
-          username: "管理者の表示名・権限と公開範囲を確認する",
-          role: "administrator",
-        },
-        { userId: randomUUID(), username: "開発者", role: "developer" },
-      ],
-      roleContentAccess: [
-        { role: "developer", workspaceIds: ["development"] },
-        { role: "manager", workspaceIds: ["development", "management"] },
-        { role: "administrator", workspaceIds: [] },
-      ],
-      credentials: [
-        {
-          credentialId: material.credentialId,
-          userId,
-          tokenVersion: 1,
-          tokenSalt: material.tokenSalt,
-          tokenVerifier: material.tokenVerifier,
-          revoked: false,
-          operationId,
-          presentation: "confirmed",
-        },
-      ],
-      registeredRepositories: [],
-      exposure: [],
-      unresolvedKeyExchanges: [],
-      initialization: {
-        stage: "completed",
-        attemptId: operationId,
-        initialUserId: userId,
-        initialCredentialId: material.credentialId,
-        confirmationCredentialId: material.credentialId,
-        connection: "confirmed",
-      },
-    };
-    await writeFile(
-      path.join(accessDirectory, "access-management.json"),
-      JSON.stringify(accessState),
-    );
     beforeStatus = git(fixture, "status", "--short");
     handle = await startWorkbench({
       workingDirectory: fixture,
-      credentialAdministration: { root: accessRoot, token: material.token },
     });
     listenerPort = Number(new URL(handle.baseUrl).port);
     const temporaryDirectory = path.join(fixture, ".crdd", "tmp");
@@ -266,9 +209,6 @@ test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認�
             "ai-request",
             "repository",
             "connection",
-            "credential-administration",
-            "access-management",
-            "access-management-current-user",
             "ai-selection",
             "workbench-client-ready",
           ]),
@@ -301,15 +241,6 @@ test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認�
       zoomFactors: Object.freeze([1, 2, 4]),
     });
     afterStatus = git(fixture, "status", "--short");
-    assert.deepEqual(
-      JSON.parse(
-        await readFile(
-          path.join(accessDirectory, "access-management.json"),
-          "utf8",
-        ),
-      ),
-      accessState,
-    );
   } finally {
     await handle?.close();
     listenerState = await observeLocalListener(listenerPort);

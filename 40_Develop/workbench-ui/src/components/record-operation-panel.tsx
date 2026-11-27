@@ -14,10 +14,11 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { requestWorkbenchMutation } from "../api/mutations.ts";
+import { requestRecordMutation } from "../api/mutations.ts";
 import {
   createTopicMeetingActionBody,
-  inspectTopicMeetingActionResult,
+  createRecordRequest,
+  inspectRecordResponse,
 } from "../api/record.ts";
 import type { RecordActionView } from "../api/response.ts";
 
@@ -98,18 +99,20 @@ export function RecordOperationPanel({
     if (
       !(element instanceof HTMLFormElement) ||
       element.method !== "post" ||
-      new URL(element.action).pathname !== "/api/records"
+      !element.hasAttribute("data-record-operation")
     )
       return;
     event.preventDefault();
     if (pending.current || !current) return;
     let form: URLSearchParams;
+    let request: ReturnType<typeof createRecordRequest>;
     try {
       form = createTopicMeetingActionBody(
         new FormData(element),
         repositoryId,
         actionToken,
       );
+      request = createRecordRequest(form);
     } catch {
       setNotice("入力と選択対象を確認してください。送信していません。");
       return;
@@ -124,14 +127,15 @@ export function RecordOperationPanel({
     setNotice(null);
     let known: RecordActionView | null = null;
     try {
-      const response = await requestWorkbenchMutation("/api/records", {
-        method: "POST",
-        body: form,
-        signal: owned.signal,
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-      });
-      if (!response.ok) throw new Error("workbench_record_outcome_unconfirmed");
-      known = inspectTopicMeetingActionResult(form, await response.json());
+      const response = await requestRecordMutation(request, owned.signal);
+      if (response.status !== request.success && response.status !== 409)
+        throw new Error("workbench_record_outcome_unconfirmed");
+      known = inspectRecordResponse(
+        form,
+        await response.json(),
+        response.status,
+        request.success,
+      );
       if (
         !mounted.current ||
         owned.signal.aborted ||

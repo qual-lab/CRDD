@@ -175,7 +175,10 @@ export function createWorkbenchRouter(root: HTMLElement) {
    * @concurrency 通常の取得ではpendingで再生成し、hash-onlyでは画面内入力を維持する。
    */
   function CurrentView(): ReactElement {
-    const model = useLoaderData<ViewResponse>();
+    const { model, deletedRecord } = useLoaderData<{
+      model: ViewResponse;
+      deletedRecord: RecordActionView | null;
+    }>();
     const location = useLocation();
     useLayoutEffect(() => {
       root.dataset.workbenchClient = "ready";
@@ -184,6 +187,7 @@ export function createWorkbenchRouter(root: HTMLElement) {
       <WorkbenchApp
         key={location.pathname + location.search}
         model={model}
+        deletedRecord={deletedRecord}
         replaceDeletedRecord={replaceDeletedRecord}
       />
     );
@@ -237,9 +241,9 @@ export function createWorkbenchRouter(root: HTMLElement) {
                 notice.generation === readWorkbenchConnectionGeneration() &&
                 model.selectedRepositoryId === notice.repositoryId
               )
-                return { ...model, recordActionResult: notice.result };
+                return { model, deletedRecord: notice.result };
             }
-            return model;
+            return { model, deletedRecord: null };
           } catch (error) {
             if (deletion === notice) deletion = null;
             throw error;

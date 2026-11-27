@@ -54,10 +54,38 @@ export function commitChanges(
     /[\u0000\u007f]/u.test(request.message)
   )
     throw Error("change_publication_message_invalid");
+  const identity = request.identity;
+  if (
+    identity !== undefined &&
+    (!identity ||
+      typeof identity.name !== "string" ||
+      identity.name.trim() !== identity.name ||
+      identity.name.length === 0 ||
+      identity.name.length > 256 ||
+      /[<>\p{Cc}]|^[.,:;"']|[.,:;"']$/u.test(identity.name) ||
+      typeof identity.email !== "string" ||
+      identity.email.length > 254 ||
+      !/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+$/u.test(
+        identity.email,
+      ))
+  )
+    throw Error("change_publication_identity_invalid");
   const execution = executeGit(
     root,
-    ["commit", "--quiet", "--message", request.message],
-    { maxBuffer: 4 * 1024 * 1024, configuration: "repository" },
+    [
+      "commit",
+      "--quiet",
+      ...(identity ? [`--author=${identity.name} <${identity.email}>`] : []),
+      "--message",
+      request.message,
+    ],
+    {
+      maxBuffer: 4 * 1024 * 1024,
+      configuration: "repository",
+      ...(identity && {
+        commitIdentity: { name: identity.name, email: identity.email },
+      }),
+    },
   );
   let status: ChangesResult["status"] =
     execution.error || execution.signal

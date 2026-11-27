@@ -19,16 +19,18 @@ import {
   type ManagementView,
   type ManagementResult,
 } from "../api/response.ts";
-import { requestWorkbench } from "../api/connection.ts";
-import { requestWorkbenchMutation } from "../api/mutations.ts";
-import { readWorkbenchQuery } from "../api/queries.ts";
+import { requestSessionManagementChange } from "../api/mutations.ts";
 
 const ROLE_LABELS = {
   developer: "開発者",
   manager: "マネージャー",
   administrator: "管理者",
 } as const;
-const VIEWS: ManagementView[] = ["users", "roles", "repositories", "exposure"];
+const sessionViews = {
+  current: "/api/access/me",
+  users: "/api/users",
+  repositories: "/api/repositories",
+} as const;
 
 /**
  * 同改訂を偽らず、現在管理対象と操作結果を表示する。
@@ -47,15 +49,16 @@ const VIEWS: ManagementView[] = ["users", "roles", "repositories", "exposure"];
  */
 export function ManagementPanel({
   actionToken,
-  refreshReadModel,
+  onSessionUsers,
+  onSessionUnavailable,
 }: {
   actionToken: string;
-  refreshReadModel: (signal: AbortSignal) => Promise<void>;
+  onSessionUsers?: (result: ManagementResult) => void;
+  onSessionUnavailable?: (developer?: boolean, resultNotice?: string) => void;
 }): ReactElement {
   const [data, setData] = useState<
     Partial<Record<ManagementView, ManagementResult>>
   >({});
-  const [mode, setMode] = useState<"local" | "none">("none");
   const [notice, setNotice] = useState("現在の接続を確認しています。");
   const [busy, setBusy] = useState(false);
   const [page, setPage] = useState(0);
@@ -79,66 +82,46 @@ export function ManagementPanel({
    * @concurrency 並行GETを全てsettleまで待ち、取消後は描画しない。
    */
   const refreshManagement = useCallback(
-    async (signal: AbortSignal): Promise<void> => {
+    async (signal: AbortSignal, resultNotice?: string): Promise<void> => {
       if (!actionToken) throw new Error("management_unavailable");
       setData({});
-      const { next, nextMode } = await readWorkbenchQuery(
-        "management",
-        signal,
-        async (signal) => {
-          const response = await requestWorkbench("/api/access?view=current", {
-            cache: "no-store",
-            credentials: "same-origin",
-            signal,
-          });
-          if (!response.ok) throw new Error("management_unavailable");
-          const current = validateManagementResponse(
-            await response.json(),
-            "current",
-          );
-          const next: Partial<Record<ManagementView, ManagementResult>> = {
-            current,
-          };
-          const nextMode = response.headers.get("x-crdd-management-mode");
-          if (nextMode !== "local" && nextMode !== "none")
+      const next: Partial<Record<ManagementView, ManagementResult>> = {};
+      for (const [key, path] of Object.entries(sessionViews)) {
+        const view = key as keyof typeof sessionViews;
+        const response = await fetch(path, {
+          cache: "no-store",
+          credentials: "same-origin",
+          signal,
+        });
+        if (response.status === 401 || response.status === 403)
+          onSessionUnavailable?.(false, resultNotice);
+        if (!response.ok) throw new Error("management_unavailable");
+        const value: unknown = await response.json();
+        if (
+          !value ||
+          typeof value !== "object" ||
+          !("formToken" in value) ||
+          value.formToken !== actionToken
+        )
+          throw new Error("management_unavailable");
+        const { formToken: _token, ...projection } = value;
+        const result = validateManagementResponse(projection, view);
+        next[view] = result;
+        if (view === "current") {
+          if (result.status !== "completed" || !("user" in result))
             throw new Error("management_unavailable");
-          if (
-            current.status === "completed" &&
-            "user" in current &&
-            current.user.role !== "developer"
-          ) {
-            const reads = await Promise.allSettled(
-              VIEWS.map(async (view) => {
-                const reply = await requestWorkbench(
-                  `/api/access?view=${view}`,
-                  { cache: "no-store", credentials: "same-origin", signal },
-                );
-                if (
-                  !reply.ok ||
-                  reply.headers.get("x-crdd-management-mode") !== nextMode
-                )
-                  throw new Error("management_unavailable");
-                return {
-                  view,
-                  result: validateManagementResponse(await reply.json(), view),
-                };
-              }),
-            );
-            if (reads.some((read) => read.status === "rejected"))
-              throw new Error("management_unavailable");
-            for (const read of reads)
-              if (read.status === "fulfilled")
-                next[read.value.view] = read.value.result;
+          if (result.user.role === "developer") {
+            onSessionUnavailable?.(true, resultNotice);
+            return;
           }
-          return { next, nextMode } as const;
-        },
-      );
+        }
+      }
       if (signal.aborted) return;
-      setMode(nextMode);
       setData(next);
+      if (next.users) onSessionUsers?.(next.users);
       setPage(0);
     },
-    [actionToken],
+    [actionToken, onSessionUnavailable, onSessionUsers],
   );
 
   useEffect(() => {
@@ -195,33 +178,41 @@ export function ManagementPanel({
     let resultNotice =
       "操作結果を確認できません。保存されていないとは判断せず、自動再送しません。";
     try {
-      const response = await requestWorkbenchMutation("/api/access", {
-        method: "POST",
+      const response = await requestSessionManagementChange(
         body,
-        credentials: "same-origin",
-        cache: "no-store",
-        signal: active.signal,
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          accept: "application/json",
-        },
-      });
-      if (!response.ok) throw new Error("management_unavailable");
+        active.signal,
+      );
+      if (active.signal.aborted) return;
+      if (response.status === 401) onSessionUnavailable?.(false, resultNotice);
+      if (!response.ok && ![403, 409, 503].includes(response.status))
+        throw new Error("management_unavailable");
       const result = validateManagementResponse(
         await response.json(),
         "mutation",
       );
+      const conflict =
+        result.status === "rejected" &&
+        result.reason === "management_revision_conflict";
+      if (conflict !== (response.status === 409))
+        throw new Error("management_unavailable");
+      if (
+        "operationId" in result &&
+        (result.operationId !== body.get("operationId") ||
+          result.expectedRevision !== Number(body.get("expectedRevision")))
+      )
+        throw new Error("management_unavailable");
       resultNotice =
         result.status === "completed"
           ? `変更を保存しました。改訂 ${result.revision}。内容へのアクセスや開始済み処理の終了を保証するものではありません。`
           : result.status === "rejected"
-            ? "現在の権限・対象・改訂では受理されませんでした。現在投影を確認してください。"
+            ? conflict
+              ? "一覧の取得後に管理状態が更新されたため、保存しませんでした。最新の一覧を確認してください。"
+              : "現在の権限・対象では受理されませんでした。現在投影を確認してください。"
             : "publication" in result && result.publication === "confirmed"
               ? "保存は確認済みですが、清掃または終了を確認できません。再実行しません。"
               : "保存の結果を確認できません。現在投影で確認し、自動再送しません。";
       setNotice(resultNotice);
-      await refreshManagement(active.signal);
-      await refreshReadModel(active.signal);
+      await refreshManagement(active.signal, resultNotice);
     } catch {
       if (!active.signal.aborted) {
         setData({});
@@ -240,25 +231,15 @@ export function ManagementPanel({
   const actor =
     current?.status === "completed" && "user" in current ? current.user : null;
   const usersResult = data.users,
-    rolesResult = data.roles,
-    repositoriesResult = data.repositories,
-    exposureResult = data.exposure;
+    repositoriesResult = data.repositories;
   const users =
     usersResult?.status === "completed" && "users" in usersResult
       ? (usersResult.users ?? [])
-      : [];
-  const roles =
-    rolesResult?.status === "completed" && "roles" in rolesResult
-      ? (rolesResult.roles ?? [])
       : [];
   const repositories =
     repositoriesResult?.status === "completed" &&
     "repositories" in repositoriesResult
       ? (repositoriesResult.repositories ?? [])
-      : [];
-  const exposures =
-    exposureResult?.status === "completed" && "repositories" in exposureResult
-      ? (exposureResult.repositories ?? [])
       : [];
   const availableRoles =
     actor?.role === "administrator"
@@ -268,7 +249,7 @@ export function ManagementPanel({
     <WorkbenchPanel
       id="access-management"
       eyebrow="Access Management"
-      title="ユーザー・ロール・公開範囲"
+      title="利用者・管理ロール・登録リポジトリ"
       status={actor ? "現在観測" : "未取得"}
     >
       <p ref={resultFocus} tabIndex={-1} role="status" aria-live="polite">
@@ -276,7 +257,7 @@ export function ManagementPanel({
       </p>
       {!actor ? (
         <EmptyState>
-          管理接続は未構成または現在情報を取得できません。Repository単体利用では鍵は不要です。
+          管理接続は未構成または現在情報を取得できません。単体利用では共有ログインは不要です。
         </EmptyState>
       ) : (
         <>
@@ -285,7 +266,7 @@ export function ManagementPanel({
             <code>{actor.userId}</code>
           </p>
           <p>
-            管理能力と内容利用範囲は別です。各Sectionの改訂は独立しています。
+            管理ロールは内容の権限を付与しません。共有リポジトリの読み書きは本人のGitホスト権限で決まります。
           </p>
           {actor.role === "developer" ? (
             <EmptyState>
@@ -304,40 +285,6 @@ export function ManagementPanel({
                       {page * 20 + 1}〜{Math.min((page + 1) * 20, users.length)}
                       件。
                     </p>
-                    <form
-                      onSubmit={(event) => {
-                        void submitManagement(event);
-                      }}
-                    >
-                      <ActionTokenInput value={actionToken} />
-                      <input
-                        type="hidden"
-                        name="operation"
-                        value="registerUser"
-                      />
-                      <input
-                        type="hidden"
-                        name="expectedRevision"
-                        value={usersResult.revision}
-                      />
-                      <label>
-                        表示名
-                        <input required name="username" maxLength={256} />
-                      </label>
-                      <label>
-                        登録ロール
-                        <select name="plannedRole">
-                          {availableRoles.map((role) => (
-                            <option key={role} value={role}>
-                              {ROLE_LABELS[role]}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <button type="submit" disabled={busy}>
-                        ユーザーを登録（鍵は発行しない）
-                      </button>
-                    </form>
                     {users.slice(page * 20, page * 20 + 20).map((user) => (
                       <section key={user.userId}>
                         <h4>
@@ -418,6 +365,9 @@ export function ManagementPanel({
                                 ))}
                               </select>
                             </label>
+                            <p>
+                              ロールの変更は、以後の管理操作と内容へのアクセスに影響します。
+                            </p>
                             <button type="submit" disabled={busy}>
                               ロールを変更
                             </button>
@@ -443,65 +393,6 @@ export function ManagementPanel({
                 )}
               </section>
               <section>
-                <h3>ロールの内容利用範囲</h3>
-                {rolesResult?.status !== "completed" ? (
-                  <EmptyState>現在設定を取得できません。</EmptyState>
-                ) : (
-                  <>
-                    <p>
-                      改訂 {rolesResult.revision}
-                      。管理操作の分担は変わりません。
-                    </p>
-                    {roles.map((role) => (
-                      <form
-                        key={role.role}
-                        onSubmit={(event) => {
-                          void submitManagement(event);
-                        }}
-                      >
-                        <ActionTokenInput value={actionToken} />
-                        <input
-                          type="hidden"
-                          name="operation"
-                          value="updateRoleContentAccess"
-                        />
-                        <input
-                          type="hidden"
-                          name="expectedRevision"
-                          value={rolesResult.revision}
-                        />
-                        <input
-                          type="hidden"
-                          name="targetRole"
-                          value={role.role}
-                        />
-                        <fieldset>
-                          <legend>{ROLE_LABELS[role.role]}</legend>
-                          {["development", "management"].map((scope) => (
-                            <label key={scope}>
-                              <input
-                                type="checkbox"
-                                name="workspaceIds"
-                                value={scope}
-                                defaultChecked={role.workspaceIds.includes(
-                                  scope as "development" | "management",
-                                )}
-                              />
-                              {scope === "development"
-                                ? "開発"
-                                : "マネジメント"}
-                            </label>
-                          ))}
-                        </fieldset>
-                        <button type="submit" disabled={busy}>
-                          内容範囲を変更
-                        </button>
-                      </form>
-                    ))}
-                  </>
-                )}
-              </section>
-              <section>
                 <h3>登録リポジトリ</h3>
                 {repositoriesResult?.status !== "completed" ? (
                   <EmptyState>現在登録を取得できません。</EmptyState>
@@ -509,50 +400,11 @@ export function ManagementPanel({
                   <>
                     <p>
                       改訂 {repositoriesResult.revision}
-                      。登録は公開設定とは別です。
+                      。登録だけで内容へのアクセスは許可されません。
                     </p>
-                    {mode !== "local" ? (
-                      <p>
-                        管理Ownerが未構成のためリポジトリ登録を提供できません。
-                      </p>
-                    ) : (
-                      <form
-                        onSubmit={(event) => {
-                          void submitManagement(event);
-                        }}
-                      >
-                        <ActionTokenInput value={actionToken} />
-                        <input
-                          type="hidden"
-                          name="operation"
-                          value="registerRepository"
-                        />
-                        <input
-                          type="hidden"
-                          name="expectedRevision"
-                          value={repositoriesResult.revision}
-                        />
-                        <label>
-                          Repository ID
-                          <input required name="repositoryId" />
-                        </label>
-                        <label>
-                          サーバー上のRepositoryフォルダ
-                          <input
-                            required
-                            name="repositoryRoot"
-                            autoComplete="off"
-                          />
-                        </label>
-                        <p>
-                          Browserを開いている端末ではなく、Workbench
-                          Server上のGit Repositoryを指定します。
-                        </p>
-                        <button type="submit" disabled={busy}>
-                          リポジトリを登録（公開しない）
-                        </button>
-                      </form>
-                    )}
+                    <p>
+                      登録はログインし、対象リポジトリのGitホストを連携した管理セッションから行います。
+                    </p>
                     {repositories.map((repository) => (
                       <form
                         key={repository.repositoryId}
@@ -578,77 +430,10 @@ export function ManagementPanel({
                         />
                         <p>
                           <code>{repository.repositoryId}</code> —
-                          登録と公開設定を解除します。本体は削除しません。
+                          CRDDの利用対象から外します。本体は削除しません。
                         </p>
                         <button type="submit" disabled={busy}>
                           登録を解除
-                        </button>
-                      </form>
-                    ))}
-                  </>
-                )}
-              </section>
-              <section>
-                <h3>リポジトリ公開範囲</h3>
-                {exposureResult?.status !== "completed" ? (
-                  <EmptyState>現在公開範囲を取得できません。</EmptyState>
-                ) : (
-                  <>
-                    <p>
-                      改訂 {exposureResult.revision}
-                      。未設定と明示的な範囲なしを区別します。
-                    </p>
-                    {exposures.map((repository) => (
-                      <form
-                        key={repository.repositoryId}
-                        onSubmit={(event) => {
-                          void submitManagement(event);
-                        }}
-                      >
-                        <ActionTokenInput value={actionToken} />
-                        <input
-                          type="hidden"
-                          name="operation"
-                          value="updateExposure"
-                        />
-                        <input
-                          type="hidden"
-                          name="expectedRevision"
-                          value={exposureResult.revision}
-                        />
-                        <input
-                          type="hidden"
-                          name="repositoryId"
-                          value={repository.repositoryId}
-                        />
-                        <fieldset>
-                          <legend>{repository.repositoryId}</legend>
-                          <p>
-                            {"workspaceIds" in repository &&
-                            repository.workspaceIds === null
-                              ? "公開設定なし"
-                              : "公開範囲を明示設定済み"}
-                          </p>
-                          {["development", "management"].map((scope) => (
-                            <label key={scope}>
-                              <input
-                                type="checkbox"
-                                name="workspaceIds"
-                                value={scope}
-                                defaultChecked={
-                                  "workspaceIds" in repository &&
-                                  Array.isArray(repository.workspaceIds) &&
-                                  repository.workspaceIds.includes(scope)
-                                }
-                              />
-                              {scope === "development"
-                                ? "開発"
-                                : "マネジメント"}
-                            </label>
-                          ))}
-                        </fieldset>
-                        <button type="submit" disabled={busy}>
-                          公開範囲を更新
                         </button>
                       </form>
                     ))}
